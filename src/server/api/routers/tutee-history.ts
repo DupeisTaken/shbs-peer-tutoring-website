@@ -1,4 +1,8 @@
 import { TRPCError } from "@trpc/server";
+import {
+  issueHistoryAccountInvitation,
+  historyInvitationDigest,
+} from "~/server/auth/account-invitations";
 import { z } from "zod";
 import {
   createTRPCRouter,
@@ -18,7 +22,6 @@ import { withSignupAdmission } from "~/server/signup-admission";
 import {
   startHistoryAccount,
   verifyHistoryAccount,
-  completeHistoryAccount,
   historyInvitationStatus,
   cancelHistoryInvitation,
 } from "~/server/history-account-setup";
@@ -39,6 +42,10 @@ const detailInput = z.object({
   page: z.number().int().min(0).max(10000).default(0),
 });
 const tokenInput = z.object({ token: z.string().regex(/^[a-f0-9]{64}$/) });
+const claimInput = z.union([
+  tokenInput,
+  z.object({ invitationId: z.string().min(1).max(128) }),
+]);
 const setupInput = tokenInput.extend({
   email: z
     .string()
@@ -94,8 +101,19 @@ export const tuteeHistoryRouter = createTRPCRouter({
       }),
     )
     .mutation(({ ctx, input }) =>
-      withSignupAdmission(ctx.db, ctx.headers, "complete", input.email, () =>
-        verifyHistoryAccount(ctx.db, input),
+      withSignupAdmission(
+        ctx.db,
+        ctx.headers,
+        "complete",
+        input.email,
+        async () => {
+          const verified = await verifyHistoryAccount(ctx.db, input);
+          const invitation = await issueHistoryAccountInvitation(ctx.db, {
+            ...input,
+            completionProof: verified.completionProof,
+          });
+          return { ...verified, ...invitation };
+        },
       ),
     ),
   completeAccount: publicProcedure
@@ -116,7 +134,7 @@ export const tuteeHistoryRouter = createTRPCRouter({
         ctx.headers,
         "complete",
         input.email,
-        () => completeHistoryAccount(ctx.db, input),
+        () => issueHistoryAccountInvitation(ctx.db, input),
       );
     }),
   invitationStatus: adminOnlyProcedure
@@ -178,14 +196,42 @@ export const tuteeHistoryRouter = createTRPCRouter({
       return inviteTuteeHistory(ctx.db, ctx.session.user.id, input);
     }),
   inspectClaim: protectedProcedure
-    .input(tokenInput)
-    .query(({ ctx, input }) =>
-      inspectHistoryClaim(ctx.db, ctx.session.user.id, input.token),
-    ),
-  claim: protectedProcedure.input(tokenInput).mutation(({ ctx, input }) => {
-    limit(ctx.session.user.id);
-    return claimTuteeHistory(ctx.db, ctx.session.user.id, input.token);
-  }),
+    .input(claimInput)
+    .query(async ({ ctx, input }) => {
+      const fromEnvelope = "invitationId" in input;
+      const token = fromEnvelope
+        ? await historyInvitationDigest(
+            ctx.db,
+            input.invitationId,
+            ctx.session.user.id,
+          )
+        : input.token;
+      return inspectHistoryClaim(
+        ctx.db,
+        ctx.session.user.id,
+        token,
+        fromEnvelope,
+      );
+    }),
+  claim: protectedProcedure
+    .input(claimInput)
+    .mutation(async ({ ctx, input }) => {
+      limit(ctx.session.user.id);
+      const fromEnvelope = "invitationId" in input;
+      const token = fromEnvelope
+        ? await historyInvitationDigest(
+            ctx.db,
+            input.invitationId,
+            ctx.session.user.id,
+          )
+        : input.token;
+      return claimTuteeHistory(
+        ctx.db,
+        ctx.session.user.id,
+        token,
+        fromEnvelope,
+      );
+    }),
   myRecords: protectedProcedure.query(async ({ ctx }) =>
     ctx.db.tutee.findMany({
       where: { id: { in: await ownedStudentIds(ctx.db, ctx.session.user.id) } },

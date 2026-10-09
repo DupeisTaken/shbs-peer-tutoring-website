@@ -1,5 +1,49 @@
 # Technical report
 
+## Universal account invitation contract
+
+The account-flow decisions for [#268](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/268)
+retain User/Tutor/Tutee identities and the original authorization sources. `AccountInvitation`
+is an additive recipient-only envelope, not a new person model. Its short code is HMAC-hashed;
+the source reference, recipient email, credential generation and completion receipt are stored
+separately. Staff-visible `RegistrationCode` keys never authenticate an existing account.
+
+| Source | Authorization and email proof | Redemption writes | Preserved boundary |
+| --- | --- | --- | --- |
+| Tutor/Crew/management key | Existing staff authorization plus separate recipient-delivered code | Original registration transaction with canonical-account preservation | Management remains new-account-only; Head changes existing ranks. |
+| Tutee request | Submitted policy evidence and explicit confirmation of the emailed survey link issue a separate invitation | Original confirmation transaction, retained ownership and policy snapshot | Original request priority, intake/deadline rules and assignment stay separate. |
+| Viewer request | Initial mailbox verification issues a distinct invitation secret | New Viewer credentials, or sign-in-only for an existing account | Viewer exclusivity and the public signup feature gate remain authoritative. |
+| Historical tutee invitation | Exact staff-reviewed record, source revision and mailbox proof | Neutral history-only credentials and an envelope receipt | The signed-in owner must separately claim the original historical record. |
+| Head tutor setup | Head authorizes a Tutor invitation to the roster contact | No login before recipient redemption | Existing login recovery is delivered to its canonical address; staff never receive recovery secrets. |
+
+Entering a recipient-delivered invitation code signs in an existing primary/verified-secondary
+email owner without changing their password. Enabled and enforced email two-factor accounts
+retain their password-plus-email sign-in; the return destination resumes the same invitation.
+Source proof and membership consent are distinct: a session alone does not redeem an invitation,
+and accepting an invitation does not fabricate policies, academics, assignment or historical ownership.
+
+First successful Viewer/history verification starts a fixed 15-minute review window; retries retain its original timestamp. Envelope expiry is capped by source and authorization deadlines, and email states the exact expiry. Sending replacements never extends staff authorization or Tutee verification deadlines.
+
+Each envelope captures its account ID and `sessionVersion` at issue. Verification, preview,
+login exchange and redemption recheck source validity and email ownership; account reads are
+repeated after the credential lock. Password rotation, alias transfer/removal and account
+combination invalidate stale evidence. The login exchange is single-use independently of the
+membership write. The source write and completion receipt commit in one transaction, permitting
+lost-response retries without duplicating accounts, resetting passwords or replaying participation.
+An explicit receipt is distinguishable from failed session synchronization in the public form.
+
+All website credential creation passes through `/register`. Existing staff keys and old survey,
+Viewer and historical setup proofs remain compatible entry points: public legacy completion
+endpoints exchange their proof for an invitation instead of creating credentials themselves.
+Internal domain completion helpers remain responsible for their specific policy and evidence.
+Password recovery and the deployment-only first-Head bootstrap are separate deliberate operations.
+
+Apply `20261009090000_universal_account_invitations` before deploying the application. It only
+adds an envelope table and indexes; it changes no existing accounts, archived records or grants.
+Outstanding source links remain usable. Rollback to the previous application requires retaining
+the additive table and acknowledging that emailed envelope links need this version to redeem;
+do not drop stored receipts or erase original source evidence during rollback.
+
 Use this guide to find the code responsible for current behavior and understand the invariants a change must preserve. For setup commands, see [local development](local-development.md); for operating the server, see [deployment](deployment.md).
 
 ## Architecture
@@ -456,7 +500,7 @@ Interactive confirmations and invitation registration take the reference school 
 from the active program term on the server. Clients cannot supply an alternative year.
 The editor sends its observed year so a concurrent program-year change rejects the stale
 confirmation. Internal historical confirmations retain their original reference year.
-Users & Roles keeps academics in User details. Its four-column summary separates login setup from suspension and permissions/participation; setup readiness and filter predicates remain unchanged.
+Users & Roles keeps academics in User details. Its four-column summary separates login setup from suspension and permissions/participation; setup readiness requires password presence, a verified primary email and no required password change. The shared predicate returns only the status; credential hashes never leave the server.
 
 Current identity records (User, Tutor, Tutee) store explicit `firstName`, `lastName`,
 `preferredName`, and `alternativeNames` (the UI's Name in Another Language).

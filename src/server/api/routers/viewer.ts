@@ -2,9 +2,9 @@ import { optionalPersonNameFields } from "~/lib/person-name";
 import { captchaGrantInput } from "~/lib/captcha";
 import { withProtectedSignup } from "~/server/captcha";
 /**
- * Public viewer self-registration (read-only VIEWER accounts). The only open account-creation
- * path — gated by email validation + the VIEWER_SIGNUP feature flag, and rate-limited per IP +
- * per email. See src/server/auth/viewer-signup.ts.
+ * Public mailbox verification issues a distinct typed invitation. New accounts receive
+ * read-only Viewer access; existing recipients retain their memberships and sign in.
+ * Availability and request admission remain source-owned.
  */
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -14,15 +14,15 @@ import { withSignupAdmission, signupMetric } from "~/server/signup-admission";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
 import { getFeatures } from "~/server/program/features";
-import { notifyAdmins } from "~/server/notifications/create";
 import { normalizeRegCode } from "~/server/auth/code";
 import {
   VIEWER_CODE_TTL_MINUTES,
   startViewerSignup,
   verifyViewerCode,
-  completeViewerSignup,
 } from "~/server/auth/viewer-signup";
 import type { db as dbClient } from "~/server/db";
+import { inTransaction } from "~/server/transactions";
+import { issueViewerAccountInvitation } from "~/server/auth/account-invitations";
 
 async function assertEnabled(db: typeof dbClient): Promise<void> {
   const features = await getFeatures(db);
@@ -63,49 +63,22 @@ export const viewerRouter = createTRPCRouter({
             });
           }
 
-          const previous = await ctx.db.viewerSignup.findUnique({
-            where: { email: input.email.trim().toLowerCase() },
-          });
-          const res = await startViewerSignup(input);
-          if (!res.ok) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message:
-                "An account already exists for this email. Sign in or reset your password.",
-            });
-          }
           try {
-            await emailSender.send({
-              category: "SECURITY",
-              signup: true,
-              to: input.email.trim().toLowerCase(),
-              subject: `Your ${APP_TITLE} verification code`,
-              text:
-                `Your ${APP_TITLE} email verification code is ${res.code}.\n\n` +
-                `It expires in ${VIEWER_CODE_TTL_MINUTES} minutes. If you didn't request this, ignore this email.`,
-              presentation: { code: res.code, eyebrow: "EMAIL VERIFICATION" },
+            await inTransaction(ctx.db, async (tx) => {
+              const res = await startViewerSignup(input, tx);
+              if (!res.ok) throw new Error("Could not stage mailbox challenge");
+              await emailSender.send({
+                category: "SECURITY",
+                signup: true,
+                to: input.email.trim().toLowerCase(),
+                subject: `Your ${APP_TITLE} verification code`,
+                text: `Your ${APP_TITLE} email verification code is ${res.code}.\n\nIt expires in ${VIEWER_CODE_TTL_MINUTES} minutes. If you didn't request this, ignore this email.`,
+                presentation: { code: res.code, eyebrow: "EMAIL VERIFICATION" },
+              });
             });
-          } catch {
+          } catch (error) {
+            if (error instanceof TRPCError) throw error;
             signupMetric("delivery-failed");
-            const { hashCode } = await import("~/server/auth/registration");
-            // CAS restoration preserves the previous emailed proof when SMTP fails.
-            await ctx.db.viewerSignup.updateMany({
-              where: {
-                email: input.email.trim().toLowerCase(),
-                codeHash: hashCode(res.code),
-                usedAt: null,
-              },
-              data: previous
-                ? {
-                    codeHash: previous.codeHash,
-                    codeExpiresAt: previous.codeExpiresAt,
-                    verifiedAt: previous.verifiedAt,
-                    attempts: previous.attempts,
-                    name: previous.name,
-                    affiliation: previous.affiliation,
-                  }
-                : { codeExpiresAt: new Date(0) },
-            });
             throw new TRPCError({
               code: "SERVICE_UNAVAILABLE",
               message: "SIGNUP_MAIL_FAILED",
@@ -148,12 +121,21 @@ export const viewerRouter = createTRPCRouter({
                     : "That code is incorrect.";
             throw new TRPCError({ code: "BAD_REQUEST", message });
           }
-          return { ok: true, completionProof: res.completionProof };
+          const invitation = await issueViewerAccountInvitation(
+            ctx.db,
+            input.email,
+            res.completionProof,
+          );
+          return {
+            ok: true,
+            completionProof: res.completionProof,
+            ...invitation,
+          };
         },
       ),
     ),
 
-  /** Finish: set a password, creating the verified VIEWER login. */
+  /** Exchange outstanding verification proof for a recipient invitation without writing credentials. */
   complete: publicProcedure
     .input(
       z.object({
@@ -171,26 +153,12 @@ export const viewerRouter = createTRPCRouter({
         async () => {
           await assertEnabled(ctx.db);
 
-          const res = await completeViewerSignup(
+          const invitation = await issueViewerAccountInvitation(
+            ctx.db,
             input.email,
-            input.password,
             input.completionProof,
           );
-          if (!res.ok) {
-            const message =
-              res.error === "email-unverified"
-                ? "Verify your email before finishing."
-                : res.error === "email-taken"
-                  ? "An account already exists for this email."
-                  : "Start the signup again.";
-            throw new TRPCError({ code: "BAD_REQUEST", message });
-          }
-          await notifyAdmins({
-            title: "New viewer account",
-            body: "A new read-only viewer registered to follow the program.",
-            link: "/admin/users",
-          });
-          return { ok: true };
+          return { ok: true, ...invitation };
         },
       ),
     ),

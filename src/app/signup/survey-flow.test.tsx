@@ -1,5 +1,11 @@
 /** @vitest-environment jsdom */
-import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  render,
+  screen,
+  fireEvent,
+} from "@testing-library/react";
 import { afterEach, it, expect, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
@@ -9,12 +15,27 @@ vi.mock("~/app/_actions/auth", () => ({ switchToStudentSignin: vi.fn() }));
 
 const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
-  needsAccount: true,
-  success: false,
+  pending: false,
+  data: undefined as undefined | { invitationId: string },
+  error: null as null | { message: string },
+  settled: undefined as undefined | (() => void),
   period: { kind: "quarter", label: "2026–27 Q3" },
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    accountInvitation: {
+      fromSurvey: {
+        useMutation: (options: { onSettled: () => void }) => {
+          mocks.settled = options.onSettled;
+          return {
+            mutate: mocks.confirm,
+            isPending: mocks.pending,
+            data: mocks.data,
+            error: mocks.error,
+          };
+        },
+      },
+    },
     tutee: {
       inspectSurvey: {
         useQuery: () => ({
@@ -33,15 +54,9 @@ vi.mock("~/trpc/react", () => ({
               },
             ],
             submittedAt: new Date("2026-09-08T00:00:00Z"),
-            needsAccount: mocks.needsAccount,
+            needsAccount: true,
             period: mocks.period,
           },
-        }),
-      },
-      confirmSurvey: {
-        useMutation: () => ({
-          mutate: mocks.confirm,
-          isSuccess: mocks.success,
         }),
       },
       resendSurvey: { useMutation: () => ({ mutate: vi.fn() }) },
@@ -57,20 +72,18 @@ const wrap = (child: React.ReactNode) =>
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  mocks.needsAccount = true;
-  mocks.success = false;
+  mocks.pending = false;
+  mocks.data = undefined;
+  mocks.error = null;
   mocks.period = { kind: "quarter", label: "2026–27 Q3" };
 });
-it.each([false, true])(
-  "keeps the semester label during review and confirmation (confirmed=%s)",
-  (confirmed) => {
-    mocks.period = { kind: "semester", label: "2026–27 S2" };
-    mocks.success = confirmed;
-    wrap(<StudentRegistration token={"a".repeat(64)} />);
-    expect(screen.getByText("Semester · 2026–27 S2")).toBeTruthy();
-    expect(screen.queryByText(/Quarter ·/)).toBeNull();
-  },
-);
+it("keeps the semester label during review", () => {
+  mocks.period = { kind: "semester", label: "2026–27 S2" };
+
+  wrap(<StudentRegistration token={"a".repeat(64)} />);
+  expect(screen.getByText("Semester · 2026–27 S2")).toBeTruthy();
+  expect(screen.queryByText(/Quarter ·/)).toBeNull();
+});
 it("offers a sign-in button, readable link, and downloadable QR without exposing verification tokens", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", {
@@ -100,47 +113,40 @@ it("keeps a readable link if clipboard access fails", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Copy Sign-In Link" }));
   expect(await screen.findByRole("status")).toBeTruthy();
 });
-it("requires a password only for a new account and never automatically consumes the link", () => {
-  wrap(<StudentRegistration token={"a".repeat(64)} />);
-  expect(
-    screen
-      .getByLabelText("Password (at Least 8 Characters)")
-      .getAttribute("required"),
-  ).not.toBeNull();
+it("never automatically consumes the link and explicitly emails a distinct invitation", () => {
+  const { container } = wrap(<StudentRegistration token={"a".repeat(64)} />);
+  expect(container.querySelector("input[type=password]")).toBeNull();
   expect(mocks.confirm).not.toHaveBeenCalled();
-});
-it("confirms an existing account request without sending a password", () => {
-  mocks.needsAccount = false;
-  wrap(<StudentRegistration token={"a".repeat(64)} />);
-  expect(
-    screen.queryByLabelText("Password (at Least 8 Characters)"),
-  ).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Confirm Request" }));
+  fireEvent.submit(container.querySelector("form")!);
+  fireEvent.submit(container.querySelector("form")!);
+  expect(mocks.confirm).toHaveBeenCalledTimes(1);
   expect(mocks.confirm).toHaveBeenCalledWith({ token: "a".repeat(64) });
 });
-it("places the sign-in button and QR on the completed-account confirmation", () => {
-  mocks.success = true;
-  wrap(<StudentRegistration token={"a".repeat(64)} />);
-  expect(
-    screen.getByRole("heading", { name: "Your Request Is Confirmed" }),
-  ).toBeTruthy();
-  expect(screen.getByRole("link", { name: "Save QR Code" })).toBeTruthy();
-});
-it("offers explicit switching on shared devices after confirmation", () => {
-  mocks.success = true;
-  wrap(
-    <StudentRegistration
-      token={"a".repeat(64)}
-      signedInEmail="other@example.test"
-    />,
+it("keeps the request review mounted after failure and freezes pending confirmation", () => {
+  const { container, rerender } = wrap(
+    <StudentRegistration token={"a".repeat(64)} />,
   );
-  expect(
-    screen.getByRole("button", { name: "Switch Account and Sign In" }),
-  ).toBeTruthy();
-  expect(screen.getByText(/signed in as other@example.test/)).toBeTruthy();
+  mocks.pending = true;
+  rerender(
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <StudentRegistration token={"a".repeat(64)} />
+    </NextIntlClientProvider>,
+  );
+  expect(container.querySelector("fieldset")!.disabled).toBe(true);
+  expect(screen.getByText("Student One")).toBeTruthy();
+  mocks.pending = false;
+  mocks.error = { message: "INVITATION_INVALID" };
+  act(() => mocks.settled!());
+  rerender(
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <StudentRegistration token={"a".repeat(64)} />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getByRole("alert")).toBeTruthy();
+  expect(screen.getByText("Student One")).toBeTruthy();
 });
-it("links an already signed-in participant directly to their tutoring page", () => {
-  mocks.success = true;
+it("enters shared redemption with the exact invitation and signed-in state", () => {
+  mocks.data = { invitationId: "tutee-invitation" };
   wrap(
     <StudentRegistration
       token={"a".repeat(64)}
@@ -148,8 +154,30 @@ it("links an already signed-in participant directly to their tutoring page", () 
     />,
   );
   expect(
-    screen.getByRole("link", { name: "View My Tutoring" }).getAttribute("href"),
-  ).toBe("/student");
+    screen.getByText("Shared invitation tutee-invitation signed in"),
+  ).toBeTruthy();
 });
+vi.mock("../register/invitation-redemption", () => ({
+  InvitationRedemption: ({
+    invitationId,
+    signedIn,
+  }: {
+    invitationId: string;
+    signedIn: boolean;
+  }) => (
+    <p>
+      Shared invitation {invitationId} {signedIn ? "signed in" : "signed out"}
+    </p>
+  ),
+}));
 
-vi.mock("~/app/_components/signup-captcha", () => ({ useSignupCaptcha: () => ({ run: (work: (grant?: string) => Promise<unknown>) => work(), panel: null, pending: false }), CaptchaError: ({ error }: { error: { message: string } }) => <>{error.message}</> }));
+vi.mock("~/app/_components/signup-captcha", () => ({
+  useSignupCaptcha: () => ({
+    run: (work: (grant?: string) => Promise<unknown>) => work(),
+    panel: null,
+    pending: false,
+  }),
+  CaptchaError: ({ error }: { error: { message: string } }) => (
+    <>{error.message}</>
+  ),
+}));

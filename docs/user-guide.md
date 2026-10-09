@@ -1,5 +1,41 @@
 # User guide
 
+## Account invitations and sign-in
+
+All website account creation finishes through the shared invitation review at `/register`.
+An invitation authorizes a specific task; the code delivered directly to the recipient's
+email proves who is accepting it. A staff-visible key alone cannot sign in as its recipient.
+
+| Starting point | What happens next | Result after review |
+| --- | --- | --- |
+| Tutor, Crew or management staff key | Enter the key and recipient email; receive a separate email invitation code. | The authorized participation or new management account, subject to existing eligibility. |
+| Tutee request | Submit the request and policy agreement, open its email link, then explicitly confirm the email to receive an invitation. | Confirm the original request without changing its submission priority; assignment remains separate. |
+| Public Viewer request | Verify the initial email code, then receive a distinct invitation code. | A new address creates a read-only Viewer; an existing account signs in without adding Viewer or changing any membership. |
+| Historical tutee invitation | Verify the exact invited email and redeem its account invitation. | Create/use credentials, then separately review and choose **Link My History** for the exact record. No current participation is added. |
+| Accountless tutor setup sent by Head | Receive a Tutor invitation. | The roster remains accountless until its recipient accepts; no placeholder login is created by sending mail. |
+
+Enter the recipient email and the code using the link in the invitation message. Codes
+last up to 15 minutes; the exact expiry is shown in the email. Earlier staff authorization or application deadlines still apply. For an existing account, entering the recipient-delivered code
+signs in without replacing its password, name or memberships. Primary and verified secondary
+emails resolve to the same account. Adding participation still requires an explicit review.
+If the account enforces password plus email verification, complete that existing sign-in
+flow and return to the invitation; an invitation does not disable two-factor protection.
+
+An unfinished account is asked only for missing credentials. Existing forced password
+changes and recovery remain explicit operations. Suspension, revoked participation,
+school departure and Viewer exclusivity still apply. Management invitations create new
+management accounts; Head changes an existing account's management authority in Users & Roles.
+
+A failed request keeps the form draft. If acceptance succeeds but sign-in or refreshing
+fails, the page identifies the saved result and offers sign-in recovery without repeating
+the write. Expired or replaced invitations return to their original request route; the
+original application, policy evidence and historical records remain retained. Outstanding
+older verification links and staff keys remain valid entry points to this shared flow.
+
+Account readiness, email verification, suspension, membership, active participation and
+historical ownership are distinct states. A ready login has a password, verified primary
+email and no required password change; readiness never means an assigned or active participant.
+
 Use this guide with the website address supplied by your program. Page names below match the interface. Features and navigation can vary when HEAD disables a program module. A hidden page does not grant permission to use its address directly.
 
 ## Contents
@@ -40,13 +76,13 @@ A role and a tutor or crew membership are different things. A management account
 
 ### Choose the right registration form
 
-- **Register with an Invitation Code** (`/register`) is for invited tutors, crew and management. Enter the five-character registration code supplied by the program team, then complete email verification and account setup. The invitation code and emailed verification code are different.
-- **Register as a Viewer** (`/viewer-signup`) creates read-only access when viewer signup is enabled. Viewers do not receive or need a staff invitation code; the form sends an email verification code after you provide your details. It does not enroll you as a tutee, tutor or crew member.
-- **Request a Tutor** (`/signup`) starts a tutee request without an invitation code. Follow the emailed confirmation link to set up your account if needed.
+- **Register with an Invitation Code** (`/register`) accepts every emailed account invitation. Invited tutors, crew and management can also enter the five-character staff key here to request their recipient-only invitation.
+- **Register as a Viewer** (`/viewer-signup`) verifies the mailbox and issues a distinct invitation when viewer signup is enabled. A new account receives read-only Viewer access; an existing account signs in without changing its roles or memberships. No staff key is needed.
+- **Request a Tutor** (`/signup`) starts a tutee request. Confirm the emailed link to receive the invitation that completes your request and any missing credentials.
 
-Sign In names the invitation and viewer routes separately. The invitation and viewer pages link to each other and to Request a Tutor, so you can switch if you opened the wrong form. Viewer links are hidden when public viewer signup is disabled. If you already have an account, sign in or recover your password rather than registering again.
+Sign In names the invitation and viewer routes separately. The invitation and viewer pages link to each other and to Request a Tutor, so you can switch if you opened the wrong form. Viewer links are hidden when public viewer signup is disabled. Existing accounts can use their normal sign-in, password recovery, or a recipient-delivered invitation; invitations never replace an established password.
 
-Registration shows numbered steps and focuses the new step heading. Use **Back**, **Review or edit email**, **Edit invitation code** or **Edit Identity** to correct earlier details. Editing clears the current verification evidence and requires email verification again; other entries remain while you stay on the page. A different invitation clears the previous identity and password. An invitation bound to an email keeps that email read only. Use **Resend** after delivery or expiry problems. Browser navigation works normally; leaving or refreshing the page can discard unsaved entries.
+Registration shows numbered steps and focuses the new step heading. Use **Back** or **Edit Identity** before verification to correct earlier details. Editing clears current verification evidence and requires verification again; other entries remain while you stay on the page. A different invitation starts a fresh account review. Staff keys bound to an email keep that email read only. Use the original request's resend action if mail is missing or evidence expires. Browser navigation works normally; leaving or refreshing can discard unsaved entries. Existing signed-in recipients can reopen their invitation to resume its review.
 
 ### Switch workspaces
 
@@ -266,7 +302,7 @@ On desktop, the navigation and content scroll independently. On mobile, open **M
 
 **Changes saved** appears after a successful write. A persistent error needs attention even if a later edit succeeds; check the affected record before retrying. **Submitted for approval** means a coordinator proposal is pending, not saved to live records.
 
-**Users & Roles** separates **User | Login setup | Roles & participation | Actions**. **Setup complete** means the email is verified and no password change is required; the existing indicator does not inspect password presence and is not a guarantee of current access. **Setup incomplete** means a login exists but that predicate is not satisfied. **Invitation pending** means a tutor record has a matching unused, unexpired invitation; **No direct login attached** describes the attachment only, not historical ownership. Suspension appears alongside setup rather than replacing it.
+**Users & Roles** separates **User | Login setup | Roles & participation | Actions**. **Setup complete** means a password is set, the primary email is verified and no password change is required; this is not a guarantee of current access. **Setup incomplete** means a login exists but that predicate is not satisfied. **Invitation pending** means a tutor record has a matching unused, unexpired invitation; **No direct login attached** describes the attachment only, not historical ownership. Suspension appears alongside setup rather than replacing it.
 
 Management badges (Head/Admin/Coordinator) use indigo, participation (Tutor/Tutee/Crew) uses teal, Translator uses amber and exclusive read-only Viewer uses slate. Text labels remain authoritative. A Tutor badge does not mean ACTIVE lifecycle or assignment eligibility, and Crew membership can be inactive. The summary keeps its existing Tutor-over-Tutee display; **User details → Permissions and memberships** shows both accepted memberships independently, with policy evidence.
 

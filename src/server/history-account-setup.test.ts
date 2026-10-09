@@ -219,6 +219,21 @@ it("creates a verified neutral login then explicitly claims unchanged owned hist
     password,
     ...proof,
   });
+  expect(await db.user.findUnique({ where: { email } })).toBeNull();
+  const invitationCode = (
+    mail.send.mock.lastCall![0] as { presentation: { code: string } }
+  ).presentation.code;
+  const recipient = await anonymous().accountInvitation.verify({
+    invitationId: proof.invitationId,
+    email,
+    code: invitationCode,
+  });
+  await anonymous().accountInvitation.complete({
+    invitationId: proof.invitationId,
+    proof: recipient.proof,
+    password,
+    reviewed: true,
+  });
   const user = await db.user.findUniqueOrThrow({ where: { email } });
   expect(user).toMatchObject({
     role: "STUDENT",
@@ -275,7 +290,7 @@ it("does not expose a name or create any account for a wrong recipient or invali
 });
 
 it.each(["primary", "secondary", "retired"])(
-  "rejects existing %s email ownership without resetting credentials",
+  "allows mailbox proof for existing %s email without resetting credentials",
   async (kind) => {
     const user = await db.user.create({
       data: {
@@ -294,9 +309,7 @@ it.each(["primary", "secondary", "retired"])(
         data: { mergedIntoId: actorId },
       });
     const before = await db.user.findMany();
-    await expect(startHistoryAccount(db, { token, email })).rejects.toThrow(
-      "HISTORY_EMAIL_TAKEN",
-    );
+    await startHistoryAccount(db, { token, email });
     expect(await db.user.findMany()).toEqual(before);
   },
 );

@@ -14,50 +14,46 @@ import { HistoryAccountSetup } from "./history-account-setup";
 const hooks = vi.hoisted(() => ({
   send: vi.fn(),
   verify: vi.fn(),
-  complete: vi.fn(),
   sent: undefined as (() => void) | undefined,
-  verified: undefined as
-    ((data: { completionProof: string }) => void) | undefined,
-  done: undefined as (() => void) | undefined,
+  verified: undefined as ((data: { invitationId: string }) => void) | undefined,
+  settled: undefined as (() => void) | undefined,
   pending: false,
   error: null as null | { message: string },
-  success: false,
 }));
 vi.mock("~/app/_components/tutee-history", () => ({
   HistoryError: ({ message }: { message: string }) => (
     <p role="alert">{message}</p>
   ),
 }));
+vi.mock("../../register/invitation-redemption", () => ({
+  InvitationRedemption: ({ invitationId }: { invitationId: string }) => (
+    <p>Shared invitation {invitationId}</p>
+  ),
+}));
 vi.mock("~/trpc/react", () => ({
   api: {
     tuteeHistory: {
       startAccount: {
-        useMutation: (options: { onSuccess: () => void }) => {
+        useMutation: (options: {
+          onSuccess: () => void;
+          onSettled: () => void;
+        }) => {
           hooks.sent = options.onSuccess;
+          hooks.settled = options.onSettled;
           return {
             mutate: hooks.send,
             reset: vi.fn(),
             isPending: hooks.pending,
+            error: hooks.error,
           };
         },
       },
       verifyAccount: {
         useMutation: (options: {
-          onSuccess: (value: { completionProof: string }) => void;
+          onSuccess: (data: { invitationId: string }) => void;
         }) => {
           hooks.verified = options.onSuccess;
           return { mutate: hooks.verify, reset: vi.fn() };
-        },
-      },
-      completeAccount: {
-        useMutation: (options: { onSuccess: () => void }) => {
-          hooks.done = options.onSuccess;
-          return {
-            mutate: hooks.complete,
-            reset: vi.fn(),
-            error: hooks.error,
-            isSuccess: hooks.success,
-          };
         },
       },
     },
@@ -78,12 +74,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   hooks.pending = false;
   hooks.error = null;
-  hooks.success = false;
 });
 afterEach(cleanup);
-
 it.each(["en", "zh"] as const)(
-  "requires explicit email proof and confirmation with translated fields in %s",
+  "verifies mailbox then enters the shared invitation without claiming history in %s",
   (locale) => {
     const messages = (locale === "en" ? en : zh).tuteeHistory;
     const { container } = render(view(locale));
@@ -93,11 +87,16 @@ it.each(["en", "zh"] as const)(
       target: { value: "alumni@example.test" },
     });
     fireEvent.submit(container.querySelector("form")!);
+    fireEvent.submit(container.querySelector("form")!);
+    expect(hooks.send).toHaveBeenCalledTimes(1);
     expect(hooks.send).toHaveBeenCalledWith({
       token,
       email: "alumni@example.test",
     });
-    act(() => hooks.sent!());
+    act(() => {
+      hooks.sent!();
+      hooks.settled!();
+    });
     fireEvent.change(screen.getByLabelText(new RegExp(messages.emailCode)), {
       target: { value: "ABC12" },
     });
@@ -107,72 +106,41 @@ it.each(["en", "zh"] as const)(
       email: "alumni@example.test",
       code: "ABC12",
     });
-    act(() => hooks.verified!({ completionProof: "b".repeat(64) }));
+    act(() => hooks.verified!({ invitationId: "history-invitation" }));
     expect(
-      screen.getByRole<HTMLButtonElement>("button", {
-        name: messages.createAccount,
-      }).disabled,
-    ).toBe(true);
-    fireEvent.change(
-      screen.getByLabelText((text) => text.startsWith(messages.newPassword)),
-      { target: { value: "Personal-password!" } },
-    );
-    fireEvent.click(screen.getByRole("checkbox"));
-    fireEvent.submit(container.querySelector("form")!);
-    expect(hooks.complete).toHaveBeenCalledWith({
-      token,
-      email: "alumni@example.test",
-      password: "Personal-password!",
-      completionProof: "b".repeat(64),
-    });
+      screen.getByText("Shared invitation history-invitation"),
+    ).toBeTruthy();
+    expect(container.querySelector("input[type=password]")).toBeNull();
   },
 );
-
-it("retains a password draft after failure, blocks pending requests and keeps the exact claim on successful setup", () => {
+it("retains email after failure, freezes pending fields and supports going back from code", () => {
   const { container, rerender } = render(view());
   container.querySelector("details")!.open = true;
-  act(() => {
-    hooks.sent!();
-    hooks.verified!({ completionProof: "b".repeat(64) });
-  });
-  fireEvent.change(
-    screen.getByLabelText((text) =>
-      text.startsWith(en.tuteeHistory.newPassword),
-    ),
-    { target: { value: "Personal-password!" } },
+  const email = screen.getByLabelText<HTMLInputElement>(
+    new RegExp(en.tuteeHistory.email),
   );
+  fireEvent.change(email, { target: { value: "alumni@example.test" } });
   hooks.error = { message: "HISTORY_STALE" };
   rerender(view());
   expect(screen.getByRole("alert").textContent).toBe("HISTORY_STALE");
-  expect(
-    screen.getByLabelText<HTMLInputElement>((text) =>
-      text.startsWith(en.tuteeHistory.newPassword),
-    ).value,
-  ).toBe("Personal-password!");
+  expect(email.value).toBe("alumni@example.test");
   hooks.pending = true;
   rerender(view());
-  expect(
-    screen.getByRole<HTMLButtonElement>("button", {
-      name: en.tuteeHistory.createAccount,
-    }).disabled,
-  ).toBe(true);
-  expect(screen.getByRole("status")).toBeTruthy();
+  expect(email.closest("fieldset")!.disabled).toBe(true);
   hooks.pending = false;
-  hooks.success = true;
-  act(() => hooks.done!());
+  hooks.error = null;
+  act(() => hooks.sent!());
   rerender(view());
-  const url = new URL(
-    screen
-      .getByRole("link", { name: en.tuteeHistory.signIn })
-      .getAttribute("href")!,
-    "https://example.test",
+  expect(email.readOnly).toBe(true);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.accountInvitation.back }),
   );
-  expect(url.searchParams.get("callbackUrl")).toBe(
-    `/history/claim?token=${token}`,
-  );
-  expect(container.querySelector("input[type=password]")).toBeNull();
+  expect(email.readOnly).toBe(false);
+  expect(email.value).toBe("alumni@example.test");
+  expect(
+    screen.queryByLabelText(new RegExp(en.tuteeHistory.emailCode)),
+  ).toBeNull();
 });
-
 it("does not offer setup for malformed invitations", () => {
   const { container } = render(view("en", "bad-token"));
   expect(screen.getByRole("alert").textContent).toBe(

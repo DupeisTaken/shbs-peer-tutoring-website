@@ -139,7 +139,7 @@ async function deliver(
           url: `${origin}/signup/account?token=${token}`,
         },
       },
-      text: `${deadline ? `Verify by ${deadline.toISOString()}. Your request will be permanently disqualified and all assignments released after this deadline. Resends do not extend it. 验证截止时间：${deadline.toISOString()}。逾期将永久取消申请资格并解除辅导伙伴安排，重发邮件不会延长期限。\n\n` : ""}Your tutoring survey has been saved. Priority is based on when you first submitted it after signup opened, not when you create your account.\n\nReview and confirm your request, then create your student account using this link:\n${origin}/signup/account?token=${token}\n\nAlready have an account? Confirm your request using the same link, then sign in with your existing password. The link expires in 24 hours. You can request another link without losing your submission time. If you did not submit this survey, ignore this email.`,
+      text: `${deadline ? `Verify by ${deadline.toISOString()}. Your request will be permanently disqualified and all assignments released after this deadline. Resends do not extend it. 验证截止时间：${deadline.toISOString()}。逾期将永久取消申请资格并解除辅导伙伴安排，重发邮件不会延长期限。\n\n` : ""}Your tutoring survey has been saved. Priority is based on when you first submitted it after signup opened, not when you create your account.\n\nReview your request and confirm this email to receive your account invitation:\n${origin}/signup/account?token=${token}\n\nYour recipient-delivered invitation signs in an existing account without replacing its password. Review and accept the invitation to complete this request. The confirmation link expires in 24 hours. You can request another link without losing your submission time. If you did not submit this survey, ignore this email.`,
     });
     return true;
   } catch {
@@ -174,11 +174,19 @@ export async function submitSurvey(
       });
     const account = await tx.user.findUnique({
       where: { email: input.email },
-      select: { id: true, profileVersion: true, name: true, mergedIntoId: true },
+      select: {
+        id: true,
+        profileVersion: true,
+        name: true,
+        mergedIntoId: true,
+      },
     });
     if (account) await requireSchoolParticipation(tx, account.id);
     if (account?.mergedIntoId)
-      throw new TRPCError({ code: "FORBIDDEN", message: "Contact the team about your account." });
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Contact the team about your account.",
+      });
     const block = await tx.studentQuarterBlock.findFirst({
       where: {
         intakeTermId: term.id,
@@ -334,9 +342,13 @@ export async function resendSurvey(
   return sent;
 }
 
-async function validSurvey(db: DomainDb, token: string) {
+export async function validSurvey(
+  db: DomainDb,
+  token: string,
+  tokenIsDigest = false,
+) {
   const row = await db.studentSurvey.findUnique({
-    where: { tokenHash: digest(token) },
+    where: { tokenHash: tokenIsDigest ? token : digest(token) },
   });
   if (
     row?.state !== "OPEN" ||
@@ -357,7 +369,10 @@ export async function inspectSurvey(db: DomainDb, token: string) {
   const row = await validSurvey(db, token);
   const user = await db.user.findUnique({ where: { email: row.email } });
   if (user?.mergedIntoId)
-    throw new TRPCError({ code: "FORBIDDEN", message: "Contact the team about your account." });
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Contact the team about your account.",
+    });
   const input = surveyInput.parse(row.payload);
   // Confirmation describes the intake actually submitted, even after the active period changes.
   const [intake, features] = await Promise.all([
@@ -409,13 +424,14 @@ export async function confirmSurvey(
   db: DomainDb,
   token: string,
   password?: string,
+  identity?: { tokenIsDigest: true; authenticatedUserId?: string },
 ) {
   await expireStudentRequests(db);
-  const initial = await validSurvey(db, token);
+  const initial = await validSurvey(db, token, identity?.tokenIsDigest);
   return inTransaction(db, async (tx) => {
     await lockEntity(tx, "program:period");
     await lockEntity(tx, `student-survey:${initial.email}`);
-    const row = await validSurvey(tx, token);
+    const row = await validSurvey(tx, token, identity?.tokenIsDigest);
     const term = await activeIntake(tx);
     if (term?.id !== row.intakeTermId)
       throw new TRPCError({
@@ -431,12 +447,27 @@ export async function confirmSurvey(
           "A selected subject or time slot is no longer available. Contact the team; your original submission time is saved.",
       });
     await lockUsernameNamespace(tx);
-    let user = await tx.user.findUnique({ where: { email: row.email } });
+    let user = await tx.user.findFirst({
+      where: {
+        OR: [
+          { email: row.email },
+          { emails: { some: { email: row.email, verifiedAt: { not: null } } } },
+        ],
+      },
+    });
+    if (identity && user && user.id !== identity.authenticatedUserId)
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Sign in to the invited account before reviewing access.",
+      });
     // Recheck at verification: a link issued before the policy changed cannot create a
     // noncompliant identity. Existing verified identities remain the canonical source.
     await assertPrimaryName(tx, user?.name ?? input.englishName, user?.name);
     await assertOfferedGrade(tx, normalizeGrade(input.gradeLevel).gradeLevel);
-    if (user) { await lockAccountProfile(tx, user.id); await requireSchoolParticipation(tx, user.id); }
+    if (user) {
+      await lockAccountProfile(tx, user.id);
+      await requireSchoolParticipation(tx, user.id);
+    }
     // A retired login also has no password. Do not mistake it for an unfinished invitation.
     // The namespace lock above serializes this decision with account combination.
     if (user?.mergedIntoId || user?.suspendedAt || user?.role === "VIEWER")
@@ -488,7 +519,10 @@ export async function confirmSurvey(
       data: {
         studentId: student.id,
         tuteeMember: true,
-        emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+        // Proof of a verified secondary address must not mark the primary address verified.
+        emailVerifiedAt:
+          user.emailVerifiedAt ??
+          (row.email === user.email ? new Date() : null),
       },
     });
     // Verification establishes the explicit link; the existing account remains the identity source.

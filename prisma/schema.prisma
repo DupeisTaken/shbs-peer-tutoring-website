@@ -588,6 +588,30 @@ model RegistrationCode {
   @@index([usedAt])
 }
 
+/// Recipient-only invitation envelope. Staff authorization stays in its original source;
+/// this separate, hashed secret proves mailbox ownership and can never be redisplayed to staff.
+model AccountInvitation {
+  id String @id @default(cuid())
+  kind String
+  email String
+  sourceKey String @unique
+  source Json
+  codeHash String
+  expiresAt DateTime
+  attempts Int @default(0)
+  verifiedAt DateTime?
+  /// Capture account/credential generation at issuance; aliases and credentials are rechecked.
+  accountId String?
+  sessionVersion Int?
+  loginUsedAt DateTime?
+  completedAt DateTime?
+  completedUserId String?
+  receipt Json?
+  createdAt DateTime @default(now())
+  @@index([email, createdAt])
+  @@index([expiresAt])
+}
+
 /// A subject offered for tutoring. The catalog is managed by admins; tutees pick a
 /// first (required) and optional second choice from it on the public signup form.
 model CourseGroup {

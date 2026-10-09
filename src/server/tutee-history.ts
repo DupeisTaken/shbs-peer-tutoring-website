@@ -321,9 +321,14 @@ export async function inviteTuteeHistory(
   });
 }
 
-async function claimSnapshot(db: DomainDb, userId: string, token: string) {
+async function claimSnapshot(
+  db: DomainDb,
+  userId: string,
+  token: string,
+  tokenIsDigest = false,
+) {
   const invite = await db.tuteeHistoryInvitation.findUnique({
-    where: { tokenHash: digest(token) },
+    where: { tokenHash: tokenIsDigest ? token : digest(token) },
   });
   if (!invite || invite.expiresAt <= new Date())
     throw new TRPCError({
@@ -352,8 +357,14 @@ export async function inspectHistoryClaim(
   db: DomainDb,
   userId: string,
   token: string,
+  tokenIsDigest = false,
 ) {
-  const { invite, value } = await claimSnapshot(db, userId, token);
+  const { invite, value } = await claimSnapshot(
+    db,
+    userId,
+    token,
+    tokenIsDigest,
+  );
   return {
     name: value.record.englishName,
     sessions: value.record._count.sessions,
@@ -364,14 +375,15 @@ export async function claimTuteeHistory(
   db: DomainDb,
   userId: string,
   token: string,
+  tokenIsDigest = false,
 ) {
   return inTransaction(db, async (tx) => {
     await lockUsernameNamespace(tx);
     await lockAccountProfile(tx, userId);
-    const { invite } = await claimSnapshot(tx, userId, token);
+    const { invite } = await claimSnapshot(tx, userId, token, tokenIsDigest);
     await lockEntity(tx, `tutee:${invite.tuteeId}`);
     await tx.$queryRaw`SELECT id FROM "Tutee" WHERE id = ${invite.tuteeId} FOR UPDATE`;
-    const current = await claimSnapshot(tx, userId, token);
+    const current = await claimSnapshot(tx, userId, token, tokenIsDigest);
     await writeOwnership(
       tx,
       invite.tuteeId,
@@ -433,11 +445,24 @@ export async function tuteeHistoryDetails(
         select: { name: true, schoolYear: true },
       })
     : null;
-  const academicRecords = await db.historicalAcademicRecord.findMany({ where: { tuteeId }, select: { id: true }, orderBy: { id: "asc" } });
+  const academicRecords = await db.historicalAcademicRecord.findMany({
+    where: { tuteeId },
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
   const historicalAcademics = [];
-  for (const id of new Set([legacyAcademicRecordId("TUTEE", tuteeId), ...academicRecords.map(row => row.id)])) {
+  for (const id of new Set([
+    legacyAcademicRecordId("TUTEE", tuteeId),
+    ...academicRecords.map((row) => row.id),
+  ])) {
     const evidence = await historicalAcademicSnapshot(db, id);
-    historicalAcademics.push({ recordId: evidence.recordId, original: evidence.original, current: evidence.current, revision: evidence.revision, correction: evidence.correction });
+    historicalAcademics.push({
+      recordId: evidence.recordId,
+      original: evidence.original,
+      current: evidence.current,
+      revision: evidence.revision,
+      correction: evidence.correction,
+    });
   }
   // The deterministic enrollment record is first. Its original remains authoritative
   // after current-account mirrors advance; corrections are shown separately below it.

@@ -17,17 +17,18 @@ import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { rateLimit } from "~/server/rate-limit";
-import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
-import { APP_TITLE } from "~/lib/branding";
+import { isEmailDeliveryAvailable } from "~/server/email/sender";
 import {
-  EMAIL_CODE_TTL_MINUTES,
   codePrefill,
-  completeRegistration,
+  registrationCompletionProof,
   confirmEmailCode,
   resolveUsableCode,
   setEmailVerification,
 } from "~/server/auth/registration";
 import { normalizeRegCode } from "~/server/auth/code";
+import { deliverAccountInvitation } from "~/server/auth/account-invitations";
+import { inTransaction } from "~/server/transactions";
+import { lockUsernameNamespace } from "~/server/auth/username";
 
 /** The admin-issued security key: normalized (uppercase, separators stripped) to 5 alphanumerics.
  *  Validity (existence/expiry/use) is checked by lookup, so a wrong-but-well-formed code yields a
@@ -114,26 +115,38 @@ export const registrationRouter = createTRPCRouter({
       const resolved = await resolveUsableCode(input.code);
       if (!resolved.ok) codeError(resolved.error);
 
-      const staged = await setEmailVerification(resolved.row, input.email);
-      if (!staged.ok) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This code is tied to a different email address.",
+      return inTransaction(ctx.db, async (tx) => {
+        await lockUsernameNamespace(tx);
+        const staged = await setEmailVerification(
+          resolved.row,
+          input.email,
+          tx,
+        );
+        if (!staged.ok) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This code is tied to a different email address.",
+          });
+        }
+        const refreshed = await tx.registrationCode.findUniqueOrThrow({
+          where: { id: resolved.row.id },
         });
-      }
-      await emailSender.send({
-        category: "SECURITY",
-        to: input.email.trim().toLowerCase(),
-        subject: `Your ${APP_TITLE} verification code`,
-        text:
-          `Your ${APP_TITLE} email verification code is ${staged.emailCode}.\n\n` +
-          `It expires in ${EMAIL_CODE_TTL_MINUTES} minutes. If you didn't request this, ignore this email.`,
-        presentation: { code: staged.emailCode, eyebrow: "EMAIL VERIFICATION" },
+        const invitation = await deliverAccountInvitation(tx, {
+          kind: refreshed.kind,
+          email: input.email,
+          code: staged.emailCode,
+          sourceKey: `staff:${refreshed.id}:${refreshed.emailCodeHash}`,
+          source: {
+            type: "staff",
+            id: refreshed.id,
+            challenge: refreshed.emailCodeHash!,
+          },
+        });
+        return { ok: true, ...invitation };
       });
-      return { ok: true };
     }),
 
-  /** Confirm the emailed 6-digit code. */
+  /** Compatibility verifier for outstanding staff invitation mail. */
   verifyEmail: publicProcedure
     .input(z.object({ code: codeInput, emailCode: emailCodeInput }))
     .mutation(async ({ ctx, input }) => {
@@ -159,7 +172,7 @@ export const registrationRouter = createTRPCRouter({
       return { ok: true, completionProof: confirmed.completionProof };
     }),
 
-  /** Finish: set profile + password, creating/linking the Tutor and verified login. */
+  /** Exchange old browser proof for the shared invitation; no credential write here. */
   complete: publicProcedure
     .input(
       z.object({
@@ -183,29 +196,36 @@ export const registrationRouter = createTRPCRouter({
       const resolved = await resolveUsableCode(input.code);
       if (!resolved.ok) codeError(resolved.error);
 
-      const done = await completeRegistration(resolved.row, {
-        completionProof: input.completionProof,
-        preferredLatinName: input.preferredLatinName,
-        preferredName: input.preferredName,
-        firstName: input.firstName,
-        lastName: input.lastName,
-        alternativeNames: input.alternativeNames,
-        gradeLevel: input.gradeLevel ?? null,
-        gradeSchoolYear: input.gradeSchoolYear,
-        password: input.password,
+      const row = resolved.row;
+      if (
+        !row.emailVerifiedAt ||
+        !row.emailCodeHash ||
+        !row.pendingEmail ||
+        input.completionProof !==
+          registrationCompletionProof(
+            "invitation",
+            row.id,
+            row.emailCodeHash,
+            row.emailVerifiedAt,
+          )
+      )
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Verify your email before finishing.",
+        });
+      // Cached pre-deployment clients exchange their valid proof for the shared invitation.
+      // This adapter never creates credentials or attaches participation on the old endpoint.
+      const invitation = await deliverAccountInvitation(ctx.db, {
+        kind: row.kind,
+        email: row.pendingEmail,
+        sourceKey: "staff:" + row.id + ":" + row.emailCodeHash,
+        source: { type: "staff", id: row.id, challenge: row.emailCodeHash },
       });
-      if (!done.ok) {
-        const message =
-          done.error === "email-unverified"
-            ? "Verify your email before finishing."
-            : "An account already uses this email. Sign in or reset your password; ask Head to change its roles in Users & Roles.";
-        throw new TRPCError({ code: "BAD_REQUEST", message });
-      }
       return {
         ok: true,
-        username: done.username,
-        academicConfirmationRequired:
-          done.academicConfirmationRequired ?? false,
+        username: "",
+        academicConfirmationRequired: false,
+        ...invitation,
       };
     }),
 });

@@ -9,6 +9,7 @@ import { brandingMetadata } from "~/server/branding-metadata";
 import { RegisterFlow } from "./register-flow";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
+import { auth } from "~/server/auth";
 
 export async function generateMetadata() {
   return brandingMetadata("Register");
@@ -18,12 +19,19 @@ export async function generateMetadata() {
  * Invited members redeem a staff-issued registration code. Keep the public viewer and
  * tutee routes visible so visitors without an invitation can find the right starting point.
  */
-export default async function RegisterPage() {
-  const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
+export default async function RegisterPage({
+  searchParams,
+}: { searchParams?: Promise<{ invitation?: string }> } = {}) {
+  const [t, features, params, session] = await Promise.all([
+    getTranslations(),
+    getFeatures(db),
+    searchParams,
+    auth(),
+  ]);
   return (
     <PublicFormPage
-      title={t("auth.register.title")}
-      description={t("auth.register.subtitle")}
+      title={t("accountInvitation.pageTitle")}
+      description={t("accountInvitation.pageHelp")}
       backLabel={t("common.backToMain")}
       footer={
         <div className="space-y-4">
@@ -48,7 +56,11 @@ export default async function RegisterPage() {
       }
     >
       <PublicFormCard>
-        <RegisterFlow />
+        <RegisterFlow
+          invitationId={params?.invitation}
+          signedIn={Boolean(session?.user)}
+          viewerSignupAvailable={features.VIEWER_SIGNUP}
+        />
       </PublicFormCard>
     </PublicFormPage>
   );

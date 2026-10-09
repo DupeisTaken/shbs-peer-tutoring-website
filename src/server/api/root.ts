@@ -1,4 +1,5 @@
 import { departureRouter } from "./routers/departure";
+import { accountInvitationRouter } from "./routers/account-invitation";
 import { historicalAcademicsRouter } from "./routers/historical-academics";
 import { assignmentRouter } from "./routers/assignment";
 import { tuteeHistoryRouter } from "./routers/tutee-history";
@@ -69,6 +70,7 @@ export const appRouter = createTRPCRouter({
   localization: localizationRouter,
   i18n: i18nRouter,
   registration: registrationRouter,
+  accountInvitation: accountInvitationRouter,
   account: accountRouter,
   crew: crewRouter,
   program: programRouter,

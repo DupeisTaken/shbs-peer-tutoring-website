@@ -5,14 +5,21 @@ import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { HistoryError } from "~/app/_components/tutee-history";
 
-export function HistoryClaim({ token }: { token: string }) {
+export function HistoryClaim({
+  token,
+  invitationId,
+}: {
+  token: string;
+  invitationId?: string;
+}) {
   const t = useTranslations("tuteeHistory");
   const [confirmed, setConfirmed] = useState(false);
-  const validToken = /^[a-f0-9]{64}$/.test(token);
-  const query = api.tuteeHistory.inspectClaim.useQuery(
-    { token },
-    { enabled: validToken, retry: false },
-  );
+  const validToken = Boolean(invitationId) || /^[a-f0-9]{64}$/.test(token);
+  const input = invitationId ? { invitationId } : { token };
+  const query = api.tuteeHistory.inspectClaim.useQuery(input, {
+    enabled: validToken,
+    retry: false,
+  });
   const utils = api.useUtils();
   const claim = api.tuteeHistory.claim.useMutation({
     onSuccess: async () => {
@@ -50,7 +57,7 @@ export function HistoryClaim({ token }: { token: string }) {
           <button
             className="btn-primary min-h-11"
             disabled={!confirmed || claim.isPending}
-            onClick={() => claim.mutate({ token })}
+            onClick={() => claim.mutate(input)}
           >
             {t("claim")}
           </button>

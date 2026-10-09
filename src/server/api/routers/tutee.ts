@@ -4,6 +4,7 @@ import { withSignupAdmission } from "~/server/signup-admission";
 import { getRecruitment } from "~/server/program/recruitment";
 import { getSignupSettings } from "~/server/program/signup-fields";
 import { courseChoices } from "~/server/course-choices";
+import { issueSurveyAccountInvitation } from "~/server/auth/account-invitations";
 import { z } from "zod";
 
 import {
@@ -19,7 +20,6 @@ import {
   submitSurvey,
   resendSurvey,
   inspectSurvey,
-  confirmSurvey,
   pendingSurveys,
 } from "~/server/student-survey";
 
@@ -104,7 +104,7 @@ export const tuteeRouter = createTRPCRouter({
         ctx.headers,
         "complete",
         input.token,
-        () => confirmSurvey(ctx.db, input.token, input.password),
+        () => issueSurveyAccountInvitation(ctx.db, input.token),
       );
     }),
   pendingSurveys: adminProcedure.query(({ ctx }) => pendingSurveys(ctx.db)),
