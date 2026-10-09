@@ -29,13 +29,13 @@ export default async function RegisterPage() {
         <div className="space-y-4">
           {features.VIEWER_SIGNUP && (
             <PublicFormRoute
-              href="/viewer-signup"
+              href="/viewer"
               label={t("auth.signupRoutes.viewerLink")}
             >
               {t("auth.signupRoutes.viewerHelp")}
             </PublicFormRoute>
           )}
-          <PublicFormRoute href="/signup" label={t("survey.requestTutor")}>
+          <PublicFormRoute href="/tutee" label={t("survey.requestTutor")}>
             {t("auth.signupRoutes.tuteeHelp")}
           </PublicFormRoute>
           <div className="border-t border-slate-200 pt-4">

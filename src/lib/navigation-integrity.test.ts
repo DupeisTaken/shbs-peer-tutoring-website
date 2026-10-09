@@ -11,7 +11,7 @@ function files(root: string): string[] {
 }
 /** Validate links against Next's routes and files served from public/.
  * Runtime CMS URLs and interpolated IDs are checked separately in the browser/API audit. */
-it("every literal internal page/notification link resolves to a deployed route or asset", () => {
+it("every literal internal page/notification link resolves to a deployed route or asset", async () => {
   // Enumerate actual files so downloads count without exempting broken asset URLs.
   const publicAssets = new Set(
     files("public").map(
@@ -43,6 +43,14 @@ it("every literal internal page/notification link resolves to a deployed route o
       );
     });
   const missing: string[] = [];
+  const { default: config } = await import("../../next.config.js");
+  const redirects = (await config.redirects?.()) ?? [];
+  for (const redirect of redirects) {
+    expect(
+      routes.some((route) => route.test(redirect.destination)),
+      redirect.source,
+    ).toBe(true);
+  }
   for (const path of files("src").filter(
     (path) => /\.[tj]sx?$/.test(path) && !path.includes(".test."),
   )) {
@@ -56,6 +64,7 @@ it("every literal internal page/notification link resolves to a deployed route o
       const pathname = href.split(/[?#]/)[0]!;
       if (
         !publicAssets.has(pathname) &&
+        !redirects.some((redirect) => redirect.source === pathname) &&
         !routes.some((route) => route.test(pathname))
       )
         missing.push(`${path}: ${href}`);

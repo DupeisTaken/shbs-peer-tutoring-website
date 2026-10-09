@@ -2,6 +2,36 @@
 
 Use this guide to find the code responsible for current behavior and understand the invariants a change must preserve. For setup commands, see [local development](local-development.md); for operating the server, see [deployment](deployment.md).
 
+## Public signup URL convention
+
+Website and email hrefs publish short links. Descriptive routes render the existing
+forms; the exact short paths permanently redirect with HTTP 308 and preserve all
+query values, including repeated parameters, invitation prefill and callbacks.
+
+| Published href | Canonical page | Purpose |
+| --- | --- | --- |
+| `/register` | `/register-account` | Redeem a staff invitation |
+| `/tutee` | `/tutee-signup` | Request tutoring |
+| `/tutor` | `/tutor-signup` | Apply to tutor |
+| `/viewer` | `/viewer-signup` | Register read-only Viewer access when enabled |
+| `/crew` | `/crew-signup` | Apply to the crew when enabled |
+| `/tutee/account` | `/tutee-signup/account` | Confirm a tutoring request and set up an account if needed |
+
+`/signup` and `/signup/account` remain permanent compatibility redirects to the
+corresponding tutee pages. [Next configuration](../next.config.js) owns redirects;
+[authentication](../src/server/auth/config.ts) lists exact public entries without
+prefix exemptions. Adjacent paths still require sign-in. Feature gates, API
+authorization, invitation formats, approval rules and account workflows stay in
+their existing features. The canonical pages reuse the original feature modules.
+This implementation has no registration proof cookie; future credential handoffs
+must choose their cookie scope explicitly when relocating routes.
+
+[CMS href presentation](../src/lib/public-signup-links.ts) maps exact root-relative
+signup destinations to short links in buttons and Markdown while keeping stored
+content, query strings, fragments, external URLs and private destinations intact.
+Seed buttons and editor defaults use the same published convention. Absolute URLs
+in stored content retain their explicit origin and destination.
+
 ## Architecture
 
 Tutor Roster details use the read-only `tutorDetails.get` procedure, guarded by the same management permission as account policy history. Its explicit field selection excludes authentication secrets; the UI mounts the query only after a staff member opens a tutor. Subject grouping reads concrete grants from approved qualification sources, never recalculating inheritance from current level ranks. Willingness remains a separate three-state value (true, false, or no record). Policy history uses the linked account ID through `student.acceptanceRecords`; neither matching contact data nor viewing a record grants account or role-edit access.

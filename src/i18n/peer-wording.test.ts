@@ -151,8 +151,8 @@ describe("peer introduction publication boundaries", () => {
       (block) => block.id === "about-cta",
     )!.buttons!;
     expect(buttons.map((button) => [button.href, button.label.zh])).toEqual([
-      ["/signup", "申请同伴辅导"],
-      ["/tutor-signup", "成为辅导伙伴"],
+    ["/tutee", "申请同伴辅导"],
+    ["/tutor", "成为辅导伙伴"],
     ]);
   });
 });
