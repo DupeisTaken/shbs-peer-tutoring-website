@@ -123,7 +123,10 @@ it("mounts detail reads on demand and separates all four dimensions with both me
   mount();
   expect(fixture.query).not.toHaveBeenCalled();
   open();
-  expect(fixture.query).toHaveBeenCalledWith({ userId: "login" });
+  expect(fixture.query).toHaveBeenCalledWith(
+    { userId: "login" },
+    expect.any(Object),
+  );
   for (const title of [
     "Login",
     "Permissions and memberships",
@@ -194,7 +197,10 @@ it("distinguishes accountless records with retained owners from ownerless record
     />,
   );
   open();
-  expect(fixture.query).toHaveBeenCalledWith({ tutorId: "tutor" });
+  expect(fixture.query).toHaveBeenCalledWith(
+    { tutorId: "tutor" },
+    expect.any(Object),
+  );
   expect(screen.getByText("Invitation pending")).toBeTruthy();
   expect(screen.getByText("No direct login attached")).toBeTruthy();
   expect(

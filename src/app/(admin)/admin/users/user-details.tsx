@@ -68,12 +68,14 @@ function DetailSection({
   );
 }
 
-/** This component is mounted by TableDetails only after the staff member opens
- * the row. Cached content survives recovery; reads never change profile ownership. */
+/** Mount only after staff open the row. Every opening rechecks the server because
+ * membership, moderation and historical-link editors have independent save scopes.
+ * Keep the last successful read during refresh/recovery; never replay a write. */
 function UserDetailContent({ row }: { row: AccountRow }) {
   const t = useTranslations();
   const query = api.admin.accountDetails.useQuery(
     row.userId ? { userId: row.userId } : { tutorId: row.tutorId! },
+    { refetchOnMount: "always" },
   );
   const data = query.data;
   return (
@@ -95,6 +97,11 @@ function UserDetailContent({ row }: { row: AccountRow }) {
       )}
       {!data && !query.error && (
         <StatePanel kind="loading" title={t("common.loading")} />
+      )}
+      {data && query.isFetching && (
+        <p role="status" className="muted text-sm">
+          {t("common.loading")}
+        </p>
       )}
       {data && (
         <>
