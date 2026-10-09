@@ -1003,6 +1003,23 @@ model CrewApplication {
   @@index([status])
 }
 
+/// Mailbox-owned public crew draft/status challenge; never itself authorizes participation.
+/// Drafts become durable CrewApplications only after successful recipient verification.
+model CrewSignupVerification {
+  id String @id @default(cuid())
+  email String @unique
+  draft Json?
+  applicationId String?
+  codeHash String
+  codeExpiresAt DateTime
+  attempts Int @default(0)
+  verifiedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([applicationId])
+  @@index([codeExpiresAt])
+}
+
 /// Kind of a crew lifecycle request a member initiates from /patrol.
 enum CrewRequestKind {
   OPT_OUT

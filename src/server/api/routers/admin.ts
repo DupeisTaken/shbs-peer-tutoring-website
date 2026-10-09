@@ -107,6 +107,7 @@ import {
   issueTutorSetupLink,
 } from "~/server/auth/password-reset";
 import { issueRegistrationCode } from "~/server/auth/registration";
+import { decideCrewApplication } from "~/server/crew/signup";
 import { reconcileApplication } from "~/server/tutors/application-status";
 import {
   notifyAdmins,
@@ -4140,47 +4141,9 @@ export const adminRouter = createTRPCRouter({
         comment: z.string().trim().max(500).optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const app = await ctx.db.crewApplication.findUniqueOrThrow({
-        where: { id: input.applicationId },
-        select: { id: true, name: true, email: true, status: true },
-      });
-      if (app.status !== "PENDING") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This application is already decided.",
-        });
-      }
-      let code: string | null = null;
-      if (input.action === "ACCEPT") {
-        const issued = await issueRegistrationCode({
-          email: app.email,
-          kind: "CREW",
-          crewApplicationId: app.id,
-          label: `${app.name} (crew)`,
-          issuedById: ctx.session.user.id,
-          issuedByName: ctx.session.user.name,
-        });
-        code = issued.code;
-      }
-      await ctx.db.crewApplication.update({
-        where: { id: app.id },
-        data: {
-          status: input.action === "ACCEPT" ? "ACCEPTED" : "REJECTED",
-          decisionComment: input.comment?.trim() ? input.comment.trim() : null,
-          decidedByName: ctx.session.user.name,
-          decidedAt: new Date(),
-        },
-      });
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `${input.action === "ACCEPT" ? "Accepted" : "Rejected"} crew application from ${app.name}`,
-        entity: "CrewApplication",
-        entityId: app.id,
-      });
-      return { ok: true, code };
-    }),
+    .mutation(({ ctx, input }) => decideCrewApplication(ctx.db, input, {
+      id: ctx.session.user.id, name: ctx.session.user.name ?? null,
+    })),
 
   /** Pending crew opt-out/reentry requests (member-initiated), earliest-first. Opt-out becomes
    *  approvable only after its recall cooldown elapses. */
@@ -4493,6 +4456,7 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       return ctx.db.$transaction(async (tx) => {
         // Redemption claims this same row. A concurrent revoke must not delete used history.
+        await lockUsernameNamespace(tx);
         await tx.$queryRaw`SELECT id FROM "RegistrationCode" WHERE id = ${input.id} FOR UPDATE`;
         const code = await tx.registrationCode.findUniqueOrThrow({
           where: { id: input.id },

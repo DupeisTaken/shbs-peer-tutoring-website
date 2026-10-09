@@ -13,6 +13,7 @@ export function SignupError({
 }) {
   const t = useTranslations("signupProtection");
   const invitation = useTranslations("accountInvitation");
+  const crew = useTranslations("public.crewSignup");
   const invitationErrors: Record<string, string> = {
     INVITATION_INVALID: "invalid",
     INVITATION_ACCOUNT_CHANGED: "accountChanged",
@@ -32,5 +33,9 @@ export function SignupError({
   if (error.message === "SIGNUP_RETRY")
     return <>{t("retry", { seconds: error.data?.retryAfterSeconds ?? 60 })}</>;
   if (error.message === "SIGNUP_MAIL_FAILED") return <>{t("mailFailed")}</>;
+  // Crew source authority is also rechecked from the shared invitation entry.
+  if (error.message === "CREW_DISABLED") return <>{crew("disabled")}</>;
+  if (error.message === "SIGNUP_CREW_INVALID")
+    return <>{crew("invalidCode")}</>;
   return <ProfilePolicyError message={error.message} />;
 }

@@ -1,9 +1,11 @@
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import type * as Notifications from "~/server/notifications/create";
+import type { EmailMessage } from "~/server/email/sender";
 
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
+const mail = vi.hoisted(() => ({ send: vi.fn<(message: EmailMessage) => Promise<void>>() }));
 vi.mock("~/server/email/sender", () => ({
-  emailSender: { send: vi.fn() },
+  emailSender: { send: mail.send },
   isEmailDeliveryAvailable: () => true,
 }));
 vi.mock("~/server/notifications/create", async (importOriginal) => {
@@ -16,6 +18,7 @@ import { createCaller } from "../root";
 import { currentPolicy } from "~/server/policy-acceptance";
 import { notifyAdmins } from "~/server/notifications/create";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
+import { stageCrewVerification, verifyCrewApplication } from "~/server/crew/signup";
 import {
   APPLICATION_EMAIL_MAX,
   APPLICATION_IP_MAX,
@@ -42,6 +45,15 @@ const crewInput = (email = "applicant@example.test") => ({
   email,
   message: "Original message",
 });
+// These tests isolate durable intake capacity; mailbox admission is covered by
+// crew/signup and CAPTCHA tests. Crew reaches this boundary only after its OTP.
+async function verifiedCrew(input: ReturnType<typeof crewInput>, ip = "192.0.2.1") {
+  await stageCrewVerification(db, input.email, input);
+  const code = mail.send.mock.calls.filter(([message]) => message.to === input.email.toLowerCase()).at(-1)?.[0].presentation?.code;
+  if (!code) throw Error("Expected crew mailbox challenge");
+  await verifyCrewApplication(db, { email: input.email, code }, new Headers({ "x-forwarded-for": ip }));
+  return { ok: true };
+}
 const bucket = (
   scope: "email" | "ip",
   value: string,
@@ -71,6 +83,7 @@ beforeEach(async () => {
       " CASCADE",
   );
   vi.mocked(notifyAdmins).mockClear();
+  mail.send.mockReset().mockResolvedValue(undefined);
   for (const role of ["HEAD", "ADMIN", "COORDINATOR"] as const)
     await db.user.create({
       data: { name: role, email: `${role}@example.test`, role },
@@ -118,18 +131,21 @@ it("serializes concurrent tutor retries across address casing and networks witho
 
 it("serializes crew retries, preserves answers and does not disclose the earlier application", async () => {
   const input = crewInput();
+  await stageCrewVerification(db, input.email, input);
+  const code = mail.send.mock.calls.at(-1)?.[0].presentation?.code;
+  if (!code) throw Error("Expected crew mailbox challenge");
   await Promise.all(
     Array.from({ length: 6 }, (_, i) =>
-      client().crew.submitApplication({
-        ...input,
+      verifyCrewApplication(db, {
         email: i % 2 ? input.email.toUpperCase() : input.email,
-      }),
+        code,
+      }, new Headers({ "x-forwarded-for": "192.0.2.1" })),
     ),
   );
   expect(await db.crewApplication.count()).toBe(1);
   expect(await db.notification.count()).toBe(3);
   await expect(
-    client().crew.submitApplication({ ...input, message: "Replace this" }),
+    verifiedCrew({ ...input, message: "Replace this" }),
   ).resolves.toEqual({ ok: true });
   expect((await db.crewApplication.findFirstOrThrow()).message).toBe(
     input.message,
@@ -153,7 +169,7 @@ it("shares the email allowance between tutor and crew, and rolls back the over-l
   await bucket("email", input.email, APPLICATION_EMAIL_MAX - 1);
   const results = await Promise.allSettled([
     client().application.submit(input),
-    client("192.0.2.2").crew.submitApplication(crewInput(input.email)),
+    verifiedCrew(crewInput(input.email), "192.0.2.2"),
   ]);
   expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
   const rejected = results.find((r) => r.status === "rejected");
@@ -177,7 +193,7 @@ it("serializes the last network allowance across distinct emails", async () => {
   await bucket("ip", "192.0.2.1", APPLICATION_IP_MAX - 1);
   const results = await Promise.allSettled(
     Array.from({ length: 4 }, (_, i) =>
-      client().crew.submitApplication(crewInput(`applicant${i}@example.test`)),
+      verifiedCrew(crewInput(`applicant${i}@example.test`)),
     ),
   );
   expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
@@ -185,17 +201,17 @@ it("serializes the last network allowance across distinct emails", async () => {
   expect(await db.crewApplication.count()).toBe(1);
   expect(await db.publicApplicationRateLimit.count()).toBe(2);
   await expect(
-    client("192.0.2.2").crew.submitApplication(crewInput("other@example.test")),
+    verifiedCrew(crewInput("other@example.test"), "192.0.2.2"),
   ).resolves.toEqual({ ok: true });
 });
 
 it("keeps retries successful when limits are full, without reserving more capacity", async () => {
   const input = crewInput();
-  await client().crew.submitApplication(input);
+  await verifiedCrew(input);
   await db.publicApplicationRateLimit.updateMany({
     data: { count: APPLICATION_IP_MAX },
   });
-  await expect(client().crew.submitApplication(input)).resolves.toEqual({
+  await expect(verifiedCrew(input)).resolves.toEqual({
     ok: true,
   });
   expect(
@@ -217,7 +233,7 @@ it("resets expired email and network windows and prunes old unrelated counters",
       resetsAt: new Date(Date.now() - 8 * 24 * 60 * 60_000),
     },
   });
-  await client().crew.submitApplication(input);
+  await verifiedCrew(input);
   const rows = await db.publicApplicationRateLimit.findMany();
   expect(rows).toHaveLength(2);
   expect(
@@ -229,13 +245,13 @@ it("rolls back application and capacity when notification fan-out fails, then pe
   vi.mocked(notifyAdmins).mockRejectedValueOnce(
     new Error("Synthetic notification failure"),
   );
-  await expect(client().crew.submitApplication(crewInput())).rejects.toThrow(
+  await expect(verifiedCrew(crewInput())).rejects.toThrow(
     "Synthetic notification failure",
   );
   expect(await db.crewApplication.count()).toBe(0);
   expect(await db.publicApplicationRateLimit.count()).toBe(0);
   expect(await db.notification.count()).toBe(0);
-  await expect(client().crew.submitApplication(crewInput())).resolves.toEqual({
+  await expect(verifiedCrew(crewInput())).resolves.toEqual({
     ok: true,
   });
   expect(await db.notification.count()).toBe(3);

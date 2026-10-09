@@ -1,4 +1,6 @@
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
+import type { EmailMessage } from "~/server/email/sender";
+import { stageCrewVerification, verifyCrewApplication } from "~/server/crew/signup";
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 const delivery = vi.hoisted(() => ({
@@ -450,12 +452,18 @@ async function tutorInput(name: string, email = "applicant@example.test") {
     subjects: [{ subjectId: "policy-math" }],
   };
 }
+async function verifiedCrew(input: { name: string; email: string; gradeLevel?: number }) {
+  await stageCrewVerification(db, input.email, input);
+  const code = (delivery.send.mock.calls.at(-1)?.[0] as EmailMessage | undefined)?.presentation?.code;
+  if (!code) throw Error("Expected crew mailbox challenge");
+  return verifyCrewApplication(db, { email: input.email, code }, new Headers());
+}
 it("enforces new tutor and crew application names while preserving historical duplicate submissions", async () => {
   await expect(
     publicCaller().application.submit(await tutorInput("王小明")),
   ).rejects.toMatchObject(policyError);
   await expect(
-    publicCaller().crew.submitApplication({
+    verifiedCrew({
       name: "王小明",
       email: "crew@example.test",
     }),
@@ -466,7 +474,7 @@ it("enforces new tutor and crew application names while preserving historical du
   await setRequired(false);
   await publicCaller().application.submit(await tutorInput("Xiaoming Wang"));
   await db.tutorApplication.updateMany({ data: { name: "王小明" } });
-  await publicCaller().crew.submitApplication({
+  await verifiedCrew({
     name: "Xiaoming Wang",
     email: "crew@example.test",
     gradeLevel: 4,
@@ -478,7 +486,7 @@ it("enforces new tutor and crew application names while preserving historical du
     data: { offeredGrades: [10, 11, 12] },
   });
   await publicCaller().application.submit(await tutorInput("李小明"));
-  await publicCaller().crew.submitApplication({
+  await verifiedCrew({
     name: "李小明",
     email: "crew@example.test",
     gradeLevel: 4,
@@ -491,7 +499,7 @@ it("enforces new tutor and crew application names while preserving historical du
     gradeLevel: 4,
   });
   await expect(
-    publicCaller().crew.submitApplication({
+    verifiedCrew({
       name: "Alice Chen",
       email: "newcrew@example.test",
       gradeLevel: 4,

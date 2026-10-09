@@ -2171,13 +2171,67 @@
     },
     "crewSignup": {
       "title": "Join the Crew",
-      "intro": "The crew walks the rooms and records headcounts to validate attendance. Apply below — an admin will review and send you a code.",
+      "intro": "The crew visits rooms and records headcounts to validate attendance. Verify your email to submit an application, then wait for admin approval. You can return here to check your application and retrieve an approved invitation.",
       "alreadyMember": "Already on the team?",
       "signIn": "Sign in",
-      "submit": "Submit application",
+      "submit": "Continue to email verification",
       "submitting": "Submitting…",
       "doneTitle": "Application Received",
-      "doneBody": "Thanks! An admin will review your application and email you a registration code if accepted.",
+      "doneBody": "Your verified application is awaiting admin review. Return here to check its status and retrieve your invitation after approval.",
+      "modeLabel": "Application options",
+      "newApplication": "New application",
+      "checkApplication": "Check existing application",
+      "detailsTitle": "Application details",
+      "verifyTitle": "Verify your email",
+      "statusTitle": "Application status",
+      "steps": {
+        "application": "Application",
+        "email": "Email verification",
+        "review": "Admin review"
+      },
+      "lookupHint": "Use the email from your original application. We will verify it before showing your review status.",
+      "sendCode": "Send verification code",
+      "sent": "We emailed a verification code to {email}.",
+      "verifyHint": "Enter the five-character code. Email verification submits a new application for review; it does not grant crew access.",
+      "emailCode": "Email verification code",
+      "verify": "Verify email",
+      "resend": "Resend code",
+      "editDetails": "Back to application options",
+      "refreshStatus": "Refresh status",
+      "verifyAgain": "Send a new verification code",
+      "proofExpired": "Verify your email again before refreshing the status or retrieving an invitation.",
+      "invalidCode": "This verification code or session is invalid or expired. Request a new code and verify your email again.",
+      "disabled": "Crew applications are currently unavailable. Please contact the team.",
+      "statuses": {
+        "PENDING": {
+          "title": "Awaiting admin review",
+          "body": "Your application has been received. You can refresh this status after an admin reviews it, or return later and verify your email again."
+        },
+        "REJECTED": {
+          "title": "Application not approved",
+          "body": "Your application was not approved. Contact the team if you have questions or want to update your application."
+        },
+        "NOT_FOUND": {
+          "title": "No application found",
+          "body": "We could not find a submitted application for this email. You can start a new application below."
+        },
+        "AVAILABLE": {
+          "title": "Application approved",
+          "body": "Your crew invitation is ready. Continue with the invitation receipt below to finish setting up crew access."
+        },
+        "USED": {
+          "title": "Invitation already used",
+          "body": "Your approved invitation has already been redeemed. Sign in to your account; contact the team if you need help accessing crew."
+        },
+        "EXPIRED": {
+          "title": "Invitation expired",
+          "body": "Your approved invitation has expired. Contact the team to request a new invitation."
+        },
+        "UNAVAILABLE": {
+          "title": "Invitation unavailable",
+          "body": "Your application is approved, but an active invitation is unavailable. Contact the team for help."
+        }
+      },
       "fields": {
         "fullName": "Name",
         "email": "Email",

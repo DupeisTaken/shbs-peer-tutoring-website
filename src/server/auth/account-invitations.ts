@@ -32,6 +32,7 @@ import {
   completeRegistration,
   codePrefill,
   MAX_CODE_ATTEMPTS,
+  assertCrewRegistrationSource,
 } from "./registration";
 import { completeViewerSignup } from "./viewer-signup";
 import {
@@ -263,6 +264,7 @@ async function sourceState(
       staff.emailCodeExpiresAt <= new Date()
     )
       throw invalid();
+    await assertCrewRegistrationSource(tx, staff);
     return { source, staff };
   }
   if (source.type === "viewer") {

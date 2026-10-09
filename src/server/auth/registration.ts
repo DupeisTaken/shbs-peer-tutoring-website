@@ -59,6 +59,7 @@ import {
 import { needsAcademicConfirmationForParticipation } from "~/lib/academics";
 import { graduationYear } from "~/lib/period";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
+import { getFeatures } from "~/server/program/features";
 
 /** Registration codes stay valid for one week — long enough to distribute and use. */
 export const CODE_TTL_DAYS = 7;
@@ -93,7 +94,7 @@ export function hashCode(code: string): string {
  * The exact challenge hash and verification timestamp invalidate grants on resend/reverification.
  * Expiry and single use are enforced by the account-write transaction, not by browser state. */
 export function registrationCompletionProof(
-  purpose: "viewer" | "invitation" | "history",
+  purpose: "viewer" | "invitation" | "history" | "crew",
   id: string,
   codeHash: string,
   verifiedAt: Date,
@@ -165,8 +166,15 @@ async function createRegistrationCode(
 ) {
   const expiresAt = new Date(Date.now() + CODE_TTL_DAYS * 24 * 60 * 60 * 1000);
   const email = opts.email?.trim() ? opts.email.trim().toLowerCase() : null;
+  const crewChallenge = opts.crewApplicationId
+    ? await client.crewSignupVerification.findFirst({
+        where: { applicationId: opts.crewApplicationId, codeExpiresAt: { gt: new Date() } },
+        select: { codeHash: true },
+      })
+    : null;
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateRegistrationCode();
+    if (crewChallenge?.codeHash === hashCode(code)) continue;
     const clash = await client.registrationCode.findUnique({
       where: { code },
       select: { id: true },
@@ -195,6 +203,18 @@ async function createRegistrationCode(
     return { id: row.id, code, expiresAt };
   }
   throw new Error("Could not generate a unique registration code.");
+}
+
+/** Public-application grants remain bound to their live approval and module.
+ * Manual crew keys without an application retain their existing authorization. */
+export async function assertCrewRegistrationSource(client: DomainDb, row: { kind: string; crewApplicationId: string | null }) {
+  if (row.kind !== "CREW" || !row.crewApplicationId) return;
+  if (!(await getFeatures(client)).CREW)
+    throw new TRPCError({ code: "FORBIDDEN", message: "CREW_DISABLED" });
+  await client.$queryRaw`SELECT id FROM "CrewApplication" WHERE id = ${row.crewApplicationId} FOR UPDATE`;
+  const application = await client.crewApplication.findUnique({ where: { id: row.crewApplicationId }, select: { status: true } });
+  if (application?.status !== "ACCEPTED")
+    throw new TRPCError({ code: "BAD_REQUEST", message: "INVITATION_INVALID" });
 }
 
 type CodeRow = NonNullable<Awaited<ReturnType<typeof loadCode>>>;
@@ -633,6 +653,7 @@ export async function completeRegistration(
     const result = await inTransaction(client, async (tx) => {
       await lockEntity(tx, "program:period");
       await lockUsernameNamespace(tx);
+      await assertCrewRegistrationSource(tx, row);
       const term = await tx.term.findFirst({
         where: { active: true },
         select: { schoolYear: true },

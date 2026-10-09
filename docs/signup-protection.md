@@ -1,17 +1,18 @@
 # Public signup protection
 
-Tutee submit (including `requestSignup`) and resend, plus viewer start/resend, use
-the same mail admission lane. Confirmation, inspection and viewer verification /
-completion have a separate lane; exhausting signup mail does not consume their
-capacity. Existing-account sign-in and password recovery are outside these quotas.
-Recruitment windows and the viewer feature switch still apply. This is application
+Tutee submit (including `requestSignup`) and resend, viewer start/resend, and Crew
+application/status verification mail use the same mail admission lane. Confirmation,
+inspection, mailbox verification and completion keep independent admission capacity;
+exhausting signup mail does not consume it. Existing-account sign-in and password
+recovery are outside these quotas. Recruitment windows and the Viewer/Crew feature
+switches still apply. This is application
 abuse mitigation, not protection against a saturated network or volumetric DDoS.
 
 ## Defaults and tuning
 
 Each admitted operation consumes one count in each applicable quota, even if later
 business validation or delivery fails. Limits are fixed windows starting with the
-first admission, not monthly traffic estimates. Values below cover both audiences.
+first admission, not monthly traffic estimates. Values below cover these public flows.
 
 | Environment variable | Default | Counts / window |
 | --- | --- | --- |

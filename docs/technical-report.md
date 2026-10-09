@@ -13,6 +13,7 @@ separately. Staff-visible `RegistrationCode` keys never authenticate an existing
 | Tutor/Crew/management key | Existing staff authorization plus separate recipient-delivered mailbox code | Original registration transaction adds authorized access with canonical-account preservation | Management rank becomes the higher of the existing rank and invitation rank; no Head grant or demotion. |
 | Tutee request | Full submitted application and policy evidence precede mailbox-code verification; the legacy survey link remains valid | Receipt popup hands off to the original confirmation transaction, retained ownership and policy snapshot | Original request priority, intake/deadline rules and assignment stay separate. |
 | Viewer request | Initial mailbox verification issues a distinct invitation and verified-browser proof | Receipt popup hands off to new Viewer credentials, or sign-in-only for an existing account | Viewer exclusivity and the public signup feature gate remain authoritative. |
+| Public Crew application | Mailbox verification creates a pending application; staff approval and fresh mailbox verification authorize invitation retrieval | The approved staff source issues the shared receipt for explicit new-account or additive Crew review | No Crew access before staff approval and account review; revocation and the Crew feature gate remain authoritative. |
 | Historical tutee invitation | Exact staff-reviewed record, source revision and mailbox proof | Receipt popup hands off to neutral history-only credentials and an envelope receipt | The signed-in owner must separately claim the original historical record. |
 | Head tutor setup | Head authorizes a Tutor invitation to the roster contact | No login before recipient redemption | Existing login recovery is delivered to its canonical address; staff never receive recovery secrets. |
 
@@ -61,6 +62,16 @@ setup uses the same popup after verifying the exact invited mailbox. Closing ret
 failed optional delivery does not repeat verification or the application write. A new account's
 shared review adopts source prefill once, while established account identity remains authoritative.
 `UserAvatar` and shared `AccountSettings` expose Add access to the same code entry for signed-in users.
+
+### Crew application verification and status
+
+`CrewSignupVerification` keeps the email-unique draft and mailbox challenge separate from the durable, staff-reviewed `CrewApplication`. `crew.submitApplication` stages details and sends a challenge; it creates no application or notification before mailbox verification. `crew.verifyApplication` commits the first verified pending application and its notification together. Retries retain the original answers and decision workflow rather than replacing a record under review.
+
+`crew.requestStatus` accepts only email and returns the same public response for known and unknown addresses. Mailbox verification returns a short-lived status proof; `crew.applicationStatus` requires that proof before returning `PENDING`, `REJECTED`, `ACCEPTED` or `NOT_FOUND`. Challenges and status proofs expire after 15 minutes, and resending invalidates prior proof. Private status and invitation data are never authorized by a matching email alone.
+
+Only an accepted application's live, unused staff-issued Crew code permits receipt retrieval. Fresh mailbox proof opens the existing `InvitationReceipt` with the approved application name/grade prefill; no new invitation kind or applicant-selected membership payload is introduced. Retrieval itself writes no credentials or membership. Shared redemption rechecks staff authorization, recipient ownership, current account restrictions and Crew availability before explicitly adding Crew participation. Revoked, expired or used authorization cannot issue a fresh redeemable receipt, and status refresh does not reopen an already completed membership write.
+
+Crew submit/status mail uses the existing durable signup mail admission and optional CAPTCHA, reusing the configured tutee scene with distinct `crew.submit` and `crew.status` purpose-bound grants. Verification and status reads retain independent admission. The additive `20261009210000_crew_signup_verification` migration adds the challenge table and indexes only; it neither creates accounts nor approves existing applications.
 
 ### Opaque invitation codes
 

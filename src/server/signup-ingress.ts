@@ -13,6 +13,8 @@ export function signupLane(path: string): SignupLane | null {
       "tutee.submitSurvey",
       "tutee.resendSurvey",
       "viewer.start",
+      "crew.submitApplication",
+      "crew.requestStatus",
       "program.verifySignupCaptcha",
     ].includes(path)
   )
@@ -23,6 +25,7 @@ export function signupLane(path: string): SignupLane | null {
       "tutee.inspectSurvey",
       "viewer.verify",
       "viewer.complete",
+      "crew.verifyApplication",
     ].includes(path)
   )
     return "complete";
@@ -34,6 +37,7 @@ export function signupLane(path: string): SignupLane | null {
       "program.profilePolicy",
       "program.features",
       "program.captchaPublic",
+      "crew.applicationStatus",
     ].includes(path)
   )
     return "read";
