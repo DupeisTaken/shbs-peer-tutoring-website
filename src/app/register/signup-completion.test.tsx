@@ -397,6 +397,60 @@ it.each([false, true])(
   },
 );
 
+it.each([
+  ["prefilled", "typed"],
+  ["pasted", "typed"],
+  ["prefilled", "prefix-pasted"],
+  ["pasted", "prefix-pasted"],
+])(
+  "preserves digit 1 while retyping a %s legacy receipt (%s)",
+  (method, edit) => {
+    const { container } = render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <RegisterFlow
+          initialCode={method === "prefilled" ? "A1B2C0D4E5F6" : ""}
+        />
+      </NextIntlClientProvider>,
+    );
+    const input = screen.getByLabelText<HTMLInputElement>(
+      new RegExp(en.accountInvitation.code),
+    );
+    if (method === "pasted")
+      fireEvent.paste(input, {
+        clipboardData: { getData: () => "A1B2C0D4E5F6" },
+      });
+    fireEvent.change(input, { target: { value: "" } });
+    if (edit === "prefix-pasted") {
+      fireEvent.paste(input, {
+        clipboardData: { getData: () => "a1b2c" },
+      });
+      expect(input.value).toBe("A1B2C");
+    }
+    for (const character of edit === "prefix-pasted"
+      ? "od4e5f6"
+      : "a1b2cod4e5f6")
+      fireEvent.change(input, { target: { value: input.value + character } });
+    expect(input.maxLength).toBe(12);
+    expect(input.value).toBe("A1B2C0D4E5F6");
+    fireEvent.submit(container.querySelector("form")!);
+    expect(state.enter).toHaveBeenCalledWith({ code: "A1B2C0D4E5F6" });
+  },
+);
+
+it("normalizes a five-character alias submitted from a legacy receipt editor", () => {
+  const { container } = render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <RegisterFlow initialCode="A1B2C0D4E5F6" initialProof={"a".repeat(64)} />
+    </NextIntlClientProvider>,
+  );
+  const input = screen.getByLabelText<HTMLInputElement>(
+    new RegExp(en.accountInvitation.code),
+  );
+  fireEvent.change(input, { target: { value: "ab1od" } });
+  fireEvent.submit(container.querySelector("form")!);
+  expect(state.enter).toHaveBeenCalledWith({ code: "ABI0D" });
+});
+
 it("keeps the invitation return destination while enforced MFA is completed", async () => {
   Object.assign(state.info, {
     existing: true,
@@ -483,7 +537,7 @@ it("staff-key navigation focuses its next heading and Back retains the key", asy
     screen.getByLabelText<HTMLInputElement>(
       new RegExp(en.accountInvitation.code),
     ).value,
-  ).toBe("ABC12");
+  ).toBe("ABCI2");
 });
 
 it("resolves five-character displayed invitations through the shared lookup and retains the legacy field", async () => {
@@ -515,15 +569,60 @@ it("resolves five-character displayed invitations through the shared lookup and 
   expect(state.send).not.toHaveBeenCalled();
 });
 
-it("accepts a copied earlier twelve-character receipt without truncating its identity", () => {
-  const { container } = render(view("en", true));
-  const input = screen.getByLabelText<HTMLInputElement>(
-    new RegExp(en.accountInvitation.code),
-  );
-  fireEvent.paste(input, {
-    clipboardData: { getData: () => " a1b2-c3d4-e5f6 " },
-  });
-  expect(input.value).toBe("A1B2C3D4E5F6");
-  fireEvent.submit(container.querySelector("form")!);
-  expect(state.enter).toHaveBeenCalledWith({ code: "A1B2C3D4E5F6" });
-});
+it.each([
+  [" a1b2-c3d4-e5f6 ", "A1B2C3D4E5F6"],
+  [" aOb2-cod4-e5f6 ", "A0B2C0D4E5F6"],
+])(
+  "accepts a copied earlier twelve-character receipt %s without truncation",
+  (pasted, expected) => {
+    const { container } = render(view("en", true));
+    const input = screen.getByLabelText<HTMLInputElement>(
+      new RegExp(en.accountInvitation.code),
+    );
+    fireEvent.paste(input, {
+      clipboardData: { getData: () => pasted },
+    });
+    expect(input.value).toBe(expected);
+    fireEvent.submit(container.querySelector("form")!);
+    expect(state.enter).toHaveBeenCalledWith({ code: expected });
+  },
+);
+
+it.each(["typed", "pasted"])(
+  "canonicalizes %s O and 1 aliases before submitting",
+  (method) => {
+    const { container } = render(view("en", true));
+    const input = screen.getByLabelText<HTMLInputElement>(
+      new RegExp(en.accountInvitation.code),
+    );
+    if (method === "typed")
+      fireEvent.change(input, { target: { value: "ab1od" } });
+    else
+      fireEvent.paste(input, { clipboardData: { getData: () => " aB-1 od " } });
+    expect(input.value).toBe("ABI0D");
+    fireEvent.submit(container.querySelector("form")!);
+    expect(state.enter).toHaveBeenCalledWith({ code: "ABI0D" });
+  },
+);
+
+it.each([false, true])(
+  "retains prefilled proof only for the same normalized code (edited=%s)",
+  (edited) => {
+    const proof = "a".repeat(64);
+    const { container } = render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <RegisterFlow initialCode=" aB-1 oD " initialProof={proof} />
+      </NextIntlClientProvider>,
+    );
+    const input = screen.getByLabelText<HTMLInputElement>(
+      new RegExp(en.accountInvitation.code),
+    );
+    expect(input.value).toBe("ABI0D");
+    expect(input.maxLength).toBe(5);
+    if (edited) fireEvent.change(input, { target: { value: "abode" } });
+    fireEvent.submit(container.querySelector("form")!);
+    expect(state.enter).toHaveBeenCalledWith(
+      edited ? { code: "AB0DE" } : { code: "ABI0D", proof },
+    );
+  },
+);

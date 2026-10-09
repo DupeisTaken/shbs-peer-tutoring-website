@@ -37,7 +37,8 @@ remain enforced. Participation grants retain school departure checks, intake pri
 evidence and historical ownership; departure alone does not block a management rank grant.
 
 New invitation and staff registration codes retain the five-character uppercase
-Steam-style format, containing both letters and digits. Codes are opaque; their characters
+Steam-style format, containing both letters and digits, including `0` and `I`. Input accepts
+`O`/`o` as `0` and, in five-character codes, `1` as `I`. Codes are opaque; their characters
 do not encode access or invitation type. Outstanding older invitations remain usable.
 Mailbox verification codes remain separate and keep their existing formats.
 

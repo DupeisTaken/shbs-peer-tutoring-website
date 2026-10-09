@@ -107,7 +107,9 @@ Direct Mail — see "Email" below. Sign-in 2FA is enforced when the `EMAIL_2FA` 
 the user's 2FA preference are both enabled.
 
 New invitation and staff registration codes use the five-character uppercase Steam-style
-format, containing both letters and digits; preserve outstanding older invitation codes.
+format, containing both letters and digits, including canonical `0` and `I`. Input accepts
+`O`/`o` as `0` and, in five-character codes, `1` as `I`. Existing receipt hashes select
+the original derivation, preserving older invitations without a new migration.
 Mailbox verification remains separate and retains its existing formats. The additive
 short-code migration preserves older receipt lookup while recording new code retry nonces.
 

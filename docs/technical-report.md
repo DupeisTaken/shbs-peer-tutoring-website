@@ -65,7 +65,12 @@ shared review adopts source prefill once, while established account identity rem
 ### Opaque invitation codes
 
 New displayed invitations and staff keys use the shared five-character
-Steam-style alphabet `23456789ABCDEFGHJKMNPQRSTUVWXYZ`, with both letters and digits.
+Steam-style alphabet `023456789ABCDEFGHIJKMNPQRSTUVWXYZ`, with both letters and digits.
+Entry canonicalizes `O`/`o` to `0` and, for five-character codes only, `1` to `I`.
+The shared browser-safe normalizer keeps input, lookup and quota identity consistent;
+longer legacy hexadecimal receipts and OTPs retain digit `1`. Existing displayed receipts
+are re-derived with the current or original alphabet only when the persisted hash matches,
+so retries and optional mail preserve their code; an unmatched hash fails closed.
 Keep the legacy centered, uppercase, widely spaced `XXXXX` code card. Outstanding
 twelve-character invitations remain accepted for compatibility; code length must not
 determine a new invitation's source or authorization. Server resolution distinguishes

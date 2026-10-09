@@ -184,6 +184,9 @@ separately. Both staff keys and displayed invitations use the legacy centered, s
 input and contain uppercase letters and digits; their shared length does not identify the source
 or authorize a recipient. Check copied-code mailbox verification and verified-browser handoff
 independently. The tutee mailbox OTP remains six hexadecimal characters.
+Verify generated `0` and `I`, equivalent `O`/`o` and five-character `1` entry, typed/pasted
+codes and prefilled browser proof. Check older five-character receipts after alphabet changes
+through retry and optional email, and retain digit `1` in twelve-character legacy receipts.
 
 ### UI pattern gallery
 

@@ -19,7 +19,10 @@ const USER_ID = "test-step-up-user";
 
 function extractCode(): string {
   const message = send.mock.calls.at(-1)?.[0];
-  const code = message?.text.match(/[2-9A-HJ-KMNP-Z]{5}/)?.[0];
+  // Read the issued canonical alphabet, including 0/I; O/1 are entry aliases only.
+  const code = message?.text.match(
+    /[023456789ABCDEFGHIJKMNPQRSTUVWXYZ]{5}/,
+  )?.[0];
   if (!code) throw new Error("expected an emailed step-up code");
   return code;
 }

@@ -81,7 +81,8 @@ function secret(): string {
 }
 
 /** Keyed (HMAC) hash of a code — deterministic for lookup, not offline-brute-forceable. Normalizes
- *  first (uppercase, strip separators) so the 5-char Steam-format OTPs compare case-insensitively. */
+ * first (uppercase, separators, O→0 and five-character 1→I aliases) so entry and lookup
+ * share one canonical identity while longer legacy codes retain their digit 1. */
 export function hashCode(code: string): string {
   return createHmac("sha256", secret())
     .update(normalizeRegCode(code))

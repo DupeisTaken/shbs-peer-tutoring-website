@@ -349,7 +349,7 @@ export async function deliverAccountInvitation(
       let found = false;
       for (let nonce = 0; nonce < 1000; nonce++) {
         const candidate = displayedInvitationCode(input.sourceKey, nonce);
-        if (!/[A-Z]/.test(candidate) || !/[2-9]/.test(candidate)) continue;
+        if (!/[A-Z]/.test(candidate) || !/[02-9]/.test(candidate)) continue;
         const candidateHash = hashCode(candidate);
         if (
           "challenge" in input.source &&
@@ -443,24 +443,40 @@ export async function deliverAccountInvitation(
   });
 }
 
-function displayedInvitationCode(sourceKey: string, nonce: number | null) {
+function displayedInvitationCode(
+  sourceKey: string,
+  nonce: number | null,
+  storedCodeHash?: string,
+) {
   const digest = registrationCompletionProof(
     "invitation",
     nonce === null ? `display:${sourceKey}` : `display:${sourceKey}:${nonce}`,
     "display",
     new Date(0),
   );
-  // Existing emailed links keep their original value. All newly issued receipts
-  // use the familiar alphabet and length, with no plaintext code stored in the DB.
-  if (nonce === null) return digest.slice(0, 12).toUpperCase();
-  let entropy = BigInt(`0x${digest}`);
-  let code = "";
-  for (let i = 0; i < REG_CODE_LENGTH; i++) {
-    code +=
-      REG_CODE_ALPHABET[Number(entropy % BigInt(REG_CODE_ALPHABET.length))];
-    entropy /= BigInt(REG_CODE_ALPHABET.length);
+  const derive = (alphabet: string) => {
+    let entropy = BigInt(`0x${digest}`);
+    let code = "";
+    for (let i = 0; i < REG_CODE_LENGTH; i++) {
+      code += alphabet[Number(entropy % BigInt(alphabet.length))];
+      entropy /= BigInt(alphabet.length);
+    }
+    return code;
+  };
+  const current =
+    nonce === null
+      ? digest.slice(0, 12).toUpperCase()
+      : derive(REG_CODE_ALPHABET);
+  if (storedCodeHash === undefined || equal(hashCode(current), storedCodeHash))
+    return current;
+  // Changing the alphabet changes the base conversion. Recover old five-character
+  // receipts only when their persisted hash proves the original derivation; never
+  // silently replace a recipient's code or guess a format from its nonce.
+  if (nonce !== null) {
+    const legacy = derive("23456789ABCDEFGHJKMNPQRSTUVWXYZ");
+    if (equal(hashCode(legacy), storedCodeHash)) return legacy;
   }
-  return code;
+  throw invalid();
 }
 
 function invitationReceipt(row: AccountInvitation) {
@@ -468,7 +484,11 @@ function invitationReceipt(row: AccountInvitation) {
     invitationId: row.id,
     ...(row.displayedCode
       ? {
-          code: displayedInvitationCode(row.sourceKey, row.displayCodeNonce),
+          code: displayedInvitationCode(
+            row.sourceKey,
+            row.displayCodeNonce,
+            row.codeHash,
+          ),
           proof: proofFor(row),
           email: row.email,
         }
@@ -561,7 +581,11 @@ export async function emailDisplayedInvitation(
     where: { id: input.invitationId },
   });
   if (!row.displayedCode || info.completed) throw invalid();
-  const code = displayedInvitationCode(row.sourceKey, row.displayCodeNonce);
+  const code = displayedInvitationCode(
+    row.sourceKey,
+    row.displayCodeNonce,
+    row.codeHash,
+  );
   const url = `${emailOrigin()}/register?invitation=${encodeURIComponent(row.id)}&code=${code}`;
   await emailSender.send({
     category: "SECURITY",

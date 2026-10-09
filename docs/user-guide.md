@@ -17,8 +17,9 @@ A staff-visible key or a copied invitation code alone cannot sign in as its reci
 
 The invitation page opens with one centered code field and a full-width **Continue** button.
 New invitation and staff registration codes use the legacy Steam-style format: five
-characters containing both uppercase letters and digits from `23456789ABCDEFGHJKMNPQRSTUVWXYZ`.
-The spaced input shows `XXXXX`; lowercase entry is normalized to uppercase. Older outstanding
+characters containing both uppercase letters and digits from `023456789ABCDEFGHIJKMNPQRSTUVWXYZ`.
+The spaced input shows `XXXXX`; lowercase entry is normalized to uppercase. `O`/`o` is
+accepted as `0`, and `1` is accepted as `I` in five-character codes. Older outstanding
 invitation codes remain usable for compatibility. Mailbox verification is a separate code;
 the tutee verification code retains its six-character format and is not the invitation shown afterward.
 After Viewer or tutee email verification, a popup shows the invitation code, **Copy code**,

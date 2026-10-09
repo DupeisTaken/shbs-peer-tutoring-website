@@ -2,6 +2,10 @@
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
+import {
+  normalizeRegCode,
+  normalizeRegCodeDraft,
+} from "~/lib/registration-code";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { RegistrationProgress } from "~/app/_components/registration-progress";
 import { Button } from "~/app/_components/ui/button";
@@ -22,11 +26,15 @@ export function RegisterFlow({
   viewerSignupAvailable?: boolean;
 }) {
   const t = useTranslations("accountInvitation");
+  const normalizedInitialCode = normalizeRegCode(initialCode);
   const [invitationId, setInvitationId] = useState(
-    initialCode ? "" : (initialInvitation ?? ""),
+    normalizedInitialCode ? "" : (initialInvitation ?? ""),
   );
   const [proof, setProof] = useState("");
-  const [code, setCode] = useState(initialCode);
+  const [code, setCode] = useState(normalizedInitialCode);
+  const [legacyEntry, setLegacyEntry] = useState(
+    normalizedInitialCode.length > 5,
+  );
   const [email, setEmail] = useState("");
   const [checked, setChecked] = useState(false);
   const [displayedId, setDisplayedId] = useState("");
@@ -82,14 +90,19 @@ export function RegisterFlow({
         event.preventDefault();
         if (busy || admitted.current) return;
         admitted.current = true;
+        const canonicalCode = normalizeRegCode(code);
         if (checked) {
           if (displayedId)
-            sendDisplayed.mutate({ invitationId: displayedId, code, email });
-          else send.mutate({ code, email });
+            sendDisplayed.mutate({
+              invitationId: displayedId,
+              code: canonicalCode,
+              email,
+            });
+          else send.mutate({ code: canonicalCode, email });
         } else
           enter.mutate({
-            code,
-            ...(initialProof && code === initialCode
+            code: canonicalCode,
+            ...(initialProof && canonicalCode === normalizedInitialCode
               ? { proof: initialProof }
               : {}),
           });
@@ -138,24 +151,25 @@ export function RegisterFlow({
               placeholder="XXXXX"
               required
               minLength={5}
-              maxLength={initialCode.length > 5 || code.length > 5 ? 12 : 5}
+              maxLength={legacyEntry ? 12 : 5}
               value={code}
               onPaste={(event) => {
-                // Only earlier issued twelve-character receipts need this escape
-                // hatch. Ordinary entry and every newly issued code stay five.
-                const pasted = event.clipboardData
-                  .getData("text")
-                  .toUpperCase()
-                  .replace(/[^A-Z0-9]/g, "");
-                if (/^[A-F0-9]{12}$/.test(pasted)) {
+                // Normalize before native maxlength can truncate copied separators.
+                // A legacy editor also preserves digit 1 in pasted code prefixes.
+                const pasted = normalizeRegCodeDraft(
+                  event.clipboardData.getData("text"),
+                  legacyEntry,
+                );
+                if (pasted.length === 5 || /^[A-F0-9]{12}$/.test(pasted)) {
                   event.preventDefault();
                   setCode(pasted);
+                  if (pasted.length === 12) setLegacyEntry(true);
                 }
               }}
               onChange={(event) =>
-                setCode(
-                  event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""),
-                )
+                // Retyping a legacy receipt must not turn its digit 1 into I
+                // when the draft temporarily reaches five characters.
+                setCode(normalizeRegCodeDraft(event.target.value, legacyEntry))
               }
             />
           </label>

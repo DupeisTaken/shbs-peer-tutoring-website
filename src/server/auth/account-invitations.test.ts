@@ -295,9 +295,9 @@ it("a redundant generic tutor invitation preserves an opted-out existing tutor",
 
 it("displays an invitation without mail, preserves its receipt, and requires separate identity proof", async () => {
   const invite = await displayedViewer();
-  expect(invite.code).toMatch(/^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}$/);
+  expect(invite.code).toMatch(/^[023456789ABCDEFGHIJKMNPQRSTUVWXYZ]{5}$/);
   expect(invite.code).toMatch(/[A-Z]/);
-  expect(invite.code).toMatch(/[2-9]/);
+  expect(invite.code).toMatch(/[02-9]/);
   expect(mail.send).not.toHaveBeenCalled();
   expect(await enterDisplayedInvitation(db, { code: invite.code! })).toEqual({
     kind: "display",
@@ -433,22 +433,53 @@ it("staff issuance skips displayed codes and a corrupted ambiguous namespace fai
   ).rejects.toThrow("INVITATION_INVALID");
 });
 
-it("keeps previously issued twelve-character links recoverable", async () => {
+// Reconstruct persisted receipts using their original alphabet, independent of
+// production recovery. Positive nonces ensure retries cannot masquerade as versions.
+function fixtureDisplayCode(
+  sourceKey: string,
+  nonce: number,
+  alphabet: string,
+) {
+  const digest = registrationCompletionProof(
+    "invitation",
+    `display:${sourceKey}:${nonce}`,
+    "display",
+    new Date(0),
+  );
+  let entropy = BigInt(`0x${digest}`);
+  let result = "";
+  for (let index = 0; index < 5; index++) {
+    result += alphabet[Number(entropy % BigInt(alphabet.length))];
+    entropy /= BigInt(alphabet.length);
+  }
+  return result;
+}
+
+it("retains pre-zero five-character receipts through retry, email, verification and redemption", async () => {
   const invite = await displayedViewer();
   const row = await db.accountInvitation.findUniqueOrThrow({
     where: { id: invite.invitationId },
   });
-  const legacy = registrationCompletionProof(
-    "invitation",
-    `display:${row.sourceKey}`,
-    "display",
-    new Date(0),
-  )
-    .slice(0, 12)
-    .toUpperCase();
+  let nonce = 1;
+  let legacy = "";
+  for (; nonce < 1000; nonce++) {
+    legacy = fixtureDisplayCode(
+      row.sourceKey,
+      nonce,
+      "23456789ABCDEFGHJKMNPQRSTUVWXYZ",
+    );
+    const current = fixtureDisplayCode(
+      row.sourceKey,
+      nonce,
+      codeHelpers.REG_CODE_ALPHABET,
+    );
+    if (/[A-Z]/.test(legacy) && /[2-9]/.test(legacy) && legacy !== current)
+      break;
+  }
+  expect(nonce).toBeLessThan(1000);
   await db.accountInvitation.update({
     where: { id: row.id },
-    data: { displayCodeNonce: null, codeHash: hashCode(legacy) },
+    data: { displayCodeNonce: nonce, codeHash: hashCode(legacy) },
   });
   const restored = await deliverAccountInvitation(db, {
     display: true,
@@ -461,6 +492,196 @@ it("keeps previously issued twelve-character links recoverable", async () => {
   expect(
     await enterDisplayedInvitation(db, {
       code: legacy.toLowerCase(),
+      proof: restored.proof,
+    }),
+  ).toMatchObject({ proof: restored.proof });
+  await emailDisplayedInvitation(db, {
+    invitationId: row.id,
+    proof: restored.proof!,
+  });
+  expect(code()).toBe(legacy);
+  await sendInvitationVerification(db, {
+    invitationId: row.id,
+    email,
+    code: legacy,
+  });
+  const verified = await verifyAccountInvitation(db, {
+    invitationId: row.id,
+    email,
+    code: code(),
+  });
+  expect(verified.proof).toBe(restored.proof);
+  await redeemAccountInvitation(db, {
+    ...profile,
+    invitationId: row.id,
+    proof: verified.proof,
+  });
+  expect(
+    (await db.accountInvitation.findUniqueOrThrow({ where: { id: row.id } }))
+      .completedAt,
+  ).not.toBeNull();
+});
+
+it("issues a zero-only-digit receipt with I and preserves it across alias entry, retries and optional mail", async () => {
+  const invite = await displayedViewer();
+  const row = await db.accountInvitation.findUniqueOrThrow({
+    where: { id: invite.invitationId },
+  });
+  await db.accountInvitation.delete({ where: { id: row.id } });
+  let sourceKey = "",
+    candidate = "";
+  for (let index = 0; index < 1000; index++) {
+    sourceKey = `zero-fixture:${index}`;
+    candidate = fixtureDisplayCode(sourceKey, 0, codeHelpers.REG_CODE_ALPHABET);
+    if (
+      candidate !== "ABI0D" &&
+      candidate.includes("0") &&
+      candidate.includes("I") &&
+      !/[1-9]/.test(candidate)
+    )
+      break;
+  }
+  expect(candidate).toMatch(/0/);
+  expect(candidate).toMatch(/I/);
+  expect(candidate).not.toMatch(/[1-9]/);
+  const input = {
+    display: true,
+    kind: row.kind,
+    email: row.email,
+    sourceKey,
+    source: row.source as InvitationSource,
+  };
+  const issued = await deliverAccountInvitation(db, input);
+  expect(issued.code).toBe(candidate);
+  expect(await deliverAccountInvitation(db, input)).toEqual(issued);
+  for (const alias of [
+    candidate,
+    candidate.replaceAll("0", "O"),
+    candidate.toLowerCase().replaceAll("0", "o"),
+    candidate.replaceAll("I", "1"),
+    candidate.toLowerCase().replaceAll("0", "o").replaceAll("i", "1"),
+  ]) {
+    expect(
+      await anonymous().accountInvitation.enter({
+        code: ` ${alias} `,
+        proof: issued.proof,
+      }),
+    ).toMatchObject({ proof: issued.proof });
+  }
+  await emailDisplayedInvitation(db, {
+    invitationId: issued.invitationId,
+    proof: issued.proof!,
+  });
+  expect(code()).toBe(candidate);
+  expect(await deliverAccountInvitation(db, input)).toEqual(issued);
+  const generator = vi
+    .spyOn(codeHelpers, "generateRegistrationCode")
+    .mockReturnValue("ABI0D");
+  try {
+    await sendInvitationVerification(db, {
+      invitationId: issued.invitationId,
+      email,
+      code: candidate.replaceAll("0", "O").replaceAll("I", "1"),
+    });
+    expect(code()).toBe("ABI0D");
+    expect(
+      await anonymous().accountInvitation.verify({
+        invitationId: issued.invitationId,
+        email,
+        code: " aB-1 oD ",
+      }),
+    ).toEqual({ proof: issued.proof });
+  } finally {
+    generator.mockRestore();
+  }
+});
+
+it("looks up staff codes by their canonical zero and I for every alias", async () => {
+  const generator = vi
+    .spyOn(codeHelpers, "generateRegistrationCode")
+    .mockReturnValue("ABI0D");
+  try {
+    const issued = await issueRegistrationCode({ kind: "TUTOR" });
+    expect(issued.code).toBe("ABI0D");
+    for (const alias of ["ABI0D", "ABIOD", "abiod", " aB-1 oD "]) {
+      expect(
+        await anonymous().accountInvitation.enter({ code: alias }),
+      ).toMatchObject({ kind: "staff" });
+      expect(
+        await anonymous().registration.check({ code: alias }),
+      ).toBeTruthy();
+    }
+  } finally {
+    generator.mockRestore();
+  }
+});
+
+it.each([null, 7])(
+  "fails closed when a persisted receipt hash matches no derivation (nonce=%s)",
+  async (nonce) => {
+    const invite = await displayedViewer();
+    const row = await db.accountInvitation.update({
+      where: { id: invite.invitationId },
+      data: { displayCodeNonce: nonce, codeHash: "corrupted" },
+    });
+    const proof = registrationCompletionProof(
+      "invitation",
+      `account:${row.id}`,
+      row.codeHash,
+      row.verifiedAt!,
+    );
+    await expect(
+      deliverAccountInvitation(db, {
+        display: true,
+        kind: row.kind,
+        email: row.email,
+        sourceKey: row.sourceKey,
+        source: row.source as InvitationSource,
+      }),
+    ).rejects.toThrow("INVITATION_INVALID");
+    await expect(
+      emailDisplayedInvitation(db, { invitationId: row.id, proof }),
+    ).rejects.toThrow("INVITATION_INVALID");
+    expect(mail.send).not.toHaveBeenCalled();
+  },
+);
+
+it("keeps previously issued twelve-character links recoverable", async () => {
+  const invite = await displayedViewer();
+  const row = await db.accountInvitation.findUniqueOrThrow({
+    where: { id: invite.invitationId },
+  });
+  let sourceKey = "",
+    legacy = "";
+  for (let index = 0; index < 1000; index++) {
+    sourceKey = `legacy-hex-fixture:${index}`;
+    legacy = registrationCompletionProof(
+      "invitation",
+      `display:${sourceKey}`,
+      "display",
+      new Date(0),
+    )
+      .slice(0, 12)
+      .toUpperCase();
+    if (legacy.includes("0") && legacy.includes("1")) break;
+  }
+  expect(legacy).toContain("0");
+  expect(legacy).toContain("1");
+  await db.accountInvitation.update({
+    where: { id: row.id },
+    data: { sourceKey, displayCodeNonce: null, codeHash: hashCode(legacy) },
+  });
+  const restored = await deliverAccountInvitation(db, {
+    display: true,
+    kind: row.kind,
+    email: row.email,
+    sourceKey,
+    source: row.source as InvitationSource,
+  });
+  expect(restored.code).toBe(legacy);
+  expect(
+    await enterDisplayedInvitation(db, {
+      code: legacy.toLowerCase().replaceAll("0", "o"),
       proof: restored.proof,
     }),
   ).toMatchObject({ kind: "display", proof: restored.proof });
