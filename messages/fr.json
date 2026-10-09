@@ -2203,13 +2203,67 @@
     },
     "crewSignup": {
       "title": "Rejoindre la Ronde",
-      "intro": "La ronde parcourt les salles et compte les élèves pour valider la présence. Postulez ci-dessous — un administrateur examinera et vous enverra un code.",
+      "intro": "La ronde parcourt les salles et compte les élèves pour valider la présence. Vérifiez votre e-mail pour soumettre une candidature, puis attendez l’approbation d’un administrateur. Vous pouvez revenir ici pour consulter votre candidature et récupérer votre invitation une fois votre candidature approuvée.",
       "alreadyMember": "Déjà dans l'équipe ?",
       "signIn": "Se connecter",
-      "submit": "Envoyer la candidature",
+      "submit": "Continuer vers la vérification de l’e-mail",
       "submitting": "Envoi…",
       "doneTitle": "Candidature reçue",
-      "doneBody": "Merci ! Un administrateur examinera votre candidature et vous enverra un code d'inscription si elle est acceptée.",
+      "doneBody": "Votre e-mail a été vérifié et votre candidature attend l’examen d’un administrateur. Revenez ici pour consulter son statut et récupérer votre invitation une fois votre candidature approuvée.",
+      "modeLabel": "Options de candidature",
+      "newApplication": "Nouvelle candidature",
+      "checkApplication": "Consulter une candidature existante",
+      "detailsTitle": "Détails de la candidature",
+      "verifyTitle": "Vérifier votre e-mail",
+      "statusTitle": "Statut de la candidature",
+      "steps": {
+        "application": "Candidature",
+        "email": "Vérification de l’e-mail",
+        "review": "Examen par un administrateur"
+      },
+      "lookupHint": "Utilisez l’adresse e-mail de votre candidature initiale. Nous la vérifierons avant d’afficher le statut de votre candidature.",
+      "sendCode": "Envoyer le code de vérification",
+      "sent": "Nous avons envoyé un code de vérification par e-mail à {email}.",
+      "verifyHint": "Saisissez le code de cinq caractères. La vérification de l’e-mail soumet une nouvelle candidature à l’examen ; elle ne donne pas accès à la ronde.",
+      "emailCode": "Code de vérification de l’e-mail",
+      "verify": "Vérifier l’e-mail",
+      "resend": "Renvoyer le code",
+      "editDetails": "Revenir aux options de candidature",
+      "refreshStatus": "Actualiser le statut",
+      "verifyAgain": "Envoyer un nouveau code de vérification",
+      "proofExpired": "Vérifiez à nouveau votre e-mail avant d’actualiser le statut ou de récupérer une invitation.",
+      "invalidCode": "Ce code de vérification ou cette session est invalide ou a expiré. Demandez un nouveau code et vérifiez à nouveau votre e-mail.",
+      "disabled": "Les candidatures à la ronde sont actuellement indisponibles. Veuillez contacter l’équipe.",
+      "statuses": {
+        "PENDING": {
+          "title": "En attente de l’examen d’un administrateur",
+          "body": "Votre candidature a été reçue. Vous pouvez actualiser ce statut après son examen par un administrateur, ou revenir plus tard et vérifier à nouveau votre e-mail."
+        },
+        "REJECTED": {
+          "title": "Candidature non approuvée",
+          "body": "Votre candidature n’a pas été approuvée. Contactez l’équipe si vous avez des questions ou souhaitez mettre à jour votre candidature."
+        },
+        "NOT_FOUND": {
+          "title": "Aucune candidature trouvée",
+          "body": "Nous n’avons trouvé aucune candidature soumise pour cette adresse e-mail. Vous pouvez commencer une nouvelle candidature ci-dessous."
+        },
+        "AVAILABLE": {
+          "title": "Candidature approuvée",
+          "body": "Votre invitation à la ronde est prête. Utilisez l’invitation affichée ci-dessous pour terminer la configuration de votre accès à la ronde."
+        },
+        "USED": {
+          "title": "Invitation déjà utilisée",
+          "body": "Votre invitation approuvée a déjà été utilisée. Connectez-vous à votre compte ; contactez l’équipe si vous avez besoin d’aide pour accéder à la ronde."
+        },
+        "EXPIRED": {
+          "title": "Invitation expirée",
+          "body": "Votre invitation approuvée a expiré. Contactez l’équipe pour demander une nouvelle invitation."
+        },
+        "UNAVAILABLE": {
+          "title": "Invitation indisponible",
+          "body": "Votre candidature est approuvée, mais aucune invitation active n’est disponible. Contactez l’équipe pour obtenir de l’aide."
+        }
+      },
       "fields": {
         "fullName": "Nom",
         "email": "E-mail",

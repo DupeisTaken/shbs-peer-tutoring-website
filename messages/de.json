@@ -2203,13 +2203,67 @@
     },
     "crewSignup": {
       "title": "Dem Rundgang beitreten",
-      "intro": "Das Rundgang-Team geht die Räume ab und erfasst Schülerzahlen zur Validierung der Anwesenheit. Bewerben Sie sich unten — ein Admin prüft und sendet Ihnen einen Code.",
+      "intro": "Das Rundgang-Team geht die Räume ab und erfasst Schülerzahlen zur Validierung der Anwesenheit. Bestätigen Sie Ihre E-Mail-Adresse, um eine Bewerbung einzureichen, und warten Sie dann auf die Admin-Freigabe. Sie können hierher zurückkehren, um den Status Ihrer Bewerbung zu prüfen und nach der Freigabe Ihre Einladung abzurufen.",
       "alreadyMember": "Schon im Team?",
       "signIn": "Anmelden",
-      "submit": "Bewerbung senden",
+      "submit": "Weiter zur E-Mail-Bestätigung",
       "submitting": "Senden…",
       "doneTitle": "Bewerbung erhalten",
-      "doneBody": "Danke! Ein Admin prüft Ihre Bewerbung und sendet Ihnen bei Annahme einen Registrierungscode.",
+      "doneBody": "Ihre Bewerbung mit bestätigter E-Mail-Adresse wartet auf die Prüfung durch einen Admin. Kehren Sie hierher zurück, um den Status zu prüfen und nach der Freigabe Ihre Einladung abzurufen.",
+      "modeLabel": "Bewerbungsoptionen",
+      "newApplication": "Neue Bewerbung",
+      "checkApplication": "Bestehende Bewerbung prüfen",
+      "detailsTitle": "Angaben zur Bewerbung",
+      "verifyTitle": "E-Mail-Adresse bestätigen",
+      "statusTitle": "Bewerbungsstatus",
+      "steps": {
+        "application": "Bewerbung",
+        "email": "E-Mail-Bestätigung",
+        "review": "Prüfung durch Admin"
+      },
+      "lookupHint": "Verwenden Sie die E-Mail-Adresse Ihrer ursprünglichen Bewerbung. Wir überprüfen sie, bevor wir den Bearbeitungsstatus anzeigen.",
+      "sendCode": "Bestätigungscode senden",
+      "sent": "Wir haben einen Bestätigungscode per E-Mail an {email} gesendet.",
+      "verifyHint": "Geben Sie den fünf Zeichen langen Code ein. Durch die Bestätigung Ihrer E-Mail-Adresse wird eine neue Bewerbung zur Prüfung eingereicht; sie gewährt noch keinen Rundgang-Zugang.",
+      "emailCode": "E-Mail-Bestätigungscode",
+      "verify": "E-Mail bestätigen",
+      "resend": "Code erneut senden",
+      "editDetails": "Zurück zu den Bewerbungsoptionen",
+      "refreshStatus": "Status aktualisieren",
+      "verifyAgain": "Neuen Bestätigungscode senden",
+      "proofExpired": "Bestätigen Sie Ihre E-Mail-Adresse erneut, bevor Sie den Status aktualisieren oder eine Einladung abrufen.",
+      "invalidCode": "Dieser Bestätigungscode oder diese Sitzung ist ungültig oder abgelaufen. Fordern Sie einen neuen Code an und bestätigen Sie Ihre E-Mail-Adresse erneut.",
+      "disabled": "Bewerbungen für den Rundgang sind derzeit nicht möglich. Bitte kontaktieren Sie das Team.",
+      "statuses": {
+        "PENDING": {
+          "title": "Wartet auf Admin-Prüfung",
+          "body": "Ihre Bewerbung ist eingegangen. Sie können diesen Status nach der Prüfung durch einen Admin aktualisieren oder später zurückkehren und Ihre E-Mail-Adresse erneut bestätigen."
+        },
+        "REJECTED": {
+          "title": "Bewerbung nicht angenommen",
+          "body": "Ihre Bewerbung wurde nicht angenommen. Kontaktieren Sie das Team, wenn Sie Fragen haben oder Ihre Bewerbung aktualisieren möchten."
+        },
+        "NOT_FOUND": {
+          "title": "Keine Bewerbung gefunden",
+          "body": "Für diese E-Mail-Adresse wurde keine eingereichte Bewerbung gefunden. Sie können unten eine neue Bewerbung beginnen."
+        },
+        "AVAILABLE": {
+          "title": "Bewerbung angenommen",
+          "body": "Ihre Einladung zum Rundgang ist bereit. Fahren Sie mit der unten angezeigten Einladung fort, um die Einrichtung Ihres Rundgang-Zugangs abzuschließen."
+        },
+        "USED": {
+          "title": "Einladung bereits verwendet",
+          "body": "Ihre genehmigte Einladung wurde bereits eingelöst. Melden Sie sich bei Ihrem Konto an; kontaktieren Sie das Team, wenn Sie Hilfe beim Rundgang-Zugang benötigen."
+        },
+        "EXPIRED": {
+          "title": "Einladung abgelaufen",
+          "body": "Ihre genehmigte Einladung ist abgelaufen. Kontaktieren Sie das Team, um eine neue Einladung anzufordern."
+        },
+        "UNAVAILABLE": {
+          "title": "Einladung nicht verfügbar",
+          "body": "Ihre Bewerbung wurde angenommen, aber es ist keine aktive Einladung verfügbar. Kontaktieren Sie das Team, um Hilfe zu erhalten."
+        }
+      },
       "fields": {
         "fullName": "Name",
         "email": "E-Mail",
