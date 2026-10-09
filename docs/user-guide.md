@@ -371,6 +371,14 @@ CSV exports preserve numeric quantities and quote names or comments containing c
 
 Registration Codes supports Tutor, Crew, Admin and Coordinator invitations. Every code grants only its displayed role. Head can issue directly; other staff submit a proposal requiring Head approval. Only Head can list, share or revoke Admin/Coordinator codes. The selected role appears in the list, share card and every redemption step after code validation. There is no Head code; leadership transfer remains separate.
 
+Use **Export Image** beneath a newly issued setup card, or expand an active code
+and use the same action, to download `account-setup.png`. The image contains only
+the setup card: programme title, role, code, registration address and expiry. It
+keeps the current language and accent on a white background, at twice the displayed
+resolution. Labels, emails outside the card and action buttons are excluded.
+Exporting does not change the code or its expiry; share the image only with its
+intended recipient. If export fails, the card stays available so you can retry.
+
 Admin/Coordinator redemption requires email verification and creates a new management-only account without Tutor, Crew, Tutee or Translator participation. Existing primary or secondary email owners must sign in and ask Head to change roles in Users & Roles; a code never resets their credentials or replaces their roles. Expiry, rate limits, email binding and single use remain enforced, and issuer/recipient history is retained. The additive registration-kind migration preserves outstanding Tutor/Crew invitations. Apply migrations before starting the updated application.
 
 ## HEAD

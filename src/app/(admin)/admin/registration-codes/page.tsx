@@ -10,62 +10,10 @@ import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
-import { useBranding } from "~/app/_components/branding-provider";
+import { ShareCard } from "./share-card";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
 import { Button } from "~/app/_components/ui/button";
-
-/**
- * A compact, screenshot-ready setup card for a new tutor: the heading, the code in a two-line box
- * (label + digits), where to enter it, and how long it's valid. Same accent/green scheme as the
- * code boxes. Reused for a freshly-issued code and each expanded active card.
- */
-function ShareCard({
-  code,
-  expiresAt,
-  registerUrl,
-  kind,
-}: {
-  code: string;
-  expiresAt: Date;
-  registerUrl: string;
-  kind: RegistrationKind;
-}) {
-  const programFormat = useFormatter();
-  const { APP_TITLE } = useBranding();
-  const t = useTranslations();
-  return (
-    <div className="border-accent-200 mx-auto max-w-sm rounded-xl border bg-white p-5 text-center shadow-sm">
-      <p className="text-base font-bold text-slate-900">
-        {t("admin.registrationCodes.share.heading", { appTitle: APP_TITLE })}
-      </p>
-
-      <p className="mt-2 font-semibold text-slate-700">
-        {t(`admin.registrationCodes.${registrationKindLabel[kind]}`)}
-      </p>
-      {/* The code box — two centered lines: label + digits (same dashed-green scheme). */}
-      <div className="mt-3 inline-block rounded-lg border-2 border-dashed border-green-300 bg-green-50 px-6 py-3 text-center">
-        <p className="text-xs font-semibold tracking-wide text-green-700 uppercase">
-          {t("admin.registrationCodes.codeLabel")}
-        </p>
-        <p className="font-mono text-3xl font-bold tracking-[0.3em] text-green-800">
-          {code}
-        </p>
-      </div>
-
-      <p className="mt-3 text-sm break-all text-slate-700">
-        {t("admin.registrationCodes.share.enterAt", { url: registerUrl })}
-      </p>
-      <p className="text-accent-700 mt-1 text-xs font-medium">
-        {t("admin.registrationCodes.share.validity", {
-          date: programFormat.dateTime(new Date(expiresAt), {
-            dateStyle: "medium",
-          }),
-        })}
-      </p>
-    </div>
-  );
-}
 
 /**
  * Registration codes: issue single-use 6-digit security keys for new tutors and track their
@@ -112,7 +60,13 @@ export default function RegistrationCodesPage() {
     },
   });
   const revoke = api.admin.revokeRegistrationCode.useMutation({
-    onSuccess: invalidate,
+    onSuccess: async (_data, { id }) => {
+      // Stop sharing a freshly issued card when its record is revoked here.
+      if (codes.data?.some((c) => c.id === id && c.code === issued?.code)) {
+        setIssued(null);
+      }
+      await invalidate();
+    },
   });
 
   const statusBadge = (status: string) =>
@@ -146,7 +100,7 @@ export default function RegistrationCodesPage() {
         >
           {/* Bound each flex item as well as its content-sized control; otherwise
               a long draft gives the wrapper an overflowing intrinsic width. */}
-          <div className="min-w-0 max-w-full">
+          <div className="max-w-full min-w-0">
             <label className="label" htmlFor="invite-kind">
               {t("admin.registrationCodes.kindField")}
             </label>
@@ -163,7 +117,7 @@ export default function RegistrationCodesPage() {
               ))}
             </select>
           </div>
-          <div className="min-w-0 max-w-full">
+          <div className="max-w-full min-w-0">
             <label className="label">
               {t("admin.registrationCodes.labelField")}
             </label>
@@ -174,7 +128,7 @@ export default function RegistrationCodesPage() {
               className="input field-auto-bounded min-h-11 [--field-min-width:11rem] lg:min-h-10"
             />
           </div>
-          <div className="min-w-0 max-w-full">
+          <div className="max-w-full min-w-0">
             <label className="label">
               {t("admin.registrationCodes.emailField")}
             </label>
@@ -199,7 +153,7 @@ export default function RegistrationCodesPage() {
       )}
 
       {/* Just issued — show the screenshot-ready panel immediately. */}
-      {issued && (
+      {issued && !readOnly && (
         <div className="space-y-2">
           <p className="text-sm font-medium text-slate-700">
             {t("admin.registrationCodes.issuedTitle", {
@@ -207,27 +161,29 @@ export default function RegistrationCodesPage() {
             })}
           </p>
           <ShareCard
+            key={issued.code}
             code={issued.code}
             kind={issued.kind}
             expiresAt={issued.expiresAt}
             registerUrl={registerUrl}
+            actions={
+              <>
+                <Button
+                  size="compact"
+                  onClick={() => navigator.clipboard?.writeText(issued.code)}
+                >
+                  {t("admin.registrationCodes.copy")}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="compact"
+                  onClick={() => setIssued(null)}
+                >
+                  {t("common.dismiss")}
+                </Button>
+              </>
+            }
           />
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="btn-secondary btn-sm"
-              onClick={() => navigator.clipboard?.writeText(issued.code)}
-            >
-              {t("admin.registrationCodes.copy")}
-            </button>
-            <button
-              type="button"
-              className="link text-sm"
-              onClick={() => setIssued(null)}
-            >
-              {t("common.dismiss")}
-            </button>
-          </div>
         </div>
       )}
 
@@ -318,6 +274,7 @@ export default function RegistrationCodesPage() {
                 {open &&
                   (c.code && c.status === "active" ? (
                     <ShareCard
+                      key={c.code}
                       code={c.code}
                       kind={c.kind}
                       expiresAt={c.expiresAt}

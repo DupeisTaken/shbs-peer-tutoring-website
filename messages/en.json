@@ -887,6 +887,9 @@
       }
     },
     "registrationCodes": {
+      "exportImage": "Export Image",
+      "exportingImage": "Exporting…",
+      "exportImageError": "Could not export the image. Check that the code is still active and try again.",
       "kindAdmin": "Admin",
       "kindCoordinator": "Coordinator",
       "managementHelp": "Head authorizes every role invitation. Other staff submit requests for Head approval. Only Head can view or share management codes. Admin/Coordinator codes create a new management-only account; for existing accounts, ask Head to edit roles in Users & Roles.",

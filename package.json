@@ -44,6 +44,7 @@
     "dotenv": "^17.4.2",
     "fflate": "^0.8.3",
     "geist": "^1.7.2",
+    "html-to-image": "^1.11.13",
     "next": "16.3.6",
     "next-auth": "5.0.0-beta.32",
     "next-intl": "^4.13.1",

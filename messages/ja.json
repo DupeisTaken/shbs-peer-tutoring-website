@@ -919,6 +919,9 @@
       }
     },
     "registrationCodes": {
+      "exportImage": "画像をエクスポート",
+      "exportingImage": "エクスポート中…",
+      "exportImageError": "画像をエクスポートできませんでした。コードが有効であることを確認して、もう一度お試しください。",
       "kindAdmin": "管理者",
       "kindCoordinator": "コーディネーター",
       "managementHelp": "役割の招待はすべてHeadが承認します。他のスタッフは承認申請を提出します。管理用コードの表示・共有はHeadのみ可能です。管理用コードは管理専用の新規アカウントを作成します。既存アカウントの役割変更は「ユーザーと役割」でHeadに依頼してください。",

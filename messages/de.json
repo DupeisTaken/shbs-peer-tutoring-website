@@ -919,6 +919,9 @@
       }
     },
     "registrationCodes": {
+      "exportImage": "Bild exportieren",
+      "exportingImage": "Wird exportiert…",
+      "exportImageError": "Das Bild konnte nicht exportiert werden. Prüfen Sie, ob der Code noch gültig ist, und versuchen Sie es erneut.",
       "kindAdmin": "Admin",
       "kindCoordinator": "Koordinator",
       "managementHelp": "Head genehmigt alle Rolleneinladungen. Andere Mitarbeitende reichen Anträge zur Genehmigung ein. Nur Head kann Verwaltungscodes sehen und teilen. Diese erstellen neue Konten ausschließlich für die Verwaltung. Bestehende Rollen ändert Head unter Benutzer und Rollen.",
