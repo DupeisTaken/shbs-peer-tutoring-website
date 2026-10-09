@@ -3,27 +3,66 @@ name: Build and publish image
 on:
   push:
     branches: [main]
-  # Validate stacked feature PRs as well as PRs targeting main. Without a base filter, every
-  # pull-request layer runs the same migration, static-analysis, test, and production-build gate.
+  # Stacked PRs receive the same checks as PRs targeting main.
   pull_request:
   workflow_dispatch:
 
-# A newer run for the same PR or ref cancels older verification/publish work before it can
-# promote stale code to the mutable GHCR `latest` tag. The publish job also rechecks main below.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  verify:
+  checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shbs_shipping_test
+      AUTH_SECRET: ci-only-secret-that-is-at-least-thirty-two-characters
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate route types, lint and type-check
+        run: npm run check
+      - name: Check documentation
+        run: npm run docs:check
+      - name: Test CI gates and image promotion
+        run: npm run test:ci
+      - name: Test lint adapter
+        run: npm run test:lint-glob
+      - name: Test PR sizing
+        run: npm run test:pr-size
+      - name: Test deployment helpers
+        run: npm run test:deployment
+      - name: Audit all dependencies
+        run: npm audit
+
+  tests:
+    name: tests (${{ matrix.shard }}/2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      # Let both shards finish so a failure still leaves complete diagnostics.
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    # Each runner owns its database. Files stay serial within each shard because
+    # integration fixtures truncate shared tables; local test defaults are unchanged.
     services:
       postgres:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          # Match the integration suite's dedicated-database safety guard.
           POSTGRES_DB: shbs_shipping_test
         ports:
           - 5432:5432
@@ -36,66 +75,64 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shbs_shipping_test
       AUTH_SECRET: ci-only-secret-that-is-at-least-thirty-two-characters
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
-      - run: npm ci
-      - run: npm run db:migrate
-      - run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
-      - run: npm run check
-      # Exercise Next's root discovery and lint rule with the scoped glob replacement.
-      - run: npm run test:lint-glob
-      - run: npm run docs:check
-      - run: npm run test:pr-size
-      - run: npm run test:deployment
-      # Protect developer tooling as well as the pruned production dependency graph.
-      - run: npm audit
-      - run: npm test
-      - run: npm run build
-
-      # Build success alone does not exercise Prisma's runtime dependency graph or entrypoint.
-      - uses: docker/setup-buildx-action@v3
-      - name: Build runnable image
-        uses: docker/build-push-action@v6
+      - name: Install dependencies
+        run: npm ci
+      - name: Apply migrations to isolated database
+        run: npm run db:migrate
+      - name: Check migration and schema agreement
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+      - name: Run test shard
+        run: npm test -- --shard=${{ matrix.shard }}/2 --maxWorkers=1 --reporter=default --reporter=json --outputFile.json=.validation/test-results.json
+      - name: Upload test results and timings
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
         with:
-          context: .
-          load: true
-          tags: shbs-smoke:local
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      # Recreate the same image with runtime branding; verify metadata, secret exclusion and data preservation.
-      - name: Boot and recreate image with runtime configuration
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shbs_boot_test
-        run: |
-          docker exec ${{ job.services.postgres.id }} createdb -U postgres shbs_boot_test
-          bash scripts/smoke-image.sh shbs-smoke:local
+          name: test-results-${{ matrix.shard }}-${{ github.run_attempt }}
+          path: .validation/test-results.json
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: warn
 
-  publish:
-    needs: verify
-    # Only main is publishable. Manual dispatch remains useful for a selected main commit, but a
-    # stale selection fails the current-main check immediately before the image push.
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+  image:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    timeout-minutes: 15
+    outputs:
+      image-id: ${{ steps.build.outputs.imageid }}
+      artifact-id: ${{ steps.archive.outputs.artifact-id }}
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: shbs_boot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d shbs_boot_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shbs_boot_test
+      AUTH_SECRET: ci-only-secret-that-is-at-least-thirty-two-characters
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Node for smoke scripts
+        uses: actions/setup-node@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
+          node-version: 22
+          cache: npm
+      - name: Set up Docker builder
+        uses: docker/setup-buildx-action@v3
       - name: Image metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -104,26 +141,89 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha
-
-      # A run can finish verification after a newer main commit landed. Fail closed instead of
-      # letting that older checkout overwrite the mutable `latest` tag.
-      - name: Confirm commit is current main
-        env:
-          EXPECTED_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          current_sha="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
-          if [[ -z "$current_sha" || "$current_sha" != "$EXPECTED_SHA" ]]; then
-            echo "::error::Refusing to publish stale commit $EXPECTED_SHA; origin/main is $current_sha."
-            exit 1
-          fi
-
-      - name: Build and push
+      # This is the production-build gate. No duplicate host build or publish rebuild.
+      - name: Build runnable image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          load: true
+          tags: shbs-smoke:local
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # The branding assertions use jsdom. No host Prisma generation or build is
+      # needed; the runtime image already contains its own generated client.
+      - name: Install smoke-test dependencies
+        run: npm ci --ignore-scripts
+      - name: Boot and recreate image with runtime configuration
+        run: bash scripts/smoke-image.sh shbs-smoke:local
+      # Only publishable runs pay image archive/upload costs. The artifact ID binds
+      # publishing to this successful job even when only failed jobs are rerun.
+      - name: Save tested image
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        run: docker save --output "${{ runner.temp }}/verified-image.tar" shbs-smoke:local
+      - name: Upload tested image
+        id: archive
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-image-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/verified-image.tar
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+
+  verify:
+    # Preserve the required check's name. always() makes failed/skipped prerequisites
+    # visible here instead of allowing GitHub to treat a skipped gate as success.
+    needs: [checks, tests, image]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every verification job to succeed
+        uses: actions/github-script@v8
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        with:
+          script: |
+            const results = JSON.parse(process.env.NEEDS_JSON);
+            for (const job of ["checks", "tests", "image"]) {
+              if (results[job]?.result !== "success") {
+                core.setFailed(`${job}: ${results[job]?.result ?? "missing"}`);
+              }
+            }
+
+  publish:
+    needs: [verify, image]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Node for image promotion
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download tested image from this run
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.image.outputs.artifact-id }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/verified-image
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish verified image (current main only)
+        env:
+          IMAGE_ARCHIVE: ${{ runner.temp }}/verified-image/verified-image.tar
+          EXPECTED_IMAGE_ID: ${{ needs.image.outputs.image-id }}
+        run: node scripts/ci-publish.mjs

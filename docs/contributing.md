@@ -20,6 +20,26 @@ Integration tests reset fixtures. Use the isolated loopback `shbs_shipping_test`
 
 The [CI workflow](../.github/workflows/docker-build.yml) also checks dependency installation, migrations, schema agreement, dependency audit, production build and image boot/restart. Use its result for the commit being reviewed; old test totals are not current verification.
 
+CI runs static/tooling checks, two test shards, and image build/smoke verification
+in parallel. Each shard owns a PostgreSQL service named `shbs_shipping_test` and
+keeps test files serial; do not enable parallel database fixtures against one
+database. The required `verify` check succeeds only when every job succeeds,
+including both shards. Failed, cancelled, skipped or missing prerequisites fail
+the gate. Keep `verify` as the branch-protection check when changing job names.
+
+Run `npm run test:ci` for workflow and image-promotion regressions. It also checks
+that Vitest's two shards cover every discovered file exactly once without running
+database fixtures. Each CI shard uploads a seven-day JSON report with test timings
+and failures. Use these reports to assess shard balance before adding more runners.
+Local `npm test` still runs the complete suite serially.
+
+The Docker build owns production-build validation; there is no duplicate host
+build. Publishable `main` runs save the smoke-tested image as a one-day artifact,
+then a separate publishing job verifies its image ID and pushes it without a
+rebuild. PR runs skip the image archive/upload. Image-transfer costs and GitHub
+runner queues still affect total latency; compare successful runs at the same
+scope rather than treating a failed early exit as a speed improvement.
+
 The `@next/eslint-plugin-next` override replaces only its `fast-glob` dependency
 with the local adapter in `tools/next-lint-glob`, backed by `tinyglobby` 0.2.17.
 It implements only Next's CommonJS `globSync` call with `onlyDirectories`,
