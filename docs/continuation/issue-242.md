@@ -1,6 +1,6 @@
 # Issue 242 cloud continuation
 
-This is the evidence record for [issue #242](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/242). The 9 October host inspection below supersedes the earlier all-unknown checkpoint. Cloud-account and independent external evidence are still incomplete; do not close the issue from host evidence alone.
+This is the evidence record for [issue #242](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/242). The 9 October host and hosted external inspections below supersede the earlier all-unknown checkpoint. Cloud-account evidence remains incomplete; do not close the issue without it.
 
 ## Production inspection — 9 October 2026
 
@@ -20,7 +20,7 @@ local report bundle, rather than in Git or public issue attachments.
 | Web and operator continuity | The read-only sessions completed; HTTPS sign-in returned 200 with valid TLS from the host. No service was restarted or configuration reloaded. | Observed continuity verified |
 | Volumes and data | Actual PostgreSQL and proxy data/config volumes and the proxy configuration bind mount were inspected. Nothing was written to these mounts or to application records. This was not a backup restoration test. | Mounts/preservation verified |
 | Deployed image identity | Running application OCI revision is `1abcaddec82818a852e499168803f0dd4c246a8c`; its immutable image identity and registry digest were recorded privately. The corresponding [publish workflow](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/37620237037) succeeded. Proxy image identity was recorded separately. | Verified |
-| Independent external results | The local workstation's SSH session and host-origin HTTPS request establish those observed paths only. An independently controlled external vantage and the complete approved protocol matrix remain outstanding. | Unknown |
+| Independent external results | A GitHub-hosted runner observed an SSH greeting, HTTP 308 to the canonical HTTPS origin, and HTTPS sign-in 200 with valid TLS. TCP 3000/5432/2019/5555/8080 timed out; these negative observations remain inconclusive. The precise run is recorded below. | Public protocols corroborated; negative observations require policy evidence |
 
 The instance reports a public IPv4 address matching production DNS and no global
 IPv6 address/default route. Container IPv6 is disabled; host IPv6 listeners and
@@ -37,8 +37,8 @@ the required read permission and rule query in
 [DescribeSecurityGroupAttribute](https://www.alibabacloud.com/help/en/ecs/developer-reference/api-ecs-2014-05-26-describesecuritygroupattribute).
 
 Remaining work is specific: corroborate the effective cloud attachment/ingress/NAT
-policy and complete an independent external protocol check. Keep #242 open until
-those rows have evidence. Public SSH and root-password authentication are reported
+policy, including alternate public addresses. Keep #242 open until that inventory
+has evidence. Public SSH and root-password authentication are reported
 as the existing operational policy, not judged against an invented key-only policy.
 
 ### Independent hosted observation
@@ -61,6 +61,24 @@ response-data exclusion; the hosted run supplies the actual external observation
 The workflow runs for same-repository PR changes to its own script/test/workflow,
 or by explicit dispatch after merge. It does not run on ordinary application PRs
 and does not grant fork PRs access to production probing or repository secrets.
+
+The first [hosted observation run](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/37874516356)
+completed successfully at 02:26:09 UTC on 9 October 2026. Its source head was
+`f4891c8150f7dd97787fd20ea56fd844ce203d20`; GitHub checked out the PR merge revision
+`2e942491d977345de29a6304eeb4f908681defde`. The artifact identifies the hosted Linux
+runner and run ID. DNS returned one IPv4 address matching the privately observed
+host address; no IPv6 address was returned by this runner's resolver.
+
+| Port | Protocol observation |
+| --- | --- |
+| 22 | SSH greeting received; no authentication attempted. |
+| 80 | HTTP 308 redirect to the canonical HTTPS origin; no redirect followed. |
+| 443 | HTTP 200 for sign-in with certificate and hostname validation. |
+| 3000, 5432, 2019, 5555, 8080 | Each connection timed out after five seconds, with no service response. These are observations, not proof that a particular cloud rule denies access. |
+
+All five synthetic collector tests passed in that hosted job. The public protocol
+results corroborate the earlier host inspection; the missing cloud inventory still
+prevents a complete perimeter conclusion. No runtime configuration or data changed.
 
 ## Earlier source-only checkpoint
 
