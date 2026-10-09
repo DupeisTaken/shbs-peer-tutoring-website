@@ -1,5 +1,5 @@
 /** Synthetic offline previews: never import the database, secrets, or live transport. */
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
   renderEmail,
@@ -9,6 +9,9 @@ import {
 const output = resolve(process.argv[2] ?? ".validation/email-previews");
 await mkdir(output, { recursive: true });
 const brand = "SHBS Peer Tutoring";
+const iconUrl = "https://tutoring.example.edu/icon.png";
+// Embed the real site icon only in offline previews; sent mail uses the public site URL.
+const iconDataUrl = `data:image/png;base64,${(await readFile(new URL("../src/app/icon.png", import.meta.url))).toString("base64")}`;
 const samples: {
   name: string;
   subject: string;
@@ -21,6 +24,7 @@ const samples: {
     text: "Your tutoring program has an update.\n\nSeptember 29, 2026 at 4:30 PM (Asia/Shanghai)\n\nSign in to review the update. You can manage optional email notifications in account settings.",
     presentation: {
       eyebrow: "PROGRAM UPDATE",
+      unsubscribeUrl: "https://tutoring.example.edu/unsubscribe?token=synthetic",
       action: {
         label: "View program update",
         url: "https://tutoring.example.edu/signin?callbackUrl=%2Fstudent",
@@ -53,7 +57,7 @@ const samples: {
       eyebrow: "TUTORING SIGNUP",
       action: {
         label: "Confirm your tutoring request",
-        url: `https://tutoring.example.edu/signup/account?token=${"synthetic".repeat(12)}`,
+        url: `https://tutoring.example.edu/tutee/account?token=${"synthetic".repeat(12)}`,
       },
     },
   },
@@ -61,7 +65,10 @@ const samples: {
 for (const sample of samples)
   await writeFile(
     resolve(output, `${sample.name}.html`),
-    renderEmail({ brand, ...sample }),
+    renderEmail({ brand, ...sample, iconUrl }).replace(
+      `src="${iconUrl}"`,
+      `src="${iconDataUrl}"`,
+    ),
   );
 await writeFile(
   resolve(output, "index.html"),

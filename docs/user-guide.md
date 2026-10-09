@@ -40,9 +40,16 @@ A role and a tutor or crew membership are different things. A management account
 
 ### Choose the right registration form
 
-- **Register with an Invitation Code** (`/register`) is for invited tutors, crew and management. Enter the five-character registration code supplied by the program team, then complete email verification and account setup. The invitation code and emailed verification code are different.
-- **Register as a Viewer** (`/viewer-signup`) creates read-only access when viewer signup is enabled. Viewers do not receive or need a staff invitation code; the form sends an email verification code after you provide your details. It does not enroll you as a tutee, tutor or crew member.
-- **Request a Tutor** (`/signup`) starts a tutee request without an invitation code. Follow the emailed confirmation link to set up your account if needed.
+Published website and email links use `/register`, `/tutee`, `/tutor`, `/viewer`
+and `/crew`; the address bar then shows the corresponding descriptive signup page.
+Old `/signup` and `/signup/account` bookmarks and email links remain valid, including
+their confirmation parameters. Tutor and crew applications open at `/tutor-signup`
+and `/crew-signup` and retain the existing review process. See the
+[URL convention](technical-report.md#public-signup-url-convention) for the full mapping.
+
+- **Register with an Invitation Code** (`/register` → `/register-account`) is for invited tutors, crew and management. Enter the five-character registration code supplied by the program team, then complete email verification and account setup. The invitation code and emailed verification code are different.
+- **Register as a Viewer** (`/viewer` → `/viewer-signup`) creates read-only access when viewer signup is enabled. Viewers do not receive or need a staff invitation code; the form sends an email verification code after you provide your details. It does not enroll you as a tutee, tutor or crew member.
+- **Request a Tutor** (`/tutee` → `/tutee-signup`) starts a tutee request without an invitation code. Follow the emailed confirmation link to set up your account if needed.
 
 Sign In names the invitation and viewer routes separately. The invitation and viewer pages link to each other and to Request a Tutor, so you can switch if you opened the wrong form. Viewer links are hidden when public viewer signup is disabled. If you already have an account, sign in or recover your password rather than registering again.
 
@@ -364,6 +371,16 @@ In **Subject Availability**, expand a tutor to reveal **Qualified**, **Pending R
 - Use **Policies** to publish revised documents following the [publication steps](policies/README.md#publish-a-revision). On a fresh site, start with the blank **Tutee Policy** and **Tutor Policy** editors and save the reviewed English text before adding translations. Updating repository files alone does not change an already running site.
 - Use **Audit Log** to filter by actor, event, operation, record or UTC date. A proposal and its applied action are distinct events. Actor filters use stable account identities: matching names stay separate, and removed users appear as Former account.
 
+In **Audit Log → Actions → Details**, Head, Admin and Coordinator can inspect the
+recorded actor and account ID, event and target IDs, operation, exact timestamp
+(including UTC), approval link and undo time. Recorded before/after values and other
+evidence are shown as readable fields; the stored field names remain visible.
+Open **View stored JSON** to distinguish exact value types and escaped text.
+Missing detailed evidence is explicitly identified: older events and generic
+operation summaries may never have recorded it. Details do not reconstruct past
+values from current profiles. Observers retain the restricted summary. If a detail
+read fails, use Retry; this only reloads the event and never repeats its action.
+
 ### Signup request tabs
 
 Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history.
@@ -505,7 +522,16 @@ Email notices include a clear action button and a copyable link, with a plain-te
 
 When Head enables **Email Notifications** in **Program & Refresh** directly or approves an Admin request, **Account → Email Preferences** offers private-message notices and information/program updates (both default off). Each category may be enabled or disabled independently. Security alerts for password, two-factor and associated-email changes are essential and cannot be disabled. Private-message notices omit the message contents. By default notices go only to a verified primary; you can also include verified secondary addresses. A primary change additionally notifies the previous verified primary regardless of notification preferences, even if that address is subsequently removed.
 
-Disabling notifications at program level preserves preferences and cancels queued optional notices; re-enabling does not send the old backlog. While program notifications are disabled, users cannot enable them or edit notification preferences. Verification, recovery, login/step-up mail and security alerts remain independent of both optional switches and personal notification preferences. Already accepted mail cannot be recalled.
+On **Program & Refresh**, **Email delivery status** warns when security or program SMTP is not configured or its connection/authentication check fails. It also shows notification emails waiting to retry after a failure and those whose retries are exhausted. **Refresh status** updates this information without sending email or changing program settings; transport checks may reuse a result for up to one minute. Ask the deployment operator to investigate a warning. A successful SMTP check confirms the connection and login only, not that a message reached an inbox. Local development logging is explicitly identified and sends no external email.
+
+After the email service is repaired, ADMIN/HEAD can select **Resend stuck emails** to queue up to 100 eligible failed or retrying notifications. The result confirms queuing; delivery happens through the normal worker and still follows current email preferences and recipient ownership. Emails already being processed or completed are excluded, and optional emails remain excluded while notifications are disabled. If more eligible messages remain, refresh status before queuing another batch. If queuing succeeds but the status read fails, use **Refresh status** to recover without submitting the same action again.
+
+
+Optional notification emails also include **Unsubscribe** below the footer. The link opens a page without requiring sign-in; opening it alone changes nothing. Choose to stop that notification category or all optional notification emails, then confirm. This changes the account's preferences for both primary and included secondary addresses, not just the inbox that received the link. In-app notifications, account security alerts, verification, password recovery and signup confirmation remain available. You can turn optional categories back on in **Account → Email Preferences** when program notifications are enabled.
+
+Unsubscribe links expire after 90 days. Use a newer notification or sign in to manage preferences if a link is expired or unavailable. Treat these links as private: anyone with a valid link can turn off the optional categories it offers. Emails already accepted for delivery cannot be recalled.
+
+Disabling notifications at program level preserves preferences and cancels queued optional notices; re-enabling does not send the old backlog. While program notifications are disabled, account settings cannot enable or edit notification preferences; a valid unsubscribe link can still turn optional categories off. Verification, recovery, login/step-up mail and security alerts remain independent of both optional switches and personal notification preferences. Already accepted mail cannot be recalled.
 
 ## Renewed policy acceptance
 

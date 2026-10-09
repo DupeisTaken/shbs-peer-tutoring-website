@@ -77,7 +77,7 @@ export function StudentRegistration({
         </Link>
         <SurveyResend />
         <p className="muted text-sm">{w("expiredHelp")}</p>
-        <Link href="/signup" className="link">
+        <Link href="/tutee" className="link">
           {w("newRequest")}
         </Link>
       </section>

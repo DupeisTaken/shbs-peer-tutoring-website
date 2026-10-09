@@ -56,7 +56,7 @@ export const authConfig = {
     signIn: "/signin",
   },
   callbacks: {
-    /** Used by the middleware: the landing, sign-in, and public tutee signup pages are
+    /** Used by the middleware: the landing, sign-in, and exact public signup pages are
      *  public; everything else requires sign-in. */
     authorized({ auth, request }) {
       const { pathname } = request.nextUrl;
@@ -68,10 +68,20 @@ export const authConfig = {
         "/signup/account",
         "/tutor-signup",
         "/crew-signup",
+        "/crew",
         "/viewer-signup",
         "/forgot-password",
         "/reset-password",
+        // Signed email links let recipients opt out without an active session.
+        "/unsubscribe",
         "/register",
+        "/register-account",
+        "/tutee",
+        "/tutee/account",
+        "/tutee-signup",
+        "/tutee-signup/account",
+        "/tutor",
+        "/viewer",
         "/history/claim",
       ];
       // Public landing-section detail pages (/p/<slug>) — the page itself gates unpublished ones.

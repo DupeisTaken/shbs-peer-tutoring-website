@@ -9,6 +9,28 @@ afterEach(() => {
   vi.resetModules();
 });
 
+it("publishes short signup aliases with descriptive canonical destinations and legacy compatibility", async () => {
+  const { default: config } = await import("../../next.config.js");
+  expect(await config.redirects?.()).toEqual([
+    { source: "/register", destination: "/register-account", permanent: true },
+    { source: "/tutee", destination: "/tutee-signup", permanent: true },
+    { source: "/tutor", destination: "/tutor-signup", permanent: true },
+    { source: "/viewer", destination: "/viewer-signup", permanent: true },
+    { source: "/crew", destination: "/crew-signup", permanent: true },
+    {
+      source: "/tutee/account",
+      destination: "/tutee-signup/account",
+      permanent: true,
+    },
+    { source: "/signup", destination: "/tutee-signup", permanent: true },
+    {
+      source: "/signup/account",
+      destination: "/tutee-signup/account",
+      permanent: true,
+    },
+  ]);
+});
+
 it("omits framework identification even when the app is inspected directly", async () => {
   const { default: config } = await import("../../next.config.js");
   expect(config.poweredByHeader).toBe(false);

@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Socket } from "node:net";
+import { afterCommitScope, flushCommittedEffects } from "~/server/db-scope";
 
 const smtp = vi.hoisted(() => {
   const env: Record<string, string | number | undefined> = {};
@@ -61,9 +63,101 @@ beforeEach(() => {
   vi.spyOn(console, "warn").mockImplementation(() => undefined);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
 
 describe("purpose-based sender routing", () => {
+  it("renders branded mail only after the audited change commits", async () => {
+    dedicated("PROGRAM");
+    vi.stubEnv("AUTH_URL", "https://school.example.test");
+    const queue = {
+      effects: [] as Array<() => Promise<void>>,
+      committed: false,
+      onFailure: vi.fn(async () => undefined),
+    };
+    await afterCommitScope.run(queue, async () => {
+      await emailSender.send({
+        ...message("PROGRAM"),
+        presentation: {
+          unsubscribeUrl:
+            "https://school.example.test/unsubscribe?token=synthetic",
+        },
+      });
+      expect(smtp.create).not.toHaveBeenCalled();
+      expect(smtp.send).not.toHaveBeenCalled();
+      expect(queue.effects).toHaveLength(1);
+      await flushCommittedEffects();
+      await flushCommittedEffects();
+    });
+    expect(smtp.send).toHaveBeenCalledTimes(1);
+    expect(smtp.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        html: expect.stringContaining(
+          'src="https://school.example.test/icon.png"',
+        ) as unknown,
+      }),
+    );
+    const delivered = smtp.send.mock.calls[0]![0] as { html: string };
+    expect(delivered.html).toContain(
+      "https://school.example.test/unsubscribe?token=synthetic",
+    );
+    expect(queue.effects).toHaveLength(0);
+    expect(queue.onFailure).not.toHaveBeenCalled();
+  });
+
+  it("records rejected postcommit SMTP without failing the committed change", async () => {
+    dedicated("SECURITY");
+    smtp.send.mockResolvedValue({
+      accepted: [],
+      rejected: ["recipient@example.test"],
+    });
+    const queue = {
+      effects: [] as Array<() => Promise<void>>,
+      committed: false,
+      onFailure: vi.fn(async () => undefined),
+    };
+    await afterCommitScope.run(queue, async () => {
+      await emailSender.send(message("SECURITY"));
+      expect(smtp.send).not.toHaveBeenCalled();
+      await expect(flushCommittedEffects()).resolves.toBeUndefined();
+    });
+    expect(smtp.send).toHaveBeenCalledTimes(1);
+    expect(queue.onFailure).toHaveBeenCalledTimes(1);
+    expect(queue.committed).toBe(true);
+  });
+
+  it.each(["SECURITY", "PROGRAM"] as const)(
+    "adds the canonical footer icon to %s mail even without an action link",
+    async (category) => {
+      dedicated(category);
+      vi.stubEnv("AUTH_URL", "https://school.example.test");
+      await emailSender.send(message(category));
+      const delivered = smtp.send.mock.calls[0]![0] as {
+        html: string;
+        text: string;
+      };
+      expect(delivered.html).toContain(
+        'src="https://school.example.test/icon.png"',
+      );
+      expect(delivered.text).toBe(message(category).text);
+    },
+  );
+
+  it("preserves explicitly supplied HTML without requiring an icon origin", async () => {
+    dedicated("SECURITY");
+    vi.stubEnv("AUTH_URL", "invalid-origin");
+    await emailSender.send({
+      ...message("SECURITY"),
+      html: "<p>Custom message</p>",
+    });
+    expect(smtp.send).toHaveBeenCalledWith(
+      expect.objectContaining({ html: "<p>Custom message</p>" }),
+    );
+  });
+
   it.each(["SECURITY", "PROGRAM"] as const)(
     "renders the shared action template through the selected %s sender",
     async (category) => {
@@ -261,5 +355,25 @@ describe("purpose-based sender routing", () => {
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(
       "private-sentinel",
     );
+    expect(smtp.send).not.toHaveBeenCalled();
+    expect(smtp.close).toHaveBeenCalledTimes(2);
+    for (const [options] of smtp.create.mock.calls) {
+      expect(options).not.toHaveProperty("pool");
+      expect((options as { socket: Socket }).socket.destroyed).toBe(true);
+    }
+  });
+  it("bounds stalled diagnostics and closes only their owned socket", async () => {
+    vi.useFakeTimers();
+    dedicated("SECURITY");
+    smtp.verify.mockImplementationOnce(() => new Promise(() => undefined));
+    const pending = verifyEmailTransport("SECURITY");
+    const options = smtp.create.mock.calls[0]![0] as { socket: Socket };
+    expect(options.socket.destroyed).toBe(false);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(await pending).toBe(false);
+    expect(options.socket.destroyed).toBe(true);
+    expect(smtp.close).toHaveBeenCalledTimes(1);
+    expect(smtp.send).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

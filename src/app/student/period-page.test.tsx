@@ -39,7 +39,7 @@ it.each([true, false])(
     expect(html).toContain(
       quarters ? "quarter 2026–27 Q3" : "semester 2026–27 S2",
     );
-    expect(html).toContain('href="/signup"');
+  expect(html).toContain('href="/tutee"');
   },
 );
 it.each(["messages", "account"])(
@@ -57,6 +57,6 @@ it.each(["messages", "account"])(
     expect(html).not.toContain(
       view === "messages" ? 'data-testid="settings"' : 'data-testid="inbox"',
     );
-    expect(html).toContain('href="/signup"');
+  expect(html).toContain('href="/tutee"');
   },
 );

@@ -58,7 +58,7 @@ vi.mock("../signin/sign-in-form", () => ({
   SignInForm: () => <div>Sign-in form</div>,
 }));
 
-import RegisterPage from "./page";
+import RegisterPage from "../register-account/page";
 import ViewerSignupPage from "../viewer-signup/page";
 import SignInPage from "../signin/page";
 
@@ -139,7 +139,7 @@ it.each(["en", "zh"])(
       screen
         .getByRole("link", { name: copy.auth.signupRoutes.viewerLink })
         .getAttribute("href"),
-    ).toBe("/viewer-signup");
+    ).toBe("/viewer");
     expect(
       screen.getByText(copy.auth.signupRoutes.viewerHelp, { exact: false }),
     ).toBeTruthy();
@@ -147,7 +147,7 @@ it.each(["en", "zh"])(
       screen
         .getByRole("link", { name: copy.survey.requestTutor })
         .getAttribute("href"),
-    ).toBe("/signup");
+    ).toBe("/tutee");
     cleanup();
     render(await ViewerSignupPage());
     expect(
@@ -160,7 +160,7 @@ it.each(["en", "zh"])(
       screen
         .getByRole("link", { name: copy.survey.requestTutor })
         .getAttribute("href"),
-    ).toBe("/signup");
+    ).toBe("/tutee");
     cleanup();
     render(await SignInPage({ searchParams: Promise.resolve({}) }));
     expect(
@@ -172,7 +172,7 @@ it.each(["en", "zh"])(
       screen
         .getByRole("link", { name: copy.auth.signupRoutes.viewerLink })
         .getAttribute("href"),
-    ).toBe("/viewer-signup");
+    ).toBe("/viewer");
   },
 );
 
@@ -190,7 +190,7 @@ it("omits closed viewer registration without hiding member or tutee routes", asy
       screen
         .getByRole("link", { name: en.survey.requestTutor })
         .getAttribute("href"),
-    ).toBe("/signup");
+    ).toBe("/tutee");
     cleanup();
   }
   await expect(ViewerSignupPage()).rejects.toThrow("redirect:/");

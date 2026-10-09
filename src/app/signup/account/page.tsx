@@ -22,7 +22,7 @@ export default async function StudentAccountPage({
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-4 py-12">
       <FloatingLanguageSwitcher />
-      <Link className="link text-sm" href="/signup">
+      <Link className="link text-sm" href="/tutee">
         {t("back")}
       </Link>
       <div className="my-8">

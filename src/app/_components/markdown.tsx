@@ -1,6 +1,7 @@
 "use client";
 
 import ReactMarkdown from "react-markdown";
+import { shortSignupHref } from "~/lib/public-signup-links";
 
 /**
  * Render trusted markdown (the admin-edited policy documents) with the app's typography.
@@ -48,12 +49,14 @@ export function Markdown({ children }: { children: string }) {
           />
         ),
         hr: () => <hr className="my-4 border-slate-200" />,
-        a: ({ node: _n, ...p }) => (
+        // Present legacy CMS links consistently without altering stored document evidence.
+        a: ({ node: _n, href, ...p }) => (
           <a
             className="link"
             target="_blank"
             rel="noopener noreferrer"
             {...p}
+            href={href ? shortSignupHref(href) : href}
           />
         ),
         // Inserted images (e.g. uploaded landing-page art at /api/images/<id>). Constrained,

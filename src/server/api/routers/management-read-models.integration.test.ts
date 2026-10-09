@@ -16,6 +16,13 @@ const tuteeId = `${prefix}tutee`;
 const sessionId = `${prefix}session`;
 const appId = `${prefix}application`;
 const auditId = `${prefix}audit`;
+const auditCreatedAt = new Date("2026-10-08T12:34:56.789Z");
+const auditUndoneAt = new Date("2026-10-09T01:02:03.456Z");
+const auditEvidence = {
+  privateNote,
+  before: { count: 0, enabled: false, reason: "", optional: null },
+  after: { count: "0", enabled: true, nested: [{ value: null }, []] },
+};
 const pairingId = `${prefix}pairing`;
 const termId = `${prefix}term`;
 const actors = ["viewer", "observer", "HEAD", "ADMIN", "COORDINATOR"] as const;
@@ -125,7 +132,15 @@ beforeAll(async () => {
       kind: "DECISION",
       action: `Appeal upheld: ${privateNote}`,
       entity: "StudentAppeal",
-      details: { privateNote },
+      // These snapshot identities deliberately have no live account/target rows.
+      userId: `${prefix}former-actor`,
+      userName: "Historical Actor",
+      entityId: `${prefix}former-appeal`,
+      createdAt: auditCreatedAt,
+      undone: true,
+      undoneAt: auditUndoneAt,
+      details: auditEvidence,
+      undoData: { sentinel: "PRIVATE_EXECUTABLE_UNDO" },
     },
   });
 });
@@ -171,6 +186,9 @@ it.each(["viewer", "observer"] as const)(
       details: null,
       undoData: null,
     });
+    await expect(
+      api.admin.auditLogDetail({ id: auditId }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
     const wire = JSON.stringify({ session, corrections, application, audit });
     expect(wire).not.toContain("PRIVATE_VIEWER_MODEL_NOTE");
     expect(wire).not.toContain(contact);
@@ -202,5 +220,25 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"] as const)(
         (row) => row.id === auditId,
       )?.action,
     ).toContain(privateNote);
+    // Exercise the actual Prisma projection, JSON round-trip and Date precision;
+    // endpoint mocks alone cannot establish the shape of stored evidence.
+    const detail = await api.admin.auditLogDetail({ id: auditId });
+    expect(detail).toEqual({
+      id: auditId,
+      userId: `${prefix}former-actor`,
+      userName: "Historical Actor",
+      createdAt: auditCreatedAt,
+      kind: "DECISION",
+      operation: null,
+      entity: "StudentAppeal",
+      entityId: `${prefix}former-appeal`,
+      action: `Appeal upheld: ${privateNote}`,
+      approvalId: null,
+      details: auditEvidence,
+      undone: true,
+      undoneAt: auditUndoneAt,
+    });
+    expect(detail).not.toHaveProperty("undoData");
+    expect(JSON.stringify(detail)).not.toContain("PRIVATE_EXECUTABLE_UNDO");
   },
 );

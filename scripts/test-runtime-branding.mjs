@@ -27,9 +27,13 @@ for (const [path, prefix] of [
   ["/", ""],
   ["/signin", ""],
   ["/register", "Register"],
+  ["/register-account", "Register"],
   ["/forgot-password", "Forgot password"],
   ["/reset-password", "Reset password"],
   ["/signup", "Request a tutor"],
+  ["/tutee", "Request a tutor"],
+  ["/tutee-signup", "Request a tutor"],
+  ["/tutor", "Become a tutor"],
   ["/tutor-signup", "Become a tutor"],
 ]) {
   test(`${path}: runtime title, public client projection and no server secrets`, async () => {

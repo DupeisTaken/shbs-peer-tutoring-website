@@ -239,7 +239,7 @@ function Editor({
         </fieldset>
         <a
           className="link ml-4 inline-flex min-h-11 items-center"
-          href={audience === "tutor" ? "/tutor-signup" : "/signup"}
+          href={audience === "tutor" ? "/tutor" : "/tutee"}
           target="_blank"
           rel="noreferrer"
         >

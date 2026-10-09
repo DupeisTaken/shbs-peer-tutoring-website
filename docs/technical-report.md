@@ -2,6 +2,36 @@
 
 Use this guide to find the code responsible for current behavior and understand the invariants a change must preserve. For setup commands, see [local development](local-development.md); for operating the server, see [deployment](deployment.md).
 
+## Public signup URL convention
+
+Website and email hrefs publish short links. Descriptive routes render the existing
+forms; the exact short paths permanently redirect with HTTP 308 and preserve all
+query values, including repeated parameters, invitation prefill and callbacks.
+
+| Published href | Canonical page | Purpose |
+| --- | --- | --- |
+| `/register` | `/register-account` | Redeem a staff invitation |
+| `/tutee` | `/tutee-signup` | Request tutoring |
+| `/tutor` | `/tutor-signup` | Apply to tutor |
+| `/viewer` | `/viewer-signup` | Register read-only Viewer access when enabled |
+| `/crew` | `/crew-signup` | Apply to the crew when enabled |
+| `/tutee/account` | `/tutee-signup/account` | Confirm a tutoring request and set up an account if needed |
+
+`/signup` and `/signup/account` remain permanent compatibility redirects to the
+corresponding tutee pages. [Next configuration](../next.config.js) owns redirects;
+[authentication](../src/server/auth/config.ts) lists exact public entries without
+prefix exemptions. Adjacent paths still require sign-in. Feature gates, API
+authorization, invitation formats, approval rules and account workflows stay in
+their existing features. The canonical pages reuse the original feature modules.
+This implementation has no registration proof cookie; future credential handoffs
+must choose their cookie scope explicitly when relocating routes.
+
+[CMS href presentation](../src/lib/public-signup-links.ts) maps exact root-relative
+signup destinations to short links in buttons and Markdown while keeping stored
+content, query strings, fragments, external URLs and private destinations intact.
+Seed buttons and editor defaults use the same published convention. Absolute URLs
+in stored content retain their explicit origin and destination.
+
 ## Architecture
 
 Tutor Roster details use the read-only `tutorDetails.get` procedure, guarded by the same management permission as account policy history. Its explicit field selection excludes authentication secrets; the UI mounts the query only after a staff member opens a tutor. Subject grouping reads concrete grants from approved qualification sources, never recalculating inheritance from current level ranks. Willingness remains a separate three-state value (true, false, or no record). Policy history uses the linked account ID through `student.acceptanceRecords`; neither matching contact data nor viewing a record grants account or role-edit access.
@@ -260,6 +290,21 @@ Subject willingness UI: `subjectAvailability.mySubjects` loads on dialog open an
 
 Audit events identify actors by stable account ID and current role. The default signed-in mutation boundary commits domain writes and safe before/after evidence atomically; workflows that own their transactions retain their isolation/retry contracts and write evidence inside those boundaries. Failure/denial receipts are independent of rolled-back changes. The audit records actions rather than page access. Review metadata and undo payloads are not exposed to VIEWER accounts.
 
+`admin.auditLogDetail` is an on-demand, live-staff-authorized projection of one
+stored event. It selects recorded metadata, evidence and undo status/time, excluding
+executable `undoData`; it never joins current actors or targets to reconstruct
+history. The audit page mounts `AuditEventDetails` inside `TableDetails` only for
+staff, refreshing on each opening. Observers keep the existing projected summary
+and cannot call the detail endpoint. The feature renders stored before/after and
+nested evidence with exact field names, an explicit no-evidence state, precise
+local/UTC times and read-only retry. It changes neither writer coverage nor old
+records, approval/undo rules, filtering or pagination. Endpoint, component and
+page regressions cover this boundary; browser evidence belongs in ignored `outputs/`.
+Authorization denial removes that event's private query cache and stays latched
+through failed retries until a fresh successful read. Reopening cannot revive
+revoked evidence. The lazy JSON disclosure preserves primitive types and escaping;
+real QueryClient regressions cover the denial/retry/reopen sequence.
+
 ## Student lifecycle and ownership
 
 The original survey submission determines queue priority. Confirmation creates or links an account without replacing its existing role or password. Account links expire after 24 hours. First assignment of an unverified request starts a fixed seven-day deadline; neither resends nor reassignment extends it.
@@ -360,6 +405,12 @@ Secondary-email requests and confirmations first acquire the `secondary-email-bi
 Database triggers enqueue `EmailDelivery` in the event transaction for account changes and in-app notifications. No-op writes and rollbacks produce no notices. The [delivery worker](../src/server/email/notification-delivery.ts) rechecks program enablement and category preference for optional messages/information, and current recipient ownership for all mail. Security enqueue and dispatch bypass optional gates, including legacy `emailSecurity=false` values. That stored field is preserved but is no longer an editable preference. Disabling program notifications only skips non-security pending rows; previous-primary security notices have the documented ownership exception. Notices contain fixed event descriptions, not profile values, secrets or message bodies. See [operations and retry limits](deployment.md#optional-notification-delivery).
 
 Every [email sender](../src/server/email/sender.ts) call declares SECURITY or PROGRAM purpose; configuration selects a complete sender account per purpose. Student signup confirmation uses PROGRAM, while viewer verification and history invitations use SECURITY. The notification outbox retains the event's internal destination; shared link validation and sign-in callbacks preserve it through password/2FA and session recovery, with current permissions checked at the destination. Shared HTML/plain-text rendering uses runtime branding and program-zone notification timestamps. See [sender setup](deployment.md#email--aliyun-direct-mail-邮件推送) for fallback and delivery checks.
+
+The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program & Refresh email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. No schema changes are needed; direct authentication/signup delivery history is not persisted by these diagnostics.
+
+The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only failed or previously attempted pending rows without an active lease qualify, and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Existing SMTP at-least-once limitations still apply across lease expiry and crashes.
+
+Optional notification delivery adds a signed, 90-day unsubscribe link to HTML and plain text. The public `/unsubscribe` page only reads on GET; an explicit confirmation disables either the originating category or all optional email categories, account-wide across primary and included secondary destinations. The capability cannot enable preferences or suppress essential security/authentication mail. The shared template accepts an optional `unsubscribeUrl`, rejects non-HTTP(S) and credential-bearing URLs, escapes the link, and places an underlined 44 px target after the existing logo, brand and privacy copy. Sender purpose does not imply eligibility: direct student signup confirmation uses PROGRAM but remains essential and has no unsubscribe link.
 
 ### Management registration codes
 

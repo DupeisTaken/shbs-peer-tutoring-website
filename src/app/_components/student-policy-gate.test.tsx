@@ -120,24 +120,27 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-it("leaves the public privacy notice readable despite outstanding agreements or errors", async () => {
-  mocks.path = "/privacy";
-  const view = render(<StudentPolicyGate />);
-  await act(async () => undefined);
-  expect(screen.queryByRole("dialog")).toBeNull();
-  expect(mocks.status).toHaveBeenLastCalledWith(
-    expect.anything(),
-    expect.objectContaining({ enabled: false }),
-  );
-  expect(mocks.refetch).not.toHaveBeenCalled();
-  mocks.status.mockReturnValue({
-    error: { message: "Offline" },
-    refetch: mocks.refetch,
-  });
-  view.rerender(<StudentPolicyGate />);
-  expect(screen.queryByRole("status")).toBeNull();
-  expect(mocks.accept).not.toHaveBeenCalled();
-});
+it.each(["/privacy", "/unsubscribe"])(
+  "leaves %s usable despite outstanding agreements or errors",
+  async (path) => {
+    mocks.path = path;
+    const view = render(<StudentPolicyGate />);
+    await act(async () => undefined);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(mocks.status).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ enabled: false }),
+    );
+    expect(mocks.refetch).not.toHaveBeenCalled();
+    mocks.status.mockReturnValue({
+      error: { message: "Offline" },
+      refetch: mocks.refetch,
+    });
+    view.rerender(<StudentPolicyGate />);
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(mocks.accept).not.toHaveBeenCalled();
+  },
+);
 
 it.each(["tutor-policy", "tutee-policy"])(
   "%s requires reaching the policy bottom and explicit agreement before acceptance",
@@ -339,6 +342,9 @@ it("uses chosen policy locale, falls back to English and skips accepted/public p
 });
 it.each([
   "/privacy",
+  "/register", "/register-account", "/tutee", "/tutee/account",
+  "/tutee-signup", "/tutee-signup/account", "/tutor", "/tutor-signup",
+  "/viewer", "/viewer-signup", "/crew", "/crew-signup", "/signup", "/signup/account",
   "/onboarding/email",
   "/forgot-password",
   "/reset-password",
@@ -464,11 +470,17 @@ it("keeps genuine failures retryable even with cached setup data", async () => {
   expect(mocks.refetch).toHaveBeenCalledTimes(previousRequests + 1);
 });
 
-it.each(["/history", "/history/claim"])("allows %s without requiring new participation consent", path => {
- mocks.path=path;
- mocks.status.mockReturnValue({data:policy(),refetch:mocks.refetch});
- render(<StudentPolicyGate />);
- expect(mocks.status).toHaveBeenLastCalledWith(expect.anything(),expect.objectContaining({enabled:false}));
- expect(screen.queryByRole("dialog")).toBeNull();
- expect(screen.queryByText("policyTitle")).toBeNull();
-});
+it.each(["/history", "/history/claim"])(
+  "allows %s without requiring new participation consent",
+  (path) => {
+    mocks.path = path;
+    mocks.status.mockReturnValue({ data: policy(), refetch: mocks.refetch });
+    render(<StudentPolicyGate />);
+    expect(mocks.status).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ enabled: false }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText("policyTitle")).toBeNull();
+  },
+);
