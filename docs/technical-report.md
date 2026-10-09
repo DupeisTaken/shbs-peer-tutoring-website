@@ -29,6 +29,9 @@ The sign-in action automatically completes only an established account's Viewer-
 LOGIN receipt after the session exchange succeeds (or the exact recipient's existing session
 is verified). The domain independently rejects this automatic path for participation sources.
 Academic confirmation outcomes persist in the completion receipt and remain visible on recovery.
+An expired completed receipt is readable only by its exact authenticated recipient after the
+existing account ownership/generation checks. Expired mailbox proofs, login exchanges and
+unfinished invitations remain invalid.
 Tutee submission and final redemption both resolve verified aliases and recheck quarter withdrawal
 and current-request ownership; late alias linking cannot bypass either participation restriction.
 

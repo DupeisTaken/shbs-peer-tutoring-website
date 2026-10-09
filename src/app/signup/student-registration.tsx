@@ -7,6 +7,7 @@ import { SignupError } from "~/app/_components/signup-error";
 import { InvitationRedemption } from "../register/invitation-redemption";
 import { SurveyResend } from "./survey-resend";
 import { DAY_NAMES, minToHm } from "~/lib/time";
+import { InlineNotice } from "~/app/_components/ui/patterns";
 
 /** Link inspection never consumes intake. The explicit mailbox-confirmation action issues
  * an invitation; credentials and access are reviewed in the shared redemption flow. */
@@ -42,6 +43,7 @@ export function StudentRegistration({
     );
   if (
     request.error &&
+    !request.data &&
     !["BAD_REQUEST", "NOT_FOUND"].includes(request.error.data?.code ?? "")
   )
     return (
@@ -52,7 +54,7 @@ export function StudentRegistration({
         </button>
       </section>
     );
-  if (!token || request.error)
+  if (!token || (request.error && !request.data))
     return (
       <section className="card space-y-4 p-6">
         <p role="alert">{t("invalidLink")}</p>
@@ -75,6 +77,23 @@ export function StudentRegistration({
   const info = request.data;
   return (
     <section className="card space-y-5 p-6">
+      {request.error && (
+        <InlineNotice
+          tone="error"
+          announcement="alert"
+          action={
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => void request.refetch()}
+            >
+              {t("retry")}
+            </button>
+          }
+        >
+          {t("loadFailed")}
+        </InlineNotice>
+      )}
       <h2 className="section-title">{invitation("verifyTuteeTitle")}</h2>
       <p className="muted">{invitation("verifyTuteeHelp")}</p>
       {info.verificationDueAt && (
@@ -121,13 +140,13 @@ export function StudentRegistration({
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (complete.isPending || admitted.current) return;
+          if (complete.isPending || request.error || admitted.current) return;
           admitted.current = true;
           complete.mutate({ token });
         }}
       >
         <fieldset
-          disabled={complete.isPending}
+          disabled={complete.isPending || Boolean(request.error)}
           aria-busy={complete.isPending}
           className="space-y-4"
         >

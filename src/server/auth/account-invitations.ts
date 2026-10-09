@@ -400,9 +400,13 @@ export async function inspectAccountInvitation(
     const row = await tx.accountInvitation.findUnique({
       where: { id: input.invitationId },
     });
-    if (!row || row.expiresAt <= new Date() || !row.verifiedAt) throw invalid();
+    if (!row || !row.verifiedAt) throw invalid();
     const owner = await lockedInvitationOwner(tx, row);
     const authenticated = owner && owner.id === input.userId;
+    // A saved receipt remains readable by its exact current recipient after code expiry.
+    // This never revives mailbox proof, an unfinished invitation or its login exchange.
+    if (row.expiresAt <= new Date() && !(row.completedAt && authenticated))
+      throw invalid();
     if (!authenticated && (!input.proof || !equal(input.proof, proofFor(row))))
       throw invalid();
     if (row.completedAt)

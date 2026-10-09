@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   pending: false,
   data: undefined as undefined | { invitationId: string },
   error: null as null | { message: string },
+  readError: null as null | { message: string; data: { code: string } },
+  refetch: vi.fn(),
   settled: undefined as undefined | (() => void),
   period: { kind: "quarter", label: "2026–27 Q3" },
 }));
@@ -39,6 +41,8 @@ vi.mock("~/trpc/react", () => ({
     tutee: {
       inspectSurvey: {
         useQuery: () => ({
+          error: mocks.readError,
+          refetch: mocks.refetch,
           data: {
             email: "student@example.test",
             name: "Student One",
@@ -75,6 +79,7 @@ afterEach(() => {
   mocks.pending = false;
   mocks.data = undefined;
   mocks.error = null;
+  mocks.readError = null;
   mocks.period = { kind: "quarter", label: "2026–27 Q3" };
 });
 it("keeps the semester label during review", () => {
@@ -83,6 +88,20 @@ it("keeps the semester label during review", () => {
   wrap(<StudentRegistration token={"a".repeat(64)} />);
   expect(screen.getByText("Semester · 2026–27 S2")).toBeTruthy();
   expect(screen.queryByText(/Quarter ·/)).toBeNull();
+});
+
+it("retains the reviewed survey read-only after a failed background refresh", () => {
+  mocks.readError = {
+    message: "Network unavailable",
+    data: { code: "INTERNAL_SERVER_ERROR" },
+  };
+  const { container } = wrap(<StudentRegistration token={"a".repeat(64)} />);
+  expect(screen.getByText("Student One")).toBeTruthy();
+  expect(container.querySelector("fieldset")!.disabled).toBe(true);
+  fireEvent.submit(container.querySelector("form")!);
+  expect(mocks.confirm).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: en.survey.retry }));
+  expect(mocks.refetch).toHaveBeenCalledOnce();
 });
 it("offers a sign-in button, readable link, and downloadable QR without exposing verification tokens", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);

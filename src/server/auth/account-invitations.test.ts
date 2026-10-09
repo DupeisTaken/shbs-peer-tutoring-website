@@ -394,6 +394,39 @@ it("preserves an accountless bound roster's exact legacy identity in the invitat
   });
 });
 
+it("only the exact authenticated recipient can recover an expired completed receipt", async () => {
+  const account = await owner();
+  const invite = await staff("CREW");
+  await redeemAccountInvitation(db, { ...profile, ...invite }, account.id);
+  await db.accountInvitation.update({
+    where: { id: invite.invitationId },
+    data: { expiresAt: new Date(0) },
+  });
+  expect(
+    await inspectAccountInvitation(db, {
+      invitationId: invite.invitationId,
+      userId: account.id,
+    }),
+  ).toMatchObject({ completed: true, kind: "CREW" });
+  await expect(inspectAccountInvitation(db, invite)).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+  });
+  await expect(
+    inspectAccountInvitation(db, { ...invite, userId: "head" }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(
+    consumeInvitationLogin(invite.invitationId, invite.proof),
+  ).resolves.toBeNull();
+  const unfinished = await staff();
+  await db.accountInvitation.update({
+    where: { id: unfinished.invitationId },
+    data: { expiresAt: new Date(0) },
+  });
+  await expect(
+    inspectAccountInvitation(db, { ...unfinished, userId: account.id }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+});
+
 it("uses a distinct Viewer invitation and creates credentials only after its explicit review", async () => {
   const invite = await viewer();
   expect(invite.secret).not.toBe(invite.initialCode);
