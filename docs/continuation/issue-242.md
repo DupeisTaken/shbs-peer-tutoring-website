@@ -1,6 +1,17 @@
 # Issue 242 cloud continuation
 
-This is the evidence record for [issue #242](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/242). The 9 October host and hosted external inspections below supersede the earlier all-unknown checkpoint. Cloud-account evidence remains incomplete; do not close the issue without it.
+This is the evidence record for [issue #242](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/242). The 9 October host and hosted external inspections below supersede the earlier all-unknown checkpoint. Cloud-account evidence remains incomplete.
+
+## Documentation handoff — 10 October 2026
+
+The maintainer requested a checking guide with official Aliyun references and
+closure of #242 after documentation. The maintained
+[Aliyun network verification guide](../aliyun-network-verification.md) now gives
+the cloud owner the console steps, evidence worksheet and external-check limits.
+This request supersedes the historical instructions below to keep #242 open.
+Issue closure records the documentation handoff, not completed cloud verification
+or a finding that all administrative access is restricted. No new cloud evidence
+was collected and no production access policy was changed for this handoff.
 
 ## Production inspection — 9 October 2026
 
@@ -37,8 +48,8 @@ the required read permission and rule query in
 [DescribeSecurityGroupAttribute](https://www.alibabacloud.com/help/en/ecs/developer-reference/api-ecs-2014-05-26-describesecuritygroupattribute).
 
 Remaining work is specific: corroborate the effective cloud attachment/ingress/NAT
-policy, including alternate public addresses. Keep #242 open until that inventory
-has evidence. Public SSH and root-password authentication are reported
+policy, including alternate public addresses. Follow the new guide to collect
+that evidence independently of the issue's closure. Public SSH and root-password authentication are reported
 as the existing operational policy, not judged against an invented key-only policy.
 
 ### Independent hosted observation
