@@ -29,7 +29,18 @@ vi.mock("~/trpc/react", () => {
   const empty = { useQuery: () => ({ data: [] }) };
   return {
     api: {
-      useUtils: () => ({}),
+      useUtils: () => {
+        const query = { invalidate: async () => undefined };
+        return {
+          admin: {
+            tutees: query,
+            tuteeStats: query,
+            pairings: query,
+            accounts: query,
+          },
+          tuteeHistory: query,
+        };
+      },
       program: {
         profilePolicy: {
           useQuery: () => ({
@@ -121,7 +132,7 @@ vi.mock("~/trpc/react", () => {
             error: mocks.error,
           }),
         },
-        deleteTutee: { useMutation: () => ({ mutate: mocks.remove }) },
+        deleteTutee: { useMutation: () => ({ mutateAsync: mocks.remove }) },
       },
     },
   };
@@ -271,7 +282,7 @@ it.each([false, true])(
 
 it.each([false, true])(
   "places contact disclosure in trailing Actions beside compact academics (Chinese=%s)",
-  (chinese) => {
+  async (chinese) => {
     mount(chinese);
     const messages = chinese ? zh : en;
     const headers = screen.getAllByRole("columnheader");
@@ -299,7 +310,21 @@ it.each([false, true])(
     fireEvent.click(edit);
     expect(screen.getByRole("dialog").textContent).toBe("Editing tutee-1");
     fireEvent.click(remove);
-    expect(mocks.remove).toHaveBeenCalledWith({ id: "tutee-1" });
+    const review = screen.getByRole("dialog", {
+      name: messages.actionReview.tuteeTitle.replace("{name}", "Example Tutee"),
+    });
+    expect(mocks.remove).not.toHaveBeenCalled();
+    expect(
+      within(review).getByText(messages.actionReview.tuteeHelp),
+    ).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(
+        within(review).getByRole("button", {
+          name: messages.admin.tutees.deleteBtn,
+        }),
+      );
+    });
+    expect(mocks.remove).toHaveBeenCalledExactlyOnceWith({ id: "tutee-1" });
   },
 );
 
@@ -382,12 +407,47 @@ it("sorts historical rows by original grades instead of the owner's current grad
 it("sorts preserved originals and corrected grades rather than newer roster mirrors", () => {
   // The roster RPC includes both optional subject relations as null when absent.
   mocks.searchRows = [
-    { id: "first", englishName: "First Learner", historical: true, status: "INACTIVE", firstChoice: null, secondChoice: null, gradeLevel: "12", academic: { status: "UNKNOWN" }, enrollmentOriginal: { rawGrade: "8", schoolYear: "23-24", academicallyGraduated: false } },
-    { id: "second", englishName: "Second Learner", historical: true, status: "INACTIVE", firstChoice: null, secondChoice: null, gradeLevel: "1", academic: { status: "UNKNOWN" }, enrollmentOriginal: { rawGrade: "7", schoolYear: "22-23", academicallyGraduated: false }, enrollmentCorrection: { rawGrade: "9", schoolYear: "24-25" } },
+    {
+      id: "first",
+      englishName: "First Learner",
+      historical: true,
+      status: "INACTIVE",
+      firstChoice: null,
+      secondChoice: null,
+      gradeLevel: "12",
+      academic: { status: "UNKNOWN" },
+      enrollmentOriginal: {
+        rawGrade: "8",
+        schoolYear: "23-24",
+        academicallyGraduated: false,
+      },
+    },
+    {
+      id: "second",
+      englishName: "Second Learner",
+      historical: true,
+      status: "INACTIVE",
+      firstChoice: null,
+      secondChoice: null,
+      gradeLevel: "1",
+      academic: { status: "UNKNOWN" },
+      enrollmentOriginal: {
+        rawGrade: "7",
+        schoolYear: "22-23",
+        academicallyGraduated: false,
+      },
+      enrollmentCorrection: { rawGrade: "9", schoolYear: "24-25" },
+    },
   ];
   mount();
-  fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.historical }));
-  fireEvent.click(screen.getByRole("button", { name: new RegExp(en.tuteeHistory.gradeClass) }));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.historical }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: new RegExp(en.tuteeHistory.gradeClass),
+    }),
+  );
   const rows = screen.getAllByRole("row").slice(1);
   expect(rows[0]!.textContent).toContain("First Learner");
   expect(rows[0]!.textContent).toContain("Grade 8");
