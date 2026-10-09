@@ -1,4 +1,5 @@
 "use client";
+import { useProfileReloadFocus } from "./use-profile-reload-focus";
 import { ProfileEditSection } from "./profile-edit-section";
 import { Button } from "./ui/button";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
@@ -42,17 +43,29 @@ export function TutorProfileEditor({
 
 /** Keep this independent form inside the dialog's pending context. */
 function TutorProfileForm({
-  row,
+  row: initialRow,
   isHead = false,
 }: Omit<ComponentProps<typeof TutorProfileEditor>, "onClose">) {
   const t = useTranslations();
+  const [row, setRow] = useState(initialRow);
+  // Independent editors keep their original lifetime and version ownership.
+  const [siblingRow] = useState(initialRow);
+  const [draftKey, setDraftKey] = useState(0);
+  const [reloading, setReloading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const reloadFocus = useProfileReloadFocus(formRef, reloading);
+  const [reloadError, setReloadError] = useState<string | null>(null);
+  const reloadPending = useRef(false);
   const [saved, setSaved] = useState(false);
+  const [needsRefresh, setNeedsRefresh] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
   const committed = useRef(false);
-  const [expectedUpdatedAt] = useState(row.updatedAt);
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState(row.updatedAt);
   const [names, setNames] = useState(() => nameDraft(row));
-  const [originalNames] = useState(() => nameDraft(row));
-  const [legacyName] = useState(row.legacyName ?? row.englishName);
+  const [originalNames, setOriginalNames] = useState(() => nameDraft(row));
+  const [legacyName, setLegacyName] = useState(
+    row.legacyName ?? row.englishName,
+  );
   const identity = personNameEdit(names, originalNames, legacyName);
   const policy = useProfilePolicy();
   const [grade, setGrade] = useState(
@@ -63,6 +76,48 @@ function TutorProfileForm({
   const utils = api.useUtils();
   // Guard the interval before mutation state renders, so one request owns this draft.
   const submitting = useRef(false);
+  /** A committed write is never replayed: recovery reads and replaces only this form. */
+  const refreshProfile = async () => {
+    reloadPending.current = true;
+    setReloading(true);
+    setReloadError(null);
+    try {
+      await settleRefreshes([
+        () => invalidateAndReport(utils.admin.tutors),
+        () => invalidateAndReport(utils.admin.tutees),
+        () => invalidateAndReport(utils.admin.accounts),
+      ]);
+      // Account mirrors may advance the fence after the initial roster write.
+      const rows = await utils.admin.tutors.fetch(undefined, { staleTime: 0 });
+      const latest = rows.find((item) => item.id === row.id);
+      if (!latest) throw new Error(t("uiPatterns.loadFailed"));
+      setRow(latest);
+      setExpectedUpdatedAt(latest.updatedAt);
+      setNames(nameDraft(latest));
+      setOriginalNames(nameDraft(latest));
+      setLegacyName(latest.legacyName ?? latest.englishName);
+      setGrade(
+        latest.academicallyGraduated
+          ? GRADUATED_GRADE
+          : (latest.gradeLevel?.toString() ?? ""),
+      );
+      // Only primary uncontrolled fields remount; sibling drafts retain their lifetime.
+      setDraftKey((key) => key + 1);
+      setRefreshFailed(false);
+      setNeedsRefresh(false);
+      committed.current = false;
+      return true;
+    } catch (error) {
+      setRefreshFailed(true);
+      setReloadError(
+        error instanceof Error ? error.message : t("uiPatterns.loadFailed"),
+      );
+      return false;
+    } finally {
+      reloadPending.current = false;
+      setReloading(false);
+    }
+  };
   const save = api.admin.updateTutor.useMutation({
     onSettled: () => {
       submitting.current = false;
@@ -71,24 +126,28 @@ function TutorProfileForm({
       // Preserve sibling outcomes; only deliberate Close dismisses the editor.
       committed.current = true;
       setSaved(true);
-      try {
-        await settleRefreshes([
-          () => invalidateAndReport(utils.admin.tutors),
-          () => invalidateAndReport(utils.admin.tutees),
-          () => invalidateAndReport(utils.admin.accounts),
-        ]);
-      } catch {
-        setRefreshFailed(true);
-      }
+      setNeedsRefresh(true);
+      await refreshProfile();
     },
   });
   const busy = useDialogPending(save.isPending);
   return (
     <>
       <form
+        ref={formRef}
+        key={draftKey}
+        onChangeCapture={() => {
+          if (!committed.current) setSaved(false);
+        }}
         onSubmit={(event) => {
           event.preventDefault();
-          if (busy || submitting.current || committed.current) return;
+          if (
+            busy ||
+            submitting.current ||
+            committed.current ||
+            reloadPending.current
+          )
+            return;
           const data = new FormData(event.currentTarget);
           const value = (key: string) => {
             const field = data.get(key);
@@ -122,12 +181,27 @@ function TutorProfileForm({
       >
         <ProfileEditSection
           title={t("uiPatterns.profile")}
-          busy={save.isPending}
+          busy={save.isPending || reloading}
           saved={saved}
           refreshFailed={refreshFailed}
+          readOnly={needsRefresh}
+          refreshBusy={reloading}
+          refreshError={reloadError}
+          onRefresh={() => {
+            if (busy || submitting.current || reloadPending.current) return;
+            reloadFocus.beginReload();
+            void refreshProfile().then((refreshed) => {
+              reloadFocus.finishReload(refreshed);
+              if (refreshed) save.reset();
+            });
+          }}
           className="grid gap-4 sm:grid-cols-2"
           actions={
-            <Button type="submit" variant="primary" disabled={save.isPending}>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={busy || reloading || needsRefresh}
+            >
               {t("accountProfile.save")}
             </Button>
           }
@@ -171,7 +245,9 @@ function TutorProfileForm({
               ["grade", t("academics.legacyGrade"), row.gradeLevel],
             ] as const
           )
-            .filter(([key]) => key !== "grade" || (!row.user && !row.historicalGrade))
+            .filter(
+              ([key]) => key !== "grade" || (!row.user && !row.historicalGrade),
+            )
             .map(([key, label, value]) => (
               <label key={key} className="block">
                 <span className="label">{label}</span>
@@ -235,17 +311,19 @@ function TutorProfileForm({
           )}
         </ProfileEditSection>
       </form>
-      {row.user && (
+      {siblingRow.user && (
         <div className="mt-5">
-          <AcademicPanel userId={row.user.id} />
+          <AcademicPanel userId={siblingRow.user.id} />
         </div>
       )}
-      {row.historicalGrade && (
+      {siblingRow.historicalGrade && (
         <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm">
           {t("historicalAcademics.HISTORICAL_EDITOR_REQUIRED")}
         </p>
       )}
-      {isHistoricalTutor(row) && <TutorHistorySection tutorId={row.id} />}
+      {isHistoricalTutor(siblingRow) && (
+        <TutorHistorySection tutorId={siblingRow.id} />
+      )}
     </>
   );
 }

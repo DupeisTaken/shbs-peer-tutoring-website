@@ -161,17 +161,39 @@ it.each(["en", "zh"] as const)(
         name: english ? "Save the other section" : "保存另一部分",
       }),
     );
+    expect(savedDraft.matches(":disabled")).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
     expect(within(dialog).getByRole("alert")).toBeTruthy();
     expect(
       within(dialog).getByText((english ? en : zh).accountProfile.sectionSaved),
     ).toBeTruthy();
     expect(draft.value).toBe("Keep the failed draft");
     expect(draft.matches(":disabled")).toBe(false);
-    expect(savedDraft.matches(":disabled")).toBe(true);
+    expect(savedDraft.matches(":disabled")).toBe(false);
     expect(dialog.getAttribute("aria-busy")).toBe("false");
     expect(savedDraft.closest("fieldset")?.getAttribute("aria-busy")).toBe(
       "false",
     );
+    expect(
+      within(dialog).queryByRole("button", { name: /Edit again|再次编辑/ }),
+    ).toBeNull();
+    expect(savedDraft.matches(":disabled")).toBe(false);
+    expect(draft.value).toBe("Keep the failed draft");
+    expect(within(dialog).getByRole("alert")).toBeTruthy();
+    fireEvent.change(savedDraft, { target: { value: "Second correction" } });
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: english ? "Save the other section" : "保存另一部分",
+      }),
+    );
+    expect(savedDraft.matches(":disabled")).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    expect(savedDraft.matches(":disabled")).toBe(false);
+    expect(savedDraft.value).toBe("Second correction");
     fireEvent.click(
       within(dialog).getByRole("button", {
         name: (english ? en : zh).accountProfile.close,

@@ -26,6 +26,7 @@ const state = vi.hoisted(() => ({
   slotError: null as { message: string } | null,
   mutate: vi.fn(),
   fetchAccounts: vi.fn(),
+  fetchRoster: vi.fn(),
   reset: vi.fn(),
   retrySubjects: vi.fn(),
   retrySlots: vi.fn(),
@@ -60,8 +61,8 @@ vi.mock("~/trpc/react", () => {
       useUtils: () => ({
         admin: {
           accounts: { ...invalidation, fetch: state.fetchAccounts },
-          tutors: invalidation,
-          tutees: invalidation,
+          tutors: { ...invalidation, fetch: state.fetchRoster },
+          tutees: { ...invalidation, fetch: state.fetchRoster },
           pairings: invalidation,
           tuteeStats: invalidation,
         },
@@ -115,6 +116,16 @@ beforeEach(() => {
   state.subjectError = null;
   state.slotError = null;
   vi.clearAllMocks();
+  // Model the committed row returned by the authorized forced read.
+  const fresh = () => ({
+    ...row,
+    ...(state.mutate.mock.calls.at(-1)?.[0] as Record<string, unknown>),
+    userId: "account",
+    profileVersion: 8,
+    updatedAt: new Date("2026-09-02"),
+  });
+  state.fetchAccounts.mockImplementation(async () => ({ rows: [fresh()] }));
+  state.fetchRoster.mockImplementation(async () => [fresh()]);
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
     configurable: true,
     value: function (this: HTMLDialogElement) {
@@ -283,16 +294,19 @@ it.each<Kind>(["account", "tutor", "tutee"])(
     view.rerender(editor(kind, close));
     expect(close).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
-    expect(name.matches(":disabled")).toBe(true);
+    const freshName = screen.getByLabelText<HTMLInputElement>(
+      "First Name Required",
+    );
+    expect(freshName.matches(":disabled")).toBe(false);
+    expect(freshName.value).toBe("Saved parent draft");
     expect(screen.getByText(en.accountProfile.sectionSaved)).toBeTruthy();
-    fireEvent.submit(name.closest("form")!);
     expect(state.mutate).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(close).toHaveBeenCalledOnce();
   },
 );
 
-it("keeps a successfully synchronized account section read-only until deliberate Close", async () => {
+it("keeps a successfully synchronized account section editable until deliberate Close", async () => {
   const close = vi.fn();
   render(editor("account", close));
   await act(() => state.success());
@@ -507,7 +521,9 @@ it.each(["ARCHIVED", "GRADUATED", "TRANSFERRED", "corrected"] as const)(
     );
     const form = screen.getByLabelText("First Name Required").closest("form")!;
     expect(form.querySelector('[name="grade"]')).toBeNull();
-    expect(screen.getByText(en.historicalAcademics.HISTORICAL_EDITOR_REQUIRED)).toBeTruthy();
+    expect(
+      screen.getByText(en.historicalAcademics.HISTORICAL_EDITOR_REQUIRED),
+    ).toBeTruthy();
     fireEvent.change(screen.getByLabelText(en.admin.tutors.colEmail), {
       target: { value: "archive-contact@example.test" },
     });
@@ -520,23 +536,42 @@ it.each(["ARCHIVED", "GRADUATED", "TRANSFERRED", "corrected"] as const)(
   },
 );
 
-it.each(["tutor", "tutee"] as const)("keeps linked current %s academics separate from protected historical evidence", (kind) => {
-  const Editor = kind === "tutor" ? TutorProfileEditor : TuteeEditor;
-  render(
-    <NextIntlClientProvider locale="en" messages={en}>
-      <Editor
-        row={{ ...row, historical: false, historicalGrade: true, enrollmentCorrection: null } as unknown as ComponentProps<typeof TutorProfileEditor>["row"] & ComponentProps<typeof TuteeEditor>["row"]}
-        onClose={vi.fn()}
-      />
-    </NextIntlClientProvider>,
-  );
-  const form = screen.getByLabelText("First Name Required").closest("form")!;
-  expect(form.querySelector('[name="grade"]')).toBeNull();
-  expect(screen.getByLabelText("Independent academic draft")).toBeTruthy();
-  expect(screen.getByText(en.historicalAcademics.HISTORICAL_EDITOR_REQUIRED)).toBeTruthy();
-  fireEvent.change(screen.getByLabelText("First Name Required"), { target: { value: "Updated" } });
-  fireEvent.submit(form);
-  expect(state.mutate.mock.calls[0]?.[0]).toMatchObject({ firstName: "Updated" });
-  expect(state.mutate.mock.calls[0]?.[0]).not.toHaveProperty("gradeLevel");
-  expect(state.mutate.mock.calls[0]?.[0]).not.toHaveProperty("academicallyGraduated");
-});
+it.each(["tutor", "tutee"] as const)(
+  "keeps linked current %s academics separate from protected historical evidence",
+  (kind) => {
+    const Editor = kind === "tutor" ? TutorProfileEditor : TuteeEditor;
+    render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <Editor
+          row={
+            {
+              ...row,
+              historical: false,
+              historicalGrade: true,
+              enrollmentCorrection: null,
+            } as unknown as ComponentProps<typeof TutorProfileEditor>["row"] &
+              ComponentProps<typeof TuteeEditor>["row"]
+          }
+          onClose={vi.fn()}
+        />
+      </NextIntlClientProvider>,
+    );
+    const form = screen.getByLabelText("First Name Required").closest("form")!;
+    expect(form.querySelector('[name="grade"]')).toBeNull();
+    expect(screen.getByLabelText("Independent academic draft")).toBeTruthy();
+    expect(
+      screen.getByText(en.historicalAcademics.HISTORICAL_EDITOR_REQUIRED),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("First Name Required"), {
+      target: { value: "Updated" },
+    });
+    fireEvent.submit(form);
+    expect(state.mutate.mock.calls[0]?.[0]).toMatchObject({
+      firstName: "Updated",
+    });
+    expect(state.mutate.mock.calls[0]?.[0]).not.toHaveProperty("gradeLevel");
+    expect(state.mutate.mock.calls[0]?.[0]).not.toHaveProperty(
+      "academicallyGraduated",
+    );
+  },
+);

@@ -90,18 +90,26 @@ role and state for each capture; keep the images and report in ignored `outputs/
 
 In profile editors, completion of one section must not dismiss a failed independent
 draft. Profile and username saves therefore keep the editor open for deliberate
-Close, even when every operation succeeds. The saved section becomes read-only
-until reopening; other sections retain their own drafts and versions. The long
+Close, even when every operation succeeds. The saved section refreshes automatically
+after Save, reading the server even if the cache is fresh and adopting only its
+own fields and expected version before becoming editable again. Other sections
+retain their drafts and versions. A failed or missing-record read keeps the saved
+section locked and exposes **Retry refresh** outside its disabled fieldset. This
+recovery performs reads only and never repeats the accepted mutation. The long
 dialog recipe demonstrates a failed draft alongside a saved section using
-`ProfileEditSection`. Completed state disables that section without registering
-pending work or blocking idle Close. Verify both completion orders, failed retry,
+`ProfileEditSection`. Saved feedback is separate from the refresh lock; failed
+synchronization does not block idle Close. Verify both completion orders, failed retry,
 all-success and a committed write whose synchronization fails on the actual pages.
+For [repeat profile editing (#282)](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/282),
+verify a third edit/save cycle without a restart action, failed automatic reads,
+current version fences, unchanged sibling focus and retained drafts, including history editors.
 
 Gate refreshes independently when testing save completion. A rejected read must not
 release dismissal or sibling submission while another refresh remains pending.
 Use `settleRefreshes` at each aggregate boundary, including nested groups, and
 present a refresh failure only after the remaining reads settle. Saved state must
-continue to prevent replay of the committed mutation.
+continue to prevent replay of the committed mutation until its automatic matching
+read or explicit recovery succeeds. Unrelated background refreshes never replace drafts.
 
 Also test two active query variants under the same procedure prefix using the
 installed QueryClient. Default invalidation can suppress GET errors; enabling
@@ -206,8 +214,10 @@ review. The gallery demonstrates rejected write, accepted write and read recover
 ## Profile editor completion
 
 Profile and username completion must leave independent drafts mounted. Keep saved
-sections read-only until the user closes and reopens the editor; completion does
-not register pending work or prevent idle Close. Test failure in both completion
+sections read-only until the automatic refresh successfully loads that section's
+current values and version. Failed reads retain the saved state and expose
+**Retry refresh**; completion does not register pending work or prevent idle Close.
+Other drafts remain local and unsaved until their own Save. Test failure in both completion
 orders, primary failure with sibling success, all-success, same-frame duplicate
 submission, unchanged versions on retry, and deliberate dismissal. Use actual
 child components and the installed QueryClient for this composition coverage.
