@@ -3,7 +3,8 @@
 // recordTransfer.* requires HEAD directly. Imports/exports cannot be proposed or replayed.
 // tuteeHistory.invite/link/cancelInvitation require ADMIN/HEAD directly. Conflict correction
 // additionally reauthenticates Head; public history account setup grants no membership.
-/** These operations assign or restore account capabilities. Only Head can apply/review them.
+/** These operations assign or restore account capabilities and retain Head review.
+ * classifyApproval explicitly allows Admin to issue Tutor/Crew invitations directly.
  * qualificationApplication.decide deliberately uses adminOnlyProcedure instead: subject grants
  * do not change account badges and coordinators cannot submit/replay these decisions. */
 export const HEAD_APPROVAL_OPERATIONS = new Set([
@@ -251,7 +252,11 @@ export function classifyApproval(
   if (HEAD_APPROVAL_OPERATIONS.has(operation) &&
       (operation !== "admin.updateTutor" || tutorStatusChange)) {
     const managementCode = operation === "admin.issueRegistrationCode" && ["ADMIN", "COORDINATOR"].includes(String(value.kind));
-    return { category: "ACCOUNT_ACCESS", directRoles: ["HEAD"],
+    // Admin may issue participation invitations directly. Coordinator proposals still
+    // go to Head, and this exception never extends to management grants or revocation.
+    const participationCode = operation === "admin.issueRegistrationCode" &&
+      (value.kind === undefined || value.kind === "TUTOR" || value.kind === "CREW");
+    return { category: "ACCOUNT_ACCESS", directRoles: participationCode ? ["ADMIN", "HEAD"] : ["HEAD"],
       requesterRoles: managementCode ? ["ADMIN", "HEAD"] : operation === "tutor.decideInterview" ? ["TUTOR", "COORDINATOR", "ADMIN", "HEAD"] : ["COORDINATOR", "ADMIN", "HEAD"],
       reviewerRoles: ["HEAD"] };
   }

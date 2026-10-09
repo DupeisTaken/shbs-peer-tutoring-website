@@ -892,7 +892,7 @@
       "exportImageError": "Could not export the image. Check that the code is still active and try again.",
       "kindAdmin": "Admin",
       "kindCoordinator": "Coordinator",
-      "managementHelp": "Head authorizes every role invitation. Admin may request any supported invitation; Coordinators may request Tutor and Crew invitations only. Only Head can view or share management codes. Admin/Coordinator codes create management-only accounts; edit existing accounts in Users & Roles.",
+      "managementHelp": "Head and Admin issue Tutor and Crew codes directly; Coordinators request Head approval. Admin/Coordinator codes require Head authorization and may be requested by Admin only. Only Head can view or share management codes. Admin/Coordinator codes create management-only accounts; edit existing accounts in Users & Roles.",
       "title": "Registration Codes",
       "help": "Issue a single-use security key for a new account. Codes can be viewed again while active. Share only with the intended recipient; codes expire after 7 days and cannot be used after redemption or revocation.",
       "labelField": "For (Label)",
@@ -2729,7 +2729,7 @@
     "sourceHelp": "Source describes how a signup was entered. It does not change approval, priority or participation rules. Earlier signup means the original entry source is unconfirmed."
   },
   "approvals": {
-    "reviewPermissions": "Admin and Head review daily operations. Head reviews significant settings, management profiles and roles, registration-code grants and reversals. Head may review their own requests; everyone else needs another eligible reviewer.",
+    "reviewPermissions": "Admin and Head review daily operations. Head reviews significant settings, management profiles and roles, requested registration-code grants and reversals. Admin and Head issue Tutor/Crew codes directly. Head may review their own requests; everyone else needs another eligible reviewer.",
     "title": "Management Actions",
     "subtitle": "Review the requested action and compare its values before deciding. Pending requests have not changed live records. Use the status filters to view past decisions.",
     "queued": "Submitted for Review",

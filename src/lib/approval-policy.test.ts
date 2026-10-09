@@ -61,14 +61,19 @@ describe("management authority by effect", () => {
     expect(classifyApproval("admin.deleteMeeting", {}, { meetingHasAttendance: true })?.directRoles).toEqual(["HEAD"]);
   });
 
-  it("allows existing tutor/crew requests, rejecting Coordinator management grants", () => {
+  it("lets Admin issue tutor/crew codes directly while retaining Head review of Coordinator requests", () => {
     for (const kind of [undefined, "TUTOR", "CREW"])
-      expect(classifyApproval("admin.issueRegistrationCode", { kind })?.requesterRoles).toContain("COORDINATOR");
+      expect(classifyApproval("admin.issueRegistrationCode", { kind })).toMatchObject({
+        directRoles: ["ADMIN", "HEAD"], requesterRoles: ["COORDINATOR", "ADMIN", "HEAD"], reviewerRoles: ["HEAD"],
+      });
     for (const kind of ["ADMIN", "COORDINATOR"])
-      expect(classifyApproval("admin.issueRegistrationCode", { kind })).toMatchObject({ requesterRoles: ["ADMIN", "HEAD"], reviewerRoles: ["HEAD"] });
+      expect(classifyApproval("admin.issueRegistrationCode", { kind })).toMatchObject({ directRoles: ["HEAD"], requesterRoles: ["ADMIN", "HEAD"], reviewerRoles: ["HEAD"] });
     for (const currentRegistrationKind of ["ADMIN", "COORDINATOR"])
       expect(classifyApproval("admin.revokeRegistrationCode", {}, { currentRegistrationKind })?.requesterRoles).toEqual(["ADMIN", "HEAD"]);
-    expect(classifyApproval("admin.revokeRegistrationCode", {}, { currentRegistrationKind: "TUTOR" })?.requesterRoles).toContain("COORDINATOR");
+    for (const currentRegistrationKind of ["TUTOR", "CREW"])
+      expect(classifyApproval("admin.revokeRegistrationCode", {}, { currentRegistrationKind })).toMatchObject({
+        directRoles: ["HEAD"], requesterRoles: ["COORDINATOR", "ADMIN", "HEAD"], reviewerRoles: ["HEAD"],
+      });
   });
 
   it("protects legacy roster profile aliases even when the tutor status is unchanged", () => {

@@ -392,7 +392,7 @@ CSV exports preserve numeric quantities and quote names or comments containing c
 
 ### Management registration codes
 
-Registration Codes supports Tutor, Crew, Admin and Coordinator invitations. Every code grants only its displayed role. Head can issue directly. Admin can request any supported code; Coordinators can request Tutor and Crew codes but cannot request Admin/Coordinator grants. All issuance requests require Head approval. Only Head can list or share management codes; Admin may request Head review of their revocation. The selected role appears in the list, share card and every redemption step after code validation. There is no Head code; leadership transfer remains separate.
+Registration Codes supports Tutor, Crew, Admin and Coordinator invitations. Every code grants only its displayed role. Head can issue directly. Admin can issue Tutor and Crew codes directly, and request Head approval for Admin/Coordinator codes. Coordinators can request Tutor and Crew codes for Head review but cannot request Admin/Coordinator grants. Direct issuance and reviewed issuance are recorded in the audit log. Only Head can list or share management codes; Admin may request Head review of their revocation. The selected role appears in the list, share card and every redemption step after code validation. There is no Head code; leadership transfer remains separate.
 
 Use **Export Image** beneath a newly issued setup card, or expand an active code
 and use the same action, to download `account-setup.png`. The image contains only
@@ -413,7 +413,7 @@ HEAD has administrator abilities plus the program’s restricted leadership and 
 
 Before opening intake, confirm email delivery, the current policies, subjects, slots, rooms, qualifications, intake timing, school calendar and feedback visibility. Coordinate host, backup and recovery readiness with the technical operator using the [launch runbook](deployment.md).
 
-Head applies the [program refresh](program-reference.md#refresh-the-program) and stages module switches; Admin may submit either for Head review. Refresh advances the period, applies pending switches and changes participation, so confirm the displayed consequences first. A new period preserves historical attendance, policy acceptance and audit evidence. Only Head can apply sensitive configuration, staff profile/rank edits, reversals, role/badge grants and registration-code issuance. Head also provisions new tutor accounts, transfers leadership and deletes eligible accounts; the current Head cannot be deleted. Leadership transfer appoints an eligible administrator or coordinator and makes the outgoing Head an administrator.
+Head applies the [program refresh](program-reference.md#refresh-the-program) and stages module switches; Admin may submit either for Head review. Refresh advances the period, applies pending switches and changes participation, so confirm the displayed consequences first. A new period preserves historical attendance, policy acceptance and audit evidence. Only Head can apply sensitive configuration, staff profile/rank edits, reversals, role/badge grants and management-role registration-code issuance. Admin can issue Tutor/Crew registration codes directly. Head also provisions new tutor accounts, transfers leadership and deletes eligible accounts; the current Head cannot be deleted. Leadership transfer appoints an eligible administrator or coordinator and makes the outgoing Head an administrator.
 
 ### Stable account usernames
 

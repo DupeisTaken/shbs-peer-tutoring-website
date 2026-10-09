@@ -155,7 +155,39 @@ it("rejects management-code grants from Coordinator while retaining Tutor/Crew H
   for (const kind of ["TUTOR", "CREW"] as const) {
     const request = await queued(() => trainee().admin.issueRegistrationCode({ kind }));
     expect((await head().approval.list({ requestId: request.id })).rows[0]).toMatchObject({ canDecide: true, reviewerRoles: ["HEAD"] });
+    await expect(admin().approval.decide({ id: request.id, approve: true, note: "Direct issuance does not grant review authority" }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+    const notices = await db.notification.findMany({ where: { link: `/admin/approvals?request=${request.id}` } });
+    expect(notices.map((notice) => notice.userId)).toEqual(["approval-head"]);
   }
+  expect(await db.registrationCode.count()).toBe(0);
+});
+
+it.each([undefined, "TUTOR", "CREW"] as const)("lets Admin issue %s codes immediately with private lifecycle evidence but retains Head revocation", async (kind) => {
+  const issued = await admin().admin.issueRegistrationCode({ kind, label: "Participation invitation" });
+  expect(issued.kind).toBe(kind ?? "TUTOR");
+  expect(typeof issued.code).toBe("string");
+  expect(await db.registrationCode.findUniqueOrThrow({ where: { id: issued.id } })).toMatchObject({
+    kind: kind ?? "TUTOR", issuedById: "approval-admin", usedAt: null,
+  });
+  expect(await db.approvalRequest.count()).toBe(0);
+  const audit = await db.auditLog.findFirstOrThrow({ where: { entityId: issued.id, operation: "registration.issue" } });
+  expect(audit).toMatchObject({ userId: "approval-admin", approvalId: null,
+    details: { actorRole: "ADMIN", outcome: "APPLIED", kind: kind ?? "TUTOR", before: { issued: false }, after: { issued: true } },
+  });
+  expect(JSON.stringify(await db.auditLog.findMany())).not.toContain(issued.code);
+  const request = await queued(() => admin().admin.revokeRegistrationCode({ id: issued.id }));
+  expect(await db.registrationCode.findUnique({ where: { id: issued.id } })).not.toBeNull();
+  await expect(admin().approval.decide({ id: request.id, approve: true, note: "Issuing does not grant undo authority" }))
+    .rejects.toMatchObject({ code: "FORBIDDEN" });
+  await head().approval.decide({ id: request.id, approve: true, note: "Head approves withdrawal" });
+  expect(await db.registrationCode.findUnique({ where: { id: issued.id } })).toBeNull();
+});
+
+it("checks current Admin authority before issuing codes even when a session retains the Admin role", async () => {
+  await db.user.update({ where: { id: "approval-admin" }, data: { role: "COORDINATOR" } });
+  const request = await queued(() => admin().admin.issueRegistrationCode({ kind: "TUTOR" }));
+  expect(request).toMatchObject({ requesterId: "approval-admin", state: "PENDING" });
   expect(await db.registrationCode.count()).toBe(0);
 });
 

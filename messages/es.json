@@ -1324,7 +1324,7 @@
       "exportImageError": "No se pudo exportar la imagen. Comprueba que el código siga activo e inténtalo de nuevo.",
       "kindAdmin": "Admin",
       "kindCoordinator": "Coordinador",
-      "managementHelp": "Head autoriza todas las invitaciones de roles. El resto del personal envía solicitudes para su aprobación. Solo Head puede ver o compartir códigos de gestión. Estos códigos crean cuentas nuevas solo de gestión; para cuentas existentes, solicita a Head el cambio de roles en Usuarios y roles.",
+      "managementHelp": "Head y Admin emiten directamente los códigos de Tutor y Crew; los Coordinators solicitan la aprobación de Head. Los códigos de Admin/Coordinator requieren autorización de Head y solo Admin puede solicitarlos. Solo Head puede ver o compartir códigos de gestión. Estos códigos crean cuentas nuevas solo de gestión; edita las cuentas existentes en Usuarios y roles.",
       "title": "Códigos de registro",
       "help": "Emite una clave de un solo uso para una cuenta nueva. Puedes consultarla mientras esté activa. Compártela solo con el destinatario previsto; caduca a los 7 días y no puede usarse tras canjearla o revocarla.",
       "labelField": "Para (etiqueta)",

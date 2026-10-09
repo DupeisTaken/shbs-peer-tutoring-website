@@ -18,7 +18,8 @@ retain their existing ownership rules; subject qualification levels are distinct
 | Recruitment switch/start/end/preview; CAPTCHA; name/grade configuration; signup fields; optional email/binding switches; timezone; staged modules; period refresh | Head | Admin | Head |
 | Global calendar, feedback sharing, policy publication/removal, language visibility/order/removal and message-permission configuration | Head | Admin | Head |
 | Staff account name/username/academic edits, roster profile edits, role/badge and tutoring/crew access changes; historical academic corrections | Head | Admin | Head |
-| Tutor/Crew invitations and existing participation decisions that grant access | Head | Eligible Admin/Coordinator requesters | Head |
+| Tutor/Crew registration invitations | Admin or Head | Eligible Coordinator requesters | Head |
+| Existing participation decisions that grant access | Head | Eligible Admin/Coordinator requesters | Head |
 | Admin/Coordinator registration invitations | Head | Admin | Head |
 | Audit undo, reinstatement, deletion of hour adjustments, invitation revocation, attendance/patrol correction and changes to an applied card decision | Head | Eligible Admin/Coordinator requesters; messaging remains Admin-only | Head |
 | Time-slot clock changes that propagate into recorded attendance, credits or reviewed flags | Head | Admin/Coordinator | Head |

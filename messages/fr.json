@@ -924,7 +924,7 @@
       "exportImageError": "Impossible d’exporter l’image. Vérifiez que le code est toujours actif et réessayez.",
       "kindAdmin": "Admin",
       "kindCoordinator": "Coordinateur",
-      "managementHelp": "Head autorise chaque invitation de rôle. Les autres membres du personnel soumettent une demande. Seul Head peut voir et partager les codes de gestion. Ces codes créent de nouveaux comptes de gestion uniquement ; pour un compte existant, demandez à Head de modifier les rôles.",
+      "managementHelp": "Head et Admin émettent directement les codes Tutor et Crew ; les Coordinators demandent l’approbation de Head. Les codes Admin/Coordinator nécessitent l’autorisation de Head et seul Admin peut en faire la demande. Seul Head peut voir et partager les codes de gestion. Ces codes créent de nouveaux comptes de gestion uniquement ; modifiez les comptes existants dans Utilisateurs et rôles.",
       "title": "Codes d'inscription",
       "help": "Émettez une clé à usage unique pour un nouveau compte. Elle reste consultable tant qu’elle est active. Partagez-la uniquement avec le destinataire prévu ; elle expire après 7 jours et ne peut plus être utilisée après activation ou révocation.",
       "labelField": "Pour (étiquette)",

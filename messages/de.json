@@ -924,7 +924,7 @@
       "exportImageError": "Das Bild konnte nicht exportiert werden. Prüfen Sie, ob der Code noch gültig ist, und versuchen Sie es erneut.",
       "kindAdmin": "Admin",
       "kindCoordinator": "Koordinator",
-      "managementHelp": "Head genehmigt alle Rolleneinladungen. Andere Mitarbeitende reichen Anträge zur Genehmigung ein. Nur Head kann Verwaltungscodes sehen und teilen. Diese erstellen neue Konten ausschließlich für die Verwaltung. Bestehende Rollen ändert Head unter Benutzer und Rollen.",
+      "managementHelp": "Head und Admin stellen Tutor- und Crew-Codes direkt aus; Coordinators beantragen die Genehmigung durch Head. Admin-/Coordinator-Codes benötigen die Genehmigung durch Head und können nur von Admin beantragt werden. Nur Head kann Verwaltungscodes sehen und teilen. Diese erstellen neue Konten ausschließlich für die Verwaltung. Bestehende Konten werden unter Benutzer und Rollen bearbeitet.",
       "title": "Registrierungscodes",
       "help": "Erstelle einen einmaligen Sicherheitsschlüssel für ein neues Konto. Aktive Codes können erneut angezeigt werden. Teile ihn nur mit der vorgesehenen Person; er verfällt nach 7 Tagen und ist nach Einlösung oder Widerruf ungültig.",
       "labelField": "Für (Bezeichnung)",

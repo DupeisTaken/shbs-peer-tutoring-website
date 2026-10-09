@@ -1,6 +1,7 @@
 "use client";
 import {
   REGISTRATION_KINDS,
+  isManagementCode,
   registrationKindLabel,
   type RegistrationKind,
 } from "~/lib/registration-kind";
@@ -23,7 +24,8 @@ import { queuedApprovalId } from "~/lib/approval-outcome";
  * Registration codes: issue single-use 6-digit security keys for new tutors and track their
  * status. Active codes remain re-viewable from their expandable cards until they expire, are used,
  * or are revoked.
- * Head issues directly; eligible staff propose issuance/revocation. VIEWER is read-only.
+ * Head issues directly; Admin also issues Tutor/Crew codes directly. Other eligible
+ * issuance and non-Head revocation actions require Head review. VIEWER is read-only.
  */
 export default function RegistrationCodesPage() {
   const programFormat = useFormatter();
@@ -42,6 +44,8 @@ export default function RegistrationCodesPage() {
   const [email, setEmail] = useState("");
   const [label, setLabel] = useState("");
   const [kind, setKind] = useState<RegistrationKind>("TUTOR");
+  // Match issuance authority for the selected kind without broadening revocation.
+  const canIssueDirectly = isHead || (role === "ADMIN" && !isManagementCode(kind));
   const [issued, setIssued] = useState<{
     code: string;
     label: string | null;
@@ -157,7 +161,7 @@ export default function RegistrationCodesPage() {
             className="btn-primary min-h-11 lg:min-h-10"
             disabled={issue.isPending || !role || !!identity.error || !kinds.includes(kind)}
           >
-            {isHead ? t("admin.registrationCodes.issue") : t("approvals.requestHead")}
+            {canIssueDirectly ? t("admin.registrationCodes.issue") : t("approvals.requestHead")}
           </button>
         </form>
       )}

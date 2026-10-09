@@ -119,7 +119,7 @@ it("requires Head for staff profile edits while retaining self-service and stale
     .rejects.toMatchObject({ code: "CONFLICT" });
 });
 
-it("limits management invitations to Admin submissions while all code issuance requires Head", async () => {
+it("requires Head for management invitations and Coordinator participation-code requests", async () => {
   await expect(coordinator().admin.issueRegistrationCode({ kind: "ADMIN" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   await expect(coordinator().admin.issueRegistrationCode({ kind: "COORDINATOR" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   const request = await queued(admin().admin.issueRegistrationCode({ kind: "ADMIN" }));

@@ -115,11 +115,14 @@ it("accepts single-token names and optional Latin spelling for new verified acco
   // completion contract still explicitly distinguishes login creation from activation.
   expect(await publicCaller().registration.complete({ code: row.code, completionProof: row.completionProof, firstName: "Xiaoming", lastName: "Wang", alternativeNames: "王小明", password: profile.password })).toEqual({ ok: true, username: "xwang", academicConfirmationRequired: false });
 });
-it.each(REGISTRATION_KINDS)(
-  "completes verified %s registration with only the intended participation",
-  async (kind) => {
+it.each([
+  ...REGISTRATION_KINDS.map((kind) => ({ issuer: "head", kind })),
+  ...(["TUTOR", "CREW"] as const).map((kind) => ({ issuer: "admin", kind })),
+])(
+  "completes verified $kind registration issued by $issuer with only the intended participation",
+  async ({ issuer, kind }) => {
     const client = publicCaller();
-    const issued = await actor("head").admin.issueRegistrationCode({
+    const issued = await actor(issuer).admin.issueRegistrationCode({
       kind,
       email: "new@example.test",
     });
@@ -159,7 +162,7 @@ it.each(REGISTRATION_KINDS)(
     expect(user.canTranslate).toBe(false);
     expect(
       await db.registrationCode.findUnique({ where: { id: issued.id } }),
-    ).toMatchObject({ issuedById: "head", usedByUserId: user.id });
+    ).toMatchObject({ issuedById: issuer, usedByUserId: user.id });
     await expect(
       client.registration.complete({ code: issued.code, completionProof, ...profile }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
