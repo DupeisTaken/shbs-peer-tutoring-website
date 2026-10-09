@@ -15,6 +15,8 @@ import { deliverNotifications } from "./notification-delivery";
 import { getEmailDeliveryStatus } from "./delivery-status";
 import { resendStuckEmails } from "./resend-stuck";
 import { renderEmail } from "./template";
+import { verifyUnsubscribeToken } from "./unsubscribe-token";
+import { unsubscribeFromEmail } from "./unsubscribe";
 
 const uid = "email192-synthetic";
 beforeEach(async () => {
@@ -77,6 +79,16 @@ it("persists distinct notification destinations for all verified recipients and 
     const url = new URL(message.presentation!.action!.url);
     expect(paths).toContain(url.searchParams.get("callbackUrl"));
     expect(message.text).toContain(url.href);
+    const unsubscribe = new URL(message.presentation!.unsubscribeUrl!);
+    expect(unsubscribe.pathname).toBe("/unsubscribe");
+    expect(
+      rows.some(
+        (row) =>
+          row.id ===
+          verifyUnsubscribeToken(unsubscribe.searchParams.get("token")!),
+      ),
+    ).toBe(true);
+    expect(message.text).toContain(`Unsubscribe: ${unsubscribe.href}`);
     expect(message.text).toContain("Asia/Shanghai");
     expect(message.text).not.toContain("do not recognize");
     const html = renderEmail({ brand: "School", ...message });
@@ -245,5 +257,30 @@ it.each(["unchanged", "opted-out", "secondary-removed"])(
         }),
       ).toBe(2);
     }
+  },
+);
+
+it.each([false, true])(
+  "preserves cancellation when an in-flight SMTP attempt settles (failure=%s)",
+  async (fails) => {
+    await db.notification.create({
+      data: { userId: uid, title: "Program", link: "/messages" },
+    });
+    mail.send.mockImplementation(async (message) => {
+      const token = new URL(
+        message.presentation!.unsubscribeUrl!,
+      ).searchParams.get("token")!;
+      expect(await unsubscribeFromEmail(token, "all")).toMatchObject({
+        status: "unsubscribed",
+      });
+      if (fails) throw new Error("synthetic SMTP failure after opt-out");
+    });
+    await deliverNotifications();
+    expect(mail.send).toHaveBeenCalledTimes(1);
+    const rows = await db.emailDelivery.findMany({ where: { userId: uid } });
+    expect(rows).toHaveLength(2);
+    expect(
+      rows.every((row) => row.status === "SKIPPED" && row.leaseUntil === null),
+    ).toBe(true);
   },
 );

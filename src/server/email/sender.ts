@@ -15,6 +15,7 @@ import { Socket } from "node:net";
 import { env } from "~/env";
 import { APP_TITLE } from "~/lib/branding";
 import { renderEmail, type EmailPresentation } from "./template";
+import { emailOrigin } from "./urls";
 
 export type EmailCategory = "SECURITY" | "PROGRAM";
 
@@ -148,7 +149,14 @@ async function sendSmtp(message: EmailMessage, account: SenderAccount) {
       subject: message.subject,
       text: message.text,
       // Keep the shared template independent of the selected SMTP identity.
-      html: message.html ?? renderEmail({ brand: APP_TITLE, ...message }),
+      html:
+        message.html ??
+        renderEmail({
+          brand: APP_TITLE,
+          ...message,
+          // Use the canonical public site asset, never a request host or recipient URL.
+          iconUrl: `${emailOrigin()}/icon.png`,
+        }),
     });
     const result = message.signup
       ? await Promise.race([

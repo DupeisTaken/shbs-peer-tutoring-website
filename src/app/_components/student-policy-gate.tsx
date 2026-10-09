@@ -29,6 +29,8 @@ export function StudentPolicyGate() {
     "/onboarding/email",
     "/forgot-password",
     "/reset-password",
+    // Email preferences must remain reachable without participation consent.
+    "/unsubscribe",
     "/suspended",
     "/tutor-signup",
     "/crew-signup",

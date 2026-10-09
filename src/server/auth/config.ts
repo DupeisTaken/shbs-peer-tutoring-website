@@ -71,6 +71,8 @@ export const authConfig = {
         "/viewer-signup",
         "/forgot-password",
         "/reset-password",
+        // Signed email links let recipients opt out without an active session.
+        "/unsubscribe",
         "/register",
         "/history/claim",
       ];
