@@ -375,7 +375,8 @@ Use **Export Image** beneath a newly issued setup card, or expand an active code
 and use the same action, to download `account-setup.png`. The image contains only
 the setup card: programme title, role, code, registration address and expiry. It
 keeps the current language and accent on a white background, at twice the displayed
-resolution. Labels, emails outside the card and action buttons are excluded.
+resolution, with a small white margin outside the card border. Labels, emails
+outside the card and action buttons are excluded.
 Exporting does not change the code or its expiry; share the image only with its
 intended recipient. If export fails, the card stays available so you can retry.
 
