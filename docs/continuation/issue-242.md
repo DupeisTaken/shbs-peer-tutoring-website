@@ -1,6 +1,51 @@
 # Issue 242 cloud continuation
 
-This is a portable checkpoint for [issue #242](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/242), not completion of production verification. All eight actual production acceptance rows remain **UNKNOWN**. Do not close the issue from this source work or a draft PR.
+This is the evidence record for [issue #242](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/242). The 9 October host inspection below supersedes the earlier all-unknown checkpoint. Cloud-account and independent external evidence are still incomplete; do not close the issue from host evidence alone.
+
+## Production inspection — 9 October 2026
+
+The operator authorized access to the canonical production host. Bounded read-only
+SSH commands inspected the running host on 9 October 2026 at 01:39–01:42 UTC
+(09:39–09:42 Asia/Shanghai). No deployment, account, database, volume, firewall or
+SSH setting was changed. The existing root-password access policy was preserved.
+Raw listener, route, namespace, firewall and image evidence remains private in the
+local report bundle, rather than in Git or public issue attachments.
+
+| Acceptance row | Observed evidence | Status |
+| --- | --- | --- |
+| Listeners and containers | Host TCP listeners expose SSH 22 and proxy 80/443 on both address families. DNS resolver and backup-agent listeners are loopback-only. The running Compose project has three expected containers; app and database have no host publications. | Host inventory verified |
+| Cloud and host firewall | UFW is active with incoming/routed default deny, public TCP 22/80/443 allowances, and corresponding IPv6 rules. Active nftables/iptables Docker NAT forwards only 80/443 to the proxy. Cloud security-group attachment/rules remain unavailable. | Host verified; cloud unknown |
+| SSH and administrative access | Active ssh service and its actual process arguments agree with the inspected configuration. Root/password and public-key login remain enabled. Root and non-root test contexts at local and external source addresses have the same authentication settings; no source restriction was inferred. Authorized root login succeeded. | Current host policy verified |
+| App, database and proxy administration | Container namespace inspection finds app 3000 and database 5432 only in their respective bridge namespaces. Proxy administration listens on container-local 127.0.0.1:2019. No host mappings exist for these ports, Studio 5555 or alternate HTTP 8080. Docker has no daemon direct-routing override; the application network is an IPv4 bridge. | Host paths verified |
+| Web and operator continuity | The read-only sessions completed; HTTPS sign-in returned 200 with valid TLS from the host. No service was restarted or configuration reloaded. | Observed continuity verified |
+| Volumes and data | Actual PostgreSQL and proxy data/config volumes and the proxy configuration bind mount were inspected. Nothing was written to these mounts or to application records. This was not a backup restoration test. | Mounts/preservation verified |
+| Deployed image identity | Running application OCI revision is `1abcaddec82818a852e499168803f0dd4c246a8c`; its immutable image identity and registry digest were recorded privately. The corresponding [publish workflow](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/37620237037) succeeded. Proxy image identity was recorded separately. | Verified |
+| Independent external results | The local workstation's SSH session and host-origin HTTPS request establish those observed paths only. An independently controlled external vantage and the complete approved protocol matrix remain outstanding. | Unknown |
+
+The instance reports a public IPv4 address matching production DNS and no global
+IPv6 address/default route. Container IPv6 is disabled; host IPv6 listeners and
+firewall rules were nevertheless included. This observation does not substitute
+for the cloud account's complete address, NAT and security-group inventory.
+
+The operator reported that they do not have access to the Alibaba Cloud account.
+The browser opens at cloud sign-in, the host has no Alibaba Cloud CLI, and no
+instance RAM-role name was available from the selected metadata query. No cloud
+credentials or metadata credential values were requested or collected. A cloud
+account owner must supply the effective attached-rule inventory; host root access
+alone does not provide that control-plane authorization. Alibaba Cloud documents
+the required read permission and rule query in
+[DescribeSecurityGroupAttribute](https://www.alibabacloud.com/help/en/ecs/developer-reference/api-ecs-2014-05-26-describesecuritygroupattribute).
+
+Remaining work is specific: corroborate the effective cloud attachment/ingress/NAT
+policy and complete an independent external protocol check. Keep #242 open until
+those rows have evidence. Public SSH and root-password authentication are reported
+as the existing operational policy, not judged against an invented key-only policy.
+
+## Earlier source-only checkpoint
+
+The sections below retain the earlier source-tooling handoff and its historical
+validation. Its statements about unavailable host access describe that earlier
+checkpoint, not the 9 October inspection above.
 
 ## Identity and scope
 
