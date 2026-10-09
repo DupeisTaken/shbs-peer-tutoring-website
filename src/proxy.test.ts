@@ -3,15 +3,22 @@ import { decode, encode } from "next-auth/jwt";
 import { Auth } from "@auth/core";
 import { NextRequest, type NextFetchEvent } from "next/server";
 const account = vi.hoisted(() => ({ findUnique: vi.fn() }));
-vi.mock("~/server/db", () => ({ db: { user: { findUnique: account.findUnique } } }));
-beforeEach(() => { account.findUnique.mockReset().mockResolvedValue({ sessionVersion: 0 }); });
+vi.mock("~/server/db", () => ({
+  db: { user: { findUnique: account.findUnique } },
+}));
+beforeEach(() => {
+  account.findUnique.mockReset().mockResolvedValue({ sessionVersion: 0 });
+});
 import proxy from "./proxy";
 import { authConfig } from "./server/auth/config";
 import { withoutSessionRefreshCookies } from "./server/auth/session-recovery";
 
 // Model the forwarded HTTP origin that Next supplies in a live request. Auth.js
 // derives cookie security from these headers, not this test constructor's URL.
-function pageRequest(url: string, init?: ConstructorParameters<typeof NextRequest>[1]) {
+function pageRequest(
+  url: string,
+  init?: ConstructorParameters<typeof NextRequest>[1],
+) {
   const headers = new Headers(init?.headers);
   headers.set("host", new URL(url).host);
   headers.set("x-forwarded-proto", new URL(url).protocol.slice(0, -1));
@@ -52,9 +59,52 @@ it("keeps the unauthenticated redirect and public/API authorization boundaries",
 
 it("does not make nested or similarly named privacy routes public", async () => {
   for (const path of ["/privacy/admin", "/privacy-settings"]) {
-    const response = await proxy(pageRequest(`http://localhost:3109${path}`), event);
+    const response = await proxy(
+      pageRequest(`http://localhost:3109${path}`),
+      event,
+    );
     expect(response?.status).toBe(307);
-    expect(new URL(response!.headers.get("location")!).pathname).toBe("/signin");
+    expect(new URL(response!.headers.get("location")!).pathname).toBe(
+      "/signin",
+    );
+  }
+});
+
+it("keeps the canonical signup pages and short aliases public without exposing adjacent paths", async () => {
+  for (const path of [
+    "/register",
+    "/register-account",
+    "/tutee",
+    "/tutee/account",
+    "/tutee-signup",
+    "/tutee-signup/account",
+    "/tutor",
+    "/tutor-signup",
+    "/viewer",
+    "/viewer-signup",
+    "/signup",
+    "/signup/account",
+  ]) {
+    const response = await proxy(
+      pageRequest(`http://localhost:3109${path}?code=AB3D7`),
+      event,
+    );
+    expect(response?.headers.get("location"), path).toBeNull();
+  }
+  for (const path of [
+    "/register-account/admin",
+    "/tutee-signup-private",
+    "/tutor/admin",
+    "/viewer/settings",
+  ]) {
+    const response = await proxy(
+      pageRequest(`http://localhost:3109${path}`),
+      event,
+    );
+    expect(response?.status, path).toBe(307);
+    expect(new URL(response!.headers.get("location")!).pathname).toBe(
+      "/signin",
+    );
   }
 });
 
@@ -117,7 +167,12 @@ it("delivers a delayed prefetch response after real Auth.js sign-out without res
   const newAccount = await encode({
     secret,
     salt: name,
-    token: { sub: "coordinator", role: "COORDINATOR", tutorId: null, sessionVersion: 0 },
+    token: {
+      sub: "coordinator",
+      role: "COORDINATOR",
+      tutorId: null,
+      sessionVersion: 0,
+    },
   });
   jar.set(name, newAccount);
   deliver(lateResponse!);
@@ -187,20 +242,48 @@ it("never renews an old valid cookie from a late page/prefetch response after si
   }
 });
 
-it.each([null, { sessionVersion: 1 }])("clears revoked or deleted-account cookies before public, private and API requests", async (current) => {
-  account.findUnique.mockResolvedValue(current);
-  const name = "authjs.session-token";
-  const token = await encode({ secret: process.env.AUTH_SECRET!, salt: name, token: { sub: "head", role: "HEAD", tutorId: null, sessionVersion: 0 } });
-  for (const path of ["/", "/admin/approvals", "/admin/approvals?request=synthetic", "/api/trpc/account.me"]) {
-    const response = await proxy(pageRequest(`http://localhost:3109${path}`, { headers: { cookie: `${name}=${token}; theme=dark` } }), event);
-    expect(response?.headers.getSetCookie()).toEqual(expect.arrayContaining([expect.stringMatching(/authjs\.session-token=;.*Max-Age=0/i)]));
-    if (path.startsWith("/api/")) expect(response?.headers.get("x-middleware-request-cookie")).toBe("theme=dark");
-    else {
-      // Recovery must revoke the cookie without losing the requested workflow.
-      const location = new URL(response!.headers.get("location")!);
-      expect(location.origin + location.pathname).toBe("http://localhost:3109/signin");
-      expect(location.searchParams.get("reason")).toBe("session-expired");
-      expect(location.searchParams.get("callbackUrl")).toBe(path === "/" ? null : path);
+it.each([null, { sessionVersion: 1 }])(
+  "clears revoked or deleted-account cookies before public, private and API requests",
+  async (current) => {
+    account.findUnique.mockResolvedValue(current);
+    const name = "authjs.session-token";
+    const token = await encode({
+      secret: process.env.AUTH_SECRET!,
+      salt: name,
+      token: { sub: "head", role: "HEAD", tutorId: null, sessionVersion: 0 },
+    });
+    for (const path of [
+      "/",
+      "/admin/approvals",
+      "/admin/approvals?request=synthetic",
+      "/api/trpc/account.me",
+    ]) {
+      const response = await proxy(
+        pageRequest(`http://localhost:3109${path}`, {
+          headers: { cookie: `${name}=${token}; theme=dark` },
+        }),
+        event,
+      );
+      expect(response?.headers.getSetCookie()).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/authjs\.session-token=;.*Max-Age=0/i),
+        ]),
+      );
+      if (path.startsWith("/api/"))
+        expect(response?.headers.get("x-middleware-request-cookie")).toBe(
+          "theme=dark",
+        );
+      else {
+        // Recovery must revoke the cookie without losing the requested workflow.
+        const location = new URL(response!.headers.get("location")!);
+        expect(location.origin + location.pathname).toBe(
+          "http://localhost:3109/signin",
+        );
+        expect(location.searchParams.get("reason")).toBe("session-expired");
+        expect(location.searchParams.get("callbackUrl")).toBe(
+          path === "/" ? null : path,
+        );
+      }
     }
-  }
-});
+  },
+);

@@ -14,6 +14,31 @@ const workspaceRoot = process.env.SHBS_WORKSPACE_ROOT ?? import.meta.dirname;
 const config = {
   // Caddy owns the public security policy; omit framework identification at source too.
   poweredByHeader: false,
+  // Publish short links; the descriptive routes are the canonical destinations.
+  // Next preserves invitation codes, mailbox tokens and other query parameters.
+  redirects() {
+    return [
+      {
+        source: "/register",
+        destination: "/register-account",
+        permanent: true,
+      },
+      { source: "/tutee", destination: "/tutee-signup", permanent: true },
+      { source: "/tutor", destination: "/tutor-signup", permanent: true },
+      { source: "/viewer", destination: "/viewer-signup", permanent: true },
+      {
+        source: "/tutee/account",
+        destination: "/tutee-signup/account",
+        permanent: true,
+      },
+      { source: "/signup", destination: "/tutee-signup", permanent: true },
+      {
+        source: "/signup/account",
+        destination: "/tutee-signup/account",
+        permanent: true,
+      },
+    ];
+  },
   // Self-contained server build for the Docker runtime image (.next/standalone).
   output: "standalone",
   // Pin the output file-tracing root to this project (good hygiene for standalone output and

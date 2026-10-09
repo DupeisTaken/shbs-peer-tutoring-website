@@ -24,6 +24,8 @@ const state = vi.hoisted(() => {
     verify: vi.fn(),
     complete: vi.fn(),
     send: vi.fn(),
+    enter: vi.fn(),
+    sendDisplayed: vi.fn(),
     login: vi.fn(),
     refresh: vi.fn(),
     callbacks,
@@ -79,8 +81,8 @@ vi.mock("~/trpc/react", () => {
         },
       },
       accountInvitation: {
-        enter: mutation("enter", vi.fn()),
-        sendVerification: mutation("sendDisplayed", vi.fn()),
+        enter: mutation("enter", state.enter),
+        sendVerification: mutation("sendDisplayed", state.sendDisplayed),
         verify: mutation("verify", state.verify),
         complete: mutation("complete", state.complete),
         inspect: {
@@ -464,10 +466,12 @@ it("staff-key navigation focuses its next heading and Back retains the key", asy
   const input = screen.getByLabelText(new RegExp(en.accountInvitation.code));
   fireEvent.change(input, { target: { value: "ABC12" } });
   await act(async () => {
-    state.callbacks.check!.onSuccess!({
+    state.callbacks.enter!.onSuccess!({
+      kind: "staff",
+      invitationId: "",
       boundEmail: "person@example.test",
     });
-    state.callbacks.check!.onSettled?.();
+    state.callbacks.enter!.onSettled?.();
   });
   expect(document.activeElement).toBe(
     screen.getByRole("heading", { name: en.accountInvitation.emailTitle }),
@@ -480,4 +484,46 @@ it("staff-key navigation focuses its next heading and Back retains the key", asy
       new RegExp(en.accountInvitation.code),
     ).value,
   ).toBe("ABC12");
+});
+
+it("resolves five-character displayed invitations through the shared lookup and retains the legacy field", async () => {
+  const { container } = render(view("en", true));
+  const input = screen.getByLabelText<HTMLInputElement>(
+    new RegExp(en.accountInvitation.code),
+  );
+  expect(input.maxLength).toBe(5);
+  expect(input.className).toContain("tracking-[0.4em]");
+  fireEvent.change(input, { target: { value: "ab3d7" } });
+  fireEvent.submit(container.querySelector("form")!);
+  expect(state.enter).toHaveBeenCalledWith({ code: "AB3D7" });
+  await act(async () => {
+    state.callbacks.enter!.onSuccess!({
+      kind: "display",
+      invitationId: "displayed",
+    });
+    state.callbacks.enter!.onSettled?.();
+  });
+  fireEvent.change(container.querySelector('input[type="email"]')!, {
+    target: { value: "recipient@example.test" },
+  });
+  fireEvent.submit(container.querySelector("form")!);
+  expect(state.sendDisplayed).toHaveBeenCalledWith({
+    invitationId: "displayed",
+    code: "AB3D7",
+    email: "recipient@example.test",
+  });
+  expect(state.send).not.toHaveBeenCalled();
+});
+
+it("accepts a copied earlier twelve-character receipt without truncating its identity", () => {
+  const { container } = render(view("en", true));
+  const input = screen.getByLabelText<HTMLInputElement>(
+    new RegExp(en.accountInvitation.code),
+  );
+  fireEvent.paste(input, {
+    clipboardData: { getData: () => " a1b2-c3d4-e5f6 " },
+  });
+  expect(input.value).toBe("A1B2C3D4E5F6");
+  fireEvent.submit(container.querySelector("form")!);
+  expect(state.enter).toHaveBeenCalledWith({ code: "A1B2C3D4E5F6" });
 });

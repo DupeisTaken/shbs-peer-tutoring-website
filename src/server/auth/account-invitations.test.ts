@@ -11,7 +11,13 @@ vi.mock("~/server/email/sender", () => ({
   isEmailConfigured: () => true,
 }));
 import { db } from "~/server/db";
-import { issueRegistrationCode, setEmailVerification } from "./registration";
+import {
+  issueRegistrationCode,
+  setEmailVerification,
+  hashCode,
+  registrationCompletionProof,
+} from "./registration";
+import * as codeHelpers from "./code";
 import { startViewerSignup, verifyViewerCode } from "./viewer-signup";
 import { hashPassword, verifyPassword } from "./password";
 import {
@@ -27,6 +33,7 @@ import {
   enterDisplayedInvitation,
   emailDisplayedInvitation,
   sendInvitationVerification,
+  type InvitationSource,
 } from "./account-invitations";
 import {
   startHistoryAccount,
@@ -288,9 +295,12 @@ it("a redundant generic tutor invitation preserves an opted-out existing tutor",
 
 it("displays an invitation without mail, preserves its receipt, and requires separate identity proof", async () => {
   const invite = await displayedViewer();
-  expect(invite.code).toMatch(/^[A-F0-9]{12}$/);
+  expect(invite.code).toMatch(/^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}$/);
+  expect(invite.code).toMatch(/[A-Z]/);
+  expect(invite.code).toMatch(/[2-9]/);
   expect(mail.send).not.toHaveBeenCalled();
   expect(await enterDisplayedInvitation(db, { code: invite.code! })).toEqual({
+    kind: "display",
     invitationId: invite.invitationId,
   });
   expect(
@@ -343,6 +353,191 @@ it("displays an invitation without mail, preserves its receipt, and requires sep
   expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(
     `&code=${invite.code}`,
   );
+});
+
+it.each(["staff", "display"] as const)(
+  "retries and retains a five-character candidate reserved by %s",
+  async (kind) => {
+    const first = await displayedViewer();
+    const original = await db.accountInvitation.findUniqueOrThrow({
+      where: { id: first.invitationId },
+    });
+    await db.accountInvitation.delete({ where: { id: original.id } });
+    if (kind === "staff") {
+      await db.registrationCode.create({
+        data: { code: first.code!, expiresAt: new Date(0) },
+      });
+    } else {
+      await db.accountInvitation.create({
+        data: {
+          kind: original.kind,
+          email: original.email,
+          source: original.source as InvitationSource,
+          codeHash: original.codeHash,
+          displayedCode: true,
+          displayCodeNonce: original.displayCodeNonce,
+          sourceKey: "reserved-display",
+          completedAt: new Date(),
+          expiresAt: new Date(0),
+        },
+      });
+    }
+    const input = {
+      display: true,
+      kind: original.kind,
+      email: original.email,
+      sourceKey: original.sourceKey,
+      source: original.source as InvitationSource,
+    };
+    const next = await deliverAccountInvitation(db, input);
+    expect(next.code).not.toBe(first.code);
+    expect(
+      (
+        await db.accountInvitation.findUniqueOrThrow({
+          where: { id: next.invitationId },
+        })
+      ).displayCodeNonce,
+    ).toBeGreaterThan(original.displayCodeNonce!);
+    expect(await deliverAccountInvitation(db, input)).toEqual(next);
+    await emailDisplayedInvitation(db, {
+      invitationId: next.invitationId,
+      proof: next.proof!,
+    });
+    expect(code()).toBe(next.code);
+  },
+);
+
+it("staff issuance skips displayed codes and a corrupted ambiguous namespace fails closed", async () => {
+  const invite = await displayedViewer();
+  const fallback = invite.code === "Q7M2R" ? "Z8P4T" : "Q7M2R";
+  const generator = vi
+    .spyOn(codeHelpers, "generateRegistrationCode")
+    .mockReturnValueOnce(invite.code!)
+    .mockReturnValueOnce(fallback);
+  try {
+    const staffCode = await issueRegistrationCode({ kind: "TUTOR" });
+    expect(staffCode.code).toBe(fallback);
+    expect(
+      await enterDisplayedInvitation(db, {
+        code: ` ${fallback.toLowerCase()} `,
+      }),
+    ).toMatchObject({ kind: "staff", boundEmail: null });
+  } finally {
+    generator.mockRestore();
+  }
+  await db.registrationCode.create({
+    data: { code: invite.code!, expiresAt: new Date(Date.now() + 60_000) },
+  });
+  await expect(
+    enterDisplayedInvitation(db, { code: invite.code!, proof: invite.proof }),
+  ).rejects.toThrow("INVITATION_INVALID");
+});
+
+it("keeps previously issued twelve-character links recoverable", async () => {
+  const invite = await displayedViewer();
+  const row = await db.accountInvitation.findUniqueOrThrow({
+    where: { id: invite.invitationId },
+  });
+  const legacy = registrationCompletionProof(
+    "invitation",
+    `display:${row.sourceKey}`,
+    "display",
+    new Date(0),
+  )
+    .slice(0, 12)
+    .toUpperCase();
+  await db.accountInvitation.update({
+    where: { id: row.id },
+    data: { displayCodeNonce: null, codeHash: hashCode(legacy) },
+  });
+  const restored = await deliverAccountInvitation(db, {
+    display: true,
+    kind: row.kind,
+    email: row.email,
+    sourceKey: row.sourceKey,
+    source: row.source as InvitationSource,
+  });
+  expect(restored.code).toBe(legacy);
+  expect(
+    await enterDisplayedInvitation(db, {
+      code: legacy.toLowerCase(),
+      proof: restored.proof,
+    }),
+  ).toMatchObject({ kind: "display", proof: restored.proof });
+  await emailDisplayedInvitation(db, {
+    invitationId: restored.invitationId,
+    proof: restored.proof!,
+  });
+  expect(code()).toBe(legacy);
+});
+
+it("serializes a staff issue racing a displayed receipt for the same candidate", async () => {
+  const first = await displayedViewer();
+  const row = await db.accountInvitation.findUniqueOrThrow({
+    where: { id: first.invitationId },
+  });
+  await db.accountInvitation.delete({ where: { id: row.id } });
+  const fallback = first.code === "Q7M2R" ? "Z8P4T" : "Q7M2R";
+  const generator = vi
+    .spyOn(codeHelpers, "generateRegistrationCode")
+    .mockReturnValueOnce(first.code!)
+    .mockReturnValue(fallback);
+  try {
+    const [staffCode, displayed] = await Promise.all([
+      issueRegistrationCode({ kind: "TUTOR" }),
+      deliverAccountInvitation(db, {
+        display: true,
+        kind: row.kind,
+        email: row.email,
+        sourceKey: row.sourceKey,
+        source: row.source as InvitationSource,
+      }),
+    ]);
+    expect(staffCode.code).not.toBe(displayed.code);
+    expect(
+      await enterDisplayedInvitation(db, { code: staffCode.code }),
+    ).toMatchObject({ kind: "staff" });
+    expect(
+      await enterDisplayedInvitation(db, { code: displayed.code! }),
+    ).toMatchObject({ kind: "display", invitationId: displayed.invitationId });
+  } finally {
+    generator.mockRestore();
+  }
+});
+
+it("re-derives the displayed candidate when it matches the verified source challenge", async () => {
+  const first = await displayedViewer();
+  const row = await db.accountInvitation.findUniqueOrThrow({
+    where: { id: first.invitationId },
+  });
+  const source = row.source as InvitationSource;
+  if (source.type !== "viewer") throw Error("Expected viewer fixture");
+  await db.accountInvitation.delete({ where: { id: row.id } });
+  source.challenge = hashCode(first.code!);
+  await db.viewerSignup.update({
+    where: { id: source.id },
+    data: { codeHash: source.challenge },
+  });
+  const next = await deliverAccountInvitation(db, {
+    display: true,
+    kind: row.kind,
+    email: row.email,
+    sourceKey: row.sourceKey,
+    source,
+  });
+  expect(next.code).not.toBe(first.code);
+  expect(
+    (
+      await db.accountInvitation.findUniqueOrThrow({
+        where: { id: next.invitationId },
+      })
+    ).codeHash,
+  ).toBe(hashCode(next.code!));
+  await emailDisplayedInvitation(db, {
+    invitationId: next.invitationId,
+    proof: next.proof!,
+  });
+  expect(code()).toBe(next.code);
 });
 
 it("resending manual verification invalidates the old OTP without replacing the invitation", async () => {

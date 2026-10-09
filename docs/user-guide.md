@@ -2,7 +2,7 @@
 
 ## Account invitations and sign-in
 
-All website account creation finishes through the shared invitation review at `/register`.
+All website account creation finishes through the shared invitation review at `/register-account`.
 The invitation page, Viewer signup and tutee application remain separate starting points.
 An invitation authorizes a specific task; verified email ownership proves who is accepting it.
 A staff-visible key or a copied invitation code alone cannot sign in as its recipient.
@@ -12,10 +12,16 @@ A staff-visible key or a copied invitation code alone cannot sign in as its reci
 | Tutor, Crew or management staff key | Enter the key and recipient email, then verify the separate emailed code. | Create missing credentials or add the authorized access to the existing account after review. |
 | Tutee request | Submit the full request and policy agreement, then verify the emailed code. The existing email link remains usable. | The invitation popup continues to shared account review; confirmation preserves original submission priority and assignment remains separate. |
 | Public Viewer request | Submit details and verify the initial email code, then open the invitation popup. | A new address creates a read-only Viewer after review; an existing account signs in and continues without adding Viewer or changing membership. |
-| Historical tutee invitation | Verify the exact invited email, then continue from the invitation receipt popup to `/register`. | Create/use credentials, then separately review and choose **Link My History** for the exact record. No current participation is added. |
+| Historical tutee invitation | Verify the exact invited email, then follow the receipt popup's `/register` link to the shared account page. | Create/use credentials, then separately review and choose **Link My History** for the exact record. No current participation is added. |
 | Accountless tutor setup sent by Head | Receive a Tutor invitation. | The roster remains accountless until its recipient accepts; no placeholder login is created by sending mail. |
 
-The invitation page opens with one code field and a full-width **Continue** button.
+The invitation page opens with one centered code field and a full-width **Continue** button.
+New invitation and staff registration codes use the legacy Steam-style
+format: five uppercase letters or digits from `23456789ABCDEFGHJKMNPQRSTUVWXYZ`.
+The spaced input shows `XXXXX`; lowercase entry is normalized to uppercase. Older outstanding
+invitation codes remain usable for compatibility.
+Mailbox verification is a separate code; the tutee verification code retains its six-character
+format and is not the invitation code shown afterward.
 After Viewer or tutee email verification, a popup shows the invitation code, **Copy code**,
 an optional **Email code** action and a link that prefills the invitation page. Close and
 reopen the popup without repeating verification. Failed optional delivery leaves the code
@@ -96,9 +102,23 @@ A role and a tutor or crew membership are different things. A management account
 
 ### Choose the right registration form
 
-- **Register with an Invitation Code** (`/register`) opens the shared code card. Enter an invitation code or a five-character staff key and choose **Continue**. A code without this browser's verified proof requires email verification before review.
-- **Register as a Viewer** (`/viewer-signup`) collects Viewer details and verifies the mailbox when viewer signup is enabled. Its popup offers the invitation code, optional email delivery and a prefilled invitation link. A new account receives read-only Viewer access; an existing account signs in without changing its access. No staff key is needed.
-- **Request a Tutor** (`/signup`) collects the full tutee application before email verification and invitation issuance. Enter the emailed verification code, or use the existing email link and explicitly confirm it. Continue from the invitation popup to review your request and any missing credentials.
+Page addresses are descriptive; links shown in the website and email use the short forms.
+Each short link redirects to its matching page while retaining the complete query string.
+
+| Form | Main page | Website and email link |
+| --- | --- | --- |
+| Register with an Invitation Code | `/register-account` | `/register` |
+| Request a Tutor | `/tutee-signup` | `/tutee` |
+| Become a Tutor | `/tutor-signup` | `/tutor` |
+| Register as a Viewer | `/viewer-signup` | `/viewer` |
+
+Older `/signup` links still open the tutee form, and `/signup/account?token=…` email
+confirmation links retain their separate explicit confirmation step. These compatibility
+links preserve their query parameters too.
+
+- **Register with an Invitation Code** opens the shared code card. Enter an invitation code or a five-character staff key and choose **Continue**. A code without this browser's verified proof requires email verification before review.
+- **Register as a Viewer** collects Viewer details and verifies the mailbox when viewer signup is enabled. Its popup offers the invitation code, optional email delivery and a prefilled invitation link. A new account receives read-only Viewer access; an existing account signs in without changing its access. No staff key is needed.
+- **Request a Tutor** collects the full tutee application before email verification and invitation issuance. Enter the emailed verification code, or use the existing email link and explicitly confirm it. Continue from the invitation popup to review your request and any missing credentials.
 
 Sign In names the invitation and viewer routes separately. The invitation and viewer pages link to each other and to Request a Tutor, so you can switch if you opened the wrong form. Viewer links are hidden when public viewer signup is disabled. Existing accounts can use their normal sign-in, password recovery, or a recipient-delivered invitation; invitations never replace an established password.
 
@@ -504,7 +524,7 @@ Translator and Coordinator edits create private drafts, including all five text 
 
 Use **Account Settings** to edit your First Name, Last Name, Preferred Name and Name in Another Language, change your password or request a verified email change. Program settings determine how saved names appear; see [name fields and display settings](#configure-signup-forms). Current explicitly linked tutor/tutee profiles share those names; signed agreements and submitted survey records retain their original text. Editing a contact field is not email verification. Keep account links and codes private. If email delivery is unavailable, contact management; a success message from another action does not prove an email arrived.
 
-**Add access** appears in the account menu and Account Settings. It opens `/register` to accept an invitation for the signed-in account. Review the exact authorized access before accepting; entering or inspecting a code does not grant it. Existing credentials, identity, participant history and other access are preserved, subject to the exclusive Viewer transition. Management upgrades never lower an existing rank. Switching accounts and verifying email remain distinct requirements; participation grants also retain policy and school departure checks. School departure alone does not block an authorized management rank upgrade.
+**Add access** appears in the account menu and Account Settings. Its `/register` link opens `/register-account` to accept an invitation for the signed-in account. Review the exact authorized access before accepting; entering or inspecting a code does not grant it. Existing credentials, identity, participant history and other access are preserved, subject to the exclusive Viewer transition. Management upgrades never lower an existing rank. Switching accounts and verifying email remain distinct requirements; participation grants also retain policy and school departure checks. School departure alone does not block an authorized management rank upgrade.
 
 **Academic Details** is shared across Account Settings, tutor Settings and staff **Edit Profile** dialogs. It is available to tutees, tutors, crew, management and accounts with multiple participation types. Choose **Review Academic Details** or **Edit Academic Details**, select one of the program’s offered grades, then confirm. The current program school year is filled automatically and cannot be edited. This is self-reported information: participants can correct their own records. Head and administrators can correct other accounts; coordinators submit corrections for approval. Confirmation History records the reported values, date, source and optional correction context.
 

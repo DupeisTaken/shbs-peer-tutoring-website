@@ -52,8 +52,8 @@ membership write. The source write and completion receipt commit in one transact
 lost-response retries without duplicating accounts, resetting passwords or replaying participation.
 An explicit receipt is distinguishable from failed session synchronization in the public form.
 
-The three public entrypoints stay separate: `/register` has one centered invitation code field
-and full-width Continue action; `/viewer-signup` collects Viewer details; `/signup` collects the
+The three public entrypoints stay separate: `/register-account` has one centered invitation code field
+and full-width Continue action; `/viewer-signup` collects Viewer details; `/tutee-signup` collects the
 complete tutee application before verification and issuance. Viewer/tutee mailbox verification
 opens `InvitationReceipt`, using the shared native `Modal` for the displayed invitation code,
 copy action, optional email delivery and prefilled `/register` link. Historical tutee account
@@ -62,15 +62,49 @@ failed optional delivery does not repeat verification or the application write. 
 shared review adopts source prefill once, while established account identity remains authoritative.
 `UserAvatar` and shared `AccountSettings` expose Add access to the same code entry for signed-in users.
 
+### Public onboarding route contract
+
+| Purpose | Canonical page | Public website/email href |
+| --- | --- | --- |
+| Invitation and account review | `/register-account` | `/register` |
+| Tutee application | `/tutee-signup` | `/tutee` |
+| Tutor application | `/tutor-signup` | `/tutor` |
+| Viewer signup | `/viewer-signup` | `/viewer` |
+
+Short routes redirect to their descriptive canonical page with query parameters intact,
+including invitation/code prefill and authentication return destinations. `/signup` remains a
+compatibility entry to the tutee form; existing `/signup/account?token=…` links retain their
+explicit legacy email-confirmation workflow and query data. Authentication public-route checks
+must permit the canonical pages as well as their short and compatibility entries. Custom pages
+remain under `/p/[slug]` and do not occupy these top-level routes.
+
+New displayed invitations and staff keys use the shared five-character
+Steam-style alphabet `23456789ABCDEFGHJKMNPQRSTUVWXYZ`. Keep the legacy centered, uppercase,
+widely spaced `XXXXX` code card. Outstanding twelve-character invitations remain accepted only
+for compatibility; code length must not determine a new invitation's source or authorization.
+Server resolution must distinguish staff keys from displayed invitations, retain proof and exact
+recipient checks, and avoid ambiguous code issuance.
+Mailbox verification remains a separate secret with its existing format; tutee verification
+uses six hexadecimal characters, while the resulting invitation uses five Steam-style characters.
+
+The five-character code is opaque: no character or position encodes a role, account identity
+or invitation type. The server resolves its hashed value against authorization records and
+checks the recipient and purpose there. Expiring invitation, verification and application
+records live in the existing database; there is no separate temporary database. Completion
+updates those records and applies the authorized account/access change atomically, preserving
+the original intake and policy evidence. Expiry limits authorization without erasing that evidence.
+
 `rememberInvitation` validates the proof on the server and sets a 15-minute HttpOnly, SameSite=Lax
-cookie scoped to `/register`, Secure in production. The link carries only the invitation identifier
+cookie scoped to `/register-account`, Secure in production. The `/register` redirect reaches that
+canonical path before the cookie is read; a cookie scoped to `/register` does not match the
+hyphenated `/register-account` path. The link carries only the invitation identifier
 and displayed entry code; mailbox/completion proof and credentials never enter URLs, history or
 JavaScript storage. Without the verified-browser handoff, copied codes require mailbox verification.
 The additive `20261009170000_invitation_code_handoff` migration adds the displayed-code lookup,
 invitation mailbox challenge fields and tutee verification attempt counter without replacing
 source intake or policy evidence.
 
-All website credential creation passes through `/register`. Existing staff keys and old survey,
+All website credential creation passes through `/register-account`. Existing staff keys and old survey,
 Viewer and historical setup proofs remain compatible entry points: public legacy completion
 endpoints exchange their proof for an invitation instead of creating credentials themselves.
 Internal domain completion helpers remain responsible for their specific policy and evidence.

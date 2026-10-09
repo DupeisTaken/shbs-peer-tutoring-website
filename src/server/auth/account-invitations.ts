@@ -20,12 +20,18 @@ import { getFeatures } from "~/server/program/features";
 import { lockAccountProfile } from "~/server/account-profile";
 import { lockUsernameNamespace } from "./username";
 import { hashPassword } from "./password";
-import { generateRegistrationCode, normalizeRegCode } from "./code";
+import {
+  generateRegistrationCode,
+  normalizeRegCode,
+  REG_CODE_ALPHABET,
+  REG_CODE_LENGTH,
+} from "./code";
 import {
   hashCode,
   registrationCompletionProof,
   completeRegistration,
   codePrefill,
+  MAX_CODE_ATTEMPTS,
 } from "./registration";
 import { completeViewerSignup } from "./viewer-signup";
 import {
@@ -334,13 +340,42 @@ export async function deliverAccountInvitation(
     const owner = await invitationEmailOwner(tx, email);
     // Combined identities never acquire a fresh session or participation through a retired alias.
     if (owner?.mergedIntoId) throw conflict();
-    // The displayed authorization has a separate length/namespace from five-character
-    // staff keys. Derive it from the server secret so a lost response can recover it.
-    let code = input.display
-      ? displayedInvitationCode(input.sourceKey)
-      : (input.code ?? generateRegistrationCode());
+    // Staff and displayed invitations share the legacy five-character namespace.
+    // Persist the winning nonce so retries recover the exact same code, including
+    // when another invitation or the source email challenge occupied a candidate.
+    let displayCodeNonce: number | null = null;
+    let code = input.display ? "" : (input.code ?? generateRegistrationCode());
+    if (input.display) {
+      let found = false;
+      for (let nonce = 0; nonce < 1000; nonce++) {
+        const candidate = displayedInvitationCode(input.sourceKey, nonce);
+        if (!/[A-Z]/.test(candidate) || !/[2-9]/.test(candidate)) continue;
+        const candidateHash = hashCode(candidate);
+        if (
+          "challenge" in input.source &&
+          candidateHash === input.source.challenge
+        )
+          continue;
+        const staff = await tx.registrationCode.findUnique({
+          where: { code: candidate },
+          select: { id: true },
+        });
+        const invitation = await tx.accountInvitation.findFirst({
+          where: { displayedCode: true, codeHash: candidateHash },
+          select: { id: true },
+        });
+        if (staff || invitation) continue;
+        code = candidate;
+        displayCodeNonce = nonce;
+        found = true;
+        break;
+      }
+      if (!found)
+        throw new Error("Could not generate a unique invitation code.");
+    }
     // Viewer/history verification and invitation are deliberately distinct secrets.
     while (
+      !input.display &&
       !input.code &&
       "challenge" in input.source &&
       hashCode(code) === input.source.challenge
@@ -352,6 +387,7 @@ export async function deliverAccountInvitation(
       source: input.source,
       codeHash: hashCode(code),
       displayedCode: Boolean(input.display),
+      displayCodeNonce,
       emailCodeHash: null,
       emailCodeExpiresAt: null,
       expiresAt: new Date(Date.now() + TTL),
@@ -407,15 +443,24 @@ export async function deliverAccountInvitation(
   });
 }
 
-function displayedInvitationCode(sourceKey: string) {
-  return registrationCompletionProof(
+function displayedInvitationCode(sourceKey: string, nonce: number | null) {
+  const digest = registrationCompletionProof(
     "invitation",
-    `display:${sourceKey}`,
+    nonce === null ? `display:${sourceKey}` : `display:${sourceKey}:${nonce}`,
     "display",
     new Date(0),
-  )
-    .slice(0, 12)
-    .toUpperCase();
+  );
+  // Existing emailed links keep their original value. All newly issued receipts
+  // use the familiar alphabet and length, with no plaintext code stored in the DB.
+  if (nonce === null) return digest.slice(0, 12).toUpperCase();
+  let entropy = BigInt(`0x${digest}`);
+  let code = "";
+  for (let i = 0; i < REG_CODE_LENGTH; i++) {
+    code +=
+      REG_CODE_ALPHABET[Number(entropy % BigInt(REG_CODE_ALPHABET.length))];
+    entropy /= BigInt(REG_CODE_ALPHABET.length);
+  }
+  return code;
 }
 
 function invitationReceipt(row: AccountInvitation) {
@@ -423,7 +468,7 @@ function invitationReceipt(row: AccountInvitation) {
     invitationId: row.id,
     ...(row.displayedCode
       ? {
-          code: displayedInvitationCode(row.sourceKey),
+          code: displayedInvitationCode(row.sourceKey, row.displayCodeNonce),
           proof: proofFor(row),
           email: row.email,
         }
@@ -439,13 +484,33 @@ export async function enterDisplayedInvitation(
 ) {
   return inTransaction(client, async (tx) => {
     await lockUsernameNamespace(tx);
+    const code = normalizeRegCode(input.code);
+    const staff = await tx.registrationCode.findUnique({ where: { code } });
     const rows = await tx.accountInvitation.findMany({
       where: {
-        codeHash: hashCode(normalizeRegCode(input.code)),
+        codeHash: hashCode(code),
         displayedCode: true,
       },
       take: 2,
     });
+    // Never choose a source by length or priority. An ambiguous legacy/imported
+    // collision fails closed; normal issuance serializes both namespaces.
+    if (staff && rows.length) throw invalid();
+    if (staff) {
+      if (
+        staff.usedAt ||
+        staff.expiresAt <= new Date() ||
+        staff.attempts >= MAX_CODE_ATTEMPTS
+      )
+        throw invalid();
+      return {
+        kind: "staff" as const,
+        invitationId: "",
+        boundEmail: staff.email?.toLowerCase() ?? null,
+        proof: undefined,
+        email: undefined,
+      };
+    }
     const row = rows.length === 1 ? rows[0] : undefined;
     if (!row) throw invalid();
     const owner = await lockedInvitationOwner(tx, row);
@@ -460,7 +525,12 @@ export async function enterDisplayedInvitation(
       verified &&
       (authenticated || row.expiresAt > new Date())
     )
-      return { invitationId: row.id, proof: proofFor(row), email: row.email };
+      return {
+        kind: "display" as const,
+        invitationId: row.id,
+        proof: proofFor(row),
+        email: row.email,
+      };
     if (
       row.completedAt ||
       row.expiresAt <= new Date() ||
@@ -469,6 +539,7 @@ export async function enterDisplayedInvitation(
       throw invalid();
     await sourceState(tx, row);
     return {
+      kind: "display" as const,
       invitationId: row.id,
       ...(verified ? { proof: proofFor(row), email: row.email } : {}),
     };
@@ -490,7 +561,7 @@ export async function emailDisplayedInvitation(
     where: { id: input.invitationId },
   });
   if (!row.displayedCode || info.completed) throw invalid();
-  const code = displayedInvitationCode(row.sourceKey);
+  const code = displayedInvitationCode(row.sourceKey, row.displayCodeNonce);
   const url = `${emailOrigin()}/register?invitation=${encodeURIComponent(row.id)}&code=${code}`;
   await emailSender.send({
     category: "SECURITY",
@@ -531,7 +602,13 @@ export async function sendInvitationVerification(
       throw invalid();
     await sourceState(tx, row);
     await lockedInvitationOwner(tx, row);
-    const code = generateRegistrationCode();
+    let code = generateRegistrationCode();
+    // The mailbox challenge must remain a different secret, including on resend.
+    while (
+      hashCode(code) === row.codeHash ||
+      hashCode(code) === row.emailCodeHash
+    )
+      code = generateRegistrationCode();
     const expiresAt = new Date(Math.min(+row.expiresAt, Date.now() + TTL));
     await emailSender.send({
       category: "SECURITY",

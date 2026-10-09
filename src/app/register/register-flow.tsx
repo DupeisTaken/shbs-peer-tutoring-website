@@ -30,20 +30,18 @@ export function RegisterFlow({
   const [email, setEmail] = useState("");
   const [checked, setChecked] = useState(false);
   const [displayedId, setDisplayedId] = useState("");
+  const [boundEmail, setBoundEmail] = useState(false);
   const admitted = useRef(false);
   const settled = () => {
     admitted.current = false;
   };
-  const check = api.registration.check.useMutation({
-    onSuccess: (data) => {
-      setEmail(data.boundEmail ?? "");
-      setChecked(true);
-    },
-    onSettled: settled,
-  });
   const enter = api.accountInvitation.enter.useMutation({
     onSuccess: (data) => {
-      if (data.proof) {
+      if (data.kind === "staff") {
+        setEmail(data.boundEmail ?? "");
+        setBoundEmail(Boolean(data.boundEmail));
+        setChecked(true);
+      } else if (data.proof) {
         setProof(data.proof);
         setInvitationId(data.invitationId);
       } else {
@@ -61,12 +59,8 @@ export function RegisterFlow({
     onSuccess: (data) => setInvitationId(data.invitationId),
     onSettled: settled,
   });
-  const busy =
-    check.isPending ||
-    enter.isPending ||
-    send.isPending ||
-    sendDisplayed.isPending;
-  const error = check.error ?? enter.error ?? send.error ?? sendDisplayed.error;
+  const busy = enter.isPending || send.isPending || sendDisplayed.isPending;
+  const error = enter.error ?? send.error ?? sendDisplayed.error;
   if (invitationId)
     return (
       <InvitationRedemption
@@ -92,14 +86,13 @@ export function RegisterFlow({
           if (displayedId)
             sendDisplayed.mutate({ invitationId: displayedId, code, email });
           else send.mutate({ code, email });
-        } else if (code.length > 5)
+        } else
           enter.mutate({
             code,
             ...(initialProof && code === initialCode
               ? { proof: initialProof }
               : {}),
           });
-        else check.mutate({ code });
       }}
     >
       {checked && (
@@ -127,7 +120,7 @@ export function RegisterFlow({
                 required
                 maxLength={254}
                 value={email}
-                readOnly={Boolean(check.data?.boundEmail)}
+                readOnly={boundEmail}
                 onChange={(event) => setEmail(event.target.value)}
               />
             </label>
@@ -139,13 +132,26 @@ export function RegisterFlow({
               <FieldRequirement state="required" />
             </span>
             <input
-              className="input w-full text-center font-mono text-2xl tracking-[0.2em] uppercase"
+              className="input w-full text-center text-2xl tracking-[0.4em] uppercase"
               autoComplete="one-time-code"
               autoCapitalize="characters"
               placeholder="XXXXX"
               required
-              maxLength={12}
+              minLength={5}
+              maxLength={initialCode.length > 5 || code.length > 5 ? 12 : 5}
               value={code}
+              onPaste={(event) => {
+                // Only earlier issued twelve-character receipts need this escape
+                // hatch. Ordinary entry and every newly issued code stay five.
+                const pasted = event.clipboardData
+                  .getData("text")
+                  .toUpperCase()
+                  .replace(/[^A-Z0-9]/g, "");
+                if (/^[A-F0-9]{12}$/.test(pasted)) {
+                  event.preventDefault();
+                  setCode(pasted);
+                }
+              }}
               onChange={(event) =>
                 setCode(
                   event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""),
@@ -169,7 +175,7 @@ export function RegisterFlow({
             onClick={() => {
               setChecked(false);
               setDisplayedId("");
-              check.reset();
+              setBoundEmail(false);
               enter.reset();
               send.reset();
               sendDisplayed.reset();

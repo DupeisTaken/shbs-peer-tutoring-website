@@ -599,6 +599,8 @@ model AccountInvitation {
   codeHash String
   /// Displayed invitations authorize access; a separate mailbox challenge proves identity.
   displayedCode Boolean @default(false)
+  /// Winning deterministic five-character candidate; null preserves earlier issued codes.
+  displayCodeNonce Int?
   emailCodeHash String?
   emailCodeExpiresAt DateTime?
   expiresAt DateTime

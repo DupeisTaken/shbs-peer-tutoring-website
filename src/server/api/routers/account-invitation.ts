@@ -12,6 +12,7 @@ import {
   sendInvitationVerification,
 } from "~/server/auth/account-invitations";
 import { validSurvey, verifySurveyEmail } from "~/server/student-survey";
+import { normalizeRegCode } from "~/server/auth/code";
 
 const id = z.string().min(1).max(128);
 const proof = z.string().regex(/^[a-f0-9]{64}$/);
@@ -21,7 +22,10 @@ const proof = z.string().regex(/^[a-f0-9]{64}$/);
 export const accountInvitationRouter = createTRPCRouter({
   enter: publicProcedure
     .input(
-      z.object({ code: z.string().min(1).max(30), proof: proof.optional() }),
+      z.object({
+        code: z.string().min(1).max(30).transform(normalizeRegCode),
+        proof: proof.optional(),
+      }),
     )
     .mutation(({ ctx, input }) =>
       withSignupAdmission(ctx.db, ctx.headers, "complete", input.code, () =>

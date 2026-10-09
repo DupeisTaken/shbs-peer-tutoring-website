@@ -88,6 +88,12 @@ tracks this extension of historical ownership.
 
 After checking identity, an Admin or Head sends an invitation from the specific accountless historical tutee row. Record the reviewed identity evidence and use an email address the person can still access. The invited person can either sign in to an eligible account with that primary or secondary email verified, or choose **Create history-only account** on the invitation page.
 
+The popup and email use the short `/register` link, which redirects to `/register-account`
+while preserving invitation/code query parameters. New displayed invitation codes
+retain the five-character uppercase Steam-style format; outstanding older
+invitation codes remain usable. See the [public route contract](technical-report.md#public-onboarding-route-contract).
+Email verification remains a separate code with its existing format.
+
 For a new login, enter the invited email and verify the separately emailed code. The shared invitation popup shows a code, a copy action, optional email delivery and a prefilled link to `/register`; closing and reopening retains the receipt without repeating verification. Continue to shared account review and set a password of at least eight characters if credentials are missing. The reviewed archive label supplies the account name without guessing legal-name parts. No current grade, participation policy or tutoring application is required. Sign in and explicitly choose **Link My History** after reviewing the named record. Creating credentials and claiming ownership are separate steps; neither grants current tutee/tutor membership, crew, management, translation or general observer access. The verified-browser handoff uses the short-lived HttpOnly cookie; mailbox proof and passwords do not appear in the continuation URL or JavaScript storage.
 
 - Sending or opening the invitation creates no login or enrollment. Only successful email verification and password submission create credentials.

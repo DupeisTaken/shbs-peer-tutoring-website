@@ -65,7 +65,7 @@ export const CODE_TTL_DAYS = 7;
 /** The emailed email-verification code is short-lived. */
 export const EMAIL_CODE_TTL_MINUTES = 15;
 /** Hard caps on guesses before a code/email-code is burned (defence in depth atop rate limiting). */
-const MAX_CODE_ATTEMPTS = 10;
+export const MAX_CODE_ATTEMPTS = 10;
 const MAX_EMAIL_CODE_ATTEMPTS = 6;
 
 function secret(): string {
@@ -125,16 +125,19 @@ export interface IssueCodeOptions {
 
 /**
  * Issue a new registration code. Returns the plaintext code plus the row id. On the rare collision
- * (same 6-digit code already outstanding) it retries.
+ * in the shared five-character invitation namespace it retries.
  */
 export async function issueRegistrationCode(
   opts: IssueCodeOptions,
   client: DomainDb = db,
 ): Promise<{ id: string; code: string; expiresAt: Date }> {
-  // Management invitations are durable Head authorization. Check the issuer even
-  // when called outside the admin router, and never attach participation records.
-  if (isManagementCode(opts.kind ?? "TUTOR")) {
-    return inTransaction(client, async (tx) => {
+  return inTransaction(client, async (tx) => {
+    // Share the database fence with displayed invitations, even for callers that
+    // issue participation codes outside a surrounding transaction.
+    await lockUsernameNamespace(tx);
+    // Management invitations are durable Head authorization. Check the issuer even
+    // when called outside the admin router, and never attach participation records.
+    if (isManagementCode(opts.kind ?? "TUTOR")) {
       if (opts.issuedById)
         await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${opts.issuedById} FOR SHARE`;
       const issuer = opts.issuedById
@@ -150,10 +153,9 @@ export async function issueRegistrationCode(
           code: "BAD_REQUEST",
           message: "Management invitations cannot grant participation.",
         });
-      return createRegistrationCode(opts, tx);
-    });
-  }
-  return createRegistrationCode(opts, client);
+    }
+    return createRegistrationCode(opts, tx);
+  });
 }
 
 async function createRegistrationCode(
@@ -169,6 +171,11 @@ async function createRegistrationCode(
       select: { id: true },
     });
     if (clash) continue;
+    const displayed = await client.accountInvitation.findFirst({
+      where: { displayedCode: true, codeHash: hashCode(code) },
+      select: { id: true },
+    });
+    if (displayed) continue;
     const row = await client.registrationCode.create({
       data: {
         code,
@@ -255,7 +262,7 @@ export async function codePrefill(row: CodeRow, client: DomainDb = db) {
 }
 
 /**
- * Stage the email-verification step: store the email + a hashed 6-digit email code (and its
+ * Stage the email-verification step: store the email + a hashed five-character code (and its
  * expiry) on the code row. Returns the plaintext email code so the caller can send it. Enforces
  * any email binding on the code.
  */
@@ -270,7 +277,11 @@ export async function setEmailVerification(
   if (row.email && row.email.toLowerCase() !== normalized) {
     return { ok: false, error: "email-mismatch" };
   }
-  const emailCode = generateRegistrationCode();
+  let emailCode = generateRegistrationCode();
+  // A staff-visible authorization key must never double as mailbox proof. Resends
+  // also choose a different secret so the preceding challenge cannot remain valid.
+  while (emailCode === row.code || hashCode(emailCode) === row.emailCodeHash)
+    emailCode = generateRegistrationCode();
   const changed = await client.registrationCode.updateMany({
     where: {
       id: row.id,
@@ -293,7 +304,7 @@ export async function setEmailVerification(
   return { ok: true, emailCode };
 }
 
-/** Verify the emailed 6-digit code; on success stamp emailVerifiedAt on the code row. */
+/** Verify the emailed five-character code; on success stamp emailVerifiedAt on the code row. */
 export async function confirmEmailCode(
   row: CodeRow,
   emailCode: string,

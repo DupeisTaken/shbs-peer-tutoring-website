@@ -59,12 +59,12 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
       label: page.label,
     })),
     ...(features.VIEWER_SIGNUP
-      ? [{ href: "/viewer-signup", label: t("nav.viewerSignup") }]
+      ? [{ href: "/viewer", label: t("nav.viewerSignup") }]
       : []),
   ];
   const joinItems = [
-    { href: "/signup", label: t("nav.requestTutor"), strong: true },
-    { href: "/tutor-signup", label: t("nav.becomeTutor") },
+    { href: "/tutee", label: t("nav.requestTutor"), strong: true },
+    { href: "/tutor", label: t("nav.becomeTutor") },
     ...(features.CREW
       ? [{ href: "/crew-signup", label: t("nav.becomeCrew") }]
       : []),
@@ -99,10 +99,10 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
                 {text("intro")}
               </p>
               <div className="mx-auto mt-8 grid max-w-sm grid-cols-1 gap-3 sm:flex sm:max-w-none sm:flex-wrap sm:items-center sm:justify-center">
-                <Link href="/signup" className="btn-primary min-h-11">
+                <Link href="/tutee" className="btn-primary min-h-11">
                   {text("ctaPrimary")}
                 </Link>
-                <Link href="/tutor-signup" className="btn-secondary min-h-11">
+                <Link href="/tutor" className="btn-secondary min-h-11">
                   {text("ctaSecondary")}
                 </Link>
               </div>

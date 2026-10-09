@@ -15,14 +15,21 @@ export const REG_CODE_LENGTH = 5;
 
 /** A cryptographically-random 5-character code from the unambiguous alphabet. */
 export function generateRegistrationCode(): string {
-  let out = "";
-  for (let i = 0; i < REG_CODE_LENGTH; i++) {
-    out += REG_CODE_ALPHABET[randomInt(0, REG_CODE_ALPHABET.length)];
+  // Rejection sampling keeps the legacy alphabet while ensuring every issued
+  // code contains both a letter and a digit.
+  for (;;) {
+    let out = "";
+    for (let i = 0; i < REG_CODE_LENGTH; i++) {
+      out += REG_CODE_ALPHABET[randomInt(0, REG_CODE_ALPHABET.length)];
+    }
+    if (/[A-Z]/.test(out) && /[2-9]/.test(out)) return out;
   }
-  return out;
 }
 
 /** Normalize user input: trim, uppercase, drop separators/spaces. Validity is checked by lookup. */
 export function normalizeRegCode(raw: string): string {
-  return raw.trim().toUpperCase().replace(/[^0-9A-Z]/g, "");
+  return raw
+    .trim()
+    .toUpperCase()
+    .replace(/[^0-9A-Z]/g, "");
 }

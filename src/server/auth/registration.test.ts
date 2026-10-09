@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
+import * as codeHelpers from "./code";
 import type { Session } from "next-auth";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 const mail = vi.hoisted(() => ({ send: vi.fn() }));
@@ -98,6 +99,44 @@ const profile = {
   lastName: "Person",
   password: "Password123!",
 };
+
+it("never reuses the staff-visible key or previous OTP as a mailbox challenge", async () => {
+  const issued = await issueRegistrationCode({ kind: "TUTOR" });
+  let row = await db.registrationCode.findUniqueOrThrow({
+    where: { id: issued.id },
+  });
+  const [previous, fresh] = ["P7Q9R", "Q8M3N", "X2Z4V"].filter(
+    (candidate) => candidate !== row.code,
+  );
+  const generator = vi
+    .spyOn(codeHelpers, "generateRegistrationCode")
+    .mockReturnValueOnce(previous!);
+  try {
+    await setEmailVerification(row, "new@example.test");
+    row = await db.registrationCode.findUniqueOrThrow({
+      where: { id: row.id },
+    });
+    generator
+      .mockReturnValueOnce(issued.code)
+      .mockReturnValueOnce(previous!)
+      .mockReturnValueOnce(fresh!);
+    expect(await setEmailVerification(row, "new@example.test")).toEqual({
+      ok: true,
+      emailCode: fresh,
+    });
+    expect(generator).toHaveBeenCalledTimes(4);
+    row = await db.registrationCode.findUniqueOrThrow({
+      where: { id: row.id },
+    });
+    expect(await confirmEmailCode(row, issued.code)).toMatchObject({
+      ok: false,
+    });
+    expect(await confirmEmailCode(row, previous!)).toMatchObject({ ok: false });
+    expect(await confirmEmailCode(row, fresh!)).toMatchObject({ ok: true });
+  } finally {
+    generator.mockRestore();
+  }
+});
 it("preserves a Head-selected account handle when tutor registration changes name and grade", async () => {
   const established = await db.user.create({
     data: {

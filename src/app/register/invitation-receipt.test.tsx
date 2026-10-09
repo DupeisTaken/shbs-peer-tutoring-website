@@ -39,7 +39,7 @@ vi.mock("~/trpc/react", () => ({
 }));
 const invitation = {
   invitationId: "receipt123",
-  code: "ABCDEF123456",
+  code: "AB3D7",
   proof: "a".repeat(64),
   email: "verified@example.test",
 };
@@ -99,7 +99,7 @@ it.each(["en", "zh"] as const)(
     expect(screen.getByRole("dialog", { name: t.receiptTitle })).toBeTruthy();
     const link = await screen.findByRole("link", { name: t.continueSignup });
     expect(link.getAttribute("href")).toBe(
-      "/register?invitation=receipt123&code=ABCDEF123456",
+      "/register?invitation=receipt123&code=AB3D7",
     );
     expect(link.getAttribute("href")).not.toContain(invitation.proof);
     expect(state.send).not.toHaveBeenCalled();
