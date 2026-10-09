@@ -65,9 +65,39 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe("purpose-based sender routing", () => {
+  it.each(["SECURITY", "PROGRAM"] as const)(
+    "adds the canonical footer icon to %s mail even without an action link",
+    async (category) => {
+      dedicated(category);
+      vi.stubEnv("AUTH_URL", "https://school.example.test");
+      await emailSender.send(message(category));
+      const delivered = smtp.send.mock.calls[0]![0] as {
+        html: string;
+        text: string;
+      };
+      expect(delivered.html).toContain(
+        'src="https://school.example.test/icon.png"',
+      );
+      expect(delivered.text).toBe(message(category).text);
+    },
+  );
+
+  it("preserves explicitly supplied HTML without requiring an icon origin", async () => {
+    dedicated("SECURITY");
+    vi.stubEnv("AUTH_URL", "invalid-origin");
+    await emailSender.send({
+      ...message("SECURITY"),
+      html: "<p>Custom message</p>",
+    });
+    expect(smtp.send).toHaveBeenCalledWith(
+      expect.objectContaining({ html: "<p>Custom message</p>" }),
+    );
+  });
+
   it.each(["SECURITY", "PROGRAM"] as const)(
     "renders the shared action template through the selected %s sender",
     async (category) => {
