@@ -130,6 +130,18 @@ it("retains the server's meeting cutoff instead of offering a forbidden excuse",
   expect(screen.getByText(messages.tutor.meetings.tooLate)).toBeTruthy();
 });
 
+it("uses standard controls for the reason draft and both row actions", () => {
+  start();
+  for (const control of [
+    screen.getByRole("textbox"),
+    screen.getByRole("button", { name: messages.tutor.meetings.submitExcuse }),
+    screen.getByRole("button", { name: messages.common.dismiss }),
+  ]) {
+    expect(control.className).toContain("control-standard");
+    expect(control.className).not.toContain("btn-sm");
+  }
+});
+
 it("does not announce an earlier success beside a failed cancellation", () => {
   const view = start();
   fireEvent.click(

@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslations } from "next-intl";
 
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
@@ -10,7 +17,9 @@ import { api } from "~/trpc/react";
 import { Markdown } from "~/app/_components/markdown";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
-import { useDialog } from "~/app/_components/confirm-dialog";
+import { useActionReview } from "~/app/_components/ui/action-review";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { queuedApprovalId } from "~/lib/approval-outcome";
 import {
   type Block,
   type LeafBlock,
@@ -27,6 +36,17 @@ import {
  */
 
 type Tab = "layout" | "content" | "sections" | "pages" | "news" | "images";
+
+// The route owns destructive reviews, independently of a card or selected tab.
+// Removing a record or switching tabs cannot discard an accepted write's recovery.
+const LandingReviewContext = createContext<ReturnType<
+  typeof useActionReview
+> | null>(null);
+function useLandingReview() {
+  const review = useContext(LandingReviewContext);
+  if (!review) throw new Error("Landing review requires its route owner.");
+  return review;
+}
 
 type ImageInfo = {
   id: string;
@@ -58,6 +78,7 @@ const FIELD_LABEL: Record<string, string> = {
 export default function LandingAdminPage() {
   const t = useTranslations();
   const readOnly = useReadOnly();
+  const review = useActionReview();
   const [tab, setTab] = useState<Tab>("layout");
   const images = api.home.images.useQuery();
 
@@ -98,68 +119,71 @@ export default function LandingAdminPage() {
   const activeDesc = tabs.find((tb) => tb.key === tab)?.desc;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="page-title">{t("admin.landing.title")}</h1>
-          <p className="muted mt-1">{t("admin.landing.subtitle")}</p>
-        </div>
-        {/* Opens the real landing page (drafts + hidden sections shown) in a new tab. */}
-        <a
-          href="/landing-preview"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-secondary btn-sm shrink-0"
-        >
-          {t("admin.landing.preview.button")} ↗
-        </a>
-      </div>
-
-      <SectionTabs
-        label={t("admin.landing.title")}
-        items={tabs.map((item) => ({ value: item.key, label: item.label }))}
-        value={tab}
-        onChange={setTab}
-      >
-        {activeDesc && <p className="muted mb-4 text-sm">{activeDesc}</p>}
-        {images.error && (
-          <StatePanel
-            kind="error"
-            title={t("uiPatterns.loadFailed")}
-            action={
-              <Button onClick={() => void images.refetch()}>
-                {t("uiPatterns.retry")}
-              </Button>
-            }
+    <LandingReviewContext.Provider value={review}>
+      <div className="space-y-6">
+        {!readOnly && review.dialog}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="page-title">{t("admin.landing.title")}</h1>
+            <p className="muted mt-1">{t("admin.landing.subtitle")}</p>
+          </div>
+          {/* Opens the real landing page (drafts + hidden sections shown) in a new tab. */}
+          <a
+            href="/landing-preview"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-secondary btn-sm shrink-0"
           >
-            {images.error.message}
-          </StatePanel>
-        )}
-        {tab === "layout" && (
-          <LayoutEditor images={images.data ?? []} readOnly={readOnly} />
-        )}
-        {tab === "content" && (
-          <ContentEditor images={images.data ?? []} readOnly={readOnly} />
-        )}
-        {tab === "sections" && (
-          <SectionsManager images={images.data ?? []} readOnly={readOnly} />
-        )}
-        {tab === "pages" && (
-          <PagesManager images={images.data ?? []} readOnly={readOnly} />
-        )}
-        {tab === "news" && (
-          <NewsManager images={images.data ?? []} readOnly={readOnly} />
-        )}
-        {tab === "images" && (
-          <ImageLibrary
-            images={images.data ?? []}
-            loading={images.isLoading}
-            readOnly={readOnly}
-            onChanged={() => images.refetch()}
-          />
-        )}
-      </SectionTabs>
-    </div>
+            {t("admin.landing.preview.button")} ↗
+          </a>
+        </div>
+
+        <SectionTabs
+          label={t("admin.landing.title")}
+          items={tabs.map((item) => ({ value: item.key, label: item.label }))}
+          value={tab}
+          onChange={setTab}
+        >
+          {activeDesc && <p className="muted mb-4 text-sm">{activeDesc}</p>}
+          {images.error && (
+            <StatePanel
+              kind="error"
+              title={t("uiPatterns.loadFailed")}
+              action={
+                <Button onClick={() => void images.refetch()}>
+                  {t("uiPatterns.retry")}
+                </Button>
+              }
+            >
+              {images.error.message}
+            </StatePanel>
+          )}
+          {tab === "layout" && (
+            <LayoutEditor images={images.data ?? []} readOnly={readOnly} />
+          )}
+          {tab === "content" && (
+            <ContentEditor images={images.data ?? []} readOnly={readOnly} />
+          )}
+          {tab === "sections" && (
+            <SectionsManager images={images.data ?? []} readOnly={readOnly} />
+          )}
+          {tab === "pages" && (
+            <PagesManager images={images.data ?? []} readOnly={readOnly} />
+          )}
+          {tab === "news" && (
+            <NewsManager images={images.data ?? []} readOnly={readOnly} />
+          )}
+          {tab === "images" && (
+            <ImageLibrary
+              images={images.data ?? []}
+              loading={images.isLoading}
+              readOnly={readOnly}
+              onChanged={() => images.refetch()}
+            />
+          )}
+        </SectionTabs>
+      </div>
+    </LandingReviewContext.Provider>
   );
 }
 
@@ -547,15 +571,14 @@ function NewsPostCard({
   onChanged: () => void;
 }) {
   const t = useTranslations();
-  const { confirm, dialog } = useDialog();
+  const review = useLandingReview();
+  const utils = api.useUtils();
   const update = api.home.updateNews.useMutation({ onSuccess: onChanged });
-  const del = api.home.deleteNews.useMutation({ onSuccess: onChanged });
+  const del = api.home.deleteNews.useMutation();
   const saveTr = api.home.setNewsTranslation.useMutation({
     onSuccess: onChanged,
   });
-  const removeTr = api.home.removeNewsTranslation.useMutation({
-    onSuccess: onChanged,
-  });
+  const removeTr = api.home.removeNewsTranslation.useMutation();
 
   const en = post.translations.find((tr) => tr.locale === "en");
   const heading =
@@ -649,19 +672,19 @@ function NewsPostCard({
             <button
               type="button"
               className="link-danger text-xs"
-              disabled={del.isPending}
-              onClick={async () => {
-                if (
-                  await confirm({
-                    title: t("admin.landing.news.actions.confirmDelete"),
-                    message: heading,
-                    confirmLabel: t("common.delete"),
-                    cancelLabel: t("common.cancel"),
-                    danger: true,
-                  })
-                )
-                  del.mutate({ id: post.id });
-              }}
+              disabled={review.blocked("news:" + post.id)}
+              onClick={() =>
+                review.open({
+                  key: "news:" + post.id,
+                  title: t("admin.landing.news.actions.confirmDelete"),
+                  description: t("actionReview.contentHelp"),
+                  details: <p>{heading}</p>,
+                  confirmLabel: t("common.delete"),
+                  commit: () => del.mutateAsync({ id: post.id }),
+                  refresh: () => invalidateAndReport(utils.home.news),
+                  approvalId: queuedApprovalId,
+                })
+              }
             >
               {t("common.delete")}
             </button>
@@ -687,6 +710,8 @@ function NewsPostCard({
       )}
 
       <LocalizedTranslations
+        recordKey={`news:${post.id}`}
+        recordTitle={heading}
         translations={post.translations}
         images={images}
         readOnly={readOnly}
@@ -695,12 +720,10 @@ function NewsPostCard({
         }
         saving={saveTr.isPending}
         saveError={saveTr.error?.message}
-        onRemove={(locale, done) =>
-          removeTr.mutate({ postId: post.id, locale }, { onSuccess: done })
-        }
+        onRemove={(locale) => removeTr.mutateAsync({ postId: post.id, locale })}
+        onRemoved={() => invalidateAndReport(utils.home.news)}
         removing={removeTr.isPending}
       />
-      {dialog}
     </section>
   );
 }
@@ -711,6 +734,8 @@ function NewsPostCard({
  * mutations so the same UI drives different routers.
  */
 function LocalizedTranslations({
+  recordKey,
+  recordTitle,
   translations,
   images,
   readOnly,
@@ -719,18 +744,22 @@ function LocalizedTranslations({
   saveError,
   onRemove,
   removing,
+  onRemoved,
 }: {
+  recordKey: string;
+  recordTitle: string;
   translations: TranslationRow[];
   images: ImageInfo[];
   readOnly: boolean;
   onSave: (locale: string, title: string, body: string) => void;
   saving: boolean;
   saveError: string | undefined;
-  onRemove: (locale: string, done: () => void) => void;
+  onRemove: (locale: string) => Promise<unknown>;
+  onRemoved: () => Promise<unknown>;
   removing: boolean;
 }) {
   const t = useTranslations();
-  const { confirm, dialog } = useDialog();
+  const review = useLandingReview();
   const languages = api.i18n.languages.useQuery();
   const langs = useMemo(
     () => (languages.data ?? []).map((l) => ({ code: l.code, label: l.label })),
@@ -824,27 +853,35 @@ function LocalizedTranslations({
             <button
               type="button"
               className="link-danger text-xs"
-              disabled={removing}
-              onClick={async () => {
-                if (
-                  await confirm({
-                    title: t("admin.landing.translation.confirmRemove", {
-                      lang: labelFor(active),
-                    }),
-                    confirmLabel: t("common.delete"),
-                    cancelLabel: t("common.cancel"),
-                    danger: true,
-                  })
-                )
-                  onRemove(active, () => setActive("en"));
-              }}
+              disabled={removing || review.blocked(`${recordKey}:${active}`)}
+              onClick={() =>
+                review.open({
+                  key: `${recordKey}:${active}`,
+                  title: t("admin.landing.translation.confirmRemove", {
+                    lang: labelFor(active),
+                  }),
+                  description: t("actionReview.translationHelp"),
+                  details: (
+                    <p>
+                      {recordTitle} · {labelFor(active)}
+                    </p>
+                  ),
+                  confirmLabel: t("common.delete"),
+                  commit: () => onRemove(active),
+                  refresh: async () => {
+                    await onRemoved();
+                    setActive("en");
+                  },
+                  approvalId: queuedApprovalId,
+                  repeatAfterRefresh: true,
+                })
+              }
             >
               {t("admin.landing.translation.remove")}
             </button>
           )}
         </div>
       )}
-      {dialog}
     </div>
   );
 }
@@ -980,13 +1017,14 @@ function ImageLibrary({
   onChanged: () => void;
 }) {
   const t = useTranslations();
-  const { confirm, dialog } = useDialog();
+  const review = useLandingReview();
+  const utils = api.useUtils();
   const fileRef = useRef<HTMLInputElement>(null);
   const [alt, setAlt] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const del = api.home.deleteImage.useMutation({ onSuccess: onChanged });
+  const del = api.home.deleteImage.useMutation();
   const editAlt = api.home.setImageAlt.useMutation({ onSuccess: onChanged });
 
   const upload = async () => {
@@ -1136,19 +1174,19 @@ function ImageLibrary({
                 <button
                   type="button"
                   className="link-danger ml-auto text-xs"
-                  disabled={del.isPending}
-                  onClick={async () => {
-                    if (
-                      await confirm({
-                        title: t("admin.landing.images.confirmDelete"),
-                        message: img.alt || img.id,
-                        confirmLabel: t("common.delete"),
-                        cancelLabel: t("common.cancel"),
-                        danger: true,
-                      })
-                    )
-                      del.mutate({ id: img.id });
-                  }}
+                  disabled={review.blocked("images:" + img.id)}
+                  onClick={() =>
+                    review.open({
+                      key: "images:" + img.id,
+                      title: t("admin.landing.images.confirmDelete"),
+                      description: t("actionReview.imageHelp"),
+                      details: <p>{img.alt || img.id}</p>,
+                      confirmLabel: t("common.delete"),
+                      commit: () => del.mutateAsync({ id: img.id }),
+                      refresh: () => invalidateAndReport(utils.home.images),
+                      approvalId: queuedApprovalId,
+                    })
+                  }
                 >
                   {t("common.delete")}
                 </button>
@@ -1157,12 +1195,11 @@ function ImageLibrary({
           </div>
         ))}
       </div>
-      {(del.error ?? editAlt.error) && (
+      {editAlt.error && (
         <p role="alert" className="text-sm text-red-600">
-          {del.error?.message ?? editAlt.error?.message}
+          {editAlt.error?.message}
         </p>
       )}
-      {dialog}
     </div>
   );
 }
@@ -1302,15 +1339,14 @@ function SectionCard({
   moving: boolean;
 }) {
   const t = useTranslations();
-  const { confirm, dialog } = useDialog();
+  const review = useLandingReview();
+  const utils = api.useUtils();
   const update = api.home.updateSection.useMutation({ onSuccess: onChanged });
-  const del = api.home.deleteSection.useMutation({ onSuccess: onChanged });
+  const del = api.home.deleteSection.useMutation();
   const saveTr = api.home.setSectionTranslation.useMutation({
     onSuccess: onChanged,
   });
-  const removeTr = api.home.removeSectionTranslation.useMutation({
-    onSuccess: onChanged,
-  });
+  const removeTr = api.home.removeSectionTranslation.useMutation();
 
   const en = section.translations.find((tr) => tr.locale === "en");
   const heading =
@@ -1379,19 +1415,19 @@ function SectionCard({
             <button
               type="button"
               className="link-danger text-xs"
-              disabled={del.isPending}
-              onClick={async () => {
-                if (
-                  await confirm({
-                    title: t("admin.landing.sections.actions.confirmDelete"),
-                    message: heading,
-                    confirmLabel: t("common.delete"),
-                    cancelLabel: t("common.cancel"),
-                    danger: true,
-                  })
-                )
-                  del.mutate({ id: section.id });
-              }}
+              disabled={review.blocked("sections:" + section.id)}
+              onClick={() =>
+                review.open({
+                  key: "sections:" + section.id,
+                  title: t("admin.landing.sections.actions.confirmDelete"),
+                  description: t("actionReview.contentHelp"),
+                  details: <p>{heading}</p>,
+                  confirmLabel: t("common.delete"),
+                  commit: () => del.mutateAsync({ id: section.id }),
+                  refresh: () => invalidateAndReport(utils.home.sections),
+                  approvalId: queuedApprovalId,
+                })
+              }
             >
               {t("common.delete")}
             </button>
@@ -1433,6 +1469,8 @@ function SectionCard({
       )}
 
       <LocalizedTranslations
+        recordKey={`sections:${section.id}`}
+        recordTitle={heading}
         translations={section.translations}
         images={images}
         readOnly={readOnly}
@@ -1441,15 +1479,12 @@ function SectionCard({
         }
         saving={saveTr.isPending}
         saveError={saveTr.error?.message}
-        onRemove={(locale, done) =>
-          removeTr.mutate(
-            { sectionId: section.id, locale },
-            { onSuccess: done },
-          )
+        onRemove={(locale) =>
+          removeTr.mutateAsync({ sectionId: section.id, locale })
         }
+        onRemoved={() => invalidateAndReport(utils.home.sections)}
         removing={removeTr.isPending}
       />
-      {dialog}
     </section>
   );
 }
@@ -2448,12 +2483,13 @@ function PageCard({
   moving: boolean;
 }) {
   const t = useTranslations();
-  const { confirm, dialog } = useDialog();
+  const review = useLandingReview();
+  const utils = api.useUtils();
   const languages = api.i18n.languages.useQuery();
   const [locale, setLocale] = useState("en");
   const [open, setOpen] = useState(false);
   const update = api.home.updatePage.useMutation({ onSuccess: onChanged });
-  const del = api.home.deletePage.useMutation({ onSuccess: onChanged });
+  const del = api.home.deletePage.useMutation();
   const setTitle = api.home.setPageTitle.useMutation({ onSuccess: onChanged });
 
   const heading =
@@ -2521,19 +2557,19 @@ function PageCard({
             <button
               type="button"
               className="link-danger text-xs"
-              disabled={del.isPending}
-              onClick={async () => {
-                if (
-                  await confirm({
-                    title: t("admin.landing.pages.confirmDelete"),
-                    message: heading,
-                    confirmLabel: t("common.delete"),
-                    cancelLabel: t("common.cancel"),
-                    danger: true,
-                  })
-                )
-                  del.mutate({ id: page.id });
-              }}
+              disabled={review.blocked("pages:" + page.id)}
+              onClick={() =>
+                review.open({
+                  key: "pages:" + page.id,
+                  title: t("admin.landing.pages.confirmDelete"),
+                  description: t("actionReview.pageHelp"),
+                  details: <p>{heading}</p>,
+                  confirmLabel: t("common.delete"),
+                  commit: () => del.mutateAsync({ id: page.id }),
+                  refresh: () => invalidateAndReport(utils.home.pages),
+                  approvalId: queuedApprovalId,
+                })
+              }
             >
               {t("common.delete")}
             </button>
@@ -2597,7 +2633,6 @@ function PageCard({
           )}
         </div>
       )}
-      {dialog}
     </section>
   );
 }

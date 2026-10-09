@@ -19,6 +19,7 @@ export function ActionReviewRecipe() {
         useActionReview + Modal + InlineNotice
       </code>
       <Button
+        disabled={review.blocked(`example-${sequence}`)}
         onClick={() => {
           let attempts = 0;
           let refreshes = 0;

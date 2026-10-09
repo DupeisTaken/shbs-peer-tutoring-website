@@ -4128,6 +4128,14 @@
     "galleryTitle": "Named action review",
     "galleryHelp": "Review the exact record before committing. Failures preserve the review; accepted writes recover through reads only.",
     "galleryOpen": "Review example deletion",
-    "galleryRecord": "Synthetic example record"
+    "galleryRecord": "Synthetic example record",
+    "announcementHelp": "This permanently deletes the announcement and its acknowledgement records. Tutors will no longer see it.",
+    "contentHelp": "This permanently deletes the content and all its translations from the public site.",
+    "imageHelp": "This permanently removes the uploaded image. Existing content that uses its URL may display a missing image.",
+    "pageHelp": "This permanently deletes the page and its content. Links to its address will no longer open this page.",
+    "translationHelp": "This permanently removes this saved language version. Other language versions remain available.",
+    "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
+    "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
+    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
   }
 }

@@ -8,7 +8,10 @@ import { api } from "~/trpc/react";
 import { AcademicError } from "~/app/_components/academic-error";
 import { useReadOnly } from "~/app/_components/read-only";
 import { PatrolCorrections } from "~/app/_components/patrol-corrections";
-import { useDialog } from "~/app/_components/confirm-dialog";
+import { useActionReview } from "~/app/_components/ui/action-review";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
+import { queuedApprovalId } from "~/lib/approval-outcome";
 import {
   SummaryTable,
   TableActions,
@@ -25,7 +28,7 @@ export default function CrewPage() {
   const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
-  const { confirm, dialog } = useDialog();
+  const review = useActionReview();
   const utils = api.useUtils();
 
   const order = api.admin.patrolOrder.useQuery();
@@ -34,35 +37,27 @@ export default function CrewPage() {
   const requests = api.admin.crewRequests.useQuery();
   const issuedCodes = api.admin.crewIssuedCodes.useQuery();
 
-  const invalidateAll = () =>
-    Promise.all([
-      utils.admin.crewRoster.invalidate(),
-      utils.admin.crewApplications.invalidate(),
-      utils.admin.crewRequests.invalidate(),
-      utils.admin.crewIssuedCodes.invalidate(),
-      utils.admin.crewSummary.invalidate(),
-    ]);
-
   const setOrder = api.admin.setPatrolOrder.useMutation({
     onSuccess: () => utils.admin.patrolOrder.invalidate(),
   });
-  const setStatus = api.admin.setCrewStatus.useMutation({
-    onSuccess: invalidateAll,
-  });
-  const removeCrew = api.admin.deleteCrewMember.useMutation({
-    onSuccess: invalidateAll,
-  });
+  const setStatus = api.admin.setCrewStatus.useMutation();
+  const removeCrew = api.admin.deleteCrewMember.useMutation();
+  const refreshReviewed = () =>
+    settleRefreshes([
+      () => invalidateAndReport(utils.admin.crewRoster),
+      () => invalidateAndReport(utils.admin.crewApplications),
+      () => invalidateAndReport(utils.admin.crewRequests),
+      () => invalidateAndReport(utils.admin.crewIssuedCodes),
+      () => invalidateAndReport(utils.admin.crewSummary),
+    ]);
   const [issuedCode, setIssuedCode] = useState<Record<string, string>>({});
   const decideApp = api.admin.decideCrewApplication.useMutation({
     onSuccess: (res, vars) => {
       if (res.code)
         setIssuedCode((m) => ({ ...m, [vars.applicationId]: res.code! }));
-      void invalidateAll();
     },
   });
-  const decideReq = api.admin.decideCrewRequest.useMutation({
-    onSuccess: invalidateAll,
-  });
+  const decideReq = api.admin.decideCrewRequest.useMutation();
 
   // Local, reorderable copy of the room order.
   const [rooms, setRooms] = useState<{ id: string; name: string }[]>([]);
@@ -84,6 +79,7 @@ export default function CrewPage() {
   const apps = applications.data ?? [];
   const reqs = requests.data ?? [];
   const busy =
+    review.busy ||
     setStatus.isPending ||
     removeCrew.isPending ||
     decideApp.isPending ||
@@ -96,23 +92,9 @@ export default function CrewPage() {
         <p className="muted mt-1">{t("admin.crew.subtitle")}</p>
       </div>
 
-      {(decideApp.error ??
-        decideReq.error ??
-        setStatus.error ??
-        removeCrew.error ??
-        setOrder.error) && (
+      {setOrder.error && (
         <p role="alert" className="text-sm text-red-600">
-          <AcademicError
-            message={
-              (
-                decideApp.error ??
-                decideReq.error ??
-                setStatus.error ??
-                removeCrew.error ??
-                setOrder.error
-              )?.message
-            }
-          />
+          <AcademicError message={setOrder.error.message} />
         </p>
       )}
 
@@ -157,11 +139,20 @@ export default function CrewPage() {
                     <span className="ml-auto flex gap-2">
                       <button
                         className="btn-primary btn-sm"
-                        disabled={busy}
+                        disabled={busy || review.blocked(a.id + ":application")}
                         onClick={() =>
-                          decideApp.mutate({
-                            applicationId: a.id,
-                            action: "ACCEPT",
+                          review.open({
+                            key: a.id + ":application",
+                            title: t("admin.crew.accept") + " · " + a.name,
+                            description: t("actionReview.crewApplicationHelp"),
+                            confirmLabel: t("admin.crew.accept"),
+                            commit: () =>
+                              decideApp.mutateAsync({
+                                applicationId: a.id,
+                                action: "ACCEPT",
+                              }),
+                            refresh: refreshReviewed,
+                            approvalId: queuedApprovalId,
                           })
                         }
                       >
@@ -169,11 +160,20 @@ export default function CrewPage() {
                       </button>
                       <button
                         className="btn-secondary btn-sm"
-                        disabled={busy}
+                        disabled={busy || review.blocked(a.id + ":application")}
                         onClick={() =>
-                          decideApp.mutate({
-                            applicationId: a.id,
-                            action: "REJECT",
+                          review.open({
+                            key: a.id + ":application",
+                            title: t("admin.crew.reject") + " · " + a.name,
+                            description: t("actionReview.crewApplicationHelp"),
+                            confirmLabel: t("admin.crew.reject"),
+                            commit: () =>
+                              decideApp.mutateAsync({
+                                applicationId: a.id,
+                                action: "REJECT",
+                              }),
+                            refresh: refreshReviewed,
+                            approvalId: queuedApprovalId,
                           })
                         }
                       >
@@ -263,18 +263,48 @@ export default function CrewPage() {
                   <span className="flex gap-2">
                     <button
                       className="btn-primary btn-sm"
-                      disabled={busy || !r.approvable}
+                      disabled={
+                        busy ||
+                        !r.approvable ||
+                        review.blocked(r.id + ":request")
+                      }
                       onClick={() =>
-                        decideReq.mutate({ requestId: r.id, action: "APPROVE" })
+                        review.open({
+                          key: r.id + ":request",
+                          title: t("admin.crew.approve") + " · " + r.member,
+                          description: t("actionReview.crewRequestHelp"),
+                          details: <p>{t(`admin.crew.reqKind.${r.kind}`)}</p>,
+                          confirmLabel: t("admin.crew.approve"),
+                          commit: () =>
+                            decideReq.mutateAsync({
+                              requestId: r.id,
+                              action: "APPROVE",
+                            }),
+                          refresh: refreshReviewed,
+                          approvalId: queuedApprovalId,
+                        })
                       }
                     >
                       {t("admin.crew.approve")}
                     </button>
                     <button
                       className="btn-secondary btn-sm"
-                      disabled={busy}
+                      disabled={busy || review.blocked(r.id + ":request")}
                       onClick={() =>
-                        decideReq.mutate({ requestId: r.id, action: "DENY" })
+                        review.open({
+                          key: r.id + ":request",
+                          title: t("admin.crew.deny") + " · " + r.member,
+                          description: t("actionReview.crewRequestHelp"),
+                          details: <p>{t(`admin.crew.reqKind.${r.kind}`)}</p>,
+                          confirmLabel: t("admin.crew.deny"),
+                          commit: () =>
+                            decideReq.mutateAsync({
+                              requestId: r.id,
+                              action: "DENY",
+                            }),
+                          refresh: refreshReviewed,
+                          approvalId: queuedApprovalId,
+                        })
                       }
                     >
                       {t("admin.crew.deny")}
@@ -420,47 +450,54 @@ export default function CrewPage() {
                     <>
                       {u.status !== "ACTIVE" && (
                         <TableAction
-                          disabled={busy}
-                          onClick={async () => {
-                            if (
-                              await confirm({
-                                title: t("actionReview.crewEnableTitle", {
-                                  name: u.name,
+                          disabled={
+                            busy || review.blocked(u.id + ":membership")
+                          }
+                          onClick={() =>
+                            review.open({
+                              key: u.id + ":membership",
+                              title: t("actionReview.crewEnableTitle", {
+                                name: u.name,
+                              }),
+                              description: t("actionReview.crewEnableHelp"),
+                              confirmLabel: t("admin.crew.enable"),
+                              commit: () =>
+                                setStatus.mutateAsync({
+                                  userId: u.id,
+                                  status: "ACTIVE",
                                 }),
-                                message: t("actionReview.crewEnableHelp"),
-                                confirmLabel: t("admin.crew.enable"),
-                                cancelLabel: t("common.cancel"),
-                              })
-                            )
-                              setStatus.mutate({
-                                userId: u.id,
-                                status: "ACTIVE",
-                              });
-                          }}
+                              refresh: refreshReviewed,
+                              approvalId: queuedApprovalId,
+                              repeatAfterRefresh: true,
+                            })
+                          }
                         >
                           {t("admin.crew.enable")}
                         </TableAction>
                       )}
                       {u.status === "ACTIVE" && (
                         <TableAction
-                          disabled={busy}
-                          onClick={async () => {
-                            if (
-                              await confirm({
-                                title: t("actionReview.crewDisableTitle", {
-                                  name: u.name,
+                          disabled={
+                            busy || review.blocked(u.id + ":membership")
+                          }
+                          onClick={() =>
+                            review.open({
+                              key: u.id + ":membership",
+                              title: t("actionReview.crewDisableTitle", {
+                                name: u.name,
+                              }),
+                              description: t("actionReview.crewDisableHelp"),
+                              confirmLabel: t("admin.crew.softRemove"),
+                              commit: () =>
+                                setStatus.mutateAsync({
+                                  userId: u.id,
+                                  status: "INACTIVE",
                                 }),
-                                message: t("actionReview.crewDisableHelp"),
-                                confirmLabel: t("admin.crew.softRemove"),
-                                cancelLabel: t("common.cancel"),
-                                danger: true,
-                              })
-                            )
-                              setStatus.mutate({
-                                userId: u.id,
-                                status: "INACTIVE",
-                              });
-                          }}
+                              refresh: refreshReviewed,
+                              approvalId: queuedApprovalId,
+                              repeatAfterRefresh: true,
+                            })
+                          }
                         >
                           {t("admin.crew.softRemove")}
                         </TableAction>
@@ -468,21 +505,21 @@ export default function CrewPage() {
                       {u.crewOnly && (
                         <TableAction
                           className="text-red-600"
-                          disabled={busy}
-                          onClick={async () => {
-                            if (
-                              await confirm({
-                                title: t("admin.crew.deleteConfirm", {
-                                  name: u.name,
-                                }),
-                                confirmLabel: t("common.delete"),
-                                cancelLabel: t("common.cancel"),
-                                danger: true,
-                              })
-                            ) {
-                              removeCrew.mutate({ userId: u.id });
-                            }
-                          }}
+                          disabled={busy || review.blocked(u.id + ":delete")}
+                          onClick={() =>
+                            review.open({
+                              key: u.id + ":delete",
+                              title: t("admin.crew.deleteConfirm", {
+                                name: u.name,
+                              }),
+                              description: t("actionReview.crewDeleteHelp"),
+                              confirmLabel: t("common.delete"),
+                              commit: () =>
+                                removeCrew.mutateAsync({ userId: u.id }),
+                              refresh: refreshReviewed,
+                              approvalId: queuedApprovalId,
+                            })
+                          }
                         >
                           {t("admin.crew.delete")}
                         </TableAction>
@@ -502,7 +539,7 @@ export default function CrewPage() {
           </tbody>
         </SummaryTable>
       </section>
-      {dialog}
+      {!readOnly && review.dialog}
     </div>
   );
 }

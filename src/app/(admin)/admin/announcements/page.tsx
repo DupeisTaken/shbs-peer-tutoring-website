@@ -5,7 +5,9 @@ import { useState } from "react";
 
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
-import { useDialog } from "~/app/_components/confirm-dialog";
+import { useActionReview } from "~/app/_components/ui/action-review";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { queuedApprovalId } from "~/lib/approval-outcome";
 import {
   defaultAnnouncementAudience,
   selectAnnouncementRecipients,
@@ -29,22 +31,22 @@ function AnnouncementCard({
   a,
   onChanged,
   readOnly,
+  review,
 }: {
   a: Announcement;
   onChanged: () => void;
   readOnly: boolean;
+  review: ReturnType<typeof useActionReview>;
 }) {
   const t = useTranslations();
   const format = useFormatter();
-  const { confirm, dialog } = useDialog();
+  const utils = api.useUtils();
   const [title, setTitle] = useState(a.title);
   const [body, setBody] = useState(a.body);
   const update = api.admin.updateAnnouncement.useMutation({
     onSuccess: onChanged,
   });
-  const del = api.admin.deleteAnnouncement.useMutation({
-    onSuccess: onChanged,
-  });
+  const del = api.admin.deleteAnnouncement.useMutation();
 
   const dirty = title !== a.title || body !== a.body;
 
@@ -131,18 +133,19 @@ function AnnouncementCard({
         {!readOnly && (
           <button
             className="link-danger ml-auto text-sm"
-            onClick={async () => {
-              if (
-                await confirm({
-                  title: t("admin.announcements.card.confirmDelete"),
-                  message: a.title,
-                  confirmLabel: t("common.delete"),
-                  cancelLabel: t("common.cancel"),
-                  danger: true,
-                })
-              )
-                del.mutate({ id: a.id });
-            }}
+            disabled={review.blocked(a.id) || update.isPending}
+            onClick={() =>
+              review.open({
+                key: a.id,
+                title: t("admin.announcements.card.confirmDelete"),
+                description: t("actionReview.announcementHelp"),
+                details: <p>{a.title}</p>,
+                confirmLabel: t("common.delete"),
+                commit: () => del.mutateAsync({ id: a.id }),
+                refresh: () => invalidateAndReport(utils.admin.announcements),
+                approvalId: queuedApprovalId,
+              })
+            }
           >
             {t("admin.announcements.card.delete")}
           </button>
@@ -160,12 +163,6 @@ function AnnouncementCard({
           {update.error.message}
         </p>
       )}
-      {del.error && (
-        <p role="alert" className="text-sm text-red-700">
-          {del.error.message}
-        </p>
-      )}
-      {dialog}
     </div>
   );
 }
@@ -173,6 +170,9 @@ function AnnouncementCard({
 export default function AnnouncementsPage() {
   const t = useTranslations();
   const readOnly = useReadOnly();
+  // The list owns review lifetime so removing a card cannot dismiss a pending
+  // refresh or its read-only recovery.
+  const review = useActionReview();
   const utils = api.useUtils();
   const announcements = api.admin.announcements.useQuery();
   const candidates = api.admin.announcementCandidates.useQuery(undefined, {
@@ -200,6 +200,7 @@ export default function AnnouncementsPage() {
 
   return (
     <div className="space-y-6">
+      {!readOnly && review.dialog}
       <div>
         <h1 className="page-title">{t("admin.announcements.title")}</h1>
         <p className="muted mt-1">{t("admin.announcements.subtitle")}</p>
@@ -282,6 +283,7 @@ export default function AnnouncementsPage() {
             a={a}
             onChanged={invalidate}
             readOnly={readOnly}
+            review={review}
           />
         ))}
         {announcements.data?.length === 0 && (

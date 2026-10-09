@@ -131,7 +131,13 @@ vi.mock("~/app/_components/patrol-corrections", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    useUtils: () => ({}),
+    useUtils: () => ({
+      admin: new Proxy(
+        {},
+        { get: () => ({ invalidate: async () => undefined }) },
+      ),
+      tuteeHistory: { invalidate: async () => undefined },
+    }),
     program: {
       profilePolicy: {
         useQuery: () => ({
@@ -251,13 +257,13 @@ vi.mock("~/trpc/react", () => ({
       setPatrolOrder: { useMutation: () => ({ mutate: vi.fn() }) },
       setCrewStatus: {
         useMutation: () => ({
-          mutate: state.crewStatus,
+          mutateAsync: state.crewStatus,
           isPending: state.pending,
         }),
       },
-      deleteCrewMember: { useMutation: () => ({ mutate: vi.fn() }) },
-      decideCrewApplication: { useMutation: () => ({ mutate: vi.fn() }) },
-      decideCrewRequest: { useMutation: () => ({ mutate: vi.fn() }) },
+      deleteCrewMember: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      decideCrewApplication: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      decideCrewRequest: { useMutation: () => ({ mutateAsync: vi.fn() }) },
     },
     tutorDetails: { get: { useQuery: state.details } },
     student: { acceptanceRecords: { useQuery: state.history } },
@@ -605,6 +611,12 @@ describe("people summary tables", () => {
         status: "INACTIVE",
       }),
     );
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent).toContain(
+        "Change applied",
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
     fireEvent.click(
       within(table).getByRole("button", {
         name: `${en.tablePatterns.details}: Synthetic Crew`,

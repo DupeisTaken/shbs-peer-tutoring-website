@@ -270,10 +270,9 @@ export default function RegistrationCodesPage() {
                           details: (
                             <p>
                               {c.label ??
+                                c.tutorName ??
                                 c.email ??
-                                t(
-                                  `admin.registrationCodes.${registrationKindLabel[c.kind]}`,
-                                )}{" "}
+                                `${t(`admin.registrationCodes.${registrationKindLabel[c.kind]}`)} · ${c.id}`}{" "}
                               ·{" "}
                               {programFormat.dateTime(new Date(c.expiresAt), {
                                 dateStyle: "medium",

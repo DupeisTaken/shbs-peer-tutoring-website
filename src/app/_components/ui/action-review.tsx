@@ -19,6 +19,8 @@ export type ReviewedAction = {
   refresh: () => Promise<unknown>;
   /** Only the feature may recognize an existing proposal instead of an error. */
   approvalId?: (error: unknown) => string | undefined;
+  /** Reversible membership changes may become meaningful again after a fresh read. */
+  repeatAfterRefresh?: boolean;
 };
 
 /** Compose the existing modal around a named consequence. Features retain all
@@ -43,7 +45,15 @@ export function useActionReview() {
         action={action}
         onClose={() => setAction(null)}
         onBusy={setBusy}
-        onRecovery={setNeedsRefresh}
+        onRecovery={(failed) => {
+          setNeedsRefresh(failed);
+          if (!failed && action.repeatAfterRefresh)
+            setBlockedKeys((keys) => {
+              const next = new Set(keys);
+              next.delete(action.key);
+              return next;
+            });
+        }}
         onAccepted={() =>
           setBlockedKeys((keys) => new Set(keys).add(action.key))
         }

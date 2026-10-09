@@ -48,6 +48,21 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+it.each(["en", "zh"] as const)("shows named review and read-only recovery in the %s gallery", async (locale) => {
+  const messages = locale === "zh" ? zh : en;
+  render(<RecipeGallery locale={locale} state="normal" />);
+  fireEvent.click(screen.getByRole("button", {name:messages.actionReview.galleryOpen}));
+  expect(screen.getByRole("dialog").textContent).toContain(messages.actionReview.galleryRecord);
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", {name:messages.actionReview.galleryOpen}));
+  expect((await screen.findByRole("alert")).textContent).toContain(messages.actionReview.failed);
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", {name:messages.actionReview.galleryOpen}));
+  await act(async()=>undefined);
+  expect(screen.getByRole("dialog").textContent).toContain(messages.actionReview.refreshFailed);
+  fireEvent.click(screen.getByRole("button", {name:messages.actionReview.retry}));
+  await act(async()=>undefined);
+  expect(screen.getByRole("dialog").textContent).toContain(messages.actionReview.applied);
+});
+
 it.each(["en", "zh"] as const)(
   "wraps full component names in both %s public-card descriptions",
   async (locale) => {
