@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,12 +18,16 @@ const state = vi.hoisted(
   (): {
     status: string;
     code: string | null;
+    label: string | null;
+    tutorName: string | null;
     invalidate: () => void;
     issue: () => void;
     revoke: (input: { id: string }) => void;
   } => ({
     status: "active",
     code: "TEST5",
+    label: "Test invitation",
+    tutorName: null,
     invalidate: vi.fn(),
     issue: vi.fn(),
     revoke: vi.fn(),
@@ -30,7 +35,8 @@ const state = vi.hoisted(
 );
 const record = () => ({
   id: "invite",
-  label: "Test invitation",
+  label: state.label,
+  tutorName: state.tutorName,
   kind: "TUTOR",
   code: state.code,
   expiresAt: new Date("2099-10-16"),
@@ -58,9 +64,9 @@ vi.mock("~/trpc/react", () => ({
         useMutation: (options: {
           onSuccess: (data: null, input: { id: string }) => Promise<void>;
         }) => ({
-          mutate: (input: { id: string }) => {
+          mutateAsync: async (input: { id: string }) => {
             state.revoke(input);
-            void options.onSuccess(null, input);
+            await options.onSuccess(null, input);
           },
         }),
       },
@@ -85,11 +91,38 @@ beforeEach(() => {
   vi.clearAllMocks();
   state.status = "active";
   state.code = "TEST5";
+  state.label = "Test invitation";
+  state.tutorName = null;
   vi.mocked(downloadCardImage).mockResolvedValue(undefined);
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    },
+  });
 });
 afterEach(cleanup);
 
 describe("registration code export availability", () => {
+  it.each(["Synthetic invited tutor", null])(
+    "identifies an unlabeled invitation by its tutor or stable id (%s)",
+    (name) => {
+      state.label = null;
+      state.tutorName = name;
+      show();
+      fireEvent.click(screen.getByRole("button", { name: "Revoke" }));
+      expect(screen.getByRole("dialog").textContent).toContain(
+        name ?? "invite",
+      );
+      expect(state.revoke).not.toHaveBeenCalled();
+    },
+  );
   it("exports newly issued and reopened cards without another mutation", async () => {
     show();
     fireEvent.click(screen.getByRole("button", { name: "Issue Code" }));
@@ -134,6 +167,16 @@ describe("registration code export availability", () => {
       await screen.findByRole("button", { name: "Export Image" }),
     ).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Revoke" }));
+    expect(state.revoke).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog").textContent).toContain("Test invitation");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(state.revoke).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Revoke" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Revoke",
+      }),
+    );
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: "Export Image" })).toBeNull(),
     );

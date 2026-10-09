@@ -185,12 +185,24 @@ An approval ID means a queued proposal, never a successful application.
 | Tutor activation/opt-out, pairing schedule, legacy removal request/recall, interview final decision | Named consequence confirmation; preserve current version, panel vote, role and server permission checks |
 | Student schedule conflict, policy acceptance, withdrawal and assignment | Existing domain dialog, server confirmation ticket, review delay, policy revision and immutable evidence remain authoritative |
 | Tutors/Tutees/Users membership, school departure, account combination and deletion | Existing named domain confirmation/review; retain password checks, role restrictions, versions, proposals and before/after evidence |
+| Room, time-slot, pairing, tutee, hour-adjustment and subject-level deletion; invitation revocation | `useActionReview` composes the shared modal around the exact record and consequence. Features supply the original authorized mutation, optional proposal recognition and read-only refresh. Failed writes retain the review; accepted writes never run again when refresh fails. Cancel and Escape before submission perform no write |
+| Crew application/request decisions, activation/inactivation and account deletion; public announcement, news, image, section, page and saved-translation deletion | Name the affected person/content in `useActionReview`. The route or list owns review lifetime so card removal/tab changes cannot discard pending work or read recovery. Reversible crew status changes and re-creatable translations explicitly permit another review after a successful refresh; one accepted review never replays its mutation |
 | Service Hours breakdown comparison, room timetables and attendance history | Read-only comparison matrices in named keyboard-scroll regions; no artificial action column. The compact Service Hours summary retains its real Details action |
 
 Keep pending requirements outside completed-history disclosures. Use retained
 child lifetimes for collapsible editors so collapsing is not an implicit Cancel.
 Test applied versus queued outcomes, cancellation without writes, failed drafts,
 permission changes and keyboard focus in addition to visual layout.
+
+Do not put cache invalidation inside `useActionReview`'s `commit` callback. A
+mutation rejection and a successful mutation followed by a failed read must stay
+distinguishable. Use `invalidateAndReport` and, for multiple query families,
+`settleRefreshes` in its `refresh` callback. An accepted record stays disabled for
+the page instance, including when stale cached data still displays it. Closing a
+failed-refresh review leaves an inline read-only retry; another deletion cannot
+replace that recovery until it succeeds. This shared composition does not replace
+timed confirmation tickets, password confirmation, profile versions or assignment
+review. The gallery demonstrates rejected write, accepted write and read recovery.
 ## Profile editor completion
 
 Profile and username completion must leave independent drafts mounted. Keep saved

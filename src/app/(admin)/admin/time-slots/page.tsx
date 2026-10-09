@@ -16,6 +16,10 @@ import {
 } from "~/app/_components/ui/summary-table";
 import { Modal } from "~/app/_components/ui/modal";
 import { Button } from "~/app/_components/ui/button";
+import { useActionReview } from "~/app/_components/ui/action-review";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
+import { queuedApprovalId } from "~/lib/approval-outcome";
 
 const EMPTY = { label: "", dayOfWeek: 1, startTime: "15:30", endTime: "16:30" };
 
@@ -50,7 +54,8 @@ export default function TimeSlotsPage() {
       await invalidate();
     },
   });
-  const del = api.admin.deleteTimeSlot.useMutation({ onSuccess: invalidate });
+  const del = api.admin.deleteTimeSlot.useMutation();
+  const review = useActionReview();
   const editingIsValid =
     editing !== null &&
     editing.label.trim().length > 0 &&
@@ -58,6 +63,7 @@ export default function TimeSlotsPage() {
 
   return (
     <div className="space-y-6">
+      {!readOnly && review.dialog}
       <div>
         <h1 className="page-title">{t("admin.timeslots.title")}</h1>
         <p className="muted mt-1">{t("admin.timeslots.description")}</p>
@@ -147,9 +153,9 @@ export default function TimeSlotsPage() {
           </button>
         </form>
       )}
-      {!readOnly && (create.error ?? update.error ?? del.error) && (
+      {!readOnly && (create.error ?? update.error) && (
         <p className="text-sm text-red-600">
-          {(create.error ?? update.error ?? del.error)?.message}
+          {(create.error ?? update.error)?.message}
         </p>
       )}
 
@@ -234,8 +240,34 @@ export default function TimeSlotsPage() {
                       </TableAction>
                       <TableAction
                         className="text-red-700"
-                        disabled={del.isPending || update.isPending}
-                        onClick={() => del.mutate({ id: s.id })}
+                        disabled={review.blocked(s.id) || update.isPending}
+                        onClick={() =>
+                          review.open({
+                            key: s.id,
+                            title: t("actionReview.slotTitle", {
+                              name: s.label,
+                            }),
+                            description: t("actionReview.slotHelp"),
+                            confirmLabel: t("admin.timeslots.delete"),
+                            details: (
+                              <p>
+                                {DAY_NAMES[s.dayOfWeek]} · {minToHm(s.startMin)}
+                                –{minToHm(s.endMin)}
+                              </p>
+                            ),
+                            commit: () => del.mutateAsync({ id: s.id }),
+                            refresh: () =>
+                              settleRefreshes([
+                                () =>
+                                  invalidateAndReport(utils.admin.timeSlots),
+                                () => invalidateAndReport(utils.admin.pairings),
+                                () =>
+                                  invalidateAndReport(utils.tutor.myPairings),
+                                () => invalidateAndReport(utils.tutor.schedule),
+                              ]),
+                            approvalId: queuedApprovalId,
+                          })
+                        }
                       >
                         {t("admin.timeslots.delete")}
                       </TableAction>

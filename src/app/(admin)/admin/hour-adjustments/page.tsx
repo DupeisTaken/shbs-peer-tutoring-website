@@ -15,6 +15,9 @@ import {
 import styles from "./page.module.css";
 import { visibleTutors } from "~/lib/tutor-visibility";
 import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
+import { useActionReview } from "~/app/_components/ui/action-review";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { queuedApprovalId } from "~/lib/approval-outcome";
 
 export default function AdjustmentsPage() {
   const t = useTranslations();
@@ -27,7 +30,8 @@ export default function AdjustmentsPage() {
   const create = api.admin.createAdjustment.useMutation({
     onSuccess: invalidate,
   });
-  const del = api.admin.deleteAdjustment.useMutation({ onSuccess: invalidate });
+  const del = api.admin.deleteAdjustment.useMutation();
+  const review = useActionReview();
 
   const [tutorId, setTutorId] = useState("");
   const [month, setMonth] = useState(currentMonth());
@@ -37,12 +41,15 @@ export default function AdjustmentsPage() {
 
   return (
     <div className={`space-y-6 ${styles.page}`}>
+      {!readOnly && review.dialog}
       <div>
         <h1 className="page-title">{t("admin.adjustments.title")}</h1>
         <p className="muted mt-1 text-sm">{t("admin.adjustments.subtitle")}</p>
       </div>
 
-      {!readOnly && <PastTutorsToggle showPast={showPast} onChange={setShowPast} />}
+      {!readOnly && (
+        <PastTutorsToggle showPast={showPast} onChange={setShowPast} />
+      )}
       {!readOnly && (
         <form
           className={styles.form}
@@ -123,11 +130,6 @@ export default function AdjustmentsPage() {
           {create.error.message}
         </p>
       )}
-      {!readOnly && del.error && (
-        <p role="alert" className="text-sm text-red-600">
-          {del.error.message}
-        </p>
-      )}
       {list.isLoading && <p role="status">{t("common.loading")}</p>}
       {list.error && (
         <p role="alert" className="text-sm text-red-600">
@@ -190,8 +192,36 @@ export default function AdjustmentsPage() {
                   </TableDetails>
                   {!readOnly && (
                     <TableAction
-                      onClick={() => del.mutate({ id: a.id })}
-                      disabled={del.isPending}
+                      onClick={() =>
+                        review.open({
+                          key: a.id,
+                          title: t("admin.adjustments.review.title"),
+                          description: t(
+                            "admin.adjustments.review.consequence",
+                          ),
+                          confirmLabel: t("admin.adjustments.review.confirm"),
+                          details: (
+                            <div className="space-y-2 text-sm break-words">
+                              <p className="font-semibold">
+                                {a.tutor.englishName}
+                              </p>
+                              <p>
+                                {a.month} ·{" "}
+                                {t(`admin.adjustments.typeLabel.${a.type}`)} ·{" "}
+                                {a.amount.toFixed(1)} h
+                              </p>
+                              <p className="whitespace-pre-wrap">
+                                {a.reason ?? "—"}
+                              </p>
+                            </div>
+                          ),
+                          commit: () => del.mutateAsync({ id: a.id }),
+                          refresh: () =>
+                            invalidateAndReport(utils.admin.adjustments),
+                          approvalId: queuedApprovalId,
+                        })
+                      }
+                      disabled={review.blocked(a.id)}
                       aria-label={`${t("admin.adjustments.table.delete")}: ${a.tutor.englishName}, ${a.month}`}
                       className="text-red-700"
                     >

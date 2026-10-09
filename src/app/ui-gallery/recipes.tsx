@@ -1,6 +1,7 @@
 "use client";
 
 import { NavigationRecipes } from "./navigation-recipes";
+import { ActionReviewRecipe } from "./action-review-recipe";
 import { useEffect, useState, type ReactNode } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import enMessages from "../../../messages/en.json";
@@ -205,7 +206,9 @@ function Recipe({
       <header className="space-y-2 border-b border-slate-100 pb-4">
         <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
         {/* Component names in explanatory copy must wrap even at enlarged text sizes. */}
-        <p className="text-sm leading-6 wrap-break-word text-slate-600">{help}</p>
+        <p className="text-sm leading-6 wrap-break-word text-slate-600">
+          {help}
+        </p>
         <code className="block text-xs break-words text-slate-500">
           {components}
         </code>
@@ -345,6 +348,7 @@ export function RecipeGallery({
       messages={locale === "en" ? enMessages : zhMessages}
     >
       <div className="grid items-start gap-6 lg:grid-cols-2">
+        <ActionReviewRecipe />
         <Recipe
           title={t.long}
           help={t.longHelp}

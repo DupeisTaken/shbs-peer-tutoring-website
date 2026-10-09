@@ -6,6 +6,10 @@ import { auth } from "~/server/auth";
 import { api } from "~/trpc/server";
 import { SignOutButton } from "~/app/_components/sign-out-button";
 import { SuspendedAppeal } from "./appeal-form";
+import {
+  PublicFormPage,
+  PublicFormCard,
+} from "~/app/_components/public-form-page";
 
 export async function generateMetadata() {
   return brandingMetadata("Account suspended");
@@ -20,23 +24,27 @@ export default async function SuspendedPage() {
   const t = await getTranslations();
 
   return (
-    <main className="mx-auto min-h-screen max-w-lg px-4 py-16">
-      <div className="card space-y-4 p-6">
-        <h1 className="page-title">{t("suspended.title")}</h1>
-        <p className="text-sm text-slate-700">{t("suspended.body")}</p>
-        {data.reason && (
-          <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            {t("suspended.reason", { reason: data.reason })}
-          </p>
-        )}
-        <SuspendedAppeal
-          pending={data.appeal?.state === "PENDING"}
-          denied={data.appeal?.state === "DENIED"}
-        />
-        <div className="border-t border-slate-100 pt-3">
-          <SignOutButton />
+    <PublicFormPage
+      title={t("suspended.title")}
+      description={t("suspended.body")}
+      backLabel={t("common.backToMain")}
+    >
+      <PublicFormCard>
+        <div className="space-y-4">
+          {data.reason && (
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              {t("suspended.reason", { reason: data.reason })}
+            </p>
+          )}
+          <SuspendedAppeal
+            pending={data.appeal?.state === "PENDING"}
+            denied={data.appeal?.state === "DENIED"}
+          />
+          <div className="border-t border-slate-100 pt-3">
+            <SignOutButton />
+          </div>
         </div>
-      </div>
-    </main>
+      </PublicFormCard>
+    </PublicFormPage>
   );
 }

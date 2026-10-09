@@ -1062,7 +1062,7 @@
       "requestRename": "Request name change",
       "requestDeleteRoom": "Request room deletion",
       "requestAddRoom": "Request new room",
-      "confirmDeleteRoom": "Delete room “{name}”? Coordinator changes require approval.",
+      "confirmDeleteRoom": "Delete room “{name}”?",
       "viewerHelp": "View recurring blocked periods. Your account cannot change room availability.",
       "coordinatorHelp": "Request additions, edits or removals. An Admin or Head must approve each request before room availability changes.",
       "adminHelp": "Add, edit or remove recurring blocks. Overlapping blocks and conflicts with current bookings are not allowed.",
@@ -1083,7 +1083,9 @@
       "block": "Block",
       "namePlaceholder": "New room name",
       "addRoom": "Add Room",
-      "empty": "No rooms yet."
+      "empty": "No rooms yet.",
+      "deleteConsequence": "This removes the room and its blocked periods. Rooms currently used by pairings cannot be deleted.",
+      "deleteRequestConsequence": "This submits a deletion request for management review. The room and its assignments remain unchanged until approval."
     },
     "courses": {
       "title": "Subjects & Levels",
@@ -1243,6 +1245,11 @@
         "amount": "Amount",
         "reason": "Reason",
         "delete": "Delete"
+      },
+      "review": {
+        "title": "Delete Hour Adjustment?",
+        "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
+        "confirm": "Delete adjustment"
       }
     },
     "applications": {
@@ -3597,7 +3604,7 @@
     "confirm": "Confirm Academic Details",
     "cancel": "Cancel",
     "saving": "Saving…",
-    "saved": "Academic details confirmed.",
+    "saved": "Academic details saved.",
     "loading": "Loading academic details…",
     "conflict": "This profile changed while you were editing. Reload the latest details, then review and try again. Your draft has not been saved.",
     "reload": "Discard Draft and Reload",
@@ -4094,5 +4101,41 @@
       "INACTIVE": "Inactive",
       "BANNED": "Banned"
     }
+  },
+  "actionReview": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "retry": "Refresh list",
+    "failed": "The action could not be completed. Try again.",
+    "applied": "Change applied.",
+    "queued": "Request submitted for approval. The live record has not changed.",
+    "refreshFailed": "The change was applied, but the list could not be refreshed. Retry only refreshes the list.",
+    "viewRequest": "View request",
+    "pairingTitle": "Delete Pairing?",
+    "pairingHelp": "This removes the pairing and its tutee assignments. Pairings with attendance history cannot be deleted.",
+    "slotTitle": "Delete Time Slot “{name}”?",
+    "slotHelp": "This removes the time slot and saved tutor/tutee availability for it. Slots used by pairings cannot be deleted; mark those inactive instead.",
+    "levelTitle": "Delete Subject Level “{name}”?",
+    "levelHelp": "This removes the catalogue level. Levels with subject variants cannot be deleted.",
+    "tuteeTitle": "Delete Tutee “{name}”?",
+    "tuteeHelp": "This removes the enrollment and its pairing assignments. Tutees with attendance history cannot be deleted; set them inactive instead. The linked login account is not deleted.",
+    "revokeTitle": "Revoke Registration Invitation?",
+    "revokeHelp": "The unused code will no longer work and cannot be restored. An invitation issued from a crew application returns that application to pending review. Used invitations cannot be revoked.",
+    "crewEnableTitle": "Enable Crew Participation for {name}?",
+    "crewEnableHelp": "This restores active crew participation and patrol eligibility. Existing history is preserved.",
+    "crewDisableTitle": "Remove {name} from Active Crew?",
+    "crewDisableHelp": "This ends active crew participation and patrol eligibility. Existing history is preserved.",
+    "galleryTitle": "Named Action Review",
+    "galleryHelp": "Review the exact record before committing. Failures preserve the review; accepted writes recover through reads only.",
+    "galleryOpen": "Review example deletion",
+    "galleryRecord": "Synthetic example record",
+    "announcementHelp": "This permanently deletes the announcement and its acknowledgement records. Tutors will no longer see it.",
+    "contentHelp": "This permanently deletes the content and all its translations from the public site.",
+    "imageHelp": "This permanently removes the uploaded image. Existing content that uses its URL may display a missing image.",
+    "pageHelp": "This permanently deletes the page and its content. Links to its address will no longer open this page.",
+    "translationHelp": "This permanently removes this saved language version. Other language versions remain available.",
+    "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
+    "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
+    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
   }
 }

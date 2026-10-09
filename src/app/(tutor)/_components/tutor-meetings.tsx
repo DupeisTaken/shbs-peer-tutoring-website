@@ -111,10 +111,10 @@ export function TutorMeetings() {
                     maxLength={500}
                     onChange={(e) => setReason(e.target.value)}
                     placeholder={t("tutor.meetings.reasonPlaceholder")}
-                    className="input sm:field-auto min-w-0 sm:min-w-44"
+                    className="input control-standard sm:field-auto min-w-0 sm:min-w-44 lg:min-h-10 lg:py-2"
                   />
                   <button
-                    className="btn-primary btn-sm"
+                    className="btn-primary control-standard"
                     disabled={excuse.isPending}
                     onClick={() => {
                       setLastAction("excuse");
@@ -127,7 +127,7 @@ export function TutorMeetings() {
                     {t("tutor.meetings.submitExcuse")}
                   </button>
                   <button
-                    className="btn-secondary btn-sm"
+                    className="btn-secondary control-standard"
                     disabled={excuse.isPending}
                     onClick={() => {
                       setOpenId(null);

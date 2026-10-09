@@ -14,6 +14,9 @@ import { ShareCard } from "./share-card";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
 import { Button } from "~/app/_components/ui/button";
+import { useActionReview } from "~/app/_components/ui/action-review";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { queuedApprovalId } from "~/lib/approval-outcome";
 
 /**
  * Registration codes: issue single-use 6-digit security keys for new tutors and track their
@@ -60,14 +63,14 @@ export default function RegistrationCodesPage() {
     },
   });
   const revoke = api.admin.revokeRegistrationCode.useMutation({
-    onSuccess: async (_data, { id }) => {
+    onSuccess: (_data, { id }) => {
       // Stop sharing a freshly issued card when its record is revoked here.
       if (codes.data?.some((c) => c.id === id && c.code === issued?.code)) {
         setIssued(null);
       }
-      await invalidate();
     },
   });
+  const review = useActionReview();
 
   const statusBadge = (status: string) =>
     status === "active"
@@ -78,6 +81,7 @@ export default function RegistrationCodesPage() {
 
   return (
     <div className="space-y-6">
+      {!readOnly && review.dialog}
       <div>
         <h1 className="page-title">{t("admin.registrationCodes.title")}</h1>
         <p className="muted mt-1">{t("admin.registrationCodes.help")}</p>
@@ -257,8 +261,31 @@ export default function RegistrationCodesPage() {
                   {!readOnly && c.status === "active" && (
                     <button
                       className="btn-danger btn-sm"
-                      onClick={() => revoke.mutate({ id: c.id })}
-                      disabled={revoke.isPending}
+                      onClick={() =>
+                        review.open({
+                          key: c.id,
+                          title: t("actionReview.revokeTitle"),
+                          description: t("actionReview.revokeHelp"),
+                          confirmLabel: t("admin.registrationCodes.revoke"),
+                          details: (
+                            <p>
+                              {c.label ??
+                                c.tutorName ??
+                                c.email ??
+                                `${t(`admin.registrationCodes.${registrationKindLabel[c.kind]}`)} · ${c.id}`}{" "}
+                              ·{" "}
+                              {programFormat.dateTime(new Date(c.expiresAt), {
+                                dateStyle: "medium",
+                              })}
+                            </p>
+                          ),
+                          commit: () => revoke.mutateAsync({ id: c.id }),
+                          refresh: () =>
+                            invalidateAndReport(utils.admin.registrationCodes),
+                          approvalId: queuedApprovalId,
+                        })
+                      }
+                      disabled={review.blocked(c.id)}
                     >
                       {t("admin.registrationCodes.revoke")}
                     </button>

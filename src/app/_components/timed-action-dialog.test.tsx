@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
+import { StrictMode } from "react";
 import en from "../../../messages/en.json";
 import { TimedActionDialog } from "./timed-action-dialog";
 
@@ -90,6 +91,57 @@ it("allows cancelling immediately and clears its interval when closed", () => {
   view.unmount();
   expect(vi.getTimerCount()).toBe(0);
 });
+
+it("releases the native top layer before restoring the exact opener through Strict Mode", () => {
+  const opener = document.createElement("button");
+  document.body.append(opener);
+  opener.focus();
+  // Native showModal focuses a child. Model that side effect so a missing
+  // close/restore during the development rehearsal cannot pass accidentally.
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+      this.querySelector<HTMLButtonElement>("button")?.focus();
+    },
+  });
+  const close = vi.spyOn(HTMLDialogElement.prototype, "close");
+  const focus = vi.spyOn(opener, "focus").mockImplementation(() => {
+    // An opener outside an open native modal is inert, so that focus attempt
+    // cannot succeed. jsdom itself does not implement this browser behavior.
+    if (!document.querySelector("dialog[open]"))
+      HTMLElement.prototype.focus.call(opener);
+  });
+  const view = render(<StrictMode>{element()}</StrictMode>);
+  expect(close).toHaveBeenCalledOnce();
+  view.unmount();
+  expect(close).toHaveBeenCalledTimes(2);
+  expect(focus).toHaveBeenCalledTimes(2);
+  expect(document.activeElement).toBe(opener);
+  focus.mockRestore();
+  close.mockRestore();
+  opener.remove();
+});
+
+it.each(["removed", "disabled"])(
+  "restores the remaining parent when the timed review opener is %s",
+  (state) => {
+    const parent = document.createElement("dialog");
+    parent.tabIndex = -1;
+    const opener = document.createElement("button");
+    parent.append(opener);
+    document.body.append(parent);
+    parent.showModal();
+    opener.focus();
+    const view = show();
+    if (state === "removed") opener.remove();
+    else opener.disabled = true;
+    view.unmount();
+    expect(document.activeElement).toBe(parent);
+    parent.close();
+    parent.remove();
+  },
+);
 it("closes a submitted proposal dialog so its approval notice can be opened", async () => {
   show();
   await act(() =>

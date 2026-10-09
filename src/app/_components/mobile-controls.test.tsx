@@ -76,7 +76,9 @@ vi.mock("~/app/_components/email-details", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    useUtils: () => ({}),
+    useUtils: () => ({
+      admin: { registrationCodes: { invalidate: async () => undefined } },
+    }),
     tutor: {
       myAvailability: {
         useQuery: () => ({
@@ -163,7 +165,7 @@ vi.mock("~/trpc/react", () => ({
       issueRegistrationCode: { useMutation: () => ({}) },
       revokeRegistrationCode: {
         useMutation: () => ({
-          mutate: state.revokeCode,
+          mutateAsync: state.revokeCode,
           isPending: state.pending,
         }),
       },
@@ -607,21 +609,51 @@ describe("registration code records", () => {
     expect(screen.queryByText("123456")).toBeNull();
   });
 
-  it("retains revoke identity and honors pending and read-only states", () => {
+  it("reviews the exact invitation before revoking and honors pending and read-only states", async () => {
+    let finish: () => void = () => undefined;
+    state.revokeCode.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
     const { rerender } = render(<RegistrationCodesPage />, { wrapper });
     fireEvent.click(
       screen.getByRole("button", {
         name: messages.admin.registrationCodes.revoke,
       }),
     );
-    expect(state.revokeCode).toHaveBeenCalledWith({ id: "active-code" });
-    state.pending = true;
-    rerender(<RegistrationCodesPage />);
-    expect(
-      screen.getByRole<HTMLButtonElement>("button", {
+    const review = screen.getByRole("dialog", {
+      name: messages.actionReview.revokeTitle,
+    });
+    expect(within(review).getByText(/^Tutor invite ·/)).toBeTruthy();
+    expect(state.revokeCode).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(review).getByRole("button", {
         name: messages.admin.registrationCodes.revoke,
-      }).disabled,
+      }),
+    );
+    expect(state.revokeCode).toHaveBeenCalledExactlyOnceWith({
+      id: "active-code",
+    });
+    expect(
+      within(review)
+        .getByRole<HTMLButtonElement>("button", {
+          name: messages.admin.registrationCodes.revoke,
+        })
+        .matches(":disabled"),
     ).toBe(true);
+    expect(
+      within(review)
+        .getByRole<HTMLButtonElement>("button", {
+          name: messages.actionReview.cancel,
+        })
+        .matches(":disabled"),
+    ).toBe(true);
+    await act(async () => finish());
+    fireEvent.click(
+      within(review).getByRole("button", { name: messages.actionReview.close }),
+    );
     state.readOnly = true;
     rerender(<RegistrationCodesPage />);
     expect(

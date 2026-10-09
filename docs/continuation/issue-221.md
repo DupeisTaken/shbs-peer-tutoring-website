@@ -1,5 +1,47 @@
 # Continue issue #221: navigation and form recovery
 
+## 2026-10-09 verified shared completion
+
+Official [PR #275](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/275)
+completes the shared navigation/dialog/recovery work on application source
+`d8a702bdad22c0130dab86add5b2e15d2b919557`. Public registration, account onboarding,
+verification and CAPTCHA are owned by #268 / PR #276; #221 stays open until that
+layer is complete. The [shared ledger](shared-ui-integration.md) records passing
+CI, immutable-record audit, measured layouts and HTML provenance.
+
+Current coverage includes 24 controlled independent-editor settlement cases, five
+explicit Reload/read-recovery cases and 16 real-write cases across four editor
+types, EN/ZH and desktop/mobile. Real cases retain stale sibling versions, reject
+unchanged Retry, save after fresh Reload, require manual Close, verify persistence
+and restore synthetic identities. Streaming fixtures prove both completion orders
+without claiming their simulated writes changed the database.
+
+Five inbox cases cover independent general/two-recipient reply drafts, unchanged
+client-key/recipient Retry, cancellation focus, restored general draft and permission
+denial. Twelve final task/navigation cases include native tutee Back/Forward with
+one current link, manually activated editor tabs, unauthorized landing editor/preview
+without privileged queries, and discipline/attendance Reload while excluding writes.
+
+The actual dismissible policy reader preserves historical access while consent
+remains unaccepted; returning to participation still prompts review. There is no
+live `mandatory=true` timed-dialog caller: that Escape contract is component-tested,
+not claimed as live evidence. Raw schedule dialogs separately use real preparation
+tickets and preserve failed reason/ticket drafts and exact opener focus.
+
+Suspended public framing/navigation and appeal draft retention are complete. Initial
+real synthetic appeal acceptance/coordinator proposal receipts remain attributed to
+`8631228`; final layouts/focus/copy use the source above. Historical holds below are
+session provenance and no longer govern the shared work.
+
+## Historical checkpoint
+
+> Historical checkpoint: the implementation below was subsequently integrated by
+> PR #257 and refined by PR #259. Its old draft/publication and runtime limitations
+> describe that session, not current task instructions. Current completion work
+> uses the shared action inventory and UI verification matrix in the existing
+> contributor/local-development guides. Public account-onboarding routes are
+> coordinated separately with issue #268.
+
 This is an incomplete-work checkpoint for [issue #221](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/221). Keep the PR draft. Current-source automation passed; current live verification, whole-change review and HTML approval remain outstanding. Do not close the issue from this checkpoint.
 
 ## Exact source and integration

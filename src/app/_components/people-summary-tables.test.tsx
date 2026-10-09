@@ -6,6 +6,7 @@ import {
   render,
   screen,
   within,
+  waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
@@ -126,6 +127,9 @@ vi.mock("~/app/_components/account-profile-editor", () => ({
     <div role="dialog">Editing {profile.name}</div>
   ),
 }));
+vi.mock("~/app/_components/acceptance-records", () => ({
+  AcceptanceRecords: () => null,
+}));
 vi.mock("~/app/_components/patrol-corrections", () => ({
   PatrolCorrections: () => null,
 }));
@@ -134,7 +138,13 @@ vi.mock("~/app/_components/acceptance-records", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    useUtils: () => ({}),
+    useUtils: () => ({
+      admin: new Proxy(
+        {},
+        { get: () => ({ invalidate: async () => undefined }) },
+      ),
+      tuteeHistory: { invalidate: async () => undefined },
+    }),
     program: {
       profilePolicy: {
         useQuery: () => ({
@@ -246,7 +256,7 @@ vi.mock("~/trpc/react", () => ({
       pairings: { useQuery: () => ({ data: state.pairings }) },
       tuteeStats: { useQuery: () => ({ data: state.stats }) },
       createTutee: { useMutation: () => ({ mutate: vi.fn() }) },
-      deleteTutee: { useMutation: () => ({ mutate: state.deleteTutee }) },
+      deleteTutee: { useMutation: () => ({ mutateAsync: state.deleteTutee }) },
       patrolOrder: { useQuery: () => ({ data: state.empty }) },
       crewRoster: { useQuery: () => ({ data: state.crew }) },
       crewApplications: { useQuery: () => ({ data: state.empty }) },
@@ -255,13 +265,13 @@ vi.mock("~/trpc/react", () => ({
       setPatrolOrder: { useMutation: () => ({ mutate: vi.fn() }) },
       setCrewStatus: {
         useMutation: () => ({
-          mutate: state.crewStatus,
+          mutateAsync: state.crewStatus,
           isPending: state.pending,
         }),
       },
-      deleteCrewMember: { useMutation: () => ({ mutate: vi.fn() }) },
-      decideCrewApplication: { useMutation: () => ({ mutate: vi.fn() }) },
-      decideCrewRequest: { useMutation: () => ({ mutate: vi.fn() }) },
+      deleteCrewMember: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      decideCrewApplication: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      decideCrewRequest: { useMutation: () => ({ mutateAsync: vi.fn() }) },
     },
     tutorDetails: { get: { useQuery: state.details } },
     student: { acceptanceRecords: { useQuery: state.history } },
@@ -312,6 +322,9 @@ beforeEach(() => {
       groups: [],
     },
   });
+  state.accountDetails.mockReturnValue({
+    data: { attached: [], retained: [], membership: null },
+  });
   state.history.mockReturnValue({
     data: { current: [], rows: [], more: false },
   });
@@ -340,6 +353,29 @@ function rowFor(table: HTMLElement, name: string) {
 }
 
 describe("people summary tables", () => {
+  it("reviews tutee deletion with the participant name and preserves cancellation", async () => {
+    render(<TuteesPage />, { wrapper });
+    const table = screen.getByRole("table", {
+      name: en.admin.tutees.viewTutees,
+    });
+    fireEvent.click(
+      within(table).getByRole("button", { name: en.admin.tutees.deleteBtn }),
+    );
+    expect(screen.getByRole("dialog").textContent).toContain("Synthetic Tutee");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(state.deleteTutee).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(table).getByRole("button", { name: en.admin.tutees.deleteBtn }),
+    );
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: en.admin.tutees.deleteBtn,
+      }),
+    );
+    await waitFor(() =>
+      expect(state.deleteTutee).toHaveBeenCalledWith({ id: "tutee" }),
+    );
+  });
   it("keeps Users setup and moderation in Actions while full identity/history opens on demand", () => {
     render(<UsersPage />, { wrapper });
     const table = screen.getByRole("table", { name: en.admin.users.title });
@@ -569,7 +605,7 @@ describe("people summary tables", () => {
     expect(state.deleteTutee).not.toHaveBeenCalled();
   });
 
-  it("keeps Crew summary concise and preserves its text-link status action", () => {
+  it("keeps Crew summary concise and confirms its named membership action", async () => {
     const { rerender } = render(<CrewPage />, { wrapper });
     const table = screen.getByRole("table", {
       name: en.admin.crew.rosterHeading,
@@ -579,10 +615,30 @@ describe("people summary tables", () => {
     fireEvent.click(
       within(table).getByRole("button", { name: en.admin.crew.softRemove }),
     );
-    expect(state.crewStatus).toHaveBeenCalledWith({
-      userId: "crew",
-      status: "INACTIVE",
-    });
+    expect(state.crewStatus).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog").textContent).toContain("Synthetic Crew");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(state.crewStatus).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(table).getByRole("button", { name: en.admin.crew.softRemove }),
+    );
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: en.admin.crew.softRemove,
+      }),
+    );
+    await waitFor(() =>
+      expect(state.crewStatus).toHaveBeenCalledWith({
+        userId: "crew",
+        status: "INACTIVE",
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("status").textContent).toContain(
+        "Change applied",
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
     fireEvent.click(
       within(table).getByRole("button", {
         name: `${en.tablePatterns.details}: Synthetic Crew`,
