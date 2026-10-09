@@ -9,6 +9,7 @@ import {
   type AuditFilterInput,
 } from "~/app/_components/audit-filters";
 
+import { InlineNotice } from "~/app/_components/ui/patterns";
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
 import {
@@ -47,6 +48,7 @@ function AuditLog() {
       <div>
         <h1 className="page-title">{t("admin.audit.title")}</h1>
         <p className="muted mt-1">{t("auditFilters.subtitle")}</p>
+        <p className="muted mt-2 text-sm">{t("approvals.reversalHelp")}</p>
       </div>
       <AuditFilters
         onApply={(input) => {
@@ -185,7 +187,8 @@ function AuditLog() {
           {t("approvals.next")}
         </button>
       </div>
-      {!readOnly && undo.error && (
+      {!readOnly && undo.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+      {!readOnly && undo.error && !undo.error.data?.approvalId && (
         <p className="text-sm text-red-600">{undo.error.message}</p>
       )}
     </div>

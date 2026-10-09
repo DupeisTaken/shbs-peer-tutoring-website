@@ -29,17 +29,20 @@ export async function notifyUsers(
 }
 
 /**
- * Notify every admin/coordinator (the people who action admin queues). Optionally exclude one
+ * Notify every eligible active reviewer. Badge/access grants use the Head-only queue;
+ * ordinary review queues can be actioned by either Admin or Head. Optionally exclude one
  * user id — e.g. the actor who triggered the event and is already looking at the page.
  */
 export async function notifyAdmins(
   data: NotificationInput,
-  opts?: { exclude?: string },
+  opts?: { exclude?: string; headOnly?: boolean },
   client: TransactionDb = db,
 ): Promise<void> {
   const admins = await client.user.findMany({
     where: {
-      role: { in: ["HEAD", "ADMIN", "COORDINATOR"] },
+      role: { in: opts?.headOnly ? ["HEAD"] : ["HEAD", "ADMIN"] },
+      suspendedAt: null,
+      mergedIntoId: null,
       ...(opts?.exclude ? { id: { not: opts.exclude } } : {}),
     },
     select: { id: true },

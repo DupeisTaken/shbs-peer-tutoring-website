@@ -1,4 +1,5 @@
 "use client";
+import { InlineNotice } from "~/app/_components/ui/patterns";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 
 import { StudentWithdrawals } from "./student-withdrawals";
@@ -34,15 +35,17 @@ export default function TuteeRequestsPage() {
   const pending = data.data?.pendingOptOuts ?? [];
   const finalized = data.data?.finalized ?? [];
 
-  const err = data.error ?? cancel.error ?? reinstate.error;
+  const err = data.error ?? (cancel.error?.data?.approvalId ? null : cancel.error) ?? (reinstate.error?.data?.approvalId ? null : reinstate.error);
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="page-title">{t("admin.tuteeRequests.title")}</h1>
         <p className="muted mt-1">{t("admin.tuteeRequests.help")}</p>
+        <p className="muted mt-2 text-sm">{t("approvals.reversalHelp")}</p>
       </div>
 
+      {(cancel.error?.data?.approvalId ?? reinstate.error?.data?.approvalId) && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
       {err && <p className="text-sm text-red-600">{err.message}</p>}
 
       {!readOnly && <StudentWithdrawals />}

@@ -26,19 +26,19 @@ import { applicationRouter } from "./application";
 const createProgramCaller = createCallerFactory(programRouter);
 const createTuteeCaller = createCallerFactory(tuteeRouter);
 
-const adminSession: Session = {
+const headSession: Session = {
   user: {
     id: "signup-window-admin",
     name: "Signup Admin",
     email: "signup-admin@example.com",
   },
-  role: "ADMIN",
+  role: "HEAD",
   tutorId: null,
   expires: "2099-01-01T00:00:00.000Z",
 };
 
 const coordinatorSession: Session = {
-  ...adminSession,
+  ...headSession,
   role: "COORDINATOR",
 };
 
@@ -108,7 +108,7 @@ describe("tutee signup window procedures", () => {
     expect(findFirst).toHaveBeenCalledOnce();
   });
 
-  it("lets an administrator save the active quarter's opening time and preview link", async () => {
+  it("lets Head save the active quarter's opening time and preview link", async () => {
     const opensAt = new Date("2026-09-01T00:00:00Z");
     const update = vi.fn().mockResolvedValue({
       signupOpensAt: opensAt,
@@ -124,7 +124,7 @@ describe("tutee signup window procedures", () => {
             update,
           },
         },
-        adminSession,
+        headSession,
       ),
     );
 
@@ -158,7 +158,7 @@ describe("tutee signup window procedures", () => {
             update,
           },
         },
-        adminSession,
+        headSession,
       ),
     );
     await caller.setSignupWindow({
@@ -240,7 +240,7 @@ it.each(["tutor", "tutee"] as const)(
             update,
           },
         },
-        adminSession,
+        headSession,
       ),
     );
     const input = {

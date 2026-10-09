@@ -250,6 +250,8 @@ it("a deleted custom locale cannot redirect a proposal into English", async () =
     value: "Proposal",
   });
   const draft = await latest();
+  // Catalogue removal is sensitive configuration; only Head applies it directly.
+  await db.user.update({ where: { id: "translation-admin" }, data: { role: "HEAD" } });
   await admin().i18n.deleteLanguage({ code: "zz" });
   await expect(approve(draft)).rejects.toThrow("destination text changed");
   expect(await db.messageOverride.count()).toBe(0);

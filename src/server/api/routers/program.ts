@@ -80,6 +80,7 @@ export const programRouter = createTRPCRouter({
     ...(await captchaStatus(ctx.db)),
     ready: !!aliyunProvider(),
     canEdit: ["ADMIN", "HEAD"].includes(ctx.session.role),
+    canApply: ctx.session.role === "HEAD",
   })),
   setCaptcha: adminOnlyProcedure
     .input(
@@ -138,6 +139,7 @@ export const programRouter = createTRPCRouter({
   profilePolicySettings: adminProcedure.query(async ({ ctx }) => ({
     ...(await getProfilePolicy(ctx.db)),
     canEdit: ctx.session.role === "HEAD" || ctx.session.role === "ADMIN",
+    canApply: ctx.session.role === "HEAD",
   })),
   setProfilePolicy: adminOnlyProcedure
     .input(profilePolicySchema.extend({ expectedPolicy: profilePolicySchema }))
@@ -183,10 +185,11 @@ export const programRouter = createTRPCRouter({
         return after;
       }),
     ),
-  // Read-only management access; the mutation below never queues coordinator proposals.
+  // Editing means proposing for Admin, applying for Head; Coordinator reads remain read-only.
   signupFieldSettings: adminProcedure.query(async ({ ctx }) => ({
     fields: await getSignupSettings(ctx.db),
-    canEdit: ctx.session.role === "HEAD",
+    canEdit: ["ADMIN", "HEAD"].includes(ctx.session.role),
+    canApply: ctx.session.role === "HEAD",
     secondaryEmailBindingEnabled:
       (await ctx.db.programSettings.findUnique({ where: { id: "program" } }))
         ?.secondaryEmailBindingEnabled ?? true,
@@ -252,6 +255,7 @@ export const programRouter = createTRPCRouter({
       secondaryEmailBindingEnabled:
         settings?.secondaryEmailBindingEnabled ?? true,
       canEdit: ["HEAD", "ADMIN"].includes(ctx.session.role),
+      canApply: ctx.session.role === "HEAD",
       deliveryAvailable: isEmailDeliveryAvailable("PROGRAM"),
       failed,
     };
@@ -326,9 +330,10 @@ export const programRouter = createTRPCRouter({
       timeZone,
       timeZoneOptions: programTimeZoneOptions(timeZone),
       canEdit: ctx.session.role === "HEAD" || ctx.session.role === "ADMIN",
+      canApply: ctx.session.role === "HEAD",
     };
   }),
-  // Program configuration requires HEAD/ADMIN directly; coordinators cannot queue this change.
+  // Central authority queues Admin proposals; only Head applies significant settings.
   setTimeZone: adminOnlyProcedure
     .input(
       z.object({
@@ -467,7 +472,8 @@ export const programRouter = createTRPCRouter({
     const rows = await ctx.db.programFeature.findMany();
     const byKey = new Map(rows.map((r) => [r.key, r]));
     return {
-      canEdit: ctx.session.role === "HEAD",
+      canEdit: ["ADMIN", "HEAD"].includes(ctx.session.role),
+      canApply: ctx.session.role === "HEAD",
       features: FEATURE_KEYS.map((key) => {
         const row = byKey.get(key);
         return {

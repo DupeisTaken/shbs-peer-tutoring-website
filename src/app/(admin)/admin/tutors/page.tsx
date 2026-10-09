@@ -36,6 +36,8 @@ export default function TutorsPage() {
   const t = useTranslations();
   const policy = useProfilePolicy();
   const readOnly = useReadOnly();
+  const identity = api.account.me.useQuery();
+  const canEditProfiles = !readOnly && !identity.error && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
   // Translate a tutor status outside the row map, where `t` is shadowed by the row variable.
   const statusLabel = (s: string) => t(`admin.tutorStatus.${s}`);
   const utils = api.useUtils();
@@ -229,10 +231,12 @@ export default function TutorsPage() {
       <p className="muted text-xs">{t("admin.tutors.accountMovedNote")}</p>
       <PastTutorsToggle showPast={showPast} onChange={setShowPast} />
 
-      {editing && !readOnly && (
+      {editing && canEditProfiles && (
         <TutorProfileEditor
           key={editing.id}
           row={editing}
+          canApply={identity.data?.role === "HEAD"}
+          isHead={identity.data?.role === "HEAD"}
           onClose={() => setEditingId(null)}
         />
       )}
@@ -352,7 +356,7 @@ export default function TutorsPage() {
                       canSendSetup={!row.user || row.user.email === row.email}
                     />
                   )}
-                  {!readOnly && (
+                  {canEditProfiles && (
                     <TableAction onClick={() => setEditingId(row.id)}>
                       {t("accountProfile.editProfile")}
                     </TableAction>

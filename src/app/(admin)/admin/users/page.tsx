@@ -272,11 +272,12 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      {editingTutor && !editingTutor.user && (
+      {isAdminTier && editingTutor && !editingTutor.user && (
         <TutorProfileEditor
           key={editingTutor.id}
           row={editingTutor}
           isHead={isHead}
+          canApply={isHead}
           onClose={() => setEditingTutorId(null)}
         />
       )}
@@ -286,7 +287,7 @@ export default function UsersPage() {
       {editingTutorId && tutorProfiles.error && (
         <p role="alert">{tutorProfiles.error.message}</p>
       )}
-      {editingProfile?.userId && editingProfile.profileVersion !== null && (
+      {isAdminTier && editingProfile?.userId && editingProfile.profileVersion !== null && (
         <AccountProfileEditor
           profile={{
             userId: editingProfile.userId,
@@ -300,6 +301,7 @@ export default function UsersPage() {
             profileVersion: editingProfile.profileVersion,
           }}
           membership={accountMembership(editingProfile)}
+          canRequestHead={callerRole === "ADMIN"}
           isHead={isHead}
           onClose={() => setEditingProfileId(null)}
         />
@@ -610,7 +612,7 @@ export default function UsersPage() {
                             reinstateUser.mutate({ userId: u.userId })
                           }
                         >
-                          {t("admin.users.reinstate")}
+                          {isHead ? t("admin.users.reinstate") : t("approvals.requestHead")}
                         </TableAction>
                       ) : (
                         <TableAction
@@ -634,14 +636,14 @@ export default function UsersPage() {
                           {t("admin.users.suspend")}
                         </TableAction>
                       ))}
-                    {u.userId && (
+                    {isAdminTier && u.userId && (
                       <TableAction
                         onClick={() => setEditingProfileId(u.userId)}
                       >
                         {t("accountProfile.editProfile")}
                       </TableAction>
                     )}
-                    {!u.userId && u.tutorId && (
+                    {isAdminTier && !u.userId && u.tutorId && (
                       <TableAction onClick={() => setEditingTutorId(u.tutorId)}>
                         {t("accountProfile.editProfile")}
                       </TableAction>

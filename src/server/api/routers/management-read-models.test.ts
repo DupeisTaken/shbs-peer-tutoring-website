@@ -87,7 +87,7 @@ function fixture(access: Access = "VIEWER") {
       ...empty(),
       findMany: vi.fn().mockResolvedValue([applicationRow]),
     },
-    auditLog: { ...empty(), findMany: vi.fn().mockResolvedValue([auditRow]) },
+    auditLog: { ...empty(), findMany: vi.fn().mockResolvedValue([auditRow]), create: vi.fn().mockResolvedValue({}) },
     tutorMeeting: empty(),
     serviceHourAdjustment: empty(),
     tutorStatusRequest: empty(),
@@ -503,9 +503,13 @@ it("fails closed for unregistered queries and accidental viewer mutations", asyn
     future: viewerProcedure.query(() => ({ secret: PRIVATE })),
     write: viewerProcedure.mutation(() => ({ secret: PRIVATE })),
   });
-  const caller = createCallerFactory(testRouter)(fixture().context);
+  const { context, mock } = fixture();
+  const caller = createCallerFactory(testRouter)(context);
   await expect(caller.future()).rejects.toMatchObject({ code: "FORBIDDEN" });
   await expect(caller.write()).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(mock.auditLog.create.mock.calls).toMatchObject([[{
+    data: { kind: "ATTEMPT", details: { outcome: "DENIED", applied: false } },
+  }]]);
   expect(() => projectManagementRead("__proto__", {})).toThrow();
 });
 

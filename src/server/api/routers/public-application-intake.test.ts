@@ -56,6 +56,19 @@ const bucket = (
     },
   });
 
+/** Assert the actual review authority, including exclusion of inactive accounts;
+ * retry tests also prove each eligible reviewer receives exactly one notice. */
+async function expectReviewerNotifications(roles: readonly string[], copies = 1) {
+  const notifications = await db.notification.findMany({
+    include: { user: { select: { role: true, suspendedAt: true, mergedIntoId: true } } },
+  });
+  expect(notifications).toHaveLength(roles.length * copies);
+  expect(notifications.map(row => row.user.role).sort()).toEqual(
+    Array.from({ length: copies }, () => [...roles]).flat().sort(),
+  );
+  expect(notifications.every(row => !row.user.suspendedAt && !row.user.mergedIntoId)).toBe(true);
+}
+
 beforeEach(async () => {
   assertIsolatedTestDatabase(process.env.DATABASE_URL);
   if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test")
@@ -73,8 +86,12 @@ beforeEach(async () => {
   vi.mocked(notifyAdmins).mockClear();
   for (const role of ["HEAD", "ADMIN", "COORDINATOR"] as const)
     await db.user.create({
-      data: { name: role, email: `${role}@example.test`, role },
+      data: { id: `intake-${role.toLowerCase()}`, name: role, email: `${role}@example.test`, role },
     });
+  await db.user.createMany({ data: [
+    { id: "intake-suspended-admin", name: "Suspended Admin", email: "suspended-admin@example.test", role: "ADMIN", suspendedAt: new Date() },
+    { id: "intake-merged-admin", name: "Retired Admin", email: "merged-admin@example.test", role: "ADMIN", mergedIntoId: "intake-admin" },
+  ] });
   await db.policyDocument.create({
     data: {
       slug: "tutor-policy",
@@ -102,7 +119,7 @@ it("serializes concurrent tutor retries across address casing and networks witho
   );
   expect(result).toEqual(Array.from({ length: 6 }, () => ({ ok: true })));
   expect(await db.tutorApplication.count()).toBe(1);
-  expect(await db.notification.count()).toBe(3);
+  await expectReviewerNotifications(["HEAD", "ADMIN"]);
   expect(await db.publicApplicationRateLimit.count()).toBe(2);
   expect(
     (await db.publicApplicationRateLimit.findMany()).every(
@@ -127,7 +144,7 @@ it("serializes crew retries, preserves answers and does not disclose the earlier
     ),
   );
   expect(await db.crewApplication.count()).toBe(1);
-  expect(await db.notification.count()).toBe(3);
+  await expectReviewerNotifications(["HEAD"]);
   await expect(
     client().crew.submitApplication({ ...input, message: "Replace this" }),
   ).resolves.toEqual({ ok: true });
@@ -145,7 +162,7 @@ it("treats an interview as pending, while allowing a new submission after a deci
   await db.tutorApplication.updateMany({ data: { status: "REJECTED" } });
   await client().application.submit(input);
   expect(await db.tutorApplication.count()).toBe(2);
-  expect(await db.notification.count()).toBe(6);
+  await expectReviewerNotifications(["HEAD", "ADMIN"], 2);
 });
 
 it("shares the email allowance between tutor and crew, and rolls back the over-limit transaction", async () => {
@@ -163,7 +180,7 @@ it("shares the email allowance between tutor and crew, and rolls back the over-l
   expect(
     (await db.tutorApplication.count()) + (await db.crewApplication.count()),
   ).toBe(1);
-  expect(await db.notification.count()).toBe(3);
+  await expectReviewerNotifications((await db.tutorApplication.count()) > 0 ? ["HEAD", "ADMIN"] : ["HEAD"]);
   expect(
     (
       await db.publicApplicationRateLimit.findUniqueOrThrow({
@@ -203,7 +220,7 @@ it("keeps retries successful when limits are full, without reserving more capaci
       (row) => row.count === APPLICATION_IP_MAX,
     ),
   ).toBe(true);
-  expect(await db.notification.count()).toBe(3);
+  await expectReviewerNotifications(["HEAD"]);
 });
 
 it("resets expired email and network windows and prunes old unrelated counters", async () => {
@@ -238,7 +255,7 @@ it("rolls back application and capacity when notification fan-out fails, then pe
   await expect(client().crew.submitApplication(crewInput())).resolves.toEqual({
     ok: true,
   });
-  expect(await db.notification.count()).toBe(3);
+  await expectReviewerNotifications(["HEAD"]);
 });
 
 it("checks policy and subject validity even on retries, without consuming capacity", async () => {
@@ -258,7 +275,7 @@ it("checks policy and subject validity even on retries, without consuming capaci
       (row) => row.count === 1,
     ),
   ).toBe(true);
-  expect(await db.notification.count()).toBe(3);
+  await expectReviewerNotifications(["HEAD", "ADMIN"]);
 });
 
 it("does not reserve capacity while crew is disabled or tutor recruitment is closed", async () => {

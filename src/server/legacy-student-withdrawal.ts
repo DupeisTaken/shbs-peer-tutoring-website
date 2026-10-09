@@ -97,8 +97,9 @@ export async function applyLegacyStudentWithdrawal(
     });
     const managers = await tx.user.findMany({
       where: {
-        role: { in: ["HEAD", "ADMIN", "COORDINATOR"] },
+        role: { in: ["HEAD", "ADMIN"] },
         suspendedAt: null,
+        mergedIntoId: null,
       },
       select: { id: true },
     });

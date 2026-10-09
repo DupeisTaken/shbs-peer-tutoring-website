@@ -1,17 +1,24 @@
 /** @vitest-environment jsdom */
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
-import { TimeZoneEditor } from "./program-time-zone-settings";
+import { ProgramTimeZoneSettings, TimeZoneEditor } from "./program-time-zone-settings";
 const mutate = vi.hoisted(() => vi.fn());
+const state = vi.hoisted(() => ({
+  settings: { timeZone: "Asia/Shanghai", canEdit: true, canApply: false, timeZoneOptions: ["UTC", "Asia/Shanghai", "America/New_York"] },
+  queryError: null as null | { message: string },
+  error: null as null | { message: string; data: { approvalId?: string; code?: string } },
+  refetch: vi.fn(),
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({}),
     program: {
-      setTimeZone: { useMutation: () => ({ mutate, isPending: false }) },
+      timeZoneSettings: { useQuery: () => ({ data: state.settings, error: state.queryError, refetch: state.refetch }) },
+      setTimeZone: { useMutation: () => ({ mutate, isPending: false, error: state.error }) },
     },
   },
 }));
@@ -29,6 +36,9 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   vi.useRealTimers();
+  state.settings.timeZone = "Asia/Shanghai";
+  state.queryError = null;
+  state.error = null;
 });
 it("offers only selection, requires confirmation, and clears confirmation when the selection changes", () => {
   render(<TimeZoneEditor {...props} />, { wrapper });
@@ -114,3 +124,41 @@ it.each(["CET", "GMT", "EST", "HST"])(
     expect(savedOption?.textContent).toContain("GMT");
   },
 );
+
+it("labels an Admin timezone change as a Head request while retaining the selected zone", () => {
+  render(<TimeZoneEditor {...props} canApply={false} />, { wrapper });
+  fireEvent.change(screen.getByRole("combobox"), { target: { value: "America/New_York" } });
+  fireEvent.click(screen.getByRole("checkbox"));
+  fireEvent.click(screen.getByRole("button", { name: messages.approvals.requestHead }));
+  expect(mutate).toHaveBeenCalledWith({ timeZone: "America/New_York", expectedTimeZone: "Asia/Shanghai" });
+  expect(screen.getByRole<HTMLSelectElement>("combobox").value).toBe("America/New_York");
+});
+it("retains an Admin's queued timezone draft and version through background failure and live updates", () => {
+  const view = render(<ProgramTimeZoneSettings />, { wrapper });
+  fireEvent.change(screen.getByRole("combobox"), { target: { value: "America/New_York" } });
+  fireEvent.click(screen.getByRole("checkbox"));
+  state.error = { message: "Queued", data: { approvalId: "request" } };
+  state.queryError = { message: "Refresh failed" };
+  view.rerender(<ProgramTimeZoneSettings />);
+  expect(screen.getByRole<HTMLSelectElement>("combobox").value).toBe("America/New_York");
+  expect(screen.getByText(messages.approvals.queuedBody)).toBeTruthy();
+  state.queryError = null;
+  state.settings = { ...state.settings, timeZone: "UTC" };
+  view.rerender(<ProgramTimeZoneSettings />);
+  fireEvent.click(screen.getByRole("button", { name: messages.approvals.requestHead }));
+  expect(mutate).toHaveBeenLastCalledWith({ timeZone: "America/New_York", expectedTimeZone: "Asia/Shanghai" });
+  expect(screen.getByText(messages.approvals.queuedBody)).toBeTruthy();
+});
+it("adopts new timezone evidence only after explicit Reload succeeds", async () => {
+  const view = render(<ProgramTimeZoneSettings />, { wrapper });
+  fireEvent.change(screen.getByRole("combobox"), { target: { value: "America/New_York" } });
+  state.refetch.mockResolvedValueOnce({ isSuccess: false });
+  fireEvent.click(screen.getByRole("button", { name: messages.profilePolicy.reload }));
+  await waitFor(() => expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.profilePolicy.reload }).disabled).toBe(false));
+  expect(screen.getByRole<HTMLSelectElement>("combobox").value).toBe("America/New_York");
+  state.settings = { ...state.settings, timeZone: "UTC" };
+  view.rerender(<ProgramTimeZoneSettings />);
+  state.refetch.mockResolvedValueOnce({ isSuccess: true });
+  fireEvent.click(screen.getByRole("button", { name: messages.profilePolicy.reload }));
+  await waitFor(() => expect(screen.getByRole<HTMLSelectElement>("combobox").value).toBe("UTC"));
+});

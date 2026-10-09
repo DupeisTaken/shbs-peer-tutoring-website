@@ -138,6 +138,7 @@ vi.mock("~/app/_components/acceptance-records", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    account: { me: { useQuery: () => ({ data: { role: state.callerRole } }) } },
     useUtils: () => ({
       admin: new Proxy(
         {},

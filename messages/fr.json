@@ -825,7 +825,7 @@
       },
       "features": {
         "heading": "Fonctions optionnelles",
-        "help": "Désactivez les modules que votre programme n'utilise pas. Seul le responsable peut les modifier, et les changements prennent effet à la prochaine actualisation.",
+        "help": "Switch off modules your program does not use. Head stages changes directly; Admin requests Head approval. Approved changes take effect at the next program refresh.",
         "on": "Activé",
         "off": "Désactivé",
         "pending": "En attente : {state} à la prochaine actualisation",
@@ -858,7 +858,7 @@
     "users": {
       "title": "Utilisateurs & rôles",
       "subtitle": "Gérez les accès, les rôles et les comptes de tuteurs. Les changements de rôle enregistrés s’appliquent dès la requête suivante ; actualisez la page pour mettre à jour la navigation.",
-      "coordinatorHint": "As a coordinator you can send setup links and request changes to your own tutoring access. Other account permissions require an administrator.",
+      "coordinatorHint": "Coordinators can inspect accounts and send eligible setup links. Admin submits profile and management-role changes for Head review.",
       "columns": {
         "user": "Utilisateur",
         "name": "Nom",
@@ -1026,7 +1026,8 @@
         "help": "Sur toutes les réunions.",
         "tutor": "Tuteur",
         "empty": "Aucune présence enregistrée pour l'instant."
-      }
+      },
+      "correctAttendance": "Submit attendance correction"
     },
     "timeslots": {
       "title": "Créneaux horaires",
@@ -2804,7 +2805,7 @@
     "proposedChanges": "Proposed Changes",
     "withdrawnBy": "Withdrawn by {name}",
     "effects": {
-      "PENDING": "Not applied — awaiting administrator review.",
+      "PENDING": "Not applied — awaiting an authorized reviewer.",
       "APPROVED": "Applied when approved. See the decision below.",
       "REJECTED": "Not applied — rejected with feedback.",
       "CANCELLED": "Not applied — withdrawn by the requester."
@@ -2941,7 +2942,24 @@
         "requestReason": "Reason for this correction",
         "explanation": "Request explanation",
         "expectedSchoolYear": "Program school year at submission",
-        "rawGrade": "Original grade entry"
+        "rawGrade": "Original grade entry",
+        "enabled": "Enabled",
+        "usePreferredNames": "Display preferred names",
+        "showAlternateNames": "Display alternative names",
+        "offeredGrades": "Offered grades",
+        "form": "Signup form",
+        "field": "Signup field",
+        "timeZone": "Program time zone",
+        "opensAt": "Recruitment opens",
+        "closesAt": "Recruitment closes",
+        "previewUrl": "Recruitment preview link",
+        "code": "Language code",
+        "codes": "Languages, in requested order",
+        "username": "Username",
+        "target": "Messaging permission target",
+        "groups": "Allowed messaging groups",
+        "hide": "Hide message",
+        "restricted": "Messaging restricted"
       },
       "values": {
         "ACTIVE": "Active",
@@ -3013,7 +3031,12 @@
         "roomBlockContext": "Room",
         "willingness": "Tutoring willingness",
         "academic": "Saved academic profile",
-        "departure": "Saved school departure"
+        "departure": "Saved school departure",
+        "programSettings": "Program settings",
+        "programFeature": "Program features",
+        "term": "Program period",
+        "languages": "Languages",
+        "messagePermissions": "Messaging permissions"
       },
       "operations": {
         "corrections_correctAttendance": "Correct a session's attendance",
@@ -3112,10 +3135,33 @@
         "home_deletePage": "Delete a website page",
         "departure_setState": "Change school departure or viewer access",
         "admin_updateAccountAcademics": "Change account grade and graduating class",
-        "historicalAcademics_correctBatch": "Correct Historical Academics"
+        "historicalAcademics_correctBatch": "Correct Historical Academics",
+        "program_setCaptcha": "Change signup CAPTCHA verification",
+        "program_setProfilePolicy": "Change name display and offered grades",
+        "program_setSignupField": "Change a signup field requirement",
+        "program_setEmailNotifications": "Change program email notifications",
+        "program_setSecondaryEmailBinding": "Change secondary email binding availability",
+        "program_setTimeZone": "Change the program time zone",
+        "program_setSignupWindow": "Change a recruitment window",
+        "program_setFeaturePending": "Stage a program feature change",
+        "admin_refresh": "Start a new program period",
+        "i18n_setLanguageEnabled": "Change language visibility",
+        "i18n_deleteLanguage": "Delete a language",
+        "i18n_reorderLanguages": "Reorder languages",
+        "messaging_setPermission": "Change messaging permissions",
+        "admin_updateAccountUsername": "Change an account username",
+        "admin_setUserRole": "Change an account management role",
+        "admin_revokeRegistrationCode": "Revoke a registration code",
+        "messaging_moderate": "Hide or restore a message",
+        "messaging_restrict": "Change an account messaging restriction"
       },
-      "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision."
-    }
+      "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
+      "confirmPassword": "Confirm your Head account password"
+    },
+    "requestHead": "Request Head Approval",
+    "sensitiveHelp": "Head applies these changes directly. Admin submits requests for Head review; Coordinators have read-only access. Pending requests do not change live settings.",
+    "requestChange": "Request change: {setting}",
+    "reversalHelp": "Head applies reversals directly. Other authorized staff request Head approval before an applied action is reversed."
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
@@ -3308,7 +3354,7 @@
     "on": "Activées",
     "off": "Désactivées",
     "enable": "Activer les notifications e-mail",
-    "essential": "Effet immédiat. La désactivation conserve les préférences et annule les notifications facultatives en attente. Les e-mails de vérification, récupération et sécurité continuent.",
+    "essential": "When Head applies the change, it takes effect immediately. Turning notifications off preserves preferences and discards queued optional notices. Verification, recovery and security emails continue.",
     "unavailable": "Configurez le service e-mail avant d’activer les notifications.",
     "failed": "{count} envois ont échoué après plusieurs tentatives. Vérifiez le service e-mail et les journaux d’envoi.",
     "saved": "Paramètres e-mail enregistrés.",
@@ -3432,7 +3478,7 @@
     "hidden": "Masqué",
     "configure": "Configurer",
     "configureField": "Configurer {field}",
-    "popupHelp": "Les modifications s’appliquent immédiatement aux nouveaux envois. Les champs masqués sont ignorés et ne bloquent jamais l’envoi. Les réponses existantes sont conservées.",
+    "popupHelp": "After Head applies the change, new submissions use this field requirement. Hidden fields are ignored and never block submission. Existing answers are preserved. Pending requests do not change the live form.",
     "state": "État du champ",
     "save": "Enregistrer le champ",
     "saving": "Enregistrement…",

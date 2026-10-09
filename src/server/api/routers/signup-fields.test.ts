@@ -131,7 +131,6 @@ it("restricts writes to Head, rejects essential/custom fields, and guards stale 
     expectedState: "optional" as const,
   };
   for (const role of [
-    "ADMIN",
     "COORDINATOR",
     "STUDENT",
     "TUTOR",
@@ -153,7 +152,7 @@ it("restricts writes to Head, rejects essential/custom fields, and guards stale 
         caller("HEAD").program.setSignupField({ ...input, form, field }),
       ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   expect((await caller("ADMIN").program.signupFieldSettings()).canEdit).toBe(
-    false,
+    true,
   );
   await caller("HEAD").program.setSignupField(input);
   await expect(
@@ -164,6 +163,18 @@ it("restricts writes to Head, rejects essential/custom fields, and guards stale 
       where: { operation: "program.setSignupField", entity: "ProgramSettings" },
     }),
   ).toBe(1);
+});
+
+it("lets Admin request field requirements without applying them before Head review", async () => {
+  const input = { form: "tutee" as const, field: "phone", state: "required" as const, expectedState: "optional" as const };
+  await expect(caller("ADMIN").program.setSignupField(input)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect((await caller("ADMIN").program.signupFieldSettings()).fields.tutee.phone).toBe("optional");
+  const request = await db.approvalRequest.findFirstOrThrow({ where: { operation: "program.setSignupField" } });
+  expect(request.requesterId).toBe("fields-ADMIN");
+  await expect(caller("COORDINATOR").program.setSignupField(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.approvalRequest.count()).toBe(1);
+  await caller("HEAD").approval.decide({ id: request.id, approve: true, note: "Reviewed the requirement" });
+  expect((await caller("ADMIN").program.signupFieldSettings()).fields.tutee.phone).toBe("required");
 });
 
 it("enforces current tutee requirements, strips hidden answers, and preserves earlier submissions", async () => {

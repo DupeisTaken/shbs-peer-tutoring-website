@@ -1,4 +1,5 @@
 import { requireStudentSchoolParticipation } from "./school-departure";
+import { recordDomainAudit } from "./audit/evidence";
 import { TRPCError } from "@trpc/server";
 import type { StudentSurvey } from "../../generated/prisma";
 import {
@@ -28,8 +29,10 @@ export async function notifyRequest(
     : null;
   const users = await tx.user.findMany({
     where: {
+      suspendedAt: null,
+      mergedIntoId: null,
       OR: [
-        { role: { in: ["HEAD", "ADMIN", "COORDINATOR"] } },
+        { role: { in: ["HEAD", "ADMIN"] } },
         ...(owner
           ? [{ id: owner.userId }]
           : row.tuteeId
@@ -45,7 +48,7 @@ export async function notifyRequest(
       userId: user.id,
       title,
       body: row.email,
-      link: ["HEAD", "ADMIN", "COORDINATOR"].includes(user.role)
+      link: ["HEAD", "ADMIN"].includes(user.role)
         ? "/admin/requests"
         : user.id === owner?.userId || user.email === row.email
           ? "/student"
@@ -114,7 +117,18 @@ export async function expireStudentRequests(db: DomainDb, now = new Date()) {
         row.verificationDueAt > now
       )
         return 0;
+      const links = row.tuteeId ? await tx.pairingTutee.findMany({ where: { tuteeId: row.tuteeId }, select: { pairingId: true } }) : [];
+      const tutee = row.tuteeId ? await tx.tutee.findUnique({ where: { id: row.tuteeId }, select: { status: true } }) : null;
       await closeStudentRequest(tx, row, "DISQUALIFIED", now);
+      await recordDomainAudit(tx, {
+        operation: "system.expireStudentRequest", entity: "StudentSurvey", entityId: row.id,
+        action: "Expired unverified student request", system: true, before: row,
+        after: { id: row.id, state: "DISQUALIFIED", resolvedAt: now },
+        reason: "Verification deadline passed without confirmation",
+        effects: { tuteeId: row.tuteeId, beforeStatus: tutee?.status ?? null,
+          afterStatus: row.tuteeId ? "INACTIVE" : null, removedPairingIds: links.map(link => link.pairingId),
+          pendingReviews: "DENIED" },
+      });
       return 1;
     });
   }

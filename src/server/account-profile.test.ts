@@ -152,6 +152,7 @@ it("uses the account profile for both explicit participation links without touch
 });
 
 it("returns no credential fields and rejects stale simultaneous account edits", async () => {
+  await headCaller(); // Exercise actual direct writes, not two pending Admin proposals.
   const results = await Promise.allSettled([
     caller().admin.updateAccountProfile(input),
     caller().admin.updateAccountProfile({ ...input, name: "Different Name" }),
@@ -178,12 +179,14 @@ it("returns no credential fields and rejects stale simultaneous account edits", 
   ).toBe(account.name);
 });
 
-it("queues coordinator changes and applies the synchronized profile only after approval", async () => {
+it("rejects Coordinator proposals and applies an Admin profile request only after Head approval", async () => {
   await expect(
     caller("profile-coordinator", "COORDINATOR").admin.updateAccountProfile(
       input,
     ),
-  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.approvalRequest.count()).toBe(0);
+  await expect(caller().admin.updateAccountProfile(input)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect(
     (await db.user.findUniqueOrThrow({ where: { id: input.userId } })).name,
   ).toBe("Original Person");
@@ -202,7 +205,10 @@ it("queues coordinator changes and applies the synchronized profile only after a
     ],
   });
   expect(JSON.stringify(proposal.targets)).not.toContain("passwordHash");
-  await caller().approval.decide({
+  await expect(caller().approval.decide({ id: proposal.id, approve: true, note: "Admin cannot apply" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect((await db.approvalRequest.findUniqueOrThrow({ where: { id: proposal.id } })).state).toBe("PENDING");
+  const head = await headCaller();
+  await head.approval.decide({
     id: proposal.id,
     approve: true,
     note: "Profile correction verified",
@@ -220,16 +226,15 @@ it("queues coordinator changes and applies the synchronized profile only after a
 
 it("blocks stale approval after a self-service profile correction", async () => {
   await expect(
-    caller("profile-coordinator", "COORDINATOR").admin.updateAccountProfile(
-      input,
-    ),
+    caller().admin.updateAccountProfile(input),
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   const proposal = await db.approvalRequest.findFirstOrThrow();
   await caller("profile-person", "TUTOR").account.updateName({
     name: "Corrected by owner",
   });
+  const head = await headCaller();
   await expect(
-    caller().approval.decide({
+    head.approval.decide({
       id: proposal.id,
       approve: true,
       note: "Old proposal",
@@ -257,6 +262,7 @@ it("rejects viewer/tutor admin writes and refuses an outdated participation link
 });
 
 it("roster corrections propagate names while preserving verified account email ownership", async () => {
+  await headCaller();
   const row = await db.tutee.findUniqueOrThrow({
     where: { id: "profile-tutee" },
   });
@@ -313,10 +319,17 @@ it("sends verification only after a staff action to the resolved account, rate l
     }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(delivery.send).not.toHaveBeenCalled();
-  await caller(
+  // Verification resend is a direct Coordinator duty: it sends an existing
+  // account's proof without changing profile ownership, membership or verification.
+  await expect(caller(
     "profile-coordinator",
     "COORDINATOR",
-  ).admin.sendAccountVerification({ userId: "profile-person" });
+  ).admin.sendAccountVerification({ userId: "profile-person" })).resolves.toEqual({ emailed: true });
+  expect(await db.approvalRequest.count()).toBe(0);
+  expect(await db.passwordResetToken.count({ where: { userId: "profile-person" } })).toBe(1);
+  expect(await db.user.findUniqueOrThrow({ where: { id: "profile-person" } })).toMatchObject({
+    emailVerifiedAt: null, role: "TUTOR", tutorId: "profile-tutor", studentId: "profile-tutee", profileVersion: 0,
+  });
   expect(delivery.send).toHaveBeenCalledTimes(1);
   expect(delivery.send.mock.calls[0]?.[0]).toMatchObject({
     to: "person@example.test",
@@ -349,8 +362,10 @@ it.each(["profile-admin", "profile-person", "profile-viewer", "profile-coordinat
   expect(await db.auditLog.count({ where: { operation: "admin.updateAccountUsername", action: "Updated account username" } })).toBe(1);
   await expect(head.admin.updateAccountUsername({ userId, username: "stale", expectedProfileVersion: 0 })).rejects.toMatchObject({ code: "CONFLICT" });
 });
-it.each(["profile-admin", "profile-coordinator", "profile-person", "profile-viewer"])("rejects unauthorized rename by %s despite a Head cookie", async (id) => {
-  await expect(caller(id, "HEAD").admin.updateAccountUsername({ userId: "profile-person", username: "forbidden", expectedProfileVersion: 0 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+it.each(["profile-admin", "profile-coordinator", "profile-person", "profile-viewer"])("uses current authority for rename by %s despite a Head cookie", async (id) => {
+  await expect(caller(id, "HEAD").admin.updateAccountUsername({ userId: "profile-person", username: "forbidden", expectedProfileVersion: 0 })).rejects.toMatchObject({ code: id === "profile-admin" ? "PRECONDITION_FAILED" : "FORBIDDEN" });
+  expect((await db.user.findUniqueOrThrow({ where: { id: "profile-person" } })).username).toBe("profileperson");
+  expect(await db.approvalRequest.count()).toBe(id === "profile-admin" ? 1 : 0);
 });
 it("rejects invalid and colliding usernames in both tables without partial changes", async () => {
   const head = await headCaller();
@@ -373,6 +388,7 @@ it("renaming removes the old tutor sign-in alias and preserves email and credent
 });
 
 it("ordinary tutor profile edits preserve handles and reject the legacy rename path", async () => {
+  await headCaller();
   await expect(caller().admin.updateTutor({ id: "profile-tutor", firstName: "New", lastName: "Name", username: "bypass", status: "ACTIVE" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   await caller().admin.updateTutor({ id: "profile-tutor", firstName: "New", lastName: "Name", status: "ACTIVE" });
   expect(await db.user.findUnique({ where: { id: "profile-person" } })).toMatchObject({ username: "profileperson" });
@@ -404,11 +420,16 @@ it("keeps unlinked identifier correction Head-only and reports conflicts atomica
   const head = await headCaller();
   const tutor = await db.tutor.create({ data: { id: "profile-past", englishName: "Past Tutor", username: "pasttutor", status: "ARCHIVED" } });
   const input = { id: tutor.id, firstName: "Past", lastName: "Tutor", status: "ARCHIVED" as const };
-  // Coordinators retain the existing proposal workflow; Admin can save ordinary fields.
-  await expect(caller("profile-coordinator", "COORDINATOR").admin.updateTutor({ ...input, email: "past@example.test" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  // Staff account/profile corrections require Head; Coordinator cannot submit them.
+  await expect(caller("profile-coordinator", "COORDINATOR").admin.updateTutor({ ...input, email: "past@example.test" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.approvalRequest.count()).toBe(0);
   await db.user.update({ where: { id: "profile-coordinator" }, data: { role: "ADMIN" } });
-  await caller("profile-coordinator", "ADMIN").admin.updateTutor({ ...input, email: "past@example.test" });
-  await expect(caller("profile-coordinator", "ADMIN").admin.updateTutor({ ...input, username: "changed" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(caller("profile-coordinator", "ADMIN").admin.updateTutor({ ...input, email: "past@example.test" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect((await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } })).email).toBeNull();
+  const request = await db.approvalRequest.findFirstOrThrow();
+  await head.approval.decide({ id: request.id, approve: true, note: "Verified archived tutor contact correction" });
+  await expect(caller("profile-coordinator", "ADMIN").admin.updateTutor({ ...input, username: "changed" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect((await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } })).username).toBe("pasttutor");
   for (const username of ["profileperson", "ProfilePerson"]) {
     await expect(head.admin.updateTutor({ ...input, firstName: "Not Saved", username })).rejects.toMatchObject({ code: "CONFLICT" });
   }

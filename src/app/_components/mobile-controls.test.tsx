@@ -76,6 +76,7 @@ vi.mock("~/app/_components/email-details", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    account: { me: { useQuery: () => ({ data: { role: state.readOnly ? "VIEWER" : "HEAD" } }) } },
     useUtils: () => ({
       admin: { registrationCodes: { invalidate: async () => undefined } },
     }),
@@ -132,6 +133,8 @@ vi.mock("~/trpc/react", () => ({
         useQuery: () => ({
           data: {
             name: "Current term",
+            canEdit: state.canEdit,
+            canApply: true,
             semester: 1,
             termId: "term",
             recruitment: {},

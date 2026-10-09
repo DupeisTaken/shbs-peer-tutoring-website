@@ -281,6 +281,7 @@ export function AttendanceCorrection({ id }: { id: string }) {
               <span className="label">{t("reason")}</span>
               <textarea className="input" name="reason" required />
             </label>
+            <p className="muted text-sm">{common("approvals.reversalHelp")}</p>
             <button className="btn-primary" disabled={busy || rooms.isLoading}>
               {t("save")}
             </button>

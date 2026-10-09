@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
@@ -11,13 +11,15 @@ const mocks = vi.hoisted(() => ({
   mutate: vi.fn(),
   reset: vi.fn(),
   invalidate: vi.fn(),
+  refetch: vi.fn(),
+  error: null as null | { message: string; data: { approvalId: string } },
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
     program: {
       signupFieldSettings: { useQuery: mocks.query },
       setSignupField: {
-        useMutation: () => ({ mutate: mocks.mutate, reset: mocks.reset }),
+        useMutation: () => ({ mutate: mocks.mutate, reset: mocks.reset, error: mocks.error }),
       },
     },
     useUtils: () => ({
@@ -35,6 +37,7 @@ const wrap = (child: React.ReactNode) =>
   );
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.error = null;
   // jsdom lacks dialog's browser focus/inert implementation; real keyboard trapping is audited in-browser.
   HTMLDialogElement.prototype.showModal = function () {
     this.setAttribute("open", "");
@@ -153,4 +156,48 @@ it("contains Tab around the selected radio, keeps arrow keys native and holds fo
   expect(document.activeElement).toBe(
     screen.getByRole("radio", { name: "Optional" }),
   );
+});
+
+it("retains a queued Admin field draft as pending instead of saved or failed", () => {
+  const props = { label: "Phone", initial: "required" as const, pending: false, canApply: false, onClose: vi.fn(), onSave: vi.fn(), onReload: vi.fn() };
+  const view = wrap(<FieldDialog {...props} />);
+  fireEvent.click(screen.getByRole("radio", { name: "Hidden" }));
+  fireEvent.click(screen.getByRole("button", { name: en.approvals.requestHead }));
+  view.rerender(<NextIntlClientProvider locale="en" messages={en}><FieldDialog {...props} approvalId="request-1" /></NextIntlClientProvider>);
+  expect(screen.getByRole<HTMLInputElement>("radio", { name: "Hidden" }).checked).toBe(true);
+  expect(screen.getByRole("status").textContent).toBe(en.approvals.queuedBody);
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Reload settings" })).toBeNull();
+  expect(props.onSave).toHaveBeenCalledWith("hidden");
+  expect(mocks.invalidate).not.toHaveBeenCalled();
+});
+it("preserves a queued field draft and expected state through failed and successful background refetches", async () => {
+  const data = { fields: signupSettings(null), canEdit: true, canApply: false, secondaryEmailBindingEnabled: true };
+  mocks.query.mockReturnValue({ data, refetch: mocks.refetch });
+  const view = wrap(<SignupFormsPage />);
+  fireEvent.click(screen.getByRole("button", { name: "Configure How can we reach you?" }));
+  fireEvent.click(screen.getByRole("radio", { name: "Hidden" }));
+  fireEvent.click(screen.getByRole("button", { name: en.approvals.requestHead }));
+  mocks.error = { message: "Queued", data: { approvalId: "request" } };
+  mocks.query.mockReturnValue({ data, error: { message: "Refresh failed" }, refetch: mocks.refetch });
+  view.rerender(<NextIntlClientProvider locale="en" messages={en}><SignupFormsPage /></NextIntlClientProvider>);
+  expect(screen.getByRole<HTMLInputElement>("radio", { name: "Hidden" }).checked).toBe(true);
+  const live = { ...data, fields: { ...data.fields, tutee: { ...data.fields.tutee, preferredContact: "optional" as const } } };
+  mocks.query.mockReturnValue({ data: live, refetch: mocks.refetch });
+  view.rerender(<NextIntlClientProvider locale="en" messages={en}><SignupFormsPage /></NextIntlClientProvider>);
+  expect(screen.getByText(en.approvals.queuedBody)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: en.approvals.requestHead }));
+  expect(mocks.mutate).toHaveBeenLastCalledWith(expect.objectContaining({ state: "hidden", expectedState: "required" }));
+  // A failed explicit reload also keeps the draft. Success alone adopts the live field version.
+  mocks.error = { message: "Conflict", data: { approvalId: "" } };
+  view.rerender(<NextIntlClientProvider locale="en" messages={en}><SignupFormsPage /></NextIntlClientProvider>);
+  mocks.refetch.mockResolvedValueOnce({ isSuccess: false, error: { message: "Reload failed" } });
+  fireEvent.click(screen.getByRole("button", { name: en.signupFields.reload }));
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("Reload failed"));
+  expect(screen.getByRole<HTMLInputElement>("radio", { name: "Hidden" }).checked).toBe(true);
+  mocks.refetch.mockResolvedValueOnce({ isSuccess: true, data: live });
+  fireEvent.click(screen.getByRole("button", { name: en.signupFields.reload }));
+  await waitFor(() => expect(screen.getByRole<HTMLInputElement>("radio", { name: "Optional" }).checked).toBe(true));
+  fireEvent.click(screen.getByRole("button", { name: en.approvals.requestHead }));
+  expect(mocks.mutate).toHaveBeenLastCalledWith(expect.objectContaining({ state: "optional", expectedState: "optional" }));
 });

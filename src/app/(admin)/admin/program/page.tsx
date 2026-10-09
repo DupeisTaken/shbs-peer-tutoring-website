@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl";
 import { ProgramTimeZoneSettings } from "~/app/_components/program-time-zone-settings";
 import { RecruitmentSettings } from "~/app/_components/recruitment-settings";
 import { api } from "~/trpc/react";
+import { InlineNotice } from "~/app/_components/ui/patterns";
 import { Switch } from "~/app/_components/ui/button";
 
 type RefreshResult = {
@@ -67,10 +68,12 @@ export default function ProgramPage() {
 
           {(["tutee", "tutor"] as const).map((audience) => (
             <RecruitmentSettings
-              key={`${period.termId}-${audience}`}
+              key={audience}
               termId={period.termId}
               audience={audience}
               window={period.recruitment[audience]}
+              canEdit={period.canEdit}
+              canApply={period.canApply}
             />
           ))}
 
@@ -108,26 +111,29 @@ export default function ProgramPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   value={confirm}
+                  disabled={!period.canEdit || refresh.isPending}
                   onChange={(e) => setConfirm(e.target.value)}
                   placeholder={t("admin.program.confirmPlaceholder")}
                   className="input field-auto min-w-44"
                 />
                 <button
                   className="btn-danger"
-                  disabled={!confirmOk || refresh.isPending}
+                  disabled={!period.canEdit || !confirmOk || refresh.isPending}
                   onClick={() => {
+                    if (!period.canEdit || refresh.isPending) return;
                     setDone(null);
                     refresh.mutate({ confirm, expectedTermId: period.termId });
                   }}
                 >
                   {refresh.isPending
                     ? t("admin.program.refreshing")
-                    : t("admin.program.refreshButton", {
+                    : period.canApply === false ? t("approvals.requestHead") : t("admin.program.refreshButton", {
                         name: period.next.name,
                       })}
                 </button>
               </div>
-              {refresh.error && (
+              {refresh.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+              {refresh.error && !refresh.error.data?.approvalId && (
                 <p className="mt-2 text-sm text-red-600">
                   {refresh.error.message}
                 </p>
@@ -157,7 +163,7 @@ export default function ProgramPage() {
 /**
  * Optional-module toggles. Switching a module off hides its portals/entries program-wide; the
  * Quarter System toggle switches refresh granularity (on = quarters, off = semesters). Only the
- * head may change them, and changes are staged — they take effect at the next program refresh.
+ * Head applies them directly and Admin may request Head review, and changes are staged — they take effect at the next program refresh.
  */
 function FeatureToggles() {
   const t = useTranslations();
@@ -174,6 +180,7 @@ function FeatureToggles() {
     <section className="card p-5">
       <h2 className="section-title">{t("admin.program.features.heading")}</h2>
       <p className="muted mt-1 text-sm">{t("admin.program.features.help")}</p>
+      <p className="muted mt-2 text-sm">{t("approvals.sensitiveHelp")}</p>
       <ul className="mt-3 divide-y divide-slate-100">
         {data.features.map((f) => {
           // `target` = the desired state (staged value if any, else the current effective value).
@@ -211,7 +218,7 @@ function FeatureToggles() {
               {data.canEdit && (
                 // Keep the staged-setting behavior while giving each compact switch a named touch target.
                 <Switch
-                  label={t(`admin.program.features.name.${f.key}`)}
+                  label={data.canApply === false ? t("approvals.requestChange", { setting: t(`admin.program.features.name.${f.key}`) }) : t(`admin.program.features.name.${f.key}`)}
                   checked={target}
                   disabled={setPending.isPending}
                   onChange={(enabled) =>
@@ -228,7 +235,8 @@ function FeatureToggles() {
           {t("admin.program.features.headOnly")}
         </p>
       )}
-      {setPending.error && (
+      {setPending.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+      {setPending.error && !setPending.error.data?.approvalId && (
         <p className="mt-2 text-sm text-red-600">{setPending.error.message}</p>
       )}
     </section>

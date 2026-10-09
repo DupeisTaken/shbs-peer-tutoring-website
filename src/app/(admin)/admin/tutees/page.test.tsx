@@ -29,6 +29,7 @@ vi.mock("~/trpc/react", () => {
   const empty = { useQuery: () => ({ data: [] }) };
   return {
     api: {
+    account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
       useUtils: () => {
         const query = { invalidate: async () => undefined };
         return {

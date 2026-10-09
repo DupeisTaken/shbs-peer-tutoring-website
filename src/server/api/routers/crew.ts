@@ -239,11 +239,11 @@ export const crewRouter = createTRPCRouter({
             });
             await notifyAdmins(
               {
-                title: "New crew application",
+                title: "New crew application awaiting Head review",
                 body: `${input.name} applied to join the crew.`,
                 link: "/admin/crew",
               },
-              undefined,
+              { headOnly: true },
               tx,
             );
           },

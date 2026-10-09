@@ -78,7 +78,7 @@ const accepted = {
   },
 };
 async function enable() {
-  await caller("ADMIN").program.setCaptcha({
+  await caller("HEAD").program.setCaptcha({
     enabled: true,
     expectedVersion: 0,
   });
@@ -139,7 +139,7 @@ it("defaults off, returns no widget config and never calls the provider while li
   });
   expect(sdk.verify).not.toHaveBeenCalled();
 });
-it("restricts direct changes to ADMIN/HEAD, exposes safe read-only status and cannot queue proposals", async () => {
+it("restricts direct changes to Head, exposes safe status and queues Admin proposals", async () => {
   for (const role of ["COORDINATOR", "VIEWER", "STUDENT"] as const)
     await expect(
       caller(role).program.setCaptcha({ enabled: true, expectedVersion: 0 }),
@@ -147,7 +147,11 @@ it("restricts direct changes to ADMIN/HEAD, exposes safe read-only status and ca
   expect((await caller("COORDINATOR").program.captchaSettings()).canEdit).toBe(
     false,
   );
-  expect(Object.hasOwn(APPROVAL_OPERATIONS, "program.setCaptcha")).toBe(false);
+  expect(Object.hasOwn(APPROVAL_OPERATIONS, "program.setCaptcha")).toBe(true);
+  await expect(caller("ADMIN").program.setCaptcha({ enabled: true, expectedVersion: 0 }))
+    .rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect((await caller().program.captchaPublic()).enabled).toBe(false);
+  expect(await db.approvalRequest.count()).toBe(1);
   await enable();
   await expect(
     caller("HEAD").program.setCaptcha({ enabled: false, expectedVersion: 0 }),
@@ -157,7 +161,7 @@ it("restricts direct changes to ADMIN/HEAD, exposes safe read-only status and ca
     expectedVersion: 1,
   });
   await expect(
-    caller("ADMIN").program.setCaptcha({ enabled: true, expectedVersion: 0 }),
+    caller("HEAD").program.setCaptcha({ enabled: true, expectedVersion: 0 }),
   ).rejects.toMatchObject({ code: "CONFLICT" });
   expect(
     await db.auditLog.count({
@@ -169,11 +173,11 @@ it("restricts direct changes to ADMIN/HEAD, exposes safe read-only status and ca
   ).toBe(2);
   expect(
     await db.auditLog.findFirst({
-      where: { operation: "program.setCaptcha" },
+      where: { operation: "program.setCaptcha", action: "Changed public signup CAPTCHA verification" },
       orderBy: { createdAt: "asc" },
     }),
   ).toMatchObject({
-    userId: "ADMIN",
+    userId: "HEAD",
     details: { before: { enabled: false }, after: { enabled: true } },
   });
 });
@@ -186,7 +190,7 @@ it("blocks enabling with bad local configuration but always permits disabling du
   await expect(caller().viewer.start(viewer)).rejects.toMatchObject({
     message: "CAPTCHA_CONFIG",
   });
-  await caller("ADMIN").program.setCaptcha({
+  await caller("HEAD").program.setCaptcha({
     enabled: false,
     expectedVersion: 0,
   });
@@ -311,7 +315,7 @@ it("expires grants and invalidates them through disable/re-enable without blocki
   await expect(
     caller().viewer.start({ ...viewer, captchaGrant: grant! }),
   ).rejects.toMatchObject({ message: "CAPTCHA_REQUIRED" });
-  await caller("ADMIN").program.setCaptcha({
+  await caller("HEAD").program.setCaptcha({
     enabled: false,
     expectedVersion: 1,
   });
@@ -474,7 +478,7 @@ it("cannot bank grants to bypass the actual send cooldown and preserves settings
   const term = await db.term.create({
     data: { name: "Intake", schoolYear: "26-27", quarter: "Q1", active: true },
   });
-  await caller("ADMIN").admin.refresh({
+  await caller("HEAD").admin.refresh({
     confirm: "REFRESH",
     expectedTermId: term.id,
   });

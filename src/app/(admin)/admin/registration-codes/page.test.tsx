@@ -16,6 +16,7 @@ import RegistrationCodesPage from "./page";
 
 const state = vi.hoisted(
   (): {
+    role: string;
     status: string;
     code: string | null;
     label: string | null;
@@ -24,6 +25,7 @@ const state = vi.hoisted(
     issue: () => void;
     revoke: (input: { id: string }) => void;
   } => ({
+    role: "HEAD",
     status: "active",
     code: "TEST5",
     label: "Test invitation",
@@ -48,6 +50,7 @@ vi.mock("~/trpc/react", () => ({
     useUtils: () => ({
       admin: { registrationCodes: { invalidate: state.invalidate } },
     }),
+    account: { me: { useQuery: () => ({ data: { role: state.role } }) } },
     admin: {
       registrationCodes: { useQuery: () => ({ data: [record()] }) },
       issueRegistrationCode: {
@@ -89,6 +92,7 @@ function show(readOnly = false) {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  state.role = "HEAD";
   state.status = "active";
   state.code = "TEST5";
   state.label = "Test invitation";
@@ -182,4 +186,18 @@ describe("registration code export availability", () => {
     );
     expect(state.revoke).toHaveBeenCalledWith({ id: "invite" });
   });
+});
+
+it("lets Admin request management invitations while Coordinators request only participant invitations", () => {
+  state.role = "COORDINATOR";
+  render(<NextIntlClientProvider locale="en" messages={messages}><ReadOnlyProvider value={false}><RegistrationCodesPage /></ReadOnlyProvider></NextIntlClientProvider>);
+  expect(screen.queryByRole("option", { name: messages.admin.registrationCodes.kindAdmin })).toBeNull();
+  expect(screen.queryByRole("option", { name: messages.admin.registrationCodes.kindCoordinator })).toBeNull();
+  expect(screen.getByRole("button", { name: messages.approvals.requestHead })).toBeTruthy();
+  cleanup();
+  state.role = "ADMIN";
+  render(<NextIntlClientProvider locale="en" messages={messages}><ReadOnlyProvider value={false}><RegistrationCodesPage /></ReadOnlyProvider></NextIntlClientProvider>);
+  expect(screen.getByRole("option", { name: messages.admin.registrationCodes.kindAdmin })).toBeTruthy();
+  expect(screen.getByRole("option", { name: messages.admin.registrationCodes.kindCoordinator })).toBeTruthy();
+  state.role = "HEAD";
 });

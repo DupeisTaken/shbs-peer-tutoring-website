@@ -44,3 +44,11 @@ it("requires identity confirmation and an explicit transfer confirmation for Hea
   fireEvent.click(screen.getByRole("button", { name: "Confirm leadership transfer" }));
   expect(mocks.transfer).toHaveBeenCalledWith({ userId: "account", confirmPassword: "Synthetic-password" });
 });
+
+it("keeps management rank grants out of participant self-service", () => {
+  show({ selfService: true });
+  expect(screen.getByRole<HTMLSelectElement>("combobox").disabled).toBe(true);
+  fireEvent.click(screen.getByLabelText("Translator"));
+  fireEvent.click(screen.getByRole("button", { name: "Request Head approval" }));
+  expect(mocks.request).toHaveBeenCalledWith(expect.objectContaining({ rank: "NONE", translator: true }));
+});

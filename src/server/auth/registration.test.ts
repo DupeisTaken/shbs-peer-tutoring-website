@@ -171,10 +171,11 @@ it.each(["ADMIN", "COORDINATOR"] as const)(
     for (const id of ["admin", "coordinator"]) {
       await expect(
         actor(id).admin.issueRegistrationCode({ kind }),
-      ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+      ).rejects.toMatchObject({ code: id === "admin" ? "PRECONDITION_FAILED" : "FORBIDDEN" });
       expect(await db.registrationCode.count()).toBe(0);
     }
     const requests = await db.approvalRequest.findMany();
+    expect(requests).toHaveLength(1);
     await expect(
       actor("admin").approval.decide({
         id: requests[0]!.id,
@@ -194,8 +195,12 @@ it.each(["ADMIN", "COORDINATOR"] as const)(
       expect(await actor(id).admin.registrationCodes()).toHaveLength(0);
     await expect(
       actor("admin").admin.revokeRegistrationCode({ id: codes[0]!.id }),
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await actor("head").admin.revokeRegistrationCode({ id: codes[0]!.id });
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    await expect(actor("coordinator").admin.revokeRegistrationCode({ id: codes[0]!.id }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect((await resolveUsableCode(codes[0]!.code!)).ok).toBe(true);
+    const reversal = await db.approvalRequest.findFirstOrThrow({ where: { operation: "admin.revokeRegistrationCode" } });
+    await actor("head").approval.decide({ id: reversal.id, approve: true, note: "Revoke the unused management invitation" });
     expect(await resolveUsableCode(codes[0]!.code!)).toEqual({
       ok: false,
       error: "not-found",

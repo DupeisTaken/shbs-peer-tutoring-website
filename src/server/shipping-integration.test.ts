@@ -26,6 +26,7 @@ const actor = (id: string, role: Session["role"] = "STUDENT") =>
     session: { user: { id }, role, tutorId: null, expires: "2099-01-01" },
   });
 const admin = () => actor("shipping-admin", "ADMIN");
+const head = () => actor("shipping-head", "HEAD");
 const coordinator = () => actor("shipping-coordinator", "COORDINATOR");
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const send = vi.mocked(emailSender.send);
@@ -96,6 +97,7 @@ beforeEach(async () => {
   send.mockReset().mockResolvedValue(undefined);
   await db.user.createMany({
     data: [
+      { id: "shipping-head", email: "shipping-head@example.test", role: "HEAD" },
       {
         id: "shipping-admin",
         email: "shipping-admin@example.test",
@@ -425,7 +427,7 @@ it("preserves quarter withdrawal restrictions after a verified account email cha
 
 it("does not let the legacy consent endpoint bypass the student policy timer", async () => {
   const { student, user } = await confirmed();
-  await admin().admin.upsertPolicy({
+  await head().admin.upsertPolicy({
     slug: "tutee-policy",
     locale: "en",
     title: "Updated policy",
@@ -510,23 +512,23 @@ it("requires just one admin approval for a coordinator's translation review and 
 
 it("queues calendar and feedback visibility changes without applying them early", async () => {
   const calendar = await queued(
-    coordinator().student.setCalendarDay({
+    admin().student.setCalendarDay({
       date: "2026-10-01",
       isSchoolDay: false,
       note: "Holiday",
     }),
   );
   const feedback = await queued(
-    coordinator().student.setFeedbackSettings({ share: true }),
+    admin().student.setFeedbackSettings({ share: true }),
   );
   expect(await db.schoolCalendarDay.count()).toBe(0);
   expect(await db.studentSettings.count()).toBe(0);
-  await admin().approval.decide({
+  await head().approval.decide({
     id: calendar.id,
     approve: true,
     note: "School calendar checked",
   });
-  await admin().approval.decide({
+  await head().approval.decide({
     id: feedback.id,
     approve: true,
     note: "Visibility checked",
@@ -620,7 +622,7 @@ it("queues a historical correction and applies it atomically under the reviewer'
   expect(
     (await db.session.findUniqueOrThrow({ where: { id: session.id } })).endMin,
   ).toBe(990);
-  await admin().approval.decide({
+  await head().approval.decide({
     id: request.id,
     approve: true,
     note: "Attendance evidence checked",
@@ -631,7 +633,7 @@ it("queues a historical correction and applies it atomically under the reviewer'
   expect(
     await db.auditLog.count({
       where: {
-        userId: "shipping-admin",
+        userId: "shipping-head",
         approvalId: request.id,
         operation: "corrections.correctAttendance",
       },

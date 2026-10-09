@@ -376,8 +376,10 @@ it("keeps attendance choices as a draft until Save and restores them on Cancel",
   expect(absent.getAttribute("aria-pressed")).toBe("false");
   expect(mocks.saveAttendance).not.toHaveBeenCalled();
   fireEvent.click(absent);
+  // Changing a recorded attendance status now requires the reversal workflow.
+  expect(screen.getByText(en.approvals.reversalHelp)).toBeTruthy();
   fireEvent.click(
-    screen.getByRole("button", { name: en.admin.meetings.saveAttendance }),
+    screen.getByRole("button", { name: en.admin.meetings.correctAttendance }),
   );
   expect(mocks.saveAttendance).toHaveBeenCalledExactlyOnceWith({
     meetingId: "meeting-1",

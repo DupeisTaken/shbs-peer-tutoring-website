@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { AcademicPanel } from "./academic-profile";
+import { InlineNotice } from "./ui/patterns";
 import { AcademicError } from "./academic-error";
 import {
   useProfilePolicy,
@@ -27,16 +28,18 @@ import { GRADUATED_GRADE } from "~/lib/academics";
 export function TuteeEditor({
   row,
   onClose,
+  canApply = true,
   historyPermissions,
 }: {
   row: RouterOutputs["admin"]["tutees"][number];
   onClose: () => void;
+  canApply?: boolean;
   historyPermissions?: { canLink: boolean; isHead: boolean };
 }) {
   const profileText = useTranslations("accountProfile");
   return (
     <ProfileDialog title={profileText("editProfile")} onClose={onClose}>
-      <TuteeProfileForm row={row} historyPermissions={historyPermissions} />
+      <TuteeProfileForm row={row} historyPermissions={historyPermissions} canApply={canApply} />
     </ProfileDialog>
   );
 }
@@ -44,6 +47,7 @@ export function TuteeEditor({
 /** Keep this independent form inside the dialog's pending context. */
 function TuteeProfileForm({
   row,
+  canApply = true,
   historyPermissions,
 }: Omit<ComponentProps<typeof TuteeEditor>, "onClose">) {
   const [saved, setSaved] = useState(false);
@@ -181,7 +185,7 @@ function TuteeProfileForm({
                   busy || saved || subjects.isLoading || slots.isLoading
                 }
               >
-                {t("save")}
+                {canApply ? t("save") : common("approvals.requestHead")}
               </Button>
             }
           >
@@ -290,7 +294,8 @@ function TuteeProfileForm({
                 defaultValue={row.notes ?? ""}
               />
             </label>
-            {save.error && (
+            {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{common("approvals.queuedBody")}</InlineNotice>}
+          {save.error && !save.error.data?.approvalId && (
               <p role="alert" className="text-sm text-red-600">
                 <AcademicError message={save.error.message} />
               </p>
@@ -300,7 +305,7 @@ function TuteeProfileForm({
       )}
       {row.user && (
         <div className="mt-5">
-          <AcademicPanel userId={row.user.id} />
+          <AcademicPanel userId={row.user.id} canApply={canApply} />
         </div>
       )}
       {historicalGrade && (

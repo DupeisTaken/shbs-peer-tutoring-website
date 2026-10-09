@@ -11,7 +11,7 @@ import {
 import { useTranslations } from "next-intl";
 
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
-import { StatePanel } from "~/app/_components/ui/patterns";
+import { InlineNotice, StatePanel } from "~/app/_components/ui/patterns";
 import { Button } from "~/app/_components/ui/button";
 import { api } from "~/trpc/react";
 import { Markdown } from "~/app/_components/markdown";
@@ -360,7 +360,8 @@ function ContentField({
         )}
         {!readOnly && (
           <div className="ml-auto flex items-center gap-3">
-            {save.error && (
+            {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+          {save.error && !save.error.data?.approvalId && (
               <span className="text-xs text-red-600">{save.error.message}</span>
             )}
             {field.override != null && (
@@ -531,7 +532,8 @@ function NewsManager({
             >
               {t("admin.landing.news.new.create")}
             </button>
-            {create.error && (
+            {create.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+          {create.error && !create.error.data?.approvalId && (
               <span className="text-sm text-red-600">
                 {create.error.message}
               </span>
@@ -692,6 +694,8 @@ function NewsPostCard({
         )}
       </div>
 
+      {update.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+      {update.error && !update.error.data?.approvalId && <p role="alert" className="text-sm text-red-600">{update.error.message}</p>}
       {!readOnly && (
         <label className="flex items-center gap-2 text-sm">
           <span className="muted">{t("admin.landing.news.dateLabel")}</span>
@@ -1195,7 +1199,8 @@ function ImageLibrary({
           </div>
         ))}
       </div>
-      {editAlt.error && (
+      {editAlt.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+          {editAlt.error && !editAlt.error.data?.approvalId && (
         <p role="alert" className="text-sm text-red-600">
           {editAlt.error?.message}
         </p>
@@ -1287,7 +1292,8 @@ function SectionsManager({
             >
               {t("admin.landing.sections.new.create")}
             </button>
-            {create.error && (
+            {create.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+          {create.error && !create.error.data?.approvalId && (
               <span className="text-sm text-red-600">
                 {create.error.message}
               </span>
@@ -1462,7 +1468,8 @@ function SectionCard({
           {section.mode === "PAGE" && (
             <SlugField section={section} update={update} />
           )}
-          {update.error && (
+          {update.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+          {update.error && !update.error.data?.approvalId && (
             <span className="text-red-600">{update.error.message}</span>
           )}
         </div>
@@ -1753,7 +1760,8 @@ function LayoutEditor({
                   {t("admin.landing.layout.unsaved")}
                 </span>
               )}
-              {save.error && (
+              {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+          {save.error && !save.error.data?.approvalId && (
                 <span className="text-xs text-red-600">
                   {save.error.message}
                 </span>
@@ -2434,7 +2442,8 @@ function PagesManager({
               {t("admin.landing.pages.new.create")}
             </button>
           </div>
-          {create.error && (
+          {create.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+          {create.error && !create.error.data?.approvalId && (
             <span className="text-sm text-red-600">{create.error.message}</span>
           )}
         </section>
@@ -2605,7 +2614,8 @@ function PageCard({
             />
             {t("admin.landing.pages.showInNav")}
           </label>
-          {update.error && (
+          {update.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+          {update.error && !update.error.data?.approvalId && (
             <span className="text-red-600">{update.error.message}</span>
           )}
         </div>

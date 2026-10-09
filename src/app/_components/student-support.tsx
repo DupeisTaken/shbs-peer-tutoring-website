@@ -1,4 +1,5 @@
 "use client";
+import { InlineNotice } from "./ui/patterns";
 import { SchoolCalendar } from "./school-calendar";
 import Link from "next/link";
 import { useState } from "react";
@@ -10,6 +11,7 @@ import { Pager } from "./student-portal";
 export function StudentSupport() {
   const programFormat = useFormatter();
   const t = useTranslations("workflows");
+  const approvals = useTranslations("approvals");
   const [feedbackPage, setFeedbackPage] = useState(0);
   const [appealPage, setAppealPage] = useState(0);
   const [appealState, setAppealState] = useState<"PENDING" | "RESOLVED">(
@@ -46,10 +48,10 @@ export function StudentSupport() {
             <input
               type="checkbox"
               checked={setting.data ?? false}
-              disabled={save.isPending || !setting.isSuccess}
-              onChange={(e) => save.mutate({ share: e.target.checked })}
+              disabled={save.isPending || !setting.isSuccess || !!me.error || !["HEAD", "ADMIN"].includes(me.data?.role ?? "")}
+              onChange={(e) => { if (!me.error && ["HEAD", "ADMIN"].includes(me.data?.role ?? "")) save.mutate({ share: e.target.checked }); }}
             />
-            {t("shareFeedback")}
+            {me.data?.role === "ADMIN" ? approvals("requestChange", { setting: t("shareFeedback") }) : t("shareFeedback")}
           </label>
           <Link href="/messages" className="btn-secondary">
             {t("messages")}
@@ -62,6 +64,8 @@ export function StudentSupport() {
           </Link>
         </section>
       )}
+      {staff && <p className="muted text-sm">{approvals("sensitiveHelp")}</p>}
+      {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
       <section className="card space-y-4 p-6">
         <h2 className="section-title">{t("feedback")}</h2>
         {staff && <p className="muted text-sm">{t("sharingHelp")}</p>}
@@ -175,10 +179,11 @@ export function StudentSupport() {
           />
         </section>
       )}
-      {(save.error ?? feedback.error ?? appeals.error ?? decide.error) && (
+      {decide.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+      {((save.error?.data?.approvalId ? null : save.error) ?? feedback.error ?? appeals.error ?? (decide.error?.data?.approvalId ? null : decide.error)) && (
         <p role="alert" className="text-red-700">
           {
-            (save.error ?? feedback.error ?? appeals.error ?? decide.error)
+            ((save.error?.data?.approvalId ? null : save.error) ?? feedback.error ?? appeals.error ?? (decide.error?.data?.approvalId ? null : decide.error))
               ?.message
           }
         </p>

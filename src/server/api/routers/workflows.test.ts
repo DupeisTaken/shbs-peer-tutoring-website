@@ -566,20 +566,25 @@ it("unchanged publication and pending policy proposals do not invalidate accepte
   expect(await studentPolicyStatus(db, "review-user")).toBeNull();
   await db.user.update({
     where: { id: "review-viewer" },
-    data: { role: "COORDINATOR" },
+    data: { role: "ADMIN" },
   });
   await expect(
-    caller("COORDINATOR", "review-viewer").admin.upsertPolicy({
+    caller("ADMIN", "review-viewer").admin.upsertPolicy({
       slug: "tutor-policy",
       locale: "en",
       title: "Draft title",
       body: "Unpublished proposed text",
       version: "2",
     }),
-  ).rejects.toThrow();
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect(await db.approvalRequest.count({ where: { state: "PENDING" } })).toBe(
     1,
   );
+  await db.user.update({ where: { id: "review-viewer" }, data: { role: "COORDINATOR" } });
+  await expect(caller("COORDINATOR", "review-viewer").admin.upsertPolicy({
+    slug: "tutor-policy", locale: "en", title: "Forbidden draft", body: "Forbidden unpublished policy", version: "3",
+  })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.approvalRequest.count()).toBe(1);
   expect(await studentPolicyStatus(db, "review-user")).toBeNull();
 });
 

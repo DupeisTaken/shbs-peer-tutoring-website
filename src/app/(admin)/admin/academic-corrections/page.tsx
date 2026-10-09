@@ -17,13 +17,13 @@ export default async function AcademicCorrectionsPage({
   if (
     !user ||
     user.suspendedAt ||
-    !["HEAD", "ADMIN", "COORDINATOR"].includes(user.role)
+    !["HEAD", "ADMIN"].includes(user.role)
   )
     redirect("/admin");
   const query = await searchParams;
   return (
     <HistoricalAcademicCorrections
-      coordinator={user.role === "COORDINATOR"}
+      coordinator={user.role === "ADMIN"}
       initialSearch={
         typeof query.participantId === "string"
           ? query.participantId.slice(0, 100)

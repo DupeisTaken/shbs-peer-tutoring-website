@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "../../generated/prisma";
+import { databaseScope, scopedDatabase } from "./db-scope";
 export type TransactionDb = Prisma.TransactionClient;
 export type DomainDb = PrismaClient | TransactionDb;
 
@@ -6,9 +7,12 @@ export type DomainDb = PrismaClient | TransactionDb;
 export async function inTransaction<T>(
   client: DomainDb,
   work: (tx: TransactionDb) => Promise<T>,
+  options?: { isolationLevel?: Prisma.TransactionIsolationLevel },
 ): Promise<T> {
+  const scoped = databaseScope.getStore();
+  if (scoped) return work(scopedDatabase(scoped as PrismaClient));
   return "$transaction" in client
-    ? client.$transaction(work, { timeout: 20000 })
+    ? client.$transaction(work, { timeout: 20000, ...options })
     : work(client);
 }
 

@@ -1,10 +1,12 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { InlineNotice } from "./ui/patterns";
 import { api } from "~/trpc/react";
 
 /** Independent immediate controls share query invalidation, never a combined toggle. */
 export function ProgramEmailSettings() {
   const t = useTranslations("programEmail");
+  const approvals = useTranslations("approvals");
   const utils = api.useUtils();
   const settings = api.program.emailNotificationSettings.useQuery();
   const save = api.program.setEmailNotifications.useMutation({
@@ -37,6 +39,7 @@ export function ProgramEmailSettings() {
           </span>
         )}
       </div>
+      {data?.canEdit && data.canApply === false && <p className="muted text-sm">{approvals("sensitiveHelp")}</p>}
       {data?.canEdit && (
         <label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-medium">
           <input
@@ -53,7 +56,7 @@ export function ProgramEmailSettings() {
             }
             className="accent-accent-600 h-4 w-4"
           />
-          {t("enable")}
+          {data.canApply === false ? approvals("requestChange", { setting: t("enable") }) : t("enable")}
         </label>
       )}
       <p className="muted text-xs">{t("essential")}</p>
@@ -91,7 +94,7 @@ export function ProgramEmailSettings() {
               }
               className="accent-accent-600 h-4 w-4 shrink-0"
             />
-            {t("bindingEnable")}
+            {data.canApply === false ? approvals("requestChange", { setting: t("bindingEnable") }) : t("bindingEnable")}
           </label>
         )}
       </div>
@@ -103,14 +106,15 @@ export function ProgramEmailSettings() {
           {t("failed", { count: data.failed })}
         </p>
       )}
-      {(save.isSuccess || binding.isSuccess) && (
+      {(save.error?.data?.approvalId ?? binding.error?.data?.approvalId) && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+      {(save.isSuccess || binding.isSuccess) && !save.error?.data?.approvalId && !binding.error?.data?.approvalId && (
         <p role="status" className="text-sm text-green-700">
           {t("saved")}
         </p>
       )}
-      {(settings.error ?? save.error ?? binding.error) && (
+      {(settings.error ?? (save.error?.data?.approvalId ? null : save.error) ?? (binding.error?.data?.approvalId ? null : binding.error)) && (
         <p role="alert" className="text-sm text-red-700">
-          {(settings.error ?? save.error ?? binding.error)?.message}
+          {(settings.error ?? (save.error?.data?.approvalId ? null : save.error) ?? (binding.error?.data?.approvalId ? null : binding.error))?.message}
         </p>
       )}
     </section>

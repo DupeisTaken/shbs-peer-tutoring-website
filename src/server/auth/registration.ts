@@ -32,6 +32,7 @@ import type { TransactionDb } from "~/server/transactions";
 
 import { env } from "~/env";
 import { db } from "~/server/db";
+import { approvalScope } from "~/server/db-scope";
 import { hashPassword } from "./password";
 import { generateRegistrationCode, normalizeRegCode } from "./code";
 import {
@@ -125,10 +126,12 @@ export async function issueRegistrationCode(
       return createRegistrationCode(opts, tx);
     });
   }
-  return createRegistrationCode(opts, client);
+  // Public redemption and helper issuance do not necessarily pass signed-in mutation
+  // middleware, so lifecycle evidence must share these domain transactions.
+  return inTransaction(client, (tx) => createRegistrationCode(opts, tx));
 }
 
-async function createRegistrationCode(opts: IssueCodeOptions, client: DomainDb) {
+async function createRegistrationCode(opts: IssueCodeOptions, client: TransactionDb) {
   const expiresAt = new Date(Date.now() + CODE_TTL_DAYS * 24 * 60 * 60 * 1000);
   const email = opts.email?.trim() ? opts.email.trim().toLowerCase() : null;
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -153,12 +156,41 @@ async function createRegistrationCode(opts: IssueCodeOptions, client: DomainDb) 
       },
       select: { id: true },
     });
+    const issuer = opts.issuedById
+      ? await client.user.findUnique({ where: { id: opts.issuedById }, select: { id: true, role: true, name: true } })
+      : null;
+    await client.auditLog.create({ data: {
+      userId: issuer?.id ?? null, userName: issuer?.name ?? "System",
+      entity: "RegistrationCode", entityId: row.id, operation: "registration.issue",
+      action: "Issued registration invitation", approvalId: approvalScope.getStore(),
+      details: { actorRole: issuer?.role ?? "SYSTEM", outcome: "APPLIED",
+        before: { issued: false }, after: { issued: true },
+        kind: opts.kind ?? "TUTOR", issuedById: opts.issuedById ?? null,
+        tutorId: opts.tutorId ?? null, applicationId: opts.applicationId ?? null,
+        crewApplicationId: opts.crewApplicationId ?? null, expiresAt: expiresAt.toISOString() },
+    } });
     return { id: row.id, code, expiresAt };
   }
   throw new Error("Could not generate a unique registration code.");
 }
 
 type CodeRow = NonNullable<Awaited<ReturnType<typeof loadCode>>>;
+
+/** Keep invitation evidence useful without copying its plaintext code, email or proof. */
+async function recordRedemption(tx: TransactionDb, row: CodeRow, userId: string) {
+  const recipient = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { name: true, role: true } });
+  const issuance = await tx.auditLog.findFirst({
+    where: { entity: "RegistrationCode", entityId: row.id, operation: "registration.issue" },
+    orderBy: { createdAt: "asc" }, select: { id: true },
+  });
+  await tx.auditLog.create({ data: {
+    userId, userName: recipient.name, entity: "RegistrationCode", entityId: row.id,
+    operation: "registration.complete", kind: "ACTION", action: `Redeemed ${row.kind} registration invitation`,
+    details: { actorRole: recipient.role, outcome: "APPLIED", kind: row.kind,
+      issuedById: row.issuedById, recipientId: userId, before: { used: false }, after: { used: true },
+      originalActionId: issuance?.id ?? null, originalEvidence: issuance ? "RECORDED" : "LEGACY_UNAVAILABLE" },
+  } });
+}
 
 /** Load a code row by its plaintext value (no validity checks). */
 async function loadCode(code: string) {
@@ -433,18 +465,7 @@ export async function completeRegistration(
         where: { id: row.id },
         data: { usedByUserId: user.id },
       });
-      await tx.auditLog.create({
-        data: {
-          userId: user.id,
-          userName: user.name,
-          entity: "RegistrationCode",
-          entityId: row.id,
-          operation: "registration.complete",
-          kind: "ACTION",
-          action: `Redeemed ${role} registration code`,
-          details: { role, issuedById: row.issuedById, recipientId: user.id },
-        },
-      });
+      await recordRedemption(tx, row, user.id);
       return { ok: true as const, username };
     });
   }
@@ -489,6 +510,7 @@ export async function completeRegistration(
           where: { id: existingUser.id },
           data: { crewStatus: priorCrewStatus === "INACTIVE" ? "INACTIVE" : "OPTED_OUT" },
         });
+        await recordRedemption(tx, row, existingUser.id);
         return { username: await ensureUserUsername(existingUser.id, tx, { preferredLatinName: input.preferredLatinName }),
           ...(academicConfirmationRequired ? { academicConfirmationRequired: true } : {}) };
       }
@@ -522,6 +544,7 @@ export async function completeRegistration(
       await applyAcademicIntake(tx, created.id, gradeLevel, term?.schoolYear ?? null, new Date(), "REGISTRATION");
       const academicConfirmationRequired = needsAcademicConfirmationForParticipation((await accountAcademics(tx, created.id)).academic);
       if (academicConfirmationRequired) await tx.user.update({ where: { id: created.id }, data: { crewStatus: "OPTED_OUT" } });
+      await recordRedemption(tx, row, created.id);
       return { username: desiredUsername, ...(academicConfirmationRequired ? { academicConfirmationRequired: true } : {}) };
     });
     return { ok: true, ...result };
@@ -693,6 +716,7 @@ export async function completeRegistration(
       where: { id: row.id },
       data: { usedAt: new Date(), usedByUserId: userId },
     });
+    await recordRedemption(tx, row, userId);
     return { username: desiredUsername, ...(academicConfirmationRequired ? { academicConfirmationRequired: true } : {}) };
   });
 

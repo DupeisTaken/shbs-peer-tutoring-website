@@ -31,6 +31,7 @@ const mutation = vi.hoisted(() => {
 
 vi.mock("~/trpc/react", () => ({
   api: {
+    account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
     useUtils: () => ({
       admin: { tutors: { invalidate: mutation.invalidate } },
     }),

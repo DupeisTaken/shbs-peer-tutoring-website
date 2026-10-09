@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { AcademicPanel } from "./academic-profile";
+import { InlineNotice } from "./ui/patterns";
 import { AcademicError } from "./academic-error";
 import {
   useProfilePolicy,
@@ -27,15 +28,17 @@ export function TutorProfileEditor({
   row,
   onClose,
   isHead = false,
+  canApply = true,
 }: {
   row: RouterOutputs["admin"]["tutors"][number];
   onClose: () => void;
   isHead?: boolean;
+  canApply?: boolean;
 }) {
   const t = useTranslations();
   return (
     <ProfileDialog title={t("accountProfile.editProfile")} onClose={onClose}>
-      <TutorProfileForm row={row} isHead={isHead} />
+      <TutorProfileForm row={row} isHead={isHead} canApply={canApply} />
     </ProfileDialog>
   );
 }
@@ -44,6 +47,7 @@ export function TutorProfileEditor({
 function TutorProfileForm({
   row,
   isHead = false,
+  canApply = true,
 }: Omit<ComponentProps<typeof TutorProfileEditor>, "onClose">) {
   const t = useTranslations();
   const [saved, setSaved] = useState(false);
@@ -128,7 +132,7 @@ function TutorProfileForm({
           className="grid gap-4 sm:grid-cols-2"
           actions={
             <Button type="submit" variant="primary" disabled={save.isPending}>
-              {t("accountProfile.save")}
+              {canApply ? t("accountProfile.save") : t("approvals.requestHead")}
             </Button>
           }
         >
@@ -228,7 +232,8 @@ function TutorProfileForm({
               ))}
             </select>
           </label>
-          {save.error && (
+          {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+          {save.error && !save.error.data?.approvalId && (
             <p role="alert" className="text-sm text-red-600 sm:col-span-2">
               <AcademicError message={save.error.message} />
             </p>
@@ -237,7 +242,7 @@ function TutorProfileForm({
       </form>
       {row.user && (
         <div className="mt-5">
-          <AcademicPanel userId={row.user.id} />
+          <AcademicPanel userId={row.user.id} canApply={canApply} />
         </div>
       )}
       {row.historicalGrade && (
