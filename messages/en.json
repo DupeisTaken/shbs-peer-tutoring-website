@@ -4140,8 +4140,8 @@
   },
   "accountInvitation": {
     "enterCode": "Enter your emailed invitation",
-    "reviewTitle": "Review your account and access",
-    "doneTitle": "Invitation accepted",
+    "reviewTitle": "Review Your Account and Access",
+    "doneTitle": "Invitation Accepted",
     "saved": "Your invitation was accepted. Your account and the authorized changes are saved.",
     "historyNext": "Your history-only login is ready. Review and link the exact historical record next; no current participation was added.",
     "nextHelp": "Your next workspace will show any policy, academic confirmation or participation steps still required.",
@@ -4174,7 +4174,7 @@
     "checkKey": "Check invitation key",
     "emailLinkHelp": "Already received an emailed invitation code? Open the invitation link in that same message.",
     "requestCode": "Request a public invitation or sign-in code",
-    "verifyTuteeTitle": "Confirm your email for this request",
+    "verifyTuteeTitle": "Confirm Your Email for This Request",
     "verifyTuteeHelp": "Review your request below. Confirming this emailed link sends your invitation code; your request is completed when you accept that invitation. Its original submission time is retained.",
     "kind": {
       "TUTOR": "Add Tutor participation",
@@ -4190,9 +4190,9 @@
     "accountChanged": "The invited account changed. Request a fresh invitation or contact Head to review the account.",
     "restricted": "Participation is restricted. Ask Head to review the suspension, revocation or school departure before adding access.",
     "passwordRequired": "Choose a password to finish your account setup.",
-    "pageTitle": "Account invitation",
+    "pageTitle": "Account Invitation",
     "pageHelp": "Enter your emailed invitation, or use a staff key to request one.",
-    "requestTitle": "Request an account invitation",
+    "requestTitle": "Request an Account Invitation",
     "requestHelp": "Verify your email to receive a separate invitation code. For a new account, it creates read-only Viewer access. For an existing account, the emailed code signs you in and preserves your password, identity and memberships. Additional verification still applies when enabled."
   }
 }

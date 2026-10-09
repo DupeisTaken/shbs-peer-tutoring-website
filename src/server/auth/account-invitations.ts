@@ -400,7 +400,7 @@ export async function inspectAccountInvitation(
     const row = await tx.accountInvitation.findUnique({
       where: { id: input.invitationId },
     });
-    if (!row || !row.verifiedAt) throw invalid();
+    if (!row?.verifiedAt) throw invalid();
     const owner = await lockedInvitationOwner(tx, row);
     const authenticated = owner && owner.id === input.userId;
     // A saved receipt remains readable by its exact current recipient after code expiry.
