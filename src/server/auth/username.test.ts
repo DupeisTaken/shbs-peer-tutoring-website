@@ -1,8 +1,9 @@
 import { retryUsernameSnapshot } from "./username-snapshot";
 import { beforeEach, afterAll, expect, it, vi } from "vitest";
+const send = vi.hoisted(() => vi.fn<(message: { text?: string }) => Promise<void>>());
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("~/server/email/sender", () => ({
-  emailSender: { send: vi.fn() },
+  emailSender: { send },
   isEmailDeliveryAvailable: () => true,
   isEmailConfigured: () => true,
 }));
@@ -17,8 +18,13 @@ import {
 import { updateAccountUsername } from "~/server/account-username";
 import { issueTutorSetupLink } from "./password-reset";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
+import {
+  verifyAccountInvitation,
+  redeemAccountInvitation,
+} from "./account-invitations";
 
 beforeEach(async () => {
+  send.mockClear();
   const url = new URL(process.env.DATABASE_URL!);
   if (
     !["localhost", "127.0.0.1"].includes(url.hostname) ||
@@ -77,6 +83,32 @@ const tutor = (id: string, username: string | null = null) =>
       status: "ACTIVE",
     },
   });
+
+/** Head issuance reserves no identity. Exercise the recipient's reviewed redemption
+ * before asserting the shared username namespace and roster/account mirrors. */
+async function acceptSetup(email: string) {
+  const message = send.mock.calls.at(-1)?.[0];
+  const invitationId = /invitation=([a-zA-Z0-9_-]+)/.exec(
+    message?.text ?? "",
+  )?.[1];
+  const code = /invitation code is ([A-Z0-9]{5})/.exec(
+    message?.text ?? "",
+  )?.[1];
+  if (!invitationId || !code) throw Error("Expected recipient invitation");
+  const { proof } = await verifyAccountInvitation(db, {
+    invitationId,
+    email,
+    code,
+  });
+  return redeemAccountInvitation(db, {
+    invitationId,
+    proof,
+    reviewed: true,
+    firstName: "John",
+    lastName: "Smith",
+    password: "RecipientPassword42!",
+  });
+}
 
 it.each([false, true])(
   "serializes same-name creation across tables=%s",
@@ -203,6 +235,8 @@ it("bounds and audits verified-student backfill without touching existing handle
 it("preserves the roster handle on first setup and repeated setup", async () => {
   await tutor("roster", "jsmith28");
   await issueTutorSetupLink("roster", "identity-head");
+  expect(await db.user.findUnique({ where: { tutorId: "roster" } })).toBeNull();
+  await acceptSetup("roster@example.test");
   await issueTutorSetupLink("roster", "identity-head");
   expect(
     await db.user.findUnique({ where: { tutorId: "roster" } }),
@@ -217,6 +251,13 @@ it("preserves an existing account handle when setup links a roster tutor", async
   await tutor("existing", "provisional");
   await user("existing", "customhandle");
   await issueTutorSetupLink("existing", "identity-head");
+  expect(await db.user.findUnique({ where: { id: "existing" } })).toMatchObject(
+    {
+      username: "customhandle",
+      tutorId: null,
+    },
+  );
+  await acceptSetup("existing@example.test");
   expect(
     await db.tutor.findUnique({ where: { id: "existing" } }),
   ).toMatchObject({ username: "customhandle" });
@@ -228,12 +269,17 @@ it("preserves an existing account handle when setup links a roster tutor", async
 it("rolls back setup when an unrelated identity owns a legacy roster handle", async () => {
   await tutor("roster", "taken");
   await user("other", "taken");
-  await expect(
-    issueTutorSetupLink("roster", "identity-head"),
-  ).rejects.toMatchObject({ code: "CONFLICT" });
+  await issueTutorSetupLink("roster", "identity-head");
+  await expect(acceptSetup("roster@example.test")).rejects.toMatchObject({
+    code: "CONFLICT",
+  });
   expect(
     await db.user.findUnique({ where: { email: "roster@example.test" } }),
   ).toBeNull();
+  expect(await db.accountInvitation.findFirst()).toMatchObject({
+    completedAt: null,
+  });
+  expect(await db.registrationCode.findFirst()).toMatchObject({ usedAt: null });
 });
 
 it("reconciles old linked divergence to the account and records its old mirror", async () => {

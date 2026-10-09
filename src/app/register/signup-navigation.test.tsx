@@ -155,7 +155,12 @@ it.each(["en", "zh"])(
         .getByRole("link", { name: copy.auth.signupRoutes.invitationLink })
         .getAttribute("href"),
     ).toBe("/register");
-    expect(screen.getByText(copy.public.viewerSignup.intro)).toBeTruthy();
+    expect(
+      screen.getByRole("heading", {
+        name: copy.accountInvitation.requestTitle,
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText(copy.accountInvitation.requestHelp)).toBeTruthy();
     expect(
       screen
         .getByRole("link", { name: copy.survey.requestTutor })

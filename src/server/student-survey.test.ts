@@ -25,6 +25,10 @@ import { adminRouter } from "~/server/api/routers/admin";
 import { resolveTutorLink } from "~/server/auth/tutor-link";
 import { ensureUserUsername } from "~/server/auth/username";
 import {
+  verifyAccountInvitation,
+  redeemAccountInvitation,
+} from "~/server/auth/account-invitations";
+import {
   prepareStudentAction,
   assignStudentRequest,
   editStudentAvailability,
@@ -169,31 +173,72 @@ describe("survey-first enrollment", () => {
     ["Xiaoming Wang", "Xiaoming Wang", "xwang"],
     ["Madonna", undefined, "madonna"],
     ["José García", undefined, "jgarcia"],
-  ])("allocates %s once after verification, with optional spelling %s", async (englishName, preferredLatinName, username) => {
-    await submitSurvey(db, { ...input(), englishName, alternativeNames: "王小明", preferredLatinName, gradeLevel: undefined });
-    expect(await db.user.findUnique({ where: { email } })).toBeNull();
-    const token = lastToken();
-    await confirmSurvey(db, token, password);
-    const account = await db.user.findUniqueOrThrow({ where: { email } });
-    expect(account.username).toBe(username);
-    expect(account.tutorId).toBeNull();
-    await expect(confirmSurvey(db, token, password)).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    expect(await ensureUserUsername(account.id)).toBe(username);
-  });
+  ])(
+    "allocates %s once after verification, with optional spelling %s",
+    async (englishName, preferredLatinName, username) => {
+      await submitSurvey(db, {
+        ...input(),
+        englishName,
+        alternativeNames: "王小明",
+        preferredLatinName,
+        gradeLevel: undefined,
+      });
+      expect(await db.user.findUnique({ where: { email } })).toBeNull();
+      const token = lastToken();
+      await confirmSurvey(db, token, password);
+      const account = await db.user.findUniqueOrThrow({ where: { email } });
+      expect(account.username).toBe(username);
+      expect(account.tutorId).toBeNull();
+      await expect(confirmSurvey(db, token, password)).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+      });
+      expect(await ensureUserUsername(account.id)).toBe(username);
+    },
+  );
   it("gives concurrent same-name verified students distinct stable handles", async () => {
-    await submitSurvey(db, { ...input(), email: "first@example.test", englishName: "Same Name" });
+    await submitSurvey(db, {
+      ...input(),
+      email: "first@example.test",
+      englishName: "Same Name",
+    });
     const firstToken = lastToken();
-    await submitSurvey(db, { ...input(), email: "second@example.test", englishName: "Same Name" });
+    await submitSurvey(db, {
+      ...input(),
+      email: "second@example.test",
+      englishName: "Same Name",
+    });
     const secondToken = lastToken();
-    await Promise.all([confirmSurvey(db, firstToken, password), confirmSurvey(db, secondToken, password)]);
+    await Promise.all([
+      confirmSurvey(db, firstToken, password),
+      confirmSurvey(db, secondToken, password),
+    ]);
     const accounts = await db.user.findMany({ where: { role: "STUDENT" } });
-    expect(new Set(accounts.map((account) => account.username))).toEqual(new Set(["sname", "snameb"]));
+    expect(new Set(accounts.map((account) => account.username))).toEqual(
+      new Set(["sname", "snameb"]),
+    );
   });
   it("retains an existing custom handle when a participant joins as a tutee", async () => {
-    await db.user.create({ data: { email, name: "Established Name", username: "customhandle", role: "CREW", emailVerifiedAt: new Date(), passwordHash: hashPassword(password) } });
-    await submitSurvey(db, { ...input(), englishName: "Different Name", preferredLatinName: "Unrelated Spelling" });
+    await db.user.create({
+      data: {
+        email,
+        name: "Established Name",
+        username: "customhandle",
+        role: "CREW",
+        emailVerifiedAt: new Date(),
+        passwordHash: hashPassword(password),
+      },
+    });
+    await submitSurvey(db, {
+      ...input(),
+      englishName: "Different Name",
+      preferredLatinName: "Unrelated Spelling",
+    });
     await confirmSurvey(db, lastToken());
-    expect(await db.user.findUnique({ where: { email } })).toMatchObject({ username: "customhandle", role: "CREW", tutorId: null });
+    expect(await db.user.findUnique({ where: { email } })).toMatchObject({
+      username: "customhandle",
+      role: "CREW",
+      tutorId: null,
+    });
   });
   it.each([true, false])(
     "describes the submitted intake in confirmation with quarter mode %s",
@@ -495,7 +540,38 @@ describe("survey-first enrollment", () => {
     });
     expect(await db.studentSurvey.findFirstOrThrow()).toEqual(original);
     expect(send).not.toHaveBeenCalled();
-    await api.confirmSurvey({ token });
+    // Cached clients receive an honest continuation; the earlier request remains
+    // unconsumed until its emailed invitation is explicitly accepted.
+    const continuation = api.confirmSurvey({ token });
+    await expect(continuation).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+    });
+    await expect(continuation).rejects.toThrow("Account setup now uses invitations");
+    expect((await db.studentSurvey.findFirstOrThrow()).confirmedAt).toBeNull();
+    expect(await db.tutee.count()).toBe(0);
+    const invitation = await db.accountInvitation.findFirstOrThrow({
+      where: { email },
+    });
+    const code = /invitation code is ([A-Z0-9]{5})/.exec(
+      send.mock.calls.at(-1)![0].text,
+    )?.[1];
+    if (!code) throw Error("Expected recipient invitation code");
+    const { proof } = await verifyAccountInvitation(db, {
+      invitationId: invitation.id,
+      email,
+      code,
+    });
+    await redeemAccountInvitation(
+      db,
+      {
+        invitationId: invitation.id,
+        proof,
+        reviewed: true,
+        firstName: "Existing",
+        lastName: "Student",
+      },
+      account.id,
+    );
     expect(await db.studentSurvey.findFirstOrThrow()).toMatchObject({
       submittedAt: original.submittedAt,
       state: "OPEN",
@@ -1020,7 +1096,7 @@ describe("student request lifecycle", () => {
     // A second subject must survive approval of the first subject's schedule conflict.
     const second = await db.pairing.create({
       data: {
-      scheduleConfirmed: true,
+        scheduleConfirmed: true,
         tutorId: tutor.id,
         termId: row.intakeTermId,
         subject: "Physics",
@@ -1209,7 +1285,8 @@ describe("student request lifecycle", () => {
       data: { body: "Updated student policy" },
     });
     const policy = await studentPolicyStatus(db, user.id);
-  if (policy?.state !== "review") throw new Error("Expected a published policy review");
+    if (policy?.state !== "review")
+      throw new Error("Expected a published policy review");
     expect(policy).not.toBeNull();
     await expect(
       editStudentAvailability(db, user.id, row.id, ["survey-slot"]),
@@ -1253,34 +1330,80 @@ describe("student request lifecycle", () => {
   });
 });
 
-
 it("rejects student signup for an already retired email without creating a request", async () => {
-  await db.user.create({ data: { id: "surviving-student", email: "survivor@example.test", role: "STUDENT" } });
-  await db.user.create({ data: { email, role: "STUDENT", mergedIntoId: "surviving-student" } });
-  await expect(submitSurvey(db, input())).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await db.user.create({
+    data: {
+      id: "surviving-student",
+      email: "survivor@example.test",
+      role: "STUDENT",
+    },
+  });
+  await db.user.create({
+    data: { email, role: "STUDENT", mergedIntoId: "surviving-student" },
+  });
+  await expect(submitSurvey(db, input())).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
   expect(await db.studentSurvey.count()).toBe(0);
   expect(send).not.toHaveBeenCalled();
 });
 
 it("refuses an old signup link after its passwordless account is retired", async () => {
-  await db.user.create({ data: { id: "surviving-student", email: "survivor@example.test", role: "STUDENT" } });
-  const account = await db.user.create({ data: { email, role: "STUDENT", passwordHash: null } });
+  await db.user.create({
+    data: {
+      id: "surviving-student",
+      email: "survivor@example.test",
+      role: "STUDENT",
+    },
+  });
+  const account = await db.user.create({
+    data: { email, role: "STUDENT", passwordHash: null },
+  });
   await submitSurvey(db, input());
   const token = lastToken();
-  await db.user.update({ where: { id: account.id }, data: { mergedIntoId: "surviving-student" } });
-  await expect(inspectSurvey(db, token)).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await expect(confirmSurvey(db, token, password)).rejects.toMatchObject({ code: "FORBIDDEN" });
-  expect(await db.user.findUniqueOrThrow({ where: { id: account.id } })).toMatchObject({ passwordHash: null, studentId: null, mergedIntoId: "surviving-student" });
+  await db.user.update({
+    where: { id: account.id },
+    data: { mergedIntoId: "surviving-student" },
+  });
+  await expect(inspectSurvey(db, token)).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+  await expect(confirmSurvey(db, token, password)).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+  ).toMatchObject({
+    passwordHash: null,
+    studentId: null,
+    mergedIntoId: "surviving-student",
+  });
   expect((await db.studentSurvey.findFirstOrThrow()).confirmedAt).toBeNull();
 });
 
 it("preserves all four name fields when staff materialize an intake before account confirmation", async () => {
-  await submitSurvey(db, { ...input(), englishName: "Alexander Chen", firstName: "Alexander", lastName: "Chen", preferredName: "Alex", alternativeNames: "陈晓明" });
+  await submitSurvey(db, {
+    ...input(),
+    englishName: "Alexander Chen",
+    firstName: "Alexander",
+    lastName: "Chen",
+    preferredName: "Alex",
+    alternativeNames: "陈晓明",
+  });
   const row = await db.studentSurvey.findFirstOrThrow();
   const { materializeStudent } = await import("./student-survey");
-  const profile = await db.$transaction(tx => materializeStudent(tx, row));
+  const profile = await db.$transaction((tx) => materializeStudent(tx, row));
   // Current profiles use the preferred-name default; submitted evidence retains its original names.
-  expect(profile).toMatchObject({ firstName: "Alexander", lastName: "Chen", preferredName: "Alex", alternativeNames: "陈晓明", englishName: "Alex Chen" });
-  expect((await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } })).payload).toEqual(row.payload);
+  expect(profile).toMatchObject({
+    firstName: "Alexander",
+    lastName: "Chen",
+    preferredName: "Alex",
+    alternativeNames: "陈晓明",
+    englishName: "Alex Chen",
+  });
+  expect(
+    (await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }))
+      .payload,
+  ).toEqual(row.payload);
   expect(await db.user.findUnique({ where: { email } })).toBeNull();
 });

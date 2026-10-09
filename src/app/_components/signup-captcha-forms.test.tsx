@@ -38,7 +38,10 @@ const mocks = vi.hoisted(() => ({
 // service responses and the unrelated policy reader are replaced in this test.
 function useFeatureMutation(
   work: (input: unknown) => Promise<unknown>,
-  options?: { onSuccess: (data: { completionProof: string }) => void },
+  options?: {
+    onSuccess: (data: { emailSent: boolean; invitationId?: string }) => void;
+    onSettled?: () => void;
+  },
 ) {
   const [isPending, setPending] = useState(false);
   const [isSuccess, setSuccess] = useState(false);
@@ -47,15 +50,19 @@ function useFeatureMutation(
     setPending(true);
     setError(null);
     try {
-      await work(input);
-      options?.onSuccess({ completionProof: "c".repeat(64) });
+      const data = ((await work(input)) ?? { emailSent: true }) as {
+        emailSent: boolean;
+        invitationId?: string;
+      };
+      options?.onSuccess(data);
       setSuccess(true);
-      return { emailSent: true };
+      return data;
     } catch (failure) {
       setError(failure as Error);
       throw failure;
     } finally {
       setPending(false);
+      options?.onSettled?.();
     }
   }
   return {
@@ -154,6 +161,13 @@ vi.mock("./policy-agreement", () => ({
 }));
 vi.mock("../signup/signin-access", () => ({ SigninAccess: () => null }));
 vi.mock("../signup/survey-resend", () => ({ SurveyResend: () => null }));
+// Email verification hands off to shared redemption; it must never create a
+// Viewer-specific password stage or reuse the mailbox code as an invitation.
+vi.mock("../register/invitation-redemption", () => ({
+  InvitationRedemption: ({ invitationId }: { invitationId: string }) => (
+    <div data-testid="recipient-invitation">{invitationId}</div>
+  ),
+}));
 
 let callbacks: Promise<unknown>[];
 beforeEach(() => {
@@ -325,7 +339,7 @@ it.each<Locale>(["en", "zh"])(
   },
 );
 
-it.each(["details", "code", "password"] as const)(
+it.each(["details", "code"] as const)(
   "keeps Viewer %s challenge operable through cancellation, rejection and retry",
   async (step) => {
     const locale: Locale = step === "code" ? "zh" : "en";
@@ -337,13 +351,6 @@ it.each(["details", "code", "password"] as const)(
     if (step !== "details") {
       await finish((await stage(trigger, locale)).verify);
       fill("#obs-code", "ABCDE");
-      if (step === "password") {
-        await act(async () => {
-          featureSubmit();
-        });
-        fill("#obs-pass", "RetainedPassword1!");
-        fill("#obs-confirm", "RetainedPassword1!");
-      }
       trigger = screen.getByRole("button", {
         name: copy(locale).public.viewerSignup.resend,
       });
@@ -351,9 +358,7 @@ it.each(["details", "code", "password"] as const)(
     const draft =
       step === "details"
         ? name
-        : document.querySelector<HTMLInputElement>(
-            step === "code" ? "#obs-code" : "#obs-pass",
-          )!;
+        : document.querySelector<HTMLInputElement>("#obs-code")!;
     const value = draft.value,
       startedBefore = mocks.start.mock.calls.length,
       verifiedBefore = mocks.verifyEmail.mock.calls.length;
@@ -413,6 +418,55 @@ it.each(["details", "code", "password"] as const)(
         captchaGrant: "a".repeat(64),
       }),
     );
+  },
+);
+
+it.each<Locale>(["en", "zh"])(
+  "hands verified Viewer identity to a distinct recipient invitation (%s)",
+  async (locale) => {
+    show(true, locale);
+    fillIdentity(true);
+    await finish(
+      (
+        await stage(
+          screen.getByRole("button", {
+            name: copy(locale).public.viewerSignup.sendCode,
+          }),
+          locale,
+        )
+      ).verify,
+    );
+    fill("#obs-code", "ABCDE");
+    let release!: () => void;
+    mocks.verifyEmail.mockImplementationOnce(
+      () =>
+        new Promise<{ invitationId: string }>((resolve) => {
+          release = () =>
+            resolve({ invitationId: "separate-recipient-invitation" });
+        }),
+    );
+    await act(async () => {
+      featureSubmit();
+      featureSubmit();
+    });
+    expect(mocks.verifyEmail).toHaveBeenCalledTimes(1);
+    expect(mocks.verifyEmail).toHaveBeenCalledWith({
+      email: "viewer@example.test",
+      code: "ABCDE",
+    });
+    expect(document.querySelector("#obs-code")!.matches(":disabled")).toBe(
+      true,
+    );
+    await act(async () => {
+      release();
+    });
+    expect(screen.getByTestId("recipient-invitation").textContent).toBe(
+      "separate-recipient-invitation",
+    );
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+    expect(document.querySelector("#obs-code")).toBeNull();
+    expect(mocks.complete).not.toHaveBeenCalled();
+    expect(mocks.start).toHaveBeenCalledTimes(1);
   },
 );
 
