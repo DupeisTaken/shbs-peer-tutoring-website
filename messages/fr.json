@@ -3314,7 +3314,28 @@
     "saved": "Paramètres e-mail enregistrés.",
     "bindingTitle": "Adresses e-mail secondaires",
     "bindingHelp": "Autorisez l’ajout et la vérification facultatifs d’adresses secondaires, indépendamment des notifications. La désactivation conserve les adresses existantes et les exigences de connexion principale.",
-    "bindingEnable": "Autoriser les adresses secondaires"
+    "bindingEnable": "Autoriser les adresses secondaires",
+    "loading": "Chargement des paramètres de messagerie…",
+    "retrySettings": "Recharger les paramètres",
+    "settingsFailed": "Impossible de charger les paramètres de messagerie. Réessayez avant de les modifier.",
+    "deliveryTitle": "État de l’envoi des e-mails",
+    "deliveryHelp": "Vérifie la connexion SMTP et l’authentification, pas la réception dans la boîte de réception. Les résultats sont partagés pendant une minute au maximum et sont actualisés tant que cette page est ouverte. Actualiser l’état ne renvoie aucun e-mail et ne fait pas passer le programme à la période suivante.",
+    "refreshStatus": "Actualiser l’état",
+    "checking": "Vérification de l’état des e-mails…",
+    "statusFailed": "Impossible de vérifier l’état des e-mails. L’état de l’envoi est inconnu. Actualisez l’état pour réessayer.",
+    "statusStale": "L’actualisation de l’état a échoué. Les résultats ci-dessous proviennent de la dernière vérification ; l’état actuel de l’envoi est inconnu.",
+    "checkedAt": "Dernière vérification : {time}",
+    "retrying": "E-mails en attente d’une nouvelle tentative après une erreur d’envoi : {count}. Vérifiez le service de messagerie même si la vérification de connexion réussit.",
+    "channel": {
+      "SECURITY": "E-mails de sécurité",
+      "PROGRAM": "E-mails du programme"
+    },
+    "transport": {
+      "READY": "La connexion SMTP et l’authentification ont réussi.",
+      "UNAVAILABLE": "La connexion SMTP ou l’authentification a échoué. L’envoi d’e-mails est peut-être indisponible. Demandez à l’administrateur du déploiement de vérifier le service de messagerie.",
+      "UNCONFIGURED": "L’envoi par SMTP n’est pas configuré. Demandez à l’administrateur du déploiement de configurer cet expéditeur.",
+      "LOCAL": "Les messages sont uniquement consignés dans les journaux de développement. Aucun e-mail n’est envoyé dans une boîte de réception."
+    }
   },
   "membership": {
     "title": "Roles and Participation",

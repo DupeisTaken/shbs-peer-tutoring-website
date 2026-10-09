@@ -3282,7 +3282,28 @@
     "saved": "邮箱设置已保存。",
     "bindingTitle": "备用邮箱绑定",
     "bindingHelp": "允许用户自愿添加并验证备用邮箱。此功能独立于通知设置。关闭后保留现有邮箱及主邮箱登录要求。",
-    "bindingEnable": "允许绑定备用邮箱"
+    "bindingEnable": "允许绑定备用邮箱",
+    "loading": "正在加载邮件设置…",
+    "retrySettings": "重试加载设置",
+    "settingsFailed": "无法加载邮件设置。请重试后再修改设置。",
+    "deliveryTitle": "邮件投递状态",
+    "deliveryHelp": "此检查仅验证 SMTP 连接及身份认证，不保证邮件到达收件箱。检查结果最多共享一分钟，并在此页面打开时更新。刷新状态不会重新发送邮件或推进项目周期。",
+    "refreshStatus": "刷新状态",
+    "checking": "正在检查邮件状态…",
+    "statusFailed": "无法检查邮件状态，目前投递状况未知。请刷新状态重试。",
+    "statusStale": "状态刷新失败。下方显示上次检查的结果，目前投递状况未知。",
+    "checkedAt": "上次检查：{time}",
+    "retrying": "{count} 封队列邮件投递出错，正在等待再次尝试。即使连接检查通过，也请检查邮件服务。",
+    "channel": {
+      "SECURITY": "安全邮件",
+      "PROGRAM": "项目邮件"
+    },
+    "transport": {
+      "READY": "SMTP 连接及身份认证检查通过。",
+      "UNAVAILABLE": "SMTP 连接或身份认证失败，邮件可能无法投递。请联系部署管理员检查邮件服务。",
+      "UNCONFIGURED": "尚未配置 SMTP 投递。请联系部署管理员配置此发件账户。",
+      "LOCAL": "仅记录开发日志，不会向收件箱发送邮件。"
+    }
   },
   "membership": {
     "title": "角色与参与身份",

@@ -19,6 +19,7 @@ import {
 } from "~/server/program/features";
 import { recordAudit } from "~/server/audit/log";
 import { isEmailDeliveryAvailable } from "~/server/email/sender";
+import { getEmailDeliveryStatus } from "~/server/email/delivery-status";
 
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { isProgramTimeZone } from "~/lib/program-time";
@@ -240,6 +241,10 @@ export const programRouter = createTRPCRouter({
         return { ok: true };
       }),
     ),
+  // Separate diagnostics keep slow SMTP authentication out of immediate settings reads.
+  emailDeliveryStatus: adminProcedure.query(({ ctx }) =>
+    getEmailDeliveryStatus(ctx.db),
+  ),
   emailNotificationSettings: adminProcedure.query(async ({ ctx }) => {
     const settings = await ctx.db.programSettings.findUnique({
       where: { id: "program" },

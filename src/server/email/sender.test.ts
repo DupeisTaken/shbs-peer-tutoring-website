@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Socket } from "node:net";
 
 const smtp = vi.hoisted(() => {
   const env: Record<string, string | number | undefined> = {};
@@ -61,7 +62,10 @@ beforeEach(() => {
   vi.spyOn(console, "warn").mockImplementation(() => undefined);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe("purpose-based sender routing", () => {
   it.each(["SECURITY", "PROGRAM"] as const)(
@@ -261,5 +265,25 @@ describe("purpose-based sender routing", () => {
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(
       "private-sentinel",
     );
+    expect(smtp.send).not.toHaveBeenCalled();
+    expect(smtp.close).toHaveBeenCalledTimes(2);
+    for (const [options] of smtp.create.mock.calls) {
+      expect(options).not.toHaveProperty("pool");
+      expect((options as { socket: Socket }).socket.destroyed).toBe(true);
+    }
+  });
+  it("bounds stalled diagnostics and closes only their owned socket", async () => {
+    vi.useFakeTimers();
+    dedicated("SECURITY");
+    smtp.verify.mockImplementationOnce(() => new Promise(() => undefined));
+    const pending = verifyEmailTransport("SECURITY");
+    const options = smtp.create.mock.calls[0]![0] as { socket: Socket };
+    expect(options.socket.destroyed).toBe(false);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(await pending).toBe(false);
+    expect(options.socket.destroyed).toBe(true);
+    expect(smtp.close).toHaveBeenCalledTimes(1);
+    expect(smtp.send).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

@@ -6,10 +6,13 @@ const mail = vi.hoisted(() => ({
 vi.mock("./sender", () => ({
   emailSender: { send: mail.send },
   isEmailDeliveryAvailable: () => true,
+  isEmailConfigured: () => false,
+  verifyEmailTransport: vi.fn(),
 }));
 import { db } from "~/server/db";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { deliverNotifications } from "./notification-delivery";
+import { getEmailDeliveryStatus } from "./delivery-status";
 import { renderEmail } from "./template";
 
 const uid = "email192-synthetic";
@@ -147,4 +150,31 @@ it("releases the lease and retries safely when the public origin is invalid", as
       leaseUntil: null,
       attempts: 1,
     });
+});
+
+it("reports the first SMTP failure as retrying and clears it after successful delivery", async () => {
+  await db.notification.create({
+    data: { userId: uid, title: "Synthetic program update", link: "/messages" },
+  });
+  mail.send.mockRejectedValue(new Error("Private provider diagnostic"));
+  await deliverNotifications();
+  const failedAttempt = await getEmailDeliveryStatus(db);
+  expect(failedAttempt).toMatchObject({ retrying: 2, failed: 0 });
+  expect(mail.send).toHaveBeenCalledTimes(2);
+  expect(JSON.stringify(failedAttempt)).not.toContain(
+    "Private provider diagnostic",
+  );
+
+  // Make the durable retry due without waiting or altering the worker's retry policy.
+  await db.emailDelivery.updateMany({
+    where: { userId: uid },
+    data: { availableAt: new Date(0) },
+  });
+  mail.send.mockResolvedValue(undefined);
+  await deliverNotifications();
+  expect(await getEmailDeliveryStatus(db)).toMatchObject({
+    retrying: 0,
+    failed: 0,
+  });
+  expect(mail.send).toHaveBeenCalledTimes(4);
 });
