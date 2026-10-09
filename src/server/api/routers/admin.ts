@@ -5224,6 +5224,34 @@ export const adminRouter = createTRPCRouter({
       }),
     ),
 
+  auditLogDetail: adminProcedure
+    .input(z.object({ id: cuid }))
+    .query(async ({ ctx, input }) => {
+      // Read immutable event evidence on demand. Executable undo instructions and
+      // current entity/account joins are intentionally outside this read contract.
+      const entry = await ctx.db.auditLog.findUnique({
+        where: { id: input.id },
+        select: {
+          id: true,
+          userId: true,
+          userName: true,
+          createdAt: true,
+          kind: true,
+          operation: true,
+          entity: true,
+          entityId: true,
+          action: true,
+          approvalId: true,
+          details: true,
+          undone: true,
+          undoneAt: true,
+        },
+      });
+      if (!entry)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Audit entry not found." });
+      return entry;
+    }),
+
   auditFilterOptions: viewerProcedure.query(async ({ ctx }) => {
     const [users, historical, operations, entities] = await Promise.all([
       ctx.db.user.findMany({

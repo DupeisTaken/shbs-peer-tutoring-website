@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import zh from "../../../messages/zh.json";
 import messages from "../../../messages/en.json";
 import AuditPage from "../(admin)/admin/audit/page";
@@ -41,12 +42,17 @@ const state = vi.hoisted(() => {
         id: "audit-1",
         createdAt: date,
         userName: "Coordinator",
+        userId: "coordinator-1",
+        entity: "ProgramSettings",
+        entityId: "program",
+        operation: "program.setProfilePolicy",
         kind: "ACTION",
         action: "Updated tutoring settings",
         details: { privateNote: "Detailed audit payload" },
         approvalId: "approval-1",
         undoData: { previous: true },
         undone: false,
+        undoneAt: null,
       },
     ],
     sessions: [
@@ -250,6 +256,10 @@ vi.mock("~/trpc/react", () => ({
     },
     admin: {
       auditLog: { useQuery: () => ({ data: state.audit }) },
+      auditLogDetail: {
+        _def: () => ({ path: ["admin", "auditLogDetail"] }),
+        useQuery: () => ({ data: state.audit[0] }),
+      },
       undoAudit: {
         useMutation: () => ({ mutate: state.undo, isPending: false }),
       },
@@ -274,16 +284,22 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 
+let queryClient: QueryClient;
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <NextIntlClientProvider
-    locale="en"
-    messages={messages}
-    timeZone="Asia/Shanghai"
-  >
-    {children}
-  </NextIntlClientProvider>
+  <QueryClientProvider client={queryClient}>
+    <NextIntlClientProvider
+      locale="en"
+      messages={messages}
+      timeZone="Asia/Shanghai"
+    >
+      {children}
+    </NextIntlClientProvider>
+  </QueryClientProvider>
 );
 beforeEach(() => {
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   vi.clearAllMocks();
   state.readOnly = false;
   state.accountRole = "HEAD";
@@ -303,6 +319,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  queryClient.clear();
   vi.restoreAllMocks();
 });
 

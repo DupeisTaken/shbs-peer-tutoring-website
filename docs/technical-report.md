@@ -254,6 +254,21 @@ Subject willingness UI: `subjectAvailability.mySubjects` loads on dialog open an
 
 Audit events identify actors by stable account ID. Generic mutation summaries record operations without raw passwords or tokens; detailed correction and approval evidence is retained separately. The audit is not a page-access log, and a generic summary does not guarantee that every direct operation and audit insert share one transaction. Review metadata and undo payloads are not exposed to VIEWER accounts.
 
+`admin.auditLogDetail` is an on-demand, live-staff-authorized projection of one
+stored event. It selects recorded metadata, evidence and undo status/time, excluding
+executable `undoData`; it never joins current actors or targets to reconstruct
+history. The audit page mounts `AuditEventDetails` inside `TableDetails` only for
+staff, refreshing on each opening. Observers keep the existing projected summary
+and cannot call the detail endpoint. The feature renders stored before/after and
+nested evidence with exact field names, an explicit no-evidence state, precise
+local/UTC times and read-only retry. It changes neither writer coverage nor old
+records, approval/undo rules, filtering or pagination. Endpoint, component and
+page regressions cover this boundary; browser evidence belongs in ignored `outputs/`.
+Authorization denial removes that event's private query cache and stays latched
+through failed retries until a fresh successful read. Reopening cannot revive
+revoked evidence. The lazy JSON disclosure preserves primitive types and escaping;
+real QueryClient regressions cover the denial/retry/reopen sequence.
+
 ## Student lifecycle and ownership
 
 The original survey submission determines queue priority. Confirmation creates or links an account without replacing its existing role or password. Account links expire after 24 hours. First assignment of an unverified request starts a fixed seven-day deadline; neither resends nor reassignment extends it.

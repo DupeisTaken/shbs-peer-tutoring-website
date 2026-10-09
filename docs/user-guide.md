@@ -352,6 +352,16 @@ In **Subject Availability**, expand a tutor to reveal **Qualified**, **Pending R
 - Use **Policies** to publish revised documents following the [publication steps](policies/README.md#publish-a-revision). On a fresh site, start with the blank **Tutee Policy** and **Tutor Policy** editors and save the reviewed English text before adding translations. Updating repository files alone does not change an already running site.
 - Use **Audit Log** to filter by actor, event, operation, record or UTC date. A proposal and its applied action are distinct events. Actor filters use stable account identities: matching names stay separate, and removed users appear as Former account.
 
+In **Audit Log → Actions → Details**, Head, Admin and Coordinator can inspect the
+recorded actor and account ID, event and target IDs, operation, exact timestamp
+(including UTC), approval link and undo time. Recorded before/after values and other
+evidence are shown as readable fields; the stored field names remain visible.
+Open **View stored JSON** to distinguish exact value types and escaped text.
+Missing detailed evidence is explicitly identified: older events and generic
+operation summaries may never have recorded it. Details do not reconstruct past
+values from current profiles. Observers retain the restricted summary. If a detail
+read fails, use Retry; this only reloads the event and never repeats its action.
+
 ### Signup request tabs
 
 Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history.
