@@ -85,7 +85,7 @@ function AcademicSectionTitle() {
 }
 
 /** Mutation observers only exist while a dialog is open, even on a long roster. */
-function EmailContent({
+export function EmailContent({
   email,
   verifiedAt,
   userId,

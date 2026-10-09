@@ -30,6 +30,22 @@ beforeEach(() => {
   });
 });
 
+it("keeps a long translated title accessible and its Close control operable", () => {
+  const onClose = vi.fn();
+  const title =
+    "用户详情 · Alexandria Montgomery-Wellington — retained participant records";
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <ProfileDialog title={title} onClose={onClose}>
+        <p>Details</p>
+      </ProfileDialog>
+    </NextIntlClientProvider>,
+  );
+  const dialog = screen.getByRole("dialog", { name: title });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+  expect(onClose).toHaveBeenCalledOnce();
+});
+
 it.each(["close control", "Escape cancellation"])(
   "returns focus to its table trigger after %s",
   (method) => {

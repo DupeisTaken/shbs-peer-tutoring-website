@@ -1,12 +1,15 @@
 "use client";
 
-import { accountMembership, membershipBadges } from "~/lib/account-membership";
+import { accountMembership } from "~/lib/account-membership";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "~/app/_components/ui/button";
 import { StatePanel } from "~/app/_components/ui/patterns";
-import { EmailDetails } from "~/app/_components/email-details";
+import { UserDetails } from "./user-details";
+import { LoginSetup, MembershipBadges } from "./presentation";
+import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
+import Link from "next/link";
 import { CombineAccounts } from "~/app/_components/combine-accounts";
 import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
 import { TutorProfileEditor } from "~/app/_components/tutor-profile-editor";
@@ -256,11 +259,6 @@ export default function UsersPage() {
     const dir = sort.dir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       switch (sort.key) {
-        case "tutor":
-          return (
-            compare(a.tutor?.englishName ?? "", b.tutor?.englishName ?? "") *
-            dir
-          );
         case "account":
           return compare(a.account, b.account) * dir;
         case "role":
@@ -271,13 +269,6 @@ export default function UsersPage() {
       }
     });
   }, [accounts.data, sort.key, sort.dir, filters]);
-
-  const accountBadge = (status: string) =>
-    status === "registered"
-      ? "badge-green"
-      : status === "none"
-        ? "badge-slate"
-        : "badge-amber";
 
   return (
     <div className="space-y-6">
@@ -322,9 +313,31 @@ export default function UsersPage() {
         </p>
       </div>
 
+      <section className="card space-y-3 p-4 text-sm">
+        <p>{t("usersDirectory.intro")}</p>
+        <DisclosureSection title={t("usersDirectory.pathways")} lifetime="lazy">
+          <div className="space-y-3 pt-3 text-slate-700">
+            <p>
+              {t("usersDirectory.pathwaysTutee")}{" "}
+              <Link href="/admin/tutees" className="link">
+                {t("usersDirectory.tuteeList")}
+              </Link>
+            </p>
+            <p>
+              {t("usersDirectory.pathwaysInvite")}{" "}
+              <Link href="/admin/registration-codes" className="link">
+                {t("usersDirectory.invitations")}
+              </Link>
+            </p>
+            <p>{t("usersDirectory.pathwaysExisting")}</p>
+            <p>{t("usersDirectory.pathwaysHistory")}</p>
+          </div>
+        </DisclosureSection>
+      </section>
       {isHead && <CombineAccounts />}
       <section className="card space-y-3 p-4">
         <p className="muted text-sm">{t("userMultiFilters.hint")}</p>
+        <p className="muted text-sm">{t("usersDirectory.visibility")}</p>
         <div
           className={`grid items-start gap-3 ${isTutorStatusApplicable(filters.role) ? "md:grid-cols-3" : "md:grid-cols-2"}`}
         >
@@ -361,7 +374,7 @@ export default function UsersPage() {
             label={t("admin.users.filters.account")}
             options={ACCOUNT_STATES.map((value) => ({
               value,
-              label: t(`admin.tutors.account.${value}`),
+              label: t(`usersDirectory.setup.${value}`),
             }))}
             value={filters.account}
             onChange={(account) => updateFilters({ ...filters, account })}
@@ -369,9 +382,10 @@ export default function UsersPage() {
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p role="status" className="muted text-sm">
-            {t("userMultiFilters.count", {
+            {t("usersDirectory.count", {
               count: rows.length,
               total: accounts.data?.rows.length ?? 0,
+              hidden: (accounts.data?.rows.length ?? 0) - rows.length,
             })}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -514,14 +528,11 @@ export default function UsersPage() {
               <SortHeader sort={sort} sortKey="name">
                 {t("admin.users.columns.user")}
               </SortHeader>
-              <SortHeader sort={sort} sortKey="tutor">
-                {t("admin.users.columns.linkedTutor")}
-              </SortHeader>
               <SortHeader sort={sort} sortKey="account">
-                {t("admin.users.columns.account")}
+                {t("usersDirectory.loginSetup")}
               </SortHeader>
               <SortHeader sort={sort} sortKey="role">
-                {t("admin.users.columns.role")}
+                {t("usersDirectory.rolesParticipation")}
               </SortHeader>
               <th className="table-actions-heading">
                 {t("tablePatterns.actions")}
@@ -531,7 +542,7 @@ export default function UsersPage() {
           <tbody>
             {!accounts.data && !accounts.error && (
               <tr>
-                <td colSpan={5}>
+                <td colSpan={4}>
                   <StatePanel kind="loading" title={t("common.loading")} />
                 </td>
               </tr>
@@ -560,96 +571,16 @@ export default function UsersPage() {
                     </div>
                   </td>
 
-                  {/* Tutor participation remains separate from account-wide academics. */}
-                  <td className="text-slate-600">
-                    {u.tutor ? (
-                      <div className="leading-tight">
-                        <p>{u.tutor.englishName}</p>
-                        <p className="muted text-xs">
-                          {u.tutorStatus
-                            ? t(`admin.tutorStatus.${u.tutorStatus}`)
-                            : ""}
-                        </p>
-                        {u.academic.expectedGraduationYear != null && (
-                          <p className="muted text-xs">
-                            {t("admin.tutors.classOf", {
-                              year: u.academic.expectedGraduationYear,
-                            })}
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      "—"
-                    )}
+                  <td className="max-w-56">
+                    <LoginSetup account={u.account} suspended={u.suspended} />
                   </td>
-
-                  {/* Account columns summarize state; provisioning and moderation live in Actions. */}
-                  <td>
-                    <span
-                      className={
-                        u.suspended ? "badge-red" : accountBadge(u.account)
-                      }
-                    >
-                      {u.suspended
-                        ? t("admin.users.suspended")
-                        : t(`admin.tutors.account.${u.account}`)}
-                    </span>
-                  </td>
-
-                  {/* Readable, composable badges; assignments live inside Edit Profile. */}
-                  <td>
-                    <div className="flex flex-wrap gap-1.5">
-                      {membershipBadges(accountMembership(u)).map((badge) => (
-                        <span
-                          key={badge}
-                          className={
-                            badge === "HEAD" ? "badge-green" : "badge-slate"
-                          }
-                        >
-                          {badge === "TRANSLATOR"
-                            ? t("membership.translator")
-                            : t(`admin.users.roles.${badge}`)}
-                        </span>
-                      ))}
-                    </div>
+                  <td className="max-w-56">
+                    <MembershipBadges membership={accountMembership(u)} />
                   </td>
 
                   {/* Contact/profile actions stay available to permitted staff. Only deletion is head-only. */}
                   <TableActions>
-                    <EmailDetails
-                      academic={u.academic}
-                      showPolicyHistory
-                      email={u.email}
-                      name={u.name}
-                      verifiedAt={u.emailVerifiedAt}
-                      userId={u.userId}
-                      tutorId={u.tutorId}
-                      linked={!!u.userId}
-                      canSendSetup={
-                        !!u.userId ||
-                        (!!u.tutorId && u.email === u.tutor?.email)
-                      }
-                      details={
-                        <dl className="mb-4 space-y-3 text-sm">
-                          {u.alternativeNames && (
-                            <div>
-                              <dt className="muted">
-                                {t("accountProfile.alternativeNames")}
-                              </dt>
-                              <dd>{u.alternativeNames}</dd>
-                            </div>
-                          )}
-                          {u.affiliation && (
-                            <div>
-                              <dt className="muted">
-                                {t("admin.users.columns.account")}
-                              </dt>
-                              <dd>{u.affiliation}</dd>
-                            </div>
-                          )}
-                        </dl>
-                      }
-                    />
+                    <UserDetails row={u} />
                     {/* Registered accounts recover access themselves; only unfinished tutor logins are provisioned. */}
                     {u.tutorId &&
                       (u.account === "none" || u.account === "setup") && (
@@ -770,7 +701,7 @@ export default function UsersPage() {
             })}
             {accounts.data && rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="text-slate-500">
+                <td colSpan={4} className="text-slate-500">
                   {t("admin.users.empty")}
                 </td>
               </tr>

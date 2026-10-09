@@ -5,6 +5,12 @@ import { z } from "zod";
 import { accountMembership, membershipBadges } from "~/lib/account-membership";
 import { tutorSubjectGroups } from "~/lib/tutor-details";
 import { adminProcedure, createTRPCRouter } from "~/server/api/trpc";
+import {
+  isHistoricalTutor,
+  legacyAcademicRecordId,
+} from "~/lib/historical-academics";
+import { historicalAcademicSnapshot } from "~/server/historical-academics";
+import { normalizeGrade } from "~/lib/academics";
 
 /** Staff inspection has the same privacy boundary as account policy history.
  * This router is read-only and does not confer membership-edit permissions. */
@@ -74,30 +80,69 @@ export const tutorDetailsRouter = createTRPCRouter({
         where: { active: true },
         select: { schoolYear: true },
       });
+      // Historical details must use saved enrollment evidence even when a retained
+      // profile has since been reactivated and its roster mirror changed.
+      const historicalGrade =
+        isHistoricalTutor(tutor) ||
+        !!(await ctx.db.historicalAcademicRecord.count({
+          where: { id: legacyAcademicRecordId("TUTOR", tutor.id) },
+        }));
+      const original = historicalGrade
+        ? (
+            await historicalAcademicSnapshot(
+              ctx.db,
+              legacyAcademicRecordId("TUTOR", tutor.id),
+            )
+          ).original
+        : null;
+      const originalGrade = normalizeGrade(original?.rawGrade);
       return {
-        academic: academicSummary(
-          tutor.user?.academicProfile ??
-            (!tutor.academicallyGraduated &&
-            tutor.gradeSchoolYear &&
-            tutor.gradeConfirmedAt
-              ? {
-                  status: "REPORTED",
-                  gradeLevel: tutor.gradeLevel,
-                  rawGrade: null,
-                  schoolYear: tutor.gradeSchoolYear,
-                  confirmedAt: tutor.gradeConfirmedAt,
+        historicalGrade,
+        academic: original
+          ? {
+              ...academicSummary(
+                {
+                  status: original.academicallyGraduated
+                    ? "GRADUATED"
+                    : originalGrade.gradeLevel !== null
+                      ? "REPORTED"
+                      : "UNKNOWN",
+                  ...originalGrade,
+                  schoolYear: original.schoolYear,
+                  confirmedAt: original.originalConfirmedAt,
                   reconfirmRequired: false,
-                }
-              : legacyAcademic(tutor.gradeLevel, tutor.academicallyGraduated)),
-          term?.schoolYear,
-        ),
+                },
+                original.schoolYear,
+              ),
+              needsConfirmation: false,
+            }
+          : academicSummary(
+              tutor.user?.academicProfile ??
+                (!tutor.academicallyGraduated &&
+                tutor.gradeSchoolYear &&
+                tutor.gradeConfirmedAt
+                  ? {
+                      status: "REPORTED",
+                      gradeLevel: tutor.gradeLevel,
+                      rawGrade: null,
+                      schoolYear: tutor.gradeSchoolYear,
+                      confirmedAt: tutor.gradeConfirmedAt,
+                      reconfirmRequired: false,
+                    }
+                  : legacyAcademic(
+                      tutor.gradeLevel,
+                      tutor.academicallyGraduated,
+                    )),
+              term?.schoolYear,
+            ),
         id: tutor.id,
         name: tutor.englishName,
         alternativeNames: tutor.alternativeNames,
         username: tutor.user?.username ?? tutor.username,
         email: tutor.user?.email ?? tutor.email,
-        gradeLevel: tutor.gradeLevel,
-        academicallyGraduated: tutor.academicallyGraduated,
+        gradeLevel: original ? originalGrade.gradeLevel : tutor.gradeLevel,
+        academicallyGraduated:
+          original?.academicallyGraduated ?? tutor.academicallyGraduated,
         status: tutor.status,
         // A historical account link does not imply current tutoring access.
         tutorAccessRevoked: tutor.user?.tutorAccessRevoked ?? false,

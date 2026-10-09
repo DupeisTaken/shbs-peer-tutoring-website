@@ -8,8 +8,6 @@ import { api } from "~/trpc/react";
 import { AcceptanceRecords } from "./acceptance-records";
 import { ProfileDialog } from "./profile-dialog";
 import { useReadOnly } from "./read-only";
-import { isPastTutor } from "~/lib/tutor-visibility";
-import { EnrollmentGrade } from "./tutee-history";
 import { AcademicDetails } from "./academic-profile";
 
 /** Keep the entry in the roster's trailing action column.
@@ -130,14 +128,12 @@ function TutorDetails({ tutorId }: { tutorId: string }) {
           <div>
             <dt className="muted">{common("academics.title")}</dt>
             <dd className="mt-1">
-              {isPastTutor(detail.status) ? (
-                <EnrollmentGrade
-                  grade={detail.gradeLevel?.toString()}
-                  graduated={detail.academicallyGraduated}
-                />
-              ) : (
-                <AcademicDetails academic={detail.academic} />
+              {detail.historicalGrade && (
+                <p className="muted mb-1 text-xs">
+                  {common("usersDirectory.originalAcademics")}
+                </p>
               )}
+              <AcademicDetails academic={detail.academic} />
             </dd>
           </div>
           <div>

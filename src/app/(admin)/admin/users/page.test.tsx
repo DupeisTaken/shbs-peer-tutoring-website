@@ -134,11 +134,9 @@ vi.mock("~/trpc/react", () => {
     },
   };
 });
-vi.mock("~/app/_components/email-details", () => ({
-  EmailDetails: ({ triggerClassName }: { triggerClassName?: string }) => (
-    <button className={`table-action-link ${triggerClassName ?? ""}`}>
-      User details
-    </button>
+vi.mock("./user-details", () => ({
+  UserDetails: () => (
+    <button className="table-action-link">User details</button>
   ),
 }));
 vi.mock("~/app/_components/account-profile-editor", () => ({
@@ -188,6 +186,18 @@ afterEach(() => {
 
 it("keeps full academic details out of the compact account table", () => {
   mount();
+  expect(screen.getAllByRole("columnheader")).toHaveLength(4);
+  expect(
+    screen.queryByRole("columnheader", {
+      name: messages.admin.users.columns.linkedTutor,
+    }),
+  ).toBeNull();
+  expect(
+    screen.getByRole("columnheader", { name: /Login setup/ }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("columnheader", { name: /Roles & participation/ }),
+  ).toBeTruthy();
   expect(
     screen.queryByRole("columnheader", { name: messages.academics.title }),
   ).toBeNull();
