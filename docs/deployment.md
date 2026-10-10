@@ -138,6 +138,10 @@ before treating a host as verified.
 
 ### Effective network and SSH review
 
+For step-by-step cloud-console checks with official Aliyun references, use the
+[Aliyun network verification guide](aliyun-network-verification.md). It covers
+attached rules, alternate addresses, NAT, load balancers, IPv6 and evidence handoff.
+
 Use an existing authorized operator session; these are read-only checks, not a
 firewall/SSH change procedure. Record the date, host identity, vantage point and
 deployed image/source identity. Keep raw output private: mappings, addresses and

@@ -6,6 +6,7 @@ These guides describe the current application. Choose the task you need to compl
 | --- | --- |
 | Install locally, create demo accounts, run tests or troubleshoot | [Local development](local-development.md) |
 | Deploy, create the first administrator, configure email or restore a backup | [Deployment runbook](deployment.md) |
+| Check Aliyun security groups, public addresses and forwarding paths | [Aliyun network verification](aliyun-network-verification.md) |
 | Reset an existing deployment and start fresh | [Reset and redeploy](deployment.md#start-fresh-from-an-existing-deployment) |
 | Contribute changes and maintain repository files | [Contributor guidance](contributing.md) |
 | Choose shared UI patterns and preserve interaction rules | [Agent component map](../AGENTS.md#start-with-the-shared-patterns) and [component boundaries](technical-report.md#shared-ui-patterns) |
@@ -19,7 +20,7 @@ These guides describe the current application. Choose the task you need to compl
 | Report a bug, enhancement, feature or documentation request | [Issue guide](issues.md) |
 | Understand public signup limits and recovery | [Signup protection](signup-protection.md) |
 | Configure optional Aliyun CAPTCHA and plan rollout | [CAPTCHA guide](captcha.md) |
-| Complete the outstanding production cloud-rule evidence | [Issue #242 evidence and remaining work](continuation/issue-242.md) |
+| Review dated production host and external network evidence | [Issue #242 evidence and remaining work](continuation/issue-242.md) |
 
 ## Historical verification
 
