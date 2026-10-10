@@ -3917,6 +3917,14 @@
     },
     "noCandidates": "没有可合并的账号。"
   },
+  "tuteeDetails": {
+    "title": "学习伙伴详情",
+    "overview": "基本信息",
+    "subjects": "科目志愿",
+    "contact": "邮箱与账号",
+    "help": "在此统一查看科目志愿、联系方式和辅导历史。",
+    "summaryHelp": "查看该学习伙伴的报名概况与科目志愿。"
+  },
   "tuteeHistory": {
     "noSearchMatches": "没有匹配搜索条件的学习伙伴。",
     "emptyHistory": "暂无可显示的学习伙伴历史记录。",

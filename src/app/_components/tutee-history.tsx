@@ -9,6 +9,7 @@ import { useDialogPending } from "./ui/modal";
 import { AcademicDetails } from "./academic-profile";
 import { ScrollTable } from "./ui/patterns";
 import { HistoricalAcademicEvidence } from "./historical-academic-evidence";
+import { Button } from "./ui/button";
 
 export function HistoryError({ message }: { message: string }) {
   const t = useTranslations("tuteeHistory");
@@ -56,22 +57,57 @@ export function TuteeHistoryDialog({
   personal?: boolean;
 }) {
   const t = useTranslations("tuteeHistory");
+  return (
+    <ProfileDialog title={t("details")} onClose={onClose} size="wide">
+      <TuteeHistoryContent
+        key={tuteeId}
+        tuteeId={tuteeId}
+        personal={personal}
+      />
+    </ProfileDialog>
+  );
+}
+
+/** Inline history keeps the same staff/personal authority in either detail surface.
+ * Mount only after opening details; reopening refreshes even a recently cached read.
+ */
+export function TuteeHistoryContent({
+  tuteeId,
+  personal = false,
+}: {
+  tuteeId: string;
+  personal?: boolean;
+}) {
+  const t = useTranslations("tuteeHistory");
+  const ui = useTranslations("uiPatterns");
   const format = useFormatter();
   const [page, setPage] = useState(0);
   const staff = api.tuteeHistory.details.useQuery(
     { tuteeId, page },
-    { enabled: !personal },
+    { enabled: !personal, refetchOnMount: "always" },
   );
   const own = api.tuteeHistory.myDetails.useQuery(
     { tuteeId, page },
-    { enabled: personal },
+    { enabled: personal, refetchOnMount: "always" },
   );
   const query = personal ? own : staff;
   const data = query.data;
   return (
-    <ProfileDialog title={t("details")} onClose={onClose} size="wide">
+    <div className="min-w-0 space-y-4">
       {query.isLoading && <p role="status">{t("loading")}</p>}
-      {query.error && <HistoryError message={query.error.message} />}
+      {query.error && (
+        <div className="space-y-2">
+          <HistoryError message={query.error.message} />
+          <Button
+            size="compact"
+            disabled={query.isFetching}
+            onClick={() => void query.refetch()}
+          >
+            {ui("retry")}
+          </Button>
+        </div>
+      )}
+      {/* A failed background read must not erase already loaded history. */}
       {data && (
         <div className="space-y-5">
           <div>
@@ -182,7 +218,7 @@ export function TuteeHistoryDialog({
           </div>
         </div>
       )}
-    </ProfileDialog>
+    </div>
   );
 }
 

@@ -27,6 +27,8 @@ const state = vi.hoisted(() => ({
   crewStatus: vi.fn(),
   details: vi.fn(),
   history: vi.fn(),
+  tuteeHistory: vi.fn(),
+  personalHistory: vi.fn(),
   accountDetails: vi.fn(),
   tutors: [
     {
@@ -154,6 +156,8 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     tuteeHistory: {
+      details: { useQuery: state.tuteeHistory },
+      myDetails: { useQuery: state.personalHistory },
       permissions: {
         useQuery: () => ({
           data: {
@@ -329,6 +333,8 @@ beforeEach(() => {
   state.history.mockReturnValue({
     data: { current: [], rows: [], more: false },
   });
+  state.tuteeHistory.mockReturnValue({ data: undefined });
+  state.personalHistory.mockReturnValue({ data: undefined });
   state.accountDetails.mockReturnValue({
     data: { attached: [], retained: [], membership: null },
   });
@@ -495,12 +501,14 @@ describe("people summary tables", () => {
     expect(state.details).not.toHaveBeenCalled();
   });
 
-  it("summarizes tutee courses and moves discipline, contact, and editing into the last column", () => {
+  it("consolidates tutee subjects, contact and history behind one final-column action", () => {
     render(<TuteesPage />, { wrapper });
     const table = screen.getByRole("table", {
       name: en.admin.tutees.viewTutees,
     });
     expectTrailingActions(table);
+    expect(state.tuteeHistory).not.toHaveBeenCalled();
+    expect(state.personalHistory).not.toHaveBeenCalled();
     expect(
       within(table).queryByText("Advanced comparative mathematics course"),
     ).toBeNull();
@@ -511,7 +519,7 @@ describe("people summary tables", () => {
     ).toBe("/admin/discipline");
     fireEvent.click(
       within(table).getByRole("button", {
-        name: `${en.tablePatterns.details}: Synthetic Tutee · ${en.admin.tutees.colCourses}`,
+        name: `${en.tablePatterns.details}: Synthetic Tutee`,
       }),
     );
     expect(
@@ -519,15 +527,19 @@ describe("people summary tables", () => {
         "Advanced comparative mathematics course",
       ),
     ).toBeTruthy();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(state.tuteeHistory).toHaveBeenCalledWith(
+      { tuteeId: "tutee", page: 0 },
+      { enabled: true, refetchOnMount: "always" },
+    );
     expect(
-      within(screen.getByRole("dialog")).queryByText("tutee@example.test"),
+      within(table).queryByRole("button", {
+        name: en.accountProfile.showEmail,
+      }),
     ).toBeNull();
-    fireEvent.click(
-      screen.getByRole("button", { name: en.tablePatterns.close }),
-    );
-    fireEvent.click(
-      within(table).getByRole("button", { name: en.accountProfile.showEmail }),
-    );
+    expect(
+      within(table).queryByRole("button", { name: en.tuteeHistory.details }),
+    ).toBeNull();
     expect(
       within(screen.getByRole("dialog")).getByText("tutee@example.test"),
     ).toBeTruthy();
@@ -591,7 +603,7 @@ describe("people summary tables", () => {
     ).toBeNull();
     fireEvent.click(
       within(table).getByRole("button", {
-        name: `${en.tablePatterns.details}: Synthetic Tutee · ${en.admin.tutees.colCourses}`,
+        name: `${en.tablePatterns.details}: Synthetic Tutee`,
       }),
     );
     expect(
@@ -600,6 +612,8 @@ describe("people summary tables", () => {
       ),
     ).toBeTruthy();
     expect(screen.queryByText("tutee@example.test")).toBeNull();
+    expect(state.tuteeHistory).not.toHaveBeenCalled();
+    expect(state.personalHistory).not.toHaveBeenCalled();
     expect(
       within(table).queryByRole("button", { name: en.tuteeHistory.details }),
     ).toBeNull();

@@ -172,6 +172,14 @@ The application runs as a persistent Next.js 16 / React 19 Node server with tRPC
 | Change dates or intake labels            | [Program time](../src/lib/program-time.ts) and [period display](../src/lib/period.ts)                                                                                                            |
 | Change delivery or deadline processing   | [Email sender](../src/server/email/sender.ts), [instrumentation](../src/instrumentation.ts) and [deadline worker](../src/server/student-deadline-worker.ts)                                      |
 
+### Tutee details
+
+The Tutees roster opens [TuteeDetailsDialog](../src/app/_components/tutee-details.tsx) from one rightmost **View details** action. Its wide `ProfileDialog` combines the existing enrollment summary, ordered subject choices, email controls and tutoring history. Summary academics still use `TuteeAcademicCell`; historical grades and class years remain tied to enrollment evidence. Profile editing, historical linking, discipline and deletion retain their existing workflows.
+
+The management read-only context includes both Viewers and departure observers. They receive only the summary and subject sections; contact mutation observers and history queries never mount. Staff contact keeps the existing owner/user/roster email precedence. A retained historical owner permits contact display but does not enable current-account verification: that control still requires the roster's current `user` relation. `EmailContent` registers its own pending write with the parent dialog, preserving dismissal protection and existing delivery feedback.
+
+`TuteeHistoryContent` shares the existing paginated history view with `TuteeHistoryDialog`. Staff reads retain `tuteeHistory.details` authorization, and personal reads retain the separately owned `myDetails` endpoint. Each opening refreshes history even within the shared cache freshness window. Failed reads keep cached history beside a read-only **Retry** action, without blocking the subject or contact sections. Closing and reopening starts at the first page. Focused coverage is in `tutee-details.test.tsx`, `tutee-history.test.tsx`, `people-summary-tables.test.tsx` and the Tutees page tests.
+
 ### Users and Roles details
 
 `admin.accountDetails` is an on-demand, `adminProcedure`-protected read. Its feature-owned projection in `account-directory.ts` separates direct participant attachments from retained Tutor/Student ownership (including the recorded account-combination family). It never matches ownership by names/email, creates accounts, changes membership or returns credential hashes/invitation tokens. Original academic snapshots preserve their enrollment year and nulls, independent of an owner's current profile. Preserved tutor originals are also used by the existing Tutor Details dialog after archive reactivation. Viewing details does not materialize historical evidence.
