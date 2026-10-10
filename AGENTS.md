@@ -77,7 +77,8 @@ weight, not an arbitrary height difference.
 | --- | --- | --- |
 | Global header: workspace-entry and return buttons, language selector | **32 px** (`2rem`) at `lg` and above; the language selector is the reference | **At least 44 px** (`2.75rem`) below `lg` |
 | Page-level actions and standard single-line form controls | 36–40 px, consistent within each action/form row | At least 44 px for interactive targets |
-| Section navigation, compact toolbar and table actions | 28–32 px, with one consistent size per row | At least 44 px for interactive targets |
+| Section navigation and compact toolbar | 28–32 px, with one consistent size per row | At least 44 px for interactive targets |
+| Stacked table text actions | 24 px minimum, with no added gap | At least 44 px for interactive targets |
 | Non-interactive badges and metadata | 20–24 px or natural text height | Keep text readable; the 44 px target rule applies only if interactive |
 
 - In this project, `lg` starts at 1024 CSS pixels. Check sizes with
@@ -122,7 +123,7 @@ weight, not an arbitrary height difference.
 - Compose `SummaryTable`, `TableActions`, `TableAction` and `TableDetails` from
   `src/app/_components/ui/summary-table.tsx`. Existing domain dialogs may use the same
   text-action class; their authorization and confirmation rules remain authoritative.
-- Keep stacked text actions compact, as established in PR #172: **28 px minimum
+- Keep stacked text actions compact: **24 px minimum
   on desktop, 44 px below `lg`, and no added gap between links**. Let wrapped or
   enlarged labels grow naturally; the hit targets provide their own spacing.
 - Keep trailing actions reachable on narrow screens while the table scrolls locally.
