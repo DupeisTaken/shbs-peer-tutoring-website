@@ -319,13 +319,13 @@
   .summary-table .table-actions-heading {
     @apply bg-slate-50;
   }
-  /* Restore PR #172's compact rhythm: adjacent 28px desktop / 44px touch targets
+  /* Adjacent 24px desktop / 44px narrow-screen targets
      provide their own spacing; translated labels may still grow and wrap. */
   .table-action-list {
     @apply flex min-w-24 flex-col items-end gap-0;
   }
   .table-action-link {
-    @apply text-accent-700 focus-visible:ring-accent-500 inline-flex min-h-11 min-w-11 items-center justify-end rounded px-1 text-right text-xs font-medium hover:underline focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-7;
+    @apply text-accent-700 focus-visible:ring-accent-500 inline-flex min-h-11 min-w-11 items-center justify-end rounded px-1 text-right text-xs font-medium hover:underline focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-6;
   }
   @media print {
     .summary-table-scroll {

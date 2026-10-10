@@ -245,6 +245,18 @@ test limitations, and stop owned browser/server/database processes after checkin
 
 ## 5. Run the tests
 
+For shared table-action sizing, run `node scripts/test-table-action-layout.mjs`
+against a loopback synthetic site. Set `TEST_BASE_URL` and `SHBS_BROWSER_STATE`
+to an authenticated staff Playwright storage-state file; optionally set
+`SHBS_BROWSER_MODULE`, `SHBS_BROWSER_CHANNEL` and `SHBS_BROWSER_OUTPUT` as for
+the tutor form check below. It measures Time Slots, Users & Roles, Tutee List and
+the gallery in English/Chinese at 390, 768, 1023, 1024 and 1440 px. It checks
+24 px desktop / 44 px narrow targets, adjacent links, sticky actions, keyboard
+detail dialogs, all six gallery palettes and enlarged long labels, saving local
+screenshots and JSON evidence without submitting application data. Role denial
+and empty/error states remain covered by the corresponding component tests;
+gallery palette checks do not measure contrast.
+
 For public signup URL changes, run `node --test --test-concurrency=1
 scripts/test-public-signup-urls.mjs` against a running synthetic local site with
 `TEST_BASE_URL` set to its loopback origin. This checks permanent redirects,
