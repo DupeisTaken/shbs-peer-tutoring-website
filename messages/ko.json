@@ -3917,6 +3917,14 @@
     },
     "noCandidates": "통합할 수 있는 계정이 없습니다."
   },
+  "tuteeDetails": {
+    "title": "학생 상세 정보",
+    "overview": "개요",
+    "subjects": "희망 과목",
+    "contact": "이메일 및 계정",
+    "help": "희망 과목, 연락처, 튜터링 이력을 한곳에서 확인하세요.",
+    "summaryHelp": "이 학생의 등록 요약과 희망 과목을 확인하세요."
+  },
   "tuteeHistory": {
     "noSearchMatches": "검색과 일치하는 학습 파트너가 없습니다.",
     "emptyHistory": "표시할 학습 파트너의 과거 기록이 없습니다.",

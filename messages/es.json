@@ -3917,6 +3917,14 @@
     },
     "noCandidates": "No hay cuentas disponibles para combinar."
   },
+  "tuteeDetails": {
+    "title": "Detalles del estudiante",
+    "overview": "Resumen",
+    "subjects": "Preferencias de materias",
+    "contact": "Correo electrónico y cuenta",
+    "help": "Consulta las preferencias de materias, los datos de contacto y el historial de tutorías en un solo lugar.",
+    "summaryHelp": "Consulta el resumen de inscripción y las preferencias de materias de este estudiante."
+  },
   "tuteeHistory": {
     "noSearchMatches": "Ningún alumno coincide con la búsqueda.",
     "emptyHistory": "No hay registros históricos de alumnos para mostrar.",

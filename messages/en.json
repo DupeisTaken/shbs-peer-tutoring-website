@@ -3918,10 +3918,10 @@
     "noCandidates": "No accounts are available to combine."
   },
   "tuteeDetails": {
-    "title": "Tutee details",
+    "title": "Tutee Details",
     "overview": "Overview",
-    "subjects": "Subject choices",
-    "contact": "Email & account",
+    "subjects": "Subject Choices",
+    "contact": "Email & Account",
     "help": "Review subject choices, contact information and tutoring history together.",
     "summaryHelp": "Review this tutee's enrollment summary and subject choices."
   },
