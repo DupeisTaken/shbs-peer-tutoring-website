@@ -16,6 +16,7 @@ import { ApprovalQueued } from "~/server/approvals";
 import { hashPassword, verifyPassword } from "~/server/auth/password";
 import { hashCode, issueRegistrationCode } from "~/server/auth/registration";
 import * as codeHelpers from "~/server/auth/code";
+import * as audit from "~/server/audit/log";
 import {
   inspectAccountInvitation,
   redeemAccountInvitation,
@@ -138,12 +139,65 @@ it("keeps unverified drafts out of the queue and creates one application/notice 
   ).toBe(true);
   expect(new Set(results.map((result) => result.statusProof)).size).toBe(1);
   expect(await db.crewApplication.count()).toBe(1);
-  expect(await db.notification.count()).toBe(3);
+  expect(await db.notification.count()).toBe(1);
+  expect(await db.notification.findFirstOrThrow()).toMatchObject({
+    userId: "HEAD",
+  });
+  const creation = await db.auditLog.findMany({
+    where: { operation: "crew.verifyApplication" },
+  });
+  expect(creation).toHaveLength(1);
+  expect(creation[0]).toMatchObject({
+    userId: null,
+    userName: "System",
+    details: {
+      actorRole: "SYSTEM",
+      outcome: "APPLIED",
+      before: {},
+      after: { status: "PENDING", name: draft.name },
+    },
+  });
+  expect(JSON.stringify(creation[0]?.details)).not.toContain(email);
+  expect(JSON.stringify(creation[0]?.details)).not.toContain(otp);
+  expect(JSON.stringify(creation[0]?.details)).not.toContain(draft.message);
   expect(
     (await db.crewSignupVerification.findUniqueOrThrow({ where: { email } }))
       .draft,
   ).toBeNull();
   expect(await db.registrationCode.count()).toBe(0);
+});
+it("rolls back verified application, notice, capacity and proof when the creation audit fails", async () => {
+  await stageCrewVerification(db, email, draft);
+  const otp = code();
+  const staged = await db.crewSignupVerification.findUniqueOrThrow({
+    where: { email },
+  });
+  const failedAudit = vi
+    .spyOn(audit, "recordAudit")
+    .mockRejectedValueOnce(new Error("crew audit unavailable"));
+  try {
+    await expect(
+      verifyCrewApplication(db, { email, code: otp }, headers),
+    ).rejects.toThrow("crew audit unavailable");
+  } finally {
+    failedAudit.mockRestore();
+  }
+  expect(await db.crewApplication.count()).toBe(0);
+  expect(await db.notification.count()).toBe(0);
+  expect(
+    await db.auditLog.count({ where: { operation: "crew.verifyApplication" } }),
+  ).toBe(0);
+  expect(await db.publicApplicationRateLimit.count()).toBe(0);
+  expect(
+    await db.crewSignupVerification.findUniqueOrThrow({ where: { email } }),
+  ).toEqual(staged);
+  await expect(
+    verifyCrewApplication(db, { email, code: otp }, headers),
+  ).resolves.toMatchObject({ status: "PENDING" });
+  expect(await db.crewApplication.count()).toBe(1);
+  expect(
+    await db.auditLog.count({ where: { operation: "crew.verifyApplication" } }),
+  ).toBe(1);
 });
 it("preserves a staged draft through explicit resend and refuses the preceding challenge", async () => {
   await stageCrewVerification(db, email, draft);
@@ -323,7 +377,12 @@ it("serializes competing approval decisions and creates exactly one code/audit",
   ).toHaveLength(1);
   expect(await db.registrationCode.count()).toBe(1);
   expect(
-    await db.auditLog.count({ where: { entity: "CrewApplication" } }),
+    await db.auditLog.count({
+      where: {
+        entity: "CrewApplication",
+        operation: "admin.decideCrewApplication",
+      },
+    }),
   ).toBe(1);
 });
 it("waits for an in-flight Head demotion and rejects before issuing a grant", async () => {
@@ -415,7 +474,12 @@ it("waits for an in-flight Head demotion and rejects before issuing a grant", as
   }
   expect(await db.registrationCode.count()).toBe(0);
   expect(
-    await db.auditLog.count({ where: { entity: "CrewApplication" } }),
+    await db.auditLog.count({
+      where: {
+        entity: "CrewApplication",
+        operation: "admin.decideCrewApplication",
+      },
+    }),
   ).toBe(0);
   expect(
     await db.crewApplication.findUniqueOrThrow({

@@ -36,7 +36,7 @@ import {
 
 const password = "EmailTestPassword123!";
 let userId = "";
-let adminId = "";
+let headId = "";
 let serial = 0;
 const caller = (id = userId, role: Session["role"] = "VIEWER") =>
   createCaller({
@@ -68,7 +68,7 @@ beforeEach(async () => {
   )
     throw new Error("Use the isolated local shbs_shipping_test database.");
   userId = `email54-${++serial}`;
-  adminId = `${userId}-admin`;
+  headId = `${userId}-admin`;
   mail.available = true;
   mail.send.mockReset().mockResolvedValue(undefined);
   await db.emailDelivery.deleteMany();
@@ -96,9 +96,9 @@ beforeEach(async () => {
         emailVerifiedAt: new Date(),
       },
       {
-        id: adminId,
-        email: `${adminId}@example.test`,
-        role: "ADMIN",
+        id: headId,
+        email: `${headId}@example.test`,
+        role: "HEAD",
         emailVerifiedAt: new Date(),
       },
     ],
@@ -134,7 +134,7 @@ it("rejects wrong passwords, cross-account ownership, primary deletion, and unve
     requestSecondaryEmail(userId, secondary(), "wrong"),
   ).rejects.toThrow("password");
   await expect(
-    requestSecondaryEmail(userId, `${adminId}@example.test`, password),
+    requestSecondaryEmail(userId, `${headId}@example.test`, password),
   ).rejects.toThrow("unavailable");
   await requestSecondaryEmail(userId, secondary(), password);
   await expect(
@@ -143,7 +143,7 @@ it("rejects wrong passwords, cross-account ownership, primary deletion, and unve
   await expect(
     manageSecondaryEmail(userId, `${userId}@example.test`, password, "remove"),
   ).rejects.toThrow("primary");
-  expect(await confirmSecondaryEmail(adminId, secondary(), lastCode())).toBe(
+  expect(await confirmSecondaryEmail(headId, secondary(), lastCode())).toBe(
     false,
   );
 });
@@ -275,17 +275,17 @@ it("failed verification delivery neither reserves the address nor occupies a pen
 
 it("two accounts can request one address but only one proof can claim it", async () => {
   await db.user.update({
-    where: { id: adminId },
+    where: { id: headId },
     data: { passwordHash: hashPassword(password) },
   });
   const email = secondary();
   await requestSecondaryEmail(userId, email, password);
   const firstCode = lastCode();
-  await requestSecondaryEmail(adminId, email, password);
+  await requestSecondaryEmail(headId, email, password);
   const secondCode = lastCode();
   const results = await Promise.allSettled([
     confirmSecondaryEmail(userId, email, firstCode),
-    confirmSecondaryEmail(adminId, email, secondCode),
+    confirmSecondaryEmail(headId, email, secondCode),
   ]);
   expect(
     results.filter((result) => result.status === "fulfilled" && result.value),
@@ -448,8 +448,8 @@ it("revokes removed-address sign-in, reset grants, and pending challenges, even 
   expect(await resetPassword(token, "OtherPassword123!")).toBeNull();
 });
 
-it("admin enablement and personal categories gate notifications without affecting essential mail", async () => {
-  await caller(adminId, "ADMIN").program.setEmailNotifications({
+it("Head enablement and personal categories gate notifications without affecting essential mail", async () => {
+  await caller(headId, "HEAD").program.setEmailNotifications({
     enabled: false,
     expectedEnabled: true,
   });
@@ -470,7 +470,7 @@ it("admin enablement and personal categories gate notifications without affectin
       expectedEnabled: false,
     }),
   ).rejects.toThrow();
-  await caller(adminId, "ADMIN").program.setEmailNotifications({
+  await caller(headId, "HEAD").program.setEmailNotifications({
     enabled: true,
     expectedEnabled: false,
   });
@@ -536,7 +536,7 @@ it("notifies both primary addresses and drops ordinary notices to removed second
   );
 });
 
-it("rechecks optional preferences at dispatch and preserves them when the admin disables and re-enables", async () => {
+it("rechecks optional preferences at dispatch and preserves them when Head disables and re-enables", async () => {
   await db.user.update({
     where: { id: userId },
     data: { emailMessages: true },
@@ -552,11 +552,11 @@ it("rechecks optional preferences at dispatch and preserves them when the admin 
   });
   await deliverNotifications();
   expect(mail.send).not.toHaveBeenCalled();
-  await caller(adminId, "ADMIN").program.setEmailNotifications({
+  await caller(headId, "HEAD").program.setEmailNotifications({
     enabled: false,
     expectedEnabled: true,
   });
-  await caller(adminId, "ADMIN").program.setEmailNotifications({
+  await caller(headId, "HEAD").program.setEmailNotifications({
     enabled: true,
     expectedEnabled: false,
   });
@@ -729,7 +729,7 @@ it("disabling drops optional backlog but preserves queued security alerts and pe
   await db.notification.create({
     data: { userId, title: "Private", link: "/messages" },
   });
-  await caller(adminId, "ADMIN").program.setEmailNotifications({
+  await caller(headId, "HEAD").program.setEmailNotifications({
     enabled: false,
     expectedEnabled: true,
   });
@@ -745,7 +745,7 @@ it("disabling drops optional backlog but preserves queued security alerts and pe
   ).toMatchObject({ status: "PENDING" });
   await deliverNotifications();
   expect(mail.send).toHaveBeenCalledTimes(1);
-  await caller(adminId, "ADMIN").program.setEmailNotifications({
+  await caller(headId, "HEAD").program.setEmailNotifications({
     enabled: true,
     expectedEnabled: false,
   });
@@ -768,7 +768,7 @@ it.each([false, true])(
       where: { id: "program" },
       data: { emailNotificationsEnabled: notifications },
     });
-    await caller(adminId, "ADMIN").program.setSecondaryEmailBinding({
+    await caller(headId, "HEAD").program.setSecondaryEmailBinding({
       enabled: false,
       expectedEnabled: true,
     });
@@ -803,7 +803,7 @@ it.each([false, true])(
     await manageSecondaryEmail(userId, pending, password, "remove");
     await manageSecondaryEmail(userId, secondary(), password, "remove");
     expect((await caller().account.emailSettings()).emails).toHaveLength(1);
-    await caller(adminId, "ADMIN").program.setSecondaryEmailBinding({
+    await caller(headId, "HEAD").program.setSecondaryEmailBinding({
       enabled: true,
       expectedEnabled: false,
     });
@@ -890,19 +890,32 @@ it.each(["VIEWER", "COORDINATOR", "TUTOR"] as const)(
 );
 
 it("permits HEAD changes and rejects stale binding writes", async () => {
-  await caller(adminId, "HEAD").program.setSecondaryEmailBinding({
+  await caller(headId, "HEAD").program.setSecondaryEmailBinding({
     enabled: false,
     expectedEnabled: true,
   });
   await expect(
-    caller(adminId, "HEAD").program.setSecondaryEmailBinding({
+    caller(headId, "HEAD").program.setSecondaryEmailBinding({
       enabled: true,
       expectedEnabled: true,
     }),
   ).rejects.toThrow("changed");
   expect(
-    await caller(adminId, "HEAD").program.emailNotificationSettings(),
+    await caller(headId, "HEAD").program.emailNotificationSettings(),
   ).toMatchObject({ enabled: true, secondaryEmailBindingEnabled: false });
+});
+
+it("queues Admin binding changes for Head without disabling live binding", async () => {
+  await db.user.update({ where: { id: userId }, data: { role: "ADMIN" } });
+  await expect(caller(userId, "ADMIN").program.setSecondaryEmailBinding({
+    enabled: false, expectedEnabled: true,
+  })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect((await caller(headId, "HEAD").program.emailNotificationSettings()).secondaryEmailBindingEnabled).toBe(true);
+  const request = await db.approvalRequest.findFirstOrThrow({
+    where: { requesterId: userId, operation: "program.setSecondaryEmailBinding", state: "PENDING" },
+  });
+  await caller(headId, "HEAD").approval.decide({ id: request.id, approve: true, note: "Reviewed binding availability" });
+  expect((await caller(headId, "HEAD").program.emailNotificationSettings()).secondaryEmailBindingEnabled).toBe(false);
 });
 
 it("completes primary account verification without requiring any secondary binding", async () => {

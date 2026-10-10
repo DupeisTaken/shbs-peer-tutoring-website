@@ -34,6 +34,9 @@ function RequestCard({
   const t = useTranslations("approvals");
   const format = useFormatter();
   const [note, setNote] = useState("");
+  const [password, setPassword] = useState("");
+  const needsPassword = request.operation === "admin.setUserRole";
+  const headOnly = request.reviewerRoles?.every((role) => role === "HEAD") ?? HEAD_APPROVAL_OPERATIONS.has(request.operation);
   const [confirming, setConfirming] = useState(false);
   const [overrideReview, setOverrideReview] = useState<{
     ticket?: string;
@@ -41,6 +44,7 @@ function RequestCard({
   const decision = api.approval.decide.useMutation({
     onSuccess: async () => {
       setConfirming(false);
+      setPassword("");
       setOverrideReview(null);
       await onChanged();
     },
@@ -55,7 +59,7 @@ function RequestCard({
   const approve = (ticket?: string) => {
     setConfirming(false);
     if (isAssignmentOperation(request.operation)) setOverrideReview({ ticket });
-    else decision.mutate({ id: request.id, approve: true, note, ticket });
+    else decision.mutate({ id: request.id, approve: true, note, ticket, ...(needsPassword ? { confirmPassword: password } : {}) });
   };
   return (
     <article className="card overflow-hidden">
@@ -196,10 +200,11 @@ function RequestCard({
                 placeholder={t("noteHint")}
               />
             </label>
+            {needsPassword && <label className="block"><span className="label">{t("review.confirmPassword")}</span><input type="password" autoComplete="current-password" className="input min-h-11 w-full lg:min-h-10" value={password} disabled={busy} onChange={(event) => setPassword(event.target.value)} /></label>}
             <div className="flex flex-wrap gap-2">
               <button
                 className="btn-primary min-h-11 lg:min-h-10"
-                disabled={busy || !note.trim()}
+                disabled={busy || !note.trim() || (needsPassword && !password)}
                 onClick={() => (confirmation ? setConfirming(true) : approve())}
               >
                 {t("approve")}
@@ -219,7 +224,7 @@ function RequestCard({
         {pending && !canReview && (
           <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
             {t(
-              HEAD_APPROVAL_OPERATIONS.has(request.operation)
+              headOnly
                 ? "review.headRequired"
                 : canCancel
                   ? "review.otherReviewer"
@@ -401,11 +406,12 @@ function ApprovalQueue({
           key={request.id}
           request={request}
           canReview={
-            queue.data.canReview &&
-            (request.requesterId !== queue.data.viewerId ||
-              queue.data.headReviewer) &&
-            (!HEAD_APPROVAL_OPERATIONS.has(request.operation) ||
-              queue.data.headReviewer)
+            // The server evaluates payload-dependent reversals and live reviewer authority.
+            request.canDecide ?? (
+              queue.data.canReview &&
+              (request.requesterId !== queue.data.viewerId || queue.data.headReviewer) &&
+              (!HEAD_APPROVAL_OPERATIONS.has(request.operation) || queue.data.headReviewer)
+            )
           }
           canCancel={request.requesterId === queue.data.viewerId}
           onChanged={refresh}

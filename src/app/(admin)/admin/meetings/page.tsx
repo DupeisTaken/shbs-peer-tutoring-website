@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useFormatter, useTranslations, useTimeZone } from "next-intl";
 
 import { parseProgramDateTime, programDateKey } from "~/lib/program-time";
+import { InlineNotice } from "~/app/_components/ui/patterns";
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
 import {
@@ -561,6 +562,7 @@ function AttendanceEditor({
   const [draft, setDraft] = useState<Record<string, MeetingStatus>>(
     () => current as Record<string, MeetingStatus>,
   );
+  const correctsRecordedAttendance = Object.entries(current).some(([id, status]) => draft[id] && draft[id] !== status);
   const save = api.admin.recordMeetingAttendance.useMutation({
     onSuccess: () => utils.admin.meetings.invalidate(),
   });
@@ -638,6 +640,7 @@ function AttendanceEditor({
           );
         })}
       </div>
+      {correctsRecordedAttendance && <p className="muted mt-3 text-sm">{t("approvals.reversalHelp")}</p>}
       {!readOnly && (
         <FormActions>
           <Button
@@ -653,7 +656,7 @@ function AttendanceEditor({
           >
             {save.isPending
               ? t("admin.meetings.saving")
-              : t("admin.meetings.saveAttendance")}
+              : t(correctsRecordedAttendance ? "admin.meetings.correctAttendance" : "admin.meetings.saveAttendance")}
           </Button>
           <Button
             disabled={save.isPending}
@@ -671,7 +674,8 @@ function AttendanceEditor({
           {t("admin.meetings.saved")}
         </span>
       )}
-      {save.error && (
+      {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+      {save.error && !save.error.data?.approvalId && (
         <span role="alert" className="ml-2 text-sm text-red-700">
           {save.error.message}
         </span>

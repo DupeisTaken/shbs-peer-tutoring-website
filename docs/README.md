@@ -9,25 +9,27 @@ These guides describe the current application. Choose the task you need to compl
 | Check Aliyun security groups, public addresses and forwarding paths | [Aliyun network verification](aliyun-network-verification.md) |
 | Reset an existing deployment and start fresh | [Reset and redeploy](deployment.md#start-fresh-from-an-existing-deployment) |
 | Contribute changes and maintain repository files | [Contributor guidance](contributing.md) |
-| Continue the incomplete tutor-task draft in a fresh cloud checkout | [Issue #222 continuation](continuation/issue-222.md) |
-| Continue qualification-request verification for the active issue #247 branch | [Qualification review continuation](continuation/issue-247.md) |
 | Choose shared UI patterns and preserve interaction rules | [Agent component map](../AGENTS.md#start-with-the-shared-patterns) and [component boundaries](technical-report.md#shared-ui-patterns) |
 | Verify UI changes in the gallery and running application | [UI verification matrix](local-development.md#ui-verification-matrix) |
-| Continue the incomplete shared UI integration checkpoint | [Shared UI cloud continuation](continuation/shared-ui-integration.md) |
 | Find implementation files and understand authorization or transaction rules | [Technical guide](technical-report.md) |
 | Use the website as a tutee, tutor, crew member, coordinator, administrator, HEAD, viewer or translator | [User guide](user-guide.md) |
 | Understand the four name fields and display settings | [Name fields](design/name-fields.md) |
 | Configure modules, periods, schedules, timezones, recipients or public content | [Program reference](program-reference.md) |
 | Adapt the English/Chinese policy drafts and publish school-approved revisions | [Policy drafts and publication](policies/README.md) |
 | Import pre-site history and link accountless tutees | [Historical participant transition](historical-participant-transition.md) |
-| Resume the issue 206 draft checkpoint in a fresh cloud checkout | [Issue 206 continuation](continuation/issue-206.md) |
 | Report a bug, enhancement, feature or documentation request | [Issue guide](issues.md) |
-| Review the identity, academic profile and program policy fixes with screenshots | [Issue-fix verification reports](evidence/issues-145-154/README.md) |
-| Review email notification rendering and destination-link checks | [Email redesign verification](evidence/issue-192/README.md) |
-| Resume the draft navigation and form recovery work | [Issue #221 cloud continuation](continuation/issue-221.md) |
-| Resume the approved patrol-credit change in a fresh cloud checkout | [Issue 240 continuation](continuation/issue-240.md) |
-| Review dated production host and external network evidence | [Issue 242 evidence record](continuation/issue-242.md) |
-| Continue the incomplete historical-correction draft from a fresh cloud checkout | [Issue 195 continuation checkpoint](continuation/issue-195.md) |
+| Understand public signup limits and recovery | [Signup protection](signup-protection.md) |
+| Configure optional Aliyun CAPTCHA and plan rollout | [CAPTCHA guide](captcha.md) |
+| Review dated production host and external network evidence | [Issue #242 evidence and remaining work](continuation/issue-242.md) |
+
+## Historical verification
+
+These records describe the revisions and scenarios tested at the time, not verification of the current application:
+
+- [Identity, academic profile and policy verification](evidence/issues-145-154/README.md)
+- [Email rendering and destination-link verification](evidence/issue-192/README.md)
+
+Completed continuation checkpoints are retained in Git and their linked issue/PR history. Use the maintained guides above for current setup and behavior.
 
 ## Maintaining the guides
 
@@ -36,9 +38,3 @@ Read and edit the Markdown files directly. Run `npm run docs:check` to validate 
 For contribution checks and where to add information, see [documentation ownership](contributing.md#documentation-and-repository-hygiene). Historical reports and superseded documents remain available in Git history.
 
 [Project README](../README.md).
-
-[Public signup protection and operational limits](signup-protection.md).
-
-[Optional Aliyun CAPTCHA, costs and rollout](captcha.md).
-
-[Issue #239 cloud continuation checkpoint](continuation/issue-239.md).

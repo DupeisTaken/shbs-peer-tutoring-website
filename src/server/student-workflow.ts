@@ -646,8 +646,10 @@ async function notifyLegacySchedule(
 ) {
   const users = await tx.user.findMany({
     where: {
+      suspendedAt: null,
+      mergedIntoId: null,
       OR: [
-        { role: { in: ["HEAD", "ADMIN", "COORDINATOR"] } },
+        { role: { in: ["HEAD", "ADMIN"] } },
         { id: tutorUserId },
         { studentId: tuteeId },
       ],
@@ -658,7 +660,7 @@ async function notifyLegacySchedule(
     data: users.map((user) => ({
       userId: user.id,
       title,
-      link: ["HEAD", "ADMIN", "COORDINATOR"].includes(user.role)
+      link: ["HEAD", "ADMIN"].includes(user.role)
         ? "/admin/requests"
         : user.tutorId
           ? "/dashboard"

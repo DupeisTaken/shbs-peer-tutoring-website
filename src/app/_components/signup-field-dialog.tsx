@@ -1,5 +1,6 @@
 "use client";
 
+import { InlineNotice } from "./ui/patterns";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslations } from "next-intl";
 import type { FieldState } from "~/lib/signup-fields";
@@ -57,6 +58,8 @@ export function FieldDialog({
   initial,
   pending,
   error,
+  approvalId,
+  canApply = true,
   onClose,
   onSave,
   onReload,
@@ -65,11 +68,14 @@ export function FieldDialog({
   initial: FieldState;
   pending: boolean;
   error?: string;
+  approvalId?: string;
+  canApply?: boolean;
   onClose: () => void;
   onSave: (state: FieldState) => void;
   onReload: () => void;
 }) {
   const t = useTranslations("signupFields");
+  const approvals = useTranslations("approvals");
   const ref = useRef<HTMLDialogElement>(null);
   const [state, setState] = useState(initial);
   useEffect(() => {
@@ -127,6 +133,7 @@ export function FieldDialog({
           </label>
         ))}
       </fieldset>
+      {approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
       {error && (
         <div className="mb-4 space-y-2">
           <p role="alert" className="text-sm text-red-600">
@@ -157,7 +164,7 @@ export function FieldDialog({
           className="btn-primary min-h-11 lg:min-h-10"
           onClick={() => onSave(state)}
         >
-          {t(pending ? "saving" : "save")}
+          {pending ? t("saving") : canApply ? t("save") : approvals("requestHead")}
         </button>
       </div>
     </dialog>

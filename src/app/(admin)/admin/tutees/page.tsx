@@ -110,6 +110,8 @@ export default function TuteesPage() {
   const permissions = api.tuteeHistory.permissions.useQuery();
   const policy = useProfilePolicy();
   const readOnly = useReadOnly();
+  const identity = api.account.me.useQuery();
+  const canEditProfiles = !readOnly && !identity.error && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
   const [creationOpen, setCreationOpen] = useState(false);
   const addTrigger = useRef<HTMLButtonElement>(null);
   const restoreAddFocus = useRef(false);
@@ -273,10 +275,11 @@ export default function TuteesPage() {
         />
       )}
       {/* Manual add */}
-      {!readOnly && editing && (
+      {canEditProfiles && editing && (
         <TuteeEditor
           key={editing.id}
           row={editing}
+          canApply={identity.data?.role === "HEAD"}
           historyPermissions={permissions.data}
           onClose={() => setEditingId(null)}
         />
@@ -786,7 +789,7 @@ export default function TuteesPage() {
                           {t("admin.tutees.colDiscipline")}
                         </Link>
                       )}
-                      {!readOnly && (
+                      {canEditProfiles && (
                         <TableAction onClick={() => setEditingId(t2.id)}>
                           {t("accountProfile.editProfile")}
                         </TableAction>

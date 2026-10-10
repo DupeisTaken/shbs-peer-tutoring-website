@@ -16,6 +16,7 @@ const state = vi.hoisted(() => ({
   save: vi.fn(),
   reset: vi.fn(),
   pending: false,
+  error: null as null | { message: string; data: { approvalId: string } },
   attendances: [] as {
     tutorId: string;
     status: string;
@@ -61,6 +62,7 @@ vi.mock("~/trpc/react", () => ({
           mutate: state.save,
           reset: state.reset,
           isPending: state.pending,
+          error: state.error,
         }),
       },
     },
@@ -70,6 +72,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   state.attendances = [];
   state.pending = false;
+  state.error = null;
 });
 afterEach(cleanup);
 function mount(readOnly = false) {
@@ -210,4 +213,17 @@ it("keeps all past tutors in the summary independently of the editor visibility 
     name: messages.pastTutors.show,
   }).parentElement!;
   expect(within(editor).queryByText("Past Tutor")).toBeNull();
+});
+
+it("identifies a recorded attendance correction and keeps queued changes out of saved state", () => {
+  state.attendances = [{ tutorId: "active", status: "PRESENT", excusedAt: null, reason: null, tutor: { englishName: state.longName } }];
+  state.error = { message: "Queued", data: { approvalId: "request-1" } };
+  mount();
+  fireEvent.click(screen.getByRole("button", { name: messages.admin.meetings.status.unexcusedAbsent }));
+  expect(screen.getByText(messages.approvals.reversalHelp)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: messages.admin.meetings.correctAttendance }));
+  expect(state.save).toHaveBeenCalledWith({ meetingId: "meeting", entries: [{ tutorId: "active", status: "UNEXCUSED_ABSENT" }] });
+  expect(screen.getByText(messages.approvals.queuedBody)).toBeTruthy();
+  expect(screen.queryByText(messages.admin.meetings.saved)).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
 });

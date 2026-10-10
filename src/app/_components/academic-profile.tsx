@@ -95,6 +95,7 @@ export function AcademicForm({
   snapshot,
   pending,
   disabled = false,
+  canApply = true,
   error,
   onSave,
   onCancel,
@@ -102,11 +103,13 @@ export function AcademicForm({
   snapshot: AcademicSnapshot;
   pending: boolean;
   disabled?: boolean;
+  canApply?: boolean;
   error?: string;
   onSave: (draft: AcademicDraft) => void;
   onCancel: () => void;
 }) {
   const t = useTranslations("academics");
+  const approvals = useTranslations("approvals");
   const dialogBusy = useDialogBusy();
   const busy = pending || dialogBusy || disabled;
   const [status, setStatus] = useState(snapshot.academic.status);
@@ -219,7 +222,7 @@ export function AcademicForm({
             className="btn-primary min-h-11 lg:min-h-10"
             disabled={!valid || busy}
           >
-            {t(pending ? "saving" : "confirm")}
+            {pending ? t("saving") : canApply ? t("confirm") : approvals("requestHead")}
           </button>
           <button
             type="button"
@@ -242,7 +245,7 @@ export function AcademicForm({
   );
 }
 
-export function AcademicPanel({ userId }: { userId?: string }) {
+export function AcademicPanel({ userId, canApply = true }: { userId?: string; canApply?: boolean }) {
   const t = useTranslations("academics");
   const format = useFormatter();
   const utils = api.useUtils();
@@ -351,6 +354,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
         <AcademicForm
           snapshot={snapshot}
           pending={mutation.isPending}
+          canApply={canApply}
           disabled={reloading}
           error={
             mutation.error?.data?.approvalId

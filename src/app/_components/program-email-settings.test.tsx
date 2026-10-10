@@ -22,6 +22,7 @@ const mock = vi.hoisted(() => ({
         enabled: boolean;
         secondaryEmailBindingEnabled: boolean;
         canEdit: boolean;
+        canApply?: boolean;
         deliveryAvailable: boolean;
         failed: number;
       },
@@ -40,6 +41,7 @@ const mock = vi.hoisted(() => ({
   statusError: null as Error | null,
   fetching: false,
   pending: false,
+  saveError: null as { message: string; data?: { approvalId?: string } } | null,
   refetch: vi.fn(),
   settingsRefetch: vi.fn(),
   mutate: vi.fn(),
@@ -77,7 +79,7 @@ vi.mock("~/trpc/react", () => ({
         },
       },
       setEmailNotifications: {
-        useMutation: () => ({ mutate: mock.mutate, isPending: mock.pending }),
+        useMutation: () => ({ mutate: mock.mutate, isPending: mock.pending, error: mock.saveError }),
       },
       setSecondaryEmailBinding: {
         useMutation: () => ({ mutate: mock.binding, isPending: mock.pending }),
@@ -115,6 +117,7 @@ beforeEach(() => {
   mock.statusError = null;
   mock.fetching = false;
   mock.pending = false;
+  mock.saveError = null;
   mock.refetch.mockImplementation(() =>
     Promise.resolve({ isSuccess: true, data: mock.status }),
   );
@@ -133,6 +136,23 @@ function content(chinese = false) {
     </NextIntlClientProvider>
   );
 }
+
+// Diagnostics and operational retry survive the governance merge: an Admin's
+// setting request stays unapplied and must not appear as a failed save.
+it.each([false, true])("retains mail diagnostics and direct retry alongside a pending Admin setting request (Chinese=%s)", (chinese) => {
+  mock.settings!.canApply = false;
+  mock.status!.failed = 1;
+  mock.saveError = { message: "Approval queued", data: { approvalId: "email-request" } };
+  render(content(chinese));
+  const messages = chinese ? zh : en;
+  expect(screen.getByText(messages.approvals.queuedBody)).toBeTruthy();
+  expect(screen.getByText(messages.programEmail.channel.SECURITY)).toBeTruthy();
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.programEmail.resendStuck }).disabled).toBe(false);
+  expect(screen.getByRole("checkbox", { name: messages.approvals.requestChange.replace("{setting}", messages.programEmail.enable) })).toBeTruthy();
+  expect(screen.queryByText("Approval queued")).toBeNull();
+  expect(screen.queryByText(messages.programEmail.saved)).toBeNull();
+  expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Other program draft" }).value).toBe("Unchanged draft");
+});
 
 it.each([false, true])(
   "warns for a broken security sender even when optional mail is disabled (Chinese=%s)",

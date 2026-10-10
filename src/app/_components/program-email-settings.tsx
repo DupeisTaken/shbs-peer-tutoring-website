@@ -8,6 +8,7 @@ import { InlineNotice, StatePanel } from "./ui/patterns";
 /** Independent immediate controls share query invalidation, never a combined toggle. */
 export function ProgramEmailSettings() {
   const t = useTranslations("programEmail");
+  const approvals = useTranslations("approvals");
   const utils = api.useUtils();
   const settings = api.program.emailNotificationSettings.useQuery();
   const save = api.program.setEmailNotifications.useMutation({
@@ -30,16 +31,17 @@ export function ProgramEmailSettings() {
   return (
     <section className="card space-y-3 p-5">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <h2 className="section-title">{t("title")}</h2>
           <p className="muted mt-1 text-sm">{t("help")}</p>
         </div>
         {data && (
-          <span className={data.enabled ? "badge-green" : "badge-slate"}>
+          <span className={`shrink-0 whitespace-nowrap ${data.enabled ? "badge-green" : "badge-slate"}`}>
             {t(data.enabled ? "on" : "off")}
           </span>
         )}
       </div>
+      {data?.canEdit && data.canApply === false && <p className="muted text-sm">{approvals("sensitiveHelp")}</p>}
       {data && (
         <EmailDeliveryStatus
           canEdit={data.canEdit}
@@ -67,7 +69,7 @@ export function ProgramEmailSettings() {
             }
             className="accent-accent-600 h-4 w-4"
           />
-          {t("enable")}
+          {data.canApply === false ? approvals("requestChange", { setting: t("enable") }) : t("enable")}
         </label>
       )}
       <p className="muted text-xs">{t("essential")}</p>
@@ -105,14 +107,15 @@ export function ProgramEmailSettings() {
               }
               className="accent-accent-600 h-4 w-4 shrink-0"
             />
-            {t("bindingEnable")}
+            {data.canApply === false ? approvals("requestChange", { setting: t("bindingEnable") }) : t("bindingEnable")}
           </label>
         )}
       </div>
       {data && !data.deliveryAvailable && (
         <p className="text-sm text-amber-800">{t("unavailable")}</p>
       )}
-      {(save.isSuccess || binding.isSuccess) && (
+      {(save.error?.data?.approvalId ?? binding.error?.data?.approvalId) && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+      {(save.isSuccess || binding.isSuccess) && !save.error?.data?.approvalId && !binding.error?.data?.approvalId && (
         <p role="status" className="text-sm text-green-700">
           {t("saved")}
         </p>
@@ -134,9 +137,9 @@ export function ProgramEmailSettings() {
           {t("settingsFailed")}
         </InlineNotice>
       )}
-      {(save.error ?? binding.error) && (
+      {((save.error?.data?.approvalId ? null : save.error) ?? (binding.error?.data?.approvalId ? null : binding.error)) && (
         <p role="alert" className="text-sm text-red-700">
-          {(save.error ?? binding.error)?.message}
+          {((save.error?.data?.approvalId ? null : save.error) ?? (binding.error?.data?.approvalId ? null : binding.error))?.message}
         </p>
       )}
     </section>

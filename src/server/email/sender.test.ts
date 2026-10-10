@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Socket } from "node:net";
+import { afterCommitScope, flushCommittedEffects } from "~/server/db-scope";
 
 const smtp = vi.hoisted(() => {
   const env: Record<string, string | number | undefined> = {};
@@ -69,6 +70,65 @@ afterEach(() => {
 });
 
 describe("purpose-based sender routing", () => {
+  it("renders branded mail only after the audited change commits", async () => {
+    dedicated("PROGRAM");
+    vi.stubEnv("AUTH_URL", "https://school.example.test");
+    const queue = {
+      effects: [] as Array<() => Promise<void>>,
+      committed: false,
+      onFailure: vi.fn(async () => undefined),
+    };
+    await afterCommitScope.run(queue, async () => {
+      await emailSender.send({
+        ...message("PROGRAM"),
+        presentation: {
+          unsubscribeUrl:
+            "https://school.example.test/unsubscribe?token=synthetic",
+        },
+      });
+      expect(smtp.create).not.toHaveBeenCalled();
+      expect(smtp.send).not.toHaveBeenCalled();
+      expect(queue.effects).toHaveLength(1);
+      await flushCommittedEffects();
+      await flushCommittedEffects();
+    });
+    expect(smtp.send).toHaveBeenCalledTimes(1);
+    expect(smtp.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        html: expect.stringContaining(
+          'src="https://school.example.test/icon.png"',
+        ) as unknown,
+      }),
+    );
+    const delivered = smtp.send.mock.calls[0]![0] as { html: string };
+    expect(delivered.html).toContain(
+      "https://school.example.test/unsubscribe?token=synthetic",
+    );
+    expect(queue.effects).toHaveLength(0);
+    expect(queue.onFailure).not.toHaveBeenCalled();
+  });
+
+  it("records rejected postcommit SMTP without failing the committed change", async () => {
+    dedicated("SECURITY");
+    smtp.send.mockResolvedValue({
+      accepted: [],
+      rejected: ["recipient@example.test"],
+    });
+    const queue = {
+      effects: [] as Array<() => Promise<void>>,
+      committed: false,
+      onFailure: vi.fn(async () => undefined),
+    };
+    await afterCommitScope.run(queue, async () => {
+      await emailSender.send(message("SECURITY"));
+      expect(smtp.send).not.toHaveBeenCalled();
+      await expect(flushCommittedEffects()).resolves.toBeUndefined();
+    });
+    expect(smtp.send).toHaveBeenCalledTimes(1);
+    expect(queue.onFailure).toHaveBeenCalledTimes(1);
+    expect(queue.committed).toBe(true);
+  });
+
   it.each(["SECURITY", "PROGRAM"] as const)(
     "adds the canonical footer icon to %s mail even without an action link",
     async (category) => {

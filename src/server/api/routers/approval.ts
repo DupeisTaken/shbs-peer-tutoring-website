@@ -16,8 +16,10 @@ import {
   parseProposal,
   fingerprint,
   proposalTargets,
+  proposalAuthority,
+  canRequestProposal,
 } from "~/server/approvals";
-import { HEAD_APPROVAL_OPERATIONS, humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
+import { APPROVAL_OPERATIONS, classifyApproval, humanizeOperation, proposalConfirmation, type ApprovalAuthority } from "~/lib/approval-policy";
 import { requesterLabels } from "~/lib/requester-labels";
 import {
   isAttendanceApproval,
@@ -36,6 +38,15 @@ async function reviewRequesterOptions(database: typeof db) {
     select: { id: true, name: true, username: true, email: true },
   });
   return requesterLabels(requests, users);
+}
+
+/** Review permissions reflect immutable requested effects, including conditional restores.
+ * Unknown historical operations remain readable but cannot acquire replay authority. */
+function requestAuthority(request: { operation: string; payload: unknown; targets: unknown }) {
+  if (!Object.hasOwn(APPROVAL_OPERATIONS, request.operation)) return null;
+  const targets = request.targets as { reviewAuthority?: ApprovalAuthority } | null;
+  return targets?.reviewAuthority ?? classifyApproval(request.operation,
+    superjson.deserialize(request.payload as Parameters<typeof superjson.deserialize>[0]));
 }
 
 /** Approval is a single atomic transition: revalidation, live change, decision, audit,
@@ -83,7 +94,12 @@ export const approvalRouter = createTRPCRouter({
         canReview && !input.requestId ? reviewRequesterOptions(ctx.db) : [],
       ]);
       return {
-        rows,
+        rows: rows.map((request) => {
+          const authority = requestAuthority(request);
+          return { ...request, reviewerRoles: authority?.reviewerRoles ?? [],
+            canDecide: !!authority && authority.reviewerRoles.includes(ctx.session.role as "HEAD" | "ADMIN") &&
+              (request.requesterId !== ctx.session.user.id || ctx.session.role === "HEAD") };
+        }),
         total,
         canReview,
         headReviewer: ctx.session.role === "HEAD",
@@ -99,6 +115,7 @@ export const approvalRouter = createTRPCRouter({
         note: z.string().trim().min(1).max(2000),
         ticket: z.string().optional(),
         overrideTicket: z.string().optional(),
+        confirmPassword: z.string().min(1).max(1024).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -115,7 +132,9 @@ export const approvalRouter = createTRPCRouter({
       // Serializable snapshot may retry here; no callback/email has executed at that point.
       const identityApproval = !!initial && ["admin.createTutor", "admin.updateTutor", "admin.setUserCanTutor",
         "admin.setMemberships", "admin.setApplicationStatus", "tutor.decideInterview",
-        "historicalAcademics.correctBatch"].includes(initial.operation);
+        "historicalAcademics.correctBatch", "admin.updateAccountProfile", "admin.updateAccountUsername",
+        "admin.updateAccountAcademics", "admin.updateTutee", "admin.setUserRole",
+        "program.setProfilePolicy"].includes(initial.operation);
       const runDecision = () => ctx.db.$transaction(
         async (tx) =>
           databaseScope.run(tx, () =>
@@ -129,11 +148,11 @@ export const approvalRouter = createTRPCRouter({
               await lockEntity(tx, `approval:${input.id}`);
               const currentReviewer = await tx.user.findUnique({
                 where: { id: ctx.session.user.id },
-                select: { role: true, suspendedAt: true },
+                select: { role: true, suspendedAt: true, mergedIntoId: true },
               });
               if (
                 !currentReviewer ||
-                currentReviewer.suspendedAt ||
+                currentReviewer.suspendedAt || currentReviewer.mergedIntoId ||
                 !["HEAD", "ADMIN"].includes(currentReviewer.role)
               )
                 throw new TRPCError({
@@ -143,10 +162,11 @@ export const approvalRouter = createTRPCRouter({
               const request = await tx.approvalRequest.findUniqueOrThrow({
                 where: { id: input.id },
               });
-              if (initial && (request.operation !== initial.operation || request.requesterId !== initial.requesterId))
+              if (initial?.operation && (request.operation !== initial.operation || request.requesterId !== initial.requesterId))
                 throw new TRPCError({ code: "CONFLICT", message: "The approval request changed. Reload before reviewing it." });
-              if (HEAD_APPROVAL_OPERATIONS.has(request.operation) && currentReviewer.role !== "HEAD")
-                throw new TRPCError({ code: "FORBIDDEN", message: "Only Head may decide badge changes." });
+              const authority = requestAuthority(request);
+              if (!authority?.reviewerRoles.includes(currentReviewer.role as "HEAD" | "ADMIN"))
+                throw new TRPCError({ code: "FORBIDDEN", message: "Your current role cannot review this management change." });
               if (request.state !== "PENDING")
                 throw new TRPCError({
                   code: "CONFLICT",
@@ -162,12 +182,11 @@ export const approvalRouter = createTRPCRouter({
               if (input.approve) {
                 const requester = await tx.user.findUnique({
                   where: { id: request.requesterId },
-                  select: { role: true, suspendedAt: true },
+                  select: { role: true, suspendedAt: true, mergedIntoId: true },
                 });
                 if (
                   !requester ||
-                  requester.suspendedAt ||
-                  (!["admin.setMemberships", "departure.setState"].includes(request.operation) && !["COORDINATOR", "ADMIN", "HEAD"].includes(requester.role))
+                  requester.suspendedAt || requester.mergedIntoId
                 )
                   throw new TRPCError({
                     code: "CONFLICT",
@@ -180,6 +199,15 @@ export const approvalRouter = createTRPCRouter({
                   >[0],
                 );
                 await parseProposal(request.operation, value);
+                const liveAuthority = await proposalAuthority(tx, request.operation, value);
+                const evidence = request.targets as Record<string, unknown>;
+                // Legacy self-service evidence is accepted only for the same owner and a
+                // non-management rank; a stored request never grants current role authority.
+                const participantSelfService = evidence.participantSelfService === true || !Object.hasOwn(evidence, "authorityContext");
+                if (!liveAuthority || !canRequestProposal(liveAuthority, requester.role, request.requesterId, request.operation, value, participantSelfService))
+                  throw new TRPCError({ code: "CONFLICT", message: "The requester can no longer submit this change. Reject it and request a fresh proposal." });
+                if (!liveAuthority.reviewerRoles.includes(currentReviewer.role as "HEAD" | "ADMIN"))
+                  throw new TRPCError({ code: "FORBIDDEN", message: "Only Head may apply this management change." });
                 if (attendanceApproval)
                   await lockAttendanceApprovalTarget(tx, request.operation, value);
                 const targets = await proposalTargets(
@@ -189,7 +217,13 @@ export const approvalRouter = createTRPCRouter({
                   // Preserve legacy fingerprints: only recompute optional room
                   // context when the immutable request originally captured it.
                   Object.hasOwn(request.targets as object, "roomBlockContext"),
+                  Object.hasOwn(request.targets as object, "authorityContext"),
                 );
+                if (targets && typeof targets === "object" && !Array.isArray(targets)) {
+                  if (request.targets && typeof request.targets === "object" && !Array.isArray(request.targets) && request.targets.reviewAuthority)
+                    targets.reviewAuthority = request.targets.reviewAuthority;
+                  if (evidence.participantSelfService) targets.participantSelfService = true;
+                }
                 if (fingerprint(targets) !== request.fingerprint)
                   throw new TRPCError({
                     code: "CONFLICT",
@@ -218,7 +252,9 @@ export const approvalRouter = createTRPCRouter({
                     message:
                       "Open the consequence dialog before applying this change.",
                   });
-                const replayValue = confirmation ? { ...(value as object), ticket: input.ticket } : value;
+                const replayValue = request.operation === "admin.setUserRole"
+                  ? { ...(value as object), confirmPassword: input.confirmPassword }
+                  : confirmation ? { ...(value as object), ticket: input.ticket } : value;
                 // Each reviewer acknowledges current eligibility with their own one-use evidence.
                 await caller[router!]![method!]!(isAssignmentOperation(request.operation)
                   ? { ...(replayValue as object), overrideTicket: input.overrideTicket }
@@ -256,6 +292,9 @@ export const approvalRouter = createTRPCRouter({
                     note: input.note,
                     requesterId: request.requesterId,
                     requesterName: request.requesterName,
+                    requesterRole: (await tx.user.findUnique({ where: { id: request.requesterId }, select: { role: true } }))?.role ?? "UNAVAILABLE",
+                    reviewerRole: currentReviewer.role,
+                    category: authority.category,
                   },
                 },
               });

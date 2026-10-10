@@ -7,6 +7,7 @@ import { minToHm } from "~/lib/time";
 import { roomBlockReview } from "~/lib/room-block-review";
 import { RoomBlockReview } from "./room-block-review";
 import { HistoricalCorrectionReview, historicalReviewRecords } from "./historical-correction-review";
+import { SIGNUP_FIELDS } from "~/lib/signup-fields";
 
 /** Both the card and the final consequence dialog show this exact same proposal. */
 export function ApprovalReviewDetails({
@@ -22,6 +23,7 @@ export function ApprovalReviewDetails({
 }) {
   const t = useTranslations("approvals.review");
   const departureText = useTranslations("schoolDeparture");
+  const signupText = useTranslations("signupFields");
   const format = useFormatter();
   if (operation === "historicalAcademics.correctBatch" && targets && typeof targets === "object" && "historicalAcademics" in targets) {
     const review = historicalReviewRecords.safeParse(targets.historicalAcademics);
@@ -69,6 +71,16 @@ export function ApprovalReviewDetails({
       return format.number(value);
     }
     if (typeof value === "string") {
+      // Localize only known signup schema values; historical or user-authored text stays verbatim.
+      if (operation === "program.setSignupField") {
+        if (key === "form" && (value === "tutee" || value === "tutor")) return signupText(value);
+        if (key === "state" && ["required", "optional", "hidden"].includes(value)) return signupText(value);
+        if (key === "field") {
+          const form = payload && typeof payload === "object" && "form" in payload ? payload.form : undefined;
+          const field = form === "tutee" || form === "tutor" ? SIGNUP_FIELDS[form].find((field) => field.key === value) : undefined;
+          if (field) return signupText(`labels.${field.label}`);
+        }
+      }
       if (key === "id" || /Ids?$/.test(key)) {
         const name = model.names.get(value);
         if (name) return name;

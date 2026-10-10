@@ -214,11 +214,14 @@ it("accepts single-token names and optional Latin spelling for new verified acco
     }),
   ).toEqual({ ok: true, username: "xwang" });
 });
-it.each(REGISTRATION_KINDS)(
-  "completes verified %s registration with only the intended participation",
-  async (kind) => {
+it.each([
+  ...REGISTRATION_KINDS.map((kind) => ({ issuer: "head", kind })),
+  ...(["TUTOR", "CREW"] as const).map((kind) => ({ issuer: "admin", kind })),
+])(
+  "completes verified $kind registration issued by $issuer with only the intended participation",
+  async ({ issuer, kind }) => {
     const client = publicCaller();
-    const issued = await actor("head").admin.issueRegistrationCode({
+    const issued = await actor(issuer).admin.issueRegistrationCode({
       kind,
       email: "new@example.test",
     });
@@ -289,7 +292,7 @@ it.each(REGISTRATION_KINDS)(
     expect(user.canTranslate).toBe(false);
     expect(
       await db.registrationCode.findUnique({ where: { id: issued.id } }),
-    ).toMatchObject({ issuedById: "head", usedByUserId: user.id });
+    ).toMatchObject({ issuedById: issuer, usedByUserId: user.id });
     await expect(
       client.registration.complete({
         code: issued.code,
@@ -305,10 +308,11 @@ it.each(["ADMIN", "COORDINATOR"] as const)(
     for (const id of ["admin", "coordinator"]) {
       await expect(
         actor(id).admin.issueRegistrationCode({ kind }),
-      ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+      ).rejects.toMatchObject({ code: id === "admin" ? "PRECONDITION_FAILED" : "FORBIDDEN" });
       expect(await db.registrationCode.count()).toBe(0);
     }
     const requests = await db.approvalRequest.findMany();
+    expect(requests).toHaveLength(1);
     await expect(
       actor("admin").approval.decide({
         id: requests[0]!.id,
@@ -328,8 +332,12 @@ it.each(["ADMIN", "COORDINATOR"] as const)(
       expect(await actor(id).admin.registrationCodes()).toHaveLength(0);
     await expect(
       actor("admin").admin.revokeRegistrationCode({ id: codes[0]!.id }),
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await actor("head").admin.revokeRegistrationCode({ id: codes[0]!.id });
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    await expect(actor("coordinator").admin.revokeRegistrationCode({ id: codes[0]!.id }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect((await resolveUsableCode(codes[0]!.code!)).ok).toBe(true);
+    const reversal = await db.approvalRequest.findFirstOrThrow({ where: { operation: "admin.revokeRegistrationCode" } });
+    await actor("head").approval.decide({ id: reversal.id, approve: true, note: "Revoke the unused management invitation" });
     expect(await resolveUsableCode(codes[0]!.code!)).toEqual({
       ok: false,
       error: "not-found",

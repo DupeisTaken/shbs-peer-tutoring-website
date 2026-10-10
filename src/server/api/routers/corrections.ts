@@ -273,7 +273,7 @@ export const correctionsRouter = createTRPCRouter({
           },
         });
         const heads = await tx.user.findMany({
-          where: { role: "HEAD" },
+          where: { role: "HEAD", suspendedAt: null, mergedIntoId: null },
           select: { id: true },
         });
         await notifyUsers(
@@ -397,7 +397,7 @@ export const correctionsRouter = createTRPCRouter({
           },
         });
         const heads = await tx.user.findMany({
-          where: { role: "HEAD" },
+          where: { role: "HEAD", suspendedAt: null, mergedIntoId: null },
           select: { id: true },
         });
         await notifyUsers(

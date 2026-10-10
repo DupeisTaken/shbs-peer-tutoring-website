@@ -20,6 +20,12 @@ export const reviewTechnicalFields = new Set([
   "expectedUpdatedAt",
   "expectedRevision",
   "expectedProfileVersion",
+  "expectedVersion",
+  "expectedPolicy",
+  "expectedState",
+  "expectedEnabled",
+  "expectedTimeZone",
+  "expectedTermId",
   "expectedFingerprint",
   "ticket",
   "overrideTicket",
@@ -54,6 +60,8 @@ const tableAliases: Record<string, string> = {
   MessageOverride: "translation",
   PolicyDocument: "policy",
   PageLayout: "layout",
+  ProgramSettings: "programSettings",
+  Language: "languages",
 };
 // Only operations that write record fields directly get an automatic field comparison.
 // A decision/action's input must never be mistaken for its resulting database state.
@@ -65,6 +73,11 @@ const comparable = new Set([
   "admin.updateSubjectLevel",
   "admin.updatePairing",
   "admin.updateAccountProfile",
+  "admin.updateAccountUsername",
+  "admin.setUserRole",
+  "program.setTimeZone",
+  "program.setProfilePolicy",
+  "i18n.setLanguageEnabled",
   "admin.setMemberships",
   "admin.setTuteeStatus",
   "admin.setCrewStatus",
@@ -130,7 +143,7 @@ export function approvalReview(
   const primary = target
     ? primaryRows.find((row) => row.id === target[1])
     : primaryRows.find((row) =>
-        ["key", "locale", "slug", "date"].every(
+        ["key", "code", "locale", "slug", "date"].every(
           (key) => input[key] === undefined || row[key] === input[key],
         ),
       );

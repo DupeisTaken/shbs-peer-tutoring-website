@@ -80,7 +80,7 @@ export function MembershipEditor({
         <select
           className="select min-h-11 w-full lg:min-h-10"
           value={value.rank}
-          disabled={initial.rank === "HEAD" || pending}
+          disabled={selfService || initial.rank === "HEAD" || pending}
           onChange={(event) =>
             setValue({
               ...value,

@@ -28,6 +28,7 @@ export function HistoricalAcademicCorrections({
   coordinator,
   initialSearch = "",
 }: {
+  /** Legacy prop name: true selects the Admin proposal workflow; the route excludes Coordinators. */
   coordinator: boolean;
   initialSearch?: string;
 }) {

@@ -6,6 +6,7 @@ import messages from "../../../messages/en.json";
 import PoliciesPage from "../(admin)/admin/policies/page";
 
 const state = vi.hoisted(() => ({
+  role: "HEAD",
   data: undefined as
     | undefined
     | Array<{
@@ -29,6 +30,7 @@ vi.mock("~/app/_components/confirm-dialog", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    account: { me: { useQuery: () => ({ data: { role: state.role } }) } },
     useUtils: () => ({
       admin: {
         policies: { invalidate: vi.fn() },
@@ -148,4 +150,12 @@ it("keeps a saved translation visible when the English fallback is still missing
       .map((select) => (select as HTMLSelectElement).value),
   ).toEqual(["zh", "en"]);
   expect(state.save).not.toHaveBeenCalled();
+});
+
+it("keeps policy editing read-only for Coordinators", () => {
+  state.role = "COORDINATOR";
+  render(<NextIntlClientProvider locale="en" messages={messages}><PoliciesPage /></NextIntlClientProvider>);
+  expect(screen.queryByRole("button", { name: messages.admin.policies.editor.save })).toBeNull();
+  expect(screen.queryByRole("button", { name: messages.approvals.requestHead })).toBeNull();
+  state.role = "HEAD";
 });

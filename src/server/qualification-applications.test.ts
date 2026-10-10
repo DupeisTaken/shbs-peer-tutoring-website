@@ -311,9 +311,12 @@ it.each([
     ).toBe("PENDING");
     expect(
       await db.auditLog.count({
-        where: { operation: "qualificationApplication.decide" },
+        where: { operation: "qualificationApplication.decide", kind: { not: "ATTEMPT" } },
       }),
     ).toBe(0);
+    expect(await db.auditLog.findFirst({ where: { operation: "qualificationApplication.decide", kind: "ATTEMPT" } })).toMatchObject({
+      details: { actorRole: "ADMIN", outcome: "FAILED", applied: false },
+    });
     await caller("admin").qualificationApplication.decide({
       ...input,
       comment: " Reviewed evidence ",
@@ -346,6 +349,7 @@ it.each([
         where: {
           operation: "qualificationApplication.decide",
           userId: "admin",
+          kind: { not: "ATTEMPT" },
         },
       }),
     ).toBe(1);
@@ -394,9 +398,12 @@ it.each(
     expect(await db.notification.count()).toBe(notifications);
     expect(
       await db.auditLog.count({
-        where: { operation: "qualificationApplication.decide" },
+        where: { operation: "qualificationApplication.decide", kind: { not: "ATTEMPT" } },
       }),
     ).toBe(0);
+    expect(await db.auditLog.findFirst({ where: { operation: "qualificationApplication.decide", kind: "ATTEMPT" } })).toMatchObject({
+      details: { outcome: "FAILED", applied: false },
+    });
   },
 );
 
@@ -442,9 +449,12 @@ it.each(["TUTOR", "VIEWER", "COORDINATOR"] as const)(
     ).toBe("PENDING");
     expect(
       await db.auditLog.count({
-        where: { operation: "qualificationApplication.decide" },
+        where: { operation: "qualificationApplication.decide", kind: { not: "ATTEMPT" } },
       }),
     ).toBe(0);
+    expect(await db.auditLog.findFirst({ where: { operation: "qualificationApplication.decide", kind: "ATTEMPT" } })).toMatchObject({
+      details: { actorRole: role, outcome: "DENIED", applied: false },
+    });
   },
 );
 

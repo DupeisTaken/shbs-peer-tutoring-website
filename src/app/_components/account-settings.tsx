@@ -483,7 +483,8 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
         </div>
       </section>
 
-      {me.data && (
+      {/* Participant badge requests cannot carry a management rank. Staff edits use Users & Roles. */}
+      {me.data && accountMembership(me.data).rank === "NONE" && (
         <MembershipEditor
           userId={me.data.id}
           initial={accountMembership(me.data)}

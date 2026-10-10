@@ -1,6 +1,7 @@
 "use client";
 import {
   REGISTRATION_KINDS,
+  isManagementCode,
   registrationKindLabel,
   type RegistrationKind,
 } from "~/lib/registration-kind";
@@ -13,6 +14,7 @@ import { api } from "~/trpc/react";
 import { ShareCard } from "./share-card";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
+import { InlineNotice } from "~/app/_components/ui/patterns";
 import { Button } from "~/app/_components/ui/button";
 import { useActionReview } from "~/app/_components/ui/action-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
@@ -22,7 +24,8 @@ import { queuedApprovalId } from "~/lib/approval-outcome";
  * Registration codes: issue single-use 6-digit security keys for new tutors and track their
  * status. Active codes remain re-viewable from their expandable cards until they expire, are used,
  * or are revoked.
- * Admins + coordinators can issue/revoke; VIEWER is read-only (and never sees codes).
+ * Head issues directly; Admin also issues Tutor/Crew codes directly. Other eligible
+ * issuance and non-Head revocation actions require Head review. VIEWER is read-only.
  */
 export default function RegistrationCodesPage() {
   const programFormat = useFormatter();
@@ -30,10 +33,19 @@ export default function RegistrationCodesPage() {
   const readOnly = useReadOnly();
   const utils = api.useUtils();
   const codes = api.admin.registrationCodes.useQuery();
+  const identity = api.account.me.useQuery();
+  const role = identity.data?.role;
+  const isHead = role === "HEAD";
+  const canSubmitManagement = isHead || role === "ADMIN";
+  const kinds = REGISTRATION_KINDS.filter((value) =>
+    canSubmitManagement || (value !== "ADMIN" && value !== "COORDINATOR"),
+  );
 
   const [email, setEmail] = useState("");
   const [label, setLabel] = useState("");
   const [kind, setKind] = useState<RegistrationKind>("TUTOR");
+  // Match issuance authority for the selected kind without broadening revocation.
+  const canIssueDirectly = isHead || (role === "ADMIN" && !isManagementCode(kind));
   const [issued, setIssued] = useState<{
     code: string;
     label: string | null;
@@ -95,6 +107,7 @@ export default function RegistrationCodesPage() {
           className="flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
             e.preventDefault();
+            if (identity.error || !role || issue.isPending || !kinds.includes(kind)) return;
             issue.mutate({
               email: email.trim() || undefined,
               label: label.trim() || undefined,
@@ -114,7 +127,7 @@ export default function RegistrationCodesPage() {
               onChange={(e) => setKind(e.target.value as RegistrationKind)}
               className="select field-auto-bounded min-h-11 [--field-min-width:8rem] lg:min-h-10"
             >
-              {REGISTRATION_KINDS.map((value) => (
+              {kinds.map((value) => (
                 <option key={value} value={value}>
                   {t(`admin.registrationCodes.${registrationKindLabel[value]}`)}
                 </option>
@@ -146,13 +159,14 @@ export default function RegistrationCodesPage() {
           </div>
           <button
             className="btn-primary min-h-11 lg:min-h-10"
-            disabled={issue.isPending}
+            disabled={issue.isPending || !role || !!identity.error || !kinds.includes(kind)}
           >
-            {t("admin.registrationCodes.issue")}
+            {canIssueDirectly ? t("admin.registrationCodes.issue") : t("approvals.requestHead")}
           </button>
         </form>
       )}
-      {issue.error && (
+      {issue.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+      {issue.error && !issue.error.data?.approvalId && (
         <p className="text-sm text-red-600">{issue.error.message}</p>
       )}
 

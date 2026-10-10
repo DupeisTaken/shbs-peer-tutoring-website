@@ -74,6 +74,57 @@ const conflict = () =>
 const TTL = 15 * 60_000;
 const MAX_ATTEMPTS = 6;
 
+/** Public invitation mutations bypass signed-in audit middleware. Capture lifecycle
+ * state explicitly in their transaction, excluding all codes, proofs and addresses. */
+function invitationEvidence(row: AccountInvitation | null) {
+  return row
+    ? {
+        exists: true,
+        kind: row.kind,
+        displayed: row.displayedCode,
+        verified: Boolean(row.verifiedAt),
+        completed: Boolean(row.completedAt),
+        loginUsed: Boolean(row.loginUsedAt),
+        attempts: row.attempts,
+        expiresAt: row.expiresAt.toISOString(),
+        recipientId: row.completedUserId,
+      }
+    : { exists: false };
+}
+async function recordInvitationLifecycle(
+  tx: TransactionDb,
+  row: AccountInvitation,
+  operation: string,
+  before: AccountInvitation | null,
+  userId?: string,
+  outcome = "APPLIED",
+) {
+  const actor = userId
+    ? await tx.user.findUnique({
+        where: { id: userId },
+        select: { name: true, role: true },
+      })
+    : null;
+  await tx.auditLog.create({
+    data: {
+      userId: userId ?? null,
+      userName: actor?.name ?? "Public registration",
+      entity: "AccountInvitation",
+      entityId: row.id,
+      kind: "ACTION",
+      operation,
+      action: "Account invitation lifecycle changed",
+      details: {
+        actorRole: actor?.role ?? "PUBLIC",
+        outcome,
+        before: invitationEvidence(before),
+        after: invitationEvidence(row),
+        sourceType: sourceSchema.parse(row.source).type,
+      },
+    },
+  });
+}
+
 /** The completed envelope locates a historical claim without storing its raw legacy token.
  * This only returns a source digest to server callers; normal staff/record checks still run. */
 export async function historyInvitationDigest(
@@ -424,10 +475,16 @@ export async function deliverAccountInvitation(
               )
             : +row.expiresAt;
     const expiresAt = new Date(Math.min(+row.expiresAt, sourceExpiry));
-    await tx.accountInvitation.update({
+    const issued = await tx.accountInvitation.update({
       where: { id: row.id },
       data: { expiresAt },
     });
+    await recordInvitationLifecycle(
+      tx,
+      issued,
+      "accountInvitation.issue",
+      prior,
+    );
     if (input.display) return invitationReceipt(row);
     const url = `${emailOrigin()}/register?invitation=${encodeURIComponent(row.id)}`;
     await emailSender.send({
@@ -643,10 +700,16 @@ export async function sendInvitationVerification(
       text: `Your email verification code is ${code}. / 您的邮箱验证码是 ${code}。`,
       presentation: { code },
     });
-    await tx.accountInvitation.update({
+    const challenged = await tx.accountInvitation.update({
       where: { id: row.id },
       data: { emailCodeHash: hashCode(code), emailCodeExpiresAt: expiresAt },
     });
+    await recordInvitationLifecycle(
+      tx,
+      challenged,
+      "accountInvitation.challenge",
+      row,
+    );
     return { invitationId: row.id };
   });
 }
@@ -787,10 +850,18 @@ export async function verifyAccountInvitation(
         row.displayedCode ? (row.emailCodeHash ?? "") : row.codeHash,
       )
     ) {
-      await tx.accountInvitation.update({
+      const attempted = await tx.accountInvitation.update({
         where: { id: row.id },
         data: { attempts: { increment: 1 } },
       });
+      await recordInvitationLifecycle(
+        tx,
+        attempted,
+        "accountInvitation.verify",
+        row,
+        undefined,
+        "DENIED",
+      );
       return null;
     }
     const state = await sourceState(tx, row);
@@ -805,6 +876,13 @@ export async function verifyAccountInvitation(
       where: { id: row.id },
       data: { verifiedAt },
     });
+    if (!row.verifiedAt)
+      await recordInvitationLifecycle(
+        tx,
+        verified,
+        "accountInvitation.verify",
+        row,
+      );
     return { proof: proofFor(verified) };
   });
   if (!result) throw invalid();
@@ -842,10 +920,17 @@ export async function consumeInvitationLogin(
       return null;
     if (owner.twoFactorEnabled && (await getFeatures(tx)).EMAIL_2FA)
       return null;
-    await tx.accountInvitation.update({
+    const consumed = await tx.accountInvitation.update({
       where: { id: row.id },
       data: { loginUsedAt: new Date() },
     });
+    await recordInvitationLifecycle(
+      tx,
+      consumed,
+      "accountInvitation.login",
+      row,
+      owner.id,
+    );
     return {
       id: owner.id,
       name: owner.name,
@@ -1014,7 +1099,7 @@ export async function redeemAccountInvitation(
     const account = await invitationEmailOwner(tx, row.email);
     if (!account) throw conflict();
     const resultKind = owner && state.viewer ? "LOGIN" : row.kind;
-    await tx.accountInvitation.update({
+    const completed = await tx.accountInvitation.update({
       where: { id: row.id },
       data: {
         completedAt: new Date(),
@@ -1028,21 +1113,13 @@ export async function redeemAccountInvitation(
         },
       },
     });
-    await tx.auditLog.create({
-      data: {
-        userId: account.id,
-        entity: "User",
-        entityId: account.id,
-        kind: "ACTION",
-        operation: "accountInvitation.redeem",
-        action: "Reviewed account invitation",
-        details: {
-          kind: row.kind,
-          invitationId: row.id,
-          sourceType: state.source.type,
-        },
-      },
-    });
+    await recordInvitationLifecycle(
+      tx,
+      completed,
+      "accountInvitation.redeem",
+      row,
+      account.id,
+    );
     return {
       ok: true,
       completed: true,

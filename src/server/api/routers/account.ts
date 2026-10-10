@@ -40,9 +40,10 @@ export const accountRouter = createTRPCRouter({
     where: { userId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) } }, orderBy: { confirmedAt: "desc" }, take: 50,
     select: { id: true, status: true, gradeLevel: true, rawGrade: true, schoolYear: true, confirmedAt: true, source: true, reason: true },
   })),
-  // Any active account may request its own badges. Only Head can apply the resulting proposal.
+  // Self-service participation requests never grant management rank. The trusted origin is
+  // server-owned so a direct management mutation cannot impersonate this narrower workflow.
   requestMemberships: protectedProcedure.input(membershipSchema).mutation(async ({ ctx, input }) => {
-    const request = await queueProposal(ctx.session, "admin.setMemberships", { userId: ctx.session.user.id, membership: input });
+    const request = await queueProposal(ctx.session, "admin.setMemberships", { userId: ctx.session.user.id, membership: input }, { participantSelfService: true });
     return { id: request.id, state: request.state };
   }),
   emailSettings: protectedProcedure.query(async ({ ctx }) => {

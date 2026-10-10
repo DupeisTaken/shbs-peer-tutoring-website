@@ -465,11 +465,15 @@ it("audits inspection and reversible moderation without touching participant rea
       })
     ).body,
   ).toBe(message.body);
-  await supervisor.messaging.moderate({
+  await expect(supervisor.messaging.moderate({
     ...hide,
     hide: false,
     reason: "Restore after reconsideration",
-  });
+  })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const restoration = await db.approvalRequest.findFirstOrThrow({ where: { operation: "messaging.moderate" } });
+  expect((await db.directMessage.findUniqueOrThrow({ where: { id: message.id } })).hiddenAt).not.toBeNull();
+  expect(await db.messageModeration.count({ where: { action: "RESTORE" } })).toBe(0);
+  await caller().approval.decide({ id: restoration.id, approve: true, note: "Head reviewed the restoration" });
   expect(await caller("alice").messaging.inbox({})).toMatchObject([
     { body: message.body },
   ]);

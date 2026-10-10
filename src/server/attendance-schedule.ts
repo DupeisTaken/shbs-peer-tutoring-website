@@ -205,7 +205,7 @@ export async function propagateSlotAttendance(
     },
   });
   const heads = await tx.user.findMany({
-    where: { role: "HEAD" },
+    where: { role: "HEAD", suspendedAt: null, mergedIntoId: null },
     select: { id: true },
   });
   if (heads.length)

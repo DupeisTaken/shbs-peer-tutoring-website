@@ -2,14 +2,12 @@ import { portalAccess } from "~/lib/portal-access";
 import { projectManagementRead } from "~/server/management-read-models";
 import { SignupRetry } from "~/server/signup-admission";
 import { accountHistoryIds } from "~/server/account-history";
-import { ApprovalQueued, queueProposal } from "~/server/approvals";
-import { approvalScope, isTranslationPublication } from "~/server/db-scope";
+import { ApprovalQueued, queueProposal, proposalAuthority } from "~/server/approvals";
+import { databaseScope, isTranslationPublication } from "~/server/db-scope";
+import { runAuditedMutation, recordAuditAttempt, auditAttemptRecorded } from "~/server/audit/evidence";
 import {
   APPROVAL_OPERATIONS,
-  HEAD_APPROVAL_OPERATIONS,
   COORDINATOR_DIRECT_OPERATIONS,
-  actionKind,
-  humanizeOperation,
 } from "~/lib/approval-policy";
 /**
  * YOU PROBABLY DON'T NEED TO EDIT THIS FILE, UNLESS:
@@ -180,10 +178,32 @@ export const publicProcedure = t.procedure.use(timingMiddleware);
  */
 export const protectedProcedure = t.procedure
   .use(timingMiddleware)
+  .use(async ({ ctx, next, path, type }) => {
+    // Authorization failures happen before the application transaction. Attribute only
+    // signed-in accounts that still exist, and never report a queued request as a failure.
+    const capture = async (error: unknown) => {
+      if (type !== "mutation" || !ctx.session?.user || databaseScope.getStore() || auditAttemptRecorded(error) ||
+          (error instanceof TRPCError && error.cause instanceof ApprovalQueued)) return;
+      const account = await ctx.db.user.findUnique({ where: { id: ctx.session.user.id }, select: { role: true, name: true, username: true } });
+      if (!account) return;
+      await recordAuditAttempt(ctx.db, { id: ctx.session.user.id,
+        name: account.name ?? account.username ?? null, role: account.role }, path, error);
+    };
+    try {
+      const result = await next();
+      if (!result.ok) await capture(result.error);
+      return result;
+    } catch (error) {
+      await capture(error);
+      throw error;
+    }
+  })
   .use(async ({ ctx, next, path, type, getRawInput }) => {
     if (!ctx.session?.user) {
       throw new TRPCError({ code: "UNAUTHORIZED" });
     }
+    // Preserve the narrowed full session inside the later audit callback closure.
+    const session = ctx.session;
     // Session cookies prove identity, not current privileges. Read current account state on
     // every API request so demotion, unlinking, suspension and deletion take effect immediately.
     const account = await ctx.db.user.findUnique({
@@ -285,44 +305,6 @@ export const protectedProcedure = t.procedure
         }
       }
     }
-    let headAssignment = HEAD_APPROVAL_OPERATIONS.has(path);
-    if (path === "admin.updateTutor" && type === "mutation") {
-      const raw = await getRawInput();
-      if (
-        raw &&
-        typeof raw === "object" &&
-        "id" in raw &&
-        typeof raw.id === "string" &&
-        "status" in raw
-      ) {
-        const tutor = await ctx.db.tutor.findUnique({
-          where: { id: raw.id },
-          select: { status: true },
-        });
-        headAssignment = !!tutor && tutor.status !== raw.status;
-      }
-    }
-    if (type === "mutation" && account.role !== "HEAD" && headAssignment) {
-      if (
-        !["ADMIN", "COORDINATOR"].includes(account.role) &&
-        path !== "tutor.decideInterview"
-      )
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Request badge changes from your account profile.",
-        });
-      const request = await queueProposal(
-        { ...ctx.session, role: account.role },
-        path,
-        await getRawInput(),
-      );
-      const cause = new ApprovalQueued(request.id);
-      throw new TRPCError({
-        code: "PRECONDITION_FAILED",
-        message: "Submitted for Head approval. No access has changed.",
-        cause,
-      });
-    }
     // Text-only translator mutations validate and create destination-bound drafts in
     // their resolvers. Other coordinator website changes use the general approval queue.
     const translationDraftWrite = [
@@ -332,6 +314,22 @@ export const protectedProcedure = t.procedure
       "home.setSectionTranslation",
       "home.setPageTitle",
     ].includes(path);
+    if (type === "mutation" && !translationDraftWrite && Object.hasOwn(APPROVAL_OPERATIONS, path)) {
+      const raw = await getRawInput();
+      const authority = await proposalAuthority(ctx.db, path, raw);
+      if (authority && !authority.directRoles.includes(account.role)) {
+        // This check precedes queuing and resolver-specific gates, so a forbidden role
+        // cannot turn an inaccessible management mutation into a request/replay loophole.
+        if (!authority.requesterRoles.includes(account.role))
+          throw new TRPCError({ code: "FORBIDDEN", message: "Your current role cannot submit this change." });
+        const request = await queueProposal({ ...ctx.session, role: account.role }, path, raw);
+        throw new TRPCError({ code: "PRECONDITION_FAILED",
+          message: authority.reviewerRoles.length === 1
+            ? "Submitted for Head approval. No live changes have been applied."
+            : "Submitted for management approval. No live changes have been applied.",
+          cause: new ApprovalQueued(request.id) });
+      }
+    }
     if (
       account.role === "COORDINATOR" &&
       type === "mutation" &&
@@ -357,38 +355,49 @@ export const protectedProcedure = t.procedure
         cause,
       });
     }
-    const result = await next({
+    const run = async (auditedDb: typeof ctx.db) => {
+      if (type === "mutation" && path === "admin.updateTimeSlot") {
+        // A slot correction must observe attendance committed while waiting for the
+        // schedule barrier. READ COMMITTED plus the same role/slot locks as approval
+        // retains authority without a pre-wait Serializable snapshot hiding that work.
+        const { lockAttendanceApproval, lockAttendanceApprovalTarget } = await import("~/server/attendance-approval");
+        await lockAttendanceApproval(auditedDb, path, [session.user.id]);
+        await lockAttendanceApprovalTarget(auditedDb, path, await getRawInput());
+        const currentActor = await auditedDb.user.findUnique({ where: { id: session.user.id },
+          select: { role: true, suspendedAt: true, mergedIntoId: true } });
+        if (!currentActor || currentActor.suspendedAt || currentActor.mergedIntoId || currentActor.role !== account.role)
+          throw new TRPCError({ code: "CONFLICT", message: "Your current authority changed. Reload before editing this slot." });
+      }
+      if (type === "mutation" && !translationDraftWrite && Object.hasOwn(APPROVAL_OPERATIONS, path)) {
+        // Conditional direct authority is re-read inside the application transaction.
+        // Its Serializable boundary rejects a concurrent first decision/correction too.
+        const currentAuthority = await proposalAuthority(auditedDb, path, await getRawInput());
+        if (!currentAuthority?.directRoles.includes(account.role))
+          throw new TRPCError({ code: "CONFLICT", message: "The action now requires review. Reload and submit a fresh request." });
+      }
+      return next({
       ctx: {
+        db: auditedDb,
         portalAccess: access,
         // infers the `session` as non-nullable
         session: {
-          ...ctx.session,
+          ...session,
           role: account.role,
           tutorId:
             account.role === "VIEWER" || account.tutorAccessRevoked
               ? null
               : account.tutorId,
-          user: ctx.session.user,
+          user: session.user,
         },
       },
-    });
-    // Attribute every successful signed-in mutation, including participant actions.
-    // Store only operation metadata: passwords, message bodies and tokens never enter this log.
-    // Record transfer writes their audit evidence inside the transaction; previews roll back.
-    if (type === "mutation" && result.ok && !path.startsWith("approval.") && !path.startsWith("recordTransfer.") && !path.startsWith("accountCombine.") && !path.startsWith("historicalAcademics.") && !path.startsWith("tutorHistory.")) {
-      await ctx.db.auditLog.create({
-        data: {
-          userId: ctx.session.user.id,
-          userName: account.name ?? account.username ?? ctx.session.user.id,
-          action: humanizeOperation(path),
-          entity: path.split(".")[0]!,
-          kind: actionKind(path),
-          operation: path,
-          approvalId: approvalScope.getStore(),
-        },
       });
-    }
-    return result;
+    };
+    // Successful changes and safe before/after evidence share a transaction. Queued
+    // proposals have already stopped above, so their durable submission is retained.
+    return type === "mutation"
+      ? runAuditedMutation(ctx.db, { id: ctx.session.user.id,
+          name: account.name ?? account.username ?? null, role: account.role }, path, run)
+      : run(ctx.db);
   });
 
 /**

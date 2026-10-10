@@ -2,7 +2,7 @@
 import { Activity, useState } from "react";
 import { SectionTabs } from "./ui/section-tabs";
 import { Button, ChoiceButton } from "./ui/button";
-import { FormActions } from "./ui/patterns";
+import { InlineNotice, FormActions } from "./ui/patterns";
 import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterInputs } from "~/trpc/react";
 import { MessageGroupChoices } from "./message-inbox";
@@ -89,7 +89,8 @@ function Supervision() {
       await rows.refetch();
     },
   });
-  const error = rows.error ?? review.error ?? moderate.error;
+  const error = rows.error ?? (review.error?.data?.approvalId ? null : review.error) ?? (moderate.error?.data?.approvalId ? null : moderate.error);
+  const approvals = useTranslations("approvals");
   return (
     <div className="space-y-4">
       <div className="card grid gap-4 p-5 md:grid-cols-2">
@@ -144,6 +145,7 @@ function Supervision() {
           </button>
         </div>
       )}
+      {(review.error?.data?.approvalId ?? moderate.error?.data?.approvalId) && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
       {error && <p role="alert">{error.message}</p>}
       {rows.isLoading && <p role="status">{t("loading")}</p>}
       {rows.data?.rows.length === 0 && (
@@ -366,6 +368,7 @@ function UserPermission({
   user: { id: string; name: string | null };
 }) {
   const t = useTranslations("messaging");
+  const approvals = useTranslations("approvals");
   const [reason, setReason] = useState("");
   const permission = api.messaging.userPermission.useQuery({ userId: user.id });
   const restrict = api.messaging.restrict.useMutation({
@@ -416,7 +419,8 @@ function UserPermission({
         >
           {t(permission.data.restricted ? "allowAccess" : "restrictAccess")}
         </button>
-        {restrict.error && <p role="alert">{restrict.error.message}</p>}
+        {restrict.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+        {restrict.error && !restrict.error.data?.approvalId && <p role="alert">{restrict.error.message}</p>}
         {restrict.isSuccess && <p role="status">{t("saved")}</p>}
       </div>
     </div>
@@ -434,6 +438,9 @@ function PermissionEditor({
   onSaved: () => Promise<unknown>;
 }) {
   const t = useTranslations("messaging");
+  const identity = api.account.me.useQuery();
+  const canEdit = !identity.error && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
+  const approvals = useTranslations("approvals");
   const [value, setValue] = useState(groups);
   const [reason, setReason] = useState("");
   const save = api.messaging.setPermission.useMutation({
@@ -446,6 +453,7 @@ function PermissionEditor({
       className="card space-y-4 p-4"
       onSubmit={(e) => {
         e.preventDefault();
+        if (!canEdit || save.isPending) return;
         save.mutate({
           target,
           groups: value as RouterInputs["messaging"]["setPermission"]["groups"],
@@ -454,6 +462,8 @@ function PermissionEditor({
       }}
     >
       <h3 className="font-semibold">{label}</h3>
+      <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
+      <fieldset disabled={!canEdit || save.isPending} className="min-w-0 space-y-4">
       <MessageGroupChoices
         value={value}
         onChange={setValue}
@@ -466,16 +476,18 @@ function PermissionEditor({
           variant="primary"
           disabled={save.isPending || reason.trim().length < 5}
         >
-          {t("save")}
+          {identity.data?.role === "ADMIN" ? approvals("requestHead") : t("save")}
         </Button>
         <Button
           disabled={save.isPending || reason.trim().length < 5}
-          onClick={() => save.mutate({ target, groups: null, reason })}
+          onClick={() => { if (canEdit && !save.isPending) save.mutate({ target, groups: null, reason }); }}
         >
           {t(target.type === "USER" ? "inherit" : "resetDefault")}
         </Button>
       </FormActions>
-      {save.error && <p role="alert">{save.error.message}</p>}
+      </fieldset>
+      {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+      {save.error && !save.error.data?.approvalId && <p role="alert">{save.error.message}</p>}
       {save.isSuccess && <p role="status">{t("saved")}</p>}
     </form>
   );

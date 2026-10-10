@@ -1,6 +1,7 @@
 "use client";
 import { useProfileReloadFocus } from "./use-profile-reload-focus";
 import { useDialogPending } from "./ui/modal";
+import { InlineNotice } from "./ui/patterns";
 import { Button } from "./ui/button";
 import { ProfileEditSection } from "./profile-edit-section";
 
@@ -11,20 +12,23 @@ import { api } from "~/trpc/react";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 
-/** Separate from ordinary profile edits: this operation always requires live Head authority. */
+/** Head applies identity changes; Admin proposals keep this independent draft and version. */
 export function AccountUsernameEditor({
   userId,
   username: initial,
   profileVersion,
   onSaved,
+  canApply = true,
 }: {
   userId: string;
   username?: string | null;
   profileVersion: number;
   onSaved?: () => void;
+  canApply?: boolean;
 }) {
   const t = useTranslations("accountProfile");
   const common = useTranslations("uiPatterns");
+  const approvals = useTranslations("approvals");
   const [username, setUsername] = useState(initial ?? "");
   const [saved, setSaved] = useState(false);
   const [needsRefresh, setNeedsRefresh] = useState(false);
@@ -132,7 +136,7 @@ export function AccountUsernameEditor({
         }}
         actions={
           <Button type="submit" disabled={controlsBusy || !username.trim()}>
-            {t("saveUsername")}
+            {canApply ? t("saveUsername") : approvals("requestHead")}
           </Button>
         }
       >
@@ -151,7 +155,8 @@ export function AccountUsernameEditor({
           />
           <span className="muted text-xs">{t("usernameHelp")}</span>
         </label>
-        {save.error && (
+        {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+        {save.error && !save.error.data?.approvalId && (
           <p role="alert" className="text-sm text-red-600">
             {save.error.message}
           </p>

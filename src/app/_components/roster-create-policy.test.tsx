@@ -21,6 +21,7 @@ vi.mock("~/trpc/react", () => {
   };
   return {
     api: {
+    account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
       useUtils: () => ({
         admin: {
           tutors: { invalidate: vi.fn() },

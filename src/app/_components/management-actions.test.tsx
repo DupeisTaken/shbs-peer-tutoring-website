@@ -89,6 +89,8 @@ vi.mock("~/trpc/react", () => ({
 
 const row = (state = "PENDING") => ({
   id: "request-1",
+  canDecide: undefined as boolean | undefined,
+  reviewerRoles: undefined as string[] | undefined,
   operation: "admin.updateRoom",
   requesterId: "coordinator",
   requesterName: "Alex Coordinator",
@@ -510,3 +512,19 @@ it.each([true, false])(
     ).toBe(headReviewer);
   },
 );
+
+it("honors server review authority for a payload-dependent reversal", () => {
+  queue([{ ...row(), operation: "messaging.moderate", canDecide: false, reviewerRoles: ["HEAD"], payload: SuperJSON.serialize({ messageId: "message", hide: false, reason: "Restore checked content" }) }], true);
+  render(view(true));
+  expect(screen.getByText(en.approvals.review.headRequired)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: en.approvals.approve })).toBeNull();
+});
+it("requires a fresh Head password for legacy management role requests", () => {
+  queue([{ ...row(), operation: "admin.setUserRole", canDecide: true, reviewerRoles: ["HEAD"], payload: SuperJSON.serialize({ userId: "account", role: "ADMIN" }) }], true, 1, true);
+  render(view(true));
+  fireEvent.change(screen.getByRole("textbox", { name: en.approvals.review.noteRequired }), { target: { value: "Authority verified" } });
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: en.approvals.approve }).disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText(en.approvals.review.confirmPassword), { target: { value: "Synthetic-reviewer-password" } });
+  fireEvent.click(screen.getByRole("button", { name: en.approvals.approve }));
+  expect(mocks.decide).toHaveBeenCalledWith(expect.objectContaining({ id: "request-1", approve: true, confirmPassword: "Synthetic-reviewer-password" }));
+});

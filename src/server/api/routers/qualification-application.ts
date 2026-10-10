@@ -131,7 +131,7 @@ export const qualificationApplicationRouter = createTRPCRouter({
           select: { id: true },
         });
         const reviewers = await tx.user.findMany({
-          where: { role: { in: ["ADMIN", "HEAD"] }, suspendedAt: null },
+          where: { role: { in: ["ADMIN", "HEAD"] }, suspendedAt: null, mergedIntoId: null },
           select: { id: true },
         });
         await notifyUsers(

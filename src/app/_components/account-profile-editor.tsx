@@ -1,6 +1,7 @@
 "use client";
 import { useProfileReloadFocus } from "./use-profile-reload-focus";
 import { ProfileEditSection } from "./profile-edit-section";
+import { InlineNotice } from "./ui/patterns";
 import { Button } from "./ui/button";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, personNameEdit } from "~/lib/person-name";
@@ -24,6 +25,7 @@ export function AccountProfileEditor({
   onClose,
   membership,
   isHead,
+  canRequestHead = false,
 }: {
   profile: {
     userId: string;
@@ -39,6 +41,7 @@ export function AccountProfileEditor({
   onClose: () => void;
   membership?: AccountMembership;
   isHead?: boolean;
+  canRequestHead?: boolean;
 }) {
   const t = useTranslations("accountProfile");
   return (
@@ -47,6 +50,7 @@ export function AccountProfileEditor({
         profile={profile}
         membership={membership}
         isHead={isHead}
+        canRequestHead={canRequestHead}
       />
     </ProfileDialog>
   );
@@ -57,9 +61,11 @@ function AccountProfileForm({
   profile,
   membership,
   isHead,
+  canRequestHead = false,
 }: Omit<ComponentProps<typeof AccountProfileEditor>, "onClose">) {
   const t = useTranslations("accountProfile");
   const common = useTranslations("uiPatterns");
+  const approvals = useTranslations("approvals");
   const [saved, setSaved] = useState(false);
   const [needsRefresh, setNeedsRefresh] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
@@ -183,7 +189,7 @@ function AccountProfileForm({
               variant="primary"
               disabled={save.isPending || !name.trim()}
             >
-              {t("save")}
+              {canRequestHead && !isHead ? approvals("requestHead") : t("save")}
             </Button>
           }
         >
@@ -194,7 +200,8 @@ function AccountProfileForm({
             legacyName={legacyName}
             originalValue={originalNames}
           />
-          {save.error && (
+          {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+          {save.error && !save.error.data?.approvalId && (
             <p role="alert" className="text-sm text-red-600">
               <ProfilePolicyError message={save.error.message} />
             </p>
@@ -229,13 +236,14 @@ function AccountProfileForm({
         </ProfileEditSection>
       </form>
       <div className="mt-5">
-        <AcademicPanel userId={profile.userId} />
+        <AcademicPanel userId={profile.userId} canApply={!canRequestHead || !!isHead} />
       </div>
-      {isHead && (
+      {(isHead === true || canRequestHead) && (
         <AccountUsernameEditor
           userId={profile.userId}
           username={profile.username}
           profileVersion={profile.profileVersion}
+          canApply={!!isHead}
         />
       )}
       {membership && (

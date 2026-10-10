@@ -1037,6 +1037,9 @@ export const adminRouter = createTRPCRouter({
     const np = nextPeriod(from, nextSemester);
     const yearCross = crossesYear(from, np);
     return {
+      // These flags distinguish proposal access from direct application in Program & Refresh.
+      canEdit: ["ADMIN", "HEAD"].includes(ctx.session.role),
+      canApply: ctx.session.role === "HEAD",
       termId: active.termId,
       schoolYear: active.schoolYear,
       quarter: active.quarter,
@@ -4390,8 +4393,8 @@ export const adminRouter = createTRPCRouter({
   }),
 
   /**
-   * Issue a registration code. The plaintext 6-digit code is returned ONCE for the issuer to copy
-   * and hand out (we never email or re-show it). Optionally bind it to an email and/or an existing
+   * Issue a five-character registration code for authorized staff to share.
+   * Active codes remain viewable by their permitted staff audience. Optionally bind to an email and/or an existing
    * roster Tutor (so registration links to that record instead of creating a new one).
    */
   issueRegistrationCode: adminProcedure
@@ -4488,6 +4491,19 @@ export const adminRouter = createTRPCRouter({
             },
           });
         }
+        const issuance = await tx.auditLog.findFirst({
+          where: { entity: "RegistrationCode", entityId: code.id, operation: "registration.issue" },
+          orderBy: { createdAt: "asc" }, select: { id: true },
+        });
+        await tx.auditLog.create({ data: {
+          userId: ctx.session.user.id, userName: ctx.session.user.name,
+          entity: "RegistrationCode", entityId: code.id, operation: "admin.revokeRegistrationCode",
+          action: "Revoked unused registration invitation", approvalId: approvalScope.getStore(),
+          details: { actorRole: ctx.session.role, outcome: "APPLIED", kind: code.kind,
+            issuedById: code.issuedById, before: { active: true }, after: { active: false },
+            crewApplicationId: code.crewApplicationId, originalActionId: issuance?.id ?? null,
+            originalEvidence: issuance ? "RECORDED" : "LEGACY_UNAVAILABLE" },
+        } });
         return { ok: true };
       });
     }),
@@ -4754,13 +4770,8 @@ export const adminRouter = createTRPCRouter({
     };
   }),
 
-  /**
-   * Change a user's role. Tier rules (enforced here on top of the procedure gate):
-   *   - Changing to/from ADMIN, or any change to a HEAD, requires the caller to be HEAD.
-   *   - HEAD is never assigned here (use `transferHead`); demoting the head is blocked.
-   *   - ADMINs may only set roles up to COORDINATOR on non-admin, non-head users.
-   * adminOnlyProcedure already restricts the caller to ADMIN or HEAD.
-   */
+  /** Head applies role changes; Admin requests use the shared review queue.
+   * Leadership transfer stays separate and credentials never enter saved proposals. */
   setUserRole: headProcedure
     .input(
       z.object({
@@ -5852,10 +5863,19 @@ export const adminRouter = createTRPCRouter({
             message: "Undo data was invalid.",
           });
         }
-        return tx.auditLog.update({
+        const undone = await tx.auditLog.update({
           where: { id: entry.id },
           data: { undone: true, undoneAt: new Date() },
         });
+        // A reversal retains its own actor/review link and points to the immutable source event.
+        await tx.auditLog.create({ data: {
+          userId: ctx.session.user.id, userName: ctx.session.user.name,
+          entity: "AuditLog", entityId: entry.id, operation: "admin.undoAudit",
+          action: "Reversed recorded action", approvalId: approvalScope.getStore(),
+          details: { actorRole: ctx.session.role, outcome: "APPLIED", originalActionId: entry.id,
+            before: { undone: false }, after: { undone: true } },
+        } });
+        return undone;
       }),
     ),
 });

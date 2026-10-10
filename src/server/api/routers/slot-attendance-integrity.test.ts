@@ -84,7 +84,8 @@ async function snapshot() {
     sessions: await db.session.findMany({ orderBy: { id: "asc" } }),
     flags: await db.sessionFlag.findMany(),
     adjustments: await db.serviceHourAdjustment.findMany(),
-    audits: await db.auditLog.count(),
+    // Failed attempts persist independently; no applied evidence may survive rollback.
+    audits: await db.auditLog.count({ where: { kind: { not: "ATTEMPT" } } }),
     notifications: await db.notification.count(),
   };
 }

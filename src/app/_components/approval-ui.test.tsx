@@ -59,7 +59,7 @@ it("announces a queued proposal with a working request link and dismiss control"
     );
   });
   expect(screen.getByRole("status").textContent).toContain(
-    "live records stay unchanged",
+    messages.approvals.queuedBody,
   );
   expect(
     screen.getByRole("link", { name: "View Request" }).getAttribute("href"),

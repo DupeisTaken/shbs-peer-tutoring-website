@@ -120,12 +120,20 @@ async function owner(extra = {}) {
 async function staff(
   kind: "TUTOR" | "CREW" | "ADMIN" | "COORDINATOR" = "TUTOR",
   target = email,
+  adminIssuer = false,
 ) {
-  const issued = await issueRegistrationCode({
-    kind,
-    email: target,
-    issuedById: "head",
-  });
+  const issued = adminIssuer
+    ? await createCaller({
+        db,
+        headers: new Headers({ "x-real-ip": `invitation-${++callerId}` }),
+        session: {
+          user: { id: "admin", email: "admin@example.test", name: "Admin" },
+          role: "ADMIN",
+          tutorId: null,
+          expires: "2099-01-01T00:00:00Z",
+        },
+      }).admin.issueRegistrationCode({ kind, email: target })
+    : await issueRegistrationCode({ kind, email: target, issuedById: "head" });
   const initial = await db.registrationCode.findUniqueOrThrow({
     where: { id: issued.id },
   });
@@ -155,6 +163,100 @@ async function staff(
     staffKey: issued.code,
   };
 }
+
+it.each(["TUTOR", "CREW"] as const)(
+  "redeems Admin-issued %s codes through the unified flow with linked lifecycle evidence",
+  async (kind) => {
+    await db.user.create({
+      data: {
+        id: "admin",
+        email: "admin@example.test",
+        role: "ADMIN",
+        name: "Admin",
+      },
+    });
+    const account = await owner({ role: "VIEWER" });
+    const invitation = await staff(kind, email, true);
+    expect(invitation.staffKey).toHaveLength(5);
+    expect(await db.approvalRequest.count()).toBe(0);
+    await redeemAccountInvitation(
+      db,
+      { ...profile, ...invitation },
+      account.id,
+    );
+    const issuance = await db.auditLog.findFirstOrThrow({
+      where: {
+        entity: "RegistrationCode",
+        entityId: invitation.row.id,
+        operation: "registration.issue",
+      },
+    });
+    const redemption = await db.auditLog.findFirstOrThrow({
+      where: {
+        entity: "RegistrationCode",
+        entityId: invitation.row.id,
+        operation: "registration.complete",
+      },
+    });
+    expect(issuance.userId).toBe("admin");
+    expect(redemption.details).toMatchObject({
+      originalActionId: issuance.id,
+      actorRole: kind,
+      before: { used: false },
+      after: { used: true },
+    });
+    const evidence = JSON.stringify([issuance.details, redemption.details]);
+    expect(evidence).not.toContain(invitation.staffKey);
+    expect(evidence).not.toContain(invitation.secret);
+    expect(evidence).not.toContain(invitation.proof);
+    const lifecycle = await db.auditLog.findMany({
+      where: { entity: "AccountInvitation", entityId: invitation.invitationId },
+    });
+    expect(lifecycle.map((entry) => entry.operation)).toEqual(
+      expect.arrayContaining([
+        "accountInvitation.issue",
+        "accountInvitation.verify",
+        "accountInvitation.redeem",
+      ]),
+    );
+    const safeLifecycle = JSON.stringify(
+      lifecycle.map((entry) => entry.details),
+    );
+    for (const secret of [
+      invitation.staffKey,
+      invitation.secret,
+      invitation.proof,
+      invitation.row.emailCodeHash!,
+      email,
+    ])
+      expect(safeLifecycle).not.toContain(secret);
+    expect(
+      await db.registrationCode.findUniqueOrThrow({
+        where: { id: invitation.row.id },
+      }),
+    ).toMatchObject({ usedByUserId: account.id });
+  },
+);
+
+it("a fresh Admin Crew invitation preserves an existing opt-out", async () => {
+  await db.user.create({
+    data: {
+      id: "admin",
+      email: "admin@example.test",
+      role: "ADMIN",
+      name: "Admin",
+    },
+  });
+  const account = await owner({ role: "CREW", crewStatus: "OPTED_OUT" });
+  const invitation = await staff("CREW", email, true);
+  await redeemAccountInvitation(db, { ...profile, ...invitation }, account.id);
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+  ).toMatchObject({
+    crewStatus: "OPTED_OUT",
+    passwordHash: account.passwordHash,
+  });
+});
 async function viewer(target = email) {
   const started = await startViewerSignup({
     email: target,
@@ -213,6 +315,56 @@ it("fills genuinely missing identity when an existing account accepts management
     lastName: "Member",
     passwordHash: account.passwordHash,
   });
+  const issuance = await db.auditLog.findFirstOrThrow({
+    where: { entityId: invite.row.id, operation: "registration.issue" },
+  });
+  const redemption = await db.auditLog.findFirstOrThrow({
+    where: { entityId: invite.row.id, operation: "registration.complete" },
+  });
+  expect(redemption.details).toMatchObject({
+    actorRole: "ADMIN",
+    outcome: "APPLIED",
+    originalActionId: issuance.id,
+    before: { used: false, role: "STUDENT" },
+    after: { used: true, role: "ADMIN" },
+  });
+});
+
+it("rolls back invitation receipt, source redemption, access and their audit evidence together", async () => {
+  const account = await owner({ role: "VIEWER" });
+  const invite = await staff("CREW");
+  await expect(
+    db.$transaction(async (tx) => {
+      await redeemAccountInvitation(tx, { ...profile, ...invite }, account.id);
+      throw new Error("Synthetic enclosing transaction rollback");
+    }),
+  ).rejects.toThrow("Synthetic enclosing transaction rollback");
+  expect(
+    await db.accountInvitation.findUniqueOrThrow({
+      where: { id: invite.invitationId },
+    }),
+  ).toMatchObject({ completedAt: null });
+  expect(
+    await db.registrationCode.findUniqueOrThrow({
+      where: { id: invite.row.id },
+    }),
+  ).toMatchObject({ usedAt: null, usedByUserId: null });
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+  ).toMatchObject({
+    role: "VIEWER",
+    crewStatus: null,
+    passwordHash: account.passwordHash,
+  });
+  expect(
+    await db.auditLog.count({
+      where: {
+        operation: {
+          in: ["registration.complete", "accountInvitation.redeem"],
+        },
+      },
+    }),
+  ).toBe(0);
 });
 
 it("recovers a completed displayed invitation after refresh without replaying access or expired login proof", async () => {

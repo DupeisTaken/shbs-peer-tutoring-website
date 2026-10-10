@@ -1,4 +1,5 @@
 "use client";
+import { InlineNotice } from "./ui/patterns";
 import { useState } from "react";
 import {
   useFormatter,
@@ -17,6 +18,7 @@ import {
 type Patrol = RouterOutputs["corrections"]["patrols"][number];
 function PatrolEditor({ row }: { row: Patrol }) {
   const t = useTranslations("corrections");
+  const approvals = useTranslations("approvals");
   const timeZone = useTimeZone() ?? "Asia/Shanghai";
   const locale = useLocale();
   const [draftTimes, setDraftTimes] = useState<Record<string, string>>({});
@@ -154,13 +156,15 @@ function PatrolEditor({ row }: { row: Patrol }) {
             <span className="label">{t("reason")}</span>
             <textarea className="input" name="reason" required />
           </label>
+          <p className="muted text-sm">{approvals("reversalHelp")}</p>
           <button
             className="btn-primary"
             disabled={save.isPending || rooms.isLoading}
           >
             {t("save")}
           </button>
-          {save.error && (
+          {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+          {save.error && !save.error.data?.approvalId && (
             <p role="alert" className="text-sm text-red-600">
               {save.error.message}
             </p>

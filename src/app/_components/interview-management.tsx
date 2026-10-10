@@ -3,6 +3,7 @@ import { formText, formTexts } from "~/lib/form-values";
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations, useTimeZone, useFormatter } from "next-intl";
+import { InlineNotice } from "./ui/patterns";
 import { api } from "~/trpc/react";
 import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 import { DisclosureIcon } from "./icons";
@@ -334,7 +335,9 @@ export function InterviewManagement({
           </button>
         </div>
       </section>
-      {complete.error && <p role="alert">{complete.error?.message}</p>}
+      {complete.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{allT("approvals.queuedBody")}</InlineNotice>}
+      {complete.error && !complete.error.data?.approvalId && <p role="alert">{complete.error?.message}</p>}
+      <p className="muted text-sm">{allT("approvals.reversalHelp")}</p>
       {complete.isSuccess && <p role="status">{t("saved")}</p>}
     </div>
   );
