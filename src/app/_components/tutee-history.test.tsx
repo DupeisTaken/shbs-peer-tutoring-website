@@ -13,9 +13,20 @@ import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { academicSummary } from "~/lib/academics";
 import type { RouterOutputs } from "~/trpc/react";
-import { TuteeHistoryDialog, TuteeHistoryLinkForm } from "./tutee-history";
+import {
+  TuteeHistoryContent,
+  TuteeHistoryDialog,
+  TuteeHistoryLinkForm,
+} from "./tutee-history";
 import { Modal } from "./ui/modal";
 import { HistoryClaim } from "../history/claim/history-claim";
+type HistoryQuery = {
+  data: unknown;
+  error?: { message: string } | null;
+  isLoading?: boolean;
+  isFetching?: boolean;
+  refetch?: () => unknown;
+};
 const mock = vi.hoisted(() => ({
   preview: vi.fn(),
   link: vi.fn(),
@@ -31,9 +42,8 @@ const mock = vi.hoisted(() => ({
   success: undefined as undefined | (() => Promise<void>),
   invalidate: vi.fn(async () => undefined),
   pending: false,
-  staffDetails:
-    vi.fn<(input: unknown, options: unknown) => { data: unknown }>(),
-  ownDetails: vi.fn<(input: unknown, options: unknown) => { data: unknown }>(),
+  staffDetails: vi.fn<(input: unknown, options: unknown) => HistoryQuery>(),
+  ownDetails: vi.fn<(input: unknown, options: unknown) => HistoryQuery>(),
 }));
 vi.mock("./profile-dialog", () => ({
   ProfileDialog: ({ children }: { children: React.ReactNode }) => (
@@ -216,11 +226,11 @@ it.each([false, true])(
     expect(screen.getByText(en.tuteeHistory.scrollHint)).toBeTruthy();
     expect(mock.staffDetails).toHaveBeenCalledWith(
       { tuteeId: "record", page: 0 },
-      { enabled: !personal },
+      { enabled: !personal, refetchOnMount: "always" },
     );
     expect(mock.ownDetails).toHaveBeenCalledWith(
       { tuteeId: "record", page: 0 },
-      { enabled: personal },
+      { enabled: personal, refetchOnMount: "always" },
     );
   },
 );
@@ -328,6 +338,151 @@ async function review() {
     name: en.tuteeHistory.confirmIdentity,
   });
 }
+
+it.each(["en", "zh"])(
+  "retains loaded history during failed refresh and retries only the selected authority (%s)",
+  (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    const refetch = vi.fn();
+    const cached = mock.staffDetails({}, {}).data;
+    mock.staffDetails.mockReturnValue({
+      data: cached,
+      error: { message: "Failed background refresh" },
+      isFetching: false,
+      refetch,
+    });
+    const content = () => (
+      <NextIntlClientProvider
+        locale={locale}
+        messages={messages}
+        timeZone="Asia/Shanghai"
+      >
+        <TuteeHistoryContent tuteeId="record" />
+      </NextIntlClientProvider>
+    );
+    const view = render(content());
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText("Taylor Tutor")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toBe(
+      messages.tuteeHistory.failed,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.uiPatterns.retry }),
+    );
+    expect(refetch).toHaveBeenCalledOnce();
+    mock.staffDetails.mockReturnValue({
+      data: cached,
+      isFetching: false,
+      refetch,
+    });
+    view.rerender(content());
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("Taylor Tutor")).toBeTruthy();
+  },
+);
+
+it("shows retry after an initial history failure and disables duplicate reads while fetching", () => {
+  const refetch = vi.fn();
+  mock.staffDetails.mockReturnValue({
+    data: undefined,
+    error: { message: "SIGNUP_RETRY" },
+    isFetching: true,
+    refetch,
+  });
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <TuteeHistoryContent tuteeId="record" />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getByRole("alert").textContent).toBe(
+    en.tuteeHistory.HISTORY_RATE_LIMIT,
+  );
+  const retry = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.uiPatterns.retry,
+  });
+  expect(retry.disabled).toBe(true);
+  fireEvent.click(retry);
+  expect(refetch).not.toHaveBeenCalled();
+  expect(screen.queryByRole("table")).toBeNull();
+});
+
+it("keeps the personal-history dialog on its own retry endpoint", () => {
+  const ownRefetch = vi.fn();
+  const staffRefetch = vi.fn();
+  mock.staffDetails.mockReturnValue({ data: undefined, refetch: staffRefetch });
+  mock.ownDetails.mockReturnValue({
+    data: undefined,
+    error: { message: "Personal history unavailable" },
+    refetch: ownRefetch,
+  });
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <TuteeHistoryDialog
+        tuteeId="personal-record"
+        personal
+        onClose={vi.fn()}
+      />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
+  expect(ownRefetch).toHaveBeenCalledOnce();
+  expect(staffRefetch).not.toHaveBeenCalled();
+  expect(mock.staffDetails).toHaveBeenLastCalledWith(
+    { tuteeId: "personal-record", page: 0 },
+    { enabled: false, refetchOnMount: "always" },
+  );
+});
+
+it.each([false, true])(
+  "paginates staff/personal history without changing authority (personal=%s)",
+  (personal) => {
+    const cached = mock.staffDetails({}, {}).data as Record<string, unknown>;
+    const query = personal ? mock.ownDetails : mock.staffDetails;
+    query.mockReturnValue({
+      data: { ...cached, count: 51 },
+      isFetching: false,
+    });
+    const content = () => (
+      <NextIntlClientProvider
+        locale="en"
+        messages={en}
+        timeZone="Asia/Shanghai"
+      >
+        <TuteeHistoryContent tuteeId="record" personal={personal} />
+      </NextIntlClientProvider>
+    );
+    const view = render(content());
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: en.tuteeHistory.previous,
+      }).disabled,
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.next }));
+    expect(query).toHaveBeenLastCalledWith(
+      { tuteeId: "record", page: 1 },
+      { enabled: true, refetchOnMount: "always" },
+    );
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: en.tuteeHistory.next,
+      }).disabled,
+    ).toBe(true);
+    fireEvent.click(
+      screen.getByRole("button", { name: en.tuteeHistory.previous }),
+    );
+    expect(query).toHaveBeenLastCalledWith(
+      { tuteeId: "record", page: 0 },
+      { enabled: true, refetchOnMount: "always" },
+    );
+    query.mockReturnValue({ data: { ...cached, count: 51 }, isFetching: true });
+    view.rerender(content());
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: en.tuteeHistory.next,
+      }).disabled,
+    ).toBe(true);
+  },
+);
 it("requires a concrete preview, identity acknowledgement and staff evidence, then discards preview on reselection", async () => {
   mount();
   expect(screen.queryByRole("button", { name: "Confirm Link" })).toBeNull();

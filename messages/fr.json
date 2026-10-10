@@ -3917,6 +3917,14 @@
     },
     "noCandidates": "Aucun compte ne peut être fusionné."
   },
+  "tuteeDetails": {
+    "title": "Détails de l’élève",
+    "overview": "Vue d’ensemble",
+    "subjects": "Choix de matières",
+    "contact": "Adresse e-mail et compte",
+    "help": "Consultez les choix de matières, les coordonnées et l’historique du tutorat au même endroit.",
+    "summaryHelp": "Consultez le récapitulatif de l’inscription et les choix de matières de cet élève."
+  },
   "tuteeHistory": {
     "noSearchMatches": "Aucun élève ne correspond à votre recherche.",
     "emptyHistory": "Aucun dossier historique d’élève à afficher.",

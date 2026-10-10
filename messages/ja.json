@@ -3917,6 +3917,14 @@
     },
     "noCandidates": "統合できるアカウントはありません。"
   },
+  "tuteeDetails": {
+    "title": "生徒の詳細",
+    "overview": "概要",
+    "subjects": "希望科目",
+    "contact": "メールとアカウント",
+    "help": "希望科目、連絡先、指導履歴をまとめて確認できます。",
+    "summaryHelp": "この生徒の登録概要と希望科目を確認できます。"
+  },
   "tuteeHistory": {
     "noSearchMatches": "検索に一致する学習パートナーはいません。",
     "emptyHistory": "表示できる学習パートナーの履歴はありません。",

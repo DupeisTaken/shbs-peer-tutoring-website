@@ -3917,6 +3917,14 @@
     },
     "noCandidates": "Es stehen keine Konten zum Zusammenführen zur Verfügung."
   },
+  "tuteeDetails": {
+    "title": "Details zur lernenden Person",
+    "overview": "Übersicht",
+    "subjects": "Fächerwünsche",
+    "contact": "E-Mail und Konto",
+    "help": "Fächerwünsche, Kontaktdaten und bisherige Nachhilfe gemeinsam einsehen.",
+    "summaryHelp": "Die Anmeldeübersicht und Fächerwünsche dieser lernenden Person einsehen."
+  },
   "tuteeHistory": {
     "noSearchMatches": "Keine Teilnehmenden entsprechen Ihrer Suche.",
     "emptyHistory": "Keine historischen Lernenden-Datensätze anzuzeigen.",

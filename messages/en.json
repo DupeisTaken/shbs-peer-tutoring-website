@@ -3917,6 +3917,14 @@
     },
     "noCandidates": "No accounts are available to combine."
   },
+  "tuteeDetails": {
+    "title": "Tutee Details",
+    "overview": "Overview",
+    "subjects": "Subject Choices",
+    "contact": "Email & Account",
+    "help": "Review subject choices, contact information and tutoring history together.",
+    "summaryHelp": "Review this tutee's enrollment summary and subject choices."
+  },
   "tuteeHistory": {
     "noSearchMatches": "No tutees match your search.",
     "emptyHistory": "No historical tutee records to show.",

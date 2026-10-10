@@ -29,7 +29,7 @@ vi.mock("~/trpc/react", () => {
   const empty = { useQuery: () => ({ data: [] }) };
   return {
     api: {
-    account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
+      account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
       useUtils: () => {
         const query = { invalidate: async () => undefined };
         return {
@@ -282,7 +282,7 @@ it.each([false, true])(
 );
 
 it.each([false, true])(
-  "places contact disclosure in trailing Actions beside compact academics (Chinese=%s)",
+  "places consolidated details in trailing Actions beside compact academics (Chinese=%s)",
   async (chinese) => {
     mount(chinese);
     const messages = chinese ? zh : en;
@@ -293,7 +293,7 @@ it.each([false, true])(
     const cells = within(row).getAllByRole("cell");
     expect(
       within(cells.at(-1)!).getByRole("button", {
-        name: messages.accountProfile.showEmail,
+        name: `${messages.tablePatterns.details}: Example Tutee`,
       }),
     ).toBeTruthy();
     expect(
@@ -369,7 +369,6 @@ it("reveals historical and unverified records independently without setup or cur
       .map((button) => button.textContent),
   ).toEqual([
     en.tablePatterns.details,
-    en.tuteeHistory.details,
     en.accountProfile.editProfile,
     en.admin.tutees.deleteBtn,
   ]);

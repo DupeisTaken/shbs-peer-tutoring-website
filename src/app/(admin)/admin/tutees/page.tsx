@@ -23,7 +23,6 @@ import { api } from "~/trpc/react";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
-import { EmailDetails } from "~/app/_components/email-details";
 import { Button, ChoiceButton } from "~/app/_components/ui/button";
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import { StatePanel } from "~/app/_components/ui/patterns";
@@ -35,7 +34,7 @@ import {
   TableDetails,
 } from "~/app/_components/ui/summary-table";
 import { TuteeAcademicCell } from "~/app/_components/tutee-academic-cell";
-import { TuteeHistoryDialog } from "~/app/_components/tutee-history";
+import { TuteeDetailsDialog } from "~/app/_components/tutee-details";
 import { type TuteeHistoryView } from "~/lib/tutee-history";
 import { GRADUATED_GRADE, normalizeGrade } from "~/lib/academics";
 import { useActionReview } from "~/app/_components/ui/action-review";
@@ -111,7 +110,10 @@ export default function TuteesPage() {
   const policy = useProfilePolicy();
   const readOnly = useReadOnly();
   const identity = api.account.me.useQuery();
-  const canEditProfiles = !readOnly && !identity.error && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
+  const canEditProfiles =
+    !readOnly &&
+    !identity.error &&
+    ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
   const [creationOpen, setCreationOpen] = useState(false);
   const addTrigger = useRef<HTMLButtonElement>(null);
   const restoreAddFocus = useRef(false);
@@ -152,6 +154,7 @@ export default function TuteesPage() {
   const all = tutees.data ?? [];
   const rosterLoading = tutees.isPending || (!tutees.data && !tutees.error);
   const editing = all.find((row) => row.id === editingId);
+  const details = all.find((row) => row.id === detailsId);
   const pendingCount = all.filter((t) => t.status === "PENDING").length;
   const courseList = courses.data ?? [];
 
@@ -268,9 +271,10 @@ export default function TuteesPage() {
         </p>
       </div>
 
-      {detailsId && (
-        <TuteeHistoryDialog
-          tuteeId={detailsId}
+      {details && (
+        <TuteeDetailsDialog
+          key={details.id}
+          row={details}
           onClose={() => setDetailsId(null)}
         />
       )}
@@ -746,40 +750,14 @@ export default function TuteesPage() {
                       />
                     </td>
                     <TableActions>
-                      {/* Course details preserve the original public roster scope; history and contact remain separately authorized. */}
-                      <TableDetails
-                        title={`${t2.englishName} · ${t("admin.tutees.colCourses")}`}
+                      {/* One reader owns the presentation; private sections retain their own access boundary. */}
+                      <TableAction
+                        aria-label={`${t("tablePatterns.details")}: ${t2.englishName}`}
+                        aria-haspopup="dialog"
+                        onClick={() => setDetailsId(t2.id)}
                       >
-                        <h3 className="font-semibold">
-                          {t("admin.tutees.colCourses")}
-                        </h3>
-                        <ul className="space-y-1">
-                          {[t2.firstChoice, t2.secondChoice]
-                            .filter((subject) => subject !== null)
-                            .map((subject) => (
-                              <li key={subject.id}>{subject.name}</li>
-                            ))}
-                        </ul>
-                        {!t2.firstChoice && !t2.secondChoice && <p>—</p>}
-                      </TableDetails>
-                      {!readOnly && (
-                        <TableAction onClick={() => setDetailsId(t2.id)}>
-                          {h("details")}
-                        </TableAction>
-                      )}
-                      {!readOnly &&
-                        (t2.owner?.email ?? t2.user?.email ?? t2.email) && (
-                          <EmailDetails
-                            name={t2.englishName}
-                            email={
-                              t2.owner?.email ?? t2.user?.email ?? t2.email
-                            }
-                            verifiedAt={(t2.owner ?? t2.user)?.emailVerifiedAt}
-                            userId={(t2.owner ?? t2.user)?.id}
-                            canSendSetup={!!t2.user}
-                            linked={!!(t2.owner ?? t2.user)}
-                          />
-                        )}
+                        {t("tablePatterns.details")}
+                      </TableAction>
                       {((stats.data?.[t2.id]?.removalPending ?? false) ||
                         (stats.data?.[t2.id]?.effectiveReds ?? 0) >= 1) && (
                         <Link
