@@ -69,12 +69,14 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
     me.error?.data?.code === "FORBIDDEN" ||
     me.error?.data?.code === "UNAUTHORIZED";
   useEffect(() => {
-    if (!deniedNow) return;
+    // Sibling academic/security owners subscribe to this query. Evict once per denial
+    // episode so an enabled sibling cannot turn recreated denied reads into a loop.
+    if (!deniedNow || identityDenied) return;
     setIdentityDenied(true);
     queryClient.removeQueries({
       queryKey: getQueryKey(api.account.me, undefined, "query"),
     });
-  }, [deniedNow, queryClient]);
+  }, [deniedNow, identityDenied, queryClient]);
   const updateName = api.account.updateName.useMutation({
     onSettled: () => {
       nameSubmitting.current = false;

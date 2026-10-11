@@ -7,7 +7,11 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import en from "../../../messages/en.json";
@@ -30,6 +34,7 @@ const state = vi.hoisted(() => {
     },
     initial: true,
     ...initialReads,
+    secondSubscriber: false,
     password: vi.fn(),
     client: null as QueryClient | null,
     read: vi.fn(),
@@ -46,7 +51,17 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: state.refresh, back: vi.fn() }),
 }));
 vi.mock("./academic-profile", () => ({
-  AcademicPanel: () => <input aria-label="Academic draft" />,
+  AcademicPanel: () => {
+    useQuery({
+      queryKey: ["account-identity"],
+      queryFn: state.read,
+      initialData: state.initial ? state.snapshot : undefined,
+      staleTime: Infinity,
+      retry: false,
+      enabled: state.secondSubscriber,
+    });
+    return <input aria-label="Academic draft" />;
+  },
 }));
 vi.mock("./school-departure", () => ({ SchoolDeparturePanel: () => null }));
 vi.mock("./membership-editor", () => ({ MembershipEditor: () => null }));
@@ -124,6 +139,7 @@ beforeEach(() => {
   });
   state.initial = true;
   state.feature = false;
+  state.secondSubscriber = false;
   state.password.mockReset();
   state.snapshot = {
     ...state.snapshot,
@@ -255,6 +271,7 @@ it("blocks password writes while step-up configuration is unknown and guards the
   ).toBe(true);
   expect(first().matches(":disabled")).toBe(false);
   state.feature = false;
+  state.secondSubscriber = false;
   view.rerender(ui());
   for (const [label, value] of [
     [en.tutor.settings.currentPassword, "CurrentPassword"],
@@ -271,4 +288,59 @@ it("blocks password writes while step-up configuration is unknown and guards the
   fireEvent.click(action);
   fireEvent.click(action);
   expect(state.password).toHaveBeenCalledOnce();
+});
+
+it("evicts a denied shared query once per episode with an enabled sibling subscriber", async () => {
+  state.secondSubscriber = true;
+  render(ui());
+  const evict = vi.spyOn(state.client!, "removeQueries");
+  state.read.mockRejectedValue(
+    Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } }),
+  );
+  await act(async () => {
+    await state.client!.invalidateQueries({ queryKey: ["account-identity"] });
+  });
+  await screen.findByText(en.participantRecovery.accessDenied);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+  expect(evict).toHaveBeenCalledOnce();
+  expect(state.read.mock.calls.length).toBeLessThanOrEqual(2);
+  expect(screen.queryByLabelText("First Name Required")).toBeNull();
+  const beforeRetry = state.read.mock.calls.length;
+  fireEvent.click(
+    screen.getByRole("button", { name: en.participantRecovery.retry }),
+  );
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("button", { name: en.participantRecovery.retry })
+        .matches(":disabled"),
+    ).toBe(false),
+  );
+  expect(evict).toHaveBeenCalledOnce();
+  expect(state.read.mock.calls.length).toBe(beforeRetry + 1);
+  state.snapshot = {
+    ...state.snapshot,
+    firstName: "Authorized",
+    profileVersion: 8,
+  };
+  state.read.mockResolvedValue(state.snapshot);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.participantRecovery.retry }),
+  );
+  await waitFor(() => expect(first().value).toBe("Authorized"));
+  state.read.mockRejectedValue(
+    Object.assign(new Error("Denied again"), { data: { code: "FORBIDDEN" } }),
+  );
+  await act(async () => {
+    await state.client!.invalidateQueries({ queryKey: ["account-identity"] });
+  });
+  await screen.findByText(en.participantRecovery.accessDenied);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+  expect(evict).toHaveBeenCalledTimes(2);
+  expect(screen.queryByLabelText("First Name Required")).toBeNull();
+  expect(state.save).not.toHaveBeenCalled();
 });

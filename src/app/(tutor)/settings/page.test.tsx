@@ -8,7 +8,11 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import messages from "../../../../messages/en.json";
@@ -58,11 +62,22 @@ const state = vi.hoisted(() => {
       null | undefined | { id: string; kind: string; eligibleAt: null },
     requestError: null as null | Error,
     ...initialReads,
+    secondSubscriber: false,
     passwordPending: false,
   };
 });
 vi.mock("~/app/_components/academic-profile", () => ({
-  AcademicPanel: () => <input aria-label="Academic draft" />,
+  AcademicPanel: () => {
+    useQuery({
+      queryKey: ["tutor-profile"],
+      queryFn: state.read,
+      initialData: state.profile,
+      staleTime: Infinity,
+      retry: false,
+      enabled: state.secondSubscriber,
+    });
+    return <input aria-label="Academic draft" />;
+  },
 }));
 vi.mock("~/app/_components/school-departure", () => ({
   SchoolDeparturePanel: () => null,
@@ -230,7 +245,9 @@ beforeEach(() => {
   state.request = null;
   state.requestError = null;
   state.feature = false;
+  state.secondSubscriber = false;
   state.passwordPending = false;
+  state.secondSubscriber = false;
 });
 afterEach(() => {
   cleanup();
@@ -482,4 +499,58 @@ it("guards same-turn password changes and preserves five-character emailed-code 
       .getByRole("button", { name: messages.account.password.cancel })
       .matches(":disabled"),
   ).toBe(true);
+});
+it("evicts a denied shared query once per episode with an enabled sibling subscriber", async () => {
+  state.secondSubscriber = true;
+  render(ui());
+  const evict = vi.spyOn(state.client!, "removeQueries");
+  state.read.mockRejectedValue(
+    Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } }),
+  );
+  await act(async () => {
+    await state.client!.invalidateQueries({ queryKey: ["tutor-profile"] });
+  });
+  await screen.findByText(messages.participantRecovery.accessDenied);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+  expect(evict).toHaveBeenCalledOnce();
+  expect(state.read.mock.calls.length).toBeLessThanOrEqual(2);
+  expect(screen.queryByLabelText("First Name Required")).toBeNull();
+  const beforeRetry = state.read.mock.calls.length;
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.participantRecovery.retry }),
+  );
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("button", { name: messages.participantRecovery.retry })
+        .matches(":disabled"),
+    ).toBe(false),
+  );
+  expect(evict).toHaveBeenCalledOnce();
+  expect(state.read.mock.calls.length).toBe(beforeRetry + 1);
+  state.profile = {
+    ...state.profile!,
+    firstName: "Authorized",
+    profileVersion: 8,
+  };
+  state.read.mockResolvedValue(state.profile);
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.participantRecovery.retry }),
+  );
+  await waitFor(() => expect(first().value).toBe("Authorized"));
+  state.read.mockRejectedValue(
+    Object.assign(new Error("Denied again"), { data: { code: "FORBIDDEN" } }),
+  );
+  await act(async () => {
+    await state.client!.invalidateQueries({ queryKey: ["tutor-profile"] });
+  });
+  await screen.findByText(messages.participantRecovery.accessDenied);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+  expect(evict).toHaveBeenCalledTimes(2);
+  expect(screen.queryByLabelText("First Name Required")).toBeNull();
+  expect(state.save).not.toHaveBeenCalled();
 });
