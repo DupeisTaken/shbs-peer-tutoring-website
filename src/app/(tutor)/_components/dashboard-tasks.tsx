@@ -96,32 +96,27 @@ export function DashboardTasks({
   ).length;
   const pendingInterviews = (interviews.data ?? []).filter(
     (interview) =>
-      interview.status === "PENDING" || interview.status === "INTERVIEW",
+      !interview.isInvalid &&
+      (interview.status === "PENDING" || interview.status === "INTERVIEW"),
   ).length;
   const links = [
     ...(status === "PENDING"
       ? [{ id: "tutor-activation", label: t("activation") }]
       : []),
-    ...(active ? [{ id: "attendance", label: t("attendance") }] : []),
-    {
-      id: "tutor-pairings",
-      label: pairings.data
-        ? t("pairings", { count: pairings.data.length })
-        : pairingsText("title"),
-    },
-    ...(unscheduled || reviews
+    ...(unscheduled || reviews || removals.data?.length
       ? [
           {
             id: "tutor-pairings",
-            label: t("scheduleReview", { count: unscheduled + reviews }),
-          },
-        ]
-      : []),
-    ...(removals.data?.length
-      ? [
-          {
-            id: "tutor-pairings",
-            label: t("pendingOptOuts", { count: removals.data.length }),
+            label: pairingsText("title"),
+            detail: [
+              ...(pairings.data
+                ? [t("unconfirmedCount", { count: unscheduled })]
+                : []),
+              ...(roster.data ? [t("rosterCount", { count: reviews })] : []),
+              ...(removals.data?.length
+                ? [t("pendingOptOuts", { count: removals.data.length })]
+                : []),
+            ].join(" · "),
           },
         ]
       : []),
@@ -149,9 +144,41 @@ export function DashboardTasks({
           },
         ]
       : []),
+  ];
+  const navigation = [
+    { id: "tutor-pairings", label: pairingsText("title") },
+    ...(active && interviewsEnabled
+      ? [{ id: "tutor-interviews", label: t("interviewSection") }]
+      : []),
+    ...(active && meetingsEnabled
+      ? [{ id: "tutor-meetings", label: t("meetingSection") }]
+      : []),
+    { id: "qualification-requests", label: t("qualificationSection") },
     { id: "tutor-preferences", label: t("preferences") },
     { id: "room-schedule", label: t("roomSchedule") },
   ];
+  // Native anchors keep history/modifier behavior; both groups share measured-header reveal.
+  const anchor = (id: string, label: string) => (
+    <a
+      className="link inline-flex min-h-11 items-center lg:min-h-8"
+      href={`#${id}`}
+      onClick={(event) => {
+        if (
+          event.defaultPrevented ||
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        )
+          return;
+        document.getElementById(id)?.focus({ preventScroll: true });
+        revealTask(id);
+      }}
+    >
+      {label}
+    </a>
+  );
 
   return (
     <section
@@ -159,12 +186,12 @@ export function DashboardTasks({
       className="card space-y-3 p-4 sm:p-5"
     >
       <h2 id="tutor-tasks-heading" className="section-title">
-        {t("title")}
+        {t("attention")}
       </h2>
       <p className="muted text-sm">
         {t(active ? "activeHelp" : "readonlyHelp")}
       </p>
-      {queries.some((query) => query.isLoading) && (
+      {queries.some((query) => query.data === undefined && !query.error) && (
         <InlineNotice announcement="status">{t("loading")}</InlineNotice>
       )}
       {queries.some((query) => query.error) && (
@@ -186,33 +213,34 @@ export function DashboardTasks({
           {t("loadError")}
         </InlineNotice>
       )}
-      <nav aria-label={t("title")} className="flex flex-wrap gap-2">
+      <nav aria-label={t("attention")}>
         {membership.data && (
           <a className="btn-secondary btn-sm" href="/settings">
             {t("membershipPending")}
           </a>
         )}
-        {links.map(({ id, label }, index) => (
-          <a
-            key={`${id}-${index}`}
-            className="btn-secondary btn-sm"
-            href={`#${id}`}
-            onClick={(event) => {
-              if (
-                event.defaultPrevented ||
-                event.button !== 0 ||
-                event.metaKey ||
-                event.ctrlKey ||
-                event.shiftKey ||
-                event.altKey
-              )
-                return;
-              document.getElementById(id)?.focus({ preventScroll: true });
-              revealTask(id);
-            }}
-          >
-            {label}
-          </a>
+        <ul className="divide-y divide-slate-100">
+          {links.map((entry) => (
+            <li key={entry.id} className="py-1">
+              {anchor(entry.id, entry.label)}
+              {"detail" in entry && (
+                <p className="muted text-sm">{entry.detail}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+        {!membership.data &&
+          !links.length &&
+          queries.every(
+            (query) => query.data !== undefined && !query.error,
+          ) && <p className="muted text-sm">{t("emptyTasks")}</p>}
+      </nav>
+      <nav
+        aria-label={t("navigation")}
+        className="flex flex-wrap gap-x-4 border-t border-slate-100 pt-2"
+      >
+        {navigation.map(({ id, label }) => (
+          <span key={id}>{anchor(id, label)}</span>
         ))}
       </nav>
       {active && (
@@ -223,6 +251,7 @@ export function DashboardTasks({
             })}
           </h3>
           <p className="muted mt-1 text-sm">{t("scheduleHelp")}</p>
+          {anchor("attendance", t("attendance"))}
           {pairings.data && !today.length && (
             <p className="mt-2 text-sm">{t("noSessions")}</p>
           )}

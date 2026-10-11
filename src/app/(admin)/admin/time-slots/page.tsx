@@ -15,6 +15,7 @@ import {
   TableActions,
   TableAction,
 } from "~/app/_components/ui/summary-table";
+import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { Modal } from "~/app/_components/ui/modal";
 import { Button } from "~/app/_components/ui/button";
 import { StatePanel } from "~/app/_components/ui/patterns";
@@ -70,6 +71,7 @@ export default function TimeSlotsPage() {
     />
   );
   const [form, setForm] = useState(EMPTY);
+  const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<SlotDraft | null>(null);
 
   const invalidate = () =>
@@ -82,6 +84,7 @@ export default function TimeSlotsPage() {
   const create = api.admin.createTimeSlot.useMutation({
     onSuccess: async () => {
       setForm(EMPTY);
+      setCreateOpen(false);
       await invalidate();
     },
   });
@@ -120,9 +123,20 @@ export default function TimeSlotsPage() {
   return (
     <div className="space-y-6">
       {!readOnly && review.dialog}
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title">{t("admin.timeslots.title")}</h1>
-        <p className="muted mt-1">{t("admin.timeslots.description")}</p>
+        {!readOnly && (
+          <Button
+            variant="primary"
+            disabled={readBlocked || create.isPending}
+            onClick={() => setCreateOpen(true)}
+          >
+            {t("admin.timeslots.addSlot")}
+          </Button>
+        )}
+        <p className="muted mt-1 basis-full">
+          {t("admin.timeslots.description")}
+        </p>
       </div>
       {readFeedback}
 
@@ -139,76 +153,82 @@ export default function TimeSlotsPage() {
         </DismissibleNotice>
       }
 
-      {!readOnly && (
-        <form
-          className="card flex flex-wrap items-end gap-3 p-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (readBlocked || create.isPending || !form.label.trim()) return;
-            create.mutate({
-              label: form.label.trim(),
-              dayOfWeek: form.dayOfWeek,
-              startMin: hmToMin(form.startTime),
-              endMin: hmToMin(form.endTime),
-            });
-          }}
+      {!readOnly && createOpen && (
+        <ProfileDialog
+          title={t("admin.timeslots.addSlot")}
+          pending={create.isPending}
+          onClose={() => setCreateOpen(false)}
         >
-          <label className="space-y-1">
-            <span className="label">{t("admin.timeslots.label")}</span>
-            <input
-              value={form.label}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, label: e.target.value }))
-              }
-              placeholder={t("admin.timeslots.labelPlaceholder")}
-              className="input field-auto min-w-44"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="label">{t("admin.timeslots.day")}</span>
-            <select
-              value={form.dayOfWeek}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, dayOfWeek: Number(e.target.value) }))
-              }
-              className="select field-auto min-w-32"
-            >
-              {[1, 2, 3, 4, 5, 6, 7].map((d) => (
-                <option key={d} value={d}>
-                  {formatWeekday(d, locale)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="label">{t("admin.timeslots.start")}</span>
-            <input
-              type="time"
-              value={form.startTime}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, startTime: e.target.value }))
-              }
-              className="input field-auto min-w-28"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="label">{t("admin.timeslots.end")}</span>
-            <input
-              type="time"
-              value={form.endTime}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, endTime: e.target.value }))
-              }
-              className="input field-auto min-w-28"
-            />
-          </label>
-          <button
-            className="btn-primary"
-            disabled={readBlocked || !form.label.trim() || create.isPending}
+          <form
+            className="card flex flex-wrap items-end gap-3 p-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (readBlocked || create.isPending || !form.label.trim()) return;
+              create.mutate({
+                label: form.label.trim(),
+                dayOfWeek: form.dayOfWeek,
+                startMin: hmToMin(form.startTime),
+                endMin: hmToMin(form.endTime),
+              });
+            }}
           >
-            {t("admin.timeslots.addSlot")}
-          </button>
-        </form>
+            <label className="space-y-1">
+              <span className="label">{t("admin.timeslots.label")}</span>
+              <input
+                value={form.label}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, label: e.target.value }))
+                }
+                placeholder={t("admin.timeslots.labelPlaceholder")}
+                className="input field-auto min-w-44"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="label">{t("admin.timeslots.day")}</span>
+              <select
+                value={form.dayOfWeek}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, dayOfWeek: Number(e.target.value) }))
+                }
+                className="select field-auto min-w-32"
+              >
+                {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                  <option key={d} value={d}>
+                    {formatWeekday(d, locale)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="label">{t("admin.timeslots.start")}</span>
+              <input
+                type="time"
+                value={form.startTime}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, startTime: e.target.value }))
+                }
+                className="input field-auto min-w-28"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="label">{t("admin.timeslots.end")}</span>
+              <input
+                type="time"
+                value={form.endTime}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, endTime: e.target.value }))
+                }
+                className="input field-auto min-w-28"
+              />
+            </label>
+            <button
+              className="btn-primary"
+              disabled={readBlocked || !form.label.trim() || create.isPending}
+            >
+              {t("admin.timeslots.addSlot")}
+            </button>
+          </form>
+        </ProfileDialog>
       )}
       {!readOnly && (create.error ?? update.error) && (
         <p className="text-sm text-red-600">

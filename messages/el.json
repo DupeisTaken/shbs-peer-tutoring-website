@@ -452,7 +452,10 @@
       "colRoom": "Αίθουσα",
       "colTutees": "Μαθητές",
       "edit": "Επεξεργασία",
-      "delete": "Διαγραφή"
+      "delete": "Διαγραφή",
+      "searchTutees": "Αναζήτηση μαθητών",
+      "selectedTutees": "{count} επιλεγμένοι",
+      "removeSelected": "Αφαίρεση του/της {name}"
     },
     "tutors": {
       "title": "Βοηθοί",
@@ -843,6 +846,12 @@
           "VIEWER_SIGNUP": "Εγγραφή Παρατηρητή",
           "EMAIL_2FA": "Email 2FA"
         }
+      },
+      "panels": {
+        "period": "Περίοδος και αιτήσεις",
+        "people": "Άτομα και εγγραφή",
+        "communication": "Επικοινωνία",
+        "access": "Πρόσβαση και ενότητες"
       }
     },
     "audit": {
@@ -1232,7 +1241,8 @@
           "ARCHIVED": "Archived"
         }
       },
-      "messageLabel": "Μήνυμα"
+      "messageLabel": "Μήνυμα",
+      "create": "Νέα ανακοίνωση"
     },
     "policies": {
       "title": "Έγγραφα πολιτικής",
@@ -1297,7 +1307,8 @@
         "title": "Delete hour adjustment?",
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
-      }
+      },
+      "create": "Νέα προσαρμογή ωρών"
     },
     "applications": {
       "title": "Αιτήσεις βοηθών",
@@ -1583,7 +1594,12 @@
       "issuedHint": "Κωδικοί που δόθηκαν σε αποδεκτούς αιτούντες, σε αναμονή εγγραφής. Η ανάκληση ενός κωδικού στους Κωδικούς Εγγραφής επιστρέφει την αίτησή του στην ουρά.",
       "issuedExpires": "Λήγει στις {date}",
       "originalApplication": "Αρχική αίτηση",
-      "originalRequest": "Αρχικό αίτημα"
+      "originalRequest": "Αρχικό αίτημα",
+      "panels": {
+        "review": "Έλεγχος",
+        "roster": "Κατάλογος μελών",
+        "patrol": "Ρυθμίσεις περιπολιών"
+      }
     },
     "sessionFlags": {
       "title": "Επισημάνσεις παρουσιών",
@@ -1868,7 +1884,15 @@
       "confirmDecision": "Record {outcome} for {name}? The panel vote and current application version will be checked. If approval is required, this creates a pending proposal and does not apply the decision.",
       "completedInterview": "Completed interview · {name} ({count})",
       "savedRefreshError": "Attendance was saved, but the refreshed totals could not be loaded. Do not resubmit this entry.",
-      "verificationDeadline": "Verification due: {date}"
+      "verificationDeadline": "Verification due: {date}",
+      "attention": "Χρειάζονται προσοχή",
+      "navigation": "Ενότητες πίνακα ελέγχου",
+      "emptyTasks": "Δεν υπάρχουν εκκρεμότητες στις εγγραφές που φορτώθηκαν.",
+      "unconfirmedCount": "Μη επιβεβαιωμένα ωράρια ({count})",
+      "rosterCount": "Εκκρεμότητες καταλόγου μαθητών ({count})",
+      "interviewSection": "Συνεντεύξεις",
+      "meetingSection": "Συναντήσεις",
+      "qualificationSection": "Προσόντα"
     },
     "activate": {
       "title": "Επιβεβαιώστε τη διαθεσιμότητά σας",
@@ -2067,7 +2091,8 @@
       "reentryHelp": "Θέλετε να επανενταχθείτε στο πρόγραμμα; Υποβάλετε αίτημα επανένταξης και ένας διαχειριστής θα το ελέγξει.",
       "reentryBtn": "Αίτημα επανένταξης",
       "recall": "Ανάκληση αιτήματος",
-      "statusNote": "Η κατάστασή σας ως βοηθός είναι {status}. Αυτή είναι πρόσβαση μόνο ανάγνωσης — επικοινωνήστε με διαχειριστή για αλλαγές."
+      "statusNote": "Η κατάστασή σας ως βοηθός είναι {status}. Αυτή είναι πρόσβαση μόνο ανάγνωσης — επικοινωνήστε με διαχειριστή για αλλαγές.",
+      "profileSyncFailed": "Το προφίλ σας αποθηκεύτηκε, αλλά η ανανέωση απέτυχε. Δοκιμάστε ξανά την ανανέωση χωρίς νέα υποβολή."
     },
     "dashboard": {
       "pending": {
@@ -4510,5 +4535,17 @@
     "retryRefresh": "Επανάληψη ανανέωσης",
     "reload": "Επαναφόρτωση αιτήματος",
     "reloadHelp": "Η αιτιολογία σας και η αρχική έκδοση διατηρούνται. Επιλέξτε επαναφόρτωση για να αντικαταστήσετε αυτό το πρόχειρο με την τελευταία έκδοση του αιτήματος."
+  },
+  "rosterSearch": {
+    "label": "Αναζήτηση ατόμων",
+    "placeholder": "Όνομα, όνομα χρήστη ή email",
+    "clear": "Εκκαθάριση αναζήτησης",
+    "noMatches": "Δεν βρέθηκαν άτομα για αυτή την αναζήτηση.",
+    "results": "{count} από {total} άτομα"
+  },
+  "saveBoundary": {
+    "blur": "Οι αλλαγές αποθηκεύονται όταν φύγετε από αυτό το πεδίο.",
+    "form": "Η αποθήκευση αφορά μόνο αυτή τη φόρμα.",
+    "layout": "Η αποθήκευση αφορά μόνο αυτή τη διάταξη."
   }
 }

@@ -169,6 +169,11 @@ it.each(["en", "zh"])(
     state.patrols = 0;
     state.hours = 0;
     show(true, locale);
+    fireEvent.click(
+      screen.getByRole("tab", {
+        name: (locale === "zh" ? zh : en).admin.crew.panels.roster,
+      }),
+    );
     const row = screen.getByText("Synthetic crew member").closest("tr")!;
     expect(within(row).getByRole("cell", { name: "0" })).toBeTruthy();
     expect(within(row).getByRole("cell", { name: "0.0 h" })).toBeTruthy();
@@ -296,6 +301,10 @@ it.each(cases)(
   async (label, operation, input, name) => {
     state.error = new Error("Synthetic crew rejection");
     show();
+    if (operation === "setCrewStatus" || operation === "deleteCrewMember")
+      fireEvent.click(
+        screen.getByRole("tab", { name: en.admin.crew.panels.roster }),
+      );
     fireEvent.click(screen.getByRole("button", { name: label }));
     expect(screen.getByRole("dialog").textContent).toContain(name);
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -324,6 +333,9 @@ it("holds every refresh after accepted crew activation and retries only reads", 
       : Promise.reject(new Error("Read failed")),
   );
   show();
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.admin.crew.panels.roster }),
+  );
   fireEvent.click(screen.getByRole("button", { name: en.admin.crew.enable }));
   fireEvent.click(
     within(screen.getByRole("dialog")).getByRole("button", {

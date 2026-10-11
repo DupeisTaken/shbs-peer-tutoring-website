@@ -7,8 +7,10 @@ import en from "../../../../../messages/en.json";
 import zh from "../../../../../messages/zh.json";
 import PairingsPage from "./page";
 
-const state = vi.hoisted(() => ({ confirmed: true }));
-vi.mock("~/app/_components/read-only", () => ({ useReadOnly: () => true }));
+const state = vi.hoisted(() => ({ confirmed: true, readOnly: true }));
+vi.mock("~/app/_components/read-only", () => ({
+  useReadOnly: () => state.readOnly,
+}));
 vi.mock("~/app/_components/room-grid", () => ({ RoomGrid: () => null }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -35,7 +37,12 @@ vi.mock("~/trpc/react", () => ({
                       tutees: [],
                     },
                   ]
-                : [],
+                : key === "tutees"
+                  ? [
+                      { id: "alice", englishName: "Alice Synthetic" },
+                      { id: "bob", englishName: "Bob Synthetic" },
+                    ]
+                  : [],
           }),
         }),
       },
@@ -45,6 +52,7 @@ vi.mock("~/trpc/react", () => ({
 afterEach(() => {
   cleanup();
   state.confirmed = true;
+  state.readOnly = true;
 });
 const mount = (locale: "en" | "zh") =>
   render(
@@ -93,4 +101,66 @@ it("keeps unconfirmed numeric placeholders out of the Chinese summary and reader
     zh.scheduling.awaiting,
   );
   expect(screen.queryByText(/15:30/)).toBeNull();
+});
+
+it("keeps explicit tutee selection while search hides it and creation closes", () => {
+  state.readOnly = false;
+  mount("en");
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.pairings.newPairing }),
+  );
+  fireEvent.click(screen.getByRole("checkbox", { name: "Alice Synthetic" }));
+  fireEvent.change(screen.getByLabelText(en.admin.pairings.searchTutees), {
+    target: { value: "Bob" },
+  });
+  expect(
+    screen.queryByRole("checkbox", { name: "Alice Synthetic" }),
+  ).toBeNull();
+  expect(
+    screen.getByRole("button", {
+      name: en.admin.pairings.removeSelected.replace(
+        "{name}",
+        "Alice Synthetic",
+      ),
+    }),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: en.common.close }));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.pairings.newPairing }),
+  );
+  fireEvent.change(screen.getByLabelText(en.admin.pairings.searchTutees), {
+    target: { value: "" },
+  });
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", { name: "Alice Synthetic" })
+      .checked,
+  ).toBe(true);
+});
+
+it("isolates a retained creation selection from an existing pairing editor", () => {
+  state.readOnly = false;
+  mount("en");
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.pairings.newPairing }),
+  );
+  fireEvent.click(screen.getByRole("checkbox", { name: "Alice Synthetic" }));
+  fireEvent.click(screen.getByRole("button", { name: en.common.close }));
+  fireEvent.click(screen.getByRole("button", { name: /^Edit:/ }));
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", { name: "Alice Synthetic" })
+      .checked,
+  ).toBe(false);
+  fireEvent.click(screen.getByRole("checkbox", { name: "Bob Synthetic" }));
+  fireEvent.click(screen.getByRole("button", { name: en.common.close }));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.pairings.newPairing }),
+  );
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", { name: "Alice Synthetic" })
+      .checked,
+  ).toBe(true);
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", { name: "Bob Synthetic" })
+      .checked,
+  ).toBe(false);
 });

@@ -91,6 +91,50 @@ describe("UI recovery and persistent field labels", () => {
 });
 
 describe("bundled header translations", () => {
+  it("provides scoped search, panel and save-boundary copy in all locales", () => {
+    for (const locale of LOCALES) {
+      const messages = bundledMessages[locale];
+      for (const copy of [
+        messages.rosterSearch.label,
+        messages.rosterSearch.placeholder,
+        messages.rosterSearch.clear,
+        messages.rosterSearch.noMatches,
+        messages.admin.pairings.searchTutees,
+        messages.admin.announcements.create,
+        messages.admin.adjustments.create,
+        messages.tutor.settings.profileSyncFailed,
+        ...Object.values(messages.admin.crew.panels),
+        ...Object.values(messages.admin.program.panels),
+        ...Object.values(messages.saveBoundary),
+      ]) {
+        expect(copy, `${locale}: required workflow copy`).toMatch(/\S/);
+      }
+      expect(messages.rosterSearch.results).toContain("{count}");
+      expect(messages.rosterSearch.results).toContain("{total}");
+      expect(messages.admin.pairings.selectedTutees).toContain("{count}");
+      expect(messages.admin.pairings.removeSelected).toContain("{name}");
+    }
+  });
+
+  it("names actionable work separately from dashboard destinations in every locale", () => {
+    for (const locale of LOCALES) {
+      const copy = bundledMessages[locale].tutor.tasks;
+      for (const key of [
+        "attention",
+        "navigation",
+        "emptyTasks",
+        "interviewSection",
+        "meetingSection",
+        "qualificationSection",
+      ] as const) {
+        expect(copy[key], `${locale}: ${key}`).toMatch(/\S/);
+      }
+      expect(copy.unconfirmedCount).toContain("{count}");
+      expect(copy.rosterCount).toContain("{count}");
+      expect(copy.attention).not.toBe(copy.navigation);
+    }
+  });
+
   it("provides named pagination and current-page context in every locale", () => {
     for (const locale of LOCALES) {
       const copy = bundledMessages[locale].workflows;

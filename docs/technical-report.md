@@ -190,6 +190,21 @@ Focused regressions live in `src/app/(admin)/admin/users`, `src/lib/user-filters
 
 ### Shared UI patterns
 
+Local panel composition leaves authority in existing owners. Program keeps its
+already-mounted settings forms and their independent versions; Crew and Support
+retain draft, review and pagination state when panels change. Review controllers
+and accepted-write recovery remain outside hidden panels. Creation dialogs own
+visibility while the feature keeps its draft; Pairings stores creation and editing
+drafts separately and submits the existing assignment-confirmation payload.
+
+Roster search runs over the already-authorized response before sorting, using
+the existing person-name matcher. The pairing candidate filter never rewrites
+selected IDs. Neither composition adds an endpoint, searches hidden records or
+changes record eligibility. `WorkflowShell` retains its 1024 px outer frame while
+using the shared header/identity and return-link conventions. Tutor dashboard
+attention counts use existing records and exclude paused interviews; permanent
+section navigation remains separate from those counts.
+
 Management editors distinguish `canEdit` (permission to prepare a proposal) from `canApply`
 (direct authority). Admin-sensitive editors retain drafts and show the approval link after
 submission; Coordinator-sensitive controls are read-only. The same operation classification

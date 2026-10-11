@@ -97,12 +97,6 @@ export default async function TutorDashboard() {
         </div>
       </section>
 
-      <DashboardTasks
-        status={me.status}
-        interviewsEnabled={features.INTERVIEWS}
-        meetingsEnabled={features.MEETINGS}
-        now={new Date()}
-      />
       {/* Team announcements — shown on every login until acknowledged. */}
       <AnnouncementsBanner />
       <PolicyConsent slug="tutor-policy" />
@@ -129,6 +123,13 @@ export default async function TutorDashboard() {
           )}
         </div>
       )}
+
+      <DashboardTasks
+        status={me.status}
+        interviewsEnabled={features.INTERVIEWS}
+        meetingsEnabled={features.MEETINGS}
+        now={new Date()}
+      />
 
       <MergeProvider>
         <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-5 lg:gap-6">

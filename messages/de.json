@@ -452,7 +452,10 @@
       "colRoom": "Raum",
       "colTutees": "Lernende",
       "edit": "Bearbeiten",
-      "delete": "Löschen"
+      "delete": "Löschen",
+      "searchTutees": "Lernende suchen",
+      "selectedTutees": "{count} ausgewählt",
+      "removeSelected": "{name} entfernen"
     },
     "tutors": {
       "title": "Tutoren",
@@ -843,6 +846,12 @@
           "VIEWER_SIGNUP": "Beobachter-Anmeldung",
           "EMAIL_2FA": "E-Mail-2FA"
         }
+      },
+      "panels": {
+        "period": "Zeitraum und Anmeldung",
+        "people": "Personen und Registrierung",
+        "communication": "Kommunikation",
+        "access": "Zugang und Module"
       }
     },
     "audit": {
@@ -1232,7 +1241,8 @@
           "ARCHIVED": "Archived"
         }
       },
-      "messageLabel": "Nachricht"
+      "messageLabel": "Nachricht",
+      "create": "Neue Ankündigung"
     },
     "policies": {
       "title": "Richtliniendokumente",
@@ -1297,7 +1307,8 @@
         "title": "Delete hour adjustment?",
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
-      }
+      },
+      "create": "Neue Stundenkorrektur"
     },
     "applications": {
       "title": "Tutor-Bewerbungen",
@@ -1583,7 +1594,12 @@
       "issuedHint": "Codes für angenommene Bewerber, die auf Registrierung warten. Das Widerrufen eines Codes unter Registrierungscodes bringt seine Bewerbung zurück in die Warteschlange.",
       "issuedExpires": "Läuft ab am {date}",
       "originalApplication": "Ursprüngliche Bewerbung",
-      "originalRequest": "Ursprüngliche Anfrage"
+      "originalRequest": "Ursprüngliche Anfrage",
+      "panels": {
+        "review": "Prüfung",
+        "roster": "Mitgliederliste",
+        "patrol": "Aufsichtseinstellungen"
+      }
     },
     "sessionFlags": {
       "title": "Anwesenheitsmarkierungen",
@@ -1868,7 +1884,15 @@
       "confirmDecision": "Record {outcome} for {name}? The panel vote and current application version will be checked. If approval is required, this creates a pending proposal and does not apply the decision.",
       "completedInterview": "Completed interview · {name} ({count})",
       "savedRefreshError": "Attendance was saved, but the refreshed totals could not be loaded. Do not resubmit this entry.",
-      "verificationDeadline": "Verification due: {date}"
+      "verificationDeadline": "Verification due: {date}",
+      "attention": "Handlungsbedarf",
+      "navigation": "Dashboard-Bereiche",
+      "emptyTasks": "Keine offenen Aufgaben in den geladenen Datensätzen.",
+      "unconfirmedCount": "Unbestätigte Zeitpläne ({count})",
+      "rosterCount": "Offene Punkte zur Teilnahmeliste ({count})",
+      "interviewSection": "Interviews",
+      "meetingSection": "Besprechungen",
+      "qualificationSection": "Qualifikationen"
     },
     "activate": {
       "title": "Bestätige deine Verfügbarkeit",
@@ -2067,7 +2091,8 @@
       "reentryHelp": "Möchten Sie dem Programm wieder beitreten? Wiedereintritt beantragen, ein Administrator prüft den Antrag.",
       "reentryBtn": "Wiedereintritt beantragen",
       "recall": "Antrag zurückziehen",
-      "statusNote": "Ihr Tutor-Status ist {status}. Dies ist nur Lesezugriff — für Änderungen einen Administrator kontaktieren."
+      "statusNote": "Ihr Tutor-Status ist {status}. Dies ist nur Lesezugriff — für Änderungen einen Administrator kontaktieren.",
+      "profileSyncFailed": "Dein Profil wurde gespeichert, konnte aber nicht neu geladen werden. Lade es erneut, ohne die Änderung nochmals abzusenden."
     },
     "dashboard": {
       "pending": {
@@ -4510,5 +4535,17 @@
     "retryRefresh": "Aktualisierung erneut versuchen",
     "reload": "Anfrage neu laden",
     "reloadHelp": "Ihre Begründung und die ursprüngliche Version bleiben erhalten. Laden Sie die Anfrage ausdrücklich neu, um diesen Entwurf durch die neueste Version zu ersetzen."
+  },
+  "rosterSearch": {
+    "label": "Personen suchen",
+    "placeholder": "Name, Benutzername oder E-Mail",
+    "clear": "Suche löschen",
+    "noMatches": "Keine Personen entsprechen dieser Suche.",
+    "results": "{count} von {total} Personen"
+  },
+  "saveBoundary": {
+    "blur": "Änderungen werden beim Verlassen dieses Feldes gespeichert.",
+    "form": "Speichern gilt nur für dieses Formular.",
+    "layout": "Speichern gilt nur für dieses Layout."
   }
 }

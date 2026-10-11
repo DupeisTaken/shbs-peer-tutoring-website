@@ -2,7 +2,11 @@
   "requestInvalidity": {
     "badge": "无效条目",
     "filterLabel": "申请有效性",
-    "filter": { "all": "全部条目", "valid": "未标记", "invalid": "无效条目" },
+    "filter": {
+      "all": "全部条目",
+      "valid": "未标记",
+      "invalid": "无效条目"
+    },
     "flag": "标记为无效",
     "review": "查看无效标记",
     "clear": "清除无效标记",
@@ -448,7 +452,10 @@
       "colRoom": "教室",
       "colTutees": "学习伙伴",
       "edit": "编辑",
-      "delete": "删除"
+      "delete": "删除",
+      "searchTutees": "搜索学习伙伴",
+      "selectedTutees": "已选择 {count} 人",
+      "removeSelected": "移除 {name}"
     },
     "tutors": {
       "title": "辅导伙伴",
@@ -831,6 +838,12 @@
           "VIEWER_SIGNUP": "访客注册",
           "EMAIL_2FA": "邮箱双重验证"
         }
+      },
+      "panels": {
+        "period": "学期与招募",
+        "people": "人员与报名",
+        "communication": "沟通",
+        "access": "访问与模块"
       }
     },
     "audit": {
@@ -1150,7 +1163,8 @@
           "ARCHIVED": "已归档"
         }
       },
-      "messageLabel": "消息正文"
+      "messageLabel": "消息正文",
+      "create": "新建公告"
     },
     "policies": {
       "title": "政策文档",
@@ -1215,7 +1229,8 @@
         "title": "删除服务时数调整？",
         "consequence": "此操作将永久删除该调整并更改辅导伙伴的服务时数总计。请先核对辅导伙伴、月份和时数。",
         "confirm": "删除调整"
-      }
+      },
+      "create": "新增服务时数调整"
     },
     "applications": {
       "title": "辅导伙伴申请",
@@ -1579,7 +1594,12 @@
       "issuedHint": "已发给通过申请者、等待注册的密钥。在“注册密钥”页撤销密钥会使其申请回到上方队列。",
       "issuedExpires": "{date} 到期",
       "originalApplication": "申请原文",
-      "originalRequest": "请求原文"
+      "originalRequest": "请求原文",
+      "panels": {
+        "review": "审核",
+        "roster": "成员名单",
+        "patrol": "巡查设置"
+      }
     },
     "sessionFlags": {
       "title": "考勤标记",
@@ -1864,7 +1884,15 @@
       "confirmDecision": "为{name}记录{outcome}的决定？系统会核验面试投票和当前申请版本。如果需要批准，只会创建待审核提案，不会立即生效。",
       "completedInterview": "已完成面试 · {name}（{count}）",
       "savedRefreshError": "出勤已保存，但未能刷新时数。请勿重复提交此记录。",
-      "verificationDeadline": "验证截止时间：{date}"
+      "verificationDeadline": "验证截止时间：{date}",
+      "attention": "待处理事项",
+      "navigation": "工作区栏目",
+      "emptyTasks": "已加载的记录中没有待处理事项。",
+      "unconfirmedCount": "未确认时间安排（{count}）",
+      "rosterCount": "学生名单跟进（{count}）",
+      "interviewSection": "面试",
+      "meetingSection": "会议",
+      "qualificationSection": "资格申请"
     },
     "activate": {
       "title": "确认你的参与",
@@ -2055,7 +2083,8 @@
       "reentryHelp": "想重新加入项目？提交重新加入申请，管理员将进行审核。",
       "reentryBtn": "申请重新加入",
       "recall": "撤回申请",
-      "statusNote": "您的辅导伙伴状态为「{status}」，仅供查看——如需变更请联系管理员。"
+      "statusNote": "您的辅导伙伴状态为「{status}」，仅供查看——如需变更请联系管理员。",
+      "profileSyncFailed": "个人资料已保存，但刷新失败。请重试刷新，无需再次提交。"
     },
     "dashboard": {
       "pending": {
@@ -4506,5 +4535,17 @@
     "refreshFailed": "无法刷新{section}，仍显示上次加载的内容。",
     "retry": "重试加载{section}",
     "denied": "您已无权访问{section}。"
+  },
+  "rosterSearch": {
+    "label": "搜索人员",
+    "placeholder": "姓名、用户名或邮箱",
+    "clear": "清除搜索",
+    "noMatches": "没有匹配此搜索的人员。",
+    "results": "{total} 人中显示 {count} 人"
+  },
+  "saveBoundary": {
+    "blur": "离开此字段时保存更改。",
+    "form": "保存仅应用于此表单。",
+    "layout": "保存仅应用于此布局。"
   }
 }

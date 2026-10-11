@@ -1,8 +1,9 @@
 "use client";
 import { Button } from "~/app/_components/ui/button";
-import { StatePanel } from "~/app/_components/ui/patterns";
+import { FilterToolbar, StatePanel } from "~/app/_components/ui/patterns";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { FieldRequirement } from "~/app/_components/field-requirement";
+import { matchesPersonSearch } from "~/lib/person-search";
 import { nameDraft } from "~/lib/person-name";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -37,12 +38,16 @@ export default function TutorsPage() {
   const policy = useProfilePolicy();
   const readOnly = useReadOnly();
   const identity = api.account.me.useQuery();
-  const canEditProfiles = !readOnly && !identity.error && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
+  const canEditProfiles =
+    !readOnly &&
+    !identity.error &&
+    ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
   // Translate a tutor status outside the row map, where `t` is shadowed by the row variable.
   const statusLabel = (s: string) => t(`admin.tutorStatus.${s}`);
   const utils = api.useUtils();
   const tutors = api.admin.tutors.useQuery();
   const [showPast, setShowPast] = useState(false);
+  const [search, setSearch] = useState("");
   const [names, setNames] = useState(() => nameDraft());
   const { firstName, lastName } = names;
   const [email, setEmail] = useState("");
@@ -83,7 +88,9 @@ export default function TutorsPage() {
   const editing = tutors.data?.find((row) => row.id === editingId);
 
   const rows = useMemo(() => {
-    const data = visibleTutors(tutors.data ?? [], showPast);
+    const data = visibleTutors(tutors.data ?? [], showPast).filter((row) =>
+      matchesPersonSearch(row, search, [row.username, row.email]),
+    );
     const dir = sort.dir === "asc" ? 1 : -1;
     return [...data].sort((a, b) => {
       switch (sort.key) {
@@ -112,7 +119,7 @@ export default function TutorsPage() {
           );
       }
     });
-  }, [tutors.data, sort.key, sort.dir, showPast]);
+  }, [tutors.data, sort.key, sort.dir, showPast, search]);
 
   return (
     <div className="space-y-6">
@@ -229,7 +236,36 @@ export default function TutorsPage() {
         </ProfileDialog>
       )}
       <p className="muted text-xs">{t("admin.tutors.accountMovedNote")}</p>
-      <PastTutorsToggle showPast={showPast} onChange={setShowPast} />
+      {/* Search refines the authorized roster scope; it never broadens historical visibility. */}
+      <FilterToolbar
+        label={t("rosterSearch.label")}
+        summary={t("rosterSearch.results", {
+          count: rows.length,
+          total: visibleTutors(tutors.data ?? [], showPast).length,
+        })}
+      >
+        <label className="min-w-0 flex-1">
+          <span className="label">{t("rosterSearch.label")}</span>
+          <input
+            type="search"
+            className="input w-full"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t("rosterSearch.placeholder")}
+          />
+        </label>
+        {search && (
+          <Button size="compact" onClick={() => setSearch("")}>
+            {t("rosterSearch.clear")}
+          </Button>
+        )}
+        <PastTutorsToggle showPast={showPast} onChange={setShowPast} />
+      </FilterToolbar>
+      {search.trim() && rows.length === 0 && tutors.data && !tutors.error && (
+        <p role="status" className="muted">
+          {t("rosterSearch.noMatches")}
+        </p>
+      )}
 
       {editing && canEditProfiles && (
         <TutorProfileEditor

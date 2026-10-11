@@ -150,6 +150,37 @@ consent and historical-ownership explanations even when they require more text.
 Use existing schedule/request data when prioritizing work; layout changes alone
 must not introduce a new computed next-session feature or domain rule.
 
+### Retain local work while changing panels
+
+For a long settings workspace, group existing owners with `SectionTabs` rather
+than introducing a combined Save. Program settings and Crew illustrate separate
+settings, records and review panels. Choose initial mounting deliberately: keep
+already-mounted form owners, or mount on first access when the feature permits it.
+Retain the owner while its panel is hidden. Hidden controls must leave the keyboard and
+accessibility trees. Keep an active review, its accepted-operation keys and its
+refresh recovery outside a panel that can be hidden. A tab change must neither
+discard a draft nor replay an accepted write; permission revocation still removes
+protected content.
+
+Put creation behind one title-row action when an always-open form delays the
+primary records. Compose the existing `ProfileDialog`, with draft state above its
+visibility toggle. Give creation and row editing independent drafts, even when
+they share field markup. Verify close/reopen, failed saves, nested confirmation,
+pending dismissal and exact opener focus before migrating another caller.
+
+Search only the records already authorized for the current roster scope. Reuse
+`matchesPersonSearch` for four-part, preferred, alternative and legacy names, and
+match identifiers only when the query already supplies them. Apply search before
+sorting; clearing it must preserve the other filters. In an explicit-ID participant
+picker, filtering hides candidates without changing selection. Keep a selected
+summary and deliberate removal so a long list never conceals the submitted IDs.
+
+Explain the existing save boundary beside the relevant fields: a blur save, one
+form Save and publication are different operations. Additional actions at the end
+of a long editor must reuse the same admission guard, pending state and payload as
+its top actions. Do not introduce autosave, a global action registry or draft
+storage merely to make controls look consistent.
+
 ### Profile editor completion
 
 In profile editors, completion of one section must not dismiss a failed independent

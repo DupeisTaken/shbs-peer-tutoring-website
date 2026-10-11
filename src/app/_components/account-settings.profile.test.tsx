@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
@@ -96,9 +97,15 @@ vi.mock("~/trpc/react", () => ({
 
 function ui() {
   return (
-    <NextIntlClientProvider locale="en" messages={en}>
-      <AccountSettings />
-    </NextIntlClientProvider>
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <NextIntlClientProvider locale="en" messages={en}>
+        <AccountSettings />
+      </NextIntlClientProvider>
+    </QueryClientProvider>
   );
 }
 function firstName() {

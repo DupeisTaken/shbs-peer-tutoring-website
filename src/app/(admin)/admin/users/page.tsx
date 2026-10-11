@@ -1,5 +1,6 @@
 "use client";
 
+import { matchesPersonSearch } from "~/lib/person-search";
 import { accountMembership } from "~/lib/account-membership";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -332,9 +333,21 @@ export default function UsersPage() {
       /* Keep in-memory filtering usable. */
     }
   };
+  const [search, setSearch] = useState("");
+  const scopedRows = (accounts.data?.rows ?? []).filter((row) =>
+    matchesUserFilters(row, filters),
+  );
   const rows = useMemo(() => {
     const data = accounts.data?.rows ?? [];
-    const filtered = data.filter((u) => matchesUserFilters(u, filters));
+    const filtered = data.filter(
+      (u) =>
+        matchesUserFilters(u, filters) &&
+        matchesPersonSearch({ ...u, legacyName: u.name }, search, [
+          u.username,
+          u.email,
+          u.tutor?.username,
+        ]),
+    );
     const dir = sort.dir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       switch (sort.key) {
@@ -347,7 +360,7 @@ export default function UsersPage() {
           return compare(a.name, b.name) * dir;
       }
     });
-  }, [accounts.data, sort.key, sort.dir, filters]);
+  }, [accounts.data, sort.key, sort.dir, filters, search]);
 
   return (
     <div className="space-y-6">
@@ -419,6 +432,34 @@ export default function UsersPage() {
       </section>
       {isHead && <CombineAccounts />}
       <section className="card space-y-3 p-4">
+        <FilterToolbar
+          label={t("rosterSearch.label")}
+          summary={t("rosterSearch.results", {
+            count: rows.length,
+            total: scopedRows.length,
+          })}
+        >
+          <label className="min-w-0 flex-1">
+            <span className="label">{t("rosterSearch.label")}</span>
+            <input
+              type="search"
+              className="input w-full"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t("rosterSearch.placeholder")}
+            />
+          </label>
+          {search && (
+            <Button size="compact" onClick={() => setSearch("")}>
+              {t("rosterSearch.clear")}
+            </Button>
+          )}
+        </FilterToolbar>
+        {search.trim() && rows.length === 0 && scopedRows.length > 0 && (
+          <p role="status" className="muted">
+            {t("rosterSearch.noMatches")}
+          </p>
+        )}
         <p className="muted text-sm">{t("userMultiFilters.hint")}</p>
         <p className="muted text-sm">{t("usersDirectory.visibility")}</p>
         <div

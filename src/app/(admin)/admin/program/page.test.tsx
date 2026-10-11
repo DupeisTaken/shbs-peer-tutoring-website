@@ -76,3 +76,26 @@ it.each(["en", "zh"] as const)(
     });
   },
 );
+
+it("retains typed refresh confirmation across settings panels", () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <ProgramPage />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.change(screen.getByLabelText(en.admin.program.confirmLabel), {
+    target: { value: "REFRESH" },
+  });
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.admin.program.panels.communication }),
+  );
+  expect(screen.queryByRole("textbox")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.admin.program.panels.period }),
+  );
+  expect(
+    screen.getByLabelText<HTMLInputElement>(en.admin.program.confirmLabel)
+      .value,
+  ).toBe("REFRESH");
+  expect(mutate).not.toHaveBeenCalled();
+});

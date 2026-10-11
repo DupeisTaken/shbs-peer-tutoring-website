@@ -452,7 +452,10 @@
       "colRoom": "Salle",
       "colTutees": "Élèves",
       "edit": "Modifier",
-      "delete": "Supprimer"
+      "delete": "Supprimer",
+      "searchTutees": "Rechercher des élèves",
+      "selectedTutees": "{count} sélectionnés",
+      "removeSelected": "Retirer {name}"
     },
     "tutors": {
       "title": "Tuteurs",
@@ -843,6 +846,12 @@
           "VIEWER_SIGNUP": "Inscription Observateur",
           "EMAIL_2FA": "2FA par e-mail"
         }
+      },
+      "panels": {
+        "period": "Période et recrutement",
+        "people": "Personnes et inscription",
+        "communication": "Communication",
+        "access": "Accès et modules"
       }
     },
     "audit": {
@@ -1232,7 +1241,8 @@
           "ARCHIVED": "Archived"
         }
       },
-      "messageLabel": "Message"
+      "messageLabel": "Message",
+      "create": "Nouvelle annonce"
     },
     "policies": {
       "title": "Documents de politique",
@@ -1297,7 +1307,8 @@
         "title": "Delete hour adjustment?",
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
-      }
+      },
+      "create": "Nouvel ajustement des heures"
     },
     "applications": {
       "title": "Candidatures tuteurs",
@@ -1583,7 +1594,12 @@
       "issuedHint": "Codes remis aux candidats acceptés, en attente d'inscription. Révoquer un code dans Codes d'inscription renvoie sa candidature dans la file.",
       "issuedExpires": "Expire le {date}",
       "originalApplication": "Candidature originale",
-      "originalRequest": "Demande originale"
+      "originalRequest": "Demande originale",
+      "panels": {
+        "review": "Examen",
+        "roster": "Liste des membres",
+        "patrol": "Paramètres des rondes"
+      }
     },
     "sessionFlags": {
       "title": "Signalements de présence",
@@ -1868,7 +1884,15 @@
       "confirmDecision": "Record {outcome} for {name}? The panel vote and current application version will be checked. If approval is required, this creates a pending proposal and does not apply the decision.",
       "completedInterview": "Completed interview · {name} ({count})",
       "savedRefreshError": "Attendance was saved, but the refreshed totals could not be loaded. Do not resubmit this entry.",
-      "verificationDeadline": "Verification due: {date}"
+      "verificationDeadline": "Verification due: {date}",
+      "attention": "À traiter",
+      "navigation": "Rubriques du tableau de bord",
+      "emptyTasks": "Aucun suivi nécessaire dans les dossiers chargés.",
+      "unconfirmedCount": "Horaires non confirmés ({count})",
+      "rosterCount": "Suivi de la liste des élèves ({count})",
+      "interviewSection": "Entretiens",
+      "meetingSection": "Réunions",
+      "qualificationSection": "Qualifications"
     },
     "activate": {
       "title": "Confirmez votre disponibilité",
@@ -2067,7 +2091,8 @@
       "reentryHelp": "Vous souhaitez rejoindre à nouveau le programme ? Demandez une réintégration et un administrateur l'examinera.",
       "reentryBtn": "Demander une réintégration",
       "recall": "Révoquer la demande",
-      "statusNote": "Votre statut de tuteur est {status}. Accès en lecture seule — contactez un administrateur pour toute modification."
+      "statusNote": "Votre statut de tuteur est {status}. Accès en lecture seule — contactez un administrateur pour toute modification.",
+      "profileSyncFailed": "Votre profil a été enregistré, mais son actualisation a échoué. Réessayez l’actualisation sans renvoyer les modifications."
     },
     "dashboard": {
       "pending": {
@@ -4510,5 +4535,17 @@
     "retryRefresh": "Réessayer l’actualisation",
     "reload": "Recharger la demande",
     "reloadHelp": "Votre motif et la version d’origine sont conservés. Rechargez explicitement la demande pour remplacer ce brouillon par sa dernière version."
+  },
+  "rosterSearch": {
+    "label": "Rechercher des personnes",
+    "placeholder": "Nom, identifiant ou adresse e-mail",
+    "clear": "Effacer la recherche",
+    "noMatches": "Aucune personne ne correspond à cette recherche.",
+    "results": "{count} personnes sur {total}"
+  },
+  "saveBoundary": {
+    "blur": "Les modifications sont enregistrées lorsque vous quittez ce champ.",
+    "form": "Enregistrer ne concerne que ce formulaire.",
+    "layout": "Enregistrer ne concerne que cette mise en page."
   }
 }

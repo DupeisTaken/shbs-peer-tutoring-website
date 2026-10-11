@@ -585,6 +585,9 @@ describe("patrol headcount choices", () => {
 describe("program feature switches", () => {
   it("names a switch and derives the next request from its staged state", () => {
     render(<ProgramPage />, { wrapper });
+    fireEvent.click(
+      screen.getByRole("tab", { name: messages.admin.program.panels.access }),
+    );
     const toggle = screen.getByRole("switch", {
       name: messages.admin.program.features.name.QUARTER_SYSTEM,
     });
@@ -600,6 +603,9 @@ describe("program feature switches", () => {
     state.hasStagedFeature = false;
     state.pending = true;
     render(<ProgramPage />, { wrapper });
+    fireEvent.click(
+      screen.getByRole("tab", { name: messages.admin.program.panels.access }),
+    );
     const toggle = screen.getByRole<HTMLButtonElement>("switch");
     expect(toggle.getAttribute("aria-checked")).toBe("true");
     expect(toggle.disabled).toBe(true);
@@ -610,6 +616,9 @@ describe("program feature switches", () => {
   it("keeps switch actions hidden for viewers", () => {
     state.canEdit = false;
     render(<ProgramPage />, { wrapper });
+    fireEvent.click(
+      screen.getByRole("tab", { name: messages.admin.program.panels.access }),
+    );
     expect(screen.queryByRole("switch")).toBeNull();
   });
 });

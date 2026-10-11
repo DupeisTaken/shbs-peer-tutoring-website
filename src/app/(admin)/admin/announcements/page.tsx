@@ -1,4 +1,5 @@
 "use client";
+import { ProfileDialog } from "~/app/_components/profile-dialog";
 
 import { useTranslations, useFormatter } from "next-intl";
 import { useEffect, useId, useState } from "react";
@@ -253,6 +254,7 @@ export default function AnnouncementsPage() {
     candidates.isFetching,
     queryClient,
   ]);
+  const [createOpen, setCreateOpen] = useState(false);
   const [audience, setAudience] = useState(defaultAnnouncementAudience);
   const recipientCount = selectAnnouncementRecipients(
     candidatesHidden ? [] : (candidates.data ?? []),
@@ -265,6 +267,7 @@ export default function AnnouncementsPage() {
   const [pinned, setPinned] = useState(false);
   const create = api.admin.createAnnouncement.useMutation({
     onSuccess: async () => {
+      setCreateOpen(false);
       setTitle("");
       setBody("");
       setPinned(false);
@@ -276,127 +279,142 @@ export default function AnnouncementsPage() {
   return (
     <div className="space-y-6">
       {!readOnly && !announcementsHidden && review.dialog}
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title">{t("admin.announcements.title")}</h1>
-        <p className="muted mt-1">{t("admin.announcements.subtitle")}</p>
+        {!readOnly && !announcementsHidden && (
+          <Button
+            variant="primary"
+            disabled={create.isPending}
+            onClick={() => setCreateOpen(true)}
+          >
+            {t("admin.announcements.create")}
+          </Button>
+        )}
+        <p className="muted mt-1 basis-full">
+          {t("admin.announcements.subtitle")}
+        </p>
       </div>
 
-      {!readOnly && !announcementsHidden && (
-        <section className="card space-y-3 p-5">
-          <h2 className="section-title">
-            {t("admin.announcements.new.title")}
-          </h2>
-          <label className="block" htmlFor={`${fieldId}-title`}>
-            <span className="label">
-              {t("admin.announcements.new.titlePlaceholder")}
-            </span>
-            <input
-              id={`${fieldId}-title`}
-              className="input w-full"
-              placeholder={t("admin.announcements.new.titlePlaceholder")}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </label>
-          <label className="block" htmlFor={`${fieldId}-body`}>
-            <span className="label">
-              {t("admin.announcements.messageLabel")}
-            </span>
-            <textarea
-              id={`${fieldId}-body`}
-              className="textarea w-full"
-              rows={3}
-              placeholder={t("admin.announcements.new.messagePlaceholder")}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-            />
-          </label>
-          {candidatesHidden ? (
-            <StatePanel
-              kind="denied"
-              title={t("managementRecovery.denied", {
-                section: t("admin.announcements.recipients.button"),
-              })}
-              action={
-                <Button
-                  disabled={candidates.isFetching}
-                  onClick={() => void candidates.refetch()}
-                >
-                  {t("managementRecovery.retry", {
-                    section: t("admin.announcements.recipients.button"),
-                  })}
-                </Button>
-              }
-            />
-          ) : (
-            <QueryFeedback
-              hasData={candidates.data !== undefined}
-              loading={candidates.data === undefined}
-              error={!!candidates.error}
-              retrying={candidates.isFetching}
-              loadingTitle={t("managementRecovery.loading", {
-                section: t("admin.announcements.recipients.button"),
-              })}
-              errorTitle={t(
-                candidates.data === undefined
-                  ? "managementRecovery.loadFailed"
-                  : "managementRecovery.refreshFailed",
-                { section: t("admin.announcements.recipients.button") },
-              )}
-              retryLabel={t("managementRecovery.retry", {
-                section: t("admin.announcements.recipients.button"),
-              })}
-              onRetry={() => void candidates.refetch()}
-            />
-          )}
-          {!candidatesHidden && candidates.data !== undefined && (
-            <RecipientPicker
-              candidates={candidates.data ?? []}
-              audience={audience}
-              onChange={setAudience}
-              loading={candidates.isLoading}
-            />
-          )}
-          {create.error && (
-            <p role="alert" className="text-sm text-red-700">
-              {create.error.message}
-            </p>
-          )}
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-slate-700">
+      {!readOnly && !announcementsHidden && createOpen && (
+        <ProfileDialog
+          title={t("admin.announcements.new.title")}
+          size="wide"
+          pending={create.isPending}
+          onClose={() => setCreateOpen(false)}
+        >
+          <section className="space-y-3">
+            <label className="block" htmlFor={`${fieldId}-title`}>
+              <span className="label">
+                {t("admin.announcements.new.titlePlaceholder")}
+              </span>
               <input
-                type="checkbox"
-                checked={pinned}
-                onChange={(e) => setPinned(e.target.checked)}
+                id={`${fieldId}-title`}
+                className="input w-full"
+                placeholder={t("admin.announcements.new.titlePlaceholder")}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
               />
-              {t("admin.announcements.new.pinLabel")}
             </label>
-            <button
-              className="btn-primary btn-sm"
-              disabled={
-                !title.trim() ||
-                !body.trim() ||
-                create.isPending ||
-                !recipientCount ||
-                candidates.isLoading ||
-                candidates.isError ||
-                candidatesHidden
-              }
-              onClick={() =>
-                create.mutate({
-                  title: title.trim(),
-                  body: body.trim(),
-                  pinned,
-                  audience,
-                })
-              }
-            >
-              {create.isPending
-                ? t("admin.announcements.new.posting")
-                : t("admin.announcements.new.broadcast")}
-            </button>
-          </div>
-        </section>
+            <label className="block" htmlFor={`${fieldId}-body`}>
+              <span className="label">
+                {t("admin.announcements.messageLabel")}
+              </span>
+              <textarea
+                id={`${fieldId}-body`}
+                className="textarea w-full"
+                rows={3}
+                placeholder={t("admin.announcements.new.messagePlaceholder")}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+              />
+            </label>
+            {candidatesHidden ? (
+              <StatePanel
+                kind="denied"
+                title={t("managementRecovery.denied", {
+                  section: t("admin.announcements.recipients.button"),
+                })}
+                action={
+                  <Button
+                    disabled={candidates.isFetching}
+                    onClick={() => void candidates.refetch()}
+                  >
+                    {t("managementRecovery.retry", {
+                      section: t("admin.announcements.recipients.button"),
+                    })}
+                  </Button>
+                }
+              />
+            ) : (
+              <QueryFeedback
+                hasData={candidates.data !== undefined}
+                loading={candidates.data === undefined}
+                error={!!candidates.error}
+                retrying={candidates.isFetching}
+                loadingTitle={t("managementRecovery.loading", {
+                  section: t("admin.announcements.recipients.button"),
+                })}
+                errorTitle={t(
+                  candidates.data === undefined
+                    ? "managementRecovery.loadFailed"
+                    : "managementRecovery.refreshFailed",
+                  { section: t("admin.announcements.recipients.button") },
+                )}
+                retryLabel={t("managementRecovery.retry", {
+                  section: t("admin.announcements.recipients.button"),
+                })}
+                onRetry={() => void candidates.refetch()}
+              />
+            )}
+            {!candidatesHidden && candidates.data !== undefined && (
+              <RecipientPicker
+                candidates={candidates.data ?? []}
+                audience={audience}
+                onChange={setAudience}
+                loading={candidates.isLoading}
+              />
+            )}
+            {create.error && (
+              <p role="alert" className="text-sm text-red-700">
+                {create.error.message}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={pinned}
+                  onChange={(e) => setPinned(e.target.checked)}
+                />
+                {t("admin.announcements.new.pinLabel")}
+              </label>
+              <button
+                className="btn-primary btn-sm"
+                disabled={
+                  !title.trim() ||
+                  !body.trim() ||
+                  create.isPending ||
+                  !recipientCount ||
+                  candidates.isLoading ||
+                  candidates.isError ||
+                  candidatesHidden
+                }
+                onClick={() =>
+                  create.mutate({
+                    title: title.trim(),
+                    body: body.trim(),
+                    pinned,
+                    audience,
+                  })
+                }
+              >
+                {create.isPending
+                  ? t("admin.announcements.new.posting")
+                  : t("admin.announcements.new.broadcast")}
+              </button>
+            </div>
+          </section>
+        </ProfileDialog>
       )}
 
       <div className="space-y-3">

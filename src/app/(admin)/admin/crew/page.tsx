@@ -12,6 +12,7 @@ import { Button } from "~/app/_components/ui/button";
 import { api } from "~/trpc/react";
 import { AcademicError } from "~/app/_components/academic-error";
 import { useReadOnly } from "~/app/_components/read-only";
+import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import { PatrolCorrections } from "~/app/_components/patrol-corrections";
 import {
   useActionReview,
@@ -216,6 +217,7 @@ export default function CrewPage() {
     decideApp.isPending ||
     decideReq.isPending;
 
+  const [panel, setPanel] = useState<"review" | "roster" | "patrol">("review");
   return (
     <div className="space-y-8">
       <div>
@@ -229,576 +231,628 @@ export default function CrewPage() {
         </p>
       )}
 
-      <PatrolCorrections />
-      {/* Crew applications */}
-      <section className="card overflow-hidden">
-        <div className="px-5 py-3">
-          <h2 className="section-title">
-            {t("admin.crew.applicationsHeading")}
-          </h2>
+      {/* Tab visibility retains review ownership, evidence and patrol drafts. */}
+      <SectionTabs
+        label={t("admin.crew.title")}
+        value={panel}
+        onChange={setPanel}
+        items={(["review", "roster", "patrol"] as const).map((value) => ({
+          value,
+          label: t(`admin.crew.panels.${value}`),
+        }))}
+      >
+        <div hidden={panel !== "patrol"}>
+          <PatrolCorrections />
         </div>
-        <div className="divide-y divide-slate-100 px-5 pb-3">
-          {feedback("applications")}
-          {applications.data !== undefined &&
-          !applications.error &&
-          !hidden("applications") &&
-          apps.length === 0 ? (
-            <p className="muted py-2">{t("admin.crew.applicationsEmpty")}</p>
-          ) : (
-            apps.map((a) => (
-              <div
-                key={a.id}
-                className="flex flex-wrap items-center gap-3 py-3 text-sm"
-              >
-                <span className="font-medium text-slate-800">{a.name}</span>
-                {a.gradeLevel != null && (
-                  <span className="badge-slate">G{a.gradeLevel}</span>
-                )}
-                {a.preferredContact && a.preferredContact !== a.email && (
-                  <span className="muted max-w-64 text-xs [overflow-wrap:anywhere]">
-                    {a.preferredContact}
-                  </span>
-                )}
-                <EmailDetails contactOnly email={a.email} name={a.name} />
-                {a.message && (
-                  <TableDetails
-                    title={`${t("admin.crew.originalApplication")} · ${a.name}`}
-                    longReader
+        <div hidden={panel !== "review"} className="space-y-8">
+          {/* Crew applications */}
+          <section className="card overflow-hidden">
+            <div className="px-5 py-3">
+              <h2 className="section-title">
+                {t("admin.crew.applicationsHeading")}
+              </h2>
+            </div>
+            <div className="divide-y divide-slate-100 px-5 pb-3">
+              {feedback("applications")}
+              {applications.data !== undefined &&
+              !applications.error &&
+              !hidden("applications") &&
+              apps.length === 0 ? (
+                <p className="muted py-2">
+                  {t("admin.crew.applicationsEmpty")}
+                </p>
+              ) : (
+                apps.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex flex-wrap items-center gap-3 py-3 text-sm"
                   >
-                    <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
-                      {a.message}
-                    </p>
-                  </TableDetails>
-                )}
-                {issuedCode[a.id] ? (
-                  <span className="badge-green ml-auto font-mono tracking-widest">
-                    {t("admin.crew.codeIssued", { code: issuedCode[a.id]! })}
-                  </span>
-                ) : (
-                  !readOnly && (
-                    <span className="ml-auto flex gap-2">
-                      <button
-                        className="btn-primary btn-sm"
-                        disabled={
-                          busy ||
-                          !!applications.error ||
-                          review.blocked(a.id + ":application")
-                        }
-                        onClick={() =>
-                          openReview("applications", {
-                            key: a.id + ":application",
-                            title: t("admin.crew.accept") + " · " + a.name,
-                            description: t("actionReview.crewApplicationHelp"),
-                            details: (
-                              <div className="space-y-2">
-                                <h3 className="font-semibold">
-                                  {t("admin.crew.originalApplication")}
-                                </h3>
-                                <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
-                                  {a.message ?? "—"}
-                                </p>
-                              </div>
-                            ),
-                            confirmLabel: t("admin.crew.accept"),
-                            commit: () =>
-                              decideApp.mutateAsync({
-                                applicationId: a.id,
-                                action: "ACCEPT",
-                              }),
-                            refresh: refreshReviewed,
-                            approvalId: queuedApprovalId,
-                            renderError: (message) => (
-                              <AcademicError message={message} />
-                            ),
-                          })
-                        }
+                    <span className="font-medium text-slate-800">{a.name}</span>
+                    {a.gradeLevel != null && (
+                      <span className="badge-slate">G{a.gradeLevel}</span>
+                    )}
+                    {a.preferredContact && a.preferredContact !== a.email && (
+                      <span className="muted max-w-64 text-xs [overflow-wrap:anywhere]">
+                        {a.preferredContact}
+                      </span>
+                    )}
+                    <EmailDetails contactOnly email={a.email} name={a.name} />
+                    {a.message && (
+                      <TableDetails
+                        title={`${t("admin.crew.originalApplication")} · ${a.name}`}
+                        longReader
                       >
-                        {t("admin.crew.accept")}
-                      </button>
-                      <button
-                        className="btn-secondary btn-sm"
-                        disabled={
-                          busy ||
-                          !!applications.error ||
-                          review.blocked(a.id + ":application")
-                        }
-                        onClick={() =>
-                          openReview("applications", {
-                            key: a.id + ":application",
-                            title: t("admin.crew.reject") + " · " + a.name,
-                            description: t("actionReview.crewApplicationHelp"),
-                            details: (
-                              <div className="space-y-2">
-                                <h3 className="font-semibold">
-                                  {t("admin.crew.originalApplication")}
-                                </h3>
-                                <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
-                                  {a.message ?? "—"}
-                                </p>
-                              </div>
-                            ),
-                            confirmLabel: t("admin.crew.reject"),
-                            commit: () =>
-                              decideApp.mutateAsync({
-                                applicationId: a.id,
-                                action: "REJECT",
-                              }),
-                            refresh: refreshReviewed,
-                            approvalId: queuedApprovalId,
-                            renderError: (message) => (
-                              <AcademicError message={message} />
-                            ),
-                          })
-                        }
-                      >
-                        {t("admin.crew.reject")}
-                      </button>
-                    </span>
-                  )
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      </section>
+                        <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
+                          {a.message}
+                        </p>
+                      </TableDetails>
+                    )}
+                    {issuedCode[a.id] ? (
+                      <span className="badge-green ml-auto font-mono tracking-widest">
+                        {t("admin.crew.codeIssued", {
+                          code: issuedCode[a.id]!,
+                        })}
+                      </span>
+                    ) : (
+                      !readOnly && (
+                        <span className="ml-auto flex gap-2">
+                          <button
+                            className="btn-primary btn-sm"
+                            disabled={
+                              busy ||
+                              !!applications.error ||
+                              review.blocked(a.id + ":application")
+                            }
+                            onClick={() =>
+                              openReview("applications", {
+                                key: a.id + ":application",
+                                title: t("admin.crew.accept") + " · " + a.name,
+                                description: t(
+                                  "actionReview.crewApplicationHelp",
+                                ),
+                                details: (
+                                  <div className="space-y-2">
+                                    <h3 className="font-semibold">
+                                      {t("admin.crew.originalApplication")}
+                                    </h3>
+                                    <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
+                                      {a.message ?? "—"}
+                                    </p>
+                                  </div>
+                                ),
+                                confirmLabel: t("admin.crew.accept"),
+                                commit: () =>
+                                  decideApp.mutateAsync({
+                                    applicationId: a.id,
+                                    action: "ACCEPT",
+                                  }),
+                                refresh: refreshReviewed,
+                                approvalId: queuedApprovalId,
+                                renderError: (message) => (
+                                  <AcademicError message={message} />
+                                ),
+                              })
+                            }
+                          >
+                            {t("admin.crew.accept")}
+                          </button>
+                          <button
+                            className="btn-secondary btn-sm"
+                            disabled={
+                              busy ||
+                              !!applications.error ||
+                              review.blocked(a.id + ":application")
+                            }
+                            onClick={() =>
+                              openReview("applications", {
+                                key: a.id + ":application",
+                                title: t("admin.crew.reject") + " · " + a.name,
+                                description: t(
+                                  "actionReview.crewApplicationHelp",
+                                ),
+                                details: (
+                                  <div className="space-y-2">
+                                    <h3 className="font-semibold">
+                                      {t("admin.crew.originalApplication")}
+                                    </h3>
+                                    <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
+                                      {a.message ?? "—"}
+                                    </p>
+                                  </div>
+                                ),
+                                confirmLabel: t("admin.crew.reject"),
+                                commit: () =>
+                                  decideApp.mutateAsync({
+                                    applicationId: a.id,
+                                    action: "REJECT",
+                                  }),
+                                refresh: refreshReviewed,
+                                approvalId: queuedApprovalId,
+                                renderError: (message) => (
+                                  <AcademicError message={message} />
+                                ),
+                              })
+                            }
+                          >
+                            {t("admin.crew.reject")}
+                          </button>
+                        </span>
+                      )
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
 
-      {/* Issued codes — accepted applicants awaiting registration. Revoking the code on
+          {/* Issued codes — accepted applicants awaiting registration. Revoking the code on
           /admin/registration-codes returns the application to the queue above. */}
-      {feedback("codes")}
-      {!hidden("codes") && (issuedCodes.data ?? []).length > 0 && (
-        <section className="card overflow-hidden">
-          <div className="px-5 py-3">
-            <h2 className="section-title">{t("admin.crew.issuedHeading")}</h2>
-            <p className="muted mt-1 text-xs">{t("admin.crew.issuedHint")}</p>
-          </div>
-          <div className="divide-y divide-slate-100 px-5 pb-3">
-            {(issuedCodes.data ?? []).map((c) => (
-              <div
-                key={c.id}
-                className="flex flex-wrap items-center gap-3 py-3 text-sm"
-              >
-                <span className="font-medium text-slate-800">{c.name}</span>
-                {c.code && (
-                  <span className="badge-green font-mono tracking-widest">
-                    {c.code}
-                  </span>
-                )}
-                <span className="muted ml-auto text-xs">
-                  {t("admin.crew.issuedExpires", {
-                    date: programFormat.dateTime(new Date(c.expiresAt), {
-                      dateStyle: "medium",
-                    }),
-                  })}
-                </span>
+          {feedback("codes")}
+          {!hidden("codes") && (issuedCodes.data ?? []).length > 0 && (
+            <section className="card overflow-hidden">
+              <div className="px-5 py-3">
+                <h2 className="section-title">
+                  {t("admin.crew.issuedHeading")}
+                </h2>
+                <p className="muted mt-1 text-xs">
+                  {t("admin.crew.issuedHint")}
+                </p>
               </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Opt-out / reentry requests */}
-      <section className="card overflow-hidden">
-        <div className="px-5 py-3">
-          <h2 className="section-title">{t("admin.crew.requestsHeading")}</h2>
-        </div>
-        <div className="divide-y divide-slate-100 px-5 pb-3">
-          {feedback("requests")}
-          {requests.data !== undefined &&
-          !requests.error &&
-          !hidden("requests") &&
-          reqs.length === 0 ? (
-            <p className="muted py-2">{t("admin.crew.requestsEmpty")}</p>
-          ) : (
-            reqs.map((r) => (
-              <div
-                key={r.id}
-                className="flex flex-wrap items-center gap-3 py-3 text-sm"
-              >
-                <span className="font-medium text-slate-800">{r.member}</span>
-                <span
-                  className={
-                    r.kind === "OPT_OUT" ? "badge-amber" : "badge-green"
-                  }
-                >
-                  {t(`admin.crew.reqKind.${r.kind}`)}
-                </span>
-                {r.reason && (
-                  <TableDetails
-                    title={`${t("admin.crew.originalRequest")} · ${r.member}`}
-                    longReader
+              <div className="divide-y divide-slate-100 px-5 pb-3">
+                {(issuedCodes.data ?? []).map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex flex-wrap items-center gap-3 py-3 text-sm"
                   >
-                    <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
-                      {r.reason}
-                    </p>
-                  </TableDetails>
-                )}
-                <span className="muted ml-auto text-xs">
-                  {r.approvable
-                    ? t("admin.crew.cooldownDone")
-                    : r.eligibleAt
-                      ? t("admin.crew.cooldownUntil", {
-                          date: programFormat.dateTime(new Date(r.eligibleAt), {
-                            dateStyle: "medium",
-                          }),
-                        })
-                      : ""}
-                </span>
-                {!readOnly && (
-                  <span className="flex gap-2">
+                    <span className="font-medium text-slate-800">{c.name}</span>
+                    {c.code && (
+                      <span className="badge-green font-mono tracking-widest">
+                        {c.code}
+                      </span>
+                    )}
+                    <span className="muted ml-auto text-xs">
+                      {t("admin.crew.issuedExpires", {
+                        date: programFormat.dateTime(new Date(c.expiresAt), {
+                          dateStyle: "medium",
+                        }),
+                      })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Opt-out / reentry requests */}
+          <section className="card overflow-hidden">
+            <div className="px-5 py-3">
+              <h2 className="section-title">
+                {t("admin.crew.requestsHeading")}
+              </h2>
+            </div>
+            <div className="divide-y divide-slate-100 px-5 pb-3">
+              {feedback("requests")}
+              {requests.data !== undefined &&
+              !requests.error &&
+              !hidden("requests") &&
+              reqs.length === 0 ? (
+                <p className="muted py-2">{t("admin.crew.requestsEmpty")}</p>
+              ) : (
+                reqs.map((r) => (
+                  <div
+                    key={r.id}
+                    className="flex flex-wrap items-center gap-3 py-3 text-sm"
+                  >
+                    <span className="font-medium text-slate-800">
+                      {r.member}
+                    </span>
+                    <span
+                      className={
+                        r.kind === "OPT_OUT" ? "badge-amber" : "badge-green"
+                      }
+                    >
+                      {t(`admin.crew.reqKind.${r.kind}`)}
+                    </span>
+                    {r.reason && (
+                      <TableDetails
+                        title={`${t("admin.crew.originalRequest")} · ${r.member}`}
+                        longReader
+                      >
+                        <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
+                          {r.reason}
+                        </p>
+                      </TableDetails>
+                    )}
+                    <span className="muted ml-auto text-xs">
+                      {r.approvable
+                        ? t("admin.crew.cooldownDone")
+                        : r.eligibleAt
+                          ? t("admin.crew.cooldownUntil", {
+                              date: programFormat.dateTime(
+                                new Date(r.eligibleAt),
+                                {
+                                  dateStyle: "medium",
+                                },
+                              ),
+                            })
+                          : ""}
+                    </span>
+                    {!readOnly && (
+                      <span className="flex gap-2">
+                        <button
+                          className="btn-primary btn-sm"
+                          disabled={
+                            busy ||
+                            !!requests.error ||
+                            !r.approvable ||
+                            review.blocked(r.id + ":request")
+                          }
+                          onClick={() =>
+                            openReview("requests", {
+                              key: r.id + ":request",
+                              title: t("admin.crew.approve") + " · " + r.member,
+                              description: t("actionReview.crewRequestHelp"),
+                              details: (
+                                <div className="space-y-2">
+                                  <p>{t(`admin.crew.reqKind.${r.kind}`)}</p>
+                                  <h3 className="font-semibold">
+                                    {t("admin.crew.originalRequest")}
+                                  </h3>
+                                  <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
+                                    {r.reason ?? "—"}
+                                  </p>
+                                </div>
+                              ),
+                              confirmLabel: t("admin.crew.approve"),
+                              commit: () =>
+                                decideReq.mutateAsync({
+                                  requestId: r.id,
+                                  action: "APPROVE",
+                                }),
+                              refresh: refreshReviewed,
+                              approvalId: queuedApprovalId,
+                              renderError: (message) => (
+                                <AcademicError message={message} />
+                              ),
+                            })
+                          }
+                        >
+                          {t("admin.crew.approve")}
+                        </button>
+                        <button
+                          className="btn-secondary btn-sm"
+                          disabled={
+                            busy ||
+                            !!requests.error ||
+                            review.blocked(r.id + ":request")
+                          }
+                          onClick={() =>
+                            openReview("requests", {
+                              key: r.id + ":request",
+                              title: t("admin.crew.deny") + " · " + r.member,
+                              description: t("actionReview.crewRequestHelp"),
+                              details: (
+                                <div className="space-y-2">
+                                  <p>{t(`admin.crew.reqKind.${r.kind}`)}</p>
+                                  <h3 className="font-semibold">
+                                    {t("admin.crew.originalRequest")}
+                                  </h3>
+                                  <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
+                                    {r.reason ?? "—"}
+                                  </p>
+                                </div>
+                              ),
+                              confirmLabel: t("admin.crew.deny"),
+                              commit: () =>
+                                decideReq.mutateAsync({
+                                  requestId: r.id,
+                                  action: "DENY",
+                                }),
+                              refresh: refreshReviewed,
+                              approvalId: queuedApprovalId,
+                              renderError: (message) => (
+                                <AcademicError message={message} />
+                              ),
+                            })
+                          }
+                        >
+                          {t("admin.crew.deny")}
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          {/* Patrol order */}
+        </div>
+        <div hidden={panel !== "patrol"}>
+          <section className="card p-5">
+            <h2 className="section-title">{t("admin.crew.orderHeading")}</h2>
+            <p className="muted mt-1 text-xs">{t("admin.crew.orderHelp")}</p>
+            {feedback("order")}
+            {!hidden("order") && order.data !== undefined && (
+              <>
+                <ol className="mt-3 divide-y divide-slate-100">
+                  {rooms.map((room, i) => (
+                    <li key={room.id} className="flex items-center gap-3 py-2">
+                      <span className="w-6 text-sm font-semibold text-slate-400">
+                        {i + 1}
+                      </span>
+                      <span className="flex-1 font-medium text-slate-800">
+                        {room.name}
+                      </span>
+                      {!readOnly && (
+                        <div className="flex gap-1">
+                          <button
+                            className="btn-secondary btn-sm"
+                            disabled={
+                              i === 0 || setOrder.isPending || !!order.error
+                            }
+                            onClick={() => move(i, -1)}
+                            aria-label={t("admin.crew.moveUp")}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            className="btn-secondary btn-sm"
+                            disabled={
+                              i === rooms.length - 1 ||
+                              setOrder.isPending ||
+                              !!order.error
+                            }
+                            onClick={() => move(i, 1)}
+                            aria-label={t("admin.crew.moveDown")}
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                  {rooms.length === 0 && !order.error && (
+                    <li className="muted py-2">{t("admin.crew.noRooms")}</li>
+                  )}
+                </ol>
+                {!readOnly && rooms.length > 0 && (
+                  <div className="mt-3 flex items-center gap-3">
                     <button
                       className="btn-primary btn-sm"
                       disabled={
-                        busy ||
-                        !!requests.error ||
-                        !r.approvable ||
-                        review.blocked(r.id + ":request")
+                        setOrder.isPending || !!order.error || !hasOrderChanges
                       }
-                      onClick={() =>
-                        openReview("requests", {
-                          key: r.id + ":request",
-                          title: t("admin.crew.approve") + " · " + r.member,
-                          description: t("actionReview.crewRequestHelp"),
-                          details: (
-                            <div className="space-y-2">
-                              <p>{t(`admin.crew.reqKind.${r.kind}`)}</p>
-                              <h3 className="font-semibold">
-                                {t("admin.crew.originalRequest")}
-                              </h3>
-                              <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
-                                {r.reason ?? "—"}
-                              </p>
-                            </div>
-                          ),
-                          confirmLabel: t("admin.crew.approve"),
-                          commit: () =>
-                            decideReq.mutateAsync({
-                              requestId: r.id,
-                              action: "APPROVE",
-                            }),
-                          refresh: refreshReviewed,
-                          approvalId: queuedApprovalId,
-                          renderError: (message) => (
-                            <AcademicError message={message} />
-                          ),
-                        })
-                      }
+                      onClick={() => {
+                        if (
+                          orderAdmission.current ||
+                          !orderDirty.current ||
+                          order.error
+                        )
+                          return;
+                        orderAdmission.current = true;
+                        setOrder.mutate({ roomIds: rooms.map((r) => r.id) });
+                      }}
                     >
-                      {t("admin.crew.approve")}
+                      {setOrder.isPending
+                        ? t("admin.crew.saving")
+                        : t("admin.crew.saveOrder")}
                     </button>
-                    <button
-                      className="btn-secondary btn-sm"
-                      disabled={
-                        busy ||
-                        !!requests.error ||
-                        review.blocked(r.id + ":request")
-                      }
-                      onClick={() =>
-                        openReview("requests", {
-                          key: r.id + ":request",
-                          title: t("admin.crew.deny") + " · " + r.member,
-                          description: t("actionReview.crewRequestHelp"),
-                          details: (
-                            <div className="space-y-2">
-                              <p>{t(`admin.crew.reqKind.${r.kind}`)}</p>
-                              <h3 className="font-semibold">
-                                {t("admin.crew.originalRequest")}
-                              </h3>
-                              <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
-                                {r.reason ?? "—"}
-                              </p>
-                            </div>
-                          ),
-                          confirmLabel: t("admin.crew.deny"),
-                          commit: () =>
-                            decideReq.mutateAsync({
-                              requestId: r.id,
-                              action: "DENY",
-                            }),
-                          refresh: refreshReviewed,
-                          approvalId: queuedApprovalId,
-                          renderError: (message) => (
-                            <AcademicError message={message} />
-                          ),
-                        })
-                      }
-                    >
-                      {t("admin.crew.deny")}
-                    </button>
-                  </span>
+                    {setOrder.isSuccess && (
+                      <span className="text-sm text-green-600">
+                        {t("admin.crew.saved")}
+                      </span>
+                    )}
+                  </div>
                 )}
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      {/* Patrol order */}
-      <section className="card p-5">
-        <h2 className="section-title">{t("admin.crew.orderHeading")}</h2>
-        <p className="muted mt-1 text-xs">{t("admin.crew.orderHelp")}</p>
-        {feedback("order")}
-        {!hidden("order") && order.data !== undefined && (
-          <>
-            <ol className="mt-3 divide-y divide-slate-100">
-              {rooms.map((room, i) => (
-                <li key={room.id} className="flex items-center gap-3 py-2">
-                  <span className="w-6 text-sm font-semibold text-slate-400">
-                    {i + 1}
-                  </span>
-                  <span className="flex-1 font-medium text-slate-800">
-                    {room.name}
-                  </span>
-                  {!readOnly && (
-                    <div className="flex gap-1">
-                      <button
-                        className="btn-secondary btn-sm"
-                        disabled={
-                          i === 0 || setOrder.isPending || !!order.error
-                        }
-                        onClick={() => move(i, -1)}
-                        aria-label={t("admin.crew.moveUp")}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        className="btn-secondary btn-sm"
-                        disabled={
-                          i === rooms.length - 1 ||
-                          setOrder.isPending ||
-                          !!order.error
-                        }
-                        onClick={() => move(i, 1)}
-                        aria-label={t("admin.crew.moveDown")}
-                      >
-                        ↓
-                      </button>
-                    </div>
-                  )}
-                </li>
-              ))}
-              {rooms.length === 0 && !order.error && (
-                <li className="muted py-2">{t("admin.crew.noRooms")}</li>
-              )}
-            </ol>
-            {!readOnly && rooms.length > 0 && (
-              <div className="mt-3 flex items-center gap-3">
-                <button
-                  className="btn-primary btn-sm"
-                  disabled={
-                    setOrder.isPending || !!order.error || !hasOrderChanges
-                  }
-                  onClick={() => {
-                    if (
-                      orderAdmission.current ||
-                      !orderDirty.current ||
-                      order.error
-                    )
-                      return;
-                    orderAdmission.current = true;
-                    setOrder.mutate({ roomIds: rooms.map((r) => r.id) });
-                  }}
-                >
-                  {setOrder.isPending
-                    ? t("admin.crew.saving")
-                    : t("admin.crew.saveOrder")}
-                </button>
-                {setOrder.isSuccess && (
-                  <span className="text-sm text-green-600">
-                    {t("admin.crew.saved")}
-                  </span>
-                )}
-              </div>
+              </>
             )}
-          </>
-        )}
-      </section>
+          </section>
 
-      {/* Crew roster */}
-      <section className="card">
-        <div className="flex items-center justify-between px-5 py-3">
-          <h2 className="section-title">{t("admin.crew.rosterHeading")}</h2>
+          {/* Crew roster */}
         </div>
-        {feedback("roster")}
-        {!hidden("roster") && roster.data !== undefined && (
-          <SummaryTable label={t("admin.crew.rosterHeading")}>
-            <thead>
-              <tr>
-                <th>{t("admin.crew.col.member")}</th>
-                <th>{t("admin.crew.col.status")}</th>
-                <th className="text-right">{t("admin.crew.col.patrols")}</th>
-                <th className="text-right">{t("admin.crew.col.hours")}</th>
-                <th className="table-actions-heading">
-                  {t("tablePatterns.actions")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {(roster.data ?? []).map((u) => (
-                <tr
-                  key={u.id}
-                  className={
-                    u.status === "ACTIVE" ? "" : "bg-slate-50 text-slate-600"
-                  }
-                >
-                  <td>
-                    <span className="font-medium text-slate-800">{u.name}</span>
-                  </td>
-                  <td>
-                    <span
+        <div hidden={panel !== "roster"}>
+          <section className="card">
+            <div className="flex items-center justify-between px-5 py-3">
+              <h2 className="section-title">{t("admin.crew.rosterHeading")}</h2>
+            </div>
+            {feedback("roster")}
+            {!hidden("roster") && roster.data !== undefined && (
+              <SummaryTable label={t("admin.crew.rosterHeading")}>
+                <thead>
+                  <tr>
+                    <th>{t("admin.crew.col.member")}</th>
+                    <th>{t("admin.crew.col.status")}</th>
+                    <th className="text-right">
+                      {t("admin.crew.col.patrols")}
+                    </th>
+                    <th className="text-right">{t("admin.crew.col.hours")}</th>
+                    <th className="table-actions-heading">
+                      {t("tablePatterns.actions")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(roster.data ?? []).map((u) => (
+                    <tr
+                      key={u.id}
                       className={
                         u.status === "ACTIVE"
-                          ? "badge-green"
-                          : u.status === "OPTED_OUT"
-                            ? "badge-amber"
-                            : "badge-slate"
+                          ? ""
+                          : "bg-slate-50 text-slate-600"
                       }
                     >
-                      {t(`admin.crew.status.${u.status}`)}
-                    </span>
-                  </td>
-                  {/* A completed roster response has known totals, including zero. */}
-                  <td className="text-right">{u.patrols}</td>
-                  <td className="text-right">{u.hours.toFixed(1)} h</td>
-                  <TableActions>
-                    {/* Membership context and status changes share the trailing text-link entry point. */}
-                    <TableDetails title={u.name}>
-                      <p>
-                        {t(
-                          u.tutor
-                            ? "admin.crew.alsoTutor"
-                            : "admin.crew.crewOnly",
+                      <td>
+                        <span className="font-medium text-slate-800">
+                          {u.name}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={
+                            u.status === "ACTIVE"
+                              ? "badge-green"
+                              : u.status === "OPTED_OUT"
+                                ? "badge-amber"
+                                : "badge-slate"
+                          }
+                        >
+                          {t(`admin.crew.status.${u.status}`)}
+                        </span>
+                      </td>
+                      {/* A completed roster response has known totals, including zero. */}
+                      <td className="text-right">{u.patrols}</td>
+                      <td className="text-right">{u.hours.toFixed(1)} h</td>
+                      <TableActions>
+                        {/* Membership context and status changes share the trailing text-link entry point. */}
+                        <TableDetails title={u.name}>
+                          <p>
+                            {t(
+                              u.tutor
+                                ? "admin.crew.alsoTutor"
+                                : "admin.crew.crewOnly",
+                            )}
+                          </p>
+                          <dl className="space-y-3">
+                            <div>
+                              <dt className="muted">
+                                {t("admin.crew.col.status")}
+                              </dt>
+                              <dd>{t(`admin.crew.status.${u.status}`)}</dd>
+                            </div>
+                            <div>
+                              <dt className="muted">
+                                {t("admin.crew.col.patrols")}
+                              </dt>
+                              <dd>{u.patrols}</dd>
+                            </div>
+                            <div>
+                              <dt className="muted">
+                                {t("admin.crew.col.hours")}
+                              </dt>
+                              <dd>{u.hours.toFixed(1)} h</dd>
+                            </div>
+                          </dl>
+                        </TableDetails>
+                        {!readOnly && (
+                          <>
+                            {u.status !== "ACTIVE" && (
+                              <TableAction
+                                disabled={
+                                  busy ||
+                                  !!roster.error ||
+                                  review.blocked(u.id + ":membership")
+                                }
+                                onClick={() =>
+                                  openReview("roster", {
+                                    key: u.id + ":membership",
+                                    title: t("actionReview.crewEnableTitle", {
+                                      name: u.name,
+                                    }),
+                                    description: t(
+                                      "actionReview.crewEnableHelp",
+                                    ),
+                                    confirmLabel: t("admin.crew.enable"),
+                                    commit: () =>
+                                      setStatus.mutateAsync({
+                                        userId: u.id,
+                                        status: "ACTIVE",
+                                      }),
+                                    refresh: refreshReviewed,
+                                    approvalId: queuedApprovalId,
+                                    renderError: (message) => (
+                                      <AcademicError message={message} />
+                                    ),
+                                    repeatAfterRefresh: true,
+                                  })
+                                }
+                              >
+                                {t("admin.crew.enable")}
+                              </TableAction>
+                            )}
+                            {u.status === "ACTIVE" && (
+                              <TableAction
+                                disabled={
+                                  busy ||
+                                  !!roster.error ||
+                                  review.blocked(u.id + ":membership")
+                                }
+                                onClick={() =>
+                                  openReview("roster", {
+                                    key: u.id + ":membership",
+                                    title: t("actionReview.crewDisableTitle", {
+                                      name: u.name,
+                                    }),
+                                    description: t(
+                                      "actionReview.crewDisableHelp",
+                                    ),
+                                    confirmLabel: t("admin.crew.softRemove"),
+                                    commit: () =>
+                                      setStatus.mutateAsync({
+                                        userId: u.id,
+                                        status: "INACTIVE",
+                                      }),
+                                    refresh: refreshReviewed,
+                                    approvalId: queuedApprovalId,
+                                    renderError: (message) => (
+                                      <AcademicError message={message} />
+                                    ),
+                                    repeatAfterRefresh: true,
+                                  })
+                                }
+                              >
+                                {t("admin.crew.softRemove")}
+                              </TableAction>
+                            )}
+                            {u.crewOnly && (
+                              <TableAction
+                                className="text-red-600"
+                                disabled={
+                                  busy ||
+                                  !!roster.error ||
+                                  review.blocked(u.id + ":delete")
+                                }
+                                onClick={() =>
+                                  openReview("roster", {
+                                    key: u.id + ":delete",
+                                    title: t("admin.crew.deleteConfirm", {
+                                      name: u.name,
+                                    }),
+                                    description: t(
+                                      "actionReview.crewDeleteHelp",
+                                    ),
+                                    confirmLabel: t("common.delete"),
+                                    commit: () =>
+                                      removeCrew.mutateAsync({ userId: u.id }),
+                                    refresh: refreshReviewed,
+                                    approvalId: queuedApprovalId,
+                                    renderError: (message) => (
+                                      <AcademicError message={message} />
+                                    ),
+                                  })
+                                }
+                              >
+                                {t("admin.crew.delete")}
+                              </TableAction>
+                            )}
+                          </>
                         )}
-                      </p>
-                      <dl className="space-y-3">
-                        <div>
-                          <dt className="muted">
-                            {t("admin.crew.col.status")}
-                          </dt>
-                          <dd>{t(`admin.crew.status.${u.status}`)}</dd>
-                        </div>
-                        <div>
-                          <dt className="muted">
-                            {t("admin.crew.col.patrols")}
-                          </dt>
-                          <dd>{u.patrols}</dd>
-                        </div>
-                        <div>
-                          <dt className="muted">{t("admin.crew.col.hours")}</dt>
-                          <dd>{u.hours.toFixed(1)} h</dd>
-                        </div>
-                      </dl>
-                    </TableDetails>
-                    {!readOnly && (
-                      <>
-                        {u.status !== "ACTIVE" && (
-                          <TableAction
-                            disabled={
-                              busy ||
-                              !!roster.error ||
-                              review.blocked(u.id + ":membership")
-                            }
-                            onClick={() =>
-                              openReview("roster", {
-                                key: u.id + ":membership",
-                                title: t("actionReview.crewEnableTitle", {
-                                  name: u.name,
-                                }),
-                                description: t("actionReview.crewEnableHelp"),
-                                confirmLabel: t("admin.crew.enable"),
-                                commit: () =>
-                                  setStatus.mutateAsync({
-                                    userId: u.id,
-                                    status: "ACTIVE",
-                                  }),
-                                refresh: refreshReviewed,
-                                approvalId: queuedApprovalId,
-                                renderError: (message) => (
-                                  <AcademicError message={message} />
-                                ),
-                                repeatAfterRefresh: true,
-                              })
-                            }
-                          >
-                            {t("admin.crew.enable")}
-                          </TableAction>
-                        )}
-                        {u.status === "ACTIVE" && (
-                          <TableAction
-                            disabled={
-                              busy ||
-                              !!roster.error ||
-                              review.blocked(u.id + ":membership")
-                            }
-                            onClick={() =>
-                              openReview("roster", {
-                                key: u.id + ":membership",
-                                title: t("actionReview.crewDisableTitle", {
-                                  name: u.name,
-                                }),
-                                description: t("actionReview.crewDisableHelp"),
-                                confirmLabel: t("admin.crew.softRemove"),
-                                commit: () =>
-                                  setStatus.mutateAsync({
-                                    userId: u.id,
-                                    status: "INACTIVE",
-                                  }),
-                                refresh: refreshReviewed,
-                                approvalId: queuedApprovalId,
-                                renderError: (message) => (
-                                  <AcademicError message={message} />
-                                ),
-                                repeatAfterRefresh: true,
-                              })
-                            }
-                          >
-                            {t("admin.crew.softRemove")}
-                          </TableAction>
-                        )}
-                        {u.crewOnly && (
-                          <TableAction
-                            className="text-red-600"
-                            disabled={
-                              busy ||
-                              !!roster.error ||
-                              review.blocked(u.id + ":delete")
-                            }
-                            onClick={() =>
-                              openReview("roster", {
-                                key: u.id + ":delete",
-                                title: t("admin.crew.deleteConfirm", {
-                                  name: u.name,
-                                }),
-                                description: t("actionReview.crewDeleteHelp"),
-                                confirmLabel: t("common.delete"),
-                                commit: () =>
-                                  removeCrew.mutateAsync({ userId: u.id }),
-                                refresh: refreshReviewed,
-                                approvalId: queuedApprovalId,
-                                renderError: (message) => (
-                                  <AcademicError message={message} />
-                                ),
-                              })
-                            }
-                          >
-                            {t("admin.crew.delete")}
-                          </TableAction>
-                        )}
-                      </>
-                    )}
-                  </TableActions>
-                </tr>
-              ))}
-              {(roster.data ?? []).length === 0 && !roster.error && (
-                <tr>
-                  <td colSpan={5} className="text-slate-500">
-                    {t("admin.crew.rosterEmpty")}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </SummaryTable>
-        )}
-      </section>
+                      </TableActions>
+                    </tr>
+                  ))}
+                  {(roster.data ?? []).length === 0 && !roster.error && (
+                    <tr>
+                      <td colSpan={5} className="text-slate-500">
+                        {t("admin.crew.rosterEmpty")}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </SummaryTable>
+            )}
+          </section>
+        </div>
+      </SectionTabs>
       {!readOnly && !reviewRevoked && review.dialog}
     </div>
   );
