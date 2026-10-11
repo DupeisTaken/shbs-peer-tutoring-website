@@ -3037,7 +3037,12 @@
         "target": "Messaging permission target",
         "groups": "Allowed messaging groups",
         "hide": "Hide message",
-        "restricted": "Messaging restricted"
+        "restricted": "Messaging restricted",
+        "invalid": "무효로 표시",
+        "isInvalid": "무효 항목",
+        "invalidReason": "무효 표시 사유",
+        "invalidatedAt": "표시 기록 일시",
+        "invalidatedByName": "표시 기록자"
       },
       "values": {
         "ACTIVE": "Active",
@@ -3114,7 +3119,9 @@
         "programFeature": "Program features",
         "term": "Program period",
         "languages": "Languages",
-        "messagePermissions": "Messaging permissions"
+        "messagePermissions": "Messaging permissions",
+        "TutorApplication": "튜터 지원",
+        "TuteeRequestInvalidity": "이전 방식의 공개 신청 검토"
       },
       "operations": {
         "corrections_correctAttendance": "Correct a session's attendance",
@@ -3231,7 +3238,10 @@
         "admin_setUserRole": "Change an account management role",
         "admin_revokeRegistrationCode": "Revoke a registration code",
         "messaging_moderate": "Hide or restore a message",
-        "messaging_restrict": "Change an account messaging restriction"
+        "messaging_restrict": "Change an account messaging restriction",
+        "admin_setApplicationInvalidity": "튜터 지원서의 무효 표시 변경",
+        "studentWorkflow_setRequestInvalidity": "학생 신청의 무효 표시 변경",
+        "admin_setSignupInvalidity": "이전 방식의 공개 신청의 무효 표시 변경"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -4461,5 +4471,39 @@
     "refreshFailed": "{section} 새로 고침에 실패했습니다. 이전에 불러온 내용을 계속 표시합니다.",
     "retry": "{section} 다시 불러오기",
     "denied": "더 이상 {section}에 접근할 수 없습니다."
+  },
+  "requestInvalidity": {
+    "badge": "무효 항목",
+    "filterLabel": "요청 유효성",
+    "filter": {
+      "all": "모든 항목",
+      "valid": "무효 표시 없음",
+      "invalid": "무효 항목"
+    },
+    "flag": "무효로 표시",
+    "review": "무효 표시 검토",
+    "clear": "무효 표시 해제",
+    "proposeFlag": "무효 표시 요청",
+    "proposeClear": "무효 표시 해제 요청",
+    "flagTitle": "{name} 항목을 무효로 표시하시겠습니까?",
+    "reviewTitle": "무효 표시 · {name}",
+    "flagHelp": "이 항목의 추가 처리를 일시 중지합니다. 원래 상태, 제출 내용 및 이력은 유지됩니다. 나중에 표시를 해제할 수 있습니다.",
+    "clearHelp": "표시를 해제하면 원래 요청이 아직 진행 중인 경우 정상적인 처리를 재개할 수 있습니다. 종료된 요청을 다시 열거나 기존 배정 또는 결정을 변경하지는 않습니다.",
+    "reason": "사유",
+    "clearReason": "표시 해제 사유",
+    "reasonHelp": "이 항목이 무효인 이유 또는 표시를 해제해야 하는 이유를 설명하세요. 사유는 담당자용 감사 이력에 보관됩니다.",
+    "coordinatorHelp": "이 변경에는 관리자 또는 책임자의 승인이 필요합니다. 승인 전까지 표시는 변경되지 않습니다. 사유는 변경 요청과 함께 보관됩니다.",
+    "recorded": "표시한 담당자: {name} · {when}",
+    "unknownActor": "담당자",
+    "processingPaused": "이 항목이 무효로 표시되어 있는 동안 처리가 일시 중지됩니다.",
+    "failed": "요청을 업데이트하지 못했습니다. 작성 중인 내용은 유지됩니다.",
+    "missing": "이 요청을 찾을 수 없습니다. 작성 중인 내용은 유지됩니다.",
+    "saved": "무효 표시 변경을 저장했습니다.",
+    "queued": "변경 내용을 승인 요청으로 제출했습니다. 아직 요청 내용은 변경되지 않았습니다.",
+    "viewProposal": "승인 요청 보기",
+    "refreshFailed": "변경 내용은 저장했지만 최신 요청을 불러오지 못했습니다. 다시 제출하지 말고 새로고침을 다시 시도하세요.",
+    "retryRefresh": "새로고침 재시도",
+    "reload": "요청 다시 불러오기",
+    "reloadHelp": "작성한 사유와 원래 버전은 유지됩니다. 이 초안을 최신 요청으로 바꾸려면 직접 다시 불러오세요."
   }
 }

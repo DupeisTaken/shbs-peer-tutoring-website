@@ -7,6 +7,7 @@ import { InlineNotice } from "./ui/patterns";
 import { api } from "~/trpc/react";
 import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 import { DisclosureIcon } from "./icons";
+import { InvalidityBadge, InvalidityNotice } from "./request-invalidity";
 
 /** Explicit disclosure state survives filtering; form state stays mounted while collapsed. */
 function InterviewDisclosure({
@@ -155,6 +156,7 @@ export function InterviewManagement({
                 <>
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold">{a.name}</span>{" "}
+                    {a.isInvalid && <InvalidityBadge />}
                     <span
                       className={
                         a.interviewCompletedAt ? "badge-green" : "badge-amber"
@@ -213,7 +215,11 @@ export function InterviewManagement({
               >
                 {t("manageApplicantPanel")}
               </Link>
-              {a.interviewers.length === 0 ? (
+              {a.isInvalid ? (
+                <div className="mt-3">
+                  <InvalidityNotice />
+                </div>
+              ) : a.interviewers.length === 0 ? (
                 <p className="muted mt-3 text-sm">{t("panelRequired")}</p>
               ) : enabled ? (
                 <form
@@ -335,8 +341,14 @@ export function InterviewManagement({
           </button>
         </div>
       </section>
-      {complete.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{allT("approvals.queuedBody")}</InlineNotice>}
-      {complete.error && !complete.error.data?.approvalId && <p role="alert">{complete.error?.message}</p>}
+      {complete.error?.data?.approvalId && (
+        <InlineNotice tone="warning" announcement="status">
+          {allT("approvals.queuedBody")}
+        </InlineNotice>
+      )}
+      {complete.error && !complete.error.data?.approvalId && (
+        <p role="alert">{complete.error?.message}</p>
+      )}
       <p className="muted text-sm">{allT("approvals.reversalHelp")}</p>
       {complete.isSuccess && <p role="status">{t("saved")}</p>}
     </div>

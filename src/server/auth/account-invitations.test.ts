@@ -51,6 +51,8 @@ import { currentPolicy } from "~/server/policy-acceptance";
 import { lockAccountProfile } from "~/server/account-profile";
 import * as accountProfile from "~/server/account-profile";
 import { createCaller } from "~/server/api/root";
+import { setApplicationInvalidity, setStudentRequestInvalidity } from "~/server/request-invalidity";
+import * as transactions from "~/server/transactions";
 
 const email = "recipient@example.test";
 const password = "Existing-password-268!";
@@ -121,6 +123,7 @@ async function staff(
   kind: "TUTOR" | "CREW" | "ADMIN" | "COORDINATOR" = "TUTOR",
   target = email,
   adminIssuer = false,
+  applicationId?: string,
 ) {
   const issued = adminIssuer
     ? await createCaller({
@@ -133,7 +136,7 @@ async function staff(
           expires: "2099-01-01T00:00:00Z",
         },
       }).admin.issueRegistrationCode({ kind, email: target })
-    : await issueRegistrationCode({ kind, email: target, issuedById: "head" });
+    : await issueRegistrationCode({ kind, email: target, issuedById: "head", applicationId });
   const initial = await db.registrationCode.findUniqueOrThrow({
     where: { id: issued.id },
   });
@@ -163,6 +166,77 @@ async function staff(
     staffKey: issued.code,
   };
 }
+
+it("keeps invalid application reasons private and preserves completed invitations and granted membership", async () => {
+  const account = await owner();
+  const application = await db.tutorApplication.create({
+    data: { name: "Established Identity", email, status: "ACCEPTED" },
+  });
+  const invite = await staff("TUTOR", email, false, application.id);
+  const change = (invalid: boolean, expectedInvalidityVersion: number) =>
+    setApplicationInvalidity(db, {
+      id: application.id, invalid, expectedInvalidityVersion,
+      reason: invalid ? "Private staff-only duplicate evidence" : "Original application verified",
+    }, { id: "head", name: "Head" });
+  await change(true, 0);
+  const privateFailure = { code: "BAD_REQUEST", message: "INVITATION_INVALID" };
+  await expect(enterDisplayedInvitation(db, { code: invite.staffKey })).rejects.toMatchObject(privateFailure);
+  await expect(inspectAccountInvitation(db, invite)).rejects.toMatchObject(privateFailure);
+  await expect(consumeInvitationLogin(invite.invitationId, invite.proof)).rejects.toMatchObject(privateFailure);
+  await expect(redeemAccountInvitation(db, { ...profile, ...invite }, account.id)).rejects.toMatchObject(privateFailure);
+  expect((await db.registrationCode.findUniqueOrThrow({ where: { id: invite.row.id } })).usedAt).toBeNull();
+  expect(await db.user.findUniqueOrThrow({ where: { id: account.id } })).toEqual(account);
+  await change(false, 1);
+  await redeemAccountInvitation(db, { ...profile, ...invite }, account.id);
+  const granted = await db.user.findUniqueOrThrow({ where: { id: account.id } });
+  const tutor = await db.tutor.findUniqueOrThrow({ where: { id: granted.tutorId! } });
+  await change(true, 2);
+  expect(await inspectAccountInvitation(db, invite)).toMatchObject({ completed: true });
+  expect(await redeemAccountInvitation(db, { ...profile, ...invite }, account.id)).toMatchObject({ completed: true });
+  expect(await consumeInvitationLogin(invite.invitationId, invite.proof)).toMatchObject({ id: account.id });
+  expect(await db.user.findUniqueOrThrow({ where: { id: account.id } })).toEqual(granted);
+  expect(await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } })).toEqual(tutor);
+});
+
+it("rechecks an application flag committed while invitation redemption waits for its source lock", async () => {
+  const application = await db.tutorApplication.create({
+    data: { name: "New Member", email, status: "ACCEPTED" },
+  });
+  const invite = await staff("TUTOR", email, false, application.id);
+  let release!: () => void;
+  let locked!: () => void;
+  const signal = new Promise<void>((resolve) => { locked = resolve; });
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const changing = db.$transaction(async (tx) => {
+    await transactions.lockEntity(tx, `interview:${application.id}`);
+    locked();
+    await gate;
+    await tx.tutorApplication.update({
+      where: { id: application.id },
+      data: { invalidatedAt: new Date(), invalidReason: "Private review", invalidityVersion: 1 },
+    });
+  });
+  await signal;
+  let waiting!: () => void;
+  const attempted = new Promise<void>((resolve) => { waiting = resolve; });
+  const originalLock = transactions.lockEntity;
+  const spy = vi.spyOn(transactions, "lockEntity").mockImplementation(async (tx, key) => {
+    if (key === `interview:${application.id}`) waiting();
+    await originalLock(tx, key);
+  });
+  const redeeming = redeemAccountInvitation(db, { ...profile, ...invite });
+  try {
+    await attempted;
+    release();
+    await changing;
+    await expect(redeeming).rejects.toThrow("INVITATION_INVALID");
+    expect(await db.user.count({ where: { email } })).toBe(0);
+    expect((await db.registrationCode.findUniqueOrThrow({ where: { id: invite.row.id } })).usedAt).toBeNull();
+  } finally {
+    release();
+    spy.mockRestore();
+  }
+});
 
 it.each(["TUTOR", "CREW"] as const)(
   "redeems Admin-issued %s codes through the unified flow with linked lifecycle evidence",
@@ -1874,6 +1948,31 @@ async function surveyInvitation(target: string, token: string) {
   });
   return { ...invite, ...verified };
 }
+
+it("pauses an issued tutee invitation without changing its intake evidence or completed membership", async () => {
+  const invite = await surveyInvitation(email, await stagedSurvey(email));
+  const survey = await db.studentSurvey.findFirstOrThrow();
+  const change = (invalid: boolean, expectedInvalidityVersion: number) =>
+    setStudentRequestInvalidity(db, {
+      id: survey.id, invalid, expectedInvalidityVersion,
+      reason: invalid ? "Private staff reason" : "Original submission verified",
+    }, { id: "head", name: "Head" });
+  await change(true, 0);
+  await expect(inspectAccountInvitation(db, invite)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(redeemAccountInvitation(db, { ...profile, ...invite })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.user.count({ where: { email } })).toBe(0);
+  expect(await db.studentSurvey.findUniqueOrThrow({ where: { id: survey.id } })).toMatchObject({
+    submittedAt: survey.submittedAt, payload: survey.payload, confirmedAt: null,
+  });
+  await change(false, 1);
+  await redeemAccountInvitation(db, { ...profile, ...invite });
+  const granted = await db.user.findUniqueOrThrow({ where: { email } });
+  await change(true, 2);
+  expect(await inspectAccountInvitation(db, invite)).toMatchObject({ completed: true });
+  expect(await consumeInvitationLogin(invite.invitationId, invite.proof)).toMatchObject({ id: granted.id });
+  expect(await db.user.findUniqueOrThrow({ where: { id: granted.id } })).toEqual(granted);
+});
+
 it.each([false, true])(
   "quarter withdrawal prevents verified-alias enrollment (alias linked after submission=%s)",
   async (late) => {

@@ -52,6 +52,10 @@ export const HEAD_APPROVAL_OPERATIONS = new Set([
   "tutor.decideInterview",
 ]);
 export const APPROVAL_OPERATIONS: Record<string, string> = {
+  // Screening annotations are daily review decisions; they never change participation.
+  "admin.setApplicationInvalidity": "TutorApplication",
+  "admin.setSignupInvalidity": "Tutee",
+  "studentWorkflow.setRequestInvalidity": "StudentSurvey",
   "program.setCaptcha": "ProgramSettings",
   "program.setProfilePolicy": "ProgramSettings",
   "program.setSignupField": "ProgramSettings",

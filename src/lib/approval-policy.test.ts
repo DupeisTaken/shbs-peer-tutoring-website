@@ -2,6 +2,13 @@ import { describe, expect, it } from "vitest";
 import { classifyApproval } from "./approval-policy";
 
 describe("management authority by effect", () => {
+  it.each(["admin.setApplicationInvalidity", "studentWorkflow.setRequestInvalidity", "admin.setSignupInvalidity"])("keeps both directions of %s in the daily review queue", (operation) => {
+    for (const invalid of [true, false])
+      expect(classifyApproval(operation, { invalid })).toEqual({
+        category: "DAILY_OPERATION", directRoles: ["ADMIN", "HEAD"],
+        requesterRoles: ["COORDINATOR", "ADMIN", "HEAD"], reviewerRoles: ["ADMIN", "HEAD"],
+      });
+  });
   it.each(["admin.updateSubject", "admin.batchUpdateSubjects", "admin.updateSubjectLevel", "admin.saveCourseGroup", "admin.updateTimeSlot"])("requires Head only when %s restores archived catalogue records", (operation) => {
     expect(classifyApproval(operation, {}, { restoresArchivedRecord: true })).toMatchObject({ category: "REVERSAL", directRoles: ["HEAD"], reviewerRoles: ["HEAD"] });
     expect(classifyApproval(operation, {}, { restoresArchivedRecord: false })?.directRoles).toEqual(["ADMIN", "HEAD"]);

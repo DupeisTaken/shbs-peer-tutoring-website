@@ -1,9 +1,10 @@
 import { approveQualification, lockCatalogue } from "~/server/qualifications";
+import { assertRequestProcessable, lockApplicationReview } from "~/server/request-invalidity";
 import type { Prisma } from "../../../../generated/prisma";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, adminProcedure } from "~/server/api/trpc";
-import { inTransaction, lockEntity } from "~/server/transactions";
+import { inTransaction } from "~/server/transactions";
 import { validatePanel } from "~/server/interviews";
 import { getActivePeriod } from "~/server/period";
 import { monthKey } from "~/lib/service-hours";
@@ -39,7 +40,7 @@ export const interviewManagementRouter = createTRPCRouter({
           },
         ],
         ...(input.completion === "OPEN"
-          ? { interviewCompletedAt: null, status: { not: "RECALLED" } }
+          ? { interviewCompletedAt: null, status: { not: "RECALLED" }, invalidatedAt: null }
           : input.completion === "COMPLETED"
             ? { interviewCompletedAt: { not: null } }
             : {}),
@@ -90,6 +91,7 @@ export const interviewManagementRouter = createTRPCRouter({
             id: true,
             name: true,
             status: true,
+            invalidatedAt: true,
             interviewAt: true,
             subjectIntents: {
               select: { subject: { select: { name: true } } },
@@ -109,7 +111,7 @@ export const interviewManagementRouter = createTRPCRouter({
         ctx.db.tutorApplication.count({ where }),
       ]);
       return {
-        applications: { rows: applications, total, pageSize },
+        applications: { rows: applications.map(({ invalidatedAt, ...application }) => ({ ...application, isInvalid: !!invalidatedAt })), total, pageSize },
       };
     }),
   qualify: adminProcedure
@@ -161,7 +163,7 @@ export const interviewManagementRouter = createTRPCRouter({
       inTransaction(ctx.db, async (tx) => {
         await assertFeatureEnabled(tx, "INTERVIEWS");
         await assertFeatureEnabled(tx, "SERVICE_HOURS");
-        await lockEntity(tx, `interview:${input.applicationId}`);
+        await lockApplicationReview(tx, input.applicationId);
         if (input.completedAt > new Date())
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -171,6 +173,7 @@ export const interviewManagementRouter = createTRPCRouter({
           where: { id: input.applicationId },
           include: { interviewers: true },
         });
+        assertRequestProcessable(before);
         const chair = before.interviewers.find((p) => p.isHead);
         await validatePanel(
           tx,
