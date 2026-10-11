@@ -11,6 +11,7 @@ import { inTransaction, type DomainDb, type TransactionDb } from "~/server/trans
 type Row = Record<string, unknown>;
 // Deliberately positive: adding a password/token/body field to a model cannot expose it.
 const safeFields = new Set([
+  "invalidatedAt", "invalidatedById", "invalidatedByName", "invalidityVersion",
   "id", "role", "status", "state", "kind", "color", "reviewStatus", "active",
   "enabled", "name", "username", "englishName", "chineseName", "grade", "classYear",
   "firstName", "lastName", "preferredName", "alternativeNames", "gradeLevel", "rawGrade",
@@ -43,6 +44,9 @@ const contactFields = new Set(["email", "phone", "preferredContact"]);
 // Decision explanations belong to specific review records, never every field named
 // reason/note. Participant appeals, messages and credential payloads stay private.
 const decisionFields = new Map<string, ReadonlySet<string>>([
+  ["TutorApplication", new Set(["invalidReason"])],
+  ["StudentSurvey", new Set(["invalidReason"])],
+  ["TuteeRequestInvalidity", new Set(["invalidReason"])],
   ["ApprovalRequest", new Set(["reviewNote"])],
   ["CrewApplication", new Set(["decisionComment", "decidedByName", "decidedAt"])],
   ["DisciplinaryCard", new Set(["reason", "reviewNote"])],

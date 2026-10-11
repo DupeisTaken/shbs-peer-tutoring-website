@@ -7,17 +7,67 @@ import zh from "../../../messages/zh.json";
 import { ApprovalReviewDetails } from "./approval-review-details";
 
 afterEach(cleanup);
-it.each(["en", "zh"])("localizes known signup field request values (%s)", (locale) => {
-  show("program.setSignupField", { form: "tutee", field: "phone", state: "required", expectedState: "optional" }, {}, locale);
-  const copy = locale === "en" ? en : zh;
-  expect(screen.getByText(copy.signupFields.tutee)).toBeTruthy();
-  expect(screen.getByText(copy.signupFields.labels.phone)).toBeTruthy();
-  expect(screen.getByText(copy.signupFields.required)).toBeTruthy();
-  expect(screen.queryByText("expectedState")).toBeNull();
-});
+it.each(["en", "zh"])(
+  "names invalid-flag proposals and hides their version evidence (%s)",
+  (locale) => {
+    show(
+      "admin.setApplicationInvalidity",
+      {
+        id: "application-1",
+        invalid: true,
+        reason: "Duplicate public submission.",
+        expectedInvalidityVersion: 2,
+      },
+      {
+        TutorApplication: [
+          {
+            record: {
+              id: "application-1",
+              name: "Taylor Student",
+              invalidityVersion: 2,
+            },
+          },
+        ],
+      },
+      locale,
+    );
+    const copy = locale === "en" ? en : zh;
+    expect(screen.getByText(copy.approvals.review.fields.invalid)).toBeTruthy();
+    expect(screen.getByText("Duplicate public submission.")).toBeTruthy();
+    expect(screen.queryByText("Expected Invalidity Version")).toBeNull();
+    expect(screen.queryByText("Invalidity Version")).toBeNull();
+  },
+);
+it.each(["en", "zh"])(
+  "localizes known signup field request values (%s)",
+  (locale) => {
+    show(
+      "program.setSignupField",
+      {
+        form: "tutee",
+        field: "phone",
+        state: "required",
+        expectedState: "optional",
+      },
+      {},
+      locale,
+    );
+    const copy = locale === "en" ? en : zh;
+    expect(screen.getByText(copy.signupFields.tutee)).toBeTruthy();
+    expect(screen.getByText(copy.signupFields.labels.phone)).toBeTruthy();
+    expect(screen.getByText(copy.signupFields.required)).toBeTruthy();
+    expect(screen.queryByText("expectedState")).toBeNull();
+  },
+);
 it("retains unknown signup field values and unrelated literal text", () => {
-  show("program.setSignupField", { form: "legacy", field: "retiredField", state: "retiredState", reason: "required" });
-  for (const value of ["legacy", "retiredField", "retiredState", "required"]) expect(screen.getByText(value)).toBeTruthy();
+  show("program.setSignupField", {
+    form: "legacy",
+    field: "retiredField",
+    state: "retiredState",
+    reason: "required",
+  });
+  for (const value of ["legacy", "retiredField", "retiredState", "required"])
+    expect(screen.getByText(value)).toBeTruthy();
 });
 it.each(["GRADUATED", "TRANSFERRED", "RETURN", "REVOKE", "RESTORE"])(
   "preserves readable departure actions and their consequences (%s)",

@@ -5,6 +5,12 @@ import { AssignmentConfirmation } from "~/app/_components/assignment-confirmatio
 import { EmailDetails } from "~/app/_components/email-details";
 import { StudentRequestBoard } from "./student-request-board";
 import { SignupSourceBadge } from "~/app/_components/signup-source-badge";
+import { SignupInvalidityControls } from "~/app/_components/request-invalidity-controls";
+import {
+  InvalidityBadge,
+  InvalidityNotice,
+  type InvalidityRecord,
+} from "~/app/_components/request-invalidity";
 
 import { useEffect, useMemo, useState } from "react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
@@ -29,7 +35,7 @@ type SlotLite = {
   endMin: number;
 };
 
-type PendingTutee = {
+type PendingTutee = InvalidityRecord & {
   id: string;
   signupSource: string;
   unverified?: boolean;
@@ -86,6 +92,7 @@ function RequestCard({
   const format = useFormatter();
   const locale = useLocale();
   const readOnly = useReadOnly();
+  const account = api.account.me.useQuery().data;
   const { confirm, dialog } = useDialog();
   const [confirmCourse, setConfirmCourse] = useState<{
     id: string;
@@ -153,7 +160,7 @@ function RequestCard({
     <div
       className={`rounded-lg border border-slate-200 p-4 ${fulfilled ? "bg-slate-50" : ""}`}
     >
-      {assignmentPayload && (
+      {assignmentPayload && !tutee.isInvalid && (
         <AssignmentConfirmation
           operation="admin.assignSignup"
           payload={assignmentPayload}
@@ -199,6 +206,7 @@ function RequestCard({
                   {t("admin.requests.fulfilled")}
                 </span>
               )}
+              {tutee.isInvalid && <InvalidityBadge />}
               {tutee.bannedMatch && (
                 <span
                   className="badge-red ml-2"
@@ -255,28 +263,45 @@ function RequestCard({
             )}
           </div>
         </div>
-        {!fulfilled && !readOnly && !tutee.unverified && (
-          <button
-            className="btn-danger btn-sm shrink-0"
-            onClick={async () => {
-              if (
-                await confirm({
-                  title: t("admin.requests.declineConfirm", {
-                    name: tutee.englishName,
-                  }),
-                  confirmLabel: t("common.confirm"),
-                  cancelLabel: t("common.cancel"),
-                  danger: true,
-                })
-              )
-                del.mutate({ id: tutee.id });
-            }}
-          >
-            {t("admin.requests.decline")}
-          </button>
-        )}
+        <div className="flex flex-wrap items-start gap-2">
+          {!readOnly &&
+            !tutee.unverified &&
+            tutee.signupSource === "SELF_SERVICE" && (
+              <SignupInvalidityControls
+                record={tutee}
+                name={tutee.englishName}
+                canFlag
+                coordinator={account?.role === "COORDINATOR"}
+              />
+            )}
+          {!fulfilled && !readOnly && !tutee.unverified && !tutee.isInvalid && (
+            <button
+              className="btn-danger btn-sm shrink-0"
+              onClick={async () => {
+                if (
+                  await confirm({
+                    title: t("admin.requests.declineConfirm", {
+                      name: tutee.englishName,
+                    }),
+                    confirmLabel: t("common.confirm"),
+                    cancelLabel: t("common.cancel"),
+                    danger: true,
+                  })
+                )
+                  del.mutate({ id: tutee.id });
+              }}
+            >
+              {t("admin.requests.decline")}
+            </button>
+          )}
+        </div>
       </div>
 
+      {tutee.isInvalid && (
+        <div className="mt-3">
+          <InvalidityNotice />
+        </div>
+      )}
       {/* Assign each course choice to a tutor independently (workload shown in the dropdown). */}
       {!collapsed && tutee.unverified && (
         <div className="muted mt-3 space-y-2 border-t border-slate-100 pt-3">
@@ -318,7 +343,7 @@ function RequestCard({
                   <span className="badge-green">
                     {t("admin.requests.assignedTo", { name: assignedTo })}
                   </span>
-                ) : readOnly ? (
+                ) : readOnly || tutee.isInvalid ? (
                   filled && (
                     <span className="muted text-sm">
                       {t("admin.requests.assignToTutor")}
@@ -491,6 +516,7 @@ export default function RequestsPage() {
               ? display.map((t2, i) => ({
                   id: `manual-${t2.id}`,
                   submittedAt: t2.signupSubmittedAt ?? t2.createdAt,
+                  invalid: t2.isInvalid,
                   group: signupRequestGroup(
                     "OPEN",
                     [t2.firstChoice?.name, t2.secondChoice?.name].filter(

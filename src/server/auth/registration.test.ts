@@ -21,6 +21,7 @@ import {
   REGISTRATION_KINDS,
   type RegistrationKind,
 } from "~/lib/registration-kind";
+import { setApplicationInvalidity } from "~/server/request-invalidity";
 let ip = 0;
 const actor = (id: string, role: Session["role"] = "HEAD") =>
   createCaller({
@@ -99,6 +100,42 @@ const profile = {
   lastName: "Person",
   password: "Password123!",
 };
+
+it("blocks every unfinished application invitation step and restores the existing grant when cleared", async () => {
+  const application = await db.tutorApplication.create({
+    data: { name: "New Person", email: "new@example.test", status: "ACCEPTED" },
+  });
+  const issued = await issueRegistrationCode({ applicationId: application.id, email: application.email });
+  let row = await db.registrationCode.findUniqueOrThrow({ where: { id: issued.id } });
+  const staged = await setEmailVerification(row, application.email);
+  if (!staged.ok) throw Error("Expected verification challenge");
+  row = await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } });
+  const change = (invalid: boolean, expectedInvalidityVersion: number) =>
+    setApplicationInvalidity(db, {
+      id: application.id, invalid, expectedInvalidityVersion,
+      reason: invalid ? "Private duplicate evidence" : "Verified original request",
+    }, { id: "admin", name: "Admin" });
+  await change(true, 0);
+  expect(await resolveUsableCode(issued.code)).toEqual({ ok: false, error: "not-found" });
+  await expect(issueRegistrationCode({ applicationId: application.id })).rejects.toThrow("INVITATION_INVALID");
+  await expect(setEmailVerification(row, application.email)).rejects.toThrow("INVITATION_INVALID");
+  await expect(confirmEmailCode(row, staged.emailCode)).rejects.toThrow("INVITATION_INVALID");
+  await change(false, 1);
+  const confirmed = await confirmEmailCode(row, staged.emailCode);
+  if (!confirmed.ok) throw Error("Expected verification after clearing");
+  row = await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } });
+  await change(true, 2);
+  await expect(completeRegistration(row, {
+    ...profile, completionProof: confirmed.completionProof,
+  })).rejects.toThrow("INVITATION_INVALID");
+  expect((await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } })).usedAt).toBeNull();
+  expect(await db.user.count({ where: { email: application.email } })).toBe(0);
+  await change(false, 3);
+  expect(await completeRegistration(row, {
+    ...profile, completionProof: confirmed.completionProof,
+  })).toMatchObject({ ok: true });
+  expect(await db.registrationCode.count({ where: { applicationId: application.id } })).toBe(1);
+});
 
 it("never reuses the staff-visible key or previous OTP as a mailbox challenge", async () => {
   const issued = await issueRegistrationCode({ kind: "TUTOR" });

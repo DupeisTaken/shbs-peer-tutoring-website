@@ -44,6 +44,9 @@ vi.mock("~/trpc/react", () => ({
       tutors: { useQuery: () => ({ data: [] }) },
       setApplicationStatus: { useMutation: () => ({ mutate: vi.fn() }) },
       deleteApplication: { useMutation: () => ({ mutate: vi.fn() }) },
+      setApplicationInvalidity: {
+        useMutation: () => ({ mutateAsync: vi.fn() }),
+      },
     },
   },
 }));
@@ -132,6 +135,24 @@ it("combines search, status, type and subjects and resets the full list", () => 
   fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
   expect(screen.getByText("3 of 3 applications")).toBeTruthy();
   expect(screen.getByRole("button", { name: /Cai Wu/ })).toBeTruthy();
+});
+it("filters invalid entries independently of the original application status", () => {
+  mocks.query.mockReturnValue({
+    data: applications.map((app) => ({ ...app, isInvalid: app.id === "a" })),
+  });
+  show();
+  fireEvent.click(screen.getByRole("button", { name: "Invalid entries" }));
+  expect(screen.getByText("1 of 3 applications")).toBeTruthy();
+  expect(screen.getByRole("button", { name: /Alex Chen/ })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Bea Lin/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Reject" })).toBeNull();
+  change("Application status", "ACCEPTED");
+  expect(
+    screen.getByText(en.admin.applications.filters.noMatches),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Not flagged" }));
+  expect(screen.getByRole("button", { name: /Bea Lin/ })).toBeTruthy();
 });
 it("reveals the direct application link after a filter hid the destination", () => {
   show();

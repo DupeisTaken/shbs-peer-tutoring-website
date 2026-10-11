@@ -3041,7 +3041,12 @@
         "target": "Messaging permission target",
         "groups": "Allowed messaging groups",
         "hide": "Hide message",
-        "restricted": "Messaging restricted"
+        "restricted": "Messaging restricted",
+        "invalid": "Σήμανση ως μη έγκυρη",
+        "isInvalid": "Μη έγκυρη καταχώριση",
+        "invalidReason": "Αιτιολογία σήμανσης μη εγκυρότητας",
+        "invalidatedAt": "Ημερομηνία καταγραφής σήμανσης",
+        "invalidatedByName": "Καταγραφή σήμανσης από"
       },
       "values": {
         "ACTIVE": "Active",
@@ -3118,7 +3123,9 @@
         "programFeature": "Program features",
         "term": "Program period",
         "languages": "Languages",
-        "messagePermissions": "Messaging permissions"
+        "messagePermissions": "Messaging permissions",
+        "TutorApplication": "Αιτήσεις βοηθών",
+        "TuteeRequestInvalidity": "Έλεγχος παλαιών δημόσιων εγγραφών"
       },
       "operations": {
         "corrections_correctAttendance": "Correct a session's attendance",
@@ -3235,7 +3242,10 @@
         "admin_setUserRole": "Change an account management role",
         "admin_revokeRegistrationCode": "Revoke a registration code",
         "messaging_moderate": "Hide or restore a message",
-        "messaging_restrict": "Change an account messaging restriction"
+        "messaging_restrict": "Change an account messaging restriction",
+        "admin_setApplicationInvalidity": "Αλλαγή σήμανσης μη εγκυρότητας σε αίτηση βοηθού",
+        "studentWorkflow_setRequestInvalidity": "Αλλαγή σήμανσης μη εγκυρότητας σε εγγραφή μαθητή",
+        "admin_setSignupInvalidity": "Αλλαγή σήμανσης μη εγκυρότητας σε παλαιά δημόσια εγγραφή"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -4466,5 +4476,39 @@
     "refreshFailed": "Δεν ήταν δυνατή η ανανέωση: {section}. Εμφανίζεται ακόμη το περιεχόμενο που φορτώθηκε προηγουμένως.",
     "retry": "Νέα φόρτωση: {section}",
     "denied": "Δεν έχετε πλέον πρόσβαση: {section}."
+  },
+  "requestInvalidity": {
+    "badge": "Μη έγκυρη καταχώριση",
+    "filterLabel": "Εγκυρότητα αιτήματος",
+    "filter": {
+      "all": "Όλες οι καταχωρίσεις",
+      "valid": "Χωρίς σήμανση",
+      "invalid": "Μη έγκυρες καταχωρίσεις"
+    },
+    "flag": "Σήμανση ως μη έγκυρη",
+    "review": "Έλεγχος σήμανσης μη εγκυρότητας",
+    "clear": "Αφαίρεση σήμανσης μη εγκυρότητας",
+    "proposeFlag": "Αίτημα σήμανσης μη εγκυρότητας",
+    "proposeClear": "Αίτημα αφαίρεσης σήμανσης",
+    "flagTitle": "Να επισημανθεί η αίτηση του/της {name} ως μη έγκυρη;",
+    "reviewTitle": "Σήμανση μη εγκυρότητας · {name}",
+    "flagHelp": "Αυτό θέτει σε παύση την περαιτέρω επεξεργασία αυτής της καταχώρισης. Η αρχική κατάσταση, τα υποβληθέντα στοιχεία και το ιστορικό διατηρούνται. Μπορείτε να αφαιρέσετε τη σήμανση αργότερα.",
+    "clearHelp": "Η αφαίρεση αυτής της σήμανσης επιτρέπει ξανά την κανονική επεξεργασία, εφόσον το αρχικό αίτημα παραμένει ανοιχτό. Δεν ανοίγει ξανά κλειστό αίτημα ούτε αλλάζει υπάρχουσες αναθέσεις ή αποφάσεις.",
+    "reason": "Αιτιολογία",
+    "clearReason": "Αιτιολογία αφαίρεσης της σήμανσης",
+    "reasonHelp": "Εξηγήστε γιατί αυτή η καταχώριση δεν είναι έγκυρη ή γιατί πρέπει να αφαιρεθεί η σήμανσή της. Η αιτιολογία διατηρείται στο ιστορικό ελέγχου του προσωπικού.",
+    "coordinatorHelp": "Ένας διαχειριστής ή υπεύθυνος πρέπει να εγκρίνει αυτή την αλλαγή. Η σήμανση παραμένει αμετάβλητη μέχρι την έγκριση. Η αιτιολογία σας διατηρείται μαζί με την πρόταση.",
+    "recorded": "Επισημάνθηκε από {name} · {when}",
+    "unknownActor": "Μέλος προσωπικού",
+    "processingPaused": "Η επεξεργασία παραμένει σε παύση όσο αυτή η καταχώριση επισημαίνεται ως μη έγκυρη.",
+    "failed": "Δεν ήταν δυνατή η ενημέρωση του αιτήματος. Το πρόχειρό σας διατηρείται.",
+    "missing": "Δεν ήταν δυνατή η εύρεση αυτού του αιτήματος. Το πρόχειρό σας διατηρείται.",
+    "saved": "Η αλλαγή της σήμανσης μη εγκυρότητας αποθηκεύτηκε.",
+    "queued": "Η αλλαγή υποβλήθηκε για έγκριση. Το αίτημα δεν έχει αλλάξει ακόμη.",
+    "viewProposal": "Προβολή αιτήματος έγκρισης",
+    "refreshFailed": "Η αλλαγή αποθηκεύτηκε, αλλά δεν ήταν δυνατή η φόρτωση του ενημερωμένου αιτήματος. Δοκιμάστε ξανά την ανανέωση χωρίς να υποβάλετε ξανά την αλλαγή.",
+    "retryRefresh": "Επανάληψη ανανέωσης",
+    "reload": "Επαναφόρτωση αιτήματος",
+    "reloadHelp": "Η αιτιολογία σας και η αρχική έκδοση διατηρούνται. Επιλέξτε επαναφόρτωση για να αντικαταστήσετε αυτό το πρόχειρο με την τελευταία έκδοση του αιτήματος."
   }
 }

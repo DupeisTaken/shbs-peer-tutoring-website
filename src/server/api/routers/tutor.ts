@@ -1,4 +1,6 @@
 import { optionalPersonNameFields } from "~/lib/person-name";
+import { assertRequestProcessable, lockApplicationReview } from "~/server/request-invalidity";
+import { lockUsernameNamespace } from "~/server/auth/username";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { requireAcademicConfirmation } from "~/server/academics";
 import { accountHistoryIds } from "~/server/account-history";
@@ -1245,6 +1247,7 @@ export const tutorRouter = createTRPCRouter({
             name: true,
             type: true,
             qualificationReason: true,
+            invalidatedAt: true,
             email: true,
             status: true,
             updatedAt: true,
@@ -1278,13 +1281,15 @@ export const tutorRouter = createTRPCRouter({
       },
     });
     return assignments.map((a) => {
+      const { invalidatedAt, ...application } = a.application;
       const myVote =
         a.application.votes.find((v) => v.tutorId === myTutorId) ?? null;
       const accepts = a.application.votes.filter((v) => v.accept).length;
       const rejects = a.application.votes.length - accepts;
       return {
         isHead: a.isHead,
-        ...a.application,
+        ...application,
+        isInvalid: !!invalidatedAt,
         myVote: myVote
           ? { accept: myVote.accept, comment: myVote.comment }
           : null,
@@ -1308,7 +1313,7 @@ export const tutorRouter = createTRPCRouter({
       inTransaction(ctx.db, async (tx) => {
         // Panel replacement uses this same lock: check current chair authority only
         // after acquiring it, and retain it through the schedule and notification writes.
-        await lockEntity(tx, `interview:${input.applicationId}`);
+        await lockApplicationReview(tx, input.applicationId);
         await assertFeatureEnabled(tx, "INTERVIEWS");
         const assignment = await tx.interviewAssignment.findUnique({
           where: {
@@ -1326,8 +1331,9 @@ export const tutorRouter = createTRPCRouter({
           });
         }
         const application = await tx.tutorApplication.findUniqueOrThrow({
-          where: { id: input.applicationId }, select: { status: true },
+          where: { id: input.applicationId }, select: { status: true, invalidatedAt: true },
         });
+        assertRequestProcessable(application);
         if (application.status === "RECALLED")
           throw new TRPCError({ code: "CONFLICT", message: "This qualification request was recalled." });
         const updated = await tx.tutorApplication.update({
@@ -1371,10 +1377,11 @@ export const tutorRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
-        await lockEntity(tx, `interview:${input.applicationId}`);
+        await lockApplicationReview(tx, input.applicationId);
         const app = await tx.tutorApplication.findUniqueOrThrow({
           where: { id: input.applicationId },
         });
+        assertRequestProcessable(app);
         if (app.status !== "INTERVIEW")
           throw new TRPCError({
             code: "CONFLICT",
@@ -1459,7 +1466,8 @@ export const tutorRouter = createTRPCRouter({
             code: "FORBIDDEN",
             message: "An active assigned interview chair is required.",
           });
-        await lockEntity(tx, `interview:${input.applicationId}`);
+        await lockUsernameNamespace(tx);
+        await lockApplicationReview(tx, input.applicationId);
         await validateInterviewDecision(
           tx,
           input.applicationId,

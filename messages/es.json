@@ -3041,7 +3041,12 @@
         "target": "Messaging permission target",
         "groups": "Allowed messaging groups",
         "hide": "Hide message",
-        "restricted": "Messaging restricted"
+        "restricted": "Messaging restricted",
+        "invalid": "Marcar como no válida",
+        "isInvalid": "Entrada no válida",
+        "invalidReason": "Motivo de la marca de invalidez",
+        "invalidatedAt": "Fecha de registro de la marca",
+        "invalidatedByName": "Marca registrada por"
       },
       "values": {
         "ACTIVE": "Active",
@@ -3118,7 +3123,9 @@
         "programFeature": "Program features",
         "term": "Program period",
         "languages": "Languages",
-        "messagePermissions": "Messaging permissions"
+        "messagePermissions": "Messaging permissions",
+        "TutorApplication": "Solicitudes de tutores",
+        "TuteeRequestInvalidity": "Revisión de registros públicos anteriores"
       },
       "operations": {
         "corrections_correctAttendance": "Correct a session's attendance",
@@ -3235,7 +3242,10 @@
         "admin_setUserRole": "Change an account management role",
         "admin_revokeRegistrationCode": "Revoke a registration code",
         "messaging_moderate": "Hide or restore a message",
-        "messaging_restrict": "Change an account messaging restriction"
+        "messaging_restrict": "Change an account messaging restriction",
+        "admin_setApplicationInvalidity": "Cambiar la marca de invalidez de una solicitud de tutor",
+        "studentWorkflow_setRequestInvalidity": "Cambiar la marca de invalidez del registro de un estudiante",
+        "admin_setSignupInvalidity": "Cambiar la marca de invalidez de un registro público anterior"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -4466,5 +4476,39 @@
     "refreshFailed": "No se pudo actualizar {section}. Se sigue mostrando el contenido cargado anteriormente.",
     "retry": "Volver a cargar {section}",
     "denied": "Ya no tienes acceso a {section}."
+  },
+  "requestInvalidity": {
+    "badge": "Entrada no válida",
+    "filterLabel": "Validez de la solicitud",
+    "filter": {
+      "all": "Todas las entradas",
+      "valid": "Sin marcar",
+      "invalid": "Entradas no válidas"
+    },
+    "flag": "Marcar como no válida",
+    "review": "Revisar marca de invalidez",
+    "clear": "Quitar marca de invalidez",
+    "proposeFlag": "Solicitar marca de invalidez",
+    "proposeClear": "Solicitar que se quite la marca",
+    "flagTitle": "¿Marcar la solicitud de {name} como no válida?",
+    "reviewTitle": "Marca de invalidez · {name}",
+    "flagHelp": "Esto pausa el procesamiento de esta entrada. Se conservan su estado original, los datos enviados y su historial. Puedes quitar la marca más adelante.",
+    "clearHelp": "Quitar esta marca permite retomar el procesamiento normal si la solicitud original sigue abierta. No reabre una solicitud cerrada ni cambia las asignaciones o decisiones existentes.",
+    "reason": "Motivo",
+    "clearReason": "Motivo para quitar la marca",
+    "reasonHelp": "Explica por qué esta entrada no es válida o por qué se debe quitar su marca. El motivo se conserva en el historial de auditoría del personal.",
+    "coordinatorHelp": "Un administrador o responsable debe aprobar este cambio. La marca no cambia hasta que se apruebe. Tu motivo se conserva junto con la propuesta.",
+    "recorded": "Marcada por {name} · {when}",
+    "unknownActor": "Miembro del personal",
+    "processingPaused": "El procesamiento está pausado mientras esta entrada esté marcada como no válida.",
+    "failed": "No se pudo actualizar la solicitud. Se conserva tu borrador.",
+    "missing": "No se pudo encontrar esta solicitud. Se conserva tu borrador.",
+    "saved": "Se guardó el cambio de la marca de invalidez.",
+    "queued": "El cambio se envió para su aprobación. La solicitud aún no ha cambiado.",
+    "viewProposal": "Ver solicitud de aprobación",
+    "refreshFailed": "El cambio se guardó, pero no se pudo cargar la solicitud actualizada. Reintenta la actualización sin volver a enviarlo.",
+    "retryRefresh": "Reintentar actualización",
+    "reload": "Recargar solicitud",
+    "reloadHelp": "Se conservan tu motivo y la versión original. Recarga la solicitud expresamente para sustituir este borrador por la versión más reciente."
   }
 }

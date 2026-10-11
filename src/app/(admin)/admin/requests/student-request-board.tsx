@@ -5,6 +5,14 @@ import { AssignmentConfirmation } from "~/app/_components/assignment-confirmatio
 import { useReadOnly } from "~/app/_components/read-only";
 import { EmailDetails } from "~/app/_components/email-details";
 import { SignupSourceBadge } from "~/app/_components/signup-source-badge";
+import { StudentRequestInvalidityControls } from "~/app/_components/request-invalidity-controls";
+import {
+  InvalidityBadge,
+  InvalidityFilter,
+  InvalidityNotice,
+  RequestInvalidityHost,
+  type InvalidityFilterValue,
+} from "~/app/_components/request-invalidity";
 import { useState, type ReactNode } from "react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import {
@@ -26,6 +34,7 @@ export type AdditionalRequestEntry = {
   submittedAt: Date;
   group: Exclude<RequestTab, "reviews">;
   content: ReactNode;
+  invalid?: boolean;
 };
 export function StudentRequestBoard({
   additionalEntries = [],
@@ -46,8 +55,17 @@ export function StudentRequestBoard({
   const [tab, setTab] = useState<
     "matching" | "assigned" | "reviews" | "processed"
   >("matching");
+  const [invalidity, setInvalidity] = useState<InvalidityFilterValue>("all");
+  const matchingValidity = (invalid: boolean) =>
+    invalidity === "all" || invalid === (invalidity === "invalid");
+  const visibleRows = (rows.data ?? []).filter((row) =>
+    matchingValidity(row.isInvalid),
+  );
+  const visibleAdditional = additionalEntries.filter((entry) =>
+    matchingValidity(!!entry.invalid),
+  );
   const groups = {
-    matching: (rows.data ?? []).filter(
+    matching: visibleRows.filter(
       (r) =>
         signupRequestGroup(
           r.state,
@@ -55,7 +73,7 @@ export function StudentRequestBoard({
           r.pairings.map((p) => p.subject),
         ) === "matching",
     ),
-    assigned: (rows.data ?? []).filter(
+    assigned: visibleRows.filter(
       (r) =>
         signupRequestGroup(
           r.state,
@@ -73,86 +91,96 @@ export function StudentRequestBoard({
         .filter((r) => r.state === "PENDING")
         .map((review) => ({ row: { name: review.name }, review })),
     ],
-    processed: (rows.data ?? []).filter((r) => r.state !== "OPEN"),
+    processed: visibleRows.filter((r) => r.state !== "OPEN"),
   };
   return (
-    <section className="space-y-4">
-      <DisclosureSection title={t("boardGuide")} lifetime="lazy">
-        <p className="muted max-w-3xl text-sm">{t("boardHelp")}</p>
-      </DisclosureSection>
-      {rows.error && (
-        <p role="alert" className="text-red-700">
-          {rows.error.message}
-        </p>
-      )}
-      {legacyReviews.error && (
-        <p role="alert" className="text-red-700">
-          {legacyReviews.error.message}
-        </p>
-      )}
-      {/* Counts and priority remain feature-owned; shared tabs supply manual keyboard activation. */}
-      <SectionTabs
-        label={t("navigation")}
-        items={(["matching", "assigned", "reviews", "processed"] as const).map(
-          (value) => ({
-            value,
-            label: `${t(value)} ${groups[value].length + additionalEntries.filter((entry) => entry.group === value).length + (value === "processed" ? legacyProcessed.length : 0)}`,
-          }),
+    <RequestInvalidityHost>
+      <section className="space-y-4">
+        <DisclosureSection title={t("boardGuide")} lifetime="lazy">
+          <p className="muted max-w-3xl text-sm">{t("boardHelp")}</p>
+        </DisclosureSection>
+        {rows.error && (
+          <p role="alert" className="text-red-700">
+            {rows.error.message}
+          </p>
         )}
-        value={tab}
-        onChange={setTab}
-      >
-        <div className="space-y-3">
-          {rows.isLoading || additionalLoading ? (
-            <p>{t("loading")}</p>
-          ) : tab === "reviews" ? (
-            groups.reviews.map(({ row, review }) => (
-              <ReviewCard key={review.id} row={row} review={review} />
-            ))
-          ) : (
-            bySignupPriority([
-              ...groups[tab].map((row) => ({
-                id: row.id,
-                submittedAt: row.submittedAt,
-                content: (
-                  <RequestCard
-                    row={row}
-                    tutors={(tutors.data ?? []).filter(isAssignableTutor)}
-                  />
-                ),
-              })),
-              ...additionalEntries.filter((entry) => entry.group === tab),
-            ]).map((entry) => <div key={entry.id}>{entry.content}</div>)
+        {legacyReviews.error && (
+          <p role="alert" className="text-red-700">
+            {legacyReviews.error.message}
+          </p>
+        )}
+        {/* Counts and priority remain feature-owned; shared tabs supply manual keyboard activation. */}
+        <SectionTabs
+          label={t("navigation")}
+          items={(
+            ["matching", "assigned", "reviews", "processed"] as const
+          ).map((value) => ({
+            value,
+            label: `${t(value)} ${groups[value].length + visibleAdditional.filter((entry) => entry.group === value).length + (value === "processed" && invalidity !== "invalid" ? legacyProcessed.length : 0)}`,
+          }))}
+          value={tab}
+          onChange={setTab}
+        >
+          {tab !== "reviews" && (
+            <InvalidityFilter value={invalidity} onChange={setInvalidity} />
           )}
-          {tab === "processed" &&
-            legacyProcessed.map((r) => (
-              <article key={r.id} className="card space-y-2 p-5">
-                <h3 className="font-semibold">
-                  {r.name} ·{" "}
-                  {t(
-                    r.kind === "STUDENT_ABORT"
-                      ? "applyAbort"
-                      : "scheduleReject",
-                  )}
-                </h3>
-                <span className="badge-slate">
-                  {t(`reviewState.${r.state}`)}
-                </span>
-                <p className="muted text-sm">{r.reason}</p>
-              </article>
-            ))}
-          {!rows.isLoading &&
-            !additionalLoading &&
-            !additionalEntries.some((entry) => entry.group === tab) &&
-            !groups[tab].length &&
-            !(tab === "processed" && legacyProcessed.length) && (
-              <p className="muted rounded-xl border border-dashed border-slate-200 p-8 text-center">
-                {t("emptySection")}
-              </p>
+          <div className="space-y-3">
+            {rows.isLoading || additionalLoading ? (
+              <p>{t("loading")}</p>
+            ) : tab === "reviews" ? (
+              groups.reviews.map(({ row, review }) => (
+                <ReviewCard key={review.id} row={row} review={review} />
+              ))
+            ) : (
+              bySignupPriority([
+                ...groups[tab].map((row) => ({
+                  id: row.id,
+                  submittedAt: row.submittedAt,
+                  content: (
+                    <RequestCard
+                      row={row}
+                      tutors={(tutors.data ?? []).filter(isAssignableTutor)}
+                    />
+                  ),
+                })),
+                ...visibleAdditional.filter((entry) => entry.group === tab),
+              ]).map((entry) => <div key={entry.id}>{entry.content}</div>)
             )}
-        </div>
-      </SectionTabs>
-    </section>
+            {tab === "processed" &&
+              invalidity !== "invalid" &&
+              legacyProcessed.map((r) => (
+                <article key={r.id} className="card space-y-2 p-5">
+                  <h3 className="font-semibold">
+                    {r.name} ·{" "}
+                    {t(
+                      r.kind === "STUDENT_ABORT"
+                        ? "applyAbort"
+                        : "scheduleReject",
+                    )}
+                  </h3>
+                  <span className="badge-slate">
+                    {t(`reviewState.${r.state}`)}
+                  </span>
+                  <p className="muted text-sm">{r.reason}</p>
+                </article>
+              ))}
+            {!rows.isLoading &&
+              !additionalLoading &&
+              !visibleAdditional.some((entry) => entry.group === tab) &&
+              !groups[tab].length &&
+              !(
+                tab === "processed" &&
+                invalidity !== "invalid" &&
+                legacyProcessed.length
+              ) && (
+                <p className="muted rounded-xl border border-dashed border-slate-200 p-8 text-center">
+                  {t("emptySection")}
+                </p>
+              )}
+          </div>
+        </SectionTabs>
+      </section>
+    </RequestInvalidityHost>
   );
 }
 function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
@@ -160,6 +188,8 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
   const locale = useLocale();
   const t = useTranslations("workflow");
   const utils = api.useUtils();
+  const readOnly = useReadOnly();
+  const account = api.account.me.useQuery().data;
   const resend = api.studentWorkflow.resend.useMutation({
     onSuccess: () => utils.studentWorkflow.adminRequests.invalidate(),
   });
@@ -170,6 +200,7 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
           <h3 className="font-semibold break-words">{row.name}</h3>
           <div className="flex flex-wrap gap-2">
             <SignupSourceBadge source="SELF_SERVICE" />
+            {row.isInvalid && <InvalidityBadge />}
             <span
               className={
                 row.state !== "OPEN"
@@ -198,16 +229,27 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
             })}
           </p>
         </div>
-        {row.state === "OPEN" && !row.confirmedAt && (
-          <button
-            className="btn-secondary btn-sm self-start"
-            disabled={resend.isPending}
-            onClick={() => resend.mutate({ id: row.id })}
-          >
-            {t("resend")}
-          </button>
-        )}
+        <div className="flex flex-wrap items-start gap-2">
+          {!readOnly && (
+            <StudentRequestInvalidityControls
+              record={row}
+              name={row.name}
+              canFlag={row.state === "OPEN" || row.isInvalid}
+              coordinator={account?.role === "COORDINATOR"}
+            />
+          )}
+          {!readOnly && row.state === "OPEN" && !row.confirmedAt && (
+            <button
+              className="btn-secondary btn-sm self-start"
+              disabled={resend.isPending || row.isInvalid}
+              onClick={() => resend.mutate({ id: row.id })}
+            >
+              {t("resend")}
+            </button>
+          )}
+        </div>
       </header>
+      {row.isInvalid && <InvalidityNotice />}
       {!row.confirmedAt && row.verificationDueAt && row.state === "OPEN" && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           {t("deadline", {
@@ -321,7 +363,7 @@ function Assignment({
       <span className="min-w-36 text-sm font-medium">{subject.name}</span>
       {pairing ? (
         <span className="badge-green">{pairing.tutor.englishName}</span>
-      ) : !readOnly ? (
+      ) : !readOnly && !row.isInvalid ? (
         <>
           <QualifiedTutorSelect
             label={t("chooseTutor", { subject: subject.name })}
@@ -348,7 +390,7 @@ function Assignment({
           {t("resendFailed")}
         </p>
       )}
-      {consequenceTicket && (
+      {consequenceTicket && !row.isInvalid && (
         <AssignmentConfirmation
           operation="studentWorkflow.assign"
           payload={{
@@ -371,7 +413,7 @@ function Assignment({
           }
         />
       )}
-      {open && (
+      {open && !row.isInvalid && (
         <TimedActionDialog
           key={`${row.id}:${subject.id}:${tutorId}`}
           action="ASSIGN"

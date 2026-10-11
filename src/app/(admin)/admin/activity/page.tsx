@@ -40,13 +40,14 @@ export default function ActivityPage() {
     .filter(
       (x) =>
         x.status === "PENDING" &&
+        !x.isInvalid &&
         (!elevated ||
           (activitySummary.data != null && !linkedSurveyTutees.has(x.id))),
     )
     .sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
   const intakeRows = activitySummary.data?.intakeRows ?? [];
   const openApps = (apps.data ?? []).filter(
-    (a) => a.status === "PENDING" || a.status === "INTERVIEW",
+    (a) => !a.isInvalid && (a.status === "PENDING" || a.status === "INTERVIEW"),
   );
   const pendingCards = (cards.data ?? []).filter(
     (c) => c.reviewStatus === "PENDING",

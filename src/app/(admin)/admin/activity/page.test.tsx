@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   disabledFeatureError: false,
   pendingRequests: 0,
   applicationStatus: "",
+  invalidBacklog: false,
 }));
 
 vi.mock("next-intl", () => ({
@@ -59,20 +60,30 @@ vi.mock("~/trpc/react", () => ({
                 error: null,
               },
       },
-      tutees: { useQuery: () => ({ data: [], isLoading: false, error: null }) },
+      tutees: {
+        useQuery: () => ({
+          data: state.invalidBacklog
+            ? [{ id: "invalid-tutee", status: "PENDING", isInvalid: true }]
+            : [],
+          isLoading: false,
+          error: null,
+        }),
+      },
       tutorApplications: {
         useQuery: () => ({
-          data: state.applicationStatus
-            ? [
-                {
-                  id: "application",
-                  name: "Synthetic applicant",
-                  status: state.applicationStatus,
-                  votes: [],
-                  interviewers: [],
-                },
-              ]
-            : [],
+          data: state.invalidBacklog
+            ? [{ id: "invalid-app", status: "INTERVIEW", isInvalid: true }]
+            : state.applicationStatus
+              ? [
+                  {
+                    id: "application",
+                    name: "Synthetic applicant",
+                    status: state.applicationStatus,
+                    votes: [],
+                    interviewers: [],
+                  },
+                ]
+              : [],
           isLoading: false,
           error: null,
         }),
@@ -154,6 +165,7 @@ afterEach(() => {
   state.disabledFeatureError = false;
   state.pendingRequests = 0;
   state.applicationStatus = "";
+  state.invalidBacklog = false;
 });
 
 it.each(["PENDING", "INTERVIEW"])(
@@ -208,6 +220,13 @@ it("shows all clear for successful empty data even when disabled queues error", 
   expect(screen.getByText("admin.activity.hero.allClear")).toBeTruthy();
   expect(screen.getByText("0", { selector: "p" })).toBeTruthy();
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("excludes invalid tutor and legacy tutee entries from actionable backlog counts", () => {
+  state.invalidBacklog = true;
+  render(<ActivityPage />);
+  expect(screen.getByText("admin.activity.hero.allClear")).toBeTruthy();
+  expect(screen.getByText("0", { selector: "p" })).toBeTruthy();
 });
 
 it("bounds the populated mobile hero grid without changing desktop columns or queue links", async () => {
