@@ -250,7 +250,9 @@ it.each([undefined, false, true])(
       client.setQueryData(key(["student", "feedbackSettings"]), cached);
     remote.settings.mockRejectedValue(new Error("Offline"));
     mount(<StudentPortal view="attendance" />);
-    await screen.findByText(en.workflows.attendance);
+    // Dedicated attendance routes own their page heading; wait for the actual record entry.
+    await screen.findByText(/· Math ·/);
+    expect(screen.getByText(en.workflows.feedback)).toBeTruthy();
     if (cached !== undefined) await refresh(["student", "feedbackSettings"]);
     await screen.findByText(en.workflows.feedbackVisibilityUnavailable);
     expect(screen.queryByText(en.workflows.privateFeedback)).toBeNull();
