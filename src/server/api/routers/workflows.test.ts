@@ -754,10 +754,19 @@ it("unchanged publication and pending policy proposals do not invalidate accepte
   expect(await db.approvalRequest.count({ where: { state: "PENDING" } })).toBe(
     1,
   );
-  await db.user.update({ where: { id: "review-viewer" }, data: { role: "COORDINATOR" } });
-  await expect(caller("COORDINATOR", "review-viewer").admin.upsertPolicy({
-    slug: "tutor-policy", locale: "en", title: "Forbidden draft", body: "Forbidden unpublished policy", version: "3",
-  })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await db.user.update({
+    where: { id: "review-viewer" },
+    data: { role: "COORDINATOR" },
+  });
+  await expect(
+    caller("COORDINATOR", "review-viewer").admin.upsertPolicy({
+      slug: "tutor-policy",
+      locale: "en",
+      title: "Forbidden draft",
+      body: "Forbidden unpublished policy",
+      version: "3",
+    }),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.approvalRequest.count()).toBe(1);
   expect(await studentPolicyStatus(db, "review-user")).toBeNull();
 });
@@ -1012,6 +1021,58 @@ const attendance = () => ({
   ratingUnderstanding: 4,
   ratingBehavior: 4,
   ratingProgress: 4,
+});
+
+it("filters recorded attendance-flag states without reopening decisions or exposing private notes to observers", async () => {
+  const session = await tutor().tutor.submitAttendance(attendance());
+  const flag = await db.sessionFlag.create({
+    data: {
+      sessionId: session.id,
+      tutorId: "review-tutor",
+      expected: 2,
+      observed: 1,
+    },
+  });
+  expect((await caller().admin.sessionFlags()).map((row) => row.id)).toContain(
+    flag.id,
+  );
+  await caller().admin.decideSessionFlag({
+    flagId: flag.id,
+    action: "WARN",
+    note: "Private recorded staff decision",
+  });
+  expect(await caller().admin.sessionFlags()).toEqual([]);
+  const resolved = await caller().admin.sessionFlags({ state: "WARNED" });
+  expect(resolved).toEqual([
+    expect.objectContaining({
+      id: flag.id,
+      state: "WARNED",
+      decisionNote: "Private recorded staff decision",
+    }),
+  ]);
+  expect(resolved[0]?.resolvedByName).toBeTruthy();
+  expect(
+    (await caller().admin.sessionFlags({ state: "ALL" })).map((row) => row.id),
+  ).toContain(flag.id);
+  expect(await caller().admin.sessionFlags({ state: "PENALIZED" })).toEqual([]);
+  expect(
+    await caller("VIEWER", "review-viewer").admin.sessionFlags({
+      state: "ALL",
+    }),
+  ).toEqual([
+    expect.objectContaining({
+      state: "WARNED",
+      decisionNote: null,
+      resolvedByName: null,
+    }),
+  ]);
+  await expect(
+    caller().admin.decideSessionFlag({ flagId: flag.id, action: "PENALIZE" }),
+  ).rejects.toThrow("already resolved");
+  await expect(
+    tutor().admin.sessionFlags({ state: "ALL" }),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.serviceHourAdjustment.count()).toBe(0);
 });
 
 beforeEach(async () => {

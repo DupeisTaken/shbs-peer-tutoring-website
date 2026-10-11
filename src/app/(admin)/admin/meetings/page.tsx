@@ -212,6 +212,36 @@ export default function MeetingsPage() {
                       timeStyle: "short",
                     })}
                   </button>
+                  <TableDetails title={m.title} longReader>
+                    <p>
+                      {programFormat.dateTime(new Date(m.date), {
+                        dateStyle: "full",
+                        timeStyle: "short",
+                      })}
+                    </p>
+                    <h3 className="font-semibold">
+                      {t("admin.meetings.selfExcused", {
+                        count: m.attendances.filter(
+                          (entry) => entry.excusedAt != null,
+                        ).length,
+                      })}
+                    </h3>
+                    <ul className="space-y-3">
+                      {m.attendances
+                        .filter((entry) => entry.excusedAt != null)
+                        .map((entry) => (
+                          <li key={entry.tutorId}>
+                            <p className="font-medium">
+                              {entry.tutor.englishName}
+                            </p>
+                            <p className="whitespace-pre-wrap">
+                              {entry.reason ??
+                                t("auditEventDetails.notRecorded")}
+                            </p>
+                          </li>
+                        ))}
+                    </ul>
+                  </TableDetails>
                   {!readOnly && (
                     <button
                       disabled={del.isPending || busyMeetings.has(m.id)}
@@ -235,26 +265,6 @@ export default function MeetingsPage() {
                     </button>
                   )}
                 </div>
-                {/* Tutor-submitted excuses surface here automatically. */}
-                {(() => {
-                  const ex = m.attendances.filter((a) => a.excusedAt != null);
-                  if (ex.length === 0) return null;
-                  return (
-                    <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
-                      <p className="text-xs font-semibold text-amber-800">
-                        {t("admin.meetings.selfExcused", { count: ex.length })}
-                      </p>
-                      <ul className="mt-1 space-y-0.5 text-sm text-amber-900">
-                        {ex.map((a) => (
-                          <li key={a.tutorId}>
-                            {a.tutor.englishName}
-                            {a.reason ? ` — ${a.reason}` : ""}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                })()}
                 {/* Opened forms retain their own draft and pending callbacks while
                     another meeting is selected or this disclosure is collapsed. */}
                 {opened.has(m.id) && (
@@ -345,6 +355,11 @@ function TutorMeetingStats({
       <div className="border-b border-slate-100 px-4 py-3">
         <h2 className="section-title">{t("admin.meetings.stats.title")}</h2>
         <p className="muted mt-0.5 text-xs">{t("admin.meetings.stats.help")}</p>
+        <p className="mt-2 text-xs text-slate-600">
+          P: {t("admin.meetings.status.present")} · EA:{" "}
+          {t("admin.meetings.status.excusedAbsent")} · UA:{" "}
+          {t("admin.meetings.status.unexcusedAbsent")}
+        </p>
       </div>
       {rows.length === 0 ? (
         <p className="muted px-4 py-3 text-sm">
@@ -356,13 +371,15 @@ function TutorMeetingStats({
             <tr>
               <th>{t("admin.meetings.stats.tutor")}</th>
               <th className="text-right">
-                {t("admin.meetings.status.present")}
+                <abbr title={t("admin.meetings.status.present")}>P</abbr>
               </th>
               <th className="text-right">
-                {t("admin.meetings.status.excusedAbsent")}
+                <abbr title={t("admin.meetings.status.excusedAbsent")}>EA</abbr>
               </th>
               <th className="text-right">
-                {t("admin.meetings.status.unexcusedAbsent")}
+                <abbr title={t("admin.meetings.status.unexcusedAbsent")}>
+                  UA
+                </abbr>
               </th>
               <th className="table-actions-heading">
                 {t("tablePatterns.actions")}
@@ -647,14 +664,16 @@ function AttendanceEditor({
             return (
               <div
                 key={tu.id}
-                className="flex min-w-0 flex-col items-start justify-between gap-2 text-sm text-slate-400 sm:flex-row sm:items-center"
+                className="flex min-h-11 min-w-0 flex-col items-start justify-between gap-2 text-sm text-slate-400 sm:flex-row sm:items-center lg:min-h-8"
               >
                 <span className="min-w-0 [overflow-wrap:anywhere]">
                   {tu.englishName}
                 </span>
-                <span className="badge-slate">
-                  {t("admin.meetings.exempt")}
-                </span>
+                <div className="flex min-h-11 items-center lg:min-h-8">
+                  <span className="badge-slate">
+                    {t("admin.meetings.exempt")}
+                  </span>
+                </div>
               </div>
             );
           }
@@ -664,21 +683,23 @@ function AttendanceEditor({
             return (
               <div
                 key={tu.id}
-                className="flex min-w-0 flex-col items-start justify-between gap-2 text-sm sm:flex-row sm:items-center"
+                className="flex min-h-11 min-w-0 flex-col items-start justify-between gap-2 text-sm sm:flex-row sm:items-center lg:min-h-8"
               >
                 <span className="min-w-0 [overflow-wrap:anywhere] text-slate-700">
                   {tu.englishName}
                 </span>
-                <span className="badge-amber">
-                  {t("admin.meetings.status.excusedAbsent")}
-                </span>
+                <div className="flex min-h-11 items-center lg:min-h-8">
+                  <span className="badge-amber">
+                    {t("admin.meetings.status.excusedAbsent")}
+                  </span>
+                </div>
               </div>
             );
           }
           return (
             <div
               key={tu.id}
-              className="flex min-w-0 flex-col items-start justify-between gap-2 text-sm sm:flex-row sm:items-center"
+              className="flex min-h-11 min-w-0 flex-col items-start justify-between gap-2 text-sm sm:flex-row sm:items-center lg:min-h-8"
             >
               <span className="min-w-0 [overflow-wrap:anywhere] text-slate-700">
                 {tu.englishName}
@@ -688,7 +709,7 @@ function AttendanceEditor({
                 aria-label={t("uiPatterns.attendanceFor", {
                   name: tu.englishName,
                 })}
-                className="flex max-w-full flex-wrap gap-1 sm:justify-end"
+                className="flex min-h-11 max-w-full flex-wrap items-center gap-1 sm:justify-end lg:min-h-8"
               >
                 {ATTENDANCE_OPTIONS.map((opt) => (
                   <ChoiceButton

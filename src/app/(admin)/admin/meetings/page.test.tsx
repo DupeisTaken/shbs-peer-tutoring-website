@@ -101,7 +101,9 @@ function mount(readOnly = false) {
       </ReadOnlyProvider>
     </NextIntlClientProvider>,
   );
-  fireEvent.click(screen.getByRole("button", { name: /Synthetic briefing/ }));
+  fireEvent.click(
+    screen.getByRole("button", { name: /^Synthetic briefing ·/ }),
+  );
 }
 
 it("keeps long-name choices reachable with mobile touch targets and persists the selected status", () => {
@@ -144,31 +146,37 @@ it("retains separate attendance drafts when selecting another meeting or collaps
       name: messages.admin.meetings.status.present,
     }),
   );
-  fireEvent.click(screen.getByRole("button", { name: /Other briefing/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Other briefing ·/ }));
   fireEvent.click(
     screen.getByRole("button", {
       name: messages.admin.meetings.status.unexcusedAbsent,
     }),
   );
-  fireEvent.click(screen.getByRole("button", { name: /Synthetic briefing/ }));
+  fireEvent.click(
+    screen.getByRole("button", { name: /^Synthetic briefing ·/ }),
+  );
   expect(
     screen
       .getByRole("button", { name: messages.admin.meetings.status.present })
       .getAttribute("aria-pressed"),
   ).toBe("true");
-  fireEvent.click(screen.getByRole("button", { name: /Synthetic briefing/ }));
+  fireEvent.click(
+    screen.getByRole("button", { name: /^Synthetic briefing ·/ }),
+  );
   expect(
     screen.queryByRole("button", {
       name: messages.admin.meetings.saveAttendance,
     }),
   ).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: /Synthetic briefing/ }));
+  fireEvent.click(
+    screen.getByRole("button", { name: /^Synthetic briefing ·/ }),
+  );
   expect(
     screen
       .getByRole("button", { name: messages.admin.meetings.status.present })
       .getAttribute("aria-pressed"),
   ).toBe("true");
-  fireEvent.click(screen.getByRole("button", { name: /Other briefing/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Other briefing ·/ }));
   expect(
     screen
       .getByRole("button", {
@@ -196,8 +204,10 @@ it("retains accepted attendance after failed synchronization and retries reads o
   await act(async () => {
     await state.completion?.();
   });
-  fireEvent.click(screen.getByRole("button", { name: /Other briefing/ }));
-  fireEvent.click(screen.getByRole("button", { name: /Synthetic briefing/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Other briefing ·/ }));
+  fireEvent.click(
+    screen.getByRole("button", { name: /^Synthetic briefing ·/ }),
+  );
   expect(save.matches(":disabled")).toBe(true);
   expect(screen.getByRole("alert").textContent).toContain(
     "Attendance was saved",
