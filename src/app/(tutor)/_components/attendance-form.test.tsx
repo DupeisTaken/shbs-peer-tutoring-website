@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
   scheduleConfirmed: true,
+  locale: "en",
   mergeScheduleConfirmed: false,
   mergeIds: [] as string[],
   pending: false,
@@ -28,6 +29,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mocks.refresh }),
 }));
 vi.mock("next-intl", () => ({
+  useLocale: () => mocks.locale,
   useTimeZone: () => "Asia/Shanghai",
   useFormatter: () => ({
     dateTime: (date: Date, options: Intl.DateTimeFormatOptions) =>
@@ -118,6 +120,7 @@ afterEach(() => {
   mocks.invalidateSessions.mockClear();
   mocks.submitOnSuccess = undefined;
   mocks.scheduleConfirmed = true;
+  mocks.locale = "en";
   mocks.mergeScheduleConfirmed = false;
   mocks.mergeIds = [];
   mocks.pending = false;
@@ -126,6 +129,26 @@ afterEach(() => {
   mocks.reset.mockClear();
   mocks.setAttendanceLocked.mockClear();
 });
+
+it.each([
+  ["en", "Mon"],
+  ["zh", "周一"],
+])(
+  "localizes the %s pairing selector while leaving unconfirmed placeholders hidden",
+  (locale, weekday) => {
+    mocks.locale = locale;
+    render(<AttendanceForm />);
+    expect(
+      screen.getByRole("option", {
+        name: `Mathematics · ${weekday} 15:00–16:00 · A101`,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("option", { name: "Mathematics · scheduling.awaiting" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("option", { name: /15:30/ })).toBeNull();
+  },
+);
 
 it("keeps a failed attendance draft and freezes pending/successful snapshots until a new entry", () => {
   const view = render(<AttendanceForm />);

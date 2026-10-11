@@ -3,10 +3,10 @@ import { pairingScheduleText } from "~/lib/pairing-schedule";
 
 import { StudentScheduleAction } from "./student-schedule-action";
 import { useState } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
-import { DAY_NAMES, minToHm } from "~/lib/time";
+import { formatWeekday, minToHm } from "~/lib/time";
 import { useMerge } from "~/app/(tutor)/_components/merge-context";
 import { useDialog } from "~/app/_components/confirm-dialog";
 
@@ -17,6 +17,7 @@ import { useDialog } from "~/app/_components/confirm-dialog";
  */
 export function TutorPairings({ active = true }: { active?: boolean }) {
   const t = useTranslations();
+  const locale = useLocale();
   const format = useFormatter();
   const { confirm, dialog } = useDialog();
   const utils = api.useUtils();
@@ -122,7 +123,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
               {p.subject}
               <span className="muted font-normal">
                 {" · "}
-                {pairingScheduleText(p, t("scheduling.awaiting"))}
+                {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
               </span>
             </p>
             <p className="muted">
@@ -323,7 +324,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                         message: t("tutor.tasks.confirmSchedule", {
                           subject: p.subject,
                           slot: slot
-                            ? `${slot.label} · ${DAY_NAMES[slot.dayOfWeek]} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}`
+                            ? `${slot.label} · ${formatWeekday(slot.dayOfWeek, locale)} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}`
                             : t("scheduling.noLinkedSlot"),
                         }),
                         confirmLabel: t("common.save"),
@@ -342,14 +343,14 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                   <option value="">{t("scheduling.noLinkedSlot")}</option>
                   {slots.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.label} · {DAY_NAMES[s.dayOfWeek]} {minToHm(s.startMin)}
-                      –{minToHm(s.endMin)}
+                      {s.label} · {formatWeekday(s.dayOfWeek, locale)}{" "}
+                      {minToHm(s.startMin)}–{minToHm(s.endMin)}
                     </option>
                   ))}
                 </select>
                 {p.timeSlot && (
                   <span className="muted">
-                    ({DAY_NAMES[p.timeSlot.dayOfWeek]}{" "}
+                    ({formatWeekday(p.timeSlot.dayOfWeek, locale)}{" "}
                     {minToHm(p.timeSlot.startMin)}–{minToHm(p.timeSlot.endMin)})
                   </span>
                 )}
@@ -413,7 +414,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                     />
                     <span className="truncate">
                       {p.subject} ·{" "}
-                      {pairingScheduleText(p, t("scheduling.awaiting"))}
+                      {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
                     </span>
                   </label>
                 ))}

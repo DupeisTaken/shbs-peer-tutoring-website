@@ -19,6 +19,7 @@ const state = vi.hoisted(() => ({
   error: "",
   pending: false,
   removalPending: false,
+  confirmed: true,
 }));
 vi.mock("~/app/_components/confirm-dialog", () => ({
   useDialog: () => ({ confirm: state.confirm, dialog: null }),
@@ -40,7 +41,7 @@ vi.mock("~/trpc/react", () => ({
             {
               id: "pairing",
               subject: "Maths",
-              scheduleConfirmed: true,
+              scheduleConfirmed: state.confirmed,
               dayOfWeek: 1,
               startMin: 900,
               endMin: 960,
@@ -114,10 +115,11 @@ afterEach(() => {
   state.error = "";
   state.pending = false;
   state.removalPending = false;
+  state.confirmed = true;
 });
-const element = (active = true) => (
+const element = (active = true, locale = "en") => (
   <NextIntlClientProvider
-    locale="en"
+    locale={locale}
     timeZone="Asia/Shanghai"
     messages={messages}
   >
@@ -126,6 +128,20 @@ const element = (active = true) => (
     </MergeProvider>
   </NextIntlClientProvider>
 );
+it.each([
+  ["en", "Mon"],
+  ["zh", "周一"],
+])("localizes %s tutor pairing schedule evidence", (locale, weekday) => {
+  render(element(false, locale));
+  expect(screen.getByText(`· ${weekday} 15:00–16:00`)).toBeTruthy();
+});
+
+it("never exposes an unconfirmed placeholder schedule in Chinese", () => {
+  state.confirmed = false;
+  render(element(false, "zh"));
+  expect(screen.getByText(`· ${messages.scheduling.awaiting}`)).toBeTruthy();
+  expect(screen.queryByText("周一 15:00–16:00")).toBeNull();
+});
 it("inactive tutors keep pairing evidence without schedule/removal/merge writes", () => {
   render(element(false));
   expect(screen.getByText("Sample Learner")).toBeTruthy();

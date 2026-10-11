@@ -176,7 +176,7 @@ function RequestCard({
         <div className="flex min-w-0 items-start gap-2">
           <button
             type="button"
-            className="mt-0.5 shrink-0 text-slate-400 hover:text-slate-700"
+            className="mt-0.5 shrink-0 text-slate-600 hover:text-slate-700"
             aria-label={
               collapsed
                 ? t("admin.requests.expand")
@@ -202,7 +202,7 @@ function RequestCard({
                 </span>
               )}
               {fulfilled && (
-                <span className="badge-green ml-2">
+                <span className="badge-green ml-2 text-green-800">
                   {t("admin.requests.fulfilled")}
                 </span>
               )}

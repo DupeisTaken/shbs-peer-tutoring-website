@@ -440,7 +440,9 @@ export default function PairingsPage() {
               <tr key={p.id}>
                 <td>{p.tutor.englishName}</td>
                 <td>{p.subject}</td>
-                <td>{pairingScheduleText(p, t("scheduling.awaiting"))}</td>
+                <td>
+                  {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
+                </td>
                 <td>{p.room?.name ?? "—"}</td>
                 <td>{p.tutees.length}</td>
                 <TableActions>
@@ -449,7 +451,11 @@ export default function PairingsPage() {
                       <div>
                         <dt className="label">{t("admin.pairings.colWhen")}</dt>
                         <dd>
-                          {pairingScheduleText(p, t("scheduling.awaiting"))}
+                          {pairingScheduleText(
+                            p,
+                            t("scheduling.awaiting"),
+                            locale,
+                          )}
                         </dd>
                       </div>
                       <div>
