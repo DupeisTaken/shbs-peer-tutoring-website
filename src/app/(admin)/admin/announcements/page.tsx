@@ -59,25 +59,26 @@ function AnnouncementCard({
 
   return (
     <div className={`card space-y-3 p-4 ${a.active ? "" : "bg-slate-50"}`}>
-      {/* Badges share the input row; its label occupies a separate grid row. */}
+      {/* Explicit sibling tracks align badges with the input rectangle, avoiding
+       * auto-placement of a spanning label after reserved badge grid cells. */}
       <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-1">
         {readOnly ? (
           <span className="flex-1 font-semibold text-slate-900">{a.title}</span>
         ) : (
-          <label
-            className="col-span-3 row-span-2 grid min-w-0 grid-cols-subgrid grid-rows-subgrid"
-            htmlFor={`${fieldId}-title`}
-          >
-            <span className="label col-span-3">
+          <>
+            <label
+              className="label col-span-3 row-start-1"
+              htmlFor={`${fieldId}-title`}
+            >
               {t("admin.announcements.new.titlePlaceholder")}
-            </span>
+            </label>
             <input
               id={`${fieldId}-title`}
-              className="input col-span-3 w-full font-semibold lg:col-span-1"
+              className="input col-span-3 row-start-2 w-full min-w-0 font-semibold lg:col-span-1"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
-          </label>
+          </>
         )}
         {a.pinned && (
           <span
