@@ -266,6 +266,30 @@ that phase's collapsed local HTML report log. Screenshots establish appearance i
 the recorded state; tests and interaction checks establish the corresponding draft,
 permission, pending-write and recovery behavior.
 
+### Evidence for a UI review batch
+
+Keep a separate before/after evidence matrix for **desktop English**, **desktop
+Chinese**, **mobile English** and **mobile Chinese**. Use the same synthetic record,
+role, locale, viewport and interaction for each pair. A desktop English crop does
+not stand in for mobile Chinese verification. Record actual client width as well
+as the requested viewport, the source revision and whether the capture shows a
+summary, editor, pending state or intentional read failure.
+
+Measure the intended visual row: compare badge/action centers with the input box
+when labels and helpers sit outside it, and compare whole-card actions with the
+summary's bounds. Check wrapping application metadata starts at the name edge.
+For room grids, include at least 20 rooms, overlapping occupied slots, unavailable
+periods, empty room selection, both view modes and long translated room names.
+For navigation, leave and return through links and Back/Forward; verify the actual
+management content scroller as well as document scroll and identity changes.
+
+Reports explain the design rules and implementation alongside each numbered
+request, then expose the four evidence groups separately. Keep logs, raw immutable
+evidence, user-annotated references and failure/recovery cases collapsed. Identify
+missing baselines and test-only behavior explicitly; a source inspection or an
+annotated user crop is not a measured browser result. Preserve earlier reports
+with their original revisions instead of rewriting their historical claims.
+
 ## 5. Run the tests
 
 For shared table-action sizing, run `node scripts/test-table-action-layout.mjs`

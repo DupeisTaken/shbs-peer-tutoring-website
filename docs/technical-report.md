@@ -402,6 +402,47 @@ generator or lint rule would be new tooling, not an existing API; first demonstr
 which repeated omission it prevents without inferring authorization or deleting a
 feature's deliberate exception.
 
+### Review-batch extension contracts
+
+The following contracts were agreed before the next UI implementation batch. They
+describe its boundaries; individual feature sections remain authoritative for
+what is currently implemented until their migrations and verification are complete.
+
+- **Informational tutoring dates:** no-tutoring dates carry a program-local date
+  and reason independently of the school-day calendar used by appeals. Displaying
+  a date must not prohibit attendance, change an appeal deadline, cancel a pairing
+  or infer a next session. Preserve the existing settings approval and audit model.
+- **Name requirements:** per-account-type Required, Optional and Hidden states
+  apply to signup and later profile editing. All fields may be optional or hidden;
+  an account without a displayable name uses its username. Hiding a field never
+  erases an existing name or rewrites historical evidence. Resolve intake type,
+  shared-profile policy, fallback username allocation and legacy unsplit-name
+  compatibility in the server validator as well as the UI. A presentation-only
+  `required` change is insufficient. Policy reads and saves retain explicit
+  versions, approval boundaries and conflict recovery.
+- **Room order and schedules:** display order is a program-owned setting separate
+  from patrol order. Room selectors default to all rooms for management and paired
+  rooms for a tutor. Combined and individual-room grids are two views of the same
+  authorized recurring data. Individual grids use time rows and weekday columns;
+  occupied gray cells and unavailable crosses need accessible status text and a
+  legend. Detail filtering by day, slot and room does not create assignments.
+- **Flag history:** state filters must query the authorized server dataset; a
+  client-only filter cannot reconstruct resolved entries from a pending-only read.
+  Preserve pending-only decision guards, immutable resolution evidence and the
+  existing review/penalty operations when adding read history.
+- **Evidence differences:** highlight changes between recorded Before and After
+  values without replacing the original values. Preserve missing versus null,
+  array order and full raw evidence access. Never compare an audit event against
+  today's mutable record or fetch additional private data solely to decorate it.
+- **Navigation restoration:** session storage may hold validated view preferences
+  and scroll offsets, not domain drafts, record evidence or authority. Clear or
+  ignore state across identity/access changes. Restoration waits for the relevant
+  content layout and respects explicit navigation and the user's own scrolling.
+
+These are feature contracts, not a general form engine or permission registry.
+Add shared layout helpers only where real callers have the same alignment and
+lifetime requirements, with gallery examples and meaningful behavior coverage.
+
 ## Identity and authorization
 
 Confirmed school departures are stored separately in `SchoolDeparture`, with versioned
