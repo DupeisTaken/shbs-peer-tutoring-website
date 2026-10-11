@@ -78,6 +78,7 @@ const room = summary("id name patrolOrder createdAt", {
 const tutee = summary(
   "id englishName firstName lastName preferredName legacyName alternativeNames gradeLevel academicallyGraduated status firstChoiceId secondChoiceId signedRulebook signedAt createdAt updatedAt signupSource intakeTermId signupSubmittedAt historical historicalGrade",
   {
+    isInvalid: z.boolean().optional(),
     gradeLevel: schoolGrade,
     user: account.nullish(),
     owner: account.nullish(),
@@ -115,6 +116,7 @@ const session = summary(
 const application = summary(
   "id name firstName lastName preferredName alternativeNames type requestedTutorId requestedSubjectId status createdAt updatedAt interviewAt interviewCompletedAt interviewDurationMin interviewSchoolYear interviewQuarter decidedAt decidedByTutorId recalledAt",
   {
+    isInvalid: z.boolean().optional(),
     subjectIntents: list(
       summary(
         "id applicationId subjectId taken hasApScore selfStudied",

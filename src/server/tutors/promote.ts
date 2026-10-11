@@ -1,4 +1,5 @@
 import { requireSchoolParticipation } from "~/server/school-departure";
+import { assertRequestProcessable, lockApplicationReview } from "~/server/request-invalidity";
 import { assertPrimaryName } from "~/server/program/profile-policy";
 import { initializeAccountAcademics } from "~/server/academics";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
@@ -37,6 +38,7 @@ export async function promoteApplicantToTutor(
 ): Promise<void> {
   return inTransaction(client, async (db) => {
     await lockUsernameNamespace(db);
+    await lockApplicationReview(db, applicationId);
     const app = await db.tutorApplication.findUnique({
       where: { id: applicationId },
       select: {
@@ -47,9 +49,11 @@ export async function promoteApplicantToTutor(
         alternativeNames: true,
         email: true,
         type: true,
+        invalidatedAt: true,
       },
     });
     if (app?.type !== "INITIAL") return;
+    assertRequestProcessable(app);
 
     const email = app.email?.trim() ? app.email.trim().toLowerCase() : null;
     if (!email) return; // applications always capture an email; nothing to bind a code to otherwise

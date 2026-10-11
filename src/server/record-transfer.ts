@@ -26,6 +26,7 @@ export const RECORD_TABLES = [
   "Term",
   "Tutor",
   "Tutee",
+  "TuteeRequestInvalidity",
   "HistoricalAcademicRecord",
   "Room",
   "TimeSlot",

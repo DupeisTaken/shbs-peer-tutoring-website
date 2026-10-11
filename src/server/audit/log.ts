@@ -1,4 +1,7 @@
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
+import { assertStudentRequestAssignable } from "~/server/student-request-state";
+import { lockApplicationReview } from "~/server/request-invalidity";
+import { lockUsernameNamespace } from "~/server/auth/username";
 import { approvalScope, auditActorScope } from "~/server/db-scope";
 import { safeAuditSnapshot } from "./evidence";
 import type { Prisma } from "../../../generated/prisma";
@@ -184,6 +187,8 @@ export async function applyUndo(
         return true;
       }
       case "application.status": {
+        await lockUsernameNamespace(tx);
+        await lockApplicationReview(tx, undo.payload.id);
         if (undo.payload.expectedUpdatedAt) {
           const current = await tx.tutorApplication.findUniqueOrThrow({
             where: { id: undo.payload.id },
@@ -206,8 +211,10 @@ export async function applyUndo(
         return true;
       }
       case "tutee.status":
-        if (undo.payload.status !== "INACTIVE")
+        if (undo.payload.status !== "INACTIVE") {
+          await assertStudentRequestAssignable(tx, undo.payload.id);
           await preserveHistoricalAcademics(tx, "TUTEE", undo.payload.id);
+        }
         await tx.tutee.update({
           where: { id: undo.payload.id },
           data: { status: undo.payload.status },

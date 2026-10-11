@@ -439,6 +439,27 @@ real QueryClient regressions cover the denial/retry/reopen sequence.
 
 ## Student lifecycle and ownership
 
+Public intake invalidity is separate from lifecycle state. Staff may flag initial
+tutor applications and student signup requests with a bounded reason, recorded
+actor and timestamp. Clearing requires a reason too; audit evidence retains the
+change even though current invalidity metadata is cleared. A dedicated revision
+fences concurrent flag/clear writes and stale approval replay. Ordinary daily-work
+approval rules apply: Admin/Head apply and Coordinators propose. The flag does not
+rewrite submission priority, consent, verification, grants or participation.
+Processing guards must run on the server, including assignment and interview
+aliases. Internal reasons and actor details are omitted from participant reads
+and masked management views. See [issue #294](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/294).
+
+`TutorApplication` and `StudentSurvey` store their review fields directly. Older
+public tutees without a survey use `TuteeRequestInvalidity`, keyed by `tuteeId`,
+so ordinary roster serialization cannot reveal the internal explanation. This
+legacy path accepts only explicit `SELF_SERVICE` provenance. Staff-entered and
+unknown-source records are not reclassified as public requests. Shared processing
+locks serialize flagging with assignments and invitation redemption; existing
+memberships and completed invitation receipts remain intact. Participant reads
+receive no internal explanation, and authorized observer summaries receive only
+the invalid badge. Current flags also leave actionable activity counts.
+
 The original survey submission determines queue priority. Mailbox-code verification or explicit legacy-link confirmation issues the receipt shown in the popup; final shared invitation review creates or links the account and confirms the original request. Existing credentials and unrelated access remain, while an exclusive Viewer transitions to tutee participation. Account links expire after 24 hours. First assignment of an unverified request starts a fixed seven-day deadline; neither resends nor reassignment extends it.
 
 | Action                          | Invariant                                                                                   |

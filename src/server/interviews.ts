@@ -1,4 +1,5 @@
 import { lockCatalogue } from "~/server/qualifications";
+import { assertRequestProcessable } from "~/server/request-invalidity";
 import { TRPCError } from "@trpc/server";
 import type { TransactionDb } from "~/server/transactions";
 
@@ -64,6 +65,9 @@ export async function validateInterviewDecision(
   accept: boolean,
   actorTutorId: string | null,
 ) {
+  assertRequestProcessable(await tx.tutorApplication.findUniqueOrThrow({
+    where: { id: applicationId }, select: { invalidatedAt: true },
+  }));
   const panel = await tx.interviewAssignment.findMany({
     where: { applicationId },
   });

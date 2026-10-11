@@ -68,6 +68,7 @@ function fixture(access: Access = "VIEWER") {
     },
     tutor: empty(),
     tutee: empty(),
+    tuteeRequestInvalidity: empty(),
     historicalAcademicRecord: empty(),
     subject: empty(),
     subjectLevel: empty(),
@@ -443,7 +444,7 @@ it.each<Access>(["HEAD", "ADMIN", "COORDINATOR"])(
     expect(await caller.corrections.attendance({ id: "session" })).toEqual([
       sessionRow,
     ]);
-    expect(await caller.admin.tutorApplications()).toEqual([applicationRow]);
+    expect(await caller.admin.tutorApplications()).toEqual([{ ...applicationRow, isInvalid: true }]);
     expect(await caller.admin.auditLog({ search: PRIVATE })).toEqual([
       auditRow,
     ]);

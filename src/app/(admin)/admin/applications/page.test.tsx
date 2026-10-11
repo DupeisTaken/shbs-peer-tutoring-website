@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   role: "HEAD",
   decide: vi.fn(),
   minimized: false,
+  invalid: false,
   success: undefined as undefined | (() => Promise<void>),
   invalidateApplications: vi.fn<InvalidationTarget["invalidate"]>(),
   invalidateOptions: vi.fn<InvalidationTarget["invalidate"]>(),
@@ -83,6 +84,15 @@ vi.mock("~/trpc/react", () => ({
             : [
                 {
                   id: "candidate",
+                  isInvalid: mocks.invalid,
+                  invalidReason: mocks.invalid
+                    ? "Private duplicate reason"
+                    : null,
+                  invalidatedAt: mocks.invalid ? new Date("2026-10-10") : null,
+                  invalidatedByName: mocks.invalid
+                    ? "Private staff actor"
+                    : null,
+                  invalidityVersion: mocks.invalid ? 1 : 0,
                   type: mocks.additional ? "ADDITIONAL_SUBJECT" : "INITIAL",
                   requestedTutorId: mocks.additional ? "candidate-tutor" : null,
                   qualificationReason: mocks.additional
@@ -144,6 +154,9 @@ vi.mock("~/trpc/react", () => ({
       assignInterviewers: { useMutation: () => ({ mutate: vi.fn() }) },
       setApplicationStatus: { useMutation: () => ({ mutate: vi.fn() }) },
       deleteApplication: { useMutation: () => ({ mutate: vi.fn() }) },
+      setApplicationInvalidity: {
+        useMutation: () => ({ mutateAsync: vi.fn() }),
+      },
     },
   },
 }));
@@ -157,6 +170,7 @@ beforeEach(() => {
   mocks.additional = false;
   mocks.role = "HEAD";
   mocks.minimized = false;
+  mocks.invalid = false;
 });
 afterEach(cleanup);
 const show = (viewer = false) =>
@@ -211,6 +225,33 @@ it("does not mount the staff-only completion query for a viewer", () => {
   show(true);
   expect(mocks.history).not.toHaveBeenCalled();
   expect(screen.queryByText("Interview history destination")).toBeNull();
+});
+it("keeps flagged interview evidence visible while hiding panel processing controls", () => {
+  mocks.invalid = true;
+  show();
+  expect(screen.getByText("Invalid entry")).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Review invalid flag" }),
+  ).toBeTruthy();
+  expect(screen.queryByText("Private duplicate reason")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+  expect(
+    screen.queryByRole("link", { name: en.admin.applications.setupAccount }),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  expect(screen.queryByRole("button", { name: "Add Interviewer" })).toBeNull();
+  expect(screen.getByText(/Preserved vote/)).toBeTruthy();
+  expect(screen.getByText(/Preserved decision/)).toBeTruthy();
+});
+it("shows a viewer the invalid badge without mounting a private flag editor", () => {
+  mocks.invalid = true;
+  show(true);
+  expect(screen.getByText("Invalid entry")).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Review invalid flag" }),
+  ).toBeNull();
+  expect(screen.queryByText("Private duplicate reason")).toBeNull();
+  expect(screen.queryByText("Private staff actor")).toBeNull();
 });
 
 it.each(["VIEWER", "TUTOR"])(

@@ -15,6 +15,14 @@ import { useDialog } from "~/app/_components/confirm-dialog";
 import { InterviewManagement } from "~/app/_components/interview-management";
 
 import { ApplicationFilters } from "~/app/_components/application-filters";
+import { ApplicationInvalidityControls } from "~/app/_components/request-invalidity-controls";
+import {
+  InvalidityBadge,
+  InvalidityFilter,
+  InvalidityNotice,
+  type InvalidityFilterValue,
+  type InvalidityRecord,
+} from "~/app/_components/request-invalidity";
 import {
   InterviewPanelEditor,
   type PanelTutor,
@@ -41,7 +49,7 @@ function StatusBadge({ status }: { status: Status }) {
   );
 }
 
-type Application = {
+type Application = InvalidityRecord & {
   type: "INITIAL" | "ADDITIONAL_SUBJECT" | "HIGHER_LEVEL";
   requestedTutorId: string | null;
   qualificationReason: string | null;
@@ -94,6 +102,7 @@ function ApplicationCard({
   const additional = app.type !== "INITIAL";
   const canEditPanel =
     !readOnly &&
+    !app.isInvalid &&
     (!additional ||
       (!!account &&
         ["ADMIN", "HEAD"].includes(account.role) &&
@@ -142,12 +151,14 @@ function ApplicationCard({
   const canDirectAccept =
     !additional &&
     !readOnly &&
+    !app.isInvalid &&
     features?.INTERVIEWS === false &&
     !hasInterviewHistory &&
     app.status !== "ACCEPTED";
   const canScreenReject =
     !additional &&
     !readOnly &&
+    !app.isInvalid &&
     !hasInterviewHistory &&
     app.status === "PENDING";
 
@@ -167,6 +178,7 @@ function ApplicationCard({
             {app.name}
           </span>
           <StatusBadge status={app.status} />
+          {app.isInvalid && <InvalidityBadge />}
           <span className="badge-slate">
             {t(`qualificationRequests.${app.type}`)}
           </span>
@@ -190,7 +202,15 @@ function ApplicationCard({
           </span>
         </button>
         <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto">
-          {!additional && app.status === "ACCEPTED" && (
+          {!readOnly && !additional && (
+            <ApplicationInvalidityControls
+              record={app}
+              name={app.name}
+              canFlag
+              coordinator={account?.role === "COORDINATOR"}
+            />
+          )}
+          {!additional && !app.isInvalid && app.status === "ACCEPTED" && (
             <Link
               href="/admin/users"
               className="link inline-flex min-h-11 max-w-full items-center text-sm break-words lg:min-h-8"
@@ -226,7 +246,7 @@ function ApplicationCard({
               {t("admin.applications.reject")}
             </button>
           )}
-          {!readOnly && !additional && (
+          {!readOnly && !additional && !app.isInvalid && (
             <button
               className="btn-danger btn-sm"
               onClick={async () => {
@@ -248,7 +268,11 @@ function ApplicationCard({
           )}
         </div>
       </div>
-
+      {app.isInvalid && (
+        <div className="mt-3">
+          <InvalidityNotice />
+        </div>
+      )}
       {disclosure !== "new" && (
         <div
           hidden={!open}
@@ -423,19 +447,24 @@ export default function ApplicationsPage() {
     );
 
   const [filters, setFilters] = useState(emptyApplicationFilters);
+  const [invalidity, setInvalidity] = useState<InvalidityFilterValue>("all");
   // History links reveal their destination even when a previous filter hid it.
   // Ordinary filtering does not otherwise change the selected criteria.
   useEffect(() => {
     const reveal = () => {
-      if (window.location.hash.startsWith("#application-"))
+      if (window.location.hash.startsWith("#application-")) {
         setFilters(emptyApplicationFilters);
+        setInvalidity("all");
+      }
     };
     window.addEventListener("hashchange", reveal);
     return () => window.removeEventListener("hashchange", reveal);
   }, []);
   const list = apps.data ?? [];
-  const filtered = list.filter((app) =>
-    matchesApplicationFilters(app, filters),
+  const filtered = list.filter(
+    (app) =>
+      matchesApplicationFilters(app, filters) &&
+      (invalidity === "all" || !!app.isInvalid === (invalidity === "invalid")),
   );
   // Build choices from the full queue so applying one filter never erases another.
   const subjects = Array.from(
@@ -475,6 +504,9 @@ export default function ApplicationsPage() {
           total={list.length}
         />
       )}
+      {apps.data && (
+        <InvalidityFilter value={invalidity} onChange={setInvalidity} />
+      )}
       <div className="space-y-3">
         {apps.isLoading && <p role="status">{t("workflows.loading")}</p>}
         {apps.error && <p role="alert">{apps.error.message}</p>}
@@ -507,7 +539,10 @@ export default function ApplicationsPage() {
         >
           <InterviewManagement
             enabled={features.data.INTERVIEWS}
-            onManageApplicant={() => setFilters(emptyApplicationFilters)}
+            onManageApplicant={() => {
+              setFilters(emptyApplicationFilters);
+              setInvalidity("all");
+            }}
           />
         </div>
       )}

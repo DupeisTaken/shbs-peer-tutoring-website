@@ -18,6 +18,9 @@ const record = (value: unknown): ReviewRecord | null =>
 /** Concurrency and confirmation evidence is not part of the requested business change. */
 export const reviewTechnicalFields = new Set([
   "expectedUpdatedAt",
+  "expectedInvalidityVersion",
+  "invalidityVersion",
+  "invalidatedById",
   "expectedRevision",
   "expectedProfileVersion",
   "expectedVersion",
