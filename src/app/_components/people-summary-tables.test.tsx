@@ -629,6 +629,9 @@ describe("people summary tables", () => {
 
   it("keeps Crew summary concise and confirms its named membership action", async () => {
     const { rerender } = render(<CrewPage />, { wrapper });
+    fireEvent.click(
+      screen.getByRole("tab", { name: en.admin.crew.panels.roster }),
+    );
     const table = screen.getByRole("table", {
       name: en.admin.crew.rosterHeading,
     });

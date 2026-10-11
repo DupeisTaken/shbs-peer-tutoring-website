@@ -450,14 +450,25 @@ it("shows scoped announcement/candidate failures without false empty states", ()
     announcementCandidates: { message: "Offline" },
   };
   render(<AnnouncementsPage />, { wrapper });
-  expect(screen.getAllByRole("alert")).toHaveLength(2);
+  expect(screen.getAllByRole("alert")).toHaveLength(1);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.announcements.create }),
+  );
+  // Modal isolates candidate failure; the retained list failure remains outside its inert background.
+  expect(screen.getAllByRole("alert", { hidden: true })).toHaveLength(2);
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
   expect(screen.queryByText(en.admin.announcements.empty)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Retry Announcements" }));
   expect(state.refresh).toHaveBeenCalledOnce();
 });
 it("retains labelled announcement drafts through transient read failure but conceals revoked records", () => {
   const rendered = render(<AnnouncementsPage />, { wrapper });
-  const fields = screen.getAllByLabelText<HTMLInputElement>(
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.announcements.create }),
+  );
+  const fields = within(
+    screen.getByRole("dialog"),
+  ).getAllByLabelText<HTMLInputElement>(
     en.admin.announcements.new.titlePlaceholder,
   );
   fireEvent.change(fields[0]!, { target: { value: "Creation draft" } });

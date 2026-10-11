@@ -2840,27 +2840,32 @@ function PageTitleField({
   setTitle: ReturnType<typeof api.home.setPageTitle.useMutation>;
 }) {
   const t = useTranslations();
+  const guidanceId = useId();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const val = drafts[locale] ?? page.title[locale] ?? "";
   return (
-    <label className="flex items-center gap-2">
-      <span className="muted">
-        {t("admin.landing.pages.titleLabel")}
-        <span className="block text-xs">{t("saveBoundary.blur")}</span>
-      </span>
-      <input
-        className="input field-auto min-w-40"
-        value={val}
-        disabled={setTitle.isPending}
-        onChange={(e) =>
-          setDrafts((previous) => ({ ...previous, [locale]: e.target.value }))
-        }
-        onBlur={() => {
-          if (val !== (page.title[locale] ?? ""))
-            setTitle.mutate({ id: page.id, locale, value: val });
-        }}
-      />
-    </label>
+    <div className="space-y-1">
+      {/* Save guidance describes the field without becoming part of its concise name. */}
+      <label className="flex items-center gap-2">
+        <span className="muted">{t("admin.landing.pages.titleLabel")}</span>
+        <input
+          aria-describedby={guidanceId}
+          className="input field-auto min-w-40"
+          value={val}
+          disabled={setTitle.isPending}
+          onChange={(e) =>
+            setDrafts((previous) => ({ ...previous, [locale]: e.target.value }))
+          }
+          onBlur={() => {
+            if (val !== (page.title[locale] ?? ""))
+              setTitle.mutate({ id: page.id, locale, value: val });
+          }}
+        />
+      </label>
+      <p id={guidanceId} className="muted text-xs">
+        {t("saveBoundary.blur")}
+      </p>
+    </div>
   );
 }
 
