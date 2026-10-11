@@ -74,8 +74,19 @@ export function useSessionViewState<T extends ViewState>(
   const latest = useRef(options);
   latest.current = options;
   const [stored, setStored] = useState({ key, value: options.initialState });
-  const value =
-    enabled && stored.key === key ? stored.value : options.initialState;
+  // Cached choices must satisfy today's allowlist, including removed modules/rooms.
+  const parsed = stored.key === key ? options.parse(stored.value) : undefined;
+  const invalid = stored.key === key && parsed === undefined;
+  const value = enabled && parsed !== undefined ? parsed : options.initialState;
+  useEffect(() => {
+    if (!invalid || !key) return;
+    try {
+      removeViewState(window.sessionStorage, key);
+    } catch {
+      /* Optional storage. */
+    }
+    setStored({ key, value: latest.current.initialState });
+  }, [invalid, key]);
   useEffect(() => {
     if (!key || !active) return;
     try {
@@ -135,9 +146,15 @@ export function useSessionPageScroll({
   const identity = context?.identity ?? "anonymous";
   const pathname = context?.pathname ?? "";
   const active = !!context?.verified && identity !== "anonymous";
+  const [desktop, setDesktop] = useState<boolean | null>(null);
   useEffect(() => {
-    if (!active || !ready || !enabled) return;
-    const desktop = window.innerWidth >= 1024;
+    const resize = () => setDesktop(window.innerWidth >= 1024);
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+  useEffect(() => {
+    if (!active || !ready || !enabled || desktop === null) return;
     const pane = desktop ? document.getElementById("admin-content") : null;
     const owner = pane ?? document.scrollingElement ?? document.documentElement;
     const key = viewStateKey(
@@ -160,8 +177,11 @@ export function useSessionPageScroll({
     let frame = 0;
     let timeout: ReturnType<typeof setTimeout> | undefined;
     let observer: ResizeObserver | undefined;
+    let mutations: MutationObserver | undefined;
+    let lastPosition: number | null = null;
     const persist = () => {
       if (restoring) return;
+      lastPosition = Math.max(0, owner.scrollTop);
       try {
         writeViewState(
           window.sessionStorage,
@@ -175,6 +195,7 @@ export function useSessionPageScroll({
     const stop = () => {
       restoring = false;
       observer?.disconnect();
+      mutations?.disconnect();
       if (timeout) clearTimeout(timeout);
     };
     const attempt = () => {
@@ -189,12 +210,16 @@ export function useSessionPageScroll({
       stop();
     };
     const onScroll = () => {
+      if (restoring) return;
+      // Keep the final measurement even if route teardown precedes the next frame.
+      lastPosition = Math.max(0, owner.scrollTop);
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(persist);
     };
     const eventOwner = pane ?? window;
     eventOwner.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("pagehide", persist);
+    window.addEventListener("hashchange", gesture);
     for (const name of [
       "wheel",
       "touchstart",
@@ -204,25 +229,41 @@ export function useSessionPageScroll({
       window.addEventListener(name, gesture, { passive: true });
     if (restoring) {
       // Next performs its own scroll handling after commit. Retry on content size changes,
-      // bounded to two seconds; no history.state or global scrollRestoration overrides.
+      // bounded to five seconds; no history.state or global scrollRestoration overrides.
       frame = requestAnimationFrame(() => {
         frame = requestAnimationFrame(attempt);
       });
       if (typeof ResizeObserver !== "undefined") {
         observer = new ResizeObserver(attempt);
         observer.observe(owner);
-        if (owner.firstElementChild) observer.observe(owner.firstElementChild);
+        for (const child of Array.from(owner.children)) observer.observe(child);
       }
+      // Fixed-height admin panes do not resize when rows arrive. Observe content
+      // growth and new children only while the bounded recovery is running.
+      mutations = new MutationObserver(() => {
+        for (const child of Array.from(owner.children))
+          observer?.observe(child);
+        attempt();
+      });
+      mutations.observe(owner, { childList: true, subtree: true });
       timeout = setTimeout(() => {
         attempt();
         stop();
-      }, 2000);
+      }, 5000);
     }
     return () => {
       cancelAnimationFrame(frame);
+      if (lastPosition !== null) {
+        try {
+          writeViewState(window.sessionStorage, key, lastPosition);
+        } catch {
+          /* Optional storage. */
+        }
+      }
       stop();
       eventOwner.removeEventListener("scroll", onScroll);
       window.removeEventListener("pagehide", persist);
+      window.removeEventListener("hashchange", gesture);
       for (const name of [
         "wheel",
         "touchstart",
@@ -231,7 +272,7 @@ export function useSessionPageScroll({
       ] as const)
         window.removeEventListener(name, gesture);
     };
-  }, [identity, pathname, active, id, scope, ready, enabled]);
+  }, [identity, pathname, active, id, scope, ready, enabled, desktop]);
   useEffect(() => {
     if (enabled || !context) return;
     for (const size of [":desktop", ":mobile"]) {
