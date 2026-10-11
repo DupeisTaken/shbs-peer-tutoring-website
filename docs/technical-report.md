@@ -414,10 +414,14 @@ what is currently implemented until their migrations and verification are comple
   or infer a next session. Preserve the existing settings approval and audit model.
 - **Name requirements:** per-account-type Required, Optional and Hidden states
   apply to signup and later profile editing. All fields may be optional or hidden;
-  an account without a displayable name uses its username. Hiding a field never
-  erases an existing name or rewrites historical evidence. Resolve intake type,
-  shared-profile policy, fallback username allocation and legacy unsplit-name
-  compatibility in the server validator as well as the UI. A presentation-only
+  an account without a displayable name uses its username. Signup uses the intake
+  type being registered; a shared profile follows the account's current role,
+  rather than combining every membership's requirements. Hidden fields do not
+  contribute to active display names or participant forms, but their saved values
+  remain visible in authorized admin management fields. Hiding a field never
+  erases an existing name or rewrites historical evidence. Resolve fallback
+  username allocation and legacy unsplit-name compatibility in the server validator
+  as well as the UI. A presentation-only
   `required` change is insufficient. Policy reads and saves retain explicit
   versions, approval boundaries and conflict recovery.
 - **Room order and schedules:** display order is a program-owned setting separate
