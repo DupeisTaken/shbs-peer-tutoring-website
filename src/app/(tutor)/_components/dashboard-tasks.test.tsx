@@ -220,10 +220,8 @@ it("announces unknown/loading tasks and retries a failed read without hiding cac
   const view = show();
   expect(screen.getByRole("status").textContent).toContain("Loading");
   expect(
-    within(
-      screen.getByRole("navigation", { name: messages.tutor.tasks.navigation }),
-    ).getByRole("link", { name: messages.dashboard.pairings.title }),
-  ).toBeTruthy();
+    screen.queryByRole("navigation", { name: messages.tutor.tasks.navigation }),
+  ).toBeNull();
   expect(screen.queryByRole("link", { name: "My pairings (0)" })).toBeNull();
   expect(screen.queryByText("No confirmed regular sessions today.")).toBeNull();
   view.unmount();
@@ -238,17 +236,15 @@ it("announces unknown/loading tasks and retries a failed read without hiding cac
   expect(state.retry).toHaveBeenCalledOnce();
 });
 
-it("excludes paused interviews from actionable counts while preserving permanent interview navigation", () => {
+it("excludes paused interviews from actionable counts and omits redundant permanent navigation", () => {
   state.pausedInterview = true;
   const view = show();
   expect(
     screen.queryByRole("link", { name: "Open interviews (1)" }),
   ).toBeNull();
   expect(
-    within(
-      screen.getByRole("navigation", { name: messages.tutor.tasks.navigation }),
-    ).getByRole("link", { name: messages.tutor.tasks.interviewSection }),
-  ).toBeTruthy();
+    screen.queryByRole("navigation", { name: messages.tutor.tasks.navigation }),
+  ).toBeNull();
   expect(
     screen.getAllByRole("link", { name: "Record attendance" }),
   ).toHaveLength(1);

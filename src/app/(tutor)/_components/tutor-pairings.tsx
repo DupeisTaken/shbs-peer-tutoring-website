@@ -1,4 +1,5 @@
 "use client";
+import { participantNameLabel } from "~/app/_components/participant-name";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 
 import { StudentScheduleAction } from "./student-schedule-action";
@@ -132,6 +133,58 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                 : t("tutor.pairings.noRoom")}
             </p>
 
+            {/* Default scheduling belongs before the roster/availability actions. */}
+            {active && (
+              <div className="mt-2 grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+                <span className="text-xs font-medium text-slate-500">
+                  {t("tutor.pairings.defaultSlotLabel")}
+                </span>
+                <select
+                  value={p.timeSlotId ?? ""}
+                  aria-label={`${p.subject}: ${t("tutor.pairings.defaultSlotLabel")}`}
+                  disabled={setSlot.isPending}
+                  onChange={async (e) => {
+                    const slotId = e.target.value || null;
+                    const slot = slots.find((s) => s.id === slotId);
+                    if (
+                      !(await confirm({
+                        title: t("tutor.tasks.changeSchedule"),
+                        message: t("tutor.tasks.confirmSchedule", {
+                          subject: p.subject,
+                          slot: slot
+                            ? `${slot.label} · ${formatWeekday(slot.dayOfWeek, locale)} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}`
+                            : t("scheduling.noLinkedSlot"),
+                        }),
+                        confirmLabel: t("common.save"),
+                        cancelLabel: t("common.cancel"),
+                      }))
+                    )
+                      return;
+                    setLastAction("slot");
+                    setSlot.mutate({
+                      pairingId: p.id,
+                      slotId,
+                    });
+                  }}
+                  className="select min-w-0 sm:w-auto"
+                >
+                  <option value="">{t("scheduling.noLinkedSlot")}</option>
+                  {slots.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label} · {formatWeekday(s.dayOfWeek, locale)}{" "}
+                      {minToHm(s.startMin)}–{minToHm(s.endMin)}
+                    </option>
+                  ))}
+                </select>
+                {p.timeSlot && (
+                  <span className="muted">
+                    ({formatWeekday(p.timeSlot.dayOfWeek, locale)}{" "}
+                    {minToHm(p.timeSlot.startMin)}–{minToHm(p.timeSlot.endMin)})
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Tutees on this pairing, each with a "left the program" removal request control. */}
             <div className="mt-2">
               {p.tutees.length === 0 ? (
@@ -141,6 +194,11 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
               ) : (
                 <ul className="space-y-1">
                   {p.tutees.map((x) => {
+                    const name = participantNameLabel(
+                      x.tutee.englishName,
+                      x.tutee.user?.username,
+                      t("participantNames.unnamed"),
+                    );
                     const workflowRow = workflowRoster.data?.find(
                       (r) => r.tuteeId === x.tuteeId && r.pairingId === p.id,
                     );
@@ -153,21 +211,19 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                     return (
                       <li key={x.tuteeId} className="text-sm">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="min-w-0 text-slate-700">
-                            {x.tutee.englishName}
-                          </span>
+                          <span className="min-w-0 text-slate-700">{name}</span>
                           {workflowRow && !workflowRow.managed && (
                             <StudentScheduleAction
                               row={workflowRow}
                               active={active}
-                              name={x.tutee.englishName}
+                              name={name}
                             />
                           )}
                           {workflowRow?.managed ? (
                             <StudentScheduleAction
                               row={workflowRow}
                               active={active}
-                              name={x.tutee.englishName}
+                              name={name}
                             />
                           ) : pendingId ? (
                             <>
@@ -196,7 +252,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                                     await confirm({
                                       title: t("tutor.pairings.removalRecall"),
                                       message: t("tutor.tasks.recallRemoval", {
-                                        name: x.tutee.englishName,
+                                        name,
                                         subject: p.subject,
                                       }),
                                       confirmLabel: t(
@@ -262,7 +318,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                                     !(await confirm({
                                       title: t("tutor.pairings.requestRemoval"),
                                       message: t("tutor.tasks.confirmRemoval", {
-                                        name: x.tutee.englishName,
+                                        name,
                                         subject: p.subject,
                                       }),
                                       confirmLabel: t(
@@ -306,56 +362,6 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                 </ul>
               )}
             </div>
-            {active && (
-              <div className="mt-2 grid gap-2 sm:flex sm:flex-wrap sm:items-center">
-                <span className="text-xs font-medium text-slate-500">
-                  {t("tutor.pairings.defaultSlotLabel")}
-                </span>
-                <select
-                  value={p.timeSlotId ?? ""}
-                  aria-label={`${p.subject}: ${t("tutor.pairings.defaultSlotLabel")}`}
-                  disabled={setSlot.isPending}
-                  onChange={async (e) => {
-                    const slotId = e.target.value || null;
-                    const slot = slots.find((s) => s.id === slotId);
-                    if (
-                      !(await confirm({
-                        title: t("tutor.tasks.changeSchedule"),
-                        message: t("tutor.tasks.confirmSchedule", {
-                          subject: p.subject,
-                          slot: slot
-                            ? `${slot.label} · ${formatWeekday(slot.dayOfWeek, locale)} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}`
-                            : t("scheduling.noLinkedSlot"),
-                        }),
-                        confirmLabel: t("common.save"),
-                        cancelLabel: t("common.cancel"),
-                      }))
-                    )
-                      return;
-                    setLastAction("slot");
-                    setSlot.mutate({
-                      pairingId: p.id,
-                      slotId,
-                    });
-                  }}
-                  className="select min-w-0 sm:w-auto"
-                >
-                  <option value="">{t("scheduling.noLinkedSlot")}</option>
-                  {slots.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.label} · {formatWeekday(s.dayOfWeek, locale)}{" "}
-                      {minToHm(s.startMin)}–{minToHm(s.endMin)}
-                    </option>
-                  ))}
-                </select>
-                {p.timeSlot && (
-                  <span className="muted">
-                    ({formatWeekday(p.timeSlot.dayOfWeek, locale)}{" "}
-                    {minToHm(p.timeSlot.startMin)}–{minToHm(p.timeSlot.endMin)})
-                  </span>
-                )}
-              </div>
-            )}
             {p.scheduleConfirmed && !p.timeSlotId && (
               <p className="muted mt-1 text-sm">{t("scheduling.retained")}</p>
             )}

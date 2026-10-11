@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({
   usePathname: () => "/student",
   useSearchParams: () => new URLSearchParams({ view: mocks.view }),
+  useRouter: () => ({ replace: vi.fn() }),
 }));
 vi.mock("next-intl", () => ({
   useLocale: () => "en",

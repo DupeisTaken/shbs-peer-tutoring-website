@@ -104,3 +104,13 @@ export function viewEnum<const T extends string>(choices: readonly T[]) {
       ? (value as T)
       : undefined;
 }
+
+export const viewPage = (value: unknown): number | undefined =>
+  typeof value === "number" &&
+  Number.isInteger(value) &&
+  value >= 0 &&
+  value <= 100_000
+    ? value
+    : undefined;
+export const viewSearch = (value: unknown): string | undefined =>
+  typeof value === "string" && value.length <= 160 ? value : undefined;

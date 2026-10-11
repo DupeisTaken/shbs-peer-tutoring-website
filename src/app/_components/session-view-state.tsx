@@ -21,6 +21,8 @@ import type { ViewState } from "~/lib/session-view-state";
 
 type ViewContext = { identity: string; pathname: string; verified: boolean };
 const Context = createContext<ViewContext | null>(null);
+/** Useful for URL adapters: defer restoring a remembered view until identity is verified. */
+export const useSessionViewVerified = () => !!useContext(Context)?.verified;
 
 /** Reuses the existing live-session check. It performs no requests and stores no private DOM. */
 export function SessionViewProvider({
@@ -133,6 +135,12 @@ export type SessionScrollOptions = {
   ready: boolean;
   enabled?: boolean;
 };
+
+/** Server pages can register their already-authorized, fully loaded shell. */
+export function SessionPagePosition(props: SessionScrollOptions) {
+  useSessionPageScroll(props);
+  return null;
+}
 
 /** Register once in the authorized page. Desktop management owns #admin-content;
  * other layouts own document scroll. Dialogs, tables and sidebar scroll are excluded. */

@@ -414,8 +414,9 @@
       "help": "Choisissez le créneau horaire par défaut pour chaque pariage (vous saisissez quand même les heures réelles de séance lors de la soumission de présence)."
     },
     "availability": {
-      "title": "Mes disponibilités",
-      "help": "Indiquez les créneaux horaires où vous pouvez enseigner. Cela aide les coordinateurs à vous planifier."
+      "title": "Mes créneaux disponibles",
+      "help": "Indiquez les créneaux horaires où vous pouvez enseigner. Cela aide les coordinateurs à vous planifier.",
+      "edit": "Modifier mes créneaux disponibles"
     },
     "attendance": {
       "title": "Soumettre la présence",
@@ -1955,7 +1956,7 @@
         "UNEXCUSED_ABSENT": "Absent non excusé"
       },
       "reasonRequired": "Raison (requise)",
-      "ratings": "Évaluations *",
+      "ratings": "Autoévaluation",
       "rating": {
         "ratingPreparedness": "Préparation",
         "ratingParticipation": "Participation",
@@ -2831,7 +2832,7 @@
     "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
-    "scheduleReject": "Apply to reject: schedule conflict",
+    "scheduleReject": "Demander le refus en raison d’un conflit d’horaire",
     "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
@@ -2865,7 +2866,8 @@
     "unknownSource": "Inscription antérieure",
     "sourceHelp": "La source décrit comment une inscription a été saisie. Elle ne change ni approbation, ni priorité, ni règles de participation. Une inscription antérieure a une source initiale non confirmée.",
     "boardGuide": "Comment les demandes sont regroupées",
-    "sourceGuide": "Origine et rattachement des inscriptions"
+    "sourceGuide": "Origine et rattachement des inscriptions",
+    "policyRefresh": "Actualiser"
   },
   "approvals": {
     "reviewPermissions": "Admin et Head examinent les demandes de gestion ordinaires. Seul Head examine les changements de rôles et de badges. Head peut examiner ses propres demandes ; les autres doivent faire appel à une autre personne autorisée.",
@@ -4547,5 +4549,8 @@
     "blur": "Les modifications sont enregistrées lorsque vous quittez ce champ.",
     "form": "Enregistrer ne concerne que ce formulaire.",
     "layout": "Enregistrer ne concerne que cette mise en page."
+  },
+  "participantNames": {
+    "unnamed": "Nom non fourni"
   }
 }

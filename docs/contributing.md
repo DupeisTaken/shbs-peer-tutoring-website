@@ -223,6 +223,29 @@ state to the signed-in identity and route, validate restored values, and let an
 explicit destination/hash or access change take precedence. Store no form drafts,
 passwords, private record text or authorization results in navigation storage.
 
+Use `useSessionViewState({ id, initialState, parse, scope, enabled })` from
+`src/app/_components/session-view-state.tsx` for explicit presentation choices.
+It returns the usual state/setter pair. Give each feature/schema a stable `id`,
+include its period and validated query context in `scope`, and supply a parser
+that allowlists the currently available choices. `viewEnum`, `viewPage` and
+`viewSearch` are small helpers; record parsers must select only named filter
+fields. Restored values are checked against the current parser on every render.
+Set `enabled: false` for authoritative denial or module removal, not ordinary
+loading. Explicit URL choices override the remembered state. The tutee navigation
+only recalls a previous view on a bare workspace return after identity verification.
+
+Register `useSessionPageScroll({ id, scope, ready, enabled })` once in an authorized
+page, including its selected panel/filters in `scope`. Set `ready` when its owned
+reads have usable content; `SessionPagePosition` is the equivalent adapter for a
+server-rendered shell. At 1024 px and above management restores `#admin-content`;
+other layouts and narrow management pages restore the document. Breakpoint changes
+switch owners. Dialog, table and sidebar scroll are excluded. Hash destinations and
+user gestures take precedence; delayed content recovery stops after five seconds.
+Storage failures fall back to normal navigation. The session-only, bounded store
+reuses the existing identity privacy check and never enables route DOM/draft caching.
+The gallery filter toolbar demonstrates the same hook without creating another
+identity provider or copying any example form fields into storage.
+
 ### Retain local work while changing panels
 
 For a long settings workspace, group existing owners with `SectionTabs` rather

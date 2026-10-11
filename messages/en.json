@@ -414,8 +414,9 @@
       "help": "Pick the default time slot for each pairing (you still enter actual session times when submitting attendance)."
     },
     "availability": {
-      "title": "My Availability",
-      "help": "Mark the time slots you can teach. These help coordinators schedule you."
+      "title": "My Time Availability",
+      "help": "Mark the time slots you can teach. These help coordinators schedule you.",
+      "edit": "Edit My Time Availability"
     },
     "attendance": {
       "title": "Submit Attendance",
@@ -1955,7 +1956,7 @@
         "UNEXCUSED_ABSENT": "Unexcused Absent"
       },
       "reasonRequired": "Reason (required)",
-      "ratings": "Ratings *",
+      "ratings": "Self Evaluation",
       "rating": {
         "ratingPreparedness": "Preparedness",
         "ratingParticipation": "Participation",
@@ -2831,7 +2832,7 @@
     "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
-    "scheduleReject": "Apply to reject: schedule conflict",
+    "scheduleReject": "Apply to reject because of schedule conflict",
     "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
@@ -2865,7 +2866,8 @@
     "unknownSource": "Earlier signup",
     "sourceHelp": "Source describes how a signup was entered. It does not change approval, priority or participation rules. Earlier signup means the original entry source is unconfirmed.",
     "boardGuide": "How requests are grouped",
-    "sourceGuide": "Signup sources and ownership"
+    "sourceGuide": "Signup sources and ownership",
+    "policyRefresh": "Refresh"
   },
   "approvals": {
     "reviewPermissions": "Admin and Head review daily operations. Head reviews significant settings, management profiles and roles, requested registration-code grants and reversals. Admin and Head issue Tutor/Crew codes directly. Head may review their own requests; everyone else needs another eligible reviewer.",
@@ -4547,5 +4549,8 @@
     "blur": "Changes save when you leave this field.",
     "form": "Save applies to this form only.",
     "layout": "Save applies to this layout only."
+  },
+  "participantNames": {
+    "unnamed": "Name not provided"
   }
 }

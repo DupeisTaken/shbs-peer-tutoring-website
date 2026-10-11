@@ -64,7 +64,10 @@ it("retains the independent reader viewport and hides cached policy during refre
   view.rerender(content(false, true));
   expect(screen.queryByText("Saved policy contents")).toBeNull();
   expect(screen.queryByRole("status")).toBeNull();
-  fireEvent.click(within(viewport).getByRole("button"));
+  expect(within(viewport).queryByRole("button")).toBeNull();
+  const refresh = screen.getByRole("button", { name: "Refresh" });
+  expect(refresh.closest("footer")).toBeTruthy();
+  fireEvent.click(refresh);
   expect(retry).toHaveBeenCalledOnce();
   expect(screen.queryByRole("checkbox")).toBeNull();
 });

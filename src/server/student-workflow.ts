@@ -705,7 +705,7 @@ export async function studentRequestRows(
         pairings: {
           where: { pairing: { termId: term.id } },
           include: {
-            pairing: { include: { tutor: { select: { englishName: true } } } },
+            pairing: { include: { tutor: { select: { englishName: true, user: { select: { username: true } } } } } },
           },
         },
       },

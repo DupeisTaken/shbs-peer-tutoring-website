@@ -190,6 +190,30 @@ Focused regressions live in `src/app/(admin)/admin/users`, `src/lib/user-filters
 
 ### Shared UI patterns
 
+The [session view API](../src/app/_components/session-view-state.tsx) stores explicit
+tabs, filters and pages in `sessionStorage`, partitioned by the existing session
+identity (account/role/tutor link), pathname, feature/schema ID and feature-supplied
+period/query scope. The provider consumes the existing identity verification and
+privacy curtain; it adds no identity requests. Every returned choice passes its
+current feature allowlist. Denied/removed features clear their remembered choices.
+The bounded [storage helpers](../src/lib/session-view-state.ts) reject nested record
+payloads and long bodies, retain at most 100 presentation entries, and degrade
+gracefully when storage is blocked. These structural limits supplement explicit
+feature allowlists; they do not authorize storing private draft fields.
+
+`useSessionPageScroll` restores only the page owner: fixed desktop management
+`#admin-content`, otherwise the document, switching at the 1024 px breakpoint.
+It waits for the feature's usable reads, observes delayed content growth for at
+most five seconds, and cancels recovery for user gestures or hash destinations.
+The last measured scroll position is retained on route exit even before the next
+animation frame. It does not alter Next history state, global scroll restoration,
+table/dialog/sidebar position, form drafts or server permissions. Explicit tutee
+URL views remain authoritative; a verified bare workspace return may recall the
+previous view. Gallery filters and participant/inbox adapters reuse the same API.
+Behavioral coverage is in `session-view-state.test.tsx`, the pure storage tests and
+the existing identity-cache/privacy tests; actual page screenshots remain separate
+from these mocked layout checks.
+
 Local panel composition leaves authority in existing owners. Program keeps its
 already-mounted settings forms and their independent versions; Crew and Support
 retain draft, review and pagination state when panels change. Review controllers

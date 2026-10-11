@@ -414,8 +414,9 @@
       "help": "Επιλέξτε την προεπιλεγμένη χρονοθυρίδα για κάθε αντιστοίχιση (εξακολουθείτε να εισάγετε πραγματικούς χρόνους κατά την υποβολή παρουσίας)."
     },
     "availability": {
-      "title": "Η διαθεσιμότητά μου",
-      "help": "Σημειώστε τις χρονοθυρίδες που μπορείτε να διδάξετε. Βοηθούν τους συντονιστές να σας προγραμματίσουν."
+      "title": "Οι διαθέσιμες ώρες μου",
+      "help": "Σημειώστε τις χρονοθυρίδες που μπορείτε να διδάξετε. Βοηθούν τους συντονιστές να σας προγραμματίσουν.",
+      "edit": "Επεξεργασία των διαθέσιμων ωρών μου"
     },
     "attendance": {
       "title": "Υποβολή παρουσίας",
@@ -1955,7 +1956,7 @@
         "UNEXCUSED_ABSENT": "Αδικαιολόγητη απουσία"
       },
       "reasonRequired": "Αιτία (απαιτείται)",
-      "ratings": "Αξιολογήσεις *",
+      "ratings": "Αυτοαξιολόγηση",
       "rating": {
         "ratingPreparedness": "Προετοιμασία",
         "ratingParticipation": "Συμμετοχή",
@@ -2831,7 +2832,7 @@
     "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
-    "scheduleReject": "Apply to reject: schedule conflict",
+    "scheduleReject": "Αίτηση απόρριψης λόγω σύγκρουσης ωραρίου",
     "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
@@ -2865,7 +2866,8 @@
     "unknownSource": "Παλαιότερη εγγραφή",
     "sourceHelp": "Η πηγή περιγράφει πώς καταχωρίστηκε η εγγραφή. Δεν αλλάζει την έγκριση, την προτεραιότητα ή τους κανόνες συμμετοχής. Η παλαιότερη εγγραφή έχει μη επιβεβαιωμένη αρχική πηγή.",
     "boardGuide": "Πώς ομαδοποιούνται τα αιτήματα",
-    "sourceGuide": "Πηγές εγγραφής και σύνδεση λογαριασμών"
+    "sourceGuide": "Πηγές εγγραφής και σύνδεση λογαριασμών",
+    "policyRefresh": "Ανανέωση"
   },
   "approvals": {
     "reviewPermissions": "Οι Admin και Head εξετάζουν τα συνήθη αιτήματα διαχείρισης. Μόνο ο Head εξετάζει αλλαγές ρόλων και σημάτων. Ο Head μπορεί να εξετάζει τα δικά του αιτήματα· οι υπόλοιποι χρειάζονται άλλον εξουσιοδοτημένο αξιολογητή.",
@@ -4547,5 +4549,8 @@
     "blur": "Οι αλλαγές αποθηκεύονται όταν φύγετε από αυτό το πεδίο.",
     "form": "Η αποθήκευση αφορά μόνο αυτή τη φόρμα.",
     "layout": "Η αποθήκευση αφορά μόνο αυτή τη διάταξη."
+  },
+  "participantNames": {
+    "unnamed": "Δεν δόθηκε όνομα"
   }
 }

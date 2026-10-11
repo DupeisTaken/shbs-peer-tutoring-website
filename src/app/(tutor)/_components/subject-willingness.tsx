@@ -6,6 +6,8 @@ import { api } from "~/trpc/react";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { useDialogPending } from "~/app/_components/ui/modal";
 import styles from "./subject-willingness.module.css";
+import { useSessionViewState } from "~/app/_components/session-view-state";
+import { viewSearch } from "~/lib/session-view-state";
 
 /** Keep subject intent discoverable beside qualifications, independent of timetable slots. */
 export function SubjectWillingness() {
@@ -25,7 +27,7 @@ export function SubjectWillingness() {
     setOpen(false);
   };
   return (
-    <section className={`card ${styles.entrance}`}>
+    <section className={`card p-4 sm:p-5 ${styles.entrance}`}>
       <div className="min-w-0 flex-1">
         <h2 className="section-title">{t("myTitle")}</h2>
         <p className="muted mt-1 max-w-xl text-sm leading-relaxed">
@@ -56,7 +58,14 @@ function WillingnessEditor() {
   const workflow = useTranslations("workflows");
   const query = api.subjectAvailability.mySubjects.useQuery();
   const utils = api.useUtils();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useSessionViewState({
+    id: "qualified-subject-search-v1",
+    initialState: "",
+    parse: viewSearch,
+    enabled:
+      query.error?.data?.code !== "FORBIDDEN" &&
+      query.error?.data?.code !== "UNAUTHORIZED",
+  });
   // A click owns one write until settlement, including the render before isPending updates.
   const submitting = useRef(false);
   const save = api.subjectAvailability.setMine.useMutation({

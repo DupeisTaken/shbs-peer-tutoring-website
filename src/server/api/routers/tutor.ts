@@ -89,7 +89,7 @@ export const tutorRouter = createTRPCRouter({
         // Removed (INACTIVE) tutees drop off the roster immediately — only show current ones.
         tutees: {
           where: { tutee: { status: { not: "INACTIVE" } } },
-          include: { tutee: { select: { id: true, englishName: true } } },
+          include: { tutee: { select: { id: true, englishName: true, user: { select: { username: true } } } } },
         },
       },
     });
@@ -106,13 +106,14 @@ export const tutorRouter = createTRPCRouter({
       where: { tutorId: ctx.session.tutorId, term: { active: true } },
       select: {
         tutees: {
-          select: { tuteeId: true, tutee: { select: { englishName: true } } },
+          select: { tuteeId: true, tutee: { select: { englishName: true, user: { select: { username: true } } } } },
         },
       },
     });
-    const names = new Map<string, string>();
+    // Current roster identity only; immutable session/audit name evidence stays raw.
+    const names = new Map<string, { name: string; username: string | null }>();
     for (const p of pairings) {
-      for (const x of p.tutees) names.set(x.tuteeId, x.tutee.englishName);
+      for (const x of p.tutees) names.set(x.tuteeId, { name: x.tutee.englishName, username: x.tutee.user?.username ?? null });
     }
     const tuteeIds = [...names.keys()];
     if (tuteeIds.length === 0) return [];
@@ -162,7 +163,8 @@ export const tutorRouter = createTRPCRouter({
         const standing = standingFromCounts(counts);
         return {
           tuteeId: id,
-          englishName: names.get(id) ?? "",
+          englishName: names.get(id)?.name ?? "",
+          username: names.get(id)?.username ?? null,
           validYellow: standing.validYellow,
           validRed: standing.validRed,
           pendingCount: counts.pendingYellow + counts.pendingRed,

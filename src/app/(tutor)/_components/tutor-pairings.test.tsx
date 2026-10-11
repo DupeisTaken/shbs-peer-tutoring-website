@@ -20,6 +20,8 @@ const state = vi.hoisted(() => ({
   pending: false,
   removalPending: false,
   confirmed: true,
+  name: "Sample Learner",
+  username: null as string | null,
 }));
 vi.mock("~/app/_components/confirm-dialog", () => ({
   useDialog: () => ({ confirm: state.confirm, dialog: null }),
@@ -49,7 +51,13 @@ vi.mock("~/trpc/react", () => ({
               timeSlotId: "one",
               timeSlot: null,
               tutees: [
-                { tuteeId: "tutee", tutee: { englishName: "Sample Learner" } },
+                {
+                  tuteeId: "tutee",
+                  tutee: {
+                    englishName: state.name,
+                    user: { username: state.username },
+                  },
+                },
               ],
             },
             {
@@ -116,6 +124,8 @@ afterEach(() => {
   state.pending = false;
   state.removalPending = false;
   state.confirmed = true;
+  state.name = "Sample Learner";
+  state.username = null;
 });
 const element = (active = true, locale = "en") => (
   <NextIntlClientProvider
@@ -127,6 +137,28 @@ const element = (active = true, locale = "en") => (
       <TutorPairings active={active} />
     </MergeProvider>
   </NextIntlClientProvider>
+);
+it("places the default slot before tutee availability and preserves a named participant", () => {
+  render(element());
+  const select = screen.getAllByRole("combobox")[0]!;
+  const participant = screen.getByText("Sample Learner");
+  expect(
+    select.compareDocumentPosition(participant) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});
+it.each(["learner", null])(
+  "uses current account identity or localized unnamed fallback without changing saved names (%s)",
+  (username) => {
+    state.name = "";
+    state.username = username;
+    render(element(false));
+    expect(
+      screen.getByText(username ?? messages.participantNames.unnamed),
+    ).toBeTruthy();
+    expect(state.setSlot).not.toHaveBeenCalled();
+    expect(state.remove).not.toHaveBeenCalled();
+  },
 );
 it.each([
   ["en", "Mon"],

@@ -206,7 +206,7 @@ it("keeps the saved receipt when refreshing totals fails", async () => {
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
-it("keeps all five rating descriptions accessible in the compact matrix", () => {
+it("keeps all five meanings visible beside each criterion and accessible on its compact radio row", () => {
   render(<AttendanceForm />);
   expect(screen.getAllByRole("radio")).toHaveLength(25);
   expect(
@@ -214,6 +214,14 @@ it("keeps all five rating descriptions accessible in the compact matrix", () => 
       name: "tutor.attendance.rating.ratingPreparedness: 3 · tutor.attendance.likert.3",
     }),
   ).toBeTruthy();
+  for (const value of [1, 2, 3, 4, 5]) {
+    expect(
+      screen.getAllByText(`${value} · tutor.attendance.likert.${value}`),
+    ).toHaveLength(5);
+  }
+  expect(
+    screen.getAllByRole("radio")[0]?.parentElement?.parentElement?.className,
+  ).toContain("grid-cols-5");
 });
 
 it("does not replace an attendance draft when a background query changes its schedule", () => {

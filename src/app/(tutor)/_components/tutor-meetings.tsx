@@ -43,7 +43,11 @@ export function TutorMeetings() {
   if (list.length === 0 && !meetings.error && !meetings.isLoading) return null;
 
   return (
-    <section id="tutor-meetings" tabIndex={-1} className="card scroll-mt-6 p-5">
+    <section
+      id="tutor-meetings"
+      tabIndex={-1}
+      className="card scroll-mt-6 p-4 sm:p-5"
+    >
       <h2 className="section-title">{t("tutor.meetings.title")}</h2>
       <p className="muted mt-1 mb-3">{t("tutor.meetings.help")}</p>
       {meetings.isLoading && <p role="status">{t("tutor.tasks.loading")}</p>}

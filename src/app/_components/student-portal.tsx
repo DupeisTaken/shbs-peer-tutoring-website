@@ -10,6 +10,12 @@ import { Button } from "./ui/button";
 import { Modal } from "./ui/modal";
 import { InlineNotice, StatePanel } from "./ui/patterns";
 import { QueryFeedback } from "./ui/query-feedback";
+import {
+  useSessionPageScroll,
+  useSessionViewState,
+} from "./session-view-state";
+import { viewPage } from "~/lib/session-view-state";
+import { ParticipantName } from "./participant-name";
 
 /** Pending and valid cards may be appealed once while their school-day window is open. */
 export function canSubmitCardAppeal({
@@ -28,8 +34,10 @@ export function canSubmitCardAppeal({
 
 export function StudentPortal({
   view = "all",
+  viewScope = "",
 }: {
   view?: "all" | "schedule" | "attendance" | "support";
+  viewScope?: string;
 }) {
   const programFormat = useFormatter();
   const locale = useLocale();
@@ -40,13 +48,25 @@ export function StudentPortal({
   const portal = useTranslations("tuteePortal");
   const attendance = useTranslations("tutor.attendance.tuteeStatusOpt");
   const scheduling = useTranslations("scheduling");
-  const [page, setPage] = useState(0);
   const queryClient = useQueryClient();
   const [denied, setDenied] = useState(false);
+  const [page, setPage] = useSessionViewState({
+    id: "student-session-page-v1",
+    scope: `${viewScope}:${view}`,
+    initialState: 0,
+    parse: viewPage,
+    enabled: !denied,
+  });
   const data = api.student.me.useQuery({ page }, { enabled: !denied });
   const authorizationDenied =
     data.error?.data?.code === "FORBIDDEN" ||
     data.error?.data?.code === "UNAUTHORIZED";
+  useSessionPageScroll({
+    id: "student-portal-v1",
+    scope: `${viewScope}:${view}:${page}`,
+    ready: !!data.data,
+    enabled: !denied && !authorizationDenied,
+  });
   useEffect(() => {
     if (!authorizationDenied) return;
     // Revoke every cached page of this private feed, not unrelated participant reads.
@@ -182,7 +202,11 @@ export function StudentPortal({
           {schedule.map((p) => (
             <div key={p.id} className="mt-3 rounded-lg bg-slate-50 p-4">
               <p className="font-semibold">
-                {p.subject} · {p.tutor.englishName}
+                {p.subject} ·{" "}
+                <ParticipantName
+                  name={p.tutor.englishName}
+                  username={p.tutor.user?.username}
+                />
               </p>
               <p className="muted">
                 {pairingScheduleText(p, scheduling("awaiting"), locale)}

@@ -20,6 +20,7 @@ import { SubjectWillingness } from "~/app/(tutor)/_components/subject-willingnes
 import { getTranslations } from "next-intl/server";
 import { DashboardTasks } from "~/app/(tutor)/_components/dashboard-tasks";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
+import { SessionPagePosition } from "~/app/_components/session-view-state";
 
 import { RoomGrid } from "~/app/_components/room-grid";
 
@@ -49,6 +50,11 @@ export default async function TutorDashboard() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-7 px-4 py-5 sm:space-y-8 sm:py-8">
+      <SessionPagePosition
+        id="tutor-dashboard-v1"
+        scope={`${me.status}:${total.periodLabel ?? ""}`}
+        ready
+      />
       {/* Header + monthly service-hour earnings */}
       <section className="border-accent-100 bg-accent-50/45 rounded-xl border px-4 py-5 sm:px-6 sm:py-6">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
@@ -171,7 +177,10 @@ export default async function TutorDashboard() {
           evidence use disclosures, which retain mounted drafts when collapsed. */}
       {!inactive && features.INTERVIEWS && <MyInterviews />}
       {!inactive && features.MEETINGS && <TutorMeetings />}
-      <QualificationRequests active={!inactive} />
+      <QualificationRequests
+        active={!inactive}
+        viewScope={total.periodLabel ?? ""}
+      />
       <section
         id="tutor-preferences"
         tabIndex={-1}
@@ -179,13 +188,20 @@ export default async function TutorDashboard() {
       >
         <SubjectWillingness />
         {!inactive && (
-          <DisclosureSection
-            title={t("dashboard.availability.title")}
-            lifetime="retained"
-          >
-            <p className="muted mb-3">{t("dashboard.availability.help")}</p>
-            <AvailabilityEditor />
-          </DisclosureSection>
+          <section className="card p-4 sm:p-5">
+            <h2 className="section-title">
+              {t("dashboard.availability.title")}
+            </h2>
+            <p className="muted mt-1 mb-4 text-sm">
+              {t("dashboard.availability.help")}
+            </p>
+            <DisclosureSection
+              title={t("dashboard.availability.edit")}
+              lifetime="retained"
+            >
+              <AvailabilityEditor />
+            </DisclosureSection>
+          </section>
         )}
       </section>
 

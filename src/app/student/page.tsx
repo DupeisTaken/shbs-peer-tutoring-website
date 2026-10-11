@@ -13,6 +13,7 @@ import { db } from "~/server/db";
 import { getActivePeriodOrNull } from "~/server/period";
 import { getFeatures } from "~/server/program/features";
 import { getPeriodDisplay } from "~/lib/period";
+import { SessionPagePosition } from "~/app/_components/session-view-state";
 
 export const dynamic = "force-dynamic";
 /** Keep intake and historical links stable while presenting one focused workspace at a time. */
@@ -35,11 +36,15 @@ export default async function StudentPage({
     ? await accountPortalAccess(session.user.id)
     : null;
   const view = resolveTuteeView(params.view);
+  const viewScope = currentPeriod?.id ?? "no-period";
   const period = currentPeriod
     ? getPeriodDisplay(currentPeriod, features.QUARTER_SYSTEM)
     : null;
   return (
     <>
+      {view === "account" && (
+        <SessionPagePosition id="student-account-v1" scope={viewScope} ready />
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="muted text-xs font-semibold tracking-wider uppercase">
@@ -58,12 +63,12 @@ export default async function StudentPage({
           </Link>
         )}
       </div>
-      {view === "dashboard" && <TuteeOverview />}
-      {view === "messages" && <MessageInbox />}
+      {view === "dashboard" && <TuteeOverview viewScope={viewScope} />}
+      {view === "messages" && <MessageInbox viewScope={viewScope} />}
       {view === "account" && <AccountSettings embedded />}
       {view === "requests" && (
         <>
-          <StudentWorkspace />
+          <StudentWorkspace viewScope={viewScope} />
           <LegacyParticipation />
         </>
       )}
@@ -81,7 +86,7 @@ export default async function StudentPage({
         </section>
       )}
       {(view === "schedule" || view === "attendance" || view === "support") && (
-        <StudentPortal key={view} view={view} />
+        <StudentPortal key={view} view={view} viewScope={viewScope} />
       )}
     </>
   );
