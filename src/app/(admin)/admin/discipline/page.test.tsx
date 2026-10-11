@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../../../messages/en.json";
 import zh from "../../../../../messages/zh.json";
 import CardsPage from "./page";
@@ -71,7 +71,9 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 
+let queryClient: QueryClient;
 beforeEach(() => {
+  queryClient = new QueryClient();
   vi.clearAllMocks();
   state.pending = false;
   state.error = null;
@@ -84,17 +86,22 @@ beforeEach(() => {
     this.removeAttribute("open");
   };
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  queryClient.clear();
+});
 const page = (locale: "en" | "zh" = "en", readOnly = false) => (
-  <NextIntlClientProvider
-    locale={locale}
-    messages={locale === "en" ? en : zh}
-    timeZone="Asia/Shanghai"
-  >
-    <ReadOnlyProvider value={readOnly}>
-      <CardsPage />
-    </ReadOnlyProvider>
-  </NextIntlClientProvider>
+  <QueryClientProvider client={queryClient}>
+    <NextIntlClientProvider
+      locale={locale}
+      messages={locale === "en" ? en : zh}
+      timeZone="Asia/Shanghai"
+    >
+      <ReadOnlyProvider value={readOnly}>
+        <CardsPage />
+      </ReadOnlyProvider>
+    </NextIntlClientProvider>
+  </QueryClientProvider>
 );
 
 it.each(["en", "zh"] as const)(
@@ -338,13 +345,7 @@ it("does not let an explicit reload read reset a concurrent review write", async
 });
 
 it("retains the actual table-detail discipline draft and original version after a failed write", () => {
-  const inline = () => (
-    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-      <ReadOnlyProvider value={false}>
-        <CardsPage />
-      </ReadOnlyProvider>
-    </NextIntlClientProvider>
-  );
+  const inline = () => page();
   const view = render(inline());
   fireEvent.click(screen.getByRole("button", { name: /^Edit:/ }));
   const note = screen.getByRole<HTMLInputElement>("textbox");

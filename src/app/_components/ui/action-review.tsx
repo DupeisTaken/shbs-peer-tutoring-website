@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button } from "./button";
@@ -33,38 +33,68 @@ export function useActionReview() {
     () => new Set(),
   );
   const [generation, setGeneration] = useState(0);
+  const generationNow = useRef(0);
+  const pendingGenerations = useRef(new Set<number>());
+  const blockedNow = useRef<ReadonlySet<string>>(new Set());
+  const needsRefreshNow = useRef(false);
   const [busy, setBusy] = useState(false);
   const [needsRefresh, setNeedsRefresh] = useState(false);
   const open = (next: ReviewedAction) => {
-    if (!busy && !needsRefresh && !blockedKeys.has(next.key)) {
+    if (
+      !pendingGenerations.current.size &&
+      !needsRefreshNow.current &&
+      !blockedNow.current.has(next.key)
+    ) {
       // A recovered reversible action can reuse its domain key. Each deliberate
       // opening needs a fresh dialog lifetime, including after inline recovery.
-      setGeneration((value) => value + 1);
+      generationNow.current += 1;
+      setGeneration(generationNow.current);
       setAction(next);
     }
   };
+  /** Explicit authoritative revocation conceals evidence, not an admitted server
+   * write. Old generations may finish and block their accepted key, but cannot
+   * restore evidence or change the state of a subsequently authorized review. */
+  const revoke = useCallback(() => {
+    generationNow.current += 1;
+    setGeneration(generationNow.current);
+    setAction(null);
+    needsRefreshNow.current = false;
+    setNeedsRefresh(false);
+  }, []);
   return {
     open,
+    revoke,
     busy,
     blocked: (key: string) => busy || needsRefresh || blockedKeys.has(key),
     dialog: action ? (
       <ActionReview
         key={`${generation}:${action.key}`}
         action={action}
-        onClose={() => setAction(null)}
-        onBusy={setBusy}
-        onRecovery={(failed) => {
-          setNeedsRefresh(failed);
-          if (!failed && action.repeatAfterRefresh)
-            setBlockedKeys((keys) => {
-              const next = new Set(keys);
-              next.delete(action.key);
-              return next;
-            });
+        onClose={() => {
+          if (generationNow.current === generation) setAction(null);
         }}
-        onAccepted={() =>
-          setBlockedKeys((keys) => new Set(keys).add(action.key))
-        }
+        onBusy={(pending) => {
+          if (pending) pendingGenerations.current.add(generation);
+          else pendingGenerations.current.delete(generation);
+          setBusy(pendingGenerations.current.size > 0);
+        }}
+        onRecovery={(failed) => {
+          if (generationNow.current !== generation) return;
+          needsRefreshNow.current = failed;
+          setNeedsRefresh(failed);
+          if (!failed && action.repeatAfterRefresh) {
+            const next = new Set(blockedNow.current);
+            next.delete(action.key);
+            blockedNow.current = next;
+            setBlockedKeys(next);
+          }
+        }}
+        onAccepted={() => {
+          const next = new Set(blockedNow.current).add(action.key);
+          blockedNow.current = next;
+          setBlockedKeys(next);
+        }}
       />
     ) : null,
   };

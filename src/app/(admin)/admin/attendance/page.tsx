@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
+import { FilterToolbar, StatePanel } from "~/app/_components/ui/patterns";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
+import { Button } from "~/app/_components/ui/button";
 
 import { api } from "~/trpc/react";
 import { AttendanceCorrection } from "~/app/_components/attendance-correction";
@@ -21,115 +26,257 @@ export default function SubmissionsPage() {
   const readOnly = useReadOnly();
   const [month, setMonth] = useState(currentMonth());
   const [tutorId, setTutorId] = useState("");
-  const tutors = api.admin.tutors.useQuery();
+  const filterId = useId();
+  const queryClient = useQueryClient();
+  const [deniedTutors, setDeniedTutors] = useState(false);
+  const [deniedSessions, setDeniedSessions] = useState<string | null>(null);
+  const tutors = api.admin.tutors.useQuery(undefined, {
+    enabled: !deniedTutors,
+  });
   const [showPast, setShowPast] = useState(false);
-  const sessions = api.admin.sessions.useQuery({
+  const input = {
     month: month || undefined,
     tutorId: tutorId || undefined,
+  };
+  const filterKey = JSON.stringify(input);
+  const sessions = api.admin.sessions.useQuery(input, {
+    enabled: deniedSessions !== filterKey,
   });
+  const tutorAccessDenied =
+    tutors.error?.data?.code === "FORBIDDEN" ||
+    tutors.error?.data?.code === "UNAUTHORIZED";
+  const sessionAccessDenied =
+    sessions.error?.data?.code === "FORBIDDEN" ||
+    sessions.error?.data?.code === "UNAUTHORIZED";
+  const tutorsHidden = tutorAccessDenied || deniedTutors;
+  const sessionsHidden = sessionAccessDenied || deniedSessions === filterKey;
+  // These keys and their authorization belong to the attendance feature. The
+  // feedback component only presents the resulting read/retry state.
+  useEffect(() => {
+    if (tutorAccessDenied) {
+      setDeniedTutors(true);
+      queryClient.removeQueries({
+        queryKey: getQueryKey(api.admin.tutors, undefined, "query"),
+        exact: true,
+      });
+    } else if (tutors.isSuccess && !tutors.isFetching) setDeniedTutors(false);
+  }, [tutorAccessDenied, tutors.isSuccess, tutors.isFetching, queryClient]);
+  useEffect(() => {
+    if (sessionAccessDenied) {
+      setDeniedSessions(filterKey);
+      queryClient.removeQueries({
+        queryKey: getQueryKey(
+          api.admin.sessions,
+          { month: month || undefined, tutorId: tutorId || undefined },
+          "query",
+        ),
+        exact: true,
+      });
+    } else if (sessions.isSuccess && !sessions.isFetching)
+      setDeniedSessions(null);
+  }, [
+    sessionAccessDenied,
+    sessions.isSuccess,
+    sessions.isFetching,
+    filterKey,
+    month,
+    tutorId,
+    queryClient,
+  ]);
 
   return (
     <div className="space-y-6">
       <h1 className="page-title">{t("admin.submissions.title")}</h1>
 
-      <div className="flex flex-wrap gap-3">
-        <input
-          type="month"
-          value={month}
-          onChange={(e) => setMonth(e.target.value)}
-          className="input field-auto min-w-36"
-        />
-        <select
-          value={tutorId}
-          onChange={(e) => setTutorId(e.target.value)}
-          className="select field-auto min-w-48"
-        >
-          <option value="">{t("admin.submissions.allTutors")}</option>
-          {visibleTutors(tutors.data ?? [], showPast, [tutorId]).map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.englishName}
-            </option>
-          ))}
-        </select>
-        <PastTutorsToggle showPast={showPast} onChange={setShowPast} />
-      </div>
-
-      <div className="card">
-        <SummaryTable label={t("admin.submissions.title")}>
-          <thead>
-            <tr>
-              <th>{t("admin.submissions.colDate")}</th>
-              <th>{t("admin.submissions.colTutor")}</th>
-              <th>{t("admin.submissions.colSubject")}</th>
-              <th>{t("admin.submissions.colStatus")}</th>
-              <th>{t("admin.submissions.colTutees")}</th>
-              <th className="text-right">{t("admin.submissions.colSH")}</th>
-              <th className="table-actions-heading">
-                {t("tablePatterns.actions")}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {(sessions.data ?? []).map((s) => (
-              <tr key={s.id}>
-                <td>
-                  {programFormat.dateTime(new Date(s.date), {
-                    dateStyle: "medium",
-                    timeZone: "UTC",
-                  })}
-                </td>
-                <td>{s.tutor.englishName}</td>
-                <td>{s.pairing.subject}</td>
-                <td className="text-slate-500">
-                  {t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`)}
-                </td>
-                <td>{s.tutees.length}</td>
-                <td className="text-right">{s.shCount.toFixed(1)}</td>
-                <TableActions>
-                  <TableDetails
-                    title={`${s.tutor.englishName} · ${s.pairing.subject}`}
-                  >
-                    <p>
-                      {programFormat.dateTime(new Date(s.date), {
-                        dateStyle: "full",
-                        timeZone: "UTC",
-                      })}{" "}
-                      · {t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`)}
-                    </p>
-                    <h3 className="font-semibold">
-                      {t("admin.submissions.colTutees")}
-                    </h3>
-                    <ul className="list-inside list-disc">
-                      {s.tutees.map((entry, index) => (
-                        <li key={index}>{entry.tutee.englishName}</li>
-                      ))}
-                    </ul>
-                    <p>
-                      {t("admin.submissions.colSH")}: {s.shCount.toFixed(1)}
-                    </p>
-                  </TableDetails>
-                  {!readOnly &&
-                    (!s.mergeGroupId || s.mergeGroupId === s.id) && (
-                      <TableDetails
-                        label={t("corrections.editAttendance")}
-                        title={`${s.tutor.englishName} · ${s.pairing.subject}`}
-                      >
-                        <AttendanceCorrection id={s.id} />
-                      </TableDetails>
-                    )}
-                </TableActions>
-              </tr>
+      <FilterToolbar label={t("admin.submissions.title")}>
+        <label htmlFor={`${filterId}-month`}>
+          <span className="label">{t("admin.submissions.monthLabel")}</span>
+          <input
+            id={`${filterId}-month`}
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            className="input control-compact field-auto min-w-36 lg:min-h-8 lg:py-1"
+          />
+        </label>
+        <label htmlFor={`${filterId}-tutor`}>
+          <span className="label">{t("admin.submissions.colTutor")}</span>
+          <select
+            id={`${filterId}-tutor`}
+            value={tutorId}
+            onChange={(e) => setTutorId(e.target.value)}
+            className="select control-compact field-auto min-w-48 lg:min-h-8 lg:py-1"
+            disabled={tutors.data === undefined || tutorsHidden}
+          >
+            <option value="">{t("admin.submissions.allTutors")}</option>
+            {visibleTutors(tutorsHidden ? [] : (tutors.data ?? []), showPast, [
+              tutorId,
+            ]).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.englishName}
+              </option>
             ))}
-            {sessions.data?.length === 0 && (
+          </select>
+        </label>
+        <PastTutorsToggle showPast={showPast} onChange={setShowPast} />
+      </FilterToolbar>
+
+      {tutorsHidden ? (
+        <StatePanel
+          kind="denied"
+          title={t("managementRecovery.denied", {
+            section: t("admin.submissions.colTutor"),
+          })}
+          action={
+            <Button
+              disabled={tutors.isFetching}
+              onClick={() => void tutors.refetch()}
+            >
+              {t("managementRecovery.retry", {
+                section: t("admin.submissions.colTutor"),
+              })}
+            </Button>
+          }
+        />
+      ) : (
+        <QueryFeedback
+          hasData={tutors.data !== undefined}
+          loading={tutors.data === undefined}
+          error={!!tutors.error}
+          retrying={tutors.isFetching}
+          loadingTitle={t("managementRecovery.loading", {
+            section: t("admin.submissions.colTutor"),
+          })}
+          errorTitle={t(
+            tutors.data === undefined
+              ? "managementRecovery.loadFailed"
+              : "managementRecovery.refreshFailed",
+            { section: t("admin.submissions.colTutor") },
+          )}
+          retryLabel={t("managementRecovery.retry", {
+            section: t("admin.submissions.colTutor"),
+          })}
+          onRetry={() => void tutors.refetch()}
+        />
+      )}
+      {sessionsHidden ? (
+        <StatePanel
+          kind="denied"
+          title={t("managementRecovery.denied", {
+            section: t("admin.submissions.title"),
+          })}
+          action={
+            <Button
+              disabled={sessions.isFetching}
+              onClick={() => void sessions.refetch()}
+            >
+              {t("managementRecovery.retry", {
+                section: t("admin.submissions.title"),
+              })}
+            </Button>
+          }
+        />
+      ) : (
+        <QueryFeedback
+          hasData={sessions.data !== undefined}
+          loading={sessions.data === undefined}
+          error={!!sessions.error}
+          retrying={sessions.isFetching}
+          loadingTitle={t("managementRecovery.loading", {
+            section: t("admin.submissions.title"),
+          })}
+          errorTitle={t(
+            sessions.data === undefined
+              ? "managementRecovery.loadFailed"
+              : "managementRecovery.refreshFailed",
+            { section: t("admin.submissions.title") },
+          )}
+          retryLabel={t("managementRecovery.retry", {
+            section: t("admin.submissions.title"),
+          })}
+          onRetry={() => void sessions.refetch()}
+        />
+      )}
+
+      {sessions.data !== undefined && !sessionsHidden && (
+        <div className="card">
+          <SummaryTable label={t("admin.submissions.title")}>
+            <thead>
               <tr>
-                <td colSpan={7} className="text-slate-500">
-                  {t("admin.submissions.empty")}
-                </td>
+                <th>{t("admin.submissions.colDate")}</th>
+                <th>{t("admin.submissions.colTutor")}</th>
+                <th>{t("admin.submissions.colSubject")}</th>
+                <th>{t("admin.submissions.colStatus")}</th>
+                <th>{t("admin.submissions.colTutees")}</th>
+                <th className="text-right">{t("admin.submissions.colSH")}</th>
+                <th className="table-actions-heading">
+                  {t("tablePatterns.actions")}
+                </th>
               </tr>
-            )}
-          </tbody>
-        </SummaryTable>
-      </div>
+            </thead>
+            <tbody>
+              {(sessions.data ?? []).map((s) => (
+                <tr key={s.id}>
+                  <td>
+                    {programFormat.dateTime(new Date(s.date), {
+                      dateStyle: "medium",
+                      timeZone: "UTC",
+                    })}
+                  </td>
+                  <td>{s.tutor.englishName}</td>
+                  <td>{s.pairing.subject}</td>
+                  <td className="text-slate-500">
+                    {t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`)}
+                  </td>
+                  <td>{s.tutees.length}</td>
+                  <td className="text-right">{s.shCount.toFixed(1)}</td>
+                  <TableActions>
+                    <TableDetails
+                      title={`${s.tutor.englishName} · ${s.pairing.subject}`}
+                    >
+                      <p>
+                        {programFormat.dateTime(new Date(s.date), {
+                          dateStyle: "full",
+                          timeZone: "UTC",
+                        })}{" "}
+                        ·{" "}
+                        {t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`)}
+                      </p>
+                      <h3 className="font-semibold">
+                        {t("admin.submissions.colTutees")}
+                      </h3>
+                      <ul className="list-inside list-disc">
+                        {s.tutees.map((entry, index) => (
+                          <li key={index}>{entry.tutee.englishName}</li>
+                        ))}
+                      </ul>
+                      <p>
+                        {t("admin.submissions.colSH")}: {s.shCount.toFixed(1)}
+                      </p>
+                    </TableDetails>
+                    {!readOnly &&
+                      (!s.mergeGroupId || s.mergeGroupId === s.id) && (
+                        <TableDetails
+                          label={t("corrections.editAttendance")}
+                          title={`${s.tutor.englishName} · ${s.pairing.subject}`}
+                        >
+                          <AttendanceCorrection id={s.id} />
+                        </TableDetails>
+                      )}
+                  </TableActions>
+                </tr>
+              ))}
+              {sessions.data.length === 0 && !sessions.error && (
+                <tr>
+                  <td colSpan={7} className="text-slate-500">
+                    {t("admin.submissions.empty")}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </SummaryTable>
+        </div>
+      )}
     </div>
   );
 }

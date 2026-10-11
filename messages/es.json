@@ -29,7 +29,9 @@
     "slot": "Franja horaria",
     "room": "Aula",
     "select": "Seleccionar",
-    "selected": "Seleccionado"
+    "selected": "Seleccionado",
+    "noRooms": "Aún no hay aulas.",
+    "noSlots": "Aún no se han publicado horarios."
   },
   "scheduling": {
     "awaiting": "Horario pendiente",
@@ -907,7 +909,10 @@
       "appeals": {
         "heading": "Apelaciones de Reactivación",
         "approve": "Aprobar",
-        "deny": "Denegar"
+        "deny": "Denegar",
+        "review": "Revisar apelación",
+        "message": "Apelación original",
+        "refreshFailed": "La decisión se guardó, pero no se pudo actualizar la cuenta o la lista de apelaciones. Vuelve a intentar la actualización sin enviar de nuevo la decisión."
       }
     },
     "submissions": {
@@ -919,7 +924,8 @@
       "colStatus": "Estado",
       "colTutees": "Estudiantes",
       "colSH": "HS",
-      "empty": "No hay envíos para este filtro."
+      "empty": "No hay envíos para este filtro.",
+      "monthLabel": "Mes"
     },
     "meetings": {
       "title": "Reuniones de tutores",
@@ -949,7 +955,8 @@
         "tutor": "Tutor",
         "empty": "Aún no hay asistencia registrada."
       },
-      "correctAttendance": "Submit attendance correction"
+      "correctAttendance": "Submit attendance correction",
+      "refreshFailed": "La asistencia se guardó, pero no se pudo actualizar la lista de reuniones. Vuelve a intentar la actualización sin enviar de nuevo la asistencia."
     },
     "timeslots": {
       "title": "Horarios",
@@ -1146,7 +1153,8 @@
           "GRADUATED": "Graduated",
           "ARCHIVED": "Archived"
         }
-      }
+      },
+      "messageLabel": "Mensaje"
     },
     "policies": {
       "title": "Documentos de políticas",
@@ -1174,7 +1182,13 @@
         "editedBy": "por {who}",
         "saving": "Guardando…",
         "save": "Guardar",
-        "saved": "Guardado."
+        "saved": "Guardado.",
+        "titleLabel": "Título del documento",
+        "versionLabel": "Versión (opcional)",
+        "bodyLabel": "Texto de la política (Markdown)",
+        "unsaved": "Cambios sin guardar",
+        "refreshFailed": "La política se guardó, pero no se pudo actualizar la política o el historial de versiones. Vuelve a intentar la actualización antes de seguir editando.",
+        "retryRefresh": "Reintentar actualización"
       },
       "studentTitle": "Política para estudiantes",
       "tutorTitle": "Política para tutores"
@@ -1567,7 +1581,9 @@
       },
       "issuedHeading": "Códigos Emitidos",
       "issuedHint": "Códigos entregados a solicitantes aceptados, a la espera de registro. Revocar un código en Códigos de Registro devuelve su solicitud a la cola.",
-      "issuedExpires": "Caduca el {date}"
+      "issuedExpires": "Caduca el {date}",
+      "originalApplication": "Solicitud original de incorporación",
+      "originalRequest": "Petición original"
     },
     "sessionFlags": {
       "title": "Avisos de asistencia",
@@ -1683,7 +1699,9 @@
         "insertImage": "Insertar imagen…",
         "preview": "Vista previa",
         "edit": "Editar",
-        "previewEmpty": "Nada que previsualizar todavía."
+        "previewEmpty": "Nada que previsualizar todavía.",
+        "titleLabel": "Título",
+        "bodyLabel": "Contenido (Markdown)"
       },
       "sections": {
         "new": {
@@ -2417,8 +2435,11 @@
         "reason": "¿Por qué te vas? (opcional)",
         "submit": "Enviar solicitud de baja",
         "pending": "Baja solicitada — a la espera de aprobación.",
-        "recall": "Retirar solicitud"
-      }
+        "recall": "Retirar solicitud",
+        "reasonLabel": "Motivo de salida"
+      },
+      "statusLabel": "Estado del miembro del equipo",
+      "noteLabel": "Nota de la ronda"
     }
   },
   "suspended": {
@@ -2529,7 +2550,8 @@
       "sectionId": "Content to Translate",
       "id": "Content to Translate",
       "other": "Content to Translate"
-    }
+    },
+    "refreshFailed": "Se aceptó el cambio, pero no se pudo actualizar el texto. Vuelve a intentar la actualización sin enviar el cambio de nuevo."
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -2657,7 +2679,9 @@
     "unscheduled": "Not scheduled",
     "panelRequired": "Assign a qualified panel before recording completion.",
     "invalidDate": "Enter a valid date and time.",
-    "searchInterviews": "Search"
+    "searchInterviews": "Search",
+    "feedbackVisibilityLoading": "Comprobando quién puede leer los comentarios…",
+    "feedbackVisibilityUnavailable": "No se pudo verificar quién puede leer los comentarios. Inténtalo de nuevo para comprobar su visibilidad."
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -4311,7 +4335,11 @@
     "translationHelp": "This permanently removes this saved language version. Other language versions remain available.",
     "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
     "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
-    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
+    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged.",
+    "galleryRevokeScenario": "Abrir ejemplo de revocación de acceso",
+    "galleryRevoke": "Simular acceso revocado",
+    "galleryRevoked": "Se revocó el acceso. El contenido de la revisión está oculto.",
+    "galleryRestore": "Restaurar el acceso del ejemplo"
   },
   "accountInvitation": {
     "enterCode": "Introduce la invitación recibida por correo",
@@ -4418,5 +4446,20 @@
     "saveError": "No pudimos confirmar el cambio. Conservamos tu selección. Inténtalo de nuevo; es seguro repetir la solicitud.",
     "securityTitle": "Los Correos Esenciales Continúan",
     "securityHelp": "Los correos de seguridad, verificación y recuperación no cambian. Puede llegar algún correo cuyo envío ya haya empezado."
+  },
+  "participantRecovery": {
+    "loading": "Cargando registros…",
+    "loadFailed": "No se pudieron cargar estos registros",
+    "refreshFailed": "No se pudieron actualizar estos registros. Inténtalo de nuevo para continuar.",
+    "accessDenied": "El acceso a estos registros no está disponible",
+    "accessDeniedHelp": "No se pudo confirmar tu acceso. Inténtalo de nuevo o inicia sesión con una cuenta autorizada.",
+    "retry": "Volver a intentar"
+  },
+  "managementRecovery": {
+    "loading": "Cargando {section}…",
+    "loadFailed": "No se pudo cargar {section}.",
+    "refreshFailed": "No se pudo actualizar {section}. Se sigue mostrando el contenido cargado anteriormente.",
+    "retry": "Volver a cargar {section}",
+    "denied": "Ya no tienes acceso a {section}."
   }
 }

@@ -1,7 +1,9 @@
 "use client";
 
 import { DismissibleNotice } from "~/app/_components/dismissible-notice";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -16,6 +18,8 @@ import {
 } from "~/app/_components/ui/summary-table";
 import { Modal } from "~/app/_components/ui/modal";
 import { Button } from "~/app/_components/ui/button";
+import { StatePanel } from "~/app/_components/ui/patterns";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { useActionReview } from "~/app/_components/ui/action-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
@@ -29,9 +33,42 @@ export default function TimeSlotsPage() {
   const t = useTranslations();
   const readOnly = useReadOnly();
   const utils = api.useUtils();
+  const queryClient = useQueryClient();
+  const [denied, setDenied] = useState(false);
   const slots = api.admin.timeSlots.useQuery(undefined, {
     staleTime: REFERENCE_STALE_TIME,
+    enabled: !denied,
   });
+  const accessDenied =
+    slots.error?.data?.code === "FORBIDDEN" ||
+    slots.error?.data?.code === "UNAUTHORIZED";
+  useEffect(() => {
+    if (accessDenied) {
+      setDenied(true);
+      queryClient.removeQueries({
+        queryKey: getQueryKey(api.admin.timeSlots, undefined, "query"),
+      });
+    } else if (slots.isSuccess && !slots.isFetching) setDenied(false);
+  }, [accessDenied, slots.isSuccess, slots.isFetching, queryClient]);
+  const readBlocked = slots.data === undefined || !!slots.error;
+  const section = t("admin.timeslots.title");
+  const readFeedback = (
+    <QueryFeedback
+      hasData={slots.data !== undefined}
+      loading={slots.data === undefined && !slots.error}
+      error={!!slots.error}
+      retrying={slots.isFetching}
+      loadingTitle={t("managementRecovery.loading", { section })}
+      errorTitle={t(
+        slots.data === undefined
+          ? "managementRecovery.loadFailed"
+          : "managementRecovery.refreshFailed",
+        { section },
+      )}
+      retryLabel={t("managementRecovery.retry", { section })}
+      onRetry={() => void slots.refetch()}
+    />
+  );
   const [form, setForm] = useState(EMPTY);
   const [editing, setEditing] = useState<SlotDraft | null>(null);
 
@@ -60,6 +97,25 @@ export default function TimeSlotsPage() {
     editing !== null &&
     editing.label.trim().length > 0 &&
     hmToMin(editing.endTime) > hmToMin(editing.startTime);
+  if (denied || accessDenied)
+    return (
+      <div className="space-y-6">
+        <h1 className="page-title">{section}</h1>
+        <StatePanel
+          kind="denied"
+          title={t("managementRecovery.denied", { section })}
+          action={
+            <Button
+              size="compact"
+              disabled={slots.isFetching}
+              onClick={() => void slots.refetch()}
+            >
+              {t("managementRecovery.retry", { section })}
+            </Button>
+          }
+        />
+      </div>
+    );
 
   return (
     <div className="space-y-6">
@@ -68,6 +124,7 @@ export default function TimeSlotsPage() {
         <h1 className="page-title">{t("admin.timeslots.title")}</h1>
         <p className="muted mt-1">{t("admin.timeslots.description")}</p>
       </div>
+      {readFeedback}
 
       {!readOnly && (
         <DismissibleNotice
@@ -87,7 +144,7 @@ export default function TimeSlotsPage() {
           className="card flex flex-wrap items-end gap-3 p-4"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!form.label.trim()) return;
+            if (readBlocked || create.isPending || !form.label.trim()) return;
             create.mutate({
               label: form.label.trim(),
               dayOfWeek: form.dayOfWeek,
@@ -147,7 +204,7 @@ export default function TimeSlotsPage() {
           </label>
           <button
             className="btn-primary"
-            disabled={!form.label.trim() || create.isPending}
+            disabled={readBlocked || !form.label.trim() || create.isPending}
           >
             {t("admin.timeslots.addSlot")}
           </button>
@@ -222,8 +279,8 @@ export default function TimeSlotsPage() {
                   {!readOnly && (
                     <>
                       <TableAction
-                        disabled={update.isPending}
                         aria-label={`${t("admin.timeslots.edit")}: ${s.label}`}
+                        disabled={readBlocked || update.isPending}
                         onClick={() => {
                           update.reset();
                           setEditing({
@@ -240,7 +297,11 @@ export default function TimeSlotsPage() {
                       </TableAction>
                       <TableAction
                         className="text-red-700"
-                        disabled={review.blocked(s.id) || update.isPending}
+                        disabled={
+                          readBlocked ||
+                          review.blocked(s.id) ||
+                          update.isPending
+                        }
                         onClick={() =>
                           review.open({
                             key: s.id,
@@ -276,7 +337,7 @@ export default function TimeSlotsPage() {
                 </TableActions>
               </tr>
             ))}
-            {slots.data?.length === 0 && (
+            {!slots.error && slots.data?.length === 0 && (
               <tr>
                 <td colSpan={5} className="text-slate-500">
                   {t("admin.timeslots.empty")}
@@ -310,9 +371,10 @@ export default function TimeSlotsPage() {
               </Button>
               <Button
                 variant="primary"
-                disabled={!editingIsValid || update.isPending}
+                disabled={readBlocked || !editingIsValid || update.isPending}
                 onClick={() => {
-                  if (!editingIsValid) return;
+                  if (readBlocked || update.isPending || !editingIsValid)
+                    return;
                   update.mutate({
                     id: editing.id,
                     label: editing.label.trim(),
@@ -332,6 +394,7 @@ export default function TimeSlotsPage() {
             </>
           }
         >
+          {readFeedback}
           <p className="muted mb-4">{t("admin.timeslots.propagationNote")}</p>
           <fieldset
             disabled={update.isPending}

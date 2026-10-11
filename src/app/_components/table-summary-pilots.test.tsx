@@ -10,6 +10,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import TimeSlotsPage from "../(admin)/admin/time-slots/page";
 import PairingsPage from "../(admin)/admin/pairings/page";
@@ -215,12 +216,16 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 
+let queryClient: QueryClient;
 const wrapper = ({ children }: { children: ReactNode }) => (
-  <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-    {children}
-  </NextIntlClientProvider>
+  <QueryClientProvider client={queryClient}>
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      {children}
+    </NextIntlClientProvider>
+  </QueryClientProvider>
 );
 beforeEach(() => {
+  queryClient = new QueryClient();
   vi.clearAllMocks();
   mocks.readOnly = false;
   mocks.pending = false;
@@ -239,7 +244,10 @@ beforeEach(() => {
     },
   });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  queryClient.clear();
+});
 
 it.each([
   ["time slot", TimeSlotsPage, "Monday block", "slot-1"],

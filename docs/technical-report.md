@@ -208,6 +208,19 @@ identifies these consumers and the stronger domain reviews that remain separate.
 
 [UI components](../src/app/_components/ui) provide behavior and composition without owning domain mutations. `Button` exposes action emphasis separately from context size; `ChoiceButton` uses pressed state for a selection; `Switch` exposes checked state. `SectionTabs` uses manual keyboard activation so arrow-key exploration does not switch an editor and discard its draft. `FormSection` groups one save scope and disables its fields/actions while busy. `StatePanel` keeps loading, empty, error and denied states distinct.
 
+[QueryFeedback](../src/app/_components/ui/query-feedback.tsx) uses `StatePanel` when
+an initial read is pending or failed, and `InlineNotice` when a failed refresh has
+cached data. Its `hasData` flag describes response presence, not collection length;
+an empty array is a successful read, while an enabled query with undefined data is
+still unknown. Error feedback remains visible during Retry. The component receives
+translated titles, optional detail and a read callback; it does not fetch, mount
+feature children, infer empty results, grant access or own mutation/draft state.
+Callers keep cached content beside transient recovery and disable only dependent
+writes. Authoritative access denial must hide private content and invalidate the
+affected private cache; a later transport failure cannot restore that access.
+Feature tests must cover these ownership rules in addition to the shared display
+tests and gallery example.
+
 `NativeDialog` supplies native modality, portal event ownership, radio-aware keyboard focus and exact trigger restoration. `Modal`, the wide/sticky `ProfileDialog`, and `CurrentPolicyDialog` share this behavior while retaining their own layout and scrolling. A nested review owns its Escape event. Independent forms call `useDialogPending(ownPending)` to prevent dismissal during any registered write; its return value disables sibling controls. Register only the form's own pending state, never the returned aggregate, so the guard releases when writes settle. Callers retain validation, versions, permissions, approval policy and action tickets.
 
 `TimedActionDialog` retains its separate ticket/countdown and mandatory-policy
@@ -329,6 +342,13 @@ separate `refresh`: failure is synchronization recovery, not mutation failure.
 `commit` again. `repeatAfterRefresh` allows a fresh deliberate review only for a
 domain action that becomes meaningful again. Keep the controller mounted above the
 row or tab that an accepted action can remove.
+
+If an authoritative query denial revokes access to the evidence in an open review,
+the feature hides that review immediately and calls `revoke()` to release its stored
+action. This does not cancel an admitted server write. Pending generations remain
+blocked until they settle; accepted and queued keys remain protected against replay.
+Callbacks from a revoked generation cannot restore evidence, close a newer review
+or release an accepted key. A transport failure alone must not revoke a review.
 
 Draft forms have a different lifetime. Retain one draft and version per independently
 saved section, freeze that section during admitted work, and distinguish background

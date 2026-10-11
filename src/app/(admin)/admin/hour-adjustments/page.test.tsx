@@ -89,6 +89,26 @@ vi.mock("~/trpc/react", () => ({
 
 import AdjustmentsPage from "./page";
 
+it.each(["en", "zh"])(
+  "keeps persistent visible %s labels on all five creation fields",
+  (locale) => {
+    renderPage(locale);
+    const labels = (locale === "zh" ? zh : en).admin.adjustments.table;
+    for (const name of [
+      labels.tutor,
+      labels.month,
+      labels.type,
+      labels.amount,
+      labels.reason,
+    ]) {
+      const field = screen.getByLabelText(name, { selector: "input,select" });
+      expect(field.closest("label")?.querySelector(".label")?.textContent).toBe(
+        name,
+      );
+    }
+  },
+);
+
 function renderPage(locale = "en", readOnly = false) {
   return render(
     <NextIntlClientProvider

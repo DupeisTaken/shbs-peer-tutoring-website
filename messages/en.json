@@ -883,7 +883,10 @@
       "appeals": {
         "heading": "Reinstatement Appeals",
         "approve": "Approve",
-        "deny": "Deny"
+        "deny": "Deny",
+        "review": "Review appeal",
+        "message": "Original appeal",
+        "refreshFailed": "The appeal decision was saved, but the account or appeal list could not be refreshed. Retry refresh; do not submit the decision again."
       }
     },
     "registrationCodes": {
@@ -965,7 +968,8 @@
       "colStatus": "Status",
       "colTutees": "Tutees",
       "colSH": "SH",
-      "empty": "No submissions for this filter."
+      "empty": "No submissions for this filter.",
+      "monthLabel": "Month"
     },
     "meetings": {
       "title": "Tutor Meetings",
@@ -995,7 +999,8 @@
         "tutor": "Tutor",
         "empty": "No attendance recorded yet."
       },
-      "correctAttendance": "Submit attendance correction"
+      "correctAttendance": "Submit attendance correction",
+      "refreshFailed": "Attendance was saved, but the meeting list could not be refreshed. Retry refresh; do not submit attendance again."
     },
     "timeslots": {
       "title": "Time Slots",
@@ -1192,7 +1197,8 @@
           "GRADUATED": "Graduated",
           "ARCHIVED": "Archived"
         }
-      }
+      },
+      "messageLabel": "Message"
     },
     "policies": {
       "title": "Policy Documents",
@@ -1220,7 +1226,13 @@
         "editedBy": "by {who}",
         "saving": "Saving…",
         "save": "Save",
-        "saved": "Saved."
+        "saved": "Saved.",
+        "titleLabel": "Document title",
+        "versionLabel": "Version (optional)",
+        "bodyLabel": "Policy text (Markdown)",
+        "unsaved": "Unsaved changes",
+        "refreshFailed": "The policy was saved, but the policy or version history could not be refreshed. Retry refresh before editing again.",
+        "retryRefresh": "Retry refresh"
       },
       "studentTitle": "Tutee Policy",
       "tutorTitle": "Tutor Policy"
@@ -1535,7 +1547,9 @@
       },
       "issuedHeading": "Issued Codes",
       "issuedHint": "Codes handed to accepted applicants, awaiting registration. Revoking a code on Registration Codes returns its application to the queue above.",
-      "issuedExpires": "Expires {date}"
+      "issuedExpires": "Expires {date}",
+      "originalApplication": "Original application",
+      "originalRequest": "Original request"
     },
     "sessionFlags": {
       "title": "Attendance Flags",
@@ -1651,7 +1665,9 @@
         "insertImage": "Insert image…",
         "preview": "Preview",
         "edit": "Edit",
-        "previewEmpty": "Nothing to preview yet."
+        "previewEmpty": "Nothing to preview yet.",
+        "titleLabel": "Title",
+        "bodyLabel": "Content (Markdown)"
       },
       "sections": {
         "new": {
@@ -2385,8 +2401,11 @@
         "reason": "Why are you leaving? (optional)",
         "submit": "Submit opt-out request",
         "pending": "Opt-out requested — awaiting admin approval.",
-        "recall": "Recall request"
-      }
+        "recall": "Recall request",
+        "reasonLabel": "Opt-out reason"
+      },
+      "statusLabel": "Crew status",
+      "noteLabel": "Patrol note"
     }
   },
   "suspended": {
@@ -2497,7 +2516,8 @@
       "sectionId": "Content to Translate",
       "id": "Content to Translate",
       "other": "Content to Translate"
-    }
+    },
+    "refreshFailed": "Your change was accepted, but the updated text could not be refreshed. Retry refresh without submitting again."
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -2625,7 +2645,9 @@
     "unscheduled": "Not scheduled",
     "panelRequired": "Assign a qualified panel before recording completion.",
     "invalidDate": "Enter a valid date and time.",
-    "searchInterviews": "Search"
+    "searchInterviews": "Search",
+    "feedbackVisibilityLoading": "Checking who can read feedback…",
+    "feedbackVisibilityUnavailable": "We could not verify who can read feedback. Try again to check its visibility."
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -3733,7 +3755,9 @@
     "slot": "Time slot",
     "room": "Room",
     "select": "Select",
-    "selected": "Selected"
+    "selected": "Selected",
+    "noRooms": "No rooms yet.",
+    "noSlots": "No time slots published yet."
   },
   "identityUsername": {
     "preferredLatinName": "Latin Spelling",
@@ -4311,7 +4335,11 @@
     "translationHelp": "This permanently removes this saved language version. Other language versions remain available.",
     "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
     "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
-    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
+    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged.",
+    "galleryRevokeScenario": "Open access revocation example",
+    "galleryRevoke": "Simulate revoked access",
+    "galleryRevoked": "Access was revoked. Review evidence is concealed.",
+    "galleryRestore": "Restore example access"
   },
   "accountInvitation": {
     "enterCode": "Verify your email",
@@ -4418,5 +4446,20 @@
     "saveError": "We couldn’t confirm the update. Your selection is still here. Please try again; repeating an unsubscribe request is safe.",
     "securityTitle": "Essential Emails Stay On",
     "securityHelp": "Account security, verification and recovery emails are unaffected. An email already being sent may still arrive."
+  },
+  "participantRecovery": {
+    "loading": "Loading records…",
+    "loadFailed": "Unable to load these records",
+    "refreshFailed": "These records could not be refreshed. Try again to continue.",
+    "accessDenied": "Access to these records is unavailable",
+    "accessDeniedHelp": "Your access could not be confirmed. Try again or sign in with an authorized account.",
+    "retry": "Try again"
+  },
+  "managementRecovery": {
+    "loading": "Loading {section}…",
+    "loadFailed": "Could not load {section}.",
+    "refreshFailed": "Could not refresh {section}. Previously loaded content is still shown.",
+    "retry": "Retry {section}",
+    "denied": "You no longer have access to {section}."
   }
 }

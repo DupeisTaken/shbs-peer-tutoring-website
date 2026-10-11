@@ -2,7 +2,9 @@
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
 import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
 import { useTranslations } from "next-intl";
@@ -20,6 +22,8 @@ import {
 } from "~/app/_components/ui/summary-table";
 import { Modal } from "~/app/_components/ui/modal";
 import { Button } from "~/app/_components/ui/button";
+import { StatePanel } from "~/app/_components/ui/patterns";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { useActionReview } from "~/app/_components/ui/action-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { queuedApprovalId } from "~/lib/approval-outcome";
@@ -41,21 +45,113 @@ const EMPTY: PairingForm = {
   subject: "",
   tuteeIds: [],
 };
+const accessDenied = (error: { data?: { code?: string } | null } | null) =>
+  error?.data?.code === "FORBIDDEN" || error?.data?.code === "UNAUTHORIZED";
 
 export default function PairingsPage() {
   const t = useTranslations();
   const readOnly = useReadOnly();
   const utils = api.useUtils();
-  const pairings = api.admin.pairings.useQuery();
-  const tutors = api.admin.tutors.useQuery();
-  const subjects = api.admin.subjects.useQuery();
-  const tutees = api.admin.tutees.useQuery();
+  const queryClient = useQueryClient();
+  const [denied, setDenied] = useState(false);
+  const pairings = api.admin.pairings.useQuery(undefined, { enabled: !denied });
+  const tutors = api.admin.tutors.useQuery(undefined, { enabled: !denied });
+  const subjects = api.admin.subjects.useQuery(undefined, { enabled: !denied });
+  const tutees = api.admin.tutees.useQuery(undefined, { enabled: !denied });
   const rooms = api.admin.rooms.useQuery(undefined, {
     staleTime: REFERENCE_STALE_TIME,
+    enabled: !denied,
   });
   const timeSlots = api.admin.timeSlots.useQuery(undefined, {
     staleTime: REFERENCE_STALE_TIME,
+    enabled: !denied,
   });
+  const reads = [
+    { query: pairings, section: t("admin.pairings.title") },
+    { query: tutors, section: t("admin.tutors.title") },
+    { query: subjects, section: t("admin.courses.title") },
+    { query: tutees, section: t("admin.tutees.title") },
+    { query: rooms, section: t("admin.rooms.title") },
+    { query: timeSlots, section: t("admin.timeslots.title") },
+  ];
+  const authorizationDenied = reads.some(({ query }) =>
+    accessDenied(query.error),
+  );
+  const readsSucceeded = reads.every(
+    ({ query }) => query.isSuccess && !query.isFetching,
+  );
+  useEffect(() => {
+    if (authorizationDenied) {
+      setDenied(true);
+      // Conceal this feature on revoked authority, evicting only denied query families.
+      if (accessDenied(pairings.error))
+        queryClient.removeQueries({
+          queryKey: getQueryKey(api.admin.pairings, undefined, "query"),
+        });
+      if (accessDenied(tutors.error))
+        queryClient.removeQueries({
+          queryKey: getQueryKey(api.admin.tutors, undefined, "query"),
+        });
+      if (accessDenied(subjects.error))
+        queryClient.removeQueries({
+          queryKey: getQueryKey(api.admin.subjects, undefined, "query"),
+        });
+      if (accessDenied(tutees.error))
+        queryClient.removeQueries({
+          queryKey: getQueryKey(api.admin.tutees, undefined, "query"),
+        });
+      if (accessDenied(rooms.error))
+        queryClient.removeQueries({
+          queryKey: getQueryKey(api.admin.rooms, undefined, "query"),
+        });
+      if (accessDenied(timeSlots.error))
+        queryClient.removeQueries({
+          queryKey: getQueryKey(api.admin.timeSlots, undefined, "query"),
+        });
+    } else if (readsSucceeded) setDenied(false);
+  }, [
+    authorizationDenied,
+    readsSucceeded,
+    pairings.error,
+    tutors.error,
+    subjects.error,
+    tutees.error,
+    rooms.error,
+    timeSlots.error,
+    queryClient,
+  ]);
+  const hasData = reads.every(({ query }) => query.data !== undefined);
+  const readErrors = reads.filter(({ query }) => query.error);
+  const readBlocked = !hasData || readErrors.length > 0;
+  const section =
+    (readErrors.length
+      ? readErrors
+      : reads.filter(({ query }) => query.data === undefined)
+    )
+      .map(({ section }) => section)
+      .join(", ") || t("admin.pairings.title");
+  const retry = () => {
+    for (const { query } of reads)
+      if (query.error || query.data === undefined || denied)
+        void query.refetch();
+  };
+  const readFeedback = (
+    <QueryFeedback
+      hasData={hasData}
+      loading={!hasData}
+      error={readErrors.length > 0}
+      retrying={reads.some(({ query }) => query.isFetching)}
+      loadingTitle={t("managementRecovery.loading", { section })}
+      errorTitle={t(
+        hasData
+          ? "managementRecovery.refreshFailed"
+          : "managementRecovery.loadFailed",
+        { section },
+      )}
+      retryLabel={t("managementRecovery.retry", { section })}
+      onRetry={retry}
+    />
+  );
 
   const invalidate = () => utils.admin.pairings.invalidate();
   const create = api.admin.createPairing.useMutation({ onSuccess: invalidate });
@@ -207,8 +303,11 @@ export default function PairingsPage() {
 
       <div className="mt-4 flex items-center gap-3">
         <button
-          onClick={() => setConfirming(true)}
+          onClick={() => {
+            if (!readBlocked) setConfirming(true);
+          }}
           disabled={
+            readBlocked ||
             !form.tutorId ||
             (!retainsAssignment &&
               (!selectedSubject?.active ||
@@ -229,25 +328,58 @@ export default function PairingsPage() {
     </fieldset>
   );
 
+  if (denied || authorizationDenied)
+    return (
+      <div className="space-y-6">
+        <h1 className="page-title">{t("admin.pairings.title")}</h1>
+        <StatePanel
+          kind="denied"
+          title={t("managementRecovery.denied", {
+            section: t("admin.pairings.title"),
+          })}
+          action={
+            <Button
+              size="compact"
+              disabled={reads.some(({ query }) => query.isFetching)}
+              onClick={retry}
+            >
+              {t("managementRecovery.retry", {
+                section: t("admin.pairings.title"),
+              })}
+            </Button>
+          }
+        />
+      </div>
+    );
+
   return (
     <div className="space-y-6">
       <h1 className="page-title">{t("admin.pairings.title")}</h1>
+      {readFeedback}
 
       {/* Slot × room schedule grid */}
       <section>
         <h2 className="section-title mb-2">
           {t("admin.pairings.roomSchedule")}
         </h2>
-        <RoomGrid
-          rooms={(rooms.data ?? []).map((r) => ({ id: r.id, name: r.name }))}
-          slots={(timeSlots.data ?? []).filter((s) => s.active)}
-          pairings={pairings.data ?? []}
-          blocks={(rooms.data ?? []).flatMap((r) => r.unavailabilities)}
-        />
+        {rooms.data !== undefined &&
+          timeSlots.data !== undefined &&
+          pairings.data !== undefined && (
+            <RoomGrid
+              rooms={(rooms.data ?? []).map((r) => ({
+                id: r.id,
+                name: r.name,
+              }))}
+              slots={(timeSlots.data ?? []).filter((s) => s.active)}
+              pairings={pairings.data ?? []}
+              blocks={(rooms.data ?? []).flatMap((r) => r.unavailabilities)}
+            />
+          )}
       </section>
 
       {/* Create / edit form */}
       {!readOnly &&
+        hasData &&
         (editing ? (
           <Modal
             title={t("admin.pairings.editPairing")}
@@ -270,6 +402,7 @@ export default function PairingsPage() {
               </Button>
             }
           >
+            {readFeedback}
             {editor}
           </Modal>
         ) : (
@@ -340,7 +473,9 @@ export default function PairingsPage() {
                     <>
                       <TableAction
                         aria-label={`${t("admin.pairings.edit")}: ${p.tutor.englishName} · ${p.subject}`}
-                        disabled={create.isPending || update.isPending}
+                        disabled={
+                          readBlocked || create.isPending || update.isPending
+                        }
                         onClick={() => {
                           setConfirming(false);
                           setForm({
@@ -357,7 +492,11 @@ export default function PairingsPage() {
                       </TableAction>
                       <TableAction
                         className="text-red-700"
-                        disabled={review.blocked(p.id) || update.isPending}
+                        disabled={
+                          readBlocked ||
+                          review.blocked(p.id) ||
+                          update.isPending
+                        }
                         onClick={() =>
                           review.open({
                             key: p.id,

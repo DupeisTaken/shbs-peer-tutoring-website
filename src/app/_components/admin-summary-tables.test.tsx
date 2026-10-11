@@ -617,13 +617,15 @@ it.each(["en", "zh"] as const)(
     state.readOnly = true;
     const copy = locale === "en" ? messages : zh;
     render(
-      <NextIntlClientProvider
-        locale={locale}
-        messages={copy}
-        timeZone="Asia/Shanghai"
-      >
-        <AttendancePage />
-      </NextIntlClientProvider>,
+      <QueryClientProvider client={queryClient}>
+        <NextIntlClientProvider
+          locale={locale}
+          messages={copy}
+          timeZone="Asia/Shanghai"
+        >
+          <AttendancePage />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
     );
     expect(screen.getByRole("table").textContent).toContain(
       copy.tutor.attendance.tutorStatusOpt.PRESENT,

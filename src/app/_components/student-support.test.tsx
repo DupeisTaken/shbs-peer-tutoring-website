@@ -1,15 +1,23 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   appealsUseQuery: vi.fn(),
   refetch: vi.fn(),
+  settings: vi.fn(),
+  role: "HEAD",
 }));
 
 vi.mock("next-intl", () => ({
   useTimeZone: () => "Asia/Shanghai",
-  useFormatter: () => ({ dateTime: (date: Date, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en", { timeZone: "Asia/Shanghai", ...options }).format(date) }),
+  useFormatter: () => ({
+    dateTime: (date: Date, options: Intl.DateTimeFormatOptions) =>
+      new Intl.DateTimeFormat("en", {
+        timeZone: "Asia/Shanghai",
+        ...options,
+      }).format(date),
+  }),
   useTranslations: () => (key: string) => key,
 }));
 vi.mock("next/link", () => ({
@@ -17,9 +25,9 @@ vi.mock("next/link", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
+    account: { me: { useQuery: () => ({ data: { role: state.role } }) } },
     student: {
-      feedbackSettings: { useQuery: () => ({ data: false, isSuccess: true }) },
+      feedbackSettings: { useQuery: state.settings },
       feedbackList: { useQuery: () => ({ data: [] }) },
       appeals: { useQuery: state.appealsUseQuery },
       setFeedbackSettings: {
@@ -57,8 +65,41 @@ vi.mock("./student-portal", () => ({
 
 import { StudentSupport } from "./student-support";
 
+beforeEach(() => {
+  state.role = "HEAD";
+  state.settings.mockReturnValue({ data: false, isSuccess: true });
+  state.appealsUseQuery.mockReturnValue({ data: { rows: [], total: 0 } });
+});
 afterEach(() => {
+  cleanup();
   vi.clearAllMocks();
+});
+
+it.each([undefined, false, true])(
+  "does not describe failed visibility as private, including cached %s",
+  (data) => {
+    state.role = "TUTOR";
+    state.settings.mockReturnValue({
+      data,
+      error: new Error("Offline"),
+      refetch: state.refetch,
+    });
+    render(<StudentSupport />);
+    expect(screen.getByText("feedbackVisibilityUnavailable")).toBeTruthy();
+    expect(screen.queryByText("privateFeedback")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "retry" }));
+    expect(state.refetch).toHaveBeenCalledOnce();
+  },
+);
+it("distinguishes a pending visibility read from confirmed management-only feedback", () => {
+  state.role = "TUTOR";
+  state.settings.mockReturnValue({ data: undefined });
+  const view = render(<StudentSupport />);
+  expect(screen.getByText("feedbackVisibilityLoading")).toBeTruthy();
+  expect(screen.queryByText("privateFeedback")).toBeNull();
+  state.settings.mockReturnValue({ data: false, isSuccess: true });
+  view.rerender(<StudentSupport />);
+  expect(screen.getByText("privateFeedback")).toBeTruthy();
 });
 
 it("defaults to pending appeals and uses the filtered total for navigation", () => {

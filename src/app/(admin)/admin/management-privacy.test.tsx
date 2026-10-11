@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../../messages/en.json";
 import zh from "../../../../messages/zh.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
@@ -65,15 +66,17 @@ it.each([
   "renders the $page summary and detail from the observer projection in $locale",
   ({ page, locale, messages }) => {
     render(
-      <NextIntlClientProvider
-        locale={locale}
-        messages={messages}
-        timeZone="Asia/Shanghai"
-      >
-        <ReadOnlyProvider value={true}>
-          {page === "attendance" ? <AttendancePage /> : <AuditPage />}
-        </ReadOnlyProvider>
-      </NextIntlClientProvider>,
+      <QueryClientProvider client={new QueryClient()}>
+        <NextIntlClientProvider
+          locale={locale}
+          messages={messages}
+          timeZone="Asia/Shanghai"
+        >
+          <ReadOnlyProvider value={true}>
+            {page === "attendance" ? <AttendancePage /> : <AuditPage />}
+          </ReadOnlyProvider>
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
     );
     expect(document.body.textContent).not.toContain(PRIVATE);
     if (page === "attendance") {

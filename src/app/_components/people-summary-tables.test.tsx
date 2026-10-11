@@ -9,6 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import UsersPage from "../(admin)/admin/users/page";
 import TutorsPage from "../(admin)/admin/tutors/page";
@@ -283,12 +284,18 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 
+let queryClient: QueryClient;
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-    <ReadOnlyProvider value={state.readOnly}>{children}</ReadOnlyProvider>
-  </NextIntlClientProvider>
+  <QueryClientProvider client={queryClient}>
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <ReadOnlyProvider value={state.readOnly}>{children}</ReadOnlyProvider>
+    </NextIntlClientProvider>
+  </QueryClientProvider>
 );
 beforeEach(() => {
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   state.readOnly = false;
   state.pending = false;
   state.callerRole = "HEAD";

@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -80,6 +81,9 @@ export default function LandingAdminPage() {
   const readOnly = useReadOnly();
   const review = useActionReview();
   const [tab, setTab] = useState<Tab>("layout");
+  const [openedTabs, setOpenedTabs] = useState<ReadonlySet<Tab>>(
+    () => new Set(["layout"]),
+  );
   const images = api.home.images.useQuery();
 
   // Order groups the landing-page surfaces (layout → content → sections → news) ahead of standalone
@@ -142,7 +146,10 @@ export default function LandingAdminPage() {
           label={t("admin.landing.title")}
           items={tabs.map((item) => ({ value: item.key, label: item.label }))}
           value={tab}
-          onChange={setTab}
+          onChange={(next) => {
+            setOpenedTabs((previous) => new Set(previous).add(next));
+            setTab(next);
+          }}
         >
           {activeDesc && <p className="muted mb-4 text-sm">{activeDesc}</p>}
           {images.error && (
@@ -158,28 +165,42 @@ export default function LandingAdminPage() {
               {images.error.message}
             </StatePanel>
           )}
-          {tab === "layout" && (
-            <LayoutEditor images={images.data ?? []} readOnly={readOnly} />
+          {/* Opened tab owners keep their drafts and pending callbacks. Initial
+              queries remain lazy until a tab has actually been visited. */}
+          {openedTabs.has("layout") && (
+            <div hidden={tab !== "layout"}>
+              <LayoutEditor images={images.data ?? []} readOnly={readOnly} />
+            </div>
           )}
-          {tab === "content" && (
-            <ContentEditor images={images.data ?? []} readOnly={readOnly} />
+          {openedTabs.has("content") && (
+            <div hidden={tab !== "content"}>
+              <ContentEditor images={images.data ?? []} readOnly={readOnly} />
+            </div>
           )}
-          {tab === "sections" && (
-            <SectionsManager images={images.data ?? []} readOnly={readOnly} />
+          {openedTabs.has("sections") && (
+            <div hidden={tab !== "sections"}>
+              <SectionsManager images={images.data ?? []} readOnly={readOnly} />
+            </div>
           )}
-          {tab === "pages" && (
-            <PagesManager images={images.data ?? []} readOnly={readOnly} />
+          {openedTabs.has("pages") && (
+            <div hidden={tab !== "pages"}>
+              <PagesManager images={images.data ?? []} readOnly={readOnly} />
+            </div>
           )}
-          {tab === "news" && (
-            <NewsManager images={images.data ?? []} readOnly={readOnly} />
+          {openedTabs.has("news") && (
+            <div hidden={tab !== "news"}>
+              <NewsManager images={images.data ?? []} readOnly={readOnly} />
+            </div>
           )}
-          {tab === "images" && (
-            <ImageLibrary
-              images={images.data ?? []}
-              loading={images.isLoading}
-              readOnly={readOnly}
-              onChanged={() => images.refetch()}
-            />
+          {openedTabs.has("images") && (
+            <div hidden={tab !== "images"}>
+              <ImageLibrary
+                images={images.data ?? []}
+                loading={images.isLoading}
+                readOnly={readOnly}
+                onChanged={() => images.refetch()}
+              />
+            </div>
           )}
         </SectionTabs>
       </div>
@@ -222,13 +243,9 @@ function ContentEditor({
   const t = useTranslations();
   const languages = api.i18n.languages.useQuery();
   const [locale, setLocale] = useState("en");
-  const content = api.home.content.useQuery({ locale });
-  const utils = api.useUtils();
-  const refresh = () => {
-    void utils.home.content.invalidate({ locale });
-  };
-
-  const byKey = new Map((content.data ?? []).map((f) => [f.key, f]));
+  const [openedLocales, setOpenedLocales] = useState<ReadonlySet<string>>(
+    () => new Set(["en"]),
+  );
 
   return (
     <div className="space-y-5">
@@ -236,7 +253,12 @@ function ContentEditor({
         <span className="muted">{t("common.language")}</span>
         <select
           value={locale}
-          onChange={(e) => setLocale(e.target.value)}
+          onChange={(e) => {
+            setOpenedLocales((previous) =>
+              new Set(previous).add(e.target.value),
+            );
+            setLocale(e.target.value);
+          }}
           className="select field-auto min-w-32"
         >
           {(languages.data ?? []).map((l) => (
@@ -248,6 +270,41 @@ function ContentEditor({
         </select>
       </label>
 
+      {[...openedLocales].map((language) => (
+        <div key={language} hidden={language !== locale}>
+          <ContentLocaleEditor
+            locale={language}
+            images={images}
+            readOnly={readOnly}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Each visited language owns its field drafts and query; a background update
+ * cannot seed a different language into an already edited field. */
+function ContentLocaleEditor({
+  locale,
+  images,
+  readOnly,
+}: {
+  locale: string;
+  images: ImageInfo[];
+  readOnly: boolean;
+}) {
+  const t = useTranslations();
+  const content = api.home.content.useQuery({ locale });
+  const utils = api.useUtils();
+  const refresh = () => {
+    void utils.home.content.invalidate({ locale });
+  };
+  const byKey = new Map(
+    (content.data ?? []).map((field) => [field.key, field]),
+  );
+  return (
+    <div className="space-y-5">
       {content.isLoading && (
         <p className="muted text-sm">{t("admin.landing.loading")}</p>
       )}
@@ -313,6 +370,7 @@ function ContentField({
 }) {
   const t = useTranslations();
   const baseline = field.override ?? field.default ?? "";
+  const fieldId = useId();
   const [value, setValue] = useState(baseline);
   const save = api.home.setContent.useMutation({ onSuccess: onSaved });
   const dirty = value !== baseline;
@@ -323,7 +381,9 @@ function ContentField({
   return (
     <div className="py-4 first:pt-0">
       <div className="mb-1 flex items-center justify-between gap-2">
-        <label className="label">{label}</label>
+        <label className="label" htmlFor={fieldId}>
+          {label}
+        </label>
         <span
           className={field.override != null ? "badge-amber" : "badge-slate"}
         >
@@ -334,18 +394,22 @@ function ContentField({
       </div>
       {field.kind === "multiline" ? (
         <textarea
+          id={fieldId}
           className="textarea w-full"
           rows={3}
           value={value}
           readOnly={readOnly}
+          disabled={save.isPending}
           onChange={(e) => setValue(e.target.value)}
           placeholder={field.default ?? ""}
         />
       ) : (
         <input
+          id={fieldId}
           className="input w-full"
           value={value}
           readOnly={readOnly}
+          disabled={save.isPending}
           onChange={(e) => setValue(e.target.value)}
           placeholder={field.default ?? ""}
         />
@@ -360,8 +424,12 @@ function ContentField({
         )}
         {!readOnly && (
           <div className="ml-auto flex items-center gap-3">
-            {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
-          {save.error && !save.error.data?.approvalId && (
+            {save.error?.data?.approvalId && (
+              <InlineNotice tone="warning" announcement="status">
+                {t("approvals.queuedBody")}
+              </InlineNotice>
+            )}
+            {save.error && !save.error.data?.approvalId && (
               <span className="text-xs text-red-600">{save.error.message}</span>
             )}
             {field.override != null && (
@@ -407,6 +475,7 @@ function ImageSlotField({
   onSaved: () => void;
 }) {
   const t = useTranslations();
+  const fieldId = useId();
   const save = api.home.setContent.useMutation({ onSuccess: onSaved });
   const current = field.override;
   const label = t(
@@ -415,7 +484,9 @@ function ImageSlotField({
 
   return (
     <div className="py-4 first:pt-0">
-      <label className="label">{label}</label>
+      <label className="label" htmlFor={fieldId}>
+        {label}
+      </label>
       <div className="mt-2 flex flex-wrap items-center gap-4">
         {current ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -432,6 +503,8 @@ function ImageSlotField({
         {!readOnly && (
           <div className="flex flex-col gap-2">
             <select
+              id={fieldId}
+              disabled={save.isPending}
               className="select field-auto min-w-44"
               value={current ?? ""}
               onChange={(e) =>
@@ -532,8 +605,12 @@ function NewsManager({
             >
               {t("admin.landing.news.new.create")}
             </button>
-            {create.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
-          {create.error && !create.error.data?.approvalId && (
+            {create.error?.data?.approvalId && (
+              <InlineNotice tone="warning" announcement="status">
+                {t("approvals.queuedBody")}
+              </InlineNotice>
+            )}
+            {create.error && !create.error.data?.approvalId && (
               <span className="text-sm text-red-600">
                 {create.error.message}
               </span>
@@ -694,8 +771,16 @@ function NewsPostCard({
         )}
       </div>
 
-      {update.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
-      {update.error && !update.error.data?.approvalId && <p role="alert" className="text-sm text-red-600">{update.error.message}</p>}
+      {update.error?.data?.approvalId && (
+        <InlineNotice tone="warning" announcement="status">
+          {t("approvals.queuedBody")}
+        </InlineNotice>
+      )}
+      {update.error && !update.error.data?.approvalId && (
+        <p role="alert" className="text-sm text-red-600">
+          {update.error.message}
+        </p>
+      )}
       {!readOnly && (
         <label className="flex items-center gap-2 text-sm">
           <span className="muted">{t("admin.landing.news.dateLabel")}</span>
@@ -788,6 +873,13 @@ function LocalizedTranslations({
   ];
   const notAdded = codes.filter((c) => !available.includes(c));
   const [active, setActive] = useState("en");
+  const [openedLocales, setOpenedLocales] = useState<ReadonlySet<string>>(
+    () => new Set(["en"]),
+  );
+  const changeLocale = (locale: string) => {
+    setOpenedLocales((previous) => new Set(previous).add(locale));
+    setActive(locale);
+  };
   const isDraft = !byLocale.has(active);
 
   return (
@@ -798,7 +890,8 @@ function LocalizedTranslations({
         </span>
         <select
           value={active}
-          onChange={(e) => setActive(e.target.value)}
+          aria-label={t("admin.landing.translation.language")}
+          onChange={(e) => changeLocale(e.target.value)}
           className="select field-auto min-w-32"
         >
           {available.map((c) => (
@@ -811,11 +904,12 @@ function LocalizedTranslations({
         {!readOnly && notAdded.length > 0 && (
           <select
             value=""
+            aria-label={t("admin.landing.translation.add")}
             onChange={(e) => {
               const c = e.target.value;
               if (!c) return;
               setDrafts((d) => [...d, c]);
-              setActive(c);
+              changeLocale(c);
             }}
             className="select field-auto min-w-40"
           >
@@ -829,16 +923,21 @@ function LocalizedTranslations({
         )}
       </div>
 
-      <LocalizedBodyEditor
-        key={active}
-        locale={active}
-        row={byLocale.get(active)}
-        images={images}
-        readOnly={readOnly}
-        onSave={onSave}
-        saving={saving}
-        saveError={saveError}
-      />
+      {available
+        .filter((locale) => openedLocales.has(locale))
+        .map((locale) => (
+          <div key={locale} hidden={locale !== active}>
+            <LocalizedBodyEditor
+              locale={locale}
+              row={byLocale.get(locale)}
+              images={images}
+              readOnly={readOnly}
+              onSave={onSave}
+              saving={saving}
+              saveError={saveError}
+            />
+          </div>
+        ))}
 
       {!readOnly && active !== "en" && (
         <div className="mt-2">
@@ -846,8 +945,15 @@ function LocalizedTranslations({
             <button
               type="button"
               className="link text-xs"
+              disabled={saving}
               onClick={() => {
                 setDrafts((d) => d.filter((x) => x !== active));
+                setOpenedLocales(
+                  (previous) =>
+                    new Set(
+                      [...previous].filter((locale) => locale !== active),
+                    ),
+                );
                 setActive("en");
               }}
             >
@@ -857,7 +963,9 @@ function LocalizedTranslations({
             <button
               type="button"
               className="link-danger text-xs"
-              disabled={removing || review.blocked(`${recordKey}:${active}`)}
+              disabled={
+                saving || removing || review.blocked(`${recordKey}:${active}`)
+              }
               onClick={() =>
                 review.open({
                   key: `${recordKey}:${active}`,
@@ -908,6 +1016,7 @@ function LocalizedBodyEditor({
   saveError: string | undefined;
 }) {
   const t = useTranslations();
+  const fieldId = useId();
   const [title, setTitle] = useState(row?.title ?? "");
   const [body, setBody] = useState(row?.body ?? "");
   const [preview, setPreview] = useState(false);
@@ -928,10 +1037,15 @@ function LocalizedBodyEditor({
 
   return (
     <div className="space-y-2">
+      <label className="label" htmlFor={`${fieldId}-title`}>
+        {t("admin.landing.translation.titleLabel")}
+      </label>
       <input
+        id={`${fieldId}-title`}
         className="input w-full font-semibold"
         value={title}
         readOnly={readOnly}
+        disabled={saving}
         onChange={(e) => setTitle(e.target.value)}
         placeholder={t("admin.landing.translation.titlePlaceholder")}
       />
@@ -946,15 +1060,22 @@ function LocalizedBodyEditor({
           )}
         </div>
       ) : (
-        <textarea
-          ref={bodyRef}
-          className="textarea w-full font-mono text-xs"
-          rows={6}
-          value={body}
-          readOnly={readOnly}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder={t("admin.landing.translation.bodyPlaceholder")}
-        />
+        <div>
+          <label className="label" htmlFor={`${fieldId}-body`}>
+            {t("admin.landing.translation.bodyLabel")}
+          </label>
+          <textarea
+            id={`${fieldId}-body`}
+            ref={bodyRef}
+            className="textarea w-full font-mono text-xs"
+            rows={6}
+            value={body}
+            readOnly={readOnly}
+            disabled={saving}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder={t("admin.landing.translation.bodyPlaceholder")}
+          />
+        </div>
       )}
       <div className="flex flex-wrap items-center gap-3">
         <button
@@ -969,6 +1090,8 @@ function LocalizedBodyEditor({
         {!readOnly && images.length > 0 && !preview && (
           <select
             value=""
+            aria-label={t("admin.landing.translation.insertImage")}
+            disabled={saving}
             onChange={(e) => {
               const img = images.find((i) => i.id === e.target.value);
               if (img) insertImage(img);
@@ -1199,8 +1322,12 @@ function ImageLibrary({
           </div>
         ))}
       </div>
-      {editAlt.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
-          {editAlt.error && !editAlt.error.data?.approvalId && (
+      {editAlt.error?.data?.approvalId && (
+        <InlineNotice tone="warning" announcement="status">
+          {t("approvals.queuedBody")}
+        </InlineNotice>
+      )}
+      {editAlt.error && !editAlt.error.data?.approvalId && (
         <p role="alert" className="text-sm text-red-600">
           {editAlt.error?.message}
         </p>
@@ -1292,8 +1419,12 @@ function SectionsManager({
             >
               {t("admin.landing.sections.new.create")}
             </button>
-            {create.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
-          {create.error && !create.error.data?.approvalId && (
+            {create.error?.data?.approvalId && (
+              <InlineNotice tone="warning" announcement="status">
+                {t("approvals.queuedBody")}
+              </InlineNotice>
+            )}
+            {create.error && !create.error.data?.approvalId && (
               <span className="text-sm text-red-600">
                 {create.error.message}
               </span>
@@ -1468,7 +1599,11 @@ function SectionCard({
           {section.mode === "PAGE" && (
             <SlugField section={section} update={update} />
           )}
-          {update.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+          {update.error?.data?.approvalId && (
+            <InlineNotice tone="warning" announcement="status">
+              {t("approvals.queuedBody")}
+            </InlineNotice>
+          )}
           {update.error && !update.error.data?.approvalId && (
             <span className="text-red-600">{update.error.message}</span>
           )}
@@ -1760,8 +1895,12 @@ function LayoutEditor({
                   {t("admin.landing.layout.unsaved")}
                 </span>
               )}
-              {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
-          {save.error && !save.error.data?.approvalId && (
+              {save.error?.data?.approvalId && (
+                <InlineNotice tone="warning" announcement="status">
+                  {t("approvals.queuedBody")}
+                </InlineNotice>
+              )}
+              {save.error && !save.error.data?.approvalId && (
                 <span className="text-xs text-red-600">
                   {save.error.message}
                 </span>
@@ -2180,9 +2319,14 @@ function RichTextBlockEditor({
   onChange: (b: Block) => void;
 }) {
   const t = useTranslations();
+  const fieldId = useId();
   return (
     <div className="space-y-2">
+      <label className="label" htmlFor={fieldId}>
+        {t("admin.landing.translation.bodyLabel")}
+      </label>
       <textarea
+        id={fieldId}
         className="textarea w-full font-mono text-xs"
         rows={4}
         value={block.text[locale] ?? ""}
@@ -2442,7 +2586,11 @@ function PagesManager({
               {t("admin.landing.pages.new.create")}
             </button>
           </div>
-          {create.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+          {create.error?.data?.approvalId && (
+            <InlineNotice tone="warning" announcement="status">
+              {t("approvals.queuedBody")}
+            </InlineNotice>
+          )}
           {create.error && !create.error.data?.approvalId && (
             <span className="text-sm text-red-600">{create.error.message}</span>
           )}
@@ -2497,6 +2645,7 @@ function PageCard({
   const languages = api.i18n.languages.useQuery();
   const [locale, setLocale] = useState("en");
   const [open, setOpen] = useState(false);
+  const [opened, setOpened] = useState(false);
   const update = api.home.updatePage.useMutation({ onSuccess: onChanged });
   const del = api.home.deletePage.useMutation();
   const setTitle = api.home.setPageTitle.useMutation({ onSuccess: onChanged });
@@ -2614,7 +2763,11 @@ function PageCard({
             />
             {t("admin.landing.pages.showInNav")}
           </label>
-          {update.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+          {update.error?.data?.approvalId && (
+            <InlineNotice tone="warning" announcement="status">
+              {t("approvals.queuedBody")}
+            </InlineNotice>
+          )}
           {update.error && !update.error.data?.approvalId && (
             <span className="text-red-600">{update.error.message}</span>
           )}
@@ -2625,14 +2778,18 @@ function PageCard({
         <div className="border-t border-slate-100 pt-3">
           <button
             type="button"
-            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            onClick={() => {
+              setOpened(true);
+              setOpen((v) => !v);
+            }}
             className="flex items-center gap-2 text-sm font-medium text-slate-600"
           >
             <DisclosureIcon open={open} />
             {t("admin.landing.pages.editContent")}
           </button>
-          {open && (
-            <div className="mt-3">
+          {opened && (
+            <div hidden={!open} className="mt-3">
               <LayoutEditor
                 images={images}
                 readOnly={readOnly}
@@ -2657,17 +2814,18 @@ function PageTitleField({
   setTitle: ReturnType<typeof api.home.setPageTitle.useMutation>;
 }) {
   const t = useTranslations();
-  const [val, setVal] = useState(page.title[locale] ?? "");
-  useEffect(() => {
-    setVal(page.title[locale] ?? "");
-  }, [page.title, locale]);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const val = drafts[locale] ?? page.title[locale] ?? "";
   return (
     <label className="flex items-center gap-2">
       <span className="muted">{t("admin.landing.pages.titleLabel")}</span>
       <input
         className="input field-auto min-w-40"
         value={val}
-        onChange={(e) => setVal(e.target.value)}
+        disabled={setTitle.isPending}
+        onChange={(e) =>
+          setDrafts((previous) => ({ ...previous, [locale]: e.target.value }))
+        }
         onBlur={() => {
           if (val !== (page.title[locale] ?? ""))
             setTitle.mutate({ id: page.id, locale, value: val });

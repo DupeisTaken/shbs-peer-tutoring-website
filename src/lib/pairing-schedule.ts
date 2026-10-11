@@ -1,4 +1,4 @@
-import { DAY_NAMES, minToHm } from "~/lib/time";
+import { formatWeekday, minToHm } from "~/lib/time";
 
 type PairingSchedule = {
   scheduleConfirmed: boolean;
@@ -8,8 +8,12 @@ type PairingSchedule = {
 };
 
 /** Numeric storage placeholders must never be presented as agreed appointment times. */
-export function pairingScheduleText(pairing: PairingSchedule, awaiting: string) {
+export function pairingScheduleText(
+  pairing: PairingSchedule,
+  awaiting: string,
+  locale = "en",
+) {
   return pairing.scheduleConfirmed
-    ? `${DAY_NAMES[pairing.dayOfWeek]} ${minToHm(pairing.startMin)}–${minToHm(pairing.endMin)}`
+    ? `${formatWeekday(pairing.dayOfWeek, locale)} ${minToHm(pairing.startMin)}–${minToHm(pairing.endMin)}`
     : awaiting;
 }

@@ -212,6 +212,19 @@ Open **Requests → Participation → Request withdrawal…**. The button names 
 
 Use **My Tutors & Schedule** for current assignments, **Attendance** for recorded sessions and feedback, and **Support** for disciplinary cards and appeals. Records remain linked to your account across new intakes and verified email changes.
 
+On tutee Requests, Attendance and Support, a failed background refresh keeps your
+feedback, availability choices, withdrawal reason or appeal draft while the page
+remains open. Use **Try again** to reload the records; this does not submit the
+form again. Actions that need unavailable records stay disabled until recovery.
+These drafts are not autosaved and may be lost when you reload or leave the page.
+
+Feedback visibility can show that it is being checked or could not be verified.
+Use its retry action to confirm who can read feedback; an old sharing setting is
+not presented as current after a failed refresh. An appeal keeps its reason after
+a failed read or submission. While it is sending, editing and dismissal are
+disabled. If sending succeeds but refreshing fails, retry the read rather than
+submitting the same appeal again.
+
 For imported or earlier enrollments, open **My Tutoring History** in the account menu, then **View History**. This includes retained tutor evidence already owned by your account, even when participation access is revoked. If records are missing, ask staff to review the exact record. Accountless alumni can use a staff-reviewed historical tutee invitation: **Create history-only account → verify email code → invitation popup → shared account review at `/register-account` → Link My History**. The popup supports copying the code, optional email delivery and a prefilled continuation link. No current tutoring request, grade or participation agreement is required to read owned history. Existing logins use sign-in/password recovery; unavailable old email requires staff identity review and a replacement invitation. Head handles ownership conflicts and genuine duplicate accounts. See [historical record access](historical-participant-transition.md#invite-an-alumnus-without-a-login).
 
 - Submit feedback for one of your recorded sessions. The portal explains whether management has enabled sharing with that session’s tutor. Feedback is management-only by default; a later visibility change also affects earlier feedback.
@@ -462,8 +475,24 @@ In **Subjects & Levels**, use the **Offered Course Catalogue** above the subject
 
 ### Run the program
 
-- In **Meetings**, open a meeting to edit attendance, choose statuses, then use the attendance save action. On a narrow screen, individual records show labels and keep their actions visible. The multi-meeting comparison remains a table; scroll its own region horizontally to compare columns. Deletion opens a confirmation that names the affected meeting; cancel returns to the same record.
-- In **Landing Editor**, use the section tabs to move between layout, fixed content, sections, news, pages and images. With a keyboard, arrow keys move between tab labels; Enter or Space opens the focused tab. If your role lacks editing access, the page explains this and offers a return to management. A failed load shows an error and retry action instead of an indefinite loading state. Editor access follows the same permission rule as landing preview.
+- In **Meetings**, open a meeting to edit attendance, choose statuses, then use the attendance save action. Collapsing it or opening another meeting retains each attendance draft during the current visit. A successful save followed by a failed refresh offers read-only Retry; it does not record attendance again. On a narrow screen, individual records show labels and keep their actions visible. The multi-meeting comparison remains a table; scroll its own region horizontally to compare columns. Deletion opens a confirmation that names the affected meeting; cancel returns to the same record.
+- In **Landing Editor**, use the section tabs to move between layout, fixed content, sections, news, pages and images. With a keyboard, arrow keys move between tab labels; Enter or Space opens the focused tab. Switching an opened tab or language preserves its independent unsaved draft during this visit; switching does not save it. If your role lacks editing access, the page explains this and offers a return to management. A failed load shows an error and retry action instead of an indefinite loading state. Editor access follows the same permission rule as landing preview.
+
+Invitation and hour-adjustment field labels stay visible after typing. In invitation
+codes, service hours, time slots and pairings, a failed read offers Retry without
+claiming the list is empty. Previously loaded permitted records and open drafts stay
+available during a transient failure. Actions needing unavailable data wait for a
+successful read; Retry never repeats an invitation, edit, revocation or assignment.
+An explicit access denial removes the protected content until access is successfully
+checked again. These local drafts do not persist after leaving or reloading the page.
+
+The same distinction applies to Discipline, Tutor Requests and Tutee Requests:
+an unavailable queue does not mean there are no pending records. An open review
+keeps its note during a transient read failure, while confirmation waits for the
+required records to recover. A normal Retry preserves the review's original
+version; explicit conflict Reload replaces it only after a successful read.
+In Reports, Retry recovers the selected report and any unavailable prerequisite;
+existing scope, masking, export and print rules still apply.
 
 In **Tutors**, choose **Add Tutor** beside the page title to open the creation dialog. The roster stays visible underneath. First Name and Last Name are required; Email and Grade are optional. An omitted email keeps the new roster record accountless until a separate setup step. On wide screens the contact controls sit beside the name fields; on narrower screens they follow them. **Close** or Escape keeps the draft until you leave or reload the page. A successful save clears the draft, closes the dialog and returns focus to **Add Tutor**. The dialog stays open while saving, and failed saves keep your entries with the error shown inside the dialog.
 
@@ -486,6 +515,17 @@ In **Subject Availability**, expand a tutor to reveal **Qualified**, **Pending R
 - Correct historical attendance or patrols with a reason. Review hours, discipline and related effects after the correction; HEAD receives an in-system notification.
 - Use **Policies** to publish revised documents following the [publication steps](policies/README.md#publish-a-revision). On a fresh site, start with the blank **Tutee Policy** and **Tutor Policy** editors and save the reviewed English text before adding translations. Updating repository files alone does not change an already running site.
 - Use **Audit Log** to filter by actor, event, operation, record or UTC date. A proposal and its applied action are distinct events. Actor filters use stable account identities: matching names stay separate, and removed users appear as Former account.
+
+In **Policies**, switching the document's editing language retains each opened
+language's unsaved draft during that page visit. Save each language explicitly;
+reload or navigation away is not draft storage. **Version History → View** opens
+the exact archived document in its recorded language, with Close available while
+reading. If a save succeeds but the document or history cannot refresh, use the
+read-only refresh action before editing again.
+
+In **Users & Roles**, choose **Review appeal** to read the complete account appeal
+before approving or denying it. A saved decision whose list refresh fails offers
+refresh recovery; it must not be submitted a second time.
 
 In **Audit Log → Actions → Details**, Head, Admin and Coordinator can inspect the
 recorded actor and account ID, event and target IDs, operation, exact timestamp
@@ -589,6 +629,12 @@ If you need a different role or access to your own participation record, request
 ## Translators
 
 Translator access requires an explicit HEAD-approved assignment, even for management accounts. **Translations** opens the integrated editor: **Interface text**, **Website text**, and **Draft review**. Management without Translator assignment can review drafts. ADMIN/HEAD also have a **Languages** tab to show/hide languages in the public selector, move them up/down, and remove custom languages. These controls do not require Translator assignment; English remains enabled as the fallback. Assigned translators use the same tab to add languages, which start hidden until Head enables them. Head applies language visibility, ordering and deletion; Admin requests Head review. Choose the correct language and destination, preserve meaning, and submit for review. Interface text submits when focus leaves a changed field; website text has an explicit submission button.
+
+Within the open editor, changing the website content type, language or destination
+keeps separate text drafts. Interface-text drafts and their pending/error states
+survive search, group collapse and language changes. A successful submission followed
+by failed synchronization offers read-only Retry; it does not submit the text again.
+Leaving or reloading the editor ends these local draft lifetimes.
 
 Translator and Coordinator edits create private drafts, including all five text destinations. Only ADMIN/HEAD can approve and publish or reject a draft. Coordinators can **Request Admin/Head approval**, which leaves the draft pending. ADMIN/HEAD with an explicit Translator assignment may also publish their own direct edits; the editor identifies these as live changes. Filter draft review by pending, published, rejected or all drafts. Historical drafts remain available, and old review bookmarks open this editor. If the destination changes before approval, submit a fresh draft against the current text. Translator assignment does not permit structural page deletion, account administration or unilateral policy publication. Policy translations require the separate [policy review process](policies/README.md).
 

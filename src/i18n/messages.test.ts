@@ -25,6 +25,71 @@ const bundledMessages = {
   { common: { language: string }; landing: { nav: { menu: string } } }
 >;
 
+describe("UI recovery and persistent field labels", () => {
+  // Built-in locales do not inherit English. Every newly reachable recovery or
+  // label state needs its own message, including states reached only on failure.
+  const paths = [
+    "participantRecovery.loading",
+    "participantRecovery.loadFailed",
+    "participantRecovery.refreshFailed",
+    "participantRecovery.accessDenied",
+    "participantRecovery.accessDeniedHelp",
+    "participantRecovery.retry",
+    "managementRecovery.loading",
+    "managementRecovery.loadFailed",
+    "managementRecovery.refreshFailed",
+    "managementRecovery.retry",
+    "managementRecovery.denied",
+    "workflows.feedbackVisibilityLoading",
+    "workflows.feedbackVisibilityUnavailable",
+    "tablePatterns.noRooms",
+    "tablePatterns.noSlots",
+    "admin.policies.editor.titleLabel",
+    "admin.policies.editor.versionLabel",
+    "admin.policies.editor.bodyLabel",
+    "admin.policies.editor.unsaved",
+    "admin.policies.editor.refreshFailed",
+    "admin.policies.editor.retryRefresh",
+    "admin.users.appeals.review",
+    "admin.users.appeals.message",
+    "admin.users.appeals.refreshFailed",
+    "admin.submissions.monthLabel",
+    "admin.meetings.refreshFailed",
+    "admin.landing.translation.titleLabel",
+    "admin.landing.translation.bodyLabel",
+    "translationEditor.refreshFailed",
+    "admin.crew.originalApplication",
+    "admin.crew.originalRequest",
+    "actionReview.galleryRevokeScenario",
+    "actionReview.galleryRevoke",
+    "actionReview.galleryRevoked",
+    "actionReview.galleryRestore",
+    "admin.announcements.messageLabel",
+    "crew.patrol.statusLabel",
+    "crew.patrol.noteLabel",
+    "crew.patrol.optOut.reasonLabel",
+  ];
+  function messageAt(messages: unknown, path: string): unknown {
+    let value = messages;
+    for (const part of path.split(".")) {
+      if (!value || typeof value !== "object") return undefined;
+      value = (value as Record<string, unknown>)[part];
+    }
+    return value;
+  }
+
+  it.each(LOCALES)("provides complete recovery copy in %s", (locale) => {
+    for (const path of paths) {
+      const message = messageAt(bundledMessages[locale], path);
+      expect(message, `${locale}: ${path}`).toBeTypeOf("string");
+      expect(message, `${locale}: ${path}`).toMatch(/\S/);
+      if (path.startsWith("managementRecovery.")) {
+        expect(message, `${locale}: contextual section`).toContain("{section}");
+      }
+    }
+  });
+});
+
 describe("bundled header translations", () => {
   it("provides qualification direct-review and recovery copy in every bundled locale", () => {
     for (const locale of LOCALES) {

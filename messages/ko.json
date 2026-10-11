@@ -29,7 +29,9 @@
     "slot": "시간대",
     "room": "교실",
     "select": "선택",
-    "selected": "선택됨"
+    "selected": "선택됨",
+    "noRooms": "아직 교실이 없습니다.",
+    "noSlots": "아직 공개된 시간대가 없습니다."
   },
   "scheduling": {
     "awaiting": "일정 확정 대기",
@@ -915,7 +917,10 @@
       "appeals": {
         "heading": "복구 이의",
         "approve": "승인",
-        "deny": "거부"
+        "deny": "거부",
+        "review": "이의 신청 검토",
+        "message": "이의 신청 원문",
+        "refreshFailed": "결정은 저장되었지만 계정 또는 이의 신청 목록을 새로 고칠 수 없습니다. 결정을 다시 제출하지 말고 새로 고침을 다시 시도하세요."
       }
     },
     "registrationCodes": {
@@ -997,7 +1002,8 @@
       "colStatus": "상태",
       "colTutees": "학생",
       "colSH": "봉사 시간",
-      "empty": "이 필터에 해당하는 제출이 없습니다."
+      "empty": "이 필터에 해당하는 제출이 없습니다.",
+      "monthLabel": "월"
     },
     "meetings": {
       "title": "튜터 회의",
@@ -1027,7 +1033,8 @@
         "tutor": "튜터",
         "empty": "아직 기록된 출석이 없습니다."
       },
-      "correctAttendance": "Submit attendance correction"
+      "correctAttendance": "Submit attendance correction",
+      "refreshFailed": "출석은 저장되었지만 회의 목록을 새로 고칠 수 없습니다. 출석을 다시 제출하지 말고 새로 고침을 다시 시도하세요."
     },
     "timeslots": {
       "title": "시간대",
@@ -1224,7 +1231,8 @@
           "GRADUATED": "Graduated",
           "ARCHIVED": "Archived"
         }
-      }
+      },
+      "messageLabel": "메시지"
     },
     "policies": {
       "title": "정책 문서",
@@ -1252,7 +1260,13 @@
         "editedBy": "{who} 편집",
         "saving": "저장 중…",
         "save": "저장",
-        "saved": "저장되었습니다."
+        "saved": "저장되었습니다.",
+        "titleLabel": "문서 제목",
+        "versionLabel": "버전 (선택)",
+        "bodyLabel": "정책 본문 (Markdown)",
+        "unsaved": "저장하지 않은 변경 사항",
+        "refreshFailed": "정책은 저장되었지만 정책 또는 버전 기록을 새로 고칠 수 없습니다. 편집을 계속하기 전에 새로 고침을 다시 시도하세요.",
+        "retryRefresh": "새로 고침 다시 시도"
       },
       "studentTitle": "학생 정책",
       "tutorTitle": "튜터 정책"
@@ -1567,7 +1581,9 @@
       },
       "issuedHeading": "발급된 코드",
       "issuedHint": "승인된 지원자에게 전달되어 등록을 기다리는 코드입니다. 등록 코드 화면에서 코드를 취소하면 해당 지원이 위 대기열로 돌아갑니다.",
-      "issuedExpires": "{date} 만료"
+      "issuedExpires": "{date} 만료",
+      "originalApplication": "지원서 원문",
+      "originalRequest": "요청 원문"
     },
     "sessionFlags": {
       "title": "출석 플래그",
@@ -1683,7 +1699,9 @@
         "insertImage": "이미지 삽입…",
         "preview": "미리보기",
         "edit": "편집",
-        "previewEmpty": "아직 미리볼 내용이 없습니다."
+        "previewEmpty": "아직 미리볼 내용이 없습니다.",
+        "titleLabel": "제목",
+        "bodyLabel": "내용 (Markdown)"
       },
       "sections": {
         "new": {
@@ -2417,8 +2435,11 @@
         "reason": "탈퇴 사유 (선택)",
         "submit": "탈퇴 신청 제출",
         "pending": "탈퇴를 신청했습니다 — 관리자 승인 대기 중.",
-        "recall": "신청 철회"
-      }
+        "recall": "신청 철회",
+        "reasonLabel": "탈퇴 사유"
+      },
+      "statusLabel": "크루 상태",
+      "noteLabel": "순찰 메모"
     }
   },
   "suspended": {
@@ -2529,7 +2550,8 @@
       "sectionId": "Content to Translate",
       "id": "Content to Translate",
       "other": "Content to Translate"
-    }
+    },
+    "refreshFailed": "변경 사항이 접수되었지만 갱신된 텍스트를 불러올 수 없습니다. 다시 제출하지 말고 새로 고침을 다시 시도하세요."
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -2657,7 +2679,9 @@
     "unscheduled": "Not scheduled",
     "panelRequired": "Assign a qualified panel before recording completion.",
     "invalidDate": "Enter a valid date and time.",
-    "searchInterviews": "Search"
+    "searchInterviews": "Search",
+    "feedbackVisibilityLoading": "피드백을 읽을 수 있는 사람을 확인하는 중…",
+    "feedbackVisibilityUnavailable": "피드백을 읽을 수 있는 사람을 확인할 수 없습니다. 공개 범위를 확인하려면 다시 시도하세요."
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -4311,7 +4335,11 @@
     "translationHelp": "This permanently removes this saved language version. Other language versions remain available.",
     "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
     "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
-    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
+    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged.",
+    "galleryRevokeScenario": "접근 권한 철회 예시 열기",
+    "galleryRevoke": "접근 권한 철회 시뮬레이션",
+    "galleryRevoked": "접근 권한이 철회되어 검토 내용이 숨겨졌습니다.",
+    "galleryRestore": "예시 접근 권한 복원"
   },
   "accountInvitation": {
     "enterCode": "이메일로 받은 초대 코드 입력",
@@ -4418,5 +4446,20 @@
     "saveError": "업데이트를 확인하지 못했습니다. 선택은 유지됩니다. 다시 시도하세요. 구독 취소를 반복해도 안전합니다.",
     "securityTitle": "필수 이메일은 계속 발송됩니다",
     "securityHelp": "계정 보안, 인증, 복구 이메일은 영향을 받지 않습니다. 이미 발송 중인 이메일은 도착할 수 있습니다."
+  },
+  "participantRecovery": {
+    "loading": "기록을 불러오는 중…",
+    "loadFailed": "이 기록을 불러올 수 없습니다",
+    "refreshFailed": "이 기록을 새로 고칠 수 없습니다. 계속하려면 다시 시도하세요.",
+    "accessDenied": "이 기록에 접근할 수 없습니다",
+    "accessDeniedHelp": "접근 권한을 확인할 수 없습니다. 다시 시도하거나 권한이 있는 계정으로 로그인하세요.",
+    "retry": "다시 시도"
+  },
+  "managementRecovery": {
+    "loading": "{section} 불러오는 중…",
+    "loadFailed": "{section} 불러오기에 실패했습니다.",
+    "refreshFailed": "{section} 새로 고침에 실패했습니다. 이전에 불러온 내용을 계속 표시합니다.",
+    "retry": "{section} 다시 불러오기",
+    "denied": "더 이상 {section}에 접근할 수 없습니다."
   }
 }

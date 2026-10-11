@@ -29,7 +29,9 @@
     "slot": "Χρονική θυρίδα",
     "room": "Αίθουσα",
     "select": "Επιλογή",
-    "selected": "Επιλεγμένο"
+    "selected": "Επιλεγμένο",
+    "noRooms": "Δεν υπάρχουν ακόμη αίθουσες.",
+    "noSlots": "Δεν έχουν δημοσιευτεί ακόμη χρονοθυρίδες."
   },
   "scheduling": {
     "awaiting": "Αναμένεται προγραμματισμός",
@@ -915,7 +917,10 @@
       "appeals": {
         "heading": "Ενστάσεις Επαναφοράς",
         "approve": "Έγκριση",
-        "deny": "Άρνηση"
+        "deny": "Άρνηση",
+        "review": "Εξέταση ένστασης",
+        "message": "Αρχική ένσταση",
+        "refreshFailed": "Η απόφαση αποθηκεύτηκε, αλλά δεν ήταν δυνατή η ανανέωση του λογαριασμού ή της λίστας ενστάσεων. Δοκιμάστε ξανά την ανανέωση χωρίς να υποβάλετε πάλι την απόφαση."
       }
     },
     "registrationCodes": {
@@ -997,7 +1002,8 @@
       "colStatus": "Κατάσταση",
       "colTutees": "Μαθητές",
       "colSH": "ΩΠ",
-      "empty": "Δεν υπάρχουν υποβολές για αυτό το φίλτρο."
+      "empty": "Δεν υπάρχουν υποβολές για αυτό το φίλτρο.",
+      "monthLabel": "Μήνας"
     },
     "meetings": {
       "title": "Συναντήσεις βοηθών",
@@ -1027,7 +1033,8 @@
         "tutor": "Βοηθός",
         "empty": "Δεν έχουν καταγραφεί παρουσίες ακόμη."
       },
-      "correctAttendance": "Submit attendance correction"
+      "correctAttendance": "Submit attendance correction",
+      "refreshFailed": "Η παρουσία αποθηκεύτηκε, αλλά δεν ήταν δυνατή η ανανέωση της λίστας συναντήσεων. Δοκιμάστε ξανά την ανανέωση χωρίς να υποβάλετε πάλι την παρουσία."
     },
     "timeslots": {
       "title": "Χρονοθυρίδες",
@@ -1224,7 +1231,8 @@
           "GRADUATED": "Graduated",
           "ARCHIVED": "Archived"
         }
-      }
+      },
+      "messageLabel": "Μήνυμα"
     },
     "policies": {
       "title": "Έγγραφα πολιτικής",
@@ -1252,7 +1260,13 @@
         "editedBy": "από {who}",
         "saving": "Αποθήκευση…",
         "save": "Αποθήκευση",
-        "saved": "Αποθηκεύτηκε."
+        "saved": "Αποθηκεύτηκε.",
+        "titleLabel": "Τίτλος εγγράφου",
+        "versionLabel": "Έκδοση (προαιρετικό)",
+        "bodyLabel": "Κείμενο πολιτικής (Markdown)",
+        "unsaved": "Μη αποθηκευμένες αλλαγές",
+        "refreshFailed": "Η πολιτική αποθηκεύτηκε, αλλά δεν ήταν δυνατή η ανανέωση της πολιτικής ή του ιστορικού εκδόσεων. Δοκιμάστε ξανά την ανανέωση πριν συνεχίσετε την επεξεργασία.",
+        "retryRefresh": "Νέα προσπάθεια ανανέωσης"
       },
       "studentTitle": "Πολιτική μαθητών",
       "tutorTitle": "Πολιτική εκπαιδευτών"
@@ -1567,7 +1581,9 @@
       },
       "issuedHeading": "Εκδοθέντες Κωδικοί",
       "issuedHint": "Κωδικοί που δόθηκαν σε αποδεκτούς αιτούντες, σε αναμονή εγγραφής. Η ανάκληση ενός κωδικού στους Κωδικούς Εγγραφής επιστρέφει την αίτησή του στην ουρά.",
-      "issuedExpires": "Λήγει στις {date}"
+      "issuedExpires": "Λήγει στις {date}",
+      "originalApplication": "Αρχική αίτηση",
+      "originalRequest": "Αρχικό αίτημα"
     },
     "sessionFlags": {
       "title": "Επισημάνσεις παρουσιών",
@@ -1683,7 +1699,9 @@
         "insertImage": "Εισαγωγή εικόνας…",
         "preview": "Προεπισκόπηση",
         "edit": "Επεξεργασία",
-        "previewEmpty": "Δεν υπάρχει τίποτα για προεπισκόπηση ακόμη."
+        "previewEmpty": "Δεν υπάρχει τίποτα για προεπισκόπηση ακόμη.",
+        "titleLabel": "Τίτλος",
+        "bodyLabel": "Περιεχόμενο (Markdown)"
       },
       "sections": {
         "new": {
@@ -2417,8 +2435,11 @@
         "reason": "Γιατί αποχωρείτε; (προαιρετικό)",
         "submit": "Υποβολή αιτήματος αποχώρησης",
         "pending": "Ζητήθηκε αποχώρηση — αναμονή έγκρισης διαχειριστή.",
-        "recall": "Ανάκληση αιτήματος"
-      }
+        "recall": "Ανάκληση αιτήματος",
+        "reasonLabel": "Λόγος αποχώρησης"
+      },
+      "statusLabel": "Κατάσταση μέλους ομάδας",
+      "noteLabel": "Σημείωση περιπολίας"
     }
   },
   "suspended": {
@@ -2529,7 +2550,8 @@
       "sectionId": "Content to Translate",
       "id": "Content to Translate",
       "other": "Content to Translate"
-    }
+    },
+    "refreshFailed": "Η αλλαγή σας έγινε δεκτή, αλλά δεν ήταν δυνατή η ανανέωση του ενημερωμένου κειμένου. Δοκιμάστε ξανά την ανανέωση χωρίς νέα υποβολή."
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -2657,7 +2679,9 @@
     "unscheduled": "Not scheduled",
     "panelRequired": "Assign a qualified panel before recording completion.",
     "invalidDate": "Enter a valid date and time.",
-    "searchInterviews": "Search"
+    "searchInterviews": "Search",
+    "feedbackVisibilityLoading": "Έλεγχος του ποιος μπορεί να διαβάσει τα σχόλια…",
+    "feedbackVisibilityUnavailable": "Δεν ήταν δυνατή η επιβεβαίωση του ποιος μπορεί να διαβάσει τα σχόλια. Δοκιμάστε ξανά για να ελέγξετε την ορατότητά τους."
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -4311,7 +4335,11 @@
     "translationHelp": "This permanently removes this saved language version. Other language versions remain available.",
     "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
     "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
-    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
+    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged.",
+    "galleryRevokeScenario": "Άνοιγμα παραδείγματος ανάκλησης πρόσβασης",
+    "galleryRevoke": "Προσομοίωση ανάκλησης πρόσβασης",
+    "galleryRevoked": "Η πρόσβαση ανακλήθηκε. Τα στοιχεία ελέγχου έχουν αποκρυφτεί.",
+    "galleryRestore": "Επαναφορά πρόσβασης παραδείγματος"
   },
   "accountInvitation": {
     "enterCode": "Εισαγάγετε την πρόσκληση που λάβατε με email",
@@ -4418,5 +4446,20 @@
     "saveError": "Δεν μπορέσαμε να επιβεβαιώσουμε την αλλαγή. Η επιλογή σας διατηρείται. Δοκιμάστε ξανά· η επανάληψη είναι ασφαλής.",
     "securityTitle": "Τα Απαραίτητα Email Παραμένουν Ενεργά",
     "securityHelp": "Τα email ασφαλείας, επαλήθευσης και ανάκτησης λογαριασμού δεν επηρεάζονται. Ένα email που ήδη αποστέλλεται μπορεί να φτάσει."
+  },
+  "participantRecovery": {
+    "loading": "Φόρτωση εγγραφών…",
+    "loadFailed": "Δεν ήταν δυνατή η φόρτωση αυτών των εγγραφών",
+    "refreshFailed": "Δεν ήταν δυνατή η ανανέωση αυτών των εγγραφών. Δοκιμάστε ξανά για να συνεχίσετε.",
+    "accessDenied": "Η πρόσβαση σε αυτές τις εγγραφές δεν είναι διαθέσιμη",
+    "accessDeniedHelp": "Δεν ήταν δυνατή η επιβεβαίωση της πρόσβασής σας. Δοκιμάστε ξανά ή συνδεθείτε με εξουσιοδοτημένο λογαριασμό.",
+    "retry": "Δοκιμάστε ξανά"
+  },
+  "managementRecovery": {
+    "loading": "Φόρτωση: {section}…",
+    "loadFailed": "Δεν ήταν δυνατή η φόρτωση: {section}.",
+    "refreshFailed": "Δεν ήταν δυνατή η ανανέωση: {section}. Εμφανίζεται ακόμη το περιεχόμενο που φορτώθηκε προηγουμένως.",
+    "retry": "Νέα φόρτωση: {section}",
+    "denied": "Δεν έχετε πλέον πρόσβαση: {section}."
   }
 }

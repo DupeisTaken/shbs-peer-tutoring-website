@@ -1,7 +1,12 @@
 "use client";
 
 import { useTranslations, useFormatter } from "next-intl";
-import { useState } from "react";
+import { useEffect, useId, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
+import { StatePanel } from "~/app/_components/ui/patterns";
+import { Button } from "~/app/_components/ui/button";
 
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -43,6 +48,7 @@ function AnnouncementCard({
   const utils = api.useUtils();
   const [title, setTitle] = useState(a.title);
   const [body, setBody] = useState(a.body);
+  const fieldId = useId();
   const update = api.admin.updateAnnouncement.useMutation({
     onSuccess: onChanged,
   });
@@ -56,11 +62,17 @@ function AnnouncementCard({
         {readOnly ? (
           <span className="flex-1 font-semibold text-slate-900">{a.title}</span>
         ) : (
-          <input
-            className="input flex-1 font-semibold"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
+          <label className="min-w-0 flex-1" htmlFor={`${fieldId}-title`}>
+            <span className="label">
+              {t("admin.announcements.new.titlePlaceholder")}
+            </span>
+            <input
+              id={`${fieldId}-title`}
+              className="input w-full font-semibold"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </label>
         )}
         {a.pinned && (
           <span className="badge-slate">
@@ -76,12 +88,16 @@ function AnnouncementCard({
       {readOnly ? (
         <p className="whitespace-pre-wrap text-slate-700">{a.body}</p>
       ) : (
-        <textarea
-          className="textarea w-full"
-          rows={3}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-        />
+        <label className="block" htmlFor={`${fieldId}-body`}>
+          <span className="label">{t("admin.announcements.messageLabel")}</span>
+          <textarea
+            id={`${fieldId}-body`}
+            className="textarea w-full"
+            rows={3}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+          />
+        </label>
       )}
       <div className="flex flex-wrap items-center gap-2">
         {!readOnly && (
@@ -174,13 +190,72 @@ export default function AnnouncementsPage() {
   // refresh or its read-only recovery.
   const review = useActionReview();
   const utils = api.useUtils();
-  const announcements = api.admin.announcements.useQuery();
-  const candidates = api.admin.announcementCandidates.useQuery(undefined, {
-    enabled: !readOnly,
+  const fieldId = useId();
+  const queryClient = useQueryClient();
+  const [denied, setDenied] = useState({
+    announcements: false,
+    candidates: false,
   });
+  const announcements = api.admin.announcements.useQuery(undefined, {
+    enabled: !denied.announcements,
+  });
+  const candidates = api.admin.announcementCandidates.useQuery(undefined, {
+    enabled: !readOnly && !denied.candidates,
+  });
+  const announcementAccessDenied =
+    announcements.error?.data?.code === "FORBIDDEN" ||
+    announcements.error?.data?.code === "UNAUTHORIZED";
+  const candidateAccessDenied =
+    candidates.error?.data?.code === "FORBIDDEN" ||
+    candidates.error?.data?.code === "UNAUTHORIZED";
+  const announcementsHidden = denied.announcements || announcementAccessDenied;
+  const candidatesHidden = denied.candidates || candidateAccessDenied;
+  const revokeReview = review.revoke;
+  useEffect(() => {
+    if (announcementAccessDenied) {
+      setDenied((previous) => ({ ...previous, announcements: true }));
+      queryClient.removeQueries({
+        queryKey: getQueryKey(api.admin.announcements, undefined, "query"),
+        exact: true,
+      });
+      revokeReview();
+    } else if (announcements.isSuccess && !announcements.isFetching)
+      setDenied((previous) =>
+        previous.announcements
+          ? { ...previous, announcements: false }
+          : previous,
+      );
+  }, [
+    announcementAccessDenied,
+    announcements.isSuccess,
+    announcements.isFetching,
+    queryClient,
+    revokeReview,
+  ]);
+  useEffect(() => {
+    if (candidateAccessDenied) {
+      setDenied((previous) => ({ ...previous, candidates: true }));
+      queryClient.removeQueries({
+        queryKey: getQueryKey(
+          api.admin.announcementCandidates,
+          undefined,
+          "query",
+        ),
+        exact: true,
+      });
+    } else if (candidates.isSuccess && !candidates.isFetching)
+      setDenied((previous) =>
+        previous.candidates ? { ...previous, candidates: false } : previous,
+      );
+  }, [
+    candidateAccessDenied,
+    candidates.isSuccess,
+    candidates.isFetching,
+    queryClient,
+  ]);
   const [audience, setAudience] = useState(defaultAnnouncementAudience);
   const recipientCount = selectAnnouncementRecipients(
-    candidates.data ?? [],
+    candidatesHidden ? [] : (candidates.data ?? []),
     audience,
   ).length;
   const invalidate = () => utils.admin.announcements.invalidate();
@@ -200,40 +275,87 @@ export default function AnnouncementsPage() {
 
   return (
     <div className="space-y-6">
-      {!readOnly && review.dialog}
+      {!readOnly && !announcementsHidden && review.dialog}
       <div>
         <h1 className="page-title">{t("admin.announcements.title")}</h1>
         <p className="muted mt-1">{t("admin.announcements.subtitle")}</p>
       </div>
 
-      {!readOnly && (
+      {!readOnly && !announcementsHidden && (
         <section className="card space-y-3 p-5">
           <h2 className="section-title">
             {t("admin.announcements.new.title")}
           </h2>
-          <input
-            className="input w-full"
-            placeholder={t("admin.announcements.new.titlePlaceholder")}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <textarea
-            className="textarea w-full"
-            rows={3}
-            placeholder={t("admin.announcements.new.messagePlaceholder")}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-          />
-          <RecipientPicker
-            candidates={candidates.data ?? []}
-            audience={audience}
-            onChange={setAudience}
-            loading={candidates.isLoading}
-          />
-          {candidates.error && (
-            <p role="alert" className="text-sm text-red-700">
-              {candidates.error.message}
-            </p>
+          <label className="block" htmlFor={`${fieldId}-title`}>
+            <span className="label">
+              {t("admin.announcements.new.titlePlaceholder")}
+            </span>
+            <input
+              id={`${fieldId}-title`}
+              className="input w-full"
+              placeholder={t("admin.announcements.new.titlePlaceholder")}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </label>
+          <label className="block" htmlFor={`${fieldId}-body`}>
+            <span className="label">
+              {t("admin.announcements.messageLabel")}
+            </span>
+            <textarea
+              id={`${fieldId}-body`}
+              className="textarea w-full"
+              rows={3}
+              placeholder={t("admin.announcements.new.messagePlaceholder")}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+            />
+          </label>
+          {candidatesHidden ? (
+            <StatePanel
+              kind="denied"
+              title={t("managementRecovery.denied", {
+                section: t("admin.announcements.recipients.button"),
+              })}
+              action={
+                <Button
+                  disabled={candidates.isFetching}
+                  onClick={() => void candidates.refetch()}
+                >
+                  {t("managementRecovery.retry", {
+                    section: t("admin.announcements.recipients.button"),
+                  })}
+                </Button>
+              }
+            />
+          ) : (
+            <QueryFeedback
+              hasData={candidates.data !== undefined}
+              loading={candidates.data === undefined}
+              error={!!candidates.error}
+              retrying={candidates.isFetching}
+              loadingTitle={t("managementRecovery.loading", {
+                section: t("admin.announcements.recipients.button"),
+              })}
+              errorTitle={t(
+                candidates.data === undefined
+                  ? "managementRecovery.loadFailed"
+                  : "managementRecovery.refreshFailed",
+                { section: t("admin.announcements.recipients.button") },
+              )}
+              retryLabel={t("managementRecovery.retry", {
+                section: t("admin.announcements.recipients.button"),
+              })}
+              onRetry={() => void candidates.refetch()}
+            />
+          )}
+          {!candidatesHidden && candidates.data !== undefined && (
+            <RecipientPicker
+              candidates={candidates.data ?? []}
+              audience={audience}
+              onChange={setAudience}
+              loading={candidates.isLoading}
+            />
           )}
           {create.error && (
             <p role="alert" className="text-sm text-red-700">
@@ -257,7 +379,8 @@ export default function AnnouncementsPage() {
                 create.isPending ||
                 !recipientCount ||
                 candidates.isLoading ||
-                candidates.isError
+                candidates.isError ||
+                candidatesHidden
               }
               onClick={() =>
                 create.mutate({
@@ -277,7 +400,45 @@ export default function AnnouncementsPage() {
       )}
 
       <div className="space-y-3">
-        {(announcements.data ?? []).map((a) => (
+        {announcementsHidden ? (
+          <StatePanel
+            kind="denied"
+            title={t("managementRecovery.denied", {
+              section: t("admin.announcements.title"),
+            })}
+            action={
+              <Button
+                disabled={announcements.isFetching}
+                onClick={() => void announcements.refetch()}
+              >
+                {t("managementRecovery.retry", {
+                  section: t("admin.announcements.title"),
+                })}
+              </Button>
+            }
+          />
+        ) : (
+          <QueryFeedback
+            hasData={announcements.data !== undefined}
+            loading={announcements.data === undefined}
+            error={!!announcements.error}
+            retrying={announcements.isFetching}
+            loadingTitle={t("managementRecovery.loading", {
+              section: t("admin.announcements.title"),
+            })}
+            errorTitle={t(
+              announcements.data === undefined
+                ? "managementRecovery.loadFailed"
+                : "managementRecovery.refreshFailed",
+              { section: t("admin.announcements.title") },
+            )}
+            retryLabel={t("managementRecovery.retry", {
+              section: t("admin.announcements.title"),
+            })}
+            onRetry={() => void announcements.refetch()}
+          />
+        )}
+        {(announcementsHidden ? [] : (announcements.data ?? [])).map((a) => (
           <AnnouncementCard
             key={a.id}
             a={a}
@@ -286,9 +447,11 @@ export default function AnnouncementsPage() {
             review={review}
           />
         ))}
-        {announcements.data?.length === 0 && (
-          <p className="muted">{t("admin.announcements.empty")}</p>
-        )}
+        {announcements.data?.length === 0 &&
+          !announcements.error &&
+          !announcementsHidden && (
+            <p className="muted">{t("admin.announcements.empty")}</p>
+          )}
       </div>
     </div>
   );

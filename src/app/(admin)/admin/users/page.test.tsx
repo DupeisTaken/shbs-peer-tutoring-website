@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -9,6 +10,7 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import messages from "../../../../../messages/en.json";
 import { emptyUserFilters, type UserFilters } from "~/lib/user-filters";
 import UsersPage from "./page";
@@ -21,7 +23,23 @@ const fixture = vi.hoisted(() => ({
   role: "HEAD",
   assign: vi.fn(),
   confirm: vi.fn().mockResolvedValue(true),
+  appeals: [] as {
+    id: string;
+    name: string;
+    message: string;
+    affiliation: string | null;
+    createdAt: Date;
+    userId: string;
+  }[],
+  appealError: null as null | { message: string; data?: { code?: string } },
+  decisionError: null as null | { message: string },
+  decisionPending: false,
+  decision: vi.fn(),
+  refresh: vi.fn<() => Promise<void>>(),
+  refetch: vi.fn(),
+  completion: undefined as undefined | (() => Promise<void>),
 }));
+vi.mock("@trpc/react-query", () => ({ getQueryKey: () => ["appeal-test"] }));
 vi.mock("~/trpc/react", () => {
   const mutation = {
     useMutation: () => ({ mutate: vi.fn(), isPending: false }),
@@ -31,8 +49,8 @@ vi.mock("~/trpc/react", () => {
       useUtils: () => ({
         account: { me: { invalidate: vi.fn() } },
         admin: {
-          accounts: { invalidate: vi.fn() },
-          appeals: { invalidate: vi.fn() },
+          accounts: { invalidate: fixture.refresh },
+          appeals: { invalidate: fixture.refresh },
         },
       }),
       admin: {
@@ -121,14 +139,41 @@ vi.mock("~/trpc/react", () => {
             },
           }),
         },
-        appeals: { useQuery: () => ({ data: [] }) },
+        appeals: {
+          useQuery: () => ({
+            data: fixture.appeals,
+            error: fixture.appealError,
+            isSuccess: !fixture.appealError,
+            isFetching: false,
+            refetch: fixture.refetch,
+          }),
+        },
         backfillStudentUsernames: {
           useMutation: () => ({ mutate: fixture.assign, isPending: false }),
         },
         deleteUser: mutation,
         suspendUser: mutation,
         reinstateUser: mutation,
-        decideAppeal: mutation,
+        decideAppeal: {
+          useMutation: (options: {
+            onSuccess: (
+              result: unknown,
+              input: { appealId: string; action: string },
+            ) => Promise<void>;
+            onSettled: () => void;
+          }) => ({
+            mutate: (input: { appealId: string; action: string }) => {
+              fixture.decision(input);
+              fixture.completion = async () => {
+                await options.onSuccess({}, input);
+                options.onSettled();
+              };
+            },
+            isPending: fixture.decisionPending,
+            error: fixture.decisionError,
+            reset: vi.fn(),
+          }),
+        },
         sendTutorSetup: mutation,
       },
     },
@@ -156,12 +201,15 @@ vi.mock("~/app/_components/confirm-dialog", () => ({
 }));
 
 const storageKey = "shbs:user-filters:synthetic-head:v1";
-const mount = () =>
-  render(
+let queryClient: QueryClient;
+const wrapper = ({ children }: { children: React.ReactNode }) => (
+  <QueryClientProvider client={queryClient}>
     <NextIntlClientProvider locale="en" messages={messages}>
-      <UsersPage />
-    </NextIntlClientProvider>,
-  );
+      {children}
+    </NextIntlClientProvider>
+  </QueryClientProvider>
+);
+const mount = () => render(<UsersPage />, { wrapper });
 const statusControl = () =>
   screen.queryByText(messages.admin.users.filters.status, {
     selector: "summary",
@@ -173,15 +221,143 @@ const openRole = () =>
     }),
   );
 beforeEach(() => {
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   localStorage.clear();
   fixture.viewerId = "synthetic-head";
   fixture.role = "HEAD";
   fixture.assign.mockClear();
   fixture.confirm.mockClear();
+  fixture.appeals = [];
+  fixture.appealError = null;
+  fixture.decisionError = null;
+  fixture.decisionPending = false;
+  fixture.decision.mockClear();
+  fixture.refresh.mockReset().mockResolvedValue(undefined);
+  fixture.refetch.mockReset();
+  fixture.completion = undefined;
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = true;
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = false;
+    },
+  });
 });
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+});
+
+const fullAppeal =
+  "Original appeal first paragraph.\n\n" +
+  "Supporting explanation with the complete original circumstances. ".repeat(
+    12,
+  );
+const seedAppeal = () => {
+  fixture.appeals = [
+    {
+      id: "appeal",
+      name: "Appealing student",
+      message: fullAppeal,
+      affiliation: "Grade 10",
+      createdAt: new Date(),
+      userId: "student",
+    },
+  ];
+};
+
+it("reads the complete appeal before offering decisions and restores its opener on Escape", () => {
+  seedAppeal();
+  mount();
+  expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+  const opener = screen.getByRole("button", { name: "Review appeal" });
+  opener.focus();
+  fireEvent.click(opener);
+  const dialog = screen.getByRole("dialog", {
+    name: "Review appeal · Appealing student",
+  });
+  expect(
+    within(dialog).getByText(/Original appeal first paragraph/).textContent,
+  ).toBe(fullAppeal);
+  expect(fixture.decision).not.toHaveBeenCalled();
+  fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(opener);
+});
+
+it("blocks dismissal and repeated decisions while the appeal write is pending", () => {
+  seedAppeal();
+  const view = mount();
+  fireEvent.click(screen.getByRole("button", { name: "Review appeal" }));
+  const approve = screen.getByRole("button", { name: "Approve" });
+  fireEvent.click(approve);
+  fireEvent.click(approve);
+  expect(fixture.decision).toHaveBeenCalledExactlyOnceWith({
+    appealId: "appeal",
+    action: "APPROVE",
+  });
+  fixture.decisionPending = true;
+  view.rerender(<UsersPage />);
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Close" }).disabled,
+  ).toBe(true);
+  expect(approve.matches(":disabled")).toBe(true);
+  const dialog = screen.getByRole("dialog");
+  fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  expect(screen.getByRole("dialog")).toBe(dialog);
+});
+
+it("retains a failed decision and recovers an accepted decision with reads only", async () => {
+  seedAppeal();
+  const view = mount();
+  fireEvent.click(screen.getByRole("button", { name: "Review appeal" }));
+  fixture.decisionError = { message: "Synthetic decision failure" };
+  view.rerender(<UsersPage />);
+  expect(screen.getByText("Synthetic decision failure")).toBeTruthy();
+  expect(screen.getByText(/Original appeal first paragraph/).textContent).toBe(
+    fullAppeal,
+  );
+  fixture.decisionError = null;
+  fixture.refresh.mockRejectedValue(new Error("Synthetic refresh failure"));
+  view.rerender(<UsersPage />);
+  fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+  await act(async () => {
+    await fixture.completion?.();
+  });
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Approve" }).disabled,
+  ).toBe(true);
+  expect(screen.getByRole("alert").textContent).toContain("decision was saved");
+  fixture.refresh.mockResolvedValue(undefined);
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /Retry.*appeals/i }));
+  });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(fixture.decision).toHaveBeenCalledOnce();
+});
+
+it("evicts denied appeals and does not reveal stale evidence after a network failure", () => {
+  seedAppeal();
+  queryClient.setQueryData(["appeal-test"], fixture.appeals);
+  const view = mount();
+  fireEvent.click(screen.getByRole("button", { name: "Review appeal" }));
+  fixture.appealError = { message: "Denied", data: { code: "FORBIDDEN" } };
+  view.rerender(<UsersPage />);
+  expect(screen.queryByText(/Original appeal first paragraph/)).toBeNull();
+  expect(queryClient.getQueryData(["appeal-test"])).toBeUndefined();
+  fixture.appealError = { message: "Network failure" };
+  view.rerender(<UsersPage />);
+  expect(screen.queryByRole("button", { name: "Review appeal" })).toBeNull();
+  fixture.appealError = null;
+  view.rerender(<UsersPage />);
+  expect(screen.getByRole("button", { name: "Review appeal" })).toBeTruthy();
 });
 
 it("keeps full academic details out of the compact account table", () => {
@@ -377,5 +553,9 @@ it("keeps account profiles and ranks out of Coordinator edit actions", () => {
   fixture.role = "COORDINATOR";
   mount();
   const management = screen.getByText("Management account").closest("tr")!;
-  expect(within(management).queryByRole("button", { name: messages.accountProfile.editProfile })).toBeNull();
+  expect(
+    within(management).queryByRole("button", {
+      name: messages.accountProfile.editProfile,
+    }),
+  ).toBeNull();
 });

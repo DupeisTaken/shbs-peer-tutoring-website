@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { translationAccess } from "~/lib/translation-access";
@@ -15,6 +15,33 @@ export function TranslationComposer() {
   const [target, setTarget] = useState("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  // Destination, language and content type form the draft identity. Moving to a
+  // different context does not publish, copy into it, or discard the previous text.
+  const drafts = useRef(new Map<string, { title: string; body: string }>());
+  const destinations = useRef(new Map<string, string>());
+  const contextKey = (type: string, language: string) =>
+    JSON.stringify([type, language]);
+  const draftKey = (type: string, language: string, id: string) =>
+    JSON.stringify([type, language, id]);
+  const rememberDraft = () => {
+    destinations.current.set(contextKey(kind, locale), target);
+    if (target)
+      drafts.current.set(draftKey(kind, locale, target), { title, body });
+  };
+  const changeContext = (nextKind: string, nextLocale: string) => {
+    rememberDraft();
+    resetOutcome();
+    const nextTarget =
+      destinations.current.get(contextKey(nextKind, nextLocale)) ?? "";
+    const draft = drafts.current.get(
+      draftKey(nextKind, nextLocale, nextTarget),
+    );
+    setKind(nextKind);
+    setLocale(nextLocale);
+    setTarget(nextTarget);
+    setTitle(draft?.title ?? "");
+    setBody(draft?.body ?? "");
+  };
   const languages = api.i18n.managedLanguages.useQuery();
   const content = api.home.content.useQuery(
     { locale },
@@ -116,6 +143,14 @@ export function TranslationComposer() {
       className="card space-y-4 p-6"
       onSubmit={(e) => {
         e.preventDefault();
+        if (
+          pending ||
+          loading ||
+          !target ||
+          !options.some((option) => option.id === target) ||
+          !languages.data?.some((language) => language.code === locale)
+        )
+          return;
         if (kind === "content")
           saveContent.mutate({ locale, key: target, value: body });
         else if (kind === "news")
@@ -135,11 +170,7 @@ export function TranslationComposer() {
             aria-label={t("contentType")}
             disabled={pending}
             onChange={(e) => {
-              resetOutcome();
-              setKind(e.target.value);
-              setTarget("");
-              setTitle("");
-              setBody("");
+              changeContext(e.target.value, locale);
             }}
           >
             {["content", "news", "sections", "pages"].map((k) => (
@@ -157,11 +188,7 @@ export function TranslationComposer() {
             aria-label={t("locale")}
             disabled={pending}
             onChange={(e) => {
-              resetOutcome();
-              setLocale(e.target.value);
-              setTarget("");
-              setTitle("");
-              setBody("");
+              changeContext(kind, e.target.value);
             }}
             required
           >
@@ -182,9 +209,12 @@ export function TranslationComposer() {
           aria-label={t("target")}
           disabled={pending || loading}
           onChange={(e) => {
+            rememberDraft();
             resetOutcome();
             setTarget(e.target.value);
-            const value = options.find((v) => v.id === e.target.value);
+            const value =
+              drafts.current.get(draftKey(kind, locale, e.target.value)) ??
+              options.find((v) => v.id === e.target.value);
             setTitle(value?.title ?? "");
             setBody(value?.body ?? "");
           }}
@@ -235,6 +265,7 @@ export function TranslationComposer() {
           pending ||
           loading ||
           !target ||
+          !options.some((option) => option.id === target) ||
           !languages.data?.some((language) => language.code === locale)
         }
       >

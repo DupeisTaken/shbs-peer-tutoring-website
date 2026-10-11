@@ -1,5 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render as renderUI,
+  screen,
+} from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TuteeOverview } from "./tutee-overview";
 import { TuteeNavigation } from "./navigation";
@@ -15,9 +22,14 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams({ view: mocks.view }),
 }));
 vi.mock("next-intl", () => ({
+  useLocale: () => "en",
   useTranslations: () => (key: string) => key,
   useFormatter: () => ({ dateTime: () => "Sep 13" }),
 }));
+const render = (ui: ReactElement) =>
+  renderUI(
+    <QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>,
+  );
 vi.mock("~/app/_components/confirm-dialog", () => ({
   useDialog: () => ({ promptText: vi.fn(), dialog: null }),
 }));
@@ -175,7 +187,10 @@ it("a full attendance page can move forward while retaining the selected section
   });
   render(<StudentPortal view="attendance" />);
   fireEvent.click(screen.getByRole("button", { name: "next" }));
-  expect(mocks.personal).toHaveBeenLastCalledWith({ page: 1 });
+  expect(mocks.personal).toHaveBeenLastCalledWith(
+    { page: 1 },
+    { enabled: true },
+  );
   expect(screen.queryByRole("heading", { name: "cards" })).toBeNull();
 });
 

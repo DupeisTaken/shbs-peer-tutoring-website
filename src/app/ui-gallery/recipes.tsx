@@ -18,6 +18,7 @@ import { CurrentPolicyDialog } from "~/app/_components/current-policy-dialog";
 import { Button, ChoiceButton, Switch } from "~/app/_components/ui/button";
 import { Modal, useDialogPending } from "~/app/_components/ui/modal";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import {
   ChangeReview,
   FilterToolbar,
@@ -108,6 +109,9 @@ const en = {
     "The background refresh failed; your current draft is still available.",
   retry: "Retry refresh",
   refreshed: "Example refresh completed; your draft is unchanged.",
+  initialFailure: "Simulate initial read failure",
+  queryLoading: "Loading example records…",
+  queryFailed: "Example records could not be loaded.",
 };
 const zh: Record<keyof typeof en, string> = {
   long: "长表单与阅读弹窗",
@@ -187,6 +191,9 @@ const zh: Record<keyof typeof en, string> = {
   refreshFailed: "后台刷新失败，当前草稿仍保留。",
   retry: "重试刷新",
   refreshed: "示例刷新完成，草稿未改变。",
+  initialFailure: "模拟首次读取失败",
+  queryLoading: "正在加载示例记录…",
+  queryFailed: "无法加载示例记录。",
 };
 type Copy = typeof en;
 
@@ -346,7 +353,9 @@ export function RecipeGallery({
   const [preview, setPreview] = useState<string | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const [applied, setApplied] = useState(false);
-  const [refresh, setRefresh] = useState<"idle" | "failed" | "ready">("idle");
+  const [refresh, setRefresh] = useState<
+    "idle" | "initial" | "failed" | "ready"
+  >("idle");
   const rooms = [
     { name: t.quiet, active: true },
     { name: t.science, active: false },
@@ -659,25 +668,26 @@ export function RecipeGallery({
         <Recipe
           title={t.notices}
           help={t.noticesHelp}
-          components="InlineNotice · retained field state · explicit announcement"
+          components="QueryFeedback · StatePanel · InlineNotice · retained field state"
         >
           <DraftNote label={t.draft} />
-          <Button size="compact" onClick={() => setRefresh("failed")}>
-            {t.refresh}
-          </Button>
-          {refresh === "failed" && (
-            <InlineNotice
-              tone="error"
-              announcement="alert"
-              action={
-                <Button size="compact" onClick={() => setRefresh("ready")}>
-                  {t.retry}
-                </Button>
-              }
-            >
-              {t.refreshFailed}
-            </InlineNotice>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="compact" onClick={() => setRefresh("failed")}>
+              {t.refresh}
+            </Button>
+            <Button size="compact" onClick={() => setRefresh("initial")}>
+              {t.initialFailure}
+            </Button>
+          </div>
+          <QueryFeedback
+            hasData={refresh !== "initial"}
+            loading={false}
+            error={refresh === "initial" || refresh === "failed"}
+            loadingTitle={t.queryLoading}
+            errorTitle={refresh === "initial" ? t.queryFailed : t.refreshFailed}
+            retryLabel={t.retry}
+            onRetry={() => setRefresh("ready")}
+          />
           {refresh === "ready" && (
             <InlineNotice tone="success" announcement="status">
               {t.refreshed}

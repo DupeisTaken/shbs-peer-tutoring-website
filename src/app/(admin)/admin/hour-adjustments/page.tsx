@@ -66,57 +66,76 @@ export default function AdjustmentsPage() {
               });
           }}
         >
-          <select
-            value={tutorId}
-            aria-label={t("admin.adjustments.table.tutor")}
-            onChange={(e) => setTutorId(e.target.value)}
-            className="select"
-          >
-            <option value="">
-              {t("admin.adjustments.form.tutorPlaceholder")}
-            </option>
-            {visibleTutors(tutors.data ?? [], showPast, [tutorId]).map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.englishName}
+          <label>
+            <span className="label">{t("admin.adjustments.table.tutor")}</span>
+            <select
+              value={tutorId}
+              aria-label={t("admin.adjustments.table.tutor")}
+              onChange={(e) => setTutorId(e.target.value)}
+              className="select"
+            >
+              <option value="">
+                {t("admin.adjustments.form.tutorPlaceholder")}
               </option>
-            ))}
-          </select>
-          <input
-            type="month"
-            aria-label={t("admin.adjustments.table.month")}
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            className="input"
-          />
-          <select
-            value={type}
-            aria-label={t("admin.adjustments.table.type")}
-            onChange={(e) => setType(e.target.value as "PUNISHMENT" | "EXTRA")}
-            className="select"
-          >
-            <option value="EXTRA">
-              {t("admin.adjustments.form.typeExtra")}
-            </option>
-            <option value="PUNISHMENT">
-              {t("admin.adjustments.form.typePunishment")}
-            </option>
-          </select>
-          <input
-            type="number"
-            aria-label={t("admin.adjustments.table.amount")}
-            step="0.5"
-            min="0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="input"
-          />
-          <input
-            value={reason}
-            aria-label={t("admin.adjustments.table.reason")}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder={t("admin.adjustments.form.reasonPlaceholder")}
-            className={`input ${styles.reasonInput}`}
-          />
+              {visibleTutors(tutors.data ?? [], showPast, [tutorId]).map(
+                (t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.englishName}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
+          <label>
+            <span className="label">{t("admin.adjustments.table.month")}</span>
+            <input
+              type="month"
+              aria-label={t("admin.adjustments.table.month")}
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="input"
+            />
+          </label>
+          <label>
+            <span className="label">{t("admin.adjustments.table.type")}</span>
+            <select
+              value={type}
+              aria-label={t("admin.adjustments.table.type")}
+              onChange={(e) =>
+                setType(e.target.value as "PUNISHMENT" | "EXTRA")
+              }
+              className="select"
+            >
+              <option value="EXTRA">
+                {t("admin.adjustments.form.typeExtra")}
+              </option>
+              <option value="PUNISHMENT">
+                {t("admin.adjustments.form.typePunishment")}
+              </option>
+            </select>
+          </label>
+          <label>
+            <span className="label">{t("admin.adjustments.table.amount")}</span>
+            <input
+              type="number"
+              aria-label={t("admin.adjustments.table.amount")}
+              step="0.5"
+              min="0"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="input"
+            />
+          </label>
+          <label className={styles.reasonInput}>
+            <span className="label">{t("admin.adjustments.table.reason")}</span>
+            <input
+              value={reason}
+              aria-label={t("admin.adjustments.table.reason")}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder={t("admin.adjustments.form.reasonPlaceholder")}
+              className="input"
+            />
+          </label>
           <button
             className={`btn-primary ${styles.add}`}
             disabled={!tutorId || !(Number(amount) > 0) || create.isPending}

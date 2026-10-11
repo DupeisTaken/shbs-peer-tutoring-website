@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../../../messages/en.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
@@ -23,7 +24,11 @@ const state = vi.hoisted(
     label: string | null;
     tutorName: string | null;
     invalidate: () => void;
-    issue: (input: { kind: RegistrationKind; label?: string; email?: string }) => void;
+    issue: (input: {
+      kind: RegistrationKind;
+      label?: string;
+      email?: string;
+    }) => void;
     revoke: (input: { id: string }) => void;
   } => ({
     role: "HEAD",
@@ -58,7 +63,11 @@ vi.mock("~/trpc/react", () => ({
         useMutation: (options: {
           onSuccess: (data: ReturnType<typeof record>) => Promise<void>;
         }) => ({
-          mutate: (input: { kind: RegistrationKind; label?: string; email?: string }) => {
+          mutate: (input: {
+            kind: RegistrationKind;
+            label?: string;
+            email?: string;
+          }) => {
             state.issue(input);
             void options.onSuccess({ ...record(), kind: input.kind });
           },
@@ -80,18 +89,22 @@ vi.mock("~/trpc/react", () => ({
 
 function show(readOnly = false) {
   return render(
-    <NextIntlClientProvider
-      locale="en"
-      messages={messages}
-      timeZone="Asia/Shanghai"
-    >
-      <ReadOnlyProvider value={readOnly}>
-        <RegistrationCodesPage />
-      </ReadOnlyProvider>
-    </NextIntlClientProvider>,
+    <QueryClientProvider client={queryClient}>
+      <NextIntlClientProvider
+        locale="en"
+        messages={messages}
+        timeZone="Asia/Shanghai"
+      >
+        <ReadOnlyProvider value={readOnly}>
+          <RegistrationCodesPage />
+        </ReadOnlyProvider>
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
   );
 }
+let queryClient: QueryClient;
 beforeEach(() => {
+  queryClient = new QueryClient();
   vi.clearAllMocks();
   state.role = "HEAD";
   state.status = "active";
@@ -112,7 +125,10 @@ beforeEach(() => {
     },
   });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  queryClient.clear();
+});
 
 describe("registration code export availability", () => {
   it.each(["Synthetic invited tutor", null])(
@@ -192,9 +208,19 @@ describe("registration code export availability", () => {
 it("lets Coordinators request only participant invitations", () => {
   state.role = "COORDINATOR";
   show();
-  expect(screen.queryByRole("option", { name: messages.admin.registrationCodes.kindAdmin })).toBeNull();
-  expect(screen.queryByRole("option", { name: messages.admin.registrationCodes.kindCoordinator })).toBeNull();
-  expect(screen.getByRole("button", { name: messages.approvals.requestHead })).toBeTruthy();
+  expect(
+    screen.queryByRole("option", {
+      name: messages.admin.registrationCodes.kindAdmin,
+    }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("option", {
+      name: messages.admin.registrationCodes.kindCoordinator,
+    }),
+  ).toBeNull();
+  expect(
+    screen.getByRole("button", { name: messages.approvals.requestHead }),
+  ).toBeTruthy();
 });
 
 it.each([
@@ -208,28 +234,56 @@ it.each([
   ["ADMIN", "COORDINATOR", false],
   ["COORDINATOR", "TUTOR", false],
   ["COORDINATOR", "CREW", false],
-] as const)("shows the correct issuance action for %s issuing %s", (role, kind, direct) => {
-  state.role = role;
-  show();
-  fireEvent.change(screen.getByRole("combobox"), { target: { value: kind } });
-  expect(screen.getByRole("button", {
-    name: direct ? messages.admin.registrationCodes.issue : messages.approvals.requestHead,
-  })).toBeTruthy();
-  expect(screen.queryByRole("button", {
-    name: direct ? messages.approvals.requestHead : messages.admin.registrationCodes.issue,
-  })).toBeNull();
-});
+] as const)(
+  "shows the correct issuance action for %s issuing %s",
+  (role, kind, direct) => {
+    state.role = role;
+    show();
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: kind } });
+    expect(
+      screen.getByRole("button", {
+        name: direct
+          ? messages.admin.registrationCodes.issue
+          : messages.approvals.requestHead,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", {
+        name: direct
+          ? messages.approvals.requestHead
+          : messages.admin.registrationCodes.issue,
+      }),
+    ).toBeNull();
+  },
+);
 
-it.each(["TUTOR", "CREW"] as const)("lets Admin issue and share a %s code directly", async (kind) => {
-  state.role = "ADMIN";
-  show();
-  // Switching from a management kind must recalculate the action immediately.
-  fireEvent.change(screen.getByRole("combobox"), { target: { value: "ADMIN" } });
-  expect(screen.getByRole("button", { name: messages.approvals.requestHead })).toBeTruthy();
-  fireEvent.change(screen.getByRole("combobox"), { target: { value: kind } });
-  fireEvent.click(screen.getByRole("button", { name: messages.admin.registrationCodes.issue }));
-  expect(await screen.findByRole("button", { name: "Export Image" })).toBeTruthy();
-  expect(state.issue).toHaveBeenCalledWith({ kind, label: undefined, email: undefined });
-  expect(state.invalidate).toHaveBeenCalledOnce();
-  expect(screen.queryByText(messages.approvals.queuedBody)).toBeNull();
-});
+it.each(["TUTOR", "CREW"] as const)(
+  "lets Admin issue and share a %s code directly",
+  async (kind) => {
+    state.role = "ADMIN";
+    show();
+    // Switching from a management kind must recalculate the action immediately.
+    fireEvent.change(screen.getByRole("combobox"), {
+      target: { value: "ADMIN" },
+    });
+    expect(
+      screen.getByRole("button", { name: messages.approvals.requestHead }),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: kind } });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.admin.registrationCodes.issue,
+      }),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Export Image" }),
+    ).toBeTruthy();
+    expect(state.issue).toHaveBeenCalledWith({
+      kind,
+      label: undefined,
+      email: undefined,
+    });
+    expect(state.invalidate).toHaveBeenCalledOnce();
+    expect(screen.queryByText(messages.approvals.queuedBody)).toBeNull();
+  },
+);
