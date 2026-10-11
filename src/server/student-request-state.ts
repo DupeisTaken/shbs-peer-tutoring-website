@@ -1,4 +1,5 @@
 import { requireStudentSchoolParticipation } from "./school-departure";
+import { assertRequestProcessable, lockLegacySignupReview, lockStudentRequestReview } from "./request-invalidity";
 import { recordDomainAudit } from "./audit/evidence";
 import { TRPCError } from "@trpc/server";
 import type { StudentSurvey } from "../../generated/prisma";
@@ -143,6 +144,10 @@ export async function assertStudentRequestAssignable(
   await requireStudentSchoolParticipation(tx, tuteeId);
   const row = await tx.studentSurvey.findUnique({ where: { tuteeId } });
   if (!row) {
+    // Share the legacy review lock, including the first flag when no metadata row exists.
+    await lockLegacySignupReview(tx, tuteeId);
+    const invalidity = await tx.tuteeRequestInvalidity.findUnique({ where: { tuteeId } });
+    if (invalidity) assertRequestProcessable(invalidity);
     // Manual withdrawals are terminal for their quarter just like survey withdrawals.
     const term = await tx.term.findFirst({
       where: { active: true },
@@ -166,10 +171,11 @@ export async function assertStudentRequestAssignable(
       });
     return;
   }
-  await lockEntity(tx, `student-survey:${row.email}`);
+  await lockStudentRequestReview(tx, row);
   const current = await tx.studentSurvey.findUniqueOrThrow({
     where: { id: row.id },
   });
+  assertRequestProcessable(current);
   if (
     current.state !== "OPEN" ||
     (!current.confirmedAt &&

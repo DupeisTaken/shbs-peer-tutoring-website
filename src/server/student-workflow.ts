@@ -1,4 +1,5 @@
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
+import { assertRequestProcessable, emptyRequestInvalidity, lockStudentRequestReview, requestInvalidity } from "~/server/request-invalidity";
 import { findAccountPolicy } from "./policy-acceptance";
 import { enforceAssignmentQualification } from "./assignment-qualification";
 import { approveLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
@@ -91,7 +92,7 @@ export async function consumeStudentAction(
 async function lockedRequest(tx: TransactionDb, id: string) {
   const initial = await tx.studentSurvey.findUnique({ where: { id } });
   if (!initial) throw new TRPCError({ code: "NOT_FOUND" });
-  await lockEntity(tx, `student-survey:${initial.email}`);
+  await lockStudentRequestReview(tx, initial);
   await tx.$queryRaw`SELECT id FROM "Term" WHERE id = ${initial.intakeTermId} FOR SHARE`;
   const row = await tx.studentSurvey.findUniqueOrThrow({ where: { id } });
   const term = await tx.term.findUnique({ where: { id: row.intakeTermId } });
@@ -216,6 +217,7 @@ export async function assignStudentRequest(
   const result = await inTransaction(db, async (tx) => {
     await enforceAssignmentQualification(tx, userId, "studentWorkflow.assign", { id, ticket, subjectId, tutorId, overrideTicket });
     const row = await lockedRequest(tx, id);
+    assertRequestProcessable(row);
     await consumeStudentAction(tx, ticket, userId, "ASSIGN", id);
     const input = surveyInput.parse(row.payload);
     if (![input.firstChoiceId, input.secondChoiceId].includes(subjectId))
@@ -674,6 +676,7 @@ export async function studentRequestRows(
   db: DomainDb,
   email?: string,
   userId?: string,
+  includeStaffReview = false,
 ) {
   await expireStudentRequests(db);
   const term = await db.term.findFirst({
@@ -730,6 +733,7 @@ export async function studentRequestRows(
     const profile = profiles.find((p) => p.id === row.tuteeId);
     return {
       id: row.id,
+      ...(includeStaffReview ? requestInvalidity(row) : emptyRequestInvalidity),
       email: row.email,
       name: input.englishName,
       contact: input.preferredContact,

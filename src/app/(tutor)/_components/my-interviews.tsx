@@ -7,6 +7,10 @@ import { useFormatter, useTranslations, useTimeZone } from "next-intl";
 import { api } from "~/trpc/react";
 import { useDialog } from "~/app/_components/confirm-dialog";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
+import {
+  InvalidityBadge,
+  InvalidityNotice,
+} from "~/app/_components/request-invalidity";
 
 import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 
@@ -87,15 +91,17 @@ function VoteForm({
   applicationId,
   myVote,
   status,
+  paused = false,
 }: {
   applicationId: string;
   myVote: { accept: boolean; comment: string | null } | null;
   status: Status;
+  paused?: boolean;
 }) {
   const t = useTranslations();
   const utils = api.useUtils();
   const [comment, setComment] = useState(myVote?.comment ?? "");
-  const votingClosed = status !== "INTERVIEW";
+  const votingClosed = paused || status !== "INTERVIEW";
   const cast = api.tutor.castInterviewVote.useMutation({
     onSuccess: () => utils.tutor.myInterviews.invalidate(),
   });
@@ -110,7 +116,7 @@ function VoteForm({
         disabled={votingClosed || cast.isPending}
         onChange={(e) => setComment(e.target.value)}
       />
-      {votingClosed && (
+      {votingClosed && !paused && (
         <p className="muted text-xs" role="status">
           {t("tutor.interviews.votingClosed")}
         </p>
@@ -416,6 +422,11 @@ export function MyInterviews() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-medium text-slate-900">
                   {a.name}
+                  {a.isInvalid && (
+                    <span className="ml-2">
+                      <InvalidityBadge />
+                    </span>
+                  )}
                   {a.isHead && (
                     <span className="badge bg-accent-100 text-accent-700 ml-2">
                       {t("tutor.interviews.youAreHead")}
@@ -424,6 +435,11 @@ export function MyInterviews() {
                 </p>
                 <p className="muted">{a.email}</p>
               </div>
+              {a.isInvalid && (
+                <div className="mt-2">
+                  <InvalidityNotice />
+                </div>
+              )}
 
               <ul className="mt-2 flex flex-wrap gap-2">
                 {a.subjectIntents.map((ci, i) => (
@@ -463,6 +479,7 @@ export function MyInterviews() {
                   {t("qualificationRequests.RECALLED")}
                 </p>
               ) : a.isHead &&
+                !a.isInvalid &&
                 (a.status === "PENDING" || a.status === "INTERVIEW") ? (
                 <HeadScheduler applicationId={a.id} current={a.interviewAt} />
               ) : (
@@ -483,6 +500,7 @@ export function MyInterviews() {
                 applicationId={a.id}
                 myVote={a.myVote}
                 status={a.status}
+                paused={a.isInvalid}
               />
 
               {/* Panel votes (visible to all panelists) */}
@@ -499,6 +517,7 @@ export function MyInterviews() {
 
               {/* Head's final decision */}
               {a.isHead &&
+                !a.isInvalid &&
                 a.type !== "ADDITIONAL_SUBJECT" &&
                 a.type !== "HIGHER_LEVEL" && (
                   <HeadDecision
@@ -523,7 +542,8 @@ export function MyInterviews() {
                     {t("qualificationRequests.reviewLink")}
                   </a>
                 )}
-              {(!a.isHead ||
+              {(a.isInvalid ||
+                !a.isHead ||
                 a.type === "ADDITIONAL_SUBJECT" ||
                 a.type === "HIGHER_LEVEL") &&
                 (a.status === "ACCEPTED" || a.status === "REJECTED") && (

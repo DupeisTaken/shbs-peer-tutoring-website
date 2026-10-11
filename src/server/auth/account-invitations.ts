@@ -33,6 +33,7 @@ import {
   codePrefill,
   MAX_CODE_ATTEMPTS,
   assertCrewRegistrationSource,
+  assertTutorRegistrationSource,
 } from "./registration";
 import { completeViewerSignup } from "./viewer-signup";
 import {
@@ -300,6 +301,12 @@ async function sourceState(
 }> {
   const source = sourceSchema.parse(row.source);
   if (source.type === "staff") {
+    // Take the interview barrier before the grant row: panel replacement owns
+    // that same barrier when expiring outstanding registration codes.
+    const binding = await tx.registrationCode.findUnique({
+      where: { id: source.id }, select: { applicationId: true },
+    });
+    if (binding) await assertTutorRegistrationSource(tx, binding);
     await tx.$queryRaw`SELECT id FROM "RegistrationCode" WHERE id = ${source.id} FOR UPDATE`;
     const staff = await tx.registrationCode.findUnique({
       where: { id: source.id },
@@ -335,6 +342,12 @@ async function sourceState(
     return { source, viewer };
   }
   if (source.type === "tutee") {
+    // Flags and confirmation acquire this advisory lock before touching the
+    // survey row. Match that order so in-flight redemption cannot deadlock them.
+    const binding = await tx.studentSurvey.findUnique({
+      where: { tokenHash: source.tokenHash }, select: { email: true },
+    });
+    if (binding) await lockEntity(tx, `student-survey:${binding.email}`);
     await tx.$queryRaw`SELECT id FROM "StudentSurvey" WHERE "tokenHash" = ${source.tokenHash} FOR UPDATE`;
     const survey = await validSurvey(tx, source.tokenHash, true);
     if (survey.email !== row.email) throw invalid();
@@ -582,6 +595,7 @@ export async function enterDisplayedInvitation(
         staff.attempts >= MAX_CODE_ATTEMPTS
       )
         throw invalid();
+      await assertTutorRegistrationSource(tx, staff);
       return {
         kind: "staff" as const,
         invitationId: "",

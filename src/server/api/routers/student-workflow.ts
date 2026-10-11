@@ -1,4 +1,5 @@
 import { applyLegacyStudentWithdrawal } from "~/server/legacy-student-withdrawal";
+import { assertRequestProcessable, requestInvalidityInput, setStudentRequestInvalidity } from "~/server/request-invalidity";
 import { ownedStudentIds } from "~/server/student-ownership";
 import { z } from "zod";
 import {
@@ -190,7 +191,10 @@ export const studentWorkflowRouter = createTRPCRouter({
         input.ticket,
       ),
     ),
-  adminRequests: adminProcedure.query(({ ctx }) => studentRequestRows(ctx.db)),
+  adminRequests: adminProcedure.query(({ ctx }) => studentRequestRows(ctx.db, undefined, undefined, true)),
+  setRequestInvalidity: adminProcedure
+    .input(requestInvalidityInput)
+    .mutation(({ ctx, input }) => setStudentRequestInvalidity(ctx.db, input, ctx.session.user)),
   legacyReviews: adminProcedure.query(async ({ ctx }) => {
     const term = await ctx.db.term.findFirst({
       where: { active: true },
@@ -247,6 +251,7 @@ export const studentWorkflowRouter = createTRPCRouter({
       const row = await ctx.db.studentSurvey.findUniqueOrThrow({
         where: { id: input.id },
       });
+      assertRequestProcessable(row);
       const term = await ctx.db.term.findUnique({
         where: { id: row.intakeTermId },
       });

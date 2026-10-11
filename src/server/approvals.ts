@@ -431,7 +431,11 @@ export async function proposalTargets(
           ? "to_jsonb(t) - ARRAY['body','clientKey']::text[]"
           : table === "RegistrationCode"
             ? "jsonb_build_object('id', t.id, 'kind', t.kind, 'tutorId', t.\"tutorId\", 'applicationId', t.\"applicationId\", 'crewApplicationId', t.\"crewApplicationId\", 'label', t.label, 'issuedById', t.\"issuedById\", 'issuedByName', t.\"issuedByName\", 'expiresAt', t.\"expiresAt\", 'usedAt', t.\"usedAt\", 'usedByUserId', t.\"usedByUserId\", 'emailVerifiedAt', t.\"emailVerifiedAt\", 'createdAt', t.\"createdAt\")"
-          : "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[]";
+          : ["TutorApplication", "StudentSurvey"].includes(table)
+            // Untouched additive columns must not invalidate pre-migration proposals.
+            // A first flag or later clear leaves a positive revision in every future snapshot.
+            ? "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[] - CASE WHEN t.\"invalidityVersion\" = 0 AND t.\"invalidatedAt\" IS NULL THEN ARRAY['invalidReason','invalidatedAt','invalidatedById','invalidatedByName','invalidityVersion']::text[] ELSE ARRAY[]::text[] END"
+            : "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[]";
     targets[table] = await client.$queryRaw(
       Prisma.sql`SELECT ${Prisma.raw(fields)} AS record FROM ${Prisma.raw('"' + table + '"')} t WHERE t.id IN (${Prisma.join([...values].sort())}) ORDER BY t.id`,
     );
@@ -462,6 +466,7 @@ export async function proposalTargets(
     ["Tutor", "ServiceHourAdjustment", "tutorId"],
     ["Tutee", "PairingTutee", "tuteeId"],
     ["Tutee", "TuteeAvailability", "tuteeId"],
+    ["Tutee", "TuteeRequestInvalidity", "tuteeId"],
     ["Tutee", "TuteeRemovalRequest", "tuteeId"],
     ["Tutee", "DisciplinaryCard", "tuteeId"],
     ["TimeSlot", "Pairing", "timeSlotId"],
@@ -472,10 +477,24 @@ export async function proposalTargets(
   ] as const) {
     if (!includeAuthorityContext && (child === "ServiceHourAdjustment" || child === "TuteeRemovalRequest" || child === "DisciplinaryCard" || child === "SessionFlag")) continue;
     const values = ids.get(parent);
-    if (values?.size)
-      targets[`${parent}.${child}`] = await client.$queryRaw(
+    if (values?.size) {
+      const rows = await client.$queryRaw<unknown[]>(
         Prisma.sql`SELECT to_jsonb(t) AS record FROM ${Prisma.raw('"' + child + '"')} t WHERE ${Prisma.raw('"' + field + '"')} IN (${Prisma.join([...values])}) ORDER BY to_jsonb(t)::text`,
       );
+      if (child !== "TuteeRequestInvalidity" || rows.length)
+        targets[`${parent}.${child}`] = rows;
+    }
+  }
+  // Roster aliases must also observe review changes on their original public survey.
+  // Omit an untouched zero-revision projection to preserve older approval evidence.
+  const tuteeIds = ids.get("Tutee");
+  if (tuteeIds?.size) {
+    const reviews = await client.studentSurvey.findMany({
+      where: { tuteeId: { in: [...tuteeIds] }, invalidityVersion: { gt: 0 } },
+      orderBy: { id: "asc" },
+      select: { id: true, tuteeId: true, invalidityVersion: true, invalidatedAt: true, invalidReason: true },
+    });
+    if (reviews.length) targets["Tutee.StudentRequestInvalidity"] = reviews;
   }
   targets.period = await client.term.findFirst({
     where: { active: true },

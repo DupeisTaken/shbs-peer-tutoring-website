@@ -1234,6 +1234,12 @@ enum TutorApplicationType {
 }
 
 model TutorApplication {
+  /// Reversible staff screening metadata; never an interview outcome or membership change.
+  invalidReason String?
+  invalidatedAt DateTime?
+  invalidatedById String?
+  invalidatedByName String?
+  invalidityVersion Int @default(0)
   firstName                String?
   lastName                 String?
   preferredName            String?
@@ -1683,6 +1689,12 @@ model StudentSignup {
 /// Public surveys reserve their timestamp before the email owner confirms participation.
 /// The payload and policy evidence survive link resends and account creation delays.
 model StudentSurvey {
+  /// Staff-only screening metadata is separate from immutable intake and lifecycle evidence.
+  invalidReason String?
+  invalidatedAt DateTime?
+  invalidatedById String?
+  invalidatedByName String?
+  invalidityVersion Int @default(0)
   id String @id @default(cuid())
   email String
   intakeTermId String
@@ -1712,6 +1724,17 @@ enum StudentSurveyState {
   RECALLED
   DISQUALIFIED
   ABORTED
+}
+
+/// Older public tutee requests predate StudentSurvey. Keep their staff-only review
+/// separate from roster scalars, which participant queries may legitimately return.
+model TuteeRequestInvalidity {
+  tuteeId String @id
+  invalidReason String?
+  invalidatedAt DateTime?
+  invalidatedById String?
+  invalidatedByName String?
+  invalidityVersion Int @default(0)
 }
 
 /// Approval is required for assigned-student withdrawal and tutor schedule rejection.

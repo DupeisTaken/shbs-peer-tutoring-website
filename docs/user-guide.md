@@ -499,6 +499,24 @@ read fails, use Retry; this only reloads the event and never repeats its action.
 
 ### Signup request tabs
 
+Staff can mark a public tutor application or tutee signup request **Invalid** when
+it cannot be processed. Open **Flag invalid** on the request, enter a reason,
+and review the named entry before saving. Admin and Head apply the change;
+Coordinator changes wait for Admin/Head approval. An approval submission alone
+does not flag the entry.
+
+Invalid entries remain available for staff review with their reason, reviewer and
+time. Use the **Request validity** filter to show all, not flagged or invalid
+entries. **Review invalid flag** opens the recorded explanation. Processing is
+blocked until staff use **Clear invalid flag** and explain
+the correction. Clearing the flag preserves the original submission priority,
+verification and application state; it does not recreate expired requests or
+restore membership. Existing verification deadlines continue while flagged.
+These flags do not delete records or impose discipline.
+Reasons are internal management information. Failed saves retain the reason for
+retry; after a successful save, **Retry refresh** reloads the records without
+submitting the same change again.
+
 Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history.
 
 Course-aware tutor selectors in Signup Requests and Pairings list tutors with approved, recorded subject grants first, followed by a separate unqualified group. Inherited grants remain valid after level reordering. Choose the subject first in Pairings. Assigning an unqualified tutor opens a warning naming the tutor and subject; confirmation becomes available after three full seconds. Cancel or change the selection to discard that acknowledgement. Coordinators still submit proposals, and the reviewer must confirm any remaining qualification mismatch independently. This override does not waive active-tutor, request, permission, or scheduling checks.
