@@ -20,6 +20,7 @@ import {
   InvalidityBadge,
   InvalidityFilter,
   InvalidityNotice,
+  RequestInvalidityHost,
   type InvalidityFilterValue,
   type InvalidityRecord,
 } from "~/app/_components/request-invalidity";
@@ -487,65 +488,67 @@ export default function ApplicationsPage() {
   ).sort((a, b) => a.label.localeCompare(b.label));
 
   return (
-    <div className="space-y-6 max-lg:[&_button]:min-h-11 max-lg:[&_select]:min-h-11">
-      <div>
-        <h1 className="page-title">{t("admin.applications.title")}</h1>
-        <p className="muted mt-1">
-          {t("admin.applications.intro", { n: PANEL_SIZE })}
-        </p>
-      </div>
+    <RequestInvalidityHost>
+      <div className="space-y-6 max-lg:[&_button]:min-h-11 max-lg:[&_select]:min-h-11">
+        <div>
+          <h1 className="page-title">{t("admin.applications.title")}</h1>
+          <p className="muted mt-1">
+            {t("admin.applications.intro", { n: PANEL_SIZE })}
+          </p>
+        </div>
 
-      {apps.data && (
-        <ApplicationFilters
-          value={filters}
-          onChange={setFilters}
-          subjects={subjects}
-          count={filtered.length}
-          total={list.length}
-        />
-      )}
-      {apps.data && (
-        <InvalidityFilter value={invalidity} onChange={setInvalidity} />
-      )}
-      <div className="space-y-3">
-        {apps.isLoading && <p role="status">{t("workflows.loading")}</p>}
-        {apps.error && <p role="alert">{apps.error.message}</p>}
-        {tutors.error && <p role="alert">{tutors.error.message}</p>}
-        {filtered.map((app) => (
-          <ApplicationCard
-            key={app.id}
-            app={app}
-            tutors={tutors.data ?? []}
-            onChanged={invalidate}
+        {apps.data && (
+          <ApplicationFilters
+            value={filters}
+            onChange={setFilters}
+            subjects={subjects}
+            count={filtered.length}
+            total={list.length}
           />
-        ))}
-        {!apps.isLoading &&
-          !apps.error &&
-          list.length > 0 &&
-          filtered.length === 0 && (
-            <p className="muted card p-6 text-center">
-              {t("admin.applications.filters.noMatches")}
-            </p>
+        )}
+        {apps.data && (
+          <InvalidityFilter value={invalidity} onChange={setInvalidity} />
+        )}
+        <div className="space-y-3">
+          {apps.isLoading && <p role="status">{t("workflows.loading")}</p>}
+          {apps.error && <p role="alert">{apps.error.message}</p>}
+          {tutors.error && <p role="alert">{tutors.error.message}</p>}
+          {filtered.map((app) => (
+            <ApplicationCard
+              key={app.id}
+              app={app}
+              tutors={tutors.data ?? []}
+              onChanged={invalidate}
+            />
+          ))}
+          {!apps.isLoading &&
+            !apps.error &&
+            list.length > 0 &&
+            filtered.length === 0 && (
+              <p className="muted card p-6 text-center">
+                {t("admin.applications.filters.noMatches")}
+              </p>
+            )}
+          {!apps.isLoading && !apps.error && list.length === 0 && (
+            <p className="muted">{t("admin.applications.empty")}</p>
           )}
-        {!apps.isLoading && !apps.error && list.length === 0 && (
-          <p className="muted">{t("admin.applications.empty")}</p>
+        </div>
+        {/* Completion stays staff-only; the server retains the same permission checks. */}
+        {!readOnly && features.data && (
+          <div
+            id="interview-records"
+            className="scroll-mt-6 border-t border-slate-200 pt-6"
+          >
+            <InterviewManagement
+              enabled={features.data.INTERVIEWS}
+              onManageApplicant={() => {
+                setFilters(emptyApplicationFilters);
+                setInvalidity("all");
+              }}
+            />
+          </div>
         )}
       </div>
-      {/* Completion stays staff-only; the server retains the same permission checks. */}
-      {!readOnly && features.data && (
-        <div
-          id="interview-records"
-          className="scroll-mt-6 border-t border-slate-200 pt-6"
-        >
-          <InterviewManagement
-            enabled={features.data.INTERVIEWS}
-            onManageApplicant={() => {
-              setFilters(emptyApplicationFilters);
-              setInvalidity("all");
-            }}
-          />
-        </div>
-      )}
-    </div>
+    </RequestInvalidityHost>
   );
 }

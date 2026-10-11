@@ -22,6 +22,7 @@ export function ApplicationInvalidityControls(props: Props) {
   return (
     <RequestInvalidity
       {...props}
+      reviewKey={`application:${props.record.id}`}
       onCommit={mutation.mutateAsync}
       onRefresh={async () => {
         await settleRefreshes([
@@ -46,6 +47,7 @@ export function StudentRequestInvalidityControls(props: Props) {
   return (
     <RequestInvalidity
       {...props}
+      reviewKey={`survey:${props.record.id}`}
       onCommit={mutation.mutateAsync}
       onRefresh={async () => {
         await settleRefreshes([
@@ -71,6 +73,7 @@ export function SignupInvalidityControls(props: Props) {
   return (
     <RequestInvalidity
       {...props}
+      reviewKey={`signup:${props.record.id}`}
       onCommit={mutation.mutateAsync}
       onRefresh={async () => {
         await settleRefreshes([

@@ -460,6 +460,13 @@ memberships and completed invitation receipts remain intact. Participant reads
 receive no internal explanation, and authorized observer summaries receive only
 the invalid badge. Current flags also leave actionable activity counts.
 
+Invalidity reviews belong to a stable host above the request cards. Filtering,
+polling and movement between assignment groups cannot unmount an open draft or
+its captured revision. Closed drafts remain attached to their request identity.
+After a committed write, partial refresh failure leaves a named recovery section
+outside the list; its retry only reads and never repeats the write. Read-only
+access removes private reviews and their evidence from the rendered page.
+
 The original survey submission determines queue priority. Mailbox-code verification or explicit legacy-link confirmation issues the receipt shown in the popup; final shared invitation review creates or links the account and confirms the original request. Existing credentials and unrelated access remain, while an exclusive Viewer transitions to tutee participation. Account links expire after 24 hours. First assignment of an unverified request starts a fixed seven-day deadline; neither resends nor reassignment extends it.
 
 | Action                          | Invariant                                                                                   |

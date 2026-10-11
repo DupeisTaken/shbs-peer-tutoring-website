@@ -1,10 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { queuedApprovalId } from "~/lib/approval-outcome";
 import { FieldRequirement } from "./field-requirement";
+import { useReadOnly } from "./read-only";
 import { Button, ChoiceButton } from "./ui/button";
 import { Modal, useDialogPending } from "./ui/modal";
 import { FilterToolbar, FormSection, InlineNotice } from "./ui/patterns";
@@ -59,31 +66,110 @@ export function InvalidityFilter({
   );
 }
 
-/** Feature-owned review shared by the two public signup queues. Callers own the
- * authorized mutation and exact-row refresh; no private reader mounts for viewers. */
-export function RequestInvalidity({
-  record,
-  name,
-  canFlag,
-  coordinator = false,
-  onCommit,
-  onRefresh,
-}: {
+type ReviewProps = {
   record: InvalidityRecord;
   name: string;
   canFlag: boolean;
   coordinator?: boolean;
+  /** Domain-qualified identity keeps a legacy signup distinct from a survey/application. */
+  reviewKey?: string;
   onCommit: (input: InvalidityInput) => Promise<unknown>;
   onRefresh: () => Promise<InvalidityRecord>;
+};
+type ReviewSession = { props: ReviewProps; open: boolean; launch: number };
+const ReviewHost = createContext<((props: ReviewProps) => void) | null>(null);
+
+/** A review belongs to the queue, not to a filtered card. Once opened, its owner
+ * stays mounted through polling, filter/group changes and partial refresh failures.
+ * Closed drafts remain local to their exact request; recovery stays reachable even
+ * when that request no longer belongs to the displayed queue. */
+export function RequestInvalidityHost({ children }: { children: ReactNode }) {
+  const readOnly = useReadOnly();
+  const [sessions, setSessions] = useState<ReadonlyMap<string, ReviewSession>>(
+    () => new Map(),
+  );
+  return (
+    <ReviewHost.Provider
+      value={(props) => {
+        if (readOnly || !props.canFlag) return;
+        const key = props.reviewKey ?? props.record.id;
+        setSessions((current) => {
+          const next = new Map(current);
+          next.set(key, {
+            props,
+            open: true,
+            launch: (current.get(key)?.launch ?? 0) + 1,
+          });
+          return next;
+        });
+      }}
+    >
+      {children}
+      {!readOnly &&
+        [...sessions].map(([key, session]) => (
+          <RequestInvalidityReview
+            key={key}
+            {...session.props}
+            open={session.open}
+            launch={session.launch}
+            onClose={() =>
+              setSessions((current) => {
+                const previous = current.get(key);
+                if (!previous) return current;
+                const next = new Map(current);
+                next.set(key, { ...previous, open: false });
+                return next;
+              })
+            }
+          />
+        ))}
+    </ReviewHost.Provider>
+  );
+}
+
+/** Cards only open reviews. The host captures the authorized operation callbacks
+ * with that request, so unmounting the trigger cannot discard admitted work. */
+export function RequestInvalidity(props: ReviewProps) {
+  const t = useTranslations("requestInvalidity");
+  const openReview = useContext(ReviewHost);
+  const readOnly = useReadOnly();
+  if (readOnly || !props.canFlag) return null;
+  // Standalone domain readers retain the same lifetime boundary without requiring
+  // a caller to build a host; filtered queues must place their host above the list.
+  if (!openReview)
+    return (
+      <RequestInvalidityHost>
+        <RequestInvalidity {...props} />
+      </RequestInvalidityHost>
+    );
+  return (
+    <Button size="compact" onClick={() => openReview(props)}>
+      {t(props.record.isInvalid ? "review" : "flag")}
+    </Button>
+  );
+}
+
+function RequestInvalidityReview({
+  record,
+  name,
+  coordinator = false,
+  onCommit,
+  onRefresh,
+  open,
+  launch,
+  onClose,
+}: ReviewProps & {
+  open: boolean;
+  launch: number;
+  onClose: () => void;
 }) {
   const t = useTranslations("requestInvalidity");
   const common = useTranslations("common");
   const format = useFormatter();
-  const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<{
     record: InvalidityRecord;
     reason: string;
-  } | null>(null);
+  } | null>(() => ({ record, reason: "" }));
   const [pending, setPending] = useState(false);
   const [reloading, setReloading] = useState(false);
   const busy = useDialogPending(pending);
@@ -95,6 +181,22 @@ export function RequestInvalidity({
   const snapshot = draft?.record ?? record;
   const clearing = snapshot.isInvalid;
   const locked = busy || reloading || accepted;
+  const [lastLaunch, setLastLaunch] = useState(launch);
+  // Deliberate reopening may adopt a completed review's newer record. Background
+  // card changes never replace a draft or its expected version.
+  if (lastLaunch !== launch) {
+    setLastLaunch(launch);
+    if (
+      !draft ||
+      (accepted &&
+        !refreshError &&
+        snapshot.invalidityVersion !== record.invalidityVersion)
+    ) {
+      setDraft({ record, reason: "" });
+      setAccepted(false);
+      setApprovalId(undefined);
+    }
+  }
 
   const refresh = async (reload: boolean) => {
     if (admitted.current) return;
@@ -121,7 +223,7 @@ export function RequestInvalidity({
   };
   const submit = async () => {
     const reason = draft?.reason.trim();
-    if (!canFlag || locked || admitted.current || !draft || !reason) return;
+    if (locked || admitted.current || !draft || !reason) return;
     admitted.current = true;
     setPending(true);
     setError(undefined);
@@ -151,7 +253,7 @@ export function RequestInvalidity({
   };
   const close = () => {
     if (busy || (admitted.current && !reloading)) return;
-    setOpen(false);
+    onClose();
     if (accepted && !refreshError && !approvalId) {
       setDraft(null);
       setAccepted(false);
@@ -191,29 +293,14 @@ export function RequestInvalidity({
     </InlineNotice>
   ) : null;
 
-  if (!canFlag) return null;
   return (
     <>
-      <Button
-        size="compact"
-        disabled={busy}
-        onClick={() => {
-          if (
-            !draft ||
-            (accepted &&
-              !refreshError &&
-              snapshot.invalidityVersion !== record.invalidityVersion)
-          ) {
-            setDraft({ record, reason: "" });
-            setAccepted(false);
-            setApprovalId(undefined);
-          }
-          setOpen(true);
-        }}
-      >
-        {t(record.isInvalid ? "review" : "flag")}
-      </Button>
-      {!open && result}
+      {!open && result && (
+        <section className="card mt-4 space-y-3 p-4" aria-label={name}>
+          <p className="font-medium">{name}</p>
+          {result}
+        </section>
+      )}
       {open && (
         <Modal
           title={t(clearing ? "reviewTitle" : "flagTitle", { name })}

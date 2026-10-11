@@ -12,8 +12,10 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
+import { ReadOnlyProvider } from "./read-only";
 import {
   RequestInvalidity,
+  RequestInvalidityHost,
   type InvalidityInput,
   type InvalidityRecord,
 } from "./request-invalidity";
@@ -53,6 +55,28 @@ const ui = (
       onCommit={commit}
       onRefresh={refresh}
     />
+  </NextIntlClientProvider>
+);
+
+const hosted = (
+  record: InvalidityRecord | null = initial,
+  canFlag = true,
+  readOnly = false,
+) => (
+  <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+    <ReadOnlyProvider value={readOnly}>
+      <RequestInvalidityHost>
+        {record && (
+          <RequestInvalidity
+            record={record}
+            name="Taylor Student"
+            canFlag={canFlag}
+            onCommit={commit}
+            onRefresh={refresh}
+          />
+        )}
+      </RequestInvalidityHost>
+    </ReadOnlyProvider>
   </NextIntlClientProvider>
 );
 const open = (flagged = false) => {
@@ -247,6 +271,40 @@ it("never mounts private reasons or actions without edit authority", () => {
   expect(commit).not.toHaveBeenCalled();
 });
 
+it("removes an open review and its private evidence when access becomes read-only", () => {
+  const view = render(hosted(flagged));
+  open(true);
+  write("Private review draft.");
+  expect(screen.getByText(flagged.invalidReason!)).toBeTruthy();
+  view.rerender(hosted(flagged, true, true));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(screen.queryByText(flagged.invalidReason!)).toBeNull();
+  expect(screen.queryByDisplayValue("Private review draft.")).toBeNull();
+  expect(commit).not.toHaveBeenCalled();
+});
+
+it("starts a fresh review from the updated request after a saved review closes", async () => {
+  const view = render(hosted());
+  open();
+  write("Verified duplicate.");
+  submit();
+  await screen.findByText(en.requestInvalidity.saved);
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  view.rerender(hosted(flagged));
+  open(true);
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe("");
+  write("Corrected and verified independently.");
+  submit("Clear invalid flag");
+  await waitFor(() => expect(commit).toHaveBeenCalledTimes(2));
+  expect(commit.mock.calls[1]?.[0]).toEqual({
+    id: initial.id,
+    invalid: false,
+    reason: "Corrected and verified independently.",
+    expectedInvalidityVersion: 1,
+  });
+});
+
 it("translates the review and preserves a long Chinese reason", () => {
   render(ui(flagged, { locale: "zh" }));
   fireEvent.click(
@@ -258,4 +316,62 @@ it("translates the review and preserves a long Chinese reason", () => {
   expect(
     screen.getByRole("button", { name: zh.requestInvalidity.clear }),
   ).toBeTruthy();
+});
+
+it("retains an open draft and its expected version after the filtered card disappears", async () => {
+  commit.mockRejectedValue(new Error("The request changed."));
+  const view = render(hosted());
+  open();
+  write("Keep my original review draft.");
+  view.rerender(hosted(null));
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe(
+    "Keep my original review draft.",
+  );
+  submit();
+  await screen.findByText("The request changed.");
+  expect(commit).toHaveBeenCalledExactlyOnceWith({
+    id: initial.id,
+    invalid: true,
+    reason: "Keep my original review draft.",
+    expectedInvalidityVersion: 0,
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  view.rerender(hosted(flagged));
+  open(true);
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe(
+    "Keep my original review draft.",
+  );
+});
+
+it("retains pending work and read-only recovery when the row leaves its queue and becomes ineligible", async () => {
+  let complete!: (value: unknown) => void;
+  commit.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        complete = resolve;
+      }),
+  );
+  refresh.mockRejectedValueOnce(new Error("Sibling read unavailable."));
+  const view = render(hosted(flagged));
+  open(true);
+  write("Clear after staff verification.");
+  submit("Clear invalid flag");
+  view.rerender(hosted(null));
+  const dialog = screen.getByRole("dialog");
+  fireEvent(dialog, new Event("cancel", { cancelable: true }));
+  expect(screen.getByRole("dialog")).toBe(dialog);
+  await act(async () => complete({ ok: true }));
+  await screen.findByText(en.requestInvalidity.refreshFailed);
+  // A terminal request's trigger disappears after clearing, but its successful
+  // write still owns the failed synchronization and the read-only recovery.
+  view.rerender(hosted({ ...initial, invalidityVersion: 2 }, false));
+  expect(screen.getByRole("dialog")).toBe(dialog);
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  const recovery = screen.getByRole("region", { name: "Taylor Student" });
+  fireEvent.click(
+    within(recovery).getByRole("button", { name: "Retry refresh" }),
+  );
+  await screen.findByText(en.requestInvalidity.saved);
+  expect(commit).toHaveBeenCalledOnce();
+  expect(refresh).toHaveBeenCalledTimes(2);
 });
