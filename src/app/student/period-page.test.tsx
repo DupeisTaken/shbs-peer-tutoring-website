@@ -2,8 +2,13 @@
 import { expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import StudentPage from "./page";
-const state = vi.hoisted(() => ({ quarters: true }));
-vi.mock("~/server/auth", () => ({ auth: async () => null }));
+const state = vi.hoisted(() => ({ quarters: true, departed: false }));
+vi.mock("~/server/auth", () => ({
+  auth: async () => ({ user: { id: "student" } }),
+}));
+vi.mock("~/server/portal-access", () => ({
+  accountPortalAccess: async () => ({ departed: state.departed }),
+}));
 vi.mock("~/server/db", () => ({ db: {} }));
 vi.mock("~/server/period", () => ({
   getActivePeriodOrNull: async () => ({ schoolYear: "26-27", quarter: "Q3" }),
@@ -39,7 +44,26 @@ it.each([true, false])(
     expect(html).toContain(
       quarters ? "quarter 2026–27 Q3" : "semester 2026–27 S2",
     );
-  expect(html).toContain('href="/tutee"');
+    expect(html).toContain('href="/tutee"');
+  },
+);
+it.each([false, true])(
+  "keeps exactly the eligible route-owned intake action (departed=%s)",
+  async (departed) => {
+    state.departed = departed;
+    try {
+      const html = renderToStaticMarkup(
+        await StudentPage({
+          searchParams: Promise.resolve({ view: "dashboard" }),
+        }),
+      );
+      expect(html.match(/href="\/tutee"/g) ?? []).toHaveLength(
+        departed ? 0 : 1,
+      );
+      expect(html.match(/<h1\b/g)).toHaveLength(1);
+    } finally {
+      state.departed = false;
+    }
   },
 );
 it.each(["messages", "account"])(
@@ -57,6 +81,6 @@ it.each(["messages", "account"])(
     expect(html).not.toContain(
       view === "messages" ? 'data-testid="settings"' : 'data-testid="inbox"',
     );
-  expect(html).toContain('href="/tutee"');
+    expect(html).toContain('href="/tutee"');
   },
 );

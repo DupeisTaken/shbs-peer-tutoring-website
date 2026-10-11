@@ -59,12 +59,10 @@ beforeEach(() => {
   mocks.settings.mockReturnValue({ data: false });
 });
 afterEach(cleanup);
-it("offers the existing form and account routes without requiring an enrollment", () => {
+it("leaves the route-owned intake action singular and retains account navigation without enrollment", () => {
   render(<TuteeOverview />);
-  expect(
-    screen.getByRole("link", { name: "requestTutor" }).getAttribute("href"),
-  ).toBe("/tutee");
-  expect(screen.getByText("formHelp")).toBeTruthy();
+  expect(screen.queryByRole("link", { name: "requestTutor" })).toBeNull();
+  expect(screen.queryByText("formHelp")).toBeNull();
   expect(
     screen
       .getByRole("link", { name: /account accountHelp/ })
@@ -110,7 +108,9 @@ it("keeps unavailable data distinct from a genuine empty overview", () => {
     error: { message: "Connection interrupted" },
   });
   render(<TuteeOverview />);
-  expect(screen.getByRole("alert").textContent).toBe("Connection interrupted");
+  expect(screen.getByRole("alert").textContent).toContain(
+    "Connection interrupted",
+  );
   expect(screen.getByText("—")).toBeTruthy();
 });
 it("shows schedules without unrelated attendance, disciplinary records or paging controls", () => {
@@ -135,6 +135,7 @@ it("shows schedules without unrelated attendance, disciplinary records or paging
   });
   render(<StudentPortal view="schedule" />);
   expect(screen.getByText("Math · Tutor A")).toBeTruthy();
+  expect(screen.queryByRole("heading", { name: "schedule" })).toBeNull();
   expect(screen.queryByRole("heading", { name: "attendance" })).toBeNull();
   expect(screen.queryByRole("button", { name: "next" })).toBeNull();
 });
@@ -223,6 +224,8 @@ it("shows the assigned tutor while awaiting a schedule and counts only confirmed
   expect(
     screen.getByRole("link", { name: /schedule 1 scheduledSubjects/ }),
   ).toBeTruthy();
+  expect(screen.getByText("awaiting")).toBeTruthy();
+  expect(screen.getByText("Mon 15:30–16:30")).toBeTruthy();
   unmount();
   render(<StudentPortal view="schedule" />);
   expect(
@@ -234,4 +237,52 @@ it("shows the assigned tutor while awaiting a schedule and counts only confirmed
   expect(
     screen.getByText("English · Tutor A").parentElement?.textContent,
   ).toContain("15:30–16:30");
+});
+
+it("keeps initially unknown summaries distinct from loaded empty records and retries only their read", () => {
+  const refetch = vi.fn();
+  mocks.personal.mockReturnValue({
+    data: undefined,
+    error: { message: "Offline" },
+    refetch,
+  });
+  mocks.requests.mockReturnValue({ data: undefined });
+  render(<TuteeOverview />);
+  expect(screen.getAllByText("—")).toHaveLength(2);
+  fireEvent.click(screen.getByRole("button", { name: "retry" }));
+  expect(refetch).toHaveBeenCalledTimes(1);
+  expect(screen.getAllByRole("button", { name: "retry" })).toHaveLength(1);
+});
+
+it("combines initial overview recovery without duplicate loading or failed-read actions", () => {
+  mocks.personal.mockReturnValue({ data: undefined });
+  mocks.requests.mockReturnValue({ data: undefined });
+  const { rerender } = render(<TuteeOverview />);
+  expect(screen.getAllByText("loading")).toHaveLength(1);
+  const scheduleRead = vi.fn();
+  const requestRead = vi.fn();
+  mocks.personal.mockReturnValue({
+    error: { message: "Schedule unavailable" },
+    refetch: scheduleRead,
+  });
+  mocks.requests.mockReturnValue({
+    error: { message: "Requests unavailable" },
+    refetch: requestRead,
+  });
+  rerender(<TuteeOverview />);
+  expect(screen.getAllByRole("alert")).toHaveLength(1);
+  expect(screen.getByText("schedule: Schedule unavailable")).toBeTruthy();
+  expect(screen.getByText("requests: Requests unavailable")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "retry" }));
+  expect(scheduleRead).toHaveBeenCalledOnce();
+  expect(requestRead).toHaveBeenCalledOnce();
+});
+
+it("retains meaningful headings in the combined portal while dedicated attendance omits its duplicate heading", () => {
+  const { unmount } = render(<StudentPortal view="all" />);
+  expect(screen.getByRole("heading", { name: "schedule" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "attendance" })).toBeTruthy();
+  unmount();
+  render(<StudentPortal view="attendance" />);
+  expect(screen.queryByRole("heading", { name: "attendance" })).toBeNull();
 });

@@ -13,11 +13,18 @@ const state = vi.hoisted(() => ({
   featuresError: false,
   disabledFeatureError: false,
   pendingRequests: 0,
+  applicationStatus: "",
 }));
 
 vi.mock("next-intl", () => ({
   useTimeZone: () => "Asia/Shanghai",
-  useFormatter: () => ({ dateTime: (date: Date, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en", { timeZone: "Asia/Shanghai", ...options }).format(date) }),
+  useFormatter: () => ({
+    dateTime: (date: Date, options: Intl.DateTimeFormatOptions) =>
+      new Intl.DateTimeFormat("en", {
+        timeZone: "Asia/Shanghai",
+        ...options,
+      }).format(date),
+  }),
   useTranslations: () => (key: string) => key,
 }));
 
@@ -54,7 +61,21 @@ vi.mock("~/trpc/react", () => ({
       },
       tutees: { useQuery: () => ({ data: [], isLoading: false, error: null }) },
       tutorApplications: {
-        useQuery: () => ({ data: [], isLoading: false, error: null }),
+        useQuery: () => ({
+          data: state.applicationStatus
+            ? [
+                {
+                  id: "application",
+                  name: "Synthetic applicant",
+                  status: state.applicationStatus,
+                  votes: [],
+                  interviewers: [],
+                },
+              ]
+            : [],
+          isLoading: false,
+          error: null,
+        }),
       },
       disciplinaryCards: {
         useQuery: () => ({
@@ -132,7 +153,20 @@ afterEach(() => {
   state.featuresError = false;
   state.disabledFeatureError = false;
   state.pendingRequests = 0;
+  state.applicationStatus = "";
 });
+
+it.each(["PENDING", "INTERVIEW"])(
+  "translates the %s application summary without rendering a raw enum",
+  (status) => {
+    state.applicationStatus = status;
+    render(<ActivityPage />);
+    expect(
+      screen.getByText(`admin.applications.status.${status}`),
+    ).toBeTruthy();
+    expect(screen.queryByText(status.toLowerCase())).toBeNull();
+  },
+);
 
 it("does not claim all clear when the activity summary fails", () => {
   state.summaryError = true;
@@ -179,7 +213,9 @@ it("shows all clear for successful empty data even when disabled queues error", 
 it("bounds the populated mobile hero grid without changing desktop columns or queue links", async () => {
   state.pendingRequests = 30;
   render(<ActivityPage />);
-  const hero = screen.getByText("admin.activity.hero.title").closest("section")!;
+  const hero = screen
+    .getByText("admin.activity.hero.title")
+    .closest("section")!;
   expect(within(hero).getByText("30", { selector: "p" })).toBeTruthy();
   expect(
     within(hero)

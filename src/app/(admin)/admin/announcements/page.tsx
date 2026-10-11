@@ -57,7 +57,7 @@ function AnnouncementCard({
   const dirty = title !== a.title || body !== a.body;
 
   return (
-    <div className={`card space-y-3 p-4 ${a.active ? "" : "opacity-60"}`}>
+    <div className={`card space-y-3 p-4 ${a.active ? "" : "bg-slate-50"}`}>
       <div className="flex flex-wrap items-center gap-2">
         {readOnly ? (
           <span className="flex-1 font-semibold text-slate-900">{a.title}</span>

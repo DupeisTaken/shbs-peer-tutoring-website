@@ -31,7 +31,9 @@ export default async function StudentPage({
       getTranslations("workflows"),
     ]);
   const session = await auth();
-  const access = session?.user ? await accountPortalAccess(session.user.id) : null;
+  const access = session?.user
+    ? await accountPortalAccess(session.user.id)
+    : null;
   const view = resolveTuteeView(params.view);
   const period = currentPeriod
     ? getPeriodDisplay(currentPeriod, features.QUARTER_SYSTEM)
@@ -50,11 +52,13 @@ export default async function StudentPage({
             </p>
           )}
         </div>
-        {!access?.departed && <Link href="/tutee" className="btn-primary" prefetch={false}>
-          {t("requestTutor")}
-        </Link>}
+        {!access?.departed && (
+          <Link href="/tutee" className="btn-primary" prefetch={false}>
+            {t("requestTutor")}
+          </Link>
+        )}
       </div>
-      {view === "dashboard" && <TuteeOverview departed={access?.departed} />}
+      {view === "dashboard" && <TuteeOverview />}
       {view === "messages" && <MessageInbox />}
       {view === "account" && <AccountSettings embedded />}
       {view === "requests" && (
@@ -65,14 +69,15 @@ export default async function StudentPage({
       )}
       {view === "support" && (
         <section className="card space-y-3 p-5">
-          <h2 className="section-title">{t("needHelp")}</h2>
           <p className="muted text-sm">{t("supportHelp")}</p>
-          <Link href="/student?view=messages" className="btn-secondary">
-            {t("messages")}
-          </Link>
-          <Link href="/student-support" className="link block">
-            {workflows("feedback")}
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/student?view=messages" className="btn-secondary">
+              {t("messages")}
+            </Link>
+            <Link href="/student-support" className="btn-secondary">
+              {workflows("feedback")}
+            </Link>
+          </div>
         </section>
       )}
       {(view === "schedule" || view === "attendance" || view === "support") && (

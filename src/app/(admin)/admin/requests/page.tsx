@@ -7,18 +7,19 @@ import { StudentRequestBoard } from "./student-request-board";
 import { SignupSourceBadge } from "~/app/_components/signup-source-badge";
 
 import { useEffect, useMemo, useState } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import {
   isCurrentManualSignup,
   signupRequestGroup,
 } from "~/lib/signup-request-groups";
 
 import { api } from "~/trpc/react";
-import { DAY_NAMES, minToHm } from "~/lib/time";
+import { formatWeekday, minToHm } from "~/lib/time";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
 import { useDialog } from "~/app/_components/confirm-dialog";
+import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 
 type SlotLite = {
   id: string;
@@ -51,10 +52,13 @@ type PendingTutee = {
 
 type Workload = Record<string, { pairings: number; tutees: number }>;
 
-function availability(av: { slot: SlotLite }[]): string {
+function availability(av: { slot: SlotLite }[], locale: string): string {
   if (av.length === 0) return "—";
   return av
-    .map((a) => `${DAY_NAMES[a.slot.dayOfWeek]} ${minToHm(a.slot.startMin)}`)
+    .map(
+      (a) =>
+        `${formatWeekday(a.slot.dayOfWeek, locale)} ${minToHm(a.slot.startMin)}`,
+    )
     .join(", ");
 }
 
@@ -80,6 +84,7 @@ function RequestCard({
 }) {
   const t = useTranslations();
   const format = useFormatter();
+  const locale = useLocale();
   const readOnly = useReadOnly();
   const { confirm, dialog } = useDialog();
   const [confirmCourse, setConfirmCourse] = useState<{
@@ -146,7 +151,7 @@ function RequestCard({
 
   return (
     <div
-      className={`rounded-lg border border-slate-200 p-4 ${fulfilled ? "bg-slate-50 opacity-70" : ""}`}
+      className={`rounded-lg border border-slate-200 p-4 ${fulfilled ? "bg-slate-50" : ""}`}
     >
       {assignmentPayload && (
         <AssignmentConfirmation
@@ -229,7 +234,7 @@ function RequestCard({
                 </p>
                 <p className="muted">
                   {t("admin.requests.available", {
-                    list: availability(tutee.availabilities),
+                    list: availability(tutee.availabilities, locale),
                   })}
                 </p>
                 {tutee.preferredContact && (
@@ -298,10 +303,7 @@ function RequestCard({
               : undefined;
             const isAssigned = !!assignedTo;
             return (
-              <div
-                key={p.key}
-                className={`flex flex-wrap items-center gap-2 ${filled ? "" : "opacity-50"}`}
-              >
+              <div key={p.key} className="flex flex-wrap items-center gap-2">
                 <span className="w-44 text-sm text-slate-700">
                   {p.label}:{" "}
                   {filled ? (
@@ -462,8 +464,10 @@ export default function RequestsPage() {
       <div>
         <h1 className="page-title">{t("admin.requests.title")}</h1>
         <p className="muted mt-1">{t("admin.requests.help")}</p>
-        <p className="muted mt-2 text-sm">{t("workflow.sourceHelp")}</p>
       </div>
+      <DisclosureSection title={t("workflow.sourceGuide")} lifetime="lazy">
+        <p className="muted text-sm">{t("workflow.sourceHelp")}</p>
+      </DisclosureSection>
 
       {!currentPeriod.isLoading && !hasPeriod && (
         <p className="text-sm text-red-600">{t("admin.requests.noTerm")}</p>

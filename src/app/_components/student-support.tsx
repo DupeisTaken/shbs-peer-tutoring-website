@@ -1,6 +1,6 @@
 "use client";
-import { InlineNotice } from "./ui/patterns";
-import { Button } from "./ui/button";
+import { FilterToolbar, InlineNotice } from "./ui/patterns";
+import { Button, ChoiceButton } from "./ui/button";
 import { SchoolCalendar } from "./school-calendar";
 import Link from "next/link";
 import { useState } from "react";
@@ -131,6 +131,7 @@ export function StudentSupport() {
           </article>
         ))}
         <Pager
+          label={t("feedback")}
           page={feedbackPage}
           setPage={setFeedbackPage}
           more={feedback.data?.length === 20}
@@ -140,19 +141,11 @@ export function StudentSupport() {
         <section className="card space-y-4 p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="section-title">{t("staffAppeals")}</h2>
-            <div
-              className="flex flex-wrap gap-2"
-              role="group"
-              aria-label={t("appealFilter")}
-            >
+            <FilterToolbar label={t("appealFilter")}>
               {(["PENDING", "RESOLVED"] as const).map((state) => (
-                <button
+                <ChoiceButton
                   key={state}
-                  type="button"
-                  className={
-                    appealState === state ? "btn-primary" : "btn-secondary"
-                  }
-                  aria-pressed={appealState === state}
+                  selected={appealState === state}
                   onClick={() => {
                     setAppealState(state);
                     setAppealPage(0);
@@ -161,9 +154,9 @@ export function StudentSupport() {
                   {t(
                     state === "PENDING" ? "pendingAppeals" : "resolvedAppeals",
                   )}
-                </button>
+                </ChoiceButton>
               ))}
-            </div>
+            </FilterToolbar>
           </div>
           {appeals.data?.rows.length === 0 && (
             <p className="muted">{t("empty")}</p>
@@ -174,7 +167,10 @@ export function StudentSupport() {
               className="space-y-3 rounded-lg border border-slate-200 p-4"
             >
               <p className="font-medium">
-                {a.studentName} · {a.state}
+                {a.studentName} ·{" "}
+                {t(
+                  a.state === "PENDING" ? "pendingAppeals" : "resolvedAppeals",
+                )}
               </p>
               <p>{a.cardReason}</p>
               <p>{a.body}</p>
@@ -211,6 +207,7 @@ export function StudentSupport() {
             </article>
           ))}
           <Pager
+            label={t("staffAppeals")}
             page={appealPage}
             setPage={setAppealPage}
             more={

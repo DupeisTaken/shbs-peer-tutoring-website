@@ -15,7 +15,7 @@ import {
   TableDetails,
 } from "./summary-table";
 import { RoomGrid } from "../room-grid";
-import { Modal } from "./modal";
+import { Modal, useDialogPending } from "./modal";
 import en from "../../../../messages/en.json";
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -44,82 +44,131 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it("lets a portalled nested submenu own Tab and Escape without closing its parent", () => {
-  const closeParent = vi.fn();
-  render(
-    <Modal
-      title="Parent editor"
-      onClose={closeParent}
-      footer={<button>Close parent</button>}
-    >
-      <TableDetails title="Nested details">
-        <input aria-label="First" />
-        <input aria-label="Second" />
-      </TableDetails>
-    </Modal>,
-    { wrapper },
+it.each([false, true])(
+  "lets a portalled nested submenu own Tab and Escape without closing its parent (long=%s)",
+  (longReader) => {
+    const closeParent = vi.fn();
+    render(
+      <Modal
+        title="Parent editor"
+        onClose={closeParent}
+        footer={<button>Close parent</button>}
+      >
+        <TableDetails title="Nested details" longReader={longReader}>
+          <input aria-label="First" />
+          <input aria-label="Second" />
+        </TableDetails>
+      </Modal>,
+      { wrapper },
+    );
+    const trigger = screen.getByRole("button", {
+      name: "View details: Nested details",
+    });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const nested = screen.getByRole("dialog", { name: "Nested details" });
+    const first = within(nested).getByRole("textbox", { name: "First" });
+    first.focus();
+    expect(fireEvent.keyDown(first, { key: "Tab" })).toBe(true);
+    const close = within(nested).getByRole("button", { name: "Close" });
+    const last = longReader
+      ? within(nested).getByRole("textbox", { name: "Second" })
+      : close;
+    last.focus();
+    fireEvent.keyDown(last, { key: "Tab" });
+    expect(document.activeElement).toBe(longReader ? close : first);
+    fireEvent(nested, new Event("cancel", { cancelable: true, bubbles: true }));
+    expect(closeParent).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "Nested details" })).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Parent editor" })).toBeTruthy();
+    expect(document.activeElement).toBe(trigger);
+  },
+);
+
+it.each([false, true])(
+  "keeps the summary brief, mounts detail content on demand, and restores the rightmost trigger (long=%s)",
+  (longReader) => {
+    const loadDetail = vi.fn();
+    function Detail() {
+      loadDetail();
+      return <p>Full profile and private contact details</p>;
+    }
+    render(
+      <SummaryTable label="People">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th className="table-actions-heading">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Alex</td>
+            <TableActions>
+              <TableDetails title="Alex" longReader={longReader}>
+                <Detail />
+              </TableDetails>
+            </TableActions>
+          </tr>
+        </tbody>
+      </SummaryTable>,
+      { wrapper },
+    );
+    expect(loadDetail).not.toHaveBeenCalled();
+    const trigger = screen.getByRole("button", { name: "View details: Alex" });
+    expect(trigger.closest("td")).toBe(trigger.closest("tr")?.lastElementChild);
+    expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Alex" });
+    expect(loadDetail).toHaveBeenCalledTimes(1);
+    expect(dialog.parentElement).toBe(document.body);
+    expect(
+      within(dialog).getByText("Full profile and private contact details"),
+    ).toBeTruthy();
+    expect(screen.getByRole("table").textContent).not.toContain(
+      "private contact",
+    );
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  },
+);
+
+it("long readers retain the header Close and protect a registered child write until settlement", () => {
+  function Child({ pending }: { pending: boolean }) {
+    const busy = useDialogPending(pending);
+    return (
+      <input
+        aria-label="Independent draft"
+        disabled={busy}
+        defaultValue="Retained"
+      />
+    );
+  }
+  const ui = (pending: boolean) => (
+    <TableDetails title="Long reader" longReader>
+      <Child pending={pending} />
+    </TableDetails>
   );
+  const { rerender } = render(ui(false), { wrapper });
   const trigger = screen.getByRole("button", {
-    name: "View details: Nested details",
+    name: "View details: Long reader",
   });
   trigger.focus();
   fireEvent.click(trigger);
-  const nested = screen.getByRole("dialog", { name: "Nested details" });
-  const first = within(nested).getByRole("textbox", { name: "First" });
-  first.focus();
-  expect(fireEvent.keyDown(first, { key: "Tab" })).toBe(true);
-  const last = within(nested).getByRole("button", { name: "Close" });
-  last.focus();
-  fireEvent.keyDown(last, { key: "Tab" });
-  expect(document.activeElement).toBe(first);
-  fireEvent(nested, new Event("cancel", { cancelable: true, bubbles: true }));
-  expect(closeParent).not.toHaveBeenCalled();
-  expect(screen.queryByRole("dialog", { name: "Nested details" })).toBeNull();
-  expect(screen.getByRole("dialog", { name: "Parent editor" })).toBeTruthy();
-  expect(document.activeElement).toBe(trigger);
-});
-
-it("keeps the summary brief, mounts detail content on demand, and restores the rightmost trigger", () => {
-  const loadDetail = vi.fn();
-  function Detail() {
-    loadDetail();
-    return <p>Full profile and private contact details</p>;
-  }
-  render(
-    <SummaryTable label="People">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th className="table-actions-heading">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Alex</td>
-          <TableActions>
-            <TableDetails title="Alex">
-              <Detail />
-            </TableDetails>
-          </TableActions>
-        </tr>
-      </tbody>
-    </SummaryTable>,
-    { wrapper },
-  );
-  expect(loadDetail).not.toHaveBeenCalled();
-  const trigger = screen.getByRole("button", { name: "View details: Alex" });
-  expect(trigger.closest("td")).toBe(trigger.closest("tr")?.lastElementChild);
-  expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
-  trigger.focus();
-  fireEvent.click(trigger);
-  const dialog = screen.getByRole("dialog", { name: "Alex" });
-  expect(loadDetail).toHaveBeenCalledTimes(1);
-  expect(dialog.parentElement).toBe(document.body);
-  expect(
-    within(dialog).getByText("Full profile and private contact details"),
-  ).toBeTruthy();
-  expect(screen.getByRole("table").textContent).not.toContain(
-    "private contact",
+  const dialog = screen.getByRole("dialog", { name: "Long reader" });
+  const close = within(dialog).getByRole("button", { name: "Close" });
+  expect(close.parentElement?.className).toContain("sticky top-0");
+  expect(document.activeElement).toBe(close);
+  rerender(ui(true));
+  expect(close.hasAttribute("disabled")).toBe(true);
+  expect(fireEvent.keyDown(dialog, { key: "Escape" })).toBe(false);
+  fireEvent(dialog, new Event("cancel", { cancelable: true }));
+  expect(screen.getByRole("dialog")).toBe(dialog);
+  rerender(ui(false));
+  expect(within(dialog).getByRole<HTMLInputElement>("textbox").value).toBe(
+    "Retained",
   );
   fireEvent(dialog, new Event("cancel", { cancelable: true }));
   expect(screen.queryByRole("dialog")).toBeNull();

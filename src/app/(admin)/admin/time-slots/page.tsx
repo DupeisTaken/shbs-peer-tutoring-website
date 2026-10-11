@@ -4,17 +4,16 @@ import { DismissibleNotice } from "~/app/_components/dismissible-notice";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
-import { DAY_NAMES, hmToMin, minToHm } from "~/lib/time";
+import { formatWeekday, hmToMin, minToHm } from "~/lib/time";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { useReadOnly } from "~/app/_components/read-only";
 import {
   SummaryTable,
   TableActions,
   TableAction,
-  TableDetails,
 } from "~/app/_components/ui/summary-table";
 import { Modal } from "~/app/_components/ui/modal";
 import { Button } from "~/app/_components/ui/button";
@@ -31,6 +30,7 @@ type SlotDraft = typeof EMPTY & { id: string; active: boolean };
 
 export default function TimeSlotsPage() {
   const t = useTranslations();
+  const locale = useLocale();
   const readOnly = useReadOnly();
   const utils = api.useUtils();
   const queryClient = useQueryClient();
@@ -126,7 +126,7 @@ export default function TimeSlotsPage() {
       </div>
       {readFeedback}
 
-      {!readOnly && (
+      {
         <DismissibleNotice
           noticeId="time-slot-propagation-v1"
           title={t("admin.timeslots.propagationTitle")}
@@ -137,7 +137,7 @@ export default function TimeSlotsPage() {
             {t("admin.timeslots.propagationNote")}
           </p>
         </DismissibleNotice>
-      )}
+      }
 
       {!readOnly && (
         <form
@@ -175,7 +175,7 @@ export default function TimeSlotsPage() {
             >
               {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                 <option key={d} value={d}>
-                  {DAY_NAMES[d]}
+                  {formatWeekday(d, locale)}
                 </option>
               ))}
             </select>
@@ -224,16 +224,18 @@ export default function TimeSlotsPage() {
               <th>{t("admin.timeslots.colDay")}</th>
               <th>{t("admin.timeslots.colTime")}</th>
               <th>{t("admin.timeslots.colActive")}</th>
-              <th className="table-actions-heading">
-                {t("tablePatterns.actions")}
-              </th>
+              {!readOnly && (
+                <th className="table-actions-heading">
+                  {t("tablePatterns.actions")}
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {(slots.data ?? []).map((s) => (
               <tr key={s.id}>
                 <td className="font-medium text-slate-900">{s.label}</td>
-                <td>{DAY_NAMES[s.dayOfWeek]}</td>
+                <td>{formatWeekday(s.dayOfWeek, locale)}</td>
                 <td className="font-mono text-slate-700">
                   {minToHm(s.startMin)}–{minToHm(s.endMin)}
                 </td>
@@ -244,97 +246,70 @@ export default function TimeSlotsPage() {
                       : "courseCatalogue.inactive",
                   )}
                 </td>
-                <TableActions>
-                  <TableDetails title={s.label}>
-                    <dl className="space-y-3">
-                      <div>
-                        <dt className="label">{t("admin.timeslots.colDay")}</dt>
-                        <dd>{DAY_NAMES[s.dayOfWeek]}</dd>
-                      </div>
-                      <div>
-                        <dt className="label">
-                          {t("admin.timeslots.colTime")}
-                        </dt>
-                        <dd>
-                          {minToHm(s.startMin)}–{minToHm(s.endMin)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="label">
-                          {t("admin.timeslots.colActive")}
-                        </dt>
-                        <dd>
-                          {t(
-                            s.active
-                              ? "courseCatalogue.active"
-                              : "courseCatalogue.inactive",
-                          )}
-                        </dd>
-                      </div>
-                    </dl>
-                    <p className="muted">
-                      {t("admin.timeslots.propagationNote")}
-                    </p>
-                  </TableDetails>
-                  {!readOnly && (
-                    <>
-                      <TableAction
-                        aria-label={`${t("admin.timeslots.edit")}: ${s.label}`}
-                        disabled={readBlocked || update.isPending}
-                        onClick={() => {
-                          update.reset();
-                          setEditing({
-                            id: s.id,
-                            label: s.label,
-                            dayOfWeek: s.dayOfWeek,
-                            startTime: minToHm(s.startMin),
-                            endTime: minToHm(s.endMin),
-                            active: s.active,
-                          });
-                        }}
-                      >
-                        {t("admin.timeslots.edit")}
-                      </TableAction>
-                      <TableAction
-                        className="text-red-700"
-                        disabled={
-                          readBlocked ||
-                          review.blocked(s.id) ||
-                          update.isPending
-                        }
-                        onClick={() =>
-                          review.open({
-                            key: s.id,
-                            title: t("actionReview.slotTitle", {
-                              name: s.label,
-                            }),
-                            description: t("actionReview.slotHelp"),
-                            confirmLabel: t("admin.timeslots.delete"),
-                            details: (
-                              <p>
-                                {DAY_NAMES[s.dayOfWeek]} · {minToHm(s.startMin)}
-                                –{minToHm(s.endMin)}
-                              </p>
-                            ),
-                            commit: () => del.mutateAsync({ id: s.id }),
-                            refresh: () =>
-                              settleRefreshes([
-                                () =>
-                                  invalidateAndReport(utils.admin.timeSlots),
-                                () => invalidateAndReport(utils.admin.pairings),
-                                () =>
-                                  invalidateAndReport(utils.tutor.myPairings),
-                                () => invalidateAndReport(utils.tutor.schedule),
-                              ]),
-                            approvalId: queuedApprovalId,
-                          })
-                        }
-                      >
-                        {t("admin.timeslots.delete")}
-                      </TableAction>
-                    </>
-                  )}
-                </TableActions>
+                {!readOnly && (
+                  <TableActions>
+                    {!readOnly && (
+                      <>
+                        <TableAction
+                          aria-label={`${t("admin.timeslots.edit")}: ${s.label}`}
+                          disabled={readBlocked || update.isPending}
+                          onClick={() => {
+                            update.reset();
+                            setEditing({
+                              id: s.id,
+                              label: s.label,
+                              dayOfWeek: s.dayOfWeek,
+                              startTime: minToHm(s.startMin),
+                              endTime: minToHm(s.endMin),
+                              active: s.active,
+                            });
+                          }}
+                        >
+                          {t("admin.timeslots.edit")}
+                        </TableAction>
+                        <TableAction
+                          className="text-red-700"
+                          disabled={
+                            readBlocked ||
+                            review.blocked(s.id) ||
+                            update.isPending
+                          }
+                          onClick={() =>
+                            review.open({
+                              key: s.id,
+                              title: t("actionReview.slotTitle", {
+                                name: s.label,
+                              }),
+                              description: t("actionReview.slotHelp"),
+                              confirmLabel: t("admin.timeslots.delete"),
+                              details: (
+                                <p>
+                                  {formatWeekday(s.dayOfWeek, locale)} ·{" "}
+                                  {minToHm(s.startMin)}–{minToHm(s.endMin)}
+                                </p>
+                              ),
+                              commit: () => del.mutateAsync({ id: s.id }),
+                              refresh: () =>
+                                settleRefreshes([
+                                  () =>
+                                    invalidateAndReport(utils.admin.timeSlots),
+                                  () =>
+                                    invalidateAndReport(utils.admin.pairings),
+                                  () =>
+                                    invalidateAndReport(utils.tutor.myPairings),
+                                  () =>
+                                    invalidateAndReport(utils.tutor.schedule),
+                                ]),
+                              approvalId: queuedApprovalId,
+                            })
+                          }
+                        >
+                          {t("admin.timeslots.delete")}
+                        </TableAction>
+                      </>
+                    )}
+                  </TableActions>
+                )}
               </tr>
             ))}
             {!slots.error && slots.data?.length === 0 && (
@@ -425,7 +400,7 @@ export default function TimeSlotsPage() {
               >
                 {[1, 2, 3, 4, 5, 6, 7].map((day) => (
                   <option key={day} value={day}>
-                    {DAY_NAMES[day]}
+                    {formatWeekday(day, locale)}
                   </option>
                 ))}
               </select>

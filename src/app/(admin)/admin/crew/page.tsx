@@ -263,6 +263,7 @@ export default function CrewPage() {
                 {a.message && (
                   <TableDetails
                     title={`${t("admin.crew.originalApplication")} · ${a.name}`}
+                    longReader
                   >
                     <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
                       {a.message}
@@ -424,6 +425,7 @@ export default function CrewPage() {
                 {r.reason && (
                   <TableDetails
                     title={`${t("admin.crew.originalRequest")} · ${r.member}`}
+                    longReader
                   >
                     <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
                       {r.reason}
@@ -634,7 +636,9 @@ export default function CrewPage() {
               {(roster.data ?? []).map((u) => (
                 <tr
                   key={u.id}
-                  className={u.status === "ACTIVE" ? "" : "text-slate-400"}
+                  className={
+                    u.status === "ACTIVE" ? "" : "bg-slate-50 text-slate-600"
+                  }
                 >
                   <td>
                     <span className="font-medium text-slate-800">{u.name}</span>
@@ -652,10 +656,9 @@ export default function CrewPage() {
                       {t(`admin.crew.status.${u.status}`)}
                     </span>
                   </td>
-                  <td className="text-right">{u.patrols || ""}</td>
-                  <td className="text-right">
-                    {u.hours > 0 ? `${u.hours.toFixed(1)} h` : ""}
-                  </td>
+                  {/* A completed roster response has known totals, including zero. */}
+                  <td className="text-right">{u.patrols}</td>
+                  <td className="text-right">{u.hours.toFixed(1)} h</td>
                   <TableActions>
                     {/* Membership context and status changes share the trailing text-link entry point. */}
                     <TableDetails title={u.name}>

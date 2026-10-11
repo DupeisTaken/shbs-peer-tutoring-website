@@ -507,7 +507,7 @@
     },
     "requests": {
       "title": "Signup Requests (Tutees)",
-      "help": "Public tutee signups awaiting allocation, processed earliest-first. Assign each subject choice to a tutor — that creates the pairing, and the tutor then picks the time slot.",
+      "help": "Review new requests, match subjects and track assigned students.",
       "noTerm": "Create a term first so requests can be assigned.",
       "decline": "Decline",
       "declineConfirm": "Decline and delete {name}'s request?",
@@ -2647,7 +2647,9 @@
     "invalidDate": "Enter a valid date and time.",
     "searchInterviews": "Search",
     "feedbackVisibilityLoading": "Checking who can read feedback…",
-    "feedbackVisibilityUnavailable": "We could not verify who can read feedback. Try again to check its visibility."
+    "feedbackVisibilityUnavailable": "We could not verify who can read feedback. Try again to check its visibility.",
+    "pagination": "Pagination",
+    "page": "Page {page}"
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -2802,7 +2804,9 @@
     },
     "selfServiceSource": "Self-service",
     "unknownSource": "Earlier signup",
-    "sourceHelp": "Source describes how a signup was entered. It does not change approval, priority or participation rules. Earlier signup means the original entry source is unconfirmed."
+    "sourceHelp": "Source describes how a signup was entered. It does not change approval, priority or participation rules. Earlier signup means the original entry source is unconfirmed.",
+    "boardGuide": "How requests are grouped",
+    "sourceGuide": "Signup sources and ownership"
   },
   "approvals": {
     "reviewPermissions": "Admin and Head review daily operations. Head reviews significant settings, management profiles and roles, requested registration-code grants and reversals. Admin and Head issue Tutor/Crew codes directly. Head may review their own requests; everyone else needs another eligible reviewer.",
@@ -3619,7 +3623,8 @@
       "grade": "Class grade",
       "apScore": "AP score",
       "selfStudyNote": "Self-study details"
-    }
+    },
+    "requirementsHelp": "Field requirements and email settings"
   },
   "courseGroups": {
     "title": "Subjects & Levels",

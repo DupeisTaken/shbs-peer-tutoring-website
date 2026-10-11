@@ -3,7 +3,10 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { StudentRequestBoard } from "./student-request-board";
 
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
+  useLocale: () => "en",
+}));
 vi.mock("~/trpc/react", () => ({
   api: {
     studentWorkflow: {
@@ -14,6 +17,27 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 afterEach(cleanup);
+
+it("moves focus with arrows and Home/End without changing the selected request panel", () => {
+  render(<StudentRequestBoard />);
+  const matching = screen.getByRole("tab", { name: "matching 0" });
+  const assigned = screen.getByRole("tab", { name: "assigned 0" });
+  matching.focus();
+  fireEvent.keyDown(matching, { key: "ArrowRight" });
+  expect(document.activeElement).toBe(assigned);
+  expect(matching.getAttribute("aria-selected")).toBe("true");
+  fireEvent.keyDown(assigned, { key: "End" });
+  expect(document.activeElement).toBe(
+    screen.getByRole("tab", { name: "processed 0" }),
+  );
+  fireEvent.keyDown(document.activeElement!, { key: "Home" });
+  expect(document.activeElement).toBe(matching);
+  fireEvent.click(assigned);
+  expect(assigned.getAttribute("aria-selected")).toBe("true");
+  expect(screen.getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(
+    assigned.id,
+  );
+});
 
 it("manual requests participate in tab counts and disappear when another tab is selected", () => {
   render(

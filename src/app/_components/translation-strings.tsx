@@ -8,8 +8,8 @@ import { DisclosureIcon } from "~/app/_components/icons";
 import { translationAccess } from "~/lib/translation-access";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
-import { InlineNotice } from "~/app/_components/ui/patterns";
-import { Button } from "~/app/_components/ui/button";
+import { FilterToolbar, InlineNotice } from "~/app/_components/ui/patterns";
+import { Button, ChoiceButton } from "~/app/_components/ui/button";
 
 type StringRowData = {
   key: string;
@@ -277,33 +277,27 @@ export function TranslationStrings() {
 
       {/* Optional reference languages: shown (read-only) under English in every row. */}
       {langOptions.some((l) => l.code !== locale && l.code !== "en") && (
-        <div className="flex flex-wrap items-center gap-2">
+        <FilterToolbar label={t("localization.reference")}>
           <span className="label">{t("localization.reference")}</span>
           {langOptions
             .filter((l) => l.code !== locale && l.code !== "en")
             .map((l) => {
               const on = refLocales.includes(l.code);
               return (
-                <button
+                <ChoiceButton
                   key={l.code}
-                  type="button"
-                  aria-pressed={on}
+                  selected={on}
                   onClick={() =>
                     setRefLocales((prev) =>
                       on ? prev.filter((c) => c !== l.code) : [...prev, l.code],
                     )
                   }
-                  className={`badge ${
-                    on
-                      ? "bg-accent-100 text-accent-700"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
                 >
                   {l.label}
-                </button>
+                </ChoiceButton>
               );
             })}
-        </div>
+        </FilterToolbar>
       )}
 
       {strings.error && <p role="alert">{strings.error.message}</p>}

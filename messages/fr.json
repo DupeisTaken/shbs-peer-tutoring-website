@@ -541,7 +541,7 @@
     },
     "requests": {
       "title": "Demandes d'inscription (élèves)",
-      "help": "Inscriptions publiques d'élèves en attente d'attribution, traitées par ordre d'arrivée. Assignez chaque choix de matière à un tuteur — cela crée le pariage, et le tuteur choisit ensuite le créneau horaire.",
+      "help": "Examinez les nouvelles demandes, associez les matières et suivez les élèves affectés.",
       "noTerm": "Créez d'abord une période pour pouvoir attribuer les demandes.",
       "decline": "Refuser",
       "declineConfirm": "Refuser et supprimer la demande de {name} ?",
@@ -2681,7 +2681,9 @@
     "invalidDate": "Enter a valid date and time.",
     "searchInterviews": "Search",
     "feedbackVisibilityLoading": "Vérification des personnes pouvant lire les commentaires…",
-    "feedbackVisibilityUnavailable": "Impossible de vérifier qui peut lire les commentaires. Réessayez pour vérifier leur visibilité."
+    "feedbackVisibilityUnavailable": "Impossible de vérifier qui peut lire les commentaires. Réessayez pour vérifier leur visibilité.",
+    "pagination": "Pagination",
+    "page": "Page {page}"
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -2836,7 +2838,9 @@
     },
     "selfServiceSource": "Inscription autonome",
     "unknownSource": "Inscription antérieure",
-    "sourceHelp": "La source décrit comment une inscription a été saisie. Elle ne change ni approbation, ni priorité, ni règles de participation. Une inscription antérieure a une source initiale non confirmée."
+    "sourceHelp": "La source décrit comment une inscription a été saisie. Elle ne change ni approbation, ni priorité, ni règles de participation. Une inscription antérieure a une source initiale non confirmée.",
+    "boardGuide": "Comment les demandes sont regroupées",
+    "sourceGuide": "Origine et rattachement des inscriptions"
   },
   "approvals": {
     "reviewPermissions": "Admin et Head examinent les demandes de gestion ordinaires. Seul Head examine les changements de rôles et de badges. Head peut examiner ses propres demandes ; les autres doivent faire appel à une autre personne autorisée.",
@@ -3653,7 +3657,8 @@
       "grade": "Note du cours",
       "apScore": "Résultat AP",
       "selfStudyNote": "Détails de l’apprentissage autonome"
-    }
+    },
+    "requirementsHelp": "Exigences des champs et paramètres e-mail"
   },
   "courseGroups": {
     "title": "Subjects & Levels",
