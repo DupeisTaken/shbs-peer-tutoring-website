@@ -22,6 +22,7 @@ import { TRPC_BATCH_OPTIONS } from "~/lib/trpc-batch";
 import type { AppRouter } from "~/server/api/root";
 import { createQueryClient } from "./query-client";
 import { ApprovalNotice } from "~/app/_components/approval-notice";
+import { SessionViewProvider } from "~/app/_components/session-view-state";
 import {
   NotificationViewport,
   SaveNotifications,
@@ -196,7 +197,13 @@ function IdentityQueryProvider(props: {
         )}
         <div style={{ display: checkingIdentity ? "none" : "contents" }}>
           <IdentityFocusContext.Provider value={focusVersion}>
-            {props.children}
+            <SessionViewProvider
+              identity={props.identity}
+              pathname={pathname}
+              verified={!checkingIdentity && previousPath.current === pathname}
+            >
+              {props.children}
+            </SessionViewProvider>
           </IdentityFocusContext.Provider>
           <NotificationViewport>
             <ApprovalNotice />
