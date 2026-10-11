@@ -2,6 +2,9 @@
 
 Start with [local setup](local-development.md), then use the [technical guide's code map](technical-report.md#architecture) to find the implementation you need. Keep changes focused on current behavior and document the core ideas in code comments.
 
+For a new UI entry point, follow [Add an action or feature](#add-an-action-or-feature)
+for the default implementation recipe and an existing typed review adapter.
+
 ## Required checks
 
 Run commands from the repository root:
@@ -88,6 +91,58 @@ For a recipe migration, link its feature issue and the corresponding running-pag
 and gallery screenshots in the local verification report. Record language, viewport,
 role and state for each capture; keep the images and report in ignored `outputs/`.
 
+### Compose a page by its purpose
+
+Choose a frame for the task before adjusting individual cards. These are composition
+roles using existing utilities, not new CSS tokens or a requirement to resize every
+page. Preserve the slate background, white `.card` surfaces, existing font family
+and accent themes. Use semantic warning/error/success treatments for outcomes;
+changing the user's accent must not change what an outcome means.
+
+| Role | Frame and current reference | Composition rule |
+| --- | --- | --- |
+| Management workspace | `max-w-7xl` (1280 px), [admin layout](../src/app/(admin)/layout.tsx) | This outer frame includes navigation and its gap; it is not a 1280 px editor. Keep the shared content edge and local table scrolling. |
+| Participant workspace | `max-w-6xl` (1152 px), [student layout](../src/app/student/layout.tsx) and [tutor dashboard](../src/app/(tutor)/dashboard/page.tsx) | Allow schedule, roster and overview content to use the workspace. Do not shrink it to a reading column. |
+| Standalone workflow | `max-w-5xl` (1024 px), [WorkflowShell](../src/app/_components/workflow-shell.tsx) | Use for a broad task outside the main workspace; keep explicit return context and the existing header contract. |
+| Reader or long form | `max-w-3xl` (768 px), [handbook](../src/app/(tutor)/handbook/page.tsx) and wide [PublicFormPage](../src/app/_components/public-form-page.tsx) | Favor readable lines and one clear save scope. A feature may use a narrower frame when its fields warrant it. |
+| Compact public form | `max-w-lg` (512 px), default `PublicFormPage` | Center the outer frame and its short introduction; keep fields and labels left-aligned through `PublicFormCard`. |
+
+Pixel values describe maximum widths at the default root font size, not fixed
+viewport widths. Keep responsive gutters and let enlarged text grow. Center an
+outer reader/form frame when useful; align its fields, notices and actions to one
+content edge. Do not center table data or form labels merely to make unlike pages
+look identical. Embedded sections inherit the host's width and heading hierarchy.
+
+Use a small spacing vocabulary: 4–8 px between a label and its helper, 12–16 px
+between related controls, and 24–32 px between independent page sections. Prefer
+16 px narrow / 20 px wider padding (`p-4 sm:p-5`) for compact workspace cards;
+independent settings forms may use 20/24 px (`p-5 sm:p-6`). Match adjacent cards
+with the same purpose before changing unrelated surfaces. The existing
+`PublicFormCard` deliberately uses a roomier 24/32 px (`p-6 sm:p-8`) composition.
+A proposed denser 20/24 px public long-form variant needs an explicit shared
+contract and real-page verification; it is not an existing prop or a reason for
+per-caller padding overrides. Follow the [control-height hierarchy](../AGENTS.md#control-height-hierarchy)
+and [table-summary rules](../AGENTS.md#table-summaries-and-detail-submenus) for
+interactive spacing rather than deriving target sizes from these content gaps.
+
+Keep one page H1. Use the existing `.page-title` (24 px) and `.section-title`
+(18 px) for workspace hierarchy; body/form text is normally 14–16 px and secondary
+metadata 12–14 px. Public entry pages intentionally use a larger 30 px title.
+Preserve semantic heading order independently of font size. Do not add a heading
+to every wrapper or repeat the active tab name as an otherwise empty section title.
+Essential evidence and instructions must remain readable; do not fade an entire
+historical record or truncate the text needed to make a decision.
+
+Start a page with its task title and only the context needed to act, followed by
+local navigation/filters and the working content. Use specific section names such
+as “Availability” or “Email addresses” instead of generic “Management” or “Details”
+headings that convey no context. Keep descriptions only when they explain a
+consequence, eligibility, save boundary or recovery step. Place field guidance by
+its labelled control and decision evidence beside its action. Preserve permission,
+consent and historical-ownership explanations even when they require more text.
+Use existing schedule/request data when prioritizing work; layout changes alone
+must not introduce a new computed next-session feature or domain rule.
+
 ### Profile editor completion
 
 In profile editors, completion of one section must not dismiss a failed independent
@@ -139,6 +194,24 @@ For a new reusable pattern, add an interactive example and behavior tests after 
 File new proposals using the [issue conventions](issues.md), with the affected workflow, expected behavior, validation and behavior to preserve. The completed shared-pattern migration is recorded in [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219). For subsequent changes, inspect the current page and domain tests rather than treating an old migration checklist as outstanding work.
 
 In a UI PR, state the trigger and resulting behavior, identify the shared patterns and affected page families, and link the issues it addresses. Record the tested commit and distinguish a full-suite run from later focused reruns. Cite measured control heights and the tested languages/viewports; palette fit alone is not a contrast result. Keep generated HTML reports, browser session files and local logs out of the commit. Close specific delivered issues through the PR, while referencing broader migration trackers that still have remaining scope.
+
+For a phased UI migration, establish the composition and ownership contract first,
+then address lost work, inaccessible interactions and misleading states before
+pattern alignment and broader journey changes. Give each scoped fix a linked issue
+and each wave a separate PR. Distinguish reproduced defects, source risks awaiting
+a scenario and design opportunities; old audit entries are not proof that current
+code is still broken. Shared component changes require checks of their actual
+callers, while feature-only changes should not trigger an unrelated visual rewrite.
+
+Keep one local HTML rollout report with a collapsed log for each phase: linked
+issues/PR, scope, tested revision, before/after screenshots, behavior cases,
+measurements, results and remaining limits. Finish the affected cases and required
+checks before advancing; record full-suite results separately from focused reruns.
+The final pass revisits every affected route and nested tab, including read-only,
+empty/error, long-content and translated states. Keep durable guidance here and in
+the technical/development guides; the local report is evidence, not a second set
+of component rules. New features follow the same [extension recipe](#add-an-action-or-feature)
+and [page-composition roles](#compose-a-page-by-its-purpose) from their first caller.
 
 ## Pull request size labels
 
@@ -219,6 +292,97 @@ failed-refresh review leaves an inline read-only retry; another deletion cannot
 replace that recovery until it succeeds. This shared composition does not replace
 timed confirmation tickets, password confirmation, profile versions or assignment
 review. The gallery demonstrates rejected write, accepted write and read recovery.
+
+### Add an action or feature
+
+Start here for a new entry point, then use the inventory above and the
+[extension boundaries](technical-report.md#ui-extension-boundaries). Reuse a
+current caller with the same consequence and lifetime; an old issue's unchecked
+list is not proof that its implementation is still missing. The shared foundation
+and navigation/form recipes shipped through
+[PR #257](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/257),
+which deliberately retained domain ownership and recorded unfinished live acceptance
+separately from its passing CI. For example,
+[issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219)
+was completed by [PR #275](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/275).
+Later [PR #285](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/285)
+added repeat profile saves, [PR #292](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/292)
+set the current 24/44 px table-action sizes, and
+[PR #293](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/293)
+consolidated tutee details. Inspect those current components before extending them.
+
+1. **Define the operation in the feature.** Record the actor, affected record,
+   intent, direct/request-only/read-only audiences, version or ticket requirements,
+   save boundary, and queries that become stale. Describe the user-visible result
+   for applied, queued, rejected and accepted-but-refresh-failed outcomes. Classify
+   management writes in the existing approval policy; UI visibility is not authorization.
+2. **Choose the interaction by effect.** A destination is a link; a local panel is
+   `SectionTabs`; a filter is `ChoiceButton` in `FilterToolbar`. A reversible
+   immediate setting uses `SettingRow` with feature-owned pending/error state.
+   Related draft fields use `FormSection`/`FormActions`. A named consequential
+   action can use `useActionReview`; ticketed, password, assignment and profile
+   workflows keep their stronger existing domain reviews.
+3. **Keep the owner alive.** Put a review controller above removable rows and
+   replaceable panels, render its `dialog` once, and pass it to entries. Keep each
+   independent draft and captured version with its feature. Choose disclosure/tab
+   lifetime deliberately; authorization revocation must still unmount private
+   children. Mount private reads and mutation observers only for authorized users.
+4. **Adapt the existing contract.** Supply translated record/consequence text,
+   the exact authorized mutation, read-only refresh and the feature's proposal/error
+   adapters. Keep mutation acceptance separate from synchronization. Prefer a
+   feature-owned adapter over new global runtime machinery; extract shared behavior
+   when real callers share its contract. Keep feature permissions out of buttons.
+5. **Verify the integration, then document it.** Start with the acceptance cases
+   below and the real page in the [UI verification matrix](local-development.md#ui-verification-matrix).
+   Update this inventory when introducing another action family. Add a gallery
+   example and behavior tests only when introducing or extending a reusable contract;
+   a feature-only composition still needs its own behavior and permission tests.
+
+For a named deletion, this adapter follows the existing
+[Announcements integration](../src/app/(admin)/admin/announcements/page.tsx).
+Here `review` is created once by the authorized list owner; `a`, `del`, `utils`
+and the root `useTranslations()` function `t` belong to the feature. Its entry is
+hidden from read-only users and uses
+`review.blocked(a.id)` for its disabled state. `ReviewedAction` is an existing
+export, not a new application-wide action schema.
+
+```tsx
+import type { ReviewedAction } from "~/app/_components/ui/action-review";
+import { queuedApprovalId } from "~/lib/approval-outcome";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+
+const action = {
+  key: a.id,
+  title: t("admin.announcements.card.confirmDelete"),
+  description: t("actionReview.announcementHelp"),
+  confirmLabel: t("common.delete"),
+  details: <p>{a.title}</p>,
+  // Commit owns only the write. Refresh failure must not make it retryable.
+  commit: () => del.mutateAsync({ id: a.id }),
+  refresh: () => invalidateAndReport(utils.admin.announcements),
+  approvalId: queuedApprovalId,
+} satisfies ReviewedAction;
+
+review.open(action); // Only from the authorized entry's deliberate activation.
+```
+
+Use a stable key for the operation and record; include the operation kind when one
+controller handles multiple actions on the same record. The default prevents an
+accepted action from being replayed while stale rows remain. Set `repeatAfterRefresh`
+only when the domain permits a new deliberate action after successful refresh,
+as with reversible crew status changes. Use `renderError` only for the feature's
+known server error vocabulary. The owner must keep `{review.dialog}` mounted,
+including its inline recovery after Close. For several refresh families, follow
+`settleRefreshes` so one rejection cannot release controls before sibling reads settle.
+
+The minimum behavior cases follow the operation, not the button's appearance:
+Cancel/Escape before commit writes nothing; same-turn double activation admits one
+write; rejected writes preserve drafts; queued proposals say queued; accepted writes
+with failed synchronization offer reads only, including after Close; successful
+recovery permits only the domain's intended next action. Also check conflict Reload,
+removal of the original row, permission changes, nested-dialog focus and pending
+dismissal where applicable. Pair focused component/domain tests with EN/ZH and
+desktop/mobile screenshots; do not count a mocked response as a database write.
 
 ## Chinese peer-tutoring wording
 

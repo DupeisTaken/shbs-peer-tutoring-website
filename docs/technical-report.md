@@ -279,6 +279,74 @@ text rectangles and page scroll width as well as element bounds. Capture enlarge
 failures before restoring the font size; CSS-contract tests alone do not establish
 browser layout acceptance.
 
+### UI extension boundaries
+
+Page composition is caller-owned within the existing shell. The
+[role-based composition guide](contributing.md#compose-a-page-by-its-purpose)
+defines frame, padding, typography and copy choices; it does not introduce a new
+`PageHeader`, layout registry or token API. The management frame includes its
+sidebar and remains 1280 px maximum, while participant workspaces remain 1152 px.
+Reader and compact public frames serve different tasks and may stay narrower.
+Embedded account/form sections inherit the host heading and alignment rather than
+creating another page shell. Keep shared control and header behavior governed by
+[AGENTS.md](../AGENTS.md#control-height-hierarchy).
+
+Choose hierarchy around existing data and actions. A task summary may link to an
+existing schedule, request or attendance destination; it must not infer new
+eligibility, deadlines or “next session” calculations in a presentation component.
+Label optional future helpers and layout variants as proposals until real callers,
+their contracts and tests exist. A composition migration preserves feature/query
+ownership even when fields move between a page, retained panel and dialog.
+
+The default extension path is a small feature adapter composed from existing
+components, described in [Add an action or feature](contributing.md#add-an-action-or-feature).
+There is no general action registry, schema-driven form engine or shared component
+that derives permission from a visual state. `ReviewedAction` in
+[action-review.tsx](../src/app/_components/ui/action-review.tsx) is the existing
+contract for one named consequential review; it is not the domain operation model.
+
+| Owner | Responsibilities | Existing entry points |
+| --- | --- | --- |
+| Server feature | Validate input and live authority; enforce ownership, versions/tickets, transactions, approval replay and immutable evidence | [Procedure middleware](../src/server/api/trpc.ts), [approval classification](../src/lib/approval-policy.ts), the owning router and domain helpers |
+| Feature controller | Own drafts, selected record, expected version, localized consequence, mutation, proposal/error adapters, affected refreshes and the lifetime of review/recovery | [Announcements](../src/app/(admin)/admin/announcements/page.tsx), [crew](../src/app/(admin)/admin/crew/page.tsx), [profile editor](../src/app/_components/account-profile-editor.tsx) |
+| Shared interaction | Render controls and native dialogs, focus/pending behavior, review admission and accepted-result recovery without inventing domain permissions | [Action review](../src/app/_components/ui/action-review.tsx), [NativeDialog](../src/app/_components/ui/modal.tsx), [form/state compositions](../src/app/_components/ui/patterns.tsx) |
+| Presentation | Express hierarchy, labels, density and record summaries consistently without changing writes or query access | [Button](../src/app/_components/ui/button.tsx), [SummaryTable](../src/app/_components/ui/summary-table.tsx), [gallery recipes](../src/app/ui-gallery/recipes.tsx) |
+
+An action has two independent classifications. Its interaction may navigate, select,
+save a draft, apply an immediate setting or review a consequence. Its server effect
+determines whether the current actor can apply, propose or only read. Changing an
+interaction style does not change `classifyApproval`, reviewer eligibility or ticket
+requirements. A new reviewed server operation also needs authored immutable review
+vocabulary and tests; follow [Approval transactions](#approval-transactions).
+
+For `useActionReview`, `commit` contains only the feature mutation. `approvalId`
+recognizes the existing queued-proposal outcome; `renderError` maps only known
+feature errors. A rejected write permits a deliberate retry. An accepted write or
+queued proposal blocks replay of that review key. An applied write then runs its
+separate `refresh`: failure is synchronization recovery, not mutation failure.
+`invalidateAndReport` detects new read failures after all matching variants settle;
+`settleRefreshes` does the same waiting across refresh families. Recovery never calls
+`commit` again. `repeatAfterRefresh` allows a fresh deliberate review only for a
+domain action that becomes meaningful again. Keep the controller mounted above the
+row or tab that an accepted action can remove.
+
+Draft forms have a different lifetime. Retain one draft and version per independently
+saved section, freeze that section during admitted work, and distinguish background
+Retry from an explicit successful Reload that adopts a new snapshot. Use the current
+profile completion contract for repeat edits instead of using action-review replay
+as a save mechanism. `FormSection` provides layout and disabling; it does not perform
+validation, fetch versions or decide when a draft is safe to replace.
+
+Prefer a feature adapter over copying an entire dialog: shared focus, admission and
+recovery fixes then reach every consumer. Keep stronger domain reviews separate when
+they need tickets, countdowns, password proof, assignment previews or multiple version
+snapshots; forcing these into the smaller contract hides important differences.
+Extract another shared helper only after real callers share the same lifetime and
+failure semantics, with explicit inputs and tests for each caller. A future starter
+generator or lint rule would be new tooling, not an existing API; first demonstrate
+which repeated omission it prevents without inferring authorization or deleting a
+feature's deliberate exception.
+
 ## Identity and authorization
 
 Confirmed school departures are stored separately in `SchoolDeparture`, with versioned
