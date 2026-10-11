@@ -197,11 +197,16 @@ const content = (viewer = false) => (
     </ReadOnlyProvider>
   </NextIntlClientProvider>
 );
-const show = (viewer = false) => render(content(viewer));
+const show = (viewer = false) => {
+  const view = render(content(viewer));
+  if (mocks.invalid)
+    fireEvent.click(screen.getByRole("button", { name: "Invalid entries" }));
+  return view;
+};
 
 it("retains an open invalidity draft and its version when a background flag removes the application from its filter", async () => {
   const view = show();
-  fireEvent.click(screen.getByRole("button", { name: "Not flagged" }));
+  fireEvent.click(screen.getByRole("button", { name: "Active entries" }));
   fireEvent.click(screen.getByRole("button", { name: "Flag invalid" }));
   fireEvent.change(within(screen.getByRole("dialog")).getByRole("textbox"), {
     target: { value: "My pending application review" },
@@ -240,7 +245,7 @@ it.each([false, true])(
     const view = show();
     fireEvent.click(
       screen.getByRole("button", {
-        name: clearing ? "Invalid entries" : "Not flagged",
+        name: clearing ? "Invalid entries" : "Active entries",
       }),
     );
     fireEvent.click(

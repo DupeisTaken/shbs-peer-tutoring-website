@@ -173,8 +173,12 @@ const content = (
     </ReadOnlyProvider>
   </NextIntlClientProvider>
 );
-const show = (legacy = false, viewer = false) =>
-  render(content(legacy, viewer));
+const show = (legacy = false, viewer = false) => {
+  const view = render(content(legacy, viewer));
+  if (mocks.invalid)
+    fireEvent.click(screen.getByRole("button", { name: "Invalid entries" }));
+  return view;
+};
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.survey = true;
@@ -209,7 +213,7 @@ it("keeps a flagged public request visible in its original queue without assignm
   ).toBeTruthy();
   expect(screen.queryByRole("combobox")).toBeNull();
   expect(screen.queryByText("Private staff reason")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Not flagged" }));
+  fireEvent.click(screen.getByRole("button", { name: "Active entries" }));
   expect(screen.queryByText("Public survey student")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Invalid entries" }));
   expect(screen.getByText("Public survey student")).toBeTruthy();
@@ -277,7 +281,7 @@ it.each([
     const name = legacy ? "Legacy public student" : "Public survey student";
     const mutation = legacy ? mocks.changeSignup : mocks.changeSurvey;
     const view = show(legacy);
-    fireEvent.click(screen.getByRole("button", { name: "Not flagged" }));
+    fireEvent.click(screen.getByRole("button", { name: "Active entries" }));
     fireEvent.click(screen.getByRole("button", { name: "Flag invalid" }));
     fireEvent.change(within(screen.getByRole("dialog")).getByRole("textbox"), {
       target: { value: "My pending signup review" },
@@ -331,7 +335,7 @@ it.each([
     const view = show(legacy);
     fireEvent.click(
       screen.getByRole("button", {
-        name: clearing ? "Invalid entries" : "Not flagged",
+        name: clearing ? "Invalid entries" : "Active entries",
       }),
     );
     fireEvent.click(
@@ -402,6 +406,11 @@ it.each(["en", "zh"] as const)(
   (locale) => {
     render(content(true, true, locale));
     const messages = locale === "zh" ? zh : en;
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.requestInvalidity.filter.invalid,
+      }),
+    );
     const control = screen.getByRole<HTMLButtonElement>("button", {
       name: messages.admin.requests.collapse,
     });

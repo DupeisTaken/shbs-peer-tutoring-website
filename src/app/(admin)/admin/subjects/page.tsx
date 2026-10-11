@@ -299,6 +299,9 @@ export default function SubjectsPage() {
           </h2>
           <p className="text-accent-700 mt-1 font-medium">{t("direction")}</p>
           <p className="muted mt-1 text-sm">{t("snapshotHelp")}</p>
+          <p id="subject-level-save-help" className="muted mt-1 text-xs">
+            {saveText("blur")}
+          </p>
         </div>
         <ol className="space-y-3">
           {(levels.data ?? []).map((level, index) => (
@@ -311,10 +314,10 @@ export default function SubjectsPage() {
               </span>
               <label className="min-w-28 flex-1">
                 <span className="label">{t("levelName")}</span>
-                <span className="muted block text-xs">{saveText("blur")}</span>
                 <input
                   aria-label={t("levelLabel", { name: level.name })}
                   className="input min-h-11 w-full lg:min-h-9"
+                  aria-describedby="subject-level-save-help"
                   defaultValue={level.name}
                   readOnly={readOnly}
                   onBlur={(e) => {
@@ -331,10 +334,10 @@ export default function SubjectsPage() {
               </label>
               <label className="min-w-28 flex-1">
                 <span className="label">{t("prefix")}</span>
-                <span className="muted block text-xs">{saveText("blur")}</span>
                 <input
                   aria-label={t("prefixLabel", { name: level.name })}
                   className="input min-h-11 w-full lg:min-h-9"
+                  aria-describedby="subject-level-save-help"
                   defaultValue={level.prefix}
                   readOnly={readOnly}
                   onBlur={(e) => {
@@ -475,8 +478,20 @@ export default function SubjectsPage() {
         )}
         {(groups.data ?? []).map((group, index) => (
           <article className="card space-y-3 p-4 sm:p-5" key={group.id}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="font-semibold">{group.name}</h3>
+            <div className="grid items-center gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="min-w-0 space-y-3">
+                <h3 className="font-semibold">{group.name}</h3>
+                {editing !== group.id && (
+                  <ul className="flex flex-wrap gap-2">
+                    {group.subjects.map((subject) => (
+                      <li className="badge-slate" key={subject.id}>
+                        {subject.name}
+                        {!subject.active && ` · ${t("inactive")}`}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               {!readOnly && (
                 <div className="flex gap-2">
                   <button
@@ -515,21 +530,7 @@ export default function SubjectsPage() {
                 done={() => setEditing(null)}
                 invalidate={invalidate}
               />
-            ) : (
-              <ul className="flex flex-wrap gap-2">
-                {group.subjects.map((subject) => (
-                  <li
-                    className={
-                      subject.active ? "badge-slate" : "badge-slate opacity-60"
-                    }
-                    key={subject.id}
-                  >
-                    {subject.name}
-                    {!subject.active && ` · ${t("inactive")}`}
-                  </li>
-                ))}
-              </ul>
-            )}
+            ) : null}
           </article>
         ))}
         {groups.data?.length === 0 && (

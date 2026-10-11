@@ -4,7 +4,7 @@
     "filterLabel": "Request validity",
     "filter": {
       "all": "All entries",
-      "valid": "Not flagged",
+      "valid": "Active entries",
       "invalid": "Invalid entries"
     },
     "flag": "Flag invalid",
@@ -116,7 +116,10 @@
     "qualifiedOnly": "Your qualified subjects",
     "choiceHelp": "Choose what you would like to tutor right now.",
     "scheduleSeparate": "Your timetable is arranged separately.",
-    "savesAutomatically": "Changes save automatically"
+    "savesAutomatically": "Changes save automatically",
+    "edit": "Edit details",
+    "editTitle": "{tutor} · {subject}",
+    "refreshFailed": "The change was saved. Refresh the subject records before making another change."
   },
   "messaging": {
     "privacyTitle": "Private Deliveries, with Staff Oversight",
@@ -1012,7 +1015,12 @@
       "colTutees": "Tutees",
       "colSH": "SH",
       "empty": "No submissions for this filter.",
-      "monthLabel": "Month"
+      "monthLabel": "Month",
+      "actualTime": "Recorded time",
+      "duration": "{minutes} minutes",
+      "hourFactor": "Factor: {factor}",
+      "selfEvaluation": "Self Evaluation",
+      "comments": "Comments"
     },
     "meetings": {
       "title": "Tutor Meetings",
@@ -1619,7 +1627,19 @@
         "WARNED": "Warned",
         "PENALIZED": "Penalized",
         "ESCALATED": "Escalated"
-      }
+      },
+      "filterLabel": "Attendance review state",
+      "states": {
+        "PENDING": "Pending",
+        "DISMISSED": "Dismissed",
+        "WARNED": "Warned",
+        "PENALIZED": "Penalized",
+        "ESCALATED": "Escalated",
+        "ALL": "All states"
+      },
+      "resolved": "Reviewed by {name} · {date}",
+      "queued": "Decision submitted for approval",
+      "refreshFailed": "The decision was saved. Refresh the records to see the latest review state."
     },
     "landing": {
       "title": "Landing Page",
@@ -2865,7 +2885,8 @@
     "unknownSource": "Earlier signup",
     "sourceHelp": "Source describes how a signup was entered. It does not change approval, priority or participation rules. Earlier signup means the original entry source is unconfirmed.",
     "boardGuide": "How requests are grouped",
-    "sourceGuide": "Signup sources and ownership"
+    "sourceGuide": "Signup sources and ownership",
+    "emailStatus": "Email: {status}"
   },
   "approvals": {
     "reviewPermissions": "Admin and Head review daily operations. Head reviews significant settings, management profiles and roles, requested registration-code grants and reversals. Admin and Head issue Tutor/Crew codes directly. Head may review their own requests; everyone else needs another eligible reviewer.",
@@ -3316,7 +3337,12 @@
     "accessDeniedHelp": "Your session no longer has access to these details. Cached evidence is hidden.",
     "loadFailed": "Event details could not be loaded",
     "refreshFailed": "Event details could not be refreshed. The last loaded evidence remains visible.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "difference": {
+      "added": "Added",
+      "removed": "Removed",
+      "changed": "Changed"
+    }
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
@@ -3853,7 +3879,7 @@
     "unknown": "Unknown",
     "graduated": "Graduated",
     "rosterUnknown": "Unknown Grade Level",
-    "rosterNeedsConfirmation": "Needs Review & Confirmation",
+    "rosterNeedsConfirmation": "Review Needed",
     "notApplicable": "Not Applicable",
     "reported": "School Grade (1–12)",
     "original": "Original report: {value}",
@@ -4030,7 +4056,7 @@
     "emptyAll": "No tutee records to show.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
-    "reviewNeeded": "Review needed",
+    "reviewNeeded": "Review Needed",
     "linkSaved": "Historical records linked.",
     "failed": "Could not complete this request. Refresh and try again.",
     "HISTORY_ACCOUNT_NOT_READY": "Choose an account with completed setup and a verified email.",

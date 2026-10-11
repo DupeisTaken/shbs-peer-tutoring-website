@@ -217,7 +217,7 @@ export default function ReportsPage() {
               <option value="full">{t("admin.reports.depthFull")}</option>
             </select>
           </label>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex min-h-11 items-center gap-2 text-sm lg:min-h-10">
             <input
               type="checkbox"
               checked={readOnly || maskPii}

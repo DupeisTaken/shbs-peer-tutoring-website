@@ -91,7 +91,7 @@ export function ShareCard({
         </p>
       </div>
       {!readOnly && (
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <Button
             size="compact"
             onClick={() => void exportImage()}

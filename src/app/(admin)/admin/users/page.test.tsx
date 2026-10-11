@@ -555,7 +555,7 @@ it("shares compact text styling across details, edit, username assignment and de
   for (const action of actions)
     expect(action.classList.contains("table-action-link")).toBe(true);
   expect(actions[2]!.textContent).toBe(messages.identityUsername.assign);
-  expect(actions[3]!.classList.contains("text-red-600")).toBe(true);
+  expect(actions[3]!.classList.contains("table-action-danger")).toBe(true);
 });
 
 it("reveals unverified accounts explicitly and resets the saved choice", () => {

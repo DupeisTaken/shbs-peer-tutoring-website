@@ -100,7 +100,7 @@ vi.mock("~/trpc/react", () => {
         },
         tutor: { me: invalidator, myProfile: invalidator },
         tutorDetails: invalidator,
-        tuteeHistory: {invalidate:mock.historyInvalidate},
+        tuteeHistory: { invalidate: mock.historyInvalidate },
       }),
       account: {
         me: query(false),
@@ -278,7 +278,7 @@ it.each([false, true])(
 );
 
 it.each([false, true])(
-  "uses exactly two roster lines for uncertain grades (Chinese=%s)",
+  "uses one review indicator for uncertain grades (Chinese=%s)",
   (chinese) => {
     const messages = chinese ? zh : en;
     const scenarios: (AcademicSummary | undefined)[] = [
@@ -299,10 +299,7 @@ it.each([false, true])(
       );
       expect(
         Array.from(view.container.querySelectorAll("p"), (p) => p.textContent),
-      ).toEqual([
-        messages.academics.rosterUnknown,
-        messages.academics.rosterNeedsConfirmation,
-      ]);
+      ).toEqual([messages.academics.rosterNeedsConfirmation]);
     }
   },
 );

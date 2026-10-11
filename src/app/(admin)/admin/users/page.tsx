@@ -874,7 +874,7 @@ export default function UsersPage() {
                         </TableAction>
                       ) : (
                         <TableAction
-                          className="text-red-600"
+                          variant="danger"
                           disabled={suspendUser.isPending}
                           onClick={async () => {
                             const reason = await promptText({
@@ -933,7 +933,7 @@ export default function UsersPage() {
                       )}
                     {isHead && u.userId && !u.isSelf && u.role !== "HEAD" ? (
                       <TableAction
-                        className="text-red-600"
+                        variant="danger"
                         onClick={() => {
                           const userId = u.userId;
                           if (!userId) return;
