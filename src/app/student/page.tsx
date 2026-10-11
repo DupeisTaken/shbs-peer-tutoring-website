@@ -36,7 +36,7 @@ export default async function StudentPage({
     ? await accountPortalAccess(session.user.id)
     : null;
   const view = resolveTuteeView(params.view);
-  const viewScope = currentPeriod?.id ?? "no-period";
+  const viewScope = currentPeriod?.termId ?? "no-period";
   const period = currentPeriod
     ? getPeriodDisplay(currentPeriod, features.QUARTER_SYSTEM)
     : null;

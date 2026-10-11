@@ -138,6 +138,37 @@ it("drops a formerly allowed selection immediately when its current choices chan
   ).toBeNull();
 });
 
+it("preserves stored room IDs while dynamic options load, then validates the current catalog", () => {
+  function Rooms({ ready, ids }: { ready: boolean; ids: string[] }) {
+    const [selected] = useSessionViewState({
+      id: "room-selection-v1",
+      initialState: [] as string[],
+      restoreReady: ready,
+      parse: (value) =>
+        Array.isArray(value) &&
+        value.every((id) => typeof id === "string" && ids.includes(id))
+          ? (value as string[])
+          : undefined,
+    });
+    return <p>{selected.join(",") || "all rooms"}</p>;
+  }
+  const key = viewStateKey("head", "/admin/tutees", "room-selection-v1", "");
+  writeViewState(window.sessionStorage, key, ["A101"]);
+  const view = (ready: boolean, ids: string[]) => (
+    <SessionViewProvider identity="head" pathname="/admin/tutees" verified>
+      <Rooms ready={ready} ids={ids} />
+    </SessionViewProvider>
+  );
+  const rendered = render(view(false, []));
+  expect(screen.getByText("all rooms")).toBeTruthy();
+  expect(window.sessionStorage.getItem(key)).toBe('["A101"]');
+  rendered.rerender(view(true, ["A101", "A102"]));
+  expect(screen.getByText("A101")).toBeTruthy();
+  rendered.rerender(view(true, ["A102"]));
+  expect(screen.getByText("all rooms")).toBeTruthy();
+  expect(window.sessionStorage.getItem(key)).toBeNull();
+});
+
 function ScrollProbe({
   ready = true,
   enabled = true,

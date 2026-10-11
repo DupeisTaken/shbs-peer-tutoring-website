@@ -233,6 +233,9 @@ fields. Restored values are checked against the current parser on every render.
 Set `enabled: false` for authoritative denial or module removal, not ordinary
 loading. Explicit URL choices override the remembered state. The tutee navigation
 only recalls a previous view on a bare workspace return after identity verification.
+For dynamic catalogs, use `restoreReady: query.data !== undefined` until choices
+arrive, then allowlist current IDs. This exposes the initial presentation while
+loading and leaves the saved choice intact; `enabled: false` still clears denial.
 
 Register `useSessionPageScroll({ id, scope, ready, enabled })` once in an authorized
 page, including its selected panel/filters in `scope`. Set `ready` when its owned

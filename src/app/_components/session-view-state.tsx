@@ -55,6 +55,9 @@ export type SessionViewOptions<T extends ViewState> = {
   scope?: string;
   /** False on authoritative denial/module removal. Loading is not denial. */
   enabled?: boolean;
+  /** Dynamic catalogs: wait for options before validating/restoring IDs. Unlike
+   * denial, false leaves the saved choice intact and exposes only initialState. */
+  restoreReady?: boolean;
 };
 
 /** Drop-in state for tabs/filters/sort/page only. URL choices belong in initialState + scope,
@@ -72,13 +75,17 @@ export function useSessionViewState<T extends ViewState>(
       )
     : "";
   const enabled = options.enabled !== false;
+  const restoreReady = options.restoreReady !== false;
   const active = !!context?.verified && context.identity !== "anonymous";
   const latest = useRef(options);
   latest.current = options;
   const [stored, setStored] = useState({ key, value: options.initialState });
   // Cached choices must satisfy today's allowlist, including removed modules/rooms.
-  const parsed = stored.key === key ? options.parse(stored.value) : undefined;
-  const invalid = stored.key === key && parsed === undefined;
+  const parsed =
+    restoreReady && stored.key === key
+      ? options.parse(stored.value)
+      : undefined;
+  const invalid = restoreReady && stored.key === key && parsed === undefined;
   const value = enabled && parsed !== undefined ? parsed : options.initialState;
   useEffect(() => {
     if (!invalid || !key) return;
@@ -96,6 +103,7 @@ export function useSessionViewState<T extends ViewState>(
         removeViewState(window.sessionStorage, key);
         return;
       }
+      if (!restoreReady) return;
       const restored = latest.current.parse(
         readViewState(window.sessionStorage, key),
       );
@@ -103,10 +111,10 @@ export function useSessionViewState<T extends ViewState>(
     } catch {
       /* State still works without browser storage. */
     }
-  }, [key, active, enabled]);
+  }, [key, active, enabled, restoreReady]);
   const setValue = useCallback<Dispatch<SetStateAction<T>>>(
     (next) => {
-      if (!enabled) return;
+      if (!enabled || !restoreReady) return;
       setStored((previous) => {
         const current =
           previous.key === key ? previous.value : latest.current.initialState;
@@ -123,7 +131,7 @@ export function useSessionViewState<T extends ViewState>(
         return { key, value: parsed };
       });
     },
-    [key, active, enabled],
+    [key, active, enabled, restoreReady],
   );
   return [value, setValue];
 }

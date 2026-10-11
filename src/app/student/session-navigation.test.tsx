@@ -6,6 +6,7 @@ import { SessionViewProvider } from "~/app/_components/session-view-state";
 import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 const route = vi.hoisted(() => ({ query: "", replace: vi.fn() }));
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/student",
   useSearchParams: () => new URLSearchParams(route.query),
   useRouter: () => ({ replace: route.replace }),
 }));

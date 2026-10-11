@@ -196,6 +196,8 @@ identity (account/role/tutor link), pathname, feature/schema ID and feature-supp
 period/query scope. The provider consumes the existing identity verification and
 privacy curtain; it adds no identity requests. Every returned choice passes its
 current feature allowlist. Denied/removed features clear their remembered choices.
+Dynamic catalogs use the separate `restoreReady` gate so empty loading options
+cannot erase saved room/period IDs before the authorized choices arrive.
 The bounded [storage helpers](../src/lib/session-view-state.ts) reject nested record
 payloads and long bodies, retain at most 100 presentation entries, and degrade
 gracefully when storage is blocked. These structural limits supplement explicit
