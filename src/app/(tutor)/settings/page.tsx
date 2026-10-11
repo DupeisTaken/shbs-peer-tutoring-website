@@ -53,12 +53,14 @@ export default function SettingsPage() {
     profile.error?.data?.code === "FORBIDDEN" ||
     profile.error?.data?.code === "UNAUTHORIZED";
   useEffect(() => {
-    if (!deniedNow) return;
+    // One eviction per denial episode keeps recovery bounded if another owner
+    // subscribes to this profile; only successful explicit recovery clears the latch.
+    if (!deniedNow || profileDenied) return;
     setProfileDenied(true);
     queryClient.removeQueries({
       queryKey: getQueryKey(api.tutor.myProfile, undefined, "query"),
     });
-  }, [deniedNow, queryClient]);
+  }, [deniedNow, profileDenied, queryClient]);
 
   const updateProfile = api.tutor.updateProfile.useMutation({
     onSuccess: async () => {
