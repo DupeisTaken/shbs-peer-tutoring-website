@@ -238,6 +238,13 @@ tests and gallery example.
 
 `NativeDialog` supplies native modality, portal event ownership, radio-aware keyboard focus and exact trigger restoration. `Modal`, the wide/sticky `ProfileDialog`, and `CurrentPolicyDialog` share this behavior while retaining their own layout and scrolling. A nested review owns its Escape event. Independent forms call `useDialogPending(ownPending)` to prevent dismissal during any registered write; its return value disables sibling controls. Register only the form's own pending state, never the returned aggregate, so the guard releases when writes settle. Callers retain validation, versions, permissions, approval policy and action tickets.
 
+Users & Roles account deletion uses a feature-owned password form inside `Modal`.
+The feature captures the account and guards same-turn admission; the shared dialog
+owns native modality, pending dismissal and trigger focus. Its mutation remains
+the existing `userId` / `confirmPassword` contract with live server eligibility.
+Do not infer authorization, add confirmation tickets or replay a deletion from a
+failed list refresh when changing its presentation.
+
 `TimedActionDialog` retains its separate ticket/countdown and mandatory-policy
 contract. Like `NativeDialog`, it disables native close requests and suppresses
 Escape's default action while busy; mandatory consent keeps those protections

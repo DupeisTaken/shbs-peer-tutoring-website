@@ -18,9 +18,20 @@ vi.mock("~/app/_components/combine-accounts", () => ({
   CombineAccounts: () => <div>Head combine controls</div>,
 }));
 
+type DeleteCallbacks = {
+  onSuccess: () => void;
+  onError: (error: { message: string }) => void;
+  onSettled: () => void;
+};
 const fixture = vi.hoisted(() => ({
   viewerId: "synthetic-head",
   role: "HEAD",
+  targetSelf: false,
+  targetRole: "ADMIN",
+  accountsError: null as { message: string } | null,
+  accountsRefetch: vi.fn<() => Promise<void>>(),
+  delete: vi.fn<(input: { userId: string; confirmPassword: string }) => void>(),
+  deleteCallbacks: undefined as DeleteCallbacks | undefined,
   assign: vi.fn(),
   confirm: vi.fn().mockResolvedValue(true),
   appeals: [] as {
@@ -61,6 +72,9 @@ vi.mock("~/trpc/react", () => {
         },
         accounts: {
           useQuery: () => ({
+            error: fixture.accountsError,
+            refetch: fixture.accountsRefetch,
+            isFetching: false,
             data: {
               caller: { id: fixture.viewerId, role: fixture.role },
               rows: [
@@ -98,7 +112,8 @@ vi.mock("~/trpc/react", () => {
                 {
                   userId: "synthetic-management",
                   name: "Management account",
-                  role: "ADMIN",
+                  isSelf: fixture.targetSelf,
+                  role: fixture.targetRole,
                   tutorId: null,
                   tutorStatus: null,
                   tuteeMember: false,
@@ -151,7 +166,12 @@ vi.mock("~/trpc/react", () => {
         backfillStudentUsernames: {
           useMutation: () => ({ mutate: fixture.assign, isPending: false }),
         },
-        deleteUser: mutation,
+        deleteUser: {
+          useMutation: (options: DeleteCallbacks) => {
+            fixture.deleteCallbacks = options;
+            return { mutate: fixture.delete, isPending: false };
+          },
+        },
         suspendUser: mutation,
         reinstateUser: mutation,
         decideAppeal: {
@@ -227,6 +247,12 @@ beforeEach(() => {
   localStorage.clear();
   fixture.viewerId = "synthetic-head";
   fixture.role = "HEAD";
+  fixture.accountsError = null;
+  fixture.accountsRefetch.mockReset().mockResolvedValue(undefined);
+  fixture.targetSelf = false;
+  fixture.targetRole = "ADMIN";
+  fixture.delete.mockClear();
+  fixture.deleteCallbacks = undefined;
   fixture.assign.mockClear();
   fixture.confirm.mockClear();
   fixture.appeals = [];
@@ -580,4 +606,158 @@ it("composes saved identity search with existing roster scope and restores it on
     screen.getByRole("button", { name: messages.rosterSearch.clear }),
   );
   expect(screen.getByRole("table").textContent).toContain("Combined account");
+});
+
+const openDeletion = () => {
+  const row = screen.getByText("Management account").closest("tr")!;
+  const opener = within(row).getByRole<HTMLButtonElement>("button", {
+    name: messages.admin.users.delete,
+  });
+  opener.focus();
+  fireEvent.click(opener);
+  return opener;
+};
+it("names the deletion dialog and binds a fresh password; idle Escape restores its opener", async () => {
+  mount();
+  const opener = openDeletion();
+  const dialog = screen.getByRole("dialog", {
+    name: messages.admin.users.confirm.deleteTitle,
+  });
+  expect(dialog.getAttribute("aria-describedby")).toBeTruthy();
+  expect(dialog.textContent).toContain("Management account");
+  const password = screen.getByLabelText<HTMLInputElement>(
+    messages.admin.users.confirm.passwordLabel,
+  );
+  expect(password.value).toBe("");
+  expect(document.activeElement).toBe(password);
+  expect(
+    within(dialog).getByRole<HTMLButtonElement>("button", {
+      name: messages.admin.users.delete,
+    }).disabled,
+  ).toBe(true);
+  fireEvent.submit(password.closest("form")!);
+  expect(fixture.delete).not.toHaveBeenCalled();
+  fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  await waitFor(() => expect(document.activeElement).toBe(opener));
+  openDeletion();
+  expect(
+    screen.getByLabelText<HTMLInputElement>(
+      messages.admin.users.confirm.passwordLabel,
+    ).value,
+  ).toBe("");
+});
+it("admits a native deletion submission once and preserves rejection correction", () => {
+  mount();
+  openDeletion();
+  const password = screen.getByLabelText<HTMLInputElement>(
+    messages.admin.users.confirm.passwordLabel,
+  );
+  fireEvent.change(password, { target: { value: "synthetic password" } });
+  const form = password.closest("form")!;
+  act(() => {
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+  });
+  expect(fixture.delete).toHaveBeenCalledExactlyOnceWith({
+    userId: "synthetic-management",
+    confirmPassword: "synthetic password",
+  });
+  expect(password.matches(":disabled")).toBe(true);
+  const dialog = screen.getByRole("dialog");
+  fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  expect(screen.getByRole("dialog")).toBe(dialog);
+  act(() => {
+    fixture.deleteCallbacks!.onError({ message: "Password rejected" });
+    fixture.deleteCallbacks!.onSettled();
+  });
+  expect(password.matches(":disabled")).toBe(false);
+  expect(password.value).toBe("synthetic password");
+  expect(screen.getByRole("alert").textContent).toBe("Password rejected");
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: messages.admin.users.confirm.cancel,
+    }),
+  );
+  openDeletion();
+  expect(
+    screen.getByLabelText<HTMLInputElement>(
+      messages.admin.users.confirm.passwordLabel,
+    ).value,
+  ).toBe("");
+});
+it("closes accepted deletion and refreshes once without replaying the write", () => {
+  mount();
+  openDeletion();
+  const password = screen.getByLabelText<HTMLInputElement>(
+    messages.admin.users.confirm.passwordLabel,
+  );
+  fireEvent.change(password, { target: { value: "synthetic password" } });
+  fireEvent.submit(password.closest("form")!);
+  act(() => {
+    fixture.deleteCallbacks!.onSuccess();
+    fixture.deleteCallbacks!.onSettled();
+  });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(fixture.refresh).toHaveBeenCalledTimes(1);
+  expect(fixture.delete).toHaveBeenCalledTimes(1);
+});
+it.each(["ADMIN", "COORDINATOR", "VIEWER"])(
+  "offers no account deletion to %s",
+  (role) => {
+    fixture.role = role;
+    mount();
+    expect(
+      screen.queryByRole("button", { name: messages.admin.users.delete }),
+    ).toBeNull();
+  },
+);
+it.each(["self", "head"])(
+  "withholds account deletion for a %s target",
+  (kind) => {
+    fixture.targetSelf = kind === "self";
+    fixture.targetRole = kind === "head" ? "HEAD" : "ADMIN";
+    mount();
+    expect(
+      within(screen.getByText("Management account").closest("tr")!).queryByRole(
+        "button",
+        { name: messages.admin.users.delete },
+      ),
+    ).toBeNull();
+  },
+);
+
+it("recovers only account reads after accepted deletion followed by refresh failure", () => {
+  const view = mount();
+  openDeletion();
+  const password = screen.getByLabelText<HTMLInputElement>(
+    messages.admin.users.confirm.passwordLabel,
+  );
+  fireEvent.change(password, { target: { value: "synthetic password" } });
+  // Query invalidation resolves normally while its retained query reports a failed refetch.
+  fixture.refresh.mockImplementation(async () => {
+    fixture.accountsError = { message: "Synthetic account refresh failure" };
+  });
+  fireEvent.submit(password.closest("form")!);
+  act(() => {
+    fixture.deleteCallbacks!.onSuccess();
+    fixture.deleteCallbacks!.onSettled();
+  });
+  view.rerender(<UsersPage />);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByText(messages.uiPatterns.loadFailed)).toBeTruthy();
+  expect(fixture.delete).toHaveBeenCalledTimes(1);
+  expect(fixture.refresh).toHaveBeenCalledTimes(1);
+  fixture.accountsRefetch.mockImplementation(async () => {
+    fixture.accountsError = null;
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.uiPatterns.retry }),
+  );
+  view.rerender(<UsersPage />);
+  expect(fixture.accountsRefetch).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText(messages.uiPatterns.loadFailed)).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(fixture.delete).toHaveBeenCalledTimes(1);
+  expect(fixture.refresh).toHaveBeenCalledTimes(1);
 });

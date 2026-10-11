@@ -452,6 +452,13 @@ Use **Edit profile** to edit the independent Tutor, Tutee, Translator and Crew b
 
 Account setup links are sent privately to the account holder by email. Management cannot copy the password-setting link from the website. If mail delivery is unavailable, ask the deployment administrator to configure it before retrying.
 
+For an eligible account, Head can open **Delete** in the row's Actions column.
+The confirmation identifies the account and asks for the Head's own password.
+Cancel or Escape before submission returns to the same row without deleting it.
+While deletion is pending, the confirmation stays open and its fields are disabled.
+A failed attempt keeps the password available for correction; canceling and opening
+a new confirmation starts with a blank password.
+
 ### Combine duplicate accounts (Head only)
 
 In **Users & Roles → Combine accounts**, select the **Login to keep** and the

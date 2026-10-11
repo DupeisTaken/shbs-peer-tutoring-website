@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "~/app/_components/ui/button";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
 import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
@@ -12,7 +13,7 @@ import {
   type InvalidityRecord,
 } from "~/app/_components/request-invalidity";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import {
   isCurrentManualSignup,
@@ -110,6 +111,8 @@ function RequestCard({
     onSuccess: () => onChanged(),
   });
 
+  const detailsId = useId();
+  const choicesId = useId();
   // Collapse fulfilled requests by default; auto-collapse once a request becomes fulfilled.
   const [collapsed, setCollapsed] = useState(fulfilled);
   useEffect(() => {
@@ -174,9 +177,13 @@ function RequestCard({
       )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
-          <button
-            type="button"
-            className="mt-0.5 shrink-0 text-slate-600 hover:text-slate-700"
+          {/* The small glyph sits inside a full touch target; its color override is row-local. */}
+          <Button
+            variant="ghost"
+            size="compact"
+            className="shrink-0 px-0 lg:min-w-8 [&>span]:text-slate-600"
+            aria-expanded={!collapsed}
+            aria-controls={`${detailsId} ${choicesId}`}
             aria-label={
               collapsed
                 ? t("admin.requests.expand")
@@ -185,7 +192,7 @@ function RequestCard({
             onClick={() => setCollapsed((c) => !c)}
           >
             <DisclosureIcon open={!collapsed} />
-          </button>
+          </Button>
           <div className="min-w-0 space-y-1">
             <p className="font-medium text-slate-900">
               <span className="badge-slate mr-2">#{order}</span>
@@ -230,37 +237,39 @@ function RequestCard({
                 </span>
               )}
             </p>
-            {!collapsed && (
-              <>
-                <p className="muted text-xs">
-                  {t("admin.requests.submitted", {
-                    when: format.dateTime(
-                      new Date(tutee.signupSubmittedAt ?? tutee.createdAt),
-                      { dateStyle: "medium", timeStyle: "short" },
-                    ),
-                  })}
-                </p>
-                <p className="muted">
-                  {t("admin.requests.available", {
-                    list: availability(tutee.availabilities, locale),
-                  })}
-                </p>
-                {tutee.preferredContact && (
-                  <p className="muted">
-                    {t("admin.requests.reach", {
-                      contact: tutee.preferredContact,
+            <div id={detailsId}>
+              {!collapsed && (
+                <>
+                  <p className="muted text-xs">
+                    {t("admin.requests.submitted", {
+                      when: format.dateTime(
+                        new Date(tutee.signupSubmittedAt ?? tutee.createdAt),
+                        { dateStyle: "medium", timeStyle: "short" },
+                      ),
                     })}
                   </p>
-                )}
-                <p className="muted">
-                  {tutee.signedRulebook
-                    ? t("admin.requests.signed", {
-                        name: tutee.signatureName ?? "",
-                      })
-                    : t("admin.requests.notSigned")}
-                </p>
-              </>
-            )}
+                  <p className="muted">
+                    {t("admin.requests.available", {
+                      list: availability(tutee.availabilities, locale),
+                    })}
+                  </p>
+                  {tutee.preferredContact && (
+                    <p className="muted">
+                      {t("admin.requests.reach", {
+                        contact: tutee.preferredContact,
+                      })}
+                    </p>
+                  )}
+                  <p className="muted">
+                    {tutee.signedRulebook
+                      ? t("admin.requests.signed", {
+                          name: tutee.signatureName ?? "",
+                        })
+                      : t("admin.requests.notSigned")}
+                  </p>
+                </>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex flex-wrap items-start gap-2">
@@ -302,96 +311,99 @@ function RequestCard({
           <InvalidityNotice />
         </div>
       )}
-      {/* Assign each course choice to a tutor independently (workload shown in the dropdown). */}
-      {!collapsed && tutee.unverified && (
-        <div className="muted mt-3 space-y-2 border-t border-slate-100 pt-3">
-          <EmailDetails
-            contactOnly
-            email={tutee.email}
-            name={tutee.englishName}
-          />
-          <p>
-            {t("admin.requests.firstChoice")}: {tutee.firstChoice?.name ?? "—"}
-            {tutee.secondChoice
-              ? ` · ${t("admin.requests.secondChoice")}: ${tutee.secondChoice.name}`
-              : ""}
-          </p>
-          <p>{t("survey.awaitingHelp")}</p>
-        </div>
-      )}
-      {!collapsed && !tutee.unverified && (
-        <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
-          {positions.map((p) => {
-            const filled = !!p.course;
-            const assignedTo = filled
-              ? assigned.get(p.course!.name)
-              : undefined;
-            const isAssigned = !!assignedTo;
-            return (
-              <div key={p.key} className="flex flex-wrap items-center gap-2">
-                <span className="w-44 text-sm text-slate-700">
-                  {p.label}:{" "}
-                  {filled ? (
-                    <span className="font-medium">{p.course!.name}</span>
-                  ) : (
-                    <span className="text-slate-400">
-                      {t("admin.requests.notProvided")}
-                    </span>
-                  )}
-                </span>
-                {isAssigned ? (
-                  <span className="badge-green">
-                    {t("admin.requests.assignedTo", { name: assignedTo })}
+      <div id={choicesId}>
+        {/* Assign each course choice to a tutor independently (workload shown in the dropdown). */}
+        {!collapsed && tutee.unverified && (
+          <div className="muted mt-3 space-y-2 border-t border-slate-100 pt-3">
+            <EmailDetails
+              contactOnly
+              email={tutee.email}
+              name={tutee.englishName}
+            />
+            <p>
+              {t("admin.requests.firstChoice")}:{" "}
+              {tutee.firstChoice?.name ?? "—"}
+              {tutee.secondChoice
+                ? ` · ${t("admin.requests.secondChoice")}: ${tutee.secondChoice.name}`
+                : ""}
+            </p>
+            <p>{t("survey.awaitingHelp")}</p>
+          </div>
+        )}
+        {!collapsed && !tutee.unverified && (
+          <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+            {positions.map((p) => {
+              const filled = !!p.course;
+              const assignedTo = filled
+                ? assigned.get(p.course!.name)
+                : undefined;
+              const isAssigned = !!assignedTo;
+              return (
+                <div key={p.key} className="flex flex-wrap items-center gap-2">
+                  <span className="w-44 text-sm text-slate-700">
+                    {p.label}:{" "}
+                    {filled ? (
+                      <span className="font-medium">{p.course!.name}</span>
+                    ) : (
+                      <span className="text-slate-400">
+                        {t("admin.requests.notProvided")}
+                      </span>
+                    )}
                   </span>
-                ) : readOnly || tutee.isInvalid ? (
-                  filled && (
-                    <span className="muted text-sm">
-                      {t("admin.requests.assignToTutor")}
+                  {isAssigned ? (
+                    <span className="badge-green">
+                      {t("admin.requests.assignedTo", { name: assignedTo })}
                     </span>
-                  )
-                ) : (
-                  <>
-                    <QualifiedTutorSelect
-                      label={t("admin.requests.assignToTutor")}
-                      disabled={!filled}
-                      subjectId={p.course?.id ?? ""}
-                      value={filled ? (picks[p.course!.name] ?? "") : ""}
-                      onChange={(value) => {
-                        setConfirmCourse(null);
-                        if (filled)
-                          setPicks((prev) => ({
-                            ...prev,
-                            [p.course!.name]: value,
-                          }));
-                      }}
-                      tutors={activeTutors}
-                      optionLabel={tutorLabel}
-                    />
-                    <button
-                      className="btn-primary min-h-11 self-end lg:min-h-10"
-                      disabled={
-                        !filled || !picks[p.course!.name] || assign.isPending
-                      }
-                      onClick={() => setConfirmCourse(p.course)}
-                    >
-                      {assign.isPending
-                        ? t("admin.requests.assigning")
-                        : t("admin.requests.assign")}
-                    </button>
-                  </>
-                )}
-              </div>
-            );
-          })}
-          {assign.error && (
-            <p className="text-sm text-red-600">{assign.error.message}</p>
-          )}
-          {(del.error ?? null) && (
-            <p className="text-sm text-red-600">{del.error?.message}</p>
-          )}
-        </div>
-      )}
-      {dialog}
+                  ) : readOnly || tutee.isInvalid ? (
+                    filled && (
+                      <span className="muted text-sm">
+                        {t("admin.requests.assignToTutor")}
+                      </span>
+                    )
+                  ) : (
+                    <>
+                      <QualifiedTutorSelect
+                        label={t("admin.requests.assignToTutor")}
+                        disabled={!filled}
+                        subjectId={p.course?.id ?? ""}
+                        value={filled ? (picks[p.course!.name] ?? "") : ""}
+                        onChange={(value) => {
+                          setConfirmCourse(null);
+                          if (filled)
+                            setPicks((prev) => ({
+                              ...prev,
+                              [p.course!.name]: value,
+                            }));
+                        }}
+                        tutors={activeTutors}
+                        optionLabel={tutorLabel}
+                      />
+                      <button
+                        className="btn-primary min-h-11 self-end lg:min-h-10"
+                        disabled={
+                          !filled || !picks[p.course!.name] || assign.isPending
+                        }
+                        onClick={() => setConfirmCourse(p.course)}
+                      >
+                        {assign.isPending
+                          ? t("admin.requests.assigning")
+                          : t("admin.requests.assign")}
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+            {assign.error && (
+              <p className="text-sm text-red-600">{assign.error.message}</p>
+            )}
+            {(del.error ?? null) && (
+              <p className="text-sm text-red-600">{del.error?.message}</p>
+            )}
+          </div>
+        )}
+        {dialog}
+      </div>
     </div>
   );
 }

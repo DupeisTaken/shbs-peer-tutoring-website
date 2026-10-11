@@ -10,6 +10,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
+import zh from "../../../../../messages/zh.json";
 import en from "../../../../../messages/en.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import { StudentRequestBoard } from "./student-request-board";
@@ -157,8 +158,16 @@ vi.mock("~/trpc/react", () => ({
     },
   },
 }));
-const content = (legacy = false, viewer = false) => (
-  <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+const content = (
+  legacy = false,
+  viewer = false,
+  locale: "en" | "zh" = "en",
+) => (
+  <NextIntlClientProvider
+    locale={locale}
+    messages={locale === "zh" ? zh : en}
+    timeZone="Asia/Shanghai"
+  >
     <ReadOnlyProvider value={viewer}>
       {legacy ? <RequestsPage /> : <StudentRequestBoard />}
     </ReadOnlyProvider>
@@ -387,3 +396,54 @@ it.each([
     });
   },
 );
+
+it.each(["en", "zh"] as const)(
+  "keeps the %s legacy disclosure explicit and independent from invalidity",
+  (locale) => {
+    render(content(true, true, locale));
+    const messages = locale === "zh" ? zh : en;
+    const control = screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.admin.requests.collapse,
+    });
+    control.focus();
+    expect(control.type).toBe("button");
+    expect(control.getAttribute("aria-expanded")).toBe("true");
+    expect(control.className).toContain("control-compact");
+    const ids = control.getAttribute("aria-controls")!.split(" ");
+    expect(ids).toHaveLength(2);
+    expect(ids.every((id) => !!document.getElementById(id))).toBe(true);
+    fireEvent.click(control);
+    expect(control.getAttribute("aria-expanded")).toBe("false");
+    expect(control.getAttribute("aria-label")).toBe(
+      messages.admin.requests.expand,
+    );
+    expect(document.activeElement).toBe(control);
+    expect(screen.getByText("Legacy public student")).toBeTruthy();
+    expect(screen.queryByText("Private staff reason")).toBeNull();
+    fireEvent.click(control);
+    expect(control.getAttribute("aria-expanded")).toBe("true");
+    expect(control.getAttribute("aria-label")).toBe(
+      messages.admin.requests.collapse,
+    );
+    expect(mocks.changeSignup).not.toHaveBeenCalled();
+  },
+);
+it("starts fulfilled legacy requests collapsed and auto-collapses after fulfillment", () => {
+  mocks.invalid = false;
+  const view = render(content(true, true));
+  const control = screen.getByRole("button", {
+    name: en.admin.requests.collapse,
+  });
+  mocks.assigned = true;
+  view.rerender(content(true, true));
+  expect(control.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(control);
+  expect(control.getAttribute("aria-expanded")).toBe("true");
+  cleanup();
+  render(content(true, true));
+  expect(
+    screen
+      .getByRole("button", { name: en.admin.requests.expand })
+      .getAttribute("aria-expanded"),
+  ).toBe("false");
+});
