@@ -6,6 +6,7 @@ const state = vi.hoisted(() => ({
   status: "ACCEPTED",
   type: "INITIAL",
   isHead: false,
+  invalid: false,
   schedule: vi.fn(),
 }));
 
@@ -43,6 +44,7 @@ vi.mock("~/trpc/react", () => ({
               name: "Closed Applicant",
               email: "closed@example.test",
               isHead: state.isHead,
+              isInvalid: state.invalid,
               type: state.type,
               qualificationReason:
                 "Completed advanced coursework with teaching evidence.",
@@ -93,6 +95,7 @@ afterEach(() => {
   state.status = "ACCEPTED";
   state.isHead = false;
   state.type = "INITIAL";
+  state.invalid = false;
   state.schedule.mockClear();
 });
 
@@ -179,4 +182,27 @@ it("retains recalled interview evidence with voting and scheduling closed", () =
   expect(
     screen.queryByRole("link", { name: "qualificationRequests.reviewLink" }),
   ).toBeNull();
+});
+
+it("pauses a flagged initial interview without exposing staff reason or dropping prior votes", () => {
+  state.status = "INTERVIEW";
+  state.isHead = true;
+  state.invalid = true;
+  show();
+  expect(screen.getByText("badge")).toBeTruthy();
+  expect(screen.getByText("processingPaused")).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: /tutor\.interviews\.accept/,
+    }).disabled,
+  ).toBe(true);
+  expect(
+    screen.queryByRole("button", { name: "tutor.interviews.setTime" }),
+  ).toBeNull();
+  expect(
+    screen.queryByPlaceholderText(
+      "tutor.interviews.decisionCommentPlaceholder",
+    ),
+  ).toBeNull();
+  expect(screen.getByText(/Strong demo/)).toBeTruthy();
 });

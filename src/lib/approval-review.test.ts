@@ -5,6 +5,14 @@ import { APPROVAL_OPERATIONS } from "./approval-policy";
 import { approvalReview } from "./approval-review";
 
 describe("immutable approval presentation", () => {
+  it("keeps invalidity revisions out of the requested business change", () => {
+    const model = approvalReview("admin.setSignupInvalidity", {
+      id: "public-entry", invalid: true, reason: "Duplicate application", expectedInvalidityVersion: 0,
+    }, { Tutee: [{ record: { id: "public-entry", englishName: "Original Applicant" } }],
+      "Tutee.TuteeRequestInvalidity": [{ record: { tuteeId: "public-entry", invalidityVersion: 1, invalidReason: "Previous explanation" } }] });
+    expect(model.changes.map(({ key }) => key)).toEqual(["invalid", "reason"]);
+    expect(model.groups.some(({ table }) => table === "Tutee.TuteeRequestInvalidity")).toBe(true);
+  });
   it("keeps academic year checks contextual and hides ignored legacy inputs", () => {
     const model = approvalReview(
       "admin.updateAccountAcademics",

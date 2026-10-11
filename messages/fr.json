@@ -3013,7 +3013,12 @@
         "target": "Messaging permission target",
         "groups": "Allowed messaging groups",
         "hide": "Hide message",
-        "restricted": "Messaging restricted"
+        "restricted": "Messaging restricted",
+        "invalid": "Signaler comme invalide",
+        "isInvalid": "Entrée invalide",
+        "invalidReason": "Motif du signalement d’invalidité",
+        "invalidatedAt": "Date du signalement",
+        "invalidatedByName": "Auteur du signalement"
       },
       "values": {
         "ACTIVE": "Active",
@@ -3090,7 +3095,9 @@
         "programFeature": "Program features",
         "term": "Program period",
         "languages": "Languages",
-        "messagePermissions": "Messaging permissions"
+        "messagePermissions": "Messaging permissions",
+        "TutorApplication": "Candidatures de tuteurs",
+        "TuteeRequestInvalidity": "Examen d’une ancienne inscription publique"
       },
       "operations": {
         "corrections_correctAttendance": "Correct a session's attendance",
@@ -3207,7 +3214,10 @@
         "admin_setUserRole": "Change an account management role",
         "admin_revokeRegistrationCode": "Revoke a registration code",
         "messaging_moderate": "Hide or restore a message",
-        "messaging_restrict": "Change an account messaging restriction"
+        "messaging_restrict": "Change an account messaging restriction",
+        "admin_setApplicationInvalidity": "Modifier le signalement d’invalidité d’une candidature de tuteur",
+        "studentWorkflow_setRequestInvalidity": "Modifier le signalement d’invalidité d’une inscription d’élève",
+        "admin_setSignupInvalidity": "Modifier le signalement d’invalidité d’une ancienne inscription publique"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -4418,5 +4428,39 @@
     "saveError": "Nous n’avons pas pu confirmer la modification. Votre choix est conservé. Réessayez ; répéter la demande est sans risque.",
     "securityTitle": "Les E-mails Essentiels Restent Actifs",
     "securityHelp": "Les e-mails de sécurité, de vérification et de récupération du compte ne changent pas. Un e-mail déjà en cours d’envoi peut encore arriver."
+  },
+  "requestInvalidity": {
+    "badge": "Entrée invalide",
+    "filterLabel": "Validité des demandes",
+    "filter": {
+      "all": "Toutes les entrées",
+      "valid": "Non signalées",
+      "invalid": "Entrées invalides"
+    },
+    "flag": "Signaler comme invalide",
+    "review": "Examiner le signalement",
+    "clear": "Retirer le signalement",
+    "proposeFlag": "Demander le signalement comme invalide",
+    "proposeClear": "Demander le retrait du signalement",
+    "flagTitle": "Signaler {name} comme invalide ?",
+    "reviewTitle": "Signalement d’invalidité · {name}",
+    "flagHelp": "Cette action suspend le traitement de cette entrée. Son statut d’origine, les informations soumises et son historique sont conservés. Vous pourrez retirer le signalement ultérieurement.",
+    "clearHelp": "Le retrait du signalement permet de reprendre le traitement normal si la demande d’origine est toujours ouverte. Il ne rouvre pas une demande clôturée et ne modifie ni les affectations ni les décisions existantes.",
+    "reason": "Motif",
+    "clearReason": "Motif du retrait du signalement",
+    "reasonHelp": "Expliquez pourquoi cette entrée est invalide ou pourquoi son signalement doit être retiré. Le motif est conservé dans l’historique d’audit du personnel.",
+    "coordinatorHelp": "Un Administrateur ou le Responsable doit approuver cette modification. Le signalement reste inchangé jusqu’à l’approbation. Votre motif est conservé avec la proposition.",
+    "recorded": "Signalement par {name} · {when}",
+    "unknownActor": "Membre du personnel",
+    "processingPaused": "Le traitement est suspendu tant que cette entrée est signalée comme invalide.",
+    "failed": "La demande n’a pas pu être mise à jour. Votre brouillon est conservé.",
+    "missing": "Cette demande est introuvable. Votre brouillon est conservé.",
+    "saved": "La modification du signalement d’invalidité a été enregistrée.",
+    "queued": "La modification a été soumise pour approbation. La demande n’a pas encore été modifiée.",
+    "viewProposal": "Voir la demande d’approbation",
+    "refreshFailed": "La modification a été enregistrée, mais la dernière version de la demande n’a pas pu être chargée. Réessayez l’actualisation sans soumettre à nouveau.",
+    "retryRefresh": "Réessayer l’actualisation",
+    "reload": "Recharger la demande",
+    "reloadHelp": "Votre motif et la version d’origine sont conservés. Rechargez explicitement la demande pour remplacer ce brouillon par sa dernière version."
   }
 }

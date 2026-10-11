@@ -143,6 +143,33 @@ it("submits interview search and completed filters to the paginated API", () => 
     completion: "COMPLETED",
   });
 });
+
+it("retains invalid interview history without offering completion writes", () => {
+  const data = fixture();
+  mocks.options.mockReturnValue({
+    data: {
+      ...data,
+      applications: {
+        ...data.applications,
+        rows: data.applications.rows.map((row) => ({
+          ...row,
+          isInvalid: row.id === "candidate",
+        })),
+      },
+    },
+  });
+  show();
+  fireEvent.click(
+    screen.getByRole("button", { name: /Candidate One Invalid entry/ }),
+  );
+  expect(screen.getByText(en.requestInvalidity.processingPaused)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+  expect(
+    screen.getByRole("link", {
+      name: "Assign or edit this panel in Tutor Applications",
+    }),
+  ).toBeTruthy();
+});
 it("keeps historical records readable while completion is disabled", () => {
   render(
     <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">

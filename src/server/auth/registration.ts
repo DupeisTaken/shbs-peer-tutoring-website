@@ -157,6 +157,7 @@ export async function issueRegistrationCode(
           message: "Management invitations cannot grant participation.",
         });
     }
+    await assertTutorRegistrationSource(tx, opts);
     return createRegistrationCode(opts, tx);
   });
 }
@@ -256,6 +257,26 @@ export async function assertCrewRegistrationSource(
     throw new TRPCError({ code: "BAD_REQUEST", message: "INVITATION_INVALID" });
 }
 
+/** An unfinished application grant shares the flag's lock through its credential write.
+ * Staff review details never become part of a public invitation error. Independent
+ * manual grants have no application source, and completed invitation receipts skip this check. */
+export async function assertTutorRegistrationSource(
+  client: TransactionDb,
+  row: { applicationId?: string | null },
+) {
+  if (!row.applicationId) return;
+  await lockEntity(client, `interview:${row.applicationId}`);
+  // Approval callers can already own a Serializable snapshot. A row lock makes
+  // a later committed flag abort that stale snapshot instead of reading past it.
+  await client.$queryRaw`SELECT id FROM "TutorApplication" WHERE id = ${row.applicationId} FOR UPDATE`;
+  const application = await client.tutorApplication.findUnique({
+    where: { id: row.applicationId },
+    select: { invalidatedAt: true },
+  });
+  if (!application || application.invalidatedAt)
+    throw new TRPCError({ code: "BAD_REQUEST", message: "INVITATION_INVALID" });
+}
+
 type CodeRow = NonNullable<Awaited<ReturnType<typeof loadCode>>>;
 
 /** Keep invitation evidence useful without copying its plaintext code, email or proof. */
@@ -325,6 +346,15 @@ export async function resolveUsableCode(
   if (row.expiresAt < new Date()) return { ok: false, error: "expired" };
   if (row.attempts >= MAX_CODE_ATTEMPTS)
     return { ok: false, error: "too-many-attempts" };
+  // This read only drives prefill. Every subsequent write rechecks under the
+  // interview lock so a flag applied after this response cannot grant access.
+  if (row.applicationId) {
+    const application = await db.tutorApplication.findUnique({
+      where: { id: row.applicationId }, select: { invalidatedAt: true },
+    });
+    if (!application || application.invalidatedAt)
+      return { ok: false, error: "not-found" };
+  }
   return { ok: true, row };
 }
 
@@ -383,35 +413,39 @@ export async function setEmailVerification(
 ): Promise<
   { ok: true; emailCode: string } | { ok: false; error: "email-mismatch" }
 > {
-  const normalized = email.trim().toLowerCase();
-  if (row.email && row.email.toLowerCase() !== normalized) {
-    return { ok: false, error: "email-mismatch" };
-  }
-  let emailCode = generateRegistrationCode();
-  // A staff-visible authorization key must never double as mailbox proof. Resends
-  // also choose a different secret so the preceding challenge cannot remain valid.
-  while (emailCode === row.code || hashCode(emailCode) === row.emailCodeHash)
-    emailCode = generateRegistrationCode();
-  const changed = await client.registrationCode.updateMany({
-    where: {
-      id: row.id,
-      usedAt: null,
-      expiresAt: { gt: new Date() },
-      pendingEmail: row.pendingEmail,
-      emailCodeHash: row.emailCodeHash,
-    },
-    data: {
-      pendingEmail: normalized,
-      emailCodeHash: hashCode(emailCode),
-      emailCodeExpiresAt: new Date(
-        Date.now() + EMAIL_CODE_TTL_MINUTES * 60 * 1000,
-      ),
-      emailCodeAttempts: 0,
-      emailVerifiedAt: null,
-    },
+  return inTransaction(client, async (tx): ReturnType<typeof setEmailVerification> => {
+    await lockUsernameNamespace(tx);
+    await assertTutorRegistrationSource(tx, row);
+    const normalized = email.trim().toLowerCase();
+    if (row.email && row.email.toLowerCase() !== normalized) {
+      return { ok: false, error: "email-mismatch" };
+    }
+    let emailCode = generateRegistrationCode();
+    // A staff-visible authorization key must never double as mailbox proof. Resends
+    // also choose a different secret so the preceding challenge cannot remain valid.
+    while (emailCode === row.code || hashCode(emailCode) === row.emailCodeHash)
+      emailCode = generateRegistrationCode();
+    const changed = await tx.registrationCode.updateMany({
+      where: {
+        id: row.id,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+        pendingEmail: row.pendingEmail,
+        emailCodeHash: row.emailCodeHash,
+      },
+      data: {
+        pendingEmail: normalized,
+        emailCodeHash: hashCode(emailCode),
+        emailCodeExpiresAt: new Date(
+          Date.now() + EMAIL_CODE_TTL_MINUTES * 60 * 1000,
+        ),
+        emailCodeAttempts: 0,
+        emailVerifiedAt: null,
+      },
+    });
+    if (changed.count !== 1) return { ok: false, error: "email-mismatch" };
+    return { ok: true, emailCode };
   });
-  if (changed.count !== 1) return { ok: false, error: "email-mismatch" };
-  return { ok: true, emailCode };
 }
 
 /** Verify the emailed five-character code; on success stamp emailVerifiedAt on the code row. */
@@ -425,49 +459,53 @@ export async function confirmEmailCode(
       error: "no-pending" | "expired" | "too-many-attempts" | "mismatch";
     }
 > {
-  if (!row.emailCodeHash || !row.pendingEmail || !row.emailCodeExpiresAt) {
-    return { ok: false, error: "no-pending" };
-  }
-  if (row.emailCodeExpiresAt < new Date())
-    return { ok: false, error: "expired" };
-  if (row.emailCodeAttempts >= MAX_EMAIL_CODE_ATTEMPTS) {
-    return { ok: false, error: "too-many-attempts" };
-  }
-  if (hashCode(emailCode) !== row.emailCodeHash) {
-    await db.registrationCode.updateMany({
+  return inTransaction(db, async (tx): ReturnType<typeof confirmEmailCode> => {
+    await lockUsernameNamespace(tx);
+    await assertTutorRegistrationSource(tx, row);
+    if (!row.emailCodeHash || !row.pendingEmail || !row.emailCodeExpiresAt) {
+      return { ok: false, error: "no-pending" };
+    }
+    if (row.emailCodeExpiresAt < new Date())
+      return { ok: false, error: "expired" };
+    if (row.emailCodeAttempts >= MAX_EMAIL_CODE_ATTEMPTS) {
+      return { ok: false, error: "too-many-attempts" };
+    }
+    if (hashCode(emailCode) !== row.emailCodeHash) {
+      await tx.registrationCode.updateMany({
+        where: {
+          id: row.id,
+          usedAt: null,
+          emailCodeHash: row.emailCodeHash,
+          emailCodeAttempts: { lt: MAX_EMAIL_CODE_ATTEMPTS },
+        },
+        data: { emailCodeAttempts: { increment: 1 } },
+      });
+      return { ok: false, error: "mismatch" };
+    }
+    const verifiedAt = new Date();
+    const verified = await tx.registrationCode.updateMany({
       where: {
         id: row.id,
         usedAt: null,
+        pendingEmail: row.pendingEmail,
         emailCodeHash: row.emailCodeHash,
         emailCodeAttempts: { lt: MAX_EMAIL_CODE_ATTEMPTS },
+        emailCodeExpiresAt: { gt: new Date() },
       },
-      data: { emailCodeAttempts: { increment: 1 } },
+      data: { emailVerifiedAt: verifiedAt },
     });
-    return { ok: false, error: "mismatch" };
-  }
-  const verifiedAt = new Date();
-  const verified = await db.registrationCode.updateMany({
-    where: {
-      id: row.id,
-      usedAt: null,
-      pendingEmail: row.pendingEmail,
-      emailCodeHash: row.emailCodeHash,
-      emailCodeAttempts: { lt: MAX_EMAIL_CODE_ATTEMPTS },
-      emailCodeExpiresAt: { gt: new Date() },
-    },
-    data: { emailVerifiedAt: verifiedAt },
+    return verified.count === 1
+      ? {
+          ok: true,
+          completionProof: registrationCompletionProof(
+            "invitation",
+            row.id,
+            row.emailCodeHash,
+            verifiedAt,
+          ),
+        }
+      : { ok: false, error: "mismatch" };
   });
-  return verified.count === 1
-    ? {
-        ok: true,
-        completionProof: registrationCompletionProof(
-          "invitation",
-          row.id,
-          row.emailCodeHash,
-          verifiedAt,
-        ),
-      }
-    : { ok: false, error: "mismatch" };
 }
 
 export interface CompleteRegistrationInput {
@@ -888,6 +926,7 @@ export async function completeRegistration(
   const result = await inTransaction(client, async (tx) => {
     await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
+    await assertTutorRegistrationSource(tx, row);
     const term = await tx.term.findFirst({
       where: { active: true },
       select: { schoolYear: true },

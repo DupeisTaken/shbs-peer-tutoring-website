@@ -13,11 +13,18 @@ const state = vi.hoisted(() => ({
   featuresError: false,
   disabledFeatureError: false,
   pendingRequests: 0,
+  invalidBacklog: false,
 }));
 
 vi.mock("next-intl", () => ({
   useTimeZone: () => "Asia/Shanghai",
-  useFormatter: () => ({ dateTime: (date: Date, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en", { timeZone: "Asia/Shanghai", ...options }).format(date) }),
+  useFormatter: () => ({
+    dateTime: (date: Date, options: Intl.DateTimeFormatOptions) =>
+      new Intl.DateTimeFormat("en", {
+        timeZone: "Asia/Shanghai",
+        ...options,
+      }).format(date),
+  }),
   useTranslations: () => (key: string) => key,
 }));
 
@@ -52,9 +59,23 @@ vi.mock("~/trpc/react", () => ({
                 error: null,
               },
       },
-      tutees: { useQuery: () => ({ data: [], isLoading: false, error: null }) },
+      tutees: {
+        useQuery: () => ({
+          data: state.invalidBacklog
+            ? [{ id: "invalid-tutee", status: "PENDING", isInvalid: true }]
+            : [],
+          isLoading: false,
+          error: null,
+        }),
+      },
       tutorApplications: {
-        useQuery: () => ({ data: [], isLoading: false, error: null }),
+        useQuery: () => ({
+          data: state.invalidBacklog
+            ? [{ id: "invalid-app", status: "INTERVIEW", isInvalid: true }]
+            : [],
+          isLoading: false,
+          error: null,
+        }),
       },
       disciplinaryCards: {
         useQuery: () => ({
@@ -132,6 +153,7 @@ afterEach(() => {
   state.featuresError = false;
   state.disabledFeatureError = false;
   state.pendingRequests = 0;
+  state.invalidBacklog = false;
 });
 
 it("does not claim all clear when the activity summary fails", () => {
@@ -176,10 +198,19 @@ it("shows all clear for successful empty data even when disabled queues error", 
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
+it("excludes invalid tutor and legacy tutee entries from actionable backlog counts", () => {
+  state.invalidBacklog = true;
+  render(<ActivityPage />);
+  expect(screen.getByText("admin.activity.hero.allClear")).toBeTruthy();
+  expect(screen.getByText("0", { selector: "p" })).toBeTruthy();
+});
+
 it("bounds the populated mobile hero grid without changing desktop columns or queue links", async () => {
   state.pendingRequests = 30;
   render(<ActivityPage />);
-  const hero = screen.getByText("admin.activity.hero.title").closest("section")!;
+  const hero = screen
+    .getByText("admin.activity.hero.title")
+    .closest("section")!;
   expect(within(hero).getByText("30", { selector: "p" })).toBeTruthy();
   expect(
     within(hero)

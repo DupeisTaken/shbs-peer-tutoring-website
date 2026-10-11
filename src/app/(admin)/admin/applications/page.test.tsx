@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import type { InvalidationTarget } from "~/lib/invalidate-refresh";
@@ -25,6 +26,9 @@ const mocks = vi.hoisted(() => ({
   role: "HEAD",
   decide: vi.fn(),
   minimized: false,
+  invalid: false,
+  changeInvalidity: vi.fn(),
+  fetchApplications: vi.fn(),
   success: undefined as undefined | (() => Promise<void>),
   invalidateApplications: vi.fn<InvalidationTarget["invalidate"]>(),
   invalidateOptions: vi.fn<InvalidationTarget["invalidate"]>(),
@@ -45,7 +49,10 @@ vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
       admin: {
-        tutorApplications: { invalidate: mocks.invalidateApplications },
+        tutorApplications: {
+          invalidate: mocks.invalidateApplications,
+          fetch: mocks.fetchApplications,
+        },
         tutors: { invalidate: mocks.invalidate },
       },
       interviewManagement: { options: { invalidate: mocks.invalidateOptions } },
@@ -83,6 +90,15 @@ vi.mock("~/trpc/react", () => ({
             : [
                 {
                   id: "candidate",
+                  isInvalid: mocks.invalid,
+                  invalidReason: mocks.invalid
+                    ? "Private duplicate reason"
+                    : null,
+                  invalidatedAt: mocks.invalid ? new Date("2026-10-10") : null,
+                  invalidatedByName: mocks.invalid
+                    ? "Private staff actor"
+                    : null,
+                  invalidityVersion: mocks.invalid ? 1 : 0,
                   type: mocks.additional ? "ADDITIONAL_SUBJECT" : "INITIAL",
                   requestedTutorId: mocks.additional ? "candidate-tutor" : null,
                   qualificationReason: mocks.additional
@@ -144,6 +160,9 @@ vi.mock("~/trpc/react", () => ({
       assignInterviewers: { useMutation: () => ({ mutate: vi.fn() }) },
       setApplicationStatus: { useMutation: () => ({ mutate: vi.fn() }) },
       deleteApplication: { useMutation: () => ({ mutate: vi.fn() }) },
+      setApplicationInvalidity: {
+        useMutation: () => ({ mutateAsync: mocks.changeInvalidity }),
+      },
     },
   },
 }));
@@ -153,20 +172,139 @@ beforeEach(() => {
   mocks.invalidate.mockResolvedValue(undefined);
   mocks.invalidateApplications.mockResolvedValue(undefined);
   mocks.invalidateOptions.mockResolvedValue(undefined);
+  mocks.changeInvalidity.mockResolvedValue({ ok: true });
+  mocks.fetchApplications.mockImplementation(async () => [
+    {
+      id: "candidate",
+      isInvalid: mocks.invalid,
+      invalidReason: mocks.invalid ? "Private duplicate reason" : null,
+      invalidatedAt: mocks.invalid ? new Date("2026-10-10") : null,
+      invalidatedByName: mocks.invalid ? "Private staff actor" : null,
+      invalidityVersion: 2,
+    },
+  ]);
   mocks.enabled = true;
   mocks.additional = false;
   mocks.role = "HEAD";
   mocks.minimized = false;
+  mocks.invalid = false;
 });
 afterEach(cleanup);
-const show = (viewer = false) =>
-  render(
-    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-      <ReadOnlyProvider value={viewer}>
-        <ApplicationsPage />
-      </ReadOnlyProvider>
-    </NextIntlClientProvider>,
+const content = (viewer = false) => (
+  <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+    <ReadOnlyProvider value={viewer}>
+      <ApplicationsPage />
+    </ReadOnlyProvider>
+  </NextIntlClientProvider>
+);
+const show = (viewer = false) => render(content(viewer));
+
+it("retains an open invalidity draft and its version when a background flag removes the application from its filter", async () => {
+  const view = show();
+  fireEvent.click(screen.getByRole("button", { name: "Not flagged" }));
+  fireEvent.click(screen.getByRole("button", { name: "Flag invalid" }));
+  fireEvent.change(within(screen.getByRole("dialog")).getByRole("textbox"), {
+    target: { value: "My pending application review" },
+  });
+  mocks.invalid = true;
+  view.rerender(content());
+  expect(screen.queryByRole("button", { name: /Candidate One/ })).toBeNull();
+  const dialog = screen.getByRole("dialog", {
+    name: "Flag Candidate One as Invalid?",
+  });
+  expect(within(dialog).getByRole<HTMLTextAreaElement>("textbox").value).toBe(
+    "My pending application review",
   );
+  mocks.changeInvalidity.mockRejectedValueOnce(
+    new Error("Application changed"),
+  );
+  fireEvent.click(within(dialog).getByRole("button", { name: "Flag invalid" }));
+  await waitFor(() =>
+    expect(screen.getByText("Application changed")).toBeTruthy(),
+  );
+  expect(mocks.changeInvalidity).toHaveBeenCalledExactlyOnceWith({
+    id: "candidate",
+    invalid: true,
+    reason: "My pending application review",
+    expectedInvalidityVersion: 0,
+  });
+  expect(within(dialog).getByRole<HTMLTextAreaElement>("textbox").value).toBe(
+    "My pending application review",
+  );
+});
+
+it.each([false, true])(
+  "retains saved invalidity recovery after the primary application list filters out the row (clearing=%s)",
+  async (clearing) => {
+    mocks.invalid = clearing;
+    const view = show();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: clearing ? "Invalid entries" : "Not flagged",
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: clearing ? "Review invalid flag" : "Flag invalid",
+      }),
+    );
+    fireEvent.change(within(screen.getByRole("dialog")).getByRole("textbox"), {
+      target: { value: "Reviewed application evidence" },
+    });
+    let rejectSibling!: (error: Error) => void;
+    const sibling = new Promise<void>((_resolve, reject) => {
+      rejectSibling = reject;
+    });
+    mocks.invalidateOptions.mockImplementationOnce(() => sibling);
+    // The first successful refresh removes the card while its sibling remains in
+    // flight. The page, rather than that filtered card, must still own the write.
+    mocks.invalidateApplications.mockImplementation(async () => {
+      mocks.invalid = !clearing;
+      view.rerender(content());
+    });
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: clearing ? "Clear invalid flag" : "Flag invalid",
+      }),
+    );
+    await waitFor(() =>
+      expect(mocks.invalidateApplications).toHaveBeenCalledOnce(),
+    );
+    expect(screen.queryByRole("button", { name: /Candidate One/ })).toBeNull();
+    expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("true");
+    await act(async () => {
+      rejectSibling(new Error("Interview history refresh failed"));
+    });
+    await waitFor(() =>
+      expect(screen.getByText(en.requestInvalidity.refreshFailed)).toBeTruthy(),
+    );
+    expect(
+      screen.queryByRole("button", {
+        name: clearing ? "Clear invalid flag" : "Flag invalid",
+      }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    const recovery = screen.getByRole("region", { name: "Candidate One" });
+    expect(
+      within(recovery).getByText("Interview history refresh failed"),
+    ).toBeTruthy();
+    fireEvent.click(
+      within(recovery).getByRole("button", { name: "Retry refresh" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByText(en.requestInvalidity.saved)).toBeTruthy(),
+    );
+    expect(screen.queryByText(en.requestInvalidity.refreshFailed)).toBeNull();
+    expect(mocks.fetchApplications).toHaveBeenCalledOnce();
+    expect(mocks.changeInvalidity).toHaveBeenCalledExactlyOnceWith({
+      id: "candidate",
+      invalid: !clearing,
+      reason: "Reviewed application evidence",
+      expectedInvalidityVersion: clearing ? 1 : 0,
+    });
+  },
+);
 
 it("mounts interview history alongside application panel management", () => {
   show();
@@ -211,6 +349,33 @@ it("does not mount the staff-only completion query for a viewer", () => {
   show(true);
   expect(mocks.history).not.toHaveBeenCalled();
   expect(screen.queryByText("Interview history destination")).toBeNull();
+});
+it("keeps flagged interview evidence visible while hiding panel processing controls", () => {
+  mocks.invalid = true;
+  show();
+  expect(screen.getByText("Invalid entry")).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Review invalid flag" }),
+  ).toBeTruthy();
+  expect(screen.queryByText("Private duplicate reason")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+  expect(
+    screen.queryByRole("link", { name: en.admin.applications.setupAccount }),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  expect(screen.queryByRole("button", { name: "Add Interviewer" })).toBeNull();
+  expect(screen.getByText(/Preserved vote/)).toBeTruthy();
+  expect(screen.getByText(/Preserved decision/)).toBeTruthy();
+});
+it("shows a viewer the invalid badge without mounting a private flag editor", () => {
+  mocks.invalid = true;
+  show(true);
+  expect(screen.getByText("Invalid entry")).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Review invalid flag" }),
+  ).toBeNull();
+  expect(screen.queryByText("Private duplicate reason")).toBeNull();
+  expect(screen.queryByText("Private staff actor")).toBeNull();
 });
 
 it.each(["VIEWER", "TUTOR"])(

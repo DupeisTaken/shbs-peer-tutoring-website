@@ -4,6 +4,8 @@ import {
   type DomainDb,
 } from "~/server/transactions";
 import { promoteApplicantToTutor } from "./promote";
+import { assertRequestProcessable, lockApplicationReview } from "~/server/request-invalidity";
+import { lockUsernameNamespace } from "~/server/auth/username";
 
 /** Reconcile an application's grant and its inverse in the same transaction as its status. */
 export async function reconcileApplication(
@@ -11,6 +13,8 @@ export async function reconcileApplication(
   applicationId: string,
 ): Promise<void> {
   await inTransaction(db, async (tx) => {
+    await lockUsernameNamespace(tx);
+    await lockApplicationReview(tx, applicationId);
     await lockEntity(tx, `application:${applicationId}`);
     const app = await tx.tutorApplication.findUniqueOrThrow({
       where: { id: applicationId },
@@ -18,6 +22,7 @@ export async function reconcileApplication(
     // Additional qualifications never create/revoke membership, registration codes or pairings.
     // Their approval transaction owns concrete grants and immutable decision evidence.
     if (app.type !== "INITIAL") return;
+    assertRequestProcessable(app);
     if (app.status === "ACCEPTED") {
       await promoteApplicantToTutor(applicationId, tx);
       return;

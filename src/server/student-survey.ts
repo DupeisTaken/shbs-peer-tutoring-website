@@ -1,4 +1,5 @@
 import { optionalPersonNameFields } from "~/lib/person-name";
+import { requestInvalidity } from "~/server/request-invalidity";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { emailOrigin as publicEmailOrigin } from "~/server/email/urls";
 import { signupMetric } from "~/server/signup-admission";
@@ -95,6 +96,7 @@ export async function verifySurveyEmail(
     });
     if (
       !current ||
+      current.invalidatedAt ||
       current.expiresAt <= new Date() ||
       current.verificationAttempts >= 6 ||
       (current.verificationDueAt && current.verificationDueAt <= new Date())
@@ -378,6 +380,7 @@ export async function resendSurvey(
       where: { email, intakeTermId: term.id, state: "OPEN" },
       orderBy: { submittedAt: "desc" },
     });
+    if (existing?.invalidatedAt) return "missing";
     if (existing?.confirmedAt) return "confirmed";
     return existing ?? "missing";
   });
@@ -403,7 +406,7 @@ export async function resendSurvey(
     // Publish only successfully delivered replacements. Failed/concurrent retries cannot
     // invalidate the previous link, and confirmation during delivery cannot resurrect it.
     await db.studentSurvey.updateMany({
-      where: { id: updated.id, confirmedAt: null, state: "OPEN" },
+      where: { id: updated.id, confirmedAt: null, state: "OPEN", invalidatedAt: null },
       data: {
         lastLinkSentAt: new Date(),
         tokenHash: digest(token),
@@ -425,6 +428,7 @@ export async function validSurvey(
   });
   if (
     row?.state !== "OPEN" ||
+    row.invalidatedAt ||
     row.confirmedAt ||
     row.expiresAt <= new Date() ||
     (row.verificationDueAt && row.verificationDueAt <= new Date())
@@ -696,6 +700,7 @@ export async function pendingSurveys(db: DomainDb) {
     const input = surveyInput.parse(row.payload);
     return {
       id: `survey:${row.id}`,
+      ...requestInvalidity(row),
       englishName: input.englishName,
       email: row.email,
       gradeLevel: input.gradeLevel ?? null,

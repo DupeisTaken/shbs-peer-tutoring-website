@@ -1,4 +1,8 @@
 import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
+import {
+  assertRequestProcessable, assertTuteeInvalidityCleared, emptyRequestInvalidity, requestInvalidity,
+  requestInvalidityInput, setApplicationInvalidity, setSignupInvalidity, lockApplicationReview,
+} from "~/server/request-invalidity";
 import { hasReadyCredentials } from "~/lib/account-readiness";
 import { accountDirectoryDetails } from "~/server/account-directory";
 import {
@@ -262,15 +266,19 @@ export const adminRouter = createTRPCRouter({
       orderBy: { createdAt: "desc" },
       select: { id: true },
     });
-    const requests = await studentRequestRows(ctx.db);
+    const requests = await studentRequestRows(ctx.db, undefined, undefined, true);
+    const invalidLegacy = await ctx.db.tuteeRequestInvalidity.findMany({
+      where: { invalidatedAt: { not: null } }, select: { tuteeId: true },
+    });
     const linkedTuteeIds = requests.flatMap((row) =>
       row.tuteeId ? [row.tuteeId] : [],
     );
     const unverified = requests.filter(
-      (row) => row.state === "OPEN" && row.confirmedAt == null,
+      (row) => !row.isInvalid && row.state === "OPEN" && row.confirmedAt == null,
     );
     const matching = requests.filter(
       (row) =>
+        !row.isInvalid &&
         row.state === "OPEN" &&
         row.confirmedAt != null &&
         row.subjects.some(
@@ -289,8 +297,8 @@ export const adminRouter = createTRPCRouter({
       ctx.db.tutee.count({
         where: {
           status: "PENDING",
-          ...(linkedTuteeIds.length > 0
-            ? { id: { notIn: linkedTuteeIds } }
+          ...(linkedTuteeIds.length > 0 || invalidLegacy.length > 0
+            ? { id: { notIn: [...linkedTuteeIds, ...invalidLegacy.map((row) => row.tuteeId)] } }
             : {}),
         },
       }),
@@ -637,6 +645,11 @@ export const adminRouter = createTRPCRouter({
     const periods = new Map(
       enrollmentTerms.map(({ id, ...period }) => [id, period]),
     );
+    // Legacy public signup review is not part of participant-facing roster scalars.
+    const invalidities = await ctx.db.tuteeRequestInvalidity.findMany({
+      where: { tuteeId: { in: tutees.map((row) => row.id) } },
+    });
+    const invaliditiesByTutee = new Map(invalidities.map((row) => [row.tuteeId, row]));
     return tutees.map((t) => {
       // Flag a (still-pending) re-signup that matches a banned identity this quarter — by exact
       // name / email / phone — so an admin can vet it. Never auto-blocks; it just labels.
@@ -668,6 +681,7 @@ export const adminRouter = createTRPCRouter({
       return isViewer
         ? {
             ...t,
+            ...requestInvalidity(invaliditiesByTutee.get(t.id) ?? emptyRequestInvalidity, false),
             notes: null,
             signatureName: null,
             bannedMatch,
@@ -681,6 +695,7 @@ export const adminRouter = createTRPCRouter({
           }
         : {
             ...t,
+            ...requestInvalidity(invaliditiesByTutee.get(t.id) ?? emptyRequestInvalidity),
             bannedMatch,
             academic,
             owner,
@@ -2415,6 +2430,8 @@ export const adminRouter = createTRPCRouter({
           where: { id: input.id },
           include: { availabilities: true },
         });
+        if (input.status !== "INACTIVE" && input.status !== before.status)
+          await assertStudentRequestAssignable(tx, input.id);
         const historicalGradeChange =
           (input.gradeLevel !== undefined &&
             input.gradeLevel !== before.gradeLevel) ||
@@ -2757,7 +2774,7 @@ export const adminRouter = createTRPCRouter({
         await lockEntity(tx, "program:period");
         await lockEntity(tx, `tutee:${input.id}`);
         if (input.status !== "INACTIVE")
-          await requireStudentSchoolParticipation(tx, input.id);
+          await assertStudentRequestAssignable(tx, input.id);
         const prev = await tx.tutee.findUniqueOrThrow({
           where: { id: input.id },
           select: { status: true, englishName: true },
@@ -2799,8 +2816,9 @@ export const adminRouter = createTRPCRouter({
 
   deleteTutee: adminProcedure
     .input(z.object({ id: cuid }))
-    .mutation(async ({ ctx, input }) => {
-      const sessions = await ctx.db.sessionTutee.count({
+    .mutation(({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
+      await assertTuteeInvalidityCleared(tx, input.id);
+      const sessions = await tx.sessionTutee.count({
         where: { tuteeId: input.id },
       });
       if (sessions > 0) {
@@ -2810,9 +2828,9 @@ export const adminRouter = createTRPCRouter({
             "Cannot delete a tutee with attendance history. Set them inactive instead.",
         });
       }
-      await ctx.db.pairingTutee.deleteMany({ where: { tuteeId: input.id } });
-      return ctx.db.tutee.delete({ where: { id: input.id } });
-    }),
+      await tx.pairingTutee.deleteMany({ where: { tuteeId: input.id } });
+      return tx.tutee.delete({ where: { id: input.id } });
+    })),
 
   // --------------------------------------------------------------------------
   // Subject catalog (subjects offered; tutees pick first/second choice at signup)
@@ -3296,6 +3314,14 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Tutor applications + interview assignment
   // --------------------------------------------------------------------------
+  setApplicationInvalidity: adminProcedure
+    .input(requestInvalidityInput)
+    .mutation(({ ctx, input }) => setApplicationInvalidity(ctx.db, input, ctx.session.user)),
+
+  setSignupInvalidity: adminProcedure
+    .input(requestInvalidityInput)
+    .mutation(({ ctx, input }) => setSignupInvalidity(ctx.db, input, ctx.session.user)),
+
   tutorApplications: viewerProcedure.query(async ({ ctx }) => {
     const isViewer = ctx.portalAccess.maskManagementData;
     const apps = await ctx.db.tutorApplication.findMany({
@@ -3321,10 +3347,11 @@ export const adminRouter = createTRPCRouter({
         decidedByTutor: { select: { englishName: true } },
       },
     });
-    if (!isViewer) return apps;
+    if (!isViewer) return apps.map((app) => ({ ...app, ...requestInvalidity(app) }));
     // Withhold panelist deliberation free-text (vote comments) from VIEWER.
     return apps.map((a) => ({
       ...a,
+      ...requestInvalidity(a, false),
       votes: a.votes.map((v) => ({ ...v, comment: null })),
     }));
   }),
@@ -3377,10 +3404,12 @@ export const adminRouter = createTRPCRouter({
       }
 
       await ctx.db.$transaction(async (tx) => {
-        await lockEntity(tx, `interview:${input.applicationId}`);
+        await lockUsernameNamespace(tx);
+        await lockApplicationReview(tx, input.applicationId);
         const lockedApplication = await tx.tutorApplication.findUniqueOrThrow({
           where: { id: input.applicationId },
         });
+        assertRequestProcessable(lockedApplication);
         if (lockedApplication.type !== "INITIAL") {
           if (
             ctx.session.tutorId === lockedApplication.requestedTutorId ||
@@ -3496,11 +3525,13 @@ export const adminRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
-        await lockEntity(tx, `interview:${input.id}`);
+        await lockUsernameNamespace(tx);
+        await lockApplicationReview(tx, input.id);
         const prev = await tx.tutorApplication.findUnique({
           where: { id: input.id },
           select: {
             status: true,
+            invalidatedAt: true,
             decidedAt: true,
             interviewers: { select: { tutorId: true } },
           },
@@ -3511,6 +3542,7 @@ export const adminRouter = createTRPCRouter({
             message: "Application not found.",
           });
 
+        assertRequestProcessable(prev);
         // Recalled qualification requests cannot enter the legacy status/undo workflow.
         if (prev.status === "RECALLED")
           throw new TRPCError({
@@ -3578,7 +3610,12 @@ export const adminRouter = createTRPCRouter({
   deleteApplication: adminProcedure
     .input(z.object({ id: cuid }))
     .mutation(({ ctx, input }) =>
-      ctx.db.tutorApplication.delete({ where: { id: input.id } }),
+      inTransaction(ctx.db, async (tx) => {
+        await lockApplicationReview(tx, input.id);
+        const row = await tx.tutorApplication.findUniqueOrThrow({ where: { id: input.id } });
+        assertRequestProcessable(row);
+        return tx.tutorApplication.delete({ where: { id: input.id } });
+      }),
     ),
 
   // --------------------------------------------------------------------------
