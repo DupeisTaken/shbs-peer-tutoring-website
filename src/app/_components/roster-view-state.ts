@@ -11,9 +11,9 @@ export function useRosterSort(
   defaultKey: string,
   enabled: boolean,
 ): Sort {
-  const [sort, setSort] = useSessionViewState({
+  const [sort, setSort] = useSessionViewState<{ key: string; dir: "asc" | "desc" }>({
     id,
-    initialState: { key: defaultKey, dir: "asc" as "asc" | "desc" },
+    initialState: { key: defaultKey, dir: "asc" },
     parse: viewFields<{ key: string; dir: "asc" | "desc" }>({
       key: viewEnum(keys),
       dir: viewEnum(["asc", "desc"]),
