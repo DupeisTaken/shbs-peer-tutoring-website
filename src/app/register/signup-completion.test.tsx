@@ -144,7 +144,7 @@ beforeEach(() => {
   });
   state.login.mockResolvedValue({ signedIn: true, mfaRequired: false });
   state.refresh.mockImplementation(async () => {
-    if (state.readError) throw state.readError;
+    if (state.readError) throw new Error(state.readError.message);
     return { ...state.info };
   });
   vi.spyOn(window, "scrollBy").mockImplementation(() => undefined);

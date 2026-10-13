@@ -58,6 +58,15 @@ membership write. The source write and completion receipt commit in one transact
 lost-response retries without duplicating accounts, resetting passwords or replaying participation.
 An explicit receipt is distinguishable from failed session synchronization in the public form.
 
+`accountInvitation.inspect` is an ID-only read query. Verified-browser proof is
+accepted by the POST `accountInvitation.review` mutation, not by query input;
+proofs therefore do not enter query URLs, referrers or browser history. Recipient
+authority and source checks are shared by both readers. A pending tutee-intent
+review returns its exact staged answers, named subjects/time slots, stage-time
+policy/signature evidence and retained original priority separately from canonical
+account identity. That summary describes the proposed request being accepted,
+not an account-profile edit or an inferred policy acceptance.
+
 The three public entrypoints stay separate: `/register` has one centered invitation code field
 and full-width Continue action; `/viewer-signup` collects Viewer details; `/signup` collects the
 complete tutee application before verification and issuance. Viewer/tutee mailbox verification
@@ -840,6 +849,11 @@ duplicate-submission path. Existing survey-token completion remains supported.
 A receipt grants no
 mailbox proof or private record access. Resend rotates only the staged challenge
 after successful delivery and retains its capped expiry.
+
+A per-key pre-stage admission lease covers the gap before the intent exists. Receipt
+recovery reports a retryable wait while that lease is live, rather than a definitive
+missing result that could prompt another deliberate submission. After acceptance,
+its exact acknowledgement is recoverable before fresh CAPTCHA and mail admission.
 
 `accountInvitation.verifySurvey` with an intent ID verifies the exact source mailbox
 challenge before issuing the shared `tutee-intent` envelope. Source version, owner,

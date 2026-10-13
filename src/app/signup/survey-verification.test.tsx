@@ -72,7 +72,7 @@ it("binds verification and resend to the exact submission intent without changin
   });
   state.settled!();
   fireEvent.click(screen.getByRole("button", { name: en.survey.resend }));
-  await act(async () => {});
+  await act(() => Promise.resolve());
   expect(state.resend).toHaveBeenCalledWith(
     expect.objectContaining({
       email: "verified@example.test",

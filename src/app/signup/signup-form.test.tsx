@@ -239,7 +239,7 @@ it("a definitive policy rejection can recover an absent receipt and return to th
   const second = mocks.mutate.mock.calls[1]?.[0] as Record<string, unknown>;
   expect(second.clientKey).not.toBe(first.clientKey);
 });
-it("a cancelled CAPTCHA permits receipt-checked return to editing without clearing the form", async () => {
+it("a cancelled initial CAPTCHA reopens editing immediately without a receipt read or clearing the form", async () => {
   mocks.captchaRun.mockImplementationOnce(async () => {
     mocks.captchaPending = true;
   });
@@ -254,14 +254,38 @@ it("a cancelled CAPTCHA permits receipt-checked return to editing without cleari
   ).toBe(true);
   mocks.captchaPending = false;
   mounted.rerender(<SignupForm />);
-  fireEvent.click(screen.getByRole("button", { name: "returnToEditing" }));
   await waitFor(() =>
     expect(screen.getByDisplayValue("Student").matches(":disabled")).toBe(
       false,
     ),
   );
   expect(screen.getByDisplayValue("student@example.test")).toBeTruthy();
-  expect(mocks.receipt).toHaveBeenCalledOnce();
+  expect(mocks.receipt).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "returnToEditing" })).toBeNull();
+});
+it("cancelling a retry challenge never abandons an earlier ambiguous dispatched intent", async () => {
+  mocks.mutate.mockRejectedValueOnce(new Error("Response lost"));
+  const mounted = completeMinimalSubmission();
+  fireEvent.click(screen.getByRole("button", { name: "public.signup.submit" }));
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("button", { name: "recoverSubmission" })
+        .hasAttribute("disabled"),
+    ).toBe(false),
+  );
+  const first: unknown = mocks.mutate.mock.calls[0]?.[0];
+  mocks.captchaRun.mockImplementationOnce(async () => {
+    mocks.captchaPending = true;
+  });
+  fireEvent.click(screen.getByRole("button", { name: "recoverSubmission" }));
+  await act(() => Promise.resolve());
+  mocks.captchaPending = false;
+  mounted.rerender(<SignupForm />);
+  expect(screen.getByDisplayValue("Student").matches(":disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "recoverSubmission" }));
+  await waitFor(() => expect(mocks.mutate).toHaveBeenCalledTimes(2));
+  expect(mocks.mutate.mock.calls[1]?.[0]).toEqual(first);
 });
 it("keeps a loading request from pretending no time slots exist", () => {
   mocks.options.mockReturnValue({ isLoading: true });

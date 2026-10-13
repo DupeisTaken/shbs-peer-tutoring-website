@@ -185,6 +185,11 @@ also records its own signed consent, even if the answers are identical. This
 replacement behavior applies to tutee requests; tutor recruitment keeps its
 existing application and interview process.
 
+Before accepting, review this exact submission's answers, subject choices,
+available times, signature and signed policy. They appear separately from your
+existing account details and show the original queue priority being retained.
+Correcting request details does not replace your login identity.
+
 A staged replacement has its own challenge. It does not change the live request or
 invalidate that request's existing email proof while awaiting review. Account links
 and staged challenges last up to 24 hours. A successful resend replaces only the

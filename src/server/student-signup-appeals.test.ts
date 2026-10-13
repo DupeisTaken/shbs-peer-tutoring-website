@@ -347,6 +347,35 @@ it("actual staff retry resolver queues delivery after audit commit without refla
       .invalidityVersion,
   ).toBe(1);
 });
+it("staff resend upgrades an existing invalid source without reflagging or rewriting its priority/evidence", async () => {
+  const { row, payload } = await fixture();
+  const marked = await db.studentSurvey.update({
+    where: { id: row.id },
+    data: {
+      invalidityVersion: 1,
+      invalidatedAt: new Date(),
+      invalidatedById: "HEAD",
+      invalidReason: "Old private review note",
+    },
+  });
+  expect(await db.studentSignupNotice.count()).toBe(0);
+  await staff("HEAD").studentWorkflow.resendSignupNotice({ id: row.id });
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(send.mock.calls[0]![0].text).not.toContain("Old private review note");
+  expect((await inspectSignupAppeal(db, proof())).canAppeal).toBe(true);
+  expect(
+    await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }),
+  ).toMatchObject({
+    submittedAt: row.submittedAt,
+    payload,
+    invalidityVersion: 1,
+    invalidatedAt: marked.invalidatedAt,
+    invalidatedById: marked.invalidatedById,
+    invalidReason: marked.invalidReason,
+  });
+  expect(await db.studentSignupRevision.count()).toBe(0);
+});
+
 it("reviewed resend rotates obsolete credential-bound proof without transferring source ownership", async () => {
   await fixture();
   await flag();

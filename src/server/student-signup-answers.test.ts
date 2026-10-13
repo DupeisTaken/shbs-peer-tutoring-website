@@ -151,8 +151,6 @@ it.each([NaN, Infinity, -Infinity])(
 it.each([undefined, new Date(0), 1n])(
   "rejects non-JSON values rather than hashing a colliding representation: %s",
   (value) => {
-    expect(() => studentSignupIntentDigest({ value } as never)).toThrow(
-      TypeError,
-    );
+    expect(() => studentSignupIntentDigest({ value })).toThrow(TypeError);
   },
 );

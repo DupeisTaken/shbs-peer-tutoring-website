@@ -64,6 +64,7 @@ export function SignupForm() {
   const admitted = useRef(false);
   const [working, setWorking] = useState(false);
   const [held, setHeld] = useState(false);
+  const [dispatched, setDispatched] = useState(false);
   const [acknowledgement, setAcknowledgement] = useState<{
     email: string;
     emailSent: boolean;
@@ -80,6 +81,7 @@ export function SignupForm() {
     if (!submission) return;
     admitted.current = true;
     attempt.current = submission;
+    if (captured) setDispatched(false);
     setWorking(true);
     setHeld(true);
     try {
@@ -91,6 +93,9 @@ export function SignupForm() {
         }
       }
       await captcha.run(async (captchaGrant) => {
+        // Once a feature write is dispatched, a missing reply can mean success.
+        // CAPTCHA cancellation on a later retry must keep this intent frozen.
+        setDispatched(true);
         const saved = await submit.mutateAsync({
           ...submission.answers,
           clientKey: submission.clientKey,
@@ -128,6 +133,7 @@ export function SignupForm() {
       else {
         attempt.current = null;
         setHeld(false);
+        setDispatched(false);
       }
     } catch {
       /* Ambiguous recovery must not abandon a possibly committed intent. */
@@ -143,6 +149,9 @@ export function SignupForm() {
   const [gradeLevel, setGradeLevel] = useState("");
   const [email, setEmail] = useState("");
   const captcha = useSignupCaptcha("tutee.submit", email);
+  // A cancelled/rejected initial challenge never dispatched a feature write, so
+  // its draft can reopen immediately. Ambiguous writes require receipt recovery.
+  const holdDraft = held && (dispatched || working || captcha.pending);
   const [phone, setPhone] = useState("");
   const [preferredContact, setPreferredContact] = useState("");
   const [firstChoiceId, setFirstChoiceId] = useState("");
@@ -203,7 +212,7 @@ export function SignupForm() {
     agreed &&
     !submit.isPending &&
     !working &&
-    !held &&
+    !holdDraft &&
     !captcha.pending;
 
   if (acknowledgement) {
@@ -325,7 +334,7 @@ export function SignupForm() {
             readOnly ||
             submit.isPending ||
             working ||
-            held ||
+            holdDraft ||
             captcha.pending
           }
           aria-busy={submit.isPending || working}
@@ -548,7 +557,7 @@ export function SignupForm() {
         {/* Freeze the captured application draft, but keep the challenge's own
             Verify/Cancel/Retry controls outside the disabled form controls. */}
         {captcha.panel}
-        {held && !acknowledgement && (
+        {holdDraft && !acknowledgement && (
           <InlineNotice
             tone="warning"
             announcement="status"

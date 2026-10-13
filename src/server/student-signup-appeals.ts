@@ -326,7 +326,13 @@ export async function retrySignupNotices(db: DomainDb, surveyId: string) {
         },
       },
     });
-    if (!notice) return;
+    if (!notice) {
+      // An invalid source can predate this outbox migration. Explicit staff resend
+      // creates only its missing delivery evidence, without reflagging or reprioritizing.
+      await assertSignupEditPeriod(tx, row);
+      await enqueueSignupNotice(tx, row, "INVALID_FLAGGED");
+      return;
+    }
     await lockEntity(tx, `signup-notice:${notice.id}`);
     const recipient = await deliveryOwner(tx, row);
     if (!recipient) return;

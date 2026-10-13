@@ -45,7 +45,8 @@ export function InvitationSignupReview({
   );
   const subject = (id: string | undefined) =>
     request.subjects.find((value) => value.id === id)?.name ??
-    (id ? id : t("notProvided"));
+    id ??
+    t("notProvided");
   const fields = [
     [t("submittedName"), answers.englishName],
     [t("submittedFirstName"), answers.firstName],
@@ -88,7 +89,7 @@ export function InvitationSignupReview({
           <div key={label} className="min-w-0">
             <dt className="font-medium">{label}</dt>
             <dd className="break-words whitespace-pre-wrap">
-              {value ? value : t("notProvided")}
+              {value?.trim().length ? value : t("notProvided")}
             </dd>
           </div>
         ))}
