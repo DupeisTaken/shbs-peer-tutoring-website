@@ -16,6 +16,7 @@ import {
   removeViewState,
   viewStateKey,
   writeViewState,
+  viewAccessDenied,
 } from "~/lib/session-view-state";
 import type { ViewState } from "~/lib/session-view-state";
 
@@ -23,6 +24,23 @@ type ViewContext = { identity: string; pathname: string; verified: boolean };
 const Context = createContext<ViewContext | null>(null);
 /** Useful for URL adapters: defer restoring a remembered view until identity is verified. */
 export const useSessionViewVerified = () => !!useContext(Context)?.verified;
+
+/** Preserve an access failure across later transport errors. Only fresh successful
+ * reads release it; callers also hide cached content while this is true. */
+export function useSessionAccessDenied(...queries: {
+  error?: { data?: { code?: string } | null } | null;
+  isSuccess?: boolean;
+  isFetching?: boolean;
+}[]) {
+  const denied = queries.some((query) => viewAccessDenied(query.error));
+  const recovered = queries.every((query) => query.isSuccess && !query.isFetching);
+  const [latched, setLatched] = useState(false);
+  useEffect(() => {
+    if (denied) setLatched(true);
+    else if (recovered) setLatched(false);
+  }, [denied, recovered]);
+  return denied || latched;
+}
 
 /** Reuses the existing live-session check. It performs no requests and stores no private DOM. */
 export function SessionViewProvider({
@@ -86,6 +104,8 @@ export function useSessionViewState<T extends ViewState>(
       ? options.parse(stored.value)
       : undefined;
   const invalid = restoreReady && stored.key === key && parsed === undefined;
+  const normalized = parsed !== undefined && JSON.stringify(parsed) !== JSON.stringify(stored.value)
+    ? JSON.stringify(parsed) : "";
   const value = enabled && parsed !== undefined ? parsed : options.initialState;
   useEffect(() => {
     if (!invalid || !key) return;
@@ -97,6 +117,16 @@ export function useSessionViewState<T extends ViewState>(
     setStored({ key, value: latest.current.initialState });
   }, [invalid, key]);
   useEffect(() => {
+    if (!normalized || !enabled || !key) return;
+    const value = JSON.parse(normalized) as T;
+    // Parsers may drop removed catalogue IDs or unknown fields. Replace their
+    // stored representation too, so a later catalogue cannot revive them.
+    if (active) {
+      try { writeViewState(window.sessionStorage, key, value); } catch { /* Optional storage. */ }
+    }
+    setStored({ key, value });
+  }, [normalized, enabled, active, key]);
+  useEffect(() => {
     if (!key || !active) return;
     try {
       if (!enabled) {
@@ -107,6 +137,7 @@ export function useSessionViewState<T extends ViewState>(
       const restored = latest.current.parse(
         readViewState(window.sessionStorage, key),
       );
+      if (restored !== undefined) writeViewState(window.sessionStorage, key, restored);
       setStored({ key, value: restored ?? latest.current.initialState });
     } catch {
       /* State still works without browser storage. */

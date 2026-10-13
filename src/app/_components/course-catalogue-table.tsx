@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { SummaryTable, TableActions, TableDetails } from "./ui/summary-table";
+import { useSessionPageScroll, useSessionViewState } from "./session-view-state";
+import { viewEnum, viewSearch } from "~/lib/session-view-state";
 
 type Subject = {
   id: string;
@@ -21,18 +23,26 @@ export function CourseCatalogueTable({
   readOnly,
   pending,
   onApply,
+  viewReady = true,
+  viewEnabled = true,
+  ownsPageScroll = false,
 }: {
   subjects: Subject[];
   levels: Level[];
   readOnly: boolean;
   pending: boolean;
   onApply: (input: Batch) => Promise<unknown>;
+  /** Parent query readiness is separate from an empty, successfully loaded catalogue. */
+  viewReady?: boolean;
+  viewEnabled?: boolean;
+  ownsPageScroll?: boolean;
 }) {
   const t = useTranslations("courseCatalogue");
   const table = useTranslations("tablePatterns");
-  const [search, setSearch] = useState("");
-  const [level, setLevel] = useState("all");
-  const [status, setStatus] = useState("all");
+  const [search, setSearch] = useSessionViewState({ id: "course-catalogue.search.v1", initialState: "", parse: viewSearch, enabled: viewEnabled });
+  const [level, setLevel] = useSessionViewState({ id: "course-catalogue.level.v1", initialState: "all", parse: viewEnum(["all", "none", ...levels.map((item) => item.id)]), enabled: viewEnabled, restoreReady: viewReady });
+  const [status, setStatus] = useSessionViewState({ id: "course-catalogue.status.v1", initialState: "all", parse: viewEnum(["all", "active", "inactive"]), enabled: viewEnabled });
+  useSessionPageScroll({ id: "subjects", scope: JSON.stringify([search, level, status]), ready: viewReady, enabled: ownsPageScroll && viewEnabled });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batchStatus, setBatchStatus] = useState("keep");
   const [batchLevel, setBatchLevel] = useState("keep");
@@ -105,7 +115,7 @@ export function CourseCatalogueTable({
             className={`select ${control}`}
             aria-label={t("status")}
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            onChange={(e) => setStatus(e.target.value as typeof status)}
           >
             <option value="all">{t("allStatuses")}</option>
             <option value="active">{t("active")}</option>

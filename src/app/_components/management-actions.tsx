@@ -4,7 +4,9 @@ import { HEAD_APPROVAL_OPERATIONS } from "~/lib/approval-policy";
 import Link from "next/link";
 import { isAssignmentOperation } from "~/lib/assignment-qualification";
 import { AssignmentConfirmation } from "./assignment-confirmation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState, useSessionViewVerified } from "./session-view-state";
+import { viewEnum, viewFields, viewPage, viewSearch } from "~/lib/session-view-state";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import SuperJSON from "superjson";
@@ -278,26 +280,48 @@ function ApprovalQueue({
   const params = useSearchParams();
   const selectedStatus = params.get("status");
   const selectedPage = Number(params.get("page") ?? 0);
-  const [state, setState] = useState<State | "">(
+  const urlState: State | "" =
     selectedStatus &&
       ["PENDING", "APPROVED", "REJECTED", "CANCELLED"].includes(selectedStatus)
       ? (selectedStatus as State)
       : allStatuses || !reviewer
         ? ""
-        : "PENDING",
-  );
-  const [page, setPage] = useState(
-    Number.isSafeInteger(selectedPage) && selectedPage >= 0 ? selectedPage : 0,
-  );
-  const [requesterId, setRequesterId] = useState(
-    reviewer ? (params.get("requester") ?? "") : "",
-  );
+        : "PENDING";
+  const explicit = params.has("status") || params.has("page") || params.has("requester") || !!requestId;
+  const urlPage = viewPage(selectedPage) ?? 0;
+  const [requesters, setRequesters] = useState<string[] | null>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const verified = useSessionViewVerified();
+  const [remembered, setRemembered] = useSessionViewState<{ state: State | ""; page: number; requesterId: string }>({
+    id: "approvals.list.v1", initialState: { state: reviewer ? "PENDING" : "", page: 0, requesterId: "" },
+    scope: reviewer ? "reviewer" : "own", enabled: !accessDenied,
+    parse: viewFields({ state: viewEnum(["", "PENDING", "APPROVED", "REJECTED", "CANCELLED"]), page: viewPage,
+      // Shape-check while loading; validate against the full current requester catalogue after success.
+      requesterId: (value) => !reviewer ? value === "" ? "" : undefined : requesters === null ? viewSearch(value) : viewEnum(["", ...requesters])(value),
+    }),
+  });
+  const rawRequester = reviewer ? (params.get("requester") ?? "") : "";
+  const urlRequester = requesters !== null && !requesters.includes(rawRequester) ? "" : (viewSearch(rawRequester) ?? "");
+  const [pendingUrlView, setPendingUrlView] = useState<{ query: string; value: typeof remembered } | null>(null);
+  // Keep a control's immediate response while Next commits router.replace. A
+  // different URL (including a banner link) always starts with its explicit values.
+  const current = pendingUrlView?.query === params.toString() ? pendingUrlView.value
+    : explicit ? { state: urlState, page: urlPage, requesterId: urlRequester } : remembered;
+  const { state, page, requesterId } = current;
+  const setState = (value: State | "") => setRemembered((old) => ({ ...old, state: value }));
+  const setPage = (value: number) => setRemembered((old) => ({ ...old, page: value }));
+  const setRequesterId = (value: string) => setRemembered((old) => ({ ...old, requesterId: value }));
+  useEffect(() => {
+    if (explicit && verified && !requestId) setRemembered({ state: urlState, page: urlPage, requesterId: urlRequester });
+  }, [explicit, verified, requestId, urlState, urlPage, urlRequester, setRemembered]);
   // Persist list state in the URL so clicking the banner from a filtered or older
   // page really returns to the full first page, even within the same route.
   const navigateList = (
     change: Partial<{ state: State | ""; page: number; requesterId: string }>,
   ) => {
     const next = { state, page, requesterId, ...change };
+    setPendingUrlView({ query: params.toString(), value: next });
+    setRemembered(next);
     const search = new URLSearchParams({ status: next.state || "all" });
     if (next.page) search.set("page", String(next.page));
     if (next.requesterId) search.set("requester", next.requesterId);
@@ -309,9 +333,17 @@ function ApprovalQueue({
     requesterId: requestId ? undefined : requesterId || undefined,
     requestId,
   });
+  const denied = useSessionAccessDenied(queue);
+  useEffect(() => setAccessDenied(denied), [denied]);
+  const requesterKey = queue.data ? JSON.stringify(queue.data.requesters.map((user) => user.id)) : null;
+  useEffect(() => {
+    if (requesterKey !== null && !denied) setRequesters(JSON.parse(requesterKey) as string[]);
+  }, [requesterKey, denied]);
+  useSessionPageScroll({ id: "approvals", scope: JSON.stringify([requestId ?? "all", state, page, requesterId]), ready: !!queue.data, enabled: !denied });
   const refresh = async () => {
     await queue.refetch();
   };
+  if (denied) return <p role="alert">{queue.error?.message ?? t("loading")}</p>;
   return (
     <div className="space-y-6">
       <header>

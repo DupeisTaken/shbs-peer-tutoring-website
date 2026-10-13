@@ -1,6 +1,6 @@
 "use client";
 import { formText, formTexts } from "~/lib/form-values";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations, useTimeZone, useFormatter } from "next-intl";
 import { InlineNotice } from "./ui/patterns";
@@ -8,6 +8,8 @@ import { api } from "~/trpc/react";
 import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 import { DisclosureIcon } from "./icons";
 import { InvalidityBadge, InvalidityNotice } from "./request-invalidity";
+import { useSessionAccessDenied, useSessionViewState } from "./session-view-state";
+import { viewEnum, viewPage, viewSearch } from "~/lib/session-view-state";
 
 /** Explicit disclosure state survives filtering; form state stays mounted while collapsed. */
 function InterviewDisclosure({
@@ -49,9 +51,11 @@ function InterviewDisclosure({
 export function InterviewManagement({
   enabled = true,
   onManageApplicant,
+  onViewReadyChange,
 }: {
   enabled?: boolean;
   onManageApplicant?: () => void;
+  onViewReadyChange?: (ready: boolean, scope: string, denied: boolean) => void;
 }) {
   const t = useTranslations("workflows");
   const allT = useTranslations();
@@ -59,9 +63,11 @@ export function InterviewManagement({
   const timeZone = useTimeZone();
   const [inputError, setInputError] = useState("");
   const utils = api.useUtils();
-  const [page, setPage] = useState(0);
-  const [search, setSearch] = useState("");
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [page, setPage] = useSessionViewState({ id: "interviews.page.v1", initialState: 0, parse: viewPage, enabled: !accessDenied });
+  const [search, setSearch] = useSessionViewState({ id: "interviews.search.v1", initialState: "", parse: viewSearch, enabled: !accessDenied });
   const [searchDraft, setSearchDraft] = useState("");
+  useEffect(() => setSearchDraft(search), [search]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggle = (id: string) =>
     setExpanded((previous) => {
@@ -70,14 +76,18 @@ export function InterviewManagement({
       else next.add(id);
       return next;
     });
-  const [completion, setCompletion] = useState<"OPEN" | "COMPLETED" | "ALL">(
-    "OPEN",
-  );
+  const [completion, setCompletion] = useSessionViewState({ id: "interviews.completion.v1", initialState: "OPEN", parse: viewEnum(["OPEN", "COMPLETED", "ALL"]), enabled: !accessDenied });
   const data = api.interviewManagement.options.useQuery({
     page,
     search,
     completion,
   });
+  const denied = useSessionAccessDenied(data);
+  // The parent Applications page owns viewport position; nested history owns only its read controls.
+  useEffect(() => setAccessDenied(denied), [denied]);
+  useEffect(() => {
+    onViewReadyChange?.(!!data.data, JSON.stringify([page, search, completion]), denied);
+  }, [!!data.data, page, search, completion, denied, onViewReadyChange]);
   const complete = api.interviewManagement.complete.useMutation({
     onSuccess: async () => {
       setPage(0);
@@ -87,7 +97,7 @@ export function InterviewManagement({
       ]);
     },
   });
-  if (data.error) return <p role="alert">{data.error.message}</p>;
+  if (denied || data.error) return <p role="alert">{data.error?.message ?? t("loadFailed")}</p>;
   if (!data.data) return <p>{t("loading")}</p>;
   const { applications } = data.data;
   const first = applications.total === 0 ? 0 : page * applications.pageSize + 1;

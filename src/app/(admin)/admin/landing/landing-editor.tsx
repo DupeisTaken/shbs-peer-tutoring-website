@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useId,
@@ -25,6 +26,8 @@ import { useReadOnly } from "~/app/_components/read-only";
 import { useActionReview } from "~/app/_components/ui/action-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { queuedApprovalId } from "~/lib/approval-outcome";
+import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
+import { viewEnum } from "~/lib/session-view-state";
 import {
   type Block,
   type LeafBlock,
@@ -41,6 +44,16 @@ import {
  */
 
 type Tab = "layout" | "content" | "sections" | "pages" | "news" | "images";
+type LandingScene = { ready: boolean; denied: boolean; scope: string };
+const LandingViewContext = createContext<((tab: Tab, scene: LandingScene) => void) | null>(null);
+/** Each lazy panel reports its own usable query, so unrelated image loading cannot
+ * trigger viewport restoration before the selected editor is mounted. */
+function useLandingScene(tab: Tab, scene: LandingScene, active = true) {
+  const report = useContext(LandingViewContext);
+  useEffect(() => {
+    if (active) report?.(tab, scene);
+  }, [report, tab, scene.ready, scene.denied, scene.scope, active]);
+}
 
 // The route owns destructive reviews, independently of a card or selected tab.
 // Removing a record or switching tabs cannot discard an accepted write's recovery.
@@ -84,11 +97,20 @@ export default function LandingAdminPage() {
   const t = useTranslations();
   const readOnly = useReadOnly();
   const review = useActionReview();
-  const [tab, setTab] = useState<Tab>("layout");
+  const [scenes, setScenes] = useState<Partial<Record<Tab, LandingScene>>>({});
+  const reportScene = useCallback((key: Tab, scene: LandingScene) => {
+    setScenes((old) => JSON.stringify(old[key]) === JSON.stringify(scene) ? old : { ...old, [key]: scene });
+  }, []);
+  const images = api.home.images.useQuery();
+  const imageDenied = useSessionAccessDenied(images);
+  const [tab, setTab] = useSessionViewState<Tab>({ id: "landing.tab.v1", initialState: "layout",
+    parse: viewEnum(["layout", "content", "sections", "pages", "news", "images"]), enabled: !imageDenied });
   const [openedTabs, setOpenedTabs] = useState<ReadonlySet<Tab>>(
     () => new Set(["layout"]),
   );
-  const images = api.home.images.useQuery();
+  const scene = tab === "images" ? { ready: !!images.data, denied: imageDenied, scope: "" } : scenes[tab];
+  useSessionPageScroll({ id: "landing", scope: JSON.stringify([tab, scene?.scope ?? ""]),
+    ready: !!images.data && !!scene?.ready, enabled: !imageDenied && !scene?.denied });
 
   // Order groups the landing-page surfaces (layout → content → sections → news) ahead of standalone
   // pages and the shared image library. Each tab carries a one-line description shown below the bar.
@@ -126,7 +148,9 @@ export default function LandingAdminPage() {
   ];
   const activeDesc = tabs.find((tb) => tb.key === tab)?.desc;
 
+  if (imageDenied) return <p role="alert">{t("uiPatterns.loadFailed")}</p>;
   return (
+    <LandingViewContext.Provider value={reportScene}>
     <LandingReviewContext.Provider value={review}>
       <div className="space-y-6">
         {!readOnly && review.dialog}
@@ -171,32 +195,32 @@ export default function LandingAdminPage() {
           )}
           {/* Opened tab owners keep their drafts and pending callbacks. Initial
               queries remain lazy until a tab has actually been visited. */}
-          {openedTabs.has("layout") && (
+          {(openedTabs.has("layout") || tab === "layout") && (
             <div hidden={tab !== "layout"}>
               <LayoutEditor images={images.data ?? []} readOnly={readOnly} />
             </div>
           )}
-          {openedTabs.has("content") && (
+          {(openedTabs.has("content") || tab === "content") && (
             <div hidden={tab !== "content"}>
               <ContentEditor images={images.data ?? []} readOnly={readOnly} />
             </div>
           )}
-          {openedTabs.has("sections") && (
+          {(openedTabs.has("sections") || tab === "sections") && (
             <div hidden={tab !== "sections"}>
               <SectionsManager images={images.data ?? []} readOnly={readOnly} />
             </div>
           )}
-          {openedTabs.has("pages") && (
+          {(openedTabs.has("pages") || tab === "pages") && (
             <div hidden={tab !== "pages"}>
               <PagesManager images={images.data ?? []} readOnly={readOnly} />
             </div>
           )}
-          {openedTabs.has("news") && (
+          {(openedTabs.has("news") || tab === "news") && (
             <div hidden={tab !== "news"}>
               <NewsManager images={images.data ?? []} readOnly={readOnly} />
             </div>
           )}
-          {openedTabs.has("images") && (
+          {(openedTabs.has("images") || tab === "images") && (
             <div hidden={tab !== "images"}>
               <ImageLibrary
                 images={images.data ?? []}
@@ -209,6 +233,7 @@ export default function LandingAdminPage() {
         </SectionTabs>
       </div>
     </LandingReviewContext.Provider>
+    </LandingViewContext.Provider>
   );
 }
 
@@ -246,11 +271,14 @@ function ContentEditor({
 }) {
   const t = useTranslations();
   const languages = api.i18n.languages.useQuery();
-  const [locale, setLocale] = useState("en");
+  const denied = useSessionAccessDenied(languages);
+  const [locale, setLocale] = useSessionViewState({ id: "landing.content.locale.v1", initialState: "en", parse: viewEnum((languages.data ?? []).map((language) => language.code)), enabled: !denied, restoreReady: !!languages.data });
+  useLandingScene("content", { ready: false, denied, scope: locale }, denied || !languages.data);
   const [openedLocales, setOpenedLocales] = useState<ReadonlySet<string>>(
     () => new Set(["en"]),
   );
 
+  if (denied) return <p role="alert">{t("uiPatterns.loadFailed")}</p>;
   return (
     <div className="space-y-5">
       <p className="muted text-sm">{t("saveBoundary.form")}</p>
@@ -275,12 +303,13 @@ function ContentEditor({
         </select>
       </label>
 
-      {[...openedLocales].map((language) => (
+      {[...new Set([...openedLocales, locale])].map((language) => (
         <div key={language} hidden={language !== locale}>
           <ContentLocaleEditor
             locale={language}
             images={images}
             readOnly={readOnly}
+            active={!!languages.data && language === locale && !denied}
           />
         </div>
       ))}
@@ -294,13 +323,17 @@ function ContentLocaleEditor({
   locale,
   images,
   readOnly,
+  active,
 }: {
   locale: string;
   images: ImageInfo[];
   readOnly: boolean;
+  active: boolean;
 }) {
   const t = useTranslations();
   const content = api.home.content.useQuery({ locale });
+  const denied = useSessionAccessDenied(content);
+  useLandingScene("content", { ready: !!content.data, denied, scope: locale }, active);
   const utils = api.useUtils();
   const refresh = () => {
     void utils.home.content.invalidate({ locale });
@@ -308,6 +341,7 @@ function ContentLocaleEditor({
   const byKey = new Map(
     (content.data ?? []).map((field) => [field.key, field]),
   );
+  if (denied) return <p role="alert">{t("uiPatterns.loadFailed")}</p>;
   return (
     <div className="space-y-5">
       {content.isLoading && (
@@ -568,6 +602,8 @@ function NewsManager({
 }) {
   const t = useTranslations();
   const news = api.home.news.useQuery();
+  const denied = useSessionAccessDenied(news);
+  useLandingScene("news", { ready: !!news.data, denied, scope: "" });
   const utils = api.useUtils();
   const refresh = () => {
     void utils.home.news.invalidate();
@@ -583,6 +619,7 @@ function NewsManager({
     },
   });
 
+  if (denied) return <p role="alert">{t("uiPatterns.loadFailed")}</p>;
   return (
     <div className="space-y-5">
       {!readOnly && (
@@ -1367,6 +1404,8 @@ function SectionsManager({
 }) {
   const t = useTranslations();
   const sections = api.home.sections.useQuery();
+  const denied = useSessionAccessDenied(sections);
+  useLandingScene("sections", { ready: !!sections.data, denied, scope: "" });
   const utils = api.useUtils();
   const refresh = () => {
     void utils.home.sections.invalidate();
@@ -1395,6 +1434,7 @@ function SectionsManager({
     reorder.mutate({ ids });
   };
 
+  if (denied) return <p role="alert">{t("uiPatterns.loadFailed")}</p>;
   return (
     <div className="space-y-5">
       {!readOnly && (
@@ -1798,12 +1838,14 @@ export function LayoutEditor({
   const t = useTranslations();
   const languages = api.i18n.languages.useQuery();
   const layout = api.home.layout.useQuery({ owner });
+  const denied = useSessionAccessDenied(layout, languages);
   const utils = api.useUtils();
   const save = api.home.setLayout.useMutation({
     onSuccess: () => utils.home.layout.invalidate({ owner }),
   });
   const saveLock = useRef(false);
-  const [locale, setLocale] = useState("en");
+  const [locale, setLocale] = useSessionViewState({ id: "landing.layout.locale.v1", scope: owner, initialState: "en", parse: viewEnum((languages.data ?? []).map((language) => language.code)), enabled: !denied, restoreReady: !!languages.data });
+  useLandingScene("layout", { ready: !!layout.data && !!languages.data, denied, scope: locale }, owner === "landing");
   const [blocks, setBlocks] = useState<Block[] | null>(null);
   const [baseline, setBaseline] = useState<string | null>(null);
 
@@ -1892,6 +1934,7 @@ export function LayoutEditor({
     }
   };
 
+  if (denied) return <p role="alert">{t("uiPatterns.loadFailed")}</p>;
   return (
     <div className="space-y-4">
       <p className="muted text-sm">{t("saveBoundary.layout")}</p>
@@ -2564,6 +2607,8 @@ function PagesManager({
 }) {
   const t = useTranslations();
   const pages = api.home.pages.useQuery();
+  const denied = useSessionAccessDenied(pages);
+  useLandingScene("pages", { ready: !!pages.data, denied, scope: "" });
   const utils = api.useUtils();
   const refresh = () => {
     void utils.home.pages.invalidate();
@@ -2589,6 +2634,7 @@ function PagesManager({
     reorder.mutate({ ids });
   };
 
+  if (denied) return <p role="alert">{t("uiPatterns.loadFailed")}</p>;
   return (
     <div className="space-y-5">
       {!readOnly && (

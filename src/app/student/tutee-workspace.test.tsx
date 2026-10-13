@@ -36,6 +36,7 @@ vi.mock("~/app/_components/confirm-dialog", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    program: { calendar: { useQuery: () => ({ data: [] }) } },
     student: {
       me: { useQuery: mocks.personal },
       feedbackSettings: { useQuery: mocks.settings },
