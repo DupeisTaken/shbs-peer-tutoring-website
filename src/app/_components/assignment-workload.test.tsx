@@ -99,7 +99,7 @@ function mount(value = "a", locale: "en" | "zh" = "en") {
           label="Choose tutor"
           subjectId="math"
           value={value}
-          onChange={() => {}}
+          onChange={() => undefined}
         />
       </NextIntlClientProvider>
     </QueryClientProvider>,

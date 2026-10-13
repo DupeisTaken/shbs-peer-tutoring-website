@@ -101,8 +101,7 @@ export async function saveWorkloadPreference(
       include: { schoolDeparture: true },
     });
     if (
-      !account ||
-      account.tutorId !== tutorId ||
+      account?.tutorId !== tutorId ||
       account.tutorAccessRevoked ||
       !portalAccess(account).canParticipate
     )

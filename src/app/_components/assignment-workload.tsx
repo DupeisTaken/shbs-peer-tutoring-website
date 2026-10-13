@@ -61,12 +61,13 @@ export function AssignmentWorkloadFeedback() {
   const t = useTranslations("tutorWorkload");
   const query = useAssignmentWorkloads();
   if (!query.error && !query.unavailable && query.data) return null;
+  const failed = Boolean(query.error) || query.unavailable;
   return (
     <InlineNotice
-      tone={query.error || query.unavailable ? "error" : "info"}
-      announcement={query.error || query.unavailable ? "alert" : "status"}
+      tone={failed ? "error" : "info"}
+      announcement={failed ? "alert" : "status"}
       action={
-        (query.error || query.unavailable) && (
+        failed && (
           <Button
             size="compact"
             disabled={query.isFetching}

@@ -17,7 +17,12 @@ import { TutorWorkloadPreference } from "./tutor-workload-preference";
 const state = vi.hoisted(() => ({
   client: null as QueryClient | null,
   read: vi.fn(),
-  save: vi.fn(),
+  save: vi.fn<
+    (input: {
+      preferredMaximum: number | null;
+      expectedVersion: number;
+    }) => Promise<{ ok: boolean }>
+  >(),
 }));
 vi.mock("@trpc/react-query", () => ({ getQueryKey: () => ["preference"] }));
 vi.mock("~/trpc/react", async () => {

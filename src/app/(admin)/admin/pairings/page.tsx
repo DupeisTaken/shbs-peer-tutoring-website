@@ -191,11 +191,12 @@ export default function PairingsPage() {
     />
   );
 
-  const invalidate = () =>
-    settleRefreshes([
+  const invalidate = async () => {
+    await settleRefreshes([
       () => utils.admin.pairings.invalidate(),
       () => invalidateWorkloads(utils),
     ]);
+  };
   const create = api.admin.createPairing.useMutation({ onSuccess: invalidate });
   const update = api.admin.updatePairing.useMutation({ onSuccess: invalidate });
   const del = api.admin.deletePairing.useMutation();
@@ -703,11 +704,12 @@ export default function PairingsPage() {
                               </p>
                             ),
                             commit: () => del.mutateAsync({ id: p.id }),
-                            refresh: () =>
-                              settleRefreshes([
+                            refresh: async () => {
+                              await settleRefreshes([
                                 () => invalidateAndReport(utils.admin.pairings),
                                 () => invalidateWorkloads(utils, true),
-                              ]),
+                              ]);
+                            },
                             approvalId: queuedApprovalId,
                           })
                         }
