@@ -4672,7 +4672,7 @@
     "unnamed": "Δεν δόθηκε όνομα"
   },
   "tutorWorkload": {
-    "title": "Assigned session blocks",
+    "title": "Assigned Session Blocks",
     "help": "Approximate workload for the current quarter if your assigned tutees work out. Shared confirmed times count once; assignments awaiting a schedule count separately. Your preference is advisory and does not change existing assignments.",
     "editPreference": "Your assignment preference",
     "preference": "Preferred maximum",
@@ -4704,8 +4704,8 @@
     "saveFailed": "Could not save the preference. Your draft is retained; try Save again.",
     "refreshFailed": "Preference saved, but synchronization failed. Retry refresh reads the saved value without saving again.",
     "reloadFailed": "Could not reload the preference. Your draft and original version are retained.",
-    "countHeading": "Assigned blocks",
-    "preferenceHeading": "Preferred maximum",
+    "countHeading": "Assigned Blocks",
+    "preferenceHeading": "Preferred Maximum",
     "staffHelp": "Approximate current-quarter workload; shared confirmed times count once and awaiting-schedule assignments count separately."
   }
 }

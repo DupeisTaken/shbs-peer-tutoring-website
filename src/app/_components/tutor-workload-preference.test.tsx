@@ -223,7 +223,7 @@ it("freezes only its form during a pending save and admits one same-turn submit"
   state.save.mockReturnValue(held.promise);
   mount();
   await choose("3");
-  const form = screen.getByRole("form", { name: "Assigned session blocks" });
+  const form = screen.getByRole("form", { name: "Assigned Session Blocks" });
   fireEvent.submit(form);
   fireEvent.submit(form);
   await waitFor(() => expect(state.save).toHaveBeenCalledTimes(1));

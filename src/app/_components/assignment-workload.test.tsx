@@ -219,11 +219,13 @@ it("refreshes the shared active selector after assignments and labels cached fai
       queryKey: ["assignment-workload"],
     });
   });
-  expect(
-    screen.getByRole("option", {
-      name: /Last known: 2 assigned blocks; refresh needed/,
-    }),
-  ).toBeTruthy();
+  await waitFor(() =>
+    expect(
+      screen.getByRole("option", {
+        name: /Last known: 2 assigned blocks; refresh needed/,
+      }),
+    ).toBeTruthy(),
+  );
   state.read.mockResolvedValue(workload(0, 0));
   fireEvent.click(screen.getByRole("button", { name: "Retry refresh" }));
   await screen.findByText(/This change would result in 1 assigned block/);
