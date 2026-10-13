@@ -1,5 +1,12 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useSessionViewState } from "./session-view-state";
+import { viewEnum } from "~/lib/session-view-state";
+import {
+  roomSelectionParser,
+  scheduleFiltersParser,
+  type RoomSelection,
+} from "~/lib/program-view-state";
 import { useLocale, useTranslations } from "next-intl";
 import { formatWeekday, minToHm } from "~/lib/time";
 import { SummaryTable, TableActions, TableDetails } from "./ui/summary-table";
@@ -19,6 +26,7 @@ type GridSlot = {
 };
 type GridPairing = {
   id: string;
+  termId?: string;
   subject: string;
   tutorId: string;
   roomId: string | null;
@@ -47,7 +55,16 @@ type ScheduleData = {
   pairings: GridPairing[];
   blocks: GridBlock[];
   highlightTutorId?: string | null;
+  /** Parent authorization/readiness owns restoration; loading is not denial. */
+  catalogReady?: boolean;
+  viewEnabled?: boolean;
+  viewScope?: string;
 };
+const roomPeriodScope = (data: ScheduleData) =>
+  data.viewScope ??
+  [...new Set(data.pairings.map((pairing) => pairing.termId).filter(Boolean))]
+    .sort()
+    .join(",");
 const overlaps = (
   a: { dayOfWeek: number; startMin: number; endMin: number },
   b: { dayOfWeek: number; startMin: number; endMin: number },
@@ -76,13 +93,27 @@ export function RoomGrid(data: ScheduleData) {
   const t = useTranslations("tablePatterns");
   const scheduleText = useTranslations("roomSchedule");
   const locale = useLocale();
-  const [view, setView] = useState<"combined" | "individual">("combined");
-  // Unchosen defaults derive from arriving data; a deliberate empty selection remains empty.
-  const [selection, setSelection] = useState<{
-    owner: string;
-    ids: string[] | null;
-  } | null>(null);
   const owner = highlightTutorId ?? "management";
+  const scope = `${owner}:${roomPeriodScope(data)}`;
+  const [view, setView] = useSessionViewState({
+    id: "room-grid-layout-v1",
+    initialState: "combined" as "combined" | "individual",
+    parse: viewEnum(["combined", "individual"]),
+    scope,
+    enabled: data.viewEnabled,
+  });
+  // Unchosen defaults derive from arriving data; a deliberate empty selection remains empty.
+  const [selection, setSelection] = useSessionViewState<RoomSelection>({
+    id: "room-grid-selection-v1",
+    initialState: { owner, ids: "default" },
+    parse: roomSelectionParser(
+      rooms.map((room) => room.id),
+      owner,
+    ),
+    scope,
+    enabled: data.viewEnabled,
+    restoreReady: data.catalogReady,
+  });
   const defaultRooms = highlightTutorId
     ? [
         ...new Set(
@@ -95,7 +126,7 @@ export function RoomGrid(data: ScheduleData) {
         ),
       ]
     : null;
-  const chosen = selection?.owner === owner ? selection.ids : defaultRooms;
+  const chosen = selection.ids === "default" ? defaultRooms : selection.ids;
   const setChosen = (
     value: string[] | null | ((before: string[] | null) => string[] | null),
   ) =>
@@ -103,9 +134,6 @@ export function RoomGrid(data: ScheduleData) {
       owner,
       ids: typeof value === "function" ? value(chosen) : value,
     });
-  useEffect(() => {
-    setSelection((previous) => (previous?.owner === owner ? previous : null));
-  }, [owner]);
   const [details, setDetails] = useState(false);
   const selected = rooms.filter(
     (room) => chosen === null || chosen.includes(room.id),
@@ -394,15 +422,36 @@ function ScheduleDetails({
   const t = useTranslations("roomSchedule");
   const table = useTranslations("tablePatterns");
   const locale = useLocale();
-  const [day, setDay] = useState("");
-  const [slot, setSlot] = useState(initialSlot);
-  const [room, setRoom] = useState(initialRoom);
-  const [interval, setInterval] = useState(initialInterval);
   const intervalOptions = [
     ...new Map(
       data.slots.map((item) => [`${item.startMin}:${item.endMin}`, item]),
     ).entries(),
   ];
+  const [filters, setFilters] = useSessionViewState({
+    id: "room-grid-detail-filters-v1",
+    initialState: {
+      day: "",
+      slot: initialSlot,
+      room: initialRoom,
+      interval: initialInterval,
+    },
+    parse: scheduleFiltersParser({
+      rooms: data.rooms.map((room) => room.id),
+      slots: data.slots.map((slot) => slot.id),
+      intervals: intervalOptions.map(([value]) => value),
+    }),
+    scope: `${data.highlightTutorId ?? "management"}:${roomPeriodScope(data)}:${initialRoom}:${initialSlot}:${initialInterval}`,
+    enabled: data.viewEnabled,
+    restoreReady: data.catalogReady,
+  });
+  const { day, slot, room, interval } = filters;
+  const setDay = (day: string) => setFilters((before) => ({ ...before, day }));
+  const setSlot = (slot: string) =>
+    setFilters((before) => ({ ...before, slot }));
+  const setRoom = (room: string) =>
+    setFilters((before) => ({ ...before, room }));
+  const setInterval = (interval: string) =>
+    setFilters((before) => ({ ...before, interval }));
   const [rangeStart, rangeEnd] = interval.split(":").map(Number);
   const selectedSlot = data.slots.find((item) => item.id === slot);
   const shown = data.pairings.filter(

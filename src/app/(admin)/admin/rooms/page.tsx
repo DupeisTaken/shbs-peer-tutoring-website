@@ -12,6 +12,11 @@ import { useActionReview } from "~/app/_components/ui/action-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { queuedApprovalId } from "~/lib/approval-outcome";
 import { RoomOrderEditor } from "~/app/_components/room-order-editor";
+import { StatePanel } from "~/app/_components/ui/patterns";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+} from "~/app/_components/session-view-state";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 
 type Block = {
@@ -471,6 +476,7 @@ function RoomCard({
 
 export default function RoomsPage() {
   const t = useTranslations("admin.rooms");
+  const recovery = useTranslations("managementRecovery");
   const viewer = useReadOnly();
   const utils = api.useUtils();
   // Deleting a room removes its card; its receipt and read recovery belong to the list.
@@ -480,6 +486,12 @@ export default function RoomsPage() {
   });
   const me = api.account.me.useQuery(undefined, {
     staleTime: REFERENCE_STALE_TIME,
+  });
+  const denied = useSessionAccessDenied(rooms, me);
+  useSessionPageScroll({
+    id: "rooms-v1",
+    ready: !!rooms.data && !!me.data,
+    enabled: !denied,
   });
   const coordinator = me.data?.role === "COORDINATOR";
   const readOnly =
@@ -504,6 +516,13 @@ export default function RoomsPage() {
           : { message: error.message, error: true },
       ),
   });
+  if (denied)
+    return (
+      <StatePanel
+        kind="denied"
+        title={recovery("denied", { section: t("title") })}
+      />
+    );
   return (
     <div className="space-y-6">
       {!readOnly && review.dialog}
