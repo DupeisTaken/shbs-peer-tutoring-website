@@ -258,6 +258,17 @@ even when completed history is collapsed or filtered.
 
 Pending tutors confirm whether to participate before tutoring actions appear.
 Inactive tutors retain their records but cannot edit pairings or submit attendance.
+
+In **Settings → Assigned session blocks**, active tutors can save an optional
+preferred maximum of **0–4** blocks, adjust it, or clear it to **No preference**.
+Zero means you prefer no assignments; no preference is a separate unset choice.
+This is advisory: staff can still assign under the existing review rules. Lowering
+it never cancels an assignment. Becoming inactive resets the preference to a locked
+zero; reactivation keeps zero until you change it. Failed saves retain your draft.
+After a conflict, **Reload saved preference** explicitly replaces only this draft;
+after a successful save with failed synchronization, **Retry refresh** reads without
+submitting again.
+
 Changing a pairing's linked time slot, requesting or recalling a removal, and
 recording an interview decision names the affected record before submission.
 Cancel leaves live records unchanged. A relayed opt-out stays pending during its
@@ -612,6 +623,19 @@ contextual explanations. The tabs retain their counts and manual keyboard
 activation; moving focus alone does not select another queue.
 
 Course-aware tutor selectors in Signup Requests and Pairings list tutors with approved, recorded subject grants first, followed by a separate unqualified group. Inherited grants remain valid after level reordering. Choose the subject first in Pairings. Assigning an unqualified tutor opens a warning naming the tutor and subject; confirmation becomes available after three full seconds. Cancel or change the selection to discard that acknowledgement. Coordinators still submit proposals, and the reviewer must confirm any remaining qualification mismatch independently. This override does not waive active-tutor, request, permission, or scheduling checks.
+
+The same selectors and the **Pairings** list show each tutor's approximate assigned
+session-block workload for the **current quarter**, including zero. This estimates
+the load if the assigned tutees work out, rather than counting attendance already
+recorded. A confirmed time shared by subjects or multiple tutees counts once.
+Each **Awaiting schedule** pairing counts separately until its schedule is confirmed;
+copied placeholder times do not establish a shared block. Empty pairings, inactive
+tutees, inactive tutors and ended quarters do not add load. Pending tutees with an
+assignment do count. An inactive catalog slot does not erase a retained assignment.
+Unavailable or refreshing counts are labelled accordingly. Staff see the saved
+preference and a warning when it is reached, already exceeded, or a proposed new
+block would exceed it. Joining an existing shared block adds no block. These notices
+create no hard cap or new approval requirement.
 
 ### Review withdrawals and membership
 

@@ -459,6 +459,10 @@ model Tutor {
   /// Lifecycle state (see TutorStatus). ACTIVE = eligible for pairings/attendance; the rest are
   /// inactive (read-only). Replaces the former `active` boolean.
   status      TutorStatus @default(ACTIVE)
+  /// Optional advisory workload preference. Inactive transitions reset it to zero.
+  preferredAssignedBlocks Int?
+  /// Independent snapshot: profile edits never adopt or overwrite this draft's version.
+  workloadPreferenceVersion Int @default(0)
   /// Compatibility grade mirror for linked accounts; provisional grade for roster-only tutors.
   /// Reported grades never advance automatically. G12 graduation requires its confirmed reference
   /// year; academic estimates use that reference rather than the currently active term.

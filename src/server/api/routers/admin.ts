@@ -1,4 +1,5 @@
 import { SESSION_FLAG_FILTERS } from "~/lib/session-flag-state";
+import { tutorWorkloads } from "~/server/tutor-workload";
 import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
 import {
   lockProgramRooms,
@@ -387,6 +388,10 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Reference lists
   // --------------------------------------------------------------------------
+  /** Workload preferences are assignment context for staff, not an observer data grant. */
+  assignmentWorkloads: adminProcedure.query(({ ctx }) =>
+    tutorWorkloads(ctx.db),
+  ),
   tutors: viewerProcedure.query(async ({ ctx }) => {
     const [term, tutors] = await Promise.all([
       ctx.db.term.findFirst({

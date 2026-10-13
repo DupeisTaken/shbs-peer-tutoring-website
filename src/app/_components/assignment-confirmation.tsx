@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import {
@@ -15,6 +15,7 @@ export function AssignmentConfirmation(props: {
   error?: string;
   onConfirm: (overrideTicket?: string) => void;
   onCancel: () => void;
+  advisory?: ReactNode;
 }) {
   return (
     <ConfirmationInstance
@@ -31,6 +32,7 @@ function ConfirmationInstance({
   error,
   onConfirm,
   onCancel,
+  advisory,
 }: Parameters<typeof AssignmentConfirmation>[0]) {
   const t = useTranslations("assignmentQualification");
   const ref = useRef<HTMLDialogElement>(null);
@@ -162,6 +164,7 @@ function ConfirmationInstance({
           ))}
         </ul>
       )}
+      {advisory}
       {(error ?? prepare.error?.message) && (
         <p role="alert" className="my-3 text-sm text-red-700">
           {error ?? prepare.error?.message}

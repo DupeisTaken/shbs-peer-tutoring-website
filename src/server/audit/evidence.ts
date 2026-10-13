@@ -22,6 +22,8 @@ type Row = Record<string, unknown>;
 // Deliberately positive: adding a password/token/body field to a model cannot expose it.
 const safeFields = new Set([
   "programOrder",
+  "preferredAssignedBlocks",
+  "workloadPreferenceVersion",
   "version",
   "nameFieldsVersion",
   "invalidatedAt",

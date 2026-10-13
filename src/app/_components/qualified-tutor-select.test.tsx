@@ -2,12 +2,19 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import { QualifiedTutorSelect } from "./qualified-tutor-select";
 const state = vi.hoisted(() => ({ active: true }));
 vi.mock("~/trpc/react", () => ({
   api: {
     admin: {
+      assignmentWorkloads: {
+        useQuery: () => ({
+          data: { termId: "term", tutors: [] },
+          refetch: vi.fn(),
+        }),
+      },
       subjectEligibility: { useQuery: () => ({ data: [] }) },
       subjects: {
         useQuery: () => ({ data: [{ id: "math", active: state.active }] }),
@@ -22,23 +29,26 @@ afterEach(() => {
 it("keeps companions on the control row with native labels, optgroups and described guidance", () => {
   const change = vi.fn();
   render(
-    <NextIntlClientProvider locale="en" messages={en}>
-      <QualifiedTutorSelect
-        tutors={[{ id: "tutor", englishName: "Tutor" }]}
-        subjectId="math"
-        value=""
-        onChange={change}
-        label="Choose a tutor"
-        leading={<span>Long subject label</span>}
-        actions={<button>Assign</button>}
-      />
-    </NextIntlClientProvider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <NextIntlClientProvider locale="en" messages={en}>
+        <QualifiedTutorSelect
+          tutors={[{ id: "tutor", englishName: "Tutor" }]}
+          subjectId="math"
+          value=""
+          onChange={change}
+          label="Choose a tutor"
+          leading={<span>Long subject label</span>}
+          actions={<button>Assign</button>}
+        />
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
   );
   const control = screen.getByRole("combobox", { name: "Choose a tutor" });
   expect(control.getAttribute("aria-describedby")).toBeTruthy();
   expect(
-    document.getElementById(control.getAttribute("aria-describedby")!)
-      ?.textContent,
+    document.getElementById(
+      control.getAttribute("aria-describedby")!.split(" ")[0]!,
+    )?.textContent,
   ).toBeTruthy();
   expect(control.querySelectorAll("optgroup")).toHaveLength(2);
   expect(
@@ -53,15 +63,17 @@ it("keeps companions on the control row with native labels, optgroups and descri
 it("keeps the original default field and disables inactive subjects", () => {
   state.active = false;
   render(
-    <NextIntlClientProvider locale="en" messages={en}>
-      <QualifiedTutorSelect
-        tutors={[]}
-        subjectId="math"
-        value=""
-        onChange={() => undefined}
-        label="Tutor"
-      />
-    </NextIntlClientProvider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <NextIntlClientProvider locale="en" messages={en}>
+        <QualifiedTutorSelect
+          tutors={[]}
+          subjectId="math"
+          value=""
+          onChange={() => undefined}
+          label="Tutor"
+        />
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
   );
   expect(screen.getByRole<HTMLSelectElement>("combobox").disabled).toBe(true);
   expect(screen.queryByRole("button")).toBeNull();

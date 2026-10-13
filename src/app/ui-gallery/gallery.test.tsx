@@ -49,7 +49,9 @@ it("saves both names together and cancels to the last saved draft", () => {
   expect(screen.getByText("Profile saved in this example.")).toBeTruthy();
   fireEvent.change(name, { target: { value: "Discard this" } });
   fireEvent.change(other, { target: { value: "未保存" } });
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(
+    within(name.closest("form")!).getByRole("button", { name: "Cancel" }),
+  );
   expect(name.value).toBe("Jordan Chen");
   expect(other.value).toBe("陈乔丹");
   expect(screen.queryByText("Profile saved in this example.")).toBeNull();

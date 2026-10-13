@@ -783,6 +783,46 @@ These requests differ from non-survey tutee opt-outs relayed by a tutor: [remova
 
 Application locks protect supported API writes. Do not import directly into request tables assuming a unique pending-request index exists. Validate membership and pending-request invariants when designing import tooling, and preserve decision history.
 
+### Assigned-block workload and advisory preference
+
+[The workload reader](../src/server/tutor-workload.ts) uses one Repeatable Read
+snapshot for the active quarter, tutor eligibility, preference and assignment
+identities. Only pairings with at least one non-INACTIVE tutee count; PENDING
+tutees already assigned reserve effort. Empty/inactive-only rosters, inactive or
+revoked tutors and ended quarters contribute no blocks. Confirmed rows share the
+`termId/dayOfWeek/startMin/endMin` identity, independent of subjects, roster size,
+room and catalog-slot IDs; unconfirmed rows use their pairing ID so placeholder
+times never merge. Attendance history is not queried. Inactive slots retain the
+copied confirmed schedule's workload. The count estimates effort if assignments
+work out; it is neither an attendance total nor a weekly/program cap.
+
+`admin.assignmentWorkloads` is staff-only assignment context. All native tutor
+selectors and Pairings summaries consume the same count. Proposed edits remove
+only the original pairing's membership, retain shared siblings and add the new
+distinct identity only for a current roster. Cached reads remain visibly stale
+during refresh/failure; unavailable reads never become zero. Mutations invalidate
+this context alongside current pairings and rosters. Advisory read recovery creates
+no new assignment permission or approval requirement.
+
+The tutor-only `workloadPreference`/`setWorkloadPreference` procedures scope to the
+live account link. The strict server input accepts null or an integer 0–4 and a
+required independent version. Save rechecks ownership/participation after the
+account lock, then locks Tutor and conditionally updates the preference/version.
+It deliberately preserves Tutor.updatedAt and User.profileVersion; explicit safe
+audit evidence commits in the same transaction. Proposal Tutor snapshots exclude
+these two advisory columns unconditionally, retaining pre-migration evidence
+shape and allowing queued assignments to survive a preference change. Existing
+qualification tickets, consent, review and assignment invariants remain authoritative.
+
+The [migration](../prisma/migrations/20261014010000_tutor_workload_preference/migration.sql)
+adds range/version checks and resets existing inactive tutors to zero. Its trigger
+covers every lifecycle and import path, resetting to zero and advancing the
+independent version on inactive transitions. Reactivation retains zero. This
+invalidates old active drafts without restoring a former preference. The independent
+editor retains failed/dirty drafts, adopts new versions only through its successful
+save/read or explicit Reload, and distinguishes accepted-write synchronization
+failure from rejected-save recovery. Lowering a preference never changes pairings.
+
 ### Assignment qualification confirmations
 
 `src/server/assignment-qualification.ts` checks stored grants from approved qualification sources under the catalogue lock. Assignment entry points and coordinator proposal creation share this guard. An unqualified assignment requires a one-use `StudentActionConfirmation` with action `ASSIGNMENT_OVERRIDE`, a three-second server deadline, and a hash of the operation and complete parsed assignment payload. The actor, course, tutor, request version, roster and schedule are bound; confirmation tokens themselves are excluded. New warning preparation invalidates older unused override tickets, cancellation deletes the current unused ticket, and approval replay requires the reviewer's fresh evidence. Existing student consequence confirmation remains a separate requirement. Active unlinked roster tutors remain eligible for assignment; a linked account with explicitly revoked tutoring membership is excluded and assignment never restores account access. No additional schema is needed beyond the course grant migration.

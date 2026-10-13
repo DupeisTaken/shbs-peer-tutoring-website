@@ -17,6 +17,11 @@ import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import messages from "../../../../messages/en.json";
 import SettingsPage from "./page";
+// This suite retains profile/password/membership ownership; the independent
+// workload editor's real QueryClient regressions live beside that component.
+vi.mock("~/app/_components/tutor-workload-preference", () => ({
+  TutorWorkloadPreference: () => null,
+}));
 
 type Snapshot = {
   firstName: string;

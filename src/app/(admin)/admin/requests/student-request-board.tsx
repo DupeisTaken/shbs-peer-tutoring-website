@@ -1,5 +1,7 @@
 "use client";
 import { Button } from "~/app/_components/ui/button";
+import { AssignmentWorkloadAdvice } from "~/app/_components/assignment-workload";
+import { invalidateWorkloads } from "~/lib/workload-cache";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
 import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
@@ -27,7 +29,11 @@ import { formatWeekday, minToHm } from "~/lib/time";
 
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
-import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+  useSessionViewState,
+} from "~/app/_components/session-view-state";
 import { viewEnum } from "~/lib/session-view-state";
 
 type Row = RouterOutputs["studentWorkflow"]["adminRequests"][number];
@@ -61,13 +67,32 @@ export function StudentRequestBoard({
   );
   const queryDenied = useSessionAccessDenied(rows, tutors, legacyReviews);
   const denied = viewDenied || queryDenied;
-  const [tab, setTab] = useSessionViewState({ id: "requests.tab.v1", initialState: "matching",
-    parse: viewEnum(["matching", "assigned", "reviews", "processed"]), scope: viewScope,
-    enabled: !denied, restoreReady: !additionalLoading && !!rows.data && !!legacyReviews.data });
-  const [invalidity, setInvalidity] = useSessionViewState<InvalidityFilterValue>({ id: "requests.invalidity.v1", initialState: "valid",
-    parse: viewEnum(["valid", "invalid", "all"]), scope: viewScope, enabled: !denied });
-  useSessionPageScroll({ id: "requests", scope: JSON.stringify([viewScope, tab, invalidity]),
-    ready: !additionalLoading && !!rows.data && !!tutors.data && !!legacyReviews.data, enabled: !denied });
+  const [tab, setTab] = useSessionViewState({
+    id: "requests.tab.v1",
+    initialState: "matching",
+    parse: viewEnum(["matching", "assigned", "reviews", "processed"]),
+    scope: viewScope,
+    enabled: !denied,
+    restoreReady: !additionalLoading && !!rows.data && !!legacyReviews.data,
+  });
+  const [invalidity, setInvalidity] =
+    useSessionViewState<InvalidityFilterValue>({
+      id: "requests.invalidity.v1",
+      initialState: "valid",
+      parse: viewEnum(["valid", "invalid", "all"]),
+      scope: viewScope,
+      enabled: !denied,
+    });
+  useSessionPageScroll({
+    id: "requests",
+    scope: JSON.stringify([viewScope, tab, invalidity]),
+    ready:
+      !additionalLoading &&
+      !!rows.data &&
+      !!tutors.data &&
+      !!legacyReviews.data,
+    enabled: !denied,
+  });
   const matchingValidity = (invalid: boolean) =>
     invalidity === "all" || invalid === (invalidity === "invalid");
   const visibleRows = (rows.data ?? []).filter((row) =>
@@ -105,7 +130,15 @@ export function StudentRequestBoard({
     ],
     processed: visibleRows.filter((r) => r.state !== "OPEN"),
   };
-  if (denied) return <p role="alert">{rows.error?.message ?? legacyReviews.error?.message ?? tutors.error?.message ?? t("loadFailed")}</p>;
+  if (denied)
+    return (
+      <p role="alert">
+        {rows.error?.message ??
+          legacyReviews.error?.message ??
+          tutors.error?.message ??
+          t("loadFailed")}
+      </p>
+    );
   return (
     <RequestInvalidityHost>
       <section className="space-y-4">
@@ -367,6 +400,7 @@ function Assignment({
         utils.studentWorkflow.adminRequests.invalidate(),
         utils.admin.tutees.invalidate(),
         utils.admin.pairings.invalidate(),
+        invalidateWorkloads(utils),
       ]);
     },
   });
@@ -418,6 +452,7 @@ function Assignment({
             ticket: consequenceTicket,
           }}
           busy={assign.isPending}
+          advisory={<AssignmentWorkloadAdvice tutorId={tutorId} />}
           error={assign.error?.message}
           onCancel={() => setConsequenceTicket(null)}
           onConfirm={(overrideTicket) =>
@@ -468,6 +503,7 @@ function ReviewCard({
         utils.studentWorkflow.legacyReviews.invalidate(),
         utils.admin.tutees.invalidate(),
         utils.admin.pairings.invalidate(),
+        invalidateWorkloads(utils),
       ]);
     },
   });

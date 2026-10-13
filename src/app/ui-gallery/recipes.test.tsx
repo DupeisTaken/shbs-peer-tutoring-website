@@ -339,9 +339,9 @@ it("demonstrates unknown willingness and retains draft text after a background r
   );
   fireEvent.click(screen.getByRole("button", { name: "Retry refresh" }));
   expect(draft.value).toBe("Still editing");
-  expect(screen.getByRole("status").textContent).toContain(
-    "draft is unchanged",
-  );
+  expect(
+    within(draft.closest("section")!).getByRole("status").textContent,
+  ).toContain("draft is unchanged");
 });
 
 it("translates the recipe compositions and keeps policy reading separate from consent", () => {

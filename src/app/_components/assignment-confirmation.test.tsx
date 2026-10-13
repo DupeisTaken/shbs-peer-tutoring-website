@@ -9,6 +9,7 @@ import {
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { StrictMode } from "react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import { AssignmentConfirmation } from "./assignment-confirmation";
 import { QualifiedTutorSelect } from "./qualified-tutor-select";
@@ -25,6 +26,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock("~/trpc/react", () => ({
   api: {
     admin: {
+      assignmentWorkloads: {
+        useQuery: () => ({
+          data: { termId: "term", tutors: [] },
+          refetch: vi.fn(),
+        }),
+      },
       subjectEligibility: {
         useQuery: () => ({
           data: mocks.grants,
@@ -172,28 +179,30 @@ it("qualified assignments continue without an override warning", async () => {
 });
 it("uses named native groups, preserves selectable unqualified tutors, and updates by course", () => {
   const select = (subjectId: string) => (
-    <NextIntlClientProvider locale="en" messages={en}>
-      <QualifiedTutorSelect
-        label="Tutor"
-        subjectId={subjectId}
-        tutors={[
-          { id: "a", englishName: "Ada" },
-          { id: "b", englishName: "Ben" },
-        ]}
-        value=""
-        onChange={mocks.confirm}
-      />
-    </NextIntlClientProvider>
+    <QueryClientProvider client={new QueryClient()}>
+      <NextIntlClientProvider locale="en" messages={en}>
+        <QualifiedTutorSelect
+          label="Tutor"
+          subjectId={subjectId}
+          tutors={[
+            { id: "a", englishName: "Ada" },
+            { id: "b", englishName: "Ben" },
+          ]}
+          value=""
+          onChange={mocks.confirm}
+        />
+      </NextIntlClientProvider>
+    </QueryClientProvider>
   );
   const view = render(select("math"));
   expect(
     screen.getByRole("group", { name: "Qualified for this subject" })
       .textContent,
-  ).toBe("Ben");
+  ).toBe("Ben — Workload unavailable");
   expect(
     screen.getByRole("group", { name: "Not qualified — confirmation required" })
       .textContent,
-  ).toBe("Ada");
+  ).toBe("Ada — Workload unavailable");
   const control = screen.getByRole("combobox", { name: "Tutor" });
   control.focus();
   expect(document.activeElement).toBe(control);
@@ -232,24 +241,27 @@ it.each(["loading", "failed", "missing", "archived"])(
     mocks.grantsLoading = state === "loading";
     mocks.grantsError = state === "failed" ? new Error("Unavailable") : null;
     render(
-      <NextIntlClientProvider locale="en" messages={en}>
-        <QualifiedTutorSelect
-          label="Tutor"
-          subjectId={
-            state === "missing"
-              ? ""
-              : state === "archived"
-                ? "archived"
-                : "math"
-          }
-          tutors={[{ id: "b", englishName: "Ben" }]}
-          value=""
-          onChange={mocks.confirm}
-        />
-      </NextIntlClientProvider>,
+      <QueryClientProvider client={new QueryClient()}>
+        <NextIntlClientProvider locale="en" messages={en}>
+          <QualifiedTutorSelect
+            label="Tutor"
+            subjectId={
+              state === "missing"
+                ? ""
+                : state === "archived"
+                  ? "archived"
+                  : "math"
+            }
+            tutors={[{ id: "b", englishName: "Ben" }]}
+            value=""
+            onChange={mocks.confirm}
+          />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
     );
     expect(
-      screen.getByRole<HTMLSelectElement>("combobox", { name: "Tutor" }).disabled,
+      screen.getByRole<HTMLSelectElement>("combobox", { name: "Tutor" })
+        .disabled,
     ).toBe(true);
     if (state === "failed")
       expect(screen.getByRole("alert").textContent).toBe(

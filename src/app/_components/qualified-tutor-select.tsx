@@ -3,6 +3,12 @@ import { useId, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import {
+  AssignmentWorkloadAdvice,
+  AssignmentWorkloadFeedback,
+  useAssignmentWorkloads,
+} from "./assignment-workload";
+import type { WorkloadProposal } from "~/lib/tutor-workload";
+import {
   groupAssignmentTutors,
   type QualificationOption,
 } from "~/lib/assignment-qualification";
@@ -19,6 +25,7 @@ export function QualifiedTutorSelect({
   retainedTutor,
   leading,
   actions,
+  proposals,
 }: {
   tutors: QualificationOption[];
   subjectId: string;
@@ -31,9 +38,32 @@ export function QualifiedTutorSelect({
   /** Row companions align with the select box, excluding its label and guidance. */
   leading?: ReactNode;
   actions?: ReactNode;
+  /** Defaults to one new awaiting-schedule assignment; editors supply their exact change. */
+  proposals?: WorkloadProposal[];
 }) {
   const t = useTranslations("assignmentQualification");
+  const workloadText = useTranslations("tutorWorkload");
+  const workloads = useAssignmentWorkloads();
   const helpId = useId();
+  const workloadId = useId();
+  const tutorLabel = (tutor: QualificationOption) => {
+    const workload = workloads.data?.tutors?.find((row) => row.id === tutor.id);
+    const count = workload
+      ? workloadText(
+          workloads.error
+            ? "stale"
+            : workloads.isFetching
+              ? "rechecking"
+              : "current",
+          { count: workload.count },
+        )
+      : workloadText("unavailable");
+    const preference =
+      workload && !workloads.error && !workloads.isFetching
+        ? ` · ${workload.preferredMaximum === null ? workloadText("unset") : workloadText("savedPreference", { count: workload.preferredMaximum })}`
+        : "";
+    return `${optionLabel?.(tutor.id) ?? tutor.englishName} — ${count}${preference}`;
+  };
   const grants = api.admin.subjectEligibility.useQuery();
   const subjects = api.admin.subjects.useQuery();
   const subject = subjects.data?.find((item) => item.id === subjectId);
@@ -57,7 +87,7 @@ export function QualifiedTutorSelect({
           className="select min-h-11 lg:min-h-10"
           value={value}
           aria-label={label}
-          aria-describedby={helpId}
+          aria-describedby={`${helpId} ${workloadId}`}
           disabled={
             disabled ||
             !subjectId ||
@@ -73,13 +103,13 @@ export function QualifiedTutorSelect({
           {value === retainedTutor?.id &&
             !tutors.some((tu) => tu.id === value) && (
               <option value={retainedTutor.id} disabled>
-                {retainedTutor.englishName}
+                {tutorLabel(retainedTutor)}
               </option>
             )}
           <optgroup label={t("qualified")}>
             {groups.qualified.map((tu) => (
               <option key={tu.id} value={tu.id}>
-                {optionLabel?.(tu.id) ?? tu.englishName}
+                {tutorLabel(tu)}
               </option>
             ))}
           </optgroup>
@@ -89,7 +119,7 @@ export function QualifiedTutorSelect({
           <optgroup label={t("unqualified")}>
             {groups.unqualified.map((tu) => (
               <option key={tu.id} value={tu.id}>
-                {optionLabel?.(tu.id) ?? tu.englishName}
+                {tutorLabel(tu)}
               </option>
             ))}
           </optgroup>
@@ -119,6 +149,15 @@ export function QualifiedTutorSelect({
                   ? t("noneQualified")
                   : t("groupHelp")}
       </p>
+      <div
+        id={workloadId}
+        className={`min-w-0 space-y-2 ${leading ? "lg:col-span-2 lg:col-start-2" : "lg:col-span-full lg:col-start-1"}`}
+      >
+        <AssignmentWorkloadFeedback />
+        {value && (
+          <AssignmentWorkloadAdvice tutorId={value} proposals={proposals} />
+        )}
+      </div>
     </div>
   );
 }

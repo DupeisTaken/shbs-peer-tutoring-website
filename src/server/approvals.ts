@@ -699,15 +699,18 @@ export async function proposalTargets(
           ? // Review both explicit links and the current alternative name without exposing credentials.
             "jsonb_build_object('id', t.id, 'name', t.name, 'alternativeNames', t.\"alternativeNames\", 'profileVersion', t.\"profileVersion\", 'role', t.role, 'tutorId', t.\"tutorId\", 'studentId', t.\"studentId\")"
           : "jsonb_build_object('id', t.id, 'name', t.name, 'role', t.role, 'tutorId', t.\"tutorId\", 'tutorAccessRevoked', t.\"tutorAccessRevoked\", 'tuteeMember', t.\"tuteeMember\", 'canTranslate', t.\"canTranslate\", 'crewStatus', t.\"crewStatus\", 'suspendedAt', t.\"suspendedAt\")"
-        : table === "DirectMessage"
-          ? "to_jsonb(t) - ARRAY['body','clientKey']::text[]"
-          : table === "RegistrationCode"
-            ? "jsonb_build_object('id', t.id, 'kind', t.kind, 'tutorId', t.\"tutorId\", 'applicationId', t.\"applicationId\", 'crewApplicationId', t.\"crewApplicationId\", 'label', t.label, 'issuedById', t.\"issuedById\", 'issuedByName', t.\"issuedByName\", 'expiresAt', t.\"expiresAt\", 'usedAt', t.\"usedAt\", 'usedByUserId', t.\"usedByUserId\", 'emailVerifiedAt', t.\"emailVerifiedAt\", 'createdAt', t.\"createdAt\")"
-            : ["TutorApplication", "StudentSurvey"].includes(table)
-              ? // Untouched additive columns must not invalidate pre-migration proposals.
-                // A first flag or later clear leaves a positive revision in every future snapshot.
-                "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[] - CASE WHEN t.\"invalidityVersion\" = 0 AND t.\"invalidatedAt\" IS NULL THEN ARRAY['invalidReason','invalidatedAt','invalidatedById','invalidatedByName','invalidityVersion']::text[] ELSE ARRAY[]::text[] END"
-              : "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[]";
+        : table === "Tutor"
+          ? // Advisory self-service changes never stale assignments or older proposal shapes.
+            "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot','preferredAssignedBlocks','workloadPreferenceVersion']::text[]"
+          : table === "DirectMessage"
+            ? "to_jsonb(t) - ARRAY['body','clientKey']::text[]"
+            : table === "RegistrationCode"
+              ? "jsonb_build_object('id', t.id, 'kind', t.kind, 'tutorId', t.\"tutorId\", 'applicationId', t.\"applicationId\", 'crewApplicationId', t.\"crewApplicationId\", 'label', t.label, 'issuedById', t.\"issuedById\", 'issuedByName', t.\"issuedByName\", 'expiresAt', t.\"expiresAt\", 'usedAt', t.\"usedAt\", 'usedByUserId', t.\"usedByUserId\", 'emailVerifiedAt', t.\"emailVerifiedAt\", 'createdAt', t.\"createdAt\")"
+              : ["TutorApplication", "StudentSurvey"].includes(table)
+                ? // Untouched additive columns must not invalidate pre-migration proposals.
+                  // A first flag or later clear leaves a positive revision in every future snapshot.
+                  "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[] - CASE WHEN t.\"invalidityVersion\" = 0 AND t.\"invalidatedAt\" IS NULL THEN ARRAY['invalidReason','invalidatedAt','invalidatedById','invalidatedByName','invalidityVersion']::text[] ELSE ARRAY[]::text[] END"
+                : "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[]";
     targets[table] = await client.$queryRaw(
       Prisma.sql`SELECT ${Prisma.raw(fields)} AS record FROM ${Prisma.raw('"' + table + '"')} t WHERE t.id IN (${Prisma.join([...values].sort())}) ORDER BY t.id`,
     );

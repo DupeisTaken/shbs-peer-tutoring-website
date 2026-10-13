@@ -1,5 +1,7 @@
 "use client";
 import { Button } from "~/app/_components/ui/button";
+import { AssignmentWorkloadAdvice } from "~/app/_components/assignment-workload";
+import { invalidateWorkloads } from "~/lib/workload-cache";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
 import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
@@ -16,7 +18,11 @@ import {
 } from "~/app/_components/request-invalidity";
 
 import { useEffect, useId, useMemo, useState } from "react";
-import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+  useSessionViewState,
+} from "~/app/_components/session-view-state";
 import { viewEnum } from "~/lib/session-view-state";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import {
@@ -61,8 +67,6 @@ type PendingTutee = InvalidityRecord & {
   bannedMatch: { name: boolean; email: boolean; phone: boolean } | null;
 };
 
-type Workload = Record<string, { pairings: number; tutees: number }>;
-
 function availability(av: { slot: SlotLite }[], locale: string): string {
   if (av.length === 0) return "—";
   return av
@@ -77,7 +81,6 @@ function RequestCard({
   tutee,
   order,
   tutors,
-  workload,
   assigned,
   fulfilled,
   onChanged,
@@ -86,7 +89,6 @@ function RequestCard({
   tutee: PendingTutee;
   order: number;
   tutors: { id: string; englishName: string; active: boolean }[];
-  workload: Workload;
   /** subject (course name) → tutor display name, for choices already assigned. */
   assigned: Map<string, string>;
   fulfilled: boolean;
@@ -153,15 +155,6 @@ function RequestCard({
       }
     : null;
   const activeTutors = tutors.filter((tu) => tu.active);
-  const tutorLabel = (id: string) => {
-    const tu = activeTutors.find((x) => x.id === id);
-    const w = workload[id] ?? { pairings: 0, tutees: 0 };
-    return t("admin.requests.tutorWorkload", {
-      name: tu?.englishName ?? "?",
-      pairings: w.pairings,
-      tutees: w.tutees,
-    });
-  };
 
   return (
     <div className={`card p-5 ${fulfilled ? "bg-slate-50" : ""}`}>
@@ -171,6 +164,11 @@ function RequestCard({
           payload={assignmentPayload}
           onCancel={() => setConfirmCourse(null)}
           busy={assign.isPending}
+          advisory={
+            <AssignmentWorkloadAdvice
+              tutorId={picks[confirmCourse!.name] ?? ""}
+            />
+          }
           error={assign.error?.message}
           onConfirm={(overrideTicket) =>
             assign.mutate({ ...assignmentPayload, overrideTicket })
@@ -413,7 +411,6 @@ function RequestCard({
                             }));
                         }}
                         tutors={activeTutors}
-                        optionLabel={tutorLabel}
                       />
                     </>
                   )}
@@ -447,19 +444,39 @@ export default function RequestsPage() {
     staleTime: REFERENCE_STALE_TIME,
   });
   const pairings = api.admin.pairings.useQuery();
-  const denied = useSessionAccessDenied(tutees, tutors, currentPeriod, pairings, ...(readOnly ? [] : [managed]));
+  const denied = useSessionAccessDenied(
+    tutees,
+    tutors,
+    currentPeriod,
+    pairings,
+    ...(readOnly ? [] : [managed]),
+  );
   const viewScope = currentPeriod.data?.termId ?? "no-active-period";
-  const [observerInvalidity, setObserverInvalidity] = useSessionViewState<InvalidityFilterValue>({
-    id: "requests.observer-invalidity.v1", initialState: "valid", parse: viewEnum(["valid", "invalid", "all"]),
-    enabled: readOnly && !denied, restoreReady: !currentPeriod.isLoading, scope: viewScope,
+  const [observerInvalidity, setObserverInvalidity] =
+    useSessionViewState<InvalidityFilterValue>({
+      id: "requests.observer-invalidity.v1",
+      initialState: "valid",
+      parse: viewEnum(["valid", "invalid", "all"]),
+      enabled: readOnly && !denied,
+      restoreReady: !currentPeriod.isLoading,
+      scope: viewScope,
+    });
+  useSessionPageScroll({
+    id: "requests-observer",
+    scope: JSON.stringify([viewScope, observerInvalidity]),
+    ready:
+      !!tutees.data &&
+      !!tutors.data &&
+      !!pairings.data &&
+      !currentPeriod.isLoading,
+    enabled: readOnly && !denied,
   });
-  useSessionPageScroll({ id: "requests-observer", scope: JSON.stringify([viewScope, observerInvalidity]),
-    ready: !!tutees.data && !!tutors.data && !!pairings.data && !currentPeriod.isLoading, enabled: readOnly && !denied });
 
   const invalidate = () =>
     Promise.all([
       utils.admin.tutees.invalidate(),
       utils.admin.pairings.invalidate(),
+      invalidateWorkloads(utils),
     ]);
 
   const hasPeriod = !!currentPeriod.data;
@@ -511,17 +528,6 @@ export default function RequestsPage() {
     ],
   );
 
-  const workload: Workload = useMemo(() => {
-    const w: Workload = {};
-    for (const p of pairings.data ?? []) {
-      const cur = w[p.tutorId] ?? { pairings: 0, tutees: 0 };
-      cur.pairings += 1;
-      cur.tutees += p.tutees.length;
-      w[p.tutorId] = cur;
-    }
-    return w;
-  }, [pairings.data]);
-
   const isFulfilled = (tutee: PendingTutee) => {
     const assigned = assignedByTutee.get(tutee.id) ?? new Map<string, string>();
     const provided = [tutee.firstChoice?.name, tutee.secondChoice?.name].filter(
@@ -530,7 +536,17 @@ export default function RequestsPage() {
     return provided.length > 0 && provided.every((c) => assigned.has(c));
   };
 
-  if (denied) return <p role="alert">{tutees.error?.message ?? tutors.error?.message ?? currentPeriod.error?.message ?? pairings.error?.message ?? managed.error?.message ?? t("uiPatterns.loadFailed")}</p>;
+  if (denied)
+    return (
+      <p role="alert">
+        {tutees.error?.message ??
+          tutors.error?.message ??
+          currentPeriod.error?.message ??
+          pairings.error?.message ??
+          managed.error?.message ??
+          t("uiPatterns.loadFailed")}
+      </p>
+    );
   return (
     <div className="space-y-6">
       <div>
@@ -582,7 +598,6 @@ export default function RequestsPage() {
                         englishName: tu.englishName,
                         active: isAssignableTutor(tu),
                       }))}
-                      workload={workload}
                       assigned={assignedByTutee.get(t2.id) ?? new Map()}
                       fulfilled={isFulfilled(t2)}
                       onChanged={invalidate}
@@ -612,7 +627,6 @@ export default function RequestsPage() {
                   tutee={t2}
                   order={i + 1}
                   tutors={[]}
-                  workload={workload}
                   assigned={assignedByTutee.get(t2.id) ?? new Map()}
                   fulfilled={isFulfilled(t2)}
                   onChanged={invalidate}

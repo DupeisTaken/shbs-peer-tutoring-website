@@ -1,5 +1,13 @@
 "use client";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
+import {
+  AssignmentWorkloadAdvice,
+  AssignmentWorkloadFeedback,
+  useAssignmentWorkloads,
+} from "~/app/_components/assignment-workload";
+import type { WorkloadProposal } from "~/lib/tutor-workload";
+import { invalidateWorkloads } from "~/lib/workload-cache";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 
 import { useEffect, useState, type SetStateAction } from "react";
@@ -53,6 +61,8 @@ export default function PairingsPage() {
   const t = useTranslations();
   const locale = useLocale();
   const readOnly = useReadOnly();
+  const workloadText = useTranslations("tutorWorkload");
+  const workloads = useAssignmentWorkloads(!readOnly);
   const utils = api.useUtils();
   const queryClient = useQueryClient();
   const [denied, setDenied] = useState(false);
@@ -155,7 +165,11 @@ export default function PairingsPage() {
     />
   );
 
-  const invalidate = () => utils.admin.pairings.invalidate();
+  const invalidate = () =>
+    settleRefreshes([
+      () => utils.admin.pairings.invalidate(),
+      () => invalidateWorkloads(utils),
+    ]);
   const create = api.admin.createPairing.useMutation({ onSuccess: invalidate });
   const update = api.admin.updatePairing.useMutation({ onSuccess: invalidate });
   const del = api.admin.deletePairing.useMutation();
@@ -198,6 +212,33 @@ export default function PairingsPage() {
   const selectedSubject = subjects.data?.find(
     (subject) => subject.name === form.subject,
   );
+  const selectedSlot = timeSlots.data?.find(
+    (slot) => slot.id === form.timeSlotId,
+  );
+  const hasCurrentRoster = form.tuteeIds.some((id) => {
+    const row =
+      (tutees.data ?? []).find((person) => person.id === id) ??
+      originalPairing?.tutees.find((entry) => entry.tuteeId === id)?.tutee;
+    return !!row && row.status !== "INACTIVE";
+  });
+  const proposals: WorkloadProposal[] = [
+    {
+      replacingPairingId: form.id ?? undefined,
+      block:
+        selectedSlot &&
+        hasCurrentRoster &&
+        (originalPairing?.termId ?? workloads.data?.termId)
+          ? {
+              id: form.id ?? "proposed-pairing",
+              termId: originalPairing?.termId ?? workloads.data!.termId!,
+              scheduleConfirmed: true,
+              dayOfWeek: selectedSlot.dayOfWeek,
+              startMin: selectedSlot.startMin,
+              endMin: selectedSlot.endMin,
+            }
+          : undefined,
+    },
+  ];
   const base = {
     tutorId: form.tutorId,
     roomId: form.roomId || undefined,
@@ -264,6 +305,7 @@ export default function PairingsPage() {
           onChange={(value) => set("tutorId", value)}
           tutors={(tutors.data ?? []).filter(isAssignableTutor)}
           retainedTutor={originalPairing?.tutor}
+          proposals={proposals}
         />
         <Select
           label={t("admin.pairings.roomOptional")}
@@ -422,6 +464,12 @@ export default function PairingsPage() {
         )}
       </div>
       {readFeedback}
+      {!readOnly && (
+        <>
+          <p className="muted text-sm">{workloadText("staffHelp")}</p>
+          <AssignmentWorkloadFeedback />
+        </>
+      )}
 
       {/* Slot × room schedule grid */}
       <section>
@@ -470,6 +518,12 @@ export default function PairingsPage() {
           onCancel={() => setConfirming(false)}
           busy={create.isPending || update.isPending}
           error={error?.message}
+          advisory={
+            <AssignmentWorkloadAdvice
+              tutorId={form.tutorId}
+              proposals={proposals}
+            />
+          }
         />
       )}
       {/* Table */}
@@ -482,6 +536,12 @@ export default function PairingsPage() {
               <th>{t("admin.pairings.colWhen")}</th>
               <th>{t("admin.pairings.colRoom")}</th>
               <th>{t("admin.pairings.colTutees")}</th>
+              {!readOnly && (
+                <>
+                  <th>{workloadText("countHeading")}</th>
+                  <th>{workloadText("preferenceHeading")}</th>
+                </>
+              )}
               <th className="table-actions-heading">
                 {t("tablePatterns.actions")}
               </th>
@@ -497,6 +557,42 @@ export default function PairingsPage() {
                 </td>
                 <td>{p.room?.name ?? "—"}</td>
                 <td>{p.tutees.length}</td>
+                {!readOnly && (
+                  <>
+                    <td>
+                      {(() => {
+                        const workload = workloads.data?.tutors?.find(
+                          (row) => row.id === p.tutorId,
+                        );
+                        return workload &&
+                          !workloads.error &&
+                          !workloads.isFetching
+                          ? workload.count
+                          : workloadText(
+                              workloads.error || workloads.unavailable
+                                ? "unavailable"
+                                : "checking",
+                            );
+                      })()}
+                    </td>
+                    <td>
+                      {(() => {
+                        const workload = workloads.data?.tutors?.find(
+                          (row) => row.id === p.tutorId,
+                        );
+                        return workload &&
+                          !workloads.error &&
+                          !workloads.isFetching
+                          ? (workload.preferredMaximum ?? workloadText("unset"))
+                          : workloadText(
+                              workloads.error || workloads.unavailable
+                                ? "unavailable"
+                                : "checking",
+                            );
+                      })()}
+                    </td>
+                  </>
+                )}
                 <TableActions>
                   <TableDetails title={`${p.tutor.englishName} · ${p.subject}`}>
                     <dl className="space-y-3">
@@ -573,7 +669,10 @@ export default function PairingsPage() {
                             ),
                             commit: () => del.mutateAsync({ id: p.id }),
                             refresh: () =>
-                              invalidateAndReport(utils.admin.pairings),
+                              settleRefreshes([
+                                () => invalidateAndReport(utils.admin.pairings),
+                                () => invalidateWorkloads(utils, true),
+                              ]),
                             approvalId: queuedApprovalId,
                           })
                         }
