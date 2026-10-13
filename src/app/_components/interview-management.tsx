@@ -97,7 +97,7 @@ export function InterviewManagement({
       ]);
     },
   });
-  if (denied || data.error) return <p role="alert">{data.error?.message ?? t("loadFailed")}</p>;
+  if (denied || data.error) return <p role="alert">{data.error?.message ?? allT("uiPatterns.loadFailed")}</p>;
   if (!data.data) return <p>{t("loading")}</p>;
   const { applications } = data.data;
   const first = applications.total === 0 ? 0 : page * applications.pageSize + 1;

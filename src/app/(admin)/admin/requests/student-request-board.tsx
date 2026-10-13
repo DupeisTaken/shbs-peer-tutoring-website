@@ -52,6 +52,7 @@ export function StudentRequestBoard({
   viewDenied?: boolean;
 }) {
   const t = useTranslations("workflow");
+  const ui = useTranslations("uiPatterns");
   const rows = api.studentWorkflow.adminRequests.useQuery(undefined, {
     refetchInterval: 60_000,
   });
@@ -106,7 +107,7 @@ export function StudentRequestBoard({
     ],
     processed: visibleRows.filter((r) => r.state !== "OPEN"),
   };
-  if (denied) return <p role="alert">{rows.error?.message ?? legacyReviews.error?.message ?? tutors.error?.message ?? t("loadFailed")}</p>;
+  if (denied) return <p role="alert">{rows.error?.message ?? legacyReviews.error?.message ?? tutors.error?.message ?? ui("loadFailed")}</p>;
   return (
     <RequestInvalidityHost>
       <section className="space-y-4">

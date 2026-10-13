@@ -48,6 +48,7 @@ function Reason({
 }
 function Supervision() {
   const t = useTranslations("messaging");
+  const ui = useTranslations("uiPatterns");
   const format = useFormatter();
   const [search, setSearch] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
@@ -88,7 +89,7 @@ function Supervision() {
     (review.error?.data?.approvalId ? null : review.error) ??
     (moderate.error?.data?.approvalId ? null : moderate.error);
   const approvals = useTranslations("approvals");
-  if (denied) return <p role="alert">{rows.error?.message ?? t("loadFailed")}</p>;
+  if (denied) return <p role="alert">{rows.error?.message ?? ui("loadFailed")}</p>;
   return (
     <div className="space-y-4">
       <div className="card grid gap-4 p-5 md:grid-cols-2">
