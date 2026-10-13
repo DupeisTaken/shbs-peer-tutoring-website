@@ -222,7 +222,12 @@ vi.mock("./read-only", () => ({ useReadOnly: () => state.readOnly }));
 vi.mock("./branding-provider", () => ({
   useBranding: () => ({ TEAM_TITLE: "Tutoring" }),
 }));
-vi.mock("./audit-filters", () => ({ AuditFilters: () => null }));
+vi.mock("./audit-filters", async (importOriginal) => ({
+  // The page shares pure filter defaults with the real editor. Only skip the
+  // editor UI here; retain its exports so summary/authority checks use real data.
+  ...(await importOriginal<typeof import("./audit-filters")>()),
+  AuditFilters: () => null,
+}));
 vi.mock("./attendance-correction", () => ({
   AttendanceCorrection: ({ id }: { id: string }) => {
     state.correction(id);
