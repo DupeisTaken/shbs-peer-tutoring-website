@@ -86,29 +86,37 @@ it("keeps blank participant options identifiable without changing assignment IDs
     { id: "decorated", englishName: "", username: "other.handle" },
   ];
   render(
-    <NextIntlClientProvider locale="en" messages={en}>
-      <QualifiedTutorSelect
-        tutors={tutors}
-        subjectId="math"
-        value=""
-        onChange={change}
-        label="Tutor"
-        optionLabel={(id) =>
-          id === "decorated" ? "Other tutor · 2 sessions" : "  "
-        }
-      />
-    </NextIntlClientProvider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <NextIntlClientProvider locale="en" messages={en}>
+        <QualifiedTutorSelect
+          tutors={tutors}
+          subjectId="math"
+          value=""
+          onChange={change}
+          label="Tutor"
+          optionLabel={(id) =>
+            id === "decorated" ? "Other tutor · 2 sessions" : "  "
+          }
+        />
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
   );
   expect(
-    screen.getByRole("option", { name: "known.handle" }).getAttribute("value"),
+    screen
+      .getByRole("option", { name: /known.handle — Workload unavailable/ })
+      .getAttribute("value"),
   ).toBe("handled");
   expect(
     screen
-      .getByRole("option", { name: en.participantNames.unnamed })
+      .getByRole("option", {
+        name: `${en.participantNames.unnamed} — Workload unavailable`,
+      })
       .getAttribute("value"),
   ).toBe("accountless");
   expect(
-    screen.getByRole("option", { name: "Other tutor · 2 sessions" }),
+    screen.getByRole("option", {
+      name: "Other tutor · 2 sessions — Workload unavailable",
+    }),
   ).toBeTruthy();
   fireEvent.change(screen.getByRole("combobox"), {
     target: { value: "handled" },
