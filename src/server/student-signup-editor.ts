@@ -21,6 +21,7 @@ import { normalizeTuteeFields, missingTuteeFields } from "~/lib/signup-fields";
 import {
   configuredNewNames,
   configuredLegacyIntakeName,
+  configuredProfileNames,
 } from "./program/name-fields";
 import {
   assertOfferedGrade,
@@ -33,6 +34,7 @@ import { requirePolicy } from "./policy-acceptance";
 import { recordDomainAudit } from "./audit/evidence";
 import { staleConflict } from "./concurrency";
 import { lockCatalogue } from "./qualifications";
+import { consumeStudentAction } from "./student-workflow";
 
 // Identity email, original signature and policy evidence are deliberately absent from edits.
 export const studentSignupAnswersInput = surveyInput.omit({
@@ -55,6 +57,7 @@ async function lockedOwnedSignup(
   tx: TransactionDb,
   userId: string,
   id: string,
+  management = false,
 ) {
   await lockEntity(tx, "program:period");
   await lockUsernameNamespace(tx);
@@ -69,8 +72,10 @@ async function lockedOwnedSignup(
   if (
     user.suspendedAt ||
     user.mergedIntoId ||
-    !row.tuteeId ||
-    !(await ownedStudentIds(tx, userId)).includes(row.tuteeId)
+    (management
+      ? !["HEAD", "ADMIN", "COORDINATOR"].includes(user.role)
+      : !row.tuteeId ||
+        !(await ownedStudentIds(tx, userId)).includes(row.tuteeId))
   )
     throw new TRPCError({ code: "FORBIDDEN" });
   return { row, user };
@@ -141,19 +146,48 @@ export async function normalizeStudentSignupAnswers(
   tx: TransactionDb,
   posted: z.infer<typeof studentSignupAnswersInput>,
   retainedSubjectIds: string[] = [],
+  previous?: z.infer<typeof studentSignupAnswersInput>,
 ) {
   await lockEntity(tx, "signup-fields");
   const fields = (await getSignupSettings(tx)).tutee;
   let answers = normalizeTuteeFields(posted, fields);
+  const unchangedName =
+    !!previous &&
+    (posted.firstName ?? "") === (previous.firstName ?? "") &&
+    (posted.lastName ?? "") === (previous.lastName ?? "") &&
+    (posted.preferredName ?? "") === (previous.preferredName ?? "") &&
+    posted.englishName === previous.englishName;
+  if (
+    previous &&
+    (posted.firstName ?? "") === (previous.firstName ?? "") &&
+    (posted.lastName ?? "") === (previous.lastName ?? "") &&
+    (posted.preferredName ?? "") === (previous.preferredName ?? "") &&
+    posted.englishName === previous.englishName
+  ) {
+    const names = await configuredProfileNames(
+      tx,
+      posted,
+      { ...previous, legacyName: previous.englishName },
+      "STUDENT",
+    );
+    answers = {
+      ...answers,
+      ...names,
+      preferredName: names.preferredName ?? undefined,
+      alternativeNames: names.alternativeNames ?? undefined,
+      englishName: fullPersonName(names) || previous.englishName,
+    };
+  }
   if (
     posted.secondChoiceId &&
     retainedSubjectIds.includes(posted.secondChoiceId)
   )
     answers.secondChoiceId = posted.secondChoiceId;
   if (
-    answers.firstName !== undefined ||
-    answers.lastName !== undefined ||
-    answers.preferredName !== undefined
+    !unchangedName &&
+    (answers.firstName !== undefined ||
+      answers.lastName !== undefined ||
+      answers.preferredName !== undefined)
   ) {
     const names = await configuredNewNames(tx, answers, "STUDENT");
     answers = {
@@ -163,7 +197,7 @@ export async function normalizeStudentSignupAnswers(
       alternativeNames: names.alternativeNames ?? undefined,
       englishName: fullPersonName(names),
     };
-  } else
+  } else if (!unchangedName)
     answers = {
       ...answers,
       englishName: await configuredLegacyIntakeName(
@@ -172,7 +206,7 @@ export async function normalizeStudentSignupAnswers(
         "STUDENT",
       ),
     };
-  await assertPrimaryName(tx, answers.englishName);
+  await assertPrimaryName(tx, answers.englishName, previous?.englishName);
   await assertOfferedGrade(tx, normalizeGrade(answers.gradeLevel).gradeLevel);
   const missing = missingTuteeFields(answers, fields).filter(
     (key) => key !== "signatureName",
@@ -204,18 +238,51 @@ export async function inspectOwnedStudentSignup(
   db: DomainDb,
   userId: string,
   id: string,
+  management = false,
 ) {
   return inTransaction(db, async (tx) => {
-    const { row } = await lockedOwnedSignup(tx, userId, id);
+    const { row } = await lockedOwnedSignup(tx, userId, id, management);
     const term = await tx.term.findUnique({
       where: { id: row.intakeTermId },
       select: { active: true },
     });
-    const assigned = await assignedSignupSubjects(
-      tx,
-      row.tuteeId!,
-      row.intakeTermId,
+    const assigned = row.tuteeId
+      ? await assignedSignupSubjects(tx, row.tuteeId!, row.intakeTermId)
+      : { subjectIds: [], unresolved: false };
+    const payload = currentStudentSignupPayload(row);
+    const subjectIds = [payload.firstChoiceId, payload.secondChoiceId].filter(
+      (value): value is string => typeof value === "string" && !!value,
     );
+    const persistedSubjects = await tx.subject.findMany({
+      where: { id: { in: subjectIds } },
+      select: { id: true, name: true, active: true },
+    });
+    const persistedSlots = await tx.timeSlot.findMany({
+      where: {
+        id: {
+          in: Array.isArray(payload.slotIds)
+            ? (payload.slotIds as string[])
+            : [],
+        },
+      },
+      select: {
+        id: true,
+        label: true,
+        dayOfWeek: true,
+        startMin: true,
+        endMin: true,
+        active: true,
+      },
+    });
+    const appeal = await tx.studentSignupAppeal.findUnique({
+      where: {
+        surveyId_invalidityVersion: {
+          surveyId: row.id,
+          invalidityVersion: row.invalidityVersion,
+        },
+      },
+      select: { id: true, reason: true, state: true, createdAt: true },
+    });
     return {
       id: row.id,
       version: row.currentVersion,
@@ -237,6 +304,22 @@ export async function inspectOwnedStudentSignup(
       originalPolicyRevision: row.policyRevision,
       assignedSubjectIds: assigned.subjectIds,
       assignmentsUnresolved: assigned.unresolved,
+      subjectEditingBlocked: assigned.unresolved,
+      persistedSubjects,
+      persistedSlots,
+      isInvalid: !!row.invalidatedAt,
+      invalidityVersion: row.invalidityVersion,
+      canAppeal:
+        row.state === "OPEN" &&
+        !!term?.active &&
+        !!row.invalidatedAt &&
+        !appeal &&
+        !(
+          !row.confirmedAt &&
+          row.verificationDueAt &&
+          row.verificationDueAt <= new Date()
+        ),
+      appeal,
     };
   });
 }
@@ -247,11 +330,27 @@ export async function editOwnedStudentSignup(
   db: DomainDb,
   userId: string,
   input: z.infer<typeof studentSignupEditInput>,
+  management?: { signedTicket: string; releaseChangedAssignments: true },
 ) {
   return inTransaction(db, async (tx) => {
-    const { row, user } = await lockedOwnedSignup(tx, userId, input.id);
+    const { row, user } = await lockedOwnedSignup(
+      tx,
+      userId,
+      input.id,
+      !!management,
+    );
+    if (management && user.role !== "HEAD")
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Only Head can change assigned signup subjects.",
+      });
     const inputHash = studentSignupIntentDigest(
-      JSON.parse(JSON.stringify(input)),
+      JSON.parse(
+        JSON.stringify({
+          ...input,
+          operation: management ? "headEditSignup" : "editSignup",
+        }),
+      ),
     );
     const receipt = await tx.studentSignupRevision.findUnique({
       where: {
@@ -271,15 +370,22 @@ export async function editOwnedStudentSignup(
       return { ok: true, version: receipt.version };
     }
     await assertSignupEditPeriod(tx, row);
-    await requireSchoolParticipation(tx, userId);
-    await requirePolicy(tx, userId, "tutee-policy");
+    if (!management) {
+      await requireSchoolParticipation(tx, userId);
+      await requirePolicy(tx, userId, "tutee-policy");
+    }
     if (row.currentVersion !== input.expectedVersion) staleConflict();
-    const assigned = await assignedSignupSubjects(
-      tx,
-      row.tuteeId!,
-      row.intakeTermId,
+    const assigned = row.tuteeId
+      ? await assignedSignupSubjects(tx, row.tuteeId!, row.intakeTermId)
+      : { subjectIds: [], unresolved: false };
+    const previous = studentSignupAnswersInput.parse(
+      currentStudentSignupPayload(row),
     );
-    if (assigned.unresolved)
+    if (
+      assigned.unresolved &&
+      (input.answers.firstChoiceId !== previous.firstChoiceId ||
+        input.answers.secondChoiceId !== previous.secondChoiceId)
+    )
       throw new TRPCError({
         code: "CONFLICT",
         message: "SIGNUP_ASSIGNMENT_UNKNOWN",
@@ -287,16 +393,85 @@ export async function editOwnedStudentSignup(
     const answers = await normalizeStudentSignupAnswers(
       tx,
       input.answers,
-      assigned.subjectIds,
+      assigned.unresolved
+        ? [
+            previous.firstChoiceId,
+            ...(previous.secondChoiceId ? [previous.secondChoiceId] : []),
+          ]
+        : assigned.subjectIds,
+      previous,
     );
     const selected = [answers.firstChoiceId, answers.secondChoiceId].filter(
       Boolean,
     );
-    if (assigned.subjectIds.some((subjectId) => !selected.includes(subjectId)))
+    if (
+      !management &&
+      assigned.subjectIds.some((subjectId) => !selected.includes(subjectId))
+    )
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "SIGNUP_ASSIGNED_SUBJECT_LOCKED",
       });
+    const removedPairingIds: string[] = [];
+    if (management) {
+      await consumeStudentAction(
+        tx,
+        management.signedTicket,
+        userId,
+        "SIGNUP_EDIT",
+        row.id,
+      );
+      if (row.tuteeId) {
+        const discarded = assigned.subjectIds.filter(
+          (subjectId) => !selected.includes(subjectId),
+        );
+        const subjects = await tx.subject.findMany({
+          where: { id: { in: discarded } },
+          select: { name: true },
+        });
+        const links = await tx.pairingTutee.findMany({
+          where: {
+            tuteeId: row.tuteeId,
+            pairing: {
+              termId: row.intakeTermId,
+              subject: { in: subjects.map(({ name }) => name) },
+            },
+          },
+          select: { pairingId: true },
+        });
+        removedPairingIds.push(...links.map(({ pairingId }) => pairingId));
+        await tx.pairingTutee.deleteMany({
+          where: { tuteeId: row.tuteeId, pairingId: { in: removedPairingIds } },
+        });
+        if (removedPairingIds.length) {
+          if (
+            !(await tx.pairingTutee.count({
+              where: {
+                tuteeId: row.tuteeId,
+                pairing: { termId: row.intakeTermId },
+              },
+            }))
+          )
+            await tx.tutee.update({
+              where: { id: row.tuteeId },
+              data: { status: "PENDING" },
+            });
+          await tx.studentRequestReview.updateMany({
+            where: {
+              surveyId: row.id,
+              pairingId: { in: removedPairingIds },
+              kind: "SCHEDULE_CONFLICT",
+              state: "PENDING",
+            },
+            data: {
+              state: "DENIED",
+              resolvedAt: new Date(),
+              resolvedByUserId: userId,
+            },
+          });
+        }
+      }
+    }
     const version = row.currentVersion + 1;
     await tx.studentSignupRevision.create({
       data: {
@@ -318,31 +493,42 @@ export async function editOwnedStudentSignup(
         editedAt: new Date(),
       },
     });
-    await tx.tutee.update({
-      where: { id: row.tuteeId! },
-      data: {
-        // Request-local answers never mirror over canonical account names or academics.
-        phone: answers.phone ?? null,
-        preferredContact: answers.preferredContact,
-        firstChoiceId: answers.firstChoiceId,
-        secondChoiceId: answers.secondChoiceId ?? null,
-      },
-    });
-    await tx.tuteeAvailability.deleteMany({ where: { tuteeId: row.tuteeId! } });
-    await tx.tuteeAvailability.createMany({
-      data: answers.slotIds.map((slotId) => ({
-        tuteeId: row.tuteeId!,
-        slotId,
-      })),
-    });
+    if (row.tuteeId)
+      await tx.tutee.update({
+        where: { id: row.tuteeId! },
+        data: {
+          // Request-local answers never mirror over canonical account names or academics.
+          phone: answers.phone ?? null,
+          preferredContact: answers.preferredContact,
+          firstChoiceId: answers.firstChoiceId,
+          secondChoiceId: answers.secondChoiceId ?? null,
+        },
+      });
+    if (row.tuteeId)
+      await tx.tuteeAvailability.deleteMany({
+        where: { tuteeId: row.tuteeId },
+      });
+    if (row.tuteeId)
+      await tx.tuteeAvailability.createMany({
+        data: answers.slotIds.map((slotId) => ({
+          tuteeId: row.tuteeId!,
+          slotId,
+        })),
+      });
     await recordDomainAudit(tx, {
-      operation: "studentWorkflow.editSignup",
+      operation: management
+        ? "studentWorkflow.headEditSignup"
+        : "studentWorkflow.editSignup",
       entity: "StudentSurvey",
       entityId: row.id,
       action: "Edited own signup answers",
       before: { currentVersion: row.currentVersion },
       after: { currentVersion: version },
-      effects: { originalEvidencePreserved: true, assignmentsPreserved: true },
+      effects: {
+        originalEvidencePreserved: true,
+        assignmentsPreserved: !removedPairingIds.length,
+        removedPairingIds,
+      },
     });
     return { ok: true, version };
   });

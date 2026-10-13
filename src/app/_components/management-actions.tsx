@@ -34,6 +34,8 @@ function RequestCard({
   onChanged: () => Promise<void>;
 }) {
   const t = useTranslations("approvals");
+  const editing = useTranslations("signupEditing");
+  const appeals = useTranslations("signupAppeal");
   const format = useFormatter();
   const [note, setNote] = useState("");
   const [password, setPassword] = useState("");
@@ -58,6 +60,15 @@ function RequestCard({
     request.payload as unknown as Parameters<typeof SuperJSON.deserialize>[0],
   );
   const confirmation = proposalConfirmation(request.operation, payload);
+  // Every reviewer sees the consequence of the immutable proposed action and
+  // obtains their own ticket; the original proposer's ticket is never reused.
+  const consequence = confirmation?.action === "SIGNUP_EDIT"
+    ? editing("headConsequences")
+    : confirmation?.action === "SIGNUP_UNASSIGN"
+      ? appeals("unassignConsequences")
+      : confirmation?.action === "SIGNUP_APPEAL"
+        ? appeals(payload && typeof payload === "object" && "approve" in payload && payload.approve === true ? "approveConsequences" : "rejectConsequences")
+        : t("confirmConsequences");
   const approve = (ticket?: string) => {
     setConfirming(false);
     if (isAssignmentOperation(request.operation)) setOverrideReview({ ticket });
@@ -91,7 +102,7 @@ function RequestCard({
           action={confirmation.action}
           target={confirmation.target}
           title={t("approve")}
-          message={t("confirmConsequences")}
+          message={consequence}
           busy={decision.isPending}
           error={decision.error?.message}
           onCancel={() => setConfirming(false)}

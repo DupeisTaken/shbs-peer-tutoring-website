@@ -4680,7 +4680,7 @@
     "policyRevision": "Original policy revision",
     "notProvided": "Not provided",
     "assignedLocked": "This subject is assigned. Only Head can change or release it.",
-    "assignmentUnknown": "An assignment uses a subject that is no longer in the catalog. Ask Head to resolve it before saving.",
+    "assignmentUnknown": "An assignment uses a subject that cannot be resolved. Subject choices are locked until Head resolves it; you can still save other answers.",
     "availabilityHelp": "Update your available times in Edit signup answers. Coordinate scheduled sessions with your tutor; changing availability keeps existing assignments.",
     "loading": "Loading signup answers…",
     "loadFailed": "Signup answers or their current form settings could not be loaded. Your draft is retained.",
@@ -4703,7 +4703,20 @@
     "intentVerification": "Enter the email you used for this request, then the code from its message. Request details appear only after mailbox verification.",
     "headEdit": "Review signup changes",
     "headConsequences": "Review the new request answers. Removing an assigned subject releases only that subject’s current assignment. Historical sessions and original submission evidence remain unchanged.",
-    "queued": "Your proposed change is awaiting Head approval."
+    "queued": "Your proposed change is awaiting Head approval.",
+    "returnToEditing": "Check receipt and edit answers",
+    "savedMailbox": "We sent a verification message to {email}. Confirm this exact submission to continue.",
+    "savedNoMail": "Your submission is saved for {email}, but its verification message could not be delivered. Use resend when delivery is available.",
+    "replacementHelp": "After mailbox verification and account review, your latest submission replaces this account’s current request answers while retaining the first submission priority and current assignments. Only Head can change assigned subjects.",
+    "replacementReview": "Review the submitted tutoring request",
+    "originalPriority": "Original priority retained: {date}",
+    "submittedName": "Submitted display name",
+    "submittedFirstName": "Submitted first name",
+    "submittedLastName": "Submitted last name",
+    "submittedPreferredName": "Submitted preferred name",
+    "submittedAlternativeNames": "Submitted other names",
+    "submittedLatinName": "Submitted Latin-script name",
+    "submittedConsent": "Submitted consent and signature"
   },
   "signupAppeal": {
     "title": "Review a Flagged Request",
@@ -4727,6 +4740,10 @@
     "approveConsequences": "Accept this appeal and clear the invalidity flag. Matching may resume.",
     "rejectConsequences": "Decline this appeal, close the request and remove its active queue priority. Keep its submitted evidence and history.",
     "unassign": "Release assignment",
-    "unassignConsequences": "Release this student from the selected current assignment. Historical sessions and attendance stay unchanged."
+    "unassignConsequences": "Release this student from the selected current assignment. Historical sessions and attendance stay unchanged.",
+    "proposeUnassign": "Propose releasing assignment",
+    "changed": "This request review changed while you were writing. Your reason is retained. Reload the review before trying again.",
+    "reload": "Reload review",
+    "rejectedTitle": "Invalid request closed"
   }
 }

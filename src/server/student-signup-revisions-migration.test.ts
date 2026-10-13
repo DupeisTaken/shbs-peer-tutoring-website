@@ -16,9 +16,10 @@ it("adds current answers and immutable retry evidence without rewriting original
       "BEGIN; CREATE SCHEMA student_signup_revisions_test; SET LOCAL search_path TO student_signup_revisions_test",
     );
     await client.query(`
+      CREATE TYPE "StudentSurveyState" AS ENUM ('OPEN', 'RECALLED', 'DISQUALIFIED', 'ABORTED');
       CREATE TABLE "StudentSurvey" (
         id text PRIMARY KEY, email text NOT NULL, "intakeTermId" text NOT NULL,
-        state text NOT NULL DEFAULT 'OPEN', payload jsonb NOT NULL,
+        state "StudentSurveyState" NOT NULL DEFAULT 'OPEN', payload jsonb NOT NULL,
         "policyRevision" text NOT NULL, "policySnapshot" jsonb NOT NULL
       );
       CREATE UNIQUE INDEX "StudentSurvey_one_open_request" ON "StudentSurvey"(email, "intakeTermId") WHERE state = 'OPEN';
@@ -105,6 +106,18 @@ it("adds current answers and immutable retry evidence without rewriting original
     await rejects(createRevision("duplicate-key", 2), "23505");
     await rejects(`UPDATE "StudentSignupRevision" SET answers = '{}'`, "P0001");
     await rejects(`DELETE FROM "StudentSignupRevision"`, "P0001");
+    await client.query(
+      `INSERT INTO "StudentSignupAppeal" (id,"surveyId","invalidityVersion",reason,"inputHash") VALUES ('appeal','original',1,'Please verify this request','${"c".repeat(64)}')`,
+    );
+    await rejects(
+      `UPDATE "StudentSignupAppeal" SET reason='Rewritten explanation'`,
+      "P0001",
+    );
+    await rejects(`DELETE FROM "StudentSignupAppeal"`, "P0001");
+    await client.query(
+      `UPDATE "StudentSignupAppeal" SET state='ACCEPTED', "resolvedAt"=NOW(), "resolvedByUserId"='reviewer'`,
+    );
+    await rejects(`UPDATE "StudentSignupAppeal" SET state='REJECTED'`, "P0001");
     await rejects(
       `INSERT INTO "StudentSignupRevision" (id,"surveyId","expectedVersion",version,"actorUserId","clientKey","inputHash",answers,"policyRevision") VALUES ('partial-consent','original',1,2,'original-owner','00000000-0000-4000-8000-000000000002','${"b".repeat(64)}','{}','invented')`,
       "23514",

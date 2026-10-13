@@ -13,7 +13,10 @@ import {
 import { lockEntity, type TransactionDb } from "~/server/transactions";
 import { canonicalUsername } from "~/server/auth/username";
 import { reservePatrolEvidence } from "~/server/crew/patrol-credit";
-import { historicalYear, legacyAcademicRecordId } from "~/lib/historical-academics";
+import {
+  historicalYear,
+  legacyAcademicRecordId,
+} from "~/lib/historical-academics";
 import { historicalAcademicSnapshot } from "~/server/historical-academics";
 
 // Explicit domain allowlist, in dependency order. Never expand this to every database table:
@@ -56,6 +59,7 @@ export const RECORD_TABLES = [
   "DisciplinaryCard",
   "StudentSurvey",
   "StudentSignupRevision",
+  "StudentSignupAppeal",
   "StudentRequestReview",
   "StudentQuarterBlock",
   "StudentProfileOwnership",
@@ -114,7 +118,11 @@ async function catalogue(tx: TransactionDb) {
           !(table === "StudentSurvey" && c.name === "tokenHash") &&
           // Retry keys are operational capabilities, not archival answer/consent evidence.
           // The database gives imported revisions a fresh key without changing their evidence.
-          !(table === "StudentSignupRevision" && c.name === "clientKey"),
+          !(table === "StudentSignupRevision" && c.name === "clientKey") &&
+          !(
+            table === "StudentSignupAppeal" &&
+            ["clientKey", "decisionKey", "decisionHash"].includes(c.name)
+          ),
       ),
     ]),
   );
@@ -262,7 +270,8 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
   // and row locks in that shared order before inserting anything. Decode only the stable ID
   // here; ordinary validation below keeps its exact filename/row diagnostics.
   const academics = byTable.get("HistoricalAcademicRecord");
-  const academicIdIndex = academics?.columns.findIndex((column) => column.name === "id") ?? -1;
+  const academicIdIndex =
+    academics?.columns.findIndex((column) => column.name === "id") ?? -1;
   const participants = new Map<string, "tutor" | "tutee">();
   if (academics && academicIdIndex >= 0) {
     for (const cells of academics.rows) {
@@ -274,13 +283,20 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
       }
     }
   }
-  for (const [key, kind] of [...participants].sort(([left, leftKind], [right, rightKind]) =>
-    leftKind === rightKind ? left.localeCompare(right) : leftKind === "tutor" ? -1 : 1,
+  for (const [key, kind] of [...participants].sort(
+    ([left, leftKind], [right, rightKind]) =>
+      leftKind === rightKind
+        ? left.localeCompare(right)
+        : leftKind === "tutor"
+          ? -1
+          : 1,
   )) {
     await lockEntity(tx, key);
     const table = kind === "tutor" ? "Tutor" : "Tutee";
     const id = key.slice(kind.length + 1);
-    await tx.$queryRaw(Prisma.sql`SELECT id FROM ${identifier(table)} WHERE id=${id} FOR NO KEY UPDATE`);
+    await tx.$queryRaw(
+      Prisma.sql`SELECT id FROM ${identifier(table)} WHERE id=${id} FOR NO KEY UPDATE`,
+    );
   }
   for (const table of RECORD_TABLES) {
     const file = byTable.get(table);
@@ -316,17 +332,19 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
         // Legacy positive credit uses its creation time as award evidence. Apply the
         // same normalization before comparison and insertion; omitted creation times
         // use the stored row's creation time on retry and the DB default on first import.
-        const legacyPatrolCredit = table === "Patrol" && row.creditAwardedAt === null && Number(row.hours ?? 0.5) > 0;
+        const legacyPatrolCredit =
+          table === "Patrol" &&
+          row.creditAwardedAt === null &&
+          Number(row.hours ?? 0.5) > 0;
         if (legacyPatrolCredit && row.createdAt != null)
           row.creditAwardedAt = row.createdAt;
         // Compare typed JSON through PostgreSQL so equivalent dates/JSON key order are equal.
         const existing = await tx.$queryRaw<{ matches: boolean }[]>(Prisma.sql`
           SELECT ${Prisma.join(
-            file.columns.map(
-              (c) =>
-                legacyPatrolCredit && c.name === "creditAwardedAt"
-                  ? Prisma.sql`current_row."creditAwardedAt" IS NOT DISTINCT FROM CASE WHEN current_row.hours > 0 THEN COALESCE(incoming."creditAwardedAt", current_row."createdAt") ELSE NULL END`
-                  : Prisma.sql`current_row.${identifier(c.name)} IS NOT DISTINCT FROM incoming.${identifier(c.name)}`,
+            file.columns.map((c) =>
+              legacyPatrolCredit && c.name === "creditAwardedAt"
+                ? Prisma.sql`current_row."creditAwardedAt" IS NOT DISTINCT FROM CASE WHEN current_row.hours > 0 THEN COALESCE(incoming."creditAwardedAt", current_row."createdAt") ELSE NULL END`
+                : Prisma.sql`current_row.${identifier(c.name)} IS NOT DISTINCT FROM incoming.${identifier(c.name)}`,
             ),
             " AND ",
           )} AS matches
@@ -353,28 +371,46 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
             "Account reference not found. Create/link accounts through the normal account workflow first.",
           );
         validateDomainRow(table, row);
-        if (table === "HistoricalAcademicRecord" && String(row.id).startsWith("legacy-")) {
+        if (
+          table === "HistoricalAcademicRecord" &&
+          String(row.id).startsWith("legacy-")
+        ) {
           const kind = row.tuteeId ? "TUTEE" : "TUTOR";
           const participantId = String(row.tuteeId ?? row.tutorId);
           const participantTable = kind === "TUTEE" ? "Tutee" : "Tutor";
           // A newly restored participant may have a newer roster mirror than its
           // preserved original. Existing participants already have virtual evidence,
           // which an additive archive must not replace by materializing different values.
-          if (!inserted.some((entry) => entry.table === participantTable && entry.row.id === participantId)) {
+          if (
+            !inserted.some(
+              (entry) =>
+                entry.table === participantTable &&
+                entry.row.id === participantId,
+            )
+          ) {
             // The caller holds the username namespace before acquiring participant
             // and evidence locks, matching corrections and profile/link workflows.
             await lockEntity(tx, `${kind.toLowerCase()}:${participantId}`);
-            await tx.$queryRaw(Prisma.sql`SELECT id FROM ${identifier(participantTable)} WHERE id=${participantId} FOR NO KEY UPDATE`);
+            await tx.$queryRaw(
+              Prisma.sql`SELECT id FROM ${identifier(participantTable)} WHERE id=${participantId} FOR NO KEY UPDATE`,
+            );
             await lockEntity(tx, `historical-academic:${String(row.id)}`);
-            const { original } = await historicalAcademicSnapshot(tx, String(row.id));
+            const { original } = await historicalAcademicSnapshot(
+              tx,
+              String(row.id),
+            );
             if (
               (row.rawGrade ?? null) !== original.rawGrade ||
               (row.schoolYear ?? null) !== original.schoolYear ||
-              (row.academicallyGraduated ?? false) !== original.academicallyGraduated ||
+              (row.academicallyGraduated ?? false) !==
+                original.academicallyGraduated ||
               row.source !== original.source ||
-              (row.originalConfirmedAt ?? null) !== (original.originalConfirmedAt?.toISOString() ?? null)
+              (row.originalConfirmedAt ?? null) !==
+                (original.originalConfirmedAt?.toISOString() ?? null)
             )
-              fail("Reserved legacy academic evidence must match the participant's original grade, year, graduation, source and confirmation. Use Academic Corrections for changes.");
+              fail(
+                "Reserved legacy academic evidence must match the participant's original grade, year, graduation, source and confirmation. Use Academic Corrections for changes.",
+              );
           }
         }
         if (table === "Tutor") {
@@ -459,9 +495,14 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
   };
   for (const { table, row, line } of inserted) {
     if (table === "PatrolCreditWindow") {
-      const patrol = await tx.patrol.findUniqueOrThrow({ where: { id: String(row.patrolId) }, select: { crewUserId: true } });
+      const patrol = await tx.patrol.findUniqueOrThrow({
+        where: { id: String(row.patrolId) },
+        select: { crewUserId: true },
+      });
       if (patrol.crewUserId !== row.crewUserId)
-        fail(`${table}.csv, row ${line}: credit owner must match the patrol author.`);
+        fail(
+          `${table}.csv, row ${line}: credit owner must match the patrol author.`,
+        );
     }
     for (const [field, target] of Object.entries(references[table] ?? {})) {
       if (row[field] == null) continue;
@@ -486,18 +527,34 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
   }
   // Older archives have no credit ledger. Preserve their awarded hours and timestamps,
   // but reserve their evidence just as the migration does; restoring cannot reopen credit.
-  const patrolIds = [...new Set(inserted.flatMap(({ table, row }) =>
-    table === "Patrol" ? [String(row.id)] : table === "PatrolObservation" ? [String(row.patrolId)] : [],
-  ))];
+  const patrolIds = [
+    ...new Set(
+      inserted.flatMap(({ table, row }) =>
+        table === "Patrol"
+          ? [String(row.id)]
+          : table === "PatrolObservation"
+            ? [String(row.patrolId)]
+            : [],
+      ),
+    ),
+  ];
   if (patrolIds.length) {
     const patrols = await tx.patrol.findMany({
-      where: { id: { in: patrolIds }, hours: { gt: 0 } }, include: { observations: true },
+      where: { id: { in: patrolIds }, hours: { gt: 0 } },
+      include: { observations: true },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
     for (const patrol of patrols) {
       if (!patrol.creditAwardedAt)
         await tx.$executeRaw`UPDATE "Patrol" SET "creditAwardedAt" = "createdAt" WHERE id = ${patrol.id} AND "creditAwardedAt" IS NULL`;
-      await reservePatrolEvidence(tx, patrol, patrol.observations.length ? patrol.observations : [{ observedAt: patrol.createdAt }], true);
+      await reservePatrolEvidence(
+        tx,
+        patrol,
+        patrol.observations.length
+          ? patrol.observations
+          : [{ observedAt: patrol.createdAt }],
+        true,
+      );
     }
   }
   return summary;
@@ -516,17 +573,42 @@ function databaseError(error: unknown) {
 function validateDomainRow(table: Table, row: Row) {
   if (table === "HistoricalAcademicRecord") {
     if (!!row.tuteeId === !!row.tutorId)
-      fail("Historical academics require exactly one stable tuteeId or tutorId.");
+      fail(
+        "Historical academics require exactly one stable tuteeId or tutorId.",
+      );
     if (!historicalYear.safeParse(row.schoolYear ?? null).success)
       fail("Historical schoolYear must be an adjacent reference year or null.");
-    if (typeof row.source !== "string" || !row.source.trim() || row.source.length > 500)
-      fail("Historical academics require original source evidence (at most 500 characters).");
-    if (row.rawGrade != null && (typeof row.rawGrade !== "string" || row.rawGrade.length > 200))
-      fail("Historical rawGrade must be text (at most 200 characters) or null.");
-    if (typeof row.originalConfirmedAt === "string" && Date.parse(row.originalConfirmedAt) > Date.now())
+    if (
+      typeof row.source !== "string" ||
+      !row.source.trim() ||
+      row.source.length > 500
+    )
+      fail(
+        "Historical academics require original source evidence (at most 500 characters).",
+      );
+    if (
+      row.rawGrade != null &&
+      (typeof row.rawGrade !== "string" || row.rawGrade.length > 200)
+    )
+      fail(
+        "Historical rawGrade must be text (at most 200 characters) or null.",
+      );
+    if (
+      typeof row.originalConfirmedAt === "string" &&
+      Date.parse(row.originalConfirmedAt) > Date.now()
+    )
       fail("Original confirmation evidence cannot be in the future.");
-    if (String(row.id).startsWith("legacy-") && row.id !== legacyAcademicRecordId(row.tuteeId ? "TUTEE" : "TUTOR", String(row.tuteeId ?? row.tutorId)))
-      fail("Reserved legacy academic IDs must identify their exact participant.");
+    if (
+      String(row.id).startsWith("legacy-") &&
+      row.id !==
+        legacyAcademicRecordId(
+          row.tuteeId ? "TUTEE" : "TUTOR",
+          String(row.tuteeId ?? row.tutorId),
+        )
+    )
+      fail(
+        "Reserved legacy academic IDs must identify their exact participant.",
+      );
   }
   if (table === "Term" && row.active === true)
     fail("Imported terms must be inactive (active=false).");

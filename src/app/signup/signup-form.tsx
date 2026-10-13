@@ -93,6 +93,20 @@ export function SignupForm() {
     } finally { admitted.current = false; setWorking(false); }
   };
 
+  /** Returning to editing first resolves the held intent. A failed recovery leaves
+   * the draft frozen; a confirmed absence keeps fields and starts a new deliberate intent. */
+  const returnToEditing = async () => {
+    if (admitted.current || working || captcha.pending || submit.isPending || !attempt.current) return;
+    admitted.current=true;setWorking(true);
+    const captured=attempt.current;
+    try {
+      const saved=await recoverReceipt.mutateAsync(captured);
+      if(saved)setAcknowledgement({...saved,email:captured.answers.email});
+      else {attempt.current=null;setHeld(false);}
+    } catch { /* Ambiguous recovery must not abandon a possibly committed intent. */ }
+    finally {admitted.current=false;setWorking(false);}
+  };
+
   const [names, setNames] = useState(() => nameDraft());
   const [namePolicyReady, setNamePolicyReady] = useState(false);
   const englishName = fullPersonName(names);
@@ -167,9 +181,9 @@ export function SignupForm() {
           {t("survey.savedTitle")}
         </h2>
         <p className="muted mt-2">
-          {t("survey.savedBody", { email: acknowledgement.email })}
+          {editing(acknowledgement.emailSent ? "savedMailbox" : "savedNoMail", { email: acknowledgement.email })}
         </p>
-        <p className="muted mt-3 text-sm">{t("survey.duplicate")}</p>
+        <p className="muted mt-3 text-sm">{editing("replacementHelp")}</p>
         {!acknowledgement.emailSent && (
           <p role="alert" className="mt-3 text-amber-800">
             {t("survey.mailFailed")}
@@ -494,7 +508,10 @@ export function SignupForm() {
         {captcha.panel}
         {held && !acknowledgement && (
           <InlineNotice tone="warning" announcement="status" action={
-            <Button disabled={working || captcha.pending} onClick={() => void sendSubmission()}>{editing("recoverSubmission")}</Button>
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={working || captcha.pending} onClick={() => void sendSubmission()}>{editing("recoverSubmission")}</Button>
+              <Button variant="secondary" disabled={working || captcha.pending || submit.isPending} onClick={() => void returnToEditing()}>{editing("returnToEditing")}</Button>
+            </div>
           }>{editing("submissionHeld")}</InlineNotice>
         )}
         {recoverReceipt.error && <p role="alert" className="text-sm text-red-700"><CaptchaError error={recoverReceipt.error} /></p>}

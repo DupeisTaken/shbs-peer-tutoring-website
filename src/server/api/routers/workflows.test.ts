@@ -1,4 +1,5 @@
 import { beforeEach, afterAll, expect, it, vi } from "vitest";
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import pg from "pg";
 import type { Session } from "next-auth";
@@ -2243,6 +2244,7 @@ it("PASS: signup gate rejects submissions before the configured opening", async 
       session: null,
       headers: new Headers(),
     }).tutee.requestSignup({
+      clientKey: randomUUID(),
       englishName: "New Student",
       email: "new-student@example.test",
       policyRevision: "test-revision",

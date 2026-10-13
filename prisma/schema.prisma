@@ -1722,6 +1722,8 @@ model StudentSurvey {
   reviews StudentRequestReview[]
   signupRevisions StudentSignupRevision[]
   signupIntents StudentSignupIntent[]
+  signupAppeals StudentSignupAppeal[]
+  signupNotices StudentSignupNotice[]
   @@index([email, intakeTermId, submittedAt])
   @@index([state, confirmedAt, verificationDueAt])
 }
@@ -1782,6 +1784,54 @@ enum StudentSurveyState {
   RECALLED
   DISQUALIFIED
   ABORTED
+  INVALID_REJECTED
+}
+
+enum StudentSignupAppealState {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+/// Appeal reasons and decisions retain their exact request/flag version and original actor.
+model StudentSignupAppeal {
+  id String @id @default(cuid())
+  surveyId String
+  invalidityVersion Int
+  actorUserId String?
+  reason String
+  clientKey String @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  inputHash String
+  state StudentSignupAppealState @default(PENDING)
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+  resolvedByUserId String?
+  decisionKey String? @db.Uuid
+  decisionHash String?
+  survey StudentSurvey @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([surveyId, invalidityVersion])
+  @@index([state, createdAt])
+}
+
+/// Durable generic invalidity/decision mail, including accountless requests. Proofs are
+/// recipient/version-bound and re-derived for send-only retry; staff notes never enter mail.
+model StudentSignupNotice {
+  id String @id @default(cuid())
+  surveyId String
+  invalidityVersion Int
+  kind String
+  recipientEmail String?
+  accountId String?
+  sessionVersion Int?
+  tokenHash String? @unique
+  state String @default("PENDING")
+  attempts Int @default(0)
+  createdAt DateTime @default(now())
+  lastAttemptAt DateTime?
+  sentAt DateTime?
+  survey StudentSurvey @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([surveyId, invalidityVersion, kind])
+  @@index([state, createdAt])
 }
 
 /// Older public tutee requests predate StudentSurvey. Keep their staff-only review

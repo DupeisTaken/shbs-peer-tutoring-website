@@ -62,7 +62,7 @@ export async function notifyRequest(
 export async function closeStudentRequest(
   tx: TransactionDb,
   row: StudentSurvey,
-  state: "DISQUALIFIED" | "RECALLED" | "ABORTED",
+  state: "DISQUALIFIED" | "RECALLED" | "ABORTED" | "INVALID_REJECTED",
   now = new Date(),
 ) {
   if (row.state !== "OPEN")
@@ -75,6 +75,7 @@ export async function closeStudentRequest(
     DISQUALIFIED:
       "Verification overdue; submit a new request / 验证逾期，请重新申请",
     ABORTED: "Quarter withdrawal approved / 本季度退出申请已批准",
+    INVALID_REJECTED: "Signup appeal rejected; submit a fresh request / 申请申诉被驳回，请重新提交申请",
   };
   await notifyRequest(tx, row, titles[state]);
   await tx.studentSurvey.update({
@@ -82,7 +83,7 @@ export async function closeStudentRequest(
     data: { state, resolvedAt: now },
   });
   if (row.tuteeId) {
-    await tx.pairingTutee.deleteMany({ where: { tuteeId: row.tuteeId } });
+    await tx.pairingTutee.deleteMany({ where: { tuteeId: row.tuteeId, pairing: { termId: row.intakeTermId } } });
     await tx.tutee.updateMany({
       where: { id: row.tuteeId },
       data: { status: "INACTIVE" },

@@ -23,6 +23,8 @@ retain their existing ownership rules; subject qualification levels are distinct
 | Admin/Coordinator registration invitations                                                                                                                        | Head             | Admin                                                               | Head                    |
 | Audit undo, reinstatement, deletion of hour adjustments, invitation revocation, attendance/patrol correction and changes to an applied card decision              | Head             | Eligible Admin/Coordinator requesters; messaging remains Admin-only | Head                    |
 | Time-slot clock changes that propagate into recorded attendance, credits or reviewed flags                                                                        | Head             | Admin/Coordinator                                                   | Head                    |
+| Current tutee signup assigned-choice edits and their affected assignment release                                                                                 | Head             | Admin/Coordinator request Head review; owners cannot drop assigned choices | Head               |
+| Public-request invalid flags; tutee signup appeal decisions                                                                                                      | Admin or Head    | Coordinator proposes flags; the owned tutee request may be appealed   | Admin or Head          |
 | Message restoration, removal of messaging restrictions, and an appeal that overturns an applied decision                                                          | Head             | Eligible requesters in the underlying workflow                      | Head                    |
 | Assignments, rooms/blocks/slots, catalogues, meetings/attendance, ordinary hours, announcements, initial discipline decisions and other reviewed daily work       | Admin or Head    | Coordinator                                                         | All eligible Admin/Head |
 
@@ -82,6 +84,12 @@ a public Viewer-source LOGIN invitation adds no access. Management invitations r
 of the existing and authorized ranks, never demote and never grant Head. MFA and suspension
 remain enforced. Participation grants retain school departure checks, intake priority, policy
 evidence and historical ownership; departure alone does not block a management rank grant.
+
+Tutee public forms reuse the primary or verified-secondary address's existing
+account, including a tutor requesting help. Same-email replacement requires proof
+for that exact submitted request plus existing sign-in/MFA and explicit review;
+email matching alone never grants access or combines accounts. Tutor recruitment
+and its existing approval process remain separate.
 
 New invitation and staff registration codes retain the five-character uppercase
 Steam-style format, containing both letters and digits, including `0` and `I`. Input accepts
@@ -249,10 +257,17 @@ Historical participants can remain accountless. After import, use [historical re
 | Scheduling                          | RoomUnavailability, TutorAvailability, TuteeAvailability, TutorSubjectWillingness, Pairing, PairingTutee                                                                                                                                                                               |
 | Attendance and hours                | Session, SessionTutee, TutorMeeting, MeetingAttendance, ServiceHourAdjustment, Patrol, PatrolObservation, PatrolCreditWindow, SessionFlag                                                                                                                                              |
 | Applications and membership history | TutorApplication, ApplicationSubjectIntent, InterviewAssignment, InterviewVote, TutorStatusRequest, TuteeRemovalRequest, CrewApplication, CrewStatusRequest                                                                                                                            |
-| Student and academic history        | StudentSurvey, StudentRequestReview, TuteeRequestInvalidity, StudentQuarterBlock, StudentProfileOwnership, HistoricalAcademicRecord, PolicyAcceptance, DisciplinaryCard, StudentFeedback, StudentAppeal, TutorQualification, QualificationGrant, AcademicProfile, AcademicConfirmation |
+| Student and academic history        | StudentSurvey, StudentSignupRevision, StudentSignupAppeal, StudentRequestReview, TuteeRequestInvalidity, StudentQuarterBlock, StudentProfileOwnership, HistoricalAcademicRecord, PolicyAcceptance, DisciplinaryCard, StudentFeedback, StudentAppeal, TutorQualification, QualificationGrant, AcademicProfile, AcademicConfirmation |
 | Announcements                       | Announcement, AnnouncementAck                                                                                                                                                                                                                                                          |
 
 This is a program-record archive, not a full deployment backup. It excludes retained tutor ownership links and historical academic correction revisions; account passwords, roles and access settings; verification/registration/reset tokens; private messages; executable approval and audit payloads; live program configuration; website content; and uploaded files. `User.csv` contains reference IDs, names and emails only. Its accounts must already exist with matching values; importing never creates logins or changes account privileges. New tutor handles cannot collide with account handles, and account-owned email addresses must be reconciled through account management first. Existing users retain their own account-to-tutor links; the archive does not create those links by matching names or email addresses. Student ownership rows use explicit IDs and cannot claim a profile linked to another account. Imported survey verification hashes are newly randomized, so an old verification link cannot become usable again.
+
+Signup exports retain the original submission, current answer projection,
+immutable accepted answer/consent revisions and signup appeal decision evidence.
+Staged intent challenges, notice delivery capabilities and private client/decision
+retry capabilities are excluded. Restoring revisions creates fresh operational
+receipt keys; importing history cannot authorize a live replacement or revive an
+old mailbox proof.
 
 ### Prepare CSV files
 
@@ -355,6 +370,32 @@ Participants can always read `/tutor-signup` and `/tutee-signup`; old `/signup` 
 Publish the English source of both policies through **Policy Documents**, configure active **Subjects & Levels**, and add **Time Slots** when tutee availability is required. Missing or empty policy publication is shown as incomplete setup, rather than a retryable loading error. Real database/network failures still show Retry. Tutee submission also requires working transactional email.
 
 The server rechecks the current recruitment window on every submission. Open browser tabs update timed boundaries and poll schedule changes every 30 seconds. A form submitted after closing is rejected even before its next poll. Schedule saves reject an ending time at or before the start and reject a stale active-period ID. Existing opening times and external preview links survive the recruitment migration.
+
+Public closing stops new submissions. It does not end signed-in editing of an
+owned current **OPEN** request or create an extra verification deadline. Owners
+can correct request names, grade, phone, preferred contact, availability and
+unassigned subject choices until active-period rollover or a terminal transition.
+Historical requests are read only. Head reviews assigned-choice edits and any
+affected assignment release; stored sessions and attendance remain intact. Current
+field and catalogue rules are checked again when a change is accepted.
+
+| Tutee request event | Identity and consent | Priority, deadline and records |
+| --- | --- | --- |
+| Fresh eligible public request | No duplicate account is created by email matching; account setup follows exact mailbox proof and invitation review | Reserve priority at the first accepted submission |
+| Deliberate same-email submission | Independent challenge and signed consent; existing account sign-in/MFA is required for its reviewed replacement | Keep the current OPEN request's original timestamp, fixed deadline, assignments and original signed source |
+| Exact retry of accepted submission | Recover only its bound receipt; changing answers requires a new deliberate submission | No duplicate revision, CAPTCHA check, email or notification |
+| Signed-in owner edit | Explicit ownership and version required; shared login identity and original signature are separate | Keep priority and assigned choices; allow request-local edits after public closing |
+| Policy published after staging | Keep the signed stage-time revision; do not automatically accept the later policy | Existing current-policy participation gates require separate acceptance |
+| First assignment before verification | Existing source or fresh bounded exact-intent proof can complete verification | Fixed seven-day deadline; resends, replacement, reassignment and appeals never extend it |
+| Invalid request under appeal | Owner supplies a reason before active-period rollover; Admin/Head decide | Stay invalid and processing-blocked during review; acceptance keeps priority |
+| Final invalidity rejection | Keep original and decision evidence | Close active request and end its priority; later eligible resubmission starts fresh |
+
+Flagging invalid requires a reason. Admin/Head apply the flag, and Coordinator
+proposals use the existing approval flow. The owner receives a notice and email
+notification with an appeal route; internal review details remain staff-only.
+Acceptance clears the flag, while final rejection retains a closed auditable
+request. Drafts survive failed saves. If a write succeeds but refreshing fails,
+its recovery action reloads reads without applying the change again.
 
 ## CAPTCHA verification
 

@@ -5,6 +5,11 @@ import { staleConflict } from "~/server/concurrency";
 import { lockUsernameNamespace } from "~/server/auth/username";
 import { isSerializationFailure } from "~/server/auth/username-snapshot";
 import {
+  enqueueSignupNotice,
+  deliverSignupNotice,
+} from "./student-signup-appeals";
+import { databaseScope } from "./db-scope";
+import {
   inTransaction,
   lockEntity,
   type DomainDb,
@@ -205,7 +210,9 @@ export async function setStudentRequestInvalidity(
   input: Input,
   actor: Actor,
 ) {
-  return inTransaction(db, async (tx) => {
+  const result = await inTransaction(db, async (tx) => {
+    await lockEntity(tx, "program:period");
+    await lockUsernameNamespace(tx);
     const initial = await tx.studentSurvey.findUnique({
       where: { id: input.id },
     });
@@ -233,8 +240,17 @@ export async function setStudentRequestInvalidity(
       row,
       after,
     );
-    return { ok: true, invalidityVersion: after.invalidityVersion };
+    const saved = await tx.studentSurvey.findUniqueOrThrow({
+      where: { id: row.id },
+    });
+    const noticeId = input.invalid
+      ? await enqueueSignupNotice(tx, saved, "INVALID_FLAGGED")
+      : null;
+    return { ok: true, invalidityVersion: after.invalidityVersion, noticeId };
   });
+  if (result.noticeId && !databaseScope.getStore())
+    await deliverSignupNotice(db, result.noticeId);
+  return { ok: true, invalidityVersion: result.invalidityVersion };
 }
 
 /** Legacy public entries use their own review record, never fabricated survey evidence. */

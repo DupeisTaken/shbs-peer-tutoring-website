@@ -2,7 +2,12 @@ import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import { currentStudentSignupPayload } from "./student-signup-answers";
 import { synchronizeStudentSignupAnswers } from "./student-signup-revisions";
 import { lockCatalogue } from "./qualifications";
-import { assertRequestProcessable, emptyRequestInvalidity, lockStudentRequestReview, requestInvalidity } from "~/server/request-invalidity";
+import {
+  assertRequestProcessable,
+  emptyRequestInvalidity,
+  lockStudentRequestReview,
+  requestInvalidity,
+} from "~/server/request-invalidity";
 import { findAccountPolicy } from "./policy-acceptance";
 import { enforceAssignmentQualification } from "./assignment-qualification";
 import { approveLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
@@ -11,7 +16,11 @@ import { approvalScope } from "./db-scope";
 import { ownedStudentIds } from "./student-ownership";
 import type { DomainDb, TransactionDb } from "./transactions";
 import { inTransaction, lockEntity } from "./transactions";
-import { currentPolicy, publishedPolicy, requirePolicy } from "./policy-acceptance";
+import {
+  currentPolicy,
+  publishedPolicy,
+  requirePolicy,
+} from "./policy-acceptance";
 import {
   applicablePolicySlugs,
   policyActionTarget,
@@ -40,6 +49,9 @@ export const actionNames = [
   "DENY",
   "POLICY",
   "ASSIGN",
+  "SIGNUP_EDIT",
+  "SIGNUP_UNASSIGN",
+  "SIGNUP_APPEAL",
 ] as const;
 export type StudentAction = (typeof actionNames)[number];
 
@@ -147,7 +159,12 @@ export async function acceptStudentPolicy(
       policyActionTarget(slug, revision),
     );
     const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
-    if (user.role === "VIEWER" || (slug !== "tutee-policy" && !applicablePolicySlugs(user).includes(slug)) || user.suspendedAt)
+    if (
+      user.role === "VIEWER" ||
+      (slug !== "tutee-policy" &&
+        !applicablePolicySlugs(user).includes(slug)) ||
+      user.suspendedAt
+    )
       throw new TRPCError({ code: "FORBIDDEN" });
     await tx.policyAcceptance.upsert({
       where: { userId_slug_revision: { userId, slug: policy.slug, revision } },
@@ -161,7 +178,11 @@ export async function acceptStudentPolicy(
         acceptedAt: new Date(),
       },
     });
-    if (slug === "tutee-policy") await tx.user.update({ where: { id: userId }, data: { tuteeMember: true } });
+    if (slug === "tutee-policy")
+      await tx.user.update({
+        where: { id: userId },
+        data: { tuteeMember: true },
+      });
     return { ok: true };
   });
 }
@@ -182,7 +203,13 @@ export async function studentPolicyStatus(
       schoolDeparture: true,
     },
   });
-  if (!user || user.suspendedAt || user.role === "VIEWER" || user.schoolDeparture?.reason) return null;
+  if (
+    !user ||
+    user.suspendedAt ||
+    user.role === "VIEWER" ||
+    user.schoolDeparture?.reason
+  )
+    return null;
   // An unpublished membership must not hide another membership's published review.
   // Only publication absence is a setup state; database errors still propagate.
   const missingSlugs: PolicySlug[] = [];
@@ -194,7 +221,12 @@ export async function studentPolicyStatus(
       missingSlugs.push(slug);
       continue;
     }
-    const acceptance = await findAccountPolicy(db, userId, policy.slug, policy.revision);
+    const acceptance = await findAccountPolicy(
+      db,
+      userId,
+      policy.slug,
+      policy.revision,
+    );
     if (!acceptance || (tuteeEntry && !user.tuteeMember))
       return { state: "review" as const, ...policy };
   }
@@ -218,7 +250,13 @@ export async function assignStudentRequest(
 ) {
   await expireStudentRequests(db);
   const result = await inTransaction(db, async (tx) => {
-    await enforceAssignmentQualification(tx, userId, "studentWorkflow.assign", { id, ticket, subjectId, tutorId, overrideTicket });
+    await enforceAssignmentQualification(tx, userId, "studentWorkflow.assign", {
+      id,
+      ticket,
+      subjectId,
+      tutorId,
+      overrideTicket,
+    });
     const row = await lockedRequest(tx, id);
     assertRequestProcessable(row);
     await consumeStudentAction(tx, ticket, userId, "ASSIGN", id);
@@ -297,7 +335,10 @@ export async function editStudentAvailability(
     if (old.length === ids.length && old.every((s) => ids.includes(s.slotId)))
       return { ok: true };
     if (expectedVersion !== undefined && row.currentVersion !== expectedVersion)
-      throw new TRPCError({ code: "CONFLICT", message: "This changed since you loaded it — refresh and try again." });
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "This changed since you loaded it — refresh and try again.",
+      });
     await tx.tuteeAvailability.deleteMany({ where: { tuteeId: row.tuteeId! } });
     await tx.tuteeAvailability.createMany({
       data: ids.map((slotId) => ({ tuteeId: row.tuteeId!, slotId })),
@@ -700,7 +741,10 @@ export async function studentRequestRows(
         ...(owned ? { tuteeId: { in: owned } } : email ? { email } : {}),
       },
       orderBy: [{ submittedAt: "asc" }, { id: "asc" }],
-      include: { reviews: { orderBy: { createdAt: "desc" } } },
+      include: {
+        reviews: { orderBy: { createdAt: "desc" } },
+        appeals: { orderBy: { createdAt: "desc" } },
+      },
     }),
     db.subject.findMany({ select: { id: true, name: true } }),
     db.tutee.findMany({
@@ -714,7 +758,16 @@ export async function studentRequestRows(
         pairings: {
           where: { pairing: { termId: term.id } },
           include: {
-            pairing: { include: { tutor: { select: { englishName: true, user: { select: { username: true } } } } } },
+            pairing: {
+              include: {
+                tutor: {
+                  select: {
+                    englishName: true,
+                    user: { select: { username: true } },
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -743,6 +796,24 @@ export async function studentRequestRows(
     return {
       id: row.id,
       ...requestInvalidity(row, includeStaffReview),
+      invalidityVersion: row.invalidityVersion,
+      canAppeal:
+        !!row.invalidatedAt &&
+        row.state === "OPEN" &&
+        !row.appeals.some((a) => a.invalidityVersion === row.invalidityVersion),
+      appeal: (() => {
+        const a = row.appeals.find(
+          (a) => a.invalidityVersion === row.invalidityVersion,
+        );
+        return a
+          ? {
+              id: a.id,
+              reason: a.reason,
+              state: a.state,
+              createdAt: a.createdAt,
+            }
+          : null;
+      })(),
       email: row.email,
       name: input.englishName,
       // Current rendering may use a linked handle without rewriting intake evidence.

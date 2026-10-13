@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { expireStudentRequests } from "./student-request-state";
+import { deliverSignupNotices } from "./student-signup-appeals";
 
 const state = globalThis as typeof globalThis & {
   studentDeadlineWorker?: ReturnType<typeof setInterval>;
@@ -16,6 +17,7 @@ export function startStudentDeadlineWorker() {
       await db.studentActionConfirmation.deleteMany({
         where: { expiresAt: { lt: new Date() } },
       });
+      await deliverSignupNotices(db);
     } catch (error) {
       console.error(
         "[student-deadlines] sweep failed",

@@ -1,7 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { currentStudentSignupPayload } from "~/server/student-signup-answers";
-import { validStudentSignupIntent, completeStudentSignupIntent } from "~/server/student-signup-intents";
+import {
+  validStudentSignupIntent,
+  completeStudentSignupIntent,
+} from "~/server/student-signup-intents";
 import { lockCatalogue } from "~/server/qualifications";
 import { lockStudentRequestReview } from "~/server/request-invalidity";
 import { z } from "zod";
@@ -64,7 +67,11 @@ const sourceSchema = z.discriminatedUnion("type", [
     verifiedAt: z.string(),
   }),
   z.object({ type: z.literal("tutee"), tokenHash: z.string() }),
-  z.object({ type: z.literal("tutee-intent"), id: z.string(), challenge: z.string() }),
+  z.object({
+    type: z.literal("tutee-intent"),
+    id: z.string(),
+    challenge: z.string(),
+  }),
   z.object({
     type: z.literal("history"),
     tokenHash: z.string(),
@@ -368,7 +375,12 @@ async function sourceState(
     const binding = await validStudentSignupIntent(tx, source.id);
     await lockStudentRequestReview(tx, binding.row);
     const signupIntent = await validStudentSignupIntent(tx, source.id);
-    if (!signupIntent.intent.verifiedAt || signupIntent.intent.email !== row.email || signupIntent.intent.tokenHash !== source.challenge) throw invalid();
+    if (
+      !signupIntent.intent.verifiedAt ||
+      signupIntent.intent.email !== row.email ||
+      signupIntent.intent.tokenHash !== source.challenge
+    )
+      throw invalid();
     return { source, signupIntent };
   }
   const history = await setupInvitation(tx, source.tokenHash, row.email, true);
@@ -499,14 +511,14 @@ export async function deliverAccountInvitation(
             )
           : state.signupIntent
             ? +state.signupIntent.intent.expiresAt
-          : state.survey
-            ? Math.min(
-                +state.survey.expiresAt,
-                state.survey.verificationDueAt
-                  ? +state.survey.verificationDueAt
-                  : Infinity,
-              )
-            : +row.expiresAt;
+            : state.survey
+              ? Math.min(
+                  +state.survey.expiresAt,
+                  state.survey.verificationDueAt
+                    ? +state.survey.verificationDueAt
+                    : Infinity,
+                )
+              : +row.expiresAt;
     const expiresAt = new Date(Math.min(+row.expiresAt, sourceExpiry));
     const issued = await tx.accountInvitation.update({
       where: { id: row.id },
@@ -814,15 +826,15 @@ export async function inspectAccountInvitation(
             }
           : state.signupIntent
             ? surveyInput.parse(state.signupIntent.intent.payload)
-          : state.survey
-            ? surveyInput.parse(currentStudentSignupPayload(state.survey))
-            : {
-                firstName: "",
-                lastName: "",
-                preferredName: "",
-                alternativeNames: "",
-                gradeLevel: null,
-              };
+            : state.survey
+              ? surveyInput.parse(currentStudentSignupPayload(state.survey))
+              : {
+                  firstName: "",
+                  lastName: "",
+                  preferredName: "",
+                  alternativeNames: "",
+                  gradeLevel: null,
+                };
     const mfaRequired = Boolean(
       owner?.twoFactorEnabled && (await getFeatures(tx)).EMAIL_2FA,
     );
@@ -832,6 +844,48 @@ export async function inspectAccountInvitation(
       email: row.email,
       completed: false,
       academicConfirmationRequired: false,
+      signupRequest: state.signupIntent
+        ? {
+            id: state.signupIntent.row.id,
+            expectedVersion: state.signupIntent.intent.expectedVersion,
+            originalPriority: state.signupIntent.row.submittedAt,
+            answers: surveyInput.parse(state.signupIntent.intent.payload),
+            policySnapshot: state.signupIntent.intent.policySnapshot,
+            subjects: await tx.subject.findMany({
+              where: {
+                id: {
+                  in: [
+                    surveyInput.parse(state.signupIntent.intent.payload)
+                      .firstChoiceId,
+                    ...(surveyInput.parse(state.signupIntent.intent.payload)
+                      .secondChoiceId
+                      ? [
+                          surveyInput.parse(state.signupIntent.intent.payload)
+                            .secondChoiceId!,
+                        ]
+                      : []),
+                  ],
+                },
+              },
+              select: { id: true, name: true },
+            }),
+            slots: await tx.timeSlot.findMany({
+              where: {
+                id: {
+                  in: surveyInput.parse(state.signupIntent.intent.payload)
+                    .slotIds,
+                },
+              },
+              select: {
+                id: true,
+                label: true,
+                dayOfWeek: true,
+                startMin: true,
+                endMin: true,
+              },
+            }),
+          }
+        : null,
       existing: Boolean(owner),
       // Only a fresh staff invitation has identity intake left to collect. An
       // accepted roster/application is reviewed as source evidence, not edited
@@ -1058,7 +1112,9 @@ export async function redeemAccountInvitation(
       });
     // Complete genuinely missing credentials only. Existing passwords and forced-change
     // flags are not reset by accepting participation; deliberate recovery remains separate.
-    if (owner && !owner.passwordHash)
+    // The staged source checks the credential generation captured at issuance. Complete
+    // it before our own authorized missing-password write increments that generation.
+    if (owner && !owner.passwordHash && !state.signupIntent)
       await tx.user.update({
         where: { id: owner.id },
         data: {
@@ -1125,7 +1181,32 @@ export async function redeemAccountInvitation(
         );
       }
     } else if (state.signupIntent) {
-      await completeStudentSignupIntent(tx, state.signupIntent.intent.id, owner?.id, input.password);
+      await completeStudentSignupIntent(
+        tx,
+        state.signupIntent.intent.id,
+        owner?.id,
+        input.password,
+      );
+      if (
+        owner &&
+        !owner.passwordHash &&
+        !(
+          await tx.user.findUniqueOrThrow({
+            where: { id: owner.id },
+            select: { passwordHash: true },
+          })
+        ).passwordHash
+      )
+        await tx.user.update({
+          where: { id: owner.id },
+          data: {
+            passwordHash: hashPassword(input.password!),
+            mustChangePassword: false,
+            ...(row.email === owner.email
+              ? { emailVerifiedAt: new Date() }
+              : {}),
+          },
+        });
     } else if (state.survey) {
       await confirmSurvey(tx, state.survey.tokenHash, input.password, {
         tokenIsDigest: true,

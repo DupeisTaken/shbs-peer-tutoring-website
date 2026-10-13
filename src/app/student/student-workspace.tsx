@@ -18,6 +18,7 @@ import { StudentSignupEditor } from "~/app/_components/student-signup-editor";
 type Request = RouterOutputs["studentWorkflow"]["mine"][number];
 export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
   const t = useTranslations("workflow");
+  const appeal = useTranslations("signupAppeal");
   const recovery = useTranslations("participantRecovery");
   const queryClient = useQueryClient();
   const [denied, setDenied] = useState(false);
@@ -161,12 +162,12 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
           ?.filter((r) => r.state !== "OPEN")
           .map((row) => (
             <div key={row.id} className="card p-5">
-              <span className="badge-slate">{t(`state.${row.state}`)}</span>
+              <span className="badge-slate">{row.state === "INVALID_REJECTED" ? appeal("rejectedTitle") : t(`state.${row.state}`)}</span>
               <p className="mt-2 text-sm">
                 {row.subjects.map((s) => s.name).join(", ")}
               </p>
               <p className="muted mt-2 text-sm">
-                {t(row.state === "ABORTED" ? "abortFinal" : "closedFinal")}
+                {row.state === "INVALID_REJECTED" ? appeal("rejected") : t(row.state === "ABORTED" ? "abortFinal" : "closedFinal")}
               </p>
             </div>
           ))}
@@ -189,11 +190,9 @@ function CurrentRequest({
   const format = useFormatter();
   const locale = useLocale();
   const t = useTranslations("workflow");
-  const recovery = useTranslations("participantRecovery");
+  const signupEditing = useTranslations("signupEditing");
   const scheduling = useTranslations("scheduling");
   const utils = api.useUtils();
-  const options = api.tutee.signupOptions.useQuery();
-  const [slots, setSlots] = useState(row.slots.map((s) => s.id));
   const [editing, setEditing] = useState(false);
   const [action, setAction] = useState<"RECALL" | "ABORT" | null>(null);
   const [reason, setReason] = useState("");

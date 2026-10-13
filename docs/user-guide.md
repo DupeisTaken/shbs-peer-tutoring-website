@@ -131,6 +131,13 @@ interval. Tutee resends preserve your original submission time and place. A fail
 email does not mean you need to submit a new survey. Contact the team if delivery
 continues to fail. Existing emailed verification links remain independently usable.
 
+Retrying the same accepted tutee submission recovers its acknowledgement without
+sending another verification email or requiring another CAPTCHA. Changing the
+answers is a deliberate new submission: it has its own verification challenge and
+policy signature. A retry with changed answers is refused. Failed saves retain
+your draft; if the request saved but refreshing failed, use the read-only recovery
+action instead of submitting it again.
+
 ### Switch workspaces
 
 Management headers and account menus show **Enter Tutor Page**, then **Enter Tutee Page** together when eligible. The tutor shortcut requires a linked, non-archived profile with tutoring access. Tutee workspace access preserves personal records, while new participation follows the onboarding and departure rules above. Management accounts without tutor eligibility can still open the tutee workspace and return to management.
@@ -163,11 +170,32 @@ still apply. Independently assigned management, crew and translator permissions 
 
 1. Open **Request a Tutor** on the home page or any section of the tutee page when intake is open. You can start with the form before creating an account.
 2. Enter your name, email, preferred contact method, subject choices and available times. Read the displayed tutee policy and sign the agreement.
-3. Choose **Submit Request**. Your original survey submission sets your priority. Repeating the same open request does not buy an earlier place.
+3. Choose **Submit Request**. Your first eligible submission sets your priority. Using the same email for a later request does not buy an earlier place.
 4. Enter the verification code sent to your email, or open the existing account-confirmation link and explicitly confirm the email. The invitation popup shows a code, optional email delivery and a prefilled link to `/register`. Review the request there and create missing credentials if needed. Existing accounts retain credentials and other access; an exclusive Viewer leaves Viewer when accepting tutee participation.
 5. Continue to **Enter Tutee Page**, then **Requests**, to check your confirmed request and available times. If verification or review is interrupted, use its resend/recovery action or reopen the invitation rather than submitting another application.
 
-An account link lasts 24 hours. Request a new link if it expires; a successful resend replaces the previous link. Staff may assign a tutor before you confirm. That first assignment starts a fixed seven-day verification deadline. Reassignment and link resends do not extend it. An unverified request closes when its deadline passes and its assignments are released; you must submit a new request with a new priority timestamp.
+Use your existing account email or a verified secondary address if you already have
+an account, including an account used for tutoring others. The website keeps one
+account for that email. A matching email alone cannot reveal or change a request:
+verify the code for this exact submission, complete the existing sign-in and any
+required two-factor check, then explicitly review it. The accepted submission
+replaces your current open request's answers while retaining its original priority,
+assignments, attendance and original signed agreement. Each deliberate submission
+also records its own signed consent, even if the answers are identical. This
+replacement behavior applies to tutee requests; tutor recruitment keeps its
+existing application and interview process.
+
+A staged replacement has its own challenge. It does not change the live request or
+invalidate that request's existing email proof while awaiting review. Account links
+and staged challenges last up to 24 hours. A successful resend replaces only the
+proof being resent; a failed delivery preserves its usable proof. Staff may assign
+a tutor before you confirm. That first assignment starts a fixed seven-day
+verification deadline. Reassignment, replacement submissions and resends do not
+extend it. An expired original link can be followed by a fresh proven submission
+while this deadline still permits verification. An unverified request closes when
+the deadline passes and its assignments are released; a later eligible request
+receives a new priority timestamp. Signup closing creates no extra verification
+deadline.
 
 The configured tutee signup opening and closing times apply to new requests even
 when you are already signed in. Returning to the form checks the current intake
@@ -183,7 +211,7 @@ The tutee page uses the same top bar, account menu, theme and card layout as the
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | Dashboard            | See current scheduled sessions and verified open requests, then follow a link to the task you need                                 |
 | My Tutors & Schedule | See current tutoring sessions, tutors, times and rooms across your explicitly linked profiles                                      |
-| Requests             | Review confirmed requests, change availability and manage participation; completed requests remain in the current period’s history |
+| Requests             | Review and edit owned open requests, manage participation and appeal an invalid request; completed requests remain in history |
 | Attendance           | Review recorded sessions across intakes and submit feedback                                                                        |
 | Support              | Review your disciplinary cards and appeals or open a private conversation                                                          |
 | Messages             | Read and send messages within the tutee workspace                                                                                  |
@@ -203,12 +231,31 @@ actions. Each list keeps its own page and navigation state.
 
 | What you need                | Action                                    | What happens                                                                                                             |
 | ---------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Change your available times  | **Edit availability**                     | Subjects, priority and current assignments stay the same; coordinate the actual meeting with your tutor                  |
+| Correct request details      | Open the current request's signup editor | Change names, grade, phone, preferred contact, availability and unassigned subject choices; original priority and signed evidence remain |
+| Change an assigned subject   | Ask Head to review the assignment        | Owners cannot drop assigned choices; Head reviews assignment release and request edits together, retaining recorded sessions |
 | Cancel an unassigned request | Recall it and confirm the consequences    | That request closes permanently; applying again creates a new timestamp                                                  |
 | Leave after assignment       | **Request withdrawal…** and give a reason | Assignment continues during review; approval ends participation and blocks another request in the current program period |
 | See the result               | **Current Request** and **Processed**     | Review state and assignment are shown separately                                                                         |
 
 Important actions display consequences and a countdown before confirmation. A pending request is not an approved change. If a tutor reports a schedule conflict, an approved rejection removes only that tutor’s assignment and returns your request for matching at its original priority.
+
+You can edit an owned **OPEN** request during its active program period even after
+public signup closes. Historical and terminal requests are read only. The editor
+changes this request's answers; shared login identity, credentials and canonical
+account academics remain separate. Current required fields, offered grades,
+subjects and time slots still apply, with assigned subject choices retained. If
+another edit changed the request, your draft remains available, but explicitly
+reload its current version before deciding what to save. A later policy publication
+does not rewrite a submission's signature or accept the new policy for you; the
+workspace's separate current-policy requirement still applies.
+
+An invalid request shows a notice and sends an email notification. Give a reason
+to appeal before the active program period rolls over. The request stays invalid
+and blocked from processing during review. Admin or Head can accept the appeal or
+finally reject it. Acceptance clears the flag and retains the original priority;
+final rejection closes the active request and ends that priority, while preserving
+its history and decision evidence. A later eligible submission starts a new request
+with a new priority. Appeals do not extend a fixed verification deadline.
 
 ### Withdrawal requests
 
@@ -604,6 +651,20 @@ These flags do not delete records or impose discipline.
 Reasons are internal management information. Failed saves retain the reason for
 retry; after a successful save, **Retry refresh** reloads the records without
 submitting the same change again.
+
+For tutee requests, the owner receives an invalidity notice and can submit a
+reasoned appeal until active-period rollover. The flag remains effective throughout
+review. Admin/Head review the appeal; accepting it clears the flag, while final
+rejection closes the active request and removes its priority without erasing the
+original submission, revisions, assignments' historical records or audit evidence.
+A later eligible request receives a new timestamp. The existing tutor-application
+review process is separate.
+
+Head can review current signup answers and change assigned choices only with an
+explicit review of affected assignment releases. Owners may change only their
+unassigned choices. Neither action rewrites shared login identity, original policy
+signatures, sessions or attendance. Current/historical request readers keep the
+original submission and accepted answer revisions distinct.
 
 Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history.
 

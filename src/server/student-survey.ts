@@ -417,9 +417,19 @@ export async function validSurvey(
   });
   // Only the trusted shared invitation completion supplies this source. A fresh exact
   // mailbox proof can outlive the old link, but never its assignment/period deadline.
-  const intentProof = verifiedSignupIntentId ? await db.studentSignupIntent.findUnique({ where: { id: verifiedSignupIntentId } }) : null;
-  const hasIntentProof = !!intentProof && !!intentProof.verifiedAt && !intentProof.completedAt && intentProof.surveyId === row?.id && intentProof.expiresAt > new Date();
-  if (verifiedSignupIntentId && !hasIntentProof) throw new TRPCError({ code: "BAD_REQUEST", message: "INVITATION_INVALID" });
+  const intentProof = verifiedSignupIntentId
+    ? await db.studentSignupIntent.findUnique({
+        where: { id: verifiedSignupIntentId },
+      })
+    : null;
+  const hasIntentProof =
+    !!intentProof &&
+    !!intentProof.verifiedAt &&
+    !intentProof.completedAt &&
+    intentProof.surveyId === row?.id &&
+    intentProof.expiresAt > new Date();
+  if (verifiedSignupIntentId && !hasIntentProof)
+    throw new TRPCError({ code: "BAD_REQUEST", message: "INVITATION_INVALID" });
   if (
     row?.state !== "OPEN" ||
     row.invalidatedAt ||
@@ -438,9 +448,14 @@ export async function validSurvey(
 export async function inspectSurvey(db: DomainDb, token: string) {
   await expireStudentRequests(db);
   const row = await validSurvey(db, token);
-  const user = await db.user.findFirst({ where: { OR: [
-    { email: row.email }, { emails: { some: { email: row.email, verifiedAt: { not: null } } } },
-  ] } });
+  const user = await db.user.findFirst({
+    where: {
+      OR: [
+        { email: row.email },
+        { emails: { some: { email: row.email, verifiedAt: { not: null } } } },
+      ],
+    },
+  });
   if (user?.mergedIntoId)
     throw new TRPCError({
       code: "FORBIDDEN",
@@ -497,16 +512,30 @@ export async function confirmSurvey(
   db: DomainDb,
   token: string,
   password?: string,
-  identity?: { tokenIsDigest: true; authenticatedUserId?: string; verifiedSignupIntentId?: string },
+  identity?: {
+    tokenIsDigest: true;
+    authenticatedUserId?: string;
+    verifiedSignupIntentId?: string;
+  },
 ) {
   await expireStudentRequests(db);
-  const initial = await validSurvey(db, token, identity?.tokenIsDigest, identity?.verifiedSignupIntentId);
+  const initial = await validSurvey(
+    db,
+    token,
+    identity?.tokenIsDigest,
+    identity?.verifiedSignupIntentId,
+  );
   return inTransaction(db, async (tx) => {
     await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
     await lockCatalogue(tx);
     await lockEntity(tx, `student-survey:${initial.email}`);
-    const row = await validSurvey(tx, token, identity?.tokenIsDigest, identity?.verifiedSignupIntentId);
+    const row = await validSurvey(
+      tx,
+      token,
+      identity?.tokenIsDigest,
+      identity?.verifiedSignupIntentId,
+    );
     const term = await activeIntake(tx);
     if (term?.id !== row.intakeTermId)
       throw new TRPCError({
@@ -515,6 +544,14 @@ export async function confirmSurvey(
           "This intake has ended. Submit a new survey for the current intake.",
       });
     const input = surveyInput.parse(currentStudentSignupPayload(row));
+    const proofEmail = identity?.verifiedSignupIntentId
+      ? (
+          await tx.studentSignupIntent.findUniqueOrThrow({
+            where: { id: identity.verifiedSignupIntentId },
+            select: { email: true },
+          })
+        ).email
+      : row.email;
     const originalInput = surveyInput.parse(row.payload);
     if (!row.tuteeId && !(await validateChoices(tx, input)))
       throw new TRPCError({
@@ -577,7 +614,7 @@ export async function confirmSurvey(
           alternativeNames: input.alternativeNames,
           name: input.englishName,
           passwordHash: hashPassword(password),
-          emailVerifiedAt: new Date(),
+          ...(proofEmail === row.email ? { emailVerifiedAt: new Date() } : {}),
           role: "STUDENT",
         },
       });
@@ -592,7 +629,7 @@ export async function confirmSurvey(
         where: { id: user.id },
         data: {
           passwordHash: hashPassword(password),
-          emailVerifiedAt: new Date(),
+          ...(proofEmail === user.email ? { emailVerifiedAt: new Date() } : {}),
           mustChangePassword: false,
         },
       });
@@ -612,7 +649,7 @@ export async function confirmSurvey(
         // Proof of a verified secondary address must not mark the primary address verified.
         emailVerifiedAt:
           user.emailVerifiedAt ??
-          (row.email === user.email ? new Date() : null),
+          (proofEmail === user.email ? new Date() : null),
       },
     });
     // Verification establishes the explicit link; the existing account remains the identity source.

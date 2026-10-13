@@ -35,9 +35,12 @@ import {
 import { emailSender, isEmailDeliveryAvailable } from "./email/sender";
 import { emailOrigin } from "./email/urls";
 import { requireSchoolParticipation } from "./school-departure";
+import { signupRejected } from "./signup-admission";
 
 type Input = z.infer<typeof surveyInput>;
 const hashKey = (key: string) => createHash("sha256").update(key).digest("hex");
+export const studentSignupAdmissionLane = (key: string) =>
+  `tutee-intent:${hashKey(key)}`;
 const inputDigest = (input: Input) =>
   studentSignupIntentDigest(JSON.parse(JSON.stringify(input)));
 const invalid = () =>
@@ -63,17 +66,37 @@ export async function recoverStudentSignupIntent(
   input: Input,
   clientKey: string,
   submittedByUserId?: string,
+  ownAdmission = false,
 ) {
-  const row = await db.studentSignupIntent.findUnique({
-    where: { keyHash: hashKey(clientKey) },
+  return inTransaction(db, async (tx) => {
+    await lockEntity(tx, `student-signup-intent:${hashKey(clientKey)}`);
+    const row = await tx.studentSignupIntent.findUnique({
+      where: { keyHash: hashKey(clientKey) },
+    });
+    if (!row) {
+      if (
+        !ownAdmission &&
+        (await tx.signupLease.findFirst({
+          where: {
+            slot: `${studentSignupAdmissionLane(clientKey)}:1`,
+            expiresAt: { gt: new Date() },
+          },
+          select: { slot: true },
+        }))
+      )
+        signupRejected(5);
+      return null;
+    }
+    if (
+      row.inputHash !== inputDigest(input) ||
+      (row.submittedByUserId && row.submittedByUserId !== submittedByUserId)
+    )
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "SIGNUP_RETRY_CHANGED",
+      });
+    return receipt(row);
   });
-  if (!row) return null;
-  if (
-    row.inputHash !== inputDigest(input) ||
-    (row.submittedByUserId && row.submittedByUserId !== submittedByUserId)
-  )
-    throw new TRPCError({ code: "CONFLICT", message: "SIGNUP_RETRY_CHANGED" });
-  return receipt(row);
 }
 
 /** Save new demand immediately, but stage a replacement independently. The live request's
@@ -99,6 +122,7 @@ export async function stageStudentSignupIntent(
       posted,
       clientKey,
       submittedByUserId,
+      true,
     );
     if (prior) return { prior, intent: null };
     const term = await tx.term.findFirst({
@@ -120,17 +144,36 @@ export async function stageStudentSignupIntent(
     }
     await lockEntity(tx, `student-survey:${posted.email}`);
     const owned = account ? await ownedStudentIds(tx, account.id) : [];
-    let row = await tx.studentSurvey.findFirst({
+    const addresses = account
+      ? [
+          account.email,
+          ...(
+            await tx.accountEmail.findMany({
+              where: { userId: account.id, verifiedAt: { not: null } },
+              select: { email: true },
+            })
+          ).map((a) => a.email),
+        ]
+      : [posted.email];
+    const candidates = await tx.studentSurvey.findMany({
       where: {
         intakeTermId: term.id,
         state: "OPEN",
         OR: [
-          { email: posted.email },
+          { email: { in: [...new Set([posted.email, ...addresses])] } },
           ...(owned.length ? [{ tuteeId: { in: owned } }] : []),
         ],
       },
       orderBy: { submittedAt: "asc" },
+      take: 2,
     });
+    if (candidates.length > 1)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message:
+          "Multiple current requests need staff review before replacement.",
+      });
+    let row = candidates[0] ?? null;
     if (row) {
       await lockStudentRequestReview(tx, row);
       row = await tx.studentSurvey.findUniqueOrThrow({ where: { id: row.id } });
@@ -145,7 +188,7 @@ export async function stageStudentSignupIntent(
       locked.subjectIds,
     );
     const fields = (await getSignupSettings(tx)).tutee;
-    const input = normalizeTuteeFields({ ...posted, ...answers }, fields);
+    const input = { ...normalizeTuteeFields(posted, fields), ...answers };
     if (missingTuteeFields(input, fields).length)
       throw new TRPCError({
         code: "BAD_REQUEST",
@@ -227,7 +270,7 @@ async function sendStudentSignupIntent(
       signup: true,
       to: intent.email,
       subject: "Tutoring signup — verify this submission",
-      text: `Your email verification code is ${surveyEmailCode(intent.tokenHash)}. / 您的邮箱验证码是 ${surveyEmailCode(intent.tokenHash)}。\n\nThis code is for this exact submitted signup. Your previous request stays unchanged until you sign in and review this submission. Priority and existing assignments are preserved. / 此验证码仅用于本次提交。登录并确认前，原申请保持不变。\n\nVerify by ${intent.expiresAt.toISOString()}.\n${emailOrigin()}/tutee/account?intent=${intent.id}`,
+      text: `Your email verification code is ${surveyEmailCode(intent.tokenHash)}. / 您的邮箱验证码是 ${surveyEmailCode(intent.tokenHash)}。\n\nThis code is for this exact submitted signup. Your previous request stays unchanged until you sign in and review this submission. Priority and existing assignments are preserved. / 此验证码仅用于本次提交。登录并确认前，原申请保持不变。\n\nVerify by ${intent.expiresAt.toISOString()}.\n${emailOrigin()}/tutee-signup/account?intent=${intent.id}`,
     });
     return true;
   } catch {
@@ -352,6 +395,7 @@ export async function completeStudentSignupIntent(
   const initial = await validStudentSignupIntent(tx, id);
   await lockStudentRequestReview(tx, initial.row);
   const { intent, row } = await validStudentSignupIntent(tx, id);
+  if (!intent.verifiedAt) throw invalid();
   const owner = await emailOwner(tx, intent.email);
   if (owner) {
     await lockAccountProfile(tx, owner.id);
@@ -393,14 +437,20 @@ export async function completeStudentSignupIntent(
     assigned.subjectIds,
   );
   const fields = (await getSignupSettings(tx)).tutee;
-  const accepted = normalizeTuteeFields({ ...posted, ...normalized }, fields);
+  // Normalize once for current answers, retaining locked hidden second choices. Staged
+  // explicit consent stays exact evidence even if signature visibility changes meanwhile.
+  const accepted = {
+    ...normalizeTuteeFields(posted, fields),
+    ...normalized,
+    signatureName: posted.signatureName,
+  };
   if (missingTuteeFields(accepted, fields).length)
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "Complete the current required signup fields.",
     });
   const answers = studentSignupLocalAnswers(accepted) as Prisma.InputJsonObject;
-  const selected = [posted.firstChoiceId, posted.secondChoiceId];
+  const selected = [accepted.firstChoiceId, accepted.secondChoiceId];
   if (assigned.subjectIds.some((subjectId) => !selected.includes(subjectId)))
     throw new TRPCError({
       code: "FORBIDDEN",

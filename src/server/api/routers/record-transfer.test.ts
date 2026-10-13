@@ -298,8 +298,14 @@ it("rejects conflicts introduced after preview and tampered/expired tickets", as
     caller().recordTransfer.import({ files, ticket: preview.ticket }),
   ).rejects.toThrow(/different values/i);
   expect(await db.term.count()).toBe(0);
-  expect(await db.auditLog.count({ where: { kind: { not: "ATTEMPT" } } })).toBe(0);
-  expect(await db.auditLog.count({ where: { kind: "ATTEMPT", operation: "recordTransfer.import" } })).toBe(3);
+  expect(await db.auditLog.count({ where: { kind: { not: "ATTEMPT" } } })).toBe(
+    0,
+  );
+  expect(
+    await db.auditLog.count({
+      where: { kind: "ATTEMPT", operation: "recordTransfer.import" },
+    }),
+  ).toBe(3);
 });
 
 it("exports re-importable files and excludes credentials and verification tokens", async () => {
@@ -386,10 +392,8 @@ it("preserves JSON scalar types and JSON null while rejecting partial JSON match
   await expect(
     caller().recordTransfer.preview({ files: exported.files }),
   ).resolves.toBeDefined();
-  await db.studentSurvey.update({
-    where: { id: "survey-json" },
-    data: { payload: { a: 1, b: 2 } },
-  });
+  // Original submission evidence is now immutable; a distinct incoming JSON value
+  // must still be rejected rather than compared as a partial object match.
   await expect(
     caller().recordTransfer.preview({
       files: [file("StudentSurvey", [{ ...row, payload: { a: 1 } }])],

@@ -311,6 +311,6 @@ it("retains inactive assigned choices, permits other edits, rejects dropping the
       clientKey: randomUUID(),
       expectedVersion: 1,
     }),
-  ).rejects.toMatchObject({ code: "CONFLICT" });
+  ).resolves.toMatchObject({ version: 2 });
   expect(await db.pairingTutee.count()).toBe(1);
 });

@@ -668,11 +668,8 @@ it("checks new student intake and preserves accepted pre-policy identity at rede
   ).rejects.toMatchObject(policyError);
   expect(await db.studentSurvey.count()).toBe(0);
   await setRequired(false);
-  const historicalPayload = await studentInput("Xiaoming Wang");
+  const historicalPayload = await studentInput("王小明");
   await submitSurvey(db, historicalPayload);
-  await db.studentSurvey.updateMany({
-    data: { payload: { ...historicalPayload, englishName: "王小明" } },
-  });
   const token = lastStudentToken();
   await setRequired(true);
   // Stored intake is accepted source evidence; a tightened rule governs later
@@ -866,5 +863,8 @@ it("preserves an accepted invited roster identity through first login without ad
   expect(await db.tutor.findUnique({ where: { id: roster.id } })).toMatchObject(
     { englishName: "王小明", legacyName: "王小明", username: "rosterhandle" },
   );
-  expect((await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } })).usedAt).toBeInstanceOf(Date);
+  expect(
+    (await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } }))
+      .usedAt,
+  ).toBeInstanceOf(Date);
 });

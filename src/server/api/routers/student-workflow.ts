@@ -1,5 +1,9 @@
 import { applyLegacyStudentWithdrawal } from "~/server/legacy-student-withdrawal";
-import { assertRequestProcessable, requestInvalidityInput, setStudentRequestInvalidity } from "~/server/request-invalidity";
+import {
+  assertRequestProcessable,
+  requestInvalidityInput,
+  setStudentRequestInvalidity,
+} from "~/server/request-invalidity";
 import { ownedStudentIds } from "~/server/student-ownership";
 import { z } from "zod";
 import {
@@ -26,17 +30,96 @@ import {
 import { resendSurvey, surveyLimit } from "~/server/student-survey";
 import { expireStudentRequests } from "~/server/student-request-state";
 import { TRPCError } from "@trpc/server";
-import { inspectOwnedStudentSignup, editOwnedStudentSignup, studentSignupEditInput } from "~/server/student-signup-editor";
+import {
+  inspectOwnedStudentSignup,
+  editOwnedStudentSignup,
+  studentSignupEditInput,
+} from "~/server/student-signup-editor";
+import {
+  headSignupUnassignInput,
+  unassignStudentSignup,
+} from "~/server/student-signup-management";
+import {
+  signupAppealTokenInput,
+  signupAppealInput,
+  ownedSignupAppealInput,
+  resolveSignupAppealInput,
+  inspectSignupAppeal,
+  appealStudentSignup,
+  resolveStudentSignupAppeal,
+  retrySignupNotices,
+} from "~/server/student-signup-appeals";
 
 const id = z.string().min(1).max(128);
 const ticket = z.string().min(1).max(128);
 const reason = z.string().trim().min(1).max(2000);
 
 export const studentWorkflowRouter = createTRPCRouter({
-  signup: protectedProcedure.input(z.object({ id }).strict()).query(({ ctx, input }) =>
-    inspectOwnedStudentSignup(ctx.db, ctx.session.user.id, input.id)),
-  editSignup: protectedProcedure.input(studentSignupEditInput).mutation(({ ctx, input }) =>
-    editOwnedStudentSignup(ctx.db, ctx.session.user.id, input)),
+  managedSignup: adminProcedure
+    .input(z.object({ id }).strict())
+    .query(({ ctx, input }) =>
+      inspectOwnedStudentSignup(ctx.db, ctx.session.user.id, input.id, true),
+    ),
+  headEditSignup: adminProcedure
+    .input(
+      studentSignupEditInput
+        .extend({
+          signedTicket: ticket,
+          releaseChangedAssignments: z.literal(true),
+        })
+        .strict(),
+    )
+    .mutation(({ ctx, input }) =>
+      editOwnedStudentSignup(ctx.db, ctx.session.user.id, input, {
+        signedTicket: input.signedTicket,
+        releaseChangedAssignments: true,
+      }),
+    ),
+  headUnassign: adminProcedure
+    .input(headSignupUnassignInput)
+    .mutation(({ ctx, input }) =>
+      unassignStudentSignup(ctx.db, ctx.session.user.id, input),
+    ),
+  inspectSignupAppeal: publicProcedure
+    .input(signupAppealTokenInput)
+    .mutation(({ ctx, input }) => inspectSignupAppeal(ctx.db, input.token)),
+  appealSignup: publicProcedure
+    .input(signupAppealInput)
+    .mutation(({ ctx, input }) => appealStudentSignup(ctx.db, input)),
+  appealOwnedSignup: protectedProcedure
+    .input(ownedSignupAppealInput)
+    .mutation(({ ctx, input }) =>
+      appealStudentSignup(ctx.db, input, ctx.session.user.id),
+    ),
+  resolveSignupAppeal: adminProcedure
+    .input(resolveSignupAppealInput)
+    .mutation(({ ctx, input }) =>
+      resolveStudentSignupAppeal(ctx.db, ctx.session.user.id, input),
+    ),
+  resendSignupNotice: adminProcedure
+    .input(z.object({ id }).strict())
+    .mutation(async ({ ctx, input }) => {
+      const actor = await ctx.db.user.findUniqueOrThrow({
+        where: { id: ctx.session.user.id },
+      });
+      if (
+        !["HEAD", "ADMIN", "COORDINATOR"].includes(actor.role) ||
+        actor.suspendedAt ||
+        actor.mergedIntoId
+      )
+        throw new TRPCError({ code: "FORBIDDEN" });
+      return retrySignupNotices(ctx.db, input.id);
+    }),
+  signup: protectedProcedure
+    .input(z.object({ id }).strict())
+    .query(({ ctx, input }) =>
+      inspectOwnedStudentSignup(ctx.db, ctx.session.user.id, input.id),
+    ),
+  editSignup: protectedProcedure
+    .input(studentSignupEditInput)
+    .mutation(({ ctx, input }) =>
+      editOwnedStudentSignup(ctx.db, ctx.session.user.id, input),
+    ),
   prepareAction: protectedProcedure
     .input(
       z.object({
@@ -56,7 +139,9 @@ export const studentWorkflowRouter = createTRPCRouter({
   policyStatus: publicProcedure
     .input(z.object({ tuteeEntry: z.boolean().default(false) }).optional())
     .query(({ ctx, input }) =>
-      ctx.session?.user ? studentPolicyStatus(ctx.db, ctx.session.user.id, input?.tuteeEntry) : null,
+      ctx.session?.user
+        ? studentPolicyStatus(ctx.db, ctx.session.user.id, input?.tuteeEntry)
+        : null,
     ),
   acceptPolicy: protectedProcedure
     .input(
@@ -173,7 +258,15 @@ export const studentWorkflowRouter = createTRPCRouter({
       ),
     ),
   editAvailability: protectedProcedure
-    .input(z.object({ id, slotIds: z.array(id).min(1).max(100), expectedVersion: z.number().int().nonnegative().default(0) }).strict())
+    .input(
+      z
+        .object({
+          id,
+          slotIds: z.array(id).min(1).max(100),
+          expectedVersion: z.number().int().nonnegative().default(0),
+        })
+        .strict(),
+    )
     .mutation(({ ctx, input }) =>
       editStudentAvailability(
         ctx.db,
@@ -199,10 +292,14 @@ export const studentWorkflowRouter = createTRPCRouter({
         input.ticket,
       ),
     ),
-  adminRequests: adminProcedure.query(({ ctx }) => studentRequestRows(ctx.db, undefined, undefined, true)),
+  adminRequests: adminProcedure.query(({ ctx }) =>
+    studentRequestRows(ctx.db, undefined, undefined, true),
+  ),
   setRequestInvalidity: adminProcedure
     .input(requestInvalidityInput)
-    .mutation(({ ctx, input }) => setStudentRequestInvalidity(ctx.db, input, ctx.session.user)),
+    .mutation(({ ctx, input }) =>
+      setStudentRequestInvalidity(ctx.db, input, ctx.session.user),
+    ),
   legacyReviews: adminProcedure.query(async ({ ctx }) => {
     const term = await ctx.db.term.findFirst({
       where: { active: true },
@@ -240,7 +337,15 @@ export const studentWorkflowRouter = createTRPCRouter({
     }));
   }),
   assign: adminProcedure
-    .input(z.object({ id, ticket, subjectId: id, tutorId: id, overrideTicket: ticket.optional() }))
+    .input(
+      z.object({
+        id,
+        ticket,
+        subjectId: id,
+        tutorId: id,
+        overrideTicket: ticket.optional(),
+      }),
+    )
     .mutation(({ ctx, input }) =>
       assignStudentRequest(
         ctx.db,

@@ -1,5 +1,6 @@
 -- Keep original submission/consent evidence and existing address/term ownership constraints.
 -- These additive columns expose no new edit, eligibility, deadline or invitation permissions.
+ALTER TYPE "StudentSurveyState" ADD VALUE IF NOT EXISTS 'INVALID_REJECTED';
 ALTER TABLE "StudentSurvey"
   ADD COLUMN "currentPayload" JSONB,
   ADD COLUMN "currentVersion" INTEGER NOT NULL DEFAULT 0,
@@ -63,6 +64,43 @@ CREATE UNIQUE INDEX "StudentSignupIntent_keyHash_key" ON "StudentSignupIntent"("
 CREATE UNIQUE INDEX "StudentSignupIntent_tokenHash_key" ON "StudentSignupIntent"("tokenHash");
 CREATE INDEX "StudentSignupIntent_email_receivedAt_idx" ON "StudentSignupIntent"("email", "receivedAt");
 
+CREATE TYPE "StudentSignupAppealState" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED');
+CREATE TABLE "StudentSignupAppeal" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "surveyId" TEXT NOT NULL REFERENCES "StudentSurvey"("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+  "invalidityVersion" INTEGER NOT NULL,
+  "actorUserId" TEXT,
+  "reason" TEXT NOT NULL CHECK (length(btrim("reason")) BETWEEN 1 AND 2000),
+  "clientKey" UUID NOT NULL DEFAULT gen_random_uuid(),
+  "inputHash" TEXT NOT NULL,
+  "state" "StudentSignupAppealState" NOT NULL DEFAULT 'PENDING',
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "resolvedAt" TIMESTAMP(3),
+  "resolvedByUserId" TEXT,
+  "decisionKey" UUID,
+  "decisionHash" TEXT
+);
+CREATE UNIQUE INDEX "StudentSignupAppeal_surveyId_invalidityVersion_key" ON "StudentSignupAppeal"("surveyId", "invalidityVersion");
+CREATE INDEX "StudentSignupAppeal_state_createdAt_idx" ON "StudentSignupAppeal"("state", "createdAt");
+CREATE TABLE "StudentSignupNotice" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "surveyId" TEXT NOT NULL REFERENCES "StudentSurvey"("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+  "invalidityVersion" INTEGER NOT NULL,
+  "kind" TEXT NOT NULL CHECK ("kind" IN ('INVALID_FLAGGED','APPEAL_ACCEPTED','APPEAL_REJECTED')),
+  "recipientEmail" TEXT,
+  "accountId" TEXT,
+  "sessionVersion" INTEGER,
+  "tokenHash" TEXT,
+  "state" TEXT NOT NULL DEFAULT 'PENDING' CHECK ("state" IN ('PENDING','SENT','FAILED','BLOCKED')),
+  "attempts" INTEGER NOT NULL DEFAULT 0,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "lastAttemptAt" TIMESTAMP(3),
+  "sentAt" TIMESTAMP(3)
+);
+CREATE UNIQUE INDEX "StudentSignupNotice_tokenHash_key" ON "StudentSignupNotice"("tokenHash");
+CREATE UNIQUE INDEX "StudentSignupNotice_surveyId_invalidityVersion_kind_key" ON "StudentSignupNotice"("surveyId", "invalidityVersion", "kind");
+CREATE INDEX "StudentSignupNotice_state_createdAt_idx" ON "StudentSignupNotice"("state", "createdAt");
+
 -- Shared account/profile and request tools must not overwrite the source evidence while editing.
 CREATE FUNCTION protect_student_signup_original() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -82,3 +120,19 @@ BEGIN
 END $$;
 CREATE TRIGGER student_signup_revision BEFORE UPDATE OR DELETE ON "StudentSignupRevision"
   FOR EACH ROW EXECUTE FUNCTION protect_student_signup_revision();
+
+-- Applicant explanation is immutable evidence; only its first final staff decision
+-- may be appended. Retry/capability keys remain operational and are not archived.
+CREATE FUNCTION protect_student_signup_appeal() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN RAISE EXCEPTION 'Student signup appeal evidence cannot be deleted'; END IF;
+  IF ROW(NEW.id, NEW."surveyId", NEW."invalidityVersion", NEW."actorUserId", NEW.reason,
+         NEW."clientKey", NEW."inputHash", NEW."createdAt") IS DISTINCT FROM
+     ROW(OLD.id, OLD."surveyId", OLD."invalidityVersion", OLD."actorUserId", OLD.reason,
+         OLD."clientKey", OLD."inputHash", OLD."createdAt") OR OLD.state <> 'PENDING' THEN
+    RAISE EXCEPTION 'Student signup appeal evidence cannot be rewritten';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER student_signup_appeal BEFORE UPDATE OR DELETE ON "StudentSignupAppeal"
+  FOR EACH ROW EXECUTE FUNCTION protect_student_signup_appeal();

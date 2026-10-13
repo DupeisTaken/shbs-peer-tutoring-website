@@ -32,12 +32,19 @@ vi.mock("./timed-action-dialog", () => ({
     children,
     onConfirm,
     onCancel,
+    action,
+    target,
+    message,
   }: {
     children: React.ReactNode;
     onConfirm: (ticket: string) => void;
     onCancel: () => void;
+    action: string;
+    target: string;
+    message: string;
   }) => (
-    <div role="dialog" aria-label="Consequence confirmation">
+    <div role="dialog" aria-label="Consequence confirmation" data-action={action} data-target={target}>
+      <p>{message}</p>
       {children}
       <button onClick={() => onConfirm("fresh-review-ticket")}>
         Confirm consequences
@@ -150,6 +157,23 @@ beforeEach(() => {
   queue();
 });
 afterEach(cleanup);
+
+it.each([
+  ["studentWorkflow.headEditSignup", {id:"signup",signedTicket:"old-ticket"}, "SIGNUP_EDIT", "signup", en.signupEditing.headConsequences],
+  ["studentWorkflow.headUnassign", {id:"signup",pairingId:"pairing",signedTicket:"old-ticket"}, "SIGNUP_UNASSIGN", "signup:pairing", en.signupAppeal.unassignConsequences],
+  ["studentWorkflow.resolveSignupAppeal", {id:"appeal",approve:false,signedTicket:"old-ticket"}, "SIGNUP_APPEAL", "appeal:false", en.signupAppeal.rejectConsequences],
+  ["studentWorkflow.resolveSignupAppeal", {id:"appeal",approve:true,signedTicket:"old-ticket"}, "SIGNUP_APPEAL", "appeal:true", en.signupAppeal.approveConsequences],
+] as const)("reviews %s with its exact target and a fresh reviewer ticket", (operation,payload,action,target,consequence) => {
+  queue([{...row(),operation,payload:SuperJSON.serialize(payload),canDecide:true}],true,1,true);
+  render(view(true));
+  fireEvent.change(screen.getByRole("textbox"),{target:{value:"Reviewed immutable proposed changes"}});
+  fireEvent.click(screen.getByRole("button",{name:en.approvals.approve}));
+  const dialog=screen.getByRole("dialog",{name:"Consequence confirmation"});
+  expect(dialog.getAttribute("data-action")).toBe(action);expect(dialog.getAttribute("data-target")).toBe(target);
+  expect(within(dialog).getByText(consequence)).toBeTruthy();expect(mocks.decide).not.toHaveBeenCalled();
+  fireEvent.click(within(dialog).getByRole("button",{name:"Confirm consequences"}));
+  expect(mocks.decide).toHaveBeenCalledWith({id:"request-1",approve:true,note:"Reviewed immutable proposed changes",ticket:"fresh-review-ticket"});
+});
 
 it("restores the reviewer list, gives explicit URL criteria precedence, and clears it on access denial", () => {
   const cached = queue([row()], true, 100);
