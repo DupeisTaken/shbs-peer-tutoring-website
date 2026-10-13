@@ -233,6 +233,16 @@ fields. `viewFields` composes those named field parsers and drops unknown fields
 Restored values are checked against the current parser on every render, and a
 normalized result replaces the stored representation so removed IDs cannot return
 when a catalog changes again.
+Parsers validate live feature values as well as restored values; they must not add
+input limits that the feature did not have. `viewSearch` checks text shape, while
+`viewIdentifier` retains a 160-character bound for IDs and URL choices before their
+catalog arrives. The separate storage writer keeps its 160-character scalar and
+4 KiB UTF-8 entry limits, including the encoded key and JSON value. Oversized query
+contexts cannot enter storage through a scroll key. A valid longer search stays
+usable in memory, including later
+filter updates, but removes its older saved entry instead of restoring stale
+criteria on return. Storage rejection or quota failure affects only that entry;
+shortening the search makes it eligible for recall again.
 Set `enabled: false` for authoritative denial or module removal, not ordinary
 loading. Explicit URL choices override the remembered state. The tutee navigation
 only recalls a previous view on a bare workspace return after identity verification.

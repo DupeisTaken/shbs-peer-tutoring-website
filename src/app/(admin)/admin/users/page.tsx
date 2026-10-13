@@ -466,7 +466,6 @@ export default function UsersPage() {
             <span className="label">{t("rosterSearch.label")}</span>
             <input
               type="search"
-              maxLength={160}
               className="input w-full"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
