@@ -183,7 +183,7 @@
       "UNRESTRICT": "Access restored"
     },
     "rolePermissions": "Permissions by Role",
-    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "permissionHelp": "Los grupos seleccionados pueden recibir mensajes. Una excepción de usuario sustituye la política del rol; sin grupos no se permiten nuevos envíos. Todas las cuentas disponibles excluye la propia cuenta, las suspendidas y las restringidas para mensajes. Las relaciones anteriores con tutores provienen de asignaciones o asistencias conservadas; no se pueden reconstruir asignaciones antiguas sin registro.",
     "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
@@ -590,7 +590,7 @@
         "activity": "Actividad y solicitudes",
         "history": "Historial del programa",
         "announcements": "Anuncios",
-        "program": "Programa y renovación",
+        "program": "Configuración del programa",
         "tutorRoster": "Lista de tutores",
         "tutorApplications": "Solicitudes de tutores",
         "tutorMeetings": "Reuniones de tutores",
@@ -781,7 +781,7 @@
     },
     "program": {
       "title": "Configuración del programa",
-      "subtitle": "El período actual y la renovación trimestral que hace avanzar el programa.",
+      "subtitle": "Inscripciones, configuración de cuentas, despliegue y funciones opcionales.",
       "loading": "Cargando…",
       "noPeriod": "No hay un período de programa activo. Crea uno primero.",
       "currentPeriod": "Período actual",
@@ -1930,7 +1930,7 @@
       "title": "Próximas reuniones",
       "help": "¿No puedes asistir a una reunión? Justifica tu ausencia hasta 60 minutos antes de que empiece.",
       "excuseBtn": "Justificar ausencia",
-      "submitExcuse": "Enviar",
+      "submitExcuse": "Enviar justificación de ausencia",
       "cancelExcuse": "Cancelar justificación",
       "reasonPlaceholder": "Motivo (opcional)",
       "excused": "Has justificado esta ausencia.",
@@ -4607,7 +4607,8 @@
     "saving": "Guardando…",
     "saved": "Aviso guardado.",
     "saveFailed": "No se pudo guardar el aviso.",
-    "refreshFailed": "El aviso se guardó, pero no se pudo cargar la lista actualizada. Actualiza para sincronizar sin volver a guardar."
+    "refreshFailed": "El aviso se guardó, pero no se pudo cargar la lista actualizada. Actualiza para sincronizar sin volver a guardar.",
+    "details": "Ver detalles"
   },
   "roomOrder": {
     "title": "Orden de las aulas",
@@ -4625,7 +4626,8 @@
     "refresh": "Actualizar",
     "loadFailed": "No se pudo cargar el último orden de aulas. Se conservó tu borrador.",
     "refreshFailed": "El orden se guardó, pero la sincronización falló. Actualizar lee el orden guardado sin volver a enviarlo.",
-    "request": "Solicitar cambio del orden de las aulas"
+    "request": "Solicitar cambio del orden de las aulas",
+    "open": "Reordenar aulas"
   },
   "roomSchedule": {
     "rooms": "Aulas que se muestran",
@@ -4634,7 +4636,7 @@
     "allDetails": "Detalles del horario",
     "occupied": "Ocupada",
     "noSlot": "—",
-    "legend": "Gris = ocupada · × = no disponible · Disponible = sin asignación en una franja publicada. Los detalles incluyen todos los registros autorizados.",
+    "legend": "Gris = ocupado · × = no disponible · Disponible = sin asignación en un horario publicado.",
     "combined": "Vista combinada",
     "individual": "Horarios por aula",
     "noSelection": "No hay aulas seleccionadas. Elige aulas o Todas las aulas.",
@@ -4666,7 +4668,8 @@
     "save": "Guardar requisitos",
     "saving": "Guardando…",
     "saved": "Requisitos de nombre guardados.",
-    "refreshFailed": "Los requisitos se guardaron, pero la sincronización falló. Actualizar lee las reglas guardadas sin volver a guardarlas."
+    "refreshFailed": "Los requisitos se guardaron, pero la sincronización falló. Actualizar lee las reglas guardadas sin volver a guardarlas.",
+    "hiddenProfileHelp": "El programa usa aquí tu nombre de usuario. Los nombres guardados se conservan y el personal autorizado puede consultarlos."
   },
   "participantNames": {
     "unnamed": "Nombre no proporcionado"

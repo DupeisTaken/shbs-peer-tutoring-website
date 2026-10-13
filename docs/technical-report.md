@@ -283,6 +283,14 @@ The bounded [storage helpers](../src/lib/session-view-state.ts) reject nested re
 payloads and long bodies, retain at most 100 presentation entries, and degrade
 gracefully when storage is blocked. These structural limits supplement explicit
 feature allowlists; they do not authorize storing private draft fields.
+Live search parsers preserve the feature's original input limits independently of
+those storage limits. A valid longer search remains in memory across ordinary
+rerenders and filter changes; a rejected/failed storage write removes only its
+previous saved entry so remount cannot revive older criteria. ID/URL parsers retain
+their own bounds and dynamic catalog checks. The 4 KiB UTF-8 budget includes the
+encoded route/scope key plus value; oversized contexts disable only persistence,
+with a cheap character check before encoding. No generic parser bypass is used for
+denial, scope changes or removed choices.
 
 `useSessionPageScroll` restores only the page owner: fixed desktop management
 `#admin-content`, otherwise the document, switching at the 1024 px breakpoint.
@@ -354,8 +362,9 @@ the existing person-name matcher. The pairing candidate filter never rewrites
 selected IDs. Neither composition adds an endpoint, searches hidden records or
 changes record eligibility. `WorkflowShell` retains its 1024 px outer frame while
 using the shared header/identity and return-link conventions. Tutor dashboard
-attention counts use existing records and exclude paused interviews; permanent
-section navigation remains separate from those counts.
+attention counts use existing records and exclude paused interviews. The attention
+card retains task-specific links and today's schedule; its duplicated permanent
+section-link strip is removed. The actual workspace navigation remains available.
 
 Management editors distinguish `canEdit` (permission to prepare a proposal) from `canApply`
 (direct authority). Admin-sensitive editors retain drafts and show the approval link after
@@ -582,6 +591,10 @@ what is currently implemented until their migrations and verification are comple
   authorized recurring data. Individual grids use time rows and weekday columns;
   occupied gray cells and unavailable crosses need accessible status text and a
   legend. Detail filtering by day, slot and room does not create assignments.
+  Participant availability headings, accessible group names and schedule-review
+  summaries use the active locale through `formatWeekday`. Its fixed UTC/ISO
+  reference localizes presentation without changing weekday indices, slot IDs,
+  minute values, availability saves or confirmation-ticket request targets.
 - **Flag history:** state filters must query the authorized server dataset; a
   client-only filter cannot reconstruct resolved entries from a pending-only read.
   Preserve pending-only decision guards, immutable resolution evidence and the

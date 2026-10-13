@@ -311,6 +311,7 @@ function Supervision() {
 /** Account policy belongs to Program Settings; each role/user editor keeps its own draft. */
 export function MessagePermissions() {
   const t = useTranslations("messaging");
+  const approvals = useTranslations("approvals");
   const roles = useTranslations("admin.users.roles");
   const settings = api.messaging.settings.useQuery();
   const [search, setSearch] = useState("");
@@ -326,6 +327,7 @@ export function MessagePermissions() {
       <section className="space-y-4">
         <h2 className="section-title">{t("rolePermissions")}</h2>
         <p className="muted text-sm">{t("permissionHelp")}</p>
+        <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
         {settings.error && <p role="alert">{settings.error.message}</p>}
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {settings.data?.map((s) => (
@@ -334,6 +336,7 @@ export function MessagePermissions() {
               label={roles(s.role)}
               target={{ type: "ROLE", role: s.role }}
               groups={s.groups}
+              showAuthorityHelp={false}
               onSaved={() => settings.refetch()}
             />
           ))}
@@ -470,11 +473,13 @@ function PermissionEditor({
   target,
   groups,
   onSaved,
+  showAuthorityHelp = true,
 }: {
   label: string;
   target: RouterInputs["messaging"]["setPermission"]["target"];
   groups: string[];
   onSaved: () => Promise<unknown>;
+  showAuthorityHelp?: boolean;
 }) {
   const t = useTranslations("messaging");
   const identity = api.account.me.useQuery();
@@ -502,7 +507,9 @@ function PermissionEditor({
       }}
     >
       <h3 className="font-semibold">{label}</h3>
-      <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
+      {showAuthorityHelp && (
+        <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
+      )}
       <fieldset
         disabled={!canEdit || save.isPending}
         className="min-w-0 space-y-4"

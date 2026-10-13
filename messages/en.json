@@ -183,7 +183,7 @@
       "UNRESTRICT": "Access restored"
     },
     "rolePermissions": "Permissions by Role",
-    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "permissionHelp": "Selected groups can receive messages. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
     "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
@@ -598,7 +598,7 @@
         "activity": "Activity & Requests",
         "history": "Program History",
         "announcements": "Announcements",
-        "program": "Program & Refresh",
+        "program": "Program Settings",
         "tutorRoster": "Tutor Roster",
         "tutorApplications": "Tutor Applications",
         "tutorRequests": "Tutor Status Requests",
@@ -789,7 +789,7 @@
     },
     "program": {
       "title": "Program Settings",
-      "subtitle": "The current period and the quarterly refresh that rolls the program over.",
+      "subtitle": "Recruitment, account settings, deployment and optional features.",
       "loading": "Loading…",
       "noPeriod": "No active program period. Seed or create one first.",
       "currentPeriod": "Current Period",
@@ -1930,7 +1930,7 @@
       "title": "Upcoming Meetings",
       "help": "Can't make a meeting? Excuse your absence up to 60 minutes before it starts.",
       "excuseBtn": "Excuse Absence",
-      "submitExcuse": "Submit",
+      "submitExcuse": "Submit absence excuse",
       "cancelExcuse": "Cancel Excuse",
       "reasonPlaceholder": "Reason (optional)",
       "excused": "You've excused this absence.",
@@ -4607,7 +4607,8 @@
     "saving": "Saving…",
     "saved": "Notice saved.",
     "saveFailed": "Could not save the notice.",
-    "refreshFailed": "The notice was saved, but the latest list could not be loaded. Refresh to synchronize without saving again."
+    "refreshFailed": "The notice was saved, but the latest list could not be loaded. Refresh to synchronize without saving again.",
+    "details": "View details"
   },
   "roomOrder": {
     "title": "Room Display Order",
@@ -4625,7 +4626,8 @@
     "refresh": "Refresh",
     "loadFailed": "Could not load the latest room order. Your draft was retained.",
     "refreshFailed": "Order saved, but synchronization failed. Refresh reads the saved order without submitting it again.",
-    "request": "Request room order change"
+    "request": "Request room order change",
+    "open": "Reorder rooms"
   },
   "roomSchedule": {
     "rooms": "Rooms to display",
@@ -4634,7 +4636,7 @@
     "allDetails": "Schedule details",
     "occupied": "Occupied",
     "noSlot": "—",
-    "legend": "Gray = occupied · × = unavailable · Available = no assignment in a published slot. Details include every authorized record.",
+    "legend": "Gray = occupied · × = unavailable · Available = no assignment in a published slot.",
     "combined": "Combined grid",
     "individual": "Individual room schedules",
     "noSelection": "No rooms selected. Choose rooms or select All rooms.",
@@ -4666,7 +4668,8 @@
     "save": "Save requirements",
     "saving": "Saving…",
     "saved": "Name requirements saved.",
-    "refreshFailed": "Requirements saved, but synchronization failed. Refresh reads the saved policy without saving it again."
+    "refreshFailed": "Requirements saved, but synchronization failed. Refresh reads the saved policy without saving it again.",
+    "hiddenProfileHelp": "Your program uses your username here. Saved names are kept and can be reviewed by authorized staff."
   },
   "participantNames": {
     "unnamed": "Name not provided"
