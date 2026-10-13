@@ -576,7 +576,9 @@
         "name": "Name",
         "email": "E-Mail",
         "phone": "Telefon"
-      }
+      },
+      "emailVerifiedShort": "Bestätigt",
+      "emailUnverifiedShort": "Nicht bestätigt"
     },
     "readOnly": {
       "banner": "Schreibgeschützter Verwaltungszugang: Sie können freigegebene Übersichten einsehen; persönliche Kontaktdaten sind ausgeblendet."

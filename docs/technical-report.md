@@ -199,6 +199,11 @@ visible-only batch submission and hidden-selection count; detail entries remain
 in the trailing Actions column. Offered subjects retain `courseChoices` ordering,
 shared with signup forms, rather than introducing a second display comparator.
 
+Action typography follows the record's context: application and signup header
+actions share the compact Button treatment (including invalidity and decline),
+while brief meeting detail/delete entries share TableAction typography and target
+height. The destructive variant changes color and border without changing size.
+
 Tutor Applications and Signup Requests default to **Active entries**, meaning
 only that the record is not flagged invalid. Workflow status, intake priority and
 processing permissions remain independent. Observers may use the same validity
@@ -206,6 +211,11 @@ filter on their authorized signup summary without acquiring private flag actions
 or reasons. Uncertain current academics use one **Review Needed** indicator;
 historical enrollment originals, correction overlays and reference years retain
 their existing precedence and detail evidence.
+
+Both signup sources show verification once in a compact **Email: Verified** or
+**Email: Unverified** contact line. The contextual short labels do not replace
+full-sentence verification messages elsewhere, and contact access stays with the
+existing email reader.
 
 Subject Availability shows each subject with its level and qualification summary.
 Qualified subjects also show willingness, including an explicit **Not recorded**
@@ -216,6 +226,10 @@ stored inheritance provenance and inactive-source restrictions. Its owner stays
 above filtered rows, and accepted-write synchronization failures expose read-only
 refresh recovery. Qualification edits still use the existing management operation;
 missing willingness never becomes a negative answer.
+
+Subject Offerings retains the server's level-first signup catalogue order. The
+parent page does not alphabetize the incoming rows; local filters preserve that
+order and selected IDs remain independent of the visible subset.
 
 Tutor Meetings uses P/EA/UA headings with a visible full legend, and opens complete
 self-excuse reasons through details. Participant rows reserve the same desktop and

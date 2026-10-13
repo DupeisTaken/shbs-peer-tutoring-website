@@ -576,7 +576,9 @@
         "name": "이름",
         "email": "이메일",
         "phone": "전화"
-      }
+      },
+      "emailVerifiedShort": "인증됨",
+      "emailUnverifiedShort": "미인증"
     },
     "readOnly": {
       "banner": "관리 영역은 읽기 전용입니다. 허용된 요약을 볼 수 있으며 개인 연락처 정보는 숨겨집니다."

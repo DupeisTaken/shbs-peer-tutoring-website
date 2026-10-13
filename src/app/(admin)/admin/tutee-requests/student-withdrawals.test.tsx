@@ -111,3 +111,20 @@ it("defers approval until the existing timed confirmation returns its ticket", (
     ticket: "timed-ticket",
   });
 });
+it("defers a decline to the same timed review while keeping both decisions compact", () => {
+  mocks.mutate.mockClear();
+  render(page());
+  const card = within(screen.getByText("Survey Student").closest("article")!);
+  const approve = card.getByRole("button", { name: "approve" });
+  const decline = card.getByRole("button", { name: "deny" });
+  expect(approve.className).toContain("control-compact");
+  expect(decline.className).toContain("control-compact");
+  fireEvent.click(decline);
+  expect(mocks.mutate).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Confirm review" }));
+  expect(mocks.mutate).toHaveBeenCalledExactlyOnceWith({
+    id: "survey-review",
+    approve: false,
+    ticket: "timed-ticket",
+  });
+});

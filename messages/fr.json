@@ -576,7 +576,9 @@
         "name": "nom",
         "email": "e-mail",
         "phone": "téléphone"
-      }
+      },
+      "emailVerifiedShort": "Vérifié",
+      "emailUnverifiedShort": "Non vérifié"
     },
     "readOnly": {
       "banner": "Accès en lecture seule à l’espace de gestion : consultez les synthèses autorisées ; les coordonnées personnelles sont masquées."

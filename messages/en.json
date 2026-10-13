@@ -576,7 +576,9 @@
         "name": "name",
         "email": "email",
         "phone": "phone"
-      }
+      },
+      "emailVerifiedShort": "Verified",
+      "emailUnverifiedShort": "Unverified"
     },
     "readOnly": {
       "banner": "Read-only management access: browse permitted summaries; personal contact details are hidden."

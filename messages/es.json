@@ -568,7 +568,9 @@
         "name": "nombre",
         "email": "correo",
         "phone": "teléfono"
-      }
+      },
+      "emailVerifiedShort": "Verificado",
+      "emailUnverifiedShort": "Sin verificar"
     },
     "readOnly": {
       "banner": "Acceso de solo lectura al área de gestión: consulta los resúmenes permitidos; los datos de contacto personales están ocultos."
