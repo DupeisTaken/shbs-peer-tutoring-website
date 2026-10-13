@@ -11,9 +11,12 @@ import {
   SessionViewProvider,
   useSessionViewState,
   useSessionPageScroll,
+  useSessionAccessDenied,
 } from "./session-view-state";
 import {
   viewEnum,
+  viewFields,
+  viewPage,
   viewStateKey,
   writeViewState,
 } from "~/lib/session-view-state";
@@ -60,10 +63,38 @@ function view(
 beforeEach(() => window.sessionStorage.clear());
 afterEach(() => {
   cleanup();
+  // A failed expectation must not leave another #admin-content owner for the next case.
+  document.querySelectorAll("[data-scroll-fixture]").forEach((pane) => pane.remove());
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   window.history.replaceState(null, "", "/");
+});
+
+it("normalizes a feature field allowlist in storage instead of reviving removed choices later", () => {
+  const key = viewStateKey("head", "/admin/tutees", "fields-v1", "");
+  writeViewState(window.sessionStorage, key, { tab: "current", page: 2, unknownPrivateDraft: "private" });
+  function Fields() {
+    const [state] = useSessionViewState({ id: "fields-v1", initialState: { tab: "current", page: 0 }, parse: viewFields({ tab: parse, page: viewPage }) });
+    return <p>{state.tab}:{state.page}</p>;
+  }
+  render(<SessionViewProvider identity="head" pathname="/admin/tutees" verified><Fields /></SessionViewProvider>);
+  expect(screen.getByText("current:2")).toBeTruthy();
+  expect(JSON.parse(window.sessionStorage.getItem(key)!)).toEqual({ tab: "current", page: 2 });
+});
+
+it("holds an authoritative query denial through transport failures until a fresh successful read", () => {
+  function Denial({ code, success = false }: { code?: string; success?: boolean }) {
+    const denied = useSessionAccessDenied({ error: code ? { data: { code } } : null, isSuccess: success, isFetching: false });
+    return <p>{denied ? "denied" : "authorized"}</p>;
+  }
+  const panel = render(<Denial success />);
+  panel.rerender(<Denial code="FORBIDDEN" />);
+  expect(screen.getByText("denied")).toBeTruthy();
+  panel.rerender(<Denial code="INTERNAL_SERVER_ERROR" />);
+  expect(screen.getByText("denied")).toBeTruthy();
+  panel.rerender(<Denial success />);
+  expect(screen.getByText("authorized")).toBeTruthy();
 });
 
 it("restores an explicit tab across remounts without saving a private form draft", () => {
@@ -188,6 +219,8 @@ function scrollView(ready = true, enabled = true) {
 }
 function scrollFixture(width = 1440, contentHeight = 2200) {
   vi.useFakeTimers();
+  const scheduledTimers = vi.spyOn(globalThis, "setTimeout");
+  const cancelledTimers = vi.spyOn(globalThis, "clearTimeout");
   Object.defineProperty(window, "innerWidth", {
     configurable: true,
     value: width,
@@ -207,6 +240,7 @@ function scrollFixture(width = 1440, contentHeight = 2200) {
   document.documentElement.scrollTop = 0;
   const pane = document.createElement("main");
   pane.id = "admin-content";
+  pane.dataset.scrollFixture = "true";
   const content = document.createElement("section");
   pane.append(content);
   document.body.append(pane);
@@ -229,6 +263,7 @@ function scrollFixture(width = 1440, contentHeight = 2200) {
   vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
   const callbacks: (() => void)[] = [];
   const observed: Element[] = [];
+  let disconnected = 0;
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -238,13 +273,27 @@ function scrollFixture(width = 1440, contentHeight = 2200) {
       observe(element: Element) {
         observed.push(element);
       }
-      disconnect() {}
+      disconnect() { disconnected++; }
     },
   );
   return {
     pane,
     content,
     observed,
+    disconnected: () => disconnected,
+    // JSDOM/React can queue their own timers. Prove cancellation of the hook's
+    // actual five-second recovery handle instead of asserting a global empty queue.
+    recoveryTimersCleared: () => {
+      const recovery = scheduledTimers.mock.calls.flatMap((call, index) =>
+        call[1] === 5000 ? [index] : [],
+      );
+      return recovery.length > 0 && recovery.every((index) =>
+        cancelledTimers.mock.calls.some(([handle]) =>
+          handle === scheduledTimers.mock.results[index]?.value,
+        ),
+      );
+    },
+    pendingFrames: () => frames.size,
     setHeight: (value: number) => {
       height = value;
     },
@@ -289,6 +338,49 @@ it("waits for page readiness and retries fixed-pane content height after an asyn
   rendered.unmount();
   fixture.remove();
 });
+it("corrects a late framework reset after first fit without saving zero, then lets user intent win", () => {
+  const fixture = scrollFixture();
+  writeViewState(window.sessionStorage, scrollKey("desktop"), 700);
+  const rendered = render(scrollView());
+  fixture.frames();
+  fixture.pane.scrollTop = 0;
+  fireEvent.scroll(fixture.pane);
+  expect(window.sessionStorage.getItem(scrollKey("desktop"))).toBe("700");
+  fixture.frames();
+  expect(fixture.pane.scrollTop).toBe(700);
+  // The correction's own event schedules no further frame.
+  fireEvent.scroll(fixture.pane);
+  expect(fixture.pendingFrames()).toBe(0);
+  fireEvent.wheel(window);
+  fixture.pane.scrollTop = 540;
+  fireEvent.scroll(fixture.pane);
+  fixture.frames();
+  fixture.resizeContent();
+  expect(fixture.pane.scrollTop).toBe(540);
+  expect(window.sessionStorage.getItem(scrollKey("desktop"))).toBe("540");
+  rendered.unmount();
+  expect(fixture.recoveryTimersCleared()).toBe(true);
+  expect(fixture.pendingFrames()).toBe(0);
+  expect(fixture.disconnected()).toBeGreaterThan(0);
+  fixture.remove();
+});
+it("flushes the last valid restored position when exit precedes a late-reset correction and tears recovery down", () => {
+  const fixture = scrollFixture();
+  writeViewState(window.sessionStorage, scrollKey("desktop"), 700);
+  const rendered = render(scrollView());
+  fixture.frames();
+  fixture.pane.scrollTop = 0;
+  fireEvent.scroll(fixture.pane);
+  rendered.unmount();
+  expect(window.sessionStorage.getItem(scrollKey("desktop"))).toBe("700");
+  expect(fixture.recoveryTimersCleared()).toBe(true);
+  expect(fixture.pendingFrames()).toBe(0);
+  fixture.resizeContent();
+  fixture.frames();
+  expect(fixture.pane.scrollTop).toBe(0);
+  expect(fixture.disconnected()).toBeGreaterThan(0);
+  fixture.remove();
+});
 it.each(["hash", "wheel", "keyboard"])(
   "lets %s navigation or user intent win over recovery",
   (kind) => {
@@ -328,6 +420,7 @@ it("changes from the fixed desktop pane to document scroll at the responsive bre
   fireEvent(window, new Event("resize"));
   fixture.frames();
   expect(document.documentElement.scrollTop).toBe(80);
+  fireEvent.wheel(window);
   document.documentElement.scrollTop = 120;
   fireEvent.scroll(window);
   rendered.unmount();

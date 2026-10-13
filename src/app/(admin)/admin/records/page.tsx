@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { RecordTransfer } from "~/app/_components/record-transfer";
+import { SessionPagePosition } from "~/app/_components/session-view-state";
 
 export default async function RecordsPage() {
   const session = await auth();
@@ -11,5 +12,5 @@ export default async function RecordsPage() {
     select: { role: true, suspendedAt: true },
   });
   if (user?.role !== "HEAD" || user.suspendedAt) redirect("/admin");
-  return <RecordTransfer />;
+  return <><SessionPagePosition id="records" ready /><RecordTransfer /></>;
 }

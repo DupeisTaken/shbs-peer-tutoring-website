@@ -255,6 +255,13 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     admin: {
+      auditFilterOptions: {
+        useQuery: () => ({
+          data: { users: [], operations: [], entities: [] },
+          isSuccess: true,
+          isFetching: false,
+        }),
+      },
       auditLog: { useQuery: () => ({ data: state.audit }) },
       auditLogDetail: {
         _def: () => ({ path: ["admin", "auditLogDetail"] }),

@@ -709,6 +709,7 @@ export async function studentRequestRows(
         ...(owned ? { id: { in: owned } } : email ? { email } : {}),
       },
       include: {
+        user: { select: { username: true } },
         availabilities: { include: { slot: true } },
         pairings: {
           where: { pairing: { termId: term.id } },
@@ -744,6 +745,8 @@ export async function studentRequestRows(
       ...requestInvalidity(row, includeStaffReview),
       email: row.email,
       name: input.englishName,
+      // Current rendering may use a linked handle without rewriting intake evidence.
+      username: profile?.user?.username ?? null,
       contact: input.preferredContact,
       tuteeId: row.tuteeId,
       submittedAt: row.submittedAt,

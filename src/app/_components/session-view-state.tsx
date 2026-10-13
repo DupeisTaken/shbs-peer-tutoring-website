@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -16,6 +17,7 @@ import {
   removeViewState,
   viewStateKey,
   writeViewState,
+  viewAccessDenied,
 } from "~/lib/session-view-state";
 import type { ViewState } from "~/lib/session-view-state";
 
@@ -23,6 +25,23 @@ type ViewContext = { identity: string; pathname: string; verified: boolean };
 const Context = createContext<ViewContext | null>(null);
 /** Useful for URL adapters: defer restoring a remembered view until identity is verified. */
 export const useSessionViewVerified = () => !!useContext(Context)?.verified;
+
+/** Preserve an access failure across later transport errors. Only fresh successful
+ * reads release it; callers also hide cached content while this is true. */
+export function useSessionAccessDenied(...queries: {
+  error?: { data?: { code?: string } | null } | null;
+  isSuccess?: boolean;
+  isFetching?: boolean;
+}[]) {
+  const denied = queries.some((query) => viewAccessDenied(query.error));
+  const recovered = queries.every((query) => query.isSuccess && !query.isFetching);
+  const [latched, setLatched] = useState(false);
+  useEffect(() => {
+    if (denied) setLatched(true);
+    else if (recovered) setLatched(false);
+  }, [denied, recovered]);
+  return denied || latched;
+}
 
 /** Reuses the existing live-session check. It performs no requests and stores no private DOM. */
 export function SessionViewProvider({
@@ -78,7 +97,8 @@ export function useSessionViewState<T extends ViewState>(
   const restoreReady = options.restoreReady !== false;
   const active = !!context?.verified && context.identity !== "anonymous";
   const latest = useRef(options);
-  latest.current = options;
+  // Events/effects use the latest committed parser; rendering uses options directly.
+  useLayoutEffect(() => { latest.current = options; });
   const [stored, setStored] = useState({ key, value: options.initialState });
   // Cached choices must satisfy today's allowlist, including removed modules/rooms.
   const parsed =
@@ -86,6 +106,8 @@ export function useSessionViewState<T extends ViewState>(
       ? options.parse(stored.value)
       : undefined;
   const invalid = restoreReady && stored.key === key && parsed === undefined;
+  const normalized = parsed !== undefined && JSON.stringify(parsed) !== JSON.stringify(stored.value)
+    ? JSON.stringify(parsed) : "";
   const value = enabled && parsed !== undefined ? parsed : options.initialState;
   useEffect(() => {
     if (!invalid || !key) return;
@@ -97,6 +119,16 @@ export function useSessionViewState<T extends ViewState>(
     setStored({ key, value: latest.current.initialState });
   }, [invalid, key]);
   useEffect(() => {
+    if (!normalized || !enabled || !key) return;
+    const value = JSON.parse(normalized) as T;
+    // Parsers may drop removed catalogue IDs or unknown fields. Replace their
+    // stored representation too, so a later catalogue cannot revive them.
+    if (active) {
+      try { writeViewState(window.sessionStorage, key, value); } catch { /* Optional storage. */ }
+    }
+    setStored({ key, value });
+  }, [normalized, enabled, active, key]);
+  useEffect(() => {
     if (!key || !active) return;
     try {
       if (!enabled) {
@@ -107,6 +139,7 @@ export function useSessionViewState<T extends ViewState>(
       const restored = latest.current.parse(
         readViewState(window.sessionStorage, key),
       );
+      if (restored !== undefined) writeViewState(window.sessionStorage, key, restored);
       setStored({ key, value: restored ?? latest.current.initialState });
     } catch {
       /* State still works without browser storage. */
@@ -210,6 +243,7 @@ export function useSessionPageScroll({
     };
     const stop = () => {
       restoring = false;
+      cancelAnimationFrame(frame);
       observer?.disconnect();
       mutations?.disconnect();
       if (timeout) clearTimeout(timeout);
@@ -218,15 +252,27 @@ export function useSessionPageScroll({
       if (!restoring || target === null) return;
       const height = pane ? pane.clientHeight : window.innerHeight;
       const maximum = Math.max(0, owner.scrollHeight - height);
-      owner.scrollTop = Math.min(target, maximum);
-      if (maximum >= target) stop();
+      const desired = Math.min(target, maximum);
+      // Browser rounding and our own scroll events must not form a feedback loop.
+      if (Math.abs(owner.scrollTop - desired) > 1) owner.scrollTop = desired;
+      if (maximum >= target) lastPosition = Math.max(0, owner.scrollTop);
     };
     // A user gesture always wins over recovery; never pull the viewport away from them.
     const gesture = () => {
       stop();
     };
     const onScroll = () => {
-      if (restoring) return;
+      if (restoring && target !== null) {
+        const height = pane ? pane.clientHeight : window.innerHeight;
+        const desired = Math.min(target, Math.max(0, owner.scrollHeight - height));
+        // Next may scroll after the target first fits. Keep the same bounded
+        // recovery window and never persist that framework reset over the target.
+        if (Math.abs(owner.scrollTop - desired) > 1) {
+          cancelAnimationFrame(frame);
+          frame = requestAnimationFrame(attempt);
+        }
+        return;
+      }
       // Keep the final measurement even if route teardown precedes the next frame.
       lastPosition = Math.max(0, owner.scrollTop);
       cancelAnimationFrame(frame);
@@ -244,7 +290,7 @@ export function useSessionPageScroll({
     ] as const)
       window.addEventListener(name, gesture, { passive: true });
     if (restoring) {
-      // Next performs its own scroll handling after commit. Retry on content size changes,
+      // Next performs its own scroll handling after commit. Retry late resets/content changes,
       // bounded to five seconds; no history.state or global scrollRestoration overrides.
       frame = requestAnimationFrame(() => {
         frame = requestAnimationFrame(attempt);

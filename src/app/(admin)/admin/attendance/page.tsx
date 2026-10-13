@@ -1,4 +1,8 @@
 "use client";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 
 import { useEffect, useId, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
@@ -114,7 +118,7 @@ export default function SubmissionsPage() {
               tutorId,
             ]).map((t) => (
               <option key={t.id} value={t.id}>
-                {t.englishName}
+                <ParticipantName name={t.englishName} username={t.username} />
               </option>
             ))}
           </select>
@@ -225,7 +229,9 @@ export default function SubmissionsPage() {
                       timeZone: "UTC",
                     })}
                   </td>
-                  <td className="min-w-32">{s.tutor.englishName}</td>
+                  <td className="min-w-32">
+                    <ParticipantName name={s.tutor.englishName} />
+                  </td>
                   <td className="min-w-36">{s.pairing.subject}</td>
                   <td className="min-w-24 text-slate-500">
                     {t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`)}
@@ -235,7 +241,7 @@ export default function SubmissionsPage() {
                   <TableActions>
                     <TableDetails
                       longReader
-                      title={`${s.tutor.englishName} · ${s.pairing.subject}`}
+                      title={`${participantNameLabel(s.tutor.englishName, undefined, t("participantNames.unnamed"))} · ${s.pairing.subject}`}
                     >
                       <SessionRecordDetails session={s} />
                     </TableDetails>
@@ -243,7 +249,7 @@ export default function SubmissionsPage() {
                       (!s.mergeGroupId || s.mergeGroupId === s.id) && (
                         <TableDetails
                           label={t("corrections.editAttendance")}
-                          title={`${s.tutor.englishName} · ${s.pairing.subject}`}
+                          title={`${participantNameLabel(s.tutor.englishName, undefined, t("participantNames.unnamed"))} · ${s.pairing.subject}`}
                         >
                           <AttendanceCorrection id={s.id} />
                         </TableDetails>

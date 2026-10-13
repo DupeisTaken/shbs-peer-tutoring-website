@@ -352,9 +352,7 @@ export function RecipeGallery({
   });
   const [grade, setGrade] = useState("10");
   const [participantSaved, setParticipantSaved] = useState(false);
-  const [namePreview, setNamePreview] = useState<
-    "default" | "optional" | "hidden"
-  >("default");
+  const [namePreview, setNamePreview] = useState<"default" | "optional" | "hidden">("default");
   const [search, setSearch] = useSessionViewState({
     id: "gallery-room-search-v1",
     scope: locale,

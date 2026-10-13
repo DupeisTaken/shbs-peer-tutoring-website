@@ -1,4 +1,8 @@
 "use client";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 
 import { Button, ChoiceButton } from "~/app/_components/ui/button";
 import { FormActions, StatePanel } from "~/app/_components/ui/patterns";
@@ -76,6 +80,7 @@ export default function MeetingsPage() {
   const tutorOpts = (tutors.data ?? []).map((tu) => ({
     id: tu.id,
     englishName: tu.englishName,
+    username: tu.username,
     active: tu.status === "ACTIVE",
     status: tu.status,
   }));
@@ -233,7 +238,14 @@ export default function MeetingsPage() {
                         .map((entry) => (
                           <li key={entry.tutorId}>
                             <p className="font-medium">
-                              {entry.tutor.englishName}
+                              <ParticipantName
+                                name={entry.tutor.englishName}
+                                username={
+                                  tutorOpts.find(
+                                    (tutor) => tutor.id === entry.tutorId,
+                                  )?.username
+                                }
+                              />
                             </p>
                             <p className="whitespace-pre-wrap">
                               {entry.reason ??
@@ -318,7 +330,12 @@ function TutorMeetingStats({
   tutors,
 }: {
   meetings: MeetingRecord[];
-  tutors: { id: string; englishName: string; active: boolean }[];
+  tutors: {
+    id: string;
+    englishName: string;
+    username?: string | null;
+    active: boolean;
+  }[];
 }) {
   const t = useTranslations();
   const tally = new Map<
@@ -391,7 +408,7 @@ function TutorMeetingStats({
             {rows.map((r) => (
               <tr key={r.id} className={r.active ? "" : "text-slate-400"}>
                 <td className="font-medium whitespace-nowrap text-slate-700">
-                  {r.englishName}
+                  <ParticipantName name={r.englishName} username={r.username} />
                 </td>
                 <td className="text-right text-green-600">{r.present}</td>
                 <td
@@ -407,7 +424,13 @@ function TutorMeetingStats({
                   {r.unexcused}
                 </td>
                 <TableActions>
-                  <TableDetails title={r.englishName}>
+                  <TableDetails
+                    title={participantNameLabel(
+                      r.englishName,
+                      r.username,
+                      t("participantNames.unnamed"),
+                    )}
+                  >
                     <MeetingRecordDetails
                       meetings={meetings}
                       tutorId={r.id}
@@ -431,7 +454,12 @@ function MeetingSummary({
   tutors,
 }: {
   meetings: MeetingRecord[];
-  tutors: { id: string; englishName: string; active: boolean }[];
+  tutors: {
+    id: string;
+    englishName: string;
+    username?: string | null;
+    active: boolean;
+  }[];
 }) {
   const programFormat = useFormatter();
   const t = useTranslations();
@@ -504,7 +532,7 @@ function MeetingSummary({
                 scope="row"
                 className="sticky left-0 z-10 bg-white text-left font-medium whitespace-nowrap text-slate-700"
               >
-                {tu.englishName}
+                <ParticipantName name={tu.englishName} username={tu.username} />
               </th>
               {meetings.map((m) => {
                 const c = cell(byMeeting.get(m.id)?.get(tu.id), tu.active);
@@ -519,7 +547,13 @@ function MeetingSummary({
                 );
               })}
               <TableActions>
-                <TableDetails title={tu.englishName}>
+                <TableDetails
+                  title={participantNameLabel(
+                    tu.englishName,
+                    tu.username,
+                    t("participantNames.unnamed"),
+                  )}
+                >
                   <MeetingRecordDetails
                     meetings={meetings}
                     tutorId={tu.id}
@@ -611,7 +645,12 @@ function AttendanceEditor({
 }: {
   meetingId: string;
   readOnly: boolean;
-  tutors: { id: string; englishName: string; active: boolean }[];
+  tutors: {
+    id: string;
+    englishName: string;
+    username?: string | null;
+    active: boolean;
+  }[];
   current: Record<string, string>;
   onBusyChange: (id: string, pending: boolean) => void;
 }) {
@@ -668,7 +707,10 @@ function AttendanceEditor({
                 className="flex min-h-11 min-w-0 flex-col items-start justify-between gap-2 text-sm text-slate-400 sm:flex-row sm:items-center lg:min-h-8"
               >
                 <span className="min-w-0 [overflow-wrap:anywhere]">
-                  {tu.englishName}
+                  <ParticipantName
+                    name={tu.englishName}
+                    username={tu.username}
+                  />
                 </span>
                 <div className="flex min-h-11 items-center lg:min-h-8">
                   <span className="badge-slate">
@@ -687,7 +729,10 @@ function AttendanceEditor({
                 className="flex min-h-11 min-w-0 flex-col items-start justify-between gap-2 text-sm sm:flex-row sm:items-center lg:min-h-8"
               >
                 <span className="min-w-0 [overflow-wrap:anywhere] text-slate-700">
-                  {tu.englishName}
+                  <ParticipantName
+                    name={tu.englishName}
+                    username={tu.username}
+                  />
                 </span>
                 <div className="flex min-h-11 items-center lg:min-h-8">
                   <span className="badge-amber">
@@ -703,12 +748,16 @@ function AttendanceEditor({
               className="flex min-h-11 min-w-0 flex-col items-start justify-between gap-2 text-sm sm:flex-row sm:items-center lg:min-h-8"
             >
               <span className="min-w-0 [overflow-wrap:anywhere] text-slate-700">
-                {tu.englishName}
+                <ParticipantName name={tu.englishName} username={tu.username} />
               </span>
               <div
                 role="group"
                 aria-label={t("uiPatterns.attendanceFor", {
-                  name: tu.englishName,
+                  name: participantNameLabel(
+                    tu.englishName,
+                    tu.username,
+                    t("participantNames.unnamed"),
+                  ),
                 })}
                 className="flex min-h-11 max-w-full flex-wrap items-center gap-1 sm:justify-end lg:min-h-8"
               >

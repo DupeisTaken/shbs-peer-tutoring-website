@@ -118,6 +118,41 @@ beforeEach(() => {
   fixture.refetch.mockClear();
 });
 afterEach(cleanup);
+it("uses the current projected handle in the opener without changing its account query", () => {
+  mount(
+    <UserDetails row={{ ...row, name: "  ", username: "current.handle" }} />,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "User details: current.handle" }),
+  );
+  expect(
+    screen.getByRole("dialog", {
+      name: messages.accountProfile.detailsTitle.replace(
+        "{name}",
+        "current.handle",
+      ),
+    }),
+  ).toBeTruthy();
+  expect(fixture.query).toHaveBeenCalledWith(
+    { userId: "login" },
+    expect.any(Object),
+  );
+});
+it("keeps a blank historical profile name as recorded rather than borrowing its handle", () => {
+  const historical = {
+    ...profile,
+    id: "original",
+    name: "",
+    username: "retained.historical",
+    historical: true,
+  };
+  fixture.query.mockReturnValue({ data: { ...data, retained: [historical] } });
+  mount();
+  open();
+  const original = screen.getByText("@retained.historical").closest("tr")!;
+  expect(original.querySelector("p.font-medium")?.textContent).toBe("");
+  expect(historical.name).toBe("");
+});
 
 it("mounts detail reads on demand and separates all four dimensions with both memberships", () => {
   mount();

@@ -11,9 +11,12 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import { CourseCatalogueTable } from "./course-catalogue-table";
+import { SessionViewProvider } from "./session-view-state";
+import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 
 afterEach(cleanup);
 beforeEach(() => {
+  window.sessionStorage.clear();
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: {
       configurable: true,
@@ -67,6 +70,39 @@ const rows = () =>
     .getAllByRole("row")
     .slice(1)
     .map((row) => row.textContent);
+
+it("restores only view filters, waits for levels, and drops a removed level or denied view", () => {
+  const key = viewStateKey("head", "/admin/subjects", "course-catalogue.level.v1", "");
+  writeViewState(window.sessionStorage, key, "ap");
+  const onApply = vi.fn();
+  const tree = (ready: boolean, available = levels, enabled = true) => (
+    <SessionViewProvider identity="head" pathname="/admin/subjects" verified>
+      <NextIntlClientProvider locale="en" messages={en}>
+        <CourseCatalogueTable subjects={subjects} levels={available} readOnly={false} pending={false}
+          onApply={onApply} viewReady={ready} viewEnabled={enabled} />
+      </NextIntlClientProvider>
+    </SessionViewProvider>
+  );
+  const first = render(tree(false, []));
+  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "Level" }).value).toBe("all");
+  expect(window.sessionStorage.getItem(key)).toBe('"ap"');
+  first.rerender(tree(true));
+  expect(rows()).toHaveLength(2);
+  const select = screen.getAllByRole<HTMLInputElement>("checkbox").find((input) => !input.disabled)!;
+  fireEvent.click(select);
+  change("Search course names", "Biology");
+  expect(JSON.stringify(window.sessionStorage)).not.toContain("selected");
+  expect(onApply).not.toHaveBeenCalled();
+  first.unmount();
+  const second = render(tree(true));
+  expect(rows()).toEqual([expect.stringContaining("AP Biology")]);
+  expect(screen.getAllByRole<HTMLInputElement>("checkbox").every((input) => !input.checked)).toBe(true);
+  second.rerender(tree(true, [levels[0]!]));
+  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "Level" }).value).toBe("all");
+  second.rerender(tree(true, levels, false));
+  expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe("");
+  expect(window.sessionStorage.getItem(key)).toBeNull();
+});
 
 it("combines case-insensitive search, level and status without changing catalogue data or name order", () => {
   const before = structuredClone(subjects);

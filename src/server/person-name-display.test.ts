@@ -245,13 +245,14 @@ it("refreshes settings atomically after a concurrent account edit", async () => 
     showAlternateNames: true,
     expectedPolicy: defaults,
   });
-  // Observe the actual table lock before releasing the profile transaction.
+  // The account boundary owns namespace before User/roster locks. Observe the
+  // competing writer there rather than accepting the obsolete table-first cycle.
   let waiting = false;
   try {
     for (let i = 0; i < 100; i++) {
       const rows = await db.$queryRaw<
         { n: bigint }[]
-      >`SELECT count(*) n FROM pg_locks WHERE relation='"User"'::regclass AND mode='ExclusiveLock' AND NOT granted`;
+      >`SELECT count(*) n FROM pg_locks WHERE locktype='advisory' AND mode='ExclusiveLock' AND NOT granted`;
       if (Number(rows[0]?.n)) {
         waiting = true;
         break;
@@ -292,7 +293,7 @@ it("preserves accents and Unicode alternate names in the shared validator", () =
 });
 
 it.each([false, true])(
-  "preserves legacy tutee identity during notes-only edits (linked=%s)",
+  "preserves legacy tutee identity when blank editor parts accompany notes (linked=%s)",
   async (linked) => {
     const row = await db.tutee.create({
       data: { englishName: "张小明", status: "INACTIVE" },
@@ -309,6 +310,9 @@ it.each([false, true])(
       id: row.id,
       expectedUpdatedAt: row.updatedAt,
       englishName: row.englishName,
+      firstName: "",
+      lastName: "",
+      preferredName: "",
       status: "INACTIVE",
       notes: "Corrected notes",
     });
@@ -364,7 +368,6 @@ it.each([
   { lastName: "Chen" },
   { preferredName: "Alex" },
   { firstName: "王" },
-  { firstName: "" },
 ])(
   "rejects incomplete or non-Latin legacy tutor conversions: %j",
   async (fields) => {
@@ -379,6 +382,28 @@ it.each([
     ).toMatchObject({ englishName: "王小明", firstName: null });
   },
 );
+it.each([false, true])("retains unsplit legacy tutor identity when unchanged blank fields are posted (linked=%s)", async (linked) => {
+  const row = await db.tutor.create({
+    data: { englishName: "王小明", status: "ARCHIVED" },
+  });
+  if (linked) await db.user.create({ data: { name: "王小明", email: "legacy@example.test", tutorId: row.id } });
+  await caller().admin.updateTutor({
+    id: row.id,
+    status: "ARCHIVED",
+    firstName: "",
+    lastName: "",
+    preferredName: "",
+  });
+  expect(
+    await db.tutor.findUniqueOrThrow({ where: { id: row.id } }),
+  ).toMatchObject({
+    englishName: "王小明",
+    firstName: null,
+    lastName: null,
+    legacyName: "王小明",
+    nameFieldsConfirmed: false,
+  });
+});
 it("converts a legacy tutor only when a valid explicit first name is supplied", async () => {
   const row = await db.tutor.create({
     data: { englishName: "王小明", status: "ARCHIVED" },

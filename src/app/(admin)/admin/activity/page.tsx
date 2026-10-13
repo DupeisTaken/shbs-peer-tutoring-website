@@ -1,10 +1,12 @@
 "use client";
+import { ParticipantName } from "~/app/_components/participant-name";
 
 import { Children } from "react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { useSessionAccessDenied, useSessionPageScroll } from "~/app/_components/session-view-state";
 import { BarList, type BarItem } from "~/app/_components/charts";
 
 /**
@@ -216,7 +218,12 @@ export default function ActivityPage() {
     (elevated && activitySummary.error != null) ||
     requiredQueries.some((q) => q.error != null);
   const dataReady = !loading && !dataIncomplete;
+  const ownedQueries = [me, featuresQuery, ...requiredQueries, ...(elevated ? [activitySummary] : [])];
+  const denied = useSessionAccessDenied(...ownedQueries);
+  useSessionPageScroll({ id: "activity", scope: JSON.stringify([elevated, !!features?.DISCIPLINE, !!features?.CREW]),
+    ready: ownedQueries.every((query) => query.data !== undefined), enabled: !denied });
 
+  if (denied) return <p role="alert">{t("uiPatterns.loadFailed")}</p>;
   return (
     <div className="space-y-6">
       <div>
@@ -294,7 +301,16 @@ export default function ActivityPage() {
                   : "workflow.matching",
               )}
             </span>
-            <span className="font-medium text-slate-800">{request.name}</span>
+            <span className="font-medium text-slate-800">
+              <ParticipantName
+                name={request.name}
+                username={
+                  "username" in request && typeof request.username === "string"
+                    ? request.username
+                    : undefined
+                }
+              />
+            </span>
             <span className="muted text-xs">
               {request.subjects.join(", ") || "—"}
             </span>
@@ -310,7 +326,10 @@ export default function ActivityPage() {
           <Row key={tutee.id}>
             <span className="badge-slate">#{i + 1}</span>
             <span className="font-medium text-slate-800">
-              {tutee.englishName}
+              <ParticipantName
+                name={tutee.englishName}
+                username={tutee.owner?.username ?? tutee.user?.username}
+              />
             </span>
             <span className="muted text-xs">
               {tutee.firstChoice?.name ?? "—"}
@@ -335,7 +354,9 @@ export default function ActivityPage() {
       >
         {openApps.map((a) => (
           <Row key={a.id}>
-            <span className="font-medium text-slate-800">{a.name}</span>
+            <span className="font-medium text-slate-800">
+              <ParticipantName name={a.name} />
+            </span>
             <span className="badge-amber">
               {t(`admin.applications.status.${a.status}`)}
             </span>
@@ -364,7 +385,7 @@ export default function ActivityPage() {
         {openRequests.map((r) => (
           <Row key={r.id}>
             <span className="font-medium text-slate-800">
-              {r.tutor.englishName}
+              <ParticipantName name={r.tutor.englishName} />
             </span>
             <span
               className={r.kind === "OPT_OUT" ? "badge-amber" : "badge-green"}
@@ -397,7 +418,7 @@ export default function ActivityPage() {
         {openTuteeRequests.map((r) => (
           <Row key={r.id}>
             <span className="font-medium text-slate-800">
-              {r.tutee.englishName}
+              <ParticipantName name={r.tutee.englishName} />
             </span>
             <span className="badge-amber">
               {t("admin.tuteeRequests.kind.VOLUNTARY")}
@@ -457,7 +478,9 @@ export default function ActivityPage() {
           >
             {openCrewApps.map((a) => (
               <Row key={a.id}>
-                <span className="font-medium text-slate-800">{a.name}</span>
+                <span className="font-medium text-slate-800">
+                  <ParticipantName name={a.name} />
+                </span>
                 {a.gradeLevel != null && (
                   <span className="badge-slate">G{a.gradeLevel}</span>
                 )}
@@ -480,7 +503,14 @@ export default function ActivityPage() {
           >
             {openCrewReqs.map((r) => (
               <Row key={r.id}>
-                <span className="font-medium text-slate-800">{r.member}</span>
+                <span className="font-medium text-slate-800">
+                  <ParticipantName
+                    name={
+                      r.canonicalName === undefined ? r.member : r.canonicalName
+                    }
+                    username={r.username}
+                  />
+                </span>
                 <span
                   className={
                     r.kind === "OPT_OUT" ? "badge-amber" : "badge-green"
@@ -518,7 +548,7 @@ export default function ActivityPage() {
             <Row key={c.id}>
               <span>{c.color === "RED" ? "🟥" : "🟨"}</span>
               <span className="font-medium text-slate-800">
-                {c.tutee.englishName}
+                <ParticipantName name={c.tutee.englishName} />
               </span>
               <span className="muted truncate text-xs">{c.reason ?? "—"}</span>
               <span className="muted ml-auto text-xs">

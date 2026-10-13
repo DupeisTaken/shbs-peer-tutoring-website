@@ -229,13 +229,28 @@ It returns the usual state/setter pair. Give each feature/schema a stable `id`,
 include its period and validated query context in `scope`, and supply a parser
 that allowlists the currently available choices. `viewEnum`, `viewPage` and
 `viewSearch` are small helpers; record parsers must select only named filter
-fields. Restored values are checked against the current parser on every render.
+fields. `viewFields` composes those named field parsers and drops unknown fields.
+Restored values are checked against the current parser on every render, and a
+normalized result replaces the stored representation so removed IDs cannot return
+when a catalog changes again.
 Set `enabled: false` for authoritative denial or module removal, not ordinary
 loading. Explicit URL choices override the remembered state. The tutee navigation
 only recalls a previous view on a bare workspace return after identity verification.
 For dynamic catalogs, use `restoreReady: query.data !== undefined` until choices
 arrive, then allowlist current IDs. This exposes the initial presentation while
 loading and leaves the saved choice intact; `enabled: false` still clears denial.
+`useSessionAccessDenied(...ownedQueries)` provides a presentation-only denial latch:
+an authoritative access error remains denied through later transport failures until
+the owned reads succeed again. Hide cached denied content in the same owner; this
+helper never grants permission or replaces server checks.
+
+Apply-only filters save their committed read criteria, not the unfinished input.
+Audit reconstructs timezone-aware query dates from date-control strings; its form
+receives the applied values so controls match the restored query. Approval list URLs
+remain authoritative, with local feedback while `router.replace` commits. Full-message
+searches and conversation selections in supervision stay private and transient;
+pagination within those private searches also stays transient. Landing's selected
+lazy editor reports its own query readiness; image-library success alone is insufficient.
 
 Register `useSessionPageScroll({ id, scope, ready, enabled })` once in an authorized
 page, including its selected panel/filters in `scope`. Set `ready` when its owned
@@ -244,6 +259,9 @@ server-rendered shell. At 1024 px and above management restores `#admin-content`
 other layouts and narrow management pages restore the document. Breakpoint changes
 switch owners. Dialog, table and sidebar scroll are excluded. Hash destinations and
 user gestures take precedence; delayed content recovery stops after five seconds.
+That bounded window remains active after the first successful position, correcting
+late framework resets only when the measured position differs. A user gesture or
+hash immediately ends recovery, and unmount removes its frames, timer and observers.
 Storage failures fall back to normal navigation. The session-only, bounded store
 reuses the existing identity privacy check and never enables route DOM/draft caching.
 The gallery filter toolbar demonstrates the same hook without creating another

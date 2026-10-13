@@ -1,7 +1,7 @@
 /** Session-only presentation choices. Never pass forms, records, evidence or tokens. */
 export type ViewValue =
   string | number | boolean | null | readonly (string | number)[];
-export type ViewState = ViewValue | { readonly [key: string]: ViewValue };
+export type ViewState = ViewValue | Readonly<Record<string, ViewValue>>;
 export const VIEW_STATE_PREFIX = "shbs:view:v1:";
 const MAX_ENTRIES = 100;
 const MAX_BYTES = 4096;
@@ -114,3 +114,25 @@ export const viewPage = (value: unknown): number | undefined =>
     : undefined;
 export const viewSearch = (value: unknown): string | undefined =>
   typeof value === "string" && value.length <= 160 ? value : undefined;
+
+/** Compose a feature's explicit field allowlist; never copy unknown stored fields. */
+export function viewFields<T extends Record<string, ViewValue>>(
+  fields: { [K in keyof T]: (value: unknown) => T[K] | undefined },
+) {
+  return (value: unknown): T | undefined => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return;
+    const source = value as Record<string, unknown>;
+    const result: Record<string, ViewValue> = {};
+    for (const key of Object.keys(fields) as (keyof T & string)[]) {
+      const parsed = fields[key](source[key]);
+      if (parsed === undefined) return;
+      result[key] = parsed;
+    }
+    return result as T;
+  };
+}
+
+/** Transport failures retain a view; only an authoritative access failure clears it. */
+export const viewAccessDenied = (
+  error: { data?: { code?: string } | null } | null | undefined,
+) => error?.data?.code === "FORBIDDEN" || error?.data?.code === "UNAUTHORIZED";
