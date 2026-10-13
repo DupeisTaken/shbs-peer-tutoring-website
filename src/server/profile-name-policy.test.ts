@@ -684,10 +684,9 @@ it("checks new student intake and preserves accepted pre-policy identity at rede
     name: "王小明",
     legacyName: "王小明",
   });
-  expect(await db.studentSurvey.findFirst()).toMatchObject({
-    confirmedAt: expect.any(Date),
-    tuteeId: expect.any(String),
-  });
+  const redeemedSurvey = await db.studentSurvey.findFirstOrThrow();
+  expect(redeemedSurvey.confirmedAt).toBeInstanceOf(Date);
+  expect(typeof redeemedSurvey.tuteeId).toBe("string");
 });
 
 it("enrolls an existing non-Latin account without replacing its canonical name or handle", async () => {
@@ -867,7 +866,5 @@ it("preserves an accepted invited roster identity through first login without ad
   expect(await db.tutor.findUnique({ where: { id: roster.id } })).toMatchObject(
     { englishName: "王小明", legacyName: "王小明", username: "rosterhandle" },
   );
-  expect(
-    await db.registrationCode.findUnique({ where: { id: row.id } }),
-  ).toMatchObject({ usedAt: expect.any(Date) });
+  expect((await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } })).usedAt).toBeInstanceOf(Date);
 });
