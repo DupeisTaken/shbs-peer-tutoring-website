@@ -1,4 +1,11 @@
 "use client";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+  useSessionViewState,
+} from "~/app/_components/session-view-state";
+import { useRosterSort } from "~/app/_components/roster-view-state";
+import { viewEnum, viewSearch } from "~/lib/session-view-state";
 import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
 import {
   ParticipantName,
@@ -25,7 +32,7 @@ import {
 } from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
-import { SortHeader, useSort, compare } from "~/app/_components/sortable";
+import { SortHeader, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
 import { Button, ChoiceButton } from "~/app/_components/ui/button";
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
@@ -107,10 +114,7 @@ export default function TuteesPage() {
   const t = useTranslations();
   const locale = useLocale();
   const h = useTranslations("tuteeHistory");
-  const [historyView, setHistoryView] = useState<TuteeHistoryView>("current");
   const [detailsId, setDetailsId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [showUnverified, setShowUnverified] = useState(false);
   const permissions = api.tuteeHistory.permissions.useQuery();
   const policy = useProfilePolicy();
   const readOnly = useReadOnly();
@@ -130,11 +134,67 @@ export default function TuteesPage() {
     staleTime: REFERENCE_STALE_TIME,
   });
   const tutors = api.admin.tutors.useQuery();
-  const [showPast, setShowPast] = useState(false);
   const pairings = api.admin.pairings.useQuery();
   const stats = api.admin.tuteeStats.useQuery();
-  const [view, setView] = useState<"tutees" | "tutors">("tutees");
-  const sort = useSort("name");
+  const denied = useSessionAccessDenied(
+    identity,
+    tutees,
+    tutors,
+    pairings,
+    stats,
+    permissions,
+    courses,
+  );
+  const [historyView, setHistoryView] = useSessionViewState<TuteeHistoryView>({
+    id: "tutees-history-v1",
+    initialState: "current",
+    parse: viewEnum(["current", "historical", "all"]),
+    enabled: !denied,
+  });
+  const [search, setSearch] = useSessionViewState({
+    id: "tutees-search-v1",
+    initialState: "",
+    parse: viewSearch,
+    enabled: !denied,
+  });
+  const [showUnverified, setShowUnverified] = useSessionViewState({
+    id: "tutees-unverified-v1",
+    initialState: false,
+    parse: (value) => (typeof value === "boolean" ? value : undefined),
+    enabled: !denied,
+  });
+  const [showPast, setShowPast] = useSessionViewState({
+    id: "tutees-past-tutors-v1",
+    initialState: false,
+    parse: (value) => (typeof value === "boolean" ? value : undefined),
+    enabled: !denied,
+  });
+  const [view, setView] = useSessionViewState({
+    id: "tutees-panel-v1",
+    initialState: "tutees" as "tutees" | "tutors",
+    parse: viewEnum(["tutees", "tutors"]),
+    enabled: !denied,
+  });
+  const sort = useRosterSort(
+    "tutees-sort-v1",
+    ["name", "grade", "sessions", "discipline", "status"],
+    "name",
+    !denied,
+  );
+  useSessionPageScroll({
+    id: "tutees-v1",
+    scope: JSON.stringify([
+      view,
+      historyView,
+      search,
+      showUnverified,
+      showPast,
+      sort.key,
+      sort.dir,
+    ]),
+    ready: !!tutees.data && !!tutors.data && !!pairings.data && !!stats.data,
+    enabled: !denied,
+  });
 
   const invalidate = () => invalidateTuteeViews(utils);
   const create = api.admin.createTutee.useMutation({ onSuccess: invalidate });
@@ -233,6 +293,15 @@ export default function TuteesPage() {
     pairingsByTutor.set(p.tutorId, arr);
   }
 
+  if (denied)
+    return (
+      <StatePanel
+        kind="denied"
+        title={t("managementRecovery.denied", {
+          section: t("admin.tutees.title"),
+        })}
+      />
+    );
   return (
     <div className="space-y-8">
       {!readOnly && review.dialog}

@@ -1,6 +1,7 @@
 "use client";
 
 import { DismissibleNotice } from "~/app/_components/dismissible-notice";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
@@ -52,6 +53,11 @@ export default function TimeSlotsPage() {
     } else if (slots.isSuccess && !slots.isFetching) setDenied(false);
   }, [accessDenied, slots.isSuccess, slots.isFetching, queryClient]);
   const readBlocked = slots.data === undefined || !!slots.error;
+  useSessionPageScroll({
+    id: "time-slots-v1",
+    ready: slots.data !== undefined,
+    enabled: !denied && !accessDenied,
+  });
   const section = t("admin.timeslots.title");
   const readFeedback = (
     <QueryFeedback
