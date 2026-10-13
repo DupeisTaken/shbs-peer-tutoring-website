@@ -522,6 +522,49 @@ it("rejects object/array payloads in scalar fields without disclosing validation
   }
 });
 
+it.each(["PENDING", "DISMISSED", "WARNED", "PENALIZED", "ESCALATED"])(
+  "retains the %s flag summary state while redacting private decision fields",
+  (state) => {
+    const projected = projectManagementRead("admin.sessionFlags", [
+      {
+        id: "flag",
+        state,
+        tutor: "Tutor One",
+        subject: "Math",
+        expected: 2,
+        observed: 1,
+        date,
+        startMin: 900,
+        endMin: 960,
+        createdAt: date,
+        room: "Library",
+        decisionNote: PRIVATE,
+        resolvedByName: PRIVATE,
+        resolvedById: PRIVATE,
+        futurePrivateEvidence: { note: PRIVATE },
+      },
+    ]);
+    expect(projected).toEqual([
+      {
+        id: "flag",
+        state,
+        tutor: "Tutor One",
+        subject: "Math",
+        expected: 2,
+        observed: 1,
+        date,
+        startMin: 900,
+        endMin: 960,
+        createdAt: date,
+        room: "Library",
+        decisionNote: null,
+        resolvedByName: null,
+      },
+    ]);
+    expect(JSON.stringify(projected)).not.toContain(PRIVATE);
+  },
+);
+
 it("preserves explicit Viewer oversight of published policies and announcements", () => {
   const publicPost = {
     id: "public",

@@ -1,5 +1,6 @@
 "use client";
 import { EmailDetails } from "~/app/_components/email-details";
+import { Button } from "~/app/_components/ui/button";
 import { QualificationReview } from "~/app/_components/qualification-review";
 
 import Link from "next/link";
@@ -169,39 +170,44 @@ function ApplicationCard({
           translated labels never compete for the same narrow flex space. */}
       <div className="flex flex-wrap items-center gap-3">
         <button
-          className="flex min-h-11 w-full min-w-0 flex-wrap items-center gap-2 text-left lg:min-h-8 lg:w-auto lg:flex-1"
+          className="grid min-h-11 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 text-left lg:min-h-8 lg:w-auto lg:flex-1"
           aria-expanded={open}
           aria-controls={`application-panel-${app.id}`}
           onClick={() => setDisclosure(open ? "closed" : "open")}
         >
           <DisclosureIcon open={open} />
-          <span className="min-w-0 font-medium break-words text-slate-900">
-            {app.name}
-          </span>
-          <StatusBadge status={app.status} />
-          {app.isInvalid && <InvalidityBadge />}
-          <span className="badge-slate">
-            {t(`qualificationRequests.${app.type}`)}
-          </span>
-          <span className="muted hidden truncate text-xs sm:inline">
-            {courseNames}
-            {(features?.INTERVIEWS === true || hasInterviewHistory) && (
-              <>
-                {" · "}
-                {t("admin.applications.panelSummary", {
-                  n: app.interviewers.length,
-                  total: PANEL_SIZE,
-                })}
-                {app.votes.length > 0
-                  ? ` · ${t("admin.applications.votesSummary", {
-                      accepts,
-                      total: app.votes.length,
-                    })}`
-                  : ""}
-              </>
-            )}
+          {/* Wrapped metadata shares the name edge, independent of the disclosure artwork. */}
+          <span className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="min-w-0 font-semibold break-words text-slate-900">
+              {app.name}
+            </span>
+            <StatusBadge status={app.status} />
+            {app.isInvalid && <InvalidityBadge />}
+            <span className="badge-slate">
+              {t(`qualificationRequests.${app.type}`)}
+            </span>
+            <span className="muted block w-full text-xs [overflow-wrap:anywhere]">
+              {courseNames}
+              {(features?.INTERVIEWS === true || hasInterviewHistory) && (
+                <>
+                  {" · "}
+                  {t("admin.applications.panelSummary", {
+                    n: app.interviewers.length,
+                    total: PANEL_SIZE,
+                  })}
+                  {app.votes.length > 0
+                    ? ` · ${t("admin.applications.votesSummary", {
+                        accepts,
+                        total: app.votes.length,
+                      })}`
+                    : ""}
+                </>
+              )}
+            </span>
           </span>
         </button>
+        {/* All record actions share compact typography and target height, including
+         * invalidity controls and account-setup links supplied by other owners. */}
         <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto">
           {!readOnly && !additional && (
             <ApplicationInvalidityControls
@@ -220,8 +226,8 @@ function ApplicationCard({
             </Link>
           )}
           {canDirectAccept && (
-            <button
-              className="btn-secondary btn-sm"
+            <Button
+              size="compact"
               onClick={() =>
                 setStatus.mutate({
                   id: app.id,
@@ -231,11 +237,11 @@ function ApplicationCard({
               }
             >
               {t("admin.applications.accept")}
-            </button>
+            </Button>
           )}
           {canScreenReject && (
-            <button
-              className="btn-secondary btn-sm"
+            <Button
+              size="compact"
               onClick={() =>
                 setStatus.mutate({
                   id: app.id,
@@ -245,11 +251,12 @@ function ApplicationCard({
               }
             >
               {t("admin.applications.reject")}
-            </button>
+            </Button>
           )}
           {!readOnly && !additional && !app.isInvalid && (
-            <button
-              className="btn-danger btn-sm"
+            <Button
+              size="compact"
+              variant="danger"
               onClick={async () => {
                 if (
                   await confirm({
@@ -265,7 +272,7 @@ function ApplicationCard({
               }}
             >
               {t("admin.applications.delete")}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -448,7 +455,7 @@ export default function ApplicationsPage() {
     );
 
   const [filters, setFilters] = useState(emptyApplicationFilters);
-  const [invalidity, setInvalidity] = useState<InvalidityFilterValue>("all");
+  const [invalidity, setInvalidity] = useState<InvalidityFilterValue>("valid");
   // History links reveal their destination even when a previous filter hid it.
   // Ordinary filtering does not otherwise change the selected criteria.
   useEffect(() => {

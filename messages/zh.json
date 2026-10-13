@@ -3,9 +3,9 @@
     "badge": "无效条目",
     "filterLabel": "申请有效性",
     "filter": {
-      "all": "全部条目",
-      "valid": "未标记",
-      "invalid": "无效条目"
+      "all": "全部记录",
+      "valid": "有效记录",
+      "invalid": "无效记录"
     },
     "flag": "标记为无效",
     "review": "查看无效标记",
@@ -116,7 +116,10 @@
     "qualifiedOnly": "已获批的科目",
     "choiceHelp": "选择你目前愿意辅导的科目。",
     "scheduleSeparate": "时间安排需另行确认。",
-    "savesAutomatically": "更改自动保存"
+    "savesAutomatically": "更改自动保存",
+    "edit": "编辑详情",
+    "editTitle": "{tutor} · {subject}",
+    "refreshFailed": "更改已保存。请刷新科目记录后再进行下一次更改。"
   },
   "messaging": {
     "privacyTitle": "独立私信，接受管理监督",
@@ -566,7 +569,9 @@
         "name": "姓名",
         "email": "邮箱",
         "phone": "电话"
-      }
+      },
+      "emailVerifiedShort": "已验证",
+      "emailUnverifiedShort": "未验证"
     },
     "readOnly": {
       "banner": "管理区域为只读：可查看允许浏览的项目概览，个人联系方式已隐藏。"
@@ -935,7 +940,12 @@
       "colTutees": "学习伙伴",
       "colSH": "服务时长",
       "empty": "该筛选条件下暂无提交记录。",
-      "monthLabel": "月份"
+      "monthLabel": "月份",
+      "actualTime": "记录时间",
+      "duration": "{minutes} 分钟",
+      "hourFactor": "系数：{factor}",
+      "selfEvaluation": "自我评估",
+      "comments": "评语"
     },
     "meetings": {
       "title": "辅导伙伴会议",
@@ -1621,7 +1631,19 @@
         "WARNED": "已警告",
         "PENALIZED": "已扣减",
         "ESCALATED": "已升级"
-      }
+      },
+      "filterLabel": "出勤复核状态",
+      "states": {
+        "PENDING": "待处理",
+        "DISMISSED": "已撤销",
+        "WARNED": "已警告",
+        "PENALIZED": "已扣时",
+        "ESCALATED": "已升级处理",
+        "ALL": "全部状态"
+      },
+      "resolved": "复核人：{name} · {date}",
+      "queued": "处理决定已提交审批",
+      "refreshFailed": "处理决定已保存。请刷新记录以查看最新复核状态。"
     },
     "landing": {
       "title": "首页",
@@ -2868,7 +2890,8 @@
     "unknownSource": "早期报名",
     "sourceHelp": "来源说明报名的录入方式，不会改变审批、优先顺序或参与规则。“早期报名”表示原始录入来源尚无法确认。",
     "boardGuide": "申请如何分组",
-    "sourceGuide": "报名来源与归属"
+    "sourceGuide": "报名来源与归属",
+    "emailStatus": "邮箱：{status}"
   },
   "approvals": {
     "reviewPermissions": "管理员和负责人审批日常管理操作。重大设置、管理账户资料与权限、注册码授权申请及撤销操作由负责人审批。管理员和负责人可直接签发辅导伙伴及巡视员注册码。负责人可审批自己提交的请求；其他人员需要另一位有权限的审批人员。",
@@ -3323,7 +3346,12 @@
     "accessDeniedHelp": "当前会话已无权访问这些详情。缓存的证据已隐藏。",
     "loadFailed": "无法加载事件详情",
     "refreshFailed": "无法刷新事件详情。仍显示上次加载的证据。",
-    "retry": "重试"
+    "retry": "重试",
+    "difference": {
+      "added": "新增",
+      "removed": "移除",
+      "changed": "更改"
+    }
   },
   "auditFilters": {
     "subtitle": "按用户追踪项目中的操作、提案和决定。",
@@ -3860,7 +3888,7 @@
     "unknown": "未知",
     "graduated": "已毕业",
     "rosterUnknown": "年级未知",
-    "rosterNeedsConfirmation": "待核对并确认",
+    "rosterNeedsConfirmation": "需要复核",
     "notApplicable": "不适用",
     "reported": "学校年级（1–12 年级）",
     "original": "原始填报：{value}",
@@ -4038,7 +4066,7 @@
     "emptyAll": "暂无可显示的学习伙伴记录。",
     "gradeClass": "年级与毕业届别",
     "classOf": "{year}届",
-    "reviewNeeded": "待确认",
+    "reviewNeeded": "需要复核",
     "linkSaved": "历史记录已关联。",
     "failed": "未能完成操作，请刷新后重试。",
     "HISTORY_ACCOUNT_NOT_READY": "请选择已完成设置并验证邮箱的账号。",

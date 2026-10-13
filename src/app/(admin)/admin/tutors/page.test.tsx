@@ -184,8 +184,10 @@ it("keeps private row actions hidden for read-only viewers", () => {
 it("uses the shared text-action stack and compact unknown grade summary", () => {
   mount();
   const row = screen.getByText("Unconfirmed Tutor").closest("tr")!;
-  expect(within(row).getByText("Unknown Grade Level")).toBeTruthy();
-  expect(within(row).getByText("Needs Review & Confirmation")).toBeTruthy();
+  expect(within(row).queryByText("Unknown Grade Level")).toBeNull();
+  expect(
+    within(row).getByText(en.academics.rosterNeedsConfirmation),
+  ).toBeTruthy();
   expect(
     within(row).queryByText(/Original report|Expected graduation/),
   ).toBeNull();

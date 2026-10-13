@@ -116,7 +116,10 @@
     "qualifiedOnly": "Your qualified subjects",
     "choiceHelp": "Choose what you would like to tutor right now.",
     "scheduleSeparate": "Your timetable is arranged separately.",
-    "savesAutomatically": "Changes save automatically"
+    "savesAutomatically": "Changes save automatically",
+    "edit": "詳細を編集",
+    "editTitle": "{tutor} · {subject}",
+    "refreshFailed": "変更を保存しました。次の変更を行う前に科目の記録を更新してください。"
   },
   "messaging": {
     "privacyTitle": "Private Deliveries, with Staff Oversight",
@@ -574,7 +577,9 @@
         "name": "氏名",
         "email": "メール",
         "phone": "電話"
-      }
+      },
+      "emailVerifiedShort": "確認済み",
+      "emailUnverifiedShort": "未確認"
     },
     "readOnly": {
       "banner": "管理エリアは閲覧専用です。許可された概要を閲覧できます。個人の連絡先情報は非表示です。"
@@ -1013,7 +1018,12 @@
       "colTutees": "生徒",
       "colSH": "奉仕時間",
       "empty": "このフィルターに一致する提出はありません。",
-      "monthLabel": "月"
+      "monthLabel": "月",
+      "actualTime": "記録された時間",
+      "duration": "{minutes} 分",
+      "hourFactor": "係数：{factor}",
+      "selfEvaluation": "自己評価",
+      "comments": "コメント"
     },
     "meetings": {
       "title": "チューターミーティング",
@@ -1621,7 +1631,19 @@
         "WARNED": "警告済み",
         "PENALIZED": "減算済み",
         "ESCALATED": "エスカレーション"
-      }
+      },
+      "filterLabel": "出欠の審査状況",
+      "states": {
+        "PENDING": "審査待ち",
+        "DISMISSED": "却下済み",
+        "WARNED": "警告済み",
+        "PENALIZED": "時間控除済み",
+        "ESCALATED": "上位審査へ移行済み",
+        "ALL": "すべての状態"
+      },
+      "resolved": "確認者：{name} · {date}",
+      "queued": "決定を承認申請しました",
+      "refreshFailed": "決定を保存しました。記録を更新して最新の審査状況を確認してください。"
     },
     "landing": {
       "title": "トップページ",
@@ -2868,7 +2890,8 @@
     "unknownSource": "以前の申込",
     "sourceHelp": "申込元は入力方法を示し、承認・優先順位・参加規則は変わりません。「以前の申込」は元の入力方法を確認できない記録です。",
     "boardGuide": "申請の分類方法",
-    "sourceGuide": "登録元とアカウントの紐付け"
+    "sourceGuide": "登録元とアカウントの紐付け",
+    "emailStatus": "メール：{status}"
   },
   "approvals": {
     "reviewPermissions": "通常の管理申請はAdminとHeadが審査します。役割・バッジの変更はHeadのみが審査できます。Headは自分の申請も審査できますが、他の人には別の権限を持つ審査担当者が必要です。",
@@ -3323,7 +3346,12 @@
     "accessDeniedHelp": "現在のセッションでは、この詳細にアクセスできなくなりました。キャッシュされた証拠は非表示になっています。",
     "loadFailed": "イベントの詳細を読み込めませんでした",
     "refreshFailed": "イベントの詳細を更新できませんでした。最後に読み込まれた証拠を引き続き表示しています。",
-    "retry": "再試行"
+    "retry": "再試行",
+    "difference": {
+      "added": "追加",
+      "removed": "削除",
+      "changed": "変更"
+    }
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
@@ -3826,7 +3854,7 @@
     "unknown": "不明",
     "graduated": "卒業済み",
     "rosterUnknown": "学年不明",
-    "rosterNeedsConfirmation": "見直しと確認が必要",
+    "rosterNeedsConfirmation": "要確認",
     "notApplicable": "Not Applicable",
     "reported": "School Grade (1–12)",
     "original": "Original report: {value}",
@@ -4004,7 +4032,7 @@
     "emptyAll": "表示できる学習パートナーの記録はありません。",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
-    "reviewNeeded": "Review needed",
+    "reviewNeeded": "要確認",
     "linkSaved": "Historical records linked.",
     "failed": "Could not complete this request. Refresh and try again.",
     "HISTORY_ACCOUNT_NOT_READY": "Choose an account with completed setup and a verified email.",
@@ -4515,9 +4543,9 @@
     "badge": "無効な申請",
     "filterLabel": "申請の有効性",
     "filter": {
-      "all": "すべての申請",
-      "valid": "無効マークなし",
-      "invalid": "無効な申請"
+      "all": "すべての記録",
+      "valid": "有効な記録",
+      "invalid": "無効な記録"
     },
     "flag": "無効としてマーク",
     "review": "無効マークを確認",

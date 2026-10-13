@@ -1,3 +1,4 @@
+import { SESSION_FLAG_FILTERS } from "~/lib/session-flag-state";
 import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
 import {
   lockProgramRooms,
@@ -4375,42 +4376,66 @@ export const adminRouter = createTRPCRouter({
       ),
     ),
 
-  /** Open (PENDING) attendance-discrepancy flags — the crew saw fewer students than reported. */
-  sessionFlags: viewerProcedure.query(async ({ ctx }) => {
-    const flags = await ctx.db.sessionFlag.findMany({
-      where: { state: "PENDING" },
-      orderBy: { createdAt: "asc" },
-      select: {
-        id: true,
-        expected: true,
-        observed: true,
-        createdAt: true,
-        tutor: { select: { englishName: true } },
-        session: {
-          select: {
-            id: true,
-            date: true,
-            startMin: true,
-            endMin: true,
-            pairing: { select: { subject: true } },
-            actualRoom: { select: { name: true } },
+  /** Recorded attendance-discrepancy decisions. Default stays Pending; broader states
+   * only extend this authorized read, never reopen a settled decision. */
+  sessionFlags: viewerProcedure
+    .input(
+      z
+        .object({ state: z.enum(SESSION_FLAG_FILTERS).default("PENDING") })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const flags = await ctx.db.sessionFlag.findMany({
+        where:
+          !input || input.state === "PENDING"
+            ? { state: "PENDING" }
+            : input.state === "ALL"
+              ? {}
+              : { state: input.state },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          state: true,
+          decisionNote: true,
+          resolvedAt: true,
+          resolvedByName: true,
+          expected: true,
+          observed: true,
+          createdAt: true,
+          tutor: { select: { englishName: true } },
+          session: {
+            select: {
+              id: true,
+              date: true,
+              startMin: true,
+              endMin: true,
+              pairing: { select: { subject: true } },
+              actualRoom: { select: { name: true } },
+            },
           },
         },
-      },
-    });
-    return flags.map((f) => ({
-      id: f.id,
-      expected: f.expected,
-      observed: f.observed,
-      createdAt: f.createdAt,
-      tutor: f.tutor.englishName,
-      subject: f.session.pairing.subject,
-      room: f.session.actualRoom?.name ?? null,
-      date: f.session.date,
-      startMin: f.session.startMin,
-      endMin: f.session.endMin,
-    }));
-  }),
+      });
+      return flags.map((f) => ({
+        id: f.id,
+        state: f.state,
+        decisionNote: ctx.portalAccess.maskManagementData
+          ? null
+          : f.decisionNote,
+        resolvedAt: f.resolvedAt,
+        resolvedByName: ctx.portalAccess.maskManagementData
+          ? null
+          : f.resolvedByName,
+        expected: f.expected,
+        observed: f.observed,
+        createdAt: f.createdAt,
+        tutor: f.tutor.englishName,
+        subject: f.session.pairing.subject,
+        room: f.session.actualRoom?.name ?? null,
+        date: f.session.date,
+        startMin: f.session.startMin,
+        endMin: f.session.endMin,
+      }));
+    }),
 
   /**
    * Decide a flagged session: dismiss as valid, record a warning, apply a service-hour penalty

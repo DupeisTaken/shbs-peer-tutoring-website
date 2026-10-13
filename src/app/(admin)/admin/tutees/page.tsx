@@ -799,7 +799,7 @@ export default function TuteesPage() {
                       )}
                       {!readOnly && (
                         <TableAction
-                          className="text-red-600"
+                          variant="danger"
                           disabled={review.blocked(t2.id)}
                           onClick={() =>
                             review.open({

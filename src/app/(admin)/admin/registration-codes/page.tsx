@@ -323,7 +323,7 @@ export default function RegistrationCodesPage() {
           return (
             <div key={c.id} className="rounded-lg border border-slate-200 p-4">
               {/* Both groups may shrink and wrap: long labels must never push record actions offscreen. */}
-              <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex max-w-full min-w-0 items-start gap-2">
                   <Button
                     variant="ghost"
@@ -356,17 +356,17 @@ export default function RegistrationCodesPage() {
                 </div>
                 <div className="flex w-full min-w-0 flex-wrap items-center gap-3 lg:w-auto lg:justify-end">
                   {/* Issuer account + bound email, to the left of the expiry. */}
-                  <div className="min-w-0 text-xs leading-tight [overflow-wrap:anywhere] text-slate-500 lg:text-right">
-                    <p>
-                      {t("admin.registrationCodes.colIssuedBy")}:{" "}
-                      {c.issuedByName ?? "—"}
-                    </p>
-                    {c.issuedByEmail && (
+                  <div className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-slate-500">
+                    <span>{t("admin.registrationCodes.colIssuedBy")}:</span>
+                    {c.issuedByEmail ? (
                       <EmailDetails
                         contactOnly
+                        triggerLabel={c.issuedByName ?? "—"}
                         email={c.issuedByEmail}
                         name={c.issuedByName ?? "—"}
                       />
+                    ) : (
+                      <span>{c.issuedByName ?? "—"}</span>
                     )}
                   </div>
                   <p className="text-xs text-slate-500">

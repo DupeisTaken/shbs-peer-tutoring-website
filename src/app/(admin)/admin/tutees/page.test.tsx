@@ -384,7 +384,7 @@ it.each([false, true])(
       name: messages.admin.tutees.deleteBtn,
     });
     expect(edit.classList.contains("table-action-link")).toBe(true);
-    expect(remove.classList.contains("text-red-600")).toBe(true);
+    expect(remove.classList.contains("table-action-danger")).toBe(true);
     fireEvent.click(edit);
     expect(screen.getByRole("dialog").textContent).toBe("Editing tutee-1");
     fireEvent.click(remove);

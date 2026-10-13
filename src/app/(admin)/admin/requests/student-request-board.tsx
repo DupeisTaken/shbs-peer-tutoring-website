@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "~/app/_components/ui/button";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
 import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
@@ -55,7 +56,7 @@ export function StudentRequestBoard({
   const [tab, setTab] = useState<
     "matching" | "assigned" | "reviews" | "processed"
   >("matching");
-  const [invalidity, setInvalidity] = useState<InvalidityFilterValue>("all");
+  const [invalidity, setInvalidity] = useState<InvalidityFilterValue>("valid");
   const matchingValidity = (invalid: boolean) =>
     invalidity === "all" || invalid === (invalidity === "invalid");
   const visibleRows = (rows.data ?? []).filter((row) =>
@@ -187,6 +188,7 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
   const format = useFormatter();
   const locale = useLocale();
   const t = useTranslations("workflow");
+  const requests = useTranslations("admin.requests");
   const utils = api.useUtils();
   const readOnly = useReadOnly();
   const account = api.account.me.useQuery().data;
@@ -197,27 +199,13 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
     <article className="card space-y-4 p-5">
       <header className="flex flex-wrap justify-between gap-3">
         <div className="min-w-0 space-y-2">
-          <h3 className="font-semibold break-words">{row.name}</h3>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold break-words">{row.name}</h3>
             <SignupSourceBadge source="SELF_SERVICE" />
             {row.isInvalid && <InvalidityBadge />}
-            <span
-              className={
-                row.state !== "OPEN"
-                  ? "badge-slate"
-                  : row.confirmedAt
-                    ? "badge-green"
-                    : "badge-amber"
-              }
-            >
-              {t(
-                row.state !== "OPEN"
-                  ? `state.${row.state}`
-                  : row.confirmedAt
-                    ? "verified"
-                    : "unverified",
-              )}
-            </span>
+            {row.state !== "OPEN" && (
+              <span className="badge-slate">{t(`state.${row.state}`)}</span>
+            )}
             {row.editedAt && <span className="badge-amber">{t("edited")}</span>}
           </div>
           <p className="muted text-xs">
@@ -228,6 +216,20 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
               }),
             })}
           </p>
+          {/* Verification belongs once in the contact summary, not a second
+           * identity badge. Contextual labels avoid "Email: Email verified". */}
+          <div className="flex flex-wrap items-center gap-x-2 text-sm">
+            <span>
+              {t("emailStatus", {
+                status: requests(
+                  row.confirmedAt
+                    ? "emailVerifiedShort"
+                    : "emailUnverifiedShort",
+                ),
+              })}
+            </span>
+            <EmailDetails contactOnly email={row.email} name={row.name} />
+          </div>
         </div>
         <div className="flex flex-wrap items-start gap-2">
           {!readOnly && (
@@ -239,13 +241,14 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
             />
           )}
           {!readOnly && row.state === "OPEN" && !row.confirmedAt && (
-            <button
-              className="btn-secondary btn-sm self-start"
+            <Button
+              size="compact"
+              className="self-start"
               disabled={resend.isPending || row.isInvalid}
               onClick={() => resend.mutate({ id: row.id })}
             >
               {t("resend")}
-            </button>
+            </Button>
           )}
         </div>
       </header>
@@ -272,8 +275,6 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
       )}
       <div className="grid gap-4 border-t border-slate-100 pt-4 text-sm sm:grid-cols-2">
         <div>
-          <p className="font-medium">{t("contact")}</p>
-          <EmailDetails contactOnly email={row.email} name={row.name} />
           <p className="muted break-words">{row.contact}</p>
         </div>
         <div>
@@ -360,12 +361,24 @@ function Assignment({
   const pairing = row.pairings.find((p) => p.subject === subject.name);
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <span className="min-w-36 text-sm font-medium">{subject.name}</span>
+      {(pairing !== undefined || readOnly || row.isInvalid) && (
+        <span className="min-w-0 text-sm font-medium">{subject.name}</span>
+      )}
       {pairing ? (
         <span className="badge-green">{pairing.tutor.englishName}</span>
       ) : !readOnly && !row.isInvalid ? (
         <>
           <QualifiedTutorSelect
+            leading={<span className="font-medium">{subject.name}</span>}
+            actions={
+              <button
+                className="btn-primary min-h-11 lg:min-h-10"
+                disabled={!tutorId}
+                onClick={() => setOpen(true)}
+              >
+                {t("assign")}
+              </button>
+            }
             label={t("chooseTutor", { subject: subject.name })}
             tutors={tutors}
             subjectId={subject.id}
@@ -376,13 +389,6 @@ function Assignment({
               setTutorId(value);
             }}
           />
-          <button
-            className="btn-primary min-h-11 self-end lg:min-h-10"
-            disabled={!tutorId}
-            onClick={() => setOpen(true)}
-          >
-            {t("assign")}
-          </button>
         </>
       ) : null}
       {assign.isSuccess && !assign.data.emailSent && (

@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminSummaryRecipe } from "./admin-summary-recipe";
 import { NavigationRecipes } from "./navigation-recipes";
 import { ActionReviewRecipe } from "./action-review-recipe";
 import { useEffect, useState, type ReactNode } from "react";
@@ -777,6 +778,7 @@ export function RecipeGallery({
           </div>
         </Recipe>
       </div>
+      <AdminSummaryRecipe locale={locale} />
       <NavigationRecipes locale={locale} />
       {dialog === "editor" && (
         <ProfileDialog

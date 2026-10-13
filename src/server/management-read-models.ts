@@ -303,7 +303,11 @@ export const managementReadModels = {
   ),
   "admin.sessionFlags": list(
     summary(
-      "id expected observed createdAt tutor subject room date startMin endMin",
+      // Recorded state is public summary data; reviewer identity and decision
+      // notes remain explicitly redacted even as filtered reads include history.
+      "id state expected observed createdAt tutor subject room date startMin endMin",
+      {},
+      "decisionNote resolvedByName",
     ),
   ),
   "admin.registrationCodes": list(

@@ -52,19 +52,25 @@ export function TuteeAcademicCell({
             : t("notRecorded")));
   return (
     <div className="space-y-1 leading-tight">
-      <p>{label}</p>
+      {review ? (
+        <p className="badge-amber">{t("reviewNeeded")}</p>
+      ) : (
+        <p>{label}</p>
+      )}
       {classYear && (
         <p className="muted text-xs">{t("classOf", { year: classYear })}</p>
       )}
       {year && (
         <p className="muted text-xs">
           {year}
-          {enrollment && !row.enrollmentCorrection && year === row.enrollmentPeriod?.schoolYear && row.enrollmentPeriod?.quarter
+          {enrollment &&
+          !row.enrollmentCorrection &&
+          year === row.enrollmentPeriod?.schoolYear &&
+          row.enrollmentPeriod?.quarter
             ? ` · ${row.enrollmentPeriod.quarter}`
             : ""}
         </p>
       )}
-      {review && <p className="text-xs text-amber-700">{t("reviewNeeded")}</p>}
     </div>
   );
 }
