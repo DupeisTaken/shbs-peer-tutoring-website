@@ -305,6 +305,79 @@ it("treats a freshly denied write as revoked authority and restores only after a
   state.read.mockResolvedValue(snapshot());
   fireEvent.click(screen.getByRole("button", { name: "Retry refresh" }));
   await screen.findByRole("combobox");
-  expect(select().value).toBe("2");
+  expect(select().value).toBe("4");
   expect(state.save).toHaveBeenCalledTimes(1);
 });
+it.each([
+  { status: "ACTIVE", canEdit: true, expectedDraft: "4" },
+  { status: "ACTIVE", canEdit: false, expectedDraft: "4" },
+  { status: "OPTED_OUT", canEdit: false, expectedDraft: "0" },
+])(
+  "recovers denied authority into $status/$canEdit without silently reviving or replacing an active draft",
+  async ({ status, canEdit, expectedDraft }) => {
+    mount();
+    await choose("4");
+    state.save.mockRejectedValueOnce(
+      Object.assign(new Error("Denied write"), { data: { code: "FORBIDDEN" } }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save preference" }));
+    await screen.findByText(
+      "You no longer have access to this workload preference.",
+    );
+    state.read.mockResolvedValue(
+      snapshot({ status, canEdit, preferredMaximum: 0, version: 1 }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry refresh" }));
+    await screen.findByRole("combobox");
+    expect(select().value).toBe(expectedDraft);
+    expect(select().disabled).toBe(!canEdit);
+    expect(await screen.findByText(/Preferred maximum: 0/)).toBeTruthy();
+    expect(state.save).toHaveBeenCalledTimes(1);
+    if (status === "ACTIVE") {
+      expect(
+        await screen.findByText(
+          /saved preference or participation state changed/,
+        ),
+      ).toBeTruthy();
+      if (canEdit) {
+        // A new read must not silently adopt version1; an explicit Reload does.
+        state.save.mockRejectedValueOnce(
+          Object.assign(new Error("Stale version"), {
+            data: { code: "CONFLICT" },
+          }),
+        );
+        fireEvent.click(
+          screen.getByRole("button", { name: "Save preference" }),
+        );
+        await waitFor(() => expect(state.save).toHaveBeenCalledTimes(2));
+        expect(state.save.mock.calls.at(-1)?.[0]).toEqual({
+          preferredMaximum: 4,
+          expectedVersion: 0,
+        });
+        await screen.findByText(
+          /saved preference or participation state changed/,
+        );
+        expect(select().value).toBe("4");
+        fireEvent.click(
+          screen.getByRole("button", { name: "Reload saved preference" }),
+        );
+        await waitFor(() => expect(select().value).toBe("0"));
+        await choose("4");
+        state.read.mockResolvedValue(
+          snapshot({ preferredMaximum: 4, version: 2 }),
+        );
+        fireEvent.click(
+          screen.getByRole("button", { name: "Save preference" }),
+        );
+        await waitFor(() => expect(state.save).toHaveBeenCalledTimes(3));
+        expect(state.save.mock.calls.at(-1)?.[0]).toEqual({
+          preferredMaximum: 4,
+          expectedVersion: 1,
+        });
+      }
+    } else
+      expect(
+        screen.queryByText(/saved preference or participation state changed/),
+      ).toBeNull();
+  },
+);

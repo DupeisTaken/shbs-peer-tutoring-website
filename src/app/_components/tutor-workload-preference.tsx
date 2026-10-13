@@ -52,7 +52,7 @@ export function TutorWorkloadPreference() {
     if (query.data.status !== "ACTIVE" || !snapshot || !dirty)
       adopt(query.data);
   }, [query.data, snapshot, dirty, committed, refreshing, denied, deniedNow]);
-  async function refresh() {
+  async function refresh(preserveDeniedDraft = false) {
     if (admission.current || refreshing) return;
     admission.current = true;
     setRefreshing(true);
@@ -61,7 +61,17 @@ export function TutorWorkloadPreference() {
         staleTime: 0,
       });
       if (!data) throw new Error("No tutor preference response");
-      adopt(data);
+      if (
+        preserveDeniedDraft &&
+        dirty &&
+        !committed &&
+        snapshot &&
+        data.status === "ACTIVE"
+      ) {
+        // Recovery establishes fresh authority, but it does not consent to
+        // replacing an active draft or adopting a newer mutation version.
+        setSnapshot({ ...snapshot, canEdit: data.canEdit });
+      } else adopt(data);
       setDenied(false);
       setCommitted(false);
       setRefreshFailed(false);
@@ -115,7 +125,7 @@ export function TutorWorkloadPreference() {
           kind="denied"
           title={t("denied")}
           action={
-            <Button onClick={() => void refresh()} disabled={refreshing}>
+            <Button onClick={() => void refresh(true)} disabled={refreshing}>
               {t("retry")}
             </Button>
           }
