@@ -1,3 +1,8 @@
+import {
+  deleteAccount,
+  deleteAccountInput,
+  previewDeleteAccount,
+} from "~/server/delete-account";
 import { SESSION_FLAG_FILTERS } from "~/lib/session-flag-state";
 import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
 import {
@@ -5228,91 +5233,22 @@ export const adminRouter = createTRPCRouter({
   /**
    * Delete a login account (HEAD only, identity-confirmed). The linked Tutor record is NOT
    * deleted — the user's tutor link is dropped first so its username/class/history stay on the
-   * roster and the person can be re-invited later (revertible). The login's personal rows
+   * roster. A fresh invitation is a separate account-creation decision, not deletion undo. The login's personal rows
    * (notifications, acks, verification codes, reset tokens) cascade away; authored content
    * (announcements, card reviews, policy edits) is detached (set-null), not lost. You cannot
    * delete yourself or another head — transfer leadership first.
    */
-  deleteUser: headProcedure
-    .input(
-      z.object({ userId: cuid, confirmPassword: z.string().min(1).max(1024) }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      await assertCallerPassword(ctx.session.user.id, input.confirmPassword);
-      if (input.userId === ctx.session.user.id) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "You cannot delete your own account.",
-        });
-      }
-      const target = await inTransaction(ctx.db, async (tx) => {
-        // Account deletion and leadership transfer share one serialization boundary. The
-        // middleware's earlier role snapshot cannot authorize a request after transfer.
-        await lockEntity(tx, "program:leadership");
-        const actor = await tx.user.findUnique({
-          where: { id: ctx.session.user.id },
-          select: { role: true, suspendedAt: true },
-        });
-        if (actor?.role !== "HEAD" || actor.suspendedAt)
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Only the current active Head can delete accounts.",
-          });
-        const target = await tx.user.findUniqueOrThrow({
-          where: { id: input.userId },
-          select: {
-            id: true,
-            role: true,
-            name: true,
-            email: true,
-            tutorId: true,
-            mergedIntoId: true,
-          },
-        });
-        if (
-          target.mergedIntoId ||
-          (await tx.user.count({ where: { mergedIntoId: target.id } }))
-        )
-          throw new TRPCError({
-            code: "CONFLICT",
-            message:
-              "Combined account history must be retained. Update the surviving account's memberships instead.",
-          });
-        if (target.role === "HEAD") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Transfer leadership before deleting the head account.",
-          });
-        }
-        // Preserve the tutor: detach it from the login before deleting so the roster row
-        // (username, class, attendance history) survives.
-        if (
-          await tx.tutorProfileOwnership.count({ where: { userId: target.id } })
-        )
-          throw new TRPCError({
-            code: "CONFLICT",
-            message:
-              "Retained tutor history must be preserved. Review historical ownership before deleting this account.",
-          });
-        if (target.tutorId) {
-          await tx.user.update({
-            where: { id: target.id },
-            data: { tutorId: null },
-          });
-        }
-        await tx.user.delete({ where: { id: target.id } });
-        return target;
-      });
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `Deleted account ${target.name ?? target.email}`,
-        entity: "User",
-        entityId: target.id,
-      });
-      return { ok: true };
-    }),
+  previewDeleteUser: headProcedure
+    .input(z.object({ userId: cuid }))
+    .query(({ ctx, input }) =>
+      previewDeleteAccount(ctx.db, ctx.session.user.id, input.userId),
+    ),
 
+  deleteUser: headProcedure
+    .input(deleteAccountInput)
+    .mutation(({ ctx, input }) =>
+      deleteAccount(ctx.db, ctx.session.user.id, input),
+    ),
   /** Assign (or unassign) a user as a translator — grants access to the /localization editor. */
   setUserCanTranslate: headProcedure
     .input(z.object({ userId: cuid, canTranslate: z.boolean() }))

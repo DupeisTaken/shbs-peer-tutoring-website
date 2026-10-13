@@ -315,11 +315,28 @@ tests and gallery example.
 `NativeDialog` supplies native modality, portal event ownership, radio-aware keyboard focus and exact trigger restoration. `Modal`, the wide/sticky `ProfileDialog`, and `CurrentPolicyDialog` share this behavior while retaining their own layout and scrolling. A nested review owns its Escape event. Independent forms call `useDialogPending(ownPending)` to prevent dismissal during any registered write; its return value disables sibling controls. Register only the form's own pending state, never the returned aggregate, so the guard releases when writes settle. Callers retain validation, versions, permissions, approval policy and action tickets.
 
 Users & Roles account deletion uses a feature-owned password form inside `Modal`.
-The feature captures the account and guards same-turn admission; the shared dialog
-owns native modality, pending dismissal and trigger focus. Its mutation remains
-the existing `userId` / `confirmPassword` contract with live server eligibility.
-Do not infer authorization, add confirmation tickets or replay a deletion from a
-failed list refresh when changing its presentation.
+The list-owned [AccountDeletion](../src/app/_components/account-deletion.tsx)
+captures an authoritative `admin.previewDeleteUser` snapshot and its fingerprint,
+retains a rejected password draft, and guards same-turn admission. The shared dialog
+owns native modality, pending dismissal and trigger focus; a delayed initial read
+focuses the password only before the user begins exploring. Explicit Reload replaces
+a stale snapshot only after a successful read. Denied evidence remains concealed
+through later transport failure. Accepted deletion and failed list synchronization
+have separate states; retained read recovery cannot replay the mutation or offer a
+known-deleted row again.
+
+[Deletion](../src/server/delete-account.ts) receives `userId`, the reviewed
+`fingerprint` and `confirmPassword`. Namespace, leadership, sorted account advisory
+locks, dependency-table fences and User row locks serialize the live password,
+authority and consequence check with signup/profile/ownership changes. Audit commits
+with deletion in the existing request scope or the helper-owned transaction. The
+preview separates current academic/departure singletons from their evidence counts,
+and deduplicates direct/retained profile IDs. Existing cascade and nullable-reference
+semantics remain explicit, while combined families, retained Tutor/Tutee owners and
+unconfirmed email-bound intake receive specific blockers. Scalar Student ownership
+has no foreign key, so its blocker prevents a dangling inaccessible archive. Login
+deletion removes expiring action grants too; sessions and invitation proofs fail
+their live account/generation checks. No countdown or new confirmation ticket is added.
 
 `TimedActionDialog` retains its separate ticket/countdown and mandatory-policy
 contract. Like `NativeDialog`, it disables native close requests and suppresses
@@ -589,6 +606,15 @@ The [user filter helpers](../src/lib/user-filters.ts) match composable membershi
 Account names synchronize only to explicitly linked current profiles. Shared profile writers lock the account before roster rows and reject stale versions. Signed agreements, submitted survey names and historical snapshots remain evidence of what was submitted.
 
 Head-only [account combination](../src/server/combine-accounts.ts) requires a preview, identity acknowledgement and the Head's password. `User.mergedIntoId` retains the duplicate as historical identity while live authorization and database guards retire its credentials and reserve its identifiers. Ownership-aware reads include retained history without rewriting original actors. Departure history and incompatible account state block this generic workflow; see [identity retention and migration limits](deployment.md#combined-account-identity-retention) and the [operator procedure](user-guide.md#combine-duplicate-accounts-head-only).
+
+The combine component intersects its server candidates with actual login IDs in
+the displayed Users & Roles table. Existing filters and search remain authoritative
+for this presentation, including default unverified/history visibility. It adds no
+signup classification. Hidden selections invalidate the local review generation,
+so a late preview response cannot restore private evidence or an old pair. Once
+submitted, the captured pair keeps its pending/result owner; page filters are
+disabled until settlement. Both zero-signup and signup-bearing logins retain the
+same server conflict, survivor-readiness and retirement safeguards.
 
 [Historical tutor linking](../src/server/tutor-history.ts) records a separate
 `TutorProfileOwnership` read grant rather than replacing `User.tutorId`. Admin/Head

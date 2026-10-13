@@ -4015,7 +4015,10 @@
       "tuteeProfiles": "Tutee ownership links moved",
       "tutorProfiles": "Tutor history ownership links moved"
     },
-    "noCandidates": "Es stehen keine Konten zum Zusammenführen zur Verfügung."
+    "noCandidates": "No login accounts are displayed under the current filters and search.",
+    "filteredChoices": "Choices include only login accounts displayed in the filtered and searched list below. Accountless roster records cannot be combined.",
+    "readySurvivor": "Logins can be reviewed regardless of signup history. The login to keep must have completed password setup and email verification; an unfinished login may be retired, subject to the review’s blockers.",
+    "savedRefreshFailed": "The accounts were combined, but the lists could not refresh. Retry the read; do not combine again."
   },
   "tuteeDetails": {
     "title": "Details zur lernenden Person",
@@ -4668,5 +4671,53 @@
   },
   "participantNames": {
     "unnamed": "Kein Name angegeben"
+  },
+  "accountDeletion": {
+    "intro": "Permanently delete the login for {name}? Review the account and its records before confirming your password.",
+    "loading": "Loading deletion review…",
+    "readFailed": "Could not refresh the deletion review. The displayed records have not been confirmed again.",
+    "reload": "Reload deletion review",
+    "consequences": "The login, sessions and recovery access are removed. Direct tutor and tutee roster records and their session history remain; original messages, policy signatures and audit actors remain. Login-local records listed below are removed. Authored content is detached, and outstanding account-bound invitation proofs become invalid.",
+    "removed": "Records removed",
+    "retained": "Records retained",
+    "noRecords": "No records in this group.",
+    "fullCounts": "View all record counts",
+    "blocked": "Resolve these blockers first",
+    "changed": "The account or its records changed. Reload and review the current consequences before confirming.",
+    "saved": "The login for {name} was deleted.",
+    "savedRefreshFailed": "The deletion was saved, but the account list could not refresh. Retry the read; do not delete again.",
+    "retryList": "Retry account list refresh",
+    "blockers": {
+      "self": "You cannot delete your own login.",
+      "head": "Transfer leadership before deleting the Head login.",
+      "combined": "Combined identities and their ownership must remain. Update the surviving account instead.",
+      "tutorHistory": "This login owns retained tutor history. Review historical ownership before deleting it.",
+      "studentHistory": "This login owns retained tutee records. Review historical ownership before deletion, or use Combine accounts instead to retire a duplicate while retaining access.",
+      "intake": "Complete or withdraw this login’s unconfirmed tutee intake first."
+    },
+    "counts": {
+      "emails": "Login email addresses",
+      "credentials": "Recovery, verification and action grants",
+      "notifications": "Notifications",
+      "deliveries": "Email delivery records",
+      "crewRequests": "Crew requests",
+      "appeals": "Account appeals",
+      "acknowledgements": "Announcement acknowledgements",
+      "academicProfiles": "Current academic profile",
+      "academics": "Academic confirmations",
+      "currentDepartures": "Current school departure",
+      "departures": "Departure events",
+      "patrols": "Patrol records",
+      "observations": "Patrol observations",
+      "creditWindows": "Patrol credit windows",
+      "tutors": "Tutor profiles",
+      "students": "Tutee profiles",
+      "messages": "Original messages",
+      "policies": "Policy acceptance records",
+      "audits": "Original actor audits",
+      "approvals": "Approval decisions and requests",
+      "studentRequests": "Tutee review requests",
+      "quarterBlocks": "Period withdrawal blocks"
+    }
   }
 }

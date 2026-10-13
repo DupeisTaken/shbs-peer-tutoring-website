@@ -3,7 +3,7 @@ import { participantNameLabel } from "~/app/_components/participant-name";
 
 import { matchesPersonSearch } from "~/lib/person-search";
 import { accountMembership } from "~/lib/account-membership";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
@@ -15,7 +15,7 @@ import {
   InlineNotice,
   StatePanel,
 } from "~/app/_components/ui/patterns";
-import { Modal } from "~/app/_components/ui/modal";
+import { AccountDeletion } from "~/app/_components/account-deletion";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -65,81 +65,6 @@ const TUTOR_STATUSES = [
 ] as const;
 const ACCOUNT_STATES = ["registered", "setup", "invited", "none"] as const;
 
-/** Deletion keeps its target and ephemeral password in the feature; Modal owns focus and dismissal. */
-function ConfirmIdentityDialog({
-  title,
-  body,
-  confirmLabel,
-  pending,
-  error,
-  onCancel,
-  onConfirm,
-}: {
-  title: string;
-  body: string;
-  confirmLabel: string;
-  pending: boolean;
-  error: string | null;
-  onCancel: () => void;
-  onConfirm: (password: string) => void;
-}) {
-  const t = useTranslations();
-  const [password, setPassword] = useState("");
-  const formId = useId();
-  const passwordId = useId();
-  return (
-    <Modal
-      title={title}
-      description={body}
-      busy={pending}
-      onClose={onCancel}
-      footer={
-        <>
-          <Button onClick={onCancel}>{t("admin.users.confirm.cancel")}</Button>
-          <Button
-            variant="danger"
-            type="submit"
-            form={formId}
-            disabled={pending || !password}
-          >
-            {pending ? t("admin.users.confirm.working") : confirmLabel}
-          </Button>
-        </>
-      }
-    >
-      <form
-        id={formId}
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!pending && password) onConfirm(password);
-        }}
-      >
-        <fieldset disabled={pending} className="min-w-0 space-y-3">
-          <label className="label" htmlFor={passwordId}>
-            {t("admin.users.confirm.passwordLabel")}
-          </label>
-          <input
-            id={passwordId}
-            type="password"
-            required
-            data-dialog-autofocus
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder={t("admin.users.confirm.passwordPlaceholder")}
-            className="input w-full"
-          />
-          {error && (
-            <p role="alert" className="text-sm text-red-600">
-              {error}
-            </p>
-          )}
-        </fieldset>
-      </form>
-    </Modal>
-  );
-}
-
 export default function UsersPage() {
   const t = useTranslations();
   const nameFor = (name: string | null | undefined, username?: string | null) =>
@@ -169,36 +94,13 @@ export default function UsersPage() {
     },
   });
 
-  // Only account deletion uses this captured target; read recovery never replays the write.
-  const deletionAdmission = useRef(false);
-  const [deletionAdmitted, setDeletionAdmitted] = useState(false);
-  const [confirm, setConfirm] = useState<{
-    title: string;
-    body: string;
-    confirmLabel: string;
-    run: (password: string) => void;
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
   } | null>(null);
-  const [confirmError, setConfirmError] = useState<string | null>(null);
-  const closeConfirm = () => {
-    if (deletionAdmission.current) return;
-    setConfirm(null);
-    setConfirmError(null);
-  };
-  const guardedMutation = {
-    onSuccess: () => {
-      deletionAdmission.current = false;
-      setDeletionAdmitted(false);
-      void invalidate();
-      closeConfirm();
-    },
-    onError: (e: { message: string }) => setConfirmError(e.message),
-    onSettled: () => {
-      deletionAdmission.current = false;
-      setDeletionAdmitted(false);
-    },
-  };
-
-  const deleteUser = api.admin.deleteUser.useMutation(guardedMutation);
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
+  const [combinePending, setCombinePending] = useState(false);
+  const [deletionRecoveryBlocked, setDeletionRecoveryBlocked] = useState(false);
   const queryClient = useQueryClient();
   const [appealDenial, setAppealDenial] = useState(false);
   const canReadAppeals =
@@ -290,9 +192,11 @@ export default function UsersPage() {
   } | null>(null);
 
   const callerRole = accounts.data?.caller.role;
-  const isHead = callerRole === "HEAD";
+  const accountAccessDenied = ["FORBIDDEN", "UNAUTHORIZED"].includes(
+    accounts.error?.data?.code ?? "",
+  );
+  const isHead = !readOnly && !accountAccessDenied && callerRole === "HEAD";
   const isAdminTier = isHead || callerRole === "ADMIN";
-  const confirmPending = deletionAdmitted || deleteUser.isPending;
   const sort = useSort("name");
 
   // Persist by account only after loading that account's preference; never overwrite on hydration.
@@ -343,11 +247,20 @@ export default function UsersPage() {
     }
   };
   const [search, setSearch] = useState("");
-  const scopedRows = (accounts.data?.rows ?? []).filter((row) =>
+  // Accepted deletion is authoritative even when the list refresh fails. Do not
+  // offer that removed login again through a cached row or combine candidate.
+  const directoryRows = useMemo(
+    () =>
+      (accounts.data?.rows ?? []).filter(
+        (row) => !row.userId || !deletedIds.has(row.userId),
+      ),
+    [accounts.data, deletedIds],
+  );
+  const scopedRows = directoryRows.filter((row) =>
     matchesUserFilters(row, filters),
   );
   const rows = useMemo(() => {
-    const data = accounts.data?.rows ?? [];
+    const data = directoryRows;
     const filtered = data.filter(
       (u) =>
         matchesUserFilters(u, filters) &&
@@ -369,7 +282,7 @@ export default function UsersPage() {
           return compare(a.name, b.name) * dir;
       }
     });
-  }, [accounts.data, sort.key, sort.dir, filters, search]);
+  }, [directoryRows, sort.key, sort.dir, filters, search]);
 
   return (
     <div className="space-y-6">
@@ -439,8 +352,16 @@ export default function UsersPage() {
           </div>
         </DisclosureSection>
       </section>
-      {isHead && <CombineAccounts />}
-      <section className="card space-y-3 p-4">
+      {isHead && (
+        <CombineAccounts
+          visibleAccounts={rows}
+          onPendingChange={setCombinePending}
+        />
+      )}
+      <fieldset
+        disabled={isHead && combinePending}
+        className="card min-w-0 space-y-3 p-4"
+      >
         <FilterToolbar
           label={t("rosterSearch.label")}
           summary={t("rosterSearch.results", {
@@ -517,8 +438,8 @@ export default function UsersPage() {
           <p role="status" className="muted text-sm">
             {t("usersDirectory.count", {
               count: rows.length,
-              total: accounts.data?.rows.length ?? 0,
-              hidden: (accounts.data?.rows.length ?? 0) - rows.length,
+              total: directoryRows.length,
+              hidden: directoryRows.length - rows.length,
             })}
           </p>
           <FilterToolbar label={t("usersDirectory.visibility")}>
@@ -561,7 +482,7 @@ export default function UsersPage() {
             </button>
           </FilterToolbar>
         </div>
-      </section>
+      </fieldset>
 
       {setupInfo && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
@@ -941,21 +862,15 @@ export default function UsersPage() {
                     {isHead && u.userId && !u.isSelf && u.role !== "HEAD" ? (
                       <TableAction
                         variant="danger"
+                        disabled={
+                          deletionRecoveryBlocked || deletedIds.has(u.userId)
+                        }
                         onClick={() => {
                           const userId = u.userId;
                           if (!userId) return;
-                          setConfirmError(null);
-                          setConfirm({
-                            title: t("admin.users.confirm.deleteTitle"),
-                            body: t("admin.users.confirm.deleteBody", {
-                              name: nameFor(u.name, u.username),
-                            }),
-                            confirmLabel: t("admin.users.delete"),
-                            run: (pwd) =>
-                              deleteUser.mutate({
-                                userId,
-                                confirmPassword: pwd,
-                              }),
+                          setDeleteTarget({
+                            id: userId,
+                            name: nameFor(u.name, u.username),
                           });
                         }}
                       >
@@ -981,20 +896,14 @@ export default function UsersPage() {
         <p className="text-sm text-red-600">{sendSetup.error?.message}</p>
       )}
 
-      {confirm && (
-        <ConfirmIdentityDialog
-          title={confirm.title}
-          body={confirm.body}
-          confirmLabel={confirm.confirmLabel}
-          pending={confirmPending}
-          error={confirmError}
-          onCancel={closeConfirm}
-          onConfirm={(pwd) => {
-            if (deletionAdmission.current || deleteUser.isPending) return;
-            deletionAdmission.current = true;
-            setDeletionAdmitted(true);
-            setConfirmError(null);
-            confirm.run(pwd);
+      {isHead && (
+        <AccountDeletion
+          target={deleteTarget}
+          onRecoveryChange={setDeletionRecoveryBlocked}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={(id) => {
+            setDeletedIds((previous) => new Set(previous).add(id));
+            setDeleteTarget(null);
           }}
         />
       )}

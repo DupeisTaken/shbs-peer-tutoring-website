@@ -1,6 +1,12 @@
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
+const mail375 = vi.hoisted(() => ({ send: vi.fn() }));
+vi.mock("~/server/email/sender", () => ({
+  emailSender: { send: mail375.send },
+  isEmailDeliveryAvailable: () => true,
+  isEmailConfigured: () => true,
+}));
 import { db } from "~/server/db";
 import { createCaller } from "~/server/api/root";
 import { combineAccounts, previewCombine } from "./combine-accounts";
@@ -10,6 +16,12 @@ import { verifySigninPassword } from "./auth/credentials";
 import { findAccountPolicy } from "./policy-acceptance";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { lockAccountProfile } from "./account-profile";
+import { lockUsernameNamespace } from "./auth/username";
+import { verifiedStaffInvitation } from "~/test/account-invitation-fixture";
+import {
+  inspectAccountInvitation,
+  consumeInvitationLogin,
+} from "./auth/account-invitations";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
 const password = "Combine-head-password-190!";
@@ -38,6 +50,7 @@ async function combine() {
   });
 }
 beforeEach(async () => {
+  mail375.send.mockReset().mockResolvedValue(undefined);
   const tables = await db.$queryRaw<
     { tablename: string }[]
   >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
@@ -85,6 +98,173 @@ afterAll(async () => {
   // Retired identity guards intentionally reject deletes; isolated fixture cleanup uses TRUNCATE.
   await db.$executeRawUnsafe('TRUNCATE "User" CASCADE');
   await db.$disconnect();
+});
+
+it("discovers zero-signup login accounts and excludes accountless participant records", async () => {
+  const record = await db.tutor.create({
+    data: { englishName: "Accountless archive", status: "ARCHIVED" },
+  });
+  const candidates = await caller(headId).accountCombine.candidates();
+  expect(candidates.map((row) => row.id)).toEqual(
+    expect.arrayContaining([headId, survivorId, duplicateId]),
+  );
+  expect(candidates.some((row) => row.id === record.id)).toBe(false);
+  expect((await previewCombine(db, pair())).conflicts).toEqual([]);
+  await combine();
+  expect(
+    await db.user.findUnique({ where: { id: duplicateId } }),
+  ).toMatchObject({ mergedIntoId: survivorId });
+});
+
+it.each(["password", "email", "required-change"])(
+  "accepts an unfinished duplicate but requires a ready survivor (%s)",
+  async (field) => {
+    const unfinished =
+      field === "password"
+        ? { passwordHash: null }
+        : field === "email"
+          ? { emailVerifiedAt: null }
+          : { mustChangePassword: true };
+    await db.user.update({ where: { id: duplicateId }, data: unfinished });
+    expect((await previewCombine(db, pair())).conflicts).toEqual([]);
+    expect(
+      (
+        await previewCombine(db, {
+          survivorId: duplicateId,
+          duplicateId: survivorId,
+        })
+      ).conflicts.join(" "),
+    ).toMatch(/Complete password setup and email verification/);
+    await combine();
+    expect(
+      await isSessionCurrent(db, { sub: duplicateId, sessionVersion: 0 }),
+    ).toBe(false);
+  },
+);
+
+it.each(["survivor", "duplicate"])(
+  "combines a zero-signup login with a signup-bearing %s without losing original ownership",
+  async (direction) => {
+    const ownerId = direction === "survivor" ? survivorId : duplicateId;
+    const student = await db.tutee.create({
+      data: { englishName: "Signup owner" },
+    });
+    await db.user.update({
+      where: { id: ownerId },
+      data: { studentId: student.id, tuteeMember: true },
+    });
+    await db.studentProfileOwnership.create({
+      data: { tuteeId: student.id, userId: ownerId },
+    });
+    const survey = await db.studentSurvey.create({
+      data: {
+        email:
+          direction === "survivor"
+            ? "keep190@example.test"
+            : "retire190@example.test",
+        intakeTermId: "original-intake",
+        payload: {},
+        policyRevision: "original",
+        policySnapshot: {},
+        tokenHash: "confirmed375",
+        tuteeId: student.id,
+        confirmedAt: new Date(),
+        expiresAt: new Date(Date.now() + 60000),
+      },
+    });
+    expect((await previewCombine(db, pair())).conflicts).toEqual([]);
+    await combine();
+    expect(
+      await db.user.findUnique({ where: { id: survivorId } }),
+    ).toMatchObject({ studentId: student.id, tuteeMember: true });
+    expect(
+      await db.studentProfileOwnership.findUnique({
+        where: { tuteeId: student.id },
+      }),
+    ).toMatchObject({ userId: survivorId });
+    expect(
+      await db.studentSurvey.findUnique({ where: { id: survey.id } }),
+    ).toEqual(survey);
+  },
+);
+
+it("invalidates an already verified invitation proof and login exchange when the duplicate retires", async () => {
+  const invitation = await verifiedStaffInvitation(
+    db,
+    headId,
+    "retire190@example.test",
+    () => mail375.send.mock.calls.at(-1)![0].presentation.code as string,
+  );
+  expect(await inspectAccountInvitation(db, invitation)).toBeTruthy();
+  await combine();
+  await expect(inspectAccountInvitation(db, invitation)).rejects.toThrow();
+  await expect(
+    consumeInvitationLogin(invitation.invitationId, invitation.proof),
+  ).rejects.toThrow();
+  expect(
+    await db.user.findUnique({ where: { id: duplicateId } }),
+  ).toMatchObject({ mergedIntoId: survivorId, passwordHash: null });
+});
+
+it("rejects zero-signup review after an in-flight signup creates ownership", async () => {
+  const preview = await previewCombine(db, pair());
+  let release!: () => void;
+  let locked!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const entered = new Promise<void>((resolve) => {
+    locked = resolve;
+  });
+  const signup = db.$transaction(
+    async (tx) => {
+      await lockUsernameNamespace(tx);
+      await lockAccountProfile(tx, duplicateId);
+      locked();
+      await gate;
+      const student = await tx.tutee.create({
+        data: { englishName: "Signup during review" },
+      });
+      await tx.user.update({
+        where: { id: duplicateId },
+        data: { studentId: student.id, tuteeMember: true },
+      });
+      await tx.studentProfileOwnership.create({
+        data: { tuteeId: student.id, userId: duplicateId },
+      });
+    },
+    { timeout: 10000 },
+  );
+  await entered;
+  const merging = combineAccounts(db, headId, {
+    ...pair(),
+    fingerprint: preview.fingerprint,
+    confirmPassword: password,
+  }).then(
+    () => null,
+    (error: unknown) => error,
+  );
+  let observed = false;
+  try {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const rows = await db.$queryRaw<
+        { waiting: boolean }[]
+      >`SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted) AS waiting`;
+      if (rows[0]?.waiting) {
+        observed = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  } finally {
+    release();
+  }
+  await signup;
+  expect(await merging).toMatchObject({ code: "CONFLICT" });
+  expect(observed).toBe(true);
+  expect(
+    await db.user.findUnique({ where: { id: duplicateId } }),
+  ).toMatchObject({ mergedIntoId: null, tuteeMember: true });
 });
 
 it.each(["GRADUATED", "TRANSFERRED", null])(

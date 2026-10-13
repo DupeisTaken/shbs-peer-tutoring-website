@@ -4049,7 +4049,10 @@
       "tuteeProfiles": "转移的学习伙伴归属记录",
       "tutorProfiles": "转移的辅导伙伴历史归属"
     },
-    "noCandidates": "没有可合并的账号。"
+    "noCandidates": "当前筛选和搜索结果中没有可供合并的登录账号。",
+    "filteredChoices": "选择框仅显示下方列表中当前筛选和搜索可见的登录账号。没有登录账号的名册记录不能合并。",
+    "readySurvivor": "无论是否报过名，都可以审核登录账号。保留的账号须完成密码设置和邮箱验证；未完成设置的账号可作为待停用账号，具体限制以审核为准。",
+    "savedRefreshFailed": "账号合并已保存，但列表无法刷新。请重试读取，不要重复合并。"
   },
   "tuteeDetails": {
     "title": "学习伙伴详情",
@@ -4668,5 +4671,53 @@
   },
   "participantNames": {
     "unnamed": "未提供姓名"
+  },
+  "accountDeletion": {
+    "intro": "永久删除 {name} 的登录账号？确认密码前，请核对账号及其相关记录。",
+    "loading": "正在加载删除审核…",
+    "readFailed": "无法刷新删除审核。当前显示的记录尚未重新确认。",
+    "reload": "重新加载删除审核",
+    "consequences": "登录账号、会话及找回权限将被移除。直接关联的辅导伙伴和学习伙伴名册记录及辅导历史保留；原始消息、政策签名和审计操作者记录保留。以下账号相关记录将被删除。已发布内容解除账号关联，绑定该账号的邀请凭据将失效。",
+    "removed": "将删除的记录",
+    "retained": "将保留的记录",
+    "noRecords": "此组没有记录。",
+    "fullCounts": "查看全部记录数量",
+    "blocked": "请先解决以下问题",
+    "changed": "账号或相关记录已变更。请重新加载并核对当前后果后再确认。",
+    "saved": "已删除 {name} 的登录账号。",
+    "savedRefreshFailed": "删除已保存，但账号列表无法刷新。请重试读取，不要再次删除。",
+    "retryList": "重试刷新账号列表",
+    "blockers": {
+      "self": "不能删除自己的登录账号。",
+      "head": "删除负责人账号前，请先转交领导权限。",
+      "combined": "合并后的身份及其归属必须保留。请修改保留账号的权限。",
+      "tutorHistory": "此账号拥有保留的辅导伙伴历史。删除前请审核历史归属。",
+      "studentHistory": "此账号拥有保留的学习伙伴记录。删除前请审核历史归属；或者改用合并账号停用重复登录，同时保留历史访问权限。",
+      "intake": "请先完成或撤回此账号尚未确认的学习伙伴申请。"
+    },
+    "counts": {
+      "emails": "登录邮箱地址",
+      "credentials": "找回、验证和操作凭据",
+      "notifications": "通知",
+      "deliveries": "邮件投递记录",
+      "crewRequests": "巡视组申请",
+      "appeals": "账号申诉",
+      "acknowledgements": "公告已读记录",
+      "academicProfiles": "当前学业档案",
+      "academics": "学业确认记录",
+      "currentDepartures": "当前离校状态",
+      "departures": "离校事件",
+      "patrols": "巡视记录",
+      "observations": "巡视观察记录",
+      "creditWindows": "巡视学时窗口",
+      "tutors": "辅导伙伴档案",
+      "students": "学习伙伴档案",
+      "messages": "原始消息",
+      "policies": "政策接受记录",
+      "audits": "原始操作者审计记录",
+      "approvals": "审核决定和申请",
+      "studentRequests": "学习伙伴审核申请",
+      "quarterBlocks": "学期退出限制"
+    }
   }
 }

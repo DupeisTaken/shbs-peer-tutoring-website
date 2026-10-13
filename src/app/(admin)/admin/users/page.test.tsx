@@ -15,11 +15,23 @@ import messages from "../../../../../messages/en.json";
 import { emptyUserFilters, type UserFilters } from "~/lib/user-filters";
 import UsersPage from "./page";
 vi.mock("~/app/_components/combine-accounts", () => ({
-  CombineAccounts: () => <div>Head combine controls</div>,
+  CombineAccounts: ({
+    visibleAccounts,
+    onPendingChange,
+  }: {
+    visibleAccounts: { userId: string | null }[];
+    onPendingChange: (pending: boolean) => void;
+  }) => {
+    fixture.combineRows(visibleAccounts);
+    return <div>Head combine controls<button onClick={() => onPendingChange(true)}>Hold combine</button></div>;
+  },
 }));
 
 type DeleteCallbacks = {
-  onSuccess: () => void;
+  onSuccess: (
+    result: unknown,
+    input: { userId: string; fingerprint: string; confirmPassword: string },
+  ) => Promise<void>;
   onError: (error: { message: string }) => void;
   onSettled: () => void;
 };
@@ -30,7 +42,7 @@ const fixture = vi.hoisted(() => ({
   targetRole: "ADMIN",
   accountsError: null as { message: string } | null,
   accountsRefetch: vi.fn<() => Promise<void>>(),
-  delete: vi.fn<(input: { userId: string; confirmPassword: string }) => void>(),
+  delete: vi.fn<(input: { userId: string; fingerprint: string; confirmPassword: string }) => void>(),
   deleteCallbacks: undefined as DeleteCallbacks | undefined,
   assign: vi.fn(),
   confirm: vi.fn().mockResolvedValue(true),
@@ -49,6 +61,7 @@ const fixture = vi.hoisted(() => ({
   refresh: vi.fn<() => Promise<void>>(),
   refetch: vi.fn(),
   completion: undefined as undefined | (() => Promise<void>),
+  combineRows: vi.fn(),
 }));
 vi.mock("@trpc/react-query", () => ({ getQueryKey: () => ["appeal-test"] }));
 vi.mock("~/trpc/react", () => {
@@ -65,6 +78,25 @@ vi.mock("~/trpc/react", () => {
         },
       }),
       admin: {
+        previewDeleteUser: {
+          useQuery: ({ userId }: { userId: string }) => ({
+            data: {
+              target: {
+                id: userId,
+                name: "Management account",
+                email: "management@example.test",
+                username: "management",
+              },
+              fingerprint: "delete-fingerprint",
+              blockers: [],
+              removed: { emails: 1 },
+              retained: {},
+            },
+            isFetching: false,
+            error: null,
+            refetch: fixture.refetch,
+          }),
+        },
         tutors: {
           useQuery: () => ({
             data: [{ id: "archived", englishName: "Past tutor", user: null }],
@@ -263,6 +295,7 @@ beforeEach(() => {
   fixture.refresh.mockReset().mockResolvedValue(undefined);
   fixture.refetch.mockReset();
   fixture.completion = undefined;
+  fixture.combineRows.mockClear();
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
     configurable: true,
     value: function (this: HTMLDialogElement) {
@@ -575,6 +608,36 @@ it("reveals unverified accounts explicitly and resets the saved choice", () => {
   expect(screen.queryByText("Unverified student")).toBeNull();
 });
 
+it("supplies combine choices from the exact filtered and searched directory rows", () => {
+  mount();
+  const ids = () =>
+    (
+      fixture.combineRows.mock.calls.at(-1)![0] as { userId: string | null }[]
+    ).map((row) => row.userId);
+  expect(ids()).not.toContain("synthetic-unverified");
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.tuteeHistory.showUnverified }),
+  );
+  expect(ids()).toContain("synthetic-unverified");
+  fireEvent.change(screen.getByRole("searchbox"), {
+    target: { value: "Unverified student" },
+  });
+  expect(ids()).toEqual(["synthetic-unverified"]);
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.tuteeHistory.hideUnverified }),
+  );
+  expect(ids()).toEqual([]);
+});
+
+it("releases the filter restriction when a role change removes pending combine controls", () => {
+  const view = mount();
+  fireEvent.click(screen.getByRole("button", { name: "Hold combine" }));
+  expect(screen.getByRole("searchbox").matches(":disabled")).toBe(true);
+  fixture.role = "ADMIN"; view.rerender(<UsersPage />);
+  expect(screen.queryByText("Head combine controls")).toBeNull();
+  expect(screen.getByRole("searchbox").matches(":disabled")).toBe(false);
+});
+
 it("keeps account profiles and ranks out of Coordinator edit actions", () => {
   fixture.role = "COORDINATOR";
   mount();
@@ -660,6 +723,7 @@ it("admits a native deletion submission once and preserves rejection correction"
   });
   expect(fixture.delete).toHaveBeenCalledExactlyOnceWith({
     userId: "synthetic-management",
+    fingerprint: "delete-fingerprint",
     confirmPassword: "synthetic password",
   });
   expect(password.matches(":disabled")).toBe(true);
@@ -686,7 +750,7 @@ it("admits a native deletion submission once and preserves rejection correction"
     ).value,
   ).toBe("");
 });
-it("closes accepted deletion and refreshes once without replaying the write", () => {
+it("closes accepted deletion and refreshes once without replaying the write", async () => {
   mount();
   openDeletion();
   const password = screen.getByLabelText<HTMLInputElement>(
@@ -694,8 +758,11 @@ it("closes accepted deletion and refreshes once without replaying the write", ()
   );
   fireEvent.change(password, { target: { value: "synthetic password" } });
   fireEvent.submit(password.closest("form")!);
-  act(() => {
-    fixture.deleteCallbacks!.onSuccess();
+  await act(async () => {
+    await fixture.deleteCallbacks!.onSuccess(
+      {},
+      fixture.delete.mock.calls.at(-1)![0],
+    );
     fixture.deleteCallbacks!.onSettled();
   });
   expect(screen.queryByRole("dialog")).toBeNull();
@@ -727,7 +794,7 @@ it.each(["self", "head"])(
   },
 );
 
-it("recovers only account reads after accepted deletion followed by refresh failure", () => {
+it("recovers only account reads after accepted deletion followed by refresh failure", async () => {
   const view = mount();
   openDeletion();
   const password = screen.getByLabelText<HTMLInputElement>(
@@ -739,8 +806,11 @@ it("recovers only account reads after accepted deletion followed by refresh fail
     fixture.accountsError = { message: "Synthetic account refresh failure" };
   });
   fireEvent.submit(password.closest("form")!);
-  act(() => {
-    fixture.deleteCallbacks!.onSuccess();
+  await act(async () => {
+    await fixture.deleteCallbacks!.onSuccess(
+      {},
+      fixture.delete.mock.calls.at(-1)![0],
+    );
     fixture.deleteCallbacks!.onSettled();
   });
   view.rerender(<UsersPage />);
