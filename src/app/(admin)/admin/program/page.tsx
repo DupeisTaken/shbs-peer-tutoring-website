@@ -13,7 +13,7 @@ import { ProgramCalendarSettings } from "~/app/_components/program-calendar";
 import { MessagePermissions } from "~/app/_components/message-admin";
 import { ProgramNameSettings } from "~/app/_components/program-name-settings";
 import { api } from "~/trpc/react";
-import { InlineNotice } from "~/app/_components/ui/patterns";
+import { InlineNotice, StatePanel } from "~/app/_components/ui/patterns";
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import { Switch } from "~/app/_components/ui/button";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -58,6 +58,33 @@ export default function ProgramPage() {
   const canApplyPeriod =
     canEditPeriod && account.data?.role === "HEAD" && !!period?.canApply;
   const confirmOk = confirm.trim().toUpperCase() === "REFRESH";
+  // The panel owns feedback; denied/unknown identities never mount private query children.
+  const privatePanelState = (key: "people" | "communication" | "access") => {
+    const section = t(`admin.program.panels.${key}`);
+    return (
+      <StatePanel
+        kind={account.error ? "error" : account.data ? "denied" : "loading"}
+        title={t(
+          account.error
+            ? "managementRecovery.loadFailed"
+            : account.data
+              ? "managementRecovery.denied"
+              : "managementRecovery.loading",
+          { section },
+        )}
+        action={
+          account.error && (
+            <button
+              className="btn-secondary min-h-11 lg:min-h-8"
+              onClick={() => void account.refetch()}
+            >
+              {t("managementRecovery.retry", { section })}
+            </button>
+          )
+        }
+      />
+    );
+  };
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -207,6 +234,7 @@ export default function ProgramPage() {
           )}
         </div>
         <div hidden={panel !== "people"} className="space-y-6">
+          {!canReadSettings && privatePanelState("people")}
           {canReadSettings && (
             <>
               <ProgramProfileSettings />
@@ -219,6 +247,7 @@ export default function ProgramPage() {
             )}
         </div>
         <div hidden={panel !== "communication"} className="space-y-6">
+          {!canReadSettings && privatePanelState("communication")}
           {canReadSettings && (
             <>
               <ProgramEmailSettings />
@@ -227,6 +256,7 @@ export default function ProgramPage() {
           )}
         </div>
         <div hidden={panel !== "access"} className="space-y-6">
+          {!canReadSettings && privatePanelState("access")}
           {period && canReadSettings && <FeatureToggles />}
         </div>
       </SectionTabs>

@@ -9,6 +9,9 @@ const mutate = vi.hoisted(() => vi.fn());
 const access = vi.hoisted(() => ({
   role: "HEAD",
   readOnly: false,
+  known: true,
+  error: null as Error | null,
+  refetch: vi.fn(),
   privateChild: vi.fn(() => null),
 }));
 vi.mock("~/app/_components/read-only", () => ({
@@ -44,7 +47,15 @@ vi.mock("~/app/_components/message-admin", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    account: { me: { useQuery: () => ({ data: { role: access.role } }) } },
+    account: {
+      me: {
+        useQuery: () => ({
+          data: access.known ? { role: access.role } : undefined,
+          error: access.error,
+          refetch: access.refetch,
+        }),
+      },
+    },
     useUtils: () => ({ admin: { invalidate: vi.fn() } }),
     admin: {
       currentPeriod: {
@@ -70,6 +81,9 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 beforeEach(() => {
+  access.known = true;
+  access.error = null;
+  access.refetch.mockClear();
   access.role = "HEAD";
   access.readOnly = false;
   access.privateChild.mockClear();
@@ -147,3 +161,73 @@ it.each(["VIEWER", "departed HEAD"])(
     expect(mutate).not.toHaveBeenCalled();
   },
 );
+it.each(["people", "communication", "access"] as const)(
+  "explains denied %s settings without starting private reads",
+  (panel) => {
+    access.role = "VIEWER";
+    access.readOnly = true;
+    render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <ProgramPage />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.click(
+      screen.getByRole("tab", { name: en.admin.program.panels[panel] }),
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: en.managementRecovery.denied.replace(
+          "{section}",
+          en.admin.program.panels[panel],
+        ),
+      }),
+    ).toBeTruthy();
+    expect(access.privateChild).not.toHaveBeenCalled();
+    expect(mutate).not.toHaveBeenCalled();
+  },
+);
+it("distinguishes unknown identity loading from denied settings and retains read recovery", () => {
+  access.known = false;
+  const tree = (
+    <NextIntlClientProvider locale="en" messages={en}>
+      <ProgramPage />
+    </NextIntlClientProvider>
+  );
+  const view = render(tree);
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.admin.program.panels.people }),
+  );
+  expect(
+    screen.getByRole("heading", {
+      name: en.managementRecovery.loading.replace(
+        "{section}",
+        en.admin.program.panels.people,
+      ),
+    }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("heading", { name: /no longer have access/ }),
+  ).toBeNull();
+  access.error = new Error("Identity unavailable");
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <ProgramPage />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getByRole("alert").textContent).toContain(
+    en.managementRecovery.loadFailed.replace(
+      "{section}",
+      en.admin.program.panels.people,
+    ),
+  );
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: en.managementRecovery.retry.replace(
+        "{section}",
+        en.admin.program.panels.people,
+      ),
+    }),
+  );
+  expect(access.refetch).toHaveBeenCalledTimes(1);
+  expect(access.privateChild).not.toHaveBeenCalled();
+});
