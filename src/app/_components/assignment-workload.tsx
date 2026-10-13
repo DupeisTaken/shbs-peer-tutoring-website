@@ -115,7 +115,13 @@ export function AssignmentWorkloadAdvice({
     );
   const projection = proposedAssignedCount(
     tutor.blocks,
-    proposals ??
+    proposals?.map((proposal) => ({
+      ...proposal,
+      block:
+        proposal.block?.termId === query.data?.termId
+          ? proposal.block
+          : undefined,
+    })) ??
       (query.data?.termId
         ? [
             {

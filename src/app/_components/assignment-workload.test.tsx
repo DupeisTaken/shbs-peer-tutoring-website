@@ -231,6 +231,35 @@ it("refreshes the shared active selector after assignments and labels cached fai
     screen.getByRole("option", { name: /Synthetic Tutor — 0 assigned blocks/ }),
   ).toBeTruthy();
 });
+it("does not add a retained older-quarter edit to the current-quarter projection", async () => {
+  state.client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={state.client}>
+      <NextIntlClientProvider locale="en" messages={en}>
+        <AssignmentWorkloadAdvice
+          tutorId="a"
+          proposals={[
+            {
+              replacingPairingId: "older-pairing",
+              block: {
+                id: "older-pairing",
+                termId: "older-quarter",
+                scheduleConfirmed: true,
+                dayOfWeek: 2,
+                startMin: 900,
+                endMin: 960,
+              },
+            },
+          ]}
+        />
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByText(/Preferred maximum reached/)).toBeTruthy();
+  expect(screen.queryByText(/This change would result/)).toBeNull();
+});
 it("conceals cached private preferences on denial, evicts once per reader, and recovers through an explicit read", async () => {
   mount();
   await screen.findByText(/This change would result/);
