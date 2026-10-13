@@ -21,6 +21,10 @@ import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 
 const state = vi.hoisted(() => {
   const permissions: { accountRole: string | null } = { accountRole: "HEAD" };
+  const inputs: { reportInput: unknown; summaryInput: unknown } = {
+    reportInput: undefined,
+    summaryInput: undefined,
+  };
   const date = new Date("2026-09-15T08:00:00Z");
   const tutor = {
     tutorId: "tutor-1",
@@ -36,8 +40,7 @@ const state = vi.hoisted(() => {
     readOnly: false,
     periodsLoaded: true,
     quarterSystem: true,
-    reportInput: undefined as unknown,
-    summaryInput: undefined as unknown,
+    ...inputs,
     ...permissions,
     undo: vi.fn(),
     review: vi.fn(),
@@ -692,15 +695,21 @@ it("restores service-hour month criteria across navigation and keeps clear-month
     </SessionViewProvider>
   );
   const view = render(show(), { wrapper });
-  fireEvent.change(screen.getByLabelText(messages.admin.summary.monthLabel), {
-    target: { value: "2026-08" },
-  });
+  fireEvent.change(
+    screen.getByLabelText(messages.admin.summary.monthLabel, {
+      selector: "input",
+    }),
+    {
+      target: { value: "2026-08" },
+    },
+  );
   expect(state.summaryInput).toEqual({ month: "2026-08" });
   view.unmount();
   render(show(), { wrapper });
   expect(
-    screen.getByLabelText<HTMLInputElement>(messages.admin.summary.monthLabel)
-      .value,
+    screen.getByLabelText<HTMLInputElement>(messages.admin.summary.monthLabel, {
+      selector: "input",
+    }).value,
   ).toBe("2026-08");
   fireEvent.click(
     screen.getByRole("button", { name: messages.admin.summary.clearMonth }),
