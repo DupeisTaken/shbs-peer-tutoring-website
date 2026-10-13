@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../../../messages/en.json";
 import AttendancePage from "./page";
+import { SessionViewProvider } from "~/app/_components/session-view-state";
+import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 
 const state = vi.hoisted(() => ({
   data: undefined as
@@ -22,19 +24,25 @@ const state = vi.hoisted(() => ({
   error: null as null | { message: string; data?: { code?: string } },
   refetch: vi.fn(),
   input: ((): unknown => undefined)(),
+  tutorsLoaded: true,
+  tutorIds: ["tutor"],
 }));
 vi.mock("@trpc/react-query", () => ({
-  getQueryKey: (_procedure: unknown, input: unknown) => [
-    "attendance-test",
-    input,
-  ],
+  getQueryKey: (_procedure: unknown, input: unknown) =>
+    input === undefined ? ["attendance-test"] : ["attendance-test", input],
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
     admin: {
       tutors: {
         useQuery: () => ({
-          data: [{ id: "tutor", englishName: "Tutor name", status: "ACTIVE" }],
+          data: state.tutorsLoaded
+            ? state.tutorIds.map((id) => ({
+                id,
+                englishName: "Tutor name",
+                status: "ACTIVE",
+              }))
+            : undefined,
           isSuccess: true,
           isFetching: false,
         }),
@@ -64,7 +72,13 @@ let queryClient: QueryClient;
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={queryClient}>
     <NextIntlClientProvider locale="en" messages={messages} timeZone="UTC">
-      {children}
+      <SessionViewProvider
+        identity="head"
+        pathname="/admin/attendance"
+        verified
+      >
+        {children}
+      </SessionViewProvider>
     </NextIntlClientProvider>
   </QueryClientProvider>
 );
@@ -72,6 +86,9 @@ beforeEach(() => {
   queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  sessionStorage.clear();
+  state.tutorsLoaded = true;
+  state.tutorIds = ["tutor"];
   state.data = undefined;
   state.error = null;
   state.refetch.mockReset();
@@ -158,4 +175,62 @@ it("evicts denied sessions and waits for successful permission recovery", () => 
   state.error = null;
   view.rerender(<AttendancePage />);
   expect(screen.getByRole("table")).toBeTruthy();
+});
+
+it("waits for tutor options then restores month/visibility and removes obsolete IDs", () => {
+  const key = viewStateKey(
+    "head",
+    "/admin/attendance",
+    "attendance-filters-v1",
+    "",
+  );
+  const saved = { month: "2026-08", tutorId: "tutor", showPast: true };
+  writeViewState(sessionStorage, key, saved);
+  state.data = [];
+  state.tutorsLoaded = false;
+  const view = render(<AttendancePage />, { wrapper });
+  expect(JSON.parse(sessionStorage.getItem(key)!)).toEqual(saved);
+  state.tutorsLoaded = true;
+  view.rerender(<AttendancePage />);
+  expect(screen.getByLabelText<HTMLInputElement>("Month").value).toBe(
+    "2026-08",
+  );
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", { name: "Tutor" }).value,
+  ).toBe("tutor");
+  expect(
+    screen.getByRole("button", { name: messages.tuteeHistory.hideHistorical }),
+  ).toBeTruthy();
+  state.tutorIds = [];
+  view.rerender(<AttendancePage />);
+  expect(JSON.parse(sessionStorage.getItem(key)!)).toEqual({
+    ...saved,
+    tutorId: "",
+  });
+});
+it("clears saved filters and every cached month when attendance access is revoked", () => {
+  const key = viewStateKey(
+    "head",
+    "/admin/attendance",
+    "attendance-filters-v1",
+    "",
+  );
+  writeViewState(sessionStorage, key, {
+    month: "2026-08",
+    tutorId: "tutor",
+    showPast: false,
+  });
+  state.data = [row];
+  const view = render(<AttendancePage />, { wrapper });
+  queryClient.setQueryData(["attendance-test", { month: "2026-09" }], [row]);
+  state.error = { message: "Denied", data: { code: "FORBIDDEN" } };
+  view.rerender(<AttendancePage />);
+  expect(sessionStorage.getItem(key)).toBeNull();
+  expect(
+    queryClient.getQueryData(["attendance-test", { month: "2026-09" }]),
+  ).toBeUndefined();
+  expect(screen.queryByRole("table")).toBeNull();
+  state.error = { message: "Transport error" };
+  view.rerender(<AttendancePage />);
+  expect(screen.queryByRole("table")).toBeNull();
 });

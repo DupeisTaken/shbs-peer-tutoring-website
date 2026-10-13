@@ -306,8 +306,33 @@ policy locale restoration includes existing translations only. The dashboard and
 record-transfer shell register position after their authorized server reads; Activity
 uses its feature-dependent required queries, and account position waits for its
 mounted identity, email, departure and policy sections. This coverage describes these
-owners, not a generic layout restoration rule. Remaining management owners are
-integrated separately, and actual Next navigation evidence is required to verify framework scrolling.
+owners, not a generic layout restoration rule. Actual Next navigation evidence
+is required to verify framework scrolling.
+
+The remaining management adapters persist attendance month/tutor/visibility,
+report year/scope/depth/masking, service-hour month, directory filters/search/sort,
+meeting summary/visibility and Crew panel selection. The
+[management view parsers](../src/lib/management-view-state.ts) explicitly allowlist
+these flat fields. Directory filters now use session storage instead of the former
+localStorage preference, with no migration; hidden tutor-status selections retain
+the existing normalization rule. Removed tutor/year IDs normalize to All/current
+year after their real catalogs load. Disabled quarter choices normalize to Year,
+and observer report masking remains mandatory on the server and in the controls.
+Crew keeps independent section recovery: a denied remembered panel falls back,
+while an explicit visit can still reach its read-only Retry state without saving
+that denied selection. Meeting creation fields, attendance editor choices, appeal
+reviews, patrol order drafts and issued codes are excluded.
+
+Hour Adjustments, Announcements, Registration Codes, Discipline and tutor/tutee
+status requests remember page position only. Each actual page owner registers one
+scroll hook after its authorized reads. Tutee Requests receives only readiness and
+denial booleans from staff-only withdrawal feeds; the child adds no scroll hook,
+and the observer-safe parent never borrows access to those private reads. Crew's
+patrol history reports the same read gates plus its numeric page index, so the page
+waits for the selected patrol feed without persisting its opaque cursor chain. Access
+denial clears remembered choices and conceals cached content until read recovery;
+attendance evicts every cached month because clearing filters can change its query
+key. No adapter stores result rows, immutable evidence or write payloads.
 Current modern and manual request cards render an empty canonical name using an
 authorized linked username or the localized unnamed-participant label. The modern
 read DTO adds only current username metadata; intake `name`, payload, review
