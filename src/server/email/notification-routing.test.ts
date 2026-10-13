@@ -134,7 +134,7 @@ it("sends an eligible ordinary notice before recording SMTP acceptance", async (
   await deliverNotifications();
   expect(mocks.send).toHaveBeenCalledTimes(1);
   const sentCall = mocks.updateMany.mock.calls.findIndex(
-    ([input]) => input.data.status === "SENT",
+    ([input]) => (input as { data: { status: string } }).data.status === "SENT",
   );
   expect(sentCall).toBeGreaterThanOrEqual(0);
   expect(mocks.send.mock.invocationCallOrder[0]).toBeLessThan(

@@ -27,12 +27,10 @@ export async function resendStuckEmails(
       !!settings?.emailNotificationsEnabled &&
       isEmailDeliveryAvailable("PROGRAM");
     const serviceAvailable = isEmailDeliveryAvailable("PROGRAM");
+    // Materialize the bounded candidates before changing eligibility. Otherwise
+    // PostgreSQL may reevaluate an IN subquery as rows are reset and exceed100.
     const rows = await tx.$queryRaw<{ id: string }[]>`
-      UPDATE "EmailDelivery"
-      SET status = 'PENDING', attempts = 0, "availableAt" = NOW(),
-          "leaseUntil" = NULL, "completedAt" = NULL, "lastError" = NULL
-          , "attemptId" = NULL, "attemptStartedAt" = NULL
-      WHERE id IN (
+      WITH candidates AS MATERIALIZED (
         SELECT id FROM "EmailDelivery"
         WHERE (status = 'FAILED' OR (status = 'PENDING' AND attempts > 0))
           AND ("leaseUntil" IS NULL OR "leaseUntil" <= NOW())
@@ -43,7 +41,12 @@ export async function resendStuckEmails(
         LIMIT ${batchLimit}
         FOR UPDATE SKIP LOCKED
       )
-      RETURNING id
+      UPDATE "EmailDelivery" delivery
+      SET status = 'PENDING', attempts = 0, "availableAt" = NOW(),
+          "leaseUntil" = NULL, "completedAt" = NULL, "lastError" = NULL,
+          "attemptId" = NULL, "attemptStartedAt" = NULL
+      FROM candidates WHERE delivery.id = candidates.id
+      RETURNING delivery.id
     `;
     const queued = rows.length;
     // Aggregate-only audit evidence commits atomically with the queue change; no recipients,

@@ -30,6 +30,7 @@ vi.mock("~/trpc/react", () => ({
 }));
 const source = { kind: "application" as const, id: "request_123" };
 const receipt = {
+  retryEligible: true,
   status: "FAILED",
   requestVersion: 1,
   attempts: 5,

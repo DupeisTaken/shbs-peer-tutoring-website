@@ -98,6 +98,68 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllEnvs());
 afterAll(() => db.$disconnect());
 
+it.each([
+  "attendance_cards_pending",
+  "interview_scheduled",
+  "message_received",
+])(
+  "keeps %s trigger payloads email-safe even when a direct write supplies malformed context and private body",
+  async (event) => {
+    await db.programSettings.update({
+      where: { id: "program" },
+      data: { emailNotificationsEnabled: true },
+    });
+    await db.user.update({
+      where: { id: actor.id },
+      data: { emailInfo: true, emailMessages: true },
+    });
+    await db.accountEmail.create({
+      data: {
+        userId: actor.id,
+        email: "admin@example.test",
+        verifiedAt: new Date(),
+      },
+    });
+    // Direct database writes deliberately bypass the application sanitizer. The
+    // SQL allowlist and read formatter must still prevent arbitrary body/context
+    // fields or non-scalar values from becoming participant email content.
+    await db.notification.create({
+      data: {
+        userId: actor.id,
+        event,
+        title: "private-title-sentinel",
+        body: "private-body-sentinel",
+        link:
+          event === "message_received" ? "/messages" : "/admin/applications",
+        context: {
+          count: { answer: "private-count-sentinel" },
+          startsAt: { name: "private-time-sentinel" },
+          timeZone: ["private-zone-sentinel"],
+          body: "private-context-sentinel",
+        },
+      },
+    });
+    const outbox = await db.emailDelivery.findFirstOrThrow({
+      where: { event },
+    });
+    expect(JSON.stringify(outbox.context)).not.toContain(
+      "private-context-sentinel",
+    );
+    expect(JSON.stringify(outbox.context)).not.toContain(
+      "private-body-sentinel",
+    );
+    await deliverNotifications();
+    expect(transport.send).toHaveBeenCalledTimes(1);
+    const mail = transport.send.mock.calls[0]![0] as EmailMessage;
+    expect(JSON.stringify(mail)).not.toContain("sentinel");
+    expect(mail.subject).not.toContain("Program update / 项目更新");
+    expect(
+      (await db.emailDelivery.findUniqueOrThrow({ where: { id: outbox.id } }))
+        .status,
+    ).toBe("SENT");
+  },
+);
+
 async function source(
   kind: RequestNoticeSource["kind"] = "application",
   email: string | null = mailbox,
@@ -110,6 +172,7 @@ async function source(
         createdAt: submittedAt,
         policySnapshot: { originalAnswer: "answer-sentinel" },
         policyRevision: "original-policy",
+        policyAcceptedAt: submittedAt,
       },
     });
     return { kind, id: row.id };
@@ -605,12 +668,7 @@ it("fences duplicate admission, expired candidates, old leases and stale complet
     data: { leaseUntil: new Date(0) },
   });
   expect(
-    await admitRequestDelivery(
-      db,
-      notice.id,
-      new Date(0),
-      first!.row.attemptId,
-    ),
+    await admitRequestDelivery(db, notice.id, new Date(0), first.row.attemptId),
   ).toBeNull();
   const newCandidate = await lease(notice.id, 120_000);
   expect(
@@ -627,10 +685,10 @@ it("fences duplicate admission, expired candidates, old leases and stale complet
     newCandidate.leaseUntil,
     newCandidate.attemptId,
   );
-  expect(second?.row.attemptId).not.toBe(first!.row.attemptId);
+  expect(second?.row.attemptId).not.toBe(first.row.attemptId);
   expect(second?.row.attempts).toBe(2);
-  await finishRequestDelivery(db, notice.id, first!.row.attemptId!, true);
-  await finishRequestDelivery(db, notice.id, first!.row.attemptId!, false);
+  await finishRequestDelivery(db, notice.id, first.row.attemptId!, true);
+  await finishRequestDelivery(db, notice.id, first.row.attemptId!, false);
   expect(
     await db.emailDelivery.findUniqueOrThrow({ where: { id: notice.id } }),
   ).toMatchObject({

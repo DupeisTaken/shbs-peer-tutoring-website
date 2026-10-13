@@ -4674,320 +4674,320 @@
   },
   "notificationEvents": {
     "primary_changed": {
-      "title": "Primary email changed",
+      "title": "Primary Email Changed",
       "body": "Your primary account email changed. Review your account and contact private support if you do not recognize this activity.",
       "action": "Review your account"
     },
     "secondary_added": {
-      "title": "Secondary email verified",
+      "title": "Secondary Email Verified",
       "body": "A secondary email was verified on your account. Review your email addresses.",
       "action": "Review your account"
     },
     "secondary_removed": {
-      "title": "Secondary email removed",
+      "title": "Secondary Email Removed",
       "body": "A secondary email was removed from your account. Review your email addresses.",
       "action": "Review your account"
     },
     "security_changed": {
-      "title": "Account security changed",
+      "title": "Account Security Changed",
       "body": "Your password or two-step verification settings changed. Contact private support if you do not recognize this activity.",
       "action": "Review your account"
     },
     "information_changed": {
-      "title": "Account information updated",
+      "title": "Account Information Updated",
       "body": "Your account information or access changed. Sign in to review your current account.",
       "action": "Review your account"
     },
     "message_received": {
-      "title": "New private message",
+      "title": "New Private Message",
       "body": "You have a new private message. Open your inbox to read it and reply.",
       "action": "Open your inbox"
     },
     "program_update": {
-      "title": "Program update",
+      "title": "Program Update",
       "body": "You have a program update. Sign in to review the notice and any next steps.",
       "action": "View program update"
     },
     "tutor_application_pending": {
-      "title": "New pending tutor request",
+      "title": "New Pending Tutor Request",
       "body": "You have a new pending tutor application. Review the application before arranging an interview or making a decision.",
       "action": "Review tutor applications"
     },
     "qualification_requested": {
-      "title": "Additional qualification request",
+      "title": "Additional Qualification Request",
       "body": "A tutor requested an additional subject or qualification level. Review the request through the qualification workflow.",
       "action": "Review qualification request"
     },
     "qualification_approved": {
-      "title": "Qualification request approved",
+      "title": "Qualification Request Approved",
       "body": "Your additional qualification request was approved. Review the updated qualifications on your dashboard.",
       "action": "View qualifications"
     },
     "qualification_rejected": {
-      "title": "Qualification request declined",
+      "title": "Qualification Request Declined",
       "body": "Your additional qualification request was declined. Review the decision in your request history.",
       "action": "Review qualification decision"
     },
     "crew_application_pending": {
-      "title": "New crew application awaiting Head review",
+      "title": "New Crew Application Awaiting Head Review",
       "body": "A new crew application is awaiting the program Head's review. Open the crew workflow to review it.",
       "action": "Review crew applications"
     },
     "viewer_registered": {
-      "title": "New viewer account",
+      "title": "New Viewer Account",
       "body": "A new viewer account was registered. Review its read-only access in Users & Roles.",
       "action": "Review users and roles"
     },
     "tutor_setup_needed": {
-      "title": "Tutor account setup needed",
+      "title": "Tutor Account Setup Needed",
       "body": "A tutor was added without a login account. Review the account setup workflow and send the authorized setup invitation.",
       "action": "Review account setup"
     },
     "interview_panel_assigned": {
-      "title": "Interview panel assignment",
+      "title": "Interview Panel Assignment",
       "body": "You were assigned to an interview panel. Review the application and panel duties on your dashboard; a panel assignment alone does not schedule an interview.",
       "action": "View interview panel"
     },
     "interview_scheduled": {
-      "title": "New interview scheduled",
+      "title": "New Interview Scheduled",
       "body": "You have a new interview scheduled. Review the recorded time and interview details on your dashboard. If no time is shown here, check the dashboard.",
       "action": "View scheduled interview"
     },
     "management_review_pending": {
-      "title": "Management change awaiting review",
+      "title": "Management Change Awaiting Review",
       "body": "A management change proposal is awaiting approval. Review its recorded evidence before applying or declining it; the proposed change has not been applied.",
       "action": "Review management change"
     },
     "management_head_review_pending": {
-      "title": "Management change awaiting Head review",
+      "title": "Management Change Awaiting Head Review",
       "body": "A management change proposal requires the program Head's approval. Review its recorded evidence; the proposed change has not been applied.",
       "action": "Review management change"
     },
     "management_approved": {
-      "title": "Management change approved",
+      "title": "Management Change Approved",
       "body": "Your management change proposal was approved and applied. Review the recorded decision and resulting state.",
       "action": "Review decision"
     },
     "management_rejected": {
-      "title": "Management change declined",
+      "title": "Management Change Declined",
       "body": "Your management change proposal was declined. The proposed change was not applied; review the recorded decision.",
       "action": "Review decision"
     },
     "translation_review_pending": {
-      "title": "Translation awaiting review",
+      "title": "Translation Awaiting Review",
       "body": "A translation draft is awaiting review. Open localization review to inspect the draft and decide whether to publish it.",
       "action": "Review translation"
     },
     "announcement_published": {
-      "title": "New program announcement",
+      "title": "New Program Announcement",
       "body": "A program announcement was published for you. Open the announcement to read it and acknowledge it where required.",
       "action": "Read announcement"
     },
     "tutor_optout_requested": {
-      "title": "Tutor opt-out request awaiting review",
+      "title": "Tutor Opt-Out Request Awaiting Review",
       "body": "A tutor requested to opt out. Review the request after the required cooldown; the request alone does not change participation.",
       "action": "Review tutor requests"
     },
     "tutor_reentry_requested": {
-      "title": "Tutor reentry request awaiting review",
+      "title": "Tutor Reentry Request Awaiting Review",
       "body": "A tutor requested to rejoin. Review the request before restoring active participation.",
       "action": "Review tutor requests"
     },
     "crew_optout_requested": {
-      "title": "Crew opt-out request awaiting Head review",
+      "title": "Crew Opt-Out Request Awaiting Head Review",
       "body": "A crew member requested to opt out. The program Head can review the request after the required cooldown.",
       "action": "Review crew request"
     },
     "crew_reentry_requested": {
-      "title": "Crew reentry request awaiting Head review",
+      "title": "Crew Reentry Request Awaiting Head Review",
       "body": "A crew member requested to rejoin. The program Head must review the request before participation is restored.",
       "action": "Review crew request"
     },
     "membership_optout_approved": {
-      "title": "Opt-out approved",
+      "title": "Opt-Out Approved",
       "body": "Your opt-out request was approved. Review your current participation status and retained records.",
       "action": "View participation"
     },
     "membership_reentry_approved": {
-      "title": "Reentry approved",
+      "title": "Reentry Approved",
       "body": "Your reentry request was approved and your participation is active again. Review your workspace for current responsibilities.",
       "action": "Open your workspace"
     },
     "membership_declined": {
-      "title": "Participation request declined",
+      "title": "Participation Request Declined",
       "body": "Your participation change request was declined. Review the decision in your workspace.",
       "action": "Review participation decision"
     },
     "tutee_optout_requested": {
-      "title": "Tutee opt-out awaiting review",
+      "title": "Tutee Opt-Out Awaiting Review",
       "body": "A tutor relayed a tutee opt-out request. Review it during the recorded cooldown; the workflow may apply it automatically when that period ends.",
       "action": "Review tutee requests"
     },
     "tutee_optout_cancelled": {
-      "title": "Tutee opt-out cancelled",
+      "title": "Tutee Opt-Out Cancelled",
       "body": "Management cancelled a tutee opt-out request. Review the current assignment and request state on your dashboard.",
       "action": "Review assignment"
     },
     "tutee_removed": {
-      "title": "Tutee removed from current roster",
+      "title": "Tutee Removed from Current Roster",
       "body": "A tutee was removed from the current roster. Review the current assignment and retained history in your workspace.",
       "action": "Review roster update"
     },
     "attendance_cards_pending": {
-      "title": "Discipline cards awaiting review",
+      "title": "Discipline Cards Awaiting Review",
       "body": "An attendance survey submitted {count} discipline card request(s). Review each request before issuing a card.",
       "action": "Review discipline cards",
       "bodyWithoutCount": "An attendance survey submitted discipline card requests. Review each request before issuing a card."
     },
     "attendance_room_reported": {
-      "title": "Allocated-room attendance reported",
+      "title": "Allocated-Room Attendance Reported",
       "body": "Attendance was reported in an allocated room. Open attendance review to inspect the recorded submission.",
       "action": "Review attendance"
     },
     "attendance_review_warning": {
-      "title": "Attendance warning recorded",
+      "title": "Attendance Warning Recorded",
       "body": "An attendance review recorded a warning. Review the recorded decision on your dashboard.",
       "action": "Review attendance decision"
     },
     "attendance_review_penalty": {
-      "title": "Attendance penalty applied",
+      "title": "Attendance Penalty Applied",
       "body": "An attendance review applied a service-hour penalty. Review the recorded decision and updated service hours.",
       "action": "Review attendance decision"
     },
     "attendance_review_escalated": {
-      "title": "Attendance flag escalated for review",
+      "title": "Attendance Flag Escalated for Review",
       "body": "An attendance flag was escalated for further review. Review the recorded state; this notice does not itself confirm a penalty.",
       "action": "Review attendance decision"
     },
     "attendance_history_updated": {
-      "title": "Historical attendance updated",
+      "title": "Historical Attendance Updated",
       "body": "A catalogue change updated {count} teaching block(s). Related attendance flags and deductions were reconsidered; review the audit evidence.",
       "action": "Review audit evidence",
       "bodyWithoutCount": "A catalogue change updated historical teaching blocks. Related attendance flags and deductions were reconsidered; review the audit evidence."
     },
     "account_suspended": {
-      "title": "Account suspended",
+      "title": "Account Suspended",
       "body": "Your account access was suspended pending review. Open the suspension page to review the available appeal steps.",
       "action": "Review suspension"
     },
     "account_reinstated": {
-      "title": "Account reinstated",
+      "title": "Account Reinstated",
       "body": "Your account access was restored. Sign in to review your current permissions and workspace.",
       "action": "Open your workspace"
     },
     "account_appeal_requested": {
-      "title": "Account appeal awaiting review",
+      "title": "Account Appeal Awaiting Review",
       "body": "A suspended account submitted an appeal. Authorized management can review the appeal in Users & Roles.",
       "action": "Review account appeal"
     },
     "account_appeal_approved": {
-      "title": "Account appeal approved",
+      "title": "Account Appeal Approved",
       "body": "Your account appeal was approved and account access was restored. Sign in to review your current access.",
       "action": "Open your workspace"
     },
     "account_appeal_declined": {
-      "title": "Account appeal declined",
+      "title": "Account Appeal Declined",
       "body": "Your account appeal was declined and the account remains suspended. Review the available support steps.",
       "action": "Review appeal decision"
     },
     "record_corrected": {
-      "title": "Management record correction applied",
+      "title": "Management Record Correction Applied",
       "body": "Management applied a record correction. Review the original and corrected evidence in the audit log.",
       "action": "Review audit evidence"
     },
     "tutee_feedback_received": {
-      "title": "New tutee feedback",
+      "title": "New Tutee Feedback",
       "body": "A tutee submitted session feedback. Authorized management can review the feedback in Student Support.",
       "action": "Review feedback"
     },
     "tutee_card_appeal": {
-      "title": "Tutee card appeal awaiting review",
+      "title": "Tutee Card Appeal Awaiting Review",
       "body": "A tutee appealed a discipline card. Review the appeal and recorded card evidence in Student Support.",
       "action": "Review card appeal"
     },
     "tutee_appeal_reviewed": {
-      "title": "Tutee appeal reviewed",
+      "title": "Tutee Appeal Reviewed",
       "body": "Your discipline card appeal was reviewed. Open your student workspace to see the decision and current standing.",
       "action": "Review appeal decision"
     },
     "student_assignment_updated": {
-      "title": "Tutoring assignment updated",
+      "title": "Tutoring Assignment Updated",
       "body": "A tutoring assignment was updated. Review the recurring weekly schedule and its confirmation state in your workspace; this notice does not create a dated session.",
       "action": "Review tutoring assignment"
     },
     "student_availability_updated": {
-      "title": "Tutee availability updated",
+      "title": "Tutee Availability Updated",
       "body": "A tutee updated their available time slots. Review the current availability before adjusting an assignment.",
       "action": "Review availability"
     },
     "student_request_recalled": {
-      "title": "Signup request recalled",
+      "title": "Signup Request Recalled",
       "body": "A signup request was recalled and closed. Review its retained history; a new submission is required to request participation again.",
       "action": "Review request history"
     },
     "student_request_expired": {
-      "title": "Signup verification overdue",
+      "title": "Signup Verification Overdue",
       "body": "A signup request closed because verification was not completed by its deadline. A new request is required; review the retained request history.",
       "action": "Review request history"
     },
     "student_withdrawal_pending": {
-      "title": "Quarter withdrawal awaiting review",
+      "title": "Quarter Withdrawal Awaiting Review",
       "body": "A request to withdraw for the current quarter is awaiting review. Participation continues until the withdrawal is approved.",
       "action": "Review withdrawal request"
     },
     "student_withdrawal_approved": {
-      "title": "Quarter withdrawal approved",
+      "title": "Quarter Withdrawal Approved",
       "body": "A quarter withdrawal was approved and the request closed. Review the retained history; the current quarter cannot be reactivated through this request.",
       "action": "Review withdrawal decision"
     },
     "student_withdrawal_declined": {
-      "title": "Quarter withdrawal declined",
+      "title": "Quarter Withdrawal Declined",
       "body": "A quarter withdrawal request was declined. Current participation continues; review the recorded decision.",
       "action": "Review withdrawal decision"
     },
     "student_schedule_review_pending": {
-      "title": "Tutor schedule conflict awaiting review",
+      "title": "Tutor Schedule Conflict Awaiting Review",
       "body": "A tutor reported a schedule conflict for an assignment. Review the request before changing the current assignment.",
       "action": "Review schedule conflict"
     },
     "student_schedule_review_approved": {
-      "title": "Schedule conflict approved; rematching needed",
+      "title": "Schedule Conflict Approved; Rematching Needed",
       "body": "A schedule conflict request was approved and the affected assignment was removed. Review the request to arrange a new match.",
       "action": "Review rematching request"
     },
     "student_schedule_review_declined": {
-      "title": "Schedule conflict declined",
+      "title": "Schedule Conflict Declined",
       "body": "A schedule conflict request was declined. The current assignment continues; review the recorded decision.",
       "action": "Review schedule decision"
     },
     "tutor_reactivated": {
-      "title": "Tutor participation reactivated",
+      "title": "Tutor Participation Reactivated",
       "body": "A tutor became available for the current term. Review the current participation and assignment state in the tutor roster.",
       "action": "Review tutor roster"
     },
     "tutor_opted_out": {
-      "title": "Tutor opted out for this term",
+      "title": "Tutor Opted Out for This Term",
       "body": "A tutor opted out for the current term. Review the current participation and assignment state in the tutor roster.",
       "action": "Review tutor roster"
     },
     "meeting_absence_excused": {
-      "title": "Tutor meeting absence excused",
+      "title": "Tutor Meeting Absence Excused",
       "body": "A tutor recorded an excuse for an upcoming meeting absence. Review the meeting's attendance state; the excuse text is available only in the authorized workflow.",
       "action": "Review meeting attendance"
     },
     "school_departure_updated": {
-      "title": "School participation status updated",
+      "title": "School Participation Status Updated",
       "body": "Your school departure or return status was updated. Review the recorded state and any participation steps in your account workspace.",
       "action": "Review school participation"
     },
     "request_invalidity_appeal_pending": {
-      "title": "Invalid request appeal awaiting review",
+      "title": "Invalid Request Appeal Awaiting Review",
       "body": "A submitter appealed an applied invalid-request flag. Review the appeal in the request's invalidity dialog; submitting an appeal does not clear the flag.",
       "action": "Review invalid request appeal"
     }
   },
   "requestAppeal": {
-    "title": "Appeal an invalid request",
+    "title": "Appeal an Invalid Request",
     "description": "Explain why the request should be reviewed. Submitting an appeal does not clear its invalid flag or approve participation.",
     "loading": "Checking the appeal link…",
     "error": "The request could not be checked.",
@@ -5014,7 +5014,7 @@
     "contactHelp": "Use the verified program contact details for questions or an unavailable link."
   },
   "requestEmail": {
-    "title": "Submitter email delivery",
+    "title": "Submitter Email Delivery",
     "none": "No delivery receipt exists for this request. A pending proposal does not send email.",
     "PENDING": "Queued for delivery",
     "retrying": "Delivery failed; waiting to retry",

@@ -54,7 +54,9 @@ const lastCode = () =>
   /code is ([A-Z0-9]+)/.exec(mail.send.mock.calls.at(-1)?.[0].text ?? "")![1]!;
 async function verifiedAlias() {
   await requestSecondaryEmail(userId, secondary(), password);
-  expect(mail.send).toHaveBeenLastCalledWith(expect.objectContaining({ category: "SECURITY" }));
+  expect(mail.send).toHaveBeenLastCalledWith(
+    expect.objectContaining({ category: "SECURITY" }),
+  );
   expect(await confirmSecondaryEmail(userId, secondary(), lastCode())).toBe(
     true,
   );
@@ -234,7 +236,9 @@ it.each([false, true])(
     if (!signup.ok) throw new Error("Expected a fresh signup");
     const verified = await verifyViewerCode(email, signup.code);
     if (!verified.ok) throw new Error("Expected email verification");
-    expect(await completeViewerSignup(email, password, verified.completionProof)).toEqual({ ok: true });
+    expect(
+      await completeViewerSignup(email, password, verified.completionProof),
+    ).toEqual({ ok: true });
     const owner = await db.user.findUniqueOrThrow({ where: { email } });
     try {
       if (expired)
@@ -404,7 +408,9 @@ it("promotes verified aliases, keeps the former primary, and synchronizes only e
 
 it("retains verified replacement compatibility and rejects reuse", async () => {
   await requestEmailChange(userId, secondary(), password);
-  expect(mail.send).toHaveBeenLastCalledWith(expect.objectContaining({ category: "SECURITY" }));
+  expect(mail.send).toHaveBeenLastCalledWith(
+    expect.objectContaining({ category: "SECURITY" }),
+  );
   expect(await confirmEmailChange(userId, lastCode())).toBe(true);
   expect(await confirmEmailChange(userId, lastCode())).toBe(false);
   expect(await db.accountEmail.count({ where: { userId } })).toBe(2);
@@ -528,9 +534,11 @@ it("notifies both primary addresses and drops ordinary notices to removed second
   );
   await deliverNotifications();
   const notices = mail.send.mock.calls.filter(([m]) =>
-    m.subject.includes("primary"),
+    /primary/i.test(m.subject),
   );
-  expect(notices.every(([message]) => message.category === "SECURITY")).toBe(true);
+  expect(notices.every(([message]) => message.category === "SECURITY")).toBe(
+    true,
+  );
   expect(new Set(notices.map(([m]) => m.to))).toEqual(
     new Set([`${userId}@example.test`, secondary()]),
   );
@@ -605,7 +613,9 @@ it("password rotation invalidates pending address verification and recovery gran
   const token = /token=([a-f0-9]+)/.exec(
     mail.send.mock.calls.at(-1)?.[0].text ?? "",
   )![1]!;
-  await caller().account.requestPasswordChangeCode({ currentPassword: password });
+  await caller().account.requestPasswordChangeCode({
+    currentPassword: password,
+  });
   await caller().account.changePassword({
     currentPassword: password,
     newPassword: "RotatedPassword123!",
@@ -856,14 +866,12 @@ it("allows primary-only sign-in, recovery and email verification with both optio
   ).toMatchObject({ ok: true });
   await deliverNotifications();
   expect(
-    mail.send.mock.calls.some(([message]) =>
-      message.subject.includes("security"),
-    ),
+    mail.send.mock.calls.some(([message]) => /security/i.test(message.subject)),
   ).toBe(true);
   expect(
     new Set(
       mail.send.mock.calls
-        .filter(([message]) => message.subject.includes("primary"))
+        .filter(([message]) => /primary/i.test(message.subject))
         .map(([message]) => message.to),
     ),
   ).toEqual(
@@ -907,15 +915,32 @@ it("permits HEAD changes and rejects stale binding writes", async () => {
 
 it("queues Admin binding changes for Head without disabling live binding", async () => {
   await db.user.update({ where: { id: userId }, data: { role: "ADMIN" } });
-  await expect(caller(userId, "ADMIN").program.setSecondaryEmailBinding({
-    enabled: false, expectedEnabled: true,
-  })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  expect((await caller(headId, "HEAD").program.emailNotificationSettings()).secondaryEmailBindingEnabled).toBe(true);
+  await expect(
+    caller(userId, "ADMIN").program.setSecondaryEmailBinding({
+      enabled: false,
+      expectedEnabled: true,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(
+    (await caller(headId, "HEAD").program.emailNotificationSettings())
+      .secondaryEmailBindingEnabled,
+  ).toBe(true);
   const request = await db.approvalRequest.findFirstOrThrow({
-    where: { requesterId: userId, operation: "program.setSecondaryEmailBinding", state: "PENDING" },
+    where: {
+      requesterId: userId,
+      operation: "program.setSecondaryEmailBinding",
+      state: "PENDING",
+    },
   });
-  await caller(headId, "HEAD").approval.decide({ id: request.id, approve: true, note: "Reviewed binding availability" });
-  expect((await caller(headId, "HEAD").program.emailNotificationSettings()).secondaryEmailBindingEnabled).toBe(false);
+  await caller(headId, "HEAD").approval.decide({
+    id: request.id,
+    approve: true,
+    note: "Reviewed binding availability",
+  });
+  expect(
+    (await caller(headId, "HEAD").program.emailNotificationSettings())
+      .secondaryEmailBindingEnabled,
+  ).toBe(false);
 });
 
 it("completes primary account verification without requiring any secondary binding", async () => {

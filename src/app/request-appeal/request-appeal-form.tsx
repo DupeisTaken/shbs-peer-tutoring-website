@@ -16,19 +16,22 @@ type Ready = {
   timeZone: string;
   appealStatus: "PENDING" | "DECLINED" | "CLEARED" | null;
 };
-type State = Ready | { status: "loading" | "error" | "invalid" };
+type State =
+  Ready | { status: "loading" } | { status: "error" } | { status: "invalid" };
 function readResult(value: unknown): Ready | { status: "invalid" } | null {
   if (!value || typeof value !== "object") return null;
   const data = value as Record<string, unknown>;
   if (data.status === "invalid") return { status: "invalid" };
   if (
     data.status !== "ready" ||
-    !["tutor", "tutee"].includes(String(data.kind)) ||
+    !(data.kind === "tutor" || data.kind === "tutee") ||
     typeof data.timeZone !== "string" ||
     !(data.recordedTime === null || typeof data.recordedTime === "string") ||
     !(
       data.appealStatus === null ||
-      ["PENDING", "DECLINED", "CLEARED"].includes(String(data.appealStatus))
+      data.appealStatus === "PENDING" ||
+      data.appealStatus === "DECLINED" ||
+      data.appealStatus === "CLEARED"
     )
   )
     return null;
@@ -156,11 +159,9 @@ function RequestAppealDraft({ token }: { token?: string }) {
     return <StatePanel kind="loading" title={t("loading")} />;
   if (state.status === "invalid")
     return (
-      <StatePanel
-        kind="empty"
-        title={t("invalid")}
-        description={t("invalidHelp")}
-      />
+      <StatePanel kind="empty" title={t("invalid")}>
+        {t("invalidHelp")}
+      </StatePanel>
     );
   if (state.status === "error")
     return (

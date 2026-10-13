@@ -173,7 +173,10 @@ function RequestInvalidityReview({
   const format = useFormatter();
   const emailText = useTranslations("requestEmail");
   const sourceKind = reviewKey?.split(":")[0];
-  const emailSource =
+  const emailSource: {
+    kind: "application" | "survey" | "signup";
+    id: string;
+  } | null =
     sourceKind === "application" ||
     sourceKind === "survey" ||
     sourceKind === "signup"

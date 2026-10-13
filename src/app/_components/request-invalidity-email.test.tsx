@@ -48,6 +48,7 @@ const appeal = {
   notice: { requestVersion: 1 },
 };
 const receipt = {
+  retryEligible: true,
   status: "FAILED",
   attempts: 5,
   requestVersion: 1,

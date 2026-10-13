@@ -273,7 +273,18 @@ export async function requestNoticeStatus(
       notice: { select: { requestVersion: true } },
     },
   });
-  return row ? { ...row, requestAppeal: appeal } : null;
+  return row
+    ? {
+        ...row,
+        requestAppeal: appeal,
+        // Lease expiry is evaluated by the authoritative read, not an impure client
+        // render clock. The actual retry rechecks current source/lease under locks.
+        retryEligible:
+          (row.status === "FAILED" ||
+            (row.status === "PENDING" && row.attempts > 0)) &&
+          (!row.leaseUntil || row.leaseUntil.getTime() <= Date.now()),
+      }
+    : null;
 }
 
 /** Reset a failed attempt's budget, not its immutable receipt/payload. Concurrent
@@ -345,8 +356,7 @@ export async function admitRequestDelivery(
   return inTransaction(db, async (tx) => {
     const observed = await tx.emailDelivery.findUnique({ where: { id } });
     if (
-      !observed ||
-      observed.category !== requestServiceCategory ||
+      observed?.category !== requestServiceCategory ||
       !observed.requestKind ||
       !observed.requestId
     )

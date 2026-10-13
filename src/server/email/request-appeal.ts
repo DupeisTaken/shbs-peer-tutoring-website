@@ -32,8 +32,7 @@ async function eligibleNotice(client: DomainDb, token: string) {
     include: { requestAppeal: true },
   });
   if (
-    !notice ||
-    notice.category !== "request_service" ||
+    notice?.category !== "request_service" ||
     !notice.requestInvalid ||
     ["SUPERSEDED", "CANCELLED", "SKIPPED", "BLOCKED"].includes(notice.status) ||
     !(await currentRequestNotice(client, notice)).current
@@ -71,7 +70,7 @@ export async function submitRequestAppeal(
 ) {
   const body = appealBody.parse(text);
   const observed = await eligibleNotice(client, token);
-  if (!observed || !observed.requestKind || !observed.requestId)
+  if (!observed?.requestKind || !observed.requestId)
     return { status: "invalid" as const };
   const source = requestNoticeSource.parse({
     kind: observed.requestKind,
@@ -123,8 +122,7 @@ export async function declineRequestAppeal(
       include: { notice: true },
     });
     if (
-      !appeal ||
-      appeal.notice.requestKind !== input.kind ||
+      appeal?.notice.requestKind !== input.kind ||
       appeal.notice.requestId !== input.id
     )
       throw new TRPCError({ code: "NOT_FOUND" });
@@ -156,7 +154,7 @@ export async function declineRequestAppeal(
         action: "Declined invalid request appeal",
         entity: "RequestInvalidityAppeal",
         entityId: appeal.id,
-        details: {
+        effects: {
           reviewVersion: updated.reviewVersion,
           status: updated.status,
         },

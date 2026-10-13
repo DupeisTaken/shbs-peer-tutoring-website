@@ -35,14 +35,17 @@ export async function deliverNotifications(limit = 10) {
     !isEmailDeliveryAvailable("PROGRAM")
   )
     return;
+  // Freeze the candidate set before updating leases so eligibility changes do
+  // not expand a bounded sweep; row locks still give concurrent workers disjoint rows.
   const rows = await db.$queryRaw<
     { id: string; leaseUntil: Date; attemptId: string | null }[]
   >`
-    UPDATE "EmailDelivery" SET "leaseUntil" = NOW() + INTERVAL '5 minutes'
-    WHERE id IN (SELECT id FROM "EmailDelivery" WHERE (status = 'PENDING'
+    WITH candidates AS MATERIALIZED (SELECT id FROM "EmailDelivery" WHERE (status = 'PENDING'
       OR (status = 'SENDING' AND category = 'request_service')) AND "availableAt" <= NOW()
       AND ("leaseUntil" IS NULL OR "leaseUntil" < NOW()) ORDER BY "createdAt" LIMIT ${limit} FOR UPDATE SKIP LOCKED)
-    RETURNING id, "leaseUntil", "attemptId"`;
+    UPDATE "EmailDelivery" delivery SET "leaseUntil" = NOW() + INTERVAL '5 minutes'
+    FROM candidates WHERE delivery.id = candidates.id
+    RETURNING delivery.id, delivery."leaseUntil", delivery."attemptId"`;
   for (const { id, leaseUntil, attemptId } of rows) {
     const row = await db.emailDelivery.findUniqueOrThrow({
       where: { id },

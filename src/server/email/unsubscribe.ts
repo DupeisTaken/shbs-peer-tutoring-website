@@ -28,8 +28,7 @@ async function eligibleDelivery(client: DomainDb, deliveryId: string) {
     where: { id: deliveryId },
     include: { user: { include: { emails: true } } },
   });
-  if (!row || !row.user || row.user.mergedIntoId || row.previousPrimary)
-    return null;
+  if (!row?.user || row.user.mergedIntoId || row.previousPrimary) return null;
   const category = optionalEmailCategory(row.category);
   // Retired accounts and removed/unverified addresses cannot control current preferences.
   // A still-owned secondary address remains valid even if secondary delivery was disabled.
@@ -74,7 +73,7 @@ export async function unsubscribeFromEmail(
       where: { id },
       select: { userId: true },
     });
-    if (!initial) return { status: "invalid" };
+    if (!initial?.userId) return { status: "invalid" };
     // Match email removal/merge lock order, then re-check ownership under that lock.
     await lockAccountProfile(tx, initial.userId);
     const delivery = await eligibleDelivery(tx, id);

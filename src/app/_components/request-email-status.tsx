@@ -123,7 +123,7 @@ export function RequestEmailStatus({
     setReading(true);
     try {
       const result = await status.refetch();
-      if (result.error) throw result.error;
+      if (result.error) throw new Error("Status read failed");
       setNeedsRead(false);
       return true;
     } catch {
@@ -206,7 +206,7 @@ export function RequestEmailStatus({
     data &&
     (data.status === "FAILED" ||
       (data.status === "PENDING" && data.attempts > 0)) &&
-    (!data.leaseUntil || new Date(data.leaseUntil).getTime() <= Date.now());
+    data.retryEligible;
   return (
     <section
       className="space-y-3 border-t border-slate-200 pt-4"
@@ -239,7 +239,7 @@ export function RequestEmailStatus({
               )}
         </p>
       )}
-      {(status.error || needsRead) && (
+      {(!!status.error || needsRead) && (
         <InlineNotice tone="warning" announcement="status">
           {needsRead && outcome
             ? t(
