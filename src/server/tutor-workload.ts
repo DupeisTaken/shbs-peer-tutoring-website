@@ -72,12 +72,16 @@ export async function tutorWorkloads(db: DomainDb, tutorId?: string) {
       return {
         termId: term?.id ?? null,
         tutors: tutors.map((tutor) => {
+          const assignable = isAssignableTutor(tutor);
           const blocks = assignedBlocks(
-            isAssignableTutor(tutor) ? (byTutor.get(tutor.id) ?? []) : [],
+            assignable ? (byTutor.get(tutor.id) ?? []) : [],
           );
           return {
             id: tutor.id,
             status: tutor.status,
+            // Projection readers need the same fresh status/revocation decision;
+            // a real zero workload alone cannot establish eligibility.
+            assignable,
             count: blocks.length,
             blocks,
             preferredMaximum: effectivePreferredMaximum(

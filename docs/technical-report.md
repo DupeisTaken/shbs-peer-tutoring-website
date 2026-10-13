@@ -832,8 +832,11 @@ work out; it is neither an attendance total nor a weekly/program cap.
 `admin.assignmentWorkloads` is staff-only assignment context. All native tutor
 selectors and Pairings summaries consume the same count. Proposed edits remove
 only the original pairing's membership, retain shared siblings and add the new
-distinct identity only for a current roster. Cached reads remain visibly stale
-during refresh/failure; unavailable reads never become zero. Mutations invalidate
+distinct identity only for a current roster. Projections use the same current-quarter
+and authoritative tutor eligibility
+decision as saved counts, including retained inactive or revoked assignments.
+Cached reads remain visibly stale during refresh/failure; unavailable reads never
+become zero. Mutations invalidate
 this context alongside current pairings and rosters. Advisory read recovery creates
 no new assignment permission or approval requirement.
 

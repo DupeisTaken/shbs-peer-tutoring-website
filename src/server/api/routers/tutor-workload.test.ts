@@ -186,6 +186,47 @@ it("uses the same single current quarter as assignment when an older active flag
   expect(context.termId).toBe(termId);
   expect(context.tutors.find((row) => row.id === tutorId)?.count).toBe(1);
 });
+it.each(["inactive", "revoked"] as const)(
+  "keeps retained %s pairings visible while authoritative eligibility suppresses current and projected workload",
+  async (kind) => {
+    const retained = await pairing();
+    await save(0);
+    expect(await workload()).toMatchObject({ count: 1, assignable: true });
+    if (kind === "inactive")
+      await db.tutor.update({
+        where: { id: tutorId },
+        data: { status: "OPTED_OUT" },
+      });
+    else
+      await db.user.update({
+        where: { id: "owner" },
+        data: { tutorAccessRevoked: true },
+      });
+    expect(
+      (await caller().admin.pairings()).some((row) => row.id === retained.id),
+    ).toBe(true);
+    expect(await workload()).toMatchObject({
+      count: 0,
+      blocks: [],
+      assignable: false,
+    });
+    if (kind === "inactive")
+      await db.tutor.update({
+        where: { id: tutorId },
+        data: { status: "ACTIVE" },
+      });
+    else
+      await db.user.update({
+        where: { id: "owner" },
+        data: { tutorAccessRevoked: false },
+      });
+    expect(await workload()).toMatchObject({
+      count: 1,
+      assignable: true,
+      preferredMaximum: 0,
+    });
+  },
+);
 it("refreshes after reassignment, removing the last current tutee and deleting a block", async () => {
   const p = await pairing();
   expect((await workload()).count).toBe(1);

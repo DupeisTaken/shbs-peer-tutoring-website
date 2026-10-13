@@ -113,30 +113,32 @@ export function AssignmentWorkloadAdvice({
         {t(query.error ? "stale" : "rechecking", { count: tutor.count })}
       </p>
     );
-  const projection = proposedAssignedCount(
-    tutor.blocks,
-    proposals?.map((proposal) => ({
-      ...proposal,
-      block:
-        proposal.block?.termId === query.data?.termId
-          ? proposal.block
-          : undefined,
-    })) ??
-      (query.data?.termId
-        ? [
-            {
-              block: {
-                id: "proposed-unscheduled",
-                termId: query.data.termId,
-                scheduleConfirmed: false,
-                dayOfWeek: 1,
-                startMin: 0,
-                endMin: 1,
-              },
-            },
-          ]
-        : []),
-  );
+  const projection = tutor.assignable
+    ? proposedAssignedCount(
+        tutor.blocks,
+        proposals?.map((proposal) => ({
+          ...proposal,
+          block:
+            proposal.block?.termId === query.data?.termId
+              ? proposal.block
+              : undefined,
+        })) ??
+          (query.data?.termId
+            ? [
+                {
+                  block: {
+                    id: "proposed-unscheduled",
+                    termId: query.data.termId,
+                    scheduleConfirmed: false,
+                    dayOfWeek: 1,
+                    startMin: 0,
+                    endMin: 1,
+                  },
+                },
+              ]
+            : []),
+      )
+    : tutor.count;
   const warning = workloadWarning(
     tutor.count,
     projection,

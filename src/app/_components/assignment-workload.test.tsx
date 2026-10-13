@@ -54,6 +54,7 @@ const workload = (count = 1, preferredMaximum: number | null = 1) => ({
       count,
       preferredMaximum,
       status: "ACTIVE",
+      assignable: true,
       version: 0,
       blocks: count
         ? [
@@ -70,6 +71,7 @@ const workload = (count = 1, preferredMaximum: number | null = 1) => ({
       preferredMaximum: null,
       blocks: [],
       status: "ACTIVE",
+      assignable: true,
       version: 0,
     },
   ],
@@ -262,6 +264,42 @@ it("does not add a retained older-quarter edit to the current-quarter projection
   expect(await screen.findByText(/Preferred maximum reached/)).toBeTruthy();
   expect(screen.queryByText(/This change would result/)).toBeNull();
 });
+it.each(["OPTED_OUT", "ACTIVE"])(
+  "does not invent projected blocks for a retained ineligible %s tutor",
+  async (status) => {
+    const data = workload(0, 0);
+    Object.assign(data.tutors[0]!, { status, assignable: false });
+    state.read.mockResolvedValue(data);
+    state.client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={state.client}>
+        <NextIntlClientProvider locale="en" messages={en}>
+          <AssignmentWorkloadAdvice
+            tutorId="a"
+            proposals={[
+              {
+                replacingPairingId: "retained-inactive-pairing",
+                block: {
+                  id: "retained-inactive-pairing",
+                  termId: "term",
+                  scheduleConfirmed: true,
+                  dayOfWeek: 2,
+                  startMin: 900,
+                  endMin: 960,
+                },
+              },
+            ]}
+          />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText(/0 assigned blocks/)).toBeTruthy();
+    expect(await screen.findByText(/Preferred maximum reached/)).toBeTruthy();
+    expect(screen.queryByText(/This change would result/)).toBeNull();
+  },
+);
 it("conceals cached private preferences on denial, evicts once per reader, and recovers through an explicit read", async () => {
   mount();
   await screen.findByText(/This change would result/);
