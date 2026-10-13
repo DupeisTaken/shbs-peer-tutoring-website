@@ -384,7 +384,8 @@ it.each([
 );
 it.each([false, true])("retains unsplit legacy tutor identity when unchanged blank fields are posted (linked=%s)", async (linked) => {
   const row = await db.tutor.create({
-    data: { englishName: "王小明", status: "ARCHIVED" },
+    // Model the unconfirmed legacy provenance explicitly; new Tutor rows default true.
+    data: { englishName: "王小明", status: "ARCHIVED", nameFieldsConfirmed: false },
   });
   if (linked) await db.user.create({ data: { name: "王小明", email: "legacy@example.test", tutorId: row.id } });
   await caller().admin.updateTutor({
