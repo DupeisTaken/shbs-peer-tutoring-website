@@ -346,7 +346,7 @@ it("navigating to a different invitation discards the prior proof, password and 
   expect(state.complete).not.toHaveBeenCalled();
 });
 
-it("an existing account with missing identity can fill its name without replacing canonical academics", async () => {
+it("an existing nameless account reviews access without soliciting discarded name edits", async () => {
   Object.assign(state.info, {
     existing: true,
     name: "",
@@ -357,8 +357,8 @@ it("an existing account with missing identity can fill its name without replacin
   render(view());
   await verified();
   expect(
-    screen.getByLabelText(new RegExp(`^${en.personName.firstName}`)),
-  ).toBeTruthy();
+    screen.queryByLabelText(new RegExp(`^${en.personName.firstName}`)),
+  ).toBeNull();
   expect(screen.queryByRole("combobox")).toBeNull();
 });
 
