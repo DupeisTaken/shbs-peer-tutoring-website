@@ -1,4 +1,9 @@
-import { optionalPersonNameFields } from "~/lib/person-name";
+import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
+import {
+  configuredNewNames,
+  configuredLegacyIntakeName,
+} from "~/server/program/name-fields";
+import { lockUsernameNamespace } from "~/server/auth/username";
 import { assertPrimaryName } from "~/server/program/profile-policy";
 import { recruitmentStatus } from "~/lib/recruitment";
 import { getRecruitment } from "~/server/program/recruitment";
@@ -58,7 +63,7 @@ export const applicationRouter = createTRPCRouter({
     .input(
       z.object({
         ...optionalPersonNameFields,
-        name: z.string().trim().min(1).max(200),
+        name: z.string().trim().max(200),
         email: z.string().trim().email().max(254),
         agreed: z.literal(true),
         policyRevision: z.string().min(1),
@@ -84,6 +89,7 @@ export const applicationRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       await inTransaction(ctx.db, async (tx) => {
+        await lockUsernameNamespace(tx);
         // Serialize schedule edits and period refresh with accepting an application.
         await lockEntity(tx, "program:period");
         if (recruitmentStatus(await getRecruitment(tx, "tutor")) !== "open")
@@ -175,6 +181,25 @@ export const applicationRouter = createTRPCRouter({
           tx,
           { kind: "tutor", email: input.email, headers: ctx.headers },
           async (email) => {
+            await lockUsernameNamespace(tx);
+            if (
+              input.firstName !== undefined ||
+              input.lastName !== undefined ||
+              input.preferredName !== undefined
+            ) {
+              const names = await configuredNewNames(tx, input, "TUTOR");
+              input = {
+                ...input,
+                ...names,
+                preferredName: names.preferredName ?? undefined,
+                alternativeNames: names.alternativeNames ?? undefined,
+                name: fullPersonName(names),
+              };
+            } else
+              input = {
+                ...input,
+                name: await configuredLegacyIntakeName(tx, input.name, "TUTOR"),
+              };
             // Check current policy only for a new record; historical retries stay idempotent.
             await assertPrimaryName(tx, input.name);
             await tx.tutorApplication.create({

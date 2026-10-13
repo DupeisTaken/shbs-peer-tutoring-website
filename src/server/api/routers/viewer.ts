@@ -42,7 +42,7 @@ export const viewerRouter = createTRPCRouter({
       z.object({
         captchaGrant: captchaGrantInput,
         ...optionalPersonNameFields,
-        name: z.string().trim().min(1).max(200),
+        name: z.string().trim().max(200),
         affiliation: z.string().trim().min(1).max(200),
         email: z.string().trim().email().max(254),
       }),

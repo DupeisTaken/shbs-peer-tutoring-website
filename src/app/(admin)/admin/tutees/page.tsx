@@ -1,5 +1,9 @@
 "use client";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { nameDraft, fullPersonName } from "~/lib/person-name";
 import { matchesPersonSearch } from "~/lib/person-search";
@@ -147,6 +151,7 @@ export default function TuteesPage() {
   }, [creationOpen, create.isPending]);
 
   const [names, setNames] = useState(() => nameDraft());
+  const [namePolicyReady, setNamePolicyReady] = useState(false);
   const name = fullPersonName(names);
   const [gradeLevel, setGradeLevel] = useState("");
   const [firstChoiceId, setFirstChoiceId] = useState("");
@@ -309,8 +314,8 @@ export default function TuteesPage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (
-                !name.trim() ||
                 create.isPending ||
+                !namePolicyReady ||
                 creationSubmitting.current
               )
                 return;
@@ -351,7 +356,13 @@ export default function TuteesPage() {
               disabled={create.isPending}
               className="grid max-w-2xl min-w-0 gap-4 [&_.input:disabled]:bg-slate-50 [&_.select:disabled]:bg-slate-50"
             >
-              <PersonNameFields value={names} onChange={setNames} />
+              <PersonNameFields
+                onPolicyAvailabilityChange={setNamePolicyReady}
+                accountType="STUDENT"
+                management
+                value={names}
+                onChange={setNames}
+              />
               {/* Keep choices in their own aligned row; wrapping the whole name
                   block beside Grade made the final name row look misaligned. */}
               <div className="grid min-w-0 items-end gap-3 sm:grid-cols-3">
@@ -409,7 +420,7 @@ export default function TuteesPage() {
               <div className="flex flex-wrap gap-3">
                 <button
                   className="btn-primary min-h-11 lg:min-h-10"
-                  disabled={!name.trim() || create.isPending}
+                  disabled={create.isPending || !namePolicyReady}
                 >
                   {t("admin.tutees.addTuteeBtn")}
                 </button>
@@ -606,7 +617,9 @@ export default function TuteesPage() {
                                   <ul className="list-disc pl-5">
                                     {p.tutees.map(({ tutee }) => (
                                       <li key={tutee.id}>
-                                        {tutee.englishName}
+                                        <ParticipantName
+                                          name={tutee.englishName}
+                                        />
                                       </li>
                                     ))}
                                   </ul>
@@ -734,7 +747,7 @@ export default function TuteesPage() {
                   <tr key={t2.id}>
                     <td className="max-w-52 min-w-40">
                       <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
-                        {t2.englishName}
+                        <ParticipantName name={t2.englishName} />
                       </p>
                       {/* The display name already applies the program's additional-name setting. */}
                       {(t2.owner ?? t2.user)?.username && (
@@ -764,7 +777,7 @@ export default function TuteesPage() {
                     <TableActions>
                       {/* One reader owns the presentation; private sections retain their own access boundary. */}
                       <TableAction
-                        aria-label={`${t("tablePatterns.details")}: ${t2.englishName}`}
+                        aria-label={`${t("tablePatterns.details")}: ${participantNameLabel(t2.englishName, null, t("participantNames.unnamed"))}`}
                         aria-haspopup="dialog"
                         onClick={() => setDetailsId(t2.id)}
                       >
@@ -792,7 +805,11 @@ export default function TuteesPage() {
                             review.open({
                               key: t2.id,
                               title: t("actionReview.tuteeTitle", {
-                                name: t2.englishName,
+                                name: participantNameLabel(
+                                  t2.englishName,
+                                  null,
+                                  t("participantNames.unnamed"),
+                                ),
                               }),
                               description: t("actionReview.tuteeHelp"),
                               confirmLabel: t("admin.tutees.deleteBtn"),

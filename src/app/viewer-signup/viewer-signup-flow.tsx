@@ -1,5 +1,5 @@
 "use client";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, fullPersonName } from "~/lib/person-name";
 
 import { SignupError } from "~/app/_components/signup-error";
@@ -35,6 +35,7 @@ export function ViewerSignupFlow(_props: { signedIn?: boolean }) {
   const [step, setStep] = useState<Step>("details");
 
   const [names, setNames] = useState(() => nameDraft());
+  const [namePolicyReady, setNamePolicyReady] = useState(false);
   const name = fullPersonName(names);
   const [affiliation, setAffiliation] = useState("");
   const [email, setEmail] = useState("");
@@ -64,7 +65,7 @@ export function ViewerSignupFlow(_props: { signedIn?: boolean }) {
   });
 
   const detailsValid =
-    name.trim().length > 0 &&
+    namePolicyReady &&
     affiliation.trim().length > 0 &&
     /^[^@\s]+@[^@\s]+$/.test(email.trim());
 
@@ -120,7 +121,12 @@ export function ViewerSignupFlow(_props: { signedIn?: boolean }) {
               sendIdentityCode();
             }}
           >
-            <PersonNameFields value={names} onChange={setNames} />
+            <PersonNameFields
+              onPolicyAvailabilityChange={setNamePolicyReady}
+              accountType="VIEWER"
+              value={names}
+              onChange={setNames}
+            />
             <ProfilePolicyHint />
             <div>
               <label className="label" htmlFor="obs-aff">

@@ -27,6 +27,9 @@ vi.mock("~/trpc/react", async () => {
       // Creation tests run as Head; identity is also used by roster profile guards.
       account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
       program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
         profilePolicy: {
           useQuery: () => ({ data: { offeredGrades: [9, 12] } }),
         },

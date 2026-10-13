@@ -35,6 +35,7 @@ export function signupLane(path: string): SignupLane | null {
       "tutee.surveyPolicy",
       "tutee.policy",
       "program.profilePolicy",
+      "program.nameFieldPolicy",
       "program.features",
       "program.captchaPublic",
       "crew.applicationStatus",

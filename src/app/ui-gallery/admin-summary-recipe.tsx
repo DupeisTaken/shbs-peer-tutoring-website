@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "~/app/_components/ui/button";
 import { Modal } from "~/app/_components/ui/modal";
 import {
@@ -13,6 +13,7 @@ import {
  * program query, authorization result or draft is created by this example. */
 export function AdminSummaryRecipe({ locale }: { locale: "en" | "zh" }) {
   const zh = locale === "zh";
+  const titleId = useId();
   const [selected, setSelected] = useState(false);
   const [review, setReview] = useState(false);
   const name = zh
@@ -27,15 +28,19 @@ export function AdminSummaryRecipe({ locale }: { locale: "en" | "zh" }) {
           : "Summaries, control rows and consequential actions"}
       </h2>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
-        <label className="row-span-2 grid grid-rows-subgrid">
-          <span className="label">
-            {zh
-              ? "允许换行的公告标题标签"
-              : "Announcement title with a wrapping label"}
-          </span>
-          <input className="input" defaultValue={name} />
+        {/* Use the production label/input sibling tracks; badges never reserve
+         * a cell that could move an automatically placed spanning label. */}
+        <label className="label col-span-2 row-start-1" htmlFor={titleId}>
+          {zh
+            ? "允许换行的公告标题标签"
+            : "Announcement title with a wrapping label"}
         </label>
-        <span className="badge-green col-start-2 row-start-2">
+        <input
+          id={titleId}
+          className="input col-span-2 row-start-2 min-w-0 lg:col-span-1"
+          defaultValue={name}
+        />
+        <span className="badge-green col-start-2 row-start-3 lg:row-start-2">
           {zh ? "已发布" : "Published"}
         </span>
       </div>

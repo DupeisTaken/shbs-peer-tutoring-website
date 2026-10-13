@@ -818,6 +818,8 @@ model TuteeAvailability {
 model Room {
   id        String    @id @default(cuid())
   name      String    @unique
+  /// Program display order is independent of the crew's patrol sequence.
+  programOrder Int @default(0)
   /// The crew's patrol sequence — rooms are visited in ascending `patrolOrder` on /patrol.
   /// Admin-customizable; null sorts last. Default 0 so new rooms group at the front until ordered.
   patrolOrder Int     @default(0)
@@ -1977,12 +1979,25 @@ model SchoolCalendarDay {
   note String?
 }
 
+/// Informational dates only; attendance and school-day appeal rules never consume these rows.
+model ProgramCalendarDay {
+  date      String   @id
+  reason    String
+  /// Retain the version after removal so an old editor cannot overwrite a recreated date.
+  active    Boolean  @default(true)
+  version   Int      @default(1)
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
 /// Singleton configuration; changing the zone never rewrites stored instants or weekly slot times.
 model ProgramSettings {
   captchaEnabled Boolean @default(false)
   captchaVersion Int @default(0)
   /// Head-only configuration for existing signup fields; missing keys use original defaults.
   signupFields Json @default("{}")
+  /// One current-role policy governs both intake and profile fields; saved names are never erased.
+  nameFields Json @default("{}")
+  nameFieldsVersion Int @default(0)
   requireLatinNames Boolean @default(false)
   /// Independent legal-name script rule; alternativeNames retains its storage key.
   requireLatinLegalNames       Boolean  @default(false)
