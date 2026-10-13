@@ -21,6 +21,10 @@ import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 
 const state = vi.hoisted(() => {
   const permissions: { accountRole: string | null } = { accountRole: "HEAD" };
+  const inputs: { reportInput: unknown; summaryInput: unknown } = {
+    reportInput: undefined,
+    summaryInput: undefined,
+  };
   const date = new Date("2026-09-15T08:00:00Z");
   const tutor = {
     tutorId: "tutor-1",
@@ -36,8 +40,7 @@ const state = vi.hoisted(() => {
     readOnly: false,
     periodsLoaded: true,
     quarterSystem: true,
-    reportInput: undefined as unknown,
-    summaryInput: undefined as unknown,
+    ...inputs,
     ...permissions,
     undo: vi.fn(),
     review: vi.fn(),

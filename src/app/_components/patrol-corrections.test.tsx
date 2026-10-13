@@ -5,33 +5,36 @@ import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
 import { PatrolCorrections } from "./patrol-corrections";
 
-const { mutate, row, state } = vi.hoisted(() => ({
-  mutate: vi.fn(),
-  state: {
-    loaded: true,
-    count: 1,
-    error: null as null | { message: string; data?: { code?: string } },
-    refetch: vi.fn(),
-    input: undefined as unknown,
-  },
-  row: {
-    id: "synthetic-patrol",
-    createdAt: new Date("2026-11-01T06:30:00Z"),
-    updatedAt: new Date("2026-11-01T06:30:00Z"),
-    hours: 0.5,
-    note: null,
-    crewUser: { name: "Synthetic crew" },
-    observations: [
-      {
-        id: "observation",
-        roomId: "room",
-        room: { name: "Synthetic room" },
-        headcount: "ONE",
-        observedAt: new Date("2026-11-01T06:30:00Z"),
-      },
-    ],
-  },
-}));
+const { mutate, row, state } = vi.hoisted(() => {
+  const inputState: { input: unknown } = { input: undefined };
+  return {
+    mutate: vi.fn(),
+    state: {
+      loaded: true,
+      count: 1,
+      error: null as null | { message: string; data?: { code?: string } },
+      refetch: vi.fn(),
+      ...inputState,
+    },
+    row: {
+      id: "synthetic-patrol",
+      createdAt: new Date("2026-11-01T06:30:00Z"),
+      updatedAt: new Date("2026-11-01T06:30:00Z"),
+      hours: 0.5,
+      note: null,
+      crewUser: { name: "Synthetic crew" },
+      observations: [
+        {
+          id: "observation",
+          roomId: "room",
+          room: { name: "Synthetic room" },
+          headcount: "ONE",
+          observedAt: new Date("2026-11-01T06:30:00Z"),
+        },
+      ],
+    },
+  };
+});
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({}),
