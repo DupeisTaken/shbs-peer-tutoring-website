@@ -75,6 +75,170 @@ afterEach(() => {
   window.history.replaceState(null, "", "/");
 });
 
+function EarlyChoice({
+  scope,
+  enabled,
+  ready,
+  historyAllowed,
+}: {
+  scope: string;
+  enabled: boolean;
+  ready: boolean;
+  historyAllowed: boolean;
+}) {
+  const [state, setState] = useSessionViewState({
+    id: "early-choice-v1",
+    scope,
+    enabled,
+    restoreReady: ready,
+    initialState: { tab: "current", page: 0 },
+    parse: viewFields({
+      tab: viewEnum(historyAllowed ? ["current", "history"] : ["current"]),
+      page: viewPage,
+    }),
+  });
+  return (
+    <>
+      <p data-testid="early-state">{JSON.stringify(state)}</p>
+      <button
+        onClick={() =>
+          setState((previous) => ({ tab: "history", page: previous.page + 1 }))
+        }
+      >
+        Choose history
+      </button>
+      <button
+        onClick={() =>
+          setState((previous) => ({ ...previous, page: previous.page + 1 }))
+        }
+      >
+        Next page
+      </button>
+    </>
+  );
+}
+function earlyView({
+  identity = "head",
+  pathname = "/admin/tutees",
+  scope = "period-1",
+  verified = false,
+  enabled = true,
+  ready = true,
+  historyAllowed = true,
+} = {}) {
+  return (
+    <SessionViewProvider
+      identity={identity}
+      pathname={pathname}
+      verified={verified}
+    >
+      <EarlyChoice
+        scope={scope}
+        enabled={enabled}
+        ready={ready}
+        historyAllowed={historyAllowed}
+      />
+    </SessionViewProvider>
+  );
+}
+const earlyState = () =>
+  JSON.parse(screen.getByTestId("early-state").textContent ?? "null") as {
+    tab: string;
+    page: number;
+  };
+
+it("keeps an explicit functional choice made before verification ahead of an older saved view", () => {
+  const key = viewStateKey(
+    "head",
+    "/admin/tutees",
+    "early-choice-v1",
+    "period-1",
+  );
+  writeViewState(sessionStorage, key, { tab: "current", page: 6 });
+  const view = render(earlyView());
+  fireEvent.click(screen.getByRole("button", { name: "Choose history" }));
+  fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+  expect(earlyState()).toEqual({ tab: "history", page: 2 });
+  expect(readViewState(sessionStorage, key)).toEqual({
+    tab: "current",
+    page: 6,
+  });
+  view.rerender(earlyView({ verified: true }));
+  expect(earlyState()).toEqual({ tab: "history", page: 2 });
+  expect(readViewState(sessionStorage, key)).toEqual({
+    tab: "history",
+    page: 2,
+  });
+});
+
+it.each([
+  { identity: "another-account" },
+  { pathname: "/admin/tutors" },
+  { scope: "period-2" },
+])(
+  "drops early choice provenance across $identity$pathname$scope and on return",
+  (change) => {
+    const view = render(earlyView());
+    fireEvent.click(screen.getByRole("button", { name: "Choose history" }));
+    view.rerender(earlyView(change));
+    expect(earlyState()).toEqual({ tab: "current", page: 0 });
+    view.rerender(earlyView());
+    view.rerender(earlyView({ verified: true }));
+    expect(earlyState()).toEqual({ tab: "current", page: 0 });
+  },
+);
+
+it("clears an unverified explicit choice on denial/module disable and never revives it on recovery", () => {
+  const key = viewStateKey(
+    "head",
+    "/admin/tutees",
+    "early-choice-v1",
+    "period-1",
+  );
+  writeViewState(sessionStorage, key, { tab: "history", page: 6 });
+  const view = render(earlyView());
+  fireEvent.click(screen.getByRole("button", { name: "Choose history" }));
+  view.rerender(earlyView({ enabled: false }));
+  expect(earlyState()).toEqual({ tab: "current", page: 0 });
+  expect(sessionStorage.getItem(key)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Choose history" }));
+  view.rerender(earlyView({ enabled: true, verified: true }));
+  expect(earlyState()).toEqual({ tab: "current", page: 0 });
+});
+
+it.each([true, false])(
+  "revalidates early provenance after catalog loading (history allowed: %s)",
+  (historyAllowed) => {
+    const key = viewStateKey(
+      "head",
+      "/admin/tutees",
+      "early-choice-v1",
+      "period-1",
+    );
+    const view = render(earlyView());
+    fireEvent.click(screen.getByRole("button", { name: "Choose history" }));
+    view.rerender(
+      earlyView({ ready: false, verified: true, historyAllowed: false }),
+    );
+    expect(earlyState()).toEqual({ tab: "current", page: 0 });
+    expect(sessionStorage.getItem(key)).toBeNull();
+    view.rerender(earlyView({ ready: true, verified: true, historyAllowed }));
+    expect(earlyState()).toEqual(
+      historyAllowed
+        ? { tab: "history", page: 1 }
+        : { tab: "current", page: 0 },
+    );
+    view.rerender(
+      earlyView({ ready: true, verified: true, historyAllowed: true }),
+    );
+    expect(earlyState()).toEqual(
+      historyAllowed
+        ? { tab: "history", page: 1 }
+        : { tab: "current", page: 0 },
+    );
+  },
+);
+
 it("normalizes a feature field allowlist in storage instead of reviving removed choices later", () => {
   const key = viewStateKey("head", "/admin/tutees", "fields-v1", "");
   writeViewState(window.sessionStorage, key, {
@@ -178,9 +342,9 @@ it("keeps valid long live text through functional updates and catalog normalizat
   fireEvent.click(screen.getByRole("button", { name: "Other filter" }));
   rendered.rerender(liveSearchView("current", true, []));
   expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe(long);
-  expect(
-    JSON.parse(screen.getByTestId("live-text-state").textContent),
-  ).toEqual({ search: long, tab: "history", room: "" });
+  expect(JSON.parse(screen.getByTestId("live-text-state").textContent)).toEqual(
+    { search: long, tab: "history", room: "" },
+  );
   expect(sessionStorage.getItem(key)).toBeNull();
   rendered.unmount();
   render(liveSearchView());

@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   verified: true,
   unnamed: false,
   username: null as string | null,
+  periodLoading: false,
   invalidateRequests: vi.fn(),
   invalidateTutees: vi.fn(),
   fetchRequests: vi.fn(),
@@ -107,7 +108,12 @@ vi.mock("~/trpc/react", () => ({
     },
     admin: {
       tutors: { useQuery: () => ({ data: [] }) },
-      currentPeriod: { useQuery: () => ({ data: { termId: "term-1" } }) },
+      currentPeriod: {
+        useQuery: () => ({
+          data: mocks.periodLoading ? undefined : { termId: "term-1" },
+          isLoading: mocks.periodLoading,
+        }),
+      },
       pairings: {
         useQuery: () => ({
           data: mocks.assigned
@@ -194,6 +200,7 @@ beforeEach(() => {
   mocks.verified = true;
   mocks.unnamed = false;
   mocks.username = null;
+  mocks.periodLoading = false;
   mocks.invalidateRequests.mockResolvedValue(undefined);
   mocks.invalidateTutees.mockResolvedValue(undefined);
   mocks.changeSurvey.mockResolvedValue({ ok: true });
@@ -213,24 +220,43 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-it.each([false, true])("renders current unnamed requests with a handle or localized fallback (legacy=%s), preserving original labels when supplied", (legacy) => {
-  mocks.survey = !legacy;
-  mocks.invalid = false;
-  mocks.unnamed = true;
-  mocks.username = "learner-handle";
-  const page = render(content(legacy));
-  expect(screen.getByText("learner-handle")).toBeTruthy();
-  mocks.username = null;
-  page.rerender(content(legacy));
-  expect(screen.getByText(en.participantNames.unnamed)).toBeTruthy();
-  page.rerender(content(legacy, false, "zh"));
-  expect(screen.getByText(zh.participantNames.unnamed)).toBeTruthy();
-  mocks.unnamed = false;
-  page.rerender(content(legacy));
-  expect(screen.getByText(legacy ? /Legacy public student/ : "Public survey student")).toBeTruthy();
-  expect(mocks.changeSurvey).not.toHaveBeenCalled();
+it("lets an observer choose the static invalidity filter while its period read loads", () => {
+  mocks.periodLoading = true;
+  render(content(true, true));
+  const invalid = screen.getByRole("button", {
+    name: en.requestInvalidity.filter.invalid,
+  });
+  fireEvent.click(invalid);
+  expect(invalid.getAttribute("aria-pressed")).toBe("true");
+  expect(screen.queryByText("Legacy public student")).toBeNull();
   expect(mocks.changeSignup).not.toHaveBeenCalled();
 });
+
+it.each([false, true])(
+  "renders current unnamed requests with a handle or localized fallback (legacy=%s), preserving original labels when supplied",
+  (legacy) => {
+    mocks.survey = !legacy;
+    mocks.invalid = false;
+    mocks.unnamed = true;
+    mocks.username = "learner-handle";
+    const page = render(content(legacy));
+    expect(screen.getByText("learner-handle")).toBeTruthy();
+    mocks.username = null;
+    page.rerender(content(legacy));
+    expect(screen.getByText(en.participantNames.unnamed)).toBeTruthy();
+    page.rerender(content(legacy, false, "zh"));
+    expect(screen.getByText(zh.participantNames.unnamed)).toBeTruthy();
+    mocks.unnamed = false;
+    page.rerender(content(legacy));
+    expect(
+      screen.getByText(
+        legacy ? /Legacy public student/ : "Public survey student",
+      ),
+    ).toBeTruthy();
+    expect(mocks.changeSurvey).not.toHaveBeenCalled();
+    expect(mocks.changeSignup).not.toHaveBeenCalled();
+  },
+);
 
 it.each([
   [false, true],

@@ -607,6 +607,11 @@ what is currently implemented until their migrations and verification are comple
   and scroll offsets, not domain drafts, record evidence or authority. Clear or
   ignore state across identity/access changes. Restoration waits for the relevant
   content layout and respects explicit navigation and the user's own scrolling.
+  Static Requests panel/filter enums remain interactive while content loads;
+  dynamic catalog parsers retain their readiness gate. An accepted early live
+  choice has transient provenance for its exact identity/path/scope key and wins
+  an older saved/default view after verification. Key changes, denial or catalog
+  invalidation discard that provenance; storage writes still require verification.
 
 These are feature contracts, not a general form engine or permission registry.
 Add shared layout helpers only where real callers have the same alignment and
