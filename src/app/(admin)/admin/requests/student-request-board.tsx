@@ -81,8 +81,8 @@ export function StudentRequestBoard({
     initialState: "matching",
     parse: viewEnum(["matching", "assigned", "reviews", "processed"]),
     scope: viewScope,
+    // A static panel choice is usable before its queue reads finish; only scroll waits for content.
     enabled: !denied,
-    restoreReady: !additionalLoading && !!rows.data && !!legacyReviews.data,
   });
   const [invalidity, setInvalidity] =
     useSessionViewState<InvalidityFilterValue>({
