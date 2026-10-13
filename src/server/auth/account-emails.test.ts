@@ -719,8 +719,10 @@ it.each([
       programEnabled && personalEnabled ? 3 : 1,
     );
     expect(
-      mail.send.mock.calls.some(([message]) =>
-        message.subject.includes("security"),
+      mail.send.mock.calls.some(
+        ([message]) =>
+          message.subject === "Account Security Changed / 账户安全设置已更改" &&
+          message.category === "SECURITY",
       ),
     ).toBe(true);
     expect(
