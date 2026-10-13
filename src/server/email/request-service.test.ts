@@ -1,6 +1,8 @@
 import { afterAll, afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
 import type { EmailMessage } from "./sender";
+import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 
 const transport = vi.hoisted(() => ({ send: vi.fn(), available: vi.fn() }));
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
@@ -102,7 +104,7 @@ it.each([
   "attendance_cards_pending",
   "interview_scheduled",
   "message_received",
-])(
+] as const)(
   "keeps %s trigger payloads email-safe even when a direct write supplies malformed context and private body",
   async (event) => {
     await db.programSettings.update({
@@ -113,8 +115,10 @@ it.each([
       where: { id: actor.id },
       data: { emailInfo: true, emailMessages: true },
     });
-    await db.accountEmail.create({
-      data: {
+    await db.accountEmail.upsert({
+      where: { email: "admin@example.test" },
+      update: { verifiedAt: new Date() },
+      create: {
         userId: actor.id,
         email: "admin@example.test",
         verifiedAt: new Date(),
@@ -152,7 +156,9 @@ it.each([
     expect(transport.send).toHaveBeenCalledTimes(1);
     const mail = transport.send.mock.calls[0]![0] as EmailMessage;
     expect(JSON.stringify(mail)).not.toContain("sentinel");
-    expect(mail.subject).not.toContain("Program update / 项目更新");
+    expect(mail.subject).toBe(
+      `${en.notificationEvents[event].title} / ${zh.notificationEvents[event].title}`,
+    );
     expect(
       (await db.emailDelivery.findUniqueOrThrow({ where: { id: outbox.id } }))
         .status,
