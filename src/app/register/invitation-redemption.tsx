@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import {
@@ -31,7 +31,7 @@ export function InvitationSignupReview({
   request,
 }: {
   request: NonNullable<
-    RouterOutputs["accountInvitation"]["inspect"]["signupRequest"]
+    RouterOutputs["accountInvitation"]["review"]["signupRequest"]
   >;
 }) {
   const t = useTranslations("signupEditing");
@@ -45,7 +45,7 @@ export function InvitationSignupReview({
   );
   const subject = (id: string | undefined) =>
     request.subjects.find((value) => value.id === id)?.name ??
-    (id || t("notProvided"));
+    (id ? id : t("notProvided"));
   const fields = [
     [t("submittedName"), answers.englishName],
     [t("submittedFirstName"), answers.firstName],
@@ -88,7 +88,7 @@ export function InvitationSignupReview({
           <div key={label} className="min-w-0">
             <dt className="font-medium">{label}</dt>
             <dd className="break-words whitespace-pre-wrap">
-              {value || t("notProvided")}
+              {value ? value : t("notProvided")}
             </dd>
           </div>
         ))}
@@ -116,7 +116,7 @@ export function InvitationSignupReview({
       <div className="border-t border-indigo-200 pt-3">
         <h3 className="text-sm font-medium">{t("submittedConsent")}</h3>
         <p className="mt-1 text-sm break-words">
-          {answers.signatureName || t("notProvided")}
+          {answers.signatureName ? answers.signatureName : t("notProvided")}
         </p>
         <p className="muted mt-1 text-xs break-all">
           {t("policyRevision")}: {answers.policyRevision}
@@ -163,7 +163,6 @@ function InvitationRedemptionFlow({
   const t = useTranslations("accountInvitation");
   const participantText = useTranslations("participantNames");
   const policy = useProfilePolicy();
-  const utils = api.useUtils();
   const [email, setEmail] = useState(initialEmail);
   const [code, setCode] = useState("");
   const [proof, setProof] = useState(initialProof);
@@ -179,15 +178,59 @@ function InvitationRedemptionFlow({
   const [sessionPending, startSession] = useTransition();
   const admitted = useRef(false);
   const verifying = useRef(false);
-  const details = api.accountInvitation.inspect.useQuery(
-    { invitationId, ...(proof ? { proof } : {}) },
-    {
-      enabled: Boolean(proof || signedIn),
-      retry: false,
-      refetchOnWindowFocus: false,
+  const { mutateAsync: readReview } =
+    api.accountInvitation.review.useMutation();
+  const [reviewData, setReviewData] = useState<
+    RouterOutputs["accountInvitation"]["review"] | undefined
+  >();
+  const [reviewError, setReviewError] = useState<Error | null>(null);
+  const [reading, setReading] = useState(false);
+  const readSequence = useRef(0);
+  const loadReview = useCallback(
+    async (recipientProof: string) => {
+      const sequence = ++readSequence.current;
+      setReading(true);
+      try {
+        const fresh = await readReview({
+          invitationId,
+          ...(recipientProof ? { proof: recipientProof } : {}),
+        });
+        if (sequence === readSequence.current) {
+          setReviewData(fresh);
+          setReviewError(null);
+        }
+      } catch (error) {
+        if (sequence === readSequence.current) {
+          const code =
+            typeof error === "object" && error !== null && "data" in error
+              ? (error.data as { code?: string } | null)?.code
+              : undefined;
+          // An authoritative denial removes private preview data. Transport errors
+          // retain the draft but block dependent writes until a successful read.
+          if (
+            code &&
+            ["BAD_REQUEST", "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND"].includes(
+              code,
+            )
+          )
+            setReviewData(undefined);
+          setReviewError(
+            error instanceof Error ? error : new Error("Review failed"),
+          );
+        }
+      } finally {
+        if (sequence === readSequence.current) setReading(false);
+      }
     },
+    [readReview, invitationId],
   );
-  const info = details.data;
+  useEffect(() => {
+    if (proof || signedIn) void loadReview(proof);
+    return () => {
+      readSequence.current++;
+    };
+  }, [proof, signedIn, loadReview]);
+  const info = reviewData;
   // Adopt the initial identity once. Background recovery never replaces a local draft.
   if (info && !seeded) {
     setNames(nameDraft(info));
@@ -204,7 +247,7 @@ function InvitationRedemptionFlow({
         });
         setLoginFailed(!result.signedIn);
         setCompletedLogin(Boolean(result.completedLogin));
-        await utils.accountInvitation.inspect.invalidate();
+        await loadReview(recipientProof);
       } catch {
         setLoginFailed(true);
       }
@@ -251,22 +294,18 @@ function InvitationRedemptionFlow({
   const saved =
     complete.isSuccess || info?.completed === true || completedLogin;
   const busy =
-    verify.isPending ||
-    complete.isPending ||
-    sessionPending ||
-    (Boolean(proof) && details.isLoading);
+    verify.isPending || complete.isPending || sessionPending || reading;
   const step = saved ? 2 : info ? 1 : 0;
   const titles = [t("enterCode"), t("reviewTitle"), t("doneTitle")];
   const signInUrl = `/signin?callbackUrl=${encodeURIComponent(`/register?invitation=${invitationId}`)}`;
-  const error =
-    complete.error ?? verify.error ?? (proof || info ? details.error : null);
+  const error = complete.error ?? verify.error ?? reviewError;
   const editableIdentity = Boolean(
     info &&
     !info.acceptedIdentity &&
     !info.existing &&
     ["TUTOR", "CREW", "ADMIN", "COORDINATOR"].includes(info.kind),
   );
-  const previewFailed = Boolean(info && details.error);
+  const previewFailed = Boolean(info && reviewError);
   return (
     <div className="space-y-5">
       <RegistrationProgress
@@ -582,8 +621,8 @@ function InvitationRedemptionFlow({
         <div role="alert" className="space-y-2 text-sm text-red-700">
           <SignupError error={error} />
           <p>{t("recovery")}</p>
-          {details.error && (proof || info) && (
-            <Button variant="secondary" onClick={() => void details.refetch()}>
+          {reviewError && (proof || signedIn) && (
+            <Button variant="secondary" onClick={() => void loadReview(proof)}>
               {t("retry")}
             </Button>
           )}

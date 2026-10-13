@@ -26,6 +26,7 @@ export function signupLane(path: string): SignupLane | null {
       "tutee.signupReceipt",
       "studentWorkflow.inspectSignupAppeal",
       "studentWorkflow.appealSignup",
+      "accountInvitation.review",
       "viewer.verify",
       "viewer.complete",
       "crew.verifyApplication",

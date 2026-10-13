@@ -107,35 +107,29 @@ export function SignupAppeal({ token = "" }: { token?: string }) {
       readSequence.current++;
     };
   }, [initialized, validToken, capability, read]);
-  const query = {
-    data: record,
-    error: readFailure,
-    isFetching: inspector.isPending,
-    refetch: () => read(capability),
-  };
   if (initialized && (!validToken || revoked))
     return <StatePanel kind="denied" title={t("invalid")} />;
   const feedback = (
     <QueryFeedback
-      hasData={!!query.data}
-      loading={!query.data}
-      error={!!query.error}
-      retrying={query.isFetching}
+      hasData={!!record}
+      loading={!record}
+      error={!!readFailure}
+      retrying={inspector.isPending}
       loadingTitle={t("loading")}
       errorTitle={t("loadFailed")}
       retryLabel={t("retry")}
-      onRetry={() => void query.refetch()}
+      onRetry={() => void read(capability)}
     />
   );
-  if (!query.data) return feedback;
-  const source = query.data;
+  if (!record) return feedback;
+  const source = record;
   const state = source.appeal?.state;
   const submit = async () => {
     if (
       admitted.current ||
       accepted ||
       !source.canAppeal ||
-      query.error ||
+      readFailure ||
       !reason.trim()
     )
       return;
@@ -152,7 +146,7 @@ export function SignupAppeal({ token = "" }: { token?: string }) {
       if (activeCapability.current !== proof) return;
       setAccepted(true);
       // Refresh failures recover with a read, never by resubmitting an accepted appeal.
-      const fresh = await query.refetch();
+      const fresh = await read(capability);
       if (fresh.error) setFailure(t("loadFailed"));
     } catch (error) {
       if (activeCapability.current === proof)
@@ -189,8 +183,10 @@ export function SignupAppeal({ token = "" }: { token?: string }) {
           tone="success"
           announcement="status"
           action={
-            query.error ? (
-              <Button onClick={() => void query.refetch()}>{t("retry")}</Button>
+            readFailure ? (
+              <Button onClick={() => void read(capability)}>
+                {t("retry")}
+              </Button>
             ) : undefined
           }
         >
@@ -214,7 +210,7 @@ export function SignupAppeal({ token = "" }: { token?: string }) {
           }}
         >
           <fieldset
-            disabled={working || mutation.isPending || !!query.error}
+            disabled={working || mutation.isPending || !!readFailure}
             className="space-y-4"
             aria-busy={working || mutation.isPending}
           >

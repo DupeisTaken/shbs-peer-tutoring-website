@@ -202,23 +202,22 @@ export async function stageStudentSignupIntent(
           "The policy changed. Read the current policy before submitting.",
       });
     const receivedAt = new Date();
-    if (!row)
-      row = await tx.studentSurvey.create({
-        data: {
-          email: input.email,
-          intakeTermId: term.id,
-          payload: {
-            ...input,
-            academicAccountId: account?.id ?? null,
-            academicProfileVersion: account?.profileVersion ?? null,
-          },
-          policyRevision: policy.revision,
-          policySnapshot: policy.documents,
-          submittedAt: receivedAt,
-          tokenHash: hashKey(randomBytes(32).toString("hex")),
-          expiresAt: new Date(+receivedAt + 86400000),
+    row ??= await tx.studentSurvey.create({
+      data: {
+        email: input.email,
+        intakeTermId: term.id,
+        payload: {
+          ...input,
+          academicAccountId: account?.id ?? null,
+          academicProfileVersion: account?.profileVersion ?? null,
         },
-      });
+        policyRevision: policy.revision,
+        policySnapshot: policy.documents,
+        submittedAt: receivedAt,
+        tokenHash: hashKey(randomBytes(32).toString("hex")),
+        expiresAt: new Date(+receivedAt + 86400000),
+      },
+    });
     await assertSignupEditPeriod(tx, row);
     const expiresAt = new Date(
       Math.min(
@@ -246,7 +245,7 @@ export async function stageStudentSignupIntent(
     return { intent, prior: null };
   });
   if (result.prior) return result.prior;
-  const intent = result.intent!;
+  const intent = result.intent;
   const sent = await sendStudentSignupIntent(db, intent);
   if (sent)
     await db.studentSignupIntent.updateMany({
@@ -291,7 +290,7 @@ export async function validStudentSignupIntent(db: DomainDb, id: string) {
   const row = await db.studentSurvey.findUniqueOrThrow({
     where: { id: intent.surveyId },
   });
-  await assertSignupEditPeriod(db as TransactionDb, row);
+  await assertSignupEditPeriod(db, row);
   if (row.invalidatedAt && !row.confirmedAt) throw invalid();
   if (row.currentVersion !== intent.expectedVersion)
     throw new TRPCError({ code: "CONFLICT", message: "SIGNUP_INTENT_STALE" });

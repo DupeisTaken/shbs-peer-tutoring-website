@@ -184,7 +184,7 @@ it("recovers a lost committed response through POST receipt without another subm
     answers: expect.objectContaining({
       email: "student@example.test",
       englishName: "Student",
-    }),
+    }) as unknown,
   });
   expect(screen.getByTestId("verification-source").textContent).toContain(
     "recovered-intent",
@@ -201,7 +201,7 @@ it("retries an unsaved submission using exactly the same intent and snapshot, wi
   fireEvent.submit(mounted.container.querySelector("form")!);
   fireEvent.submit(mounted.container.querySelector("form")!);
   expect(mocks.mutate).toHaveBeenCalledTimes(1);
-  const first = mocks.mutate.mock.calls[0]?.[0];
+  const first = mocks.mutate.mock.calls[0]?.[0] as Record<string, unknown>;
   await act(async () => reject(new Error("Offline")));
   mocks.receipt.mockResolvedValueOnce(null);
   fireEvent.click(screen.getByRole("button", { name: "recoverSubmission" }));
@@ -221,7 +221,7 @@ it("a definitive policy rejection can recover an absent receipt and return to th
         .hasAttribute("disabled"),
     ).toBe(false),
   );
-  const first = mocks.mutate.mock.calls[0]?.[0];
+  const first = mocks.mutate.mock.calls[0]?.[0] as Record<string, unknown>;
   fireEvent.click(screen.getByRole("button", { name: "returnToEditing" }));
   await waitFor(() =>
     expect(screen.getByDisplayValue("Student").matches(":disabled")).toBe(
@@ -236,7 +236,8 @@ it("a definitive policy rejection can recover an absent receipt and return to th
   expect(mocks.mutate.mock.calls[1]?.[0]).toMatchObject({
     englishName: "Corrected",
   });
-  expect(mocks.mutate.mock.calls[1]?.[0].clientKey).not.toBe(first.clientKey);
+  const second = mocks.mutate.mock.calls[1]?.[0] as Record<string, unknown>;
+  expect(second.clientKey).not.toBe(first.clientKey);
 });
 it("a cancelled CAPTCHA permits receipt-checked return to editing without clearing the form", async () => {
   mocks.captchaRun.mockImplementationOnce(async () => {
@@ -244,7 +245,7 @@ it("a cancelled CAPTCHA permits receipt-checked return to editing without cleari
   });
   const mounted = completeMinimalSubmission();
   fireEvent.click(screen.getByRole("button", { name: "public.signup.submit" }));
-  await act(async () => {});
+  await act(() => Promise.resolve());
   expect(mocks.mutate).not.toHaveBeenCalled();
   expect(
     screen

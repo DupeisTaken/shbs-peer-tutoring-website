@@ -89,14 +89,7 @@ vi.mock("~/trpc/react", async () => {
         sendVerification: mutation("sendDisplayed", state.sendDisplayed),
         verify: mutation("verify", state.verify),
         complete: mutation("complete", state.complete),
-        inspect: {
-          useQuery: (_input: unknown, options: { enabled: boolean }) => ({
-            data: options.enabled ? state.info : undefined,
-            isLoading: false,
-            error: state.readError,
-            refetch: state.refresh,
-          }),
-        },
+        review: { useMutation: () => ({ mutateAsync: state.refresh }) },
       },
       registration: {
         check: mutation("check", vi.fn()),
@@ -150,7 +143,10 @@ beforeEach(() => {
     gradeLevel: 9,
   });
   state.login.mockResolvedValue({ signedIn: true, mfaRequired: false });
-  state.refresh.mockResolvedValue(undefined);
+  state.refresh.mockImplementation(async () => {
+    if (state.readError) throw state.readError;
+    return { ...state.info };
+  });
   vi.spyOn(window, "scrollBy").mockImplementation(() => undefined);
 });
 afterEach(() => {
@@ -308,7 +304,7 @@ it("existing accounts review access without password/name editors", async () => 
   expect(state.complete.mock.calls[0]![0]).not.toHaveProperty("password");
 });
 
-it("a recovered saved receipt retains the required academic next step", () => {
+it("a recovered saved receipt retains the required academic next step", async () => {
   Object.assign(state.info, {
     completed: true,
     existing: true,
@@ -316,7 +312,9 @@ it("a recovered saved receipt retains the required academic next step", () => {
     academicConfirmationRequired: true,
   });
   render(view("en", false, true));
-  expect(screen.getByText(en.academics.confirmationRequired)).toBeTruthy();
+  expect(
+    await screen.findByText(en.academics.confirmationRequired),
+  ).toBeTruthy();
   expect(
     screen
       .getByRole("link", { name: en.academics.review })
@@ -405,13 +403,16 @@ it("an existing Viewer-request recipient continues after code sign-in without an
 it.each([false, true])(
   "retains the draft read-only when preview recovery fails (signed-in resume=%s)",
   async (signedIn) => {
-    const { container, rerender } = render(view("en", false, signedIn));
+    const { container } = render(view("en", false, signedIn));
     if (!signedIn) await verified();
+    await screen.findByLabelText(/^Create password/);
     fireEvent.change(screen.getByLabelText(/^Create password/), {
       target: { value: "RetainedPassword!" },
     });
     state.readError = { message: "INVITATION_ACCOUNT_CHANGED" };
-    rerender(view("en", false, signedIn));
+    // Repeating mailbox/session synchronization rereads over POST. Changing a
+    // mock variable alone is no longer an automatic background GET request.
+    await verified();
     expect(container.querySelector("fieldset")!.disabled).toBe(true);
     expect(
       screen.getByLabelText<HTMLInputElement>(/^Create password/).value,
@@ -422,6 +423,17 @@ it.each([false, true])(
       screen.getByRole("button", { name: en.accountInvitation.retry }),
     );
     expect(state.refresh).toHaveBeenCalled();
+    state.readError = null;
+    fireEvent.click(
+      screen.getByRole("button", { name: en.accountInvitation.retry }),
+    );
+    await waitFor(() =>
+      expect(container.querySelector("fieldset")!.disabled).toBe(false),
+    );
+    expect(
+      screen.getByLabelText<HTMLInputElement>(/^Create password/).value,
+    ).toBe("RetainedPassword!");
+    expect(state.complete).not.toHaveBeenCalled();
   },
 );
 
@@ -504,7 +516,7 @@ it("keeps the invitation return destination while enforced MFA is completed", as
   );
 });
 
-it("offers an explicit account switch for a different signed-in account with enforced MFA", () => {
+it("offers an explicit account switch for a different signed-in account with enforced MFA", async () => {
   Object.assign(state.info, {
     existing: true,
     needsPassword: false,
@@ -513,7 +525,9 @@ it("offers an explicit account switch for a different signed-in account with enf
   });
   render(view("en", false, true));
   expect(
-    screen.getByRole("button", { name: en.accountInvitation.switchAccount }),
+    await screen.findByRole("button", {
+      name: en.accountInvitation.switchAccount,
+    }),
   ).toBeTruthy();
   expect(
     screen.queryByRole("button", { name: en.accountInvitation.accept }),

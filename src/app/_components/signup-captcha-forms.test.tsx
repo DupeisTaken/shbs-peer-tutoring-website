@@ -18,6 +18,7 @@ import { ViewerSignupFlow } from "../viewer-signup/viewer-signup-flow";
 const mocks = vi.hoisted(() => ({
   verifyCaptcha: vi.fn(),
   survey: vi.fn(),
+  receipt: vi.fn(),
   start: vi.fn(),
   verifyEmail: vi.fn(),
   complete: vi.fn(),
@@ -107,6 +108,9 @@ vi.mock("~/trpc/react", async () => ({
       },
     },
     tutee: {
+      signupReceipt: {
+        useMutation: () => ({ mutateAsync: mocks.receipt, isPending: false }),
+      },
       signupOptions: {
         useQuery: () => ({
           isFetchedAfterMount: true,
@@ -182,6 +186,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.spyOn(window, "scrollBy").mockImplementation(() => undefined);
   mocks.verifyCaptcha.mockReset().mockResolvedValue({ grant: "a".repeat(64) });
+  mocks.receipt.mockReset().mockResolvedValue(null);
   for (const mutation of [
     mocks.survey,
     mocks.start,

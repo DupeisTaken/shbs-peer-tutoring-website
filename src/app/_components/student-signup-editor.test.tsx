@@ -8,6 +8,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
@@ -182,7 +183,7 @@ const view = (managed = false) => (
       <StudentSignupEditor
         managed={managed}
         requestId="request"
-        onClose={() => {}}
+        onClose={vi.fn()}
       />
     </NextIntlClientProvider>
   </QueryClientProvider>
@@ -385,7 +386,7 @@ it("admits one same-tick save and keeps exact failed-write retries bound to the 
   fireEvent.submit(form);
   fireEvent.submit(form);
   expect(mocks.save).toHaveBeenCalledOnce();
-  const first = mocks.save.mock.calls[0]?.[0];
+  const first: unknown = mocks.save.mock.calls[0]?.[0];
   await act(async () => reject(new Error("Response lost")));
   mocks.save.mockRejectedValueOnce(new Error("Retry failed"));
   fireEvent.submit(form);
@@ -409,7 +410,7 @@ it("shows and locks inactive assigned subjects and preserves original email/sign
   const first = screen.getByLabelText(/Subject — First Choice/);
   expect(first.hasAttribute("disabled")).toBe(true);
   expect(
-    screen.getByRole("option", { name: "Retired Mathematics" }),
+    within(first).getByRole("option", { name: "Retired Mathematics" }),
   ).toBeTruthy();
   expect(
     screen.getByDisplayValue("owner@example.test").hasAttribute("readonly"),

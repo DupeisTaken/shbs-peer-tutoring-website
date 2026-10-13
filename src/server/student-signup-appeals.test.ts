@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
+import type { EmailMessage } from "./email/sender";
 import { beforeEach, afterAll, expect, it, vi } from "vitest";
-const send = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const send = vi.hoisted(() =>
+  vi
+    .fn<(message: EmailMessage) => Promise<void>>()
+    .mockResolvedValue(undefined),
+);
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("./email/sender", () => ({
   emailSender: { send },
@@ -258,6 +263,9 @@ it("unverified assigned source and a newly created mailbox account can appeal wi
       tutorId: tutor.id,
       termId: "term",
       subject: "Mathematics",
+      dayOfWeek: 1,
+      startMin: 960,
+      endMin: 1020,
       tutees: { create: { tuteeId: tutee.id } },
     },
   });
@@ -442,6 +450,9 @@ it("accepts with retained priority; final rejection closes current queue and pre
     submittedAt: row.submittedAt,
     invalidatedAt: null,
   });
+  expect(
+    (await studentRequestRows(db, undefined, "owner"))[0]?.appeal,
+  ).toMatchObject({ id: a.appealId, state: "ACCEPTED" });
   await flag(2);
   const b = await appealStudentSignup(db, {
     token: proof(),
@@ -456,6 +467,9 @@ it("accepts with retained priority; final rejection closes current queue and pre
       tutorId: tutor.id,
       termId: "term",
       subject: "Mathematics",
+      dayOfWeek: 1,
+      startMin: 960,
+      endMin: 1020,
       tutees: { create: { tuteeId: tutee!.id } },
     },
   });
@@ -464,6 +478,11 @@ it("accepts with retained priority; final rejection closes current queue and pre
       pairingId: pairing.id,
       tutorId: tutor.id,
       month: "2026-10",
+      schoolYear: "26-27",
+      quarter: "Q1",
+      durationMin: 60,
+      shFactor: 1,
+      shCount: 1,
       date: new Date("2026-10-05"),
       startMin: 960,
       endMin: 1020,
@@ -503,6 +522,9 @@ it("Head alone releases a current assignment with an idempotent version fence", 
       tutorId: tutor.id,
       termId: "term",
       subject: "Mathematics",
+      dayOfWeek: 1,
+      startMin: 960,
+      endMin: 1020,
       tutees: { create: { tuteeId: tutee!.id } },
     },
   });

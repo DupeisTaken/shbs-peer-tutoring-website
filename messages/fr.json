@@ -3302,7 +3302,10 @@
         "program_setCalendarDay": "Enregistrer un avis de journée sans tutorat",
         "program_removeCalendarDay": "Supprimer un avis de journée sans tutorat",
         "program_setNameFields": "Modifier les exigences des champs de nom",
-        "admin_reorderRooms": "Réorganiser les salles du programme"
+        "admin_reorderRooms": "Réorganiser les salles du programme",
+        "studentWorkflow_headEditSignup": "Modifier les réponses d’inscription de l’élève",
+        "studentWorkflow_headUnassign": "Libérer l’attribution de l’élève",
+        "studentWorkflow_resolveSignupAppeal": "Résoudre le recours d’inscription de l’élève"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"

@@ -68,9 +68,11 @@ function SignupReviewAction({
   refresh: () => Promise<unknown>;
 }) {
   const t = useTranslations("signupEditing");
-  const [intent, setIntent] = useState<
-    ((ticket: string) => Promise<unknown>) | null
-  >(null);
+  const [intent, setIntent] = useState<{
+    commit: (ticket: string) => Promise<unknown>;
+    target: string;
+    action: "SIGNUP_UNASSIGN" | "SIGNUP_APPEAL";
+  } | null>(null);
   const [working, setWorking] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [needsRefresh, setNeedsRefresh] = useState(false);
@@ -99,7 +101,7 @@ function SignupReviewAction({
     setWorking(true);
     setError(undefined);
     try {
-      await intent(ticket);
+      await intent.commit(ticket);
       setAccepted(true);
       setIntent(null);
       try {
@@ -130,15 +132,15 @@ function SignupReviewAction({
         onClick={() => {
           setError(undefined);
           const captured = makeIntent(crypto.randomUUID());
-          setIntent(() => captured);
+          setIntent({ commit: captured, target, action });
         }}
       >
         {label}
       </Button>
       {intent && (
         <TimedActionDialog
-          action={action}
-          target={target}
+          action={intent.action}
+          target={intent.target}
           title={label}
           message={description}
           busy={working}

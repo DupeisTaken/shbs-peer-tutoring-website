@@ -9,7 +9,7 @@ import { currentStudentSignupPayload } from "./student-signup-answers";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { emailOrigin as publicEmailOrigin } from "~/server/email/urls";
 import { signupMetric } from "~/server/signup-admission";
-import { surveyInput, surveyToken } from "~/lib/student-signup";
+import { surveyInput } from "~/lib/student-signup";
 export { surveyInput, surveyToken } from "~/lib/student-signup";
 import { normalizeGrade } from "~/lib/academics";
 import {

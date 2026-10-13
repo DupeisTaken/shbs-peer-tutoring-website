@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { surveyInput } from "~/lib/student-signup";
+import type { surveyInput } from "~/lib/student-signup";
 import type { TransactionDb } from "./transactions";
 import { lockCatalogue } from "./qualifications";
 

@@ -606,7 +606,24 @@ function SignupEditorForm({
         <OwnedSignupAppeal
           request={query.data ?? snapshot}
           readBlocked={readError}
-          onRefresh={() => query.refetch()}
+          onRefresh={async () => {
+            // Refresh the card's appeal summary as well as this exact source,
+            // while the answer draft remains owned by its separate editor.
+            const [source, parent] = await Promise.allSettled([
+              query.refetch(),
+              invalidateAndReport(utils.studentWorkflow.mine),
+            ]);
+            if (source.status === "rejected")
+              return { error: source.reason as unknown };
+            return {
+              data: source.value.data,
+              error:
+                source.value.error ??
+                (parent.status === "rejected"
+                  ? (parent.reason as unknown)
+                  : undefined),
+            };
+          }}
         />
       )}
     </>

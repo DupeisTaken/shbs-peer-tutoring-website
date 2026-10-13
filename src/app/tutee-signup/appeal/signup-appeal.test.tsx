@@ -72,7 +72,7 @@ it("requires a reason and admits one pending write while retaining a failed reas
   fireEvent.submit(form);
   fireEvent.submit(form);
   expect(mocks.save).toHaveBeenCalledOnce();
-  const posted = mocks.save.mock.calls[0]?.[0];
+  const posted: unknown = mocks.save.mock.calls[0]?.[0];
   await act(async () => reject(new Error("Offline")));
   expect(
     screen.getByDisplayValue("This request describes my actual support needs."),

@@ -789,6 +789,7 @@ export async function inspectAccountInvitation(
         email: row.email,
         completed: true,
         academicConfirmationRequired: receiptAcademicConfirmation(row),
+        signupRequest: null,
         needsPassword: false,
         existing: true,
         acceptedIdentity: true,

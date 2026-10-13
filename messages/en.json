@@ -3302,7 +3302,10 @@
         "program_setCalendarDay": "Save no-tutoring notice",
         "program_removeCalendarDay": "Remove no-tutoring notice",
         "program_setNameFields": "Change name field requirements",
-        "admin_reorderRooms": "Reorder program rooms"
+        "admin_reorderRooms": "Reorder program rooms",
+        "studentWorkflow_headEditSignup": "Edit student signup answers",
+        "studentWorkflow_headUnassign": "Release student assignment",
+        "studentWorkflow_resolveSignupAppeal": "Resolve student signup appeal"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -4734,7 +4737,7 @@
     "rejected": "The appeal was declined. This request is closed and its queue priority is removed; you can submit a fresh request.",
     "submitted": "Your appeal was submitted. Matching remains paused during review.",
     "saveFailed": "Your appeal could not be submitted. Your reason is retained.",
-    "staffTitle": "Signup appeal",
+    "staffTitle": "Signup Appeal",
     "approve": "Accept appeal",
     "reject": "Decline appeal and close request",
     "approveConsequences": "Accept this appeal and clear the invalidity flag. Matching may resume.",
@@ -4744,6 +4747,6 @@
     "proposeUnassign": "Propose releasing assignment",
     "changed": "This request review changed while you were writing. Your reason is retained. Reload the review before trying again.",
     "reload": "Reload review",
-    "rejectedTitle": "Invalid request closed"
+    "rejectedTitle": "Invalid Request Closed"
   }
 }

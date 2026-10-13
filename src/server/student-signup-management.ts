@@ -139,6 +139,48 @@ export async function assertHeadDiscretionarySignupChange(
       message:
         "Only Head can unassign public signup requests or change their assigned subjects.",
     });
+  if (
+    operation === "admin.updatePairing" &&
+    input &&
+    typeof input === "object" &&
+    "id" in input &&
+    typeof input.id === "string"
+  ) {
+    const posted = input as Record<string, unknown>;
+    const pairing = await tx.pairing.findUniqueOrThrow({
+      where: { id: input.id },
+      select: { subject: true, tutees: { select: { tuteeId: true } } },
+    });
+    if (posted.subject !== pairing.subject) {
+      const retained = Array.isArray(posted.tuteeIds) ? posted.tuteeIds : [];
+      for (const { tuteeId } of pairing.tutees) {
+        if (
+          !retained.includes(tuteeId) ||
+          !(await currentPublicSignup(tx, tuteeId))
+        )
+          continue;
+        const source = await tx.studentSurvey.findUnique({
+          where: { tuteeId },
+        });
+        const answers = source
+          ? currentStudentSignupPayload(source)
+          : await tx.tutee.findUniqueOrThrow({ where: { id: tuteeId } });
+        const choices = [answers.firstChoiceId, answers.secondChoiceId].filter(
+          (v): v is string => typeof v === "string",
+        );
+        const catalog = await tx.subject.findMany({
+          where: { id: { in: choices } },
+          select: { name: true },
+        });
+        if (!catalog.some((s) => s.name === posted.subject))
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "Use the Head signup editor before assigning a subject outside the request choices.",
+          });
+      }
+    }
+  }
   // Legacy profile tools cannot strand an assignment outside the source choices.
   // The dedicated Head editor explicitly reviews and releases affected links.
   if (

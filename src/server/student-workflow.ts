@@ -4,7 +4,6 @@ import { synchronizeStudentSignupAnswers } from "./student-signup-revisions";
 import { lockCatalogue } from "./qualifications";
 import {
   assertRequestProcessable,
-  emptyRequestInvalidity,
   lockStudentRequestReview,
   requestInvalidity,
 } from "~/server/request-invalidity";
@@ -743,7 +742,7 @@ export async function studentRequestRows(
       orderBy: [{ submittedAt: "asc" }, { id: "asc" }],
       include: {
         reviews: { orderBy: { createdAt: "desc" } },
-        appeals: { orderBy: { createdAt: "desc" } },
+        signupAppeals: { orderBy: { createdAt: "desc" } },
       },
     }),
     db.subject.findMany({ select: { id: true, name: true } }),
@@ -800,11 +799,17 @@ export async function studentRequestRows(
       canAppeal:
         !!row.invalidatedAt &&
         row.state === "OPEN" &&
-        !row.appeals.some((a) => a.invalidityVersion === row.invalidityVersion),
-      appeal: (() => {
-        const a = row.appeals.find(
+        !row.signupAppeals.some(
           (a) => a.invalidityVersion === row.invalidityVersion,
-        );
+        ),
+      appeal: (() => {
+        // A resolved acceptance remains visible after clearing increments the flag
+        // version. Reflagged requests show only their new current appeal generation.
+        const a = row.invalidatedAt
+          ? row.signupAppeals.find(
+              (a) => a.invalidityVersion === row.invalidityVersion,
+            )
+          : row.signupAppeals[0];
         return a
           ? {
               id: a.id,

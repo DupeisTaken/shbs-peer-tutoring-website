@@ -99,9 +99,12 @@ it("captures assignment version when review opens instead of adopting background
   mounted.rerender(
     <SignupAssignmentRelease
       row={{ ...actionRow, currentVersion: 9 }}
-      pairing={actionRow.pairings[0]!}
+      pairing={{ ...actionRow.pairings[0]!, id: "replacement-pairing" }}
       proposal={false}
     />,
+  );
+  expect(screen.getByRole("dialog").getAttribute("data-target")).toBe(
+    "survey:pairing",
   );
   fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
   await waitFor(() => expect(mocks.unassign).toHaveBeenCalledOnce());

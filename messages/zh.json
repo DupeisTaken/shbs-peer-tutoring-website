@@ -3302,7 +3302,10 @@
         "program_setCalendarDay": "保存停课提示",
         "program_removeCalendarDay": "移除停课提示",
         "program_setNameFields": "修改姓名字段要求",
-        "admin_reorderRooms": "调整项目教室顺序"
+        "admin_reorderRooms": "调整项目教室顺序",
+        "studentWorkflow_headEditSignup": "修改学生申请答案",
+        "studentWorkflow_headUnassign": "解除学生辅导分配",
+        "studentWorkflow_resolveSignupAppeal": "处理学生申请申诉"
       },
       "decisionRequestHelp": "“批准并执行”将执行申请的操作，包括申请中要求的拒绝决定。“拒绝并反馈”只拒绝此申请，不做任何更改。两种决定都需要说明。",
       "confirmPassword": "确认负责人账户密码"

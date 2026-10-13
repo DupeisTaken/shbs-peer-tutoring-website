@@ -88,14 +88,17 @@ async function fixture(options: { attendance?: boolean; secondAssignment?: boole
   } });
   const pairing = await db.pairing.create({ data: {
     id: "current-math", tutorId: tutor.id, termId, subject: "Mathematics", timeSlotId: "monday",
+    dayOfWeek: 1, startMin: 960, endMin: 1020,
     tutees: { create: { tuteeId: tutee.id } },
   } });
   const history = await db.pairing.create({ data: {
     id: "historical-math", tutorId: tutor.id, termId: "historical-term", subject: "Mathematics",
+    dayOfWeek: 1, startMin: 960, endMin: 1020,
     tutees: { create: { tuteeId: tutee.id } },
   } });
   const second = options.secondAssignment ? await db.pairing.create({ data: {
     id: "current-science", tutorId: tutor.id, termId, subject: "Science",
+    dayOfWeek: 1, startMin: 960, endMin: 1020,
     tutees: { create: { tuteeId: tutee.id } },
   } }) : null;
   const session = options.attendance === false ? null : await db.session.create({ data: {
@@ -179,6 +182,27 @@ it("refuses generic Head roster edits which would omit an assigned choice and di
   expect(await db.studentSignupRevision.count()).toBe(0);
 });
 
+it("rejects generic pairing courses outside the current request, keeps owner contact editing usable, and permits a requested course", async () => {
+  const data = await fixture({ attendance: false });
+  const input = {
+    id: data.pairing.id, tutorId: data.tutor.id, timeSlotId: "monday",
+    subject: "Writing", tuteeIds: [data.tutee.id],
+  };
+  await expect(head().admin.updatePairing(input)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.pairing.findUniqueOrThrow({ where: { id: data.pairing.id } })).toEqual(data.pairing);
+  await expect(actor("owner", "STUDENT").studentWorkflow.editSignup({
+    id: data.survey.id, expectedVersion: 0, clientKey: randomUUID(),
+    answers: studentSignupAnswersInput.parse({ ...data.payload, preferredContact: "Owner still can correct contact" }),
+  })).resolves.toEqual({ ok: true, version: 1 });
+  await head().admin.updatePairing({ ...input, subject: "Science" });
+  expect(await db.pairing.findUniqueOrThrow({ where: { id: data.pairing.id } })).toMatchObject({ subject: "Science" });
+  expect(await db.pairing.findUniqueOrThrow({ where: { id: data.history.id } })).toEqual(data.history);
+  expect(await db.studentSurvey.findUniqueOrThrow({ where: { id: data.survey.id } })).toMatchObject({
+    payload: data.survey.payload, submittedAt: data.survey.submittedAt,
+    currentPayload: { preferredContact: "Owner still can correct contact", firstChoiceId: "math", secondChoiceId: "science" },
+  });
+});
+
 it.each(["ADMIN", "COORDINATOR"] as const)("blocks %s from applying dedicated Head edits/unassignment even with a valid personal countdown", async (role) => {
   const data = await fixture();
   const userId = role === "ADMIN" ? "admin" : "coordinator";
@@ -216,6 +240,10 @@ it("Head assigned-choice edit releases only affected current links and preserves
     currentPayload: { firstChoiceId: "writing", secondChoiceId: "science" },
   });
   await expect(head().studentWorkflow.headEditSignup(input)).resolves.toEqual({ ok: true, version: 1 });
+  expect(await db.studentSignupRevision.count()).toBe(1);
+  const freshTicket = await readyTicket("head", "SIGNUP_EDIT", data.survey.id);
+  await expect(head().studentWorkflow.headEditSignup({ ...input, signedTicket: freshTicket })).resolves.toEqual({ ok: true, version: 1 });
+  expect((await db.studentActionConfirmation.findUniqueOrThrow({ where: { id: freshTicket } })).usedAt).toBeNull();
   expect(await db.studentSignupRevision.count()).toBe(1);
 });
 
@@ -278,7 +306,7 @@ it("rechecks an assignment committed while an owner's captured draft waits for t
     staged();
     await gate;
   }, { timeout: 15000 });
-  await stagedSignal;
+  await Promise.race([stagedSignal, assigning]);
   let attempted!: () => void;
   const attemptedSignal = new Promise<void>((resolve) => { attempted = resolve; });
   const originalLock = transactions.lockEntity;

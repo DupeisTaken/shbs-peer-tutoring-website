@@ -35,8 +35,7 @@ export async function synchronizeStudentSignupAnswers(
     JSON.stringify(studentSignupLocalAnswers({ ...previous, ...changes })),
   ) as Prisma.InputJsonObject;
   if (
-    studentSignupIntentDigest(previous as never) ===
-    studentSignupIntentDigest(answers as never)
+    studentSignupIntentDigest(previous) === studentSignupIntentDigest(answers)
   )
     return;
   const version = row.currentVersion + 1;
@@ -52,7 +51,7 @@ export async function synchronizeStudentSignupAnswers(
         surveyId: row.id,
         expectedVersion: row.currentVersion,
         answers,
-      } as never),
+      }),
       answers,
     },
   });

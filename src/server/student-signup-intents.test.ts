@@ -183,7 +183,7 @@ it("refuses a definitive missing receipt while that key's real pre-stage admissi
     entered();
     await gate;
   }, 1);
-  await enteredSignal;
+  await Promise.race([enteredSignal, holding]);
   try {
     await expect(recoverStudentSignupIntent(db, input, key)).rejects.toMatchObject({
       code: "TOO_MANY_REQUESTS", message: "SIGNUP_RETRY",
@@ -216,8 +216,8 @@ it("reuses a normalized existing tutor mailbox only after existing sign-in/MFA a
   const { user, tutor } = await owner({ mfa: true });
   const input = await answers({ email: "  OWNER@EXAMPLE.TEST  ", englishName: "Posted different name" });
   const accepted = await anonymous().tutee.submitSurvey({ ...input, clientKey: randomUUID() });
-  const invite = await invitation(accepted.intentId!);
-  expect(await anonymous().accountInvitation.inspect(invite)).toMatchObject({
+  const invite = await invitation(accepted.intentId);
+  expect(await anonymous().accountInvitation.review(invite)).toMatchObject({
     existing: true, requiresSignIn: true, mfaRequired: true,
   });
   expect(await consumeInvitationLogin(invite.invitationId, invite.proof)).toBeNull();
@@ -231,7 +231,12 @@ it("reuses a normalized existing tutor mailbox only after existing sign-in/MFA a
     email, name: user.name, username: user.username, passwordHash: user.passwordHash,
     mustChangePassword: true, twoFactorEnabled: true, tutorId: tutor.id, tuteeMember: true,
   });
-  expect(await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } })).toEqual(tutor);
+  // First tutee confirmation runs the canonical profile mirror. Its row timestamp
+  // advances even when every tutor identity/membership/business field is unchanged.
+  const { updatedAt: originalTimestamp, ...originalTutor } = tutor;
+  const { updatedAt: mirroredTimestamp, ...mirroredTutor } = await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } });
+  expect(mirroredTutor).toEqual(originalTutor);
+  expect(mirroredTimestamp.getTime()).toBeGreaterThanOrEqual(originalTimestamp.getTime());
 });
 
 it("requires the exact source mailbox code and explicit owner authentication before overwriting a known request", async () => {
@@ -246,6 +251,15 @@ it("requires the exact source mailbox code and explicit owner authentication bef
     code: "UNAUTHORIZED",
   });
   await unchangedSource(row.id, row);
+});
+
+it("rejects a mailbox proof in the read-query input and accepts verified review through the POST mutation", async () => {
+  const { payload } = await existing();
+  const accepted = await staged(payload);
+  const invite = await invitation(accepted.intent.id);
+  // A malformed legacy GET payload must not put the browser's private proof in a URL.
+  await expect(anonymous().accountInvitation.inspect(invite)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(anonymous().accountInvitation.review(invite)).resolves.toMatchObject({ existing: true, email });
 });
 
 it("records deliberate identical submissions as new consent revisions while exact completion retry is one write", async () => {
@@ -281,6 +295,7 @@ it("archives each changed answer snapshot exactly and retains assignment and ses
   const { user, tutor, tutee, row, payload } = await existing();
   const pairing = await db.pairing.create({ data: {
     id: "existing-pairing", tutorId: tutor.id, termId, subject: "Mathematics",
+    dayOfWeek: 1, startMin: 960, endMin: 1020,
     tutees: { create: { tuteeId: tutee.id } },
   } });
   const session = await db.session.create({ data: {
@@ -309,7 +324,7 @@ it("records newly explicit policy consent separately from the original request a
   const { user, row, acceptance } = await existing();
   await db.policyDocument.update({
     where: { slug_locale: { slug: "tutee-policy", locale: "en" } },
-    data: { body: "A newly published policy, explicitly read for this submission.", version: { increment: 1 } },
+    data: { body: "A newly published policy, explicitly read for this submission.", version: "2" },
   });
   const input = await answers({ signatureName: "New Policy Signature", preferredContact: "New policy submission" });
   const accepted = await staged(input);
@@ -351,7 +366,7 @@ it("recovers only the exact bound key/answers before fresh CAPTCHA/mail admissio
   await expect(caller.tutee.submitSurvey({ ...input, clientKey: randomUUID(), captchaGrant: undefined })).rejects.toMatchObject({
     message: "CAPTCHA_REQUIRED",
   });
-  await complete(receipt.intentId!, user.id);
+  await complete(receipt.intentId, user.id);
   expect(await caller.tutee.signupReceipt({ clientKey: input.clientKey, answers: payload })).toEqual(receipt);
   expect(await caller.tutee.submitSurvey({ ...input, captchaGrant: undefined })).toEqual(receipt);
   expect(await db.studentSignupIntent.count()).toBe(1);
@@ -404,7 +419,12 @@ it.each(["session", "alias", "ownership"] as const)("refuses completion after %s
   if (change === "alias") await db.accountEmail.create({ data: { email: alias, userId: user.id, verifiedAt: new Date() } });
   const accepted = await staged({ ...payload, email: change === "alias" ? alias : email });
   const invite = await invitation(accepted.intent.id);
-  if (change === "session") await db.user.update({ where: { id: user.id }, data: { sessionVersion: { increment: 1 } } });
+  if (change === "session") {
+    // PostgreSQL owns credential generations and discards manual version changes.
+    // Rotate the actual password so the previously issued mailbox proof is stale.
+    const rotated = await db.user.update({ where: { id: user.id }, data: { passwordHash: hashPassword("Rotated-password-999!") } });
+    expect(rotated.sessionVersion).toBe(user.sessionVersion + 1);
+  }
   if (change === "alias") await db.accountEmail.delete({ where: { email: alias } });
   if (change === "ownership") {
     await db.user.create({ data: { id: "new-owner", email: "new-owner@example.test", name: "New Owner" } });
@@ -472,9 +492,9 @@ it.each([false, true])("safely completes %s unfinished-account setup without an 
   expect(user.tuteeMember).toBe(true);
   expect(verifyPassword("New-password-268!", user.passwordHash!)).toBe(true);
   if (existingOwner) expect(user).toMatchObject({ id: existingOwner.user.id, tutorId: existingOwner.tutor.id, name: existingOwner.user.name });
-  expect(await db.studentSurvey.findUniqueOrThrow({ where: { id: accepted.intent.surveyId } })).toMatchObject({
-    submittedAt: accepted.intent.receivedAt, currentVersion: 1, confirmedAt: expect.any(Date),
-  });
+  const confirmed = await db.studentSurvey.findUniqueOrThrow({ where: { id: accepted.intent.surveyId } });
+  expect(confirmed).toMatchObject({ submittedAt: accepted.intent.receivedAt, currentVersion: 1 });
+  expect(confirmed.confirmedAt).toBeInstanceOf(Date);
   expect(await db.studentSignupRevision.count()).toBe(1);
 });
 
@@ -494,10 +514,12 @@ it("accepts fresh exact-intent proof after the original link expires without ext
   const accepted = await staged({ ...payload, preferredContact: "Fresh proven contact" });
   expect(accepted.intent.expiresAt.getTime()).toBeLessThanOrEqual(row.verificationDueAt!.getTime());
   await complete(accepted.intent.id, user.id);
-  expect(await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } })).toMatchObject({
+  const confirmed = await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } });
+  expect(confirmed).toMatchObject({
     tokenHash: row.tokenHash, expiresAt: new Date(0), submittedAt: row.submittedAt,
-    verificationDueAt: row.verificationDueAt, confirmedAt: expect.any(Date),
+    verificationDueAt: row.verificationDueAt,
   });
+  expect(confirmed.confirmedAt).toBeInstanceOf(Date);
 });
 
 it("preserves accepted demand on delivery failure; exact response recovery never resends and send-only retry creates no revision", async () => {
@@ -525,7 +547,7 @@ it("successful send-only retry invalidates only that intent's older review proof
   const invite = await invitation(accepted.intent.id);
   fixtures.send.mockRejectedValueOnce(new Error("Synthetic resend failure"));
   await resendStudentSignupIntent(db, accepted.intent.id, email);
-  expect(await anonymous().accountInvitation.inspect(invite)).toMatchObject({ existing: true });
+  expect(await anonymous().accountInvitation.review(invite)).toMatchObject({ existing: true });
   await resendStudentSignupIntent(db, accepted.intent.id, email);
   await expect(redeemAccountInvitation(db, { ...profile, ...invite }, user.id)).rejects.toMatchObject({
     message: "INVITATION_INVALID",
@@ -541,7 +563,7 @@ it("retains already explicit stage-time policy consent and requires separate acc
   const invite = await invitation(accepted.intent.id);
   await db.policyDocument.update({
     where: { slug_locale: { slug: "tutee-policy", locale: "en" } },
-    data: { body: "Published after this person's signed submission.", version: { increment: 1 } },
+    data: { body: "Published after this person's signed submission.", version: "2" },
   });
   const latest = await currentPolicy(db, "tutee-policy");
   await redeemAccountInvitation(db, { ...profile, ...invite }, user.id);
@@ -580,7 +602,7 @@ it.each(["suspension", "departure", "quarter-block", "rollover", "terminal", "de
   const invite = await invitation(accepted.intent.id);
   if (change === "suspension") await db.user.update({ where: { id: user.id }, data: { suspendedAt: new Date() } });
   if (change === "departure") await db.schoolDeparture.create({ data: { userId: user.id, reason: "GRADUATED", source: "HEAD" } });
-  if (change === "quarter-block") await db.studentQuarterBlock.create({ data: { email, userId: user.id, intakeTermId: termId } });
+  if (change === "quarter-block") await db.studentQuarterBlock.create({ data: { email, userId: user.id, surveyId: row.id, intakeTermId: termId } });
   if (change === "rollover") await db.term.update({ where: { id: termId }, data: { active: false } });
   if (change === "terminal") await db.studentSurvey.update({ where: { id: row.id }, data: { state: "ABORTED" } });
   if (change === "deadline") await db.studentSurvey.update({ where: { id: row.id }, data: { verificationDueAt: new Date(0) } });
@@ -593,6 +615,7 @@ it("preserves a hidden inactive assigned second choice in accepted intent answer
   const { user, tutor, tutee, payload, row } = await existing();
   await db.pairing.create({ data: {
     tutorId: tutor.id, termId, subject: "Science", tutees: { create: { tuteeId: tutee.id } },
+    dayOfWeek: 1, startMin: 960, endMin: 1020,
   } });
   await db.subject.update({ where: { id: "science" }, data: { active: false } });
   await db.programSettings.create({ data: { id: "program", signupFields: { tutee: { secondSubject: "hidden" } } } });
@@ -610,6 +633,7 @@ it("rechecks a newly assigned subject and fails closed on an unresolved legacy a
   const invite = await invitation(accepted.intent.id);
   const pairing = await db.pairing.create({ data: {
     tutorId: tutor.id, termId, subject: "Science", tutees: { create: { tuteeId: tutee.id } },
+    dayOfWeek: 1, startMin: 960, endMin: 1020,
   } });
   await expect(redeemAccountInvitation(db, { ...profile, ...invite }, user.id)).rejects.toMatchObject({
     code: "FORBIDDEN", message: "SIGNUP_ASSIGNED_SUBJECT_LOCKED",

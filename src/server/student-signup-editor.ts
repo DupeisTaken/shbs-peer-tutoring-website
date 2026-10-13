@@ -150,7 +150,11 @@ export async function normalizeStudentSignupAnswers(
 ) {
   await lockEntity(tx, "signup-fields");
   const fields = (await getSignupSettings(tx)).tutee;
-  let answers = normalizeTuteeFields(posted, fields);
+  // The shared normalizer needs a signature shape, then the editor schema strips it
+  // before any current-answer/revision write. This placeholder is never consent.
+  let answers = studentSignupAnswersInput.parse(
+    normalizeTuteeFields({ ...posted, signatureName: "" }, fields),
+  );
   const unchangedName =
     !!previous &&
     (posted.firstName ?? "") === (previous.firstName ?? "") &&
@@ -164,10 +168,11 @@ export async function normalizeStudentSignupAnswers(
     (posted.preferredName ?? "") === (previous.preferredName ?? "") &&
     posted.englishName === previous.englishName
   ) {
+    const previousNames = { ...previous, legacyName: previous.englishName };
     const names = await configuredProfileNames(
       tx,
       posted,
-      { ...previous, legacyName: previous.englishName },
+      previousNames,
       "STUDENT",
     );
     answers = {
@@ -177,6 +182,19 @@ export async function normalizeStudentSignupAnswers(
       alternativeNames: names.alternativeNames ?? undefined,
       englishName: fullPersonName(names) || previous.englishName,
     };
+    // Keep the absence of structured parts on an unchanged historical unsplit name.
+    // Writing empty strings here would remove its grandfather marker on the next save.
+    if (
+      previous.firstName == null &&
+      previous.lastName == null &&
+      previous.preferredName == null &&
+      previous.englishName.trim()
+    ) {
+      delete answers.firstName;
+      delete answers.lastName;
+      delete answers.preferredName;
+      answers.englishName = previous.englishName;
+    }
   }
   if (
     posted.secondChoiceId &&
@@ -208,9 +226,10 @@ export async function normalizeStudentSignupAnswers(
     };
   await assertPrimaryName(tx, answers.englishName, previous?.englishName);
   await assertOfferedGrade(tx, normalizeGrade(answers.gradeLevel).gradeLevel);
-  const missing = missingTuteeFields(answers, fields).filter(
-    (key) => key !== "signatureName",
-  );
+  const missing = missingTuteeFields(
+    { ...answers, signatureName: "" },
+    fields,
+  ).filter((key) => key !== "signatureName");
   if (missing.length)
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -247,7 +266,7 @@ export async function inspectOwnedStudentSignup(
       select: { active: true },
     });
     const assigned = row.tuteeId
-      ? await assignedSignupSubjects(tx, row.tuteeId!, row.intakeTermId)
+      ? await assignedSignupSubjects(tx, row.tuteeId, row.intakeTermId)
       : { subjectIds: [], unresolved: false };
     const payload = currentStudentSignupPayload(row);
     const subjectIds = [payload.firstChoiceId, payload.secondChoiceId].filter(
@@ -274,13 +293,14 @@ export async function inspectOwnedStudentSignup(
         active: true,
       },
     });
-    const appeal = await tx.studentSignupAppeal.findUnique({
+    const appeal = await tx.studentSignupAppeal.findFirst({
       where: {
-        surveyId_invalidityVersion: {
-          surveyId: row.id,
-          invalidityVersion: row.invalidityVersion,
-        },
+        surveyId: row.id,
+        ...(row.invalidatedAt
+          ? { invalidityVersion: row.invalidityVersion }
+          : {}),
       },
+      orderBy: { createdAt: "desc" },
       select: { id: true, reason: true, state: true, createdAt: true },
     });
     return {
@@ -347,7 +367,9 @@ export async function editOwnedStudentSignup(
     const inputHash = studentSignupIntentDigest(
       JSON.parse(
         JSON.stringify({
-          ...input,
+          id: input.id,
+          expectedVersion: input.expectedVersion,
+          answers: input.answers,
           operation: management ? "headEditSignup" : "editSignup",
         }),
       ),
@@ -376,7 +398,7 @@ export async function editOwnedStudentSignup(
     }
     if (row.currentVersion !== input.expectedVersion) staleConflict();
     const assigned = row.tuteeId
-      ? await assignedSignupSubjects(tx, row.tuteeId!, row.intakeTermId)
+      ? await assignedSignupSubjects(tx, row.tuteeId, row.intakeTermId)
       : { subjectIds: [], unresolved: false };
     const previous = studentSignupAnswersInput.parse(
       currentStudentSignupPayload(row),
@@ -495,7 +517,7 @@ export async function editOwnedStudentSignup(
     });
     if (row.tuteeId)
       await tx.tutee.update({
-        where: { id: row.tuteeId! },
+        where: { id: row.tuteeId },
         data: {
           // Request-local answers never mirror over canonical account names or academics.
           phone: answers.phone ?? null,

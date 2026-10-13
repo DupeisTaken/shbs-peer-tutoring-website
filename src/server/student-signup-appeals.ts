@@ -205,10 +205,9 @@ export async function deliverSignupNotice(db: DomainDb, noticeId: string) {
       return null;
     const recipient = await deliveryOwner(tx, row);
     if (
-      !recipient ||
-      recipient.email !== current.recipientEmail ||
-      recipient.accountId !== current.accountId ||
-      recipient.sessionVersion !== current.sessionVersion ||
+      recipient?.email !== current.recipientEmail ||
+      recipient?.accountId !== current.accountId ||
+      recipient?.sessionVersion !== current.sessionVersion ||
       (current.kind === "INVALID_FLAGGED" &&
         (!row.invalidatedAt ||
           row.invalidityVersion !== current.invalidityVersion ||
@@ -263,14 +262,13 @@ async function sourceFromToken(tx: TransactionDb, token: string) {
   const notice = await tx.studentSignupNotice.findUnique({
     where: { tokenHash: digest(token) },
   });
-  if (!notice || notice.kind !== "INVALID_FLAGGED") throw invalid();
+  if (notice?.kind !== "INVALID_FLAGGED") throw invalid();
   const row = await lockedSource(tx, notice.surveyId);
   const recipient = await deliveryOwner(tx, row);
   if (
-    !recipient ||
-    recipient.email !== notice.recipientEmail ||
-    recipient.accountId !== notice.accountId ||
-    recipient.sessionVersion !== notice.sessionVersion ||
+    recipient?.email !== notice.recipientEmail ||
+    recipient?.accountId !== notice.accountId ||
+    recipient?.sessionVersion !== notice.sessionVersion ||
     row.invalidityVersion !== notice.invalidityVersion
   )
     throw invalid();

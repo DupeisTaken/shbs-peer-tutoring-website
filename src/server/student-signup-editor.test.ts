@@ -190,6 +190,28 @@ it("saves after intake closes, retains original priority/evidence and leaves can
   ).toBeUndefined();
 });
 
+it("preserves unsplit legacy name eligibility across consecutive contact-only saves", async () => {
+  const { payload } = await fixture();
+  const first = draft({
+    ...payload,
+    preferredContact: "First contact correction",
+  });
+  await editOwnedStudentSignup(db, "owner", first);
+  const current = await inspectOwnedStudentSignup(db, "owner", "request");
+  expect(current.answers.firstName).toBeUndefined();
+  expect(current.answers.englishName).toBe(payload.englishName);
+  await expect(
+    editOwnedStudentSignup(db, "owner", {
+      ...draft(payload),
+      expectedVersion: 1,
+      answers: {
+        ...current.answers,
+        preferredContact: "Second contact correction",
+      },
+    }),
+  ).resolves.toMatchObject({ version: 2 });
+});
+
 it("rejects another account even when it knows the exact request id or shares submitted contact text", async () => {
   const { payload } = await fixture();
   await db.user.create({
@@ -280,6 +302,9 @@ it("retains inactive assigned choices, permits other edits, rejects dropping the
       tutorId: tutor.id,
       termId: "signup-edit-term",
       subject: "Mathematics",
+      dayOfWeek: 1,
+      startMin: 960,
+      endMin: 1020,
       tutees: { create: { tuteeId: tutee.id } },
     },
   });

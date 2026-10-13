@@ -197,6 +197,7 @@ function CurrentRequest({
   const locale = useLocale();
   const t = useTranslations("workflow");
   const signupEditing = useTranslations("signupEditing");
+  const appeals = useTranslations("signupAppeal");
   const scheduling = useTranslations("scheduling");
   const utils = api.useUtils();
   const [editing, setEditing] = useState(false);
@@ -236,6 +237,33 @@ function CurrentRequest({
             }),
           })}
         </p>
+        {(row.canAppeal || row.appeal) && (
+          <div
+            role="status"
+            className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm"
+          >
+            <p className="font-semibold">{appeals("title")}</p>
+            <p>
+              {row.appeal
+                ? appeals(
+                    row.appeal.state === "PENDING"
+                      ? "pending"
+                      : row.appeal.state === "ACCEPTED"
+                        ? "accepted"
+                        : "rejected",
+                  )
+                : appeals("help")}
+            </p>
+            <Button
+              variant="secondary"
+              size="compact"
+              disabled={readBlocked}
+              onClick={() => setEditing(true)}
+            >
+              {appeals("staffTitle")}
+            </Button>
+          </div>
+        )}
         <div className="border-t border-slate-100 pt-4">
           <h3 className="font-semibold">{t("assignments")}</h3>
           {row.pairings.length ? (

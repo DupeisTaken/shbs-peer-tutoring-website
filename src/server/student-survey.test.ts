@@ -1,6 +1,7 @@
 import { approveQualification } from "~/server/qualifications";
 import { applyLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
 import { beforeEach, afterAll, describe, it, expect, vi } from "vitest";
+import { randomUUID } from "node:crypto";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("~/server/email/sender", () => ({
   emailSender: { send: vi.fn().mockResolvedValue(undefined) },
@@ -488,7 +489,7 @@ describe("survey-first enrollment", () => {
                   }
                 : null,
             });
-            const request = api[operation]({ ...input(), email: accountEmail });
+            const request = api[operation]({ ...input(), email: accountEmail, clientKey: randomUUID() });
             if (allowed)
               await expect(request).resolves.toMatchObject({ ok: true });
             else
@@ -538,7 +539,7 @@ describe("survey-first enrollment", () => {
       data: { signupClosesAt: new Date(Date.now() - 1) },
     });
     send.mockClear();
-    await expect(api.submitSurvey(input())).rejects.toMatchObject({
+    await expect(api.submitSurvey({ ...input(), clientKey: randomUUID() })).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
     });
     expect(await db.studentSurvey.findFirstOrThrow()).toEqual(original);

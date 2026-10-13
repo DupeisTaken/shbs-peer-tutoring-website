@@ -76,8 +76,23 @@ export const accountInvitationRouter = createTRPCRouter({
         input.email,
         async () => {
           if (input.intentId) {
-            const { intent } = await verifyStudentSignupIntent(ctx.db, input.intentId, input.email, input.code);
-            return deliverAccountInvitation(ctx.db, { display: true, kind: "TUTEE", email: intent.email, sourceKey: `tutee-intent:${intent.id}:${intent.tokenHash}`, source: { type: "tutee-intent", id: intent.id, challenge: intent.tokenHash } });
+            const { intent } = await verifyStudentSignupIntent(
+              ctx.db,
+              input.intentId,
+              input.email,
+              input.code,
+            );
+            return deliverAccountInvitation(ctx.db, {
+              display: true,
+              kind: "TUTEE",
+              email: intent.email,
+              sourceKey: `tutee-intent:${intent.id}:${intent.tokenHash}`,
+              source: {
+                type: "tutee-intent",
+                id: intent.id,
+                challenge: intent.tokenHash,
+              },
+            });
           }
           const survey = await verifySurveyEmail(
             ctx.db,
@@ -108,13 +123,30 @@ export const accountInvitationRouter = createTRPCRouter({
       ),
     ),
   inspect: publicProcedure
-    .input(z.object({ invitationId: id, proof: proof.optional() }))
+    .input(z.object({ invitationId: id }).strict())
     .query(({ ctx, input }) =>
       withSignupAdmission(ctx.db, ctx.headers, "read", input.invitationId, () =>
         inspectAccountInvitation(ctx.db, {
           ...input,
           userId: ctx.session?.user.id,
         }),
+      ),
+    ),
+  // Mailbox proofs and source answers use a POST read to stay out of query URLs,
+  // browser history, request caches and query logs. This grants no new authority.
+  review: publicProcedure
+    .input(z.object({ invitationId: id, proof: proof.optional() }).strict())
+    .mutation(({ ctx, input }) =>
+      withSignupAdmission(
+        ctx.db,
+        ctx.headers,
+        "complete",
+        input.invitationId,
+        () =>
+          inspectAccountInvitation(ctx.db, {
+            ...input,
+            userId: ctx.session?.user.id,
+          }),
       ),
     ),
   complete: publicProcedure

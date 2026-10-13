@@ -28,11 +28,8 @@ vi.mock("~/app/_components/profile-policy", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    useUtils: () => ({
-      accountInvitation: { inspect: { invalidate: mocks.invalidate } },
-    }),
     accountInvitation: {
-      inspect: { useQuery: mocks.inspect },
+      review: { useMutation: () => ({ mutateAsync: mocks.inspect }) },
       verify: { useMutation: () => ({ mutate: mocks.verify }) },
       complete: { useMutation: () => ({ mutate: mocks.complete }) },
     },
@@ -106,14 +103,14 @@ const view = () => (
 );
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.inspect.mockReturnValue({ data: info, refetch: vi.fn() });
+  mocks.inspect.mockResolvedValue(info);
   mocks.login.mockResolvedValue({ signedIn: true, completedLogin: false });
   mocks.invalidate.mockResolvedValue(undefined);
 });
 afterEach(cleanup);
-it("shows exact staged answers and consent separately from canonical account identity before acceptance", () => {
+it("shows exact staged answers and consent separately from canonical account identity before acceptance", async () => {
   render(view());
-  const review = screen.getByRole("region", {
+  const review = await screen.findByRole("region", {
     name: en.signupEditing.replacementReview,
   });
   for (const value of [
@@ -125,10 +122,14 @@ it("shows exact staged answers and consent separately from canonical account ide
     "5550100",
     "Retired Mathematics",
     "Posted signature",
-    "saved-policy",
     "The immutable consent text.",
   ])
     expect(within(review).getByText(value)).toBeTruthy();
+  expect(
+    within(review).getByText(
+      `${en.signupEditing.policyRevision}: saved-policy`,
+    ),
+  ).toBeTruthy();
   expect(screen.getByText("Canonical Account")).toBeTruthy();
   expect(screen.getByText(/Original priority retained:/)).toBeTruthy();
   expect(screen.queryByRole("textbox", { name: /password/i })).toBeNull();
@@ -150,26 +151,20 @@ it("shows exact staged answers and consent separately from canonical account ide
   expect(mocks.complete.mock.calls[0]?.[0]).not.toHaveProperty("password");
 });
 it("never renders source answers before a proof-authorized inspection", () => {
-  mocks.inspect.mockReturnValue({ data: undefined, refetch: vi.fn() });
   render(
     <NextIntlClientProvider locale="en" messages={en}>
       <InvitationRedemption invitationId="invitation" />
     </NextIntlClientProvider>,
   );
-  expect(mocks.inspect).toHaveBeenCalledWith(
-    { invitationId: "invitation" },
-    expect.objectContaining({ enabled: false }),
-  );
+  expect(mocks.inspect).not.toHaveBeenCalled();
   expect(screen.queryByText("Posted signature")).toBeNull();
   expect(screen.queryByText("Request-local Display")).toBeNull();
   expect(mocks.complete).not.toHaveBeenCalled();
 });
-it("preserves legacy invitation review when there is no staged replacement", () => {
-  mocks.inspect.mockReturnValue({
-    data: { ...info, signupRequest: undefined },
-    refetch: vi.fn(),
-  });
+it("preserves legacy invitation review when there is no staged replacement", async () => {
+  mocks.inspect.mockResolvedValue({ ...info, signupRequest: undefined });
   render(view());
+  await screen.findByText("Canonical Account");
   expect(
     screen.queryByRole("region", { name: en.signupEditing.replacementReview }),
   ).toBeNull();

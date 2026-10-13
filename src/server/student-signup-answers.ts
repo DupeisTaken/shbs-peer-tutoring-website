@@ -37,35 +37,49 @@ export function currentStudentSignupPayload(row: {
 }
 
 /** Persist a complete local-answer snapshot without identity, consent or concurrency proofs. */
-export function studentSignupLocalAnswers(payload: unknown): Record<string, unknown> {
+export function studentSignupLocalAnswers(
+  payload: unknown,
+): Record<string, unknown> {
   const source = answerObject.parse(payload);
-  return Object.fromEntries(answerFields.filter((key) => Object.hasOwn(source, key) && source[key] !== undefined).map((key) => [key, source[key]]));
+  return Object.fromEntries(
+    answerFields
+      .filter((key) => Object.hasOwn(source, key) && source[key] !== undefined)
+      .map((key) => [key, source[key]]),
+  );
 }
-
-type JsonValue =
-  null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 /** Object key order is transport detail; array order and every explicit value are evidence.
  * Reject non-JSON numbers so a malformed value cannot collide with legitimate null data. */
-function canonicalJson(value: JsonValue): string {
-  if (["undefined", "bigint", "function", "symbol"].includes(typeof value))
+function canonicalJson(value: unknown): string {
+  if (value === null) return "null";
+  if (typeof value === "string" || typeof value === "boolean")
+    return JSON.stringify(value);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value))
+      throw new TypeError("Signup intent must contain finite JSON numbers.");
+    return JSON.stringify(value);
+  }
+  if (typeof value !== "object")
     throw new TypeError("Signup intent must contain JSON values.");
-  if (typeof value === "number" && !Number.isFinite(value))
-    throw new TypeError("Signup intent must contain finite JSON numbers.");
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (Array.isArray(value)) {
+    const entries: unknown[] = value;
+    return `[${entries.map(canonicalJson).join(",")}]`;
+  }
   const prototype: unknown = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null)
     throw new TypeError("Signup intent must contain plain JSON objects.");
   return `{${Object.keys(value)
     .sort()
-    .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key]!)}`)
+    .map(
+      (key) =>
+        `${JSON.stringify(key)}:${canonicalJson((value as Record<string, unknown>)[key])}`,
+    )
     .join(",")}}`;
 }
 
 /** Bind a stable retry key to exact normalized answers, target/version and explicit consent.
  * Callers include that complete intent; a hash or matching email is never identity proof. */
-export function studentSignupIntentDigest(intent: JsonValue): string {
+export function studentSignupIntentDigest(intent: unknown): string {
   return createHash("sha256")
     .update("student-signup-intent:v1\0")
     .update(canonicalJson(intent))
