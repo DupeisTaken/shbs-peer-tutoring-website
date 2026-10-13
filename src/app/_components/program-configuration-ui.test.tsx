@@ -341,6 +341,9 @@ it("opens room order deliberately, retains a closed draft and version, and block
   );
   expect(screen.queryByRole("table")).toBeNull();
   const opener = screen.getByRole("button", { name: en.roomOrder.open });
+  // fireEvent.click does not supply the browser/keyboard focus that the modal
+  // captures for restoration; begin from the actual focused activation control.
+  opener.focus();
   fireEvent.click(opener);
   fireEvent.click(
     screen.getByRole("button", {
