@@ -12,9 +12,13 @@ import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../../../messages/en.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import MeetingsPage from "./page";
+import { SessionViewProvider } from "~/app/_components/session-view-state";
+import { viewStateKey } from "~/lib/session-view-state";
 
 const state = vi.hoisted(() => ({
   save: vi.fn(),
+  readError: null as null | { message: string; data?: { code?: string } },
+  readRefetch: vi.fn(),
   reset: vi.fn(),
   pending: false,
   error: null as null | { message: string; data: { approvalId: string } },
@@ -35,6 +39,10 @@ vi.mock("~/trpc/react", () => ({
     admin: {
       meetings: {
         useQuery: () => ({
+          error: state.readError,
+          isSuccess: !state.readError,
+          isFetching: false,
+          refetch: state.readRefetch,
           data: [
             {
               id: "meeting",
@@ -53,6 +61,9 @@ vi.mock("~/trpc/react", () => ({
       },
       tutors: {
         useQuery: () => ({
+          isSuccess: true,
+          isFetching: false,
+          refetch: vi.fn(),
           data: [
             { id: "active", englishName: state.longName, status: "ACTIVE" },
             { id: "past", englishName: "Past Tutor", status: "ARCHIVED" },
@@ -82,6 +93,8 @@ vi.mock("~/trpc/react", () => ({
 }));
 beforeEach(() => {
   vi.clearAllMocks();
+  sessionStorage.clear();
+  state.readError = null;
   state.attendances = [];
   state.pending = false;
   state.error = null;
@@ -344,4 +357,83 @@ it("identifies a recorded attendance correction and keeps queued changes out of 
   expect(screen.getByText(messages.approvals.queuedBody)).toBeTruthy();
   expect(screen.queryByText(messages.admin.meetings.saved)).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+const sessionMeetingPage = () => (
+  <NextIntlClientProvider
+    locale="en"
+    messages={messages}
+    timeZone="Asia/Shanghai"
+  >
+    <SessionViewProvider identity="head" pathname="/admin/meetings" verified>
+      <ReadOnlyProvider value={false}>
+        <MeetingsPage />
+      </ReadOnlyProvider>
+    </SessionViewProvider>
+  </NextIntlClientProvider>
+);
+it("restores summary and visibility but starts meeting fields and attendance editors fresh", () => {
+  const view = render(sessionMeetingPage());
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.meetings.summary.show }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.tuteeHistory.showHistorical }),
+  );
+  fireEvent.change(
+    screen.getByLabelText(messages.admin.meetings.titlePlaceholder),
+    { target: { value: "unsaved meeting" } },
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: /^Synthetic briefing ·/ }),
+  );
+  view.unmount();
+  render(sessionMeetingPage());
+  expect(
+    screen.getByRole("button", { name: messages.admin.meetings.summary.hide }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: messages.tuteeHistory.hideHistorical }),
+  ).toBeTruthy();
+  expect(
+    screen.getByLabelText<HTMLInputElement>(
+      messages.admin.meetings.titlePlaceholder,
+    ).value,
+  ).toBe("");
+  expect(
+    screen.queryByRole("group", { name: `Attendance for ${state.longName}` }),
+  ).toBeNull();
+  expect(JSON.stringify(sessionStorage)).not.toContain("unsaved meeting");
+  expect(state.save).not.toHaveBeenCalled();
+});
+it("clears meeting view choices and conceals cached attendance through failed read recovery", () => {
+  const view = render(sessionMeetingPage());
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.meetings.summary.show }),
+  );
+  state.readError = { message: "Denied", data: { code: "FORBIDDEN" } };
+  view.rerender(sessionMeetingPage());
+  expect(
+    screen.queryByRole("button", { name: /^Synthetic briefing ·/ }),
+  ).toBeNull();
+  expect(
+    sessionStorage.getItem(
+      viewStateKey("head", "/admin/meetings", "meeting-panels-v1", ""),
+    ),
+  ).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.uiPatterns.retry }),
+  );
+  expect(state.readRefetch).toHaveBeenCalledOnce();
+  state.readError = { message: "Network failure" };
+  view.rerender(sessionMeetingPage());
+  expect(
+    screen.queryByRole("button", { name: /^Synthetic briefing ·/ }),
+  ).toBeNull();
+  state.readError = null;
+  view.rerender(sessionMeetingPage());
+  expect(
+    screen.getByRole("button", { name: messages.admin.meetings.summary.show }),
+  ).toBeTruthy();
+  expect(state.save).not.toHaveBeenCalled();
 });
