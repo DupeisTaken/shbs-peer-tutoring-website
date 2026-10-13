@@ -18,6 +18,7 @@ import { FilterToolbar, InlineNotice, StatePanel } from "./ui/patterns";
 import { TableDetails } from "./ui/summary-table";
 import { useSessionPageScroll, useSessionViewState } from "./session-view-state";
 import { viewEnum } from "~/lib/session-view-state";
+import { participantNameLabel } from "./participant-name";
 
 type Flag = RouterOutputs["admin"]["sessionFlags"][number];
 type Decision = "DISMISS" | "WARN" | "PENALIZE" | "ESCALATE";
@@ -37,6 +38,12 @@ export function SessionFlagBoard() {
   const format = useFormatter();
   const t = useTranslations("admin.sessionFlags");
   const common = useTranslations("common");
+  const names = useTranslations("participantNames");
+  // Resolved decision context stays recorded; only the live pending identity needs a label fallback.
+  const tutorLabel = (flag: Flag) =>
+    flag.state === "PENDING"
+      ? participantNameLabel(flag.tutor, undefined, names("unnamed"))
+      : flag.tutor;
   const ui = useTranslations("uiPatterns");
   const readOnly = useReadOnly();
   const utils = api.useUtils();
@@ -185,7 +192,7 @@ export function SessionFlagBoard() {
               <div className="min-w-0">
                 <p className="flex flex-wrap items-center gap-2 font-semibold">
                   <span>
-                    {flag.tutor} · {flag.subject}
+                    {tutorLabel(flag)} · {flag.subject}
                   </span>
                   <span
                     className={
@@ -214,7 +221,7 @@ export function SessionFlagBoard() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <TableDetails title={`${flag.tutor} · ${flag.subject}`}>
+                <TableDetails title={`${tutorLabel(flag)} · ${flag.subject}`}>
                   <p>
                     {t("discrepancy", {
                       observed: flag.observed,
@@ -264,7 +271,7 @@ export function SessionFlagBoard() {
       )}
       {!readOnly && !denied && editing && (
         <Modal
-          title={`${t(actionKey)} · ${editing.flag.tutor}`}
+          title={`${t(actionKey)} · ${tutorLabel(editing.flag)}`}
           busy={pending}
           onClose={() => {
             if (!pending) setEditing(null);

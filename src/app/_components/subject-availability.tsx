@@ -15,9 +15,11 @@ import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { useSessionPageScroll, useSessionViewState } from "./session-view-state";
 import { viewEnum, viewSearch } from "~/lib/session-view-state";
+import { participantNameLabel } from "./participant-name";
 
 export function SubjectAvailability() {
   const t = useTranslations("subjectAvailability");
+  const names = useTranslations("participantNames");
   const workflow = useTranslations("workflows");
   const ui = useTranslations("uiPatterns");
   const queryClient = useQueryClient();
@@ -227,6 +229,11 @@ export function SubjectAvailability() {
         <p role="status">{workflow("saved")}</p>
       )}
       {groups.map((tutor) => {
+        const displayName = participantNameLabel(
+          tutor.englishName,
+          tutor.username,
+          names("unnamed"),
+        );
         const open = expanded.has(tutor.id);
         const id = `subject-availability-${tutor.id}`;
         const selected = tutorFilters[tutor.id] ?? null;
@@ -257,7 +264,7 @@ export function SubjectAvailability() {
             >
               <DisclosureIcon open={open} />
               <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
-                <span className="block font-semibold">{tutor.englishName}</span>{" "}
+                <span className="block font-semibold">{displayName}</span>{" "}
                 <span className="muted mt-1 block text-sm">
                   {t("summary", {
                     qualified: tutor.rows.filter((row) => row.qualified).length,
@@ -274,12 +281,10 @@ export function SubjectAvailability() {
             {/* Mount only expanded catalogues; large rosters should not create hidden form trees. */}
             {open && (
               <div id={id} className="space-y-3 border-t border-slate-100 p-4">
-                <FilterToolbar
-                  label={t("filtersFor", { name: tutor.englishName })}
-                >
+                <FilterToolbar label={t("filtersFor", { name: displayName })}>
                   <div
                     role="group"
-                    aria-label={t("filtersFor", { name: tutor.englishName })}
+                    aria-label={t("filtersFor", { name: displayName })}
                     className="flex flex-wrap gap-2 lg:justify-end"
                   >
                     {(["qualified", "pendingReview", "willing"] as const).map(
@@ -380,7 +385,11 @@ export function SubjectAvailability() {
           return (
             <ProfileDialog
               title={t("editTitle", {
-                tutor: tutor.englishName,
+                tutor: participantNameLabel(
+                  tutor.englishName,
+                  tutor.username,
+                  names("unnamed"),
+                ),
                 subject: row.name,
               })}
               pending={pending}

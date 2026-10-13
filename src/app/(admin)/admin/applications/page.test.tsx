@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   decide: vi.fn(),
   minimized: false,
   invalid: false,
+  name: "Candidate One",
   changeInvalidity: vi.fn(),
   fetchApplications: vi.fn(),
   success: undefined as undefined | (() => Promise<void>),
@@ -105,7 +106,7 @@ vi.mock("~/trpc/react", () => ({
                     ? "New subject evidence"
                     : null,
                   qualificationSnapshot: null,
-                  name: "Candidate One",
+                  name: mocks.name,
                   email: "candidate@example.test",
                   preferredContact: null,
                   status: mocks.additional ? "PENDING" : "ACCEPTED",
@@ -188,8 +189,20 @@ beforeEach(() => {
   mocks.role = "HEAD";
   mocks.minimized = false;
   mocks.invalid = false;
+  mocks.name = "Candidate One";
 });
 afterEach(cleanup);
+it("presents an accountless blank-name application without treating its label as searchable intake data", () => {
+  mocks.name = "  ";
+  render(content());
+  expect(screen.getByText(en.participantNames.unnamed)).toBeTruthy();
+  fireEvent.change(screen.getByRole("searchbox", { name: "Name or email" }), {
+    target: { value: en.participantNames.unnamed },
+  });
+  expect(screen.queryByText(en.participantNames.unnamed)).toBeNull();
+  expect(mocks.name).toBe("  ");
+  expect(mocks.changeInvalidity).not.toHaveBeenCalled();
+});
 const content = (viewer = false) => (
   <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
     <ReadOnlyProvider value={viewer}>

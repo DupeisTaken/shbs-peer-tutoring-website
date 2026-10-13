@@ -10,11 +10,13 @@ import { useReadOnly } from "./read-only";
 import { Button } from "./ui/button";
 import { Modal } from "./ui/modal";
 import { InlineNotice } from "./ui/patterns";
+import { ParticipantName } from "./participant-name";
 
 /** The application card owns panel setup; this component owns additional-request decisions only. */
 export function QualificationReview({
   app,
   onChanged,
+  displayName,
 }: {
   app: {
     id: string;
@@ -30,6 +32,8 @@ export function QualificationReview({
     interviewers?: { isHead: boolean; tutor: { id: string } }[];
   };
   onChanged: (reportErrors?: boolean) => Promise<unknown> | void;
+  /** An authorized caller can supply its projected current handle without altering application evidence. */
+  displayName?: string;
 }) {
   const t = useTranslations("qualificationRequests");
   const ui = useTranslations("uiPatterns");
@@ -302,7 +306,9 @@ export function QualificationReview({
           }
         >
           <div className="mb-4 space-y-1 text-sm break-words">
-            <p className="font-semibold">{app.name}</p>
+            <p className="font-semibold">
+              <ParticipantName name={displayName ?? app.name} />
+            </p>
             <p>
               {t(app.type)} ·{" "}
               {app.subjectIntents

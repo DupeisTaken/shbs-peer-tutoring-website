@@ -1,4 +1,5 @@
 "use client";
+import { participantNameLabel } from "~/app/_components/participant-name";
 import { EmailDetails } from "~/app/_components/email-details";
 import { Button } from "~/app/_components/ui/button";
 import { QualificationReview } from "~/app/_components/qualification-review";
@@ -101,6 +102,12 @@ function ApplicationCard({
 }) {
   const programFormat = useFormatter();
   const t = useTranslations();
+  // Only current labels use a fallback. Intake/search/mutation records stay unchanged.
+  const displayName = participantNameLabel(
+    app.name,
+    tutors.find((tutor) => tutor.id === app.requestedTutorId)?.username,
+    t("participantNames.unnamed"),
+  );
   const readOnly = useReadOnly();
   const account = api.account.me.useQuery().data;
   const additional = app.type !== "INITIAL";
@@ -181,7 +188,7 @@ function ApplicationCard({
           {/* Wrapped metadata shares the name edge, independent of the disclosure artwork. */}
           <span className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="min-w-0 font-semibold break-words text-slate-900">
-              {app.name}
+              {displayName}
             </span>
             <StatusBadge status={app.status} />
             {app.isInvalid && <InvalidityBadge />}
@@ -214,7 +221,7 @@ function ApplicationCard({
           {!readOnly && !additional && (
             <ApplicationInvalidityControls
               record={app}
-              name={app.name}
+              name={displayName}
               canFlag
               coordinator={account?.role === "COORDINATOR"}
             />
@@ -263,7 +270,7 @@ function ApplicationCard({
                 if (
                   await confirm({
                     title: t("admin.applications.confirmDelete", {
-                      name: app.name,
+                      name: displayName,
                     }),
                     confirmLabel: t("common.delete"),
                     cancelLabel: t("common.cancel"),
@@ -289,7 +296,7 @@ function ApplicationCard({
           id={`application-panel-${app.id}`}
           className="mt-3 border-t border-slate-100 pt-3"
         >
-          <EmailDetails contactOnly email={app.email} name={app.name} />
+          <EmailDetails contactOnly email={app.email} name={displayName} />
           {app.preferredContact && (
             <p className="muted text-xs">
               {t("admin.applications.reach", { contact: app.preferredContact })}
@@ -298,7 +305,11 @@ function ApplicationCard({
 
           {/* Course intents */}
           {additional && (
-            <QualificationReview app={app} onChanged={onChanged} />
+            <QualificationReview
+              app={app}
+              displayName={displayName}
+              onChanged={onChanged}
+            />
           )}
           <ul className="mt-3 flex flex-wrap gap-2">
             {app.subjectIntents.map((ci, i) => {
