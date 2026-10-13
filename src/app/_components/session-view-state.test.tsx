@@ -178,7 +178,7 @@ it("preserves stored room IDs while dynamic options load, then validates the cur
       parse: (value) =>
         Array.isArray(value) &&
         value.every((id) => typeof id === "string" && ids.includes(id))
-          ? (value as string[])
+          ? value
           : undefined,
     });
     return <p>{selected.join(",") || "all rooms"}</p>;
