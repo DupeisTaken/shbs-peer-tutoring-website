@@ -10,7 +10,7 @@ export function roomSelectionParser(roomIds: readonly string[], owner: string) {
       if (value === "default" || value === null) return value;
       if (!Array.isArray(value) || !value.every((id) => typeof id === "string"))
         return;
-      return [...new Set(value as string[])].filter((id) =>
+      return [...new Set(value)].filter((id) =>
         roomIds.includes(id),
       );
     },

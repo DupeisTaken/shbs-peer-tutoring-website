@@ -2,6 +2,7 @@
 import { useId, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
+import { participantNameLabel } from "./participant-name";
 import {
   groupAssignmentTutors,
   type QualificationOption,
@@ -33,12 +34,20 @@ export function QualifiedTutorSelect({
   actions?: ReactNode;
 }) {
   const t = useTranslations("assignmentQualification");
+  const names = useTranslations("participantNames");
   const helpId = useId();
   const grants = api.admin.subjectEligibility.useQuery();
   const subjects = api.admin.subjects.useQuery();
   const subject = subjects.data?.find((item) => item.id === subjectId);
   const unavailable = !subject?.active || subject.level?.active === false;
   const groups = groupAssignmentTutors(tutors, subjectId, grants.data ?? []);
+  // Keep caller-owned workload decorations, but never leave a native option unnamed.
+  const displayName = (tutor: QualificationOption) =>
+    participantNameLabel(tutor.englishName, tutor.username, names("unnamed"));
+  const optionName = (tutor: QualificationOption) => {
+    const supplied = optionLabel?.(tutor.id);
+    return supplied?.trim() ? supplied : displayName(tutor);
+  };
   return (
     // Explicit rows support wrapped labels without language-dependent offsets.
     <div
@@ -73,13 +82,13 @@ export function QualifiedTutorSelect({
           {value === retainedTutor?.id &&
             !tutors.some((tu) => tu.id === value) && (
               <option value={retainedTutor.id} disabled>
-                {retainedTutor.englishName}
+                {displayName(retainedTutor)}
               </option>
             )}
           <optgroup label={t("qualified")}>
             {groups.qualified.map((tu) => (
               <option key={tu.id} value={tu.id}>
-                {optionLabel?.(tu.id) ?? tu.englishName}
+                {optionName(tu)}
               </option>
             ))}
           </optgroup>
@@ -89,7 +98,7 @@ export function QualifiedTutorSelect({
           <optgroup label={t("unqualified")}>
             {groups.unqualified.map((tu) => (
               <option key={tu.id} value={tu.id}>
-                {optionLabel?.(tu.id) ?? tu.englishName}
+                {optionName(tu)}
               </option>
             ))}
           </optgroup>

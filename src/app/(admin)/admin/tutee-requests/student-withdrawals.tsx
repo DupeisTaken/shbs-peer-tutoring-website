@@ -1,4 +1,8 @@
 "use client";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -13,6 +17,7 @@ import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 /** Both intake sources share the existing timed staff-review mutation and approval policy. */
 export function StudentWithdrawals() {
   const t = useTranslations("admin.tuteeRequests");
+  const names = useTranslations("participantNames");
   const workflow = useTranslations("workflow");
   const recovery = useTranslations("managementRecovery");
   const format = useFormatter();
@@ -151,7 +156,9 @@ export function StudentWithdrawals() {
               className="space-y-3 rounded-lg border border-slate-200 p-4"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-semibold">{review.name}</h3>
+                <h3 className="font-semibold">
+                  <ParticipantName name={review.name} />
+                </h3>
                 <span className="badge-amber">{workflow("needsReview")}</span>
               </div>
               <p className="muted text-sm">
@@ -235,7 +242,7 @@ export function StudentWithdrawals() {
           action={decision.approve ? "APPROVE" : "DENY"}
           target={decision.id}
           title={workflow(decision.approve ? "approve" : "deny")}
-          message={`${decision.name}\n\n${workflow(decision.approve ? "approveAbortConsequences" : "denyConsequences")}`}
+          message={`${participantNameLabel(decision.name, undefined, names("unnamed"))}\n\n${workflow(decision.approve ? "approveAbortConsequences" : "denyConsequences")}`}
           busy={resolve.isPending}
           canConfirm={!readBlocked}
           error={resolve.error?.message}

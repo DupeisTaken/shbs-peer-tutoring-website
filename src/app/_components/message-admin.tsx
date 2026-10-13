@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "./session-view-state";
 import { viewEnum, viewPage } from "~/lib/session-view-state";
+import { ParticipantName } from "./participant-name";
 import { Button, ChoiceButton } from "./ui/button";
 import { InlineNotice, FormActions } from "./ui/patterns";
 import { useFormatter, useTranslations } from "next-intl";
@@ -290,9 +291,11 @@ export function MessagePermissions() {
   const settings = api.messaging.settings.useQuery();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
-  const [user, setUser] = useState<{ id: string; name: string | null } | null>(
-    null,
-  );
+  const [user, setUser] = useState<{
+    id: string;
+    name: string | null;
+    username?: string | null;
+  } | null>(null);
   const people = api.messaging.permissionUsers.useQuery({ search, page });
   return (
     <div className="space-y-6">
@@ -335,8 +338,8 @@ export function MessagePermissions() {
               selected={user?.id === p.id}
               onClick={() => setUser(p)}
             >
-              {p.name ?? p.username} · {p.username ? `@${p.username}` : p.id} ·{" "}
-              {roles(p.role)}
+              <ParticipantName name={p.name} username={p.username} /> ·{" "}
+              {p.username ? `@${p.username}` : p.id} · {roles(p.role)}
             </ChoiceButton>
           ))}
         </div>
@@ -369,7 +372,7 @@ export function MessagePermissions() {
 function UserPermission({
   user,
 }: {
-  user: { id: string; name: string | null };
+  user: { id: string; name: string | null; username?: string | null };
 }) {
   const t = useTranslations("messaging");
   const approvals = useTranslations("approvals");
@@ -386,7 +389,9 @@ function UserPermission({
     );
   return (
     <div className="space-y-4 border-t border-slate-200 pt-4">
-      <p className="font-semibold">{user.name ?? user.id}</p>
+      <p className="font-semibold">
+        <ParticipantName name={user.name} username={user.username} />
+      </p>
       {permission.data.suspended && (
         <p role="alert" className="text-sm">
           {t("accountSuspended")}

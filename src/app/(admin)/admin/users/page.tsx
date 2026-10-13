@@ -1,4 +1,5 @@
 "use client";
+import { participantNameLabel } from "~/app/_components/participant-name";
 
 import { matchesPersonSearch } from "~/lib/person-search";
 import { accountMembership } from "~/lib/account-membership";
@@ -141,6 +142,8 @@ function ConfirmIdentityDialog({
 
 export default function UsersPage() {
   const t = useTranslations();
+  const nameFor = (name: string | null | undefined, username?: string | null) =>
+    participantNameLabel(name, username, t("participantNames.unnamed"));
   const readOnly = useReadOnly();
   const utils = api.useUtils();
   const accounts = api.admin.accounts.useQuery();
@@ -631,7 +634,9 @@ export default function UsersPage() {
                 key={a.id}
                 className="flex flex-wrap items-center gap-3 py-3 text-sm"
               >
-                <span className="font-medium text-slate-800">{a.name}</span>
+                <span className="font-medium text-slate-800">
+                  {nameFor(a.name)}
+                </span>
                 {a.affiliation && (
                   <span className="muted text-xs">{a.affiliation}</span>
                 )}
@@ -652,7 +657,7 @@ export default function UsersPage() {
       )}
       {canReadAppeals && !appealDenied && appealReview && (
         <ProfileDialog
-          title={`${t("admin.users.appeals.review")} · ${appealReview.name}`}
+          title={`${t("admin.users.appeals.review")} · ${nameFor(appealReview.name)}`}
           pending={decideAppeal.isPending || appealRefreshing}
           onClose={() => setAppealReview(null)}
         >
@@ -810,7 +815,9 @@ export default function UsersPage() {
                   {/* Identity contains names and the handle; all row actions live in the last column. */}
                   <td>
                     <div className="leading-tight">
-                      <p className="font-medium text-slate-900">{u.name}</p>
+                      <p className="font-medium text-slate-900">
+                        {nameFor(u.name, u.username)}
+                      </p>
                       {(u.username ?? u.tutor?.username) ? (
                         <p className="muted text-xs">
                           @{u.username ?? u.tutor?.username}
@@ -918,7 +925,7 @@ export default function UsersPage() {
                             if (
                               await confirmUsername({
                                 title: t("identityUsername.assignTitle", {
-                                  name: u.name,
+                                  name: nameFor(u.name, u.username),
                                 }),
                                 message: t("identityUsername.assignHelp"),
                                 confirmLabel: t("identityUsername.assign"),
@@ -941,7 +948,7 @@ export default function UsersPage() {
                           setConfirm({
                             title: t("admin.users.confirm.deleteTitle"),
                             body: t("admin.users.confirm.deleteBody", {
-                              name: u.name,
+                              name: nameFor(u.name, u.username),
                             }),
                             confirmLabel: t("admin.users.delete"),
                             run: (pwd) =>

@@ -12,7 +12,12 @@ export const isAssignmentOperation = (
 ): value is AssignmentOperation =>
   assignmentOperations.some((operation) => operation === value);
 
-export type QualificationOption = { id: string; englishName: string };
+export type QualificationOption = {
+  id: string;
+  englishName: string;
+  /** Existing projected handle is display-only; assignment authority still uses IDs. */
+  username?: string | null;
+};
 export type RecordedGrant = { tutorId: string; subjectId: string };
 
 /** A roster tutor need not have a login. An explicitly revoked linked membership, however,

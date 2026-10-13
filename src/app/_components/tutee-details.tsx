@@ -7,6 +7,7 @@ import { ProfileDialog } from "./profile-dialog";
 import { useReadOnly } from "./read-only";
 import { TuteeAcademicCell } from "./tutee-academic-cell";
 import { TuteeHistoryContent } from "./tutee-history";
+import { participantNameLabel } from "./participant-name";
 
 /** One on-demand reader combines existing records without widening their audience.
  * Observers keep summary access; private query/mutation children never mount for them.
@@ -23,7 +24,14 @@ export function TuteeDetailsDialog({
   const history = useTranslations("tuteeHistory");
   const account = useTranslations("accountProfile");
   const readOnly = useReadOnly();
+  const names = useTranslations("participantNames");
   const owner = row.owner ?? row.user;
+  // Current overview/contact labels can use the existing owner handle; history below stays raw.
+  const displayName = participantNameLabel(
+    row.englishName,
+    owner?.username,
+    names("unnamed"),
+  );
   const email = row.owner?.email ?? row.user?.email ?? row.email;
   const statusClass =
     row.status === "ACTIVE"
@@ -33,11 +41,7 @@ export function TuteeDetailsDialog({
         : "badge-slate";
 
   return (
-    <ProfileDialog
-      title={t("title")}
-      onClose={onClose}
-      size="wide"
-    >
+    <ProfileDialog title={t("title")} onClose={onClose} size="wide">
       <div className="min-w-0 space-y-6 text-left [overflow-wrap:anywhere] whitespace-normal">
         <p className="muted text-sm">{t(readOnly ? "summaryHelp" : "help")}</p>
         <div className="grid min-w-0 gap-4 sm:grid-cols-2">
@@ -45,7 +49,7 @@ export function TuteeDetailsDialog({
             <h3 className="font-semibold">{t("overview")}</h3>
             <div>
               <p className="text-lg font-semibold text-slate-900">
-                {row.englishName}
+                {displayName}
               </p>
               {owner?.username && (
                 <p className="muted text-sm">@{owner.username}</p>
@@ -86,7 +90,7 @@ export function TuteeDetailsDialog({
               <h3 className="text-lg font-semibold">{t("contact")}</h3>
               {email ? (
                 <EmailContent
-                  name={row.englishName}
+                  name={displayName}
                   email={email}
                   verifiedAt={owner?.emailVerifiedAt}
                   userId={owner?.id}

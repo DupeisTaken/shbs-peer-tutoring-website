@@ -95,9 +95,9 @@ export function RoomGrid(data: ScheduleData) {
   const locale = useLocale();
   const owner = highlightTutorId ?? "management";
   const scope = `${owner}:${roomPeriodScope(data)}`;
-  const [view, setView] = useSessionViewState({
+  const [view, setView] = useSessionViewState<"combined" | "individual">({
     id: "room-grid-layout-v1",
-    initialState: "combined" as "combined" | "individual",
+    initialState: "combined",
     parse: viewEnum(["combined", "individual"]),
     scope,
     enabled: data.viewEnabled,

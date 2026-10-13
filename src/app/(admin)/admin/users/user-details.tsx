@@ -19,12 +19,18 @@ import { TuteeHistoryDialog } from "~/app/_components/tutee-history";
 import { useReadOnly } from "~/app/_components/read-only";
 import { LoginSetup, MembershipBadges } from "./presentation";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
+import { participantNameLabel } from "~/app/_components/participant-name";
 
 type AccountRow = RouterOutputs["admin"]["accounts"]["rows"][number];
 type Profile = RouterOutputs["admin"]["accountDetails"]["attached"][number];
 
 export function UserDetails({ row }: { row: AccountRow }) {
   const t = useTranslations();
+  const displayName = participantNameLabel(
+    row.name,
+    row.username,
+    t("participantNames.unnamed"),
+  );
   const readOnly = useReadOnly();
   const [open, setOpen] = useState(false);
   if (readOnly) return null;
@@ -32,14 +38,14 @@ export function UserDetails({ row }: { row: AccountRow }) {
     <>
       <TableAction
         aria-haspopup="dialog"
-        aria-label={`${t("accountProfile.showDetails")}: ${row.name}`}
+        aria-label={`${t("accountProfile.showDetails")}: ${displayName}`}
         onClick={() => setOpen(true)}
       >
         {t("accountProfile.showDetails")}
       </TableAction>
       {open && (
         <ProfileDialog
-          title={t("accountProfile.detailsTitle", { name: row.name })}
+          title={t("accountProfile.detailsTitle", { name: displayName })}
           onClose={() => setOpen(false)}
           size="wide"
         >
@@ -136,7 +142,11 @@ function UserDetailContent({ row }: { row: AccountRow }) {
             {row.email ? (
               <EmailContent
                 email={row.email}
-                name={row.name}
+                name={participantNameLabel(
+                  row.name,
+                  row.username,
+                  t("participantNames.unnamed"),
+                )}
                 userId={row.userId}
                 tutorId={row.tutorId}
                 verifiedAt={row.emailVerifiedAt}
@@ -185,10 +195,11 @@ function UserDetailContent({ row }: { row: AccountRow }) {
                   profile.retainedOwner && (
                     <p key={profile.id}>
                       {t("usersDirectory.retainedBy", {
-                        name:
-                          profile.retainedOwner.name ??
-                          profile.retainedOwner.username ??
-                          profile.retainedOwner.id,
+                        name: participantNameLabel(
+                          profile.retainedOwner.name,
+                          profile.retainedOwner.username,
+                          t("participantNames.unnamed"),
+                        ),
                       })}
                     </p>
                   ),
@@ -215,6 +226,15 @@ function UserDetailContent({ row }: { row: AccountRow }) {
 
 function ProfileRecords({ profiles }: { profiles: Profile[] }) {
   const t = useTranslations();
+  // Historical attachment names are recorded evidence; normalize only current profile labels.
+  const profileName = (profile: Profile) =>
+    profile.historical
+      ? profile.name
+      : participantNameLabel(
+          profile.name,
+          profile.username,
+          t("participantNames.unnamed"),
+        );
   const [tuteeId, setTuteeId] = useState<string | null>(null);
   if (!profiles.length)
     return <p className="muted">{t("usersDirectory.noProfiles")}</p>;
@@ -234,7 +254,7 @@ function ProfileRecords({ profiles }: { profiles: Profile[] }) {
           {profiles.map((profile) => (
             <tr key={`${profile.kind}:${profile.id}`}>
               <td>
-                <p className="font-medium">{profile.name}</p>
+                <p className="font-medium">{profileName(profile)}</p>
                 <p className="muted text-xs">
                   {t(
                     profile.kind === "TUTOR"
@@ -248,7 +268,10 @@ function ProfileRecords({ profiles }: { profiles: Profile[] }) {
               </td>
               <td>{t(`usersDirectory.status.${profile.status}`)}</td>
               <TableActions>
-                <TableDetails label={t("academics.title")} title={profile.name}>
+                <TableDetails
+                  label={t("academics.title")}
+                  title={profileName(profile)}
+                >
                   <p className="muted">
                     {t(
                       profile.historical
@@ -260,10 +283,11 @@ function ProfileRecords({ profiles }: { profiles: Profile[] }) {
                   {profile.retainedOwner && (
                     <p>
                       {t("usersDirectory.retainedBy", {
-                        name:
-                          profile.retainedOwner.name ??
-                          profile.retainedOwner.username ??
-                          profile.retainedOwner.id,
+                        name: participantNameLabel(
+                          profile.retainedOwner.name,
+                          profile.retainedOwner.username,
+                          t("participantNames.unnamed"),
+                        ),
                       })}
                     </p>
                   )}
@@ -271,7 +295,8 @@ function ProfileRecords({ profiles }: { profiles: Profile[] }) {
                 {profile.kind === "TUTOR" ? (
                   <TutorDetailsButton
                     tutorId={profile.id}
-                    name={profile.name}
+                    name={profileName(profile)}
+                    username={profile.historical ? undefined : profile.username}
                   />
                 ) : (
                   <TableAction onClick={() => setTuteeId(profile.id)}>

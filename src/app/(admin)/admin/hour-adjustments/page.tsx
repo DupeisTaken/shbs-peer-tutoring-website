@@ -1,4 +1,5 @@
 "use client";
+import { ParticipantName } from "~/app/_components/participant-name";
 
 import { useTranslations } from "next-intl";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
@@ -97,7 +98,10 @@ export default function AdjustmentsPage() {
                 {visibleTutors(tutors.data ?? [], showPast, [tutorId]).map(
                   (t) => (
                     <option key={t.id} value={t.id}>
-                      {t.englishName}
+                      <ParticipantName
+                        name={t.englishName}
+                        username={t.username}
+                      />
                     </option>
                   ),
                 )}

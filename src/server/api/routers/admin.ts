@@ -374,6 +374,7 @@ export const adminRouter = createTRPCRouter({
         .map((row) => ({
           id: row.id,
           name: row.name,
+          username: row.username,
           submittedAt: row.submittedAt,
           stage:
             row.confirmedAt == null
@@ -2249,6 +2250,15 @@ export const adminRouter = createTRPCRouter({
                 true,
               )
             : null;
+        // Native editors may post unchanged blank fields for an unsplit legacy
+        // record. Validation still applies, but those blanks must not convert
+        // original SQL nulls into a newly confirmed empty structured identity.
+        const latinNameChanged =
+          !!explicitNames &&
+          (["firstName", "lastName", "preferredName"] as const).some(
+            (key) =>
+              (explicitNames[key]?.trim() ?? "") !== (before[key]?.trim() ?? ""),
+          );
 
         const changedAcademicChoice =
           !account &&
@@ -2310,7 +2320,7 @@ export const adminRouter = createTRPCRouter({
         const updated = await tx.tutor.update({
           where: { id: input.id },
           data: {
-            ...(explicitNames
+            ...(explicitNames && latinNameChanged
               ? {
                   nameFieldsConfirmed: true,
                   preferredName: explicitNames.preferredName,
@@ -2352,7 +2362,10 @@ export const adminRouter = createTRPCRouter({
               firstName: input.firstName,
               lastName: input.lastName,
               preferredName: input.preferredName,
-              name: explicitNames ? fullPersonName(explicitNames) : undefined,
+              name:
+                explicitNames && latinNameChanged
+                  ? fullPersonName(explicitNames)
+                  : undefined,
               alternativeNames: updated.alternativeNames,
               expectedTutorId: input.id,
             },
@@ -2538,12 +2551,23 @@ export const adminRouter = createTRPCRouter({
               : "STUDENT",
             true,
           );
+          const latinNameChanged = (
+            ["firstName", "lastName", "preferredName"] as const
+          ).some(
+            (key) => (names[key]?.trim() ?? "") !== (before[key]?.trim() ?? ""),
+          );
           input = {
             ...input,
-            ...names,
-            preferredName: names.preferredName ?? undefined,
-            alternativeNames: names.alternativeNames ?? null,
-            englishName: fullPersonName(names),
+            firstName: latinNameChanged ? names.firstName : undefined,
+            lastName: latinNameChanged ? names.lastName : undefined,
+            preferredName: latinNameChanged
+              ? (names.preferredName ?? undefined)
+              : undefined,
+            alternativeNames:
+              input.alternativeNames === undefined
+                ? undefined
+                : (names.alternativeNames ?? null),
+            englishName: latinNameChanged ? fullPersonName(names) : before.englishName,
           };
         }
         if (input.status !== "INACTIVE" && input.status !== before.status)
@@ -4203,6 +4227,9 @@ export const adminRouter = createTRPCRouter({
         .map((u) => ({
           id: u.id,
           name: u.name ?? u.username ?? "—",
+          // Keep the legacy name/sort projection; expose its current source for display-only fallbacks.
+          canonicalName: u.name,
+          username: u.username,
           tutor: u.tutor?.englishName ?? null,
           crewOnly: u.role === "CREW",
           status: u.crewStatus ?? "INACTIVE",
@@ -4354,6 +4381,8 @@ export const adminRouter = createTRPCRouter({
       id: r.id,
       kind: r.kind,
       member: r.user.name ?? r.user.username ?? "—",
+      canonicalName: r.user.name,
+      username: r.user.username,
       // Withhold the member-entered request reason from VIEWER.
       reason: isViewer ? null : r.reason,
       eligibleAt: r.eligibleAt,

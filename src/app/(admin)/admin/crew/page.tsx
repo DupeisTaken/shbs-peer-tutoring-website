@@ -1,4 +1,5 @@
 "use client";
+import { participantNameLabel } from "~/app/_components/participant-name";
 import { EmailDetails } from "~/app/_components/email-details";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -36,6 +37,8 @@ import {
 export default function CrewPage() {
   const programFormat = useFormatter();
   const t = useTranslations();
+  const nameFor = (name: string | null | undefined, username?: string | null) =>
+    participantNameLabel(name, username, t("participantNames.unnamed"));
   const readOnly = useReadOnly();
   const review = useActionReview();
   const utils = api.useUtils();
@@ -267,7 +270,9 @@ export default function CrewPage() {
                     key={a.id}
                     className="flex flex-wrap items-center gap-3 py-3 text-sm"
                   >
-                    <span className="font-medium text-slate-800">{a.name}</span>
+                    <span className="font-medium text-slate-800">
+                      {nameFor(a.name)}
+                    </span>
                     {a.gradeLevel != null && (
                       <span className="badge-slate">G{a.gradeLevel}</span>
                     )}
@@ -276,10 +281,14 @@ export default function CrewPage() {
                         {a.preferredContact}
                       </span>
                     )}
-                    <EmailDetails contactOnly email={a.email} name={a.name} />
+                    <EmailDetails
+                      contactOnly
+                      email={a.email}
+                      name={nameFor(a.name)}
+                    />
                     {a.message && (
                       <TableDetails
-                        title={`${t("admin.crew.originalApplication")} · ${a.name}`}
+                        title={`${t("admin.crew.originalApplication")} · ${nameFor(a.name)}`}
                         longReader
                       >
                         <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
@@ -306,7 +315,10 @@ export default function CrewPage() {
                             onClick={() =>
                               openReview("applications", {
                                 key: a.id + ":application",
-                                title: t("admin.crew.accept") + " · " + a.name,
+                                title:
+                                  t("admin.crew.accept") +
+                                  " · " +
+                                  nameFor(a.name),
                                 description: t(
                                   "actionReview.crewApplicationHelp",
                                 ),
@@ -346,7 +358,10 @@ export default function CrewPage() {
                             onClick={() =>
                               openReview("applications", {
                                 key: a.id + ":application",
-                                title: t("admin.crew.reject") + " · " + a.name,
+                                title:
+                                  t("admin.crew.reject") +
+                                  " · " +
+                                  nameFor(a.name),
                                 description: t(
                                   "actionReview.crewApplicationHelp",
                                 ),
@@ -444,7 +459,12 @@ export default function CrewPage() {
                     className="flex flex-wrap items-center gap-3 py-3 text-sm"
                   >
                     <span className="font-medium text-slate-800">
-                      {r.member}
+                      {nameFor(
+                        r.canonicalName === undefined
+                          ? r.member
+                          : r.canonicalName,
+                        r.username,
+                      )}
                     </span>
                     <span
                       className={
@@ -455,7 +475,7 @@ export default function CrewPage() {
                     </span>
                     {r.reason && (
                       <TableDetails
-                        title={`${t("admin.crew.originalRequest")} · ${r.member}`}
+                        title={`${t("admin.crew.originalRequest")} · ${nameFor(r.canonicalName === undefined ? r.member : r.canonicalName, r.username)}`}
                         longReader
                       >
                         <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
@@ -490,7 +510,15 @@ export default function CrewPage() {
                           onClick={() =>
                             openReview("requests", {
                               key: r.id + ":request",
-                              title: t("admin.crew.approve") + " · " + r.member,
+                              title:
+                                t("admin.crew.approve") +
+                                " · " +
+                                nameFor(
+                                  r.canonicalName === undefined
+                                    ? r.member
+                                    : r.canonicalName,
+                                  r.username,
+                                ),
                               description: t("actionReview.crewRequestHelp"),
                               details: (
                                 <div className="space-y-2">
@@ -529,7 +557,15 @@ export default function CrewPage() {
                           onClick={() =>
                             openReview("requests", {
                               key: r.id + ":request",
-                              title: t("admin.crew.deny") + " · " + r.member,
+                              title:
+                                t("admin.crew.deny") +
+                                " · " +
+                                nameFor(
+                                  r.canonicalName === undefined
+                                    ? r.member
+                                    : r.canonicalName,
+                                  r.username,
+                                ),
                               description: t("actionReview.crewRequestHelp"),
                               details: (
                                 <div className="space-y-2">
@@ -684,7 +720,12 @@ export default function CrewPage() {
                     >
                       <td>
                         <span className="font-medium text-slate-800">
-                          {u.name}
+                          {nameFor(
+                            u.canonicalName === undefined
+                              ? u.name
+                              : u.canonicalName,
+                            u.username,
+                          )}
                         </span>
                       </td>
                       <td>
@@ -705,7 +746,14 @@ export default function CrewPage() {
                       <td className="text-right">{u.hours.toFixed(1)} h</td>
                       <TableActions>
                         {/* Membership context and status changes share the trailing text-link entry point. */}
-                        <TableDetails title={u.name}>
+                        <TableDetails
+                          title={nameFor(
+                            u.canonicalName === undefined
+                              ? u.name
+                              : u.canonicalName,
+                            u.username,
+                          )}
+                        >
                           <p>
                             {t(
                               u.tutor
@@ -747,7 +795,12 @@ export default function CrewPage() {
                                   openReview("roster", {
                                     key: u.id + ":membership",
                                     title: t("actionReview.crewEnableTitle", {
-                                      name: u.name,
+                                      name: nameFor(
+                                        u.canonicalName === undefined
+                                          ? u.name
+                                          : u.canonicalName,
+                                        u.username,
+                                      ),
                                     }),
                                     description: t(
                                       "actionReview.crewEnableHelp",
@@ -781,7 +834,12 @@ export default function CrewPage() {
                                   openReview("roster", {
                                     key: u.id + ":membership",
                                     title: t("actionReview.crewDisableTitle", {
-                                      name: u.name,
+                                      name: nameFor(
+                                        u.canonicalName === undefined
+                                          ? u.name
+                                          : u.canonicalName,
+                                        u.username,
+                                      ),
                                     }),
                                     description: t(
                                       "actionReview.crewDisableHelp",
@@ -816,7 +874,12 @@ export default function CrewPage() {
                                   openReview("roster", {
                                     key: u.id + ":delete",
                                     title: t("admin.crew.deleteConfirm", {
-                                      name: u.name,
+                                      name: nameFor(
+                                        u.canonicalName === undefined
+                                          ? u.name
+                                          : u.canonicalName,
+                                        u.username,
+                                      ),
                                     }),
                                     description: t(
                                       "actionReview.crewDeleteHelp",

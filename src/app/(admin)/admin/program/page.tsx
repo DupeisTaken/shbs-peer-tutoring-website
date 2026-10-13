@@ -58,9 +58,9 @@ function ProgramSettingsPage() {
   const router = useRouter();
   const verified = useSessionViewVerified();
   const explicitPanel = viewEnum(programPanels)(params.get("panel"));
-  const [remembered, remember] = useSessionViewState({
+  const [remembered, remember] = useSessionViewState<ProgramPanel>({
     id: "program-panel-v1",
-    initialState: "period" as ProgramPanel,
+    initialState: "period",
     parse: viewEnum(programPanels),
     enabled: !denied,
   });

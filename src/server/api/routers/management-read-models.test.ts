@@ -607,3 +607,53 @@ it("preserves explicit Viewer oversight of published policies and announcements"
     { body: "Published policy", updatedBy: { name: "Staff", email: null } },
   ]);
 });
+it("projects current crew name sources and handles without changing legacy labels or exposing private fields", () => {
+  const source = {
+    id: "crew",
+    name: "  ",
+    canonicalName: "  ",
+    username: "crew.handle",
+    tutor: null,
+    crewOnly: true,
+    status: "ACTIVE",
+    patrols: 0,
+    hours: 0,
+    passwordHash: PRIVATE,
+  };
+  expect(projectManagementRead("admin.crewRoster", [source])).toEqual([
+    {
+      id: "crew",
+      name: "  ",
+      canonicalName: "  ",
+      username: "crew.handle",
+      tutor: null,
+      crewOnly: true,
+      status: "ACTIVE",
+      patrols: 0,
+      hours: 0,
+    },
+  ]);
+  expect(
+    projectManagementRead("admin.crewRequests", [
+      {
+        id: "request",
+        kind: "OPT_OUT",
+        member: "—",
+        canonicalName: null,
+        username: null,
+        reason: PRIVATE,
+        privateEvidence: PRIVATE,
+      },
+    ]),
+  ).toEqual([
+    {
+      id: "request",
+      kind: "OPT_OUT",
+      member: "—",
+      canonicalName: null,
+      username: null,
+      reason: null,
+    },
+  ]);
+  expect(source.name).toBe("  ");
+});

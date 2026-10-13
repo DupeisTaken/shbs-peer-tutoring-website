@@ -63,6 +63,8 @@ function view(
 beforeEach(() => window.sessionStorage.clear());
 afterEach(() => {
   cleanup();
+  // A failed expectation must not leave another #admin-content owner for the next case.
+  document.querySelectorAll("[data-scroll-fixture]").forEach((pane) => pane.remove());
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -217,6 +219,8 @@ function scrollView(ready = true, enabled = true) {
 }
 function scrollFixture(width = 1440, contentHeight = 2200) {
   vi.useFakeTimers();
+  const scheduledTimers = vi.spyOn(globalThis, "setTimeout");
+  const cancelledTimers = vi.spyOn(globalThis, "clearTimeout");
   Object.defineProperty(window, "innerWidth", {
     configurable: true,
     value: width,
@@ -236,6 +240,7 @@ function scrollFixture(width = 1440, contentHeight = 2200) {
   document.documentElement.scrollTop = 0;
   const pane = document.createElement("main");
   pane.id = "admin-content";
+  pane.dataset.scrollFixture = "true";
   const content = document.createElement("section");
   pane.append(content);
   document.body.append(pane);
@@ -276,6 +281,18 @@ function scrollFixture(width = 1440, contentHeight = 2200) {
     content,
     observed,
     disconnected: () => disconnected,
+    // JSDOM/React can queue their own timers. Prove cancellation of the hook's
+    // actual five-second recovery handle instead of asserting a global empty queue.
+    recoveryTimersCleared: () => {
+      const recovery = scheduledTimers.mock.calls.flatMap((call, index) =>
+        call[1] === 5000 ? [index] : [],
+      );
+      return recovery.length > 0 && recovery.every((index) =>
+        cancelledTimers.mock.calls.some(([handle]) =>
+          handle === scheduledTimers.mock.results[index]?.value,
+        ),
+      );
+    },
     pendingFrames: () => frames.size,
     setHeight: (value: number) => {
       height = value;
@@ -342,7 +359,7 @@ it("corrects a late framework reset after first fit without saving zero, then le
   expect(fixture.pane.scrollTop).toBe(540);
   expect(window.sessionStorage.getItem(scrollKey("desktop"))).toBe("540");
   rendered.unmount();
-  expect(vi.getTimerCount()).toBe(0);
+  expect(fixture.recoveryTimersCleared()).toBe(true);
   expect(fixture.pendingFrames()).toBe(0);
   expect(fixture.disconnected()).toBeGreaterThan(0);
   fixture.remove();
@@ -356,7 +373,7 @@ it("flushes the last valid restored position when exit precedes a late-reset cor
   fireEvent.scroll(fixture.pane);
   rendered.unmount();
   expect(window.sessionStorage.getItem(scrollKey("desktop"))).toBe("700");
-  expect(vi.getTimerCount()).toBe(0);
+  expect(fixture.recoveryTimersCleared()).toBe(true);
   expect(fixture.pendingFrames()).toBe(0);
   fixture.resizeContent();
   fixture.frames();
