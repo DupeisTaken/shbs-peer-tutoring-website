@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { courseName } from "~/lib/course-catalogue";
@@ -208,6 +209,8 @@ export default function SubjectsPage() {
   const groups = api.admin.courseGroups.useQuery();
   const levels = api.admin.subjectLevels.useQuery();
   const variants = api.admin.subjects.useQuery();
+  const denied = useSessionAccessDenied(groups, levels, variants);
+  const viewReady = !!groups.data && !!levels.data && !!variants.data;
   const [editing, setEditing] = useState<string | null>(null);
   const [newLevel, setNewLevel] = useState("");
   const [importMessage, setImportMessage] = useState("");
@@ -274,6 +277,7 @@ export default function SubjectsPage() {
   ].filter(Boolean);
   const importFailure =
     importError ?? importSubjects.error?.message ?? importGroups.error?.message;
+  if (denied) return <p role="alert">{groups.error?.message ?? levels.error?.message ?? variants.error?.message ?? t("loading")}</p>;
   return (
     <div className="space-y-6">
       {!readOnly && review.dialog}
@@ -444,6 +448,9 @@ export default function SubjectsPage() {
         )}
       </section>
       <CourseCatalogueTable
+        viewReady={viewReady}
+        viewEnabled={!denied}
+        ownsPageScroll
         subjects={[...(variants.data ?? [])].sort((a, b) =>
           a.name.localeCompare(b.name),
         )}

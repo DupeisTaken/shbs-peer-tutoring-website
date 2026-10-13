@@ -26,6 +26,8 @@ import { formatWeekday, minToHm } from "~/lib/time";
 
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
+import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
+import { viewEnum } from "~/lib/session-view-state";
 
 type Row = RouterOutputs["studentWorkflow"]["adminRequests"][number];
 type Tutor = { id: string; englishName: string };
@@ -39,9 +41,13 @@ export type AdditionalRequestEntry = {
 export function StudentRequestBoard({
   additionalEntries = [],
   additionalLoading = false,
+  viewScope = "",
+  viewDenied = false,
 }: {
   additionalEntries?: AdditionalRequestEntry[];
   additionalLoading?: boolean;
+  viewScope?: string;
+  viewDenied?: boolean;
 }) {
   const t = useTranslations("workflow");
   const rows = api.studentWorkflow.adminRequests.useQuery(undefined, {
@@ -52,10 +58,15 @@ export function StudentRequestBoard({
   const legacyProcessed = (legacyReviews.data ?? []).filter(
     (r) => r.state !== "PENDING",
   );
-  const [tab, setTab] = useState<
-    "matching" | "assigned" | "reviews" | "processed"
-  >("matching");
-  const [invalidity, setInvalidity] = useState<InvalidityFilterValue>("valid");
+  const queryDenied = useSessionAccessDenied(rows, tutors, legacyReviews);
+  const denied = viewDenied || queryDenied;
+  const [tab, setTab] = useSessionViewState({ id: "requests.tab.v1", initialState: "matching",
+    parse: viewEnum(["matching", "assigned", "reviews", "processed"]), scope: viewScope,
+    enabled: !denied, restoreReady: !additionalLoading && !!rows.data && !!legacyReviews.data });
+  const [invalidity, setInvalidity] = useSessionViewState<InvalidityFilterValue>({ id: "requests.invalidity.v1", initialState: "valid",
+    parse: viewEnum(["valid", "invalid", "all"]), scope: viewScope, enabled: !denied });
+  useSessionPageScroll({ id: "requests", scope: JSON.stringify([viewScope, tab, invalidity]),
+    ready: !additionalLoading && !!rows.data && !!tutors.data && !!legacyReviews.data, enabled: !denied });
   const matchingValidity = (invalid: boolean) =>
     invalidity === "all" || invalid === (invalidity === "invalid");
   const visibleRows = (rows.data ?? []).filter((row) =>
@@ -93,6 +104,7 @@ export function StudentRequestBoard({
     ],
     processed: visibleRows.filter((r) => r.state !== "OPEN"),
   };
+  if (denied) return <p role="alert">{rows.error?.message ?? legacyReviews.error?.message ?? tutors.error?.message ?? t("loadFailed")}</p>;
   return (
     <RequestInvalidityHost>
       <section className="space-y-4">

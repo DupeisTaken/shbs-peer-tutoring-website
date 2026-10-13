@@ -45,5 +45,6 @@ it("shows both offsets across a DST range while submitting the same program-day 
       from: new Date("2026-03-07T05:00:00Z"),
       until: new Date("2026-03-10T04:00:00Z"),
     }),
+    expect.objectContaining({ from: "2026-03-07", until: "2026-03-09" }),
   );
 });

@@ -11,9 +11,12 @@ import {
   SessionViewProvider,
   useSessionViewState,
   useSessionPageScroll,
+  useSessionAccessDenied,
 } from "./session-view-state";
 import {
   viewEnum,
+  viewFields,
+  viewPage,
   viewStateKey,
   writeViewState,
 } from "~/lib/session-view-state";
@@ -64,6 +67,32 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   window.history.replaceState(null, "", "/");
+});
+
+it("normalizes a feature field allowlist in storage instead of reviving removed choices later", () => {
+  const key = viewStateKey("head", "/admin/tutees", "fields-v1", "");
+  writeViewState(window.sessionStorage, key, { tab: "current", page: 2, unknownPrivateDraft: "private" });
+  function Fields() {
+    const [state] = useSessionViewState({ id: "fields-v1", initialState: { tab: "current", page: 0 }, parse: viewFields({ tab: parse, page: viewPage }) });
+    return <p>{state.tab}:{state.page}</p>;
+  }
+  render(<SessionViewProvider identity="head" pathname="/admin/tutees" verified><Fields /></SessionViewProvider>);
+  expect(screen.getByText("current:2")).toBeTruthy();
+  expect(JSON.parse(window.sessionStorage.getItem(key)!)).toEqual({ tab: "current", page: 2 });
+});
+
+it("holds an authoritative query denial through transport failures until a fresh successful read", () => {
+  function Denial({ code, success = false }: { code?: string; success?: boolean }) {
+    const denied = useSessionAccessDenied({ error: code ? { data: { code } } : null, isSuccess: success, isFetching: false });
+    return <p>{denied ? "denied" : "authorized"}</p>;
+  }
+  const panel = render(<Denial success />);
+  panel.rerender(<Denial code="FORBIDDEN" />);
+  expect(screen.getByText("denied")).toBeTruthy();
+  panel.rerender(<Denial code="INTERNAL_SERVER_ERROR" />);
+  expect(screen.getByText("denied")).toBeTruthy();
+  panel.rerender(<Denial success />);
+  expect(screen.getByText("authorized")).toBeTruthy();
 });
 
 it("restores an explicit tab across remounts without saving a private form draft", () => {

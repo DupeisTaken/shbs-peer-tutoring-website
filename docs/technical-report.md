@@ -260,6 +260,11 @@ privacy curtain; it adds no identity requests. Every returned choice passes its
 current feature allowlist. Denied/removed features clear their remembered choices.
 Dynamic catalogs use the separate `restoreReady` gate so empty loading options
 cannot erase saved room/period IDs before the authorized choices arrive.
+Named `viewFields` parsers normalize the stored representation as well as the
+rendered value. `useSessionAccessDenied` holds an authoritative query denial through
+later transport failures until fresh successful reads, while the feature hides its
+cached denied content. Both are presentation helpers; procedure permissions remain
+authoritative.
 The bounded [storage helpers](../src/lib/session-view-state.ts) reject nested record
 payloads and long bodies, retain at most 100 presentation entries, and degrade
 gracefully when storage is blocked. These structural limits supplement explicit
@@ -274,6 +279,18 @@ animation frame. It does not alter Next history state, global scroll restoration
 table/dialog/sidebar position, form drafts or server permissions. Explicit tutee
 URL views remain authoritative; a verified bare workspace return may recall the
 previous view. Gallery filters and participant/inbox adapters reuse the same API.
+Management adapters cover application/interview read criteria, request panels and
+invalidity, discrepancy state, subject-availability filters, course-catalogue filters,
+applied audit criteria, approval URL criteria, signup-form panels, landing/policy
+languages, supervision visibility/page and applied academic-correction criteria.
+Creation fields, bulk selections, review notes, private message searches, tokens and
+opened editor sets are excluded. Lazy landing panels report selected-query readiness;
+policy locale restoration includes existing translations only. The dashboard and
+record-transfer shell register position after their authorized server reads; Activity
+uses its feature-dependent required queries, and account position waits for its
+mounted identity, email, departure and policy sections. This coverage describes these
+owners, not a generic layout restoration rule. Remaining management owners are
+integrated separately, and actual Next navigation evidence verifies framework scrolling.
 Behavioral coverage is in `session-view-state.test.tsx`, the pure storage tests and
 the existing identity-cache/privacy tests; actual page screenshots remain separate
 from these mocked layout checks.

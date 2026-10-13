@@ -20,6 +20,7 @@ import {
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
 import { getQueryKey } from "@trpc/react-query";
 
 import { api } from "~/trpc/react";
@@ -381,6 +382,8 @@ function PolicyCard({
   readOnly,
   onSaved,
   archivesReady,
+  rememberedLocale,
+  onRememberLocale,
 }: {
   slug: string;
   byLocale: Map<string, PolicyDoc>;
@@ -389,6 +392,8 @@ function PolicyCard({
   readOnly: boolean;
   onSaved: () => Promise<unknown>;
   archivesReady: boolean;
+  rememberedLocale?: string;
+  onRememberLocale: (locale: string) => void;
 }) {
   const t = useTranslations();
   const { confirm, dialog } = useDialog();
@@ -432,10 +437,13 @@ function PolicyCard({
   const notAdded = codes.filter((c) => !available.includes(c));
 
   const [active, setActive] = useState<string>(() =>
-    byLocale.has(DEFAULT_LOCALE)
+    rememberedLocale ?? (byLocale.has(DEFAULT_LOCALE)
       ? DEFAULT_LOCALE
-      : (existing.find((locale) => byLocale.has(locale)) ?? DEFAULT_LOCALE),
+      : (existing.find((locale) => byLocale.has(locale)) ?? DEFAULT_LOCALE)),
   );
+  useEffect(() => {
+    if (rememberedLocale) setActive(rememberedLocale);
+  }, [rememberedLocale]);
   const [visited, setVisited] = useState<string[]>([]);
   const [busyLocales, setBusyLocales] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -452,6 +460,8 @@ function PolicyCard({
   const changeLocale = (locale: string) => {
     setVisited((previous) => [...new Set([...previous, active, locale])]);
     setActive(locale);
+    // A newly added language owns an unsaved form; do not reopen it on return.
+    if (existing.includes(locale)) onRememberLocale(locale);
   };
   // English title is the friendliest label for the group header.
   const heading =
@@ -730,6 +740,21 @@ export default function PoliciesPage() {
     return m;
   }, [archives.data]);
 
+  const [rememberedLocales, setRememberedLocales] = useSessionViewState<Record<string, string>>({
+    id: "policies.locales.v1", initialState: {}, enabled: !policyDenied,
+    restoreReady: policies.data !== undefined && languages.data !== undefined,
+    parse: (value) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return;
+      return Object.fromEntries(Object.entries(value).filter(([slug, locale]) => {
+        const policy = groups.get(slug);
+        return policy && typeof locale === "string" && (locale === DEFAULT_LOCALE || policy.has(locale));
+      }).slice(-20)) as Record<string, string>;
+    },
+  });
+  useSessionPageScroll({ id: "policies", scope: JSON.stringify(rememberedLocales),
+    ready: policies.data !== undefined && archives.data !== undefined && languages.data !== undefined,
+    enabled: !policyDenied && !archiveDenied });
+
   return (
     <div className="space-y-6">
       <div>
@@ -846,6 +871,8 @@ export default function PoliciesPage() {
           readOnly={readOnly}
           onSaved={invalidate}
           archivesReady={archives.data !== undefined && !archiveDenied}
+          rememberedLocale={rememberedLocales[slug]}
+          onRememberLocale={(locale) => setRememberedLocales((previous) => ({ ...previous, [slug]: locale }))}
         />
       ))}
       {groups.size === 0 &&

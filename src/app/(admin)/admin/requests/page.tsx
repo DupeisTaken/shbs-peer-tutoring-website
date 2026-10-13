@@ -16,6 +16,8 @@ import {
 } from "~/app/_components/request-invalidity";
 
 import { useEffect, useId, useMemo, useState } from "react";
+import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
+import { viewEnum } from "~/lib/session-view-state";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import {
   isCurrentManualSignup,
@@ -437,8 +439,6 @@ export default function RequestsPage() {
   const t = useTranslations();
   const utils = api.useUtils();
   const readOnly = useReadOnly();
-  const [observerInvalidity, setObserverInvalidity] =
-    useState<InvalidityFilterValue>("valid");
   const tutees = api.admin.tutees.useQuery();
   const managed = api.studentWorkflow.adminRequests.useQuery(undefined, {
     enabled: !readOnly,
@@ -448,6 +448,14 @@ export default function RequestsPage() {
     staleTime: REFERENCE_STALE_TIME,
   });
   const pairings = api.admin.pairings.useQuery();
+  const denied = useSessionAccessDenied(tutees, tutors, currentPeriod, pairings, ...(readOnly ? [] : [managed]));
+  const viewScope = currentPeriod.data?.termId ?? "no-active-period";
+  const [observerInvalidity, setObserverInvalidity] = useSessionViewState<InvalidityFilterValue>({
+    id: "requests.observer-invalidity.v1", initialState: "valid", parse: viewEnum(["valid", "invalid", "all"]),
+    enabled: readOnly && !denied, restoreReady: !currentPeriod.isLoading, scope: viewScope,
+  });
+  useSessionPageScroll({ id: "requests-observer", scope: JSON.stringify([viewScope, observerInvalidity]),
+    ready: !!tutees.data && !!tutors.data && !!pairings.data && !currentPeriod.isLoading, enabled: readOnly && !denied });
 
   const invalidate = () =>
     Promise.all([
@@ -523,6 +531,7 @@ export default function RequestsPage() {
     return provided.length > 0 && provided.every((c) => assigned.has(c));
   };
 
+  if (denied) return <p role="alert">{tutees.error?.message ?? tutors.error?.message ?? currentPeriod.error?.message ?? pairings.error?.message ?? managed.error?.message ?? t("uiPatterns.loadFailed")}</p>;
   return (
     <div className="space-y-6">
       <div>
@@ -544,6 +553,8 @@ export default function RequestsPage() {
       )}
       {!readOnly ? (
         <StudentRequestBoard
+          viewScope={viewScope}
+          viewDenied={denied}
           additionalLoading={
             tutees.isLoading ||
             managed.isLoading ||

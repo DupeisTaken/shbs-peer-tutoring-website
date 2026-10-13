@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
+import { viewEnum } from "~/lib/session-view-state";
 import { useTranslations } from "next-intl";
 import { FieldDialog } from "~/app/_components/signup-field-dialog";
 import { api } from "~/trpc/react";
@@ -18,7 +20,9 @@ export default function SignupFormsPage() {
   const approvals = useTranslations("approvals");
   const query = api.program.signupFieldSettings.useQuery();
   const utils = api.useUtils();
-  const [form, setForm] = useState<SignupFormKind>("tutee");
+  const denied = useSessionAccessDenied(query);
+  const [form, setForm] = useSessionViewState<SignupFormKind>({ id: "signup-forms.form.v1", initialState: "tutee", parse: viewEnum(["tutee", "tutor"]), enabled: !denied });
+  useSessionPageScroll({ id: "signup-forms", scope: form, ready: !!query.data, enabled: !denied });
   const [edit, setEdit] = useState<{ field: string; state: FieldState } | null>(
     null,
   );
@@ -38,7 +42,7 @@ export default function SignupFormsPage() {
     },
   });
   if (query.isLoading) return <p role="status">{t("loading")}</p>;
-  if (!query.data)
+  if (denied || !query.data)
     return (
       <div className="card space-y-3 p-5">
         <p role="alert">{query.error?.message ?? t("loadFailed")}</p>

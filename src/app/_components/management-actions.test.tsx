@@ -12,6 +12,8 @@ import SuperJSON from "superjson";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { ManagementActions } from "./management-actions";
+import { SessionViewProvider } from "./session-view-state";
+import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 
 const mocks = vi.hoisted(() => ({
   params: "",
@@ -123,6 +125,7 @@ function queue(
     },
     refetch: mocks.refetch,
     isFetching,
+    isSuccess: true,
   });
 }
 function view(reviewer = false, locale = "en") {
@@ -137,6 +140,7 @@ function view(reviewer = false, locale = "en") {
   );
 }
 beforeEach(() => {
+  window.sessionStorage.clear();
   vi.clearAllMocks();
   mocks.params = "";
   mocks.decisionState = {};
@@ -144,6 +148,40 @@ beforeEach(() => {
   queue();
 });
 afterEach(cleanup);
+
+it("restores the reviewer list, gives explicit URL criteria precedence, and clears it on access denial", () => {
+  queue([row()], true, 100);
+  const key = viewStateKey("head", "/admin/approvals", "approvals.list.v1", "reviewer");
+  writeViewState(window.sessionStorage, key, { state: "APPROVED", page: 2, requesterId: "coordinator", privateNote: "do not copy" });
+  const tree = () => <SessionViewProvider identity="head" pathname="/admin/approvals" verified>{view(true)}</SessionViewProvider>;
+  const panel = render(tree());
+  expect(mocks.list).toHaveBeenLastCalledWith(expect.objectContaining({ state: "APPROVED", page: 2, requesterId: "coordinator" }));
+  expect(JSON.stringify(window.sessionStorage)).not.toContain("do not copy");
+  mocks.params = "status=all";
+  panel.rerender(tree());
+  expect(mocks.list).toHaveBeenLastCalledWith(expect.objectContaining({ state: undefined, page: 0, requesterId: undefined }));
+  mocks.params = "status=PENDING&page=1&requester=coordinator";
+  panel.rerender(tree());
+  expect(mocks.list).toHaveBeenLastCalledWith(expect.objectContaining({ state: "PENDING", page: 1, requesterId: "coordinator" }));
+  const cached = mocks.list.mock.results.at(-1)!.value;
+  mocks.list.mockReturnValue({ ...cached, error: { message: "Denied", data: { code: "FORBIDDEN" } }, isSuccess: false });
+  panel.rerender(tree());
+  expect(screen.getByRole("alert").textContent).toBe("Denied");
+  expect(screen.queryByText("Alex Coordinator")).toBeNull();
+  expect(window.sessionStorage.getItem(key)).toBeNull();
+  mocks.list.mockReturnValue({ ...cached, error: { message: "Offline" }, isSuccess: false });
+  panel.rerender(tree());
+  expect(screen.queryByText("Alex Coordinator")).toBeNull();
+});
+
+it("rejects saved requesters removed from the current authorized catalogue", () => {
+  queue([row()], true);
+  writeViewState(window.sessionStorage, viewStateKey("head", "/admin/approvals", "approvals.list.v1", "reviewer"),
+    { state: "APPROVED", page: 1, requesterId: "removed-user" });
+  render(<SessionViewProvider identity="head" pathname="/admin/approvals" verified>{view(true)}</SessionViewProvider>);
+  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: en.approvals.requester }).value).toBe("");
+  expect(mocks.list).toHaveBeenLastCalledWith(expect.objectContaining({ requesterId: undefined }));
+});
 
 it("shows departure consequences to Head without exposing the revision counter", () => {
   const departure = {
