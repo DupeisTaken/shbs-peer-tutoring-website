@@ -3,11 +3,17 @@ import { signupIngress, signupLane } from "./signup-ingress";
 import { signupNetwork, signupBurst } from "./signup-admission";
 
 afterEach(() => vi.unstubAllEnvs());
+it("classifies the public name-field configuration as a bounded signup read", () => {
+  expect(signupLane("program.nameFieldPolicy")).toBe("read");
+  expect(signupLane("program.nameFieldsForProfile")).toBeNull();
+});
 it("forwards a framework-proxied POST with its body, credentials and abort signal", async () => {
   const controller = new AbortController();
   const original = new Request("http://localhost/api/trpc/program.setCaptcha", {
-    method: "POST", headers: { cookie: "session=test", "content-type": "application/json" },
-    body: '{"enabled":true}', signal: controller.signal,
+    method: "POST",
+    headers: { cookie: "session=test", "content-type": "application/json" },
+    body: '{"enabled":true}',
+    signal: controller.signal,
   });
   const proxied = new Proxy(original, {
     get: (target, key) => Reflect.get(target, key, target) as unknown,
@@ -54,12 +60,26 @@ it("classifies the legacy alias and reserves completion separately", () => {
   expect(signupLane("crew.applicationStatus")).toBe("read");
   expect(signupLane("account.resetPassword")).toBeNull();
 });
-it.each(["crew.submitApplication", "crew.requestStatus", "crew.verifyApplication", "crew.applicationStatus"])("bounds %s request bodies before auth and durable business work", async (path) => {
-  const handle = vi.fn(async () => new Response("ok"));
-  const response = await signupIngress(new Request(`http://localhost/api/trpc/${path}`, { method: "POST", body: "x".repeat(32_769) }), handle);
-  expect(response.status).toBe(413);
-  expect(handle).not.toHaveBeenCalled();
-});
+it.each([
+  "crew.submitApplication",
+  "crew.requestStatus",
+  "crew.verifyApplication",
+  "crew.applicationStatus",
+])(
+  "bounds %s request bodies before auth and durable business work",
+  async (path) => {
+    const handle = vi.fn(async () => new Response("ok"));
+    const response = await signupIngress(
+      new Request(`http://localhost/api/trpc/${path}`, {
+        method: "POST",
+        body: "x".repeat(32_769),
+      }),
+      handle,
+    );
+    expect(response.status).toBe(413);
+    expect(handle).not.toHaveBeenCalled();
+  },
+);
 it("rejects oversized declared and chunked bodies and batches before the handler", async () => {
   const handle = vi.fn(async () => new Response("ok"));
   const request = (path: string, body: string) =>

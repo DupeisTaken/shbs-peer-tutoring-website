@@ -28,9 +28,12 @@ vi.mock("next-intl", () => ({
   useTimeZone: () => "Asia/Shanghai",
   useTranslations: () => (key: string) => key,
 }));
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(),
       profilePolicy: {
         useQuery: () => ({
           data: {

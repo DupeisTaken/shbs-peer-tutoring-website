@@ -199,7 +199,8 @@
     "ownInbox": "Your inbox",
     "replyContext": "Replying to {name}",
     "cancelReply": "Cancel Reply",
-    "replyDraftHelp": "Your previous draft is kept while you reply. Cancelling keeps this reply draft on this page."
+    "replyDraftHelp": "Your previous draft is kept while you reply. Cancelling keeps this reply draft on this page.",
+    "permissionsDestination": "Messaging permissions in Program Settings"
   },
   "common": {
     "cancel": "Cancel",
@@ -781,7 +782,7 @@
       }
     },
     "program": {
-      "title": "Program & Refresh",
+      "title": "Program Settings",
       "subtitle": "The current period and the quarterly refresh that rolls the program over.",
       "loading": "Loading…",
       "noPeriod": "No active program period. Seed or create one first.",
@@ -848,10 +849,10 @@
         }
       },
       "panels": {
-        "period": "Period & recruitment",
-        "people": "People & signup",
-        "communication": "Communication",
-        "access": "Access & modules"
+        "period": "Recruitment and Refresh",
+        "people": "Account Settings",
+        "communication": "Deployment Configurations",
+        "access": "Optional Features"
       }
     },
     "audit": {
@@ -1134,7 +1135,8 @@
       "addRoom": "Add Room",
       "empty": "No rooms yet.",
       "deleteConsequence": "This removes the room and its blocked periods. Rooms currently used by pairings cannot be deleted.",
-      "deleteRequestConsequence": "This submits a deletion request for management review. The room and its assignments remain unchanged until approval."
+      "deleteRequestConsequence": "This submits a deletion request for management review. The room and its assignments remain unchanged until approval.",
+      "editDetails": "Edit details"
     },
     "courses": {
       "title": "Subjects & Levels",
@@ -2708,7 +2710,8 @@
     "feedbackVisibilityLoading": "Checking who can read feedback…",
     "feedbackVisibilityUnavailable": "We could not verify who can read feedback. Try again to check its visibility.",
     "pagination": "Pagination",
-    "page": "Page {page}"
+    "page": "Page {page}",
+    "calendarDestination": "School calendar in Program Settings"
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -3270,7 +3273,11 @@
         "admin_setUserRole": "Change an account management role",
         "admin_revokeRegistrationCode": "Revoke a registration code",
         "messaging_moderate": "Hide or restore a message",
-        "messaging_restrict": "Change an account messaging restriction"
+        "messaging_restrict": "Change an account messaging restriction",
+        "program_setCalendarDay": "Save no-tutoring notice",
+        "program_removeCalendarDay": "Remove no-tutoring notice",
+        "program_setNameFields": "Change name field requirements",
+        "admin_reorderRooms": "Reorder program rooms"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -3921,7 +3928,8 @@
     "showAlternateNames": "Show names in another language",
     "alternateDisplayHint": "Show the additional name alongside the main name when provided.",
     "latinRule": "First, last and preferred names use Latin letters. Accents, spaces, apostrophes and hyphens are allowed.",
-    "displayPreview": "Display preview"
+    "displayPreview": "Display preview",
+    "nameFieldsRequired": "Complete the currently required name fields. Refresh the form if requirements changed."
   },
   "recordTransfer": {
     "title": "Program Records",
@@ -4187,7 +4195,8 @@
     "preferredNameHelp": "The name you would like us to use instead of your first name. Use Latin letters.",
     "alternativeNamesHelp": "Your name in another language or writing system, such as 张小明.",
     "legacyPreserved": "Previously recorded name: {name}. Leave the Latin name fields unchanged to keep it. Enter a first name to replace it.",
-    "legacy": "Previously recorded name: {name}. Enter your first and last names separately to update this profile."
+    "legacy": "Previously recorded name: {name}. Enter your first and last names separately to update this profile.",
+    "hiddenRetained": "Hidden from participant forms and display names; retained here for authorized management."
   },
   "registrationFlow": {
     "progressTitle": "Registration Progress",
@@ -4547,5 +4556,89 @@
     "blur": "Changes save when you leave this field.",
     "form": "Save applies to this form only.",
     "layout": "Save applies to this layout only."
+  },
+  "programCalendar": {
+    "title": "No-tutoring dates",
+    "informational": "Informational program dates and reasons. These notices do not restrict attendance or change the school-day calendar used by appeals.",
+    "refresh": "Refresh",
+    "reload": "Reload draft",
+    "loadFailed": "Could not load tutoring notices.",
+    "loading": "Loading tutoring notices…",
+    "add": "Add date",
+    "date": "Date",
+    "reason": "Reason",
+    "actions": "Actions",
+    "edit": "Edit notice",
+    "remove": "Remove notice",
+    "removeTitle": "Remove tutoring notice",
+    "removeHelp": "Remove this informational notice. Attendance and school-day rules are unchanged.",
+    "empty": "No tutoring notices.",
+    "save": "Save notice",
+    "saving": "Saving…",
+    "saved": "Notice saved.",
+    "saveFailed": "Could not save the notice.",
+    "refreshFailed": "The notice was saved, but the latest list could not be loaded. Refresh to synchronize without saving again."
+  },
+  "roomOrder": {
+    "title": "Room display order",
+    "help": "Arrange the program's room lists and schedules. Crew patrol order is managed separately.",
+    "room": "Room",
+    "actions": "Actions",
+    "up": "Move up",
+    "down": "Move down",
+    "moveUpName": "Move {name} up",
+    "moveDownName": "Move {name} down",
+    "save": "Save order",
+    "saving": "Saving…",
+    "saved": "Room order saved.",
+    "reload": "Reload order",
+    "refresh": "Refresh",
+    "loadFailed": "Could not load the latest room order. Your draft was retained.",
+    "refreshFailed": "Order saved, but synchronization failed. Refresh reads the saved order without submitting it again.",
+    "request": "Request room order change"
+  },
+  "roomSchedule": {
+    "rooms": "Rooms to display",
+    "allRooms": "All rooms",
+    "clearRooms": "Clear selection",
+    "allDetails": "Schedule details",
+    "occupied": "Occupied",
+    "noSlot": "—",
+    "legend": "Gray = occupied · × = unavailable · Available = no assignment in a published slot. Details include every authorized record.",
+    "combined": "Combined grid",
+    "individual": "Individual room schedules",
+    "noSelection": "No rooms selected. Choose rooms or select All rooms.",
+    "time": "Time",
+    "detailFilters": "Schedule detail filters",
+    "day": "Weekday",
+    "allDays": "All days",
+    "allSlots": "All slots",
+    "room": "Room",
+    "emptyDetails": "No records match these filters.",
+    "noRoom": "No room assigned",
+    "unconfirmed": "Awaiting schedule confirmation",
+    "outsideCatalog": "Outside the active slot catalog",
+    "allTimes": "All times"
+  },
+  "nameFields": {
+    "title": "Name field requirements",
+    "help": "Configure signup and profile fields by account type. An existing account uses its current role. Hidden names do not contribute to its display label; authorized staff can still review and edit retained values. If no name can be displayed, the account uses its username.",
+    "accountType": "Account type",
+    "summary": "Requirements",
+    "actions": "Actions",
+    "requiredCount": "{count} required",
+    "hiddenCount": "{count} hidden",
+    "configure": "Configure",
+    "loading": "Loading name requirements…",
+    "loadFailed": "Could not load name requirements. Your draft is retained.",
+    "refresh": "Refresh",
+    "reload": "Reload draft",
+    "save": "Save requirements",
+    "saving": "Saving…",
+    "saved": "Name requirements saved.",
+    "refreshFailed": "Requirements saved, but synchronization failed. Refresh reads the saved policy without saving it again."
+  },
+  "participantNames": {
+    "unnamed": "Name not provided"
   }
 }

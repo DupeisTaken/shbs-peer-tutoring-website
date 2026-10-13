@@ -1,6 +1,10 @@
 "use client";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
-import { nameDraft, personNameEdit } from "~/lib/person-name";
+import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
+import {
+  nameDraft,
+  personNameEdit,
+  unsplitLegacyName,
+} from "~/lib/person-name";
 
 import { useEffect, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
@@ -100,6 +104,7 @@ export default function SettingsPage() {
 
   // Profile form — seeded from the loaded profile.
   const [names, setNames] = useState(() => nameDraft());
+  const [namePolicyReady, setNamePolicyReady] = useState(false);
   const [originalNames, setOriginalNames] = useState(() => nameDraft());
   const [legacyName, setLegacyName] = useState<string | null | undefined>();
   const identity = personNameEdit(names, originalNames, legacyName);
@@ -115,7 +120,7 @@ export default function SettingsPage() {
     ) {
       setNames(nameDraft(profile.data));
       setOriginalNames(nameDraft(profile.data));
-      setLegacyName(profile.data?.legacyName ?? profile.data?.englishName);
+      setLegacyName(unsplitLegacyName(profile.data));
       setProfileVersion(profile.data.profileVersion);
     }
   }, [profile.data, profileDirty, profileCommitted, profileReloading]);
@@ -130,7 +135,7 @@ export default function SettingsPage() {
   function adoptProfile(snapshot: RouterOutputs["tutor"]["myProfile"]) {
     setNames(nameDraft(snapshot));
     setOriginalNames(nameDraft(snapshot));
-    setLegacyName(snapshot.legacyName ?? snapshot.englishName);
+    setLegacyName(unsplitLegacyName(snapshot));
     setProfileVersion(snapshot.profileVersion);
     setProfileDirty(false);
   }
@@ -320,7 +325,7 @@ export default function SettingsPage() {
                 if (
                   profileBlocked ||
                   profileAdmission.current ||
-                  (!identity.preserved && !names.firstName.trim())
+                  !namePolicyReady
                 )
                   return;
                 profileAdmission.current = true;
@@ -339,7 +344,7 @@ export default function SettingsPage() {
                     <Button
                       type="submit"
                       variant="primary"
-                      disabled={!identity.preserved && !names.firstName.trim()}
+                      disabled={profileBlocked || !namePolicyReady}
                     >
                       {t(
                         updateProfile.isPending
@@ -366,6 +371,7 @@ export default function SettingsPage() {
                 }
               >
                 <PersonNameFields
+                  onPolicyAvailabilityChange={setNamePolicyReady}
                   value={names}
                   legacyName={legacyName}
                   originalValue={originalNames}

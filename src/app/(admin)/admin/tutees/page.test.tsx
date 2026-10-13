@@ -27,7 +27,7 @@ const mocks = vi.hoisted(() => ({
   pairingFixture: false,
   scheduleConfirmed: true,
 }));
-vi.mock("~/trpc/react", () => {
+vi.mock("~/trpc/react", async () => {
   const empty = { useQuery: () => ({ data: [] }) };
   return {
     api: {
@@ -45,6 +45,9 @@ vi.mock("~/trpc/react", () => {
         };
       },
       program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
         profilePolicy: {
           useQuery: () => ({
             data: { offeredGrades: [9, 12], currentSchoolYear: "26-27" },

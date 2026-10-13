@@ -7,6 +7,7 @@ import { NextIntlClientProvider } from "next-intl";
 import enMessages from "../../../messages/en.json";
 import zhMessages from "../../../messages/zh.json";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { DEFAULT_NAME_FIELDS } from "~/lib/name-field-policy";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { OfferedGradeSelect } from "~/app/_components/profile-policy";
 import { AcademicDetails } from "~/app/_components/academic-profile";
@@ -348,6 +349,9 @@ export function RecipeGallery({
   });
   const [grade, setGrade] = useState("10");
   const [participantSaved, setParticipantSaved] = useState(false);
+  const [namePreview, setNamePreview] = useState<
+    "default" | "optional" | "hidden"
+  >("default");
   const [search, setSearch] = useState("");
   const [activeOnly, setActiveOnly] = useState(false);
   const [reminders, setReminders] = useState(true);
@@ -433,7 +437,50 @@ export function RecipeGallery({
                 className="min-w-0 space-y-4"
               >
                 <div className="max-w-2xl">
+                  <label className="mb-4 block">
+                    <span className="label">
+                      {locale === "zh"
+                        ? "姓名要求示例"
+                        : "Name requirement example"}
+                    </span>
+                    <select
+                      className="input"
+                      value={namePreview}
+                      onChange={(event) =>
+                        setNamePreview(event.target.value as typeof namePreview)
+                      }
+                    >
+                      <option value="default">
+                        {locale === "zh" ? "默认字段" : "Default fields"}
+                      </option>
+                      <option value="optional">
+                        {locale === "zh" ? "全部选填" : "All optional"}
+                      </option>
+                      <option value="hidden">
+                        {locale === "zh"
+                          ? "隐藏名，姓必填"
+                          : "First name hidden, last name required"}
+                      </option>
+                    </select>
+                  </label>
                   <PersonNameFields
+                    states={
+                      namePreview === "default"
+                        ? DEFAULT_NAME_FIELDS
+                        : namePreview === "optional"
+                          ? {
+                              firstName: "optional",
+                              lastName: "optional",
+                              preferredName: "optional",
+                              alternativeNames: "optional",
+                            }
+                          : {
+                              firstName: "hidden",
+                              lastName: "required",
+                              preferredName: "hidden",
+                              alternativeNames: "optional",
+                            }
+                    }
                     value={name}
                     onChange={(value) => {
                       setName(value);

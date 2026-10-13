@@ -29,13 +29,16 @@ const mutation = vi.hoisted(() => {
   };
 });
 
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
     useUtils: () => ({
       admin: { tutors: { invalidate: mutation.invalidate } },
     }),
     program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(),
       profilePolicy: {
         useQuery: () => ({
           data: { offeredGrades: [12], currentSchoolYear: "26-27" },
@@ -206,7 +209,7 @@ it("offers Unknown and Graduated when adding a tutor", () => {
   fireEvent.change(screen.getByLabelText("First Name Required"), {
     target: { value: "Ada" },
   });
-  fireEvent.change(screen.getByLabelText("Last Name Required"), {
+  fireEvent.change(screen.getByLabelText("Last Name Optional"), {
     target: { value: "Lovelace" },
   });
   fireEvent.change(grade, { target: { value: "GRADUATED" } });
@@ -250,11 +253,11 @@ it.each([false, true])(
       `${messages.personName.firstName} ${messages.signupFields.required}`,
     );
     const last = screen.getByLabelText<HTMLInputElement>(
-      `${messages.personName.lastName} ${messages.signupFields.required}`,
+      `${messages.personName.lastName} ${messages.signupFields.optional}`,
     );
     const form = email.closest("form")!;
     expect(first.required).toBe(true);
-    expect(last.required).toBe(true);
+    expect(last.required).toBe(false);
     expect(email.required).toBe(false);
     expect(form.checkValidity()).toBe(false);
     fireEvent.change(first, { target: { value: "Ada" } });

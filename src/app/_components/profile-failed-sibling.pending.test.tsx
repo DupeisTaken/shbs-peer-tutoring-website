@@ -148,6 +148,9 @@ vi.mock("~/trpc/react", async () => {
         };
       },
       program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
         profilePolicy: {
           useQuery: () => ({
             data: {
