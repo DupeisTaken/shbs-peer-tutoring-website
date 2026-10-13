@@ -564,8 +564,12 @@ export default function ApplicationsPage() {
       }
     };
     if (verified && apps.data) reveal();
-    window.addEventListener("hashchange", reveal);
-    return () => window.removeEventListener("hashchange", reveal);
+    const navigate = () => {
+      lastDestination.current = "";
+      reveal();
+    };
+    window.addEventListener("hashchange", navigate);
+    return () => window.removeEventListener("hashchange", navigate);
   }, [verified, apps.data, apps.isFetching, setFilters, setInvalidity]);
   const list = denied ? [] : (apps.data ?? []);
   const filtered = list.filter(

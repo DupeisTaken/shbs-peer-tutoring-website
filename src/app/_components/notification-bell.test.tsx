@@ -28,7 +28,11 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 vi.mock("next/link", () => ({
-  default: ({ children, ...props }: React.ComponentProps<"a">) => (
+  default: ({
+    children,
+    onNavigate: _onNavigate,
+    ...props
+  }: React.ComponentProps<"a"> & { onNavigate?: unknown }) => (
     <a {...props}>{children}</a>
   ),
 }));

@@ -149,8 +149,12 @@ export function StudentRequestBoard({
       }
     };
     reveal();
-    window.addEventListener("hashchange", reveal);
-    return () => window.removeEventListener("hashchange", reveal);
+    const navigate = () => {
+      revealed.current = "";
+      reveal();
+    };
+    window.addEventListener("hashchange", navigate);
+    return () => window.removeEventListener("hashchange", navigate);
   }, [
     verified,
     denied,

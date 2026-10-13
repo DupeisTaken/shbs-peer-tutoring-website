@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -87,6 +88,36 @@ it("does not report an empty queue while another intake source is still loading"
   render(<StudentRequestBoard additionalLoading />);
   expect(screen.getByText("loading")).toBeTruthy();
   expect(screen.queryByText("emptySection")).toBeNull();
+});
+it("reveals a repeated notification fragment after selecting another request tab", () => {
+  window.history.replaceState(
+    null,
+    "",
+    "/admin/requests#request-signup-source_123",
+  );
+  const entries = [
+    {
+      id: "manual-source_123",
+      sourceId: "source_123",
+      group: "assigned" as const,
+      submittedAt: new Date(),
+      content: <p>Repeated target</p>,
+    },
+  ];
+  render(
+    <SessionViewProvider identity="head" pathname="/admin/requests" verified>
+      <StudentRequestBoard additionalEntries={entries} />
+    </SessionViewProvider>,
+  );
+  fireEvent.click(screen.getByRole("tab", { name: "processed 0" }));
+  expect(screen.queryByText("Repeated target")).toBeNull();
+  act(() => window.dispatchEvent(new HashChangeEvent("hashchange")));
+  expect(screen.getByText("Repeated target")).toBeTruthy();
+  expect(
+    screen
+      .getByRole("tab", { name: "assigned 1" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
 });
 it("defers an explicit notice target until delayed legacy reviews permit remembered tab restoration", async () => {
   const identity = "notice-reviewer",
