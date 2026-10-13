@@ -170,6 +170,22 @@ it("retains confirmed work when its catalog slot becomes inactive and ignores hi
   });
   expect((await workload()).count).toBe(1);
 });
+it("uses the same single current quarter as assignment when an older active flag remains", async () => {
+  await pairing();
+  const older = await db.term.create({
+    data: {
+      name: "Synthetic older active flag",
+      schoolYear: "25-26",
+      quarter: "Q3",
+      active: true,
+      createdAt: new Date("2020-01-01"),
+    },
+  });
+  await pairing({ termId: older.id, dayOfWeek: 2 });
+  const context = await caller().admin.assignmentWorkloads();
+  expect(context.termId).toBe(termId);
+  expect(context.tutors.find((row) => row.id === tutorId)?.count).toBe(1);
+});
 it("refreshes after reassignment, removing the last current tutee and deleting a block", async () => {
   const p = await pairing();
   expect((await workload()).count).toBe(1);

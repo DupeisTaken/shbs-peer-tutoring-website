@@ -26,8 +26,14 @@ export async function tutorWorkloads(db: DomainDb, tutorId?: string) {
   return inTransaction(
     db,
     async (tx) => {
-      const [term, tutors, pairings] = await Promise.all([
-        tx.term.findFirst({ where: { active: true }, select: { id: true } }),
+      const [term, tutors] = await Promise.all([
+        // Match getActivePeriod's quarter selection even if a legacy import left
+        // an older active flag behind; never aggregate two program quarters.
+        tx.term.findFirst({
+          where: { active: true },
+          orderBy: { createdAt: "desc" },
+          select: { id: true },
+        }),
         tx.tutor.findMany({
           where: tutorId ? { id: tutorId } : undefined,
           select: {
@@ -38,23 +44,25 @@ export async function tutorWorkloads(db: DomainDb, tutorId?: string) {
             user: { select: { tutorAccessRevoked: true } },
           },
         }),
-        tx.pairing.findMany({
-          where: {
-            ...(tutorId ? { tutorId } : {}),
-            term: { active: true },
-            tutees: { some: { tutee: { status: { not: "INACTIVE" } } } },
-          },
-          select: {
-            id: true,
-            tutorId: true,
-            termId: true,
-            scheduleConfirmed: true,
-            dayOfWeek: true,
-            startMin: true,
-            endMin: true,
-          },
-        }),
       ]);
+      const pairings = term
+        ? await tx.pairing.findMany({
+            where: {
+              ...(tutorId ? { tutorId } : {}),
+              termId: term.id,
+              tutees: { some: { tutee: { status: { not: "INACTIVE" } } } },
+            },
+            select: {
+              id: true,
+              tutorId: true,
+              termId: true,
+              scheduleConfirmed: true,
+              dayOfWeek: true,
+              startMin: true,
+              endMin: true,
+            },
+          })
+        : [];
       const byTutor = new Map<string, typeof pairings>();
       for (const pairing of pairings) {
         const rows = byTutor.get(pairing.tutorId) ?? [];
