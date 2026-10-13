@@ -1,7 +1,16 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { StudentRequestBoard } from "./student-request-board";
+import { SessionViewProvider } from "~/app/_components/session-view-state";
+import { viewStateKey, writeViewState } from "~/lib/session-view-state";
+const mocks = vi.hoisted(() => ({ legacy: vi.fn() }));
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
@@ -11,11 +20,16 @@ vi.mock("~/trpc/react", () => ({
   api: {
     studentWorkflow: {
       adminRequests: { useQuery: () => ({ data: [] }) },
-      legacyReviews: { useQuery: () => ({ data: [] }) },
+      legacyReviews: { useQuery: mocks.legacy },
     },
     admin: { tutors: { useQuery: () => ({ data: [] }) } },
   },
 }));
+beforeEach(() => {
+  mocks.legacy.mockReturnValue({ data: [] });
+  window.sessionStorage.clear();
+  window.history.replaceState(null, "", "/");
+});
 afterEach(cleanup);
 
 it("moves focus with arrows and Home/End without changing the selected request panel", () => {
@@ -73,4 +87,51 @@ it("does not report an empty queue while another intake source is still loading"
   render(<StudentRequestBoard additionalLoading />);
   expect(screen.getByText("loading")).toBeTruthy();
   expect(screen.queryByText("emptySection")).toBeNull();
+});
+it("defers an explicit notice target until delayed legacy reviews permit remembered tab restoration", async () => {
+  const identity = "notice-reviewer",
+    pathname = "/admin/requests";
+  writeViewState(
+    window.sessionStorage,
+    viewStateKey(identity, pathname, "requests.tab.v1", ""),
+    "processed",
+  );
+  writeViewState(
+    window.sessionStorage,
+    viewStateKey(identity, pathname, "requests.invalidity.v1", ""),
+    "valid",
+  );
+  window.history.replaceState(
+    null,
+    "",
+    `${pathname}#request-signup-source_123`,
+  );
+  mocks.legacy.mockReturnValue({ data: undefined });
+  const entries = [
+    {
+      id: "manual-source_123",
+      sourceId: "source_123",
+      group: "assigned" as const,
+      invalid: true,
+      submittedAt: new Date(),
+      content: <p>Targeted invalid request</p>,
+    },
+  ];
+  const ui = () => (
+    <SessionViewProvider identity={identity} pathname={pathname} verified>
+      <StudentRequestBoard additionalEntries={entries} />
+    </SessionViewProvider>
+  );
+  const view = render(ui());
+  expect(screen.queryByText("Targeted invalid request")).toBeNull();
+  mocks.legacy.mockReturnValue({ data: [] });
+  view.rerender(ui());
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("tab", { name: "assigned 1" })
+        .getAttribute("aria-selected"),
+    ).toBe("true"),
+  );
+  expect(screen.getByText("Targeted invalid request")).toBeTruthy();
 });

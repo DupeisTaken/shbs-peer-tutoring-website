@@ -39,6 +39,8 @@ export function StudentPolicyGate() {
     "/reset-password",
     // Email preferences must remain reachable without participation consent.
     "/unsubscribe",
+    // A narrow request appeal must not require account participation consent.
+    "/request-appeal",
     "/suspended",
     "/tutor-signup",
     "/crew-signup",

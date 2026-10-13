@@ -213,9 +213,13 @@ export async function propagateSlotAttendance(
       data: heads.map(({ id }) => ({
         userId: id,
         title: "Catalogue change updated historical attendance",
+        ...notificationEvent("attendance_history_updated", {
+          count: changed.length,
+        }),
         body: `${changed.length} teaching block(s) were updated. Changed attendance flags and linked deductions were reconsidered.`,
         link: "/admin/audit",
       })),
     });
   return sessions.length;
 }
+import { notificationEvent } from "~/lib/notification-events";

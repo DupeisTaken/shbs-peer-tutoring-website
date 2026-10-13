@@ -101,8 +101,13 @@ it("keeps unavailable program delivery pending while security delivery is availa
   mocks.available.mockImplementation((category) => category === "SECURITY");
   await deliverNotifications();
   expect(mocks.send).not.toHaveBeenCalled();
-  expect(mocks.update).toHaveBeenCalledWith({
-    where: { id: "notice-1" },
+  expect(mocks.updateMany).toHaveBeenCalledWith({
+    where: {
+      id: "notice-1",
+      leaseUntil: undefined,
+      attemptId: null,
+      status: { in: ["PENDING", "SENDING"] },
+    },
     data: { leaseUntil: null, availableAt: expect.any(Date) as unknown },
   });
 });
@@ -120,6 +125,21 @@ it("records a safe failed attempt instead of marking security delivery sent", as
     }),
   );
   expect(JSON.stringify(mocks.updateMany.mock.calls)).not.toContain("sentinel");
+});
+it("sends an eligible ordinary notice before recording SMTP acceptance", async () => {
+  notice("info", "tutor_application_pending", {
+    role: "ADMIN",
+    destination: "/admin/applications",
+  });
+  await deliverNotifications();
+  expect(mocks.send).toHaveBeenCalledTimes(1);
+  const sentCall = mocks.updateMany.mock.calls.findIndex(
+    ([input]) => input.data.status === "SENT",
+  );
+  expect(sentCall).toBeGreaterThanOrEqual(0);
+  expect(mocks.send.mock.invocationCallOrder[0]).toBeLessThan(
+    mocks.updateMany.mock.invocationCallOrder[sentCall]!,
+  );
 });
 
 it.each([
@@ -165,7 +185,7 @@ it.each(["security", "information"])(
     );
     await deliverNotifications();
     expect(mocks.send).not.toHaveBeenCalled();
-    expect(mocks.update).toHaveBeenCalledWith(
+    expect(mocks.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           status: "SKIPPED",
@@ -192,7 +212,7 @@ it.each(["messages", "info", "information"])(
     expect(verifyUnsubscribeToken(url.searchParams.get("token")!)).toBe(
       "notice-1",
     );
-    expect(message.text).toContain(`Unsubscribe: ${url.href}`);
+    expect(message.text).toContain(`Unsubscribe / 取消订阅: ${url.href}`);
     expect(url.href).not.toContain("recipient");
   },
 );

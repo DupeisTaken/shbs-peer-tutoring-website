@@ -742,8 +742,11 @@ fences concurrent flag/clear writes and stale approval replay. Ordinary daily-wo
 approval rules apply: Admin/Head apply and Coordinators propose. The flag does not
 rewrite submission priority, consent, verification, grants or participation.
 Processing guards must run on the server, including assignment and interview
-aliases. Internal reasons and actor details are omitted from participant reads
-and masked management views. See [issue #294](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/294).
+aliases. Review reasons and actor details are omitted from participant request APIs
+and masked management views. Essential request-email notices may include the
+participant-facing reason only after request-specific mailbox proof; see
+[notice and appeal boundaries](#public-request-invalidity-notices-and-appeals).
+See [issue #294](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/294).
 
 `TutorApplication` and `StudentSurvey` store their review fields directly. Older
 public tutees without a survey use `TuteeRequestInvalidity`, keyed by `tuteeId`,
@@ -857,15 +860,91 @@ Announcements freeze tutor IDs at publication, or at approval for a coordinator 
 
 Secondary-email requests and confirmations first acquire the `secondary-email-binding-setting` transaction lock, shared with the Head-applied availability mutation (Admin submits changes for Head review), and reject when `ProgramSettings.secondaryEmailBindingEnabled` is false. This independent flag defaults true for compatibility. Existing addresses, pending state, primary-email changes and authentication remain intact. Verification rechecks availability and claims the address atomically. An address lock serializes competing confirmations; the unique registry key also arbitrates races with primary-account writers. Verified aliases resolve the same account. Recovery grants bind to their exact destination and recheck ownership on redemption; address removal and password rotation revoke grants. Never infer participant ownership from an alias or change the account's ID/history when promoting it.
 
-Database triggers enqueue `EmailDelivery` in the event transaction for account changes and in-app notifications. No-op writes and rollbacks produce no notices. The [delivery worker](../src/server/email/notification-delivery.ts) rechecks program enablement and category preference for optional messages/information, and current recipient ownership for all mail. Security enqueue and dispatch bypass optional gates, including legacy `emailSecurity=false` values. That stored field is preserved but is no longer an editable preference. Disabling program notifications only skips non-security pending rows; previous-primary security notices have the documented ownership exception. Notices contain fixed event descriptions, not profile values, secrets or message bodies. See [operations and retry limits](deployment.md#optional-notification-delivery).
+Database triggers enqueue `EmailDelivery` in the event transaction for account changes and in-app notifications. The [delivery worker](../src/server/email/notification-delivery.ts) rechecks program enablement and category preference for optional messages/information, and current recipient ownership for account mail. Security enqueue and dispatch bypass optional gates, including legacy `emailSecurity=false` values. That stored field is preserved but is no longer an editable preference. Disabling program notifications skips only optional pending rows; security and essential request-service notices remain eligible. Previous-primary security notices have the documented ownership exception. Account notices contain fixed event descriptions, not profile values, secrets or message bodies. See [operations and retry limits](deployment.md#optional-notification-delivery).
+
+`Notification.event` and its allowlisted `context` identify the committed action;
+the trigger copies only that safe context into account email receipts, never arbitrary
+titles or bodies. [The shared formatter](../src/lib/notification-events.ts) drives
+localized in-app copy and bilingual English/Chinese email because recipient language
+is not persisted. Old in-app rows retain their original readable title/body; unknown
+email events use the generic program-update description. Count context is limited to
+discipline-card requests and changed historical teaching blocks. Scheduled interviews
+carry a validated ISO instant and IANA timezone. Recurring assignment updates carry
+no invented date; there is no dated tutoring-session notification emitter. The
+[event inventory](notification-events.md) maps every supported event to its actual
+emitter, audience, maintained copy and destination, including email-only account events.
 
 Every [email sender](../src/server/email/sender.ts) call declares SECURITY or PROGRAM purpose; configuration selects a complete sender account per purpose. Student signup confirmation uses PROGRAM, while viewer verification and history invitations use SECURITY. The notification outbox retains the event's internal destination; shared link validation and sign-in callbacks preserve it through password/2FA and session recovery, with current permissions checked at the destination. Shared HTML/plain-text rendering uses runtime branding and program-zone notification timestamps. See [sender setup](deployment.md#email--aliyun-direct-mail-邮件推送) for fallback and delivery checks.
 
-The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. No schema changes are needed; direct authentication/signup delivery history is not persisted by these diagnostics.
+The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. Direct authentication/signup delivery history is not persisted by these diagnostics; the additive event/request outbox migrations remain required before running this version.
 
 The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only failed or previously attempted pending rows without an active lease qualify, and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Existing SMTP at-least-once limitations still apply across lease expiry and crashes.
 
 Optional notification delivery adds a signed, 90-day unsubscribe link to HTML and plain text. The public `/unsubscribe` page only reads on GET; an explicit confirmation disables either the originating category or all optional email categories, account-wide across primary and included secondary destinations. The capability cannot enable preferences or suppress essential security/authentication mail. The shared template accepts an optional `unsubscribeUrl`, rejects non-HTTP(S) and credential-bearing URLs, escapes the link, and places an underlined 44 px target after the existing logo, brand and privacy copy. Sender purpose does not imply eligibility: direct student signup confirmation uses PROGRAM but remains essential and has no unsubscribe link.
+
+### Public-request invalidity notices and appeals
+
+[Request-invalidity writes](../src/server/request-invalidity.ts) enqueue an essential
+`request_service` receipt in the same transaction as each applied flag, clear or later
+reflag and its audit. A pending or rejected management proposal never sends an
+invalidity notice to the submitter. Required reasons, actors, times and revision history
+are retained without rewriting original intake, priority, answers or lifecycle state.
+The unique `(requestKind, requestId, requestVersion)` receipt has nullable `userId`;
+ordinary account mail still requires an account. Source kinds distinguish initial tutor
+applications, student surveys and explicit legacy self-service tutees. Staff-entered
+records are not reclassified as public requests.
+
+[Request notices](../src/server/email/request-notice.ts) use PROGRAM transport while
+bypassing optional program/personal preferences and secondary-recipient expansion.
+Delivery uses the exact submitted address recorded on the source, with no account
+address fallback, and rechecks its exact source/revision.
+The [bilingual copy](../src/server/email/request-notice-copy.ts) masks unverified
+recipients to request kind and original submission date/time/timezone, plus the
+limited appeal action; no names, original answers or reason appear. Missing historical
+timestamps remain unavailable rather than borrowing row creation time. A reason is
+included only with source-specific mailbox proof: verified registration-code evidence
+bound to that initial application and address, or the survey's own confirmation.
+A matching account/alias or staff `contactVerified` value is insufficient. Legacy
+self-service tutees without source-specific proof remain masked. Reasons must be
+suitable for the participant to read after verification.
+
+Receipt reads never send. Missing/invalid addresses are `BLOCKED`; queued work is
+`PENDING`, an admitted transport attempt is `SENDING`, accepted SMTP is `SENT`, and
+exhausted work is `FAILED`. Clear/reflag marks obsolete queued/failed/blocked receipts
+`SUPERSEDED`. Optional account cancellation/skipping uses `CANCELLED`/`SKIPPED`.
+An ADMIN/HEAD retry resets only an eligible failed/retrying receipt's budget, preserving
+its ID, immutable payload and appeal expiry; it does not replay the flag operation.
+
+Batch leasing is candidate selection, not transport admission. Admission acquires
+source locks, then the request-notice advisory lock, then the outbox row lock. It checks
+the captured acquisition lease, prior attempt fence and current source before committing
+`SENDING` with a unique attempt ID and consuming one of five attempts. Only after that
+transaction commits does SMTP run. Completion is fenced by the admitted ID: acceptance
+remains recorded after a concurrent clear, and obsolete failure cannot requeue. Expired
+attempts are recovered under the same source checks and bounded budget. Clear/reflag
+cancels attempts that have not been admitted; already admitted transport can finish.
+SMTP acceptance followed by a crash or completion failure remains uncertain and can
+produce a duplicate retry despite a stable Message-ID. This is not exactly-once delivery
+and `SENT` does not prove inbox arrival.
+
+The [purpose-bound HMAC appeal token](../src/server/email/request-appeal-token.ts)
+names one notice and expires 90 days after receipt creation. `/request-appeal` requires
+no account and grants only a narrow status/appeal capability, never credentials,
+participation or original request access. GET reads only safe request kind/time and
+review state; it cannot consume or submit the capability. POST requires canonical
+origin and JSON, bounds streamed body bytes, token length and appeal text, and admits
+valid-token bursts through process-local limits. One immutable appeal per notice is
+the durable cross-replica submission limit. Token possession is the limited capability,
+not general source ownership proof, so forwarding permits another holder to appeal.
+
+[Appeal submission/review](../src/server/email/request-appeal.ts) shares source/notice
+locks with clear/reflag. Submission retains the original text and notifies active
+Admin/Head with a safe event and the existing request-review destination; it never
+clears the flag. Admin/Head may decline with required reason and version checks.
+Clearing uses the existing authorized invalidity operation, including Coordinator
+proposals, and resolves pending appeals while retaining submitted and reviewed
+evidence. Clear/reflag makes old capabilities ineligible. Public reads never reveal
+reason, answers, contact information, participant/staff identities or appeal body.
 
 ### Management registration codes
 

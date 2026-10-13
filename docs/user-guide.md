@@ -601,9 +601,41 @@ the correction. Clearing the flag preserves the original submission priority,
 verification and application state; it does not recreate expired requests or
 restore membership. Existing verification deadlines continue while flagged.
 These flags do not delete records or impose discipline.
-Reasons are internal management information. Failed saves retain the reason for
+Write the required reason so it is suitable for the submitter to read: a notice
+may include it after request-specific mailbox verification. Observer summaries
+still omit the explanation and staff identity. Failed saves retain the reason for
 retry; after a successful save, **Retry refresh** reloads the records without
 submitting the same change again.
+
+Each applied flag, clear or later reflag queues an essential request-status email
+to the address recorded on that request, even when optional email notifications
+are disabled. An unapplied or rejected Coordinator proposal sends no invalidity
+email to the submitter. An unverified recipient sees only the request kind and
+original submission date, time and timezone, with no names, answers or reason.
+Missing historical submission times are shown as unavailable. Request-specific
+verification permits the recorded reason; a matching account email or a staff
+contact-verification checkbox alone does not prove ownership of this request.
+
+The invalidity dialog shows email delivery state and the latest appeal. A missing
+or invalid email address is **Blocked**. **Refresh status** only reads. Admin/Head
+can retry an eligible failed delivery using the same receipt, without flagging
+again or changing the original request. **Sending** means transport was admitted
+and is in progress; clearing cancels queued obsolete notices, but cannot recall
+an admitted attempt. **Sent** confirms transport acceptance, not inbox arrival.
+After five admitted attempts, a failed notice needs a deliberate retry. A crash
+after acceptance can leave delivery uncertain and cause a duplicate retry.
+
+An invalidity email includes **Appeal this decision / 对此决定提出申诉**. The link
+opens a request-specific appeal without sign-in and expires 90 days after the
+notice was created; retrying delivery does not extend it. Treat the link as private:
+anyone holding it can submit the limited appeal. It grants no account access or
+participation. Opening it only reads safe status information. Submit one explanation
+for that flag; repeated submission cannot replace it. Admin/Head review the appeal
+in the request's invalidity dialog and may decline it with a required reason.
+Clearing uses the existing authorized **Clear invalid flag** action, including
+Coordinator approval proposals. Submitting or reviewing an appeal never clears the
+flag automatically. A clear or later reflag retires the old appeal link and retains
+the original request, appeal and review history.
 
 Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history.
 
@@ -747,7 +779,12 @@ Legacy accounts that need email verification or a new password receive a setup l
 
 Use password recovery when you cannot sign in. Personal email two-factor authentication requires both the program switch and your account preference, plus working email delivery. If suspended, sign in with your normal password and complete two-factor authentication if enabled; you will be directed to the suspension page to submit or review an account appeal. Suspension continues to block ordinary program access, and a pending appeal does not restore it. This is separate from appealing a student's disciplinary card.
 
-The notification menu shows your own recent notices and unread count. Follow a notice to its related task, mark it read, or mark all as read. Private message bodies and recipient lists are excluded from notifications.
+The notification menu shows your own recent notices and unread count. Follow a notice to its related task, mark it read, or mark all as read. New notices explain the recorded event in the selected interface language; English and Chinese email copy is sent together because no recipient email-language preference is stored. Older in-app notices keep their original readable text. Their email fallback stays generic and never copies arbitrary saved titles or bodies. Private message bodies and recipient lists are excluded from notifications. See the [event inventory](notification-events.md) for current recipients, wording and destinations.
+
+An interview-scheduling notice can include its recorded date, time and timezone.
+A tutoring-assignment notice describes a recurring weekly arrangement and its
+confirmation state. It does not announce a newly dated tutoring session; use the
+workspace schedule and confirm individual dates with the tutor.
 
 Use **Messages** to send separate private deliveries to allowed contacts. Search by name or username, select up to 20 people, and keep selections while searching or paging. New messages deliver immediately and may be reviewed or hidden by HEAD/ADMIN; reviews and moderation are recorded. Recipients cannot see other recipients or their replies. Historical messages sent under the old participant-only notice remain participant-only. Notifications omit message bodies. Replies follow current permissions; history remains readable after contact eligibility changes. If any selected recipient becomes ineligible before a send, nothing is delivered: review your selections and retry. Retrying the same send does not duplicate deliveries. A messaging restriction prevents new sending and incoming eligibility while retaining history; account suspension instead leads to the appeal page. For a suspended account, use the appeal option on the suspension page. See [contact permissions and supervision](program-reference.md#message-permissions-and-supervision) for management configuration.
 
@@ -769,14 +806,14 @@ When Head enables **Email Notifications** in **Program Settings → Deployment C
 
 On **Program Settings → Deployment Configurations**, **Email delivery status** warns when security or program SMTP is not configured or its connection/authentication check fails. It also shows notification emails waiting to retry after a failure and those whose retries are exhausted. **Refresh status** updates this information without sending email or changing program settings; transport checks may reuse a result for up to one minute. Ask the deployment operator to investigate a warning. A successful SMTP check confirms the connection and login only, not that a message reached an inbox. Local development logging is explicitly identified and sends no external email.
 
-After the email service is repaired, ADMIN/HEAD can select **Resend stuck emails** to queue up to 100 eligible failed or retrying notifications. The result confirms queuing; delivery happens through the normal worker and still follows current email preferences and recipient ownership. Emails already being processed or completed are excluded, and optional emails remain excluded while notifications are disabled. If more eligible messages remain, refresh status before queuing another batch. If queuing succeeds but the status read fails, use **Refresh status** to recover without submitting the same action again.
+After the email service is repaired, ADMIN/HEAD can select **Resend stuck emails** to queue up to 100 eligible failed or retrying notifications. The result confirms queuing; delivery happens through the normal worker. Account notifications follow current email preferences and recipient ownership; essential request notices recheck the exact request source and revision and bypass optional preferences. Emails already being processed or completed are excluded, and optional emails remain excluded while notifications are disabled. If more eligible messages remain, refresh status before queuing another batch. If queuing succeeds but the status read fails, use **Refresh status** to recover without submitting the same action again.
 
 
 Optional notification emails also include **Unsubscribe** below the footer. The link opens a page without requiring sign-in; opening it alone changes nothing. Choose to stop that notification category or all optional notification emails, then confirm. This changes the account's preferences for both primary and included secondary addresses, not just the inbox that received the link. In-app notifications, account security alerts, verification, password recovery and signup confirmation remain available. You can turn optional categories back on in **Account → Email Preferences** when program notifications are enabled.
 
 Unsubscribe links expire after 90 days. Use a newer notification or sign in to manage preferences if a link is expired or unavailable. Treat these links as private: anyone with a valid link can turn off the optional categories it offers. Emails already accepted for delivery cannot be recalled.
 
-Disabling notifications at program level preserves preferences and cancels queued optional notices; re-enabling does not send the old backlog. While program notifications are disabled, account settings cannot enable or edit notification preferences; a valid unsubscribe link can still turn optional categories off. Verification, recovery, login/step-up mail and security alerts remain independent of both optional switches and personal notification preferences. Already accepted mail cannot be recalled.
+Disabling notifications at program level preserves preferences and cancels queued optional notices; re-enabling does not send the old backlog. While program notifications are disabled, account settings cannot enable or edit notification preferences; a valid unsubscribe link can still turn optional categories off. Verification, recovery, login/step-up mail, security alerts and essential public-request status notices remain independent of both optional switches and personal notification preferences. Request-status notices go only to the request's recorded address and have no unsubscribe action. Already admitted or accepted mail cannot be recalled.
 
 ## Renewed policy acceptance
 

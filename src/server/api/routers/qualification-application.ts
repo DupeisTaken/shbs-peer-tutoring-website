@@ -1,3 +1,4 @@
+import { notificationEvent } from "~/lib/notification-events";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import {
@@ -131,12 +132,17 @@ export const qualificationApplicationRouter = createTRPCRouter({
           select: { id: true },
         });
         const reviewers = await tx.user.findMany({
-          where: { role: { in: ["ADMIN", "HEAD"] }, suspendedAt: null, mergedIntoId: null },
+          where: {
+            role: { in: ["ADMIN", "HEAD"] },
+            suspendedAt: null,
+            mergedIntoId: null,
+          },
           select: { id: true },
         });
         await notifyUsers(
           reviewers.map((reviewer) => reviewer.id),
           {
+            ...notificationEvent("qualification_requested"),
             title: "Additional qualification request",
             body: `${user.tutor.englishName}: ${option.name}`,
             link: `/admin/applications#application-${request.id}`,

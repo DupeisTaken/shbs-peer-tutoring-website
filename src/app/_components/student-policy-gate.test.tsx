@@ -120,7 +120,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-it.each(["/privacy", "/unsubscribe"])(
+it.each(["/privacy", "/unsubscribe", "/request-appeal"])(
   "leaves %s usable despite outstanding agreements or errors",
   async (path) => {
     mocks.path = path;

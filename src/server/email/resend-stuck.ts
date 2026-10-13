@@ -26,16 +26,19 @@ export async function resendStuckEmails(
     const programAvailable =
       !!settings?.emailNotificationsEnabled &&
       isEmailDeliveryAvailable("PROGRAM");
+    const serviceAvailable = isEmailDeliveryAvailable("PROGRAM");
     const rows = await tx.$queryRaw<{ id: string }[]>`
       UPDATE "EmailDelivery"
       SET status = 'PENDING', attempts = 0, "availableAt" = NOW(),
           "leaseUntil" = NULL, "completedAt" = NULL, "lastError" = NULL
+          , "attemptId" = NULL, "attemptStartedAt" = NULL
       WHERE id IN (
         SELECT id FROM "EmailDelivery"
         WHERE (status = 'FAILED' OR (status = 'PENDING' AND attempts > 0))
           AND ("leaseUntil" IS NULL OR "leaseUntil" <= NOW())
           AND ((category = 'security' AND ${securityAvailable})
-            OR (category <> 'security' AND ${programAvailable}))
+            OR (category = 'request_service' AND ${serviceAvailable})
+            OR (category NOT IN ('security', 'request_service') AND ${programAvailable}))
         ORDER BY "createdAt", id
         LIMIT ${batchLimit}
         FOR UPDATE SKIP LOCKED

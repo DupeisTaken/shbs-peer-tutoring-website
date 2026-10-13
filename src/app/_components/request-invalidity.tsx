@@ -15,6 +15,10 @@ import { useReadOnly } from "./read-only";
 import { Button, ChoiceButton } from "./ui/button";
 import { Modal, useDialogPending } from "./ui/modal";
 import { FilterToolbar, FormSection, InlineNotice } from "./ui/patterns";
+import {
+  RequestEmailStatus,
+  newRequestEmailSession,
+} from "./request-email-status";
 
 export type InvalidityRecord = {
   id: string;
@@ -153,6 +157,7 @@ function RequestInvalidityReview({
   record,
   name,
   coordinator = false,
+  reviewKey,
   onCommit,
   onRefresh,
   open,
@@ -166,11 +171,22 @@ function RequestInvalidityReview({
   const t = useTranslations("requestInvalidity");
   const common = useTranslations("common");
   const format = useFormatter();
+  const emailText = useTranslations("requestEmail");
+  const sourceKind = reviewKey?.split(":")[0];
+  const emailSource =
+    sourceKind === "application" ||
+    sourceKind === "survey" ||
+    sourceKind === "signup"
+      ? { kind: sourceKind, id: record.id }
+      : null;
   const [draft, setDraft] = useState<{
     record: InvalidityRecord;
     reason: string;
   } | null>(() => ({ record, reason: "" }));
   const [pending, setPending] = useState(false);
+  // This source-owned review survives closing the native dialog. The child is
+  // mounted only while open, so retaining a draft/receipt does not keep polling.
+  const [emailSession, setEmailSession] = useState(newRequestEmailSession);
   const [reloading, setReloading] = useState(false);
   const busy = useDialogPending(pending);
   const admitted = useRef(false);
@@ -180,7 +196,7 @@ function RequestInvalidityReview({
   const [refreshError, setRefreshError] = useState<string>();
   const snapshot = draft?.record ?? record;
   const clearing = snapshot.isInvalid;
-  const locked = busy || reloading || accepted;
+  const locked = busy || emailSession.writing || reloading || accepted;
   const [lastLaunch, setLastLaunch] = useState(launch);
   // Deliberate reopening may adopt a completed review's newer record. Background
   // card changes never replace a draft or its expected version.
@@ -252,7 +268,8 @@ function RequestInvalidityReview({
     await refresh(false);
   };
   const close = () => {
-    if (busy || (admitted.current && !reloading)) return;
+    if (busy || emailSession.writing || (admitted.current && !reloading))
+      return;
     onClose();
     if (accepted && !refreshError && !approvalId) {
       setDraft(null);
@@ -305,7 +322,7 @@ function RequestInvalidityReview({
         <Modal
           title={t(clearing ? "reviewTitle" : "flagTitle", { name })}
           description={t(clearing ? "clearHelp" : "flagHelp")}
-          busy={pending}
+          busy={pending || emailSession.writing}
           onClose={close}
           footer={
             <>
@@ -352,9 +369,12 @@ function RequestInvalidityReview({
             )}
             <FormSection
               title={t(clearing ? "clearReason" : "reason")}
-              busy={busy || reloading}
+              busy={busy || emailSession.writing || reloading}
               disabled={accepted}
             >
+              <p className="text-sm leading-relaxed text-slate-600">
+                {emailText("reasonDisclosure")}
+              </p>
               <label className="block">
                 <span className="label">
                   {t("reason")}
@@ -406,6 +426,15 @@ function RequestInvalidityReview({
               </InlineNotice>
             )}
             {result}
+            {emailSource && (
+              <RequestEmailStatus
+                source={emailSource}
+                canApply={!coordinator}
+                refreshSignal={accepted && !approvalId}
+                session={emailSession}
+                setSession={setEmailSession}
+              />
+            )}
           </div>
         </Modal>
       )}

@@ -48,6 +48,18 @@ vi.mock("~/app/_components/interview-management", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    notification: {
+      requestEmailStatus: {
+        useQuery: () => ({
+          data: null,
+          isSuccess: true,
+          isFetching: false,
+          refetch: async () => ({ data: null, error: null }),
+        }),
+      },
+      retryRequestEmail: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      declineRequestAppeal: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+    },
     useUtils: () => ({
       admin: {
         tutorApplications: {
