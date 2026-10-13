@@ -185,7 +185,9 @@ const show = (readOnly = false, locale = "en") =>
           messages={locale === "zh" ? zh : en}
           timeZone="UTC"
         >
-          <ReadOnlyProvider value={readOnly}>{children}</ReadOnlyProvider>
+          <SessionViewProvider identity="head" pathname="/admin/crew" verified>
+            <ReadOnlyProvider value={readOnly}>{children}</ReadOnlyProvider>
+          </SessionViewProvider>
         </NextIntlClientProvider>
       </QueryClientProvider>
     ),
