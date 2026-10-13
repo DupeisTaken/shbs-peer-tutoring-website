@@ -77,7 +77,7 @@ export function StudentScheduleAction({
           canConfirm={!!reason.trim()}
           onCancel={() => setOpen(false)}
           onConfirm={(ticket) =>
-            request.mutate({
+            request.mutateAsync({
               tuteeId: row.tuteeId,
               pairingId: row.pairingId,
               reason,

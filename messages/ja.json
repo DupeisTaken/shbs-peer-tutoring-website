@@ -2893,7 +2893,8 @@
     "boardGuide": "申請の分類方法",
     "sourceGuide": "登録元とアカウントの紐付け",
     "policyRefresh": "更新",
-    "emailStatus": "メール：{status}"
+    "emailStatus": "メール：{status}",
+    "confirmationExpired": "This confirmation expired. Reopen or refresh it to review again."
   },
   "approvals": {
     "reviewPermissions": "通常の管理申請はAdminとHeadが審査します。役割・バッジの変更はHeadのみが審査できます。Headは自分の申請も審査できますが、他の人には別の権限を持つ審査担当者が必要です。",
@@ -3616,14 +3617,16 @@
     "loading": "Loading qualifications…",
     "loadError": "Qualifications could not be loaded. Refresh to try again.",
     "warningTitle": "Assign a Tutor Without This Qualification?",
-    "warningHelp": "Review the mismatch below. Wait three seconds, then explicitly confirm or cancel. Normal assignment and scheduling rules still apply.",
+    "warningHelp": "Review the mismatch below. Wait two seconds, then explicitly confirm or cancel. Normal assignment and scheduling rules still apply.",
     "checking": "Checking assignment",
     "checkingHelp": "Checking this tutor’s recorded subject qualifications.",
     "mismatch": "{tutor} has no approved qualification for {subject}.",
     "cancel": "Cancel",
     "confirm": "Confirm unqualified assignment",
     "wait": "Confirm in {seconds}s",
-    "working": "Assigning…"
+    "working": "Assigning…",
+    "retry": "Review again",
+    "confirmationExpired": "This confirmation expired. Review again before confirming."
   },
   "qualificationRequests": {
     "completedCount": "({count} completed)",

@@ -6,6 +6,9 @@ import {
   assignmentIdentity,
   type AssignmentOperation,
 } from "~/lib/assignment-qualification";
+import { type AnchoredConfirmation } from "~/lib/confirmation-timing";
+import { useConfirmationClock } from "./use-confirmation-clock";
+import { useConfirmationSubmission } from "./use-confirmation-submission";
 
 /** Remount on any selection change: late preparation responses cannot unlock a new selection. */
 export function AssignmentConfirmation(props: {
@@ -13,7 +16,7 @@ export function AssignmentConfirmation(props: {
   payload: unknown;
   busy?: boolean;
   error?: string;
-  onConfirm: (overrideTicket?: string) => void;
+  onConfirm: (overrideTicket?: string) => unknown;
   onCancel: () => void;
 }) {
   return (
@@ -36,19 +39,22 @@ function ConfirmationInstance({
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
+  const statusId = useId();
   const prepare = api.assignment.prepare.useMutation();
   const cancel = api.assignment.cancel.useMutation();
   const [result, setResult] = useState<Awaited<
     ReturnType<typeof prepare.mutateAsync>
   > | null>(null);
-  const [remaining, setRemaining] = useState(3);
-  const [acknowledged, setAcknowledged] = useState(false);
+  const [anchor, setAnchor] = useState<AnchoredConfirmation | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const clock = useConfirmationClock(anchor);
+  const submission = useConfirmationSubmission(busy, error);
   const callbacks = useRef({ onConfirm, onCancel });
   useEffect(() => {
     callbacks.current = { onConfirm, onCancel };
   }, [onConfirm, onCancel]);
   const ticketRef = useRef<string | null>(null);
-  const submitted = useRef(false);
+  const { submitted } = submission;
   const { mutateAsync } = prepare;
   const cancelTicket = cancel.mutate;
   useEffect(() => {
@@ -58,6 +64,7 @@ function ConfirmationInstance({
     void Promise.resolve()
       .then(async () => {
         if (!live) return;
+        const requestStartedAt = performance.now();
         const data = await mutateAsync({ operation, payload });
         if (!live) {
           if (data.ticket) cancelTicket({ ticket: data.ticket.id });
@@ -65,21 +72,29 @@ function ConfirmationInstance({
         }
         ticketRef.current = data.ticket?.id ?? null;
         setResult(data);
-        if (!data.mismatches.length) {
-          submitted.current = true;
-          callbacks.current.onConfirm();
-        }
+        setAnchor(
+          data.ticket
+            ? {
+                ticket: data.ticket,
+                requestStartedAt,
+                receivedAt: performance.now(),
+              }
+            : null,
+        );
+        if (!data.mismatches.length)
+          submission.run(() => callbacks.current.onConfirm());
       })
       .catch(() => {
         /* The mutation error is displayed in the dialog. */
       });
     return () => {
       live = false;
-      if (ticketRef.current) cancelTicket({ ticket: ticketRef.current });
+      if (ticketRef.current && !submitted.current)
+        cancelTicket({ ticket: ticketRef.current });
     };
     // The keyed parent supplies an immutable selection for this instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mutateAsync, cancelTicket]);
+  }, [mutateAsync, cancelTicket, attempt]);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     const modal = ref.current;
@@ -94,26 +109,26 @@ function ConfirmationInstance({
       previous?.focus();
     };
   }, []);
-  useEffect(() => {
-    if (!result?.ticket) return;
-    // Start when the mismatch actually appears, using monotonic time to avoid wall-clock jumps.
-    const opened = performance.now();
-    let timer: ReturnType<typeof setTimeout>;
-    const tick = () => {
-      const left = Math.max(0, 3000 - (performance.now() - opened));
-      setRemaining(Math.ceil(left / 1000));
-      if (left > 0) timer = setTimeout(tick, Math.min(left, 1000));
-    };
-    tick();
-    return () => clearTimeout(timer);
-  }, [result]);
+  const { remaining, expired } = clock;
+  const pending = busy || submission.admitted;
   const warning = !!result?.mismatches.length;
+  const status = pending
+    ? t("working")
+    : expired
+      ? t("confirmationExpired")
+      : !warning || remaining === null
+        ? t("checking")
+        : remaining
+          ? t("wait", { seconds: remaining })
+          : t("confirm");
   return (
     <dialog
       ref={ref}
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
+      closedby={pending ? "none" : "closerequest"}
       onKeyDown={(event) => {
+        if (pending && event.key === "Escape") event.preventDefault();
         // Keep Tab inside the two explicit choices; native modal inertness alone can
         // still let Chromium move focus to browser chrome after the final control.
         if (
@@ -140,7 +155,7 @@ function ConfirmationInstance({
       }}
       onCancel={(event) => {
         event.preventDefault();
-        if (!busy) onCancel();
+        if (!pending) onCancel();
       }}
       className="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-2xl backdrop:bg-slate-950/60"
     >
@@ -162,15 +177,44 @@ function ConfirmationInstance({
           ))}
         </ul>
       )}
+      <p
+        id={statusId}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {status}
+      </p>
+      {expired && (
+        <p className="my-3 text-sm text-amber-800">
+          {t("confirmationExpired")}
+        </p>
+      )}
       {(error ?? prepare.error?.message) && (
         <p role="alert" className="my-3 text-sm text-red-700">
           {error ?? prepare.error?.message}
         </p>
       )}
       <div className="mt-5 flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4">
+        {(expired || prepare.error || (!warning && error)) && (
+          <button
+            type="button"
+            className="btn-secondary min-h-11 lg:min-h-10"
+            disabled={pending}
+            onClick={() => {
+              prepare.reset();
+              setResult(null);
+              setAnchor(null);
+              setAttempt((value) => value + 1);
+            }}
+          >
+            {t("retry")}
+          </button>
+        )}
         <button
           className="btn-secondary min-h-11 lg:min-h-10"
-          disabled={busy}
+          disabled={pending}
           onClick={onCancel}
         >
           {t("cancel")}
@@ -178,20 +222,21 @@ function ConfirmationInstance({
         {warning && (
           <button
             className="btn-primary min-h-11 whitespace-normal lg:min-h-10"
-            disabled={remaining > 0 || busy || acknowledged}
+            aria-describedby={statusId}
+            disabled={!clock.eligible || pending}
             onClick={() => {
-              if (remaining === 0 && result?.ticket && !submitted.current) {
-                submitted.current = true;
-                setAcknowledged(true);
-                onConfirm(result.ticket.id);
+              if (!busy && result?.ticket && clock.read().eligible) {
+                submission.run(() => onConfirm(result.ticket!.id));
               }
             }}
           >
-            {busy
+            {pending
               ? t("working")
-              : remaining
-                ? t("wait", { seconds: remaining })
-                : t("confirm")}
+              : expired || remaining === null
+                ? t("confirm")
+                : remaining
+                  ? t("wait", { seconds: remaining })
+                  : t("confirm")}
           </button>
         )}
       </div>

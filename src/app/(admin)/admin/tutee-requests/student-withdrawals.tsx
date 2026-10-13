@@ -242,7 +242,7 @@ export function StudentWithdrawals() {
           onCancel={() => setDecision(null)}
           onConfirm={(ticket) => {
             if (readBlocked || resolve.isPending) return;
-            resolve.mutate({
+            return resolve.mutateAsync({
               id: decision.id,
               approve: decision.approve,
               ticket,

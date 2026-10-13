@@ -57,7 +57,12 @@ vi.mock("~/trpc/react", () => ({
           ],
         }),
       },
-      resolveReview: { useMutation: () => ({ mutate: mocks.mutate }) },
+      resolveReview: {
+        useMutation: () => ({
+          mutate: mocks.mutate,
+          mutateAsync: mocks.mutate,
+        }),
+      },
     },
   },
 }));

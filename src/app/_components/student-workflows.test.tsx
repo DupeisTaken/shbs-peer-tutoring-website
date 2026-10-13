@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   accept: vi.fn(),
   refetch: vi.fn(),
   prepare: vi.fn(),
+  cancelTicket: vi.fn(),
 }));
 vi.mock("next-intl", () => ({
   useLocale: () => "en",
@@ -21,20 +22,22 @@ vi.mock("next-intl", () => ({
 vi.mock("~/trpc/react", () => ({
   api: {
     studentWorkflow: {
+      cancelAction: { useMutation: () => ({ mutate: mocks.cancelTicket }) },
       prepareAction: {
         useMutation: () => ({
-          mutate: mocks.prepare,
-          data: {
-            id: "policy-ticket",
-            readyAt: new Date("2030-01-01T00:00:10Z"),
-          },
+          mutateAsync: mocks.prepare,
+          reset: vi.fn(),
         }),
       },
     },
     student: {
       policy: { useQuery: mocks.policy },
       acceptPolicy: {
-        useMutation: () => ({ mutate: mocks.accept, isPending: false }),
+        useMutation: () => ({
+          mutate: mocks.accept,
+          mutateAsync: mocks.accept,
+          isPending: false,
+        }),
       },
     },
   },
@@ -43,6 +46,12 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2030-01-01T00:00:00Z"));
+  mocks.prepare.mockImplementation(async () => ({
+    id: "policy-ticket",
+    serverNow: new Date(),
+    readyAt: new Date(Date.now() + 5000),
+    expiresAt: new Date(Date.now() + 30 * 60_000),
+  }));
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
     configurable: true,
     value: function (this: HTMLDialogElement) {
@@ -80,11 +89,12 @@ it("consent submits the displayed revision and signature only after timed confir
     screen.getByRole("button", { name: "accept" }).closest("form")!,
   );
   expect(mocks.accept).not.toHaveBeenCalled();
+  await act(async () => undefined);
   expect(mocks.prepare).toHaveBeenCalledWith({
     action: "POLICY",
     target: "current-revision",
   });
-  await act(() => vi.advanceTimersByTime(10000));
+  await act(() => vi.advanceTimersByTime(5000));
   fireEvent.click(screen.getByRole("button", { name: "confirm" }));
   expect(mocks.accept).toHaveBeenCalledWith({
     slug: "tutee-policy",

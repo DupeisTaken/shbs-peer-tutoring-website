@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import type { ComponentProps } from "react";
@@ -9,6 +15,7 @@ import { StudentScheduleAction } from "./student-schedule-action";
 const state = vi.hoisted(() => ({
   mutate: vi.fn(),
   prepare: vi.fn(),
+  cancelTicket: vi.fn(),
   pending: false,
   error: "",
 }));
@@ -18,15 +25,17 @@ vi.mock("~/trpc/react", () => ({
       studentWorkflow: { tutorRoster: { invalidate: vi.fn() } },
     }),
     studentWorkflow: {
+      cancelAction: { useMutation: () => ({ mutate: state.cancelTicket }) },
       prepareAction: {
         useMutation: () => ({
-          mutate: state.prepare,
-          data: { id: "issued-server-ticket", readyAt: new Date(0) },
+          mutateAsync: state.prepare,
+          reset: vi.fn(),
         }),
       },
       rejectSchedule: {
         useMutation: () => ({
           mutate: state.mutate,
+          mutateAsync: state.mutate,
           isPending: state.pending,
           error: state.error ? new Error(state.error) : null,
         }),
@@ -63,13 +72,20 @@ afterEach(() => {
   state.error = "";
 });
 
-it("retains canceled/failed reasons and passes the unchanged server ticket and target", () => {
+it("retains canceled/failed reasons and passes the unchanged server ticket and target", async () => {
+  state.prepare.mockImplementation(async () => ({
+    id: "issued-server-ticket",
+    readyAt: new Date(0),
+    serverNow: new Date(),
+    expiresAt: new Date(Date.now() + 30 * 60_000),
+  }));
   const view = render(element());
   const open = () =>
     fireEvent.click(
       screen.getByRole("button", { name: messages.workflow.scheduleReject }),
     );
   open();
+  await act(async () => undefined);
   expect(screen.getByRole("dialog", { name: /Sample Learner/ })).toBeTruthy();
   expect(state.prepare).toHaveBeenCalledWith({
     action: "SCHEDULE",
@@ -81,6 +97,7 @@ it("retains canceled/failed reasons and passes the unchanged server ticket and t
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(state.mutate).not.toHaveBeenCalled();
   open();
+  await act(async () => undefined);
   expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe(
     "Schedule conflict draft",
   );

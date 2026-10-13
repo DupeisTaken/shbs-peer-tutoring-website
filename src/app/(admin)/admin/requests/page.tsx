@@ -173,7 +173,7 @@ function RequestCard({
           busy={assign.isPending}
           error={assign.error?.message}
           onConfirm={(overrideTicket) =>
-            assign.mutate({ ...assignmentPayload, overrideTicket })
+            assign.mutateAsync({ ...assignmentPayload, overrideTicket })
           }
         />
       )}

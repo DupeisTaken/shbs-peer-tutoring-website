@@ -1,3 +1,4 @@
+import { confirmationDelayMs } from "~/lib/confirmation-timing";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import { assertRequestProcessable, emptyRequestInvalidity, lockStudentRequestReview, requestInvalidity } from "~/server/request-invalidity";
 import { findAccountPolicy } from "./policy-acceptance";
@@ -51,15 +52,24 @@ export async function prepareStudentAction(
   await db.studentActionConfirmation.deleteMany({
     where: { userId, expiresAt: { lt: new Date(now) } },
   });
-  return db.studentActionConfirmation.create({
+  const ticket = await db.studentActionConfirmation.create({
     data: {
       userId,
       action,
       target,
-      readyAt: new Date(now + (action === "POLICY" ? 10000 : 5000)),
+      readyAt: new Date(now + confirmationDelayMs[action]),
       expiresAt: new Date(now + 30 * 60_000),
     },
-    select: { id: true, readyAt: true },
+    select: { id: true, readyAt: true, expiresAt: true },
+  });
+  return { ...ticket, serverNow: new Date() };
+}
+
+/** Cancelling a local review can remove only the caller's unused proof. A submitted
+ * proof survives dialog handoff and is consumed atomically by the actual operation. */
+export function cancelStudentAction(db: DomainDb, userId: string, id: string) {
+  return db.studentActionConfirmation.deleteMany({
+    where: { id, userId, usedAt: null },
   });
 }
 

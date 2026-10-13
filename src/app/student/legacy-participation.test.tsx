@@ -22,7 +22,12 @@ vi.mock("~/trpc/react", () => ({
     }),
     studentWorkflow: {
       legacyParticipation: { useQuery: mocks.query },
-      applyLegacyWithdrawal: { useMutation: () => ({ mutate: mocks.mutate }) },
+      applyLegacyWithdrawal: {
+        useMutation: () => ({
+          mutate: mocks.mutate,
+          mutateAsync: mocks.mutate,
+        }),
+      },
     },
   },
 }));

@@ -107,6 +107,39 @@ async function ready(id: string) {
   });
 }
 
+it("cancellation deletes only the authenticated actor's unused confirmation", async () => {
+  const ticket = await actor().studentWorkflow.prepareAction({
+    action: "ASSIGN",
+    target: "review-target",
+  });
+  expect(
+    await actor("assignment-reviewer").studentWorkflow.cancelAction({
+      ticket: ticket.id,
+    }),
+  ).toEqual({ count: 0 });
+  expect(
+    await db.studentActionConfirmation.findUnique({ where: { id: ticket.id } }),
+  ).not.toBeNull();
+  expect(
+    await actor().studentWorkflow.cancelAction({ ticket: ticket.id }),
+  ).toEqual({ count: 1 });
+  const spent = await actor().studentWorkflow.prepareAction({
+    action: "ASSIGN",
+    target: "review-target",
+  });
+  await db.studentActionConfirmation.update({
+    where: { id: spent.id },
+    data: { usedAt: new Date() },
+  });
+  expect(
+    await actor().studentWorkflow.cancelAction({ ticket: spent.id }),
+  ).toEqual({ count: 0 });
+  const anonymous = createCaller({ db, headers: new Headers(), session: null });
+  await expect(
+    anonymous.studentWorkflow.cancelAction({ ticket: spent.id }),
+  ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+});
+
 it.each(["manual", "legacy", "survey"] as const)(
   "requires and consumes override evidence for %s request assignment",
   async (kind) => {
@@ -200,7 +233,9 @@ it.each(["manual", "legacy", "survey"] as const)(
         where: { tutorId: input.tutorId, subject: subject.name },
       }),
     ).toBe(1);
-    expect(await db.pairing.findFirstOrThrow({ where: { tutorId: input.tutorId } })).toMatchObject({ scheduleConfirmed: false, timeSlotId: null });
+    expect(
+      await db.pairing.findFirstOrThrow({ where: { tutorId: input.tutorId } }),
+    ).toMatchObject({ scheduleConfirmed: false, timeSlotId: null });
     expect(
       (
         await db.studentActionConfirmation.findUniqueOrThrow({

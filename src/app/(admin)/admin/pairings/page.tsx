@@ -219,11 +219,11 @@ export default function PairingsPage() {
       }
     };
     if (form.id)
-      update.mutate(
+      return update.mutateAsync(
         { ...base, id: form.id, roomId: form.roomId || null, overrideTicket },
         { onSuccess },
       );
-    else create.mutate({ ...base, overrideTicket }, { onSuccess });
+    else return create.mutateAsync({ ...base, overrideTicket }, { onSuccess });
   };
 
   const error = create.error ?? update.error;
