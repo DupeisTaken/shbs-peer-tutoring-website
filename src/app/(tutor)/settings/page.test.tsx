@@ -17,6 +17,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import messages from "../../../../messages/en.json";
 import SettingsPage from "./page";
+import type { NameFieldStates } from "~/lib/name-field-policy";
 
 type Snapshot = {
   firstName: string;
@@ -32,6 +33,7 @@ type Snapshot = {
 const state = vi.hoisted(() => {
   const initialReads: { feature: boolean | undefined } = { feature: false };
   return {
+    nameStates: undefined as NameFieldStates | undefined,
     profile: undefined as Snapshot | undefined,
     client: null as QueryClient | null,
     read: vi.fn<() => Promise<Snapshot>>(),
@@ -123,7 +125,7 @@ vi.mock("~/trpc/react", async () => {
       program: {
         ...(
           await import("~/test/name-field-policy-fixtures")
-        ).nameFieldPolicyQueries(),
+        ).nameFieldPolicyQueries(() => state.nameStates),
         features: {
           useQuery: () => ({
             data:
@@ -216,6 +218,7 @@ function save() {
   return screen.getByRole("button", { name: messages.tutor.settings.save });
 }
 beforeEach(() => {
+  state.nameStates = undefined;
   state.profile = {
     firstName: "Original",
     lastName: "Person",
@@ -255,6 +258,28 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   state.client?.clear();
+});
+it("shows a useful all-Hidden Tutor profile while keeping email/security/academics independent", () => {
+  state.nameStates = {
+    firstName: "hidden",
+    lastName: "hidden",
+    preferredName: "hidden",
+    alternativeNames: "hidden",
+  };
+  render(ui());
+  expect(screen.getByText(messages.nameFields.hiddenProfileHelp)).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: messages.tutor.settings.save }),
+  ).toBeNull();
+  expect(
+    screen.getByLabelText<HTMLInputElement>("Academic draft").disabled,
+  ).toBe(false);
+  expect(screen.getByText("Email ownership")).toBeTruthy();
+  fireEvent.submit(
+    screen.getByRole("form", { name: messages.tutor.settings.profileHeading }),
+  );
+  expect(state.save).not.toHaveBeenCalled();
+  expect(state.profile?.firstName).toBe("Original");
 });
 
 it("submits native profile form once, preserves its version through background reads and isolates Cancel", async () => {

@@ -540,7 +540,7 @@ function ScheduleDetails({
                     : pairing.dayOfWeek !== undefined &&
                         pairing.startMin !== undefined &&
                         pairing.endMin !== undefined
-                      ? `${formatWeekday(pairing.dayOfWeek, locale)} ${minToHm(pairing.startMin)}–${minToHm(pairing.endMin)} · ${saved?.dayOfWeek !== pairing.dayOfWeek || saved?.startMin !== pairing.startMin || saved?.endMin !== pairing.endMin ? t("outsideCatalog") : ""}`
+                      ? `${formatWeekday(pairing.dayOfWeek, locale)} ${minToHm(pairing.startMin)}–${minToHm(pairing.endMin)}${saved?.dayOfWeek !== pairing.dayOfWeek || saved?.startMin !== pairing.startMin || saved?.endMin !== pairing.endMin ? ` · ${t("outsideCatalog")}` : ""}`
                       : saved
                         ? slotText(saved, locale)
                         : t("outsideCatalog")}

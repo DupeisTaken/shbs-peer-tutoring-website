@@ -1,42 +1,50 @@
 /** @vitest-environment jsdom */
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
 import zh from "../../../../../messages/zh.json";
 import ProgramPage from "./page";
 const mutate = vi.hoisted(() => vi.fn());
+const access = vi.hoisted(() => ({
+  role: "HEAD",
+  readOnly: false,
+  privateChild: vi.fn(() => null),
+}));
+vi.mock("~/app/_components/read-only", () => ({
+  useReadOnly: () => access.readOnly,
+}));
 vi.mock("~/app/_components/program-captcha-settings", () => ({
-  ProgramCaptchaSettings: () => null,
+  ProgramCaptchaSettings: access.privateChild,
 }));
 vi.mock("~/app/_components/program-profile-settings", () => ({
-  ProgramProfileSettings: () => null,
+  ProgramProfileSettings: access.privateChild,
 }));
 vi.mock("~/app/_components/program-email-settings", () => ({
-  ProgramEmailSettings: () => null,
+  ProgramEmailSettings: access.privateChild,
 }));
 vi.mock("~/app/_components/program-time-zone-settings", () => ({
-  ProgramTimeZoneSettings: () => null,
+  ProgramTimeZoneSettings: access.privateChild,
 }));
 vi.mock("~/app/_components/recruitment-settings", () => ({
   RecruitmentSettings: () => null,
 }));
 // This suite owns refresh confirmation. Relocated settings own separate query tests.
 vi.mock("~/app/_components/program-calendar", () => ({
-  ProgramCalendarSettings: () => null,
+  ProgramCalendarSettings: access.privateChild,
 }));
 vi.mock("~/app/_components/school-calendar", () => ({
-  SchoolCalendar: () => null,
+  SchoolCalendar: access.privateChild,
 }));
 vi.mock("~/app/_components/program-name-settings", () => ({
-  ProgramNameSettings: () => null,
+  ProgramNameSettings: access.privateChild,
 }));
 vi.mock("~/app/_components/message-admin", () => ({
-  MessagePermissions: () => null,
+  MessagePermissions: access.privateChild,
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
+    account: { me: { useQuery: () => ({ data: { role: access.role } }) } },
     useUtils: () => ({ admin: { invalidate: vi.fn() } }),
     admin: {
       currentPeriod: {
@@ -45,8 +53,9 @@ vi.mock("~/trpc/react", () => ({
             name: "Current",
             semester: 1,
             termId: "term-1",
-            canEdit: true,
-            canApply: true,
+            canEdit:
+              ["HEAD", "ADMIN"].includes(access.role) && !access.readOnly,
+            canApply: access.role === "HEAD" && !access.readOnly,
             recruitment: { tutee: {}, tutor: {} },
             next: { name: "Next", semester: 1 },
           },
@@ -60,6 +69,11 @@ vi.mock("~/trpc/react", () => ({
     },
   },
 }));
+beforeEach(() => {
+  access.role = "HEAD";
+  access.readOnly = false;
+  access.privateChild.mockClear();
+});
 afterEach(() => {
   cleanup();
   mutate.mockReset();
@@ -113,3 +127,23 @@ it("retains typed refresh confirmation across settings panels", () => {
   ).toBe("REFRESH");
   expect(mutate).not.toHaveBeenCalled();
 });
+it.each(["VIEWER", "departed HEAD"])(
+  "keeps public period values readable without mounting private settings for %s",
+  (role) => {
+    access.role = role === "departed HEAD" ? "HEAD" : role;
+    access.readOnly = true;
+    render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <ProgramPage />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByText("Current")).toBeTruthy();
+    expect(access.privateChild).not.toHaveBeenCalled();
+    const button = screen.getByRole<HTMLButtonElement>("button", {
+      name: en.approvals.requestHead,
+    });
+    expect(button.disabled).toBe(true);
+    fireEvent.click(button);
+    expect(mutate).not.toHaveBeenCalled();
+  },
+);

@@ -183,7 +183,7 @@
       "UNRESTRICT": "Access restored"
     },
     "rolePermissions": "Permissions by Role",
-    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "permissionHelp": "Les groupes sélectionnés peuvent recevoir des messages. Une exception individuelle remplace la règle du rôle ; aucun groupe signifie aucun nouvel envoi. Tous les comptes disponibles exclut votre propre compte, les comptes suspendus et ceux dont la messagerie est restreinte. Les anciennes relations de tutorat reposent sur les affectations ou présences conservées ; les affectations non enregistrées ne peuvent pas être reconstituées.",
     "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
@@ -597,7 +597,7 @@
         "activity": "Activité & demandes",
         "history": "Historique du programme",
         "announcements": "Annonces",
-        "program": "Programme & actualisation",
+        "program": "Paramètres du programme",
         "tutorRoster": "Liste des tuteurs",
         "tutorApplications": "Candidatures tuteurs",
         "tutorRequests": "Demandes de statut de tuteur",
@@ -788,7 +788,7 @@
     },
     "program": {
       "title": "Paramètres du programme",
-      "subtitle": "La période en cours et l'actualisation trimestrielle qui fait avancer le programme.",
+      "subtitle": "Inscriptions, paramètres des comptes, déploiement et fonctions facultatives.",
       "loading": "Chargement…",
       "noPeriod": "Aucune période de programme active. Initialisez ou créez-en une d'abord.",
       "currentPeriod": "Période en cours",
@@ -4605,7 +4605,8 @@
     "saving": "Enregistrement…",
     "saved": "Avis enregistré.",
     "saveFailed": "Impossible d’enregistrer l’avis.",
-    "refreshFailed": "L’avis a été enregistré, mais la liste à jour n’a pas pu être chargée. Actualisez pour synchroniser sans enregistrer à nouveau."
+    "refreshFailed": "L’avis a été enregistré, mais la liste à jour n’a pas pu être chargée. Actualisez pour synchroniser sans enregistrer à nouveau.",
+    "details": "Voir les détails"
   },
   "roomOrder": {
     "title": "Ordre d’affichage des salles",
@@ -4623,7 +4624,8 @@
     "refresh": "Actualiser",
     "loadFailed": "Impossible de charger le dernier ordre des salles. Votre brouillon a été conservé.",
     "refreshFailed": "L’ordre a été enregistré, mais la synchronisation a échoué. Actualiser lit l’ordre enregistré sans le soumettre à nouveau.",
-    "request": "Demander une modification de l’ordre des salles"
+    "request": "Demander une modification de l’ordre des salles",
+    "open": "Réordonner les salles"
   },
   "roomSchedule": {
     "rooms": "Salles à afficher",
@@ -4632,7 +4634,7 @@
     "allDetails": "Détails de l’emploi du temps",
     "occupied": "Occupée",
     "noSlot": "—",
-    "legend": "Gris = occupée · × = indisponible · Disponible = aucune affectation dans un créneau publié. Les détails comprennent tous les dossiers autorisés.",
+    "legend": "Gris = occupé · × = indisponible · Disponible = aucune affectation dans un créneau publié.",
     "combined": "Tableau combiné",
     "individual": "Emplois du temps par salle",
     "noSelection": "Aucune salle sélectionnée. Choisissez des salles ou Toutes les salles.",
@@ -4664,7 +4666,8 @@
     "save": "Enregistrer les exigences",
     "saving": "Enregistrement…",
     "saved": "Exigences de nom enregistrées.",
-    "refreshFailed": "Les exigences ont été enregistrées, mais la synchronisation a échoué. Actualiser lit les règles enregistrées sans les enregistrer à nouveau."
+    "refreshFailed": "Les exigences ont été enregistrées, mais la synchronisation a échoué. Actualiser lit les règles enregistrées sans les enregistrer à nouveau.",
+    "hiddenProfileHelp": "Votre nom d’utilisateur est affiché ici. Les noms enregistrés sont conservés et restent consultables par le personnel autorisé."
   },
   "participantNames": {
     "unnamed": "Nom non fourni"

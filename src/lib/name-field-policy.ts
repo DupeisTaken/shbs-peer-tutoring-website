@@ -28,6 +28,16 @@ export const nameFieldStatesSchema = z
   .strict();
 export type NameFieldStates = z.infer<typeof nameFieldStatesSchema>;
 export type NameFieldPolicies = Record<NameAccountType, NameFieldStates>;
+/** Presentation follows the same configured fields without exposing retained Hidden values. */
+export function hasVisibleNameFields(
+  states: NameFieldStates,
+  latinOnly = false,
+) {
+  return NAME_FIELD_KEYS.some(
+    (key) =>
+      (!latinOnly || key !== "alternativeNames") && states[key] !== "hidden",
+  );
+}
 export const DEFAULT_NAME_FIELDS: NameFieldStates = {
   firstName: "required",
   lastName: "optional",
