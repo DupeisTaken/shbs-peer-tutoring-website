@@ -15,7 +15,7 @@ import {
   viewEnum,
   viewFields,
   viewPage,
-  viewSearch,
+  viewIdentifier,
 } from "~/lib/session-view-state";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -370,7 +370,7 @@ function ApprovalQueue({
             ? ""
             : undefined
           : requesters === null
-            ? viewSearch(value)
+            ? viewIdentifier(value)
             : viewEnum(["", ...requesters])(value),
     }),
   });
@@ -378,7 +378,7 @@ function ApprovalQueue({
   const urlRequester =
     requesters !== null && !requesters.includes(rawRequester)
       ? ""
-      : (viewSearch(rawRequester) ?? "");
+      : (viewIdentifier(rawRequester) ?? "");
   const [pendingUrlView, setPendingUrlView] = useState<{
     query: string;
     value: typeof remembered;

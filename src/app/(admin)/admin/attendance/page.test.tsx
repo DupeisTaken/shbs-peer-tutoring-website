@@ -199,7 +199,7 @@ it("waits for tutor options then restores month/visibility and removes obsolete 
     screen.getByRole<HTMLSelectElement>("combobox", { name: "Tutor" }).value,
   ).toBe("tutor");
   expect(
-    screen.getByRole("button", { name: messages.tuteeHistory.hideHistorical }),
+    screen.getByRole("button", { name: messages.pastTutors.hide }),
   ).toBeTruthy();
   state.tutorIds = [];
   view.rerender(<AttendancePage />);

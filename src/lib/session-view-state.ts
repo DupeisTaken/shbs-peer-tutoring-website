@@ -6,6 +6,16 @@ export const VIEW_STATE_PREFIX = "shbs:view:v1:";
 const MAX_ENTRIES = 100;
 const MAX_BYTES = 4096;
 
+/** Bound the full entry, including route criteria embedded in its encoded key.
+ * Reject huge live text cheaply before allocating a UTF-8 encoding buffer. */
+function withinStorageBudget(key: string, raw = "") {
+  if (key.length + raw.length > MAX_BYTES) return false;
+  const encoder = new TextEncoder();
+  return (
+    encoder.encode(key).byteLength + encoder.encode(raw).byteLength <= MAX_BYTES
+  );
+}
+
 export function viewStateKey(
   identity: string,
   path: string,
@@ -42,8 +52,16 @@ export function isViewState(value: unknown): value is ViewState {
 /** Storage is optional: restrictive browsers and a full quota must not break navigation. */
 export function readViewState(storage: Storage, key: string): unknown {
   try {
+    if (!withinStorageBudget(key)) {
+      removeViewState(storage, key);
+      return undefined;
+    }
     const raw = storage.getItem(key);
-    if (!raw || raw.length > MAX_BYTES) return undefined;
+    if (!raw) return undefined;
+    if (!withinStorageBudget(key, raw)) {
+      removeViewState(storage, key);
+      return undefined;
+    }
     const value: unknown = JSON.parse(raw);
     return isViewState(value) ? value : undefined;
   } catch {
@@ -56,17 +74,28 @@ export function writeViewState(
   value: ViewState,
 ) {
   try {
-    if (!isViewState(value)) return;
+    if (!withinStorageBudget(key) || !isViewState(value)) {
+      removeViewState(storage, key);
+      return;
+    }
     const raw = JSON.stringify(value);
-    if (raw.length > MAX_BYTES) return;
+    if (!withinStorageBudget(key, raw)) {
+      removeViewState(storage, key);
+      return;
+    }
     const keys = Array.from({ length: storage.length }, (_, index) =>
       storage.key(index),
     ).filter((item): item is string => !!item?.startsWith(VIEW_STATE_PREFIX));
-    if (!keys.includes(key) && keys.length >= MAX_ENTRIES)
-      storage.removeItem(keys[0]!);
     storage.setItem(key, raw);
+    // Capacity pruning follows a successful write. A quota failure may remove
+    // this entry's stale value, but must not evict an unrelated remembered view.
+    if (!keys.includes(key) && keys.length >= MAX_ENTRIES)
+      for (const old of keys.slice(0, keys.length - MAX_ENTRIES + 1))
+        removeViewState(storage, old);
   } catch {
-    /* View persistence is best-effort; feature state remains usable. */
+    // A newer live choice must never fall back to the older saved criteria.
+    // This is best-effort too: fully blocked storage still leaves live state usable.
+    removeViewState(storage, key);
   }
 }
 export function removeViewState(storage: Storage, key: string) {
@@ -113,12 +142,16 @@ export const viewPage = (value: unknown): number | undefined =>
     ? value
     : undefined;
 export const viewSearch = (value: unknown): string | undefined =>
+  typeof value === "string" ? value : undefined;
+
+/** IDs and URL choices remain bounded independently of unrestricted live searches. */
+export const viewIdentifier = (value: unknown): string | undefined =>
   typeof value === "string" && value.length <= 160 ? value : undefined;
 
 /** Compose a feature's explicit field allowlist; never copy unknown stored fields. */
-export function viewFields<T extends Record<string, ViewValue>>(
-  fields: { [K in keyof T]: (value: unknown) => T[K] | undefined },
-) {
+export function viewFields<T extends Record<string, ViewValue>>(fields: {
+  [K in keyof T]: (value: unknown) => T[K] | undefined;
+}) {
   return (value: unknown): T | undefined => {
     if (!value || typeof value !== "object" || Array.isArray(value)) return;
     const source = value as Record<string, unknown>;

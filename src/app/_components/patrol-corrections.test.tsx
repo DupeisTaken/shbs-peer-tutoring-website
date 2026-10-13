@@ -12,7 +12,7 @@ const { mutate, row, state } = vi.hoisted(() => ({
     count: 1,
     error: null as null | { message: string; data?: { code?: string } },
     refetch: vi.fn(),
-    input: undefined as unknown,
+    input: ((): unknown => undefined)(),
   },
   row: {
     id: "synthetic-patrol",

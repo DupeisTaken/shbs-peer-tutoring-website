@@ -58,7 +58,7 @@ export default function SummaryPage() {
   const scope = hidden ? undefined : summary.data?.scope.label;
   useSessionPageScroll({
     id: "service-hours-v1",
-    scope: month || scope || "",
+    scope: month || (scope ?? ""),
     ready: summary.data !== undefined && !hidden,
     enabled: !hidden,
   });

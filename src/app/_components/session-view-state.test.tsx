@@ -19,6 +19,8 @@ import {
   viewPage,
   viewStateKey,
   writeViewState,
+  viewSearch,
+  readViewState,
 } from "~/lib/session-view-state";
 
 const parse = viewEnum(["current", "history"]);
@@ -64,7 +66,9 @@ beforeEach(() => window.sessionStorage.clear());
 afterEach(() => {
   cleanup();
   // A failed expectation must not leave another #admin-content owner for the next case.
-  document.querySelectorAll("[data-scroll-fixture]").forEach((pane) => pane.remove());
+  document
+    .querySelectorAll("[data-scroll-fixture]")
+    .forEach((pane) => pane.remove());
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -73,19 +77,161 @@ afterEach(() => {
 
 it("normalizes a feature field allowlist in storage instead of reviving removed choices later", () => {
   const key = viewStateKey("head", "/admin/tutees", "fields-v1", "");
-  writeViewState(window.sessionStorage, key, { tab: "current", page: 2, unknownPrivateDraft: "private" });
+  writeViewState(window.sessionStorage, key, {
+    tab: "current",
+    page: 2,
+    unknownPrivateDraft: "private",
+  });
   function Fields() {
-    const [state] = useSessionViewState({ id: "fields-v1", initialState: { tab: "current", page: 0 }, parse: viewFields({ tab: parse, page: viewPage }) });
-    return <p>{state.tab}:{state.page}</p>;
+    const [state] = useSessionViewState({
+      id: "fields-v1",
+      initialState: { tab: "current", page: 0 },
+      parse: viewFields({ tab: parse, page: viewPage }),
+    });
+    return (
+      <p>
+        {state.tab}:{state.page}
+      </p>
+    );
   }
-  render(<SessionViewProvider identity="head" pathname="/admin/tutees" verified><Fields /></SessionViewProvider>);
+  render(
+    <SessionViewProvider identity="head" pathname="/admin/tutees" verified>
+      <Fields />
+    </SessionViewProvider>,
+  );
   expect(screen.getByText("current:2")).toBeTruthy();
-  expect(JSON.parse(window.sessionStorage.getItem(key)!)).toEqual({ tab: "current", page: 2 });
+  expect(JSON.parse(window.sessionStorage.getItem(key)!)).toEqual({
+    tab: "current",
+    page: 2,
+  });
+});
+
+function LiveSearch({
+  scope,
+  enabled,
+  rooms,
+}: {
+  scope: string;
+  enabled: boolean;
+  rooms: readonly string[];
+}) {
+  const [state, setState] = useSessionViewState({
+    id: "live-text-v1",
+    scope,
+    enabled,
+    initialState: { search: "", tab: "current", room: "room-a" },
+    parse: viewFields({
+      search: viewSearch,
+      tab: viewEnum(["current", "history"]),
+      room: (value) =>
+        typeof value === "string"
+          ? rooms.includes(value)
+            ? value
+            : ""
+          : undefined,
+    }),
+  });
+  return (
+    <>
+      <input
+        aria-label="Live search"
+        value={state.search}
+        onChange={(event) => {
+          const search = event.target.value;
+          setState((current) => ({ ...current, search }));
+        }}
+      />
+      <button
+        onClick={() => setState((current) => ({ ...current, tab: "history" }))}
+      >
+        Other filter
+      </button>
+      <p data-testid="live-text-state">{JSON.stringify(state)}</p>
+    </>
+  );
+}
+function liveSearchView(
+  scope = "current",
+  enabled = true,
+  rooms = ["room-a"],
+  identity = "head",
+) {
+  return (
+    <SessionViewProvider identity={identity} pathname="/admin/tutees" verified>
+      <LiveSearch scope={scope} enabled={enabled} rooms={rooms} />
+    </SessionViewProvider>
+  );
+}
+it("keeps valid long live text through functional updates and catalog normalization without reviving saved short text", () => {
+  const key = viewStateKey("head", "/admin/tutees", "live-text-v1", "current");
+  const long = "x".repeat(200);
+  const rendered = render(liveSearchView());
+  fireEvent.change(screen.getByLabelText("Live search"), {
+    target: { value: "old short" },
+  });
+  expect(readViewState(window.sessionStorage, key)).toMatchObject({
+    search: "old short",
+  });
+  fireEvent.change(screen.getByLabelText("Live search"), {
+    target: { value: long },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Other filter" }));
+  rendered.rerender(liveSearchView("current", true, []));
+  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe(long);
+  expect(
+    JSON.parse(screen.getByTestId("live-text-state").textContent),
+  ).toEqual({ search: long, tab: "history", room: "" });
+  expect(sessionStorage.getItem(key)).toBeNull();
+  rendered.unmount();
+  render(liveSearchView());
+  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("");
+  fireEvent.change(screen.getByLabelText("Live search"), {
+    target: { value: long },
+  });
+  fireEvent.change(screen.getByLabelText("Live search"), {
+    target: { value: "new short" },
+  });
+  cleanup();
+  render(liveSearchView());
+  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("new short");
+});
+it("drops oversized live memory on scope, denial and identity boundaries", () => {
+  const rendered = render(liveSearchView());
+  const long = "x".repeat(5000);
+  const type = () =>
+    fireEvent.change(screen.getByLabelText("Live search"), {
+      target: { value: long },
+    });
+  type();
+  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe(long);
+  rendered.rerender(liveSearchView("other-period"));
+  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("");
+  type();
+  rendered.rerender(liveSearchView("other-period", false));
+  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("");
+  rendered.rerender(liveSearchView("other-period", true));
+  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("");
+  type();
+  rendered.rerender(
+    liveSearchView("other-period", true, ["room-a"], "student"),
+  );
+  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("");
+  expect(Object.keys(sessionStorage)).toHaveLength(0);
 });
 
 it("holds an authoritative query denial through transport failures until a fresh successful read", () => {
-  function Denial({ code, success = false }: { code?: string; success?: boolean }) {
-    const denied = useSessionAccessDenied({ error: code ? { data: { code } } : null, isSuccess: success, isFetching: false });
+  function Denial({
+    code,
+    success = false,
+  }: {
+    code?: string;
+    success?: boolean;
+  }) {
+    const denied = useSessionAccessDenied({
+      error: code ? { data: { code } } : null,
+      isSuccess: success,
+      isFetching: false,
+    });
     return <p>{denied ? "denied" : "authorized"}</p>;
   }
   const panel = render(<Denial success />);
@@ -203,17 +349,19 @@ it("preserves stored room IDs while dynamic options load, then validates the cur
 function ScrollProbe({
   ready = true,
   enabled = true,
+  scope = "current",
 }: {
   ready?: boolean;
   enabled?: boolean;
+  scope?: string;
 }) {
-  useSessionPageScroll({ id: "page-v1", scope: "current", ready, enabled });
+  useSessionPageScroll({ id: "page-v1", scope, ready, enabled });
   return null;
 }
-function scrollView(ready = true, enabled = true) {
+function scrollView(ready = true, enabled = true, scope = "current") {
   return (
     <SessionViewProvider identity="head" pathname="/admin/tutees" verified>
-      <ScrollProbe ready={ready} enabled={enabled} />
+      <ScrollProbe ready={ready} enabled={enabled} scope={scope} />
     </SessionViewProvider>
   );
 }
@@ -273,7 +421,9 @@ function scrollFixture(width = 1440, contentHeight = 2200) {
       observe(element: Element) {
         observed.push(element);
       }
-      disconnect() { disconnected++; }
+      disconnect() {
+        disconnected++;
+      }
     },
   );
   return {
@@ -287,10 +437,13 @@ function scrollFixture(width = 1440, contentHeight = 2200) {
       const recovery = scheduledTimers.mock.calls.flatMap((call, index) =>
         call[1] === 5000 ? [index] : [],
       );
-      return recovery.length > 0 && recovery.every((index) =>
-        cancelledTimers.mock.calls.some(([handle]) =>
-          handle === scheduledTimers.mock.results[index]?.value,
-        ),
+      return (
+        recovery.length > 0 &&
+        recovery.every((index) =>
+          cancelledTimers.mock.calls.some(
+            ([handle]) => handle === scheduledTimers.mock.results[index]?.value,
+          ),
+        )
       );
     },
     pendingFrames: () => frames.size,
@@ -311,6 +464,28 @@ function scrollFixture(width = 1440, contentHeight = 2200) {
 }
 const scrollKey = (size: "desktop" | "mobile") =>
   viewStateKey("head", "/admin/tutees", "scroll:page-v1", "current:" + size);
+
+it.each([
+  { label: "ASCII", scope: "x".repeat(5000) },
+  { label: "Chinese", scope: "中".repeat(1500) },
+])(
+  "does not persist oversized $label query context in scroll keys",
+  ({ scope }) => {
+    const fixture = scrollFixture(390);
+    const rendered = render(scrollView(true, true, scope));
+    document.documentElement.scrollTop = 77;
+    fireEvent.scroll(window);
+    fixture.frames();
+    expect(Object.keys(sessionStorage)).toHaveLength(0);
+    rendered.rerender(scrollView());
+    document.documentElement.scrollTop = 120;
+    fireEvent.scroll(window);
+    fixture.frames();
+    expect(sessionStorage.getItem(scrollKey("mobile"))).toBe("120");
+    rendered.unmount();
+    fixture.remove();
+  },
+);
 
 it("restores the management pane independently of document, tables and dialogs", () => {
   const fixture = scrollFixture();
