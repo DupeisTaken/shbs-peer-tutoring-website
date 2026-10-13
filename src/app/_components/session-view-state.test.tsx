@@ -179,7 +179,7 @@ it("keeps valid long live text through functional updates and catalog normalizat
   rendered.rerender(liveSearchView("current", true, []));
   expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe(long);
   expect(
-    JSON.parse(screen.getByTestId("live-text-state").textContent!),
+    JSON.parse(screen.getByTestId("live-text-state").textContent),
   ).toEqual({ search: long, tab: "history", room: "" });
   expect(sessionStorage.getItem(key)).toBeNull();
   rendered.unmount();
