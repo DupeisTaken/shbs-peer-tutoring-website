@@ -145,7 +145,7 @@ function InvitationRedemptionFlow({
   const editableIdentity = Boolean(
     info &&
     !info.acceptedIdentity &&
-    (!info.existing || !info.name.trim()) &&
+    !info.existing &&
     ["TUTOR", "CREW", "ADMIN", "COORDINATOR"].includes(info.kind),
   );
   const previewFailed = Boolean(info && details.error);

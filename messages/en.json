@@ -4586,7 +4586,7 @@
     "layout": "Save applies to this layout only."
   },
   "programCalendar": {
-    "title": "No-tutoring dates",
+    "title": "No-Tutoring Dates",
     "informational": "Informational program dates and reasons. These notices do not restrict attendance or change the school-day calendar used by appeals.",
     "refresh": "Refresh",
     "reload": "Reload draft",
@@ -4598,7 +4598,7 @@
     "actions": "Actions",
     "edit": "Edit notice",
     "remove": "Remove notice",
-    "removeTitle": "Remove tutoring notice",
+    "removeTitle": "Remove Tutoring Notice",
     "removeHelp": "Remove this informational notice. Attendance and school-day rules are unchanged.",
     "empty": "No tutoring notices.",
     "save": "Save notice",
@@ -4608,7 +4608,7 @@
     "refreshFailed": "The notice was saved, but the latest list could not be loaded. Refresh to synchronize without saving again."
   },
   "roomOrder": {
-    "title": "Room display order",
+    "title": "Room Display Order",
     "help": "Arrange the program's room lists and schedules. Crew patrol order is managed separately.",
     "room": "Room",
     "actions": "Actions",
@@ -4649,7 +4649,7 @@
     "allTimes": "All times"
   },
   "nameFields": {
-    "title": "Name field requirements",
+    "title": "Name Field Requirements",
     "help": "Configure signup and profile fields by account type. An existing account uses its current role. Hidden names do not contribute to its display label; authorized staff can still review and edit retained values. If no name can be displayed, the account uses its username.",
     "accountType": "Account type",
     "summary": "Requirements",

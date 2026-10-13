@@ -21,8 +21,22 @@ vi.mock("~/app/_components/program-time-zone-settings", () => ({
 vi.mock("~/app/_components/recruitment-settings", () => ({
   RecruitmentSettings: () => null,
 }));
+// This suite owns refresh confirmation. Relocated settings own separate query tests.
+vi.mock("~/app/_components/program-calendar", () => ({
+  ProgramCalendarSettings: () => null,
+}));
+vi.mock("~/app/_components/school-calendar", () => ({
+  SchoolCalendar: () => null,
+}));
+vi.mock("~/app/_components/program-name-settings", () => ({
+  ProgramNameSettings: () => null,
+}));
+vi.mock("~/app/_components/message-admin", () => ({
+  MessagePermissions: () => null,
+}));
 vi.mock("~/trpc/react", () => ({
   api: {
+    account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
     useUtils: () => ({ admin: { invalidate: vi.fn() } }),
     admin: {
       currentPeriod: {

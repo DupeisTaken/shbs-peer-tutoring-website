@@ -234,8 +234,12 @@ it("retains room comparisons but moves pairing names and block reasons into the 
   );
   expect(screen.queryByText(/Alex Tutor/)).toBeNull();
   expect(screen.queryByText(/school assembly/)).toBeNull();
-  expect(screen.getByText("1 record").className).toContain("badge-green");
-  expect(screen.getByText("Unavailable")).toBeTruthy();
+  // Tutor defaults are paired rooms; expand explicitly to compare all room cells.
+  fireEvent.click(screen.getByRole("button", { name: "All rooms" }));
+  expect(screen.getByText("1 record").closest("td")?.className).toContain(
+    "bg-slate-100",
+  );
+  expect(screen.getByLabelText("Unavailable").textContent).toBe("×");
   const trigger = screen.getByRole("button", { name: /View schedule:/ });
   expect(trigger.closest("td")).toBe(trigger.closest("tr")?.lastElementChild);
   fireEvent.click(trigger);
