@@ -919,6 +919,10 @@ Completed interviews/flag decisions, historical profile names and recorded actor
 retain their original text. Current Crew summaries expose `canonicalName` and
 `username` alongside the unchanged legacy label/sort field; Subject Availability
 projects the current tutor handle only through its existing staff-only read.
+The Crew DTO's `canonicalName` references the materialized current `User.name`,
+which may be a reserved username fallback. Original identity fields remain
+`firstName`, `lastName`, `preferredName`, `alternativeNames` and `legacyName`;
+reads preserve those fields and the already materialized label without writes.
 
 `src/lib/username.ts` owns the editor/generation character and length rules. All runtime handle
 writers use the transaction-scoped PostgreSQL advisory lock `identity:username-namespace` before
