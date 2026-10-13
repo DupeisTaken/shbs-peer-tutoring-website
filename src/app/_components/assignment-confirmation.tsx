@@ -197,7 +197,7 @@ function ConfirmationInstance({
         </p>
       )}
       <div className="mt-5 flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4">
-        {(expired || prepare.error || (!warning && error)) && (
+        {(expired || !!prepare.error || (!warning && !!error)) && (
           <button
             type="button"
             className="btn-secondary min-h-11 lg:min-h-10"
@@ -225,8 +225,9 @@ function ConfirmationInstance({
             aria-describedby={statusId}
             disabled={!clock.eligible || pending}
             onClick={() => {
-              if (!busy && result?.ticket && clock.read().eligible) {
-                submission.run(() => onConfirm(result.ticket!.id));
+              const ticket = result?.ticket;
+              if (!busy && ticket && clock.read().eligible) {
+                submission.run(() => onConfirm(ticket.id));
               }
             }}
           >
