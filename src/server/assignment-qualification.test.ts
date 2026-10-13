@@ -165,6 +165,10 @@ it("keeps the five-minute lifetime and rejects at the exact expiry boundary", as
   expect(+result.ticket!.readyAt - start).toBe(2000);
   expect(+result.ticket!.expiresAt - start).toBe(5 * 60_000);
   vi.setSystemTime(result.ticket!.expiresAt);
-  await expect(enforceAssignmentQualification(tx, "actor", operation, { ...value, overrideTicket: result.ticket!.id }))
-    .rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  await expect(
+    enforceAssignmentQualification(tx, "actor", operation, {
+      ...value,
+      overrideTicket: result.ticket!.id,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
 });

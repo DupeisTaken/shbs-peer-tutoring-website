@@ -225,8 +225,9 @@ Confirmation waits depend on the action:
 
 The wait enables the confirmation choice; it never submits automatically. Cancel
 or changing the reviewed action/record starts a fresh review. If the confirmation
-expires, reopen it or use its refresh action. Failed writes allow deliberate retry without duplicate submission; pending writes
-prevent duplicate confirmation and dismissal.
+expires, reopen it or use its refresh action. Failed writes allow deliberate retry
+without duplicate submission; pending writes prevent duplicate confirmation and
+dismissal.
 Email verification, resend limits, signup windows and session timeouts have their
 own unchanged timing rules.
 

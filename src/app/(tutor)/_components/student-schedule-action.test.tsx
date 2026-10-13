@@ -125,9 +125,13 @@ it("retains canceled/failed reasons and passes the unchanged server ticket and t
   expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe(
     "Schedule conflict draft",
   );
+  // The feature returns its mutation promise; model the retried rejection even
+  // when no new pending/error-prop render is observed before cancellation.
+  state.mutate.mockRejectedValueOnce(new Error("Review failed"));
   fireEvent.click(screen.getByRole("button", { name: "Yes, confirm" }));
   expect(state.mutate).toHaveBeenCalledTimes(2);
   expect(state.mutate.mock.calls[1]).toEqual(state.mutate.mock.calls[0]);
+  await act(async () => undefined);
   fireEvent(dialog, new Event("cancel", { cancelable: true }));
   expect(screen.queryByRole("dialog")).toBeNull();
 });

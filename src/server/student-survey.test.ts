@@ -783,6 +783,34 @@ describe("survey-first enrollment", () => {
 });
 
 describe("student request lifecycle", () => {
+  it("admits one concurrent consumer of the same confirmation proof", async () => {
+    const ticket = await ready("RECALL", "review-target");
+    const attempts = await Promise.allSettled([
+      db.$transaction((tx) =>
+        consumeStudentAction(tx, ticket, "manager", "RECALL", "review-target"),
+      ),
+      db.$transaction((tx) =>
+        consumeStudentAction(tx, ticket, "manager", "RECALL", "review-target"),
+      ),
+    ]);
+    expect(
+      attempts.filter((attempt) => attempt.status === "fulfilled"),
+    ).toHaveLength(1);
+    const rejected = attempts.filter(
+      (attempt) => attempt.status === "rejected",
+    );
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]).toMatchObject({
+      reason: { code: "PRECONDITION_FAILED" },
+    });
+    expect(
+      (
+        await db.studentActionConfirmation.findUniqueOrThrow({
+          where: { id: ticket },
+        })
+      ).usedAt,
+    ).not.toBeNull();
+  });
   it.each(actionNames)(
     "enforces the exact %s delay and unchanged ticket expiry",
     async (action) => {

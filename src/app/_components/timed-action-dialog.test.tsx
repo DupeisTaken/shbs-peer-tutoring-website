@@ -144,6 +144,40 @@ it("checks expired eligibility at click time before background callbacks resume"
   await flush();
   expect(mocks.prepare).toHaveBeenCalledTimes(2);
 });
+it("wakes at the conservative expiry boundary after a delayed preparation response", async () => {
+  let respond!: (ticket: {
+    id: string;
+    serverNow: Date;
+    readyAt: Date;
+    expiresAt: Date;
+  }) => void;
+  mocks.prepare.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        respond = resolve;
+      }),
+  );
+  const start = Date.now();
+  show();
+  await flush();
+  await act(() => vi.advanceTimersByTime(1000));
+  await act(async () =>
+    respond({
+      id: "delayed",
+      serverNow: new Date(),
+      readyAt: new Date(start + 2000),
+      expiresAt: new Date(start + 4000),
+    }),
+  );
+  await act(() => vi.advanceTimersByTime(1999));
+  const confirm = screen.getByRole("button", { name: "Yes, confirm" });
+  expect(confirm.hasAttribute("disabled")).toBe(false);
+  await act(() => vi.advanceTimersByTime(1));
+  expect(confirm.hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("status").textContent).toBe(
+    en.workflow.confirmationExpired,
+  );
+});
 
 it("rebinds target/action and cancels late preparation without exposing old proof", async () => {
   let resolveOld!: (ticket: Awaited<ReturnType<typeof mocks.prepare>>) => void;

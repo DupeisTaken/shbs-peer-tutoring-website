@@ -603,9 +603,10 @@ uses the same calculation before admission. No callback submits an action at zer
 Changing the action/target or assignment identity remounts its preparation
 generation. Late responses cannot expose old proof, and cancellation removes only
 the actor's unused ticket. Submitted proof survives a dialog handoff to the
-qualification step. A ref blocks same-turn duplicate admission until its returned mutation promise rejects (even if the pending render is
-batched away), or a legacy callback exposes a rejection; an already-visible error cannot release that guard. Failed
-qualified writes offer explicit rechecking instead of an automatic retry loop.
+qualification step. A ref blocks same-turn duplicate admission until its returned
+mutation promise rejects (even if the pending render is batched away), or a legacy
+callback exposes a rejection; an already-visible error cannot release that guard.
+Failed qualified writes offer explicit rechecking instead of an automatic retry loop.
 Expired reviews offer renewal; policy Refresh remains in its existing footer and
 resets read/agreement evidence through the policy feature's own recovery.
 
