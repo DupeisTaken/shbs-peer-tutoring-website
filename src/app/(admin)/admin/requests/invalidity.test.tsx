@@ -22,6 +22,8 @@ const mocks = vi.hoisted(() => ({
   source: "SELF_SERVICE",
   assigned: false,
   verified: true,
+  unnamed: false,
+  username: null as string | null,
   invalidateRequests: vi.fn(),
   invalidateTutees: vi.fn(),
   fetchRequests: vi.fn(),
@@ -66,7 +68,8 @@ vi.mock("~/trpc/react", () => ({
             ? [
                 {
                   id: "survey-1",
-                  name: "Public survey student",
+                  name: mocks.unnamed ? "" : "Public survey student",
+                  username: mocks.username,
                   email: "student@example.test",
                   contact: "Email",
                   state: "OPEN",
@@ -127,7 +130,8 @@ vi.mock("~/trpc/react", () => ({
               id: "legacy-1",
               status: "PENDING",
               intakeTermId: "term-1",
-              englishName: "Legacy public student",
+              englishName: mocks.unnamed ? "" : "Legacy public student",
+              user: mocks.username ? { username: mocks.username } : null,
               signupSource: mocks.source,
               signupSubmittedAt: new Date("2026-10-01"),
               createdAt: new Date("2026-10-01"),
@@ -188,6 +192,8 @@ beforeEach(() => {
   mocks.source = "SELF_SERVICE";
   mocks.assigned = false;
   mocks.verified = true;
+  mocks.unnamed = false;
+  mocks.username = null;
   mocks.invalidateRequests.mockResolvedValue(undefined);
   mocks.invalidateTutees.mockResolvedValue(undefined);
   mocks.changeSurvey.mockResolvedValue({ ok: true });
@@ -206,6 +212,25 @@ beforeEach(() => {
   mocks.fetchTutees.mockImplementation(async () => fresh("legacy-1"));
 });
 afterEach(cleanup);
+
+it.each([false, true])("renders current unnamed requests with a handle or localized fallback (legacy=%s), preserving original labels when supplied", (legacy) => {
+  mocks.survey = !legacy;
+  mocks.invalid = false;
+  mocks.unnamed = true;
+  mocks.username = "learner-handle";
+  const page = render(content(legacy));
+  expect(screen.getByText("learner-handle")).toBeTruthy();
+  mocks.username = null;
+  page.rerender(content(legacy));
+  expect(screen.getByText(en.participantNames.unnamed)).toBeTruthy();
+  page.rerender(content(legacy, false, "zh"));
+  expect(screen.getByText(zh.participantNames.unnamed)).toBeTruthy();
+  mocks.unnamed = false;
+  page.rerender(content(legacy));
+  expect(screen.getByText(legacy ? /Legacy public student/ : "Public survey student")).toBeTruthy();
+  expect(mocks.changeSurvey).not.toHaveBeenCalled();
+  expect(mocks.changeSignup).not.toHaveBeenCalled();
+});
 
 it.each([
   [false, true],

@@ -305,6 +305,11 @@ uses its feature-dependent required queries, and account position waits for its
 mounted identity, email, departure and policy sections. This coverage describes these
 owners, not a generic layout restoration rule. Remaining management owners are
 integrated separately, and actual Next navigation evidence verifies framework scrolling.
+Current modern and manual request cards render an empty canonical name using an
+authorized linked username or the localized unnamed-participant label. The modern
+read DTO adds only current username metadata; intake `name`, payload, review
+assignment names and immutable history remain unchanged. Search still uses raw
+domain values rather than presentation fallback labels.
 Behavioral coverage is in `session-view-state.test.tsx`, the pure storage tests and
 the existing identity-cache/privacy tests; actual page screenshots remain separate
 from these mocked layout checks.
