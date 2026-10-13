@@ -171,14 +171,15 @@ it("retains a failed-save draft and original version on retry, clearing only thr
 it("keeps dirty draft/version during background changes, shows current saved summary, and reloads only after a successful fresh read", async () => {
   mount();
   await choose("4");
+  expect(select().value).toBe("4");
   await act(async () => {
     state.client!.setQueryData(
       ["preference"],
       snapshot({ preferredMaximum: 1, count: 3, version: 1 }),
     );
   });
-  expect(select().value).toBe("4");
   expect(await screen.findByText(/Preferred maximum: 1/)).toBeTruthy();
+  expect(select().value).toBe("4");
   state.read.mockRejectedValueOnce(new Error("Synthetic reload failure"));
   fireEvent.click(
     screen.getByRole("button", { name: "Reload saved preference" }),
