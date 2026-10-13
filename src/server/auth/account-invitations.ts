@@ -1,5 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
+import { currentStudentSignupPayload } from "~/server/student-signup-answers";
+import { validStudentSignupIntent, completeStudentSignupIntent } from "~/server/student-signup-intents";
+import { lockCatalogue } from "~/server/qualifications";
+import { lockStudentRequestReview } from "~/server/request-invalidity";
 import { z } from "zod";
 import type {
   AccountInvitation,
@@ -60,6 +64,7 @@ const sourceSchema = z.discriminatedUnion("type", [
     verifiedAt: z.string(),
   }),
   z.object({ type: z.literal("tutee"), tokenHash: z.string() }),
+  z.object({ type: z.literal("tutee-intent"), id: z.string(), challenge: z.string() }),
   z.object({
     type: z.literal("history"),
     tokenHash: z.string(),
@@ -297,6 +302,7 @@ async function sourceState(
   staff?: RegistrationCode;
   viewer?: ViewerSignup;
   survey?: StudentSurvey;
+  signupIntent?: Awaited<ReturnType<typeof validStudentSignupIntent>>;
   history?: Awaited<ReturnType<typeof setupInvitation>>;
 }> {
   const source = sourceSchema.parse(row.source);
@@ -343,6 +349,7 @@ async function sourceState(
     return { source, viewer };
   }
   if (source.type === "tutee") {
+    await lockCatalogue(tx);
     // Flags and confirmation acquire this advisory lock before touching the
     // survey row. Match that order so in-flight redemption cannot deadlock them.
     const binding = await tx.studentSurvey.findUnique({
@@ -354,6 +361,15 @@ async function sourceState(
     const survey = await validSurvey(tx, source.tokenHash, true);
     if (survey.email !== row.email) throw invalid();
     return { source, survey };
+  }
+  if (source.type === "tutee-intent") {
+    await lockCatalogue(tx);
+    await lockEntity(tx, `student-signup-intent-id:${source.id}`);
+    const binding = await validStudentSignupIntent(tx, source.id);
+    await lockStudentRequestReview(tx, binding.row);
+    const signupIntent = await validStudentSignupIntent(tx, source.id);
+    if (!signupIntent.intent.verifiedAt || signupIntent.intent.email !== row.email || signupIntent.intent.tokenHash !== source.challenge) throw invalid();
+    return { source, signupIntent };
   }
   const history = await setupInvitation(tx, source.tokenHash, row.email, true);
   if (
@@ -481,6 +497,8 @@ export async function deliverAccountInvitation(
               +state.history.invite.expiresAt,
               +state.history.invite.setupCodeExpiresAt!,
             )
+          : state.signupIntent
+            ? +state.signupIntent.intent.expiresAt
           : state.survey
             ? Math.min(
                 +state.survey.expiresAt,
@@ -794,8 +812,10 @@ export async function inspectAccountInvitation(
               alternativeNames: state.viewer.alternativeNames ?? "",
               gradeLevel: null,
             }
+          : state.signupIntent
+            ? surveyInput.parse(state.signupIntent.intent.payload)
           : state.survey
-            ? surveyInput.parse(state.survey.payload)
+            ? surveyInput.parse(currentStudentSignupPayload(state.survey))
             : {
                 firstName: "",
                 lastName: "",
@@ -1104,6 +1124,8 @@ export async function redeemAccountInvitation(
           tx,
         );
       }
+    } else if (state.signupIntent) {
+      await completeStudentSignupIntent(tx, state.signupIntent.intent.id, owner?.id, input.password);
     } else if (state.survey) {
       await confirmSurvey(tx, state.survey.tokenHash, input.password, {
         tokenIsDigest: true,

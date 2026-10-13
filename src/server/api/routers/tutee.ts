@@ -7,6 +7,8 @@ import { getSignupSettings } from "~/server/program/signup-fields";
 import { courseChoices } from "~/server/course-choices";
 import { issueSurveyAccountInvitation } from "~/server/auth/account-invitations";
 import { z } from "zod";
+import type { PrismaClient } from "../../../../generated/prisma";
+import { stageStudentSignupIntent, recoverStudentSignupIntent, resendStudentSignupIntent } from "~/server/student-signup-intents";
 
 import {
   createTRPCRouter,
@@ -31,19 +33,24 @@ import {
  */
 // A school may share one public IP; keep the network burst allowance generous.
 // The separate per-email limiter still constrains repeated requests and email delivery.
+const publicSubmission = surveyInput.extend({ captchaGrant: captchaGrantInput, clientKey: z.string().uuid().optional() });
+async function submitTuteeSignup(db: PrismaClient, headers: Headers, input: z.infer<typeof publicSubmission>, userId?: string) {
+  const answers = surveyInput.parse(input);
+  if (input.clientKey) {
+    // Recover an accepted exact intent before consuming a fresh CAPTCHA/mail cooldown.
+    // This completion lane cannot authorize or run another write or delivery.
+    const accepted = await withSignupAdmission(db, headers, "complete", input.clientKey, () => recoverStudentSignupIntent(db, answers, input.clientKey!, userId));
+    if (accepted) return accepted;
+  }
+  return withProtectedSignup(db, headers, "tutee.submit", input.email, input.captchaGrant, async () =>
+    input.clientKey ? stageStudentSignupIntent(db, answers, input.clientKey, userId) : { ...(await submitSurvey(db, answers)), intentId: undefined });
+}
 export const tuteeRouter = createTRPCRouter({
   // Keep the previous endpoint name without retaining its unverified-account bypass.
   requestSignup: publicProcedure
-    .input(surveyInput.extend({ captchaGrant: captchaGrantInput }))
+    .input(publicSubmission)
     .mutation(({ ctx, input }) => {
-      return withProtectedSignup(
-        ctx.db,
-        ctx.headers,
-        "tutee.submit",
-        input.email,
-        input.captchaGrant,
-        () => submitSurvey(ctx.db, surveyInput.parse(input)),
-      );
+      return submitTuteeSignup(ctx.db, ctx.headers, input, ctx.session?.user.id);
     }),
   surveyPolicy: publicProcedure
     .input(z.object({ locale: z.string() }))
@@ -53,21 +60,18 @@ export const tuteeRouter = createTRPCRouter({
       );
     }),
   submitSurvey: publicProcedure
-    .input(surveyInput.extend({ captchaGrant: captchaGrantInput }))
+    .input(publicSubmission)
     .mutation(({ ctx, input }) => {
-      return withProtectedSignup(
-        ctx.db,
-        ctx.headers,
-        "tutee.submit",
-        input.email,
-        input.captchaGrant,
-        () => submitSurvey(ctx.db, surveyInput.parse(input)),
-      );
+      return submitTuteeSignup(ctx.db, ctx.headers, input, ctx.session?.user.id);
     }),
+  signupReceipt: publicProcedure
+    .input(z.object({ clientKey: z.string().uuid(), answers: surveyInput }).strict())
+    .mutation(({ ctx, input }) => withSignupAdmission(ctx.db, ctx.headers, "complete", input.clientKey, () => recoverStudentSignupIntent(ctx.db, input.answers, input.clientKey, ctx.session?.user.id))),
   resendSurvey: publicProcedure
     .input(
       z.object({
         captchaGrant: captchaGrantInput,
+        intentId: z.string().min(1).max(128).optional(),
         email: z
           .string()
           .trim()
@@ -82,7 +86,7 @@ export const tuteeRouter = createTRPCRouter({
         "tutee.resend",
         input.email,
         input.captchaGrant,
-        async () => ({ emailSent: await resendSurvey(ctx.db, input.email) }),
+        async () => input.intentId ? resendStudentSignupIntent(ctx.db, input.intentId, input.email) : ({ emailSent: await resendSurvey(ctx.db, input.email) }),
       );
     }),
   inspectSurvey: publicProcedure

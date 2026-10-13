@@ -1,4 +1,7 @@
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
+import { currentStudentSignupPayload } from "./student-signup-answers";
+import { synchronizeStudentSignupAnswers } from "./student-signup-revisions";
+import { lockCatalogue } from "./qualifications";
 import { assertRequestProcessable, emptyRequestInvalidity, lockStudentRequestReview, requestInvalidity } from "~/server/request-invalidity";
 import { findAccountPolicy } from "./policy-acceptance";
 import { enforceAssignmentQualification } from "./assignment-qualification";
@@ -219,7 +222,7 @@ export async function assignStudentRequest(
     const row = await lockedRequest(tx, id);
     assertRequestProcessable(row);
     await consumeStudentAction(tx, ticket, userId, "ASSIGN", id);
-    const input = surveyInput.parse(row.payload);
+    const input = surveyInput.parse(currentStudentSignupPayload(row));
     if (![input.firstChoiceId, input.secondChoiceId].includes(subjectId))
       fail("Choose a subject requested in this survey.");
     const subject = await tx.subject.findUnique({ where: { id: subjectId } });
@@ -273,9 +276,11 @@ export async function editStudentAvailability(
   userId: string,
   id: string,
   slotIds: string[],
+  expectedVersion?: number,
 ) {
   await expireStudentRequests(db);
   return inTransaction(db, async (tx) => {
+    await lockCatalogue(tx);
     const row = await ownedRequest(tx, userId, id);
     const ids = [...new Set(slotIds)];
     await tx.$queryRaw`SELECT id FROM "TimeSlot" WHERE id = ANY(${ids}::text[]) ORDER BY id FOR SHARE`;
@@ -291,6 +296,8 @@ export async function editStudentAvailability(
     });
     if (old.length === ids.length && old.every((s) => ids.includes(s.slotId)))
       return { ok: true };
+    if (expectedVersion !== undefined && row.currentVersion !== expectedVersion)
+      throw new TRPCError({ code: "CONFLICT", message: "This changed since you loaded it — refresh and try again." });
     await tx.tuteeAvailability.deleteMany({ where: { tuteeId: row.tuteeId! } });
     await tx.tuteeAvailability.createMany({
       data: ids.map((slotId) => ({ tuteeId: row.tuteeId!, slotId })),
@@ -300,6 +307,7 @@ export async function editStudentAvailability(
       where: { id },
       data: { editedAt: new Date() },
     });
+    await synchronizeStudentSignupAnswers(tx, row, userId, { slotIds: ids });
     await notifyRequest(
       tx,
       row,
@@ -729,11 +737,11 @@ export async function studentRequestRows(
     },
   });
   return rows.map((row) => {
-    const input = surveyInput.parse(row.payload);
+    const input = surveyInput.parse(currentStudentSignupPayload(row));
     const profile = profiles.find((p) => p.id === row.tuteeId);
     return {
       id: row.id,
-      ...(includeStaffReview ? requestInvalidity(row) : emptyRequestInvalidity),
+      ...requestInvalidity(row, includeStaffReview),
       email: row.email,
       name: input.englishName,
       contact: input.preferredContact,
@@ -742,6 +750,7 @@ export async function studentRequestRows(
       state: row.state,
       confirmedAt: row.confirmedAt,
       editedAt: row.editedAt,
+      currentVersion: row.currentVersion,
       firstAssignedAt: row.firstAssignedAt,
       verificationDueAt: row.verificationDueAt,
       lastLinkSentAt: row.lastLinkSentAt,

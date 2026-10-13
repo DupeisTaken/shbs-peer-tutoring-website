@@ -12,7 +12,7 @@ import {
 } from "~/app/_components/signup-captcha";
 
 /** The application is already saved. Only mailbox verification is retried here. */
-export function SurveyVerification({ email }: { email: string }) {
+export function SurveyVerification({ email, intentId }: { email: string; intentId?: string }) {
   const t = useTranslations("accountInvitation");
   const survey = useTranslations("survey");
   const [code, setCode] = useState("");
@@ -36,7 +36,7 @@ export function SurveyVerification({ email }: { email: string }) {
           event.preventDefault();
           if (admitted.current || busy) return;
           admitted.current = true;
-          verify.mutate({ email, code });
+          verify.mutate({ email, code, ...(intentId ? { intentId } : {}) });
         }}
       >
         <fieldset disabled={busy} className="space-y-4">
@@ -65,7 +65,7 @@ export function SurveyVerification({ email }: { email: string }) {
               admitted.current = true;
               void captcha
                 .run((captchaGrant) =>
-                  resend.mutateAsync({ email, captchaGrant }),
+                  resend.mutateAsync({ email, captchaGrant, ...(intentId ? { intentId } : {}) }),
                 )
                 .finally(() => {
                   admitted.current = false;

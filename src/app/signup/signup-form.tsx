@@ -15,7 +15,7 @@ import {
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   useProfilePolicy,
   OfferedGradeSelect,
@@ -31,7 +31,7 @@ import {
   normalizeTuteeFields,
   missingTuteeFields,
 } from "~/lib/signup-fields";
-import { api } from "~/trpc/react";
+import { api, type RouterInputs } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
 import { useBranding } from "~/app/_components/branding-provider";
 import { PolicyAgreement } from "~/app/_components/policy-agreement";
@@ -52,6 +52,46 @@ export function SignupForm() {
   });
   const policy = api.tutee.surveyPolicy.useQuery({ locale });
   const submit = api.tutee.submitSurvey.useMutation();
+  const recoverReceipt = api.tutee.signupReceipt.useMutation();
+  type CapturedSubmission = {
+    clientKey: string;
+    answers: Omit<RouterInputs["tutee"]["submitSurvey"], "captchaGrant" | "clientKey">;
+  };
+  const attempt = useRef<CapturedSubmission | null>(null);
+  const admitted = useRef(false);
+  const [working, setWorking] = useState(false);
+  const [held, setHeld] = useState(false);
+  const [acknowledgement, setAcknowledgement] = useState<{ email: string; emailSent: boolean; intentId?: string } | null>(null);
+  const editing = useTranslations("signupEditing");
+
+  /** Retry carries exactly the original intent and answers. Receipt recovery uses POST
+   * to keep personal answers out of URLs, and does not consume CAPTCHA or mail budgets. */
+  const sendSubmission = async (captured?: CapturedSubmission) => {
+    if (admitted.current) return;
+    const retry = !captured;
+    const submission = captured ?? attempt.current;
+    if (!submission) return;
+    admitted.current = true; attempt.current = submission;
+    setWorking(true); setHeld(true);
+    try {
+      if (retry) {
+        const saved = await recoverReceipt.mutateAsync(submission);
+        if (saved) {
+          setAcknowledgement({ ...saved, email: submission.answers.email });
+          return;
+        }
+      }
+      await captcha.run(async captchaGrant => {
+        const saved = await submit.mutateAsync({
+          ...submission.answers, clientKey: submission.clientKey, captchaGrant,
+        });
+        setAcknowledgement({ ...saved, email: submission.answers.email });
+        return saved;
+      });
+    } catch {
+      // Keep the captured snapshot and key, including when a committed response was lost.
+    } finally { admitted.current = false; setWorking(false); }
+  };
 
   const [names, setNames] = useState(() => nameDraft());
   const [namePolicyReady, setNamePolicyReady] = useState(false);
@@ -117,26 +157,26 @@ export function SignupForm() {
       .length === 0 &&
     firstChoiceId &&
     agreed &&
-    !submit.isPending &&
+    !submit.isPending && !working && !held &&
     !captcha.pending;
 
-  if (submit.isSuccess) {
+  if (acknowledgement) {
     return (
       <div className="card p-5 text-center sm:p-8">
         <h2 className="text-xl font-semibold text-slate-900">
           {t("survey.savedTitle")}
         </h2>
         <p className="muted mt-2">
-          {t("survey.savedBody", { email: email.trim() })}
+          {t("survey.savedBody", { email: acknowledgement.email })}
         </p>
         <p className="muted mt-3 text-sm">{t("survey.duplicate")}</p>
-        {!submit.data.emailSent && (
+        {!acknowledgement.emailSent && (
           <p role="alert" className="mt-3 text-amber-800">
             {t("survey.mailFailed")}
           </p>
         )}
         <SigninAccess />
-        <SurveyVerification email={email.trim()} />
+        <SurveyVerification email={acknowledgement.email} intentId={acknowledgement.intentId} />
       </div>
     );
   }
@@ -203,10 +243,7 @@ export function SignupForm() {
           e.preventDefault();
           if (!canSubmit || !policy.data) return;
           const policyRevision = policy.data.revision;
-          void captcha.run((captchaGrant) =>
-            submit.mutateAsync({
-              captchaGrant,
-              ...normalizeTuteeFields(
+          void sendSubmission({ clientKey: crypto.randomUUID(), answers: normalizeTuteeFields(
                 {
                   ...names,
                   englishName: englishName.trim(),
@@ -222,9 +259,7 @@ export function SignupForm() {
                   agreed: true as const,
                 },
                 fields,
-              ),
-            }),
-          );
+              ) });
         }}
       >
         {/* Native fieldset prevents mouse, keyboard and assistive-input edits in preview mode. */}
@@ -234,10 +269,10 @@ export function SignupForm() {
             options.isError ||
             policy.isError ||
             readOnly ||
-            submit.isPending ||
+            submit.isPending || working || held ||
             captcha.pending
           }
-          aria-busy={submit.isPending}
+          aria-busy={submit.isPending || working}
           className="min-w-0 space-y-6"
           aria-label={t("recruitment.responses")}
         >
@@ -457,6 +492,12 @@ export function SignupForm() {
         {/* Freeze the captured application draft, but keep the challenge's own
             Verify/Cancel/Retry controls outside the disabled form controls. */}
         {captcha.panel}
+        {held && !acknowledgement && (
+          <InlineNotice tone="warning" announcement="status" action={
+            <Button disabled={working || captcha.pending} onClick={() => void sendSubmission()}>{editing("recoverSubmission")}</Button>
+          }>{editing("submissionHeld")}</InlineNotice>
+        )}
+        {recoverReceipt.error && <p role="alert" className="text-sm text-red-700"><CaptchaError error={recoverReceipt.error} /></p>}
       </form>
     </>
   );

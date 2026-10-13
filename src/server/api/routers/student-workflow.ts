@@ -26,12 +26,17 @@ import {
 import { resendSurvey, surveyLimit } from "~/server/student-survey";
 import { expireStudentRequests } from "~/server/student-request-state";
 import { TRPCError } from "@trpc/server";
+import { inspectOwnedStudentSignup, editOwnedStudentSignup, studentSignupEditInput } from "~/server/student-signup-editor";
 
 const id = z.string().min(1).max(128);
 const ticket = z.string().min(1).max(128);
 const reason = z.string().trim().min(1).max(2000);
 
 export const studentWorkflowRouter = createTRPCRouter({
+  signup: protectedProcedure.input(z.object({ id }).strict()).query(({ ctx, input }) =>
+    inspectOwnedStudentSignup(ctx.db, ctx.session.user.id, input.id)),
+  editSignup: protectedProcedure.input(studentSignupEditInput).mutation(({ ctx, input }) =>
+    editOwnedStudentSignup(ctx.db, ctx.session.user.id, input)),
   prepareAction: protectedProcedure
     .input(
       z.object({
@@ -77,7 +82,9 @@ export const studentWorkflowRouter = createTRPCRouter({
     });
     if (!user || user.suspendedAt) throw new TRPCError({ code: "FORBIDDEN" });
     const rows = await studentRequestRows(ctx.db, undefined, user.id);
-    return rows.filter((row) => row.confirmedAt !== null);
+    // Already scoped by retained/direct ownership, including explicitly owned unverified
+    // materialized requests. A matching email never adds a row here.
+    return rows;
   }),
   legacyParticipation: protectedProcedure.query(async ({ ctx }) => {
     const ids = await ownedStudentIds(ctx.db, ctx.session.user.id);
@@ -166,13 +173,14 @@ export const studentWorkflowRouter = createTRPCRouter({
       ),
     ),
   editAvailability: protectedProcedure
-    .input(z.object({ id, slotIds: z.array(id).min(1).max(100) }).strict())
+    .input(z.object({ id, slotIds: z.array(id).min(1).max(100), expectedVersion: z.number().int().nonnegative().default(0) }).strict())
     .mutation(({ ctx, input }) =>
       editStudentAvailability(
         ctx.db,
         ctx.session.user.id,
         input.id,
         input.slotIds,
+        input.expectedVersion,
       ),
     ),
   recall: protectedProcedure

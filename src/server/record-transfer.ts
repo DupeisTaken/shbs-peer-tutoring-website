@@ -55,6 +55,7 @@ export const RECORD_TABLES = [
   "SessionFlag",
   "DisciplinaryCard",
   "StudentSurvey",
+  "StudentSignupRevision",
   "StudentRequestReview",
   "StudentQuarterBlock",
   "StudentProfileOwnership",
@@ -110,7 +111,10 @@ async function catalogue(tx: TransactionDb) {
         (c) =>
           c.table === table &&
           (table !== "User" || ["id", "email", "name"].includes(c.name)) &&
-          !(table === "StudentSurvey" && c.name === "tokenHash"),
+          !(table === "StudentSurvey" && c.name === "tokenHash") &&
+          // Retry keys are operational capabilities, not archival answer/consent evidence.
+          // The database gives imported revisions a fresh key without changing their evidence.
+          !(table === "StudentSignupRevision" && c.name === "clientKey"),
       ),
     ]),
   );

@@ -1701,6 +1701,9 @@ model StudentSurvey {
   email String
   intakeTermId String
   payload Json
+  /// Current request answers are separate from the original signed submission.
+  currentPayload Json?
+  currentVersion Int @default(0)
   policyRevision String
   policySnapshot Json
   submittedAt DateTime @default(now())
@@ -1717,8 +1720,61 @@ model StudentSurvey {
   resolvedAt DateTime?
   lastLinkSentAt DateTime?
   reviews StudentRequestReview[]
+  signupRevisions StudentSignupRevision[]
+  signupIntents StudentSignupIntent[]
   @@index([email, intakeTermId, submittedAt])
   @@index([state, confirmedAt, verificationDueAt])
+}
+
+/// An accepted answer change also acts as its retry receipt; authorship survives account changes.
+/// Policy fields describe only a separately supplied explicit consent, never inferred acceptance.
+model StudentSignupRevision {
+  id String @id @default(cuid())
+  surveyId String
+  expectedVersion Int
+  version Int
+  actorUserId String
+  actorUserName String?
+  // Archive imports mint a fresh operational key; the private retry capability is not exported.
+  clientKey String @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  inputHash String
+  answers Json
+  policyRevision String?
+  policySnapshot Json?
+  signatureName String?
+  policyAcceptedAt DateTime?
+  createdAt DateTime @default(now())
+  survey StudentSurvey @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([surveyId, version])
+  @@unique([surveyId, actorUserId, clientKey])
+  @@index([actorUserId, createdAt])
+}
+
+/// Public answers are staged under an independent exact mailbox challenge. An email match
+/// identifies a candidate account/request but never authorizes replacing its current answers.
+model StudentSignupIntent {
+  id String @id @default(cuid())
+  keyHash String @unique
+  inputHash String
+  email String
+  submittedByUserId String?
+  accountId String?
+  sessionVersion Int?
+  surveyId String
+  expectedVersion Int
+  payload Json
+  policySnapshot Json
+  tokenHash String @unique
+  attempts Int @default(0)
+  expiresAt DateTime
+  receivedAt DateTime @default(now())
+  emailSentAt DateTime?
+  verifiedAt DateTime?
+  completedAt DateTime?
+  completedUserId String?
+  resultVersion Int?
+  survey StudentSurvey @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@index([email, receivedAt])
 }
 
 enum StudentSurveyState {

@@ -12,6 +12,7 @@ import {
   sendInvitationVerification,
 } from "~/server/auth/account-invitations";
 import { validSurvey, verifySurveyEmail } from "~/server/student-survey";
+import { verifyStudentSignupIntent } from "~/server/student-signup-intents";
 import { normalizeRegCode } from "~/server/auth/code";
 
 const id = z.string().min(1).max(128);
@@ -64,6 +65,7 @@ export const accountInvitationRouter = createTRPCRouter({
           .email()
           .transform((v) => v.toLowerCase()),
         code: z.string().min(1).max(30),
+        intentId: id.optional(),
       }),
     )
     .mutation(({ ctx, input }) =>
@@ -73,6 +75,10 @@ export const accountInvitationRouter = createTRPCRouter({
         "complete",
         input.email,
         async () => {
+          if (input.intentId) {
+            const { intent } = await verifyStudentSignupIntent(ctx.db, input.intentId, input.email, input.code);
+            return deliverAccountInvitation(ctx.db, { display: true, kind: "TUTEE", email: intent.email, sourceKey: `tutee-intent:${intent.id}:${intent.tokenHash}`, source: { type: "tutee-intent", id: intent.id, challenge: intent.tokenHash } });
+          }
           const survey = await verifySurveyEmail(
             ctx.db,
             input.email,

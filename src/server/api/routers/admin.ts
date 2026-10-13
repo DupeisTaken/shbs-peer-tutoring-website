@@ -21,7 +21,9 @@ import {
   setApplicationInvalidity,
   setSignupInvalidity,
   lockApplicationReview,
+  lockStudentRequestReview,
 } from "~/server/request-invalidity";
+import { synchronizeStudentSignupAnswers } from "~/server/student-signup-revisions";
 import { hasReadyCredentials } from "~/lib/account-readiness";
 import { accountDirectoryDetails } from "~/server/account-directory";
 import {
@@ -2507,6 +2509,9 @@ export const adminRouter = createTRPCRouter({
         // Serialize profile restoration with departure, including historically owned profiles.
         await lockEntity(tx, "program:period");
         await lockUsernameNamespace(tx);
+        await lockCatalogue(tx);
+        const signup = await tx.studentSurvey.findUnique({ where: { tuteeId: input.id } });
+        if (signup) await lockStudentRequestReview(tx, signup);
         const linkedStudent = await tx.user.findUnique({
           where: { studentId: input.id },
           select: { id: true, email: true },
@@ -2662,6 +2667,16 @@ export const adminRouter = createTRPCRouter({
               : {}),
           },
         });
+        if (signup) {
+          const currentSignup = await tx.studentSurvey.findUniqueOrThrow({ where: { id: signup.id } });
+          await synchronizeStudentSignupAnswers(tx, currentSignup, ctx.session.user.id, {
+            ...(fields.phone !== undefined ? { phone: fields.phone ?? undefined } : {}),
+            ...(fields.preferredContact !== undefined ? { preferredContact: fields.preferredContact ?? "" } : {}),
+            ...(fields.firstChoiceId !== undefined ? { firstChoiceId: fields.firstChoiceId } : {}),
+            ...(fields.secondChoiceId !== undefined ? { secondChoiceId: fields.secondChoiceId ?? undefined } : {}),
+            ...(slotIds ? { slotIds: [...new Set(slotIds)] } : {}),
+          });
+        }
         if (linkedStudent)
           await updateAccountProfile(
             tx,
@@ -2892,7 +2907,7 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         // Keep status, current roster removal and audit atomic; historical assignments survive.
-        await lockEntity(tx, "program:period");
+          await lockEntity(tx, "program:period");
         await lockEntity(tx, `tutee:${input.id}`);
         if (input.status !== "INACTIVE")
           await assertStudentRequestAssignable(tx, input.id);
