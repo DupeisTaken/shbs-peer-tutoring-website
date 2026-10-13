@@ -205,9 +205,6 @@ function RequestCard({
               {tutee.gradeLevel
                 ? ` · ${t("admin.requests.grade", { grade: tutee.gradeLevel })}`
                 : ""}
-              {tutee.unverified && (
-                <span className="badge-amber">{t("survey.unverified")}</span>
-              )}
               {fulfilled && (
                 <span className="badge-green ml-2 text-green-800">
                   {t("admin.requests.fulfilled")}
@@ -284,8 +281,10 @@ function RequestCard({
               />
             )}
           {!fulfilled && !readOnly && !tutee.unverified && !tutee.isInvalid && (
-            <button
-              className="btn-danger btn-sm shrink-0"
+            <Button
+              variant="danger"
+              size="compact"
+              className="shrink-0"
               onClick={async () => {
                 if (
                   await confirm({
@@ -301,7 +300,7 @@ function RequestCard({
               }}
             >
               {t("admin.requests.decline")}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -318,8 +317,8 @@ function RequestCard({
               {t("workflow.emailStatus", {
                 status: t(
                   tutee.unverified
-                    ? "workflow.unverified"
-                    : "workflow.verified",
+                    ? "admin.requests.emailUnverifiedShort"
+                    : "admin.requests.emailVerifiedShort",
                 ),
               })}
             </span>

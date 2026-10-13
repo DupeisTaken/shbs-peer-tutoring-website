@@ -1,5 +1,9 @@
 import { optionalPersonNameFields } from "~/lib/person-name";
-import { assertRequestProcessable, lockApplicationReview } from "~/server/request-invalidity";
+import { programRoomOrder } from "~/server/room-order";
+import {
+  assertRequestProcessable,
+  lockApplicationReview,
+} from "~/server/request-invalidity";
 import { lockUsernameNamespace } from "~/server/auth/username";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { requireAcademicConfirmation } from "~/server/academics";
@@ -188,7 +192,7 @@ export const tutorRouter = createTRPCRouter({
   /** Rooms catalogue (id + name) — for the "room used" picker on the attendance form. */
   rooms: tutorProcedure.query(({ ctx }) =>
     ctx.db.room.findMany({
-      orderBy: { name: "asc" },
+      orderBy: [...programRoomOrder],
       select: { id: true, name: true },
     }),
   ),
@@ -201,7 +205,11 @@ export const tutorRouter = createTRPCRouter({
     });
     if (!me?.crewStatus) return { isCrew: false, patrols: 0, hours: 0 };
     const agg = await ctx.db.patrol.aggregate({
-      where: { crewUserId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) } },
+      where: {
+        crewUserId: {
+          in: await accountHistoryIds(ctx.db, ctx.session.user.id),
+        },
+      },
       _sum: { hours: true },
       _count: { _all: true },
     });
@@ -474,9 +482,15 @@ export const tutorRouter = createTRPCRouter({
       }
 
       // Placeholder assignment times are never evidence of when a session actually ran.
-      if (found.some((pairing) => !pairing.scheduleConfirmed) &&
-          (input.startMin === undefined || input.endMin === undefined)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter actual start and end times for an assignment awaiting scheduling." });
+      if (
+        found.some((pairing) => !pairing.scheduleConfirmed) &&
+        (input.startMin === undefined || input.endMin === undefined)
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Enter actual start and end times for an assignment awaiting scheduling.",
+        });
       }
       const startMin = input.startMin ?? primary.startMin;
       const endMin = input.endMin ?? primary.endMin;
@@ -522,10 +536,17 @@ export const tutorRouter = createTRPCRouter({
             where: { id: primary.id },
             select: { startMin: true, endMin: true, timeSlotId: true },
           });
-          if (currentPairing?.timeSlotId !== primary.timeSlotId ||
-            (input.startMin === undefined && currentPairing.startMin !== startMin) ||
-            (input.endMin === undefined && currentPairing.endMin !== endMin))
-            throw new TRPCError({ code: "CONFLICT", message: "The pairing schedule changed. Reload before recording attendance." });
+          if (
+            currentPairing?.timeSlotId !== primary.timeSlotId ||
+            (input.startMin === undefined &&
+              currentPairing.startMin !== startMin) ||
+            (input.endMin === undefined && currentPairing.endMin !== endMin)
+          )
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "The pairing schedule changed. Reload before recording attendance.",
+            });
           await lockEntity(tx, "policy:tutor-policy");
           await requirePolicy(tx, ctx.session.user.id, "tutor-policy");
           // Pairing subsets and slightly changed times must not buy a second credit for the
@@ -585,7 +606,8 @@ export const tutorRouter = createTRPCRouter({
           if (overlapping)
             throw new TRPCError({
               code: "CONFLICT",
-              message: "Attendance already covers part of this time. Ask management to correct the saved block, including any combined subjects.",
+              message:
+                "Attendance already covers part of this time. Ask management to correct the saved block, including any combined subjects.",
             });
           const sessionIds: string[] = [];
           let primaryId = "";
@@ -923,12 +945,24 @@ export const tutorRouter = createTRPCRouter({
           : null;
       }
       if (input.gradeLevel !== undefined) {
-        const current = await ctx.db.tutor.findUniqueOrThrow({ where: { id: ctx.session.tutorId }, select: { gradeLevel: true } });
+        const current = await ctx.db.tutor.findUniqueOrThrow({
+          where: { id: ctx.session.tutorId },
+          select: { gradeLevel: true },
+        });
         if (input.gradeLevel !== current.gradeLevel)
-          throw new TRPCError({ code: "BAD_REQUEST", message: "ACADEMIC_SHARED_EDITOR_REQUIRED" });
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "ACADEMIC_SHARED_EDITOR_REQUIRED",
+          });
       }
-      if (Object.keys(tutorData).length > 0 || input.firstName !== undefined || input.lastName !== undefined || input.preferredName !== undefined) {
+      if (
+        Object.keys(tutorData).length > 0 ||
+        input.firstName !== undefined ||
+        input.lastName !== undefined ||
+        input.preferredName !== undefined
+      ) {
         await inTransaction(ctx.db, async (tx) => {
+          await lockUsernameNamespace(tx);
           await lockAccountProfile(tx, ctx.session.user.id);
           await tx.tutor.update({
             where: { id: ctx.session.tutorId },
@@ -958,7 +992,11 @@ export const tutorRouter = createTRPCRouter({
         select: { passwordHash: true },
       });
       if (
-        !verifyPasswordConfirmation(ctx.session.user.id, input.currentPassword, user.passwordHash)
+        !verifyPasswordConfirmation(
+          ctx.session.user.id,
+          input.currentPassword,
+          user.passwordHash,
+        )
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -1004,7 +1042,11 @@ export const tutorRouter = createTRPCRouter({
         select: { passwordHash: true },
       });
       if (
-        !verifyPasswordConfirmation(ctx.session.user.id, input.currentPassword, user.passwordHash)
+        !verifyPasswordConfirmation(
+          ctx.session.user.id,
+          input.currentPassword,
+          user.passwordHash,
+        )
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -1044,7 +1086,12 @@ export const tutorRouter = createTRPCRouter({
           throw new TRPCError({ code: "BAD_REQUEST", message });
         }
       }
-      await changeVerifiedPassword(ctx.db, ctx.session.user.id, user.passwordHash, input.newPassword);
+      await changeVerifiedPassword(
+        ctx.db,
+        ctx.session.user.id,
+        user.passwordHash,
+        input.newPassword,
+      );
       return { ok: true };
     }),
 
@@ -1125,14 +1172,23 @@ export const tutorRouter = createTRPCRouter({
         // A refresh or membership change must not turn this write into an edit of history.
         await lockEntity(tx, "program:period");
         await tx.$queryRaw`SELECT id FROM "Tutor" WHERE id = ${ctx.session.tutorId} FOR UPDATE`;
-        const tutor = await tx.tutor.findUniqueOrThrow({ where: { id: ctx.session.tutorId } });
+        const tutor = await tx.tutor.findUniqueOrThrow({
+          where: { id: ctx.session.tutorId },
+        });
         if (tutor.status !== "ACTIVE")
-          throw new TRPCError({ code: "FORBIDDEN", message: "This action requires an active tutor account." });
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "This action requires an active tutor account.",
+          });
         // Lock before reading the room so a concurrent management room change
         // cannot combine with this slot change into an unvalidated final tuple.
         await lockPlannedRoomSchedule(tx);
         const pairing = await tx.pairing.findFirst({
-          where: { id: input.pairingId, tutorId: ctx.session.tutorId, term: { active: true } },
+          where: {
+            id: input.pairingId,
+            tutorId: ctx.session.tutorId,
+            term: { active: true },
+          },
           select: { id: true, roomId: true, termId: true },
         });
         if (!pairing) {
@@ -1188,7 +1244,7 @@ export const tutorRouter = createTRPCRouter({
   schedule: tutorProcedure.query(async ({ ctx }) => {
     const [rooms, slots, pairings, blocks] = await Promise.all([
       ctx.db.room.findMany({
-        orderBy: { name: "asc" },
+        orderBy: [...programRoomOrder],
         select: { id: true, name: true },
       }),
       ctx.db.timeSlot.findMany({
@@ -1213,7 +1269,13 @@ export const tutorRouter = createTRPCRouter({
           tutorId: true,
           roomId: true,
           timeSlotId: true,
-          tutor: { select: { englishName: true } },
+          tutor: {
+            select: {
+              englishName: true,
+              username: true,
+              user: { select: { username: true } },
+            },
+          },
         },
       }),
       ctx.db.roomUnavailability.findMany({
@@ -1333,11 +1395,15 @@ export const tutorRouter = createTRPCRouter({
           });
         }
         const application = await tx.tutorApplication.findUniqueOrThrow({
-          where: { id: input.applicationId }, select: { status: true, invalidatedAt: true },
+          where: { id: input.applicationId },
+          select: { status: true, invalidatedAt: true },
         });
         assertRequestProcessable(application);
         if (application.status === "RECALLED")
-          throw new TRPCError({ code: "CONFLICT", message: "This qualification request was recalled." });
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This qualification request was recalled.",
+          });
         const updated = await tx.tutorApplication.update({
           where: { id: input.applicationId },
           data: { interviewAt: input.interviewAt },
@@ -1615,76 +1681,82 @@ export const tutorRouter = createTRPCRouter({
         reason: z.string().trim().max(1000).optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
-      // Bind the relay to live participation, and serialize duplicate requests and refresh.
-      await lockEntity(tx, "program:period");
-      await lockEntity(tx, `tutee:${input.tuteeId}`);
-      const link = await tx.pairingTutee.findFirst({
-        where: {
-          tuteeId: input.tuteeId,
-          pairingId: input.pairingId,
-          pairing: { tutorId: ctx.session.tutorId, term: { active: true } },
-          tutee: { status: "ACTIVE" },
-        },
-        select: { tuteeId: true },
-      });
-      if (!link) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "That tutee isn't on one of your pairings.",
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // Bind the relay to live participation, and serialize duplicate requests and refresh.
+        await lockEntity(tx, "program:period");
+        await lockEntity(tx, `tutee:${input.tuteeId}`);
+        const link = await tx.pairingTutee.findFirst({
+          where: {
+            tuteeId: input.tuteeId,
+            pairingId: input.pairingId,
+            pairing: { tutorId: ctx.session.tutorId, term: { active: true } },
+            tutee: { status: "ACTIVE" },
+          },
+          select: { tuteeId: true },
         });
-      }
-      if (
-        await tx.studentSurvey.findUnique({
-          where: { tuteeId: input.tuteeId },
-        })
-      )
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message:
-            "Tutees apply to leave the quarter from their own account. Use schedule rejection for scheduling problems.",
+        if (!link) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "That tutee isn't on one of your pairings.",
+          });
+        }
+        if (
+          await tx.studentSurvey.findUnique({
+            where: { tuteeId: input.tuteeId },
+          })
+        )
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "Tutees apply to leave the quarter from their own account. Use schedule rejection for scheduling problems.",
+          });
+        const open = await tx.tuteeRemovalRequest.findFirst({
+          where: { tuteeId: input.tuteeId, state: "PENDING" },
+          select: { id: true },
         });
-      const open = await tx.tuteeRemovalRequest.findFirst({
-        where: { tuteeId: input.tuteeId, state: "PENDING" },
-        select: { id: true },
-      });
-      if (open) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "An opt-out for this tutee is already pending.",
+        if (open) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "An opt-out for this tutee is already pending.",
+          });
+        }
+        const [tutee, tutor] = await Promise.all([
+          tx.tutee.findUnique({
+            where: { id: input.tuteeId },
+            select: { englishName: true },
+          }),
+          tx.tutor.findUnique({
+            where: { id: ctx.session.tutorId },
+            select: { englishName: true },
+          }),
+        ]);
+        const eligibleAt = new Date(
+          Date.now() + TUTEE_OPT_OUT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000,
+        );
+        const req = await tx.tuteeRemovalRequest.create({
+          data: {
+            tuteeId: input.tuteeId,
+            kind: "VOLUNTARY",
+            pairingId: input.pairingId,
+            requestedByTutorId: ctx.session.tutorId,
+            reason: input.reason?.trim() ? input.reason.trim() : null,
+            eligibleAt,
+          },
+          select: { id: true },
         });
-      }
-      const [tutee, tutor] = await Promise.all([
-        tx.tutee.findUnique({
-          where: { id: input.tuteeId },
-          select: { englishName: true },
-        }),
-        tx.tutor.findUnique({
-          where: { id: ctx.session.tutorId },
-          select: { englishName: true },
-        }),
-      ]);
-      const eligibleAt = new Date(
-        Date.now() + TUTEE_OPT_OUT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000,
-      );
-      const req = await tx.tuteeRemovalRequest.create({
-        data: {
-          tuteeId: input.tuteeId,
-          kind: "VOLUNTARY",
-          pairingId: input.pairingId,
-          requestedByTutorId: ctx.session.tutorId,
-          reason: input.reason?.trim() ? input.reason.trim() : null,
-          eligibleAt,
-        },
-        select: { id: true },
-      });
-      await notifyAdmins({
-        title: "Tutee opt-out",
-        body: `${tutor?.englishName ?? "A tutor"} relayed an opt-out for ${tutee?.englishName ?? "a tutee"} (auto-approves in ${TUTEE_OPT_OUT_COOLDOWN_DAYS} days).`,
-        link: "/admin/tutee-requests",
-      }, undefined, tx);
-      return { ok: true, id: req.id, eligibleAt };
-    })),
+        await notifyAdmins(
+          {
+            title: "Tutee opt-out",
+            body: `${tutor?.englishName ?? "A tutor"} relayed an opt-out for ${tutee?.englishName ?? "a tutee"} (auto-approves in ${TUTEE_OPT_OUT_COOLDOWN_DAYS} days).`,
+            link: "/admin/tutee-requests",
+          },
+          undefined,
+          tx,
+        );
+        return { ok: true, id: req.id, eligibleAt };
+      }),
+    ),
 
   /** Recall (cancel) the caller's own pending opt-out while it's still in the recall window. */
   recallTuteeRemoval: tutorProcedure
@@ -1729,7 +1801,10 @@ export const tutorRouter = createTRPCRouter({
           select: { status: true, englishName: true },
         });
         if (tutor.status !== "PENDING") {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Your account isn't awaiting activation." });
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Your account isn't awaiting activation.",
+          });
         }
         await requireSchoolParticipation(tx, ctx.session.user.id);
         if (input.available)

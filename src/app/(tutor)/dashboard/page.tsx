@@ -23,6 +23,7 @@ import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
 
 import { RoomGrid } from "~/app/_components/room-grid";
+import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
 
 export default async function TutorDashboard() {
   const session = await auth();
@@ -218,6 +219,7 @@ export default async function TutorDashboard() {
           <h2 className="section-title">{t("dashboard.schedule.title")}</h2>
           <p className="muted">{t("dashboard.schedule.help")}</p>
         </div>
+        <ProgramCalendarNotice />
         <RoomGrid
           rooms={schedule.rooms}
           slots={schedule.slots}

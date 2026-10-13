@@ -3,8 +3,12 @@ import { useProfileReloadFocus } from "./use-profile-reload-focus";
 import { ProfileEditSection } from "./profile-edit-section";
 import { StatePanel } from "./ui/patterns";
 import { Button } from "./ui/button";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
-import { nameDraft, personNameEdit } from "~/lib/person-name";
+import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
+import {
+  nameDraft,
+  personNameEdit,
+  unsplitLegacyName,
+} from "~/lib/person-name";
 
 import { useTranslations } from "next-intl";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
@@ -40,7 +44,11 @@ export function TuteeEditor({
   const profileText = useTranslations("accountProfile");
   return (
     <ProfileDialog title={profileText("editProfile")} onClose={onClose}>
-      <TuteeProfileForm row={row} historyPermissions={historyPermissions} canApply={canApply} />
+      <TuteeProfileForm
+        row={row}
+        historyPermissions={historyPermissions}
+        canApply={canApply}
+      />
     </ProfileDialog>
   );
 }
@@ -77,10 +85,9 @@ function TuteeProfileForm({
   const historySection = useRef<HTMLDetailsElement>(null);
   const [historyLinked, setHistoryLinked] = useState(false);
   const [names, setNames] = useState(() => nameDraft(row));
+  const [namePolicyReady, setNamePolicyReady] = useState(false);
   const [originalNames, setOriginalNames] = useState(() => nameDraft(row));
-  const [legacyName, setLegacyName] = useState(
-    row.legacyName ?? row.englishName,
-  );
+  const [legacyName, setLegacyName] = useState(unsplitLegacyName(row));
   const identity = personNameEdit(names, originalNames, legacyName);
   const policy = useProfilePolicy();
   const [grade, setGrade] = useState(
@@ -113,7 +120,7 @@ function TuteeProfileForm({
       setExpectedUpdatedAt(latest.updatedAt);
       setNames(nameDraft(latest));
       setOriginalNames(nameDraft(latest));
-      setLegacyName(latest.legacyName ?? latest.englishName);
+      setLegacyName(unsplitLegacyName(latest));
       setGrade(
         latest.academicallyGraduated
           ? GRADUATED_GRADE
@@ -188,6 +195,7 @@ function TuteeProfileForm({
           onSubmit={(e) => {
             e.preventDefault();
             if (
+              !namePolicyReady ||
               busy ||
               submitting.current ||
               committed.current ||
@@ -250,6 +258,7 @@ function TuteeProfileForm({
                 type="submit"
                 variant="primary"
                 disabled={
+                  !namePolicyReady ||
                   busy ||
                   reloading ||
                   needsRefresh ||
@@ -263,6 +272,9 @@ function TuteeProfileForm({
           >
             <div className="sm:col-span-2">
               <PersonNameFields
+                onPolicyAvailabilityChange={setNamePolicyReady}
+                profileTarget={{ tuteeId: row.id }}
+                management
                 value={names}
                 onChange={setNames}
                 legacyName={legacyName}
@@ -366,8 +378,12 @@ function TuteeProfileForm({
                 defaultValue={row.notes ?? ""}
               />
             </label>
-            {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{common("approvals.queuedBody")}</InlineNotice>}
-          {save.error && !save.error.data?.approvalId && (
+            {save.error?.data?.approvalId && (
+              <InlineNotice tone="warning" announcement="status">
+                {common("approvals.queuedBody")}
+              </InlineNotice>
+            )}
+            {save.error && !save.error.data?.approvalId && (
               <p role="alert" className="text-sm text-red-600">
                 <AcademicError message={save.error.message} />
               </p>

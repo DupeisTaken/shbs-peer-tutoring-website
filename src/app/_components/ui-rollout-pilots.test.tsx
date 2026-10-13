@@ -121,13 +121,18 @@ vi.mock("../(admin)/admin/landing/landing-editor", () => ({
     return <h2>Live landing editor</h2>;
   },
 }));
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     useUtils: () => ({
       account: { me: { invalidate: vi.fn() } },
       admin: { meetings: { invalidate: vi.fn() } },
     }),
-    program: { features: { useQuery: () => ({ data: { EMAIL_2FA: false } }) } },
+    program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(),
+      features: { useQuery: () => ({ data: { EMAIL_2FA: false } }) },
+    },
     account: {
       me: {
         useQuery: () => ({

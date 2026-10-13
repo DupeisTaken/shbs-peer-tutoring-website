@@ -24,9 +24,12 @@ const state = vi.hoisted(() => ({
   captchaEmail: "",
   captchaPending: false,
 }));
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(),
       profilePolicy: {
         useQuery: () => ({
           data: {

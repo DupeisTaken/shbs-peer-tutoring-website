@@ -65,12 +65,17 @@ vi.mock("./account-emails", () => ({
   EmailPreferences: () => null,
 }));
 vi.mock("./two-factor-settings", () => ({ TwoFactorSettings: () => null }));
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     useUtils: () => ({
       account: { me: { invalidate: () => Promise.resolve() } },
     }),
-    program: { features: { useQuery: () => ({ data: { EMAIL_2FA: false } }) } },
+    program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(),
+      features: { useQuery: () => ({ data: { EMAIL_2FA: false } }) },
+    },
     account: {
       me: { useQuery: () => ({ data: state.account, refetch: state.refetch }) },
       updateName: {

@@ -1,5 +1,11 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
@@ -8,6 +14,7 @@ const mock = vi.hoisted(() => ({
   update: vi.fn(),
   reorder: vi.fn(),
   readOnly: false,
+  subjects: [{ id: "s", name: "Math", levelId: "regular", active: true }],
 }));
 vi.mock("~/app/_components/read-only", () => ({
   useReadOnly: () => mock.readOnly,
@@ -54,7 +61,7 @@ vi.mock("~/trpc/react", () => {
         },
         subjects: {
           useQuery: () => ({
-            data: [{ id: "s", name: "Math", levelId: "regular", active: true }],
+            data: mock.subjects,
           }),
         },
         batchUpdateSubjects: { useMutation: mutation },
@@ -71,6 +78,7 @@ vi.mock("~/trpc/react", () => {
 beforeEach(() => {
   vi.clearAllMocks();
   mock.readOnly = false;
+  mock.subjects = [{ id: "s", name: "Math", levelId: "regular", active: true }];
 });
 afterEach(cleanup);
 const show = () =>
@@ -122,4 +130,16 @@ it("retains readable subject summaries while removing mutation controls for obse
       name: "Level name: Standard",
     }).readOnly,
   ).toBe(true);
+});
+it("preserves the server's level-first signup order through the parent catalogue", () => {
+  // Alphabetical ordering would put AP Biology first and silently override policy.
+  mock.subjects = [
+    { id: "biology", name: "Biology", levelId: "regular", active: true },
+    { id: "ap-biology", name: "AP Biology", levelId: "ap", active: true },
+  ];
+  show();
+  const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
+  expect(
+    rows.map((row) => within(row).getAllByRole("cell")[1]?.textContent),
+  ).toEqual(["Biology", "AP Biology"]);
 });

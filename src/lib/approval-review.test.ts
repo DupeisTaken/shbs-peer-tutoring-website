@@ -5,13 +5,77 @@ import { APPROVAL_OPERATIONS } from "./approval-policy";
 import { approvalReview } from "./approval-review";
 
 describe("immutable approval presentation", () => {
+  it("compares captured role-specific requirements and room order using submission-time names", () => {
+    expect(
+      approvalReview(
+        "program.setNameFields",
+        {
+          accountType: "STUDENT",
+          states: {
+            firstName: "hidden",
+            lastName: "optional",
+            preferredName: "optional",
+            alternativeNames: "optional",
+          },
+          expectedVersion: 0,
+        },
+        { programSettings: null },
+      ).changes[0],
+    ).toMatchObject({
+      key: "states",
+      hasBefore: true,
+      before: { firstName: "required" },
+    });
+    expect(
+      approvalReview(
+        "admin.reorderRooms",
+        { ids: ["b", "a"], expectedIds: ["a", "b"] },
+        {
+          roomOrder: [
+            { id: "a", name: "Original Alpha", programOrder: 0 },
+            { id: "b", name: "Original Beta", programOrder: 1 },
+          ],
+        },
+      ).changes,
+    ).toEqual([
+      {
+        key: "roomOrder",
+        before: ["Original Alpha", "Original Beta"],
+        requested: ["Original Beta", "Original Alpha"],
+        hasBefore: true,
+      },
+    ]);
+  });
   it("keeps invalidity revisions out of the requested business change", () => {
-    const model = approvalReview("admin.setSignupInvalidity", {
-      id: "public-entry", invalid: true, reason: "Duplicate application", expectedInvalidityVersion: 0,
-    }, { Tutee: [{ record: { id: "public-entry", englishName: "Original Applicant" } }],
-      "Tutee.TuteeRequestInvalidity": [{ record: { tuteeId: "public-entry", invalidityVersion: 1, invalidReason: "Previous explanation" } }] });
+    const model = approvalReview(
+      "admin.setSignupInvalidity",
+      {
+        id: "public-entry",
+        invalid: true,
+        reason: "Duplicate application",
+        expectedInvalidityVersion: 0,
+      },
+      {
+        Tutee: [
+          { record: { id: "public-entry", englishName: "Original Applicant" } },
+        ],
+        "Tutee.TuteeRequestInvalidity": [
+          {
+            record: {
+              tuteeId: "public-entry",
+              invalidityVersion: 1,
+              invalidReason: "Previous explanation",
+            },
+          },
+        ],
+      },
+    );
     expect(model.changes.map(({ key }) => key)).toEqual(["invalid", "reason"]);
-    expect(model.groups.some(({ table }) => table === "Tutee.TuteeRequestInvalidity")).toBe(true);
+    expect(
+      model.groups.some(
+        ({ table }) => table === "Tutee.TuteeRequestInvalidity",
+      ),
+    ).toBe(true);
   });
   it("keeps academic year checks contextual and hides ignored legacy inputs", () => {
     const model = approvalReview(
@@ -51,19 +115,47 @@ describe("immutable approval presentation", () => {
       { programSettings: { id: "program", timeZone: "UTC" } },
     );
     expect(settings.changes).toEqual([
-      { key: "timeZone", before: "UTC", requested: "Asia/Shanghai", hasBefore: true },
+      {
+        key: "timeZone",
+        before: "UTC",
+        requested: "Asia/Shanghai",
+        hasBefore: true,
+      },
     ]);
-    expect(approvalReview("admin.setUserRole", { userId: "person", role: "ADMIN", confirmPassword: "secret" }, {
-      User: [{ record: { id: "person", role: "COORDINATOR" } }],
-    }).changes).toEqual([
-      { key: "role", before: "COORDINATOR", requested: "ADMIN", hasBefore: true },
+    expect(
+      approvalReview(
+        "admin.setUserRole",
+        { userId: "person", role: "ADMIN", confirmPassword: "secret" },
+        {
+          User: [{ record: { id: "person", role: "COORDINATOR" } }],
+        },
+      ).changes,
+    ).toEqual([
+      {
+        key: "role",
+        before: "COORDINATOR",
+        requested: "ADMIN",
+        hasBefore: true,
+      },
     ]);
   });
   it("matches the requested language in immutable language visibility evidence", () => {
-    expect(approvalReview("i18n.setLanguageEnabled", { code: "zh", enabled: false }, {
-      languages: [{ code: "en", enabled: false }, { code: "zh", enabled: true }],
-    }).changes.find(({ key }) => key === "enabled")).toEqual({
-      key: "enabled", before: true, requested: false, hasBefore: true,
+    expect(
+      approvalReview(
+        "i18n.setLanguageEnabled",
+        { code: "zh", enabled: false },
+        {
+          languages: [
+            { code: "en", enabled: false },
+            { code: "zh", enabled: true },
+          ],
+        },
+      ).changes.find(({ key }) => key === "enabled"),
+    ).toEqual({
+      key: "enabled",
+      before: true,
+      requested: false,
+      hasBefore: true,
     });
   });
   it("compares only submitted fields against the exact target and separates unchanged values", () => {

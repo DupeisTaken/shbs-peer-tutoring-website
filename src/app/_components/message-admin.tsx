@@ -1,42 +1,26 @@
 "use client";
-import { Activity, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "./session-view-state";
 import { viewEnum, viewPage } from "~/lib/session-view-state";
-import { SectionTabs } from "./ui/section-tabs";
 import { Button, ChoiceButton } from "./ui/button";
 import { InlineNotice, FormActions } from "./ui/patterns";
 import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterInputs } from "~/trpc/react";
 import { MessageGroupChoices } from "./message-inbox";
+import Link from "next/link";
 
 export function MessageAdmin() {
   const t = useTranslations("messaging");
-  const [view, setView] = useState<"review" | "settings">("review");
-  const [settingsOpened, setSettingsOpened] = useState(false);
   return (
     <div className="space-y-6">
       <p className="muted text-sm">{t("supervisionHelp")}</p>
-      <SectionTabs<"review" | "settings">
-        label={t("supervision")}
-        value={view}
-        items={[
-          { value: "review", label: t("reviewMessages") },
-          { value: "settings", label: t("permissions") },
-        ]}
-        onChange={(next) => {
-          setView(next);
-          if (next === "settings") setSettingsOpened(true);
-        }}
+      <Link
+        className="link inline-flex min-h-11 items-center lg:min-h-8"
+        href="/admin/program?panel=people"
       >
-        <Activity mode={view === "review" ? "visible" : "hidden"}>
-          <Supervision />
-        </Activity>
-        {settingsOpened && (
-          <Activity mode={view === "settings" ? "visible" : "hidden"}>
-            <Permissions />
-          </Activity>
-        )}
-      </SectionTabs>
+        {t("permissionsDestination")}
+      </Link>
+      <Supervision />
     </div>
   );
 }
@@ -99,7 +83,10 @@ function Supervision() {
       await rows.refetch();
     },
   });
-  const error = rows.error ?? (review.error?.data?.approvalId ? null : review.error) ?? (moderate.error?.data?.approvalId ? null : moderate.error);
+  const error =
+    rows.error ??
+    (review.error?.data?.approvalId ? null : review.error) ??
+    (moderate.error?.data?.approvalId ? null : moderate.error);
   const approvals = useTranslations("approvals");
   if (denied) return <p role="alert">{rows.error?.message ?? t("loadFailed")}</p>;
   return (
@@ -156,7 +143,11 @@ function Supervision() {
           </button>
         </div>
       )}
-      {(review.error?.data?.approvalId ?? moderate.error?.data?.approvalId) && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+      {(review.error?.data?.approvalId ?? moderate.error?.data?.approvalId) && (
+        <InlineNotice tone="warning" announcement="status">
+          {approvals("queuedBody")}
+        </InlineNotice>
+      )}
       {error && <p role="alert">{error.message}</p>}
       {rows.isLoading && <p role="status">{t("loading")}</p>}
       {rows.data?.rows.length === 0 && (
@@ -291,7 +282,8 @@ function Supervision() {
     </div>
   );
 }
-function Permissions() {
+/** Account policy belongs to Program Settings; each role/user editor keeps its own draft. */
+export function MessagePermissions() {
   const t = useTranslations("messaging");
   const roles = useTranslations("admin.users.roles");
   const settings = api.messaging.settings.useQuery();
@@ -430,8 +422,14 @@ function UserPermission({
         >
           {t(permission.data.restricted ? "allowAccess" : "restrictAccess")}
         </button>
-        {restrict.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
-        {restrict.error && !restrict.error.data?.approvalId && <p role="alert">{restrict.error.message}</p>}
+        {restrict.error?.data?.approvalId && (
+          <InlineNotice tone="warning" announcement="status">
+            {approvals("queuedBody")}
+          </InlineNotice>
+        )}
+        {restrict.error && !restrict.error.data?.approvalId && (
+          <p role="alert">{restrict.error.message}</p>
+        )}
         {restrict.isSuccess && <p role="status">{t("saved")}</p>}
       </div>
     </div>
@@ -450,7 +448,8 @@ function PermissionEditor({
 }) {
   const t = useTranslations("messaging");
   const identity = api.account.me.useQuery();
-  const canEdit = !identity.error && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
+  const canEdit =
+    !identity.error && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
   const approvals = useTranslations("approvals");
   const [value, setValue] = useState(groups);
   const [reason, setReason] = useState("");
@@ -474,31 +473,45 @@ function PermissionEditor({
     >
       <h3 className="font-semibold">{label}</h3>
       <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
-      <fieldset disabled={!canEdit || save.isPending} className="min-w-0 space-y-4">
-      <MessageGroupChoices
-        value={value}
-        onChange={setValue}
-        disabled={save.isPending}
-      />
-      <Reason value={reason} setValue={setReason} />
-      <FormActions>
-        <Button
-          type="submit"
-          variant="primary"
-          disabled={save.isPending || reason.trim().length < 5}
-        >
-          {identity.data?.role === "ADMIN" ? approvals("requestHead") : t("save")}
-        </Button>
-        <Button
-          disabled={save.isPending || reason.trim().length < 5}
-          onClick={() => { if (canEdit && !save.isPending) save.mutate({ target, groups: null, reason }); }}
-        >
-          {t(target.type === "USER" ? "inherit" : "resetDefault")}
-        </Button>
-      </FormActions>
+      <fieldset
+        disabled={!canEdit || save.isPending}
+        className="min-w-0 space-y-4"
+      >
+        <MessageGroupChoices
+          value={value}
+          onChange={setValue}
+          disabled={save.isPending}
+        />
+        <Reason value={reason} setValue={setReason} />
+        <FormActions>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={save.isPending || reason.trim().length < 5}
+          >
+            {identity.data?.role === "ADMIN"
+              ? approvals("requestHead")
+              : t("save")}
+          </Button>
+          <Button
+            disabled={save.isPending || reason.trim().length < 5}
+            onClick={() => {
+              if (canEdit && !save.isPending)
+                save.mutate({ target, groups: null, reason });
+            }}
+          >
+            {t(target.type === "USER" ? "inherit" : "resetDefault")}
+          </Button>
+        </FormActions>
       </fieldset>
-      {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
-      {save.error && !save.error.data?.approvalId && <p role="alert">{save.error.message}</p>}
+      {save.error?.data?.approvalId && (
+        <InlineNotice tone="warning" announcement="status">
+          {approvals("queuedBody")}
+        </InlineNotice>
+      )}
+      {save.error && !save.error.data?.approvalId && (
+        <p role="alert">{save.error.message}</p>
+      )}
       {save.isSuccess && <p role="status">{t("saved")}</p>}
     </form>
   );

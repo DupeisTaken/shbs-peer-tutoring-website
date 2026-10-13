@@ -1,10 +1,18 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import { FieldRequirement } from "./field-requirement";
 import { preservesLegacyName, type PersonNameDraft } from "~/lib/person-name";
 import { isLatinPrimaryName } from "~/lib/profile-policy";
+import {
+  DEFAULT_NAME_FIELDS,
+  type NameFieldStates,
+  type NameAccountType,
+} from "~/lib/name-field-policy";
+import { api } from "~/trpc/react";
+import { StatePanel } from "./ui/patterns";
+import { Button } from "./ui/button";
 
 /** One accessible layout for intake and profile editing; legacy names are shown without guessing a split. */
 export function PersonNameFields({
@@ -13,12 +21,19 @@ export function PersonNameFields({
   legacyName,
   originalValue,
   requireLastName = false,
+  states = DEFAULT_NAME_FIELDS,
+  showHidden = false,
+  disabled = false,
 }: {
   value: PersonNameDraft;
   onChange: (value: PersonNameDraft) => void;
   legacyName?: string | null;
   originalValue?: PersonNameDraft;
   requireLastName?: boolean;
+  states?: NameFieldStates;
+  /** Authorized staff edit retained originals, even when the participant field is hidden. */
+  showHidden?: boolean;
+  disabled?: boolean;
 }) {
   const t = useTranslations("personName");
   const policyText = useTranslations("profilePolicy");
@@ -29,20 +44,28 @@ export function PersonNameFields({
   const preserved = preservesLegacyName(value, originalValue, legacyName);
   return (
     <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-      {legacyName && !value.firstName && (
-        <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2">
-          {t(preserved ? "legacyPreserved" : "legacy", { name: legacyName })}
-        </p>
-      )}
+      {legacyName &&
+        !value.firstName &&
+        (showHidden ||
+          (["firstName", "lastName", "preferredName"] as const).every(
+            (key) => states[key] !== "hidden",
+          )) && (
+          <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2">
+            {t(preserved ? "legacyPreserved" : "legacy", { name: legacyName })}
+          </p>
+        )}
       {(
         ["firstName", "lastName", "preferredName", "alternativeNames"] as const
       ).map((key) => {
+        if (states[key] === "hidden" && !showHidden) return null;
         const required =
-          !preserved &&
-          (key === "firstName" || (key === "lastName" && requireLastName));
+          !(preserved && key === "firstName") &&
+          (states[key] === "required" ||
+            (key === "lastName" && requireLastName));
         const invalid =
           key !== "alternativeNames" &&
           !!value[key].trim() &&
+          value[key].trim() !== originalValue?.[key].trim() &&
           !isLatinPrimaryName(value[key]);
         return (
           <div
@@ -55,7 +78,15 @@ export function PersonNameFields({
           >
             <label className="label" htmlFor={`${id}-${key}`}>
               {t(key)}
-              <FieldRequirement state={required ? "required" : "optional"} />
+              <FieldRequirement
+                state={
+                  states[key] === "hidden"
+                    ? "hidden"
+                    : required
+                      ? "required"
+                      : "optional"
+                }
+              />
             </label>
             <input
               ref={(input) => {
@@ -69,6 +100,7 @@ export function PersonNameFields({
               name={key}
               className="input min-h-11 w-full aria-invalid:border-red-400 lg:min-h-10"
               value={value[key]}
+              disabled={disabled}
               required={required}
               maxLength={key === "alternativeNames" ? 200 : 100}
               autoComplete={
@@ -91,6 +123,9 @@ export function PersonNameFields({
             />
             <p className="muted mt-1 text-xs" id={`${id}-${key}-help`}>
               {t(`${key}Help`)}
+              {states[key] === "hidden" && showHidden && (
+                <> {t("hiddenRetained")}</>
+              )}
             </p>
             {touched[key] && invalid && (
               <p
@@ -103,6 +138,64 @@ export function PersonNameFields({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Intake chooses its registration type; a shared profile resolves its current owner's role on the server. */
+export function ConfiguredPersonNameFields({
+  accountType,
+  profileTarget,
+  management = false,
+  onPolicyAvailabilityChange,
+  ...props
+}: Omit<
+  React.ComponentProps<typeof PersonNameFields>,
+  "states" | "showHidden" | "requireLastName"
+> & {
+  accountType?: NameAccountType;
+  profileTarget?: { userId?: string; tutorId?: string; tuteeId?: string };
+  management?: boolean;
+  onPolicyAvailabilityChange?: (available: boolean) => void;
+}) {
+  const t = useTranslations("nameFields");
+  const intake = api.program.nameFieldPolicy.useQuery(undefined, {
+    enabled: !!accountType,
+  });
+  const profile = api.program.nameFieldsForProfile.useQuery(
+    profileTarget ?? {},
+    { enabled: !accountType },
+  );
+  const states = accountType
+    ? intake.data?.policies[accountType]
+    : profile.data?.states;
+  const error = accountType ? intake.error : profile.error;
+  const available = !!states && !error;
+  useEffect(() => {
+    onPolicyAvailabilityChange?.(available);
+  }, [available, onPolicyAvailabilityChange]);
+  const refresh = () => (accountType ? intake.refetch() : profile.refetch());
+  return (
+    <div className="space-y-3">
+      {error && (
+        <StatePanel
+          kind="error"
+          title={t("loadFailed")}
+          action={
+            <Button onClick={() => void refresh()}>{t("refresh")}</Button>
+          }
+        />
+      )}
+      {states ? (
+        <PersonNameFields
+          {...props}
+          states={states}
+          showHidden={management}
+          disabled={!available || props.disabled}
+        />
+      ) : (
+        !error && <StatePanel kind="loading" title={t("loading")} />
+      )}
     </div>
   );
 }

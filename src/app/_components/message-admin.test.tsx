@@ -9,7 +9,7 @@ import {
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
-import { MessageAdmin } from "./message-admin";
+import { MessageAdmin, MessagePermissions } from "./message-admin";
 import { SessionViewProvider } from "./session-view-state";
 import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 const mocks = vi.hoisted(() => ({
@@ -141,8 +141,11 @@ it("requires a reason to inspect content and sends moderation as a separate audi
   });
 });
 it("shows effective user permissions, saves an empty override, and explicitly restores inheritance", () => {
-  render(ui());
-  fireEvent.click(screen.getByRole("tab", { name: en.messaging.permissions }));
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <MessagePermissions />
+    </NextIntlClientProvider>,
+  );
   fireEvent.click(screen.getByRole("button", { name: /Alex · @alex/ }));
   expect(
     screen.getByText("Effective permission source: role policy"),
@@ -177,15 +180,17 @@ it("shows effective user permissions, saves an empty override, and explicitly re
   });
 });
 
-it("retains the review reason across local permission tabs", () => {
-  render(ui());
+it("retains the review reason on refresh and links to its relocated permission configuration", () => {
+  const view = render(ui());
   fireEvent.change(screen.getByRole("textbox", { name: en.messaging.reason }), {
     target: { value: "Retain this audit context" },
   });
-  fireEvent.click(screen.getByRole("tab", { name: en.messaging.permissions }));
-  fireEvent.click(
-    screen.getByRole("tab", { name: en.messaging.reviewMessages }),
-  );
+  view.rerender(ui());
+  expect(
+    screen
+      .getByRole("link", { name: en.messaging.permissionsDestination })
+      .getAttribute("href"),
+  ).toBe("/admin/program?panel=people");
   expect(
     screen.getByRole<HTMLInputElement>("textbox", { name: en.messaging.reason })
       .value,
@@ -194,9 +199,14 @@ it("retains the review reason across local permission tabs", () => {
 
 it("disables significant messaging permission drafts for Coordinators", () => {
   mocks.role = "COORDINATOR";
-  render(<NextIntlClientProvider locale="en" messages={en}><MessageAdmin /></NextIntlClientProvider>);
-  fireEvent.click(screen.getByRole("tab", { name: en.messaging.permissions }));
-  for (const button of screen.getAllByRole<HTMLButtonElement>("button", { name: en.messaging.save })) {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <MessagePermissions />
+    </NextIntlClientProvider>,
+  );
+  for (const button of screen.getAllByRole<HTMLButtonElement>("button", {
+    name: en.messaging.save,
+  })) {
     expect(button.closest("fieldset")?.disabled).toBe(true);
     fireEvent.submit(button.closest("form")!);
   }

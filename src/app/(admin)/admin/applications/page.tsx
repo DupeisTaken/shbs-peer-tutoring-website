@@ -1,5 +1,6 @@
 "use client";
 import { EmailDetails } from "~/app/_components/email-details";
+import { Button } from "~/app/_components/ui/button";
 import { QualificationReview } from "~/app/_components/qualification-review";
 
 import Link from "next/link";
@@ -207,6 +208,8 @@ function ApplicationCard({
             </span>
           </span>
         </button>
+        {/* All record actions share compact typography and target height, including
+         * invalidity controls and account-setup links supplied by other owners. */}
         <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto">
           {!readOnly && !additional && (
             <ApplicationInvalidityControls
@@ -225,8 +228,8 @@ function ApplicationCard({
             </Link>
           )}
           {canDirectAccept && (
-            <button
-              className="btn-secondary btn-sm"
+            <Button
+              size="compact"
               onClick={() =>
                 setStatus.mutate({
                   id: app.id,
@@ -236,11 +239,11 @@ function ApplicationCard({
               }
             >
               {t("admin.applications.accept")}
-            </button>
+            </Button>
           )}
           {canScreenReject && (
-            <button
-              className="btn-secondary btn-sm"
+            <Button
+              size="compact"
               onClick={() =>
                 setStatus.mutate({
                   id: app.id,
@@ -250,11 +253,12 @@ function ApplicationCard({
               }
             >
               {t("admin.applications.reject")}
-            </button>
+            </Button>
           )}
           {!readOnly && !additional && !app.isInvalid && (
-            <button
-              className="btn-danger btn-sm"
+            <Button
+              size="compact"
+              variant="danger"
               onClick={async () => {
                 if (
                   await confirm({
@@ -270,7 +274,7 @@ function ApplicationCard({
               }}
             >
               {t("admin.applications.delete")}
-            </button>
+            </Button>
           )}
         </div>
       </div>

@@ -64,7 +64,8 @@ vi.mock("~/trpc/react", async () => {
                 reject: (message, code, approvalId) =>
                   reject(
                     Object.assign(new Error(message), {
-                      data: code || approvalId ? { code, approvalId } : undefined,
+                      data:
+                        code || approvalId ? { code, approvalId } : undefined,
                     }),
                   ),
               });
@@ -101,6 +102,9 @@ vi.mock("~/trpc/react", async () => {
         tuteeHistory: invalidator("tuteeHistory"),
       }),
       program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
         profilePolicy: query({
           offeredGrades: [9, 10, 11, 12],
           currentSchoolYear: "26-27",
@@ -679,20 +683,27 @@ it.each(kinds)(
     const { field, form, close } = mount(kind, false);
     const draft = kind === "username" ? "queuedusername" : "Queued";
     fireEvent.change(field, { target: { value: draft } });
-    expect(within(form).getByRole("button", { name: en.approvals.requestHead })).toBeTruthy();
+    expect(
+      within(form).getByRole("button", { name: en.approvals.requestHead }),
+    ).toBeTruthy();
     fireEvent.submit(form);
     await waitFor(() => expect(transport.requests).toHaveLength(1));
     const proposal = transport.requests[0]!;
-    const fence = kind === "account" || kind === "username"
-      ? { expectedProfileVersion: original.profileVersion }
-      : { expectedUpdatedAt: original.updatedAt };
+    const fence =
+      kind === "account" || kind === "username"
+        ? { expectedProfileVersion: original.profileVersion }
+        : { expectedUpdatedAt: original.updatedAt };
     expect(proposal.input).toMatchObject(fence);
-    await act(async () => proposal.reject("Review queued", "FORBIDDEN", "approval-queued"));
+    await act(async () =>
+      proposal.reject("Review queued", "FORBIDDEN", "approval-queued"),
+    );
     await waitFor(() => expect(client.isMutating()).toBe(0));
     expect(screen.getByText(en.approvals.queuedBody)).toBeTruthy();
     expect(screen.queryByText("Review queued")).toBeNull();
     expect(screen.queryByText(en.accountProfile.sectionSaved)).toBeNull();
-    expect(screen.queryByText(en.accountProfile.sectionRefreshFailed)).toBeNull();
+    expect(
+      screen.queryByText(en.accountProfile.sectionRefreshFailed),
+    ).toBeNull();
     expect(currentField(kind).value).toBe(draft);
     expect(currentField(kind).readOnly).toBe(false);
     expect(currentField(kind).matches(":disabled")).toBe(false);
@@ -708,7 +719,13 @@ it.each(kinds)(
     fireEvent.submit(form);
     await waitFor(() => expect(transport.requests).toHaveLength(2));
     expect(transport.requests[1]!.input).toMatchObject(fence);
-    await act(async () => transport.requests[1]!.reject("Review queued", "FORBIDDEN", "approval-revised"));
+    await act(async () =>
+      transport.requests[1]!.reject(
+        "Review queued",
+        "FORBIDDEN",
+        "approval-revised",
+      ),
+    );
     await waitFor(() => expect(client.isMutating()).toBe(0));
     expect(screen.getByText(en.approvals.queuedBody)).toBeTruthy();
     expect(screen.queryByText(en.accountProfile.sectionSaved)).toBeNull();

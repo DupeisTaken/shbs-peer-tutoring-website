@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   invalid: true,
   source: "SELF_SERVICE",
   assigned: false,
+  verified: true,
   invalidateRequests: vi.fn(),
   invalidateTutees: vi.fn(),
   fetchRequests: vi.fn(),
@@ -69,7 +70,7 @@ vi.mock("~/trpc/react", () => ({
                   email: "student@example.test",
                   contact: "Email",
                   state: "OPEN",
-                  confirmedAt: new Date("2026-10-01"),
+                  confirmedAt: mocks.verified ? new Date("2026-10-01") : null,
                   submittedAt: new Date("2026-10-01"),
                   editedAt: null,
                   verificationDueAt: null,
@@ -141,6 +142,7 @@ vi.mock("~/trpc/react", () => ({
               phone: null,
               preferredContact: null,
               signedRulebook: false,
+              unverified: !mocks.verified,
               signatureName: null,
               firstChoice: { id: "math", name: "Mathematics" },
               secondChoice: null,
@@ -185,6 +187,7 @@ beforeEach(() => {
   mocks.invalid = true;
   mocks.source = "SELF_SERVICE";
   mocks.assigned = false;
+  mocks.verified = true;
   mocks.invalidateRequests.mockResolvedValue(undefined);
   mocks.invalidateTutees.mockResolvedValue(undefined);
   mocks.changeSurvey.mockResolvedValue({ ok: true });
@@ -203,6 +206,26 @@ beforeEach(() => {
   mocks.fetchTutees.mockImplementation(async () => fresh("legacy-1"));
 });
 afterEach(cleanup);
+
+it.each([
+  [false, true],
+  [false, false],
+  [true, true],
+  [true, false],
+])(
+  "shows one compact email status for legacy=%s verified=%s",
+  (legacy, verified) => {
+    mocks.invalid = false;
+    mocks.verified = verified;
+    mocks.survey = !legacy;
+    render(content(legacy));
+    expect(
+      screen.getAllByText(`Email: ${verified ? "Verified" : "Unverified"}`),
+    ).toHaveLength(1);
+    expect(screen.queryByText("Email verified")).toBeNull();
+    expect(screen.queryByText("Email not verified")).toBeNull();
+  },
+);
 
 it("keeps a flagged public request visible in its original queue without assignment controls or inline private reason", () => {
   show();

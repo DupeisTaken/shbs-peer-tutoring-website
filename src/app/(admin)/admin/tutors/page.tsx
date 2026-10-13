@@ -1,7 +1,7 @@
 "use client";
 import { Button } from "~/app/_components/ui/button";
 import { FilterToolbar, StatePanel } from "~/app/_components/ui/patterns";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { matchesPersonSearch } from "~/lib/person-search";
 import { nameDraft } from "~/lib/person-name";
@@ -49,7 +49,7 @@ export default function TutorsPage() {
   const [showPast, setShowPast] = useState(false);
   const [search, setSearch] = useState("");
   const [names, setNames] = useState(() => nameDraft());
-  const { firstName, lastName } = names;
+  const [namePolicyReady, setNamePolicyReady] = useState(false);
   const [email, setEmail] = useState("");
   const [grade, setGrade] = useState("");
   // Draft values belong to the page, so dismissing the dialog does not discard them.
@@ -164,7 +164,7 @@ export default function TutorsPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (!create.isPending && firstName.trim() && lastName.trim())
+              if (!create.isPending && namePolicyReady)
                 create.mutate({
                   ...names,
                   email: email.trim() || undefined,
@@ -183,9 +183,11 @@ export default function TutorsPage() {
               <legend className="sr-only">{t("admin.tutors.addTutor")}</legend>
               <div className="min-w-0">
                 <PersonNameFields
+                  onPolicyAvailabilityChange={setNamePolicyReady}
                   value={names}
                   onChange={setNames}
-                  requireLastName
+                  accountType="TUTOR"
+                  management
                 />
               </div>
               {/* Single-line controls live inside labels, never as stretchable peers
@@ -219,9 +221,7 @@ export default function TutorsPage() {
                 </label>
                 <button
                   className="btn-primary min-h-11 self-start lg:min-h-10"
-                  disabled={
-                    !firstName.trim() || !lastName.trim() || create.isPending
-                  }
+                  disabled={create.isPending || !namePolicyReady}
                 >
                   {t("admin.tutors.addTutor")}
                 </button>

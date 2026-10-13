@@ -5,6 +5,7 @@ import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } fro
 import { viewEnum } from "~/lib/session-view-state";
 import { useTranslations } from "next-intl";
 import { FieldDialog } from "~/app/_components/signup-field-dialog";
+import { ProgramNameSettings } from "~/app/_components/program-name-settings";
 import { api } from "~/trpc/react";
 import { InlineNotice } from "~/app/_components/ui/patterns";
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
@@ -19,10 +20,12 @@ export default function SignupFormsPage() {
   const t = useTranslations("signupFields");
   const approvals = useTranslations("approvals");
   const query = api.program.signupFieldSettings.useQuery();
+  const names = api.program.nameFieldSettings.useQuery();
   const utils = api.useUtils();
   const denied = useSessionAccessDenied(query);
+  const namesDenied = useSessionAccessDenied(names);
   const [form, setForm] = useSessionViewState<SignupFormKind>({ id: "signup-forms.form.v1", initialState: "tutee", parse: viewEnum(["tutee", "tutor"]), enabled: !denied });
-  useSessionPageScroll({ id: "signup-forms", scope: form, ready: !!query.data, enabled: !denied });
+  useSessionPageScroll({ id: "signup-forms", scope: form, ready: !!query.data && !!names.data, enabled: !denied && !namesDenied });
   const [edit, setEdit] = useState<{ field: string; state: FieldState } | null>(
     null,
   );
@@ -112,43 +115,46 @@ export default function SignupFormsPage() {
       >
         <section className="card overflow-hidden" aria-label={t(form)}>
           <ol className="divide-y divide-slate-200">
-            {SIGNUP_FIELDS[form].map((field) => (
-              <li
-                key={field.key}
-                className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium">{t(`labels.${field.label}`)}</p>
-                  <p className="muted mt-1 text-sm">
-                    {t(field.locked ? "locked" : fields[form][field.key]!)}
-                  </p>
-                </div>
-                {!field.locked && canEdit && (
-                  <button
-                    type="button"
-                    className="btn-secondary min-h-11 lg:min-h-8 lg:py-0"
-                    aria-label={t("configureField", {
-                      field: t(`labels.${field.label}`),
-                    })}
-                    onClick={() => {
-                      save.reset();
-                      setReloadError(null);
-                      setSaved(false);
-                      setEdit({
-                        field: field.key,
-                        state: fields[form][field.key]!,
-                      });
-                    }}
-                  >
-                    {t("configure")}
-                  </button>
-                )}
-              </li>
-            ))}
+            {SIGNUP_FIELDS[form]
+              .filter((field) => field.key !== "name")
+              .map((field) => (
+                <li
+                  key={field.key}
+                  className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium">{t(`labels.${field.label}`)}</p>
+                    <p className="muted mt-1 text-sm">
+                      {t(field.locked ? "locked" : fields[form][field.key]!)}
+                    </p>
+                  </div>
+                  {!field.locked && canEdit && (
+                    <button
+                      type="button"
+                      className="btn-secondary min-h-11 lg:min-h-8 lg:py-0"
+                      aria-label={t("configureField", {
+                        field: t(`labels.${field.label}`),
+                      })}
+                      onClick={() => {
+                        save.reset();
+                        setReloadError(null);
+                        setSaved(false);
+                        setEdit({
+                          field: field.key,
+                          state: fields[form][field.key]!,
+                        });
+                      }}
+                    >
+                      {t("configure")}
+                    </button>
+                  )}
+                </li>
+              ))}
           </ol>
         </section>
       </SectionTabs>
       {saved && <p role="status">{t("saved")}</p>}
+      <ProgramNameSettings />
       {edit && (
         <FieldDialog
           key={editGeneration}

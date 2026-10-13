@@ -45,7 +45,7 @@ const state = vi.hoisted(() => {
 });
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 // The complete historical tutee editor and its academic/link sections are real imports.
-vi.mock("~/trpc/react", () => {
+vi.mock("~/trpc/react", async () => {
   const mutation = (operation: Operation) => ({
     useMutation: (callbacks: Callbacks = {}) => {
       state.callbacks[operation] = callbacks;
@@ -92,6 +92,9 @@ vi.mock("~/trpc/react", () => {
         tuteeHistory: { ...invalidator, preview: { fetch: state.preview } },
       }),
       program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
         profilePolicy: {
           useQuery: () => ({
             data: { offeredGrades: [10, 11], currentSchoolYear: "26-27" },

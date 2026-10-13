@@ -193,6 +193,9 @@ vi.mock("~/trpc/react", async () => {
         };
       },
       program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
         profilePolicy: query("program.profilePolicy", () => ({
           requireLatinNames: false,
           offeredGrades: [9, 10, 11, 12],

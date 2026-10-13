@@ -199,6 +199,11 @@ visible-only batch submission and hidden-selection count; detail entries remain
 in the trailing Actions column. Offered subjects retain `courseChoices` ordering,
 shared with signup forms, rather than introducing a second display comparator.
 
+Action typography follows the record's context: application and signup header
+actions share the compact Button treatment (including invalidity and decline),
+while brief meeting detail/delete entries share TableAction typography and target
+height. The destructive variant changes color and border without changing size.
+
 Tutor Applications and Signup Requests default to **Active entries**, meaning
 only that the record is not flagged invalid. Workflow status, intake priority and
 processing permissions remain independent. Observers may use the same validity
@@ -206,6 +211,11 @@ filter on their authorized signup summary without acquiring private flag actions
 or reasons. Uncertain current academics use one **Review Needed** indicator;
 historical enrollment originals, correction overlays and reference years retain
 their existing precedence and detail evidence.
+
+Both signup sources show verification once in a compact **Email: Verified** or
+**Email: Unverified** contact line. The contextual short labels do not replace
+full-sentence verification messages elsewhere, and contact access stays with the
+existing email reader.
 
 Subject Availability shows each subject with its level and qualification summary.
 Qualified subjects also show willingness, including an explicit **Not recorded**
@@ -216,6 +226,10 @@ stored inheritance provenance and inactive-source restrictions. Its owner stays
 above filtered rows, and accepted-write synchronization failures expose read-only
 refresh recovery. Qualification edits still use the existing management operation;
 missing willingness never becomes a negative answer.
+
+Subject Offerings retains the server's level-first signup catalogue order. The
+parent page does not alphabetize the incoming rows; local filters preserve that
+order and selected IDs remain independent of the visible subset.
 
 Tutor Meetings uses P/EA/UA headings with a visible full legend, and opens complete
 self-excuse reasons through details. Participant rows reserve the same desktop and
@@ -519,10 +533,14 @@ what is currently implemented until their migrations and verification are comple
   or infer a next session. Preserve the existing settings approval and audit model.
 - **Name requirements:** per-account-type Required, Optional and Hidden states
   apply to signup and later profile editing. All fields may be optional or hidden;
-  an account without a displayable name uses its username. Hiding a field never
-  erases an existing name or rewrites historical evidence. Resolve intake type,
-  shared-profile policy, fallback username allocation and legacy unsplit-name
-  compatibility in the server validator as well as the UI. A presentation-only
+  an account without a displayable name uses its username. Signup uses the intake
+  type being registered; a shared profile follows the account's current role,
+  rather than combining every membership's requirements. Hidden fields do not
+  contribute to active display names or participant forms, but their saved values
+  remain visible in authorized admin management fields. Hiding a field never
+  erases an existing name or rewrites historical evidence. Resolve fallback
+  username allocation and legacy unsplit-name compatibility in the server validator
+  as well as the UI. A presentation-only
   `required` change is insufficient. Policy reads and saves retain explicit
   versions, approval boundaries and conflict recovery.
 - **Room order and schedules:** display order is a program-owned setting separate
@@ -835,7 +853,7 @@ Database triggers enqueue `EmailDelivery` in the event transaction for account c
 
 Every [email sender](../src/server/email/sender.ts) call declares SECURITY or PROGRAM purpose; configuration selects a complete sender account per purpose. Student signup confirmation uses PROGRAM, while viewer verification and history invitations use SECURITY. The notification outbox retains the event's internal destination; shared link validation and sign-in callbacks preserve it through password/2FA and session recovery, with current permissions checked at the destination. Shared HTML/plain-text rendering uses runtime branding and program-zone notification timestamps. See [sender setup](deployment.md#email--aliyun-direct-mail-邮件推送) for fallback and delivery checks.
 
-The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program & Refresh email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. No schema changes are needed; direct authentication/signup delivery history is not persisted by these diagnostics.
+The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. No schema changes are needed; direct authentication/signup delivery history is not persisted by these diagnostics.
 
 The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only failed or previously attempted pending rows without an active lease qualify, and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Existing SMTP at-least-once limitations still apply across lease expiry and crashes.
 

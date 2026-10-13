@@ -52,6 +52,7 @@ vi.mock("~/trpc/react", async () => {
   });
   return {
     api: {
+      program: { calendar: { useQuery: () => ({ data: [] }) } },
       tutor: {
         myTuteeDiscipline: read(
           ["tutor", "myTuteeDiscipline"],

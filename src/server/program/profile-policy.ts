@@ -1,5 +1,9 @@
 import { TRPCError } from "@trpc/server";
-import { ALL_GRADES, isLatinPrimaryName, type ProfilePolicy } from "~/lib/profile-policy";
+import {
+  ALL_GRADES,
+  isLatinPrimaryName,
+  type ProfilePolicy,
+} from "~/lib/profile-policy";
 import type { DomainDb } from "~/server/transactions";
 import { personNameSchema } from "~/lib/person-name";
 
@@ -45,6 +49,8 @@ export async function assertPrimaryName(
   previousName?: string | null,
 ) {
   if (name.trim() === previousName?.trim()) return;
+  // Requiredness is owned by the role policy; a nameless identity uses its reserved handle.
+  if (!name.trim()) return;
   void db;
   if (!isLatinPrimaryName(name))
     throw new TRPCError({
@@ -54,7 +60,16 @@ export async function assertPrimaryName(
 }
 
 /** Offered grades constrain new reports, not historical records or optional unknown values. */
-export async function assertOfferedGrade(db: DomainDb, grade: number | null | undefined) {
-  if (grade != null && !(await getProfilePolicy(db)).offeredGrades.includes(grade))
-    throw new TRPCError({ code: "BAD_REQUEST", message: "PROFILE_GRADE_NOT_OFFERED" });
+export async function assertOfferedGrade(
+  db: DomainDb,
+  grade: number | null | undefined,
+) {
+  if (
+    grade != null &&
+    !(await getProfilePolicy(db)).offeredGrades.includes(grade)
+  )
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "PROFILE_GRADE_NOT_OFFERED",
+    });
 }

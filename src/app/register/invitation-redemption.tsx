@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft } from "~/lib/person-name";
+import { participantNameLabel } from "~/app/_components/participant-name";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { RegistrationProgress } from "~/app/_components/registration-progress";
 import { Button } from "~/app/_components/ui/button";
@@ -42,12 +43,14 @@ function InvitationRedemptionFlow({
   onBack,
 }: InvitationRedemptionProps) {
   const t = useTranslations("accountInvitation");
+  const participantText = useTranslations("participantNames");
   const policy = useProfilePolicy();
   const utils = api.useUtils();
   const [email, setEmail] = useState(initialEmail);
   const [code, setCode] = useState("");
   const [proof, setProof] = useState(initialProof);
   const [names, setNames] = useState(() => nameDraft());
+  const [namePolicyReady, setNamePolicyReady] = useState(false);
   const [grade, setGrade] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -141,6 +144,7 @@ function InvitationRedemptionFlow({
     complete.error ?? verify.error ?? (proof || info ? details.error : null);
   const editableIdentity = Boolean(
     info &&
+    !info.acceptedIdentity &&
     (!info.existing || !info.name.trim()) &&
     ["TUTOR", "CREW", "ADMIN", "COORDINATOR"].includes(info.kind),
   );
@@ -197,6 +201,7 @@ function InvitationRedemptionFlow({
               previewFailed ||
               admitted.current ||
               !reviewed ||
+              (editableIdentity && !namePolicyReady) ||
               (editableIdentity && (policy.isLoading || policy.error)) ||
               (info.needsPassword && password !== confirm)
             )
@@ -230,7 +235,13 @@ function InvitationRedemptionFlow({
           >
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 break-words">
               <p className="font-semibold">{t(`kind.${info.kind}`)}</p>
-              <p>{info.name || `${info.firstName} ${info.lastName}`.trim()}</p>
+              <p>
+                {participantNameLabel(
+                  info.name || `${info.firstName} ${info.lastName}`.trim(),
+                  null,
+                  participantText("unnamed"),
+                )}
+              </p>
               <p className="text-sm">{info.email}</p>
               <p className="muted mt-2 text-sm">
                 {t(info.existing ? "preserveIdentity" : "newAccount")}
@@ -263,6 +274,16 @@ function InvitationRedemptionFlow({
                       onRetry={() => void policy.refetch()}
                     />
                     <PersonNameFields
+                      onPolicyAvailabilityChange={setNamePolicyReady}
+                      accountType={
+                        info.kind === "CREW"
+                          ? "CREW"
+                          : info.kind === "ADMIN"
+                            ? "ADMIN"
+                            : info.kind === "COORDINATOR"
+                              ? "COORDINATOR"
+                              : "TUTOR"
+                      }
                       value={names}
                       onChange={setNames}
                       legacyName={info.legacyName}
@@ -342,6 +363,7 @@ function InvitationRedemptionFlow({
                         type="submit"
                         disabled={
                           !reviewed ||
+                          (editableIdentity && !namePolicyReady) ||
                           Boolean(
                             editableIdentity &&
                             (policy.isLoading || policy.error),

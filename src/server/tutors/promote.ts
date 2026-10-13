@@ -1,6 +1,10 @@
 import { requireSchoolParticipation } from "~/server/school-departure";
-import { assertRequestProcessable, lockApplicationReview } from "~/server/request-invalidity";
+import {
+  assertRequestProcessable,
+  lockApplicationReview,
+} from "~/server/request-invalidity";
 import { assertPrimaryName } from "~/server/program/profile-policy";
+import { ensureNameFallbackForRole } from "~/server/program/name-fields";
 import { initializeAccountAcademics } from "~/server/academics";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import {
@@ -60,14 +64,37 @@ export async function promoteApplicantToTutor(
 
     const hasLogin = await db.user.findUnique({
       where: { email },
-      select: { id: true, name: true, tutorId: true, role: true, emailVerifiedAt: true, username: true },
+      select: {
+        id: true,
+        name: true,
+        legacyName: true,
+        firstName: true,
+        lastName: true,
+        preferredName: true,
+        alternativeNames: true,
+        tutorId: true,
+        role: true,
+        emailVerifiedAt: true,
+        username: true,
+      },
     });
-    if (hasLogin) { await lockAccountProfile(db, hasLogin.id); await requireSchoolParticipation(db, hasLogin.id); }
+    if (hasLogin) {
+      await lockAccountProfile(db, hasLogin.id);
+      await requireSchoolParticipation(db, hasLogin.id);
+    }
 
     // A verified account already owns its name; a historical application cannot
     // replace it when participation is granted. Unlinked applicants establish a new name.
-    const canonicalName = hasLogin?.emailVerifiedAt && hasLogin.name?.trim() ? hasLogin.name : null;
-    const { firstName, lastName, englishName } = splitDisplayName(canonicalName ?? app.name);
+    // Active display may be a username under a hidden policy. Never turn that
+    // handle into an original human name while granting tutoring membership.
+    const canonicalName = hasLogin?.emailVerifiedAt
+      ? hasLogin.firstName != null
+        ? [hasLogin.firstName, hasLogin.lastName].filter(Boolean).join(" ")
+        : (hasLogin.legacyName ?? "")
+      : null;
+    const { firstName, lastName, englishName } = splitDisplayName(
+      canonicalName ?? app.name,
+    );
 
     // Resolve (or create) the Tutor record — reactivated if one already exists for this email.
     const existing = await db.tutor.findUnique({
@@ -95,10 +122,18 @@ export async function promoteApplicantToTutor(
       });
       const tutor = await db.tutor.create({
         data: {
-          firstName: canonicalName ? null : app.firstName,
-          lastName: canonicalName ? null : app.lastName,
-          preferredName: canonicalName ? null : app.preferredName,
-          alternativeNames: canonicalName ? null : app.alternativeNames,
+          firstName: hasLogin?.emailVerifiedAt
+            ? hasLogin.firstName
+            : app.firstName,
+          lastName: hasLogin?.emailVerifiedAt
+            ? hasLogin.lastName
+            : app.lastName,
+          preferredName: hasLogin?.emailVerifiedAt
+            ? hasLogin.preferredName
+            : app.preferredName,
+          alternativeNames: hasLogin?.emailVerifiedAt
+            ? hasLogin.alternativeNames
+            : app.alternativeNames,
           englishName,
           username,
           email,
@@ -118,6 +153,8 @@ export async function promoteApplicantToTutor(
       // A verified existing account acquires the capability without receiving new credentials.
       if (hasLogin.tutorId && hasLogin.tutorId !== tutorId)
         throw new Error("Account already belongs to another tutor.");
+      if (["STUDENT", "VIEWER", "CREW"].includes(hasLogin.role))
+        await ensureNameFallbackForRole(db, hasLogin.id, "TUTOR");
       await db.user.update({
         where: { id: hasLogin.id },
         data: {
