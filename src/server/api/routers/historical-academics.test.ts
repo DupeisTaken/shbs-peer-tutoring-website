@@ -1155,11 +1155,12 @@ it("orders reserved archive participant locks before a dual-linked academic mirr
   }, { timeout: 15000 });
   await Promise.race([ready, mirroring]);
   const importing = db.$transaction(async (tx) => {
+    // Announce before namespace acquisition so the test observes the real lock wait.
+    const [backend] = await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
+    started(backend!.pid);
     await lockUsernameNamespace(tx);
     // A different Head actor must not accidentally serialize on the mirrored account.
     await tx.$queryRaw`SELECT id FROM "User" WHERE id='HEAD' FOR SHARE`;
-    const [backend] = await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
-    started(backend!.pid);
     return applyRecords(tx, files);
   }, { timeout: 15000 });
   const results = await Promise.allSettled([mirroring, importing]);
@@ -1198,10 +1199,11 @@ it("orders reserved archive row locks with a dual-linked account name writer", a
   }, { timeout: 15000 });
   await Promise.race([ready, renaming]);
   const importing = db.$transaction(async (tx) => {
-    await lockUsernameNamespace(tx);
-    await tx.$queryRaw`SELECT id FROM "User" WHERE id='HEAD' FOR SHARE`;
+    // Announce before namespace acquisition so the test observes the real lock wait.
     const [backend] = await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
     started(backend!.pid);
+    await lockUsernameNamespace(tx);
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id='HEAD' FOR SHARE`;
     return applyRecords(tx, files);
   }, { timeout: 15000 });
   const results = await Promise.allSettled([renaming, importing]);
