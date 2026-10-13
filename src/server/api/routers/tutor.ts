@@ -1307,6 +1307,7 @@ export const tutorRouter = createTRPCRouter({
         where: { term: { active: true }, scheduleConfirmed: true },
         select: {
           id: true,
+          termId: true,
           subject: true,
           dayOfWeek: true,
           startMin: true,

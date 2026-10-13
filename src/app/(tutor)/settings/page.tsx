@@ -1,4 +1,5 @@
 "use client";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
 import { TutorWorkloadPreference } from "~/app/_components/tutor-workload-preference";
 import {
@@ -57,6 +58,11 @@ export default function SettingsPage() {
   const deniedNow =
     profile.error?.data?.code === "FORBIDDEN" ||
     profile.error?.data?.code === "UNAUTHORIZED";
+  useSessionPageScroll({
+    id: "tutor-settings-v1",
+    ready: !!profile.data && !!me.data,
+    enabled: !profileDenied && !deniedNow,
+  });
   useEffect(() => {
     // One eviction per denial episode keeps recovery bounded if another owner
     // subscribes to this profile; only successful explicit recovery clears the latch.

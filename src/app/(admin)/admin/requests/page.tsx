@@ -24,6 +24,10 @@ import {
   useSessionViewState,
 } from "~/app/_components/session-view-state";
 import { viewEnum } from "~/lib/session-view-state";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import {
   isCurrentManualSignup,
@@ -51,6 +55,7 @@ type PendingTutee = InvalidityRecord & {
   signupSource: string;
   unverified?: boolean;
   englishName: string;
+  user?: { username: string | null } | null;
   gradeLevel: string | null;
   email: string | null;
   phone: string | null;
@@ -88,7 +93,12 @@ function RequestCard({
 }: {
   tutee: PendingTutee;
   order: number;
-  tutors: { id: string; englishName: string; active: boolean }[];
+  tutors: {
+    id: string;
+    englishName: string;
+    active: boolean;
+    user?: { username: string | null } | null;
+  }[];
   /** subject (course name) → tutor display name, for choices already assigned. */
   assigned: Map<string, string>;
   fulfilled: boolean;
@@ -96,6 +106,11 @@ function RequestCard({
   onFulfilled: (tuteeId: string) => void;
 }) {
   const t = useTranslations();
+  const displayName = participantNameLabel(
+    tutee.englishName,
+    tutee.user?.username,
+    t("participantNames.unnamed"),
+  );
   const format = useFormatter();
   const locale = useLocale();
   const readOnly = useReadOnly();
@@ -196,7 +211,10 @@ function RequestCard({
           <div className="min-w-0 space-y-1">
             <p className="flex flex-wrap items-center gap-2 font-semibold text-slate-900">
               <span className="badge-slate mr-2">#{order}</span>
-              {tutee.englishName}
+              <ParticipantName
+                name={tutee.englishName}
+                username={tutee.user?.username}
+              />
               <span className="ml-2">
                 <SignupSourceBadge source={tutee.signupSource} />
               </span>
@@ -273,7 +291,7 @@ function RequestCard({
             tutee.signupSource === "SELF_SERVICE" && (
               <SignupInvalidityControls
                 record={tutee}
-                name={tutee.englishName}
+                name={displayName}
                 canFlag
                 coordinator={account?.role === "COORDINATOR"}
               />
@@ -287,7 +305,7 @@ function RequestCard({
                 if (
                   await confirm({
                     title: t("admin.requests.declineConfirm", {
-                      name: tutee.englishName,
+                      name: displayName,
                     }),
                     confirmLabel: t("common.confirm"),
                     cancelLabel: t("common.cancel"),
@@ -320,11 +338,7 @@ function RequestCard({
                 ),
               })}
             </span>
-            <EmailDetails
-              contactOnly
-              email={tutee.email}
-              name={tutee.englishName}
-            />
+            <EmailDetails contactOnly email={tutee.email} name={displayName} />
           </div>
         )}
         {/* Assign each course choice to a tutor independently (workload shown in the dropdown). */}
@@ -493,12 +507,20 @@ export default function RequestsPage() {
     for (const p of pairings.data ?? []) {
       for (const pt of p.tutees) {
         const inner = m.get(pt.tutee.id) ?? new Map<string, string>();
-        inner.set(p.subject, p.tutor.englishName);
+        inner.set(
+          p.subject,
+          participantNameLabel(
+            p.tutor.englishName,
+            tutors.data?.find((tutor) => tutor.id === p.tutorId)?.user
+              ?.username,
+            t("participantNames.unnamed"),
+          ),
+        );
         m.set(pt.tutee.id, inner);
       }
     }
     return m;
-  }, [pairings.data]);
+  }, [pairings.data, tutors.data, t]);
 
   // Display = still-pending requests plus any retained-this-session (now ACTIVE) ones, earliest
   // first. Earliest-first keeps the priority order; retained items hold their original slot.
@@ -596,6 +618,7 @@ export default function RequestsPage() {
                       tutors={(tutors.data ?? []).map((tu) => ({
                         id: tu.id,
                         englishName: tu.englishName,
+                        user: tu.user,
                         active: isAssignableTutor(tu),
                       }))}
                       assigned={assignedByTutee.get(t2.id) ?? new Map()}

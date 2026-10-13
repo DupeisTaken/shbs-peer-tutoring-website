@@ -112,7 +112,7 @@ function queue(
   headReviewer = false,
   isFetching = false,
 ) {
-  mocks.list.mockReturnValue({
+  const result = {
     data: {
       rows,
       canReview,
@@ -126,7 +126,9 @@ function queue(
     refetch: mocks.refetch,
     isFetching,
     isSuccess: true,
-  });
+  };
+  mocks.list.mockReturnValue(result);
+  return result;
 }
 function view(reviewer = false, locale = "en") {
   return (
@@ -150,7 +152,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 it("restores the reviewer list, gives explicit URL criteria precedence, and clears it on access denial", () => {
-  queue([row()], true, 100);
+  const cached = queue([row()], true, 100);
   const key = viewStateKey("head", "/admin/approvals", "approvals.list.v1", "reviewer");
   writeViewState(window.sessionStorage, key, { state: "APPROVED", page: 2, requesterId: "coordinator", privateNote: "do not copy" });
   const tree = () => <SessionViewProvider identity="head" pathname="/admin/approvals" verified>{view(true)}</SessionViewProvider>;
@@ -163,7 +165,6 @@ it("restores the reviewer list, gives explicit URL criteria precedence, and clea
   mocks.params = "status=PENDING&page=1&requester=coordinator";
   panel.rerender(tree());
   expect(mocks.list).toHaveBeenLastCalledWith(expect.objectContaining({ state: "PENDING", page: 1, requesterId: "coordinator" }));
-  const cached = mocks.list.mock.results.at(-1)!.value;
   mocks.list.mockReturnValue({ ...cached, error: { message: "Denied", data: { code: "FORBIDDEN" } }, isSuccess: false });
   panel.rerender(tree());
   expect(screen.getByRole("alert").textContent).toBe("Denied");

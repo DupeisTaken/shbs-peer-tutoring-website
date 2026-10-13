@@ -288,6 +288,9 @@ feature allowlists; they do not authorize storing private draft fields.
 `#admin-content`, otherwise the document, switching at the 1024 px breakpoint.
 It waits for the feature's usable reads, observes delayed content growth for at
 most five seconds, and cancels recovery for user gestures or hash destinations.
+The window remains active after first fit to repair late Next programmatic resets;
+only a measured mismatch schedules correction, so its own scroll events do not loop.
+Route exit writes the last valid position and cancels frames, timer and observers.
 The last measured scroll position is retained on route exit even before the next
 animation frame. It does not alter Next history state, global scroll restoration,
 table/dialog/sidebar position, form drafts or server permissions. Explicit tutee
@@ -304,7 +307,12 @@ record-transfer shell register position after their authorized server reads; Act
 uses its feature-dependent required queries, and account position waits for its
 mounted identity, email, departure and policy sections. This coverage describes these
 owners, not a generic layout restoration rule. Remaining management owners are
-integrated separately, and actual Next navigation evidence verifies framework scrolling.
+integrated separately, and actual Next navigation evidence is required to verify framework scrolling.
+Current modern and manual request cards render an empty canonical name using an
+authorized linked username or the localized unnamed-participant label. The modern
+read DTO adds only current username metadata; intake `name`, payload, review
+assignment names and immutable history remain unchanged. Search still uses raw
+domain values rather than presentation fallback labels.
 Behavioral coverage is in `session-view-state.test.tsx`, the pure storage tests and
 the existing identity-cache/privacy tests; actual page screenshots remain separate
 from these mocked layout checks.

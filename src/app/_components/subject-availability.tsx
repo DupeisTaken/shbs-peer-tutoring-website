@@ -88,9 +88,12 @@ export function SubjectAvailability() {
       if (!value || typeof value !== "object" || Array.isArray(value)) return;
       const ids = new Set((data.data?.tutors ?? []).map((tutor) => tutor.id));
       // Bound recent per-tutor choices; removed tutors cannot reappear from storage.
-      return Object.fromEntries(Object.entries(value).filter(([id, choice]) =>
-        ids.has(id) && (choice === null || ["qualified", "pendingReview", "willing"].includes(String(choice))),
-      ).slice(-20)) as Record<string, string | null>;
+      const result: Record<string, string | null> = {};
+      for (const [id, candidate] of Object.entries(value).slice(-20)) {
+        const choice: unknown = candidate;
+        if (ids.has(id) && (choice === null || typeof choice === "string" && ["qualified", "pendingReview", "willing"].includes(choice))) result[id] = choice;
+      }
+      return result;
     },
   });
   useSessionPageScroll({ id: "subject-availability", scope: JSON.stringify([search, filter, tutorFilters]), ready: !!data.data, enabled: viewEnabled });

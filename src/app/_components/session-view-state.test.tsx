@@ -258,6 +258,7 @@ function scrollFixture(width = 1440, contentHeight = 2200) {
   vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
   const callbacks: (() => void)[] = [];
   const observed: Element[] = [];
+  let disconnected = 0;
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -267,13 +268,15 @@ function scrollFixture(width = 1440, contentHeight = 2200) {
       observe(element: Element) {
         observed.push(element);
       }
-      disconnect() {}
+      disconnect() { disconnected++; }
     },
   );
   return {
     pane,
     content,
     observed,
+    disconnected: () => disconnected,
+    pendingFrames: () => frames.size,
     setHeight: (value: number) => {
       height = value;
     },
@@ -318,6 +321,49 @@ it("waits for page readiness and retries fixed-pane content height after an asyn
   rendered.unmount();
   fixture.remove();
 });
+it("corrects a late framework reset after first fit without saving zero, then lets user intent win", () => {
+  const fixture = scrollFixture();
+  writeViewState(window.sessionStorage, scrollKey("desktop"), 700);
+  const rendered = render(scrollView());
+  fixture.frames();
+  fixture.pane.scrollTop = 0;
+  fireEvent.scroll(fixture.pane);
+  expect(window.sessionStorage.getItem(scrollKey("desktop"))).toBe("700");
+  fixture.frames();
+  expect(fixture.pane.scrollTop).toBe(700);
+  // The correction's own event schedules no further frame.
+  fireEvent.scroll(fixture.pane);
+  expect(fixture.pendingFrames()).toBe(0);
+  fireEvent.wheel(window);
+  fixture.pane.scrollTop = 540;
+  fireEvent.scroll(fixture.pane);
+  fixture.frames();
+  fixture.resizeContent();
+  expect(fixture.pane.scrollTop).toBe(540);
+  expect(window.sessionStorage.getItem(scrollKey("desktop"))).toBe("540");
+  rendered.unmount();
+  expect(vi.getTimerCount()).toBe(0);
+  expect(fixture.pendingFrames()).toBe(0);
+  expect(fixture.disconnected()).toBeGreaterThan(0);
+  fixture.remove();
+});
+it("flushes the last valid restored position when exit precedes a late-reset correction and tears recovery down", () => {
+  const fixture = scrollFixture();
+  writeViewState(window.sessionStorage, scrollKey("desktop"), 700);
+  const rendered = render(scrollView());
+  fixture.frames();
+  fixture.pane.scrollTop = 0;
+  fireEvent.scroll(fixture.pane);
+  rendered.unmount();
+  expect(window.sessionStorage.getItem(scrollKey("desktop"))).toBe("700");
+  expect(vi.getTimerCount()).toBe(0);
+  expect(fixture.pendingFrames()).toBe(0);
+  fixture.resizeContent();
+  fixture.frames();
+  expect(fixture.pane.scrollTop).toBe(0);
+  expect(fixture.disconnected()).toBeGreaterThan(0);
+  fixture.remove();
+});
 it.each(["hash", "wheel", "keyboard"])(
   "lets %s navigation or user intent win over recovery",
   (kind) => {
@@ -357,6 +403,7 @@ it("changes from the fixed desktop pane to document scroll at the responsive bre
   fireEvent(window, new Event("resize"));
   fixture.frames();
   expect(document.documentElement.scrollTop).toBe(80);
+  fireEvent.wheel(window);
   document.documentElement.scrollTop = 120;
   fireEvent.scroll(window);
   rendered.unmount();

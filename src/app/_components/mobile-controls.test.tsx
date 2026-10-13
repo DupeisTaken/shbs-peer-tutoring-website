@@ -48,7 +48,11 @@ const state = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/admin/rooms" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/admin/rooms",
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: vi.fn() }),
+}));
 vi.mock("~/app/_components/program-email-settings", () => ({
   ProgramEmailSettings: () => null,
 }));
@@ -65,6 +69,18 @@ vi.mock("~/app/_components/program-time-zone-settings", () => ({
 }));
 vi.mock("~/app/_components/recruitment-settings", () => ({
   RecruitmentSettings: () => null,
+}));
+vi.mock("~/app/_components/program-calendar", () => ({
+  ProgramCalendarSettings: () => null,
+}));
+vi.mock("~/app/_components/school-calendar", () => ({
+  SchoolCalendar: () => null,
+}));
+vi.mock("~/app/_components/program-name-settings", () => ({
+  ProgramNameSettings: () => null,
+}));
+vi.mock("~/app/_components/message-admin", () => ({
+  MessagePermissions: () => null,
 }));
 vi.mock("~/app/_components/read-only", () => ({
   useReadOnly: () => state.readOnly,

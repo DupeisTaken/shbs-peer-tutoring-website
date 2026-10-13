@@ -35,9 +35,17 @@ import {
   useSessionViewState,
 } from "~/app/_components/session-view-state";
 import { viewEnum } from "~/lib/session-view-state";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 
 type Row = RouterOutputs["studentWorkflow"]["adminRequests"][number];
-type Tutor = { id: string; englishName: string };
+type Tutor = {
+  id: string;
+  englishName: string;
+  user?: { username: string | null } | null;
+};
 export type AdditionalRequestEntry = {
   id: string;
   submittedAt: Date;
@@ -57,6 +65,7 @@ export function StudentRequestBoard({
   viewDenied?: boolean;
 }) {
   const t = useTranslations("workflow");
+  const ui = useTranslations("uiPatterns");
   const rows = api.studentWorkflow.adminRequests.useQuery(undefined, {
     refetchInterval: 60_000,
   });
@@ -136,7 +145,7 @@ export function StudentRequestBoard({
         {rows.error?.message ??
           legacyReviews.error?.message ??
           tutors.error?.message ??
-          t("loadFailed")}
+          ui("loadFailed")}
       </p>
     );
   return (
@@ -234,6 +243,12 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
   const locale = useLocale();
   const t = useTranslations("workflow");
   const requests = useTranslations("admin.requests");
+  const names = useTranslations("participantNames");
+  const displayName = participantNameLabel(
+    row.name,
+    row.username,
+    names("unnamed"),
+  );
   const utils = api.useUtils();
   const readOnly = useReadOnly();
   const account = api.account.me.useQuery().data;
@@ -245,7 +260,9 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
       <header className="flex flex-wrap justify-between gap-3">
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-semibold break-words">{row.name}</h3>
+            <h3 className="font-semibold break-words">
+              <ParticipantName name={row.name} username={row.username} />
+            </h3>
             <SignupSourceBadge source="SELF_SERVICE" />
             {row.isInvalid && <InvalidityBadge />}
             {row.state !== "OPEN" && (
@@ -273,14 +290,14 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
                 ),
               })}
             </span>
-            <EmailDetails contactOnly email={row.email} name={row.name} />
+            <EmailDetails contactOnly email={row.email} name={displayName} />
           </div>
         </div>
         <div className="flex flex-wrap items-start gap-2">
           {!readOnly && (
             <StudentRequestInvalidityControls
               record={row}
-              name={row.name}
+              name={displayName}
               canFlag={row.state === "OPEN" || row.isInvalid}
               coordinator={account?.role === "COORDINATOR"}
             />
@@ -385,6 +402,7 @@ function Assignment({
   tutors: Tutor[];
 }) {
   const t = useTranslations("workflow");
+  const names = useTranslations("participantNames");
   const utils = api.useUtils();
   const [tutorId, setTutorId] = useState("");
   const [open, setOpen] = useState(false);
@@ -411,7 +429,12 @@ function Assignment({
         <span className="min-w-0 text-sm font-medium">{subject.name}</span>
       )}
       {pairing ? (
-        <span className="badge-green">{pairing.tutor.englishName}</span>
+        <span className="badge-green">
+          <ParticipantName
+            name={pairing.tutor.englishName}
+            username={pairing.tutor.user?.username}
+          />
+        </span>
       ) : !readOnly && !row.isInvalid ? (
         <>
           <QualifiedTutorSelect
@@ -427,6 +450,14 @@ function Assignment({
             }
             label={t("chooseTutor", { subject: subject.name })}
             tutors={tutors}
+            optionLabel={(id) => {
+              const tutor = tutors.find((candidate) => candidate.id === id);
+              return participantNameLabel(
+                tutor?.englishName,
+                tutor?.user?.username,
+                names("unnamed"),
+              );
+            }}
             subjectId={subject.id}
             value={tutorId}
             onChange={(value) => {
@@ -471,8 +502,14 @@ function Assignment({
           key={`${row.id}:${subject.id}:${tutorId}`}
           action="ASSIGN"
           target={row.id}
-          title={t("assignTitle", { name: row.name })}
-          message={`${subject.name} → ${tutors.find((tu) => tu.id === tutorId)?.englishName ?? ""}\n\n${t(row.confirmedAt ? "assignVerifiedConsequences" : "assignConsequences")}`}
+          title={t("assignTitle", {
+            name: participantNameLabel(
+              row.name,
+              row.username,
+              names("unnamed"),
+            ),
+          })}
+          message={`${subject.name} → ${participantNameLabel(tutors.find((tu) => tu.id === tutorId)?.englishName, tutors.find((tu) => tu.id === tutorId)?.user?.username, names("unnamed"))}\n\n${t(row.confirmedAt ? "assignVerifiedConsequences" : "assignConsequences")}`}
           busy={assign.isPending}
           error={assign.error?.message}
           onCancel={() => setOpen(false)}
