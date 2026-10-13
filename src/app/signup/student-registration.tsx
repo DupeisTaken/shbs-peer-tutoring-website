@@ -14,12 +14,19 @@ import { Button } from "~/app/_components/ui/button";
 
 /** A public intent identifier identifies the challenge only. It never authorizes an
  * answer lookup; exact mailbox verification hands off to the established invitation flow. */
-export function StudentRegistration({ intentId, ...props }: {
+export function StudentRegistration({
+  intentId,
+  ...props
+}: {
   token: string;
   intentId?: string;
   signedInEmail?: string | null;
 }) {
-  return intentId ? <IntentRegistration key={intentId} intentId={intentId} /> : <LegacyStudentRegistration {...props} />;
+  return intentId ? (
+    <IntentRegistration key={intentId} intentId={intentId} />
+  ) : (
+    <LegacyStudentRegistration {...props} />
+  );
 }
 
 function IntentRegistration({ intentId }: { intentId: string }) {
@@ -27,13 +34,41 @@ function IntentRegistration({ intentId }: { intentId: string }) {
   const invitation = useTranslations("accountInvitation");
   const [email, setEmail] = useState("");
   const [recipient, setRecipient] = useState("");
-  return <section className="card space-y-5 p-6">
-    <p className="muted">{t("intentVerification")}</p>
-    {recipient ? <SurveyVerification email={recipient} intentId={intentId} /> : <form className="space-y-4" onSubmit={event => { event.preventDefault(); setRecipient(email.trim().toLowerCase()); }}>
-      <label className="block space-y-1"><span className="label">{invitation("email")}<FieldRequirement state="required" /></span><input className="input min-h-11 lg:min-h-10" type="email" autoComplete="email" required maxLength={254} value={email} onChange={event => setEmail(event.target.value)} /></label>
-      <Button type="submit" variant="primary">{invitation("continue")}</Button>
-    </form>}
-  </section>;
+  return (
+    <section className="card space-y-5 p-6">
+      <p className="muted">{t("intentVerification")}</p>
+      {recipient ? (
+        <SurveyVerification email={recipient} intentId={intentId} />
+      ) : (
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setRecipient(email.trim().toLowerCase());
+          }}
+        >
+          <label className="block space-y-1">
+            <span className="label">
+              {invitation("email")}
+              <FieldRequirement state="required" />
+            </span>
+            <input
+              className="input min-h-11 lg:min-h-10"
+              type="email"
+              autoComplete="email"
+              required
+              maxLength={254}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </label>
+          <Button type="submit" variant="primary">
+            {invitation("continue")}
+          </Button>
+        </form>
+      )}
+    </section>
+  );
 }
 
 /** Link inspection never consumes intake. The explicit mailbox-confirmation action issues

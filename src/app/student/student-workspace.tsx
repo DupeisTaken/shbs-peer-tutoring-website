@@ -162,12 +162,18 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
           ?.filter((r) => r.state !== "OPEN")
           .map((row) => (
             <div key={row.id} className="card p-5">
-              <span className="badge-slate">{row.state === "INVALID_REJECTED" ? appeal("rejectedTitle") : t(`state.${row.state}`)}</span>
+              <span className="badge-slate">
+                {row.state === "INVALID_REJECTED"
+                  ? appeal("rejectedTitle")
+                  : t(`state.${row.state}`)}
+              </span>
               <p className="mt-2 text-sm">
                 {row.subjects.map((s) => s.name).join(", ")}
               </p>
               <p className="muted mt-2 text-sm">
-                {row.state === "INVALID_REJECTED" ? appeal("rejected") : t(row.state === "ABORTED" ? "abortFinal" : "closedFinal")}
+                {row.state === "INVALID_REJECTED"
+                  ? appeal("rejected")
+                  : t(row.state === "ABORTED" ? "abortFinal" : "closedFinal")}
               </p>
             </div>
           ))}
@@ -251,18 +257,31 @@ function CurrentRequest({
       <section className="card space-y-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="font-semibold">{t("availability")}</h3>
-          <Button variant="secondary" size="compact" disabled={readBlocked} onClick={() => setEditing(true)}>
+          <Button
+            variant="secondary"
+            size="compact"
+            disabled={readBlocked}
+            onClick={() => setEditing(true)}
+          >
             {signupEditing("edit")}
           </Button>
         </div>
         <p className="muted text-sm">{signupEditing("availabilityHelp")}</p>
         <ul className="grid gap-2 text-sm sm:grid-cols-2">
-          {row.slots.map(slot => <li key={slot.id}>
-            {formatWeekday(slot.dayOfWeek, locale)} {minToHm(slot.startMin)}–{minToHm(slot.endMin)}
-          </li>)}
+          {row.slots.map((slot) => (
+            <li key={slot.id}>
+              {formatWeekday(slot.dayOfWeek, locale)} {minToHm(slot.startMin)}–
+              {minToHm(slot.endMin)}
+            </li>
+          ))}
         </ul>
       </section>
-      {editing && <StudentSignupEditor requestId={row.id} onClose={() => setEditing(false)} />}
+      {editing && (
+        <StudentSignupEditor
+          requestId={row.id}
+          onClose={() => setEditing(false)}
+        />
+      )}
       <section className="rounded-xl border border-amber-200 bg-amber-50 p-6">
         <h3 className="font-semibold">{t("participation")}</h3>
         <p className="mt-2 text-sm text-slate-600">

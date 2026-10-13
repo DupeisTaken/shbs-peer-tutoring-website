@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { localizedSnapshot, policySnapshotDocuments } from "~/lib/policy-evidence";
+import {
+  localizedSnapshot,
+  policySnapshotDocuments,
+} from "~/lib/policy-evidence";
 import { formatWeekday, minToHm } from "~/lib/time";
 import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft } from "~/lib/person-name";
@@ -24,16 +27,25 @@ import { invitationSignIn, switchInvitationAccount } from "./actions";
 
 /** A proof-bound review shows the posted request separately from canonical account
  * identity. Consent uses the saved snapshot, never a newly edited policy document. */
-export function InvitationSignupReview({ request }: {
-  request: NonNullable<RouterOutputs["accountInvitation"]["inspect"]["signupRequest"]>;
+export function InvitationSignupReview({
+  request,
+}: {
+  request: NonNullable<
+    RouterOutputs["accountInvitation"]["inspect"]["signupRequest"]
+  >;
 }) {
   const t = useTranslations("signupEditing");
   const labels = useTranslations();
   const locale = useLocale();
   const format = useFormatter();
   const answers = request.answers;
-  const document = localizedSnapshot(policySnapshotDocuments(request.policySnapshot), locale);
-  const subject = (id: string | undefined) => request.subjects.find(value => value.id === id)?.name ?? (id || t("notProvided"));
+  const document = localizedSnapshot(
+    policySnapshotDocuments(request.policySnapshot),
+    locale,
+  );
+  const subject = (id: string | undefined) =>
+    request.subjects.find((value) => value.id === id)?.name ??
+    (id || t("notProvided"));
   const fields = [
     [t("submittedName"), answers.englishName],
     [t("submittedFirstName"), answers.firstName],
@@ -45,18 +57,85 @@ export function InvitationSignupReview({ request }: {
     [labels("public.signup.fields.gradeLevel"), answers.gradeLevel],
     [labels("public.signup.fields.phone"), answers.phone],
     [labels("signupFields.labels.preferredContact"), answers.preferredContact],
-    [labels("public.signup.fields.firstChoice"), subject(answers.firstChoiceId)],
-    [labels("public.signup.fields.secondChoice"), subject(answers.secondChoiceId)],
+    [
+      labels("public.signup.fields.firstChoice"),
+      subject(answers.firstChoiceId),
+    ],
+    [
+      labels("public.signup.fields.secondChoice"),
+      subject(answers.secondChoiceId),
+    ],
   ];
-  return <section aria-label={t("replacementReview")} className="space-y-4 rounded-lg border border-indigo-200 bg-indigo-50/40 p-4">
-    <div><h2 className="font-semibold">{t("replacementReview")}</h2><p className="muted mt-1 text-sm">{t("replacementHelp")}</p></div>
-    <p className="text-sm">{t("originalPriority", { date: format.dateTime(new Date(request.originalPriority), {dateStyle:"medium",timeStyle:"short"}) })}</p>
-    <dl className="grid gap-3 text-sm sm:grid-cols-2">{fields.map(([label, value]) => <div key={label} className="min-w-0"><dt className="font-medium">{label}</dt><dd className="break-words whitespace-pre-wrap">{value || t("notProvided")}</dd></div>)}</dl>
-    <div><h3 className="text-sm font-medium">{labels("signupFields.labels.availability")}</h3><ul className="mt-1 space-y-1 text-sm">{answers.slotIds.map(id => {const slot = request.slots.find(value => value.id === id);return <li key={id}>{slot ? `${formatWeekday(slot.dayOfWeek, locale)} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}${slot.label ? ` · ${slot.label}` : ""}` : id}</li>;})}</ul>{!answers.slotIds.length && <p className="text-sm">{t("notProvided")}</p>}</div>
-    <div className="border-t border-indigo-200 pt-3"><h3 className="text-sm font-medium">{t("submittedConsent")}</h3><p className="mt-1 text-sm break-words">{answers.signatureName || t("notProvided")}</p><p className="muted mt-1 text-xs break-all">{t("policyRevision")}: {answers.policyRevision}</p>
-      {document ? <details className="mt-2"><summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium lg:min-h-8">{document.title}</summary><p className="mt-2 text-sm whitespace-pre-wrap break-words">{document.body}</p></details> : <p className="muted mt-2 text-sm">{t("notProvided")}</p>}
-    </div>
-  </section>;
+  return (
+    <section
+      aria-label={t("replacementReview")}
+      className="space-y-4 rounded-lg border border-indigo-200 bg-indigo-50/40 p-4"
+    >
+      <div>
+        <h2 className="font-semibold">{t("replacementReview")}</h2>
+        <p className="muted mt-1 text-sm">{t("replacementHelp")}</p>
+      </div>
+      <p className="text-sm">
+        {t("originalPriority", {
+          date: format.dateTime(new Date(request.originalPriority), {
+            dateStyle: "medium",
+            timeStyle: "short",
+          }),
+        })}
+      </p>
+      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        {fields.map(([label, value]) => (
+          <div key={label} className="min-w-0">
+            <dt className="font-medium">{label}</dt>
+            <dd className="break-words whitespace-pre-wrap">
+              {value || t("notProvided")}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <div>
+        <h3 className="text-sm font-medium">
+          {labels("signupFields.labels.availability")}
+        </h3>
+        <ul className="mt-1 space-y-1 text-sm">
+          {answers.slotIds.map((id) => {
+            const slot = request.slots.find((value) => value.id === id);
+            return (
+              <li key={id}>
+                {slot
+                  ? `${formatWeekday(slot.dayOfWeek, locale)} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}${slot.label ? ` · ${slot.label}` : ""}`
+                  : id}
+              </li>
+            );
+          })}
+        </ul>
+        {!answers.slotIds.length && (
+          <p className="text-sm">{t("notProvided")}</p>
+        )}
+      </div>
+      <div className="border-t border-indigo-200 pt-3">
+        <h3 className="text-sm font-medium">{t("submittedConsent")}</h3>
+        <p className="mt-1 text-sm break-words">
+          {answers.signatureName || t("notProvided")}
+        </p>
+        <p className="muted mt-1 text-xs break-all">
+          {t("policyRevision")}: {answers.policyRevision}
+        </p>
+        {document ? (
+          <details className="mt-2">
+            <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium lg:min-h-8">
+              {document.title}
+            </summary>
+            <p className="mt-2 text-sm break-words whitespace-pre-wrap">
+              {document.body}
+            </p>
+          </details>
+        ) : (
+          <p className="muted mt-2 text-sm">{t("notProvided")}</p>
+        )}
+      </div>
+    </section>
+  );
 }
 
 /** One credential editor for every invited account. Proof/password drafts stay in memory;
@@ -286,7 +365,9 @@ function InvitationRedemptionFlow({
                 {t(info.existing ? "preserveIdentity" : "newAccount")}
               </p>
             </div>
-            {info.signupRequest && <InvitationSignupReview request={info.signupRequest} />}
+            {info.signupRequest && (
+              <InvitationSignupReview request={info.signupRequest} />
+            )}
             {info.requiresSignIn && info.existing && !info.needsPassword ? (
               <div className="space-y-3 rounded-lg bg-amber-50 p-4">
                 <p>{t(info.mfaRequired ? "mfaRequired" : "signInRequired")}</p>

@@ -33,15 +33,33 @@ import { formatWeekday, minToHm } from "~/lib/time";
 
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
-import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+  useSessionViewState,
+} from "~/app/_components/session-view-state";
 import { viewEnum } from "~/lib/session-view-state";
-import { ParticipantName, participantNameLabel } from "~/app/_components/participant-name";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 
 type Row = RouterOutputs["studentWorkflow"]["adminRequests"][number];
-type Tutor = { id: string; englishName: string; user?: { username: string | null } | null };
+type Tutor = {
+  id: string;
+  englishName: string;
+  user?: { username: string | null } | null;
+};
 /** Review captures the complete write when opened. Background list reads cannot
  * adopt a new expected version, and refresh recovery contains only queries. */
-function SignupReviewAction({ label, action, target, description, makeIntent, refresh }: {
+function SignupReviewAction({
+  label,
+  action,
+  target,
+  description,
+  makeIntent,
+  refresh,
+}: {
   label: string;
   action: "SIGNUP_UNASSIGN" | "SIGNUP_APPEAL";
   target: string;
@@ -50,7 +68,9 @@ function SignupReviewAction({ label, action, target, description, makeIntent, re
   refresh: () => Promise<unknown>;
 }) {
   const t = useTranslations("signupEditing");
-  const [intent, setIntent] = useState<((ticket: string) => Promise<unknown>) | null>(null);
+  const [intent, setIntent] = useState<
+    ((ticket: string) => Promise<unknown>) | null
+  >(null);
   const [working, setWorking] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [needsRefresh, setNeedsRefresh] = useState(false);
@@ -59,55 +79,198 @@ function SignupReviewAction({ label, action, target, description, makeIntent, re
   const admitted = useRef(false);
   const recover = async () => {
     if (admitted.current) return;
-    admitted.current=true;setWorking(true);
-    try { await refresh();setNeedsRefresh(false);setError(undefined); }
-    catch { setNeedsRefresh(true);setError(t("refreshFailed")); }
-    finally { admitted.current=false;setWorking(false); }
+    admitted.current = true;
+    setWorking(true);
+    try {
+      await refresh();
+      setNeedsRefresh(false);
+      setError(undefined);
+    } catch {
+      setNeedsRefresh(true);
+      setError(t("refreshFailed"));
+    } finally {
+      admitted.current = false;
+      setWorking(false);
+    }
   };
   const commit = async (ticket: string) => {
     if (admitted.current || accepted || !intent) return;
-    admitted.current=true;setWorking(true);setError(undefined);
+    admitted.current = true;
+    setWorking(true);
+    setError(undefined);
     try {
-      await intent(ticket);setAccepted(true);setIntent(null);
-      try { await refresh(); } catch { setNeedsRefresh(true);setError(t("refreshFailed")); }
+      await intent(ticket);
+      setAccepted(true);
+      setIntent(null);
+      try {
+        await refresh();
+      } catch {
+        setNeedsRefresh(true);
+        setError(t("refreshFailed"));
+      }
     } catch (failure) {
-      const queued=queuedApprovalId(failure);
-      if(queued){setApprovalId(queued);setAccepted(true);setIntent(null);}
-      else setError(failure instanceof Error ? failure.message : t("saveFailed"));
-    } finally {admitted.current=false;setWorking(false);}
+      const queued = queuedApprovalId(failure);
+      if (queued) {
+        setApprovalId(queued);
+        setAccepted(true);
+        setIntent(null);
+      } else
+        setError(failure instanceof Error ? failure.message : t("saveFailed"));
+    } finally {
+      admitted.current = false;
+      setWorking(false);
+    }
   };
-  return <div className="space-y-2">
-    <Button variant="secondary" size="compact" disabled={working || accepted} onClick={() => { setError(undefined);const captured=makeIntent(crypto.randomUUID());setIntent(() => captured); }}>{label}</Button>
-    {intent && <TimedActionDialog action={action} target={target} title={label} message={description} busy={working} error={error} onCancel={() => {if(!admitted.current)setIntent(null);}} onConfirm={ticket => void commit(ticket)} />}
-    {needsRefresh && <InlineNotice tone="success" action={<Button disabled={working} onClick={() => void recover()}>{t("retryRefresh")}</Button>}>{t("savedRefresh")}</InlineNotice>}
-    {approvalId && <Link className="link inline-flex min-h-11 items-center lg:min-h-8" href={`/admin/approvals?request=${encodeURIComponent(approvalId)}`}>{t("queued")}</Link>}
-    {error && !intent && <p role="alert" className="text-sm text-red-700">{error}</p>}
-  </div>;
+  return (
+    <div className="space-y-2">
+      <Button
+        variant="secondary"
+        size="compact"
+        disabled={working || accepted}
+        onClick={() => {
+          setError(undefined);
+          const captured = makeIntent(crypto.randomUUID());
+          setIntent(() => captured);
+        }}
+      >
+        {label}
+      </Button>
+      {intent && (
+        <TimedActionDialog
+          action={action}
+          target={target}
+          title={label}
+          message={description}
+          busy={working}
+          error={error}
+          onCancel={() => {
+            if (!admitted.current) setIntent(null);
+          }}
+          onConfirm={(ticket) => void commit(ticket)}
+        />
+      )}
+      {needsRefresh && (
+        <InlineNotice
+          tone="success"
+          action={
+            <Button disabled={working} onClick={() => void recover()}>
+              {t("retryRefresh")}
+            </Button>
+          }
+        >
+          {t("savedRefresh")}
+        </InlineNotice>
+      )}
+      {approvalId && (
+        <Link
+          className="link inline-flex min-h-11 items-center lg:min-h-8"
+          href={`/admin/approvals?request=${encodeURIComponent(approvalId)}`}
+        >
+          {t("queued")}
+        </Link>
+      )}
+      {error && !intent && (
+        <p role="alert" className="text-sm text-red-700">
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }
 
-export function SignupAssignmentRelease({ row, pairing, proposal }: {
+export function SignupAssignmentRelease({
+  row,
+  pairing,
+  proposal,
+}: {
   row: Row;
   pairing: Row["pairings"][number];
   proposal: boolean;
 }) {
-  const t=useTranslations("signupAppeal");const utils=api.useUtils();
-  const mutation=api.studentWorkflow.headUnassign.useMutation();
-  return <SignupReviewAction label={`${t(proposal ? "proposeUnassign" : "unassign")} · ${pairing.subject}`} action="SIGNUP_UNASSIGN" target={`${row.id}:${pairing.id}`} description={t("unassignConsequences")}
-    makeIntent={clientKey => {const input={id:row.id,pairingId:pairing.id,expectedVersion:row.currentVersion,clientKey};return signedTicket=>mutation.mutateAsync({...input,signedTicket});}}
-    refresh={()=>settleRefreshes([()=>invalidateAndReport(utils.studentWorkflow.adminRequests),()=>invalidateAndReport(utils.admin.tutees),()=>invalidateAndReport(utils.admin.pairings)])} />;
+  const t = useTranslations("signupAppeal");
+  const utils = api.useUtils();
+  const mutation = api.studentWorkflow.headUnassign.useMutation();
+  return (
+    <SignupReviewAction
+      label={`${t(proposal ? "proposeUnassign" : "unassign")} · ${pairing.subject}`}
+      action="SIGNUP_UNASSIGN"
+      target={`${row.id}:${pairing.id}`}
+      description={t("unassignConsequences")}
+      makeIntent={(clientKey) => {
+        const input = {
+          id: row.id,
+          pairingId: pairing.id,
+          expectedVersion: row.currentVersion,
+          clientKey,
+        };
+        return (signedTicket) =>
+          mutation.mutateAsync({ ...input, signedTicket });
+      }}
+      refresh={() =>
+        settleRefreshes([
+          () => invalidateAndReport(utils.studentWorkflow.adminRequests),
+          () => invalidateAndReport(utils.admin.tutees),
+          () => invalidateAndReport(utils.admin.pairings),
+        ])
+      }
+    />
+  );
 }
 
 export function SignupAppealReview({ row }: { row: Row }) {
-  const t=useTranslations("signupAppeal");const utils=api.useUtils();const readOnly=useReadOnly();
-  const account=api.account.me.useQuery().data;
-  const mutation=api.studentWorkflow.resolveSignupAppeal.useMutation();
-  const canReview=!readOnly && !!account && ["HEAD","ADMIN","COORDINATOR"].includes(account.role);
-  return <article className="card space-y-4 p-5"><h3 className="font-semibold"><ParticipantName name={row.name} username={row.username} /> · {t("staffTitle")}</h3>
-    <p className="text-sm whitespace-pre-wrap break-words">{row.appeal?.reason}</p>
-    {canReview && row.appeal && <div className="flex flex-wrap gap-2">{[true,false].map(approve=><SignupReviewAction key={String(approve)} label={t(approve ? "approve" : "reject")} action="SIGNUP_APPEAL" target={`${row.appeal!.id}:${approve}`} description={t(approve ? "approveConsequences" : "rejectConsequences")}
-      makeIntent={clientKey=>{const input={id:row.appeal!.id,approve,expectedInvalidityVersion:row.invalidityVersion,clientKey};return signedTicket=>mutation.mutateAsync({...input,signedTicket});}}
-      refresh={()=>settleRefreshes([()=>invalidateAndReport(utils.studentWorkflow.adminRequests),()=>invalidateAndReport(utils.admin.tutees),()=>invalidateAndReport(utils.admin.pairings)])} />)}</div>}
-  </article>;
+  const t = useTranslations("signupAppeal");
+  const utils = api.useUtils();
+  const readOnly = useReadOnly();
+  const account = api.account.me.useQuery().data;
+  const mutation = api.studentWorkflow.resolveSignupAppeal.useMutation();
+  const canReview =
+    !readOnly &&
+    !!account &&
+    ["HEAD", "ADMIN", "COORDINATOR"].includes(account.role);
+  return (
+    <article className="card space-y-4 p-5">
+      <h3 className="font-semibold">
+        <ParticipantName name={row.name} username={row.username} /> ·{" "}
+        {t("staffTitle")}
+      </h3>
+      <p className="text-sm break-words whitespace-pre-wrap">
+        {row.appeal?.reason}
+      </p>
+      {canReview && row.appeal && (
+        <div className="flex flex-wrap gap-2">
+          {[true, false].map((approve) => (
+            <SignupReviewAction
+              key={String(approve)}
+              label={t(approve ? "approve" : "reject")}
+              action="SIGNUP_APPEAL"
+              target={`${row.appeal!.id}:${approve}`}
+              description={t(
+                approve ? "approveConsequences" : "rejectConsequences",
+              )}
+              makeIntent={(clientKey) => {
+                const input = {
+                  id: row.appeal!.id,
+                  approve,
+                  expectedInvalidityVersion: row.invalidityVersion,
+                  clientKey,
+                };
+                return (signedTicket) =>
+                  mutation.mutateAsync({ ...input, signedTicket });
+              }}
+              refresh={() =>
+                settleRefreshes([
+                  () =>
+                    invalidateAndReport(utils.studentWorkflow.adminRequests),
+                  () => invalidateAndReport(utils.admin.tutees),
+                  () => invalidateAndReport(utils.admin.pairings),
+                ])
+              }
+            />
+          ))}
+        </div>
+      )}
+    </article>
+  );
 }
 
 export type AdditionalRequestEntry = {
@@ -140,14 +303,35 @@ export function StudentRequestBoard({
   );
   const queryDenied = useSessionAccessDenied(rows, tutors, legacyReviews);
   const denied = viewDenied || queryDenied;
-  const pendingAppeals = (rows.data ?? []).filter(row => row.appeal?.state === "PENDING");
-  const [tab, setTab] = useSessionViewState({ id: "requests.tab.v1", initialState: "matching",
-    parse: viewEnum(["matching", "assigned", "reviews", "processed"]), scope: viewScope,
-    enabled: !denied, restoreReady: !additionalLoading && !!rows.data && !!legacyReviews.data });
-  const [invalidity, setInvalidity] = useSessionViewState<InvalidityFilterValue>({ id: "requests.invalidity.v1", initialState: "valid",
-    parse: viewEnum(["valid", "invalid", "all"]), scope: viewScope, enabled: !denied });
-  useSessionPageScroll({ id: "requests", scope: JSON.stringify([viewScope, tab, invalidity]),
-    ready: !additionalLoading && !!rows.data && !!tutors.data && !!legacyReviews.data, enabled: !denied });
+  const pendingAppeals = (rows.data ?? []).filter(
+    (row) => row.appeal?.state === "PENDING",
+  );
+  const [tab, setTab] = useSessionViewState({
+    id: "requests.tab.v1",
+    initialState: "matching",
+    parse: viewEnum(["matching", "assigned", "reviews", "processed"]),
+    scope: viewScope,
+    enabled: !denied,
+    restoreReady: !additionalLoading && !!rows.data && !!legacyReviews.data,
+  });
+  const [invalidity, setInvalidity] =
+    useSessionViewState<InvalidityFilterValue>({
+      id: "requests.invalidity.v1",
+      initialState: "valid",
+      parse: viewEnum(["valid", "invalid", "all"]),
+      scope: viewScope,
+      enabled: !denied,
+    });
+  useSessionPageScroll({
+    id: "requests",
+    scope: JSON.stringify([viewScope, tab, invalidity]),
+    ready:
+      !additionalLoading &&
+      !!rows.data &&
+      !!tutors.data &&
+      !!legacyReviews.data,
+    enabled: !denied,
+  });
   const matchingValidity = (invalid: boolean) =>
     invalidity === "all" || invalid === (invalidity === "invalid");
   const visibleRows = (rows.data ?? []).filter((row) =>
@@ -185,7 +369,15 @@ export function StudentRequestBoard({
     ],
     processed: visibleRows.filter((r) => r.state !== "OPEN"),
   };
-  if (denied) return <p role="alert">{rows.error?.message ?? legacyReviews.error?.message ?? tutors.error?.message ?? ui("loadFailed")}</p>;
+  if (denied)
+    return (
+      <p role="alert">
+        {rows.error?.message ??
+          legacyReviews.error?.message ??
+          tutors.error?.message ??
+          ui("loadFailed")}
+      </p>
+    );
   return (
     <RequestInvalidityHost>
       <section className="space-y-4">
@@ -218,7 +410,10 @@ export function StudentRequestBoard({
             <InvalidityFilter value={invalidity} onChange={setInvalidity} />
           )}
           <div className="space-y-3">
-            {tab === "reviews" && pendingAppeals.map(row => <SignupAppealReview key={row.id} row={row} />)}
+            {tab === "reviews" &&
+              pendingAppeals.map((row) => (
+                <SignupAppealReview key={row.id} row={row} />
+              ))}
             {rows.isLoading || additionalLoading ? (
               <p>{t("loading")}</p>
             ) : tab === "reviews" ? (
@@ -285,13 +480,18 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
   const requests = useTranslations("admin.requests");
   const appeals = useTranslations("signupAppeal");
   const names = useTranslations("participantNames");
-  const displayName = participantNameLabel(row.name, row.username, names("unnamed"));
+  const displayName = participantNameLabel(
+    row.name,
+    row.username,
+    names("unnamed"),
+  );
   const utils = api.useUtils();
   const readOnly = useReadOnly();
   const account = api.account.me.useQuery().data;
   const editing = useTranslations("signupEditing");
   const [editorOpen, setEditorOpen] = useState(false);
-  const management = !!account && ["HEAD","ADMIN","COORDINATOR"].includes(account.role);
+  const management =
+    !!account && ["HEAD", "ADMIN", "COORDINATOR"].includes(account.role);
   const resend = api.studentWorkflow.resend.useMutation({
     onSuccess: () => utils.studentWorkflow.adminRequests.invalidate(),
   });
@@ -300,11 +500,17 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
       <header className="flex flex-wrap justify-between gap-3">
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-semibold break-words"><ParticipantName name={row.name} username={row.username} /></h3>
+            <h3 className="font-semibold break-words">
+              <ParticipantName name={row.name} username={row.username} />
+            </h3>
             <SignupSourceBadge source="SELF_SERVICE" />
             {row.isInvalid && <InvalidityBadge />}
             {row.state !== "OPEN" && (
-              <span className="badge-slate">{row.state === "INVALID_REJECTED" ? appeals("rejectedTitle") : t(`state.${row.state}`)}</span>
+              <span className="badge-slate">
+                {row.state === "INVALID_REJECTED"
+                  ? appeals("rejectedTitle")
+                  : t(`state.${row.state}`)}
+              </span>
             )}
             {row.editedAt && <span className="badge-amber">{t("edited")}</span>}
           </div>
@@ -353,11 +559,33 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
         </div>
       </header>
       {row.isInvalid && <InvalidityNotice />}
-      {management && !readOnly && <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="secondary" size="compact" onClick={() => setEditorOpen(true)}>{editing("edit")}</Button>
-        {row.state === "OPEN" && row.pairings.map(pairing => <SignupAssignmentRelease key={pairing.id} row={row} pairing={pairing} proposal={account.role !== "HEAD"} />)}
-      </div>}
-      {editorOpen && <StudentSignupEditor managed requestId={row.id} onClose={() => setEditorOpen(false)} />}
+      {management && !readOnly && (
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            variant="secondary"
+            size="compact"
+            onClick={() => setEditorOpen(true)}
+          >
+            {editing("edit")}
+          </Button>
+          {row.state === "OPEN" &&
+            row.pairings.map((pairing) => (
+              <SignupAssignmentRelease
+                key={pairing.id}
+                row={row}
+                pairing={pairing}
+                proposal={account.role !== "HEAD"}
+              />
+            ))}
+        </div>
+      )}
+      {editorOpen && (
+        <StudentSignupEditor
+          managed
+          requestId={row.id}
+          onClose={() => setEditorOpen(false)}
+        />
+      )}
       {!row.confirmedAt && row.verificationDueAt && row.state === "OPEN" && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           {t("deadline", {
@@ -407,7 +635,9 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
         </div>
       ) : (
         <p className="muted text-sm">
-          {row.state === "INVALID_REJECTED" ? appeals("rejected") : t(row.state === "ABORTED" ? "abortFinal" : "closedFinal")}
+          {row.state === "INVALID_REJECTED"
+            ? appeals("rejected")
+            : t(row.state === "ABORTED" ? "abortFinal" : "closedFinal")}
         </p>
       )}
       {row.reviews.some((r) => r.state !== "PENDING") && (
@@ -471,7 +701,12 @@ function Assignment({
         <span className="min-w-0 text-sm font-medium">{subject.name}</span>
       )}
       {pairing ? (
-        <span className="badge-green"><ParticipantName name={pairing.tutor.englishName} username={pairing.tutor.user?.username} /></span>
+        <span className="badge-green">
+          <ParticipantName
+            name={pairing.tutor.englishName}
+            username={pairing.tutor.user?.username}
+          />
+        </span>
       ) : !readOnly && !row.isInvalid ? (
         <>
           <QualifiedTutorSelect
@@ -489,7 +724,11 @@ function Assignment({
             tutors={tutors}
             optionLabel={(id) => {
               const tutor = tutors.find((candidate) => candidate.id === id);
-              return participantNameLabel(tutor?.englishName, tutor?.user?.username, names("unnamed"));
+              return participantNameLabel(
+                tutor?.englishName,
+                tutor?.user?.username,
+                names("unnamed"),
+              );
             }}
             subjectId={subject.id}
             value={tutorId}
@@ -534,7 +773,13 @@ function Assignment({
           key={`${row.id}:${subject.id}:${tutorId}`}
           action="ASSIGN"
           target={row.id}
-          title={t("assignTitle", { name: participantNameLabel(row.name, row.username, names("unnamed")) })}
+          title={t("assignTitle", {
+            name: participantNameLabel(
+              row.name,
+              row.username,
+              names("unnamed"),
+            ),
+          })}
           message={`${subject.name} → ${participantNameLabel(tutors.find((tu) => tu.id === tutorId)?.englishName, tutors.find((tu) => tu.id === tutorId)?.user?.username, names("unnamed"))}\n\n${t(row.confirmedAt ? "assignVerifiedConsequences" : "assignConsequences")}`}
           busy={assign.isPending}
           error={assign.error?.message}

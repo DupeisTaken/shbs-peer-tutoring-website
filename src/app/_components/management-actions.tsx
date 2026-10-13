@@ -5,8 +5,18 @@ import Link from "next/link";
 import { isAssignmentOperation } from "~/lib/assignment-qualification";
 import { AssignmentConfirmation } from "./assignment-confirmation";
 import { Suspense, useEffect, useState } from "react";
-import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState, useSessionViewVerified } from "./session-view-state";
-import { viewEnum, viewFields, viewPage, viewSearch } from "~/lib/session-view-state";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+  useSessionViewState,
+  useSessionViewVerified,
+} from "./session-view-state";
+import {
+  viewEnum,
+  viewFields,
+  viewPage,
+  viewSearch,
+} from "~/lib/session-view-state";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import SuperJSON from "superjson";
@@ -40,7 +50,9 @@ function RequestCard({
   const [note, setNote] = useState("");
   const [password, setPassword] = useState("");
   const needsPassword = request.operation === "admin.setUserRole";
-  const headOnly = request.reviewerRoles?.every((role) => role === "HEAD") ?? HEAD_APPROVAL_OPERATIONS.has(request.operation);
+  const headOnly =
+    request.reviewerRoles?.every((role) => role === "HEAD") ??
+    HEAD_APPROVAL_OPERATIONS.has(request.operation);
   const [confirming, setConfirming] = useState(false);
   const [overrideReview, setOverrideReview] = useState<{
     ticket?: string;
@@ -62,17 +74,32 @@ function RequestCard({
   const confirmation = proposalConfirmation(request.operation, payload);
   // Every reviewer sees the consequence of the immutable proposed action and
   // obtains their own ticket; the original proposer's ticket is never reused.
-  const consequence = confirmation?.action === "SIGNUP_EDIT"
-    ? editing("headConsequences")
-    : confirmation?.action === "SIGNUP_UNASSIGN"
-      ? appeals("unassignConsequences")
-      : confirmation?.action === "SIGNUP_APPEAL"
-        ? appeals(payload && typeof payload === "object" && "approve" in payload && payload.approve === true ? "approveConsequences" : "rejectConsequences")
-        : t("confirmConsequences");
+  const consequence =
+    confirmation?.action === "SIGNUP_EDIT"
+      ? editing("headConsequences")
+      : confirmation?.action === "SIGNUP_UNASSIGN"
+        ? appeals("unassignConsequences")
+        : confirmation?.action === "SIGNUP_APPEAL"
+          ? appeals(
+              payload &&
+                typeof payload === "object" &&
+                "approve" in payload &&
+                payload.approve === true
+                ? "approveConsequences"
+                : "rejectConsequences",
+            )
+          : t("confirmConsequences");
   const approve = (ticket?: string) => {
     setConfirming(false);
     if (isAssignmentOperation(request.operation)) setOverrideReview({ ticket });
-    else decision.mutate({ id: request.id, approve: true, note, ticket, ...(needsPassword ? { confirmPassword: password } : {}) });
+    else
+      decision.mutate({
+        id: request.id,
+        approve: true,
+        note,
+        ticket,
+        ...(needsPassword ? { confirmPassword: password } : {}),
+      });
   };
   return (
     <article className="card overflow-hidden">
@@ -213,7 +240,19 @@ function RequestCard({
                 placeholder={t("noteHint")}
               />
             </label>
-            {needsPassword && <label className="block"><span className="label">{t("review.confirmPassword")}</span><input type="password" autoComplete="current-password" className="input min-h-11 w-full lg:min-h-10" value={password} disabled={busy} onChange={(event) => setPassword(event.target.value)} /></label>}
+            {needsPassword && (
+              <label className="block">
+                <span className="label">{t("review.confirmPassword")}</span>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  className="input min-h-11 w-full lg:min-h-10"
+                  value={password}
+                  disabled={busy}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </label>
+            )}
             <div className="flex flex-wrap gap-2">
               <button
                 className="btn-primary min-h-11 lg:min-h-10"
@@ -294,38 +333,87 @@ function ApprovalQueue({
   const selectedPage = Number(params.get("page") ?? 0);
   const urlState: State | "" =
     selectedStatus &&
-      ["PENDING", "APPROVED", "REJECTED", "CANCELLED"].includes(selectedStatus)
+    ["PENDING", "APPROVED", "REJECTED", "CANCELLED"].includes(selectedStatus)
       ? (selectedStatus as State)
       : allStatuses || !reviewer
         ? ""
         : "PENDING";
-  const explicit = params.has("status") || params.has("page") || params.has("requester") || !!requestId;
+  const explicit =
+    params.has("status") ||
+    params.has("page") ||
+    params.has("requester") ||
+    !!requestId;
   const urlPage = viewPage(selectedPage) ?? 0;
   const [requesters, setRequesters] = useState<string[] | null>(null);
   const [accessDenied, setAccessDenied] = useState(false);
   const verified = useSessionViewVerified();
-  const [remembered, setRemembered] = useSessionViewState<{ state: State | ""; page: number; requesterId: string }>({
-    id: "approvals.list.v1", initialState: { state: reviewer ? "PENDING" : "", page: 0, requesterId: "" },
-    scope: reviewer ? "reviewer" : "own", enabled: !accessDenied,
-    parse: viewFields({ state: viewEnum(["", "PENDING", "APPROVED", "REJECTED", "CANCELLED"]), page: viewPage,
+  const [remembered, setRemembered] = useSessionViewState<{
+    state: State | "";
+    page: number;
+    requesterId: string;
+  }>({
+    id: "approvals.list.v1",
+    initialState: {
+      state: reviewer ? "PENDING" : "",
+      page: 0,
+      requesterId: "",
+    },
+    scope: reviewer ? "reviewer" : "own",
+    enabled: !accessDenied,
+    parse: viewFields({
+      state: viewEnum(["", "PENDING", "APPROVED", "REJECTED", "CANCELLED"]),
+      page: viewPage,
       // Shape-check while loading; validate against the full current requester catalogue after success.
-      requesterId: (value) => !reviewer ? value === "" ? "" : undefined : requesters === null ? viewSearch(value) : viewEnum(["", ...requesters])(value),
+      requesterId: (value) =>
+        !reviewer
+          ? value === ""
+            ? ""
+            : undefined
+          : requesters === null
+            ? viewSearch(value)
+            : viewEnum(["", ...requesters])(value),
     }),
   });
   const rawRequester = reviewer ? (params.get("requester") ?? "") : "";
-  const urlRequester = requesters !== null && !requesters.includes(rawRequester) ? "" : (viewSearch(rawRequester) ?? "");
-  const [pendingUrlView, setPendingUrlView] = useState<{ query: string; value: typeof remembered } | null>(null);
+  const urlRequester =
+    requesters !== null && !requesters.includes(rawRequester)
+      ? ""
+      : (viewSearch(rawRequester) ?? "");
+  const [pendingUrlView, setPendingUrlView] = useState<{
+    query: string;
+    value: typeof remembered;
+  } | null>(null);
   // Keep a control's immediate response while Next commits router.replace. A
   // different URL (including a banner link) always starts with its explicit values.
-  const current = pendingUrlView?.query === params.toString() ? pendingUrlView.value
-    : explicit ? { state: urlState, page: urlPage, requesterId: urlRequester } : remembered;
+  const current =
+    pendingUrlView?.query === params.toString()
+      ? pendingUrlView.value
+      : explicit
+        ? { state: urlState, page: urlPage, requesterId: urlRequester }
+        : remembered;
   const { state, page, requesterId } = current;
-  const setState = (value: State | "") => setRemembered((old) => ({ ...old, state: value }));
-  const setPage = (value: number) => setRemembered((old) => ({ ...old, page: value }));
-  const setRequesterId = (value: string) => setRemembered((old) => ({ ...old, requesterId: value }));
+  const setState = (value: State | "") =>
+    setRemembered((old) => ({ ...old, state: value }));
+  const setPage = (value: number) =>
+    setRemembered((old) => ({ ...old, page: value }));
+  const setRequesterId = (value: string) =>
+    setRemembered((old) => ({ ...old, requesterId: value }));
   useEffect(() => {
-    if (explicit && verified && !requestId) setRemembered({ state: urlState, page: urlPage, requesterId: urlRequester });
-  }, [explicit, verified, requestId, urlState, urlPage, urlRequester, setRemembered]);
+    if (explicit && verified && !requestId)
+      setRemembered({
+        state: urlState,
+        page: urlPage,
+        requesterId: urlRequester,
+      });
+  }, [
+    explicit,
+    verified,
+    requestId,
+    urlState,
+    urlPage,
+    urlRequester,
+    setRemembered,
+  ]);
   // Persist list state in the URL so clicking the banner from a filtered or older
   // page really returns to the full first page, even within the same route.
   const navigateList = (
@@ -347,15 +435,24 @@ function ApprovalQueue({
   });
   const denied = useSessionAccessDenied(queue);
   useEffect(() => setAccessDenied(denied), [denied]);
-  const requesterKey = queue.data ? JSON.stringify(queue.data.requesters.map((user) => user.id)) : null;
+  const requesterKey = queue.data
+    ? JSON.stringify(queue.data.requesters.map((user) => user.id))
+    : null;
   useEffect(() => {
-    if (requesterKey !== null && !denied) setRequesters(JSON.parse(requesterKey) as string[]);
+    if (requesterKey !== null && !denied)
+      setRequesters(JSON.parse(requesterKey) as string[]);
   }, [requesterKey, denied]);
-  useSessionPageScroll({ id: "approvals", scope: JSON.stringify([requestId ?? "all", state, page, requesterId]), ready: !!queue.data, enabled: !denied });
+  useSessionPageScroll({
+    id: "approvals",
+    scope: JSON.stringify([requestId ?? "all", state, page, requesterId]),
+    ready: !!queue.data,
+    enabled: !denied,
+  });
   const refresh = async () => {
     await queue.refetch();
   };
-  if (denied) return <p role="alert">{queue.error?.message ?? ui("loadFailed")}</p>;
+  if (denied)
+    return <p role="alert">{queue.error?.message ?? ui("loadFailed")}</p>;
   return (
     <div className="space-y-6">
       <header>
@@ -451,11 +548,12 @@ function ApprovalQueue({
           request={request}
           canReview={
             // The server evaluates payload-dependent reversals and live reviewer authority.
-            request.canDecide ?? (
-              queue.data.canReview &&
-              (request.requesterId !== queue.data.viewerId || queue.data.headReviewer) &&
-              (!HEAD_APPROVAL_OPERATIONS.has(request.operation) || queue.data.headReviewer)
-            )
+            request.canDecide ??
+            (queue.data.canReview &&
+              (request.requesterId !== queue.data.viewerId ||
+                queue.data.headReviewer) &&
+              (!HEAD_APPROVAL_OPERATIONS.has(request.operation) ||
+                queue.data.headReviewer))
           }
           canCancel={request.requesterId === queue.data.viewerId}
           onChanged={refresh}

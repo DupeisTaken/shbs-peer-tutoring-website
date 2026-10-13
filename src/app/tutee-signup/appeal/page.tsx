@@ -12,9 +12,17 @@ export const metadata = {
  * never looks up requests by contact email or exposes their submitted answers. */
 export default async function SignupAppealPage() {
   const [t, survey] = await Promise.all([
-    getTranslations("signupAppeal"), getTranslations("survey"),
+    getTranslations("signupAppeal"),
+    getTranslations("survey"),
   ]);
-  return <PublicFormPage title={t("title")} description={t("help")} backLabel={survey("back")} backHref="/tutee">
-    <SignupAppeal />
-  </PublicFormPage>;
+  return (
+    <PublicFormPage
+      title={t("title")}
+      description={t("help")}
+      backLabel={survey("back")}
+      backHref="/tutee"
+    >
+      <SignupAppeal />
+    </PublicFormPage>
+  );
 }

@@ -1,42 +1,136 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { SignupAppealReview, SignupAssignmentRelease, StudentRequestBoard } from "./student-request-board";
-const mocks=vi.hoisted(()=>({unassign:vi.fn(),appeal:vi.fn(),refresh:vi.fn()}));
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import {
+  SignupAppealReview,
+  SignupAssignmentRelease,
+  StudentRequestBoard,
+} from "./student-request-board";
+const mocks = vi.hoisted(() => ({
+  unassign: vi.fn(),
+  appeal: vi.fn(),
+  refresh: vi.fn(),
+}));
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
   useLocale: () => "en",
-  useFormatter:()=>({dateTime:()=>"date"}),
+  useFormatter: () => ({ dateTime: () => "date" }),
 }));
-vi.mock("~/app/_components/timed-action-dialog",()=>({TimedActionDialog:({action,target,onConfirm,onCancel}:{action:string;target:string;onConfirm:(ticket:string)=>void;onCancel:()=>void})=><div role="dialog" data-action={action} data-target={target}><button onClick={()=>onConfirm("fresh-ticket")}>Confirm</button><button onClick={onCancel}>Cancel</button></div>}));
+vi.mock("~/app/_components/timed-action-dialog", () => ({
+  TimedActionDialog: ({
+    action,
+    target,
+    onConfirm,
+    onCancel,
+  }: {
+    action: string;
+    target: string;
+    onConfirm: (ticket: string) => void;
+    onCancel: () => void;
+  }) => (
+    <div role="dialog" data-action={action} data-target={target}>
+      <button onClick={() => onConfirm("fresh-ticket")}>Confirm</button>
+      <button onClick={onCancel}>Cancel</button>
+    </div>
+  ),
+}));
 vi.mock("~/trpc/react", () => ({
   api: {
-    useUtils:()=>({studentWorkflow:{adminRequests:{invalidate:mocks.refresh}},admin:{tutees:{invalidate:mocks.refresh},pairings:{invalidate:mocks.refresh}}}),
-    account:{me:{useQuery:()=>({data:{role:"HEAD"}})}},
+    useUtils: () => ({
+      studentWorkflow: { adminRequests: { invalidate: mocks.refresh } },
+      admin: {
+        tutees: { invalidate: mocks.refresh },
+        pairings: { invalidate: mocks.refresh },
+      },
+    }),
+    account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
     studentWorkflow: {
-      headUnassign:{useMutation:()=>({mutateAsync:mocks.unassign})},resolveSignupAppeal:{useMutation:()=>({mutateAsync:mocks.appeal})},
+      headUnassign: { useMutation: () => ({ mutateAsync: mocks.unassign }) },
+      resolveSignupAppeal: {
+        useMutation: () => ({ mutateAsync: mocks.appeal }),
+      },
       adminRequests: { useQuery: () => ({ data: [] }) },
       legacyReviews: { useQuery: () => ({ data: [] }) },
     },
     admin: { tutors: { useQuery: () => ({ data: [] }) } },
   },
 }));
-beforeEach(()=>{vi.clearAllMocks();mocks.unassign.mockResolvedValue({ok:true,version:3});mocks.appeal.mockResolvedValue({ok:true});mocks.refresh.mockResolvedValue(undefined);});
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.unassign.mockResolvedValue({ ok: true, version: 3 });
+  mocks.appeal.mockResolvedValue({ ok: true });
+  mocks.refresh.mockResolvedValue(undefined);
+});
 afterEach(cleanup);
 
-const actionRow={id:"survey",name:"Applicant",username:null,currentVersion:2,invalidityVersion:4,appeal:{id:"appeal-record",reason:"My request is genuine",state:"PENDING"},pairings:[{id:"pairing",subject:"Mathematics"}]} as unknown as Parameters<typeof SignupAppealReview>[0]["row"];
-it("captures assignment version when review opens instead of adopting background rows",async()=>{
-  const mounted=render(<SignupAssignmentRelease row={actionRow} pairing={actionRow.pairings[0]!} proposal={false} />);
-  fireEvent.click(screen.getByRole("button",{name:"unassign · Mathematics"}));const dialog=screen.getByRole("dialog");expect(dialog.getAttribute("data-target")).toBe("survey:pairing");
-  mounted.rerender(<SignupAssignmentRelease row={{...actionRow,currentVersion:9}} pairing={actionRow.pairings[0]!} proposal={false} />);
-  fireEvent.click(screen.getByRole("button",{name:"Confirm"}));await waitFor(()=>expect(mocks.unassign).toHaveBeenCalledOnce());expect(mocks.unassign.mock.calls[0]?.[0]).toMatchObject({id:"survey",pairingId:"pairing",expectedVersion:2,signedTicket:"fresh-ticket"});
+const actionRow = {
+  id: "survey",
+  name: "Applicant",
+  username: null,
+  currentVersion: 2,
+  invalidityVersion: 4,
+  appeal: {
+    id: "appeal-record",
+    reason: "My request is genuine",
+    state: "PENDING",
+  },
+  pairings: [{ id: "pairing", subject: "Mathematics" }],
+} as unknown as Parameters<typeof SignupAppealReview>[0]["row"];
+it("captures assignment version when review opens instead of adopting background rows", async () => {
+  const mounted = render(
+    <SignupAssignmentRelease
+      row={actionRow}
+      pairing={actionRow.pairings[0]!}
+      proposal={false}
+    />,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "unassign · Mathematics" }),
+  );
+  const dialog = screen.getByRole("dialog");
+  expect(dialog.getAttribute("data-target")).toBe("survey:pairing");
+  mounted.rerender(
+    <SignupAssignmentRelease
+      row={{ ...actionRow, currentVersion: 9 }}
+      pairing={actionRow.pairings[0]!}
+      proposal={false}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(mocks.unassign).toHaveBeenCalledOnce());
+  expect(mocks.unassign.mock.calls[0]?.[0]).toMatchObject({
+    id: "survey",
+    pairingId: "pairing",
+    expectedVersion: 2,
+    signedTicket: "fresh-ticket",
+  });
 });
-it("binds appeal consequences to appeal id and captured invalidity version; accepted refresh retries never repeat the decision",async()=>{
-  mocks.refresh.mockRejectedValue(new Error("Offline"));render(<SignupAppealReview row={actionRow} />);
-  fireEvent.click(screen.getByRole("button",{name:"reject"}));expect(screen.getByRole("dialog").getAttribute("data-target")).toBe("appeal-record:false");
-  fireEvent.click(screen.getByRole("button",{name:"Confirm"}));await screen.findByText("savedRefresh");expect(mocks.appeal.mock.calls[0]?.[0]).toMatchObject({id:"appeal-record",approve:false,expectedInvalidityVersion:4,signedTicket:"fresh-ticket"});
-  mocks.refresh.mockResolvedValue(undefined);fireEvent.click(screen.getByRole("button",{name:"retryRefresh"}));await waitFor(()=>expect(screen.queryByText("savedRefresh")).toBeNull());expect(mocks.appeal).toHaveBeenCalledOnce();
+it("binds appeal consequences to appeal id and captured invalidity version; accepted refresh retries never repeat the decision", async () => {
+  mocks.refresh.mockRejectedValue(new Error("Offline"));
+  render(<SignupAppealReview row={actionRow} />);
+  fireEvent.click(screen.getByRole("button", { name: "reject" }));
+  expect(screen.getByRole("dialog").getAttribute("data-target")).toBe(
+    "appeal-record:false",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+  await screen.findByText("savedRefresh");
+  expect(mocks.appeal.mock.calls[0]?.[0]).toMatchObject({
+    id: "appeal-record",
+    approve: false,
+    expectedInvalidityVersion: 4,
+    signedTicket: "fresh-ticket",
+  });
+  mocks.refresh.mockResolvedValue(undefined);
+  fireEvent.click(screen.getByRole("button", { name: "retryRefresh" }));
+  await waitFor(() => expect(screen.queryByText("savedRefresh")).toBeNull());
+  expect(mocks.appeal).toHaveBeenCalledOnce();
 });
 
 it("moves focus with arrows and Home/End without changing the selected request panel", () => {

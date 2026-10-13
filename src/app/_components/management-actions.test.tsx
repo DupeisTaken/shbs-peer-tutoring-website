@@ -43,7 +43,12 @@ vi.mock("./timed-action-dialog", () => ({
     target: string;
     message: string;
   }) => (
-    <div role="dialog" aria-label="Consequence confirmation" data-action={action} data-target={target}>
+    <div
+      role="dialog"
+      aria-label="Consequence confirmation"
+      data-action={action}
+      data-target={target}
+    >
       <p>{message}</p>
       {children}
       <button onClick={() => onConfirm("fresh-review-ticket")}>
@@ -159,53 +164,158 @@ beforeEach(() => {
 afterEach(cleanup);
 
 it.each([
-  ["studentWorkflow.headEditSignup", {id:"signup",signedTicket:"old-ticket"}, "SIGNUP_EDIT", "signup", en.signupEditing.headConsequences],
-  ["studentWorkflow.headUnassign", {id:"signup",pairingId:"pairing",signedTicket:"old-ticket"}, "SIGNUP_UNASSIGN", "signup:pairing", en.signupAppeal.unassignConsequences],
-  ["studentWorkflow.resolveSignupAppeal", {id:"appeal",approve:false,signedTicket:"old-ticket"}, "SIGNUP_APPEAL", "appeal:false", en.signupAppeal.rejectConsequences],
-  ["studentWorkflow.resolveSignupAppeal", {id:"appeal",approve:true,signedTicket:"old-ticket"}, "SIGNUP_APPEAL", "appeal:true", en.signupAppeal.approveConsequences],
-] as const)("reviews %s with its exact target and a fresh reviewer ticket", (operation,payload,action,target,consequence) => {
-  queue([{...row(),operation,payload:SuperJSON.serialize(payload),canDecide:true}],true,1,true);
-  render(view(true));
-  fireEvent.change(screen.getByRole("textbox"),{target:{value:"Reviewed immutable proposed changes"}});
-  fireEvent.click(screen.getByRole("button",{name:en.approvals.approve}));
-  const dialog=screen.getByRole("dialog",{name:"Consequence confirmation"});
-  expect(dialog.getAttribute("data-action")).toBe(action);expect(dialog.getAttribute("data-target")).toBe(target);
-  expect(within(dialog).getByText(consequence)).toBeTruthy();expect(mocks.decide).not.toHaveBeenCalled();
-  fireEvent.click(within(dialog).getByRole("button",{name:"Confirm consequences"}));
-  expect(mocks.decide).toHaveBeenCalledWith({id:"request-1",approve:true,note:"Reviewed immutable proposed changes",ticket:"fresh-review-ticket"});
-});
+  [
+    "studentWorkflow.headEditSignup",
+    { id: "signup", signedTicket: "old-ticket" },
+    "SIGNUP_EDIT",
+    "signup",
+    en.signupEditing.headConsequences,
+  ],
+  [
+    "studentWorkflow.headUnassign",
+    { id: "signup", pairingId: "pairing", signedTicket: "old-ticket" },
+    "SIGNUP_UNASSIGN",
+    "signup:pairing",
+    en.signupAppeal.unassignConsequences,
+  ],
+  [
+    "studentWorkflow.resolveSignupAppeal",
+    { id: "appeal", approve: false, signedTicket: "old-ticket" },
+    "SIGNUP_APPEAL",
+    "appeal:false",
+    en.signupAppeal.rejectConsequences,
+  ],
+  [
+    "studentWorkflow.resolveSignupAppeal",
+    { id: "appeal", approve: true, signedTicket: "old-ticket" },
+    "SIGNUP_APPEAL",
+    "appeal:true",
+    en.signupAppeal.approveConsequences,
+  ],
+] as const)(
+  "reviews %s with its exact target and a fresh reviewer ticket",
+  (operation, payload, action, target, consequence) => {
+    queue(
+      [
+        {
+          ...row(),
+          operation,
+          payload: SuperJSON.serialize(payload),
+          canDecide: true,
+        },
+      ],
+      true,
+      1,
+      true,
+    );
+    render(view(true));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Reviewed immutable proposed changes" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: en.approvals.approve }));
+    const dialog = screen.getByRole("dialog", {
+      name: "Consequence confirmation",
+    });
+    expect(dialog.getAttribute("data-action")).toBe(action);
+    expect(dialog.getAttribute("data-target")).toBe(target);
+    expect(within(dialog).getByText(consequence)).toBeTruthy();
+    expect(mocks.decide).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Confirm consequences" }),
+    );
+    expect(mocks.decide).toHaveBeenCalledWith({
+      id: "request-1",
+      approve: true,
+      note: "Reviewed immutable proposed changes",
+      ticket: "fresh-review-ticket",
+    });
+  },
+);
 
 it("restores the reviewer list, gives explicit URL criteria precedence, and clears it on access denial", () => {
   const cached = queue([row()], true, 100);
-  const key = viewStateKey("head", "/admin/approvals", "approvals.list.v1", "reviewer");
-  writeViewState(window.sessionStorage, key, { state: "APPROVED", page: 2, requesterId: "coordinator", privateNote: "do not copy" });
-  const tree = () => <SessionViewProvider identity="head" pathname="/admin/approvals" verified>{view(true)}</SessionViewProvider>;
+  const key = viewStateKey(
+    "head",
+    "/admin/approvals",
+    "approvals.list.v1",
+    "reviewer",
+  );
+  writeViewState(window.sessionStorage, key, {
+    state: "APPROVED",
+    page: 2,
+    requesterId: "coordinator",
+    privateNote: "do not copy",
+  });
+  const tree = () => (
+    <SessionViewProvider identity="head" pathname="/admin/approvals" verified>
+      {view(true)}
+    </SessionViewProvider>
+  );
   const panel = render(tree());
-  expect(mocks.list).toHaveBeenLastCalledWith(expect.objectContaining({ state: "APPROVED", page: 2, requesterId: "coordinator" }));
+  expect(mocks.list).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      state: "APPROVED",
+      page: 2,
+      requesterId: "coordinator",
+    }),
+  );
   expect(JSON.stringify(window.sessionStorage)).not.toContain("do not copy");
   mocks.params = "status=all";
   panel.rerender(tree());
-  expect(mocks.list).toHaveBeenLastCalledWith(expect.objectContaining({ state: undefined, page: 0, requesterId: undefined }));
+  expect(mocks.list).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      state: undefined,
+      page: 0,
+      requesterId: undefined,
+    }),
+  );
   mocks.params = "status=PENDING&page=1&requester=coordinator";
   panel.rerender(tree());
-  expect(mocks.list).toHaveBeenLastCalledWith(expect.objectContaining({ state: "PENDING", page: 1, requesterId: "coordinator" }));
-  mocks.list.mockReturnValue({ ...cached, error: { message: "Denied", data: { code: "FORBIDDEN" } }, isSuccess: false });
+  expect(mocks.list).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      state: "PENDING",
+      page: 1,
+      requesterId: "coordinator",
+    }),
+  );
+  mocks.list.mockReturnValue({
+    ...cached,
+    error: { message: "Denied", data: { code: "FORBIDDEN" } },
+    isSuccess: false,
+  });
   panel.rerender(tree());
   expect(screen.getByRole("alert").textContent).toBe("Denied");
   expect(screen.queryByText("Alex Coordinator")).toBeNull();
   expect(window.sessionStorage.getItem(key)).toBeNull();
-  mocks.list.mockReturnValue({ ...cached, error: { message: "Offline" }, isSuccess: false });
+  mocks.list.mockReturnValue({
+    ...cached,
+    error: { message: "Offline" },
+    isSuccess: false,
+  });
   panel.rerender(tree());
   expect(screen.queryByText("Alex Coordinator")).toBeNull();
 });
 
 it("rejects saved requesters removed from the current authorized catalogue", () => {
   queue([row()], true);
-  writeViewState(window.sessionStorage, viewStateKey("head", "/admin/approvals", "approvals.list.v1", "reviewer"),
-    { state: "APPROVED", page: 1, requesterId: "removed-user" });
-  render(<SessionViewProvider identity="head" pathname="/admin/approvals" verified>{view(true)}</SessionViewProvider>);
-  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: en.approvals.requester }).value).toBe("");
-  expect(mocks.list).toHaveBeenLastCalledWith(expect.objectContaining({ requesterId: undefined }));
+  writeViewState(
+    window.sessionStorage,
+    viewStateKey("head", "/admin/approvals", "approvals.list.v1", "reviewer"),
+    { state: "APPROVED", page: 1, requesterId: "removed-user" },
+  );
+  render(
+    <SessionViewProvider identity="head" pathname="/admin/approvals" verified>
+      {view(true)}
+    </SessionViewProvider>,
+  );
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", {
+      name: en.approvals.requester,
+    }).value,
+  ).toBe("");
+  expect(mocks.list).toHaveBeenLastCalledWith(
+    expect.objectContaining({ requesterId: undefined }),
+  );
 });
 
 it("shows departure consequences to Head without exposing the revision counter", () => {
@@ -577,17 +687,62 @@ it.each([true, false])(
 );
 
 it("honors server review authority for a payload-dependent reversal", () => {
-  queue([{ ...row(), operation: "messaging.moderate", canDecide: false, reviewerRoles: ["HEAD"], payload: SuperJSON.serialize({ messageId: "message", hide: false, reason: "Restore checked content" }) }], true);
+  queue(
+    [
+      {
+        ...row(),
+        operation: "messaging.moderate",
+        canDecide: false,
+        reviewerRoles: ["HEAD"],
+        payload: SuperJSON.serialize({
+          messageId: "message",
+          hide: false,
+          reason: "Restore checked content",
+        }),
+      },
+    ],
+    true,
+  );
   render(view(true));
   expect(screen.getByText(en.approvals.review.headRequired)).toBeTruthy();
-  expect(screen.queryByRole("button", { name: en.approvals.approve })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: en.approvals.approve }),
+  ).toBeNull();
 });
 it("requires a fresh Head password for legacy management role requests", () => {
-  queue([{ ...row(), operation: "admin.setUserRole", canDecide: true, reviewerRoles: ["HEAD"], payload: SuperJSON.serialize({ userId: "account", role: "ADMIN" }) }], true, 1, true);
+  queue(
+    [
+      {
+        ...row(),
+        operation: "admin.setUserRole",
+        canDecide: true,
+        reviewerRoles: ["HEAD"],
+        payload: SuperJSON.serialize({ userId: "account", role: "ADMIN" }),
+      },
+    ],
+    true,
+    1,
+    true,
+  );
   render(view(true));
-  fireEvent.change(screen.getByRole("textbox", { name: en.approvals.review.noteRequired }), { target: { value: "Authority verified" } });
-  expect(screen.getByRole<HTMLButtonElement>("button", { name: en.approvals.approve }).disabled).toBe(true);
-  fireEvent.change(screen.getByLabelText(en.approvals.review.confirmPassword), { target: { value: "Synthetic-reviewer-password" } });
+  fireEvent.change(
+    screen.getByRole("textbox", { name: en.approvals.review.noteRequired }),
+    { target: { value: "Authority verified" } },
+  );
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.approvals.approve,
+    }).disabled,
+  ).toBe(true);
+  fireEvent.change(screen.getByLabelText(en.approvals.review.confirmPassword), {
+    target: { value: "Synthetic-reviewer-password" },
+  });
   fireEvent.click(screen.getByRole("button", { name: en.approvals.approve }));
-  expect(mocks.decide).toHaveBeenCalledWith(expect.objectContaining({ id: "request-1", approve: true, confirmPassword: "Synthetic-reviewer-password" }));
+  expect(mocks.decide).toHaveBeenCalledWith(
+    expect.objectContaining({
+      id: "request-1",
+      approve: true,
+      confirmPassword: "Synthetic-reviewer-password",
+    }),
+  );
 });

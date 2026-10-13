@@ -55,13 +55,20 @@ export function SignupForm() {
   const recoverReceipt = api.tutee.signupReceipt.useMutation();
   type CapturedSubmission = {
     clientKey: string;
-    answers: Omit<RouterInputs["tutee"]["submitSurvey"], "captchaGrant" | "clientKey">;
+    answers: Omit<
+      RouterInputs["tutee"]["submitSurvey"],
+      "captchaGrant" | "clientKey"
+    >;
   };
   const attempt = useRef<CapturedSubmission | null>(null);
   const admitted = useRef(false);
   const [working, setWorking] = useState(false);
   const [held, setHeld] = useState(false);
-  const [acknowledgement, setAcknowledgement] = useState<{ email: string; emailSent: boolean; intentId?: string } | null>(null);
+  const [acknowledgement, setAcknowledgement] = useState<{
+    email: string;
+    emailSent: boolean;
+    intentId?: string;
+  } | null>(null);
   const editing = useTranslations("signupEditing");
 
   /** Retry carries exactly the original intent and answers. Receipt recovery uses POST
@@ -71,8 +78,10 @@ export function SignupForm() {
     const retry = !captured;
     const submission = captured ?? attempt.current;
     if (!submission) return;
-    admitted.current = true; attempt.current = submission;
-    setWorking(true); setHeld(true);
+    admitted.current = true;
+    attempt.current = submission;
+    setWorking(true);
+    setHeld(true);
     try {
       if (retry) {
         const saved = await recoverReceipt.mutateAsync(submission);
@@ -81,30 +90,51 @@ export function SignupForm() {
           return;
         }
       }
-      await captcha.run(async captchaGrant => {
+      await captcha.run(async (captchaGrant) => {
         const saved = await submit.mutateAsync({
-          ...submission.answers, clientKey: submission.clientKey, captchaGrant,
+          ...submission.answers,
+          clientKey: submission.clientKey,
+          captchaGrant,
         });
         setAcknowledgement({ ...saved, email: submission.answers.email });
         return saved;
       });
     } catch {
       // Keep the captured snapshot and key, including when a committed response was lost.
-    } finally { admitted.current = false; setWorking(false); }
+    } finally {
+      admitted.current = false;
+      setWorking(false);
+    }
   };
 
   /** Returning to editing first resolves the held intent. A failed recovery leaves
    * the draft frozen; a confirmed absence keeps fields and starts a new deliberate intent. */
   const returnToEditing = async () => {
-    if (admitted.current || working || captcha.pending || submit.isPending || !attempt.current) return;
-    admitted.current=true;setWorking(true);
-    const captured=attempt.current;
+    if (
+      admitted.current ||
+      working ||
+      captcha.pending ||
+      submit.isPending ||
+      !attempt.current
+    )
+      return;
+    admitted.current = true;
+    setWorking(true);
+    const captured = attempt.current;
     try {
-      const saved=await recoverReceipt.mutateAsync(captured);
-      if(saved)setAcknowledgement({...saved,email:captured.answers.email});
-      else {attempt.current=null;setHeld(false);}
-    } catch { /* Ambiguous recovery must not abandon a possibly committed intent. */ }
-    finally {admitted.current=false;setWorking(false);}
+      const saved = await recoverReceipt.mutateAsync(captured);
+      if (saved)
+        setAcknowledgement({ ...saved, email: captured.answers.email });
+      else {
+        attempt.current = null;
+        setHeld(false);
+      }
+    } catch {
+      /* Ambiguous recovery must not abandon a possibly committed intent. */
+    } finally {
+      admitted.current = false;
+      setWorking(false);
+    }
   };
 
   const [names, setNames] = useState(() => nameDraft());
@@ -171,7 +201,9 @@ export function SignupForm() {
       .length === 0 &&
     firstChoiceId &&
     agreed &&
-    !submit.isPending && !working && !held &&
+    !submit.isPending &&
+    !working &&
+    !held &&
     !captcha.pending;
 
   if (acknowledgement) {
@@ -181,7 +213,9 @@ export function SignupForm() {
           {t("survey.savedTitle")}
         </h2>
         <p className="muted mt-2">
-          {editing(acknowledgement.emailSent ? "savedMailbox" : "savedNoMail", { email: acknowledgement.email })}
+          {editing(acknowledgement.emailSent ? "savedMailbox" : "savedNoMail", {
+            email: acknowledgement.email,
+          })}
         </p>
         <p className="muted mt-3 text-sm">{editing("replacementHelp")}</p>
         {!acknowledgement.emailSent && (
@@ -190,7 +224,10 @@ export function SignupForm() {
           </p>
         )}
         <SigninAccess />
-        <SurveyVerification email={acknowledgement.email} intentId={acknowledgement.intentId} />
+        <SurveyVerification
+          email={acknowledgement.email}
+          intentId={acknowledgement.intentId}
+        />
       </div>
     );
   }
@@ -257,23 +294,26 @@ export function SignupForm() {
           e.preventDefault();
           if (!canSubmit || !policy.data) return;
           const policyRevision = policy.data.revision;
-          void sendSubmission({ clientKey: crypto.randomUUID(), answers: normalizeTuteeFields(
-                {
-                  ...names,
-                  englishName: englishName.trim(),
-                  email: email.trim(),
-                  policyRevision,
-                  phone: phone.trim() || undefined,
-                  preferredContact: preferredContact.trim(),
-                  gradeLevel: gradeLevel.trim() || undefined,
-                  firstChoiceId,
-                  secondChoiceId: secondChoiceId || undefined,
-                  slotIds,
-                  signatureName: signatureName.trim(),
-                  agreed: true as const,
-                },
-                fields,
-              ) });
+          void sendSubmission({
+            clientKey: crypto.randomUUID(),
+            answers: normalizeTuteeFields(
+              {
+                ...names,
+                englishName: englishName.trim(),
+                email: email.trim(),
+                policyRevision,
+                phone: phone.trim() || undefined,
+                preferredContact: preferredContact.trim(),
+                gradeLevel: gradeLevel.trim() || undefined,
+                firstChoiceId,
+                secondChoiceId: secondChoiceId || undefined,
+                slotIds,
+                signatureName: signatureName.trim(),
+                agreed: true as const,
+              },
+              fields,
+            ),
+          });
         }}
       >
         {/* Native fieldset prevents mouse, keyboard and assistive-input edits in preview mode. */}
@@ -283,7 +323,9 @@ export function SignupForm() {
             options.isError ||
             policy.isError ||
             readOnly ||
-            submit.isPending || working || held ||
+            submit.isPending ||
+            working ||
+            held ||
             captcha.pending
           }
           aria-busy={submit.isPending || working}
@@ -507,14 +549,35 @@ export function SignupForm() {
             Verify/Cancel/Retry controls outside the disabled form controls. */}
         {captcha.panel}
         {held && !acknowledgement && (
-          <InlineNotice tone="warning" announcement="status" action={
-            <div className="flex flex-wrap gap-2">
-              <Button disabled={working || captcha.pending} onClick={() => void sendSubmission()}>{editing("recoverSubmission")}</Button>
-              <Button variant="secondary" disabled={working || captcha.pending || submit.isPending} onClick={() => void returnToEditing()}>{editing("returnToEditing")}</Button>
-            </div>
-          }>{editing("submissionHeld")}</InlineNotice>
+          <InlineNotice
+            tone="warning"
+            announcement="status"
+            action={
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  disabled={working || captcha.pending}
+                  onClick={() => void sendSubmission()}
+                >
+                  {editing("recoverSubmission")}
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={working || captcha.pending || submit.isPending}
+                  onClick={() => void returnToEditing()}
+                >
+                  {editing("returnToEditing")}
+                </Button>
+              </div>
+            }
+          >
+            {editing("submissionHeld")}
+          </InlineNotice>
         )}
-        {recoverReceipt.error && <p role="alert" className="text-sm text-red-700"><CaptchaError error={recoverReceipt.error} /></p>}
+        {recoverReceipt.error && (
+          <p role="alert" className="text-sm text-red-700">
+            <CaptchaError error={recoverReceipt.error} />
+          </p>
+        )}
       </form>
     </>
   );
