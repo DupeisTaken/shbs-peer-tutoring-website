@@ -595,6 +595,12 @@ what is currently implemented until their migrations and verification are comple
   summaries use the active locale through `formatWeekday`. Its fixed UTC/ISO
   reference localizes presentation without changing weekday indices, slot IDs,
   minute values, availability saves or confirmation-ticket request targets.
+  Active availability weekday labels must use readable slate text on the white
+  editor surface; they are grouping labels, not disabled metadata. The tutor
+  qualification Request and Cancel controls share the standard action size
+  (40 px desktop minimum, 44 px touch minimum), while their colors express
+  emphasis. Browser verification measures the painted weekday leaf and both
+  action rectangles; locale, slot IDs, drafts and mutation ownership are unchanged.
 - **Flag history:** state filters must query the authorized server dataset; a
   client-only filter cannot reconstruct resolved entries from a pending-only read.
   Preserve pending-only decision guards, immutable resolution evidence and the
