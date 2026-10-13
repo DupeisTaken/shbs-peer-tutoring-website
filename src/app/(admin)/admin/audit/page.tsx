@@ -127,7 +127,12 @@ function AuditLog() {
                   )}
                 </td>
                 <TableActions>
-                  <TableDetails title={`${e.action} · ${e.userName ?? "—"}`}>
+                  <TableDetails
+                    title={`${e.action} · ${e.userName ?? "—"}`}
+                    // Full recorded evidence needs a reachable Close even after
+                    // expanding long JSON; observers keep their compact summary.
+                    longReader={!readOnly}
+                  >
                     {/* Staff evidence is fetched only while this dialog is open.
                         Observers retain the existing server-projected summary. */}
                     {readOnly ? (
