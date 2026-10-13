@@ -1,12 +1,12 @@
 "use client";
 import Link from "next/link";
 import { useRef } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { SignupError } from "~/app/_components/signup-error";
 import { InvitationReceipt } from "../register/invitation-receipt";
 import { SurveyResend } from "./survey-resend";
-import { DAY_NAMES, minToHm } from "~/lib/time";
+import { formatWeekday, minToHm } from "~/lib/time";
 import { InlineNotice } from "~/app/_components/ui/patterns";
 
 /** Link inspection never consumes intake. The explicit mailbox-confirmation action issues
@@ -18,6 +18,7 @@ export function StudentRegistration({
   signedInEmail?: string | null;
 }) {
   const format = useFormatter();
+  const locale = useLocale();
   const t = useTranslations("survey");
   const w = useTranslations("workflow");
   const signup = useTranslations("public.signup");
@@ -113,8 +114,8 @@ export function StudentRegistration({
         <ul className="muted mt-2 space-y-1">
           {info.slots.map((slot) => (
             <li key={slot.id}>
-              {DAY_NAMES[slot.dayOfWeek]} · {minToHm(slot.startMin)}–
-              {minToHm(slot.endMin)}
+              {formatWeekday(slot.dayOfWeek, locale)} · {minToHm(slot.startMin)}
+              –{minToHm(slot.endMin)}
               {slot.label ? ` · ${slot.label}` : ""}
             </li>
           ))}

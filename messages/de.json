@@ -183,7 +183,7 @@
       "UNRESTRICT": "Access restored"
     },
     "rolePermissions": "Permissions by Role",
-    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "permissionHelp": "Ausgewählte Gruppen können Nachrichten erhalten. Eine Benutzer-Ausnahme ersetzt die Rollenrichtlinie; ohne Gruppen sind keine neuen Nachrichten möglich. Alle verfügbaren Konten schließt das eigene Konto, gesperrte Konten und Konten mit Nachrichteneinschränkungen aus. Frühere Betreuungsverhältnisse basieren auf gespeicherten Zuordnungen oder Anwesenheiten; nicht erfasste alte Zuordnungen lassen sich nicht rekonstruieren.",
     "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
@@ -598,7 +598,7 @@
         "activity": "Aktivität & Anfragen",
         "history": "Programmgeschichte",
         "announcements": "Ankündigungen",
-        "program": "Programm & Aktualisierung",
+        "program": "Programmeinstellungen",
         "tutorRoster": "Tutor-Liste",
         "tutorApplications": "Tutor-Bewerbungen",
         "tutorRequests": "Tutor-Statusanträge",
@@ -789,7 +789,7 @@
     },
     "program": {
       "title": "Programmeinstellungen",
-      "subtitle": "Der aktuelle Zeitraum und die quartalsweise Aktualisierung, die das Programm fortschreibt.",
+      "subtitle": "Anmeldungen, Kontoeinstellungen, Bereitstellung und optionale Funktionen.",
       "loading": "Wird geladen…",
       "noPeriod": "Kein aktiver Programmzeitraum. Zuerst einen anlegen oder Seed ausführen.",
       "currentPeriod": "Aktueller Zeitraum",
@@ -4607,7 +4607,8 @@
     "saving": "Wird gespeichert…",
     "saved": "Hinweis gespeichert.",
     "saveFailed": "Hinweis konnte nicht gespeichert werden.",
-    "refreshFailed": "Der Hinweis wurde gespeichert, aber die aktuelle Liste konnte nicht geladen werden. Aktualisieren Sie sie, ohne erneut zu speichern."
+    "refreshFailed": "Der Hinweis wurde gespeichert, aber die aktuelle Liste konnte nicht geladen werden. Aktualisieren Sie sie, ohne erneut zu speichern.",
+    "details": "Details anzeigen"
   },
   "roomOrder": {
     "title": "Anzeigereihenfolge der Räume",
@@ -4625,7 +4626,8 @@
     "refresh": "Aktualisieren",
     "loadFailed": "Die aktuelle Raumreihenfolge konnte nicht geladen werden. Ihr Entwurf wurde beibehalten.",
     "refreshFailed": "Die Reihenfolge wurde gespeichert, aber die Synchronisierung ist fehlgeschlagen. Aktualisieren liest die gespeicherte Reihenfolge, ohne sie erneut zu senden.",
-    "request": "Änderung der Raumreihenfolge beantragen"
+    "request": "Änderung der Raumreihenfolge beantragen",
+    "open": "Räume neu ordnen"
   },
   "roomSchedule": {
     "rooms": "Anzuzeigende Räume",
@@ -4634,7 +4636,7 @@
     "allDetails": "Stundenplandetails",
     "occupied": "Belegt",
     "noSlot": "—",
-    "legend": "Grau = belegt · × = nicht verfügbar · Verfügbar = keine Zuordnung in einem veröffentlichten Zeitfenster. Die Details enthalten alle berechtigten Einträge.",
+    "legend": "Grau = belegt · × = nicht verfügbar · Verfügbar = keine Zuordnung in einem veröffentlichten Zeitfenster.",
     "combined": "Gemeinsame Übersicht",
     "individual": "Einzelne Raumpläne",
     "noSelection": "Keine Räume ausgewählt. Wählen Sie Räume oder Alle Räume.",
@@ -4666,7 +4668,8 @@
     "save": "Anforderungen speichern",
     "saving": "Wird gespeichert…",
     "saved": "Namensanforderungen gespeichert.",
-    "refreshFailed": "Die Anforderungen wurden gespeichert, aber die Synchronisierung ist fehlgeschlagen. Aktualisieren liest die gespeicherten Regeln, ohne sie erneut zu speichern."
+    "refreshFailed": "Die Anforderungen wurden gespeichert, aber die Synchronisierung ist fehlgeschlagen. Aktualisieren liest die gespeicherten Regeln, ohne sie erneut zu speichern.",
+    "hiddenProfileHelp": "Hier wird dein Benutzername angezeigt. Gespeicherte Namen bleiben erhalten und können von berechtigten Mitarbeitenden eingesehen werden."
   },
   "participantNames": {
     "unnamed": "Kein Name angegeben"

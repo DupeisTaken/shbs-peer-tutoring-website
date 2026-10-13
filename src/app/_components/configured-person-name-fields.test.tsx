@@ -10,13 +10,43 @@ import {
   type NameFieldStates,
 } from "~/lib/name-field-policy";
 import { nameDraft } from "~/lib/person-name";
-import { ConfiguredPersonNameFields } from "./person-name-fields";
+import {
+  ConfiguredPersonNameFields,
+  useNameFieldPresentation,
+} from "./person-name-fields";
 const query = vi.hoisted(() => ({
   states: undefined as NameFieldStates | undefined,
   error: null as Error | null,
   refresh: vi.fn(),
   save: vi.fn(),
 }));
+function PresentationForm({ intake = false }: { intake?: boolean }) {
+  const { ready, hasFields, hasLatinFields, observe } =
+    useNameFieldPresentation();
+  const [names, setNames] = useState(() =>
+    nameDraft({ firstName: "Original", lastName: "Retained" }),
+  );
+  return (
+    <NextIntlClientProvider locale="en" messages={en}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (ready && hasFields) query.save(names);
+        }}
+      >
+        <ConfiguredPersonNameFields
+          accountType={intake ? "VIEWER" : undefined}
+          value={names}
+          onChange={setNames}
+          onPolicyAvailabilityChange={observe}
+        />
+        {hasFields && <button disabled={!ready}>Save names</button>}
+        {intake && hasLatinFields && <p>Latin guidance</p>}
+        <input aria-label="Independent contact" />
+      </form>
+    </NextIntlClientProvider>
+  );
+}
 vi.mock("~/trpc/react", () => ({
   api: {
     program: {
@@ -187,4 +217,49 @@ it("omits an unsplit legacy label when its hidden components cannot be separated
   expect(screen.queryByText(/Raw unsplit original/)).toBeNull();
   view.rerender(tree(true));
   expect(screen.getByText(/Raw unsplit original/)).toBeTruthy();
+});
+it("retains all-Hidden presentation during failed policy reads without exposing raw values or suppressing contact", () => {
+  query.states = {
+    firstName: "hidden",
+    lastName: "hidden",
+    preferredName: "hidden",
+    alternativeNames: "hidden",
+  };
+  const view = render(<PresentationForm />);
+  expect(screen.getByText(en.nameFields.hiddenProfileHelp)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Save names" })).toBeNull();
+  expect(view.container.querySelector('input[name="firstName"]')).toBeNull();
+  query.error = new Error("Read unavailable");
+  view.rerender(<PresentationForm />);
+  expect(screen.getByText(en.nameFields.hiddenProfileHelp)).toBeTruthy();
+  expect(
+    screen.getByLabelText<HTMLInputElement>("Independent contact").disabled,
+  ).toBe(false);
+  fireEvent.submit(view.container.querySelector("form")!);
+  expect(query.save).not.toHaveBeenCalled();
+  query.error = null;
+  query.states = DEFAULT_NAME_FIELDS;
+  view.rerender(<PresentationForm />);
+  expect(
+    view.container.querySelector<HTMLInputElement>('input[name="firstName"]')
+      ?.value,
+  ).toBe("Original");
+});
+it("shows no orphan Latin guidance for an intake with only an other-language field", () => {
+  const view = render(<PresentationForm intake />);
+  expect(screen.queryByText("Latin guidance")).toBeNull();
+  query.states = {
+    firstName: "hidden",
+    lastName: "hidden",
+    preferredName: "hidden",
+    alternativeNames: "optional",
+  };
+  view.rerender(<PresentationForm intake />);
+  expect(screen.queryByText("Latin guidance")).toBeNull();
+  expect(
+    screen.getByLabelText("Name in Another Language Optional"),
+  ).toBeTruthy();
+  query.states = DEFAULT_NAME_FIELDS;
+  view.rerender(<PresentationForm intake />);
+  expect(screen.getByText("Latin guidance")).toBeTruthy();
 });

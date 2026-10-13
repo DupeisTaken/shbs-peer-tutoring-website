@@ -566,23 +566,25 @@ export default function RoomsPage() {
         </form>
       )}
       <Notice feedback={feedback} />
-      {rooms.data && !readOnly && (
-        <RoomOrderEditor
-          rooms={rooms.data}
-          canEdit={!rooms.error && !me.error}
-          canApply={!coordinator}
-          onRefresh={async () => {
-            const result = await rooms.refetch();
-            if (!result.isSuccess)
-              throw new Error(result.error?.message ?? t("loading"));
-            await settleRefreshes([
-              () => invalidateAndReport(utils.tutor.rooms),
-              () => invalidateAndReport(utils.tutor.schedule),
-            ]);
-            return result.data;
-          }}
-        />
-      )}
+      {rooms.data &&
+        !readOnly &&
+        ["HEAD", "ADMIN"].includes(me.data?.role ?? "") && (
+          <RoomOrderEditor
+            rooms={rooms.data}
+            canEdit={!rooms.error && !me.error}
+            canApply={me.data?.role === "HEAD"}
+            onRefresh={async () => {
+              const result = await rooms.refetch();
+              if (!result.isSuccess)
+                throw new Error(result.error?.message ?? t("loading"));
+              await settleRefreshes([
+                () => invalidateAndReport(utils.tutor.rooms),
+                () => invalidateAndReport(utils.tutor.schedule),
+              ]);
+              return result.data;
+            }}
+          />
+        )}
       {(rooms.isLoading || me.isLoading) && (
         <p role="status" className="muted">
           {t("loading")}
