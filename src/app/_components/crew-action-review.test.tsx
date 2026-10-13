@@ -27,6 +27,8 @@ const state = vi.hoisted(() => ({
   error: null as Error | null,
   readError: null as null | { scope: string; code?: string },
   coldRead: "",
+  canonicalName: undefined as string | null | undefined,
+  username: null as string | null,
   refetch: vi.fn(),
 }));
 vi.mock("@trpc/react-query", () => ({
@@ -71,6 +73,8 @@ vi.mock("~/trpc/react", () => ({
                       {
                         id: "member-1",
                         name: "Synthetic crew member",
+                        canonicalName: state.canonicalName,
+                        username: state.username,
                         status: state.status,
                         crewOnly: true,
                         tutor: null,
@@ -132,6 +136,8 @@ beforeEach(() => {
   state.error = null;
   state.readError = null;
   state.coldRead = "";
+  state.canonicalName = undefined;
+  state.username = null;
   vi.resetAllMocks();
   state.refresh.mockResolvedValue(undefined);
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
@@ -148,6 +154,25 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+it.each(["crew.handle", null])(
+  "uses only current projected identity for a nameless crew summary (%s)",
+  (username) => {
+    state.canonicalName = "  ";
+    state.username = username;
+    show(true);
+    fireEvent.click(
+      screen.getByRole("tab", { name: en.admin.crew.panels.roster }),
+    );
+    const label = username ?? en.participantNames.unnamed;
+    expect(screen.getByRole("cell", { name: label })).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: `View details: ${label}` }),
+    );
+    expect(screen.getByRole("dialog", { name: label })).toBeTruthy();
+    expect(state.commit).not.toHaveBeenCalled();
+    expect(state.canonicalName).toBe("  ");
+  },
+);
 const show = (readOnly = false, locale = "en") =>
   render(<CrewPage />, {
     wrapper: ({ children }: { children: React.ReactNode }) => (

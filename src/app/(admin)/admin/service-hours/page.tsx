@@ -1,4 +1,8 @@
 "use client";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -132,7 +136,7 @@ export default function SummaryPage() {
                   className={r.active ? "" : "text-slate-400"}
                 >
                   <td>
-                    {r.englishName}
+                    <ParticipantName name={r.englishName} />
                     {!r.active && ` ${t("admin.summary.inactive")}`}
                   </td>
                   <td className="text-right">{r.sessions}</td>
@@ -140,7 +144,13 @@ export default function SummaryPage() {
                     {r.total.toFixed(1)}
                   </td>
                   <TableActions>
-                    <TableDetails title={r.englishName}>
+                    <TableDetails
+                      title={participantNameLabel(
+                        r.englishName,
+                        undefined,
+                        t("participantNames.unnamed"),
+                      )}
+                    >
                       <dl className="grid grid-cols-2 gap-3">
                         <dt>{t("admin.summary.columns.sessions")}</dt>
                         <dd>{r.sessions}</dd>

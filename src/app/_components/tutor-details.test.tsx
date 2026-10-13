@@ -146,6 +146,28 @@ it("opens an accessible person-scoped dialog on demand, with separate qualificat
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   expect(screen.queryByRole("dialog")).toBeNull();
 });
+it.each(["known.handle", undefined])(
+  "uses a readable blank-name opener while retaining the exact query target (%s)",
+  (username) => {
+    render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <TutorDetailsButton
+          tutorId="original-id"
+          name="  "
+          username={username}
+        />
+      </NextIntlClientProvider>,
+    );
+    const label = username ?? en.participantNames.unnamed;
+    fireEvent.click(
+      screen.getByRole("button", { name: `View user details for ${label}` }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: `User Details · ${label}` }),
+    ).toBeTruthy();
+    expect(mocks.details).toHaveBeenCalledWith({ tutorId: "original-id" });
+  },
+);
 
 it("does not expose the staff-only action or fetch history to a viewer", () => {
   show(true);

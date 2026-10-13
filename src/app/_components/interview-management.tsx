@@ -1,4 +1,5 @@
 "use client";
+import { participantNameLabel } from "./participant-name";
 import { formText, formTexts } from "~/lib/form-values";
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
@@ -145,6 +146,15 @@ export function InterviewManagement({
         {applications.rows.map((a) => {
           // Application identity keeps unrelated people with matching names separate.
           const id = `interview-${a.id}`;
+          // Pending workflow labels need readable names; completed interview evidence stays raw.
+          const currentName = (name: string) =>
+            a.interviewCompletedAt
+              ? name
+              : participantNameLabel(
+                  name,
+                  undefined,
+                  allT("participantNames.unnamed"),
+                );
           const chair = a.interviewers.find((panelist) => panelist.isHead);
           return (
             <InterviewDisclosure
@@ -155,7 +165,7 @@ export function InterviewManagement({
               summary={
                 <>
                   <span className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold">{a.name}</span>{" "}
+                    <span className="font-semibold">{currentName(a.name)}</span>{" "}
                     {a.isInvalid && <InvalidityBadge />}
                     <span
                       className={
@@ -181,13 +191,17 @@ export function InterviewManagement({
                     {t("panelSummaryNames", {
                       names:
                         a.interviewers
-                          .map((panelist) => panelist.tutor.englishName)
+                          .map((panelist) =>
+                            currentName(panelist.tutor.englishName),
+                          )
                           .join(", ") || t("unassignedPanel"),
                     })}
                   </span>{" "}
                   <span className="muted mt-1 block text-sm">
                     {t("chairSummary", {
-                      name: chair?.tutor.englishName ?? t("unassignedPanel"),
+                      name: chair
+                        ? currentName(chair.tutor.englishName)
+                        : t("unassignedPanel"),
                     })}
                   </span>{" "}
                   <span className="muted mt-1 block text-sm">
@@ -294,7 +308,7 @@ export function InterviewManagement({
                             value={panelist.tutorId}
                             defaultChecked={panelist.attended}
                           />
-                          {panelist.tutor.englishName}
+                          {currentName(panelist.tutor.englishName)}
                         </label>
                       ))}
                     </div>

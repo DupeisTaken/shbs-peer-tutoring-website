@@ -4226,6 +4226,9 @@ export const adminRouter = createTRPCRouter({
         .map((u) => ({
           id: u.id,
           name: u.name ?? u.username ?? "—",
+          // Keep the legacy name/sort projection; expose its current source for display-only fallbacks.
+          canonicalName: u.name,
+          username: u.username,
           tutor: u.tutor?.englishName ?? null,
           crewOnly: u.role === "CREW",
           status: u.crewStatus ?? "INACTIVE",
@@ -4377,6 +4380,8 @@ export const adminRouter = createTRPCRouter({
       id: r.id,
       kind: r.kind,
       member: r.user.name ?? r.user.username ?? "—",
+      canonicalName: r.user.name,
+      username: r.user.username,
       // Withhold the member-entered request reason from VIEWER.
       reason: isViewer ? null : r.reason,
       eligibleAt: r.eligibleAt,

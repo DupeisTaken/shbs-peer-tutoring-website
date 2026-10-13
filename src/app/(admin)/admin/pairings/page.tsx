@@ -1,4 +1,5 @@
 "use client";
+import { participantNameLabel } from "~/app/_components/participant-name";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 
@@ -51,6 +52,25 @@ const accessDenied = (error: { data?: { code?: string } | null } | null) =>
 
 export default function PairingsPage() {
   const t = useTranslations();
+  // Presentation reads already projected handles; selected IDs, raw search and writes remain authoritative.
+  const personName = (
+    person:
+      | {
+          englishName: string;
+          username?: string | null;
+          user?: { username?: string | null } | null;
+          owner?: { username?: string | null } | null;
+        }
+      | undefined,
+    missingId?: string,
+  ) =>
+    person
+      ? participantNameLabel(
+          person.englishName,
+          person.owner?.username ?? person.user?.username ?? person.username,
+          t("participantNames.unnamed"),
+        )
+      : (missingId ?? t("participantNames.unnamed"));
   const locale = useLocale();
   const readOnly = useReadOnly();
   const utils = api.useUtils();
@@ -315,7 +335,7 @@ export default function PairingsPage() {
                 key={id}
                 size="compact"
                 aria-label={t("admin.pairings.removeSelected", {
-                  name: person?.englishName ?? id,
+                  name: personName(person, id),
                 })}
                 onClick={() =>
                   set(
@@ -324,7 +344,7 @@ export default function PairingsPage() {
                   )
                 }
               >
-                {person?.englishName ?? id} ×
+                {personName(person, id)} ×
               </Button>
             );
           })}
@@ -350,7 +370,7 @@ export default function PairingsPage() {
                     )
                   }
                 />
-                {t.englishName}
+                {personName(t)}
               </label>
             ))}
         </div>
@@ -490,7 +510,7 @@ export default function PairingsPage() {
           <tbody>
             {(pairings.data ?? []).map((p) => (
               <tr key={p.id}>
-                <td>{p.tutor.englishName}</td>
+                <td>{personName(p.tutor)}</td>
                 <td>{p.subject}</td>
                 <td>
                   {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
@@ -498,7 +518,7 @@ export default function PairingsPage() {
                 <td>{p.room?.name ?? "—"}</td>
                 <td>{p.tutees.length}</td>
                 <TableActions>
-                  <TableDetails title={`${p.tutor.englishName} · ${p.subject}`}>
+                  <TableDetails title={`${personName(p.tutor)} · ${p.subject}`}>
                     <dl className="space-y-3">
                       <div>
                         <dt className="label">{t("admin.pairings.colWhen")}</dt>
@@ -524,14 +544,14 @@ export default function PairingsPage() {
                     </h3>
                     <ul className="list-inside list-disc">
                       {p.tutees.map((entry) => (
-                        <li key={entry.tuteeId}>{entry.tutee.englishName}</li>
+                        <li key={entry.tuteeId}>{personName(entry.tutee)}</li>
                       ))}
                     </ul>
                   </TableDetails>
                   {!readOnly && (
                     <>
                       <TableAction
-                        aria-label={`${t("admin.pairings.edit")}: ${p.tutor.englishName} · ${p.subject}`}
+                        aria-label={`${t("admin.pairings.edit")}: ${personName(p.tutor)} · ${p.subject}`}
                         disabled={
                           readBlocked || create.isPending || update.isPending
                         }
@@ -564,10 +584,10 @@ export default function PairingsPage() {
                             confirmLabel: t("admin.pairings.delete"),
                             details: (
                               <p>
-                                {p.tutor.englishName} · {p.subject}
+                                {personName(p.tutor)} · {p.subject}
                                 <br />
                                 {p.tutees
-                                  .map((entry) => entry.tutee.englishName)
+                                  .map((entry) => personName(entry.tutee))
                                   .join(", ")}
                               </p>
                             ),

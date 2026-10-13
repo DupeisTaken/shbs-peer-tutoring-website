@@ -910,6 +910,16 @@ a reported failed write. Credential verification retains its own attempt/consump
 
 ## Username allocation and bounded student backfill
 
+Management summaries and current selection/review labels reuse `ParticipantName`
+and `participantNameLabel`: preserve a nonblank canonical name, otherwise use an
+already authorized projected username, otherwise show translated **Name not
+provided**. This is presentation only. Raw search/sort values, selected IDs,
+mutation names, profile drafts, exports and original evidence are unchanged.
+Completed interviews/flag decisions, historical profile names and recorded actors
+retain their original text. Current Crew summaries expose `canonicalName` and
+`username` alongside the unchanged legacy label/sort field; Subject Availability
+projects the current tutor handle only through its existing staff-only read.
+
 `src/lib/username.ts` owns the editor/generation character and length rules. All runtime handle
 writers use the transaction-scoped PostgreSQL advisory lock `identity:username-namespace` before
 profile/identity writes and retain it from the cross-table availability check through persistence.
