@@ -1930,7 +1930,7 @@
       "title": "Réunions à venir",
       "help": "Vous ne pouvez pas venir ? Justifiez votre absence jusqu'à 60 minutes avant le début.",
       "excuseBtn": "Justifier l'absence",
-      "submitExcuse": "Envoyer",
+      "submitExcuse": "Envoyer la justification d’absence",
       "cancelExcuse": "Annuler la justification",
       "reasonPlaceholder": "Motif (facultatif)",
       "excused": "Vous avez justifié cette absence.",

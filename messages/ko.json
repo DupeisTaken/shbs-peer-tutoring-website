@@ -1930,7 +1930,7 @@
       "title": "예정된 회의",
       "help": "회의에 참석할 수 없나요? 시작 30분 전까지 결석을 신청할 수 있습니다.",
       "excuseBtn": "결석 신청",
-      "submitExcuse": "제출",
+      "submitExcuse": "결석 사유 제출",
       "cancelExcuse": "신청 취소",
       "reasonPlaceholder": "사유 (선택)",
       "excused": "이 결석을 신청했습니다.",

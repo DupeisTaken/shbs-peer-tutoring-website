@@ -591,6 +591,10 @@ what is currently implemented until their migrations and verification are comple
   authorized recurring data. Individual grids use time rows and weekday columns;
   occupied gray cells and unavailable crosses need accessible status text and a
   legend. Detail filtering by day, slot and room does not create assignments.
+  Participant availability headings, accessible group names and schedule-review
+  summaries use the active locale through `formatWeekday`. Its fixed UTC/ISO
+  reference localizes presentation without changing weekday indices, slot IDs,
+  minute values, availability saves or confirmation-ticket request targets.
 - **Flag history:** state filters must query the authorized server dataset; a
   client-only filter cannot reconstruct resolved entries from a pending-only read.
   Preserve pending-only decision guards, immutable resolution evidence and the

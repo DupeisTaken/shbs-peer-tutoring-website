@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
-import { DAY_NAMES, minToHm } from "~/lib/time";
+import { formatWeekday, minToHm } from "~/lib/time";
 type Row = RouterOutputs["studentWorkflow"]["tutorRoster"][number];
 export function StudentScheduleAction({
   row,
@@ -17,6 +17,8 @@ export function StudentScheduleAction({
   const t = useTranslations("workflow");
   const tasks = useTranslations("tutor.tasks");
   const format = useFormatter();
+  // ISO weekdays are recurring evidence, not dates in the viewer's time zone.
+  const locale = useLocale();
   const utils = api.useUtils();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -50,7 +52,7 @@ export function StudentScheduleAction({
         {row.slots
           .map(
             (s) =>
-              `${DAY_NAMES[s.dayOfWeek]} ${minToHm(s.startMin)}–${minToHm(s.endMin)}`,
+              `${formatWeekday(s.dayOfWeek, locale)} ${minToHm(s.startMin)}–${minToHm(s.endMin)}`,
           )
           .join(", ")}
       </p>

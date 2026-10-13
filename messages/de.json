@@ -1930,7 +1930,7 @@
       "title": "Anstehende Sitzungen",
       "help": "Sie können nicht teilnehmen? Entschuldigen Sie Ihre Abwesenheit bis 30 Minuten vor Beginn.",
       "excuseBtn": "Abwesenheit entschuldigen",
-      "submitExcuse": "Senden",
+      "submitExcuse": "Abwesenheitsentschuldigung einreichen",
       "cancelExcuse": "Entschuldigung zurücknehmen",
       "reasonPlaceholder": "Grund (optional)",
       "excused": "Sie haben diese Abwesenheit entschuldigt.",

@@ -150,6 +150,14 @@ consent and historical-ownership explanations even when they require more text.
 Use existing schedule/request data when prioritizing work; layout changes alone
 must not introduce a new computed next-session feature or domain rule.
 
+Render recurring weekday labels with `formatWeekday(dayOfWeek, locale)` using the
+active `next-intl` locale, including availability group names exposed to assistive
+technology. Keep stored ISO weekday numbers, group order, slot IDs and minute
+values unchanged. A translated label must not change an availability Save or
+schedule-review request payload.
+Use a feature-specific final action label in the meeting absence-reason editor
+(“Submit absence excuse”), while preserving its cutoff, reason and request rules.
+
 ### Align controls to their visual row
 
 Choose the alignment reference before choosing flex or grid alignment. A labelled

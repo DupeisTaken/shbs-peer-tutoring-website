@@ -1930,7 +1930,7 @@
       "title": "Upcoming Meetings",
       "help": "Can't make a meeting? Excuse your absence up to 60 minutes before it starts.",
       "excuseBtn": "Excuse Absence",
-      "submitExcuse": "Submit",
+      "submitExcuse": "Submit absence excuse",
       "cancelExcuse": "Cancel Excuse",
       "reasonPlaceholder": "Reason (optional)",
       "excused": "You've excused this absence.",

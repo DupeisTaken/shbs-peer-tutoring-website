@@ -1930,7 +1930,7 @@
       "title": "近期会议",
       "help": "无法参加会议？最迟可在会议开始前 60 分钟请假。",
       "excuseBtn": "请假",
-      "submitExcuse": "提交",
+      "submitExcuse": "提交请假说明",
       "cancelExcuse": "取消请假",
       "reasonPlaceholder": "原因（选填）",
       "excused": "你已为此次缺席请假。",
