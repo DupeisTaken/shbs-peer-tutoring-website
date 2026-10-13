@@ -262,11 +262,11 @@ it("resets filters when the history link repeats the current hash", () => {
   ).toBe("true");
   expect(screen.getByText("3 of 3 applications")).toBeTruthy();
 });
-it("reveals the same notification fragment again after later filtering", () => {
+it("reveals the same notification fragment again after later filtering", async () => {
   window.history.replaceState(null, "", "/#application-a");
   show();
   change("Name or email", "Cai");
-  act(() => window.dispatchEvent(new HashChangeEvent("hashchange")));
+  await act(() => window.dispatchEvent(new HashChangeEvent("hashchange")));
   expect(screen.getByRole("button", { name: /Alex Chen/ })).toBeTruthy();
   expect(
     screen.getByRole<HTMLInputElement>("searchbox", { name: "Name or email" })

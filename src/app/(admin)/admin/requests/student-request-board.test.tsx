@@ -89,7 +89,7 @@ it("does not report an empty queue while another intake source is still loading"
   expect(screen.getByText("loading")).toBeTruthy();
   expect(screen.queryByText("emptySection")).toBeNull();
 });
-it("reveals a repeated notification fragment after selecting another request tab", () => {
+it("reveals a repeated notification fragment after selecting another request tab", async () => {
   window.history.replaceState(
     null,
     "",
@@ -111,7 +111,7 @@ it("reveals a repeated notification fragment after selecting another request tab
   );
   fireEvent.click(screen.getByRole("tab", { name: "processed 0" }));
   expect(screen.queryByText("Repeated target")).toBeNull();
-  act(() => window.dispatchEvent(new HashChangeEvent("hashchange")));
+  await act(() => window.dispatchEvent(new HashChangeEvent("hashchange")));
   expect(screen.getByText("Repeated target")).toBeTruthy();
   expect(
     screen
