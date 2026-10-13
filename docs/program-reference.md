@@ -352,6 +352,8 @@ In **Program Settings**, Head applies **Tutor recruitment** and **Tutee recruitm
 
 Coordinator and Viewer recruitment controls are read-only. Missing editing eligibility never grants a write affordance. Informational no-tutoring summaries use a brief reason preview; authorized readers open **View details** for the complete reason. Editing and removing notices keep their own permissions and reviewed versions.
 
+Observers can read the public current-period and recruitment values. Private settings tabs explain that access is unavailable without starting protected settings reads. While account identity is unknown they show loading; identity read failures offer recovery rather than assuming authorization or displaying an empty panel.
+
 Participants can always read `/tutor-signup` and `/tutee-signup`; old `/signup` links redirect to the tutee form. Before the start, after the end, while paused, or while setup is incomplete, the questions remain visible with disabled response fields. Published policies remain readable. Preview mode never exposes participant responses. An external sheet is optional; its owner must grant viewer-only permissions because the website cannot control a third-party sheet's editing rights.
 
 Publish the English source of both policies through **Policy Documents**, configure active **Subjects & Levels**, and add **Time Slots** when tutee availability is required. Missing or empty policy publication is shown as incomplete setup, rather than a retryable loading error. Real database/network failures still show Retry. Tutee submission also requires working transactional email.

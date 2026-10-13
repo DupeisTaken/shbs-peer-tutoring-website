@@ -113,6 +113,33 @@ function ProgramSettingsPage() {
   const canApplyPeriod =
     canEditPeriod && account.data?.role === "HEAD" && !!period?.canApply;
   const confirmOk = confirm.trim().toUpperCase() === "REFRESH";
+  // The panel owns feedback; denied/unknown identities never mount private query children.
+  const privatePanelState = (key: "people" | "communication" | "access") => {
+    const section = t(`admin.program.panels.${key}`);
+    return (
+      <StatePanel
+        kind={account.error ? "error" : account.data ? "denied" : "loading"}
+        title={t(
+          account.error
+            ? "managementRecovery.loadFailed"
+            : account.data
+              ? "managementRecovery.denied"
+              : "managementRecovery.loading",
+          { section },
+        )}
+        action={
+          account.error && (
+            <button
+              className="btn-secondary min-h-11 lg:min-h-8"
+              onClick={() => void account.refetch()}
+            >
+              {t("managementRecovery.retry", { section })}
+            </button>
+          )
+        }
+      />
+    );
+  };
 
   if (denied)
     return (
@@ -272,6 +299,7 @@ function ProgramSettingsPage() {
           )}
         </div>
         <div hidden={panel !== "people"} className="space-y-6">
+          {!canReadSettings && privatePanelState("people")}
           {canReadSettings && (
             <>
               <ProgramProfileSettings />
@@ -284,6 +312,7 @@ function ProgramSettingsPage() {
             )}
         </div>
         <div hidden={panel !== "communication"} className="space-y-6">
+          {!canReadSettings && privatePanelState("communication")}
           {canReadSettings && (
             <>
               <ProgramEmailSettings />
@@ -292,6 +321,7 @@ function ProgramSettingsPage() {
           )}
         </div>
         <div hidden={panel !== "access"} className="space-y-6">
+          {!canReadSettings && privatePanelState("access")}
           {period && canReadSettings && <FeatureToggles />}
         </div>
       </SectionTabs>
