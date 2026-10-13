@@ -18,18 +18,11 @@ const mocks = vi.hoisted(() => ({ detail: vi.fn(), undo: vi.fn() }));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
-vi.mock("~/app/_components/audit-filters", () => ({
+vi.mock("~/app/_components/audit-filters", async (importOriginal) => ({
+  // The integrated page uses the editor's pure defaults/parsers; skip only its
+  // UI so the actual immutable reader and its authorization checks stay real.
+  ...(await importOriginal<typeof import("~/app/_components/audit-filters")>()),
   AuditFilters: () => null,
-  // The page restores its own filter state even when this reader test hides the form.
-  emptyAuditView: {
-    userId: "",
-    kind: "",
-    operation: "",
-    entity: "",
-    search: "",
-    from: "",
-    until: "",
-  },
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -38,6 +31,8 @@ vi.mock("~/trpc/react", () => ({
       auditFilterOptions: {
         useQuery: () => ({
           data: { users: [], operations: [], entities: [] },
+          isSuccess: true,
+          isFetching: false,
         }),
       },
       auditLog: {
