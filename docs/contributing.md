@@ -259,6 +259,9 @@ server-rendered shell. At 1024 px and above management restores `#admin-content`
 other layouts and narrow management pages restore the document. Breakpoint changes
 switch owners. Dialog, table and sidebar scroll are excluded. Hash destinations and
 user gestures take precedence; delayed content recovery stops after five seconds.
+That bounded window remains active after the first successful position, correcting
+late framework resets only when the measured position differs. A user gesture or
+hash immediately ends recovery, and unmount removes its frames, timer and observers.
 Storage failures fall back to normal navigation. The session-only, bounded store
 reuses the existing identity privacy check and never enables route DOM/draft caching.
 The gallery filter toolbar demonstrates the same hook without creating another

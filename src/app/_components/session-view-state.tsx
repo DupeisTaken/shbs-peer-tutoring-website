@@ -241,6 +241,7 @@ export function useSessionPageScroll({
     };
     const stop = () => {
       restoring = false;
+      cancelAnimationFrame(frame);
       observer?.disconnect();
       mutations?.disconnect();
       if (timeout) clearTimeout(timeout);
@@ -249,15 +250,27 @@ export function useSessionPageScroll({
       if (!restoring || target === null) return;
       const height = pane ? pane.clientHeight : window.innerHeight;
       const maximum = Math.max(0, owner.scrollHeight - height);
-      owner.scrollTop = Math.min(target, maximum);
-      if (maximum >= target) stop();
+      const desired = Math.min(target, maximum);
+      // Browser rounding and our own scroll events must not form a feedback loop.
+      if (Math.abs(owner.scrollTop - desired) > 1) owner.scrollTop = desired;
+      if (maximum >= target) lastPosition = Math.max(0, owner.scrollTop);
     };
     // A user gesture always wins over recovery; never pull the viewport away from them.
     const gesture = () => {
       stop();
     };
     const onScroll = () => {
-      if (restoring) return;
+      if (restoring && target !== null) {
+        const height = pane ? pane.clientHeight : window.innerHeight;
+        const desired = Math.min(target, Math.max(0, owner.scrollHeight - height));
+        // Next may scroll after the target first fits. Keep the same bounded
+        // recovery window and never persist that framework reset over the target.
+        if (Math.abs(owner.scrollTop - desired) > 1) {
+          cancelAnimationFrame(frame);
+          frame = requestAnimationFrame(attempt);
+        }
+        return;
+      }
       // Keep the final measurement even if route teardown precedes the next frame.
       lastPosition = Math.max(0, owner.scrollTop);
       cancelAnimationFrame(frame);
@@ -275,7 +288,7 @@ export function useSessionPageScroll({
     ] as const)
       window.addEventListener(name, gesture, { passive: true });
     if (restoring) {
-      // Next performs its own scroll handling after commit. Retry on content size changes,
+      // Next performs its own scroll handling after commit. Retry late resets/content changes,
       // bounded to five seconds; no history.state or global scrollRestoration overrides.
       frame = requestAnimationFrame(() => {
         frame = requestAnimationFrame(attempt);
