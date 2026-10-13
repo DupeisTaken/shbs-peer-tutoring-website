@@ -1,7 +1,7 @@
 /** Session-only presentation choices. Never pass forms, records, evidence or tokens. */
 export type ViewValue =
   string | number | boolean | null | readonly (string | number)[];
-export type ViewState = ViewValue | { readonly [key: string]: ViewValue };
+export type ViewState = ViewValue | Readonly<Record<string, ViewValue>>;
 export const VIEW_STATE_PREFIX = "shbs:view:v1:";
 const MAX_ENTRIES = 100;
 const MAX_BYTES = 4096;
@@ -116,7 +116,7 @@ export const viewSearch = (value: unknown): string | undefined =>
   typeof value === "string" && value.length <= 160 ? value : undefined;
 
 /** Compose a feature's explicit field allowlist; never copy unknown stored fields. */
-export function viewFields<T extends { [key: string]: ViewValue }>(
+export function viewFields<T extends Record<string, ViewValue>>(
   fields: { [K in keyof T]: (value: unknown) => T[K] | undefined },
 ) {
   return (value: unknown): T | undefined => {

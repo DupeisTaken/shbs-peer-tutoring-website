@@ -745,10 +745,13 @@ export default function PoliciesPage() {
     restoreReady: policies.data !== undefined && languages.data !== undefined,
     parse: (value) => {
       if (!value || typeof value !== "object" || Array.isArray(value)) return;
-      return Object.fromEntries(Object.entries(value).filter(([slug, locale]) => {
+      const result: Record<string, string> = {};
+      for (const [slug, candidate] of Object.entries(value).slice(-20)) {
+        const locale: unknown = candidate;
         const policy = groups.get(slug);
-        return policy && typeof locale === "string" && (locale === DEFAULT_LOCALE || policy.has(locale));
-      }).slice(-20)) as Record<string, string>;
+        if (policy && typeof locale === "string" && (locale === DEFAULT_LOCALE || policy.has(locale))) result[slug] = locale;
+      }
+      return result;
     },
   });
   useSessionPageScroll({ id: "policies", scope: JSON.stringify(rememberedLocales),

@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -96,7 +97,8 @@ export function useSessionViewState<T extends ViewState>(
   const restoreReady = options.restoreReady !== false;
   const active = !!context?.verified && context.identity !== "anonymous";
   const latest = useRef(options);
-  latest.current = options;
+  // Events/effects use the latest committed parser; rendering uses options directly.
+  useLayoutEffect(() => { latest.current = options; });
   const [stored, setStored] = useState({ key, value: options.initialState });
   // Cached choices must satisfy today's allowlist, including removed modules/rooms.
   const parsed =
