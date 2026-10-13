@@ -123,6 +123,25 @@ beforeEach(() => {
     },
   });
 });
+it.each(["HEAD", "ADMIN", "COORDINATOR", "VIEWER"])(
+  "uses server-aligned room order eligibility for %s",
+  (role) => {
+    mocks.role = role;
+    show();
+    const opener = screen.queryByRole("button", { name: en.roomOrder.open });
+    if (role === "COORDINATOR" || role === "VIEWER") {
+      expect(opener).toBeNull();
+    } else {
+      fireEvent.click(opener!);
+      expect(
+        within(screen.getByRole("dialog")).getByRole("button", {
+          name: role === "HEAD" ? en.roomOrder.save : en.roomOrder.request,
+        }),
+      ).toBeTruthy();
+    }
+    expect(mocks.calls).toHaveLength(0);
+  },
+);
 afterEach(cleanup);
 const show = () =>
   render(

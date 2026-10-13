@@ -62,6 +62,8 @@ Keeping the last name makes participants easier to distinguish in rosters. Its t
 
 ## Errors and layout
 
+When every name field is Hidden, the self-profile shows a read-only explanation instead of an empty editor with Save/Cancel. Other profile, academic and account actions remain available under their own permissions. Public intake omits Latin-name guidance when no Latin name field is visible. A loading or failed policy read never substitutes default requirements; retained drafts remain blocked until current requirements are available.
+
 - Required first name: **Enter your first name.**
 - Invalid Latin field: **Use Latin letters, including accents such as é. Spaces, apostrophes and hyphens are allowed.**
 - Keep errors next to the field and connect them with `aria-describedby`.

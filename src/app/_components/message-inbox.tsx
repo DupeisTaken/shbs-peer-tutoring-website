@@ -242,7 +242,7 @@ export function MessageInbox({ viewScope = "" }: { viewScope?: string }) {
                 maxLength={100}
                 aria-describedby="allowed-contacts"
                 onChange={(e) => {
-                  const search = e.target.value.slice(0, 160);
+                  const search = e.target.value;
                   setView((current) => ({
                     ...current,
                     search,

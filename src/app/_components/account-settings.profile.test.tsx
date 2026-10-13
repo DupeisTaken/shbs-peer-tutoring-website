@@ -11,6 +11,7 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import { AccountSettings } from "./account-settings";
+import type { NameFieldStates } from "~/lib/name-field-policy";
 
 const state = vi.hoisted(() => {
   const account: {
@@ -39,6 +40,7 @@ const state = vi.hoisted(() => {
     profileVersion: 3,
   };
   return {
+    nameStates: undefined as NameFieldStates | undefined,
     account,
     pending: false,
     success: false,
@@ -73,7 +75,7 @@ vi.mock("~/trpc/react", async () => ({
     program: {
       ...(
         await import("~/test/name-field-policy-fixtures")
-      ).nameFieldPolicyQueries(),
+      ).nameFieldPolicyQueries(() => state.nameStates),
       features: { useQuery: () => ({ data: { EMAIL_2FA: false } }) },
     },
     account: {
@@ -121,6 +123,7 @@ function save() {
 }
 
 beforeEach(() => {
+  state.nameStates = undefined;
   state.account = {
     id: "self",
     name: "Original Person",
@@ -142,6 +145,29 @@ beforeEach(() => {
   state.refetch.mockReset();
 });
 afterEach(cleanup);
+it("keeps an all-Hidden self-profile read-only without disabling independent academic/membership actions", () => {
+  state.nameStates = {
+    firstName: "hidden",
+    lastName: "hidden",
+    preferredName: "hidden",
+    alternativeNames: "hidden",
+  };
+  const view = render(ui());
+  expect(screen.getByText(en.nameFields.hiddenProfileHelp)).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: en.uiPatterns.saveProfile }),
+  ).toBeNull();
+  expect(view.container.querySelector('input[name="firstName"]')).toBeNull();
+  expect(
+    screen.getByLabelText<HTMLInputElement>("Academic draft").disabled,
+  ).toBe(false);
+  expect(
+    screen.getByLabelText<HTMLInputElement>("Membership draft").disabled,
+  ).toBe(false);
+  fireEvent.submit(view.container.querySelector("form")!);
+  expect(state.save).not.toHaveBeenCalled();
+  expect(state.account.firstName).toBe("Original");
+});
 
 it("saves all four name fields once and freezes only the identity form during the request", () => {
   const view = render(ui());

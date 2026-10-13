@@ -150,6 +150,25 @@ consent and historical-ownership explanations even when they require more text.
 Use existing schedule/request data when prioritizing work; layout changes alone
 must not introduce a new computed next-session feature or domain rule.
 
+Render recurring weekday labels with `formatWeekday(dayOfWeek, locale)` using the
+active `next-intl` locale, including availability group names exposed to assistive
+technology. Keep stored ISO weekday numbers, group order, slot IDs and minute
+values unchanged. A translated label must not change an availability Save or
+schedule-review request payload.
+Use a feature-specific final action label in the meeting absence-reason editor
+(“Submit absence excuse”), while preserving its cutoff, reason and request rules.
+
+Keep static tab/filter choices usable while their content queries load. Use
+`restoreReady` for a parser that needs a dynamic catalog, not a fixed enum such
+as the Requests panels or invalidity filter. Query readiness still gates page
+scroll restoration; authoritative denial still clears preferences and hides
+content. Preferences remain scoped to the current identity and program period.
+An accepted explicit choice made before live session verification has transient
+provenance for that exact identity/path/scope key. Once verified, that choice wins
+the older saved/default view; only then may storage be written. Key changes,
+denial and catalog invalidation discard the provenance. This does not persist
+drafts or authorize any content.
+
 ### Align controls to their visual row
 
 Choose the alignment reference before choosing flex or grid alignment. A labelled
@@ -233,6 +252,16 @@ fields. `viewFields` composes those named field parsers and drops unknown fields
 Restored values are checked against the current parser on every render, and a
 normalized result replaces the stored representation so removed IDs cannot return
 when a catalog changes again.
+Parsers validate live feature values as well as restored values; they must not add
+input limits that the feature did not have. `viewSearch` checks text shape, while
+`viewIdentifier` retains a 160-character bound for IDs and URL choices before their
+catalog arrives. The separate storage writer keeps its 160-character scalar and
+4 KiB UTF-8 entry limits, including the encoded key and JSON value. Oversized query
+contexts cannot enter storage through a scroll key. A valid longer search stays
+usable in memory, including later
+filter updates, but removes its older saved entry instead of restoring stale
+criteria on return. Storage rejection or quota failure affects only that entry;
+shortening the search makes it eligible for recall again.
 Set `enabled: false` for authoritative denial or module removal, not ordinary
 loading. Explicit URL choices override the remembered state. The tutee navigation
 only recalls a previous view on a bare workspace return after identity verification.

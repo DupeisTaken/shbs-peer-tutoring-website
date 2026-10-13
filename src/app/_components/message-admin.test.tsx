@@ -58,7 +58,10 @@ vi.mock("~/trpc/react", () => ({
       moderate: { useMutation: () => ({ mutate: mocks.moderate }) },
       settings: {
         useQuery: () => ({
-          data: [{ role: "STUDENT", groups: ["MANAGEMENT"] }],
+          data: [
+            { role: "STUDENT", groups: ["MANAGEMENT"] },
+            { role: "TUTOR", groups: ["MANAGEMENT"] },
+          ],
           refetch: vi.fn(),
         }),
       },
@@ -178,6 +181,37 @@ it("shows effective user permissions, saves an empty override, and explicitly re
     groups: null,
     reason: "Limit new contacts temporarily",
   });
+});
+it("shares role authority copy once while retaining independent role drafts and the user editor notice", () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <MessagePermissions />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getAllByText(en.approvals.sensitiveHelp)).toHaveLength(1);
+  const student = screen
+    .getByRole("heading", { name: en.admin.users.roles.STUDENT })
+    .closest("form")!;
+  const tutor = screen
+    .getByRole("heading", { name: en.admin.users.roles.TUTOR })
+    .closest("form")!;
+  fireEvent.change(
+    within(student).getByRole("textbox", { name: en.messaging.reason }),
+    { target: { value: "Student-only draft" } },
+  );
+  expect(
+    within(tutor).getByRole<HTMLInputElement>("textbox", {
+      name: en.messaging.reason,
+    }).value,
+  ).toBe("");
+  fireEvent.click(screen.getByRole("button", { name: /Alex · @alex/ }));
+  expect(screen.getAllByText(en.approvals.sensitiveHelp)).toHaveLength(2);
+  expect(
+    within(student).getByRole<HTMLInputElement>("textbox", {
+      name: en.messaging.reason,
+    }).value,
+  ).toBe("Student-only draft");
+  expect(mocks.save).not.toHaveBeenCalled();
 });
 
 it("retains the review reason on refresh and links to its relocated permission configuration", () => {

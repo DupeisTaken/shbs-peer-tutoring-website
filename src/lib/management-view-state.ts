@@ -121,11 +121,7 @@ const selections =
     Array.isArray(value) &&
     value.length <= 40 &&
     value.every((item) => typeof item === "string")
-      ? [
-          ...new Set(
-            (value as string[]).filter((item) => allowed.includes(item)),
-          ),
-        ]
+      ? [...new Set(value.filter((item) => allowed.includes(item)))]
       : undefined;
 export const userDirectoryFilters = (view: UserDirectoryView): UserFilters =>
   normalizeUserFilters({

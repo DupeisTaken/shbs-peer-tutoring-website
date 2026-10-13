@@ -11,7 +11,7 @@ import {
 import { StudentRequestBoard } from "./student-request-board";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
 import { viewStateKey, writeViewState } from "~/lib/session-view-state";
-const mocks = vi.hoisted(() => ({ legacy: vi.fn() }));
+const mocks = vi.hoisted(() => ({ legacy: vi.fn(), ready: true }));
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
@@ -20,13 +20,19 @@ vi.mock("next-intl", () => ({
 vi.mock("~/trpc/react", () => ({
   api: {
     studentWorkflow: {
-      adminRequests: { useQuery: () => ({ data: [] }) },
+      adminRequests: {
+        useQuery: () => ({
+          data: mocks.ready ? [] : undefined,
+          isLoading: !mocks.ready,
+        }),
+      },
       legacyReviews: { useQuery: mocks.legacy },
     },
     admin: { tutors: { useQuery: () => ({ data: [] }) } },
   },
 }));
 beforeEach(() => {
+  mocks.ready = true;
   mocks.legacy.mockReturnValue({ data: [] });
   window.sessionStorage.clear();
   window.history.replaceState(null, "", "/");
@@ -119,7 +125,7 @@ it("reveals a repeated notification fragment after selecting another request tab
       .getAttribute("aria-selected"),
   ).toBe("true");
 });
-it("defers an explicit notice target until delayed legacy reviews permit remembered tab restoration", async () => {
+it("defers an explicit notice reveal until the delayed authorized legacy read completes", async () => {
   const identity = "notice-reviewer",
     pathname = "/admin/requests";
   writeViewState(
@@ -165,4 +171,77 @@ it("defers an explicit notice target until delayed legacy reviews permit remembe
     ).toBe("true"),
   );
   expect(screen.getByText("Targeted invalid request")).toBeTruthy();
+});
+
+it("honors an early Assigned click through delayed queue reads and restores only the view", () => {
+  mocks.ready = false;
+  mocks.legacy.mockReturnValue({ data: undefined });
+  const key = viewStateKey(
+    "head-account",
+    "/admin/requests",
+    "requests.tab.v1",
+    "term-1",
+  );
+  sessionStorage.setItem(key, JSON.stringify("processed"));
+  const page = (ready: boolean, denied = false) => (
+    <SessionViewProvider
+      identity="head-account"
+      pathname="/admin/requests"
+      verified
+    >
+      <StudentRequestBoard
+        viewScope="term-1"
+        viewDenied={denied}
+        additionalLoading={!ready}
+        additionalEntries={
+          ready
+            ? [
+                {
+                  id: "assigned",
+                  group: "assigned",
+                  submittedAt: new Date(),
+                  content: <p>Assigned intake content</p>,
+                },
+              ]
+            : []
+        }
+      />
+    </SessionViewProvider>
+  );
+  const view = render(page(false));
+  expect(
+    screen
+      .getByRole("tab", { name: "processed 0" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  fireEvent.click(screen.getByRole("tab", { name: "assigned 0" }));
+  expect(
+    screen
+      .getByRole("tab", { name: "assigned 0" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(screen.getByText("loading")).toBeTruthy();
+  expect(sessionStorage.getItem(key)).toBe(JSON.stringify("assigned"));
+  mocks.ready = true;
+  mocks.legacy.mockReturnValue({ data: [] });
+  view.rerender(page(true));
+  expect(
+    screen
+      .getByRole("tab", { name: "assigned 1" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(screen.getByText("Assigned intake content")).toBeTruthy();
+  expect(Object.values(sessionStorage).join(" ")).not.toContain(
+    "Assigned intake content",
+  );
+  view.rerender(page(true, true));
+  expect(screen.queryByRole("tab")).toBeNull();
+  expect(sessionStorage.getItem(key)).toBeNull();
+  view.unmount();
+  render(page(true));
+  expect(
+    screen
+      .getByRole("tab", { name: "matching 0" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
 });

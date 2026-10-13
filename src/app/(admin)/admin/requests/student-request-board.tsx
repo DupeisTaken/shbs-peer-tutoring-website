@@ -88,7 +88,8 @@ export function StudentRequestBoard({
     parse: viewEnum(["matching", "assigned", "reviews", "processed"]),
     scope: viewScope,
     enabled: !denied,
-    restoreReady: !additionalLoading && !!rows.data && !!legacyReviews.data,
+    // Static tab choices stay usable during reads; explicit notice reveal and
+    // page-scroll restoration still wait for their complete authorized content.
   });
   const [invalidity, setInvalidity] =
     useSessionViewState<InvalidityFilterValue>({

@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
-import { DAY_NAMES, minToHm } from "~/lib/time";
+import { formatWeekday, minToHm } from "~/lib/time";
 import { Button, ChoiceButton } from "~/app/_components/ui/button";
 import { FormActions } from "~/app/_components/ui/patterns";
 
@@ -15,6 +15,8 @@ import { FormActions } from "~/app/_components/ui/patterns";
  */
 export function AvailabilityEditor() {
   const t = useTranslations();
+  // Localize presentation and group names; selected IDs stay catalog-owned.
+  const locale = useLocale();
   const query = api.tutor.myAvailability.useQuery();
   // Follow live server data until editing starts; background refetches must not
   // replace an unsaved selection or a draft retained after a failed request.
@@ -83,11 +85,11 @@ export function AvailabilityEditor() {
       {slotsByDay.map(([day, daySlots]) => (
         <div key={day}>
           <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
-            {DAY_NAMES[day]}
+            {formatWeekday(day, locale)}
           </p>
           <div
             role="group"
-            aria-label={DAY_NAMES[day]}
+            aria-label={formatWeekday(day, locale)}
             className="mt-1 flex flex-wrap gap-2"
           >
             {daySlots.map((s) => {

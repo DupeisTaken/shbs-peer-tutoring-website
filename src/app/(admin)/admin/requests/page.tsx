@@ -486,7 +486,6 @@ export default function RequestsPage() {
       initialState: "valid",
       parse: viewEnum(["valid", "invalid", "all"]),
       enabled: readOnly && !denied,
-      restoreReady: !currentPeriod.isLoading,
       scope: viewScope,
     });
   useSessionPageScroll({
