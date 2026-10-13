@@ -341,6 +341,8 @@ it("opens room order deliberately, retains a closed draft and version, and block
   );
   expect(screen.queryByRole("table")).toBeNull();
   const opener = screen.getByRole("button", { name: en.roomOrder.open });
+  // fireEvent does not perform native pointer focus; model a focused keyboard/native opener.
+  opener.focus();
   fireEvent.click(opener);
   fireEvent.click(
     screen.getByRole("button", {
