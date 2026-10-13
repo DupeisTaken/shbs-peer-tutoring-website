@@ -443,10 +443,9 @@ export default function SubjectsPage() {
           </form>
         )}
       </section>
+      {/* The server owns the level-first signup order; filters retain it. */}
       <CourseCatalogueTable
-        subjects={[...(variants.data ?? [])].sort((a, b) =>
-          a.name.localeCompare(b.name),
-        )}
+        subjects={variants.data ?? []}
         levels={levels.data ?? []}
         readOnly={readOnly}
         pending={batchUpdate.isPending}

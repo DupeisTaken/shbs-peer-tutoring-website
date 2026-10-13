@@ -20,9 +20,12 @@ const mocks = vi.hoisted(() => ({
   refetch: vi.fn(),
   error: null as null | { message: string; data: { approvalId: string } },
 }));
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(),
       signupFieldSettings: { useQuery: mocks.query },
       setSignupField: {
         useMutation: () => ({

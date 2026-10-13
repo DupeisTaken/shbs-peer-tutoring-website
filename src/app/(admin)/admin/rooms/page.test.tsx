@@ -92,6 +92,7 @@ vi.mock("~/trpc/react", () => {
         createRoom: mutation("createRoom"),
         updateRoom: mutation("updateRoom"),
         deleteRoom: mutation("deleteRoom"),
+        reorderRooms: mutation("reorderRooms"),
         createRoomUnavailability: mutation("createBlock"),
         updateRoomUnavailability: mutation("editBlock"),
         deleteRoomUnavailability: mutation("removeBlock"),
@@ -132,7 +133,7 @@ const show = () =>
 const expand = () =>
   fireEvent.click(
     screen.getByRole("button", {
-      name: /Manage blocked periods|View blocked periods/,
+      name: /Edit details|View blocked periods/,
     }),
   );
 
@@ -183,7 +184,7 @@ it("reports coordinator room deletion as a queued request without changing live 
 it("makes block controls discoverable and exposes accessible expanded state", () => {
   show();
   expect(screen.getByText("1 blocked period")).toBeTruthy();
-  const toggle = screen.getByRole("button", { name: "Manage blocked periods" });
+  const toggle = screen.getByRole("button", { name: "Edit details" });
   expect(toggle.getAttribute("aria-expanded")).toBe("false");
   expand();
   expect(toggle.getAttribute("aria-expanded")).toBe("true");
@@ -365,7 +366,7 @@ it("retains the applied receipt when refresh removes the room card", async () =>
     </NextIntlClientProvider>,
   );
   fireEvent.click(
-    screen.getByRole("button", { name: en.admin.rooms.managePeriods }),
+    screen.getByRole("button", { name: en.admin.rooms.editDetails }),
   );
   fireEvent.click(
     screen.getByRole("button", { name: en.admin.rooms.deleteRoom }),

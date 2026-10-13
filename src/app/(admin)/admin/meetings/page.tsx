@@ -14,6 +14,7 @@ import { useReadOnly } from "~/app/_components/read-only";
 import {
   SummaryTable,
   TableActions,
+  TableAction,
   TableDetails,
 } from "~/app/_components/ui/summary-table";
 import { visibleTutors } from "~/lib/tutor-visibility";
@@ -243,7 +244,8 @@ export default function MeetingsPage() {
                     </ul>
                   </TableDetails>
                   {!readOnly && (
-                    <button
+                    <TableAction
+                      variant="danger"
                       disabled={del.isPending || busyMeetings.has(m.id)}
                       onClick={async () => {
                         if (
@@ -259,10 +261,9 @@ export default function MeetingsPage() {
                         )
                           del.mutate({ id: m.id });
                       }}
-                      className="link-danger"
                     >
                       {t("admin.meetings.delete")}
-                    </button>
+                    </TableAction>
                   )}
                 </div>
                 {/* Opened forms retain their own draft and pending callbacks while

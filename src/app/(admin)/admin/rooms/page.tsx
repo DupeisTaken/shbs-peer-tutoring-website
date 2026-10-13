@@ -11,6 +11,8 @@ import { useReadOnly } from "~/app/_components/read-only";
 import { useActionReview } from "~/app/_components/ui/action-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { queuedApprovalId } from "~/lib/approval-outcome";
+import { RoomOrderEditor } from "~/app/_components/room-order-editor";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 
 type Block = {
   id: string;
@@ -159,7 +161,7 @@ function RoomCard({
             ? t("hidePeriods")
             : readOnly
               ? t("viewPeriods")
-              : t("managePeriods")}
+              : t("editDetails")}
         </button>
       </div>
       {open && (
@@ -545,6 +547,23 @@ export default function RoomsPage() {
         </form>
       )}
       <Notice feedback={feedback} />
+      {rooms.data && !readOnly && (
+        <RoomOrderEditor
+          rooms={rooms.data}
+          canEdit={!rooms.error && !me.error}
+          canApply={!coordinator}
+          onRefresh={async () => {
+            const result = await rooms.refetch();
+            if (!result.isSuccess)
+              throw new Error(result.error?.message ?? t("loading"));
+            await settleRefreshes([
+              () => invalidateAndReport(utils.tutor.rooms),
+              () => invalidateAndReport(utils.tutor.schedule),
+            ]);
+            return result.data;
+          }}
+        />
+      )}
       {(rooms.isLoading || me.isLoading) && (
         <p role="status" className="muted">
           {t("loading")}

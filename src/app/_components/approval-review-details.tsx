@@ -6,8 +6,16 @@ import { approvalReview, reviewTechnicalFields } from "~/lib/approval-review";
 import { minToHm } from "~/lib/time";
 import { roomBlockReview } from "~/lib/room-block-review";
 import { RoomBlockReview } from "./room-block-review";
-import { HistoricalCorrectionReview, historicalReviewRecords } from "./historical-correction-review";
+import {
+  HistoricalCorrectionReview,
+  historicalReviewRecords,
+} from "./historical-correction-review";
 import { SIGNUP_FIELDS } from "~/lib/signup-fields";
+import {
+  NAME_ACCOUNT_TYPES,
+  NAME_FIELD_KEYS,
+  type NameAccountType,
+} from "~/lib/name-field-policy";
 
 /** Both the card and the final consequence dialog show this exact same proposal. */
 export function ApprovalReviewDetails({
@@ -24,10 +32,22 @@ export function ApprovalReviewDetails({
   const t = useTranslations("approvals.review");
   const departureText = useTranslations("schoolDeparture");
   const signupText = useTranslations("signupFields");
+  const nameFieldsText = useTranslations("nameFields");
+  const namesText = useTranslations("personName");
+  const rolesText = useTranslations("admin.users.roles");
+  const roomOrderText = useTranslations("roomOrder");
   const format = useFormatter();
-  if (operation === "historicalAcademics.correctBatch" && targets && typeof targets === "object" && "historicalAcademics" in targets) {
-    const review = historicalReviewRecords.safeParse(targets.historicalAcademics);
-    if (review.success) return <HistoricalCorrectionReview records={review.data} />;
+  if (
+    operation === "historicalAcademics.correctBatch" &&
+    targets &&
+    typeof targets === "object" &&
+    "historicalAcademics" in targets
+  ) {
+    const review = historicalReviewRecords.safeParse(
+      targets.historicalAcademics,
+    );
+    if (review.success)
+      return <HistoricalCorrectionReview records={review.data} />;
   }
   const model = approvalReview(operation, payload, targets);
   const block = roomBlockReview(operation, payload, targets);
@@ -36,9 +56,18 @@ export function ApprovalReviewDetails({
       ? model.changes.find((field) => field.key === "action")?.requested
       : undefined;
   const label = (key: string) =>
-    t.has(`fields.${key}`)
-      ? t(`fields.${key}`)
-      : humanizeOperation(key.replace(/Ids?$/, ""));
+    operation === "program.setNameFields" && key === "states"
+      ? nameFieldsText("title")
+      : operation === "program.setNameFields" && key === "accountType"
+        ? nameFieldsText("accountType")
+        : operation === "program.setNameFields" &&
+            NAME_FIELD_KEYS.includes(key as (typeof NAME_FIELD_KEYS)[number])
+          ? namesText(key)
+          : operation === "admin.reorderRooms" && key === "roomOrder"
+            ? roomOrderText("title")
+            : t.has(`fields.${key}`)
+              ? t(`fields.${key}`)
+              : humanizeOperation(key.replace(/Ids?$/, ""));
   const display = (value: unknown, key = ""): React.ReactNode => {
     if (value === null || value === undefined || value === "")
       return <span className="text-slate-500">{t("emptyValue")}</span>;
@@ -71,13 +100,38 @@ export function ApprovalReviewDetails({
       return format.number(value);
     }
     if (typeof value === "string") {
+      // Translate only schema-owned states/roles. Captured names and other
+      // user-authored evidence remain exactly as supplied at submission.
+      if (operation === "program.setNameFields") {
+        if (
+          key === "accountType" &&
+          NAME_ACCOUNT_TYPES.includes(value as NameAccountType)
+        )
+          return rolesText(value);
+        if (
+          NAME_FIELD_KEYS.includes(key as (typeof NAME_FIELD_KEYS)[number]) &&
+          ["required", "optional", "hidden"].includes(value)
+        )
+          return signupText(value);
+      }
       // Localize only known signup schema values; historical or user-authored text stays verbatim.
       if (operation === "program.setSignupField") {
-        if (key === "form" && (value === "tutee" || value === "tutor")) return signupText(value);
-        if (key === "state" && ["required", "optional", "hidden"].includes(value)) return signupText(value);
+        if (key === "form" && (value === "tutee" || value === "tutor"))
+          return signupText(value);
+        if (
+          key === "state" &&
+          ["required", "optional", "hidden"].includes(value)
+        )
+          return signupText(value);
         if (key === "field") {
-          const form = payload && typeof payload === "object" && "form" in payload ? payload.form : undefined;
-          const field = form === "tutee" || form === "tutor" ? SIGNUP_FIELDS[form].find((field) => field.key === value) : undefined;
+          const form =
+            payload && typeof payload === "object" && "form" in payload
+              ? payload.form
+              : undefined;
+          const field =
+            form === "tutee" || form === "tutor"
+              ? SIGNUP_FIELDS[form].find((field) => field.key === value)
+              : undefined;
           if (field) return signupText(`labels.${field.label}`);
         }
       }

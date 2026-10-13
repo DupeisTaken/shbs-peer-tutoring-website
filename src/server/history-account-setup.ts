@@ -214,6 +214,10 @@ export async function completeHistoryAccount(
         tutorAccessRevoked: true,
       },
     });
+    if (!user.name?.trim()) {
+      const { ensureUserUsername } = await import("./auth/username");
+      await ensureUserUsername(user.id, tx, { namelessIdentity: true });
+    }
     await tx.tuteeHistoryInvitation.update({
       where: { tuteeId: invite.tuteeId },
       data: { setupUserId: user.id },

@@ -139,7 +139,7 @@ vi.mock("~/app/_components/patrol-corrections", () => ({
 vi.mock("~/app/_components/acceptance-records", () => ({
   AcceptanceRecords: () => null,
 }));
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     account: { me: { useQuery: () => ({ data: { role: state.callerRole } }) } },
     useUtils: () => ({
@@ -150,6 +150,9 @@ vi.mock("~/trpc/react", () => ({
       tuteeHistory: { invalidate: async () => undefined },
     }),
     program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(),
       profilePolicy: {
         useQuery: () => ({
           data: { offeredGrades: [10, 11, 12], currentSchoolYear: "26-27" },

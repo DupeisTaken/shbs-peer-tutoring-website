@@ -7,7 +7,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
 import { Button } from "~/app/_components/ui/button";
-import { StatePanel } from "~/app/_components/ui/patterns";
+import { FormActions, StatePanel } from "~/app/_components/ui/patterns";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 
 /** Both intake sources share the existing timed staff-review mutation and approval policy. */
@@ -167,33 +167,37 @@ export function StudentWithdrawals() {
                 })}
               </p>
               <p className="text-sm whitespace-pre-wrap">{review.reason}</p>
-              <div className="flex gap-2">
-                <button
-                  className="btn-danger btn-sm"
-                  disabled={readBlocked || resolve.isPending}
-                  onClick={() =>
-                    setDecision({
-                      id: review.id,
-                      name: review.name,
-                      approve: true,
-                    })
-                  }
-                >
-                  {workflow("approve")}
-                </button>
-                <button
-                  className="btn-secondary btn-sm"
-                  disabled={readBlocked || resolve.isPending}
-                  onClick={() =>
-                    setDecision({
-                      id: review.id,
-                      name: review.name,
-                      approve: false,
-                    })
-                  }
-                >
-                  {workflow("deny")}
-                </button>
+              {/* The trailing decision group shares size; timed review stays feature-owned. */}
+              <div className="[&>div]:justify-end">
+                <FormActions>
+                  <Button
+                    variant="danger"
+                    size="compact"
+                    disabled={readBlocked || resolve.isPending}
+                    onClick={() =>
+                      setDecision({
+                        id: review.id,
+                        name: review.name,
+                        approve: true,
+                      })
+                    }
+                  >
+                    {workflow("approve")}
+                  </Button>
+                  <Button
+                    size="compact"
+                    disabled={readBlocked || resolve.isPending}
+                    onClick={() =>
+                      setDecision({
+                        id: review.id,
+                        name: review.name,
+                        approve: false,
+                      })
+                    }
+                  >
+                    {workflow("deny")}
+                  </Button>
+                </FormActions>
               </div>
             </article>
           ))}

@@ -9,6 +9,12 @@ import { hashPassword } from "./password";
 import { hashCode, registrationCompletionProof } from "./registration";
 import { generateRegistrationCode } from "./code";
 import { inTransaction, type DomainDb } from "~/server/transactions";
+import {
+  configuredNewNames,
+  configuredLegacyIntakeName,
+} from "~/server/program/name-fields";
+import { fullPersonName } from "~/lib/person-name";
+import { ensureUserUsername, lockUsernameNamespace } from "./username";
 
 export const VIEWER_CODE_TTL_MINUTES = 15;
 const MAX_ATTEMPTS = 6;
@@ -17,6 +23,15 @@ const MAX_ATTEMPTS = 6;
  * Stage a new mailbox challenge for either a prospective Viewer or an existing account.
  */
 export async function startViewerSignup(
+  input: Parameters<typeof startViewerSignupLocked>[0],
+  client: DomainDb = db,
+): ReturnType<typeof startViewerSignupLocked> {
+  return inTransaction(client, async (tx) => {
+    await lockUsernameNamespace(tx);
+    return startViewerSignupLocked(input, tx);
+  });
+}
+async function startViewerSignupLocked(
   input: {
     email: string;
     name: string;
@@ -32,16 +47,19 @@ export async function startViewerSignup(
   // The public response is identical for new and established addresses. After proof,
   // an established account receives sign-in access only, never an exclusive Viewer role.
 
-  await assertPrimaryName(client, input.name);
   if (
     input.firstName !== undefined ||
     input.lastName !== undefined ||
     input.preferredName !== undefined
-  )
+  ) {
+    const names = await configuredNewNames(client, input, "VIEWER");
+    input = { ...input, ...names, name: fullPersonName(names) };
+  } else
     input = {
       ...input,
-      ...parsePersonNames({ ...input, lastName: input.lastName ?? "" }),
+      name: await configuredLegacyIntakeName(client, input.name, "VIEWER"),
     };
+  await assertPrimaryName(client, input.name);
   const code = generateRegistrationCode();
   const data = {
     firstName: input.firstName,
@@ -174,6 +192,7 @@ export async function completeViewerSignup(
 
   const passwordHash = hashPassword(password);
   return inTransaction(client, async (tx) => {
+    await lockUsernameNamespace(tx);
     // Reserve the exact verified challenge before creating credentials. A resend, expiry,
     // or concurrent completion invalidates the grant and leaves account data untouched.
     const claimed = await tx.viewerSignup.updateMany({
@@ -194,7 +213,7 @@ export async function completeViewerSignup(
     await assertPrimaryName(tx, row.name);
     if (row.firstName !== null)
       parsePersonNames({ ...row, lastName: row.lastName ?? "" });
-    await tx.user.create({
+    const created = await tx.user.create({
       data: {
         email: e,
         // No username: viewers sign in by email; ensureUserUsername also skips VIEWER accounts.
@@ -210,6 +229,9 @@ export async function completeViewerSignup(
         emailVerifiedAt: new Date(),
       },
     });
+    // Existing named Viewer accounts still retain their email-only login; nameless new identities need a public handle.
+    if (!created.name?.trim())
+      await ensureUserUsername(created.id, tx, { namelessIdentity: true });
     return { ok: true as const };
   });
 }

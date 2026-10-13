@@ -8,6 +8,10 @@ import { useTranslations } from "next-intl";
 
 import { ProgramTimeZoneSettings } from "~/app/_components/program-time-zone-settings";
 import { RecruitmentSettings } from "~/app/_components/recruitment-settings";
+import { SchoolCalendar } from "~/app/_components/school-calendar";
+import { ProgramCalendarSettings } from "~/app/_components/program-calendar";
+import { MessagePermissions } from "~/app/_components/message-admin";
+import { ProgramNameSettings } from "~/app/_components/program-name-settings";
 import { api } from "~/trpc/react";
 import { InlineNotice } from "~/app/_components/ui/patterns";
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
@@ -29,6 +33,7 @@ export default function ProgramPage() {
   const t = useTranslations();
   const utils = api.useUtils();
   const current = api.admin.currentPeriod.useQuery();
+  const account = api.account.me.useQuery();
 
   const [confirm, setConfirm] = useState("");
   const [done, setDone] = useState<RefreshResult | null>(null);
@@ -45,7 +50,7 @@ export default function ProgramPage() {
   const confirmOk = confirm.trim().toUpperCase() === "REFRESH";
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-4xl space-y-6">
       <div>
         <h1 className="page-title">{t("admin.program.title")}</h1>
         <p className="muted mt-1">{t("admin.program.subtitle")}</p>
@@ -80,6 +85,8 @@ export default function ProgramPage() {
         {/* Hidden panels retain independent settings drafts and refresh confirmation. */}
         <div hidden={panel !== "period"} className="space-y-6">
           <ProgramTimeZoneSettings />
+          <ProgramCalendarSettings />
+          <SchoolCalendar />
           {period && (
             <>
               {(["tutee", "tutor"] as const).map((audience) => (
@@ -185,14 +192,19 @@ export default function ProgramPage() {
             </>
           )}
         </div>
-        <div hidden={panel !== "people"}>
+        <div hidden={panel !== "people"} className="space-y-6">
           <ProgramProfileSettings />
+          <ProgramNameSettings />
+          {!account.error &&
+            ["HEAD", "ADMIN"].includes(account.data?.role ?? "") && (
+              <MessagePermissions />
+            )}
         </div>
-        <div hidden={panel !== "communication"}>
+        <div hidden={panel !== "communication"} className="space-y-6">
           <ProgramEmailSettings />
+          <ProgramCaptchaSettings />
         </div>
         <div hidden={panel !== "access"} className="space-y-6">
-          <ProgramCaptchaSettings />
           {period && <FeatureToggles />}
         </div>
       </SectionTabs>
