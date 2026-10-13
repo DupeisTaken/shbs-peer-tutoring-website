@@ -165,12 +165,11 @@ export function AccountDeletion({
   async function reload() {
     if (admission.current || pending || saved) return;
     const result = await query.refetch();
+    if (!selectedId || !result.data) return;
     if (
       !admission.current &&
-      selectedId &&
       currentTarget.current === selectedId &&
       !result.error &&
-      result.data &&
       result.data.target.id === selectedId
     ) {
       setAccessDenied(false);
