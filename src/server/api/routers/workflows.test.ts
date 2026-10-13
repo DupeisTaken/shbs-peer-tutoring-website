@@ -256,7 +256,7 @@ it("enforces staff-only subject reads/writes and fresh tutor access for self wil
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.tutorSubjectWillingness.count()).toBe(0);
 });
-it("projects current nameless crew and tutor handles without rewriting canonical names or changing read access", async () => {
+it("projects materialized current labels and handles without changing stored names or read access", async () => {
   await db.user.create({
     data: {
       id: "blank-current-crew",
@@ -275,29 +275,30 @@ it("projects current nameless crew and tutor handles without rewriting canonical
     where: { id: "review-tutor" },
     data: { englishName: "", username: "tutor.handle" },
   });
+  // SQL name triggers materialize a username label at writes. The DTO's
+  // canonicalName references that current User.name, not immutable originals.
+  const storedCrew = await db.user.findUniqueOrThrow({ where: { id: "blank-current-crew" } });
+  const storedTutor = await db.tutor.findUniqueOrThrow({ where: { id: "review-tutor" } });
+  expect(storedCrew).toMatchObject({ name: "crew.handle", firstName: null, lastName: null, preferredName: null, alternativeNames: null });
+  expect(storedCrew.legacyName?.trim() ?? "").toBe("");
+  expect(storedCrew.legacyName).not.toBe("crew.handle");
   const crew = (
     await caller("VIEWER", "review-viewer").admin.crewRoster()
   ).find((row) => row.id === "blank-current-crew");
   expect(crew).toMatchObject({
-    name: "  ",
-    canonicalName: "  ",
+    name: storedCrew.name,
+    canonicalName: storedCrew.name,
     username: "crew.handle",
   });
   const options = await caller().subjectAvailability.options();
   expect(options.tutors.find((row) => row.id === "review-tutor")).toMatchObject(
-    { englishName: "", username: "tutor.handle" },
+    { englishName: storedTutor.englishName, username: "tutor.handle" },
   );
   await expect(
     caller("VIEWER", "review-viewer").subjectAvailability.options(),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  expect(
-    (await db.user.findUniqueOrThrow({ where: { id: "blank-current-crew" } }))
-      .name,
-  ).toBe("  ");
-  expect(
-    (await db.tutor.findUniqueOrThrow({ where: { id: "review-tutor" } }))
-      .englishName,
-  ).toBe("");
+  expect(await db.user.findUniqueOrThrow({ where: { id: "blank-current-crew" } })).toEqual(storedCrew);
+  expect(await db.tutor.findUniqueOrThrow({ where: { id: "review-tutor" } })).toEqual(storedTutor);
 });
 
 it("binds self willingness to the authenticated tutor even if input includes another tutor ID", async () => {
