@@ -82,3 +82,5 @@ An intake accepted before a configuration change is grandfathered through accoun
 An existing component called `PreferredLatinName` only supplies a spelling suggestion for username generation. It is not the new Preferred Name field and must not become its storage mechanism.
 
 Current labels are materialized for consistent active display across profiles and rosters. Historical submissions, signatures, raw evidence exports and audit snapshots are not refreshed. The settings preview uses synthetic example names. Account binding, relinking and detachment refresh both affected roster labels under their resulting role policies.
+
+Account writers reserve the shared username namespace before locking an account and its linked roster rows. This boundary also covers nested profile writes, so a reviewed name-policy refresh cannot hold the namespace while waiting on a profile transaction that tries to acquire it in the reverse order. It serializes those account writes for database correctness; reads remain unchanged.

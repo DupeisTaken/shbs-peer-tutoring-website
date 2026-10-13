@@ -279,6 +279,7 @@ function ApprovalQueue({
   allStatuses: boolean;
 }) {
   const t = useTranslations("approvals");
+  const ui = useTranslations("uiPatterns");
   const router = useRouter();
   const params = useSearchParams();
   const selectedStatus = params.get("status");
@@ -346,7 +347,7 @@ function ApprovalQueue({
   const refresh = async () => {
     await queue.refetch();
   };
-  if (denied) return <p role="alert">{queue.error?.message ?? t("loading")}</p>;
+  if (denied) return <p role="alert">{queue.error?.message ?? ui("loadFailed")}</p>;
   return (
     <div className="space-y-6">
       <header>

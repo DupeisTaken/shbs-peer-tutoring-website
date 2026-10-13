@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("~/server/transactions", () => ({ lockEntity: vi.fn() }));
 vi.mock("~/server/account-profile", () => ({ lockAccountProfile: vi.fn(), updateAccountProfile: vi.fn() }));
 vi.mock("./tutor-link", () => ({ resolveTutorLink: async () => null }));
-vi.mock("./username", () => ({ ensureUserUsername: vi.fn() }));
+vi.mock("./username", () => ({ ensureUserUsername: vi.fn(), lockUsernameNamespace: vi.fn() }));
 vi.mock("./credentials", () => ({ clientIpFromRequest: () => "test-ip", verifySigninPassword: mocks.verifyPassword }));
 vi.mock("./two-factor", () => ({ verifyLoginCode: mocks.verifyCode }));
 vi.mock("~/server/program/features", () => ({ getFeatures: async () => ({ EMAIL_2FA: true }) }));

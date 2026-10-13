@@ -376,17 +376,24 @@ async function displayedViewer() {
   );
 }
 
-it("fills genuinely missing identity when an existing account accepts management access", async () => {
+it("retains an existing nameless identity when accepting management access", async () => {
   const account = await owner({ name: "", firstName: null, lastName: null });
   const invite = await staff("ADMIN");
+  expect(
+    await inspectAccountInvitation(db, { ...invite, userId: account.id }),
+  ).toMatchObject({ existing: true, acceptedIdentity: true });
   await redeemAccountInvitation(db, { ...profile, ...invite }, account.id);
   expect(
     await db.user.findUniqueOrThrow({ where: { id: account.id } }),
   ).toMatchObject({
     role: "ADMIN",
-    name: "New Member",
-    firstName: "New",
-    lastName: "Member",
+    // Posted invitation names are not an edit of the existing shared profile.
+    name: "member",
+    username: "member",
+    firstName: null,
+    lastName: null,
+    preferredName: null,
+    legacyName: null,
     passwordHash: account.passwordHash,
   });
   const issuance = await db.auditLog.findFirstOrThrow({

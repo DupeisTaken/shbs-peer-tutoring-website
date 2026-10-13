@@ -683,12 +683,13 @@ it.each([true, false])(
       gradeLevel: 10,
       gradeSchoolYear: "26-27",
       status: "ACTIVE",
-      username: hasHandle ? "stablecustom" : "cperson29",
+      // Nameless accounts reserve neutral handles using established academic evidence.
+        username: hasHandle ? "stablecustom" : "member29",
     });
     expect(
       (await db.user.findUniqueOrThrow({ where: { id: "academic-person" } }))
         .username,
-    ).toBe(hasHandle ? "stablecustom" : "cperson29");
+    ).toBe(hasHandle ? "stablecustom" : "member29");
     await expect(
       requireAcademicConfirmation(db, "academic-person"),
     ).resolves.toBeUndefined();

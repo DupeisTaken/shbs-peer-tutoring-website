@@ -72,6 +72,7 @@ function IdentityQueryProvider(props: {
   const t = useTranslations("common");
   const pathname = usePathname();
   const previousPath = useRef(pathname);
+  const [verifiedPath, setVerifiedPath] = useState(pathname);
   const inFlight = useRef<Promise<void> | null>(null);
   const controller = useRef<AbortController | null>(null);
   const focusRequested = useRef(false);
@@ -114,6 +115,8 @@ function IdentityQueryProvider(props: {
           // Verification authorizes the existing mounted UI immediately. Background
           // data refreshes (and their retries) must never extend the privacy curtain.
           setCheckingIdentity(false);
+          // The existing route effect tracks the latest path across shared requests.
+          setVerifiedPath(previousPath.current);
           if (focusRequested.current) setFocusVersion((value) => value + 1);
           // Fresh data needs no repeat fetch. Reuse any request already in progress
           // instead of cancelling/restarting it on a rapid route or focus event.
@@ -200,7 +203,7 @@ function IdentityQueryProvider(props: {
             <SessionViewProvider
               identity={props.identity}
               pathname={pathname}
-              verified={!checkingIdentity && previousPath.current === pathname}
+              verified={!checkingIdentity && verifiedPath === pathname}
             >
               {props.children}
             </SessionViewProvider>
