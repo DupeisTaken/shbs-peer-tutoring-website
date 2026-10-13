@@ -244,10 +244,15 @@ export function CourseCatalogueTable({
           )}
         </div>
       )}
-      {/* Bulk selection stays in the action column; summary fields contain no controls. */}
+      {/* Bulk selection leads the row; detail/editor entries keep their trailing column. */}
       <SummaryTable label={t("title")}>
         <thead>
           <tr>
+            {!readOnly && (
+              <th scope="col">
+                <span className="sr-only">{t("selectAll")}</span>
+              </th>
+            )}
             <th>{t("name")}</th>
             <th>{t("level")}</th>
             <th>{t("status")}</th>
@@ -257,6 +262,27 @@ export function CourseCatalogueTable({
         <tbody>
           {visible.map((subject) => (
             <tr key={subject.id}>
+              {!readOnly && (
+                <td>
+                  <label className="inline-flex min-h-11 min-w-11 items-center justify-center lg:min-h-8">
+                    <input
+                      type="checkbox"
+                      aria-label={t("select", { name: subject.name })}
+                      checked={selected.has(subject.id)}
+                      disabled={pending}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setSelected((current) => {
+                          const next = new Set(current);
+                          if (checked) next.add(subject.id);
+                          else next.delete(subject.id);
+                          return next;
+                        });
+                      }}
+                    />
+                  </label>
+                </td>
+              )}
               <td className="font-medium">{subject.name}</td>
               <td>
                 {levels.find((level) => level.id === subject.levelId)?.name ??
@@ -288,26 +314,6 @@ export function CourseCatalogueTable({
                   </dl>
                   <p className="muted">{t("help")}</p>
                 </TableDetails>
-                {!readOnly && (
-                  <label className="flex min-h-11 items-center gap-2 text-sm lg:min-h-8">
-                    <input
-                      type="checkbox"
-                      aria-label={t("select", { name: subject.name })}
-                      checked={selected.has(subject.id)}
-                      disabled={pending}
-                      onChange={(event) => {
-                        const checked = event.target.checked;
-                        setSelected((current) => {
-                          const next = new Set(current);
-                          if (checked) next.add(subject.id);
-                          else next.delete(subject.id);
-                          return next;
-                        });
-                      }}
-                    />
-                    {table(selected.has(subject.id) ? "selected" : "select")}
-                  </label>
-                )}
               </TableActions>
             </tr>
           ))}

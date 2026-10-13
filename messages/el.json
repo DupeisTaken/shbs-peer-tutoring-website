@@ -116,7 +116,10 @@
     "qualifiedOnly": "Your qualified subjects",
     "choiceHelp": "Choose what you would like to tutor right now.",
     "scheduleSeparate": "Your timetable is arranged separately.",
-    "savesAutomatically": "Changes save automatically"
+    "savesAutomatically": "Changes save automatically",
+    "edit": "Επεξεργασία στοιχείων",
+    "editTitle": "{tutor} · {subject}",
+    "refreshFailed": "Η αλλαγή αποθηκεύτηκε. Ανανεώστε τις εγγραφές μαθημάτων πριν κάνετε άλλη αλλαγή."
   },
   "messaging": {
     "privacyTitle": "Private Deliveries, with Staff Oversight",
@@ -1013,7 +1016,12 @@
       "colTutees": "Μαθητές",
       "colSH": "ΩΠ",
       "empty": "Δεν υπάρχουν υποβολές για αυτό το φίλτρο.",
-      "monthLabel": "Μήνας"
+      "monthLabel": "Μήνας",
+      "actualTime": "Καταγεγραμμένη ώρα",
+      "duration": "{minutes} λεπτά",
+      "hourFactor": "Συντελεστής: {factor}",
+      "selfEvaluation": "Αυτοαξιολόγηση",
+      "comments": "Σχόλια"
     },
     "meetings": {
       "title": "Συναντήσεις βοηθών",
@@ -1620,7 +1628,19 @@
         "WARNED": "Προειδοποιήθηκε",
         "PENALIZED": "Ποινή",
         "ESCALATED": "Κλιμακώθηκε"
-      }
+      },
+      "filterLabel": "Κατάσταση ελέγχου παρουσιών",
+      "states": {
+        "PENDING": "Σε εκκρεμότητα",
+        "DISMISSED": "Απορρίφθηκε",
+        "WARNED": "Έγινε προειδοποίηση",
+        "PENALIZED": "Αφαιρέθηκαν ώρες",
+        "ESCALATED": "Κλιμακώθηκε",
+        "ALL": "Όλες οι καταστάσεις"
+      },
+      "resolved": "Ελέγχθηκε από {name} · {date}",
+      "queued": "Η απόφαση υποβλήθηκε για έγκριση",
+      "refreshFailed": "Η απόφαση αποθηκεύτηκε. Ανανεώστε τις εγγραφές για να δείτε την τελευταία κατάσταση ελέγχου."
     },
     "landing": {
       "title": "Αρχική σελίδα",
@@ -2867,7 +2887,8 @@
     "sourceHelp": "Η πηγή περιγράφει πώς καταχωρίστηκε η εγγραφή. Δεν αλλάζει την έγκριση, την προτεραιότητα ή τους κανόνες συμμετοχής. Η παλαιότερη εγγραφή έχει μη επιβεβαιωμένη αρχική πηγή.",
     "boardGuide": "Πώς ομαδοποιούνται τα αιτήματα",
     "sourceGuide": "Πηγές εγγραφής και σύνδεση λογαριασμών",
-    "policyRefresh": "Ανανέωση"
+    "policyRefresh": "Ανανέωση",
+    "emailStatus": "Email: {status}"
   },
   "approvals": {
     "reviewPermissions": "Οι Admin και Head εξετάζουν τα συνήθη αιτήματα διαχείρισης. Μόνο ο Head εξετάζει αλλαγές ρόλων και σημάτων. Ο Head μπορεί να εξετάζει τα δικά του αιτήματα· οι υπόλοιποι χρειάζονται άλλον εξουσιοδοτημένο αξιολογητή.",
@@ -3318,7 +3339,12 @@
     "accessDeniedHelp": "Η συνεδρία σας δεν έχει πλέον πρόσβαση σε αυτές τις λεπτομέρειες. Τα στοιχεία στην προσωρινή μνήμη αποκρύπτονται.",
     "loadFailed": "Δεν ήταν δυνατή η φόρτωση των λεπτομερειών του συμβάντος",
     "refreshFailed": "Δεν ήταν δυνατή η ανανέωση των λεπτομερειών του συμβάντος. Τα τελευταία στοιχεία που φορτώθηκαν παραμένουν ορατά.",
-    "retry": "Επανάληψη"
+    "retry": "Επανάληψη",
+    "difference": {
+      "added": "Προστέθηκε",
+      "removed": "Αφαιρέθηκε",
+      "changed": "Άλλαξε"
+    }
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
@@ -3821,7 +3847,7 @@
     "unknown": "Άγνωστο",
     "graduated": "Αποφοίτησε",
     "rosterUnknown": "Άγνωστη τάξη",
-    "rosterNeedsConfirmation": "Απαιτείται έλεγχος και επιβεβαίωση",
+    "rosterNeedsConfirmation": "Απαιτείται έλεγχος",
     "notApplicable": "Not Applicable",
     "reported": "School Grade (1–12)",
     "original": "Original report: {value}",
@@ -3998,7 +4024,7 @@
     "emptyAll": "Δεν υπάρχουν εγγραφές μαθητών για εμφάνιση.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
-    "reviewNeeded": "Review needed",
+    "reviewNeeded": "Απαιτείται έλεγχος",
     "linkSaved": "Historical records linked.",
     "failed": "Could not complete this request. Refresh and try again.",
     "HISTORY_ACCOUNT_NOT_READY": "Choose an account with completed setup and a verified email.",
@@ -4508,9 +4534,9 @@
     "badge": "Μη έγκυρη καταχώριση",
     "filterLabel": "Εγκυρότητα αιτήματος",
     "filter": {
-      "all": "Όλες οι καταχωρίσεις",
-      "valid": "Χωρίς σήμανση",
-      "invalid": "Μη έγκυρες καταχωρίσεις"
+      "all": "Όλες οι εγγραφές",
+      "valid": "Ενεργές εγγραφές",
+      "invalid": "Μη έγκυρες εγγραφές"
     },
     "flag": "Σήμανση ως μη έγκυρη",
     "review": "Έλεγχος σήμανσης μη εγκυρότητας",

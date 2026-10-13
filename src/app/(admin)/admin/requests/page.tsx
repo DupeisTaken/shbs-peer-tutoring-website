@@ -9,7 +9,9 @@ import { SignupSourceBadge } from "~/app/_components/signup-source-badge";
 import { SignupInvalidityControls } from "~/app/_components/request-invalidity-controls";
 import {
   InvalidityBadge,
+  InvalidityFilter,
   InvalidityNotice,
+  type InvalidityFilterValue,
   type InvalidityRecord,
 } from "~/app/_components/request-invalidity";
 
@@ -160,9 +162,7 @@ function RequestCard({
   };
 
   return (
-    <div
-      className={`rounded-lg border border-slate-200 p-4 ${fulfilled ? "bg-slate-50" : ""}`}
-    >
+    <div className={`card p-5 ${fulfilled ? "bg-slate-50" : ""}`}>
       {assignmentPayload && !tutee.isInvalid && (
         <AssignmentConfirmation
           operation="admin.assignSignup"
@@ -194,7 +194,7 @@ function RequestCard({
             <DisclosureIcon open={!collapsed} />
           </Button>
           <div className="min-w-0 space-y-1">
-            <p className="font-medium text-slate-900">
+            <p className="flex flex-wrap items-center gap-2 font-semibold text-slate-900">
               <span className="badge-slate mr-2">#{order}</span>
               {tutee.englishName}
               <span className="ml-2">
@@ -204,9 +204,7 @@ function RequestCard({
                 ? ` · ${t("admin.requests.grade", { grade: tutee.gradeLevel })}`
                 : ""}
               {tutee.unverified && (
-                <span className="badge-slate ml-2">
-                  {t("survey.unverified")}
-                </span>
+                <span className="badge-amber">{t("survey.unverified")}</span>
               )}
               {fulfilled && (
                 <span className="badge-green ml-2 text-green-800">
@@ -312,14 +310,27 @@ function RequestCard({
         </div>
       )}
       <div id={choicesId}>
-        {/* Assign each course choice to a tutor independently (workload shown in the dropdown). */}
-        {!collapsed && tutee.unverified && (
-          <div className="muted mt-3 space-y-2 border-t border-slate-100 pt-3">
+        {!collapsed && (
+          <div className="mt-3 ml-[3.25rem] flex flex-wrap items-center gap-x-2 text-sm lg:ml-10">
+            <span>
+              {t("workflow.emailStatus", {
+                status: t(
+                  tutee.unverified
+                    ? "workflow.unverified"
+                    : "workflow.verified",
+                ),
+              })}
+            </span>
             <EmailDetails
               contactOnly
               email={tutee.email}
               name={tutee.englishName}
             />
+          </div>
+        )}
+        {/* Assign each course choice to a tutor independently (workload shown in the dropdown). */}
+        {!collapsed && tutee.unverified && (
+          <div className="muted mt-3 ml-[3.25rem] space-y-2 border-t border-slate-100 pt-3 lg:ml-10">
             <p>
               {t("admin.requests.firstChoice")}:{" "}
               {tutee.firstChoice?.name ?? "—"}
@@ -331,7 +342,7 @@ function RequestCard({
           </div>
         )}
         {!collapsed && !tutee.unverified && (
-          <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+          <div className="mt-3 ml-[3.25rem] space-y-3 border-t border-slate-100 pt-3 lg:ml-10">
             {positions.map((p) => {
               const filled = !!p.course;
               const assignedTo = filled
@@ -340,16 +351,16 @@ function RequestCard({
               const isAssigned = !!assignedTo;
               return (
                 <div key={p.key} className="flex flex-wrap items-center gap-2">
-                  <span className="w-44 text-sm text-slate-700">
-                    {p.label}:{" "}
-                    {filled ? (
-                      <span className="font-medium">{p.course!.name}</span>
-                    ) : (
-                      <span className="text-slate-400">
-                        {t("admin.requests.notProvided")}
+                  {(isAssigned || readOnly || tutee.isInvalid) && (
+                    <span className="min-w-0 text-sm text-slate-700">
+                      {p.label}:{" "}
+                      <span className="font-medium">
+                        {filled
+                          ? p.course!.name
+                          : t("admin.requests.notProvided")}
                       </span>
-                    )}
-                  </span>
+                    </span>
+                  )}
                   {isAssigned ? (
                     <span className="badge-green">
                       {t("admin.requests.assignedTo", { name: assignedTo })}
@@ -363,6 +374,31 @@ function RequestCard({
                   ) : (
                     <>
                       <QualifiedTutorSelect
+                        leading={
+                          <span className="min-w-0 text-sm text-slate-700">
+                            {p.label}:{" "}
+                            <span className="font-medium">
+                              {filled
+                                ? p.course!.name
+                                : t("admin.requests.notProvided")}
+                            </span>
+                          </span>
+                        }
+                        actions={
+                          <button
+                            className="btn-primary min-h-11 lg:min-h-10"
+                            disabled={
+                              !filled ||
+                              !picks[p.course!.name] ||
+                              assign.isPending
+                            }
+                            onClick={() => setConfirmCourse(p.course)}
+                          >
+                            {assign.isPending
+                              ? t("admin.requests.assigning")
+                              : t("admin.requests.assign")}
+                          </button>
+                        }
                         label={t("admin.requests.assignToTutor")}
                         disabled={!filled}
                         subjectId={p.course?.id ?? ""}
@@ -378,17 +414,6 @@ function RequestCard({
                         tutors={activeTutors}
                         optionLabel={tutorLabel}
                       />
-                      <button
-                        className="btn-primary min-h-11 self-end lg:min-h-10"
-                        disabled={
-                          !filled || !picks[p.course!.name] || assign.isPending
-                        }
-                        onClick={() => setConfirmCourse(p.course)}
-                      >
-                        {assign.isPending
-                          ? t("admin.requests.assigning")
-                          : t("admin.requests.assign")}
-                      </button>
                     </>
                   )}
                 </div>
@@ -412,6 +437,8 @@ export default function RequestsPage() {
   const t = useTranslations();
   const utils = api.useUtils();
   const readOnly = useReadOnly();
+  const [observerInvalidity, setObserverInvalidity] =
+    useState<InvalidityFilterValue>("valid");
   const tutees = api.admin.tutees.useQuery();
   const managed = api.studentWorkflow.adminRequests.useQuery(undefined, {
     enabled: !readOnly,
@@ -558,20 +585,30 @@ export default function RequestsPage() {
         />
       ) : (
         <div className="space-y-3">
+          <InvalidityFilter
+            value={observerInvalidity}
+            onChange={setObserverInvalidity}
+          />
           {hasPeriod &&
-            display.map((t2, i) => (
-              <RequestCard
-                key={t2.id}
-                tutee={t2}
-                order={i + 1}
-                tutors={[]}
-                workload={workload}
-                assigned={assignedByTutee.get(t2.id) ?? new Map()}
-                fulfilled={isFulfilled(t2)}
-                onChanged={invalidate}
-                onFulfilled={onFulfilled}
-              />
-            ))}
+            display
+              .filter(
+                (row) =>
+                  observerInvalidity === "all" ||
+                  !!row.isInvalid === (observerInvalidity === "invalid"),
+              )
+              .map((t2, i) => (
+                <RequestCard
+                  key={t2.id}
+                  tutee={t2}
+                  order={i + 1}
+                  tutors={[]}
+                  workload={workload}
+                  assigned={assignedByTutee.get(t2.id) ?? new Map()}
+                  fulfilled={isFulfilled(t2)}
+                  onChanged={invalidate}
+                  onFulfilled={onFulfilled}
+                />
+              ))}
         </div>
       )}
     </div>

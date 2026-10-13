@@ -79,6 +79,58 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+it("highlights immutable before/after differences with textual markers and preserves exact original values", () => {
+  const evidence = {
+    before: { enabled: false, count: 0, missingLater: "Original exact value" },
+    after: { enabled: true, count: 0, added: null },
+  };
+  const original = structuredClone(evidence);
+  mocks.query.mockReturnValue(result({ ...event, details: evidence }));
+  render(<AuditEventDetails id="event-1" />, { wrapper });
+  const before = within(screen.getByRole("region", { name: "Before" }));
+  const after = within(screen.getByRole("region", { name: "After" }));
+  expect(before.getByText("Original exact value")).toBeTruthy();
+  expect(before.getByText("Removed")).toBeTruthy();
+  expect(after.getByText("Added")).toBeTruthy();
+  expect(before.getByText("Changed")).toBeTruthy();
+  expect(after.getByText("Changed")).toBeTruthy();
+  expect(evidence).toEqual(original);
+});
+
+it("highlights canonical nested changes while retaining entity/write/count context and immutable originals", () => {
+  const details = {
+    entity: "TutorMeeting",
+    write: "updateMany",
+    affectedCount: 1,
+    changes: [
+      {
+        before: {
+          status: "PRESENT",
+          preserved: "Original recorded context",
+          undoData: "private implementation",
+        },
+        after: {
+          status: "EXCUSED_ABSENT",
+          preserved: "Original recorded context",
+          reason: "Recorded long reason\nsecond line",
+        },
+      },
+    ],
+  };
+  const original = structuredClone(details);
+  mocks.query.mockReturnValue(result({ ...event, details }));
+  render(<AuditEventDetails id="event-1" />, { wrapper });
+  expect(screen.getByText("TutorMeeting")).toBeTruthy();
+  expect(screen.getByText("updateMany")).toBeTruthy();
+  expect(screen.getByText("affectedCount")).toBeTruthy();
+  expect(screen.getByText("PRESENT")).toBeTruthy();
+  expect(screen.getByText("EXCUSED_ABSENT")).toBeTruthy();
+  expect(screen.getAllByText("Changed")).toHaveLength(2);
+  expect(screen.getByText("Added")).toBeTruthy();
+  expect(screen.queryByText("private implementation")).toBeNull();
+  expect(details).toEqual(original);
+});
+
 it("loads only when details open, refreshes on reopening and returns keyboard focus", () => {
   render(
     <TableDetails title="Recorded change">
@@ -221,7 +273,9 @@ it("preserves unknown nested evidence, multiline long text, lists and deep fallb
   );
   render(<AuditEventDetails id="event-1" />, { wrapper });
   expect(screen.getByText(long.trim())).toBeTruthy();
-  expect(screen.getByText("First Second").textContent).toBe("First\nSecond");
+  expect(screen.getByText("First Second").textContent).toContain(
+    "First\nSecond",
+  );
   expect(screen.getByText("True")).toBeTruthy();
   expect(screen.getByText(/deep recorded value/).tagName).toBe("PRE");
   expect(screen.queryByText(/private-undo/)).toBeNull();

@@ -116,7 +116,10 @@
     "qualifiedOnly": "Your qualified subjects",
     "choiceHelp": "Choose what you would like to tutor right now.",
     "scheduleSeparate": "Your timetable is arranged separately.",
-    "savesAutomatically": "Changes save automatically"
+    "savesAutomatically": "Changes save automatically",
+    "edit": "세부 정보 편집",
+    "editTitle": "{tutor} · {subject}",
+    "refreshFailed": "변경 사항이 저장되었습니다. 다음 변경 전에 과목 기록을 새로 고침하세요."
   },
   "messaging": {
     "privacyTitle": "Private Deliveries, with Staff Oversight",
@@ -1013,7 +1016,12 @@
       "colTutees": "학생",
       "colSH": "봉사 시간",
       "empty": "이 필터에 해당하는 제출이 없습니다.",
-      "monthLabel": "월"
+      "monthLabel": "월",
+      "actualTime": "기록된 시간",
+      "duration": "{minutes}분",
+      "hourFactor": "계수: {factor}",
+      "selfEvaluation": "자기 평가",
+      "comments": "의견"
     },
     "meetings": {
       "title": "튜터 회의",
@@ -1620,7 +1628,19 @@
         "WARNED": "경고됨",
         "PENALIZED": "차감됨",
         "ESCALATED": "상신됨"
-      }
+      },
+      "filterLabel": "출석 검토 상태",
+      "states": {
+        "PENDING": "검토 대기",
+        "DISMISSED": "기각됨",
+        "WARNED": "경고됨",
+        "PENALIZED": "시간 차감됨",
+        "ESCALATED": "상위 검토로 이관됨",
+        "ALL": "모든 상태"
+      },
+      "resolved": "검토자: {name} · {date}",
+      "queued": "승인을 위해 결정을 제출했습니다",
+      "refreshFailed": "결정이 저장되었습니다. 최신 검토 상태를 보려면 기록을 새로 고침하세요."
     },
     "landing": {
       "title": "홈페이지",
@@ -2867,7 +2887,8 @@
     "sourceHelp": "출처는 신청 입력 방식을 나타내며 승인, 우선순위, 참여 규칙을 바꾸지 않습니다. 이전 신청은 원래 입력 출처를 확인할 수 없는 기록입니다.",
     "boardGuide": "신청 분류 방식",
     "sourceGuide": "등록 경로와 계정 연결",
-    "policyRefresh": "새로고침"
+    "policyRefresh": "새로고침",
+    "emailStatus": "이메일: {status}"
   },
   "approvals": {
     "reviewPermissions": "일반 관리 요청은 Admin과 Head가 검토합니다. 역할 및 배지 변경은 Head만 검토할 수 있습니다. Head는 자신의 요청도 검토할 수 있으며, 다른 사용자는 별도의 권한 있는 검토자가 필요합니다.",
@@ -3318,7 +3339,12 @@
     "accessDeniedHelp": "현재 세션에서 더 이상 이 세부 정보에 접근할 수 없습니다. 캐시된 증거는 숨겨집니다.",
     "loadFailed": "이벤트 세부 정보를 불러올 수 없습니다",
     "refreshFailed": "이벤트 세부 정보를 새로 고칠 수 없습니다. 마지막으로 불러온 증거가 계속 표시됩니다.",
-    "retry": "다시 시도"
+    "retry": "다시 시도",
+    "difference": {
+      "added": "추가됨",
+      "removed": "삭제됨",
+      "changed": "변경됨"
+    }
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
@@ -3821,7 +3847,7 @@
     "unknown": "알 수 없음",
     "graduated": "졸업",
     "rosterUnknown": "학년 미상",
-    "rosterNeedsConfirmation": "검토 및 확인 필요",
+    "rosterNeedsConfirmation": "검토 필요",
     "notApplicable": "Not Applicable",
     "reported": "School Grade (1–12)",
     "original": "Original report: {value}",
@@ -3998,7 +4024,7 @@
     "emptyAll": "표시할 학습 파트너 기록이 없습니다.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
-    "reviewNeeded": "Review needed",
+    "reviewNeeded": "검토 필요",
     "linkSaved": "Historical records linked.",
     "failed": "Could not complete this request. Refresh and try again.",
     "HISTORY_ACCOUNT_NOT_READY": "Choose an account with completed setup and a verified email.",
@@ -4509,8 +4535,8 @@
     "filterLabel": "요청 유효성",
     "filter": {
       "all": "모든 항목",
-      "valid": "무효 표시 없음",
-      "invalid": "무효 항목"
+      "valid": "유효한 항목",
+      "invalid": "무효한 항목"
     },
     "flag": "무효로 표시",
     "review": "무효 표시 검토",

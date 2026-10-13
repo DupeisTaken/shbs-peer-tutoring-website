@@ -192,16 +192,16 @@ it("excludes removed rows after refresh, disables pending writes and handles an 
   expect(screen.getByText("No subjects yet.")).toBeTruthy();
 });
 
-it("keeps selections and detail links in the final column without exposing controls in summary fields", () => {
+it("keeps selection first and authorized detail links last without controls in summary values", () => {
   show();
   const row = within(screen.getByRole("table")).getAllByRole("row")[1]!;
   const cells = within(row).getAllByRole("cell");
-  for (const cell of cells.slice(0, -1)) {
+  for (const cell of cells.slice(1, -1)) {
     expect(within(cell).queryByRole("button")).toBeNull();
     expect(within(cell).queryByRole("checkbox")).toBeNull();
   }
   expect(
-    within(cells.at(-1)!).getByRole("checkbox", { name: "Select Algebra" }),
+    within(cells[0]!).getByRole("checkbox", { name: "Select Algebra" }),
   ).toBeTruthy();
   const trigger = within(cells.at(-1)!).getByRole("button", {
     name: "View details: Algebra",

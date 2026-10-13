@@ -53,7 +53,7 @@ export function InvalidityFilter({
   const t = useTranslations("requestInvalidity");
   return (
     <FilterToolbar label={t("filterLabel")}>
-      {(["all", "valid", "invalid"] as const).map((choice) => (
+      {(["valid", "invalid", "all"] as const).map((choice) => (
         <ChoiceButton
           key={choice}
           selected={value === choice}

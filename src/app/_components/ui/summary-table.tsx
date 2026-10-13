@@ -38,14 +38,15 @@ export function SummaryTable({
 
 /** Keep the same text-link treatment and touch area for all row actions. */
 export function TableAction({
+  variant = "standard",
   className = "",
   type = "button",
   ...props
-}: ComponentProps<"button">) {
+}: ComponentProps<"button"> & { variant?: "standard" | "danger" }) {
   return (
     <button
       type={type}
-      className={`table-action-link ${className}`}
+      className={`table-action-link ${variant === "danger" ? "table-action-danger" : ""} ${className}`}
       {...props}
     />
   );

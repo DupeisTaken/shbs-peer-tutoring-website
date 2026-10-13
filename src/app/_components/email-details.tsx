@@ -26,6 +26,8 @@ type EmailDetailsProps = {
   details?: ReactNode;
   academic?: AcademicSummary;
   triggerClassName?: string;
+  /** A named identity may open the same authorized contact reader. */
+  triggerLabel?: ReactNode;
 };
 
 /** Long addresses live in an accessible detail dialog, never in a roster's width calculation. */
@@ -46,7 +48,8 @@ export function EmailDetails(props: EmailDetailsProps) {
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
       >
-        {t(props.showPolicyHistory ? "showDetails" : "showEmail")}
+        {props.triggerLabel ??
+          t(props.showPolicyHistory ? "showDetails" : "showEmail")}
       </button>
       {open && (
         <ProfileDialog
