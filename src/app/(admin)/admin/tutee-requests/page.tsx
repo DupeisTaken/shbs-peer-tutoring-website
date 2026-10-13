@@ -1,4 +1,5 @@
 "use client";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import { ParticipantName } from "~/app/_components/participant-name";
 import { InlineNotice, StatePanel } from "~/app/_components/ui/patterns";
 import { useEffect, useState } from "react";
@@ -8,7 +9,10 @@ import { Button } from "~/app/_components/ui/button";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 
-import { StudentWithdrawals } from "./student-withdrawals";
+import {
+  StudentWithdrawals,
+  type WithdrawalViewReadState,
+} from "./student-withdrawals";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -23,6 +27,9 @@ export default function TuteeRequestsPage() {
   const t = useTranslations();
   const format = useFormatter();
   const readOnly = useReadOnly();
+  const [withdrawalRead, setWithdrawalRead] = useState<WithdrawalViewReadState>(
+    { ready: false, denied: false },
+  );
   const utils = api.useUtils();
   const queryClient = useQueryClient();
   const [denied, setDenied] = useState(false);
@@ -44,6 +51,17 @@ export default function TuteeRequestsPage() {
       });
     } else if (data.isSuccess && !data.isFetching) setDenied(false);
   }, [accessDenied, data.isSuccess, data.isFetching, queryClient]);
+  // The parent owns page scroll once. Staff-only child feeds report readiness
+  // without lending their permissions to this viewer-safe summary.
+  useSessionPageScroll({
+    id: "tutee-requests-v1",
+    ready:
+      data.data !== undefined &&
+      !denied &&
+      !accessDenied &&
+      (readOnly || withdrawalRead.ready),
+    enabled: !denied && !accessDenied && (readOnly || !withdrawalRead.denied),
+  });
   const section = t("admin.tuteeRequests.title");
   const retry = () => {
     void data.refetch();
@@ -116,7 +134,7 @@ export default function TuteeRequestsPage() {
       )}
       {err && <p className="text-sm text-red-600">{err.message}</p>}
 
-      {!readOnly && <StudentWithdrawals />}
+      {!readOnly && <StudentWithdrawals onViewReadState={setWithdrawalRead} />}
 
       {data.data && (
         <>

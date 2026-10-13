@@ -1,5 +1,14 @@
 "use client";
 import {
+  useSessionViewState,
+  useSessionPageScroll,
+  useSessionAccessDenied,
+} from "~/app/_components/session-view-state";
+import {
+  meetingViewParser,
+  type MeetingView,
+} from "~/lib/management-view-state";
+import {
   ParticipantName,
   participantNameLabel,
 } from "~/app/_components/participant-name";
@@ -46,7 +55,27 @@ export default function MeetingsPage() {
   const { confirm, dialog } = useDialog();
   const meetings = api.admin.meetings.useQuery();
   const tutors = api.admin.tutors.useQuery();
-  const [showPast, setShowPast] = useState(false);
+  const denied = useSessionAccessDenied(meetings, tutors);
+  const [view, setView] = useSessionViewState<MeetingView>({
+    id: "meeting-panels-v1",
+    initialState: { showPast: false, showSummary: false },
+    parse: meetingViewParser,
+    enabled: !denied,
+  });
+  const { showPast, showSummary } = view;
+  const setShowPast = (showPast: boolean) =>
+    setView((previous) => ({ ...previous, showPast }));
+  const setShowSummary = (change: (previous: boolean) => boolean) =>
+    setView((previous) => ({
+      ...previous,
+      showSummary: change(previous.showSummary),
+    }));
+  useSessionPageScroll({
+    id: "meetings-v1",
+    scope: JSON.stringify(view),
+    ready: meetings.data !== undefined && tutors.data !== undefined && !denied,
+    enabled: !denied,
+  });
   const invalidate = () => utils.admin.meetings.invalidate();
   const create = api.admin.createMeeting.useMutation({
     onSuccess: async () => {
@@ -74,7 +103,6 @@ export default function MeetingsPage() {
       return next;
     });
   }, []);
-  const [showSummary, setShowSummary] = useState(false);
 
   // Meeting attendance only concerns ACTIVE tutors; the rest show as exempt (X).
   const tutorOpts = (tutors.data ?? []).map((tu) => ({
@@ -85,6 +113,30 @@ export default function MeetingsPage() {
     status: tu.status,
   }));
 
+  // Revoked reads conceal cached records; Retry cannot replay an attendance write.
+  if (denied)
+    return (
+      <div className="space-y-6">
+        <h1 className="page-title">{t("admin.meetings.title")}</h1>
+        <StatePanel
+          kind="denied"
+          title={t("managementRecovery.denied", {
+            section: t("admin.meetings.title"),
+          })}
+          action={
+            <Button
+              disabled={meetings.isFetching || tutors.isFetching}
+              onClick={() => {
+                void meetings.refetch();
+                void tutors.refetch();
+              }}
+            >
+              {t("uiPatterns.retry")}
+            </Button>
+          }
+        />
+      </div>
+    );
   return (
     <div className="space-y-6">
       {dialog}

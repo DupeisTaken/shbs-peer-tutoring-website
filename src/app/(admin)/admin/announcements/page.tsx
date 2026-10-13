@@ -1,4 +1,5 @@
 "use client";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 
 import { useTranslations, useFormatter } from "next-intl";
@@ -220,6 +221,11 @@ export default function AnnouncementsPage() {
     candidates.error?.data?.code === "UNAUTHORIZED";
   const announcementsHidden = denied.announcements || announcementAccessDenied;
   const candidatesHidden = denied.candidates || candidateAccessDenied;
+  useSessionPageScroll({
+    id: "announcements-v1",
+    ready: announcements.data !== undefined && !announcementsHidden,
+    enabled: !announcementsHidden,
+  });
   const revokeReview = review.revoke;
   useEffect(() => {
     if (announcementAccessDenied) {

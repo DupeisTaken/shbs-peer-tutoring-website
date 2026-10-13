@@ -1,4 +1,10 @@
 "use client";
+import {
+  useSessionViewState,
+  useSessionPageScroll,
+} from "~/app/_components/session-view-state";
+import { reportViewParser, type ReportView } from "~/lib/management-view-state";
+import { viewAccessDenied } from "~/lib/session-view-state";
 
 import {
   Children,
@@ -65,10 +71,35 @@ export default function ReportsPage() {
     return [...set].sort((a, b) => b.localeCompare(a));
   }, [periods.data]);
 
-  const [schoolYear, setSchoolYear] = useState<string>("");
-  const [scope, setScope] = useState<Scope>("year");
-  const [depth, setDepth] = useState<Depth>("summary");
-  const [maskPii, setMaskPii] = useState(false);
+  const [view, setView] = useSessionViewState<ReportView>({
+    id: "report-controls-v1",
+    scope: readOnly ? "observer" : "manager",
+    initialState: {
+      schoolYear: "",
+      scope: "year",
+      depth: "summary",
+      maskPii: readOnly,
+    },
+    parse: reportViewParser(
+      years,
+      features?.QUARTER_SYSTEM !== false,
+      readOnly,
+    ),
+    restoreReady: periods.data !== undefined && features !== undefined,
+    enabled:
+      !denied &&
+      !viewAccessDenied(periods.error) &&
+      !viewAccessDenied(featureQuery.error),
+  });
+  const { schoolYear, scope, depth, maskPii } = view;
+  const setSchoolYear = (schoolYear: string) =>
+    setView((previous) => ({ ...previous, schoolYear }));
+  const setScope = (scope: Scope) =>
+    setView((previous) => ({ ...previous, scope }));
+  const setDepth = (depth: Depth) =>
+    setView((previous) => ({ ...previous, depth }));
+  const setMaskPii = (maskPii: boolean) =>
+    setView((previous) => ({ ...previous, maskPii }));
   const activeYear = schoolYear !== "" ? schoolYear : (years[0] ?? "");
 
   const report = api.admin.periodReport.useQuery(
@@ -87,7 +118,7 @@ export default function ReportsPage() {
 
   // Query keys still own scope/depth/masking. A transient read retains that
   // exact report; an authoritative denial conceals and evicts private reports.
-  const accessDenied = [periods.error, report.error].some(
+  const accessDenied = [periods.error, report.error, featureQuery.error].some(
     (error) =>
       error?.data?.code === "FORBIDDEN" || error?.data?.code === "UNAUTHORIZED",
   );
@@ -107,6 +138,8 @@ export default function ReportsPage() {
     } else if (
       periods.isSuccess &&
       !periods.isFetching &&
+      featureQuery.isSuccess &&
+      !featureQuery.isFetching &&
       (!activeYear || (report.isSuccess && !report.isFetching))
     ) {
       setDenied(false);
@@ -114,6 +147,9 @@ export default function ReportsPage() {
   }, [
     accessDenied,
     periods.error,
+    featureQuery.error,
+    featureQuery.isSuccess,
+    featureQuery.isFetching,
     periods.isSuccess,
     periods.isFetching,
     report.isSuccess,
@@ -123,6 +159,8 @@ export default function ReportsPage() {
   ]);
   const section = t("admin.reports.title");
   const retryAccess = async () => {
+    if (featureQuery.error || features === undefined)
+      void featureQuery.refetch();
     if (periods.data === undefined) {
       // Period denial evicts the implicit active year too. Restore that
       // prerequisite first, then let the newly keyed report authorize itself.
@@ -134,6 +172,16 @@ export default function ReportsPage() {
       if (activeYear) void report.refetch();
     }
   };
+  useSessionPageScroll({
+    id: "reports-v1",
+    scope: JSON.stringify({ ...view, schoolYear: activeYear }),
+    ready:
+      report.data !== undefined &&
+      features !== undefined &&
+      !denied &&
+      !accessDenied,
+    enabled: !denied && !accessDenied && !viewAccessDenied(featureQuery.error),
+  });
   const r = features !== undefined ? report.data : undefined;
   const slug = (r?.scope.label ?? activeYear).replace(/[^\w-]+/g, "_");
 
