@@ -112,8 +112,7 @@ export function TutorWorkloadPreference() {
   const blocked =
     denied ||
     deniedNow ||
-    !snapshot?.canEdit ||
-    query.data?.canEdit === false ||
+    !live?.canEdit ||
     !!query.error ||
     committed ||
     refreshing ||

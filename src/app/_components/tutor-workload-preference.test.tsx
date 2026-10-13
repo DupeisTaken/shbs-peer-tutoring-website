@@ -339,6 +339,18 @@ it.each([
           /saved preference or participation state changed/,
         ),
       ).toBeTruthy();
+      if (!canEdit) {
+        // Fresh authority can also restore editing without replacing the draft
+        // or silently adopting the server's newer preference version.
+        await act(async () => {
+          state.client!.setQueryData(
+            ["preference"],
+            snapshot({ preferredMaximum: 0, version: 1, canEdit: true }),
+          );
+        });
+        await waitFor(() => expect(select().disabled).toBe(false));
+        expect(select().value).toBe("4");
+      }
       if (canEdit) {
         // A new read must not silently adopt version1; an explicit Reload does.
         state.save.mockRejectedValueOnce(
