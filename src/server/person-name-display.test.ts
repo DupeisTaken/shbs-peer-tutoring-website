@@ -293,7 +293,7 @@ it("preserves accents and Unicode alternate names in the shared validator", () =
 });
 
 it.each([false, true])(
-  "preserves legacy tutee identity during notes-only edits (linked=%s)",
+  "preserves legacy tutee identity when blank editor parts accompany notes (linked=%s)",
   async (linked) => {
     const row = await db.tutee.create({
       data: { englishName: "张小明", status: "INACTIVE" },
@@ -310,6 +310,9 @@ it.each([false, true])(
       id: row.id,
       expectedUpdatedAt: row.updatedAt,
       englishName: row.englishName,
+      firstName: "",
+      lastName: "",
+      preferredName: "",
       status: "INACTIVE",
       notes: "Corrected notes",
     });
@@ -379,14 +382,17 @@ it.each([
     ).toMatchObject({ englishName: "王小明", firstName: null });
   },
 );
-it("retains unsplit legacy identity when an unchanged empty first-name field is posted", async () => {
+it.each([false, true])("retains unsplit legacy tutor identity when unchanged blank fields are posted (linked=%s)", async (linked) => {
   const row = await db.tutor.create({
     data: { englishName: "王小明", status: "ARCHIVED" },
   });
+  if (linked) await db.user.create({ data: { name: "王小明", email: "legacy@example.test", tutorId: row.id } });
   await caller().admin.updateTutor({
     id: row.id,
     status: "ARCHIVED",
     firstName: "",
+    lastName: "",
+    preferredName: "",
   });
   expect(
     await db.tutor.findUniqueOrThrow({ where: { id: row.id } }),

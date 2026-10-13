@@ -159,6 +159,25 @@ beforeEach(() => {
   });
   mock.personal.mockReturnValue({ data: undefined });
 });
+it.each(["en", "zh"] as const)(
+  "labels an unnamed current participant without mounting private reads (%s)",
+  (locale) => {
+    const record = row({ englishName: "  " });
+    render(<Harness record={record} readOnly locale={locale} />);
+    open(locale);
+    expect(screen.getByText("learner", { exact: true })).toBeTruthy();
+    expect(mock.staff).not.toHaveBeenCalled();
+    expect(mock.emailMounted).not.toHaveBeenCalled();
+    expect(record.englishName).toBe("  ");
+  },
+);
+it("uses the translated missing-name label for an accountless participant", () => {
+  const record = row({ englishName: "", user: null, owner: null });
+  render(<Harness record={record} readOnly locale="zh" />);
+  open("zh");
+  expect(screen.getByText(zh.participantNames.unnamed)).toBeTruthy();
+  expect(record.englishName).toBe("");
+});
 afterEach(cleanup);
 
 it.each(["en", "zh"] as const)(

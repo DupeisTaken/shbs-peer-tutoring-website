@@ -2,6 +2,7 @@
 import { useId, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
+import { participantNameLabel } from "./participant-name";
 import {
   AssignmentWorkloadAdvice,
   AssignmentWorkloadFeedback,
@@ -44,6 +45,7 @@ export function QualifiedTutorSelect({
   const t = useTranslations("assignmentQualification");
   const workloadText = useTranslations("tutorWorkload");
   const workloads = useAssignmentWorkloads();
+  const names = useTranslations("participantNames");
   const helpId = useId();
   const workloadId = useId();
   const tutorLabel = (tutor: QualificationOption) => {
@@ -62,13 +64,20 @@ export function QualifiedTutorSelect({
       workload && !workloads.error && !workloads.isFetching
         ? ` · ${workload.preferredMaximum === null ? workloadText("unset") : workloadText("savedPreference", { count: workload.preferredMaximum })}`
         : "";
-    return `${optionLabel?.(tutor.id) ?? tutor.englishName} — ${count}${preference}`;
+    return `${optionName(tutor)} — ${count}${preference}`;
   };
   const grants = api.admin.subjectEligibility.useQuery();
   const subjects = api.admin.subjects.useQuery();
   const subject = subjects.data?.find((item) => item.id === subjectId);
   const unavailable = !subject?.active || subject.level?.active === false;
   const groups = groupAssignmentTutors(tutors, subjectId, grants.data ?? []);
+  // Keep caller-owned workload decorations, but never leave a native option unnamed.
+  const displayName = (tutor: QualificationOption) =>
+    participantNameLabel(tutor.englishName, tutor.username, names("unnamed"));
+  const optionName = (tutor: QualificationOption) => {
+    const supplied = optionLabel?.(tutor.id);
+    return supplied?.trim() ? supplied : displayName(tutor);
+  };
   return (
     // Explicit rows support wrapped labels without language-dependent offsets.
     <div

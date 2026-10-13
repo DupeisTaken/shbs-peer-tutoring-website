@@ -49,7 +49,7 @@ import {
 } from "~/server/student-survey";
 import { currentPolicy } from "~/server/policy-acceptance";
 import { lockAccountProfile } from "~/server/account-profile";
-import * as accountProfile from "~/server/account-profile";
+import * as usernameLocks from "~/server/auth/username";
 import { createCaller } from "~/server/api/root";
 import { setApplicationInvalidity, setStudentRequestInvalidity } from "~/server/request-invalidity";
 import * as transactions from "~/server/transactions";
@@ -1725,20 +1725,27 @@ it("rechecks credentials after waiting on the account lock", async () => {
   const attempted = new Promise<void>((resolve) => {
     waiting = resolve;
   });
-  const originalLock = accountProfile.lockAccountProfile;
+  const originalLock = usernameLocks.lockUsernameNamespace;
   const lockSpy = vi
-    .spyOn(accountProfile, "lockAccountProfile")
-    .mockImplementation(async (tx, id) => {
+    .spyOn(usernameLocks, "lockUsernameNamespace")
+    .mockImplementation(async (tx) => {
       waiting();
-      return originalLock(tx, id);
+      return originalLock(tx);
     });
   const signing = consumeInvitationLogin(invite.invitationId, invite.proof);
   try {
-    // The sign-in has read the old candidate and reached its lock while rotation owns it.
+    // Rotation owns namespace→account→User. Sign-in must wait at the first
+    // boundary and reread current credential generation before issuing a login.
     await attempted;
     release();
     await rotation;
     await expect(signing).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(
+      (await db.accountInvitation.findUniqueOrThrow({ where: { id: invite.invitationId } })).loginUsedAt,
+    ).toBeNull();
+    const rotated = await db.user.findUniqueOrThrow({ where: { id: account.id } });
+    expect(rotated.passwordHash).not.toBe(account.passwordHash);
+    expect(rotated.sessionVersion).toBeGreaterThan(account.sessionVersion);
   } finally {
     release();
     lockSpy.mockRestore();
