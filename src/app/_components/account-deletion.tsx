@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
@@ -47,7 +47,10 @@ export function AccountDeletion({
   );
   const selectedId = target?.id;
   const currentTarget = useRef(selectedId);
-  currentTarget.current = selectedId;
+  // A late read belongs to the committed dialog target, never an abandoned render.
+  useLayoutEffect(() => {
+    currentTarget.current = selectedId;
+  }, [selectedId]);
   const query = api.admin.previewDeleteUser.useQuery(
     { userId: selectedId ?? "" },
     {
@@ -164,9 +167,11 @@ export function AccountDeletion({
     const result = await query.refetch();
     if (
       !admission.current &&
+      selectedId &&
       currentTarget.current === selectedId &&
       !result.error &&
-      result.data?.target.id === selectedId
+      result.data &&
+      result.data.target.id === selectedId
     ) {
       setAccessDenied(false);
       setSnapshot(result.data);

@@ -1,7 +1,10 @@
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
+import type { EmailMessage } from "./email/sender";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
-const mail375 = vi.hoisted(() => ({ send: vi.fn() }));
+const mail375 = vi.hoisted(() => ({
+  send: vi.fn<(message: EmailMessage) => Promise<void>>(),
+}));
 vi.mock("~/server/email/sender", () => ({
   emailSender: { send: mail375.send },
   isEmailDeliveryAvailable: () => true,
@@ -193,7 +196,7 @@ it("invalidates an already verified invitation proof and login exchange when the
     db,
     headId,
     "retire190@example.test",
-    () => mail375.send.mock.calls.at(-1)![0].presentation.code as string,
+    () => mail375.send.mock.calls.at(-1)![0].presentation!.code!,
   );
   expect(await inspectAccountInvitation(db, invitation)).toBeTruthy();
   await combine();

@@ -1,7 +1,7 @@
 "use client";
 import { ParticipantName } from "./participant-name";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { Button } from "./ui/button";
@@ -41,11 +41,18 @@ export function CombineAccounts({
   const admission = useRef(false);
   const [admitted, setAdmitted] = useState(false);
   const generation = useRef(0);
-  const visibleIds = new Set(
-    visibleAccounts.flatMap((row) => (row.userId ? [row.userId] : [])),
+  const visibleIds = useMemo(
+    () =>
+      new Set(
+        visibleAccounts.flatMap((row) => (row.userId ? [row.userId] : [])),
+      ),
+    [visibleAccounts],
   );
   const latestVisibleIds = useRef(visibleIds);
-  latestVisibleIds.current = visibleIds;
+  // Only committed directory rows may authorize a delayed preview response.
+  useLayoutEffect(() => {
+    latestVisibleIds.current = visibleIds;
+  }, [visibleIds]);
   const candidates = api.accountCombine.candidates.useQuery(undefined, {
     enabled: open,
   });

@@ -27,7 +27,14 @@ const state = vi.hoisted(() => ({
   fetching: false,
   refetch: vi.fn(),
   refresh: vi.fn(),
-  mutate: vi.fn(),
+  mutate:
+    vi.fn<
+      (input: {
+        userId: string;
+        fingerprint: string;
+        confirmPassword: string;
+      }) => void
+    >(),
   close: vi.fn(),
   recovery: vi.fn(),
   options: vi.fn(),
@@ -154,7 +161,6 @@ it("reads a fresh review on every opening and restores the exact opener on idle 
   expect(
     screen.getByRole<HTMLButtonElement>("button", {
       name: "Delete",
-      exact: true,
     }).disabled,
   ).toBe(true);
   fireEvent(
@@ -234,7 +240,6 @@ it("requires explicit review reload after conflict and keeps cached consequences
   expect(
     screen.getByRole<HTMLButtonElement>("button", {
       name: "Delete",
-      exact: true,
     }).disabled,
   ).toBe(true);
   state.error = { message: "Network unavailable" };

@@ -1,8 +1,11 @@
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
+import type { EmailMessage } from "./email/sender";
 import { createHash } from "node:crypto";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
-const mail = vi.hoisted(() => ({ send: vi.fn() }));
+const mail = vi.hoisted(() => ({
+  send: vi.fn<(message: EmailMessage) => Promise<void>>(),
+}));
 vi.mock("~/server/email/sender", () => ({
   emailSender: { send: mail.send },
   isEmailDeliveryAvailable: () => true,
@@ -182,7 +185,7 @@ it("rejects the previously verified invitation proof and login exchange after de
     db,
     headId,
     "casey375@example.test",
-    () => mail.send.mock.calls.at(-1)![0].presentation.code as string,
+    () => mail.send.mock.calls.at(-1)![0].presentation!.code!,
   );
   expect(await inspectAccountInvitation(db, invitation)).toBeTruthy();
   await caller().admin.deleteUser(await input());

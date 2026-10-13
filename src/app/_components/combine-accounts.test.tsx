@@ -12,7 +12,7 @@ import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
 import { CombineAccounts } from "./combine-accounts";
 const fixture = vi.hoisted(() => ({
-  fetch: vi.fn(),
+  fetch: vi.fn<() => Promise<unknown>>(),
   mutate: vi.fn(),
   refetch: vi.fn(),
   data: undefined as
