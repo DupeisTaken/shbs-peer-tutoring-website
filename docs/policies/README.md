@@ -2,7 +2,7 @@
 
 [Documentation hub](../README.md) · [User guide](../user-guide.md) · [Technical report](../technical-report.md#policy-documents-and-translations)
 
-The bundled English and Chinese documents are **policy review drafts**, not approved school policies. Revision 2026.10.02 preserves the legacy tutor I–VIII and tutee I–IV structure while incorporating current website workflows. The [revision review](revision-notes.md) identifies retained expectations, changed rules, legacy sources and printable PDF export instructions. Adapt the drafts to enabled modules and school requirements, supply contact details and an effective date, and approve both languages before publication. Their source revision is defined by `POLICY_VERSION` in [the catalog](../../prisma/policies.ts).
+The bundled English and Chinese documents are **policy review drafts**, not approved school policies. Revision 2026.10.14 preserves the legacy tutor I–VIII and tutee I–IV structure while incorporating current website workflows. The [revision review](revision-notes.md) identifies retained expectations, changed rules, legacy sources and printable PDF export instructions. Adapt the drafts to enabled modules and school requirements, supply contact details and an effective date, and approve both languages before publication. Their source revision is defined by `POLICY_VERSION` in [the catalog](../../prisma/policies.ts).
 
 | Audience | English | 中文 |
 | --- | --- | --- |
@@ -27,6 +27,8 @@ Published changes trigger a dismissible popup on the participant's next visit or
 Staff review acceptance evidence in **Users & Roles → User details → Policy acceptance history**, including accounts with missing contact email. Current acceptance status is separate from the immutable historical text. Expand a record to read its original title/version, signature and acceptance time, then its recorded language copies. The history belongs to the selected account ID. Publication remains in Policy Documents.
 
 Repository edits do **not** publish to an existing database or deploy the website. The development seed loads the four current EN/ZH sources; on an older development database it updates those rows without deleting other pre-existing translations. Rebuild a disposable development database or remove obsolete translations through the editor before testing fallback.
+
+The 2026.10.14 review draft aligns confirmation wording with the action-specific two-/three-second reviews and five-second policy consent. Existing published database content and historical acceptance snapshots are not rewritten by this source change; use the normal reviewed publication process for a live revision.
 
 ## Maintain a revision
 
