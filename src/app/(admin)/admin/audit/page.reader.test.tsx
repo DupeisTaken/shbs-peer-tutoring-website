@@ -20,11 +20,26 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("~/app/_components/audit-filters", () => ({
   AuditFilters: () => null,
+  // The page restores its own filter state even when this reader test hides the form.
+  emptyAuditView: {
+    userId: "",
+    kind: "",
+    operation: "",
+    entity: "",
+    search: "",
+    from: "",
+    until: "",
+  },
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({ admin: { auditLog: { invalidate: vi.fn() } } }),
     admin: {
+      auditFilterOptions: {
+        useQuery: () => ({
+          data: { users: [], operations: [], entities: [] },
+        }),
+      },
       auditLog: {
         useQuery: () => ({
           data: [
