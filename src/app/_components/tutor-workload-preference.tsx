@@ -47,6 +47,9 @@ export function TutorWorkloadPreference() {
   }, [client, denied, deniedNow]);
   useEffect(() => {
     if (!query.data || denied || deniedNow || committed || refreshing) return;
+    // The snapshot state update must not schedule a second adoption of the same
+    // response: a quick edit between those effects still owns its new draft.
+    if (query.data === snapshot) return;
     // Inactivity authoritatively resets this setting. Never revive its old active
     // draft on return; independent profile/academic forms remain untouched.
     if (query.data.status !== "ACTIVE" || !snapshot || !dirty)
