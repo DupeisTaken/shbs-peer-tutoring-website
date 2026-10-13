@@ -6,7 +6,12 @@ import { ProfileDialog } from "./profile-dialog";
 import { useDialogPending } from "./ui/modal";
 import { Button } from "./ui/button";
 import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
-import { SummaryTable, TableAction, TableActions } from "./ui/summary-table";
+import {
+  SummaryTable,
+  TableAction,
+  TableActions,
+  TableDetails,
+} from "./ui/summary-table";
 import { useActionReview } from "./ui/action-review";
 import { queuedApprovalId } from "~/lib/approval-outcome";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
@@ -116,8 +121,23 @@ export function ProgramCalendarSettings() {
               .map((day) => (
                 <tr key={day.date}>
                   <td className="whitespace-nowrap tabular-nums">{day.date}</td>
-                  <td className="max-w-sm break-words">{day.reason}</td>
+                  <td className="max-w-sm break-words">
+                    {/* A brief preview keeps the summary compact; full source remains in Details/edit. */}
+                    <p className="line-clamp-2">
+                      {day.reason.length > 80
+                        ? `${day.reason.slice(0, 80)}…`
+                        : day.reason}
+                    </p>
+                  </td>
                   <TableActions>
+                    <TableDetails
+                      title={`${t("title")} · ${day.date}`}
+                      label={t("details")}
+                    >
+                      <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
+                        {day.reason}
+                      </p>
+                    </TableDetails>
                     {data.canEdit && (
                       <>
                         <TableAction

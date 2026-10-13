@@ -148,6 +148,33 @@ it("recalls validated detail filters without storing pairing or unavailable-reas
   expect(saved).not.toContain("Recorded Tutor");
   expect(saved).not.toContain("Math");
 });
+it("does not append an empty outside-catalog separator to a matched recorded schedule", () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <RoomGrid
+        rooms={rooms}
+        slots={slots}
+        blocks={[]}
+        pairings={[
+          {
+            ...pairings[0]!,
+            scheduleConfirmed: true,
+            dayOfWeek: 1,
+            startMin: 930,
+            endMin: 990,
+          },
+        ]}
+      />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: en.roomSchedule.allDetails }),
+  );
+  const detail = within(screen.getByRole("dialog")).getByText(
+    /101 · Mon 15:30–16:30/,
+  );
+  expect(detail.textContent?.trim()).toBe("101 · Mon 15:30–16:30");
+});
 it("uses an account username or localized unlinked-name fallback in active detail rows", () => {
   render(
     <NextIntlClientProvider locale="en" messages={en}>

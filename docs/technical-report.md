@@ -603,6 +603,10 @@ what is currently implemented until their migrations and verification are comple
   authorized recurring data. Individual grids use time rows and weekday columns;
   occupied gray cells and unavailable crosses need accessible status text and a
   legend. Detail filtering by day, slot and room does not create assignments.
+  Participant availability headings, accessible group names and schedule-review
+  summaries use the active locale through `formatWeekday`. Its fixed UTC/ISO
+  reference localizes presentation without changing weekday indices, slot IDs,
+  minute values, availability saves or confirmation-ticket request targets.
 - **Flag history:** state filters must query the authorized server dataset; a
   client-only filter cannot reconstruct resolved entries from a pending-only read.
   Preserve pending-only decision guards, immutable resolution evidence and the
@@ -615,6 +619,11 @@ what is currently implemented until their migrations and verification are comple
   and scroll offsets, not domain drafts, record evidence or authority. Clear or
   ignore state across identity/access changes. Restoration waits for the relevant
   content layout and respects explicit navigation and the user's own scrolling.
+  Static Requests panel/filter enums remain interactive while content loads;
+  dynamic catalog parsers retain their readiness gate. An accepted early live
+  choice has transient provenance for its exact identity/path/scope key and wins
+  an older saved/default view after verification. Key changes, denial or catalog
+  invalidation discard that provenance; storage writes still require verification.
 
 These are feature contracts, not a general form engine or permission registry.
 Add shared layout helpers only where real callers have the same alignment and
@@ -766,8 +775,12 @@ Audit events identify actors by stable account ID and current role. The default 
 `admin.auditLogDetail` is an on-demand, live-staff-authorized projection of one
 stored event. It selects recorded metadata, evidence and undo status/time, excluding
 executable `undoData`; it never joins current actors or targets to reconstruct
-history. The audit page mounts `AuditEventDetails` inside `TableDetails` only for
-staff, refreshing on each opening. Observers keep the existing projected summary
+history. The audit page mounts `AuditEventDetails` inside `TableDetails longReader`
+only for staff, refreshing on each opening. Full evidence can extend beyond the
+viewport; the shared reader keeps its Close header reachable while scrolling the
+recorded comparison or expanded stored JSON. Close and Escape restore the selected
+row's opener without altering evidence or invoking Undo. Observers keep the compact,
+existing projected summary
 and cannot call the detail endpoint. The feature renders stored before/after and
 nested evidence with exact field names, an explicit no-evidence state, precise
 local/UTC times and read-only retry. It changes neither writer coverage nor old

@@ -183,7 +183,7 @@
       "UNRESTRICT": "Access restored"
     },
     "rolePermissions": "Permissions by Role",
-    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "permissionHelp": "選択したグループはメッセージを受信できます。ユーザー個別設定は役割の方針を置き換えます。グループ未選択では新規送信できません。すべての利用可能なアカウントには、自分、停止中、メッセージ制限中のアカウントは含まれません。過去の指導関係は保存済みの割り当てや出席記録に基づき、記録のない割り当ては復元できません。",
     "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
@@ -598,7 +598,7 @@
         "activity": "活動と申請",
         "history": "プログラム履歴",
         "announcements": "お知らせ",
-        "program": "プログラムとリフレッシュ",
+        "program": "プログラム設定",
         "tutorRoster": "チューター名簿",
         "tutorApplications": "チューター応募",
         "tutorRequests": "チューター状態申請",
@@ -789,7 +789,7 @@
     },
     "program": {
       "title": "プログラム設定",
-      "subtitle": "現在の期間と、プログラムを次の四半期に進める定期リフレッシュ。",
+      "subtitle": "募集、アカウント設定、デプロイ設定、任意機能を管理します。",
       "loading": "読み込み中…",
       "noPeriod": "有効なプログラム期間がありません。まずシードを実行するか、新規作成してください。",
       "currentPeriod": "現在の期間",
@@ -1930,7 +1930,7 @@
       "title": "今後の会議",
       "help": "会議に出られませんか？開始 60 分前まで欠席を申告できます。",
       "excuseBtn": "欠席を申告",
-      "submitExcuse": "送信",
+      "submitExcuse": "欠席理由を送信",
       "cancelExcuse": "申告を取り消す",
       "reasonPlaceholder": "理由（任意）",
       "excused": "この欠席を申告しました。",
@@ -4610,7 +4610,8 @@
     "saving": "保存中…",
     "saved": "お知らせを保存しました。",
     "saveFailed": "お知らせを保存できませんでした。",
-    "refreshFailed": "お知らせを保存しましたが、最新の一覧を読み込めませんでした。再保存せずに更新して同期してください。"
+    "refreshFailed": "お知らせを保存しましたが、最新の一覧を読み込めませんでした。再保存せずに更新して同期してください。",
+    "details": "詳細を見る"
   },
   "roomOrder": {
     "title": "教室の表示順",
@@ -4628,7 +4629,8 @@
     "refresh": "更新",
     "loadFailed": "最新の教室順序を読み込めませんでした。下書きは保持されています。",
     "refreshFailed": "順序を保存しましたが、同期できませんでした。更新すると再送信せずに保存済みの順序を読み込みます。",
-    "request": "教室の表示順変更を申請"
+    "request": "教室の表示順変更を申請",
+    "open": "教室の順序を変更"
   },
   "roomSchedule": {
     "rooms": "表示する教室",
@@ -4637,7 +4639,7 @@
     "allDetails": "時間割の詳細",
     "occupied": "使用中",
     "noSlot": "—",
-    "legend": "灰色＝使用中 · ×＝利用不可 · 利用可能＝公開された時間帯に割り当てなし。詳細には閲覧権限のあるすべての記録が含まれます。",
+    "legend": "灰色 = 使用中 · × = 使用不可 · 利用可能 = 公開済みの時間枠に割り当てなし。",
     "combined": "統合表示",
     "individual": "教室別の時間割",
     "noSelection": "教室が選択されていません。教室を選ぶか、すべての教室を選択してください。",
@@ -4669,7 +4671,8 @@
     "save": "要件を保存",
     "saving": "保存中…",
     "saved": "氏名の要件を保存しました。",
-    "refreshFailed": "要件を保存しましたが、同期できませんでした。更新すると再保存せずに保存済みのルールを読み込みます。"
+    "refreshFailed": "要件を保存しましたが、同期できませんでした。更新すると再保存せずに保存済みのルールを読み込みます。",
+    "hiddenProfileHelp": "ここではユーザー名を表示します。保存済みの氏名は保持され、権限のあるスタッフが確認できます。"
   },
   "participantNames": {
     "unnamed": "氏名未入力"

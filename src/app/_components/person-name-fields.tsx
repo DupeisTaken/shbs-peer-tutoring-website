@@ -1,17 +1,18 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import { FieldRequirement } from "./field-requirement";
 import { preservesLegacyName, type PersonNameDraft } from "~/lib/person-name";
 import { isLatinPrimaryName } from "~/lib/profile-policy";
 import {
   DEFAULT_NAME_FIELDS,
+  hasVisibleNameFields,
   type NameFieldStates,
   type NameAccountType,
 } from "~/lib/name-field-policy";
 import { api } from "~/trpc/react";
-import { StatePanel } from "./ui/patterns";
+import { InlineNotice, StatePanel } from "./ui/patterns";
 import { Button } from "./ui/button";
 
 /** One accessible layout for intake and profile editing; legacy names are shown without guessing a split. */
@@ -142,6 +143,25 @@ export function PersonNameFields({
   );
 }
 
+/** Unknown policy stays non-editable; cached visibility is retained through read recovery. */
+export function useNameFieldPresentation() {
+  const [ready, setReady] = useState(false);
+  const [states, setStates] = useState<NameFieldStates>();
+  const observe = useCallback((available: boolean, known?: NameFieldStates) => {
+    setReady(available);
+    if (known)
+      setStates((previous) =>
+        JSON.stringify(previous) === JSON.stringify(known) ? previous : known,
+      );
+  }, []);
+  return {
+    ready,
+    hasFields: !!states && hasVisibleNameFields(states),
+    hasLatinFields: !!states && hasVisibleNameFields(states, true),
+    observe,
+  };
+}
+
 /** Intake chooses its registration type; a shared profile resolves its current owner's role on the server. */
 export function ConfiguredPersonNameFields({
   accountType,
@@ -156,7 +176,10 @@ export function ConfiguredPersonNameFields({
   accountType?: NameAccountType;
   profileTarget?: { userId?: string; tutorId?: string; tuteeId?: string };
   management?: boolean;
-  onPolicyAvailabilityChange?: (available: boolean) => void;
+  onPolicyAvailabilityChange?: (
+    available: boolean,
+    states?: NameFieldStates,
+  ) => void;
 }) {
   const t = useTranslations("nameFields");
   const intake = api.program.nameFieldPolicy.useQuery(undefined, {
@@ -172,8 +195,8 @@ export function ConfiguredPersonNameFields({
   const error = accountType ? intake.error : profile.error;
   const available = !!states && !error;
   useEffect(() => {
-    onPolicyAvailabilityChange?.(available);
-  }, [available, onPolicyAvailabilityChange]);
+    onPolicyAvailabilityChange?.(available, states);
+  }, [available, states, onPolicyAvailabilityChange]);
   const refresh = () => (accountType ? intake.refetch() : profile.refetch());
   return (
     <div className="space-y-3">
@@ -186,6 +209,12 @@ export function ConfiguredPersonNameFields({
           }
         />
       )}
+      {states &&
+        !accountType &&
+        !management &&
+        !hasVisibleNameFields(states) && (
+          <InlineNotice>{t("hiddenProfileHelp")}</InlineNotice>
+        )}
       {states ? (
         <PersonNameFields
           {...props}

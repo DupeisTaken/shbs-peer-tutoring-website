@@ -32,7 +32,7 @@ import {
   missingTuteeFields,
 } from "~/lib/signup-fields";
 import { api, type RouterInputs } from "~/trpc/react";
-import { DAY_NAMES, minToHm } from "~/lib/time";
+import { formatWeekday, minToHm } from "~/lib/time";
 import { useBranding } from "~/app/_components/branding-provider";
 import { PolicyAgreement } from "~/app/_components/policy-agreement";
 import { SigninAccess } from "./signin-access";
@@ -469,7 +469,7 @@ export function SignupForm() {
                   {slotsByDay.map(([day, daySlots]) => (
                     <div key={day}>
                       <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                        {DAY_NAMES[day]}
+                        {formatWeekday(day, locale)}
                       </p>
                       <div className="mt-1 flex flex-wrap gap-2">
                         {daySlots.map((s) => {

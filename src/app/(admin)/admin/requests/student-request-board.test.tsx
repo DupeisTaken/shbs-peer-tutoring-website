@@ -17,6 +17,9 @@ const mocks = vi.hoisted(() => ({
   appeal: vi.fn(),
   refresh: vi.fn(),
 }));
+import { SessionViewProvider } from "~/app/_components/session-view-state";
+import { viewStateKey } from "~/lib/session-view-state";
+const query = vi.hoisted(() => ({ ready: true }));
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
@@ -56,8 +59,15 @@ vi.mock("~/trpc/react", () => ({
       resolveSignupAppeal: {
         useMutation: () => ({ mutateAsync: mocks.appeal }),
       },
-      adminRequests: { useQuery: () => ({ data: [] }) },
-      legacyReviews: { useQuery: () => ({ data: [] }) },
+      adminRequests: {
+        useQuery: () => ({
+          data: query.ready ? [] : undefined,
+          isLoading: !query.ready,
+        }),
+      },
+      legacyReviews: {
+        useQuery: () => ({ data: query.ready ? [] : undefined }),
+      },
     },
     admin: { tutors: { useQuery: () => ({ data: [] }) } },
   },
@@ -68,7 +78,11 @@ beforeEach(() => {
   mocks.appeal.mockResolvedValue({ ok: true });
   mocks.refresh.mockResolvedValue(undefined);
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  query.ready = true;
+  sessionStorage.clear();
+});
 
 const actionRow = {
   id: "survey",
@@ -191,4 +205,75 @@ it("does not report an empty queue while another intake source is still loading"
   render(<StudentRequestBoard additionalLoading />);
   expect(screen.getByText("loading")).toBeTruthy();
   expect(screen.queryByText("emptySection")).toBeNull();
+});
+
+it("honors an early Assigned click through delayed queue reads and restores only the view", () => {
+  query.ready = false;
+  const key = viewStateKey(
+    "head-account",
+    "/admin/requests",
+    "requests.tab.v1",
+    "term-1",
+  );
+  sessionStorage.setItem(key, JSON.stringify("processed"));
+  const page = (ready: boolean, denied = false) => (
+    <SessionViewProvider
+      identity="head-account"
+      pathname="/admin/requests"
+      verified
+    >
+      <StudentRequestBoard
+        viewScope="term-1"
+        viewDenied={denied}
+        additionalLoading={!ready}
+        additionalEntries={
+          ready
+            ? [
+                {
+                  id: "assigned",
+                  group: "assigned",
+                  submittedAt: new Date(),
+                  content: <p>Assigned intake content</p>,
+                },
+              ]
+            : []
+        }
+      />
+    </SessionViewProvider>
+  );
+  const view = render(page(false));
+  expect(
+    screen
+      .getByRole("tab", { name: "processed 0" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  fireEvent.click(screen.getByRole("tab", { name: "assigned 0" }));
+  expect(
+    screen
+      .getByRole("tab", { name: "assigned 0" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(screen.getByText("loading")).toBeTruthy();
+  expect(sessionStorage.getItem(key)).toBe(JSON.stringify("assigned"));
+  query.ready = true;
+  view.rerender(page(true));
+  expect(
+    screen
+      .getByRole("tab", { name: "assigned 1" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(screen.getByText("Assigned intake content")).toBeTruthy();
+  expect(Object.values(sessionStorage).join(" ")).not.toContain(
+    "Assigned intake content",
+  );
+  view.rerender(page(true, true));
+  expect(screen.queryByRole("tab")).toBeNull();
+  expect(sessionStorage.getItem(key)).toBeNull();
+  view.unmount();
+  render(page(true));
+  expect(
+    screen
+      .getByRole("tab", { name: "matching 0" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
 });
