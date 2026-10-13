@@ -9,7 +9,14 @@ import {
   within,
 } from "@testing-library/react";
 import { StudentWithdrawals } from "./student-withdrawals";
-const mocks = vi.hoisted(() => ({ mutate: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  mutate: vi.fn(),
+  loaded: true,
+  error: null as null | { message: string; data?: { code?: string } },
+}));
+vi.mock("@trpc/react-query", () => ({
+  getQueryKey: () => ["withdrawal-test"],
+}));
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
   useFormatter: () => ({ dateTime: () => "Sep 12, 2026, 14:30" }),
@@ -20,20 +27,25 @@ vi.mock("~/trpc/react", () => ({
     studentWorkflow: {
       adminRequests: {
         useQuery: () => ({
-          data: [
-            {
-              name: "Survey Student",
-              reviews: [
+          error: mocks.error,
+          isSuccess: mocks.loaded && !mocks.error,
+          isFetching: false,
+          data: mocks.loaded
+            ? [
                 {
-                  id: "survey-review",
-                  kind: "STUDENT_ABORT",
-                  state: "PENDING",
-                  createdAt: new Date(),
-                  reason: "Personal reason",
+                  name: "Survey Student",
+                  reviews: [
+                    {
+                      id: "survey-review",
+                      kind: "STUDENT_ABORT",
+                      state: "PENDING",
+                      createdAt: new Date(),
+                      reason: "Personal reason",
+                    },
+                  ],
                 },
-              ],
-            },
-          ],
+              ]
+            : undefined,
         }),
       },
       legacyReviews: {
@@ -80,6 +92,9 @@ vi.mock("~/app/_components/timed-action-dialog", () => ({
 let client: QueryClient;
 beforeEach(() => {
   client = new QueryClient();
+  mocks.loaded = true;
+  mocks.error = null;
+  mocks.mutate.mockClear();
 });
 afterEach(() => {
   cleanup();
@@ -132,4 +147,33 @@ it("defers a decline to the same timed review while keeping both decisions compa
     approve: false,
     ticket: "timed-ticket",
   });
+});
+
+it("reports parent page readiness from both authorized feeds without passing records or writing decisions", () => {
+  const onViewReadState = vi.fn();
+  mocks.loaded = false;
+  const show = () => (
+    <QueryClientProvider client={client}>
+      <StudentWithdrawals onViewReadState={onViewReadState} />
+    </QueryClientProvider>
+  );
+  const view = render(show());
+  expect(onViewReadState).toHaveBeenLastCalledWith({
+    ready: false,
+    denied: false,
+  });
+  mocks.loaded = true;
+  view.rerender(show());
+  expect(onViewReadState).toHaveBeenLastCalledWith({
+    ready: true,
+    denied: false,
+  });
+  mocks.error = { message: "Denied", data: { code: "FORBIDDEN" } };
+  view.rerender(show());
+  expect(onViewReadState).toHaveBeenLastCalledWith({
+    ready: false,
+    denied: true,
+  });
+  expect(screen.queryByText("Survey Student")).toBeNull();
+  expect(mocks.mutate).not.toHaveBeenCalled();
 });

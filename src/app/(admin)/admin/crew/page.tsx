@@ -1,4 +1,13 @@
 "use client";
+import {
+  useSessionViewState,
+  useSessionPageScroll,
+} from "~/app/_components/session-view-state";
+import {
+  CREW_PANELS,
+  crewPanelParser,
+  type CrewPanel,
+} from "~/lib/management-view-state";
 import { participantNameLabel } from "~/app/_components/participant-name";
 import { EmailDetails } from "~/app/_components/email-details";
 
@@ -14,7 +23,10 @@ import { api } from "~/trpc/react";
 import { AcademicError } from "~/app/_components/academic-error";
 import { useReadOnly } from "~/app/_components/read-only";
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
-import { PatrolCorrections } from "~/app/_components/patrol-corrections";
+import {
+  PatrolCorrections,
+  type PatrolViewReadState,
+} from "~/app/_components/patrol-corrections";
 import {
   useActionReview,
   type ReviewedAction,
@@ -220,7 +232,50 @@ export default function CrewPage() {
     decideApp.isPending ||
     decideReq.isPending;
 
-  const [panel, setPanel] = useState<"review" | "roster" | "patrol">("review");
+  // Partial denial drops a remembered panel, while an explicit visit still
+  // reaches its read-only recovery. Patrol/review drafts remain mounted.
+  const [patrolRead, setPatrolRead] = useState<PatrolViewReadState>({
+    ready: false,
+    denied: false,
+    page: 0,
+  });
+  const availablePanels = CREW_PANELS.filter((panel) =>
+    panel === "review"
+      ? ["applications", "requests", "codes"].some(
+          (scope) => !hidden(scope as Scope),
+        )
+      : !hidden(panel === "roster" ? "roster" : "order") &&
+        (panel !== "patrol" || !patrolRead.denied),
+  );
+  const [rememberedPanel, setRememberedPanel] = useSessionViewState<CrewPanel>({
+    id: "crew-panel-v1",
+    initialState: availablePanels[0] ?? "review",
+    parse: crewPanelParser(availablePanels),
+    enabled: availablePanels.length > 0,
+  });
+  const [recoveryPanel, setRecoveryPanel] = useState<CrewPanel | null>(null);
+  const panel = recoveryPanel ?? rememberedPanel;
+  const setPanel = (next: CrewPanel) => {
+    if (availablePanels.includes(next)) {
+      setRecoveryPanel(null);
+      setRememberedPanel(next);
+    } else setRecoveryPanel(next);
+  };
+  const panelScopes: Scope[] =
+    panel === "review"
+      ? ["applications", "requests", "codes"]
+      : [panel === "roster" ? "roster" : "order"];
+  const panelReady = panelScopes.every(
+    (scope) => hidden(scope) || sources[scope].query.data !== undefined,
+  );
+  const panelAllowed = panelScopes.some((scope) => !hidden(scope));
+  useSessionPageScroll({
+    id: "crew-v1",
+    scope: panel === "patrol" ? `${panel}:${patrolRead.page}` : panel,
+    ready:
+      panelReady && panelAllowed && (panel !== "patrol" || patrolRead.ready),
+    enabled: panelAllowed && (panel !== "patrol" || !patrolRead.denied),
+  });
   return (
     <div className="space-y-8">
       <div>
@@ -245,7 +300,7 @@ export default function CrewPage() {
         }))}
       >
         <div hidden={panel !== "patrol"}>
-          <PatrolCorrections />
+          <PatrolCorrections onViewReadState={setPatrolRead} />
         </div>
         <div hidden={panel !== "review"} className="space-y-8">
           {/* Crew applications */}

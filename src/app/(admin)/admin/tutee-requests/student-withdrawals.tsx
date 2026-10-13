@@ -14,8 +14,12 @@ import { Button } from "~/app/_components/ui/button";
 import { FormActions, StatePanel } from "~/app/_components/ui/patterns";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 
+export type WithdrawalViewReadState = { ready: boolean; denied: boolean };
+
 /** Both intake sources share the existing timed staff-review mutation and approval policy. */
-export function StudentWithdrawals() {
+export function StudentWithdrawals({
+  onViewReadState,
+}: { onViewReadState?: (state: WithdrawalViewReadState) => void } = {}) {
   const t = useTranslations("admin.tuteeRequests");
   const names = useTranslations("participantNames");
   const workflow = useTranslations("workflow");
@@ -70,6 +74,13 @@ export function StudentWithdrawals() {
   ]);
   const hasData = rows.data !== undefined && legacy.data !== undefined;
   const readError = !!rows.error || !!legacy.error;
+  // Report only read lifecycle booleans, never the review records or drafts.
+  useEffect(() => {
+    onViewReadState?.({
+      ready: hasData && !denied && !accessDenied,
+      denied: denied || accessDenied,
+    });
+  }, [onViewReadState, hasData, denied, accessDenied]);
   const readBlocked = !hasData || readError;
   const section = t("studentHeading");
   const retry = () => {
