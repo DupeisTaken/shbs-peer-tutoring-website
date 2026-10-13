@@ -798,7 +798,9 @@ it("ignores former cross-session preferences and never migrates them", () => {
 });
 it("restores current search and sort without retaining deletion passwords or open dialogs", () => {
   const view = mount();
-  fireEvent.click(screen.getByRole("button", { name: /Name/ }));
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.users.columns.user }),
+  );
   openDeletion();
   fireEvent.change(
     screen.getByLabelText(messages.admin.users.confirm.passwordLabel),
