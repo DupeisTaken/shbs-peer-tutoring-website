@@ -27,6 +27,43 @@ try {
     await page.locator("tbody tr").first().waitFor();
     const title = messages.admin.tutors.addTutor;
     const trigger = page.locator('button[aria-haspopup="dialog"]').filter({hasText: title});
+    // Every entry attempt gets a fresh gate, including retained draft reopening.
+    const openWarning = async () => {
+      await trigger.click();
+      await dialog.waitFor();
+      assert.equal(await dialog.evaluate((e) => e.matches(":modal")), true);
+      assert.equal(
+        await form.count(),
+        0,
+        "Creation fields wait for acknowledgement",
+      );
+      const acknowledgement = dialog.getByRole("checkbox", {
+        name: messages.admin.creationRisk.acknowledgement,
+        exact: true,
+      });
+      const proceed = dialog.getByRole("button", {
+        name: messages.admin.creationRisk.continue,
+        exact: true,
+      });
+      assert.equal(
+        await acknowledgement.isChecked(),
+        false,
+        "Each opening resets acknowledgement",
+      );
+      assert.equal(
+        await proceed.isDisabled(),
+        true,
+        "Continue starts disabled",
+      );
+      return { acknowledgement, proceed };
+    };
+    const continueCreation = async () => {
+      const { acknowledgement, proceed } = await openWarning();
+      await acknowledgement.check();
+      assert.equal(await proceed.isEnabled(), true);
+      await proceed.click();
+      await form.waitFor();
+    };
     assert.equal(await dialog.count(), 0, "Roster starts without creation controls");
     for (const width of [390, 1440]) {
       await page.setViewportSize({width, height: width < 600 ? 844 : 1000});
@@ -37,9 +74,30 @@ try {
       assert.equal(await trigger.evaluate(e => e.getBoundingClientRect().height), width < 1024 ? 44 : 40);
       interactions.push({locale, width, roster});
     }
-    await trigger.click();
-    await dialog.waitFor();
-    assert.equal(await dialog.evaluate(e => e.matches(":modal")), true);
+    // Native cancellation returns focus and never reveals creation fields.
+    let warning = await openWarning();
+    await warning.acknowledgement.check();
+    await dialog
+      .getByRole("button", {
+        name: messages.admin.creationRisk.cancel,
+        exact: true,
+      })
+      .click();
+    assert.equal(await dialog.count(), 0);
+    assert.equal(
+      await trigger.evaluate((e) => e === document.activeElement),
+      true,
+    );
+    warning = await openWarning();
+    await warning.acknowledgement.check();
+    await page.keyboard.press("Escape");
+    assert.equal(await dialog.count(), 0);
+    assert.equal(
+      await trigger.evaluate((e) => e === document.activeElement),
+      true,
+    );
+    await continueCreation();
+    assert.equal(await dialog.evaluate((e) => e.matches(":modal")), true);
     for (const width of [375, 390, 768, 1024, 1440]) {
       await page.setViewportSize({ width, height: width < 600 ? 844 : 1000 });
       const sizes = await form.evaluate(form => {
@@ -74,10 +132,10 @@ try {
     await page.keyboard.press("Escape");
     assert.equal(await dialog.count(), 0);
     assert.equal(await trigger.evaluate(e => e === document.activeElement), true);
-    await trigger.click();
+    await continueCreation();
     for (const [name, value] of Object.entries(values)) assert.equal(await form.locator(`[name="${name}"]`).inputValue(), value);
     assert.equal(await form.locator("select").inputValue(), "GRADUATED");
-    interactions.push({locale, modal: true, keyboardFocusContained: true, escapeRetainsDraft: true, triggerFocusRestored: true});
+    interactions.push({locale, modal: true, keyboardFocusContained: true, escapeRetainsDraft: true, triggerFocusRestored: true, warningCancelAndEscape: true, acknowledgementResets: true});
     // Validation helpers can grow without stretching the adjacent single-line input.
     await page.locator('[name="firstName"]').fill("张");
     await page.locator('[name="firstName"]').blur();

@@ -430,6 +430,38 @@
     }
   },
   "admin": {
+    "creationRisk": {
+      "warning": "Manual creation is risky and may cause trouble. Use it only as a last resort when the normal workflow cannot handle the situation.",
+      "acknowledgement": "I understand the risks and confirm that this is a last-resort fallback.",
+      "opensOnly": "Continue only opens the creation form. It does not create or save a record.",
+      "cancel": "Cancel",
+      "continue": "Continue to form",
+      "tutor": {
+        "title": "Before Manually Creating a Tutor",
+        "normal": "Use tutor signup and the normal qualification and onboarding workflow whenever possible.",
+        "risk": "Manual creation may bypass participant-provided information and expected onboarding steps, or create duplicate or inconsistent tutor records. Incorrect profiles can also cause account-linking or sign-in problems. Creating a tutor profile does not itself create a sign-in account; account linking or setup is a separate step."
+      },
+      "tutee": {
+        "title": "Before Manually Creating a Tutee",
+        "normal": "Ask the student to submit a tutoring request and complete the normal verification workflow whenever possible.",
+        "risk": "Manual creation may lack the student's own information or policy evidence, or create duplicate or inconsistent tutee records. Incorrect profiles can also cause account-linking or sign-in problems. Creating a tutee profile does not itself create a sign-in account; account linking or setup is a separate step."
+      },
+      "pairing": {
+        "title": "Before Manually Creating a Pairing",
+        "normal": "Assign tutors through the student's tutoring request whenever possible.",
+        "risk": "Manual creation may leave request and pairing records inconsistent, duplicate an assignment, or introduce qualification and scheduling problems."
+      },
+      "galleryTitle": "Last-Resort Creation Gate",
+      "galleryHelp": "Choose a creation type, acknowledge the risks and open a synthetic editor. Closing retains the local draft; every new opening requires acknowledgment.",
+      "galleryKind": "Creation type",
+      "galleryOpen": "Open creation example",
+      "galleryEditor": "Creation editor example",
+      "galleryDraft": "Retained creation draft",
+      "galleryClose": "Close editor",
+      "galleryTutor": "Tutor",
+      "galleryTutee": "Tutee",
+      "galleryPairing": "Pairing"
+    },
     "pairings": {
       "title": "Pairings",
       "roomSchedule": "Room Schedule",

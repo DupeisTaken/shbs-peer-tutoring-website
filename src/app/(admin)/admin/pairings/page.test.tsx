@@ -7,7 +7,12 @@ import en from "../../../../../messages/en.json";
 import zh from "../../../../../messages/zh.json";
 import PairingsPage from "./page";
 
-const state = vi.hoisted(() => ({ confirmed: true, readOnly: true }));
+const state = vi.hoisted(() => ({
+  confirmed: true,
+  readOnly: true,
+  mutate: vi.fn(),
+  queryError: null as null | { message: string },
+}));
 vi.mock("~/app/_components/read-only", () => ({
   useReadOnly: () => state.readOnly,
 }));
@@ -19,9 +24,10 @@ vi.mock("~/trpc/react", () => ({
       {},
       {
         get: (_target, key) => ({
-          useMutation: () => ({}),
+          useMutation: () => ({ mutate: state.mutate }),
           useQuery: () => ({
             isSuccess: true,
+            error: key === "tutees" ? state.queryError : null,
             data:
               key === "pairings"
                 ? [
@@ -53,6 +59,8 @@ afterEach(() => {
   cleanup();
   state.confirmed = true;
   state.readOnly = true;
+  state.mutate.mockClear();
+  state.queryError = null;
 });
 const mount = (locale: "en" | "zh") =>
   render(
@@ -109,6 +117,7 @@ it("keeps explicit tutee selection while search hides it and creation closes", (
   fireEvent.click(
     screen.getByRole("button", { name: en.admin.pairings.newPairing }),
   );
+  acknowledgeCreation();
   fireEvent.click(screen.getByRole("checkbox", { name: "Alice Synthetic" }));
   fireEvent.change(screen.getByLabelText(en.admin.pairings.searchTutees), {
     target: { value: "Bob" },
@@ -128,6 +137,7 @@ it("keeps explicit tutee selection while search hides it and creation closes", (
   fireEvent.click(
     screen.getByRole("button", { name: en.admin.pairings.newPairing }),
   );
+  acknowledgeCreation();
   fireEvent.change(screen.getByLabelText(en.admin.pairings.searchTutees), {
     target: { value: "" },
   });
@@ -143,6 +153,7 @@ it("isolates a retained creation selection from an existing pairing editor", () 
   fireEvent.click(
     screen.getByRole("button", { name: en.admin.pairings.newPairing }),
   );
+  acknowledgeCreation();
   fireEvent.click(screen.getByRole("checkbox", { name: "Alice Synthetic" }));
   fireEvent.click(screen.getByRole("button", { name: en.common.close }));
   fireEvent.click(screen.getByRole("button", { name: /^Edit:/ }));
@@ -155,6 +166,7 @@ it("isolates a retained creation selection from an existing pairing editor", () 
   fireEvent.click(
     screen.getByRole("button", { name: en.admin.pairings.newPairing }),
   );
+  acknowledgeCreation();
   expect(
     screen.getByRole<HTMLInputElement>("checkbox", { name: "Alice Synthetic" })
       .checked,
@@ -163,4 +175,125 @@ it("isolates a retained creation selection from an existing pairing editor", () 
     screen.getByRole<HTMLInputElement>("checkbox", { name: "Bob Synthetic" })
       .checked,
   ).toBe(false);
+});
+
+function acknowledgeCreation(messages = en) {
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: messages.admin.creationRisk.acknowledgement,
+    }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.creationRisk.continue }),
+  );
+}
+
+it.each(["en", "zh"] as const)(
+  "requires a fresh acknowledgement before each pairing editor opening (%s)",
+  (locale) => {
+    state.readOnly = false;
+    const messages = locale === "en" ? en : zh;
+    mount(locale);
+    const trigger = screen.getByRole("button", {
+      name: messages.admin.pairings.newPairing,
+    });
+    trigger.focus();
+    fireEvent.click(trigger);
+    expect(
+      screen.queryByRole("dialog", {
+        name: messages.admin.pairings.newPairing,
+      }),
+    ).toBeNull();
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: messages.admin.creationRisk.continue,
+      }).disabled,
+    ).toBe(true);
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.admin.creationRisk.cancel }),
+    );
+    expect(document.activeElement).toBe(trigger);
+    fireEvent.click(trigger);
+    acknowledgeCreation(messages);
+    expect(
+      screen.getByRole("dialog", { name: messages.admin.pairings.newPairing }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Alice Synthetic" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.common.close }),
+    );
+    fireEvent.click(trigger);
+    expect(
+      screen.getByRole<HTMLInputElement>("checkbox", {
+        name: messages.admin.creationRisk.acknowledgement,
+      }).checked,
+    ).toBe(false);
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.admin.creationRisk.cancel }),
+    );
+    fireEvent.click(trigger);
+    acknowledgeCreation(messages);
+    expect(
+      screen.getByRole<HTMLInputElement>("checkbox", {
+        name: "Alice Synthetic",
+      }).checked,
+    ).toBe(true);
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
+
+it("keeps manual pairing creation unavailable to read-only viewers", () => {
+  mount("en");
+  expect(
+    screen.queryByRole("button", { name: en.admin.pairings.newPairing }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("dialog", { name: en.admin.creationRisk.pairing.title }),
+  ).toBeNull();
+});
+
+it("keeps an acknowledged warning cancellable when pairing reference data fails", () => {
+  state.readOnly = false;
+  const view = mount("en");
+  const trigger = screen.getByRole("button", {
+    name: en.admin.pairings.newPairing,
+  });
+  fireEvent.click(trigger);
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: en.admin.creationRisk.acknowledgement,
+    }),
+  );
+  state.queryError = { message: "Reference refresh failed" };
+  view.rerender(
+    <QueryClientProvider client={new QueryClient()}>
+      <NextIntlClientProvider locale="en" messages={en}>
+        <PairingsPage />
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
+  );
+  const proceed = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.admin.creationRisk.continue,
+  });
+  expect(proceed.disabled).toBe(true);
+  fireEvent.click(proceed);
+  expect(
+    screen.queryByRole("dialog", { name: en.admin.pairings.newPairing }),
+  ).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.creationRisk.cancel }),
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  state.queryError = null;
+  fireEvent.click(trigger);
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", {
+      name: en.admin.creationRisk.acknowledgement,
+    }).checked,
+  ).toBe(false);
+  acknowledgeCreation();
+  expect(
+    screen.getByRole("dialog", { name: en.admin.pairings.newPairing }),
+  ).toBeTruthy();
+  expect(state.mutate).not.toHaveBeenCalled();
 });

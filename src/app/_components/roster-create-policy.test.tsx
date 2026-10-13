@@ -21,14 +21,18 @@ vi.mock("~/trpc/react", () => {
   };
   return {
     api: {
-    account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
+      account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
       useUtils: () => ({
         admin: {
           tutors: { invalidate: vi.fn() },
           tutees: { invalidate: vi.fn() },
         },
       }),
-      tuteeHistory: {permissions: {useQuery: () => ({data: {canLink:true,isHead:true}})}},
+      tuteeHistory: {
+        permissions: {
+          useQuery: () => ({ data: { canLink: true, isHead: true } }),
+        },
+      },
       program: {
         profilePolicy: {
           useQuery: () => ({
@@ -63,6 +67,12 @@ beforeEach(() => {
       this.setAttribute("open", "");
     },
   });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    },
+  });
 });
 afterEach(cleanup);
 
@@ -85,6 +95,22 @@ it.each([
       </NextIntlClientProvider>
     );
     const view = render(ui());
+    // The policy rejection still belongs to the creation form; entry consent
+    // admits that form without issuing a mutation of its own.
+    const acknowledgeCreation = () => {
+      const proceed = screen.getByRole("button", {
+        name: messages.admin.creationRisk.continue,
+      });
+      expect((proceed as HTMLButtonElement).disabled).toBe(true);
+      expect(mock.mutate).not.toHaveBeenCalled();
+      fireEvent.click(
+        screen.getByRole("checkbox", {
+          name: messages.admin.creationRisk.acknowledgement,
+        }),
+      );
+      fireEvent.click(proceed);
+      expect(mock.mutate).not.toHaveBeenCalled();
+    };
     if (tutor) {
       expect(screen.queryByRole("dialog")).toBeNull();
       fireEvent.click(
@@ -92,12 +118,17 @@ it.each([
           name: messages.admin.tutors.addTutor,
         }),
       );
+      acknowledgeCreation();
       fireEvent.change(
-        screen.getByLabelText(messages.personName.firstName + " " + messages.signupFields.required),
+        screen.getByLabelText(
+          messages.personName.firstName + " " + messages.signupFields.required,
+        ),
         { target: { value: "Draft" } },
       );
       fireEvent.change(
-        screen.getByLabelText(messages.personName.lastName + " " + messages.signupFields.required),
+        screen.getByLabelText(
+          messages.personName.lastName + " " + messages.signupFields.required,
+        ),
         { target: { value: "Name" } },
       );
     } else {
@@ -107,9 +138,15 @@ it.each([
           name: messages.admin.tutees.addTutee,
         }),
       );
-      fireEvent.change(screen.getByLabelText(messages.personName.firstName + " " + messages.signupFields.required), {
-        target: { value: "Draft Name" },
-      });
+      acknowledgeCreation();
+      fireEvent.change(
+        screen.getByLabelText(
+          messages.personName.firstName + " " + messages.signupFields.required,
+        ),
+        {
+          target: { value: "Draft Name" },
+        },
+      );
     }
     fireEvent.submit(document.querySelector("form")!);
     expect(mock.mutate).toHaveBeenCalledOnce();

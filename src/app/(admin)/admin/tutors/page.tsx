@@ -14,6 +14,7 @@ import { AcademicDetails } from "~/app/_components/academic-profile";
 import { TutorProfileEditor } from "~/app/_components/tutor-profile-editor";
 import { TutorDetailsButton } from "~/app/_components/tutor-details";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
+import { CreationRiskDialog } from "~/app/_components/creation-risk-dialog";
 import {
   useProfilePolicy,
   ProfilePolicyHint,
@@ -54,6 +55,7 @@ export default function TutorsPage() {
   const [grade, setGrade] = useState("");
   // Draft values belong to the page, so dismissing the dialog does not discard them.
   const [createOpen, setCreateOpen] = useState(false);
+  const [creationRiskOpen, setCreationRiskOpen] = useState(false);
   const [created, setCreated] = useState(false);
   const addTrigger = useRef<HTMLButtonElement>(null);
   const restoreCreateFocus = useRef(false);
@@ -133,8 +135,9 @@ export default function TutorsPage() {
             aria-haspopup="dialog"
             disabled={create.isPending}
             onClick={() => {
+              if (create.isPending) return;
               setCreated(false);
-              setCreateOpen(true);
+              setCreationRiskOpen(true);
             }}
           >
             {t("admin.tutors.addTutor")}
@@ -148,6 +151,19 @@ export default function TutorsPage() {
         {created ? t("admin.tutors.created") : ""}
       </p>
 
+      {/* A fresh warning owns each entry attempt; the page retains the draft. */}
+      {!readOnly && creationRiskOpen && (
+        <CreationRiskDialog
+          kind="tutor"
+          continueDisabled={create.isPending}
+          onCancel={() => setCreationRiskOpen(false)}
+          onContinue={() => {
+            if (create.isPending) return false;
+            setCreationRiskOpen(false);
+            setCreateOpen(true);
+          }}
+        />
+      )}
       {!readOnly && createOpen && (
         <ProfileDialog
           title={t("admin.tutors.addTutor")}

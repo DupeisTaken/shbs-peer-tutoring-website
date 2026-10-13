@@ -146,6 +146,7 @@ function openCreate(chinese = false) {
   const trigger = screen.getByRole("button", { name: label });
   trigger.focus();
   fireEvent.click(trigger);
+  acknowledgeCreation(chinese ? zh : en);
   return screen.getByRole("dialog", { name: label });
 }
 
@@ -483,5 +484,56 @@ it.each([false, true])(
     expect(screen.getByRole("table").textContent).not.toContain(
       "Historical Tutor",
     );
+  },
+);
+
+function acknowledgeCreation(messages = en) {
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: messages.admin.creationRisk.acknowledgement,
+    }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.creationRisk.continue }),
+  );
+}
+
+it.each([false, true])(
+  "requires fresh entry acknowledgement without creating a tutor (Chinese=%s)",
+  (chinese) => {
+    mount(false, chinese);
+    const messages = chinese ? zh : en;
+    const trigger = screen.getByRole("button", {
+      name: messages.admin.tutors.addTutor,
+    });
+    for (const cancel of [true, false]) {
+      trigger.focus();
+      fireEvent.click(trigger);
+      const warning = screen.getByRole("dialog", {
+        name: messages.admin.creationRisk.tutor.title,
+      });
+      expect(document.querySelector('input[name="firstName"]')).toBeNull();
+      const proceed = within(warning).getByRole<HTMLButtonElement>("button", {
+        name: messages.admin.creationRisk.continue,
+      });
+      expect(proceed.disabled).toBe(true);
+      fireEvent.click(proceed);
+      expect(createTutor).not.toHaveBeenCalled();
+      if (cancel) {
+        fireEvent.click(
+          within(warning).getByRole("button", {
+            name: messages.admin.creationRisk.cancel,
+          }),
+        );
+        expect(screen.queryByRole("dialog")).toBeNull();
+        expect(document.activeElement).toBe(trigger);
+      } else {
+        acknowledgeCreation(messages);
+        expect(
+          screen.getByRole("dialog", { name: messages.admin.tutors.addTutor }),
+        ).toBeTruthy();
+        expect(createTutor).not.toHaveBeenCalled();
+      }
+    }
   },
 );

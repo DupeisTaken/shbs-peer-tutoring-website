@@ -430,6 +430,38 @@
     }
   },
   "admin": {
+    "creationRisk": {
+      "warning": "La création manuelle comporte des risques et peut causer des problèmes. Utilisez-la uniquement en dernier recours lorsque le processus normal ne permet pas de traiter la situation.",
+      "acknowledgement": "Je comprends les risques et confirme qu'il s'agit d'une solution de dernier recours.",
+      "opensOnly": "Continuer ouvre uniquement le formulaire. Aucun enregistrement n'est créé ni sauvegardé.",
+      "cancel": "Annuler",
+      "continue": "Continuer vers le formulaire",
+      "tutor": {
+        "title": "Avant de créer manuellement un tuteur",
+        "normal": "Utilisez autant que possible l'inscription des tuteurs et le processus normal de vérification des qualifications et d'intégration.",
+        "risk": "La création manuelle peut omettre les informations fournies par le participant et les étapes d'intégration prévues, ou créer des dossiers de tuteurs en double ou incohérents. Des profils incorrects peuvent aussi causer des problèmes de liaison de comptes ou de connexion. Créer un profil de tuteur ne crée pas de compte de connexion ; la liaison ou la configuration du compte constitue une étape distincte."
+      },
+      "tutee": {
+        "title": "Avant de créer manuellement un élève",
+        "normal": "Demandez autant que possible à l'élève de soumettre une demande de tutorat et de terminer le processus normal de vérification.",
+        "risk": "La création manuelle peut manquer d'informations fournies par l'élève ou de preuves d'acceptation des règles, ou créer des dossiers en double ou incohérents. Des profils incorrects peuvent aussi causer des problèmes de liaison de comptes ou de connexion. Créer un profil d'élève ne crée pas de compte de connexion ; la liaison ou la configuration du compte constitue une étape distincte."
+      },
+      "pairing": {
+        "title": "Avant de créer manuellement une affectation",
+        "normal": "Affectez autant que possible les tuteurs depuis la demande de tutorat de l'élève.",
+        "risk": "La création manuelle peut rendre les demandes et affectations incohérentes, dupliquer une affectation ou provoquer des problèmes de qualification et d'horaires."
+      },
+      "galleryTitle": "Confirmation de création en dernier recours",
+      "galleryHelp": "Choisissez un type, confirmez les risques et ouvrez un éditeur de démonstration. La fermeture conserve le brouillon local ; chaque nouvelle ouverture nécessite une confirmation.",
+      "galleryKind": "Type de création",
+      "galleryOpen": "Ouvrir l'exemple de création",
+      "galleryEditor": "Exemple d'éditeur de création",
+      "galleryDraft": "Brouillon de création conservé",
+      "galleryClose": "Fermer l'éditeur",
+      "galleryTutor": "Tuteur",
+      "galleryTutee": "Élève",
+      "galleryPairing": "Affectation"
+    },
     "pairings": {
       "title": "Pairages",
       "roomSchedule": "Planning des salles",

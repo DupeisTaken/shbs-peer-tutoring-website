@@ -430,6 +430,38 @@
     }
   },
   "admin": {
+    "creationRisk": {
+      "warning": "Manuelles Anlegen ist riskant und kann Probleme verursachen. Verwenden Sie es nur als letzten Ausweg, wenn der normale Ablauf die Situation nicht bewältigen kann.",
+      "acknowledgement": "Ich verstehe die Risiken und bestätige, dass dies ein letzter Ausweg ist.",
+      "opensOnly": "Fortfahren öffnet nur das Formular. Es wird kein Datensatz erstellt oder gespeichert.",
+      "cancel": "Abbrechen",
+      "continue": "Weiter zum Formular",
+      "tutor": {
+        "title": "Vor dem manuellen Anlegen einer Tutorin oder eines Tutors",
+        "normal": "Nutzen Sie nach Möglichkeit die Tutor-Anmeldung sowie die reguläre Qualifikationsprüfung und Aufnahme.",
+        "risk": "Manuelles Anlegen kann Angaben der teilnehmenden Person und reguläre Aufnahmeschritte auslassen oder doppelte bzw. widersprüchliche Tutor-Datensätze erzeugen. Falsche Profile können auch Probleme bei Kontoverknüpfungen oder der Anmeldung verursachen. Ein Tutor-Profil erstellt kein Anmeldekonto; die Kontoverknüpfung oder Einrichtung erfolgt separat."
+      },
+      "tutee": {
+        "title": "Vor dem manuellen Anlegen einer betreuten Person",
+        "normal": "Bitten Sie die Schülerin oder den Schüler nach Möglichkeit, eine Nachhilfeanfrage einzureichen und die reguläre Verifizierung abzuschließen.",
+        "risk": "Manuelles Anlegen kann eigene Angaben der Schülerin oder des Schülers oder Nachweise der Richtlinienzustimmung auslassen sowie doppelte oder widersprüchliche Datensätze erzeugen. Falsche Profile können auch Probleme bei Kontoverknüpfungen oder der Anmeldung verursachen. Ein Betreuungsprofil erstellt kein Anmeldekonto; die Kontoverknüpfung oder Einrichtung erfolgt separat."
+      },
+      "pairing": {
+        "title": "Vor dem manuellen Anlegen einer Zuordnung",
+        "normal": "Weisen Sie Tutorinnen und Tutoren nach Möglichkeit über die Nachhilfeanfrage der Schülerin oder des Schülers zu.",
+        "risk": "Manuelles Anlegen kann widersprüchliche Anfrage- und Zuordnungsdaten, doppelte Zuweisungen oder Probleme mit Qualifikation und Terminplanung verursachen."
+      },
+      "galleryTitle": "Bestätigung für das Anlegen als letzten Ausweg",
+      "galleryHelp": "Wählen Sie eine Art, bestätigen Sie die Risiken und öffnen Sie einen Beispiel-Editor. Beim Schließen bleibt der lokale Entwurf erhalten; jedes erneute Öffnen erfordert eine Bestätigung.",
+      "galleryKind": "Art des Datensatzes",
+      "galleryOpen": "Beispiel zum Anlegen öffnen",
+      "galleryEditor": "Beispiel-Editor zum Anlegen",
+      "galleryDraft": "Gespeicherter lokaler Entwurf",
+      "galleryClose": "Editor schließen",
+      "galleryTutor": "Tutor",
+      "galleryTutee": "Betreute Person",
+      "galleryPairing": "Zuordnung"
+    },
     "pairings": {
       "title": "Zuordnungen",
       "roomSchedule": "Raumplan",
