@@ -169,9 +169,9 @@ export default function TuteesPage() {
     parse: (value) => (typeof value === "boolean" ? value : undefined),
     enabled: !denied,
   });
-  const [view, setView] = useSessionViewState({
+  const [view, setView] = useSessionViewState<"tutees" | "tutors">({
     id: "tutees-panel-v1",
-    initialState: "tutees" as "tutees" | "tutors",
+    initialState: "tutees",
     parse: viewEnum(["tutees", "tutors"]),
     enabled: !denied,
   });
