@@ -378,22 +378,19 @@ it("restores summary and visibility but starts meeting fields and attendance edi
     screen.getByRole("button", { name: messages.admin.meetings.summary.show }),
   );
   fireEvent.click(
-    screen.getByRole("button", { name: messages.tuteeHistory.showHistorical }),
+    screen.getByRole("button", { name: /^Synthetic briefing ·/ }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.pastTutors.show }),
   );
   fireEvent.change(
     screen.getByLabelText(messages.admin.meetings.titlePlaceholder),
     { target: { value: "unsaved meeting" } },
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: /^Synthetic briefing ·/ }),
-  );
   view.unmount();
   render(sessionMeetingPage());
   expect(
     screen.getByRole("button", { name: messages.admin.meetings.summary.hide }),
-  ).toBeTruthy();
-  expect(
-    screen.getByRole("button", { name: messages.tuteeHistory.hideHistorical }),
   ).toBeTruthy();
   expect(
     screen.getByLabelText<HTMLInputElement>(
@@ -403,6 +400,13 @@ it("restores summary and visibility but starts meeting fields and attendance edi
   expect(
     screen.queryByRole("group", { name: `Attendance for ${state.longName}` }),
   ).toBeNull();
+  // Visibility persists, but the attendance editor must be explicitly reopened.
+  fireEvent.click(
+    screen.getByRole("button", { name: /^Synthetic briefing ·/ }),
+  );
+  expect(
+    screen.getByRole("button", { name: messages.pastTutors.hide }),
+  ).toBeTruthy();
   expect(JSON.stringify(sessionStorage)).not.toContain("unsaved meeting");
   expect(state.save).not.toHaveBeenCalled();
 });

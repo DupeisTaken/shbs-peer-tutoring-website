@@ -695,15 +695,19 @@ it("restores service-hour month criteria across navigation and keeps clear-month
     </SessionViewProvider>
   );
   const view = render(show(), { wrapper });
-  fireEvent.change(screen.getByLabelText(messages.admin.summary.monthLabel), {
-    target: { value: "2026-08" },
-  });
+  fireEvent.change(
+    screen.getByLabelText(messages.admin.summary.monthLabel, {
+      selector: "input",
+    }),
+    { target: { value: "2026-08" } },
+  );
   expect(state.summaryInput).toEqual({ month: "2026-08" });
   view.unmount();
   render(show(), { wrapper });
   expect(
-    screen.getByLabelText<HTMLInputElement>(messages.admin.summary.monthLabel)
-      .value,
+    screen.getByLabelText<HTMLInputElement>(messages.admin.summary.monthLabel, {
+      selector: "input",
+    }).value,
   ).toBe("2026-08");
   fireEvent.click(
     screen.getByRole("button", { name: messages.admin.summary.clearMonth }),
