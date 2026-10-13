@@ -375,10 +375,10 @@ const sessionMeetingPage = () => (
 it("restores summary and visibility but starts meeting fields and attendance editors fresh", () => {
   const view = render(sessionMeetingPage());
   fireEvent.click(
-    screen.getByRole("button", { name: messages.admin.meetings.summary.show }),
+    screen.getByRole("button", { name: /^Synthetic briefing ·/ }),
   );
   fireEvent.click(
-    screen.getByRole("button", { name: /^Synthetic briefing ·/ }),
+    screen.getByRole("button", { name: messages.admin.meetings.summary.show }),
   );
   fireEvent.click(
     screen.getByRole("button", { name: messages.pastTutors.show }),
@@ -400,7 +400,13 @@ it("restores summary and visibility but starts meeting fields and attendance edi
   expect(
     screen.queryByRole("group", { name: `Attendance for ${state.longName}` }),
   ).toBeNull();
-  // Visibility persists, but the attendance editor must be explicitly reopened.
+  expect(
+    JSON.parse(
+      sessionStorage.getItem(
+        viewStateKey("head", "/admin/meetings", "meeting-panels-v1", ""),
+      )!,
+    ),
+  ).toEqual({ showPast: true, showSummary: true });
   fireEvent.click(
     screen.getByRole("button", { name: /^Synthetic briefing ·/ }),
   );

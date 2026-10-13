@@ -699,7 +699,9 @@ it("restores service-hour month criteria across navigation and keeps clear-month
     screen.getByLabelText(messages.admin.summary.monthLabel, {
       selector: "input",
     }),
-    { target: { value: "2026-08" } },
+    {
+      target: { value: "2026-08" },
+    },
   );
   expect(state.summaryInput).toEqual({ month: "2026-08" });
   view.unmount();
