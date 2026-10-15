@@ -292,15 +292,22 @@ it("retains separate relay and schedule drafts across Close, nested Cancel and o
   expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe(
     "Relay draft",
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: en.workflow.scheduleReject }),
-  );
+  const scheduleTrigger = screen.getByRole("button", {
+    name: en.workflow.scheduleReject,
+  });
+  scheduleTrigger.focus();
+  fireEvent.click(scheduleTrigger);
   const resumed = screen.getByRole("dialog", {
     name: /schedule conflict.*Learner One/,
   });
   expect(within(resumed).getByRole<HTMLTextAreaElement>("textbox").value).toBe(
     "Conflict draft",
   );
+  fireEvent(resumed, new Event("cancel", { cancelable: true }));
+  expect(
+    screen.getByRole("dialog", { name: "Learner One · Maths" }),
+  ).toBeTruthy();
+  expect(document.activeElement).toBe(scheduleTrigger);
   expect(state.request).not.toHaveBeenCalled();
   expect(state.reject).not.toHaveBeenCalled();
 });
