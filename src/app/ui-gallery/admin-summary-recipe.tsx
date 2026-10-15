@@ -89,6 +89,15 @@ export function AdminSummaryRecipe({ locale }: { locale: "en" | "zh" }) {
         </tbody>
       </SummaryTable>
       <div className="flex flex-wrap gap-2">
+        {/* Legacy text actions and boxed decisions share red semantic labels,
+            while only the latter keep a persistent button boundary. */}
+        <button
+          type="button"
+          className="link-danger"
+          onClick={() => setReview(true)}
+        >
+          {zh ? "归档示例" : "Archive example"}
+        </button>
         <Button variant="danger" onClick={() => setReview(true)}>
           {zh ? "查看重要操作" : "Review consequential action"}
         </Button>
