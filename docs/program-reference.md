@@ -145,7 +145,8 @@ The room schedule offers combined and individual-room layouts, explicit room sel
 
 The legend distinguishes gray occupied cells, × unavailable cells and available
 published slots without an assignment. The participant subtitle identifies the
-highlighted personal pairings and refers to that legend for room status.
+highlighted personal pairings and uses a room-status explanation consistent with
+that legend.
 
 In **Rooms**, Head/Admin open **Reorder rooms** to stage the display order in a dialog. Closing preserves its unsaved order until explicit Reload; pending writes prevent dismissal. Saving the complete list persists one program order for catalogs and schedules; stale or incomplete lists are rejected. New rooms append to that order. Head applies the change and Admin submits it for Head review. Coordinators and Viewers do not edit this program setting. This order is independent from the Crew patrol order: reordering does not move a pairing or change patrol sequencing.
 
