@@ -350,6 +350,16 @@ Behavioral coverage is in `session-view-state.test.tsx`, the pure storage tests 
 the existing identity-cache/privacy tests; actual page screenshots remain separate
 from these mocked layout checks.
 
+Viewport recovery belongs to the mounted feature and its original pathname.
+During a Next navigation, the outgoing listener must ignore destination scroll
+events, queued persistence and recovery callbacks once the browser URL leaves
+that pathname. Cleanup flushes only its last valid source-page measurement.
+A retained outgoing feature cannot adopt a newly verified destination pathname;
+a different feature ID or a new mount establishes the next owner. Genuine
+same-route scrolling to zero, explicit hashes and user gestures retain precedence.
+Unit coverage must model URL change before React teardown, and actual Next
+out/back verification remains the acceptance gate for this ordering.
+
 Long editors and readers use `ProfileDialog` with a sticky header and a body
 stacking context below that header. This contains nested summary-table sticky
 action cells: their local layering cannot obscure Close when a long room-order
