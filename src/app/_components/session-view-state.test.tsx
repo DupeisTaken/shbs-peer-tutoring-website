@@ -530,9 +530,14 @@ function scrollView(
   scope = "current",
   pathname = "/admin/tutees",
   id = "page-v1",
+  verified = true,
 ) {
   return (
-    <SessionViewProvider identity="head" pathname={pathname} verified>
+    <SessionViewProvider
+      identity="head"
+      pathname={pathname}
+      verified={verified}
+    >
       <ScrollProbe id={id} ready={ready} enabled={enabled} scope={scope} />
     </SessionViewProvider>
   );
@@ -756,33 +761,56 @@ it("flushes the final measured position when a route exits before the scheduled 
   fixture.remove();
 });
 it.each([
-  { label: "desktop admin pane", width: 1440, pathname: "/admin/tutees", pane: true },
-  { label: "desktop tutor document", width: 1440, pathname: "/dashboard", pane: false },
-  { label: "mobile document", width: 390, pathname: "/admin/tutees", pane: false },
-])("preserves the $label position when Next resets before outgoing cleanup", ({ width, pathname, pane }) => {
-  const fixture = scrollFixture(width);
-  if (!pane) fixture.pane.remove();
-  window.history.replaceState(null, "", pathname);
-  const owner = pane ? fixture.pane : document.documentElement;
-  const eventOwner = pane ? fixture.pane : window;
-  const key = viewStateKey("head", pathname, "scroll:page-v1", `current:${width >= 1024 ? "desktop" : "mobile"}`);
-  const rendered = render(scrollView(true, true, "current", pathname));
-  owner.scrollTop = 509;
-  fireEvent.scroll(eventOwner);
-  fixture.frames();
-  // Real Next ordering: URL changes and destination scroll occurs while the old
-  // feature's passive effect can still be mounted.
-  window.history.replaceState(null, "", "/settings");
-  owner.scrollTop = 0;
-  fireEvent.scroll(eventOwner);
-  fixture.frames();
-  rendered.unmount();
-  expect(readViewState(sessionStorage, key)).toBe(509);
-  window.history.replaceState(null, "", pathname);
-  render(scrollView(true, true, "current", pathname));
-  fixture.frames();
-  expect(owner.scrollTop).toBe(509);
-});
+  {
+    label: "desktop admin pane",
+    width: 1440,
+    pathname: "/admin/tutees",
+    pane: true,
+  },
+  {
+    label: "desktop tutor document",
+    width: 1440,
+    pathname: "/dashboard",
+    pane: false,
+  },
+  {
+    label: "mobile document",
+    width: 390,
+    pathname: "/admin/tutees",
+    pane: false,
+  },
+])(
+  "preserves the $label position when Next resets before outgoing cleanup",
+  ({ width, pathname, pane }) => {
+    const fixture = scrollFixture(width);
+    if (!pane) fixture.pane.remove();
+    window.history.replaceState(null, "", pathname);
+    const owner = pane ? fixture.pane : document.documentElement;
+    const eventOwner = pane ? fixture.pane : window;
+    const key = viewStateKey(
+      "head",
+      pathname,
+      "scroll:page-v1",
+      `current:${width >= 1024 ? "desktop" : "mobile"}`,
+    );
+    const rendered = render(scrollView(true, true, "current", pathname));
+    owner.scrollTop = 509;
+    fireEvent.scroll(eventOwner);
+    fixture.frames();
+    // Real Next ordering: URL changes and destination scroll occurs while the old
+    // feature's passive effect can still be mounted.
+    window.history.replaceState(null, "", "/settings");
+    owner.scrollTop = 0;
+    fireEvent.scroll(eventOwner);
+    fixture.frames();
+    rendered.unmount();
+    expect(readViewState(sessionStorage, key)).toBe(509);
+    window.history.replaceState(null, "", pathname);
+    render(scrollView(true, true, "current", pathname));
+    fixture.frames();
+    expect(owner.scrollTop).toBe(509);
+  },
+);
 it("does not let an already queued persistence frame read the destination zero", () => {
   const fixture = scrollFixture();
   const rendered = render(scrollView());
@@ -816,7 +844,12 @@ it("does not rebind a retained outgoing feature to a newly verified provider pat
   fixture.pane.scrollTop = 509;
   fireEvent.scroll(fixture.pane);
   fixture.frames();
-  const destinationKey = viewStateKey("head", "/settings", "scroll:page-v1", "current:desktop");
+  const destinationKey = viewStateKey(
+    "head",
+    "/settings",
+    "scroll:page-v1",
+    "current:desktop",
+  );
   writeViewState(sessionStorage, destinationKey, 777);
   window.history.replaceState(null, "", "/settings");
   fixture.pane.scrollTop = 13;
@@ -829,9 +862,16 @@ it("does not rebind a retained outgoing feature to a newly verified provider pat
   expect(readViewState(sessionStorage, destinationKey)).toBe(777);
   expect(readViewState(sessionStorage, scrollKey("desktop"))).toBe(509);
   // An explicit next feature ID establishes a legitimate destination owner.
-  const nextKey = viewStateKey("head", "/settings", "scroll:settings-v1", "current:desktop");
+  const nextKey = viewStateKey(
+    "head",
+    "/settings",
+    "scroll:settings-v1",
+    "current:desktop",
+  );
   writeViewState(sessionStorage, nextKey, 88);
-  rendered.rerender(scrollView(true, true, "current", "/settings", "settings-v1"));
+  rendered.rerender(
+    scrollView(true, true, "current", "/settings", "settings-v1"),
+  );
   fixture.frames();
   expect(fixture.pane.scrollTop).toBe(88);
 });
@@ -846,6 +886,50 @@ it("still saves a genuine same-route user scroll to zero", () => {
   fixture.frames();
   rendered.unmount();
   expect(readViewState(sessionStorage, scrollKey("desktop"))).toBe(0);
+});
+it("binds the first matching unverified path and never adopts a later destination", () => {
+  const fixture = scrollFixture();
+  const destinationKey = viewStateKey(
+    "head",
+    "/settings",
+    "scroll:page-v1",
+    "current:desktop",
+  );
+  writeViewState(sessionStorage, scrollKey("desktop"), 300);
+  writeViewState(sessionStorage, destinationKey, 777);
+  // A stale provider path cannot latch while the browser is still at the source.
+  const rendered = render(
+    scrollView(true, true, "current", "/settings", "page-v1", false),
+  );
+  rendered.rerender(
+    scrollView(true, true, "current", "/admin/tutees", "page-v1", false),
+  );
+  window.history.replaceState(null, "", "/settings");
+  fixture.pane.scrollTop = 13;
+  rendered.rerender(
+    scrollView(true, true, "current", "/settings", "page-v1", true),
+  );
+  fixture.frames();
+  expect(fixture.pane.scrollTop).toBe(13);
+  expect(readViewState(sessionStorage, destinationKey)).toBe(777);
+  expect(readViewState(sessionStorage, scrollKey("desktop"))).toBe(300);
+});
+it("reactivates the same retained feature only when Back returns to its owned path", () => {
+  const fixture = scrollFixture();
+  const rendered = render(scrollView());
+  fixture.pane.scrollTop = 509;
+  fireEvent.scroll(fixture.pane);
+  fixture.frames();
+  window.history.replaceState(null, "", "/settings");
+  fixture.pane.scrollTop = 13;
+  rendered.rerender(scrollView(true, true, "current", "/settings"));
+  fixture.frames();
+  expect(fixture.pane.scrollTop).toBe(13);
+  window.history.replaceState(null, "", "/admin/tutees");
+  fixture.pane.scrollTop = 0;
+  rendered.rerender(scrollView());
+  fixture.frames();
+  expect(fixture.pane.scrollTop).toBe(509);
 });
 it("changes from the fixed desktop pane to document scroll at the responsive breakpoint", () => {
   const fixture = scrollFixture();
