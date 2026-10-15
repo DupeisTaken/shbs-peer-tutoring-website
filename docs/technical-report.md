@@ -350,6 +350,14 @@ Behavioral coverage is in `session-view-state.test.tsx`, the pure storage tests 
 the existing identity-cache/privacy tests; actual page screenshots remain separate
 from these mocked layout checks.
 
+Long editors and readers use `ProfileDialog` with a sticky header and a body
+stacking context below that header. This contains nested summary-table sticky
+action cells: their local layering cannot obscure Close when a long room-order
+table scrolls under the header. Native dialog focus, pending-write registration,
+feature drafts and version ownership retain their existing boundaries. The gallery
+includes a long reader with real sticky table actions; structural/lifecycle tests
+and actual desktop/mobile English/Chinese deep-scroll captures verify the correction.
+
 Local panel composition leaves authority in existing owners. Program keeps its
 already-mounted settings forms and their independent versions; Crew and Support
 retain draft, review and pagination state when panels change. Review controllers
