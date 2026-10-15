@@ -203,6 +203,9 @@ translated label text. All in-table link actions, including destructive actions
 and semantic buttons that open details, remain unboxed at rest and on hover: no
 border or filled hover surface. Preserve their readable text, underline affordance,
 visible keyboard focus, disabled behavior and existing desktop/touch target sizes.
+Shared table text actions use a 3 px underline with a 4 px offset for keyboard
+focus, rather than a surrounding ring that looks like a boxed action. Keep this
+indicator distinct from the ordinary hover underline; mouse focus adds no box.
 Boxed consequential buttons keep their boundary and interaction treatment; the red
 label must not depend on hover. Confirmation, approval, authorization, action
 tickets and pending-dismissal rules remain owned by the existing feature.
