@@ -102,9 +102,9 @@ it.each([
         let owner = label.parentElement;
         while (
           owner &&
-          !getComputedStyle(owner).position.match(
-            /^(relative|absolute|fixed|sticky)$/,
-          )
+            !/^(relative|absolute|fixed|sticky)$/.test(
+              getComputedStyle(owner).position,
+            )
         )
           owner = owner.parentElement;
         expect(owner).toBe(fieldset);
