@@ -175,22 +175,27 @@ it("long readers retain the header Close and protect a registered child write un
   expect(document.activeElement).toBe(trigger);
 });
 
-it("does not submit a parent form when a row action is used", () => {
-  const submit = vi.fn((event: React.FormEvent) => event.preventDefault());
-  const action = vi.fn();
-  render(
-    <form onSubmit={submit}>
-      <TableAction onClick={action}>Edit</TableAction>
-      <TableAction disabled onClick={action}>
-        Unavailable
-      </TableAction>
-    </form>,
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-  fireEvent.click(screen.getByRole("button", { name: "Unavailable" }));
-  expect(action).toHaveBeenCalledTimes(1);
-  expect(submit).not.toHaveBeenCalled();
-});
+it.each(["standard", "danger"] as const)(
+  "does not submit a parent form or activate disabled %s row actions",
+  (variant) => {
+    const submit = vi.fn((event: React.FormEvent) => event.preventDefault());
+    const action = vi.fn();
+    render(
+      <form onSubmit={submit}>
+        <TableAction variant={variant} onClick={action}>
+          Edit
+        </TableAction>
+        <TableAction variant={variant} disabled onClick={action}>
+          Unavailable
+        </TableAction>
+      </form>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Unavailable" }));
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(submit).not.toHaveBeenCalled();
+  },
+);
 
 it("retains room comparisons but moves pairing names and block reasons into the last-column submenu", () => {
   render(

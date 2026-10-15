@@ -206,17 +206,9 @@ function ApplicationCard({
             </span>
           </span>
         </button>
-        {/* All record actions share compact typography and target height, including
-         * invalidity controls and account-setup links supplied by other owners. */}
+        {/* Put navigation before boxed decisions in DOM/keyboard order, with Delete
+         * last. Wrapping preserves that order and each owner's existing guards. */}
         <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto">
-          {!readOnly && !additional && (
-            <ApplicationInvalidityControls
-              record={app}
-              name={app.name}
-              canFlag
-              coordinator={account?.role === "COORDINATOR"}
-            />
-          )}
           {!additional && !app.isInvalid && app.status === "ACCEPTED" && (
             <Link
               href="/admin/users"
@@ -224,6 +216,14 @@ function ApplicationCard({
             >
               {t("admin.applications.setupAccount")}
             </Link>
+          )}
+          {!readOnly && !additional && (
+            <ApplicationInvalidityControls
+              record={app}
+              name={app.name}
+              canFlag
+              coordinator={account?.role === "COORDINATOR"}
+            />
           )}
           {canDirectAccept && (
             <Button

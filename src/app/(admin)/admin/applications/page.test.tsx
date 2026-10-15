@@ -204,6 +204,25 @@ const show = (viewer = false) => {
   return view;
 };
 
+it("puts account navigation before boxed decisions and Delete last in keyboard order", () => {
+  show();
+  const setup = screen.getByRole("link", {
+    name: en.admin.applications.setupAccount,
+  });
+  const actions = setup.parentElement!;
+  // Native DOM order also drives keyboard traversal when the same row wraps.
+  expect(
+    [...actions.querySelectorAll("a, button")].map((action) =>
+      action.textContent?.trim(),
+    ),
+  ).toEqual([
+    en.admin.applications.setupAccount,
+    en.requestInvalidity.flag,
+    en.admin.applications.delete,
+  ]);
+  expect(setup.getAttribute("href")).toBe("/admin/users");
+});
+
 it("retains an open invalidity draft and its version when a background flag removes the application from its filter", async () => {
   const view = show();
   fireEvent.click(screen.getByRole("button", { name: "Active entries" }));
