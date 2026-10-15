@@ -4710,7 +4710,7 @@
     "countHeading": "Assigned Blocks",
     "preferenceHeading": "Preferred Maximum",
     "staffHelp": "Approximate current-quarter workload; shared confirmed times count once and awaiting-schedule assignments count separately.",
-    "confirmTitle": "Assign above preferred sessions?",
+    "confirmTitle": "Assign Above Preferred Sessions?",
     "continue": "Continue",
     "reviewAssignment": "Try assigning a session",
     "compactHelp": "Numbers in parentheses show assigned sessions / preferred sessions. One number means no preference; ? means workload is unavailable or being refreshed."

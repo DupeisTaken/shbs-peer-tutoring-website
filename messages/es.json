@@ -4677,13 +4677,13 @@
   "tutorWorkload": {
     "title": "Assigned Session Blocks",
     "help": "Approximate workload for the current quarter if your assigned tutees work out. Shared confirmed times count once; assignments awaiting a schedule count separately. Your preference is advisory and does not change existing assignments.",
-    "editPreference": "Your assignment preference",
-    "preference": "Preferred maximum",
+    "editPreference": "Preferred Sessions",
+    "preference": "Preferred Sessions",
     "unset": "No preference",
-    "value": "{count, plural, one {# block} other {# blocks}}",
+    "value": "{count}",
     "current": "{count, plural, one {# assigned block} other {# assigned blocks}}",
-    "savedPreference": "Preferred maximum: {count}",
-    "zeroHelp": "Choose a whole number from 0 to 4. Zero means you prefer no assignments; No preference is a separate unset choice. Save applies only to this preference.",
+    "savedPreference": "Preferred sessions: {count}",
+    "zeroHelp": "Choose 0–4 sessions. New tutors start at 1. Zero means no sessions preferred; Clear preference leaves it unset.",
     "save": "Save preference",
     "saving": "Saving…",
     "cancel": "Cancel",
@@ -4702,13 +4702,17 @@
     "readOnly": "This account currently has read-only access to its assignment preference.",
     "reached": "Preferred maximum reached ({count}/{maximum}). Staff may still assign under the existing rules.",
     "over": "Current workload ({count}) exceeds the preferred maximum ({maximum}). Existing assignments remain in place.",
-    "proposedOver": "This change would result in {proposed, plural, one {# assigned block} other {# assigned blocks}}, above the preferred maximum ({maximum}). Assignment is still allowed under the existing rules.",
+    "proposedOver": "This assignment would result in {proposed} sessions, above the tutor’s preference of {maximum}. Continue with the assignment?",
     "conflict": "The saved preference or participation state changed. Your draft is retained. Reload the saved preference before saving a new version.",
     "saveFailed": "Could not save the preference. Your draft is retained; try Save again.",
     "refreshFailed": "Preference saved, but synchronization failed. Retry refresh reads the saved value without saving again.",
     "reloadFailed": "Could not reload the preference. Your draft and original version are retained.",
     "countHeading": "Assigned Blocks",
     "preferenceHeading": "Preferred Maximum",
-    "staffHelp": "Approximate current-quarter workload; shared confirmed times count once and awaiting-schedule assignments count separately."
+    "staffHelp": "Approximate current-quarter workload; shared confirmed times count once and awaiting-schedule assignments count separately.",
+    "confirmTitle": "Assign Above Preferred Sessions?",
+    "continue": "Continue",
+    "reviewAssignment": "Try assigning a session",
+    "compactHelp": "Numbers in parentheses show assigned sessions / preferred sessions. One number means no preference; ? means workload is unavailable or being refreshed."
   }
 }
