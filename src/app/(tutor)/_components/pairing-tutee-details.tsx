@@ -122,9 +122,9 @@ export function PairingTuteeDetails(props: Props) {
             </p>
           )}
           {!row?.managed &&
-            (pendingRequest ||
+            (!!pendingRequest ||
               (active && props.ready && !props.failed) ||
-              feedback) && (
+              !!feedback) && (
               <DialogControls>
                 {(busy) => (
                   <section className="mt-4 space-y-2 border-t border-slate-200 pt-4">

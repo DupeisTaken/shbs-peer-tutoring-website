@@ -22,7 +22,7 @@ const state = vi.hoisted(() => ({
   confirmed: true,
   name: "Sample Learner",
   username: null as string | null,
-  rosterFailure: "" as "" | "denied" | "transport",
+  rosterFailure: "",
   refetch: vi.fn(),
 }));
 vi.mock("~/app/_components/confirm-dialog", () => ({
