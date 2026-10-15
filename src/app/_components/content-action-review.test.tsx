@@ -212,6 +212,31 @@ const cases = [
   ["images", "deleteImage", "image-1"],
 ] as const;
 
+it("puts custom-page navigation before boxed actions and Delete last without writing", () => {
+  render(<LandingAdminPage />, { wrapper });
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.admin.landing.tabs.pages }),
+  );
+  const link = screen.getByRole("link", {
+    name: `${en.admin.landing.sections.viewPage} ↗`,
+  });
+  const actions = link.parentElement!;
+  expect(
+    [...actions.querySelectorAll("a, button")].map((action) =>
+      action.textContent?.trim(),
+    ),
+  ).toEqual([
+    `${en.admin.landing.sections.viewPage} ↗`,
+    "↑",
+    "↓",
+    en.admin.landing.sections.actions.hide,
+    en.common.delete,
+  ]);
+  expect(link.getAttribute("href")).toBe("/p/synthetic");
+  expect(link.getAttribute("target")).toBe("_blank");
+  expect(state.write).not.toHaveBeenCalled();
+});
+
 it("retains independent fixed-content drafts across locales, tabs, errors and pending writes", () => {
   const view = render(<LandingAdminPage />, { wrapper });
   fireEvent.click(
