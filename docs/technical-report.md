@@ -256,9 +256,14 @@ remain distinct. The reader never reconstructs evidence from current records and
 continues to exclude executable `undoData` recursively. Denial eviction and
 read-only refresh remain owned by the audit feature.
 
-Consequential buttons, text actions and table entries use a neutral outlined
-boundary at rest and red hover/focus/activation treatment. Their labels, native
-button semantics, confirmation/ticket rules and responsive targets remain intact.
+Consequential boxed buttons keep their outlined boundary with red labels at rest.
+Destructive text actions and table entries are red and unboxed at rest and on
+hover. Shared table actions use a thick, offset keyboard-focus underline instead
+of a surrounding ring; standalone text actions retain their existing focus treatment.
+Ordinary links precede boxed decisions
+in a record action group, and Delete remains last in DOM and keyboard order.
+Native button/link semantics, confirmation/ticket rules and responsive targets
+remain intact; styling is assigned explicitly rather than inferred from labels.
 The synthetic management summary recipe in `/ui-gallery` demonstrates control-row
 alignment, leading selection and consequential review/focus return. Focused
 regressions cover the corresponding feature components and real-page compositions;
@@ -362,7 +367,7 @@ out/back verification remains the acceptance gate for this ordering.
 
 Long editors and readers use `ProfileDialog` with a sticky header and a body
 stacking context below that header. This contains nested summary-table sticky
-action cells: their local layering cannot obscure Close when a long room-order
+action cells: their local layering cannot obscure Close when a long evidence
 table scrolls under the header. Native dialog focus, pending-write registration,
 feature drafts and version ownership retain their existing boundaries. The gallery
 includes a long reader with real sticky table actions; structural/lifecycle tests
