@@ -264,6 +264,58 @@ it("previews without persistence, imports linked history atomically, and skips i
   ).toBe(2);
 });
 
+it("round-trips historical pairing groups before their member references", async () => {
+  const files = fixtures().filter((entry) => entry.name !== "Pairing.csv");
+  files.push(
+    file("PairingGroup", [
+      {
+        id: "historic-group",
+        tutorId: "tutor",
+        termId: "term",
+        primaryPairingId: "pair",
+        updatedAt: "2024-10-01T10:00:00Z",
+      },
+    ]),
+  );
+  files.push(
+    file(
+      "Pairing",
+      ["pair", "second-pair"].map((id) => ({
+        id,
+        tutorId: "tutor",
+        termId: "term",
+        groupId: "historic-group",
+        subject: id === "pair" ? "Math" : "Physics",
+        dayOfWeek: 2,
+        startMin: 600,
+        endMin: 630,
+      })),
+    ),
+  );
+  const preview = await caller().recordTransfer.preview({ files });
+  await caller().recordTransfer.import({ files, ticket: preview.ticket });
+  const retainedGroup = await db.pairingGroup.findUnique({
+    where: { id: "historic-group" },
+    include: { pairings: true },
+  });
+  expect(retainedGroup?.primaryPairingId).toBe("pair");
+  expect(retainedGroup?.pairings.map((p) => p.id).sort()).toEqual([
+    "pair",
+    "second-pair",
+  ]);
+  const exported = await caller().recordTransfer.export({});
+  expect(
+    exported.files.find((entry) => entry.name === "PairingGroup.csv")?.text,
+  ).toContain("historic-group");
+  expect(
+    exported.files.find((entry) => entry.name === "Pairing.csv")?.text,
+  ).toContain("historic-group");
+  const repeated = await caller().recordTransfer.preview({
+    files: exported.files,
+  });
+  expect(repeated.summary.every((entry) => entry.created === 0)).toBe(true);
+});
+
 it("rolls back earlier rows on missing references and returns CSV row context", async () => {
   const files = [
     ...fixtures(),
@@ -298,8 +350,14 @@ it("rejects conflicts introduced after preview and tampered/expired tickets", as
     caller().recordTransfer.import({ files, ticket: preview.ticket }),
   ).rejects.toThrow(/different values/i);
   expect(await db.term.count()).toBe(0);
-  expect(await db.auditLog.count({ where: { kind: { not: "ATTEMPT" } } })).toBe(0);
-  expect(await db.auditLog.count({ where: { kind: "ATTEMPT", operation: "recordTransfer.import" } })).toBe(3);
+  expect(await db.auditLog.count({ where: { kind: { not: "ATTEMPT" } } })).toBe(
+    0,
+  );
+  expect(
+    await db.auditLog.count({
+      where: { kind: "ATTEMPT", operation: "recordTransfer.import" },
+    }),
+  ).toBe(3);
 });
 
 it("exports re-importable files and excludes credentials and verification tokens", async () => {

@@ -74,6 +74,8 @@ const safeFields = new Set([
   "tutorId",
   "tuteeId",
   "pairingId",
+  "groupId",
+  "primaryPairingId",
   "termId",
   "surveyId",
   "subjectId",

@@ -26,6 +26,7 @@ const state = vi.hoisted(() => ({
   pausedInterview: false,
   mixedInterviews: false,
   empty: false,
+  grouped: false,
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -45,6 +46,8 @@ vi.mock("~/trpc/react", () => ({
               : [
                   {
                     id: "today",
+                    groupId: state.grouped ? "group" : null,
+                    group: { primaryPairingId: "today" },
                     subject: "Friday maths",
                     scheduleConfirmed: true,
                     dayOfWeek: 5,
@@ -62,9 +65,11 @@ vi.mock("~/trpc/react", () => ({
                   },
                   {
                     id: "yesterday",
+                    groupId: state.grouped ? "group" : null,
+                    group: { primaryPairingId: "today" },
                     subject: "Thursday science",
                     scheduleConfirmed: true,
-                    dayOfWeek: 4,
+                    dayOfWeek: state.grouped ? 5 : 4,
                     startMin: 900,
                     endMin: 960,
                   },
@@ -130,6 +135,7 @@ afterEach(() => {
   state.pausedInterview = false;
   state.mixedInterviews = false;
   state.empty = false;
+  state.grouped = false;
   vi.clearAllMocks();
   vi.restoreAllMocks();
   window.history.replaceState(null, "", window.location.pathname);
@@ -152,6 +158,14 @@ const show = (status = "ACTIVE", enabled = true) =>
       </section>
     </NextIntlClientProvider>,
   );
+
+it("shows a reusable group once in today’s recurring schedule", () => {
+  state.grouped = true;
+  show();
+  expect(screen.getByText("Friday maths + Thursday science")).toBeTruthy();
+  expect(screen.queryByText("Friday maths")).toBeNull();
+  expect(screen.queryByText("Thursday science")).toBeNull();
+});
 
 it("prioritizes attendance and the program-zone weekday, excluding unconfirmed times", () => {
   show();

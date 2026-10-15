@@ -14,6 +14,8 @@ type MergeState = {
   setMergeIds: React.Dispatch<React.SetStateAction<string[]>>;
   attendanceLocked: boolean;
   setAttendanceLocked: (locked: boolean) => void;
+  attendanceSelection: { value: string; sequence: number } | null;
+  selectAttendance: (value: string) => void;
 };
 
 const MergeContext = createContext<MergeState | null>(null);
@@ -22,6 +24,8 @@ export function MergeProvider({ children }: { children: React.ReactNode }) {
   const [primaryPairingId, setPrimaryPairingId] = useState("");
   const [mergeIds, setMergeIds] = useState<string[]>([]);
   const [attendanceLocked, setAttendanceLocked] = useState(false);
+  const [attendanceSelection, setSelection] =
+    useState<MergeState["attendanceSelection"]>(null);
   return (
     <MergeContext.Provider
       value={{
@@ -31,6 +35,12 @@ export function MergeProvider({ children }: { children: React.ReactNode }) {
         setMergeIds,
         attendanceLocked,
         setAttendanceLocked,
+        attendanceSelection,
+        selectAttendance: (value) =>
+          setSelection((previous) => ({
+            value,
+            sequence: (previous?.sequence ?? 0) + 1,
+          })),
       }}
     >
       {children}
