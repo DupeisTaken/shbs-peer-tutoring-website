@@ -258,7 +258,9 @@ read-only refresh remain owned by the audit feature.
 
 Consequential boxed buttons keep their outlined boundary with red labels at rest.
 Destructive text actions and table entries are red and unboxed at rest and on
-hover, with a visible keyboard-focus ring. Ordinary links precede boxed decisions
+hover. Shared table actions use a thick, offset keyboard-focus underline instead
+of a surrounding ring; standalone text actions retain their existing focus treatment.
+Ordinary links precede boxed decisions
 in a record action group, and Delete remains last in DOM and keyboard order.
 Native button/link semantics, confirmation/ticket rules and responsive targets
 remain intact; styling is assigned explicitly rather than inferred from labels.
