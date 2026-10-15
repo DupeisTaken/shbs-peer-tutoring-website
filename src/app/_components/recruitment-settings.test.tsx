@@ -7,6 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { compile } from "tailwindcss";
 import { RecruitmentSettings } from "./recruitment-settings";
 const mocks = vi.hoisted(() => ({
   mutate: vi.fn(),
@@ -46,6 +47,77 @@ const window = {
   closesAt: null,
   previewUrl: null,
 };
+
+it.each([
+  { audience: "tutor", canEdit: true },
+  { audience: "tutee", canEdit: true },
+  { audience: "tutor", canEdit: false },
+  { audience: "tutee", canEdit: false },
+] as const)(
+  "contains $audience hidden labels locally while canEdit=$canEdit",
+  async ({ audience, canEdit }) => {
+    const { container } = render(
+      <RecruitmentSettings
+        termId="term"
+        audience={audience}
+        window={{
+          ...window,
+          opensAt: new Date("2026-09-23T01:00:00Z"),
+          closesAt: new Date("2026-09-24T09:00:00Z"),
+        }}
+        canEdit={canEdit}
+        canApply={canEdit}
+      />,
+    );
+    const fieldset = screen.getByRole("group", { name: audience });
+    const start = screen.getByLabelText(/^start/, {
+      selector: 'input[type="datetime-local"]',
+    });
+    const end = screen.getByLabelText(/^end/, {
+      selector: 'input[type="datetime-local"]',
+    });
+    expect(start.matches(":disabled")).toBe(!canEdit);
+    expect(end.matches(":disabled")).toBe(!canEdit);
+    const hiddenLabels = [
+      ...fieldset.querySelectorAll<HTMLElement>(".sr-only"),
+    ];
+    expect(hiddenLabels).toHaveLength(3);
+
+    // Use the actual utilities on the form and labels: clipped absolute labels
+    // still need a positioned ancestor. JSDOM cannot prove document scroll geometry.
+    const compiler = await compile("@tailwind utilities;");
+    const stylesheet = document.createElement("style");
+    stylesheet.textContent = compiler.build([
+      ...fieldset.classList,
+      ...hiddenLabels.flatMap((label) => [...label.classList]),
+    ]);
+    document.head.append(stylesheet);
+    try {
+      expect(getComputedStyle(fieldset).position).toBe("relative");
+      for (const label of hiddenLabels) {
+        const style = getComputedStyle(label);
+        expect(style.position).toBe("absolute");
+        expect(style.width).toBe("1px");
+        expect(style.height).toBe("1px");
+        let owner = label.parentElement;
+        while (
+          owner &&
+          !getComputedStyle(owner).position.match(
+            /^(relative|absolute|fixed|sticky)$/,
+          )
+        )
+          owner = owner.parentElement;
+        expect(owner).toBe(fieldset);
+      }
+    } finally {
+      stylesheet.remove();
+    }
+    // Retaining the accessibility labels must never relax the observer boundary.
+    if (!canEdit) fireEvent.submit(container.querySelector("form")!);
+    expect(mocks.mutate).not.toHaveBeenCalled();
+  },
+);
+
 it.each(["tutor", "tutee"] as const)(
   "saves independent %s controls in the program timezone without requiring an external sheet",
   (audience) => {

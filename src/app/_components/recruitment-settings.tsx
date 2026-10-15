@@ -170,7 +170,9 @@ function Editor({
         <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
         <fieldset
           disabled={!canEdit || save.isPending || reloading}
-          className="min-w-0 space-y-4"
+          // Hidden absolute labels need a local containing block inside the pane;
+          // otherwise their static positions can enlarge the root scroll range.
+          className="relative min-w-0 space-y-4"
         >
           <legend className="sr-only">{t(audience)}</legend>
           <label className="flex min-h-11 items-center gap-3 font-medium">
