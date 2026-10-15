@@ -521,7 +521,6 @@ export default function RoomsPage() {
           : { message: error.message, error: true },
       ),
   });
-<<<<<<< HEAD
   if (denied)
     return (
       <StatePanel
@@ -529,7 +528,6 @@ export default function RoomsPage() {
         title={recovery("denied", { section: t("title") })}
       />
     );
-=======
   const renderRoom = (room: Room, orderControls?: ReactNode) => (
     <RoomCard
       key={room.id}
@@ -542,7 +540,6 @@ export default function RoomsPage() {
       onDeleted={() => invalidateAndReport(utils.admin.rooms)}
     />
   );
->>>>>>> e737aa8632fcd2777039529301248dd62c9a1b83
   return (
     <div className="space-y-6">
       {!readOnly && review.dialog}
