@@ -201,7 +201,7 @@ function ConfirmationInstance({
         >
           {t("cancel")}
         </button>
-        {(warning || workloadReview?.warning) && (
+        {(warning || Boolean(workloadReview?.warning)) && (
           <button
             className="btn-primary min-h-11 whitespace-normal lg:min-h-10"
             disabled={

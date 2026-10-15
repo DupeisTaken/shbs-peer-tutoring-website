@@ -394,3 +394,21 @@ it.each([
       ).toBeNull();
   },
 );
+
+it.each([1, null])(
+  "hydrates saved %s without silently replacing an unset preference",
+  async (preferredMaximum) => {
+    state.read.mockResolvedValue(snapshot({ preferredMaximum }));
+    mount();
+    await screen.findByRole("combobox");
+    await waitFor(() =>
+      expect(select().value).toBe(preferredMaximum === null ? "" : "1"),
+    );
+    expect(state.save).not.toHaveBeenCalled();
+    expect(
+      [...select().options]
+        .filter((option) => option.value !== "")
+        .map((option) => option.textContent),
+    ).toEqual(["0", "1", "2", "3", "4"]);
+  },
+);

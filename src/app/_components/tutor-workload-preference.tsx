@@ -205,7 +205,7 @@ export function TutorWorkloadPreference() {
                 </>
               }
             >
-              <label className="block text-sm">
+              <label className="relative block text-sm">
                 <span className="sr-only">
                   {t("preference")} <FieldRequirement state="optional" />
                 </span>
