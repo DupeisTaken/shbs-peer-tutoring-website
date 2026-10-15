@@ -269,8 +269,8 @@ In **My Pairings**, each assigned tutee has a **Details** entry. Open it to read
 their recorded availability, verification deadline and pending review status, and
 use the existing schedule-conflict request or eligible relay/recall controls.
 Missing availability means no times have been recorded; it does not establish a
-schedule conflict. Each tutee's two reason drafts remain separate when Details is
-closed and reopened on the same page. They are not saved across navigation. A
+schedule conflict. Schedule-conflict and eligible relay reason drafts remain
+separate when Details is closed and reopened on the same page. They are not saved across navigation. A
 pending write blocks dismissal; Cancel and Close do not submit it. The pairing's
 default time selector remains before the tutee list.
 
