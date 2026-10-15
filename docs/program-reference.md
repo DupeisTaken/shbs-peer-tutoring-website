@@ -145,6 +145,11 @@ The room schedule offers combined and individual-room layouts, explicit room sel
 
 Within the same browser session, returning recalls the selected Program Settings panel, roster filters and sorting, schedule layout, selected rooms and detail filters. A direct Program Settings panel link takes precedence. Schedule selections wait for the current room/slot catalog, then drop removed choices; a deliberately empty room selection remains empty. Account editor drafts and refresh confirmation text are not stored. Each authorized page owns its scroll position; the room-grid component does not compete with the Pairings page for viewport scrolling.
 
+The legend distinguishes gray occupied cells, × unavailable cells and available
+published slots without an assignment. The participant subtitle identifies the
+highlighted personal pairings and uses a room-status explanation consistent with
+that legend.
+
 In **Rooms**, Head/Admin open **Reorder rooms** to stage the display order in a dialog. Closing preserves its unsaved order until explicit Reload; pending writes prevent dismissal. Saving the complete list persists one program order for catalogs and schedules; stale or incomplete lists are rejected. New rooms append to that order. Head applies the change and Admin submits it for Head review. Coordinators and Viewers do not edit this program setting. This order is independent from the Crew patrol order: reordering does not move a pairing or change patrol sequencing.
 
 Use **Time Slots**, **Rooms** and **Pairings** to plan recurring sessions. A room cannot host overlapping pairings in one program period or a pairing during a recurring blackout; back-to-back sessions are allowed. Availability helps participants agree on a slot and does not prevent staff from assigning a tutor before that agreement. New assignments display **Awaiting schedule** until a tutor or manager selects a catalog slot. These assignments do not reserve rooms or count as scheduled subjects; the assigned tutor remains visible to the tutee.

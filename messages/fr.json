@@ -428,7 +428,7 @@
     },
     "schedule": {
       "title": "Planning des salles",
-      "help": "Vos pairages sont mis en évidence. Les cellules grisées correspondent aux salles indisponibles."
+      "help": "Vos pairages sont mis en évidence. Consultez la légende ci-dessous pour connaître la disponibilité des salles."
     }
   },
   "admin": {
