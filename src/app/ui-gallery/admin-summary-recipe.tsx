@@ -93,7 +93,7 @@ export function AdminSummaryRecipe({ locale }: { locale: "en" | "zh" }) {
             while only the latter keep a persistent button boundary. */}
         <button
           type="button"
-          className="link-danger"
+          className="link-danger text-sm"
           onClick={() => setReview(true)}
         >
           {zh ? "归档示例" : "Archive example"}
