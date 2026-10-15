@@ -79,7 +79,7 @@ reviews compact; the feature still owns any pending writes and access checks.
 `ProfileDialog` keeps its body in a stacking context below the sticky Close header.
 Nested summary-table action cells retain their own horizontal stickiness, but must
 not paint over the title or Close during vertical scrolling. Verify the long-reader
-gallery with a sticky-action table and the actual room-order editor at deep scroll
+gallery with a sticky-action table and the actual staff Audit evidence reader at deep scroll
 in English and Chinese on desktop and mobile. Component tests check the stacking
 boundary and keyboard lifecycle; saved browser images establish actual paint order.
 

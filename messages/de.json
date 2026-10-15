@@ -4610,7 +4610,8 @@
   },
   "roomOrder": {
     "title": "Anzeigereihenfolge der Räume",
-    "help": "Ordnen Sie die Raumlisten und Stundenpläne des Programms. Die Kontrollrundgänge des Teams haben eine eigene Reihenfolge.",
+    "help": "Ordnen Sie den Entwurf mit den Raumpfeilen und speichern oder beantragen Sie unten die vollständige Reihenfolge. Die Kontrollrundgänge haben eine eigene Reihenfolge.",
+    "catalogChanged": "Die Raumliste hat sich geändert. Laden Sie die Reihenfolge vor weiteren Änderungen neu; Ihr Entwurf bleibt erhalten.",
     "room": "Raum",
     "actions": "Aktionen",
     "up": "Nach oben",
