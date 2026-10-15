@@ -246,6 +246,18 @@ export function useSessionPageScroll({
   const identity = context?.identity ?? "anonymous";
   const pathname = context?.pathname ?? "";
   const active = !!context?.verified && identity !== "anonymous";
+  // A retained outgoing feature must not adopt a newly verified destination
+  // pathname. A new mount or explicit feature ID establishes the next owner.
+  const [routeOwner, setRouteOwner] = useState(() => ({ id, pathname: "" }));
+  useLayoutEffect(() => {
+    setRouteOwner((previous) => {
+      if (previous.id === id && previous.pathname) return previous;
+      if (!pathname || window.location.pathname !== pathname)
+        return previous.id === id ? previous : { id, pathname: "" };
+      return { id, pathname };
+    });
+  }, [id, pathname]);
+  const ownsRoute = routeOwner.id === id && routeOwner.pathname === pathname;
   const [desktop, setDesktop] = useState<boolean | null>(null);
   useEffect(() => {
     const resize = () => setDesktop(window.innerWidth >= 1024);
@@ -254,7 +266,15 @@ export function useSessionPageScroll({
     return () => window.removeEventListener("resize", resize);
   }, []);
   useEffect(() => {
-    if (!active || !ready || !enabled || desktop === null) return;
+    if (
+      !active ||
+      !ready ||
+      !enabled ||
+      !ownsRoute ||
+      desktop === null ||
+      window.location.pathname !== pathname
+    )
+      return;
     const pane = desktop ? document.getElementById("admin-content") : null;
     const owner = pane ?? document.scrollingElement ?? document.documentElement;
     const key = viewStateKey(
@@ -279,8 +299,11 @@ export function useSessionPageScroll({
     let observer: ResizeObserver | undefined;
     let mutations: MutationObserver | undefined;
     let lastPosition: number | null = null;
+    const ownsLocation = () => window.location.pathname === pathname;
     const persist = () => {
-      if (restoring) return;
+      // Next can reset the destination viewport before passive effect teardown,
+      // including before an already queued source-page persistence frame runs.
+      if (!ownsLocation() || restoring) return;
       lastPosition = Math.max(0, owner.scrollTop);
       try {
         writeViewState(
@@ -300,6 +323,10 @@ export function useSessionPageScroll({
       if (timeout) clearTimeout(timeout);
     };
     const attempt = () => {
+      if (!ownsLocation()) {
+        stop();
+        return;
+      }
       if (!restoring || target === null) return;
       const height = pane ? pane.clientHeight : window.innerHeight;
       const maximum = Math.max(0, owner.scrollHeight - height);
@@ -313,6 +340,10 @@ export function useSessionPageScroll({
       stop();
     };
     const onScroll = () => {
+      if (!ownsLocation()) {
+        stop();
+        return;
+      }
       if (restoring && target !== null) {
         const height = pane ? pane.clientHeight : window.innerHeight;
         const desired = Math.min(
@@ -388,9 +419,19 @@ export function useSessionPageScroll({
       ] as const)
         window.removeEventListener(name, gesture);
     };
-  }, [identity, pathname, active, id, scope, ready, enabled, desktop]);
+  }, [
+    identity,
+    pathname,
+    active,
+    id,
+    scope,
+    ready,
+    enabled,
+    desktop,
+    ownsRoute,
+  ]);
   useEffect(() => {
-    if (enabled || !context) return;
+    if (enabled || !context || !ownsRoute) return;
     for (const size of [":desktop", ":mobile"]) {
       try {
         removeViewState(
@@ -401,5 +442,5 @@ export function useSessionPageScroll({
         /* Optional storage. */
       }
     }
-  }, [enabled, identity, pathname, id, scope, context]);
+  }, [enabled, identity, pathname, id, scope, context, ownsRoute]);
 }
