@@ -2036,7 +2036,8 @@
       "removalHelp": "The tutee asked to leave? Relay their opt-out. There's a 7-day window where you (or an admin) can recall it; after that it's automatic.",
       "removalReasonPlaceholder": "Reason (optional)",
       "removalSubmit": "Relay Opt-Out",
-      "removalCancel": "Cancel"
+      "removalCancel": "Cancel",
+      "availabilityMissing": "Availability has not been recorded."
     },
     "availability": {
       "loading": "Loading time slots…",

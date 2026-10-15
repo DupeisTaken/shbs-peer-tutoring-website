@@ -2036,7 +2036,8 @@
       "removalHelp": "학생이 탈퇴를 원하나요? 대신 전달하세요. 7일 동안 본인(또는 관리자)이 철회할 수 있고, 이후에는 자동 처리됩니다.",
       "removalReasonPlaceholder": "사유(선택)",
       "removalSubmit": "탈퇴 전달",
-      "removalCancel": "취소"
+      "removalCancel": "취소",
+      "availabilityMissing": "아직 가능한 시간이 등록되지 않았습니다."
     },
     "availability": {
       "loading": "시간대 불러오는 중…",

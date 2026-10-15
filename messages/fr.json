@@ -2036,7 +2036,8 @@
       "removalHelp": "Le tutoré souhaite partir ? Relayez sa demande. Vous (ou un admin) avez 7 jours pour la rétracter ; ensuite c'est automatique.",
       "removalReasonPlaceholder": "Motif (facultatif)",
       "removalSubmit": "Relayer",
-      "removalCancel": "Annuler"
+      "removalCancel": "Annuler",
+      "availabilityMissing": "Aucune disponibilité enregistrée."
     },
     "availability": {
       "loading": "Chargement des créneaux…",

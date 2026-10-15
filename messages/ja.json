@@ -2036,7 +2036,8 @@
       "removalHelp": "生徒が離脱を希望？代理で提出します。7日間はあなた（または管理者）が撤回でき、その後は自動です。",
       "removalReasonPlaceholder": "理由（任意）",
       "removalSubmit": "離脱を提出",
-      "removalCancel": "キャンセル"
+      "removalCancel": "キャンセル",
+      "availabilityMissing": "対応可能な時間はまだ登録されていません。"
     },
     "availability": {
       "loading": "タイムスロットを読み込み中…",

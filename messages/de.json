@@ -2036,7 +2036,8 @@
       "removalHelp": "Möchte der Tutee aufhören? Übermitteln Sie die Abmeldung. 7 Tage lang können Sie (oder ein Admin) sie widerrufen; danach erfolgt sie automatisch.",
       "removalReasonPlaceholder": "Grund (optional)",
       "removalSubmit": "Übermitteln",
-      "removalCancel": "Abbrechen"
+      "removalCancel": "Abbrechen",
+      "availabilityMissing": "Es wurden noch keine verfügbaren Zeiten erfasst."
     },
     "availability": {
       "loading": "Zeitfenster werden geladen…",

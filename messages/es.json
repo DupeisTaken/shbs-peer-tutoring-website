@@ -2028,7 +2028,8 @@
       "removalHelp": "¿El alumno pidió darse de baja? Transmítela. Hay 7 días para que tú (o un admin) la retiréis; luego es automática.",
       "removalReasonPlaceholder": "Motivo (opcional)",
       "removalSubmit": "Transmitir baja",
-      "removalCancel": "Cancelar"
+      "removalCancel": "Cancelar",
+      "availabilityMissing": "Todavía no se ha registrado disponibilidad."
     },
     "availability": {
       "loading": "Cargando horarios…",
