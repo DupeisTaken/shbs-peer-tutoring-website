@@ -1,11 +1,13 @@
 "use client";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import {
   assignmentIdentity,
   type AssignmentOperation,
 } from "~/lib/assignment-qualification";
+import { Button } from "./ui/button";
+import { Modal } from "./ui/modal";
 
 /** Remount on any selection change: late preparation responses cannot unlock a new selection. */
 export function AssignmentConfirmation(props: {
@@ -39,9 +41,6 @@ function ConfirmationInstance({
 }: Parameters<typeof AssignmentConfirmation>[0]) {
   const t = useTranslations("assignmentQualification");
   const workloadText = useTranslations("tutorWorkload");
-  const ref = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
-  const descriptionId = useId();
   const prepare = api.assignment.prepare.useMutation();
   const cancel = api.assignment.cancel.useMutation();
   const [result, setResult] = useState<Awaited<
@@ -97,17 +96,12 @@ function ConfirmationInstance({
     }
   }, [result, workloadReview?.pending, workloadReview?.warning]);
   useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    const modal = ref.current;
-    modal?.showModal();
+    // A queued approval is an accepted handoff, not a user dismissal. Keep this
+    // lifecycle separate from Modal's pending-write Escape/backdrop protection.
     const queued = () => callbacks.current.onCancel();
     window.addEventListener("approval-queued", queued);
     return () => {
       window.removeEventListener("approval-queued", queued);
-      // Close before restoring focus: an open modal makes the trigger inert, including
-      // during development effect replay. Removing the node alone is too late.
-      modal?.close();
-      previous?.focus();
     };
   }, []);
   useEffect(() => {
@@ -125,56 +119,61 @@ function ConfirmationInstance({
   }, [result]);
   const warning = !!result?.mismatches.length;
   return (
-    <dialog
-      ref={ref}
-      aria-labelledby={titleId}
-      aria-describedby={descriptionId}
-      onKeyDown={(event) => {
-        // Keep Tab inside the two explicit choices; native modal inertness alone can
-        // still let Chromium move focus to browser chrome after the final control.
-        if (
-          event.key !== "Tab" ||
-          event.altKey ||
-          event.ctrlKey ||
-          event.metaKey
-        )
-          return;
-        const buttons = [
-          ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
-            "button:not([disabled])",
-          ),
-        ];
-        const first = buttons[0];
-        const last = buttons.at(-1);
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last?.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first?.focus();
-        }
-      }}
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onCancel();
-      }}
-      className="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-2xl backdrop:bg-slate-950/60"
-    >
-      <h2 id={titleId} className="text-xl font-bold">
-        {warning
+    <Modal
+      busy={busy}
+      onClose={onCancel}
+      title={
+        warning
           ? t("warningTitle")
           : workloadReview?.warning
             ? workloadText("confirmTitle")
-            : t("checking")}
-      </h2>
-      <p
-        id={descriptionId}
-        className="mt-3 text-sm leading-relaxed text-slate-600"
-      >
-        {warning
+            : t("checking")
+      }
+      description={
+        warning
           ? t("warningHelp")
-          : (workloadReview?.warning ?? t("checkingHelp"))}
-      </p>
+          : (workloadReview?.warning ?? t("checkingHelp"))
+      }
+      footer={
+        <>
+          <Button data-dialog-autofocus onClick={onCancel}>
+            {t("cancel")}
+          </Button>
+          {(warning || Boolean(workloadReview?.warning)) && (
+            <Button
+              variant="primary"
+              className="whitespace-normal"
+              disabled={
+                (warning && remaining > 0) ||
+                Boolean(workloadReview?.pending) ||
+                acknowledged ||
+                !result
+              }
+              onClick={() => {
+                if (
+                  (!warning || remaining === 0) &&
+                  !workloadReview?.pending &&
+                  result &&
+                  !submitted.current
+                ) {
+                  submitted.current = true;
+                  setAcknowledged(true);
+                  onConfirm(result.ticket?.id);
+                }
+              }}
+            >
+              {busy
+                ? t("working")
+                : warning && remaining
+                  ? t("wait", { seconds: remaining })
+                  : warning
+                    ? t("confirm")
+                    : workloadText("continue")}
+            </Button>
+          )}
+        </>
+      }
+    >
       {warning && (
         <ul className="my-5 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
           {result?.mismatches.map((m) => (
@@ -193,47 +192,6 @@ function ConfirmationInstance({
           {error ?? prepare.error?.message}
         </p>
       )}
-      <div className="mt-5 flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4">
-        <button
-          className="btn-secondary min-h-11 lg:min-h-10"
-          disabled={busy}
-          onClick={onCancel}
-        >
-          {t("cancel")}
-        </button>
-        {(warning || Boolean(workloadReview?.warning)) && (
-          <button
-            className="btn-primary min-h-11 whitespace-normal lg:min-h-10"
-            disabled={
-              (warning && remaining > 0) ||
-              Boolean(workloadReview?.pending) ||
-              busy ||
-              acknowledged ||
-              !result
-            }
-            onClick={() => {
-              if (
-                (!warning || remaining === 0) &&
-                !workloadReview?.pending &&
-                result &&
-                !submitted.current
-              ) {
-                submitted.current = true;
-                setAcknowledged(true);
-                onConfirm(result.ticket?.id);
-              }
-            }}
-          >
-            {busy
-              ? t("working")
-              : warning && remaining
-                ? t("wait", { seconds: remaining })
-                : warning
-                  ? t("confirm")
-                  : workloadText("continue")}
-          </button>
-        )}
-      </div>
-    </dialog>
+    </Modal>
   );
 }

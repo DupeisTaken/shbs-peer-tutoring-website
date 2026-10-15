@@ -18,6 +18,7 @@ import { useDialogPending } from "~/app/_components/ui/modal";
 import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 import { participantNameLabel } from "~/app/_components/participant-name";
 import { formatWeekday, minToHm } from "~/lib/time";
+import { invalidateWorkloads } from "~/lib/workload-cache";
 
 type Pairing = RouterOutputs["tutor"]["myPairings"][number];
 type GroupState = RouterOutputs["pairingGroups"]["mine"];
@@ -112,6 +113,10 @@ function GroupDraft({
         { throwOnError: true },
       ),
       query.refetch({ throwOnError: true }),
+      // Combining and splitting change counted sessions without an assignment
+      // write. Refresh both workload readers inside the accepted-save boundary,
+      // including its read-only Retry, so a failed read never replays the save.
+      invalidateWorkloads(utils, true),
     ]);
     setRefreshFailed(results.some((r) => r.status === "rejected"));
   }

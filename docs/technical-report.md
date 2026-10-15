@@ -905,6 +905,15 @@ become zero. Mutations invalidate
 this context alongside current pairings and rosters. Advisory read recovery creates
 no new assignment permission or approval requirement.
 
+Pairing-group saves include workload invalidation in their awaited read refresh,
+including the accepted-save Retry path. This updates a mounted My Availability
+count after combine/split while its independent preference draft/version remains
+owned by the tutor. Group IDs do not replace the confirmed-time workload identity.
+Assignment confirmation composes the shared Modal/NativeDialog pending, Escape and
+focus behavior while retaining its qualification ticket and countdown lifecycle.
+When a child write removes or disables its opener, focus returns to the still-open
+parent dialog.
+
 The tutor-only `workloadPreference`/`setWorkloadPreference` procedures scope to the
 live account link. The strict server input accepts null or an integer 0–4 and a
 required independent version. Save rechecks ownership/participation after the

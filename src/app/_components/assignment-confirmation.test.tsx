@@ -7,12 +7,13 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { StrictMode } from "react";
+import { StrictMode, useState } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import { AssignmentConfirmation } from "./assignment-confirmation";
 import { QualifiedTutorSelect } from "./qualified-tutor-select";
+import { Modal } from "./ui/modal";
 
 const mocks = vi.hoisted(() => ({
   prepare: vi.fn(),
@@ -316,4 +317,134 @@ it("keeps qualification evidence and countdown when a workload review also appli
     screen.getByRole("button", { name: "Confirm unqualified assignment" }),
   );
   expect(mocks.confirm).toHaveBeenCalledExactlyOnceWith("ticket");
+});
+
+/** Real nested shared dialogs verify the confirmation's ownership, not only its
+ * visual markup. The parent draft stays mounted while review opens and closes. */
+function NestedAssignment({
+  busy = false,
+  openerAfterClose = "enabled",
+}: {
+  busy?: boolean;
+  openerAfterClose?: "enabled" | "disabled" | "removed";
+}) {
+  const [reviewing, setReviewing] = useState(false);
+  const [closed, setClosed] = useState(false);
+  return (
+    <NextIntlClientProvider locale="en" messages={en}>
+      <Modal
+        title="Pairing editor"
+        onClose={mocks.close}
+        footer={
+          !(closed && openerAfterClose === "removed") && (
+            <button
+              disabled={closed && openerAfterClose === "disabled"}
+              onClick={() => setReviewing(true)}
+            >
+              Assign tutor
+            </button>
+          )
+        }
+      >
+        <input aria-label="Pairing notes" defaultValue="Keep this draft" />
+        {reviewing && (
+          <AssignmentConfirmation
+            operation="admin.createPairing"
+            payload={{ tutorId: "a", subjectId: "math" }}
+            busy={busy}
+            onConfirm={mocks.confirm}
+            onCancel={() => {
+              setClosed(true);
+              setReviewing(false);
+            }}
+            workloadReview={{
+              pending: false,
+              warning: "Two sessions exceed this tutor's preferred one.",
+            }}
+          />
+        )}
+      </Modal>
+    </NextIntlClientProvider>
+  );
+}
+
+it.each(["enabled", "disabled", "removed"] as const)(
+  "restores the %s opener or the remaining parent dialog after review",
+  async (openerAfterClose) => {
+    render(<NestedAssignment openerAfterClose={openerAfterClose} />);
+    const opener = screen.getByRole("button", { name: "Assign tutor" });
+    opener.focus();
+    fireEvent.click(opener);
+    await flush();
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    expect(document.activeElement).toBe(cancel);
+    fireEvent.click(cancel);
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(document.activeElement).toBe(
+      openerAfterClose === "enabled"
+        ? opener
+        : screen.getByRole("dialog", { name: "Pairing editor" }),
+    );
+    expect(
+      screen.getByRole<HTMLInputElement>("textbox", { name: "Pairing notes" })
+        .value,
+    ).toBe("Keep this draft");
+    expect(mocks.cancel).toHaveBeenCalledExactlyOnceWith({ ticket: "ticket" });
+    expect(mocks.close).not.toHaveBeenCalled();
+  },
+);
+
+it("blocks repeated Escape in both review and parent while an assignment is pending", async () => {
+  const view = render(<NestedAssignment />);
+  const opener = screen.getByRole("button", { name: "Assign tutor" });
+  opener.focus();
+  fireEvent.click(opener);
+  await flush();
+  await act(() => vi.advanceTimersByTime(3000));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Confirm unqualified assignment" }),
+  );
+  view.rerender(<NestedAssignment busy />);
+  const parent = screen.getByRole("dialog", { name: "Pairing editor" });
+  const review = screen.getByRole("dialog", {
+    name: en.assignmentQualification.warningTitle,
+  });
+  for (const dialog of [review, parent]) {
+    expect(dialog.getAttribute("closedby")).toBe("none");
+    expect(dialog.getAttribute("aria-busy")).toBe("true");
+    for (let attempt = 0; attempt < 3; attempt++) {
+      expect(fireEvent.keyDown(dialog, { key: "Escape" })).toBe(false);
+      fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    }
+  }
+  expect(document.activeElement).toBe(review);
+  expect(screen.getAllByRole("dialog")).toHaveLength(2);
+  expect(mocks.confirm).toHaveBeenCalledExactlyOnceWith("ticket");
+  expect(mocks.close).not.toHaveBeenCalled();
+  expect(mocks.cancel).not.toHaveBeenCalled();
+
+  view.rerender(<NestedAssignment />);
+  expect(review.getAttribute("closedby")).toBe("closerequest");
+  expect(parent.getAttribute("closedby")).toBe("closerequest");
+  fireEvent(review, new Event("cancel", { cancelable: true }));
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  expect(mocks.close).not.toHaveBeenCalled();
+});
+
+it("releases review after an accepted approval handoff even while the mutation is settling", async () => {
+  const view = render(<NestedAssignment />);
+  fireEvent.click(screen.getByRole("button", { name: "Assign tutor" }));
+  await flush();
+  view.rerender(<NestedAssignment busy />);
+  fireEvent(window, new Event("approval-queued"));
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  expect(
+    screen
+      .getByRole("dialog", { name: "Pairing editor" })
+      .getAttribute("closedby"),
+  ).toBe("closerequest");
+  expect(mocks.cancel).toHaveBeenCalledExactlyOnceWith({ ticket: "ticket" });
+  fireEvent(window, new Event("approval-queued"));
+  expect(mocks.cancel).toHaveBeenCalledTimes(1);
+  expect(mocks.close).not.toHaveBeenCalled();
 });

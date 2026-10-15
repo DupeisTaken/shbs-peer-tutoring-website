@@ -270,6 +270,12 @@ After a conflict, **Reload saved preference** explicitly replaces only this draf
 after a successful save with failed synchronization, **Retry refresh** reads without
 submitting again.
 
+Combining or splitting pairings refreshes the assigned-session count in My
+Availability without replacing an unsaved preference. If the group was saved but
+refresh fails, use its Retry action to reload the counts without saving the group
+again. Confirmed assignments at the same recurring time count as one block even
+when they appear as separate catalogue entries.
+
 Changing a pairing's linked time slot, requesting or recalling a removal, and
 recording an interview decision names the affected record before submission.
 Cancel leaves live records unchanged. A relayed opt-out stays pending during its
