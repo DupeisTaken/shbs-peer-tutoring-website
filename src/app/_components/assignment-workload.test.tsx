@@ -14,6 +14,7 @@ import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { QualifiedTutorSelect } from "./qualified-tutor-select";
 import { WorkloadAssignmentConfirmation } from "./assignment-workload";
+import type { WorkloadProposal } from "~/lib/tutor-workload";
 import { invalidateWorkloads } from "~/lib/workload-cache";
 
 const state = vi.hoisted(() => ({
@@ -230,7 +231,7 @@ it("conceals and evicts private preference on denial, then recovers explicitly",
   ).toBeTruthy();
 });
 const review = (
-  proposals?: import("~/lib/tutor-workload").WorkloadProposal[],
+  proposals?: WorkloadProposal[],
 ) => {
   state.client = new QueryClient({
     defaultOptions: { queries: { retry: false } },

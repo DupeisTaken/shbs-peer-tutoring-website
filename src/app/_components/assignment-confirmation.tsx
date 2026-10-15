@@ -206,7 +206,7 @@ function ConfirmationInstance({
             className="btn-primary min-h-11 whitespace-normal lg:min-h-10"
             disabled={
               (warning && remaining > 0) ||
-              workloadReview?.pending ||
+              Boolean(workloadReview?.pending) ||
               busy ||
               acknowledged ||
               !result
