@@ -830,7 +830,9 @@ it("stops outgoing recovery observers and timeout from moving the destination", 
   window.history.replaceState(null, "", "/settings");
   fixture.pane.scrollTop = 13;
   fixture.resizeContent();
-  act(() => vi.advanceTimersByTime(6000));
+  act(() => {
+    vi.advanceTimersByTime(6000);
+  });
   fixture.frames();
   expect(fixture.pane.scrollTop).toBe(13);
   rendered.unmount();
