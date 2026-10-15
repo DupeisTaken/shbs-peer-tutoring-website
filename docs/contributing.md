@@ -83,6 +83,13 @@ gallery with a sticky-action table and the actual room-order editor at deep scro
 in English and Chinese on desktop and mobile. Component tests check the stacking
 boundary and keyboard lifecycle; saved browser images establish actual paint order.
 
+Keep absolutely positioned screen-reader labels inside a positioned form boundary
+when the form sits in a bounded scroll pane. Recruitment fieldsets provide that
+containing block for their hidden legends and date labels. A clipped one-pixel
+label can otherwise enlarge the document scroll range even when visible content
+is correctly clipped. Preserve its accessible name; verify desktop pane scrolling
+and mobile document scrolling instead of applying a global overflow clamp.
+
 Start by identifying the save boundary, query lifetime and authorized audience, then select a composition. Use an existing feature integration as well as a gallery example: long editors, immediate settings and staged forms intentionally have different save behavior. Keep new domain logic in the owning feature; a generic component must not infer permissions or expected versions from its visual state.
 
 The [gallery compositions](../src/app/ui-gallery/recipes.tsx) have these

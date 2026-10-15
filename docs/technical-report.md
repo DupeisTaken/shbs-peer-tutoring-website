@@ -358,6 +358,13 @@ feature drafts and version ownership retain their existing boundaries. The galle
 includes a long reader with real sticky table actions; structural/lifecycle tests
 and actual desktop/mobile English/Chinese deep-scroll captures verify the correction.
 
+Recruitment settings position each audience's fieldset to contain its absolutely
+positioned screen-reader legend and date labels. Without a local containing block,
+those clipped one-pixel boxes can extend the document beyond the desktop management
+pane and let focus or `scrollIntoView` move the header. The correction retains all
+accessible labels, audience drafts, version evidence and edit/proposal authority;
+it does not alter the shared document overflow or scroll-restoration owner.
+
 Local panel composition leaves authority in existing owners. Program keeps its
 already-mounted settings forms and their independent versions; Crew and Support
 retain draft, review and pagination state when panels change. Review controllers
