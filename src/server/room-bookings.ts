@@ -44,6 +44,30 @@ export async function assertPlannedRoomAvailable(
     startMin: { lt: booking.endMin },
     endMin: { gt: booking.startMin },
   };
+  // A roster/subject edit can retain the exact booking already shared by a group.
+  // Different schedules still see siblings as conflicts until explicitly regrouped.
+  const current = booking.excludePairingId
+    ? await db.pairing.findUnique({
+        where: { id: booking.excludePairingId },
+        select: {
+          groupId: true,
+          roomId: true,
+          termId: true,
+          dayOfWeek: true,
+          startMin: true,
+          endMin: true,
+        },
+      })
+    : null;
+  const retainedGroup =
+    current?.groupId &&
+    current.roomId === booking.roomId &&
+    current.termId === booking.termId &&
+    current.dayOfWeek === booking.dayOfWeek &&
+    current.startMin === booking.startMin &&
+    current.endMin === booking.endMin
+      ? current.groupId
+      : null;
   const [blackout, pairing] = await Promise.all([
     db.roomUnavailability.findFirst({
       where: {
@@ -61,6 +85,9 @@ export async function assertPlannedRoomAvailable(
         dayOfWeek: booking.dayOfWeek,
         ...overlap,
         ...(excludedIds.length ? { id: { notIn: excludedIds } } : {}),
+        ...(retainedGroup
+          ? { OR: [{ groupId: null }, { groupId: { not: retainedGroup } }] }
+          : {}),
       },
       select: { id: true },
     }),
@@ -153,20 +180,23 @@ export async function assertLinkedSlotScheduleAvailable(
   await lockPlannedRoomSchedule(db);
   const linked = await db.pairing.findMany({
     where: { timeSlotId: slot.id },
-    select: { id: true, roomId: true, termId: true },
+    select: { id: true, roomId: true, termId: true, groupId: true },
   });
   const linkedIds = linked.map((pairing) => pairing.id);
-  const occupied = new Set<string>();
+  const occupied = new Map<string, string | null>();
   for (const pairing of linked) {
     if (!pairing.roomId) continue;
     const roomPeriod = `${pairing.termId}:${pairing.roomId}`;
-    if (occupied.has(roomPeriod)) {
+    if (
+      occupied.has(roomPeriod) &&
+      (!pairing.groupId || occupied.get(roomPeriod) !== pairing.groupId)
+    ) {
       throw new TRPCError({
         code: "CONFLICT",
         message: "That slot would double-book a room in one program period.",
       });
     }
-    occupied.add(roomPeriod);
+    occupied.set(roomPeriod, pairing.groupId);
     await assertPlannedRoomAvailable(db, {
       roomId: pairing.roomId,
       termId: pairing.termId,

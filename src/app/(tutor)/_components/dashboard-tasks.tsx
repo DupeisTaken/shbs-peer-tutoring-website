@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { api } from "~/trpc/react";
 import { programDateKey } from "~/lib/program-time";
 import { minToHm } from "~/lib/time";
+import { pairingEntries } from "~/lib/pairing-groups";
 import { InlineNotice } from "~/app/_components/ui/patterns";
 import { Button } from "~/app/_components/ui/button";
 import { focusVisibleContext } from "~/app/_components/focus-visible-context";
@@ -82,8 +83,9 @@ export function DashboardTasks({
   ];
   const date = programDateKey(now, timeZone);
   const weekday = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
-  const today = (pairings.data ?? []).filter(
-    (pairing) => pairing.scheduleConfirmed && pairing.dayOfWeek === weekday,
+  const today = pairingEntries(pairings.data ?? []).filter(
+    (entry) =>
+      entry.primary.scheduleConfirmed && entry.primary.dayOfWeek === weekday,
   );
   const unscheduled = (pairings.data ?? []).filter(
     (p) => !p.scheduleConfirmed,
@@ -236,15 +238,15 @@ export function DashboardTasks({
             <p className="mt-2 text-sm">{t("noSessions")}</p>
           )}
           <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-            {today.map((pairing) => (
-              <li
-                key={pairing.id}
-                className="rounded-lg bg-slate-50 p-3 text-sm"
-              >
-                <p className="font-semibold">{pairing.subject}</p>
+            {today.map((entry) => (
+              <li key={entry.id} className="rounded-lg bg-slate-50 p-3 text-sm">
+                <p className="font-semibold">
+                  {entry.pairings.map((p) => p.subject).join(" + ")}
+                </p>
                 <p>
-                  {minToHm(pairing.startMin)}–{minToHm(pairing.endMin)} ·{" "}
-                  {pairing.room?.name ?? t("noRoom")}
+                  {minToHm(entry.primary.startMin)}–
+                  {minToHm(entry.primary.endMin)} ·{" "}
+                  {entry.primary.room?.name ?? t("noRoom")}
                 </p>
               </li>
             ))}
