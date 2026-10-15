@@ -4613,7 +4613,8 @@
   },
   "roomOrder": {
     "title": "Orden de las aulas",
-    "help": "Organiza las listas de aulas y los horarios del programa. El orden de las rondas del equipo se gestiona por separado.",
+    "help": "Usa las flechas para preparar el orden y guarda o solicita el orden completo abajo. El orden de las rondas del equipo se gestiona por separado.",
+    "catalogChanged": "La lista de aulas ha cambiado. Recarga el orden antes de hacer más cambios; se ha conservado tu borrador.",
     "room": "Aula",
     "actions": "Acciones",
     "up": "Subir",

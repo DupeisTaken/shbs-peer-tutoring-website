@@ -4613,7 +4613,8 @@
   },
   "roomOrder": {
     "title": "Ordre d’affichage des salles",
-    "help": "Organisez les listes de salles et les emplois du temps. L’ordre des rondes de l’équipe se gère séparément.",
+    "help": "Préparez l’ordre avec les flèches des salles, puis enregistrez ou demandez l’ordre complet ci-dessous. L’ordre des rondes de l’équipe se gère séparément.",
+    "catalogChanged": "La liste des salles a changé. Rechargez l’ordre avant toute autre modification ; votre brouillon est conservé.",
     "room": "Salle",
     "actions": "Actions",
     "up": "Monter",

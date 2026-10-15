@@ -4613,7 +4613,8 @@
   },
   "roomOrder": {
     "title": "Room Display Order",
-    "help": "Arrange the program's room lists and schedules. Crew patrol order is managed separately.",
+    "help": "Use the room arrows to arrange a draft, then save or request the complete order below. Crew patrol order is managed separately.",
+    "catalogChanged": "The room list changed. Reload order before making further order changes; your draft has been retained.",
     "room": "Room",
     "actions": "Actions",
     "up": "Move up",
