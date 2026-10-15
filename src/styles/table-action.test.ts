@@ -115,7 +115,12 @@ describe("destructive action presentation", () => {
       // a class string that could still compile into a boxed hover treatment.
       output.walkRules(selector, (rule) => {
         rule.walkDecls((declaration) => {
-          expect(declaration.prop).not.toMatch(/^(border|background)(-|$)/);
+          // Rounded focus rings do not paint a border or a button surface.
+          const paintsBox =
+            declaration.prop.startsWith("background") ||
+            (declaration.prop.startsWith("border") &&
+              !declaration.prop.endsWith("radius"));
+          expect(paintsBox).toBe(false);
         });
       });
     },
