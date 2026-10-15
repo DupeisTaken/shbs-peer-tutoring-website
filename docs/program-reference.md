@@ -155,7 +155,10 @@ In **Rooms**, Head/Admin open **Reorder rooms** to stage the display order in a 
 Use **Time Slots**, **Rooms** and **Pairings** to plan recurring sessions. A room cannot host overlapping pairings in one program period or a pairing during a recurring blackout; back-to-back sessions are allowed. Availability helps participants agree on a slot and does not prevent staff from assigning a tutor before that agreement. New assignments display **Awaiting schedule** until a tutor or manager selects a catalog slot. These assignments do not reserve rooms or count as scheduled subjects; the assigned tutor remains visible to the tutee.
 
 Assignment selectors and Pairings show the current quarter's approximate assigned
-session-block load and an optional tutor preference of 0–4 blocks. A shared confirmed
+session-block load and an optional tutor preference of 0–4 sessions. Selectors use
+`(assigned/preferred)`, such as `(2/3)`, or `(2)` for an unset preference.
+Submitting above the preference opens a Continue/Cancel dialog. New tutors default
+to 1; existing unset values are preserved. Tutors edit this in **My Availability**. A shared confirmed
 time counts once; awaiting-schedule pairings count separately. Staff can assign over
 the preference under the original approval rules. Inactivity resets it to locked
 zero, and reactivation keeps zero until the tutor changes it. See the

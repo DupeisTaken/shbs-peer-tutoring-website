@@ -882,7 +882,14 @@ times never merge. Attendance history is not queried. Inactive slots retain the
 copied confirmed schedule's workload. The count estimates effort if assignments
 work out; it is neither an attendance total nor a weekly/program cap.
 
-`admin.assignmentWorkloads` is staff-only assignment context. All native tutor
+`admin.assignmentWorkloads` is staff-only assignment context. Native options use
+`(count/preference)` or `(count)` when unset, and `(?)` when unavailable or refreshing.
+Workload confirmation shares `AssignmentConfirmation` with qualification review;
+qualified assignments wait for a fresh advisory read before automatically proceeding
+or showing Continue/Cancel above the preference. Failed advisory reads keep existing
+assignment permissions. The independent preference editor lives in My Availability.
+A separate default-only migration sets new tutors to 1 without backfilling unset
+values; the existing inactive trigger still wins with zero. All native tutor
 selectors and Pairings summaries consume the same count. Proposed edits remove
 only the original pairing's membership, retain shared siblings and add the new
 distinct identity only for a current roster. Projections use the same current-quarter

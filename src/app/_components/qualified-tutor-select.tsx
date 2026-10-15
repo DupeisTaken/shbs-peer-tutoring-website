@@ -4,11 +4,9 @@ import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { participantNameLabel } from "./participant-name";
 import {
-  AssignmentWorkloadAdvice,
   AssignmentWorkloadFeedback,
   useAssignmentWorkloads,
 } from "./assignment-workload";
-import type { WorkloadProposal } from "~/lib/tutor-workload";
 import {
   groupAssignmentTutors,
   type QualificationOption,
@@ -26,7 +24,6 @@ export function QualifiedTutorSelect({
   retainedTutor,
   leading,
   actions,
-  proposals,
 }: {
   tutors: QualificationOption[];
   subjectId: string;
@@ -39,8 +36,6 @@ export function QualifiedTutorSelect({
   /** Row companions align with the select box, excluding its label and guidance. */
   leading?: ReactNode;
   actions?: ReactNode;
-  /** Defaults to one new awaiting-schedule assignment; editors supply their exact change. */
-  proposals?: WorkloadProposal[];
 }) {
   const t = useTranslations("assignmentQualification");
   const workloadText = useTranslations("tutorWorkload");
@@ -50,21 +45,14 @@ export function QualifiedTutorSelect({
   const workloadId = useId();
   const tutorLabel = (tutor: QualificationOption) => {
     const workload = workloads.data?.tutors?.find((row) => row.id === tutor.id);
-    const count = workload
-      ? workloadText(
-          workloads.error
-            ? "stale"
-            : workloads.isFetching
-              ? "rechecking"
-              : "current",
-          { count: workload.count },
-        )
-      : workloadText("unavailable");
-    const preference =
-      workload && !workloads.error && !workloads.isFetching
-        ? ` · ${workload.preferredMaximum === null ? workloadText("unset") : workloadText("savedPreference", { count: workload.preferredMaximum })}`
-        : "";
-    return `${optionName(tutor)} — ${count}${preference}`;
+    // Keep subject/name space available. Unknown or stale data never looks like zero.
+    const suffix =
+      !workload || workloads.error || workloads.isFetching
+        ? "(?)"
+        : workload.preferredMaximum === null
+          ? `(${workload.count})`
+          : `(${workload.count}/${workload.preferredMaximum})`;
+    return `${optionName(tutor)} ${suffix}`;
   };
   const grants = api.admin.subjectEligibility.useQuery();
   const subjects = api.admin.subjects.useQuery();
@@ -162,10 +150,8 @@ export function QualifiedTutorSelect({
         id={workloadId}
         className={`min-w-0 space-y-2 ${leading ? "lg:col-span-2 lg:col-start-2" : "lg:col-span-full lg:col-start-1"}`}
       >
+        <p className="sr-only">{workloadText("compactHelp")}</p>
         <AssignmentWorkloadFeedback />
-        {value && (
-          <AssignmentWorkloadAdvice tutorId={value} proposals={proposals} />
-        )}
       </div>
     </div>
   );

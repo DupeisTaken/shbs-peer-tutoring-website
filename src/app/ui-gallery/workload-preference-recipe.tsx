@@ -3,7 +3,8 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { Button } from "~/app/_components/ui/button";
-import { FormSection, InlineNotice } from "~/app/_components/ui/patterns";
+import { ProfileDialog } from "~/app/_components/profile-dialog";
+import { FormSection } from "~/app/_components/ui/patterns";
 import { assignedBlocks, workloadWarning } from "~/lib/tutor-workload";
 
 /** Synthetic-only composition uses the production block identity and shared
@@ -11,6 +12,7 @@ import { assignedBlocks, workloadWarning } from "~/lib/tutor-workload";
 export function WorkloadPreferenceRecipe() {
   const t = useTranslations("tutorWorkload");
   const [draft, setDraft] = useState<number | null>(1);
+  const [reviewing, setReviewing] = useState(false);
   const [saved, setSaved] = useState<number | null>(1);
   const count = assignedBlocks(
     ["subject-a", "subject-b"].map((id) => ({
@@ -66,17 +68,31 @@ export function WorkloadPreferenceRecipe() {
               <option value="">{t("unset")}</option>
               {[0, 1, 2, 3, 4].map((value) => (
                 <option key={value} value={value}>
-                  {t("value", { count: value })}
+                  {value}
                 </option>
               ))}
             </select>
           </label>
         </FormSection>
       </form>
-      {warning && (
-        <InlineNotice tone="warning" announcement="status">
-          {t(warning, { count, proposed: count + 1, maximum: saved! })}
-        </InlineNotice>
+      <Button onClick={() => setReviewing(Boolean(warning))}>
+        {t("reviewAssignment")}
+      </Button>
+      {reviewing && warning && (
+        <ProfileDialog
+          title={t("confirmTitle")}
+          onClose={() => setReviewing(false)}
+        >
+          <p>
+            {t("proposedOver", { count, proposed: count + 1, maximum: saved! })}
+          </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Button onClick={() => setReviewing(false)}>{t("cancel")}</Button>
+            <Button variant="primary" onClick={() => setReviewing(false)}>
+              {t("continue")}
+            </Button>
+          </div>
+        </ProfileDialog>
       )}
     </section>
   );

@@ -259,8 +259,9 @@ even when completed history is collapsed or filtered.
 Pending tutors confirm whether to participate before tutoring actions appear.
 Inactive tutors retain their records but cannot edit pairings or submit attendance.
 
-In **Settings → Assigned session blocks**, active tutors can save an optional
-preferred maximum of **0–4** blocks, adjust it, or clear it to **No preference**.
+In **My Availability → Preferred Sessions** on the tutor dashboard, active tutors
+can save **0–4** sessions or clear the preference. New tutors default to **1**;
+existing unset preferences remain unset.
 Zero means you prefer no assignments; no preference is a separate unset choice.
 This is advisory: staff can still assign under the existing review rules. Lowering
 it never cancels an assignment. Becoming inactive resets the preference to a locked

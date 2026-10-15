@@ -198,11 +198,11 @@ it("uses named native groups, preserves selectable unqualified tutors, and updat
   expect(
     screen.getByRole("group", { name: "Qualified for this subject" })
       .textContent,
-  ).toBe("Ben — Workload unavailable");
+  ).toBe("Ben (?)");
   expect(
     screen.getByRole("group", { name: "Not qualified — confirmation required" })
       .textContent,
-  ).toBe("Ada — Workload unavailable");
+  ).toBe("Ada (?)");
   const control = screen.getByRole("combobox", { name: "Tutor" });
   control.focus();
   expect(document.activeElement).toBe(control);
@@ -288,4 +288,32 @@ it("keeps Tab and Shift+Tab within the explicit dialog choices", async () => {
   fireEvent.keyDown(cancel, { key: "Tab", shiftKey: true });
   expect(document.activeElement).toBe(confirm);
   expect(mocks.confirm).not.toHaveBeenCalled();
+});
+
+it("keeps qualification evidence and countdown when a workload review also applies", async () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <AssignmentConfirmation
+        operation="admin.createPairing"
+        payload={{ tutorId: "a" }}
+        onConfirm={mocks.confirm}
+        onCancel={mocks.close}
+        workloadReview={{
+          pending: false,
+          warning: "Two sessions exceed this tutor's preferred one.",
+        }}
+      />
+    </NextIntlClientProvider>,
+  );
+  await flush();
+  expect(
+    screen.getByText("Two sessions exceed this tutor's preferred one."),
+  ).toBeTruthy();
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+  await act(() => vi.advanceTimersByTime(3000));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Confirm unqualified assignment" }),
+  );
+  expect(mocks.confirm).toHaveBeenCalledExactlyOnceWith("ticket");
 });

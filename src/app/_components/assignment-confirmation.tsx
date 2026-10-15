@@ -16,6 +16,8 @@ export function AssignmentConfirmation(props: {
   onConfirm: (overrideTicket?: string) => void;
   onCancel: () => void;
   advisory?: ReactNode;
+  /** Optional workload review shares this dialog without changing qualification tickets. */
+  workloadReview?: { pending: boolean; warning: string | null };
 }) {
   return (
     <ConfirmationInstance
@@ -33,8 +35,10 @@ function ConfirmationInstance({
   onConfirm,
   onCancel,
   advisory,
+  workloadReview,
 }: Parameters<typeof AssignmentConfirmation>[0]) {
   const t = useTranslations("assignmentQualification");
+  const workloadText = useTranslations("tutorWorkload");
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
@@ -67,10 +71,6 @@ function ConfirmationInstance({
         }
         ticketRef.current = data.ticket?.id ?? null;
         setResult(data);
-        if (!data.mismatches.length) {
-          submitted.current = true;
-          callbacks.current.onConfirm();
-        }
       })
       .catch(() => {
         /* The mutation error is displayed in the dialog. */
@@ -82,6 +82,20 @@ function ConfirmationInstance({
     // The keyed parent supplies an immutable selection for this instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mutateAsync, cancelTicket]);
+  useEffect(() => {
+    // A fresh workload read must finish before the qualified fast path can submit.
+    // A failed advisory read does not create a new permission or block assignment.
+    if (
+      result &&
+      !result.mismatches.length &&
+      !workloadReview?.pending &&
+      !workloadReview?.warning &&
+      !submitted.current
+    ) {
+      submitted.current = true;
+      callbacks.current.onConfirm();
+    }
+  }, [result, workloadReview?.pending, workloadReview?.warning]);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     const modal = ref.current;
@@ -147,13 +161,19 @@ function ConfirmationInstance({
       className="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-2xl backdrop:bg-slate-950/60"
     >
       <h2 id={titleId} className="text-xl font-bold">
-        {t(warning ? "warningTitle" : "checking")}
+        {warning
+          ? t("warningTitle")
+          : workloadReview?.warning
+            ? workloadText("confirmTitle")
+            : t("checking")}
       </h2>
       <p
         id={descriptionId}
         className="mt-3 text-sm leading-relaxed text-slate-600"
       >
-        {t(warning ? "warningHelp" : "checkingHelp")}
+        {warning
+          ? t("warningHelp")
+          : (workloadReview?.warning ?? t("checkingHelp"))}
       </p>
       {warning && (
         <ul className="my-5 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
@@ -165,6 +185,9 @@ function ConfirmationInstance({
         </ul>
       )}
       {advisory}
+      {warning && workloadReview?.warning && (
+        <p className="my-4 text-sm leading-relaxed">{workloadReview.warning}</p>
+      )}
       {(error ?? prepare.error?.message) && (
         <p role="alert" className="my-3 text-sm text-red-700">
           {error ?? prepare.error?.message}
@@ -178,23 +201,36 @@ function ConfirmationInstance({
         >
           {t("cancel")}
         </button>
-        {warning && (
+        {(warning || workloadReview?.warning) && (
           <button
             className="btn-primary min-h-11 whitespace-normal lg:min-h-10"
-            disabled={remaining > 0 || busy || acknowledged}
+            disabled={
+              (warning && remaining > 0) ||
+              workloadReview?.pending ||
+              busy ||
+              acknowledged ||
+              !result
+            }
             onClick={() => {
-              if (remaining === 0 && result?.ticket && !submitted.current) {
+              if (
+                (!warning || remaining === 0) &&
+                !workloadReview?.pending &&
+                result &&
+                !submitted.current
+              ) {
                 submitted.current = true;
                 setAcknowledged(true);
-                onConfirm(result.ticket.id);
+                onConfirm(result.ticket?.id);
               }
             }}
           >
             {busy
               ? t("working")
-              : remaining
+              : warning && remaining
                 ? t("wait", { seconds: remaining })
-                : t("confirm")}
+                : warning
+                  ? t("confirm")
+                  : workloadText("continue")}
           </button>
         )}
       </div>

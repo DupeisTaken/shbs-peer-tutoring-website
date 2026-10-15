@@ -37,7 +37,10 @@ beforeEach(async () => {
       " CASCADE",
   );
   const tutor = await db.tutor.create({
-    data: { englishName: "Synthetic Workload Tutor" },
+    data: {
+      englishName: "Synthetic Workload Tutor",
+      preferredAssignedBlocks: null,
+    },
   });
   const other = await db.tutor.create({
     data: { englishName: "Synthetic Zero Tutor" },

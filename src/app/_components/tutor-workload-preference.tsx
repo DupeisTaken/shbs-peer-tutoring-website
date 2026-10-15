@@ -135,9 +135,7 @@ export function TutorWorkloadPreference() {
       </section>
     );
   return (
-    <section className="card space-y-4 p-5">
-      <h2 className="section-title">{t("title")}</h2>
-      <p className="muted text-sm">{t("help")}</p>
+    <section className="mb-5 space-y-3 border-b border-slate-200 pb-5">
       <QueryFeedback
         hasData={!!snapshot}
         loading={!snapshot && !query.error}
@@ -169,7 +167,7 @@ export function TutorWorkloadPreference() {
             )
           )}
           <form
-            aria-label={t("title")}
+            aria-label={t("preference")}
             onSubmit={(event) => {
               event.preventDefault();
               if (blocked || admission.current) return;
@@ -182,7 +180,7 @@ export function TutorWorkloadPreference() {
             }}
           >
             <FormSection
-              title={t("editPreference")}
+              title={t("preference")}
               busy={mutation.isPending || refreshing}
               disabled={blocked}
               actions={
@@ -208,7 +206,7 @@ export function TutorWorkloadPreference() {
               }
             >
               <label className="block text-sm">
-                <span className="label">
+                <span className="sr-only">
                   {t("preference")} <FieldRequirement state="optional" />
                 </span>
                 <select
@@ -230,7 +228,7 @@ export function TutorWorkloadPreference() {
                   <option value="">{t("unset")}</option>
                   {[0, 1, 2, 3, 4].map((value) => (
                     <option key={value} value={value}>
-                      {t("value", { count: value })}
+                      {value}
                     </option>
                   ))}
                 </select>
@@ -309,17 +307,6 @@ export function TutorWorkloadPreference() {
               {t(committed ? "refreshFailed" : "reloadFailed")}
             </InlineNotice>
           )}
-          {live!.preferredMaximum !== null &&
-            live!.count > live!.preferredMaximum &&
-            !query.error &&
-            !query.isFetching && (
-              <InlineNotice tone="warning">
-                {t("over", {
-                  count: live!.count,
-                  maximum: live!.preferredMaximum,
-                })}
-              </InlineNotice>
-            )}
         </>
       )}
     </section>

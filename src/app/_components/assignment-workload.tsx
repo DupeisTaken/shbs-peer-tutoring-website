@@ -1,14 +1,14 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentProps } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import {
   proposedAssignedCount,
-  workloadWarning,
   type WorkloadProposal,
 } from "~/lib/tutor-workload";
+import { AssignmentConfirmation } from "./assignment-confirmation";
 import { Button } from "./ui/button";
 import { InlineNotice } from "./ui/patterns";
 
@@ -83,37 +83,23 @@ export function AssignmentWorkloadFeedback() {
   );
 }
 
-/** Advisory content stays visible beside the selector and inside the existing
- * qualification review. It never adds an acknowledgement, timer or permission. */
-export function AssignmentWorkloadAdvice({
+/** Workload review happens only after submission. It shares the qualification
+ * dialog and remains advisory: Continue uses the original assignment operation. */
+export function WorkloadAssignmentConfirmation({
   tutorId,
   proposals,
-}: {
+  ...confirmation
+}: Omit<
+  ComponentProps<typeof AssignmentConfirmation>,
+  "advisory" | "workloadReview"
+> & {
   tutorId: string;
   proposals?: WorkloadProposal[];
 }) {
   const t = useTranslations("tutorWorkload");
   const query = useAssignmentWorkloads();
   const tutor = query.data?.tutors?.find((row) => row.id === tutorId);
-  if (!tutor)
-    return (
-      <p className="text-xs text-slate-600">
-        {t(
-          !query.error &&
-            !query.unavailable &&
-            (query.isLoading || query.isFetching || query.data === undefined)
-            ? "loading"
-            : "unavailable",
-        )}
-      </p>
-    );
-  if (query.error || query.isFetching)
-    return (
-      <p role="status" className="text-xs text-slate-600">
-        {t(query.error ? "stale" : "rechecking", { count: tutor.count })}
-      </p>
-    );
-  const projection = tutor.assignable
+  const projection = tutor?.assignable
     ? proposedAssignedCount(
         tutor.blocks,
         proposals?.map((proposal) => ({
@@ -138,29 +124,27 @@ export function AssignmentWorkloadAdvice({
               ]
             : []),
       )
-    : tutor.count;
-  const warning = workloadWarning(
-    tutor.count,
-    projection,
-    tutor.preferredMaximum,
-  );
+    : (tutor?.count ?? 0);
+  const pending =
+    !query.error &&
+    !query.unavailable &&
+    (query.isLoading || query.isFetching || query.data === undefined);
+  const warning =
+    !pending &&
+    !query.error &&
+    tutor?.assignable &&
+    tutor.preferredMaximum !== null &&
+    projection > tutor.preferredMaximum
+      ? t("proposedOver", {
+          count: tutor.count,
+          proposed: projection,
+          maximum: tutor.preferredMaximum,
+        })
+      : null;
   return (
-    <div className="space-y-2">
-      <p className="text-xs text-slate-600">
-        {t("current", { count: tutor.count })} ·{" "}
-        {tutor.preferredMaximum === null
-          ? t("unset")
-          : t("savedPreference", { count: tutor.preferredMaximum })}
-      </p>
-      {warning && (
-        <InlineNotice tone="warning" announcement="status">
-          {t(warning, {
-            count: tutor.count,
-            proposed: projection,
-            maximum: tutor.preferredMaximum!,
-          })}
-        </InlineNotice>
-      )}
-    </div>
+    <AssignmentConfirmation
+      {...confirmation}
+      workloadReview={{ pending, warning }}
+    />
   );
 }

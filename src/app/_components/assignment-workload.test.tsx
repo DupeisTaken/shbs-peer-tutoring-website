@@ -13,12 +13,16 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { QualifiedTutorSelect } from "./qualified-tutor-select";
-import { AssignmentWorkloadAdvice } from "./assignment-workload";
+import { WorkloadAssignmentConfirmation } from "./assignment-workload";
 import { invalidateWorkloads } from "~/lib/workload-cache";
 
 const state = vi.hoisted(() => ({
   client: null as QueryClient | null,
   read: vi.fn(),
+  prepare: vi.fn(),
+  cancelTicket: vi.fn(),
+  confirm: vi.fn(),
+  cancel: vi.fn(),
 }));
 vi.mock("@trpc/react-query", () => ({
   getQueryKey: () => ["assignment-workload"],
@@ -27,6 +31,14 @@ vi.mock("~/trpc/react", async () => {
   const { useQuery } = await import("@tanstack/react-query");
   return {
     api: {
+      assignment: {
+        prepare: {
+          useMutation: () => ({
+            mutateAsync: state.prepare,
+          }),
+        },
+        cancel: { useMutation: () => ({ mutate: state.cancelTicket }) },
+      },
       admin: {
         assignmentWorkloads: {
           useQuery: (_input: unknown, options: object) =>
@@ -78,6 +90,21 @@ const workload = (count = 1, preferredMaximum: number | null = 1) => ({
 });
 beforeEach(() => {
   state.read.mockReset().mockResolvedValue(workload());
+  state.prepare.mockReset().mockResolvedValue({ ticket: null, mismatches: [] });
+  state.confirm.mockReset();
+  state.cancel.mockReset();
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value() {
+      this.setAttribute("open", "");
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value() {
+      this.removeAttribute("open");
+    },
+  });
 });
 afterEach(() => {
   cleanup();
@@ -107,95 +134,52 @@ function mount(value = "a", locale: "en" | "zh" = "en") {
     </QueryClientProvider>,
   );
 }
+
 it.each(["en", "zh"] as const)(
-  "shows known zero and advisory proposed-over in %s without disabling assignment",
+  "keeps native labels compact in %s without an inline warning",
   async (locale) => {
     mount("a", locale);
-    await waitFor(() =>
-      expect(
-        screen.getByRole("option", {
-          name:
-            locale === "en"
-              ? /Zero Tutor — 0 assigned blocks/
-              : /Zero Tutor — 0 个已分配时段/,
-        }),
-      ).toBeTruthy(),
-    );
     expect(
-      await screen.findByText(
-        locale === "en"
-          ? /This change would result in 2 assigned blocks/
-          : /此更改将使已分配时段达到 2 个/,
-      ),
+      await screen.findByRole("option", { name: "Synthetic Tutor (1/1)" }),
     ).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Zero Tutor (0)" })).toBeTruthy();
+    expect(screen.queryByText(/This assignment|此分配/)).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByRole<HTMLSelectElement>("combobox").disabled).toBe(
       false,
     );
   },
 );
-it("keeps missing tutor, loading and failed reads distinct from known zero", async () => {
-  let release!: (value: ReturnType<typeof workload>) => void;
-  state.read.mockReturnValue(
-    new Promise((resolve) => {
-      release = resolve;
-    }),
-  );
-  mount("missing");
+it("preserves explicit zero and does not substitute the default for unset", async () => {
+  state.read.mockResolvedValue(workload(2, 0));
+  mount();
   expect(
-    screen.queryByRole("option", { name: /0 assigned blocks/ }),
-  ).toBeNull();
-  expect(
-    screen.getAllByText("Loading assigned-block workload…").length,
-  ).toBeGreaterThan(0);
-  await act(async () => {
-    release(workload());
-  });
-  await waitFor(() =>
-    expect(screen.queryByText("Loading assigned-block workload…")).toBeNull(),
-  );
-  expect(screen.getAllByText("Workload unavailable").length).toBeGreaterThan(0);
-  state.read.mockRejectedValue(new Error("Synthetic failure"));
+    await screen.findByRole("option", { name: "Synthetic Tutor (2/0)" }),
+  ).toBeTruthy();
+  state.read.mockResolvedValue(workload(2, null));
   await act(async () => {
     await state.client!.invalidateQueries({
       queryKey: ["assignment-workload"],
     });
   });
-  expect(await screen.findByText(/Could not refresh workload/)).toBeTruthy();
-  expect(screen.queryByText(/This change would result/)).toBeNull();
-  expect(screen.getByRole<HTMLSelectElement>("combobox").disabled).toBe(false);
+  expect(
+    await screen.findByRole("option", { name: "Synthetic Tutor (2)" }),
+  ).toBeTruthy();
 });
-it("warns at the maximum without adding a block when joining an existing confirmed time", async () => {
-  state.client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  render(
-    <QueryClientProvider client={state.client}>
-      <NextIntlClientProvider locale="en" messages={en}>
-        <AssignmentWorkloadAdvice
-          tutorId="a"
-          proposals={[
-            {
-              block: {
-                id: "new",
-                termId: "term",
-                scheduleConfirmed: true,
-                dayOfWeek: 1,
-                startMin: 900,
-                endMin: 960,
-              },
-            },
-          ]}
-        />
-      </NextIntlClientProvider>
-    </QueryClientProvider>,
+it("shows unknown during loading and failure, then refreshes the compact option", async () => {
+  let release!: (data: ReturnType<typeof workload>) => void;
+  state.read.mockReturnValue(
+    new Promise((resolve) => {
+      release = resolve;
+    }),
   );
-  expect(await screen.findByText(/Preferred maximum reached/)).toBeTruthy();
-  expect(screen.queryByText(/This change would result/)).toBeNull();
-});
-it("refreshes the shared active selector after assignments and labels cached failures stale", async () => {
   mount();
-  await screen.findByText(/This change would result in 2/);
-  state.read.mockResolvedValue(workload(2, 3));
+  expect(
+    screen.getByRole("option", { name: "Synthetic Tutor (?)" }),
+  ).toBeTruthy();
+  await act(async () => release(workload()));
+  await screen.findByRole("option", { name: "Synthetic Tutor (1/1)" });
+  state.read.mockRejectedValue(new Error("Read failed"));
   await act(async () => {
     await invalidateWorkloads({
       admin: {
@@ -208,101 +192,20 @@ it("refreshes the shared active selector after assignments and labels cached fai
       },
     });
   });
-  await waitFor(() =>
-    expect(
-      screen.getByRole("option", {
-        name: /Synthetic Tutor — 2 assigned blocks/,
-      }),
-    ).toBeTruthy(),
-  );
-  state.read.mockRejectedValue(new Error("Synthetic read failure"));
-  await act(async () => {
-    await state.client!.invalidateQueries({
-      queryKey: ["assignment-workload"],
-    });
-  });
-  await waitFor(() =>
-    expect(
-      screen.getByRole("option", {
-        name: /Last known: 2 assigned blocks; refresh needed/,
-      }),
-    ).toBeTruthy(),
-  );
+  expect(await screen.findByText(/Could not refresh workload/)).toBeTruthy();
+  expect(
+    screen.getByRole("option", { name: "Synthetic Tutor (?)" }),
+  ).toBeTruthy();
+  expect(screen.getByRole<HTMLSelectElement>("combobox").disabled).toBe(false);
   state.read.mockResolvedValue(workload(0, 0));
   fireEvent.click(screen.getByRole("button", { name: "Retry refresh" }));
-  await screen.findByText(/This change would result in 1 assigned block/);
   expect(
-    screen.getByRole("option", { name: /Synthetic Tutor — 0 assigned blocks/ }),
+    await screen.findByRole("option", { name: "Synthetic Tutor (0/0)" }),
   ).toBeTruthy();
 });
-it("does not add a retained older-quarter edit to the current-quarter projection", async () => {
-  state.client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  render(
-    <QueryClientProvider client={state.client}>
-      <NextIntlClientProvider locale="en" messages={en}>
-        <AssignmentWorkloadAdvice
-          tutorId="a"
-          proposals={[
-            {
-              replacingPairingId: "older-pairing",
-              block: {
-                id: "older-pairing",
-                termId: "older-quarter",
-                scheduleConfirmed: true,
-                dayOfWeek: 2,
-                startMin: 900,
-                endMin: 960,
-              },
-            },
-          ]}
-        />
-      </NextIntlClientProvider>
-    </QueryClientProvider>,
-  );
-  expect(await screen.findByText(/Preferred maximum reached/)).toBeTruthy();
-  expect(screen.queryByText(/This change would result/)).toBeNull();
-});
-it.each(["OPTED_OUT", "ACTIVE"])(
-  "does not invent projected blocks for a retained ineligible %s tutor",
-  async (status) => {
-    const data = workload(0, 0);
-    Object.assign(data.tutors[0]!, { status, assignable: false });
-    state.read.mockResolvedValue(data);
-    state.client = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <QueryClientProvider client={state.client}>
-        <NextIntlClientProvider locale="en" messages={en}>
-          <AssignmentWorkloadAdvice
-            tutorId="a"
-            proposals={[
-              {
-                replacingPairingId: "retained-inactive-pairing",
-                block: {
-                  id: "retained-inactive-pairing",
-                  termId: "term",
-                  scheduleConfirmed: true,
-                  dayOfWeek: 2,
-                  startMin: 900,
-                  endMin: 960,
-                },
-              },
-            ]}
-          />
-        </NextIntlClientProvider>
-      </QueryClientProvider>,
-    );
-    expect(await screen.findByText(/0 assigned blocks/)).toBeTruthy();
-    expect(await screen.findByText(/Preferred maximum reached/)).toBeTruthy();
-    expect(screen.queryByText(/This change would result/)).toBeNull();
-  },
-);
-it("conceals cached private preferences on denial, evicts once per reader, and recovers through an explicit read", async () => {
+it("conceals and evicts private preference on denial, then recovers explicitly", async () => {
   mount();
-  await screen.findByText(/This change would result/);
+  await screen.findByRole("option", { name: "Synthetic Tutor (1/1)" });
   state.read.mockRejectedValue(
     Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } }),
   );
@@ -317,15 +220,103 @@ it("conceals cached private preferences on denial, evicts once per reader, and r
     ),
   ).toBeTruthy();
   expect(
-    screen.queryByRole("option", { name: /Preferred maximum:/ }),
+    screen.queryByRole("option", { name: "Synthetic Tutor (1/1)" }),
   ).toBeNull();
   expect(state.client!.getQueryData(["assignment-workload"])).toBeUndefined();
-  const reads = state.read.mock.calls.length;
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 30));
-  });
-  expect(state.read).toHaveBeenCalledTimes(reads);
   state.read.mockResolvedValue(workload());
   fireEvent.click(screen.getByRole("button", { name: "Retry refresh" }));
-  await screen.findByText(/This change would result/);
+  expect(
+    await screen.findByRole("option", { name: "Synthetic Tutor (1/1)" }),
+  ).toBeTruthy();
+});
+const review = (
+  proposals?: import("~/lib/tutor-workload").WorkloadProposal[],
+) => {
+  state.client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={state.client}>
+      <NextIntlClientProvider locale="en" messages={en}>
+        <WorkloadAssignmentConfirmation
+          operation="admin.createPairing"
+          payload={{ tutorId: "a" }}
+          tutorId="a"
+          proposals={proposals}
+          onConfirm={state.confirm}
+          onCancel={state.cancel}
+        />
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
+  );
+};
+it("requires explicit Continue above preference, with Cancel and no extra countdown", async () => {
+  review();
+  expect(
+    await screen.findByText(/This assignment would result in 2 sessions/),
+  ).toBeTruthy();
+  expect(state.confirm).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(state.cancel).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  expect(state.confirm).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  expect(state.confirm).toHaveBeenCalledOnce();
+});
+it.each([null, 2, 4])(
+  "continues normally when preference is %s and not exceeded",
+  async (preference) => {
+    state.read.mockResolvedValue(workload(1, preference));
+    review();
+    await waitFor(() => expect(state.confirm).toHaveBeenCalledOnce());
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+  },
+);
+it.each(["term", "old-quarter"])(
+  "does not add a block for a shared-time or old-quarter edit (%s)",
+  async (termId) => {
+    review([
+      {
+        replacingPairingId: termId === "term" ? "shared-a" : "old-pairing",
+        block: {
+          id: "new",
+          termId,
+          scheduleConfirmed: true,
+          dayOfWeek: 1,
+          startMin: 900,
+          endMin: 960,
+        },
+      },
+    ]);
+    await waitFor(() => expect(state.confirm).toHaveBeenCalledOnce());
+    expect(screen.queryByText(/above the tutor/)).toBeNull();
+  },
+);
+it("waits for a held workload read before choosing the fast path", async () => {
+  let release!: (data: ReturnType<typeof workload>) => void;
+  state.read.mockReturnValue(
+    new Promise((resolve) => {
+      release = resolve;
+    }),
+  );
+  review();
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(state.confirm).not.toHaveBeenCalled();
+  await act(async () => release(workload()));
+  expect(await screen.findByRole("button", { name: "Continue" })).toBeTruthy();
+  expect(state.confirm).not.toHaveBeenCalled();
+});
+it("does not turn a failed advisory read into a new assignment permission", async () => {
+  state.read.mockRejectedValue(new Error("Unavailable"));
+  review();
+  await waitFor(() => expect(state.confirm).toHaveBeenCalledOnce());
+});
+it("keeps ineligible retained tutors from acquiring invented projected load", async () => {
+  const data = workload(0, 0);
+  data.tutors[0]!.assignable = false;
+  state.read.mockResolvedValue(data);
+  review();
+  await waitFor(() => expect(state.confirm).toHaveBeenCalledOnce());
 });

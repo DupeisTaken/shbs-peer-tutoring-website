@@ -103,19 +103,19 @@ it("keeps blank participant options identifiable without changing assignment IDs
   );
   expect(
     screen
-      .getByRole("option", { name: /known.handle — Workload unavailable/ })
+      .getByRole("option", { name: /known.handle \(\?\)/ })
       .getAttribute("value"),
   ).toBe("handled");
   expect(
     screen
       .getByRole("option", {
-        name: `${en.participantNames.unnamed} — Workload unavailable`,
+        name: `${en.participantNames.unnamed} (?)`,
       })
       .getAttribute("value"),
   ).toBe("accountless");
   expect(
     screen.getByRole("option", {
-      name: "Other tutor · 2 sessions — Workload unavailable",
+      name: "Other tutor · 2 sessions (?)",
     }),
   ).toBeTruthy();
   fireEvent.change(screen.getByRole("combobox"), {

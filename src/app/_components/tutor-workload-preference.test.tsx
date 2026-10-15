@@ -100,7 +100,7 @@ const mount = (locale: "en" | "zh" = "en") => {
 };
 const select = () =>
   screen.getByRole<HTMLSelectElement>("combobox", {
-    name: /Preferred maximum/,
+    name: /Preferred Sessions/,
   });
 const choose = async (value: string) => {
   await screen.findByRole("combobox");
@@ -178,7 +178,7 @@ it("keeps dirty draft/version during background changes, shows current saved sum
       snapshot({ preferredMaximum: 1, count: 3, version: 1 }),
     );
   });
-  expect(await screen.findByText(/Preferred maximum: 1/)).toBeTruthy();
+  expect(await screen.findByText(/Preferred sessions: 1/)).toBeTruthy();
   expect(select().value).toBe("4");
   state.read.mockRejectedValueOnce(new Error("Synthetic reload failure"));
   fireEvent.click(
@@ -224,7 +224,7 @@ it("freezes only its form during a pending save and admits one same-turn submit"
   state.save.mockReturnValue(held.promise);
   mount();
   await choose("3");
-  const form = screen.getByRole("form", { name: "Assigned Session Blocks" });
+  const form = screen.getByRole("form", { name: "Preferred Sessions" });
   fireEvent.submit(form);
   fireEvent.submit(form);
   await waitFor(() => expect(state.save).toHaveBeenCalledTimes(1));
@@ -332,7 +332,7 @@ it.each([
     await screen.findByRole("combobox");
     expect(select().value).toBe(expectedDraft);
     expect(select().disabled).toBe(!canEdit);
-    expect(await screen.findByText(/Preferred maximum: 0/)).toBeTruthy();
+    expect(await screen.findByText(/Preferred sessions: 0/)).toBeTruthy();
     expect(state.save).toHaveBeenCalledTimes(1);
     if (status === "ACTIVE") {
       expect(

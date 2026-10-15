@@ -8,6 +8,7 @@ import { getFeatures } from "~/server/program/features";
 import { api } from "~/trpc/server";
 import { AnnouncementsBanner } from "~/app/(tutor)/_components/announcements-banner";
 import { AttendanceForm } from "~/app/(tutor)/_components/attendance-form";
+import { TutorWorkloadPreference } from "~/app/_components/tutor-workload-preference";
 import { AvailabilityEditor } from "~/app/(tutor)/_components/availability-editor";
 import { TutorPairings } from "~/app/(tutor)/_components/tutor-pairings";
 import { MergeProvider } from "~/app/(tutor)/_components/merge-context";
@@ -188,22 +189,21 @@ export default async function TutorDashboard() {
         className="scroll-mt-6 space-y-4"
       >
         <SubjectWillingness />
-        {!inactive && (
-          <section className="card p-4 sm:p-5">
-            <h2 className="section-title">
-              {t("dashboard.availability.title")}
-            </h2>
-            <p className="muted mt-1 mb-4 text-sm">
-              {t("dashboard.availability.help")}
-            </p>
+        <section className="card p-4 sm:p-5">
+          <h2 className="section-title">{t("dashboard.availability.title")}</h2>
+          <p className="muted mt-1 mb-4 text-sm">
+            {t("dashboard.availability.help")}
+          </p>
+          <TutorWorkloadPreference />
+          {!inactive && (
             <DisclosureSection
               title={t("dashboard.availability.edit")}
               lifetime="retained"
             >
               <AvailabilityEditor />
             </DisclosureSection>
-          </section>
-        )}
+          )}
+        </section>
       </section>
 
       {/* Punishment history for the tutor's tutees (reason-free; self-hides when none). */}

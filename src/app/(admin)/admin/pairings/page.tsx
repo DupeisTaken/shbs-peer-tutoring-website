@@ -3,7 +3,7 @@ import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import { participantNameLabel } from "~/app/_components/participant-name";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 import {
-  AssignmentWorkloadAdvice,
+  WorkloadAssignmentConfirmation,
   AssignmentWorkloadFeedback,
   useAssignmentWorkloads,
 } from "~/app/_components/assignment-workload";
@@ -16,7 +16,6 @@ import { useEffect, useState, type SetStateAction } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
-import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
 import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -332,7 +331,6 @@ export default function PairingsPage() {
           onChange={(value) => set("tutorId", value)}
           tutors={(tutors.data ?? []).filter(isAssignableTutor)}
           retainedTutor={originalPairing?.tutor}
-          proposals={proposals}
         />
         <Select
           label={t("admin.pairings.roomOptional")}
@@ -547,19 +545,15 @@ export default function PairingsPage() {
         </ProfileDialog>
       )}
       {confirming && (
-        <AssignmentConfirmation
+        <WorkloadAssignmentConfirmation
           operation={editing ? "admin.updatePairing" : "admin.createPairing"}
           payload={payload}
           onConfirm={submit}
           onCancel={() => setConfirming(false)}
           busy={create.isPending || update.isPending}
           error={error?.message}
-          advisory={
-            <AssignmentWorkloadAdvice
-              tutorId={form.tutorId}
-              proposals={proposals}
-            />
-          }
+          tutorId={form.tutorId}
+          proposals={proposals}
         />
       )}
       {/* Table */}

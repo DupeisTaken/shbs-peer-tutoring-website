@@ -31,6 +31,36 @@ it("migrates inactive tutors to zero and guards every status path, range and sta
       { preferredAssignedBlocks: null },
       { preferredAssignedBlocks: 0 },
     ]);
+    // A default changes future inserts only; existing unset and inactive zero survive.
+    await client.query(
+      readFileSync(
+        "prisma/migrations/20261015010000_tutor_preferred_sessions_default/migration.sql",
+        "utf8",
+      ),
+    );
+    expect(
+      (
+        await client.query(
+          'SELECT "preferredAssignedBlocks" FROM "Tutor" ORDER BY id',
+        )
+      ).rows,
+    ).toEqual([
+      { preferredAssignedBlocks: null },
+      { preferredAssignedBlocks: 0 },
+    ]);
+    await client.query(`INSERT INTO "Tutor" (id,status) VALUES ('new-active','ACTIVE'), ('new-inactive','OPTED_OUT');
+      INSERT INTO "Tutor" (id,status,"preferredAssignedBlocks") VALUES ('explicit-unset','ACTIVE',NULL)`);
+    expect(
+      (
+        await client.query(
+          `SELECT "preferredAssignedBlocks" FROM "Tutor" WHERE id IN ('new-active','new-inactive','explicit-unset') ORDER BY id`,
+        )
+      ).rows,
+    ).toEqual([
+      { preferredAssignedBlocks: null },
+      { preferredAssignedBlocks: 1 },
+      { preferredAssignedBlocks: 0 },
+    ]);
     await client.query(
       'UPDATE "Tutor" SET "preferredAssignedBlocks"=4 WHERE id=\'active\'',
     );

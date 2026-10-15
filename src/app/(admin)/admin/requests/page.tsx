@@ -1,10 +1,9 @@
 "use client";
 import { Button } from "~/app/_components/ui/button";
-import { AssignmentWorkloadAdvice } from "~/app/_components/assignment-workload";
+import { WorkloadAssignmentConfirmation } from "~/app/_components/assignment-workload";
 import { invalidateWorkloads } from "~/lib/workload-cache";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
-import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
 import { EmailDetails } from "~/app/_components/email-details";
 import { StudentRequestBoard } from "./student-request-board";
 import { SignupSourceBadge } from "~/app/_components/signup-source-badge";
@@ -174,16 +173,12 @@ function RequestCard({
   return (
     <div className={`card p-5 ${fulfilled ? "bg-slate-50" : ""}`}>
       {assignmentPayload && !tutee.isInvalid && (
-        <AssignmentConfirmation
+        <WorkloadAssignmentConfirmation
           operation="admin.assignSignup"
           payload={assignmentPayload}
           onCancel={() => setConfirmCourse(null)}
           busy={assign.isPending}
-          advisory={
-            <AssignmentWorkloadAdvice
-              tutorId={picks[confirmCourse!.name] ?? ""}
-            />
-          }
+          tutorId={picks[confirmCourse!.name] ?? ""}
           error={assign.error?.message}
           onConfirm={(overrideTicket) =>
             assign.mutate({ ...assignmentPayload, overrideTicket })

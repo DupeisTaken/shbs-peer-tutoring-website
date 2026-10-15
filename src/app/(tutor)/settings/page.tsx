@@ -4,7 +4,6 @@ import {
   ConfiguredPersonNameFields as PersonNameFields,
   useNameFieldPresentation,
 } from "~/app/_components/person-name-fields";
-import { TutorWorkloadPreference } from "~/app/_components/tutor-workload-preference";
 import {
   nameDraft,
   personNameEdit,
@@ -297,7 +296,6 @@ export default function SettingsPage() {
       </div>
 
       {/* Profile */}
-      <TutorWorkloadPreference />
       <section className="card space-y-4 p-5">
         {profileDenied || deniedNow ? (
           <StatePanel
