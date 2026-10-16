@@ -230,9 +230,7 @@ it("conceals and evicts private preference on denial, then recovers explicitly",
     await screen.findByRole("option", { name: "Synthetic Tutor (1/1)" }),
   ).toBeTruthy();
 });
-const review = (
-  proposals?: WorkloadProposal[],
-) => {
+const review = (proposals?: WorkloadProposal[]) => {
   state.client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -259,9 +257,14 @@ it("requires explicit Continue above preference, with Cancel and no extra countd
   expect(state.confirm).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(state.cancel).toHaveBeenCalledOnce();
-  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  const continueButton = screen.getByRole<HTMLButtonElement>("button", {
+    name: "Continue",
+  });
+  fireEvent.click(continueButton);
   expect(state.confirm).toHaveBeenCalledOnce();
-  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  expect(continueButton.disabled).toBe(true);
+  expect(continueButton.textContent).toBe(en.assignmentQualification.working);
+  fireEvent.click(continueButton);
   expect(state.confirm).toHaveBeenCalledOnce();
 });
 it.each([null, 2, 4])(
