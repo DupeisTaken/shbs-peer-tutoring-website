@@ -26,5 +26,14 @@ export function navigateNotificationFragment(
   event.preventDefault();
   if (target.hash === window.location.hash)
     window.dispatchEvent(new HashChangeEvent("hashchange"));
-  else window.location.hash = target.hash;
+  else if (isNotificationRecordDestination(href)) {
+    // A native hash assignment scrolls every ancestor before our owning pane
+    // can reveal the committed record. Preserve the ordinary Back entry and
+    // Next's current history payload, but delegate the sole scroll to that page.
+    const oldURL = window.location.href;
+    window.history.pushState(window.history.state, "", target.href);
+    window.dispatchEvent(
+      new HashChangeEvent("hashchange", { oldURL, newURL: target.href }),
+    );
+  } else window.location.hash = target.hash;
 }
