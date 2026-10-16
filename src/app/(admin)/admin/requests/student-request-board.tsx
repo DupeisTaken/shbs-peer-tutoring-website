@@ -41,6 +41,10 @@ import {
   useSessionViewVerified,
 } from "~/app/_components/session-view-state";
 import { requestBoardTarget } from "~/lib/request-notification-destination";
+import {
+  useNotificationRecordReveal,
+  type NotificationRecordArrival,
+} from "~/app/_components/use-notification-record-reveal";
 import { viewEnum } from "~/lib/session-view-state";
 import {
   ParticipantName,
@@ -317,7 +321,10 @@ export function StudentRequestBoard({
     (row) => row.appeal?.state === "PENDING",
   );
   const verified = useSessionViewVerified();
-  const revealed = useRef("");
+  const arrivalSequence = useRef(0);
+  const [arrival, setArrival] = useState<
+    (NotificationRecordArrival & { group?: RequestTab }) | null
+  >(null);
   const [targetMissing, setTargetMissing] = useState(false);
   const [tab, setTab] = useSessionViewState({
     id: "requests.tab.v1",
@@ -338,64 +345,61 @@ export function StudentRequestBoard({
     });
   useEffect(() => {
     const reveal = () => {
-      if (
-        !verified ||
-        denied ||
-        additionalLoading ||
-        !rows.data ||
-        !legacyReviews.data ||
-        rows.isFetching
-      )
-        return;
-      const hash = window.location.hash,
-        target = requestBoardTarget(hash);
-      if (!target) {
-        revealed.current = "";
-        setTargetMissing(false);
-        return;
-      }
-      if (revealed.current === hash) return;
-      const row =
-        target.kind === "survey"
-          ? rows.data.find((entry) => entry.id === target.id)
-          : null;
-      const legacy =
-        target.kind === "signup"
-          ? additionalEntries.find(
-              (entry) => (entry.sourceId ?? entry.id) === target.id,
-            )
-          : null;
-      const group = row
-        ? signupRequestGroup(
-            row.state,
-            row.subjects.map((subject) => subject.name),
-            row.pairings.map((pairing) => pairing.subject),
-          )
-        : legacy?.group;
-      revealed.current = hash;
-      setTargetMissing(!group);
-      if (group) {
-        // Explicit event navigation wins over remembered filters only for this
-        // arrival; it never rebases a retained request/editor draft.
-        setTab(group);
-        setInvalidity("all");
-        requestAnimationFrame(() =>
-          document
-            .getElementById(hash.slice(1))
-            ?.scrollIntoView({ block: "center" }),
-        );
-      }
+      const hash = window.location.hash;
+      setTargetMissing(false);
+      setArrival(
+        verified && !denied && requestBoardTarget(hash)
+          ? {
+              hash,
+              pathname: window.location.pathname,
+              sequence: ++arrivalSequence.current,
+            }
+          : null,
+      );
     };
     reveal();
-    const navigate = () => {
-      revealed.current = "";
-      reveal();
-    };
-    window.addEventListener("hashchange", navigate);
-    return () => window.removeEventListener("hashchange", navigate);
+    window.addEventListener("hashchange", reveal);
+    return () => window.removeEventListener("hashchange", reveal);
+  }, [verified, denied]);
+  useEffect(() => {
+    if (
+      !arrival ||
+      arrival.group ||
+      additionalLoading ||
+      !rows.data ||
+      !legacyReviews.data ||
+      rows.isFetching
+    )
+      return;
+    const target = requestBoardTarget(arrival.hash);
+    if (!target) return;
+    const row =
+      target.kind === "survey"
+        ? rows.data.find((entry) => entry.id === target.id)
+        : null;
+    const legacy =
+      target.kind === "signup"
+        ? additionalEntries.find(
+            (entry) => (entry.sourceId ?? entry.id) === target.id,
+          )
+        : null;
+    const group = row
+      ? signupRequestGroup(
+          row.state,
+          row.subjects.map((subject) => subject.name),
+          row.pairings.map((pairing) => pairing.subject),
+        )
+      : legacy?.group;
+    setTargetMissing(!group);
+    if (group) {
+      // Explicit event navigation wins over remembered filters only for this
+      // arrival; it never rebases a retained request/editor draft.
+      setTab(group);
+      setInvalidity("all");
+      setArrival({ ...arrival, group });
+    } else setArrival(null);
   }, [
-    verified,
-    denied,
+    arrival,
     additionalLoading,
     rows.data,
     rows.isFetching,
@@ -404,6 +408,17 @@ export function StudentRequestBoard({
     setTab,
     setInvalidity,
   ]);
+  useNotificationRecordReveal(
+    arrival,
+    !denied &&
+      !!arrival?.group &&
+      tab === arrival.group &&
+      invalidity === "all",
+    (cancelled) =>
+      setArrival((current) =>
+        current?.sequence === cancelled.sequence ? null : current,
+      ),
+  );
   useSessionPageScroll({
     id: "requests",
     scope: JSON.stringify([viewScope, tab, invalidity]),

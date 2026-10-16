@@ -129,6 +129,33 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("focuses the revealed application after filters commit rather than consuming a pre-commit frame", () => {
+  window.history.replaceState(null, "", "/admin/applications");
+  const frames: FrameRequestCallback[] = [];
+  vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+    frames.push(callback);
+    return frames.length;
+  });
+  vi.spyOn(Element.prototype, "getClientRects").mockReturnValue({
+    length: 1,
+  } as DOMRectList);
+  const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+  const page = show();
+  change("Name or email", "Bea");
+  expect(screen.queryByText("Alex Chen")).toBeNull();
+  act(() => {
+    window.history.replaceState(null, "", "/admin/applications#application-a");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    for (const frame of frames.splice(0)) frame(0);
+  });
+  const target = document.getElementById("application-a");
+  expect(target).not.toBeNull();
+  expect(document.activeElement).toBe(target);
+  expect(scroll).toHaveBeenCalledWith({ block: "center" });
+  page.unmount();
+  vi.restoreAllMocks();
+});
+
 it("restores the authorized queue filters after slow choices, lets an application hash reveal its target, and clears denial", () => {
   const key = viewStateKey(
     "head",

@@ -6,6 +6,10 @@ import { QualificationReview } from "~/app/_components/qualification-review";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useNotificationRecordReveal,
+  type NotificationRecordArrival,
+} from "~/app/_components/use-notification-record-reveal";
 import { InlineNotice } from "~/app/_components/ui/patterns";
 import {
   useSessionAccessDenied,
@@ -138,9 +142,6 @@ function ApplicationCard({
     const reveal = () => {
       if (window.location.hash === `#application-${app.id}`) {
         setDisclosure("open");
-        document
-          .getElementById(`application-${app.id}`)
-          ?.scrollIntoView({ block: "start" });
       }
     };
     reveal();
@@ -459,7 +460,10 @@ function ApplicationCard({
 export default function ApplicationsPage() {
   const t = useTranslations();
   const [noticeTargetMissing, setNoticeTargetMissing] = useState(false);
-  const lastDestination = useRef("");
+  const arrivalSequence = useRef(0);
+  const [arrival, setArrival] = useState<
+    (NotificationRecordArrival & { selected?: boolean }) | null
+  >(null);
   const utils = api.useUtils();
   const apps = api.admin.tutorApplications.useQuery();
   const tutors = api.admin.tutors.useQuery();
@@ -539,38 +543,45 @@ export default function ApplicationsPage() {
     const reveal = () => {
       const hash = window.location.hash;
       const target = /^#application-([a-zA-Z0-9_-]{1,128})$/.exec(hash);
-      if (!target) {
-        lastDestination.current = "";
-        setNoticeTargetMissing(false);
-        return;
-      }
-      if (
-        !verified ||
-        apps.isFetching ||
-        !apps.data ||
-        lastDestination.current === hash
-      )
-        return;
-      lastDestination.current = hash;
-      if (target) {
-        setFilters(emptyApplicationFilters);
-        setInvalidity("all");
-        setNoticeTargetMissing(!apps.data.some((app) => app.id === target[1]));
-        requestAnimationFrame(() =>
-          document
-            .getElementById(hash.slice(1))
-            ?.scrollIntoView({ block: "center" }),
-        );
-      }
+      setNoticeTargetMissing(false);
+      setArrival(
+        verified && !denied && target
+          ? {
+              hash,
+              pathname: window.location.pathname,
+              sequence: ++arrivalSequence.current,
+            }
+          : null,
+      );
     };
-    if (verified && apps.data) reveal();
-    const navigate = () => {
-      lastDestination.current = "";
-      reveal();
-    };
-    window.addEventListener("hashchange", navigate);
-    return () => window.removeEventListener("hashchange", navigate);
-  }, [verified, apps.data, apps.isFetching, setFilters, setInvalidity]);
+    reveal();
+    window.addEventListener("hashchange", reveal);
+    return () => window.removeEventListener("hashchange", reveal);
+  }, [verified, denied]);
+  useEffect(() => {
+    if (arrival && !arrival.selected && !apps.isFetching && apps.data) {
+      setFilters(emptyApplicationFilters);
+      setInvalidity("all");
+      const exists = apps.data.some(
+        (app) => `#application-${app.id}` === arrival.hash,
+      );
+      setNoticeTargetMissing(!exists);
+      setArrival(exists ? { ...arrival, selected: true } : null);
+    }
+  }, [arrival, apps.data, apps.isFetching, setFilters, setInvalidity]);
+  useNotificationRecordReveal(
+    arrival,
+    !denied &&
+      !!arrival?.selected &&
+      invalidity === "all" &&
+      Object.entries(emptyApplicationFilters).every(
+        ([key, value]) => filters[key as keyof typeof filters] === value,
+      ),
+    (cancelled) =>
+      setArrival((current) =>
+        current?.sequence === cancelled.sequence ? null : current,
+      ),
+  );
   const list = denied ? [] : (apps.data ?? []);
   const filtered = list.filter(
     (app) =>

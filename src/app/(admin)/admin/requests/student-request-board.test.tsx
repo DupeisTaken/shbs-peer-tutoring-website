@@ -156,6 +156,100 @@ it("binds appeal consequences to appeal id and captured invalidity version; acce
   expect(mocks.appeal).toHaveBeenCalledOnce();
 });
 
+it("keeps the newer hash arrival when the old pending target cancels in the same event", () => {
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    configurable: true,
+    value: vi.fn(),
+  });
+  vi.spyOn(Element.prototype, "getClientRects").mockReturnValue({
+    length: 1,
+  } as DOMRectList);
+  window.history.replaceState(null, "", "/admin/requests#request-signup-A");
+  const page = (loading: boolean) => (
+    <SessionViewProvider identity="head" pathname="/admin/requests" verified>
+      <StudentRequestBoard
+        additionalLoading={loading}
+        additionalEntries={[
+          {
+            id: "B",
+            group: "assigned",
+            submittedAt: new Date(),
+            content: <article id="request-signup-B">Newer request</article>,
+          },
+        ]}
+      />
+    </SessionViewProvider>
+  );
+  const view = render(page(true));
+  act(() => {
+    window.history.replaceState(null, "", "/admin/requests#request-signup-B");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  });
+  view.rerender(page(false));
+  expect(document.activeElement).toBe(screen.getByText("Newer request"));
+  expect(Element.prototype.scrollIntoView).toHaveBeenCalledOnce();
+  view.unmount();
+  vi.restoreAllMocks();
+});
+
+it("reveals and focuses the committed record when an animation frame runs before the requested panel commits", () => {
+  const frames: FrameRequestCallback[] = [];
+  vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+    frames.push(callback);
+    return frames.length;
+  });
+  const scroll = vi.fn();
+  vi.spyOn(Element.prototype, "getClientRects").mockReturnValue({
+    length: 1,
+  } as DOMRectList);
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    configurable: true,
+    value: scroll,
+  });
+  window.history.replaceState(null, "", "/admin/requests");
+  const page = render(
+    <SessionViewProvider identity="head" pathname="/admin/requests" verified>
+      <StudentRequestBoard
+        additionalEntries={[
+          {
+            id: "manual-source_123",
+            sourceId: "source_123",
+            group: "assigned",
+            submittedAt: new Date(),
+            content: (
+              <article id="request-signup-source_123">Committed record</article>
+            ),
+          },
+        ]}
+      />
+    </SessionViewProvider>,
+  );
+  expect(screen.queryByText("Committed record")).toBeNull();
+  act(() => {
+    window.history.replaceState(
+      null,
+      "",
+      "/admin/requests#request-signup-source_123",
+    );
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    // React can defer the filter commit beyond the first frame. That frame
+    // must not permanently consume an arrival whose record is not mounted yet.
+    for (const frame of frames.splice(0)) frame(0);
+  });
+  const target = screen.getByText("Committed record");
+  expect(scroll).toHaveBeenCalled();
+  expect(document.activeElement).toBe(target);
+  scroll.mockClear();
+  fireEvent.wheel(window);
+  page.rerender(
+    <SessionViewProvider identity="head" pathname="/admin/requests" verified>
+      <StudentRequestBoard additionalEntries={[]} />
+    </SessionViewProvider>,
+  );
+  expect(scroll).not.toHaveBeenCalled();
+  vi.restoreAllMocks();
+});
+
 it("moves focus with arrows and Home/End without changing the selected request panel", () => {
   render(<StudentRequestBoard />);
   const matching = screen.getByRole("tab", { name: "matching 0" });

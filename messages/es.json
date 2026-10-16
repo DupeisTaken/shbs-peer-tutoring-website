@@ -5151,7 +5151,7 @@
     },
     "request_invalidity_appeal_pending": {
       "title": "Invalid Request Appeal Awaiting Review",
-      "body": "A submitter appealed an applied invalid-request flag. Review the appeal in the request's invalidity dialog; submitting an appeal does not clear the flag.",
+      "body": "Una persona solicitante apeló una marca de solicitud no válida. Abra la solicitud enlazada para revisar la apelación; presentarla no elimina la marca.",
       "action": "Review invalid request appeal"
     },
     "student_signup_rejected": {
