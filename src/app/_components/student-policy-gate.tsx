@@ -260,7 +260,7 @@ function PolicyReview({
       onCancel={onDismiss}
       onConfirm={(ticket) => {
         if (!canAccept) return;
-        accept.mutate({
+        return accept.mutateAsync({
           slug,
           revision,
           ticket,

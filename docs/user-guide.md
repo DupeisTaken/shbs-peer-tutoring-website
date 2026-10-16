@@ -210,6 +210,27 @@ actions. Each list keeps its own page and navigation state.
 
 Important actions display consequences and a countdown before confirmation. A pending request is not an approved change. If a tutor reports a schedule conflict, an approved rejection removes only that tutor’s assignment and returns your request for matching at its original priority.
 
+Confirmation waits depend on the action:
+
+| Action                                    | Wait      | What you review                                                              |
+| ----------------------------------------- | --------- | ---------------------------------------------------------------------------- |
+| Recall an unmatched request               | 2 seconds | Permanent closure and loss of the original queue priority if you apply again |
+| Request withdrawal for the quarter        | 3 seconds | A reviewed request to end participation; assignments continue until approval |
+| Propose a tutor schedule conflict         | 2 seconds | A reason for management review; the assignment remains active                |
+| Approve a withdrawal or schedule conflict | 3 seconds | The participation or assignment consequences named in the dialog             |
+| Decline a withdrawal or conflict          | 2 seconds | Closing the application while keeping the current participation/assignment   |
+| Assign a tutor                            | 2 seconds | The selected learner, subject, tutor and verification consequences           |
+| Confirm an unqualified assignment         | 2 seconds | The named tutor's missing qualification for the selected subject             |
+| Accept participation policy               | 5 seconds | The current published document and your explicit agreement                   |
+
+The wait enables the confirmation choice; it never submits automatically. Cancel
+or changing the reviewed action/record starts a fresh review. If the confirmation
+expires, reopen it or use its refresh action. Failed writes allow deliberate retry
+without duplicate submission; pending writes prevent duplicate confirmation and
+dismissal.
+Email verification, resend limits, signup windows and session timeouts have their
+own unchanged timing rules.
+
 ### Withdrawal requests
 
 Open **Requests → Participation → Request withdrawal…**. The button names the current quarter or semester and also works for staff-entered enrollments explicitly linked to your account. Give a reason and complete the timed confirmation; check the decision before assuming your participation has ended.
@@ -620,7 +641,7 @@ Use **How requests are grouped** and **Signup sources and ownership** for the
 contextual explanations. The tabs retain their counts and manual keyboard
 activation; moving focus alone does not select another queue.
 
-Course-aware tutor selectors in Signup Requests and Pairings list tutors with approved, recorded subject grants first, followed by a separate unqualified group. Inherited grants remain valid after level reordering. Choose the subject first in Pairings. Assigning an unqualified tutor opens a warning naming the tutor and subject; confirmation becomes available after three full seconds. Cancel or change the selection to discard that acknowledgement. Coordinators still submit proposals, and the reviewer must confirm any remaining qualification mismatch independently. This override does not waive active-tutor, request, permission, or scheduling checks.
+Course-aware tutor selectors in Signup Requests and Pairings list tutors with approved, recorded subject grants first, followed by a separate unqualified group. Inherited grants remain valid after level reordering. Choose the subject first in Pairings. Assigning an unqualified tutor opens a warning naming the tutor and subject; confirmation becomes available when the two-second countdown completes. Cancel or change the selection to discard that acknowledgement. Coordinators still submit proposals, and the reviewer must confirm any remaining qualification mismatch independently. This override does not waive active-tutor, request, permission, or scheduling checks.
 
 ### Review withdrawals and membership
 
@@ -793,7 +814,7 @@ On the tutor dashboard, select **current policy** in the accepted-policy message
 
 For both tutor and tutee policies, scroll to the bottom inside the policy text box before checking the agreement. The checkbox is disabled and its label stays gray until you reach the end; it never checks itself. You can scroll using a mouse, touch, or the keyboard after focusing the policy box. A short policy that is fully visible unlocks immediately. Scrolling back up keeps agreement available during that review. Retry, reopening the popup, or switching to another policy revision or translation starts a fresh review.
 
-When a published policy applicable to your linked student or tutor profile changes, a popup opens on your next visit or window focus. Accounts with both profiles review each applicable policy. Read the text in your selected language (or English when unavailable), check the agreement and complete the ten-second confirmation. Use **Retry** if loading or acceptance fails. You may cancel the popup to access messages, account details, personal history, feedback and appeals; new participation still requires current acceptance on the server. The reminder lets you reopen the popup. Already accepted revisions and unpublished proposals do not require renewed consent. Policy editing and publication remain under **Policy Documents**.
+When a published policy applicable to your linked student or tutor profile changes, a popup opens on your next visit or window focus. Accounts with both profiles review each applicable policy. Read the text in your selected language (or English when unavailable), check the agreement and complete the five-second confirmation. Use **Refresh** if loading or acceptance fails. You may cancel the popup to access messages, account details, personal history, feedback and appeals; new participation still requires current acceptance on the server. The reminder lets you reopen the popup. Already accepted revisions and unpublished proposals do not require renewed consent. Policy editing and publication remain under **Policy Documents**.
 
 Email confirmation and password recovery pages remain available without a policy reminder; current acceptance is still required before participating.
 

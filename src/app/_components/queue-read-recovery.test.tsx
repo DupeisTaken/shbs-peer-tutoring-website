@@ -47,7 +47,11 @@ vi.mock("~/trpc/react", async () => {
     },
   });
   const write = {
-    useMutation: () => ({ mutate: remote.write, reset: vi.fn() }),
+    useMutation: () => ({
+      mutate: remote.write,
+      mutateAsync: remote.write,
+      reset: vi.fn(),
+    }),
   };
   const refresh = { invalidate: vi.fn(), fetch: vi.fn() };
   return {

@@ -431,7 +431,7 @@ function Assignment({
           error={assign.error?.message}
           onCancel={() => setConsequenceTicket(null)}
           onConfirm={(overrideTicket) =>
-            assign.mutate({
+            assign.mutateAsync({
               id: row.id,
               subjectId: subject.id,
               tutorId,
@@ -525,7 +525,7 @@ function ReviewCard({
           error={resolve.error?.message}
           onCancel={() => setDecision(null)}
           onConfirm={(ticket) =>
-            resolve.mutate({ id: review.id, approve: decision, ticket })
+            resolve.mutateAsync({ id: review.id, approve: decision, ticket })
           }
         />
       )}

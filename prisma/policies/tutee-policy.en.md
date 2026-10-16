@@ -1,6 +1,6 @@
 # SHBS Peer Tutoring Tutee Policy
 
-**Revision:** 2026.10.02 | **Status:** Draft for school review
+**Revision:** 2026.10.14 | **Status:** Draft for school review
 
 This policy establishes expectations for tutees in the SHBS Peer Tutoring Program, respecting everyone's time and effort. It retains the structure of the April 2025 policy and incorporates the program website. “Tutee” means a student receiving peer tutoring.
 
@@ -92,14 +92,14 @@ An unassigned survey request can be recalled after confirming the consequences. 
 
 After assignment, use **Requests → Participation → Request withdrawal…**, give a reason and confirm. Account-linked staff-entered enrollments also support this request. Tutoring continues during review and if the request is denied. Approval ends all your tutoring in the current program period and blocks another signup for that period, including after a verified email change. Future intakes remain separate.
 
-If your enrollment instead offers tutor-relayed opt-out, ask your tutor to relay your request. It has a seven-day recall window and is processed automatically afterward unless recalled or cancelled. If the period refreshes or its originating assignment is removed first, the outdated relay is cancelled. This differs from withdrawal awaiting staff approval; check the route and effective time shown. Consequential request actions use a five-second confirmation delay.
+If your enrollment instead offers tutor-relayed opt-out, ask your tutor to relay your request. It has a seven-day recall window and is processed automatically afterward unless recalled or cancelled. If the period refreshes or its originating assignment is removed first, the outdated relay is cancelled. This differs from withdrawal awaiting staff approval; check the route and effective time shown. Request reviews use action-specific confirmation delays: two seconds for recall and schedule-conflict proposals, and three seconds for quarter-withdrawal requests and consequential approvals.
 
 ### 5. Policy acceptance and continued access
 
-Read the displayed policy and explicitly complete its agreement and signature requirements. A published change prompts renewed review on your next visit or window focus. Read to the end, check agreement and complete the ten-second confirmation. Accounts linked to both tutee and tutor profiles review both policies. Missing translations fall back to English; unpublished proposals do not renew consent.
+Read the displayed policy and explicitly complete its agreement and signature requirements. A published change prompts renewed review on your next visit or window focus. Read to the end, check agreement and complete the five-second confirmation. Accounts linked to both tutee and tutor profiles review both policies. Missing translations fall back to English; unpublished proposals do not renew consent.
 
 Acceptance records the exact revision, text, signature and time without changing queue priority. Dismissing a renewal prompt preserves access to history, feedback, appeals, messages and account settings, subject to ordinary permissions. New participation still requires current acceptance; these provisions do not override suspension. Records remain linked to your account across intakes and verified email changes.
 
 By explicitly accepting the school's published version, tutees agree to these responsibilities and procedures. Contact management with questions before accepting.
 
-**The Peer Tutoring Team** | **Revision:** 2026.10.02 | **Draft for school review**
+**The Peer Tutoring Team** | **Revision:** 2026.10.14 | **Draft for school review**

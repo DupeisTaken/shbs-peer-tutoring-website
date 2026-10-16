@@ -2894,7 +2894,8 @@
     "boardGuide": "Comment les demandes sont regroupées",
     "sourceGuide": "Origine et rattachement des inscriptions",
     "policyRefresh": "Actualiser",
-    "emailStatus": "E-mail : {status}"
+    "emailStatus": "E-mail : {status}",
+    "confirmationExpired": "This confirmation expired. Reopen or refresh it to review again."
   },
   "approvals": {
     "reviewPermissions": "Admin et Head examinent les demandes de gestion ordinaires. Seul Head examine les changements de rôles et de badges. Head peut examiner ses propres demandes ; les autres doivent faire appel à une autre personne autorisée.",
@@ -3617,14 +3618,16 @@
     "loading": "Loading qualifications…",
     "loadError": "Qualifications could not be loaded. Refresh to try again.",
     "warningTitle": "Assign a Tutor Without This Qualification?",
-    "warningHelp": "Review the mismatch below. Wait three seconds, then explicitly confirm or cancel. Normal assignment and scheduling rules still apply.",
+    "warningHelp": "Review the mismatch below. Wait two seconds, then explicitly confirm or cancel. Normal assignment and scheduling rules still apply.",
     "checking": "Checking assignment",
     "checkingHelp": "Checking this tutor’s recorded subject qualifications.",
     "mismatch": "{tutor} has no approved qualification for {subject}.",
     "cancel": "Cancel",
     "confirm": "Confirm unqualified assignment",
     "wait": "Confirm in {seconds}s",
-    "working": "Assigning…"
+    "working": "Assigning…",
+    "retry": "Review again",
+    "confirmationExpired": "This confirmation expired. Review again before confirming."
   },
   "qualificationRequests": {
     "completedCount": "({count} completed)",
