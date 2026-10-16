@@ -65,6 +65,16 @@ ordinary notification destinations retain normal navigation. Once revealed, late
 scrolling belongs to the user. A new location, access denial or intervening user
 gesture cancels an unfinished reveal; it must not pull the user back later.
 
+At desktop management widths, the actual scrollable `#admin-content` pane owns
+record positioning. Revealing a child must not chain a second scroll into the
+outer document and move the global header. Mobile retains document scrolling.
+The adapter uses current pane/target geometry and native pane clamping, without
+changing shell overflow rules or resetting a user's outer document position.
+For a different managed fragment on the same page, the bell adds the normal
+history entry with the existing history state and dispatches `hashchange` without
+invoking a second native fragment scroll. This source-derived companion prevents
+the same ancestor-chain competition; ordinary fragment behavior is unchanged.
+
 Appeal-pending copy points to the linked request without naming a particular
 dialog: legacy invalidity review and current signup review retain their own
 authorized decision interfaces and policy rules.
