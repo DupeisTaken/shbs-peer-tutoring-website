@@ -274,6 +274,7 @@ Confirmation waits depend on the action:
 | Assign a tutor                            | 2 seconds | The selected learner, subject, tutor and verification consequences           |
 | Confirm an unqualified assignment         | 2 seconds | The named tutor's missing qualification for the selected subject             |
 | Accept participation policy               | 5 seconds | The current published document and your explicit agreement                   |
+| Edit signup answers, release an assignment or decide a signup appeal | 5 seconds | The captured request version and its signup/assignment/priority consequences |
 
 The wait enables the confirmation choice; it never submits automatically. Cancel
 or changing the reviewed action/record starts a fresh review. If the confirmation

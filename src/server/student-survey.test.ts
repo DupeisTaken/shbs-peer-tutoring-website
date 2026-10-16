@@ -1,6 +1,7 @@
 import { approveQualification } from "~/server/qualifications";
 import { applyLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
 import { beforeEach, afterAll, describe, it, expect, vi } from "vitest";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { randomUUID } from "node:crypto";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("~/server/email/sender", () => ({
@@ -116,13 +117,9 @@ const lastToken = () => {
 };
 
 beforeEach(async () => {
-  // This suite owns a dedicated DB; refuse destructive fixture setup on any other database.
-  const url = new URL(process.env.DATABASE_URL!);
-  if (
-    !["localhost", "127.0.0.1"].includes(url.hostname) ||
-    !["/shbs_survey_first_test", "/shbs_shipping_test"].includes(url.pathname)
-  )
-    throw Error("Requires isolated shbs_survey_first_test database");
+  // Shared guard permits task-owned isolated namespaces and rejects demo URLs
+  // and connection-query overrides before any destructive fixture query.
+  assertIsolatedTestDatabase(process.env.DATABASE_URL);
   const tables = await db.$queryRaw<
     { tablename: string }[]
   >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
@@ -493,7 +490,11 @@ describe("survey-first enrollment", () => {
                   }
                 : null,
             });
-            const request = api[operation]({ ...input(), email: accountEmail, clientKey: randomUUID() });
+            const request = api[operation]({
+              ...input(),
+              email: accountEmail,
+              clientKey: randomUUID(),
+            });
             if (allowed)
               await expect(request).resolves.toMatchObject({ ok: true });
             else
@@ -543,7 +544,9 @@ describe("survey-first enrollment", () => {
       data: { signupClosesAt: new Date(Date.now() - 1) },
     });
     send.mockClear();
-    await expect(api.submitSurvey({ ...input(), clientKey: randomUUID() })).rejects.toMatchObject({
+    await expect(
+      api.submitSurvey({ ...input(), clientKey: randomUUID() }),
+    ).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
     });
     expect(await db.studentSurvey.findFirstOrThrow()).toEqual(original);
@@ -826,6 +829,12 @@ describe("student request lifecycle", () => {
           "review-target",
         );
         const wait = confirmationDelayMs[action];
+        for (const instant of [
+          ticket.serverNow,
+          ticket.readyAt,
+          ticket.expiresAt,
+        ])
+          expect(Number.isFinite(+instant)).toBe(true);
         expect(+ticket.readyAt - +start).toBe(wait);
         expect(+ticket.expiresAt - +start).toBe(30 * 60_000);
         vi.setSystemTime(+start + wait - 1);

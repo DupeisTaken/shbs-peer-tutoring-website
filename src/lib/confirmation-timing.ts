@@ -8,6 +8,11 @@ export const confirmationDelayMs = {
   POLICY: 5_000,
   ASSIGN: 2_000,
   ASSIGNMENT_OVERRIDE: 2_000,
+  // Signup-specific reviews retain their established delay when integrated
+  // with the action-specific map; each must yield a valid server readyAt.
+  SIGNUP_EDIT: 5_000,
+  SIGNUP_UNASSIGN: 5_000,
+  SIGNUP_APPEAL: 5_000,
 } as const;
 
 export type ConfirmationTicket = {
