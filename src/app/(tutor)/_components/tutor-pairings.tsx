@@ -480,7 +480,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
           {a(slotOutcome !== undefined ? "savedRefreshFailed" : "readFailed")}
         </InlineNotice>
       )}
-      {(pairings.error || availability.error) && !slotRefreshFailed && (
+      {(pairings.error ?? availability.error) && !slotRefreshFailed && (
         <InlineNotice
           tone="error"
           announcement="alert"
