@@ -5,7 +5,6 @@ import { synchronizeStudentSignupAnswers } from "./student-signup-revisions";
 import { lockCatalogue } from "./qualifications";
 import {
   assertRequestProcessable,
-  emptyRequestInvalidity,
   lockStudentRequestReview,
   requestInvalidity,
 } from "~/server/request-invalidity";

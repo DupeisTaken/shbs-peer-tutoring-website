@@ -1550,3 +1550,26 @@ Run `npm run docs:check` to validate Markdown links, heading anchors, guide disc
 The owner selected #385’s newer survey lifecycle when integrating #384: appeals end with the active signup period, and final rejection closes the request and ends its active priority. Modern survey flags create one `EmailDelivery` request-service receipt; `StudentSignupNotice` retains only the matching invalidity-version/account-bound appeal capability for that flag. Its flag kind is routed through the shared worker, not independently mailed. At transport admission the modern link must match the immutable receipt request version and the capability’s current ownership; transport retry never grants a later-version capability. Generic survey tokens are explicitly retired instead of retroactively acquiring modern authority. Existing generic survey appeals remain immutable, staff-readable and non-decidable; old signup-specific tokens retain their original version/account checks and current-period eligibility. Tutor/legacy generic appeal behavior remains separate.
 
 Signup decision controls return failed mutation promises to the shared timed admission guard. Accepted or queued writes stay accepted and recover through reads only; identical failed writes can be deliberately retried with the retained draft/ticket. Combined regressions cover one flag receipt/send, stale-version links, period rollover, rejection priority, historical appeal read-only projection and retry authority.
+
+Reviewed same-owner credential recovery rotates its appeal capability only in the
+same transaction that successfully queues the matching delivery receipt. A
+`SENDING` attempt or active lease leaves the captured capability unchanged. After
+that attempt settles, another explicit retry may queue and rotate atomically;
+neither a refused retry nor a background read can invalidate an in-flight link.
+For pre-existing sent generic survey receipts without a modern capability, an
+explicit staff recovery can requeue that same receipt and create its matching
+modern capability atomically. Refused admission creates no capability; a prior
+generic SMTP attempt cannot mark a newly unsent modern link as delivered.
+
+The shared receipt's original verified alias is checked again by authoritative
+token inspection and appeal submission, under the same username namespace used
+by address removal. Removing or transferring that alias revokes a captured link
+even if the primary address and session version are unchanged. Primary-exact and
+older native notices retain their existing binding. A modern capability-backed
+flag receipt is superseded before transport when its signup has become terminal;
+the separate appeal outcome notice remains the correct final-state message.
+
+The three signup-specific actions (`SIGNUP_EDIT`, `SIGNUP_UNASSIGN`,
+`SIGNUP_APPEAL`) retain their existing five-second review delay when joining the
+action-specific confirmation map. Their ticket expiry and version/target binding
+are unchanged; no missing map entry may produce an invalid confirmation instant.

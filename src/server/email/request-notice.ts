@@ -183,6 +183,18 @@ export async function currentRequestNotice(
     const source = await tx.studentSurvey.findUnique({
       where: { id: row.requestId },
     });
+    const modernCapability = row.requestInvalid
+      ? await tx.studentSignupNotice.findUnique({
+          where: {
+            surveyId_invalidityVersion_kind: {
+              surveyId: row.requestId,
+              invalidityVersion: row.requestVersion,
+              kind: "INVALID_FLAGGED",
+            },
+          },
+          select: { id: true },
+        })
+      : null;
     const owner = source?.tuteeId
       ? await tx.studentProfileOwnership.findUnique({
           where: { tuteeId: source.tuteeId },
@@ -198,6 +210,7 @@ export async function currentRequestNotice(
     return {
       current:
         !!source &&
+        (!modernCapability || source.state === "OPEN") &&
         source.email === row.recipient &&
         source.invalidityVersion === row.requestVersion &&
         !!source.invalidatedAt === row.requestInvalid,
