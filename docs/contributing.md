@@ -150,6 +150,79 @@ consent and historical-ownership explanations even when they require more text.
 Use existing schedule/request data when prioritizing work; layout changes alone
 must not introduce a new computed next-session feature or domain rule.
 
+### Align controls to their visual row
+
+Choose the alignment reference before choosing flex or grid alignment. A labelled
+field contains three different regions: label, interactive control and optional
+guidance. A sibling badge, checkbox or action belongs at the vertical center of
+the **control box**, not the center or bottom of all three regions. Put guidance
+in its own grid row and associate it with the field using `aria-describedby`.
+Announcement badges align with the title input; assignment labels and actions
+align with the tutor selector; report checkboxes align with the adjacent selects.
+Do not use ad hoc top margins that depend on English labels being one line.
+
+A summary card has a different reference: center its action group against the
+whole summary, including its secondary line. Within a participant heading,
+center badges on the name line. Wrapped metadata starts at the name's content
+edge, after the reserved disclosure space. Keep action typography consistent even
+when one action navigates and another opens a dialog. Use a shared minimum row
+height for lists containing both buttons and non-interactive badges; badges need
+not grow to fill the row. Translated or enlarged text may grow beyond that minimum.
+
+### Keep summaries compact and editing explicit
+
+Show each subject as a brief row with its name, level badge, qualification and
+willingness. Do not repeat a Qualification heading beside a Qualified badge.
+Order qualified and willing subjects first, qualified and unwilling next, then
+qualified subjects whose willingness is not recorded, then unqualified subjects.
+Keep the current catalog order within a group. Unknown willingness is a distinct
+state, not an inferred No. Put editing behind a rightmost Edit action and retain
+the feature's independent mutation, approval and failed-save recovery rules.
+
+Bulk selection is a deliberate exception to the trailing-action rule: a checkbox
+column goes at the far left, with a named select-all control. Details and editors
+remain in the rightmost Actions column. Selection remains stable while filtering;
+subject catalogs use the same default order as signup forms.
+
+Use one compact warning for an academic value needing review rather than an
+unknown-value sentence followed by the same review instruction. Put full reasons,
+self-excused absences, comments, evaluations and recorded service hours in named
+detail readers. Attendance abbreviations such as P, EA and UA require a visible
+legend and accessible expanded column names. Keep all columns and trailing actions
+reachable on narrow screens; avoid side-by-side tables that compress either table
+below its useful width.
+
+Consequential actions use a neutral outlined boundary at rest and danger styling
+on hover, keyboard focus and activation. The visible action label never disappears.
+Keep consequential actions at the trailing edge of their own decision group when
+this improves scanning; do not move an unrelated form's Save with them. Existing
+confirmation, approval and pending-dismissal rules still apply. Touch users must
+not depend on hover to identify the action or understand its consequence.
+
+### Keep settings and navigation predictable
+
+The Program Settings information architecture groups independent controls into
+Recruitment and Refresh; Account Settings; Deployment Configurations; and Optional
+Features. Calendar dates belong with the program period, messaging permissions with
+account policy, and mail delivery/CAPTCHA with deployment. Moving controls does not
+combine their save operations or broaden their authorized audience.
+
+An invalid-record filter defaults to Active entries, followed by Invalid entries
+and All entries. Here Active means not marked invalid, not a particular approval
+or membership status. Preserve the underlying statuses and permission checks.
+
+For repeated blur-save fields, put one clear save-boundary explanation at the top
+of the group and associate it with the relevant controls. Use compact file-picker
+actions with the selected filename beside them. Keep required descriptions and
+native file selection accessible without redundant headers.
+
+Temporary navigation may restore the current tab, filters, pagination and scroll
+within the same browser session. Restore the correct scroll owner: management may
+scroll an inner content region while participant pages scroll the document. Scope
+state to the signed-in identity and route, validate restored values, and let an
+explicit destination/hash or access change take precedence. Store no form drafts,
+passwords, private record text or authorization results in navigation storage.
+
 ### Retain local work while changing panels
 
 For a long settings workspace, group existing owners with `SectionTabs` rather
