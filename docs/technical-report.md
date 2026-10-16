@@ -429,6 +429,14 @@ tests and gallery example.
 
 `NativeDialog` supplies native modality, portal event ownership, radio-aware keyboard focus and exact trigger restoration. `Modal`, the wide/sticky `ProfileDialog`, and `CurrentPolicyDialog` share this behavior while retaining their own layout and scrolling. A nested review owns its Escape event. Independent forms call `useDialogPending(ownPending)` to prevent dismissal during any registered write; its return value disables sibling controls. Register only the form's own pending state, never the returned aggregate, so the guard releases when writes settle. Callers retain validation, versions, permissions, approval policy and action tickets.
 
+Management pairing, tutee and tutor creation first presents a shared risk dialog
+with a fresh unchecked acknowledgement, Cancel and Continue. Continue only admits
+the feature's existing creation fields; it performs no mutation or proposal and
+does not replace server permissions, action tickets or approvals. Each feature
+owns its opening transition and retained creation draft, so closing and reopening
+requires acknowledgement again without clearing unfinished fields. The warning
+describes these manual workflows as a last resort outside normal intake/matching.
+
 Users & Roles account deletion uses a feature-owned password form inside `Modal`.
 The list-owned [AccountDeletion](../src/app/_components/account-deletion.tsx)
 captures an authoritative `admin.previewDeleteUser` snapshot and its fingerprint,

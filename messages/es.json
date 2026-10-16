@@ -432,6 +432,38 @@
     }
   },
   "admin": {
+    "creationRisk": {
+      "warning": "La creación manual tiene riesgos y puede causar problemas. Úsela solo como último recurso cuando el flujo normal no pueda resolver la situación.",
+      "acknowledgement": "Entiendo los riesgos y confirmo que esta es una alternativa de último recurso.",
+      "opensOnly": "Continuar solo abre el formulario. No crea ni guarda ningún registro.",
+      "cancel": "Cancelar",
+      "continue": "Continuar al formulario",
+      "tutor": {
+        "title": "Antes de crear un tutor manualmente",
+        "normal": "Siempre que sea posible, use la inscripción de tutores y el proceso normal de evaluación de cualificaciones e incorporación.",
+        "risk": "La creación manual puede omitir información proporcionada por el participante y pasos previstos de incorporación, o crear registros de tutores duplicados o incoherentes. Los perfiles incorrectos también pueden causar problemas de vinculación de cuentas o de inicio de sesión. Crear un perfil de tutor no crea una cuenta de acceso; vincular o configurar la cuenta es un paso independiente."
+      },
+      "tutee": {
+        "title": "Antes de crear un estudiante manualmente",
+        "normal": "Siempre que sea posible, pida al estudiante que presente una solicitud de tutoría y complete el proceso normal de verificación.",
+        "risk": "La creación manual puede carecer de información del propio estudiante o de pruebas de aceptación de las políticas, o crear registros duplicados o incoherentes. Los perfiles incorrectos también pueden causar problemas de vinculación de cuentas o de inicio de sesión. Crear un perfil de estudiante no crea una cuenta de acceso; vincular o configurar la cuenta es un paso independiente."
+      },
+      "pairing": {
+        "title": "Antes de crear una asignación manualmente",
+        "normal": "Siempre que sea posible, asigne tutores mediante la solicitud de tutoría del estudiante.",
+        "risk": "La creación manual puede generar incoherencias entre solicitudes y asignaciones, duplicar una asignación o causar problemas de cualificaciones y horarios."
+      },
+      "galleryTitle": "Confirmación de creación como último recurso",
+      "galleryHelp": "Elija un tipo, confirme los riesgos y abra un editor de ejemplo. Al cerrarlo se conserva el borrador local; cada nueva apertura requiere confirmación.",
+      "galleryKind": "Tipo de creación",
+      "galleryOpen": "Abrir ejemplo de creación",
+      "galleryEditor": "Editor de creación de ejemplo",
+      "galleryDraft": "Borrador de creación conservado",
+      "galleryClose": "Cerrar editor",
+      "galleryTutor": "Tutor",
+      "galleryTutee": "Estudiante",
+      "galleryPairing": "Asignación"
+    },
     "pairings": {
       "title": "Emparejamientos",
       "roomSchedule": "Horario de aulas",

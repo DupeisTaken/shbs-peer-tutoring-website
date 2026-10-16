@@ -99,6 +99,41 @@ describe("UI recovery and persistent field labels", () => {
 });
 
 describe("bundled header translations", () => {
+  it("provides every creation-risk gate and gallery message in all bundled locales", () => {
+    // Bundled locales have no English fallback: the gate's safeguards and the
+    // separate account-setup explanation must remain readable in every locale.
+    for (const locale of LOCALES) {
+      const copy = bundledMessages[locale].admin.creationRisk;
+      for (const key of [
+        "warning",
+        "acknowledgement",
+        "opensOnly",
+        "cancel",
+        "continue",
+        "galleryTitle",
+        "galleryHelp",
+        "galleryKind",
+        "galleryOpen",
+        "galleryEditor",
+        "galleryDraft",
+        "galleryClose",
+        "galleryTutor",
+        "galleryTutee",
+        "galleryPairing",
+      ] as const) {
+        expect(copy[key], `${locale}: creationRisk.${key}`).toMatch(/\S/);
+      }
+      for (const kind of ["tutor", "tutee", "pairing"] as const) {
+        for (const key of ["title", "normal", "risk"] as const) {
+          expect(
+            copy[kind][key],
+            `${locale}: creationRisk.${kind}.${key}`,
+          ).toMatch(/\S/);
+        }
+      }
+    }
+  });
+
   it("provides scoped search, panel and save-boundary copy in all locales", () => {
     for (const locale of LOCALES) {
       const messages = bundledMessages[locale];

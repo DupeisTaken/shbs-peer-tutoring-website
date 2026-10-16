@@ -33,7 +33,7 @@ retain failed full-run receipts when investigating timing failures.
 
 - **Node 22 (CI baseline)** and **npm**
 - A **PostgreSQL** database (one of the options below)
-- *(Optional)* **Docker** — only for the full Compose smoke test at the end
+- _(Optional)_ **Docker** — only for the full Compose smoke test at the end
 
 ## 1. Install and configure
 
@@ -128,23 +128,23 @@ Seeding creates synthetic fixtures and refreshes some values. It preserves immut
 
 All example accounts use `Password123!`. The identifiers below work at `/signin`.
 
-| Account | Role / example | Start |
-| --- | --- | --- |
-| `admin` | HEAD; collective oversight, decisions and configuration | `/admin/activity` |
-| `manager@example.test` | ADMIN; management review without a tutor identity | `/admin` |
-| `carol@example.edu` | COORDINATOR and tutor; interview chair and approval proposals | `/dashboard`, `/admin` |
-| `alice@example.edu` | Active tutor; attendance, assignments, hours, panel voting | `/dashboard` |
-| `crew@example.edu` | Crew-only member; room patrol and membership | `/patrol` |
-| `iris@example.edu` | Tutor with crew membership | `/patrol` |
-| `emma@example.test` | Assigned student; sessions, feedback and messages | `/student` |
-| `frank@example.test` | Assigned student; pending card appeal and withdrawal review | `/student` |
-| `grace@example.test` | Assigned student; tutor schedule-conflict review | `/student` |
-| `kate@example.test` | Verified student still waiting for assignment | `/student` |
-| `recalled@example.test` | Recalled request retained as history | `/student` |
-| `withdrawn@example.test` | Approved quarter withdrawal and resubmission block | `/student` |
-| `translator@example.test` | Explicit Translator, without Viewer access; pending draft | `/localization` |
-| `parent@example.edu` | Ordinary viewer | `/` |
-| `viewer2@example.edu` | Suspended viewer with account appeal | `/` |
+| Account                   | Role / example                                                | Start                  |
+| ------------------------- | ------------------------------------------------------------- | ---------------------- |
+| `admin`                   | HEAD; collective oversight, decisions and configuration       | `/admin/activity`      |
+| `manager@example.test`    | ADMIN; management review without a tutor identity             | `/admin`               |
+| `carol@example.edu`       | COORDINATOR and tutor; interview chair and approval proposals | `/dashboard`, `/admin` |
+| `alice@example.edu`       | Active tutor; attendance, assignments, hours, panel voting    | `/dashboard`           |
+| `crew@example.edu`        | Crew-only member; room patrol and membership                  | `/patrol`              |
+| `iris@example.edu`        | Tutor with crew membership                                    | `/patrol`              |
+| `emma@example.test`       | Assigned student; sessions, feedback and messages             | `/student`             |
+| `frank@example.test`      | Assigned student; pending card appeal and withdrawal review   | `/student`             |
+| `grace@example.test`      | Assigned student; tutor schedule-conflict review              | `/student`             |
+| `kate@example.test`       | Verified student still waiting for assignment                 | `/student`             |
+| `recalled@example.test`   | Recalled request retained as history                          | `/student`             |
+| `withdrawn@example.test`  | Approved quarter withdrawal and resubmission block            | `/student`             |
+| `translator@example.test` | Explicit Translator, without Viewer access; pending draft     | `/localization`        |
+| `parent@example.edu`      | Ordinary viewer                                               | `/`                    |
+| `viewer2@example.edu`     | Suspended viewer with account appeal                          | `/`                    |
 
 The database also includes unverified survey demand before account creation, disqualification history, exact policy acceptance snapshots, school-calendar overrides, active/inactive membership, pending and resolved removals, future meetings, valid qualified interview panels, notifications, private messages, registration codes, custom pages and historical service-hour reports. The Fiona panel has a coordinator chair and a completed interview; Hana demonstrates a tied vote resolved by that chair. Bundled policy text still needs school review before publication.
 
@@ -233,6 +233,7 @@ does not establish authorization, native browser focus or persisted behavior.
 | Filters and settings | Pressed selections versus content tabs; filter/page reset rules; consistent control heights, including the tutor qualification Request/Cancel action pair at 40 px desktop and at least 44 px mobile; immediate switches, unknown/yes/no choices and staged saves keep their own semantics |
 | Roster search and pairing selection | Search within the authorized role/participation scope using four-part and legacy names plus permitted identifiers. Clearing search preserves other filters. Select → search away → clear retains exact IDs; removing one leaves others intact. Use long names and at least 50 candidates on mobile without document overflow |
 | Creation and grouped workspaces | Pairings, Announcements, Time Slots and Hour Adjustments: one creation entry, close/reopen draft retention, independent create/edit drafts, rejected saves, pending dismissal and nested review. Program, Crew and Support: inventory every existing control, retained panel drafts/filters/pagination, review and accepted-write recovery outside hidden panels, keyboard tabs and unchanged roles |
+| Last-resort creation warning              | Management New Pairing, Add a Tutee and Add Tutor: warning before fields on every opening; fresh unchecked acknowledgement and disabled Continue; Cancel/Escape restores the opener without opening fields or writing; acknowledged Continue opens fields without a mutation/proposal. Close/reopen requires acknowledgement while preserving unfinished drafts. Check EN/ZH desktop/mobile, long warning text, keyboard focus, pending-save dismissal, role restrictions and existing save tickets/approvals in the actual pages as well as the gallery                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Save scope and tutor orientation | Blur guidance describes only existing immediate fields; focus without changes writes nothing. Top/footer layout Save share one pending state and admission guard. Tutor attention counts exclude paused interviews and distinguish unavailable from empty reads; task-specific attention links and today's schedule remain, while the duplicated permanent section-link strip is removed. Actual workspace navigation stays reachable. WorkflowShell keeps one shared utility set and correct role/return context at 1024 px and narrow widths |
 | Long table readers and pagination | Room-grid and original Crew text: header Close remains reachable after scrolling; lazy mounting, nested Escape/focus return and pending child writes. Participant/support/message lists: distinct navigation names, first/middle/final/empty states, independent page resets and 44 px narrow controls with enlarged text |
 | Readable historical states | Measure actual foreground/background contrast for undone audit entries, inactive announcements and fulfilled request metadata/actions. Inspect the painted text or glyph leaf: a parent color does not establish a child icon's contrast when the child overrides it. Keep status meaning without fading whole records; verify selected recipients and unread messages under all six accent themes. A passing body-text ratio does not establish metadata, action or focus contrast |
