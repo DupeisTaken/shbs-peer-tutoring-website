@@ -1,6 +1,8 @@
 /** Explicit management authority inventory. Unknown coordinator writes fail closed.
  * Participant self-service remains owned by its separate account/tutor/student procedures. */
 // program.resendStuckEmails remains immediate ADMIN/HEAD authority: it retries existing delivery evidence.
+// notification.retryRequestEmail and notification.declineRequestAppeal are immediate
+// ADMIN/HEAD authority. They retain receipt IDs and never bypass an invalidity proposal.
 // recordTransfer.* requires HEAD directly. Imports/exports cannot be proposed or replayed.
 // tuteeHistory.invite/link/cancelInvitation require ADMIN/HEAD directly. Conflict correction
 // additionally reauthenticates Head; public history account setup grants no membership.

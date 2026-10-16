@@ -22,7 +22,15 @@ import {
   inspectSignupAppeal,
   resolveStudentSignupAppeal,
   deliverSignupNotice,
+  deliverSignupNotices,
+  modernSignupAppealUrl,
 } from "./student-signup-appeals";
+import { requestAppealToken } from "./email/request-appeal-token";
+import {
+  requestAppealStatus,
+  submitRequestAppeal,
+  declineRequestAppeal,
+} from "./email/request-appeal";
 import { databaseScope, afterCommitScope } from "./db-scope";
 import { currentPolicy } from "./policy-acceptance";
 import { surveyInput } from "~/lib/student-signup";
@@ -36,8 +44,6 @@ import {
 
 beforeEach(async () => {
   assertIsolatedTestDatabase(process.env.DATABASE_URL);
-  if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test")
-    throw new Error("Use shbs_shipping_test");
   const tables = await db.$queryRaw<
     { tablename: string }[]
   >`SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
@@ -172,7 +178,10 @@ const flag = (version = 0) =>
     { id: "HEAD" },
   );
 function proof() {
-  return /#token=([a-f0-9]{64})/.exec(send.mock.calls.at(-1)![0].text)![1]!;
+  const mail = [...send.mock.calls]
+    .reverse()
+    .find(([message]) => /#token=[a-f0-9]{64}/.test(message.text));
+  return /#token=([a-f0-9]{64})/.exec(mail![0].text)![1]!;
 }
 async function ticket(action: string, target: string, userId = "HEAD") {
   return (
@@ -203,11 +212,11 @@ const staff = (role: "HEAD" | "ADMIN" | "COORDINATOR") =>
     },
   });
 
-it("delivers generic safe flag mail and reasoned appeal remains processing-blocked and visible", async () => {
+it("delivers participant-facing reason only to the verified request owner and keeps its appeal processing-blocked", async () => {
   await fixture();
   await flag();
   expect(send).toHaveBeenCalledTimes(1);
-  expect(send.mock.calls[0]![0].text).not.toContain("SECRET STAFF NOTE");
+  expect(send.mock.calls[0]![0].text).toContain("SECRET STAFF NOTE");
   const token = proof();
   const inspected = await inspectSignupAppeal(db, token);
   expect(inspected).toMatchObject({ canAppeal: true, invalidityVersion: 1 });
@@ -232,6 +241,7 @@ it("delivers generic safe flag mail and reasoned appeal remains processing-block
 it("unverified flag mail supports source-specific appeal without creating an account", async () => {
   await fixture(false);
   await flag();
+  expect(send.mock.calls[0]![0].text).not.toContain("SECRET STAFF NOTE");
   await appealStudentSignup(db, {
     token: proof(),
     reason: "This is my genuine request",
@@ -239,6 +249,101 @@ it("unverified flag mail supports source-specific appeal without creating an acc
   });
   expect(await db.user.count()).toBe(3);
   expect(await db.tutee.count()).toBe(0);
+});
+
+it("uses one shared flag receipt and retires generic survey tokens without modifying historical appeal evidence", async () => {
+  await fixture();
+  await flag();
+  const receipt = await db.emailDelivery.findFirstOrThrow({
+    where: { requestKind: "survey" },
+  });
+  expect(receipt.status).toBe("SENT");
+  expect(
+    await db.emailDelivery.count({ where: { requestKind: "survey" } }),
+  ).toBe(1);
+  expect(send).toHaveBeenCalledOnce();
+  await deliverSignupNotices(db);
+  await deliverSignupNotice(
+    db,
+    (await db.studentSignupNotice.findFirstOrThrow()).id,
+  );
+  expect(send).toHaveBeenCalledOnce();
+  const oldToken = requestAppealToken(receipt.id, receipt.createdAt);
+  expect(await requestAppealStatus(oldToken, db)).toEqual({
+    status: "invalid",
+  });
+  expect(
+    await submitRequestAppeal(
+      oldToken,
+      "Do not create a second appeal pipeline",
+      db,
+    ),
+  ).toEqual({ status: "invalid" });
+  const historical = await db.requestInvalidityAppeal.create({
+    data: {
+      noticeId: receipt.id,
+      body: "Immutable earlier generic survey appeal",
+    },
+  });
+  await expect(
+    declineRequestAppeal(
+      db,
+      {
+        kind: "survey",
+        id: "source",
+        appealId: historical.id,
+        expectedReviewVersion: 0,
+        reason: "Must use modern review",
+      },
+      { id: "HEAD" },
+    ),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(
+    await db.requestInvalidityAppeal.findUniqueOrThrow({
+      where: { id: historical.id },
+    }),
+  ).toEqual(historical);
+  expect(await db.studentSignupAppeal.count()).toBe(0);
+});
+
+it("never resolves a shared receipt to a later flag, transferred mailbox or ended signup period", async () => {
+  await fixture();
+  await flag();
+  expect(
+    await modernSignupAppealUrl(db, "source", 1, "owner@example.test"),
+  ).toContain("/tutee-signup/appeal#token=");
+  await db.user.update({
+    where: { id: "owner" },
+    data: { email: "replacement@example.test", emailVerifiedAt: new Date() },
+  });
+  expect(
+    await modernSignupAppealUrl(db, "source", 1, "owner@example.test"),
+  ).toBeNull();
+  await db.user.update({
+    where: { id: "owner" },
+    data: { email: "owner@example.test", emailVerifiedAt: new Date() },
+  });
+  await setStudentRequestInvalidity(
+    db,
+    {
+      id: "source",
+      invalid: false,
+      reason: "Corrected before reflag",
+      expectedInvalidityVersion: 1,
+    },
+    { id: "HEAD" },
+  );
+  await flag(2);
+  expect(
+    await modernSignupAppealUrl(db, "source", 1, "owner@example.test"),
+  ).toBeNull();
+  expect(
+    await modernSignupAppealUrl(db, "source", 3, "owner@example.test"),
+  ).toContain("#token=");
+  await db.term.update({ where: { id: "term" }, data: { active: false } });
+  expect(
+    await modernSignupAppealUrl(db, "source", 3, "owner@example.test"),
+  ).toBeNull();
 });
 it("unverified assigned source and a newly created mailbox account can appeal without gaining ownership", async () => {
   const { payload } = await fixture(false);
@@ -300,7 +405,21 @@ it("rejects mailbox transfer, new flag generation and historical appeals", async
   await expect(inspectSignupAppeal(db, token)).rejects.toMatchObject({
     code: "BAD_REQUEST",
   });
-  await flag(1);
+  await db.user.update({
+    where: { id: "owner" },
+    data: { email: "owner@example.test", emailVerifiedAt: new Date() },
+  });
+  await setStudentRequestInvalidity(
+    db,
+    {
+      id: "source",
+      invalid: false,
+      reason: "Corrected before reflag",
+      expectedInvalidityVersion: 1,
+    },
+    { id: "HEAD" },
+  );
+  await flag(2);
   const nextToken = proof();
   await expect(inspectSignupAppeal(db, token)).rejects.toMatchObject({
     code: "BAD_REQUEST",
@@ -321,9 +440,16 @@ it("failed mail leaves flag durable and send-only retry does not duplicate decis
   await flag();
   const notice = await db.studentSignupNotice.findFirstOrThrow();
   expect(notice.state).toBe("FAILED");
-  await db.studentSignupNotice.update({
-    where: { id: notice.id },
-    data: { lastAttemptAt: new Date(0) },
+  expect(
+    (
+      await db.emailDelivery.findFirstOrThrow({
+        where: { requestKind: "survey" },
+      })
+    ).status,
+  ).toBe("PENDING");
+  await db.emailDelivery.updateMany({
+    where: { requestKind: "survey" },
+    data: { availableAt: new Date(0), leaseUntil: null },
   });
   expect(await deliverSignupNotice(db, notice.id)).toBe(true);
   expect(await deliverSignupNotice(db, notice.id)).toBe(false);
@@ -336,12 +462,20 @@ it("actual staff retry resolver queues delivery after audit commit without refla
   await fixture();
   send.mockRejectedValueOnce(new Error("Synthetic outage"));
   await flag();
-  await db.studentSignupNotice.updateMany({
-    data: { lastAttemptAt: new Date(0) },
+  await db.emailDelivery.updateMany({
+    where: { requestKind: "survey" },
+    data: { availableAt: new Date(0), leaseUntil: null },
   });
   await staff("HEAD").studentWorkflow.resendSignupNotice({ id: "source" });
   expect(send).toHaveBeenCalledTimes(2);
   expect((await db.studentSignupNotice.findFirstOrThrow()).state).toBe("SENT");
+  expect(
+    (
+      await db.emailDelivery.findFirstOrThrow({
+        where: { requestKind: "survey" },
+      })
+    ).status,
+  ).toBe("SENT");
   expect(
     (await db.studentSurvey.findUniqueOrThrow({ where: { id: "source" } }))
       .invalidityVersion,
@@ -361,7 +495,7 @@ it("staff resend upgrades an existing invalid source without reflagging or rewri
   expect(await db.studentSignupNotice.count()).toBe(0);
   await staff("HEAD").studentWorkflow.resendSignupNotice({ id: row.id });
   expect(send).toHaveBeenCalledTimes(1);
-  expect(send.mock.calls[0]![0].text).not.toContain("Old private review note");
+  expect(send.mock.calls[0]![0].text).toContain("Old private review note");
   expect((await inspectSignupAppeal(db, proof())).canAppeal).toBe(true);
   expect(
     await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }),
@@ -417,6 +551,13 @@ it("Coordinator proposal sends no notice until Head approval commits the actual 
   });
   expect(send).toHaveBeenCalledTimes(1);
   expect((await db.studentSignupNotice.findFirstOrThrow()).state).toBe("SENT");
+  expect(
+    (
+      await db.emailDelivery.findFirstOrThrow({
+        where: { requestKind: "survey" },
+      })
+    ).status,
+  ).toBe("SENT");
 });
 it("approval-scoped flags queue external delivery until commit and rollback retains no notice", async () => {
   await fixture();
@@ -428,6 +569,16 @@ it("approval-scoped flags queue external delivery until commit and rollback reta
         databaseScope.run(tx, async () => {
           await flag();
           expect(send).not.toHaveBeenCalled();
+          expect((await tx.studentSignupNotice.findFirstOrThrow()).state).toBe(
+            "PENDING",
+          );
+          expect(
+            (
+              await tx.emailDelivery.findFirstOrThrow({
+                where: { requestKind: "survey" },
+              })
+            ).status,
+          ).toBe("PENDING");
         }),
       ),
   );
@@ -445,7 +596,17 @@ it("approval-scoped flags queue external delivery until commit and rollback reta
       () =>
         db.$transaction((tx) =>
           databaseScope.run(tx, async () => {
-            await flag(1);
+            await setStudentRequestInvalidity(
+              db,
+              {
+                id: "source",
+                invalid: false,
+                reason: "Corrected before reflag",
+                expectedInvalidityVersion: 1,
+              },
+              { id: "HEAD" },
+            );
+            await flag(2);
             throw new Error("Rollback");
           }),
         ),

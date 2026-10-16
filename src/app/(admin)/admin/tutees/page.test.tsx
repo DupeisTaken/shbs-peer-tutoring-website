@@ -289,6 +289,7 @@ it.each([false, true])(
     fireEvent.click(
       screen.getByRole("button", { name: messages.admin.tutees.addTutee }),
     );
+    acknowledgeCreation(messages);
     const first = screen.getByLabelText<HTMLInputElement>(
       `${messages.personName.firstName} ${messages.signupFields.required}`,
     );
@@ -308,6 +309,7 @@ it.each([false, true])(
     fireEvent.click(
       screen.getByRole("button", { name: messages.admin.tutees.addTutee }),
     );
+    acknowledgeCreation(messages);
     expect(first.value).toBe("Proposal");
     expect(screen.queryByText(messages.admin.tutees.addSaved)).toBeNull();
   },
@@ -329,6 +331,7 @@ it.each([false, true])(
     fireEvent.click(
       screen.getByRole("button", { name: messages.admin.tutees.addTutee }),
     );
+    acknowledgeCreation(messages);
     const first = screen.getByLabelText<HTMLInputElement>(
       `${messages.personName.firstName} ${messages.signupFields.required}`,
     );
@@ -550,6 +553,7 @@ it.each([false, true])(
     fireEvent.click(
       screen.getByRole("button", { name: messages.admin.tutees.addTutee }),
     );
+    acknowledgeCreation(messages);
     const region = screen.getByRole("region", {
       name: messages.admin.tutees.addTutee,
     });
@@ -588,6 +592,7 @@ it.each([false, true])(
     expect(document.activeElement).toBe(trigger);
     expect(mocks.create).not.toHaveBeenCalled();
     fireEvent.click(trigger);
+    acknowledgeCreation(messages);
     expect(first.value).toBe("Draft");
     fireEvent.click(
       within(region).getByRole("button", {
@@ -615,6 +620,7 @@ it.each([false, true])(
     expect(document.activeElement).toBe(trigger);
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(trigger);
+    acknowledgeCreation(messages);
     expect(first.value).toBe("");
     for (const select of region.querySelectorAll("select"))
       expect(select.value).toBe("");
@@ -633,6 +639,7 @@ it("prevents hiding during a pending creation and retains failures for retry", (
   fireEvent.click(
     screen.getByRole("button", { name: en.admin.tutees.addTutee }),
   );
+  acknowledgeCreation();
   expect(screen.getByRole("alert").textContent).toBe("Try again");
   cleanup();
   mocks.pending = true;
@@ -656,6 +663,7 @@ it("restores focus after pending state ends, rather than focusing a disabled tri
   fireEvent.click(
     screen.getByRole("button", { name: en.admin.tutees.addTutee }),
   );
+  acknowledgeCreation();
   fireEvent.change(screen.getByLabelText("First Name Required"), {
     target: { value: "Ada" },
   });
@@ -788,3 +796,14 @@ it("uses manually activated tabs for views and pressed choices for record filter
   expect(history.getAttribute("aria-pressed")).toBe("true");
   expect(screen.getByText("Archive Learner")).toBeTruthy();
 });
+
+function acknowledgeCreation(messages = en) {
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: messages.admin.creationRisk.acknowledgement,
+    }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.creationRisk.continue }),
+  );
+}

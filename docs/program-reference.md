@@ -139,13 +139,48 @@ When Email 2FA is on, password changes also require an emailed verification code
 
 Head can enable **Email Notifications** in **Program Settings → Deployment Configurations**; Admin submits the change for Head review. The setting takes effect when applied, defaults off and is separate from staged modules and email 2FA. Production requires configured email delivery. Individuals then choose private-message and information/program categories, and whether verified secondary addresses receive copies; see [personal preferences](user-guide.md#optional-email-notifications).
 
-Disabling the setting cancels pending optional notices and preserves personal preferences. Users cannot enable notifications themselves while this program switch is off. Security alerts remain mandatory.
+Disabling the setting cancels pending optional notices and preserves personal preferences. Users cannot enable notifications themselves while this program switch is off. Security alerts and essential public-request invalidity/clear notices remain mandatory. Request-status mail uses the PROGRAM sender but bypasses optional switches and personal preferences, goes only to the request's recorded address, and has no unsubscribe link.
+
+New event notices explain the actual action and next step in the selected interface
+language. Email includes English and Chinese together; the system does not save a
+recipient email-language preference. The [notification event inventory](notification-events.md)
+maps all supported events to their actual trigger, recipients, wording and destination.
+Interview scheduling can carry a recorded date/time/timezone. Tutoring assignments
+remain recurring weekly arrangements: there is no dated tutoring-session notification
+emitter, and an assignment notice does not create or promise a specific session date.
 
 The independent **Secondary-Email Binding** switch takes effect when Head applies it; Admin can request Head review, and Coordinators cannot submit either email switch. Binding availability defaults on to preserve the existing workflow. Turning it off blocks add/resend/confirm operations, including a code issued before the switch changed. It preserves existing account addresses, sign-in/recovery, primary-email changes and removal/cancellation. A secondary email is never required for signup, setup or use. This switch does not require notification emails to be enabled.
 
 The settings panel checks both security and program SMTP connection/authentication, warns about unavailable or missing transport, and reports retrying and terminal notification failures separately. **Refresh status** reads diagnostics without sending mail or changing the program; checks may be cached for one minute. Passing the check does not guarantee inbox delivery. Operators should inspect the safe failure summaries in `EmailDelivery` and follow the [delivery operations guide](deployment.md#optional-notification-delivery). Essential authentication mail remains independent.
 
-ADMIN/HEAD can use **Resend stuck emails** to queue up to 100 eligible failed or retrying notifications after transport recovery. It excludes active leases, completed/skipped mail, unconfigured production categories and disabled optional notifications. The normal worker applies current preferences and recipient ownership before delivery. This immediate, audited action cannot be proposed by coordinators; a successful result confirms queuing rather than inbox delivery.
+ADMIN/HEAD can use **Resend stuck emails** to queue up to 100 eligible failed or retrying notifications after transport recovery. It excludes active leases, completed/skipped mail, unconfigured production categories and disabled optional notifications. The normal worker applies current preferences and recipient ownership for account notifications, and exact source/revision checks for essential request notices. This immediate, audited action cannot be proposed by coordinators; a successful result confirms queuing rather than inbox delivery.
+
+Public-request invalidity remains an ordinary daily operation: Admin/Head apply it,
+while Coordinators propose it for approval. Only an applied flag, clear or later
+reflag creates a request-email receipt; pending/rejected proposals send no invalidity
+mail to the submitter. A required reason, actor, time, revision and history are retained,
+without rewriting the original intake, priority, answers or participation state.
+Write reasons suitable for a verified submitter to read. Unverified recipients receive
+only the request kind and original submission date/time/timezone plus the appeal action;
+names, answers and reason are masked. Only request-specific mailbox proof permits the
+reason, and missing historical times remain unavailable. Missing/invalid addresses
+are blocked rather than treated as delivered.
+
+The request's invalidity dialog includes receipt status and the latest appeal.
+Admin/Head may retry an eligible receipt or decline an appeal with a reason.
+Status refresh is read-only, and retry preserves the receipt and original payload.
+Request mail has five admitted attempts per retry budget. Admission commits **Sending**
+before external SMTP starts; source locks and a unique attempt fence order admission
+against clear/reflag and prevent an expired worker from completing a newer attempt.
+Clearing supersedes queued obsolete notices; an already admitted attempt may finish.
+SMTP acceptance followed by a crash can still produce an uncertain result and duplicate
+retry, so receipt states do not promise exactly-once delivery or inbox arrival.
+
+**Appeal this decision** opens a public, request-specific capability valid for 90 days
+from receipt creation. It grants no login or participation and GET changes nothing.
+One immutable appeal is accepted per flag. Admin/Head review it; submission never
+clears the flag. Clearing remains the existing authorized action, including Coordinator
+proposals. Old links cease to work after clear/reflag while earlier evidence remains.
 
 ## Schedule rooms and periods
 
@@ -153,7 +188,12 @@ The room schedule offers combined and individual-room layouts, explicit room sel
 
 Within the same browser session, returning recalls the selected Program Settings panel, roster filters and sorting, schedule layout, selected rooms and detail filters. A direct Program Settings panel link takes precedence. Schedule selections wait for the current room/slot catalog, then drop removed choices; a deliberately empty room selection remains empty. Account editor drafts and refresh confirmation text are not stored. Each authorized page owns its scroll position; the room-grid component does not compete with the Pairings page for viewport scrolling.
 
-In **Rooms**, Head/Admin open **Reorder rooms** to stage the display order in a dialog. Closing preserves its unsaved order until explicit Reload; pending writes prevent dismissal. Saving the complete list persists one program order for catalogs and schedules; stale or incomplete lists are rejected. New rooms append to that order. Head applies the change and Admin submits it for Head review. Coordinators and Viewers do not edit this program setting. This order is independent from the Crew patrol order: reordering does not move a pairing or change patrol sequencing.
+The legend distinguishes gray occupied cells, × unavailable cells and available
+published slots without an assignment. The participant subtitle identifies the
+highlighted personal pairings and uses a room-status explanation consistent with
+that legend.
+
+In **Rooms**, Head/Admin use the up/down arrows beside each room's existing actions to stage the display order in the current list. There is no separate ordering menu or duplicate room list. The single **Save order** or **Request room order change** row saves the complete order; **Reload order** explicitly replaces that draft and its expected order only after a successful read. Room-detail editors remain keyed by room ID, so moving a room does not save or discard their independent drafts. Pending order writes block additional order changes; failed writes retain the draft, and failed synchronization after an accepted write uses read-only refresh rather than resubmission. A changed room catalog requires Reload before further ordering. Stale or incomplete lists are rejected by the existing server authority. New rooms append to the saved order. Head applies the change and Admin submits it for Head review. Coordinators and Viewers do not edit this program setting. This order is independent from the Crew patrol order: reordering does not move a pairing or change patrol sequencing.
 
 Use **Time Slots**, **Rooms** and **Pairings** to plan recurring sessions. A room cannot host overlapping pairings in one program period or a pairing during a recurring blackout; back-to-back sessions are allowed. Availability helps participants agree on a slot and does not prevent staff from assigning a tutor before that agreement. New assignments display **Awaiting schedule** until a tutor or manager selects a catalog slot. These assignments do not reserve rooms or count as scheduled subjects; the assigned tutor remains visible to the tutee.
 
@@ -333,7 +373,7 @@ In **Announcements → Recipients**, choose all current tutors, filtered tutors 
 
 **Include** adds a tutor regardless of filters; **Exclude** wins over both filters and inclusion. Search narrows only the override picker. Check the complete audience count and name preview before publishing; an empty audience is blocked. Assignment filters need an active term and count unique active tutees in that term.
 
-The published audience is fixed. For coordinator proposals, approval freezes the recipients and rejects changed audience evidence. Editing, pinning, reactivating or restoring a post does not select a new audience; publish a new announcement to change recipients. Tutors can read and dismiss only active posts addressed to their linked identity, plus applicable broadcasts. In-app notifications can also produce generic program-update email notices when program and personal information-notification preferences are enabled; these notices do not contain the announcement body.
+The published audience is fixed. For coordinator proposals, approval freezes the recipients and rejects changed audience evidence. Editing, pinning, reactivating or restoring a post does not select a new audience; publish a new announcement to change recipients. Tutors can read and dismiss only active posts addressed to their linked identity, plus applicable broadcasts. In-app notifications can also produce announcement event emails when program and personal information-notification preferences are enabled; these notices explain how to open the announcement and do not contain its title or body.
 
 ## Message permissions and supervision
 

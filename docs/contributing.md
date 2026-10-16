@@ -76,6 +76,20 @@ grid and Crew original-text readers do. This composes the existing `ProfileDialo
 with a reachable header Close while preserving on-demand mounting. Keep brief
 reviews compact; the feature still owns any pending writes and access checks.
 
+`ProfileDialog` keeps its body in a stacking context below the sticky Close header.
+Nested summary-table action cells retain their own horizontal stickiness, but must
+not paint over the title or Close during vertical scrolling. Verify the long-reader
+gallery with a sticky-action table and the actual staff Audit evidence reader at deep scroll
+in English and Chinese on desktop and mobile. Component tests check the stacking
+boundary and keyboard lifecycle; saved browser images establish actual paint order.
+
+Keep absolutely positioned screen-reader labels inside a positioned form boundary
+when the form sits in a bounded scroll pane. Recruitment fieldsets provide that
+containing block for their hidden legends and date labels. A clipped one-pixel
+label can otherwise enlarge the document scroll range even when visible content
+is correctly clipped. Preserve its accessible name; verify desktop pane scrolling
+and mobile document scrolling instead of applying a global overflow clamp.
+
 Start by identifying the save boundary, query lifetime and authorized audience, then select a composition. Use an existing feature integration as well as a gallery example: long editors, immediate settings and staged forms intentionally have different save behavior. Keep new domain logic in the owning feature; a generic component must not infer permissions or expected versions from its visual state.
 
 The [gallery compositions](../src/app/ui-gallery/recipes.tsx) have these
@@ -211,12 +225,39 @@ legend and accessible expanded column names. Keep all columns and trailing actio
 reachable on narrow screens; avoid side-by-side tables that compress either table
 below its useful width.
 
-Consequential actions use a neutral outlined boundary at rest and danger styling
-on hover, keyboard focus and activation. The visible action label never disappears.
-Keep consequential actions at the trailing edge of their own decision group when
-this improves scanning; do not move an unrelated form's Save with them. Existing
-confirmation, approval and pending-dismissal rules still apply. Touch users must
-not depend on hover to identify the action or understand its consequence.
+In a record action group, put ordinary text links on the left, boxed decision
+buttons next, and Delete last. For example, Set Up Account precedes Flag invalid
+and the other decision buttons. Keep this DOM order and keyboard order consistent
+when the group wraps on a narrow screen; do not reorder unrelated form actions.
+
+Delete and Decline labels are red at rest, including when their control is boxed.
+Assign destructive styling explicitly in the owning component rather than matching
+translated label text. All in-table link actions, including destructive actions
+and semantic buttons that open details, remain unboxed at rest and on hover: no
+border or filled hover surface. Preserve their readable text, underline affordance,
+visible keyboard focus, disabled behavior and existing desktop/touch target sizes.
+Shared table text actions use a 3 px underline with a 4 px offset for keyboard
+focus, rather than a surrounding ring that looks like a boxed action. Keep this
+indicator distinct from the ordinary hover underline; mouse focus adds no box.
+Boxed consequential buttons keep their boundary and interaction treatment; the red
+label must not depend on hover. Confirmation, approval, authorization, action
+tickets and pending-dismissal rules remain owned by the existing feature.
+
+### Follow-up room and participant review composition
+
+Put room Move up and Move down controls in the existing room rows, beside the
+other row actions. Do not introduce a separate ordering menu or duplicate room
+list. Preserve the existing complete-order review/save boundary, expected version,
+permissions and the distinction between room display order, patrol order and
+booking conflicts. Disabled endpoint and pending states retain their current
+meaning; moving a row must not save unrelated room-detail drafts.
+
+For each tutee, put existing availability and existing Reject/relay actions inside
+that participant's Details. Keep their current access rules, conditions, payloads,
+confirmation and refresh behavior. The outer list stays concise, while Details
+provides the existing information and actions together. Mutual-time ranking and
+interview scheduling are separate future issues, not new behavior in this
+presentation follow-up.
 
 ### Keep settings and navigation predictable
 
@@ -458,7 +499,7 @@ An approval ID means a queued proposal, never a successful application.
 | Tutor activation/opt-out, pairing schedule, legacy removal request/recall, interview final decision | Named consequence confirmation; preserve current version, panel vote, role and server permission checks |
 | Student schedule conflict, policy acceptance, withdrawal and assignment | Existing domain dialog, server confirmation ticket, review delay, policy revision and immutable evidence remain authoritative |
 | Tutors/Tutees/Users membership, school departure, account combination and deletion | Existing named domain confirmation/review; retain password checks, role restrictions, versions, proposals and before/after evidence |
-| Users & Roles account deletion | The feature-owned password form composes `Modal`. Bind its label and form, preserve the captured target and failed password draft, admit one pending write, and restore the opener after idle dismissal. Keep Head eligibility and server password checks; do not replace this step-up with an ordinary generic deletion review |
+| Users & Roles account deletion | The list-owned `AccountDeletion` composes the existing password `Modal` with a fresh server consequence/fingerprint review. Bind the label/form, preserve the captured target and rejected password draft, admit one pending write, and restore the opener after idle dismissal. A stale review needs explicit Reload; accepted deletion uses read-only recovery and removes its cached row. Keep Head eligibility and live password checks; no countdown or ordinary generic review replaces this step-up |
 | Room, time-slot, pairing, tutee, hour-adjustment and subject-level deletion; invitation revocation | `useActionReview` composes the shared modal around the exact record and consequence. Features supply the original authorized mutation, optional proposal recognition and read-only refresh. Failed writes retain the review; accepted writes never run again when refresh fails. Cancel and Escape before submission perform no write |
 | Crew application/request decisions, activation/inactivation and account deletion; public announcement, news, image, section, page and saved-translation deletion | Name the affected person/content in `useActionReview`. The route or list owns review lifetime so card removal/tab changes cannot discard pending work or read recovery. Reversible crew status changes and re-creatable translations explicitly permit another review after a successful refresh; one accepted review never replays its mutation |
 | Service Hours breakdown comparison, room timetables and attendance history | Read-only comparison matrices in named keyboard-scroll regions; no artificial action column. The compact Service Hours summary retains its real Details action |

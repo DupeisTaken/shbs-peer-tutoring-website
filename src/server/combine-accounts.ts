@@ -314,7 +314,8 @@ export async function previewCombine(db: DomainDb, input: Pair) {
       patrols: counts[3],
       academicConfirmations: counts[4],
       tuteeProfiles: owners.filter((o) => o.userId === duplicate.id).length,
-      tutorProfiles: tutorOwners.filter((o) => o.userId === duplicate.id).length,
+      tutorProfiles: tutorOwners.filter((o) => o.userId === duplicate.id)
+        .length,
     },
     retiredEmails: duplicate.emails.map((address) => address.email),
   };
@@ -331,8 +332,8 @@ export async function combineAccounts(
   if (!rateLimit(`combine:${actorId}`, { max: 10, windowMs: 15 * 60_000 }).ok)
     throw new TRPCError({ code: "TOO_MANY_REQUESTS" });
   return inTransaction(db, async (tx: TransactionDb) => {
-    await lockEntity(tx, "program:leadership");
     await lockUsernameNamespace(tx);
+    await lockEntity(tx, "program:leadership");
     const accountIds = [
       ...new Set([actorId, input.survivorId, input.duplicateId]),
     ].sort();
@@ -350,7 +351,11 @@ export async function combineAccounts(
         message: "Only the current active Head can combine accounts.",
       });
     if (
-      !verifyPasswordConfirmation(actorId, input.confirmPassword, actor.passwordHash)
+      !verifyPasswordConfirmation(
+        actorId,
+        input.confirmPassword,
+        actor.passwordHash,
+      )
     )
       throw new TRPCError({
         code: "FORBIDDEN",

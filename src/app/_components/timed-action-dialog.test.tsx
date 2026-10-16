@@ -9,6 +9,7 @@ import {
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import { StrictMode } from "react";
+import type { ComponentProps } from "react";
 import en from "../../../messages/en.json";
 import { TimedActionDialog } from "./timed-action-dialog";
 
@@ -17,23 +18,31 @@ const mocks = vi.hoisted(() => ({
   readyAt: new Date(),
   confirm: vi.fn(),
   cancel: vi.fn(),
+  cancelTicket: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
     studentWorkflow: {
       prepareAction: {
         useMutation: () => ({
-          mutate: mocks.prepare,
-          data: { id: "ticket", readyAt: mocks.readyAt },
+          mutateAsync: mocks.prepare,
+          reset: vi.fn(),
         }),
       },
+      cancelAction: { useMutation: () => ({ mutate: mocks.cancelTicket }) },
     },
   },
 }));
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2030-01-01T00:00:00Z"));
-  mocks.readyAt = new Date(Date.now() + 5000);
+  mocks.readyAt = new Date(Date.now() + 2000);
+  mocks.prepare.mockImplementation(async () => ({
+    id: "ticket",
+    readyAt: mocks.readyAt,
+    serverNow: new Date(),
+    expiresAt: new Date(Date.now() + 30 * 60_000),
+  }));
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
     configurable: true,
     value: function (this: HTMLDialogElement) {
@@ -45,8 +54,13 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
-const element = (mandatory = false, busy = false) => (
+const element = (
+  mandatory = false,
+  busy = false,
+  extra: Partial<ComponentProps<typeof TimedActionDialog>> = {},
+) => (
   <NextIntlClientProvider locale="en" messages={en}>
     <TimedActionDialog
       action="RECALL"
@@ -57,30 +71,38 @@ const element = (mandatory = false, busy = false) => (
       busy={busy}
       onConfirm={mocks.confirm}
       onCancel={mocks.cancel}
+      {...extra}
     />
   </NextIntlClientProvider>
 );
+const flush = () =>
+  act(async () => {
+    await Promise.resolve();
+  });
 const show = (mandatory = false, busy = false) =>
   render(element(mandatory, busy));
 
 it("shows consequences and prevents confirmation before the timer ends", async () => {
   show();
+  await act(async () => {
+    await Promise.resolve();
+  });
   expect(
     screen.getByRole("dialog").getAttribute("aria-describedby"),
   ).toBeTruthy();
   const waiting = screen.getByRole("button", {
-    name: "Confirm in 5s",
+    name: "Confirm in 2s",
   });
   expect(waiting.hasAttribute("disabled")).toBe(true);
   fireEvent.click(waiting);
   expect(mocks.confirm).not.toHaveBeenCalled();
-  await act(() => vi.advanceTimersByTime(4000));
+  await act(() => vi.advanceTimersByTime(1999));
   expect(
     screen
       .getByRole("button", { name: "Confirm in 1s" })
       .hasAttribute("disabled"),
   ).toBe(true);
-  await act(() => vi.advanceTimersByTime(1000));
+  await act(() => vi.advanceTimersByTime(1));
   fireEvent.click(screen.getByRole("button", { name: "Yes, confirm" }));
   expect(mocks.confirm).toHaveBeenCalledWith("ticket");
 });
@@ -90,6 +112,154 @@ it("allows cancelling immediately and clears its interval when closed", () => {
   expect(mocks.cancel).toHaveBeenCalledOnce();
   view.unmount();
   expect(vi.getTimerCount()).toBe(0);
+});
+
+it("ignores wall-clock jumps and announces the exact ready state", async () => {
+  show();
+  await flush();
+  expect(screen.getByRole("status").textContent).toBe("Confirm in 2s");
+  vi.setSystemTime(new Date("2040-01-01"));
+  await act(() => vi.advanceTimersByTime(1999));
+  expect(screen.getByRole("status").textContent).toBe("Confirm in 1s");
+  vi.setSystemTime(new Date("2020-01-01"));
+  await act(() => vi.advanceTimersByTime(1));
+  expect(screen.getByRole("status").textContent).toBe("Yes, confirm");
+  expect(screen.getByRole("status").getAttribute("aria-live")).toBe("polite");
+});
+
+it("checks expired eligibility at click time before background callbacks resume", async () => {
+  show();
+  await flush();
+  await act(() => vi.advanceTimersByTime(2000));
+  const confirm = screen.getByRole("button", { name: "Yes, confirm" });
+  vi.spyOn(performance, "now").mockReturnValue(30 * 60_000);
+  fireEvent.click(confirm);
+  expect(mocks.confirm).not.toHaveBeenCalled();
+  fireEvent(window, new Event("focus"));
+  expect(confirm.hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("status").textContent).toBe(
+    en.workflow.confirmationExpired,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await flush();
+  expect(mocks.prepare).toHaveBeenCalledTimes(2);
+});
+it("wakes at the conservative expiry boundary after a delayed preparation response", async () => {
+  let respond!: (ticket: {
+    id: string;
+    serverNow: Date;
+    readyAt: Date;
+    expiresAt: Date;
+  }) => void;
+  mocks.prepare.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        respond = resolve;
+      }),
+  );
+  const start = Date.now();
+  show();
+  await flush();
+  await act(() => vi.advanceTimersByTime(1000));
+  await act(async () =>
+    respond({
+      id: "delayed",
+      serverNow: new Date(),
+      readyAt: new Date(start + 2000),
+      expiresAt: new Date(start + 4000),
+    }),
+  );
+  await act(() => vi.advanceTimersByTime(1999));
+  const confirm = screen.getByRole("button", { name: "Yes, confirm" });
+  expect(confirm.hasAttribute("disabled")).toBe(false);
+  await act(() => vi.advanceTimersByTime(1));
+  expect(confirm.hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("status").textContent).toBe(
+    en.workflow.confirmationExpired,
+  );
+});
+
+it("rebinds target/action and cancels late preparation without exposing old proof", async () => {
+  let resolveOld!: (ticket: Awaited<ReturnType<typeof mocks.prepare>>) => void;
+  mocks.prepare.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveOld = resolve;
+      }),
+  );
+  const view = show();
+  await flush();
+  view.rerender(element(false, false, { action: "DENY", target: "request-2" }));
+  await flush();
+  await act(async () =>
+    resolveOld({
+      id: "old",
+      readyAt: new Date(0),
+      expiresAt: new Date(Date.now() + 30 * 60_000),
+      serverNow: new Date(),
+    }),
+  );
+  expect(mocks.cancelTicket).toHaveBeenCalledWith({ ticket: "old" });
+  expect(
+    screen
+      .getByRole("button", { name: "Confirm in 2s" })
+      .hasAttribute("disabled"),
+  ).toBe(true);
+  expect(mocks.prepare).toHaveBeenLastCalledWith({
+    action: "DENY",
+    target: "request-2",
+  });
+  expect(mocks.confirm).not.toHaveBeenCalled();
+});
+
+it("guards duplicate admission, preserves handoff proof, and releases only on rejection", async () => {
+  const view = render(element(false, false, { error: "Earlier failure" }));
+  await flush();
+  await act(() => vi.advanceTimersByTime(2000));
+  const click = () =>
+    fireEvent.click(screen.getByRole("button", { name: "Yes, confirm" }));
+  click();
+  fireEvent.click(screen.getByRole("button", { name: "Working…" }));
+  expect(mocks.confirm).toHaveBeenCalledTimes(1);
+  view.rerender(element(false, true, { error: "Earlier failure" }));
+  view.rerender(element(false, false, { error: "Earlier failure" }));
+  click();
+  expect(mocks.confirm).toHaveBeenCalledTimes(2);
+  view.unmount();
+  expect(mocks.cancelTicket).not.toHaveBeenCalled();
+});
+
+it("reopening cancels unused proof and restarts a full fresh delay", async () => {
+  const view = show();
+  await flush();
+  await act(() => vi.advanceTimersByTime(2000));
+  view.unmount();
+  expect(mocks.cancelTicket).toHaveBeenCalledWith({ ticket: "ticket" });
+  mocks.readyAt = new Date(Date.now() + 2000);
+  show();
+  await flush();
+  expect(
+    screen
+      .getByRole("button", { name: "Confirm in 2s" })
+      .hasAttribute("disabled"),
+  ).toBe(true);
+});
+it("retries identical fast promise rejections without a pending-prop render", async () => {
+  const failure = new Error("Same rejection");
+  const confirm = vi.fn(() => Promise.reject(failure));
+  render(element(false, false, { error: failure.message, onConfirm: confirm }));
+  await flush();
+  await act(() => vi.advanceTimersByTime(2000));
+  const button = screen.getByRole("button", { name: "Yes, confirm" });
+  fireEvent.click(button);
+  fireEvent.click(button);
+  expect(confirm).toHaveBeenCalledTimes(1);
+  await flush();
+  fireEvent.click(button);
+  fireEvent.click(button);
+  expect(confirm).toHaveBeenCalledTimes(2);
+  await flush();
+  expect(button.hasAttribute("disabled")).toBe(false);
 });
 
 it("releases the native top layer before restoring the exact opener through Strict Mode", () => {

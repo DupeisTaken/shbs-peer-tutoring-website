@@ -347,8 +347,8 @@ function CurrentRequest({
           onConfirm={(ticket) =>
             !readBlocked &&
             (action === "ABORT"
-              ? abort.mutate({ id: row.id, reason, ticket })
-              : recall.mutate({ id: row.id, ticket }))
+              ? abort.mutateAsync({ id: row.id, reason, ticket })
+              : recall.mutateAsync({ id: row.id, ticket }))
           }
         >
           {/* Read recovery must be reachable while the existing reason/ticket stays mounted. */}

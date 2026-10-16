@@ -4,6 +4,7 @@ import { recordAudit } from "~/server/audit/log";
 import { staleConflict } from "~/server/concurrency";
 import { lockUsernameNamespace } from "~/server/auth/username";
 import { isSerializationFailure } from "~/server/auth/username-snapshot";
+import { queueRequestNotice } from "~/server/email/request-notice";
 import {
   enqueueSignupNotice,
   deliverSignupNotice,
@@ -188,6 +189,10 @@ export async function setApplicationInvalidity(
       });
     if (row.invalidityVersion !== input.expectedInvalidityVersion)
       staleConflict();
+    // Only applied state transitions create email receipts; re-reading the same
+    // flag is not a new notification or a way to replace its immutable reason.
+    if (!!row.invalidatedAt === input.invalid)
+      return { ok: true, invalidityVersion: row.invalidityVersion };
     const author = await canonicalActor(tx, actor);
     const after = nextInvalidity(input, author);
     await tx.tutorApplication.update({ where: { id: row.id }, data: after });
@@ -200,6 +205,16 @@ export async function setApplicationInvalidity(
       row,
       after,
     );
+    await queueRequestNotice(tx, {
+      kind: "application",
+      id: row.id,
+      version: after.invalidityVersion,
+      invalid: input.invalid,
+      reason: input.reason,
+      actorId: author.id,
+      recipient: row.email,
+      submittedAt: row.createdAt,
+    });
     return { ok: true, invalidityVersion: after.invalidityVersion };
   });
 }
@@ -228,6 +243,8 @@ export async function setStudentRequestInvalidity(
       });
     if (row.invalidityVersion !== input.expectedInvalidityVersion)
       staleConflict();
+    if (!!row.invalidatedAt === input.invalid)
+      return { ok: true, invalidityVersion: row.invalidityVersion };
     const author = await canonicalActor(tx, actor);
     const after = nextInvalidity(input, author);
     await tx.studentSurvey.update({ where: { id: row.id }, data: after });
@@ -246,6 +263,18 @@ export async function setStudentRequestInvalidity(
     const noticeId = input.invalid
       ? await enqueueSignupNotice(tx, saved, "INVALID_FLAGGED")
       : null;
+
+    await queueRequestNotice(tx, {
+      kind: "survey",
+      id: row.id,
+      version: after.invalidityVersion,
+      invalid: input.invalid,
+      reason: input.reason,
+      actorId: author.id,
+      recipient: row.email,
+      submittedAt: row.submittedAt,
+    });
+
     return { ok: true, invalidityVersion: after.invalidityVersion, noticeId };
   });
   if (result.noticeId && !databaseScope.getStore())
@@ -282,6 +311,8 @@ export async function setSignupInvalidity(
       })) ?? emptyRequestInvalidity;
     if (before.invalidityVersion !== input.expectedInvalidityVersion)
       staleConflict();
+    if (!!before.invalidatedAt === input.invalid)
+      return { ok: true, invalidityVersion: before.invalidityVersion };
     const author = await canonicalActor(tx, actor);
     const after = nextInvalidity(input, author);
     await tx.tuteeRequestInvalidity.upsert({
@@ -304,6 +335,16 @@ export async function setSignupInvalidity(
       before,
       after,
     );
+    await queueRequestNotice(tx, {
+      kind: "signup",
+      id: row.id,
+      version: after.invalidityVersion,
+      invalid: input.invalid,
+      reason: input.reason,
+      actorId: author.id,
+      recipient: row.email,
+      submittedAt: row.signupSubmittedAt,
+    });
     return { ok: true, invalidityVersion: after.invalidityVersion };
   });
 }

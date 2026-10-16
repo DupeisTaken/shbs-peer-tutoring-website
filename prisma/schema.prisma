@@ -318,6 +318,9 @@ model Notification {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String
   body      String?
+  /// Structured event identity and explicitly allowlisted context; legacy text remains intact.
+  event     String?
+  context   Json?
   /// Optional in-app link the notification points to (e.g. "/dashboard").
   link      String?
   readAt    DateTime?
@@ -2133,10 +2136,21 @@ model AccountEmail {
 /// A transactionally recorded notification, with one row per event/recipient and bounded retries.
 model EmailDelivery {
   id String @id @default(cuid())
-  userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String?
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
   category String
   event String
+  /// Safe event context copied atomically by the notification trigger, never Notification.body.
+  context Json?
+  /// Essential public-request notices retain source-bound evidence without inventing an account.
+  requestKind String?
+  requestId String?
+  requestVersion Int?
+  requestInvalid Boolean?
+  requestReason String?
+  requestSubmittedAt DateTime?
+  requestTimeZone String?
+  requestAppeal RequestInvalidityAppeal?
   /// Internal notification destination, retained without copying private message contents.
   destination String?
   recipient String
@@ -2146,10 +2160,29 @@ model EmailDelivery {
   attempts Int @default(0)
   availableAt DateTime @default(now())
   leaseUntil DateTime?
+  /// Request transport admission has a unique fence so expired workers cannot finish newer attempts.
+  attemptId String?
+  attemptStartedAt DateTime?
   completedAt DateTime?
   status String @default("PENDING")
   lastError String?
   @@index([status, availableAt])
+  @@unique([requestKind, requestId, requestVersion])
+}
+
+/// Append-only participant evidence for one applied invalidity revision. A later
+/// clear/reflag retains earlier text and review decisions rather than rewriting them.
+model RequestInvalidityAppeal {
+  id String @id @default(cuid())
+  noticeId String @unique
+  notice EmailDelivery @relation(fields: [noticeId], references: [id], onDelete: Restrict)
+  body String
+  submittedAt DateTime @default(now())
+  status String @default("PENDING")
+  reviewVersion Int @default(0)
+  resolvedAt DateTime?
+  reviewedById String?
+  decisionReason String?
 }
 
 /// Expiring, hashed counters for accepted public applications across server replicas.

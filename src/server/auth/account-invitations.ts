@@ -1,3 +1,4 @@
+import { notificationEvent } from "~/lib/notification-events";
 import { timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { currentStudentSignupPayload } from "~/server/student-signup-answers";
@@ -1173,6 +1174,7 @@ export async function redeemAccountInvitation(
         if (!result.ok) throw conflict();
         await notifyAdmins(
           {
+            ...notificationEvent("viewer_registered"),
             title: "New viewer account",
             body: "A new read-only viewer registered to follow the program.",
             link: "/admin/users",

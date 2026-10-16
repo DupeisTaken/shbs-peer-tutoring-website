@@ -25,6 +25,7 @@ import { recordDomainAudit } from "./audit/evidence";
 import { emailSender } from "./email/sender";
 import { emailOrigin } from "./email/urls";
 import { env } from "~/env";
+import { queueRequestNotice } from "./email/request-notice";
 
 const id = z.string().min(1).max(128);
 const key = z.string().uuid();
@@ -176,6 +177,7 @@ export async function enqueueSignupNotice(
       where: { id: notice.id },
       data: { tokenHash: digest(noticeToken(notice)) },
     });
+  // Flag dispatch delegates to the shared request-service transport exclusively.
   deferUntilCommit(() =>
     databaseScope.exit(() =>
       deliverSignupNotice(sharedDb, notice.id).then(() => undefined),
@@ -187,11 +189,30 @@ export async function enqueueSignupNotice(
 export async function deliverSignupNotice(db: DomainDb, noticeId: string) {
   if (databaseScope.getStore())
     throw new Error("Signup notices require a committed transaction.");
+  const capability = await db.studentSignupNotice.findUnique({
+    where: { id: noticeId },
+  });
+  if (capability?.kind === "INVALID_FLAGGED") {
+    const where = {
+      requestKind_requestId_requestVersion: {
+        requestKind: "survey",
+        requestId: capability.surveyId,
+        requestVersion: capability.invalidityVersion,
+      },
+    };
+    const before = await db.emailDelivery.findUnique({ where });
+    if (!before || before.status === "SENT") return false;
+    await (
+      await import("./email/notification-delivery")
+    ).deliverNotifications();
+    return (await db.emailDelivery.findUnique({ where }))?.status === "SENT";
+  }
   const notice = await inTransaction(db, async (tx) => {
     const first = await tx.studentSignupNotice.findUnique({
       where: { id: noticeId },
     });
-    if (!first || first.state === "SENT") return null;
+    if (!first || first.kind === "INVALID_FLAGGED" || first.state === "SENT")
+      return null;
     const row = await lockedSource(tx, first.surveyId);
     await lockEntity(tx, `signup-notice:${noticeId}`);
     const current = await tx.studentSignupNotice.findUniqueOrThrow({
@@ -285,6 +306,7 @@ export async function deliverSignupNotices(
   const rows = await db.studentSignupNotice.findMany({
     where: {
       ...(surveyId ? { surveyId } : {}),
+      kind: { not: "INVALID_FLAGGED" },
       state: { in: ["PENDING", "FAILED"] },
       attempts: { lt: 6 },
       OR: [
@@ -301,23 +323,14 @@ export async function deliverSignupNotices(
     sent = (await deliverSignupNotice(db, row.id)) || sent;
   return sent;
 }
+/** Existing staff resend authority applies only to an already-applied survey flag.
+ * Retry shares its original receipt, without rotating any existing capability. */
 export async function retrySignupNotices(db: DomainDb, surveyId: string) {
-  await inTransaction(db, async (tx) => {
+  const result = await inTransaction(db, async (tx) => {
     const row = await lockedSource(tx, surveyId);
-    // Reviewed recovery rotates only a current notice capability; it never changes
-    // source ownership or accepts a different captured academic account.
-    if (
-      row.state !== "OPEN" ||
-      !row.invalidatedAt ||
-      !(
-        await tx.term.findUnique({
-          where: { id: row.intakeTermId },
-          select: { active: true },
-        })
-      )?.active
-    )
-      return;
-    const notice = await tx.studentSignupNotice.findUnique({
+    await assertSignupEditPeriod(tx, row);
+    if (!row.invalidatedAt) return { queued: false, emailSent: false };
+    const capability = await tx.studentSignupNotice.findUnique({
       where: {
         surveyId_invalidityVersion_kind: {
           surveyId,
@@ -326,66 +339,138 @@ export async function retrySignupNotices(db: DomainDb, surveyId: string) {
         },
       },
     });
-    if (!notice) {
-      // An invalid source can predate this outbox migration. Explicit staff resend
-      // creates only its missing delivery evidence, without reflagging or reprioritizing.
-      await assertSignupEditPeriod(tx, row);
-      await enqueueSignupNotice(tx, row, "INVALID_FLAGGED");
-      return;
-    }
-    await lockEntity(tx, `signup-notice:${notice.id}`);
+    if (!capability) await enqueueSignupNotice(tx, row, "INVALID_FLAGGED");
     const recipient = await deliveryOwner(tx, row);
-    if (!recipient) return;
-    if (
-      notice.state === "BLOCKED" ||
-      notice.recipientEmail !== recipient.email ||
-      notice.accountId !== recipient.accountId ||
-      notice.sessionVersion !== recipient.sessionVersion
-    ) {
+    // Preserve the existing reviewed credential-recovery path for the SAME
+    // account/mailbox. Never transfer a retained proof to a different owner.
+    const rotate =
+      !!capability &&
+      !!recipient &&
+      recipient.email === capability.recipientEmail &&
+      recipient.accountId === capability.accountId &&
+      recipient.sessionVersion !== capability.sessionVersion;
+    if (rotate) {
       const rebound = {
-        id: notice.id,
-        surveyId,
-        invalidityVersion: row.invalidityVersion,
-        recipientEmail: recipient.email,
-        accountId: recipient.accountId,
-        sessionVersion: recipient.sessionVersion,
+        ...capability,
+        sessionVersion: recipient!.sessionVersion,
       };
       await tx.studentSignupNotice.update({
-        where: { id: notice.id },
+        where: { id: capability.id },
         data: {
-          accountId: recipient.accountId,
-          sessionVersion: recipient.sessionVersion,
-          recipientEmail: recipient.email,
+          sessionVersion: rebound.sessionVersion,
           tokenHash: digest(noticeToken(rebound)),
-          state: "PENDING",
-          attempts: 0,
-          lastAttemptAt: null,
-          sentAt: null,
         },
       });
     }
+    await lockEntity(tx, `request-notice:survey:${row.id}`);
+    const receipt = await tx.emailDelivery.findUnique({
+      where: {
+        requestKind_requestId_requestVersion: {
+          requestKind: "survey",
+          requestId: row.id,
+          requestVersion: row.invalidityVersion,
+        },
+      },
+    });
+    if (!receipt) {
+      await queueRequestNotice(tx, {
+        kind: "survey",
+        id: row.id,
+        version: row.invalidityVersion,
+        invalid: true,
+        reason: row.invalidReason ?? "",
+        actorId: row.invalidatedById ?? "",
+        recipient: row.email,
+        submittedAt: row.submittedAt,
+      });
+      return { queued: true, emailSent: false };
+    }
+    const updated = await tx.emailDelivery.updateMany({
+      where: {
+        id: receipt.id,
+        OR: [
+          { status: "FAILED" },
+          { status: "PENDING", attempts: { gt: 0 } },
+          ...(rotate ? [{ status: "SENT" }] : []),
+        ],
+        AND: [
+          { OR: [{ leaseUntil: null }, { leaseUntil: { lte: new Date() } }] },
+        ],
+      },
+      data: {
+        status: "PENDING",
+        attempts: 0,
+        availableAt: new Date(),
+        completedAt: null,
+        leaseUntil: null,
+        attemptId: null,
+        attemptStartedAt: null,
+        lastError: null,
+      },
+    });
+    return { queued: updated.count === 1, emailSent: false };
   });
-  // Manual send-only recovery grants another bounded attempt after the automatic
-  // budget, while never resetting a currently held delivery claim or source state.
-  await db.studentSignupNotice.updateMany({
-    where: {
-      surveyId,
-      state: "FAILED",
-      attempts: { gte: 6 },
-      lastAttemptAt: { lte: new Date(Date.now() - 5 * 60_000) },
-    },
-    data: { attempts: 0 },
-  });
-  if (databaseScope.getStore()) {
-    const queued = deferUntilCommit(() =>
-      databaseScope.exit(() =>
-        deliverSignupNotices(sharedDb, surveyId).then(() => undefined),
-      ),
-    );
-    return { queued, emailSent: false };
+  if (result.queued) {
+    const send = async () =>
+      (await import("./email/notification-delivery")).deliverNotifications();
+    if (!deferUntilCommit(send)) await send();
   }
-  return { queued: false, emailSent: await deliverSignupNotices(db, surveyId) };
+  return result;
 }
+
+/** Only the exact flag's existing modern capability can enter its receipt.
+ * Generic historical links/retries cannot acquire a new version or mailbox owner. */
+export async function modernSignupAppealUrl(
+  db: DomainDb,
+  surveyId: string,
+  version: number,
+  receiptRecipient: string,
+) {
+  const notice = await db.studentSignupNotice.findUnique({
+    where: {
+      surveyId_invalidityVersion_kind: {
+        surveyId,
+        invalidityVersion: version,
+        kind: "INVALID_FLAGGED",
+      },
+    },
+  });
+  const row = await db.studentSurvey.findUnique({ where: { id: surveyId } });
+  if (
+    !notice?.tokenHash ||
+    !row ||
+    row.invalidityVersion !== version ||
+    !row.invalidatedAt
+  )
+    return null;
+  try {
+    await assertSignupEditPeriod(db, row);
+  } catch {
+    return null;
+  }
+  const recipient = await deliveryOwner(db, row);
+  if (
+    recipient?.email !== notice.recipientEmail ||
+    recipient?.accountId !== notice.accountId ||
+    recipient?.sessionVersion !== notice.sessionVersion
+  )
+    return null;
+  if (receiptRecipient !== notice.recipientEmail) {
+    const address = await db.accountEmail.findUnique({
+      where: { email: receiptRecipient },
+    });
+    // The immutable transport recipient must still be the same owner's verified
+    // alias; removed/transferred mailboxes cannot receive a modern capability.
+    if (
+      !notice.accountId ||
+      address?.userId !== notice.accountId ||
+      !address.verifiedAt
+    )
+      return null;
+  }
+  return `${emailOrigin()}/tutee-signup/appeal#token=${noticeToken(notice)}`;
+}
+
 export async function inspectSignupAppeal(db: DomainDb, token: string) {
   return inTransaction(db, async (tx) => {
     const row = await sourceFromToken(tx, token);

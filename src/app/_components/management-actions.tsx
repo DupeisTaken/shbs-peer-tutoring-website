@@ -93,7 +93,7 @@ function RequestCard({
     setConfirming(false);
     if (isAssignmentOperation(request.operation)) setOverrideReview({ ticket });
     else
-      decision.mutate({
+      return decision.mutateAsync({
         id: request.id,
         approve: true,
         note,
@@ -114,7 +114,7 @@ function RequestCard({
           error={decision.error?.message}
           onCancel={() => setOverrideReview(null)}
           onConfirm={(overrideTicket) =>
-            decision.mutate({
+            decision.mutateAsync({
               id: request.id,
               approve: true,
               note,
@@ -257,7 +257,13 @@ function RequestCard({
               <button
                 className="btn-primary min-h-11 lg:min-h-10"
                 disabled={busy || !note.trim() || (needsPassword && !password)}
-                onClick={() => (confirmation ? setConfirming(true) : approve())}
+                onClick={() => {
+                  if (confirmation) setConfirming(true);
+                  else
+                    void approve()?.catch(() => {
+                      /* The feature displays the decision error. */
+                    });
+                }}
               >
                 {t("approve")}
               </button>

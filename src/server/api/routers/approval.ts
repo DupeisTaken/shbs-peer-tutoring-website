@@ -443,6 +443,11 @@ export const approvalRouter = createTRPCRouter({
                     data: {
                       userId: request.requesterId,
                       title: `Change ${input.approve ? "approved" : "rejected"}`,
+                      ...notificationEvent(
+                        input.approve
+                          ? "management_approved"
+                          : "management_rejected",
+                      ),
                       body: `${reviewerName}: ${input.note}`,
                       link:
                         request.operation === "departure.setState"
@@ -525,3 +530,4 @@ export const approvalRouter = createTRPCRouter({
     ),
 });
 import { accountHistoryIds } from "~/server/account-history";
+import { notificationEvent } from "~/lib/notification-events";

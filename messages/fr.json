@@ -428,10 +428,42 @@
     },
     "schedule": {
       "title": "Planning des salles",
-      "help": "Vos pairages sont mis en évidence. Les cellules grisées correspondent aux salles indisponibles."
+      "help": "Vos pairages sont mis en évidence. Consultez la légende ci-dessous pour connaître la disponibilité des salles."
     }
   },
   "admin": {
+    "creationRisk": {
+      "warning": "La création manuelle comporte des risques et peut causer des problèmes. Utilisez-la uniquement en dernier recours lorsque le processus normal ne permet pas de traiter la situation.",
+      "acknowledgement": "Je comprends les risques et confirme qu'il s'agit d'une solution de dernier recours.",
+      "opensOnly": "Continuer ouvre uniquement le formulaire. Aucun enregistrement n'est créé ni sauvegardé.",
+      "cancel": "Annuler",
+      "continue": "Continuer vers le formulaire",
+      "tutor": {
+        "title": "Avant de créer manuellement un tuteur",
+        "normal": "Utilisez autant que possible l'inscription des tuteurs et le processus normal de vérification des qualifications et d'intégration.",
+        "risk": "La création manuelle peut omettre les informations fournies par le participant et les étapes d'intégration prévues, ou créer des dossiers de tuteurs en double ou incohérents. Des profils incorrects peuvent aussi causer des problèmes de liaison de comptes ou de connexion. Créer un profil de tuteur ne crée pas de compte de connexion ; la liaison ou la configuration du compte constitue une étape distincte."
+      },
+      "tutee": {
+        "title": "Avant de créer manuellement un élève",
+        "normal": "Demandez autant que possible à l'élève de soumettre une demande de tutorat et de terminer le processus normal de vérification.",
+        "risk": "La création manuelle peut manquer d'informations fournies par l'élève ou de preuves d'acceptation des règles, ou créer des dossiers en double ou incohérents. Des profils incorrects peuvent aussi causer des problèmes de liaison de comptes ou de connexion. Créer un profil d'élève ne crée pas de compte de connexion ; la liaison ou la configuration du compte constitue une étape distincte."
+      },
+      "pairing": {
+        "title": "Avant de créer manuellement une affectation",
+        "normal": "Affectez autant que possible les tuteurs depuis la demande de tutorat de l'élève.",
+        "risk": "La création manuelle peut rendre les demandes et affectations incohérentes, dupliquer une affectation ou provoquer des problèmes de qualification et d'horaires."
+      },
+      "galleryTitle": "Confirmation de création en dernier recours",
+      "galleryHelp": "Choisissez un type, confirmez les risques et ouvrez un éditeur de démonstration. La fermeture conserve le brouillon local ; chaque nouvelle ouverture nécessite une confirmation.",
+      "galleryKind": "Type de création",
+      "galleryOpen": "Ouvrir l'exemple de création",
+      "galleryEditor": "Exemple d'éditeur de création",
+      "galleryDraft": "Brouillon de création conservé",
+      "galleryClose": "Fermer l'éditeur",
+      "galleryTutor": "Tuteur",
+      "galleryTutee": "Élève",
+      "galleryPairing": "Affectation"
+    },
     "pairings": {
       "title": "Pairages",
       "roomSchedule": "Planning des salles",
@@ -2036,7 +2068,8 @@
       "removalHelp": "Le tutoré souhaite partir ? Relayez sa demande. Vous (ou un admin) avez 7 jours pour la rétracter ; ensuite c'est automatique.",
       "removalReasonPlaceholder": "Motif (facultatif)",
       "removalSubmit": "Relayer",
-      "removalCancel": "Annuler"
+      "removalCancel": "Annuler",
+      "availabilityMissing": "Aucune disponibilité enregistrée."
     },
     "availability": {
       "loading": "Chargement des créneaux…",
@@ -2893,7 +2926,9 @@
     "boardGuide": "Comment les demandes sont regroupées",
     "sourceGuide": "Origine et rattachement des inscriptions",
     "policyRefresh": "Actualiser",
-    "emailStatus": "E-mail : {status}"
+    "emailStatus": "E-mail : {status}",
+    "noticeTargetMissing": "This request is no longer in the current queue. Review the retained program records or contact management.",
+    "confirmationExpired": "This confirmation expired. Reopen or refresh it to review again."
   },
   "approvals": {
     "reviewPermissions": "Admin et Head examinent les demandes de gestion ordinaires. Seul Head examine les changements de rôles et de badges. Head peut examiner ses propres demandes ; les autres doivent faire appel à une autre personne autorisée.",
@@ -3619,14 +3654,16 @@
     "loading": "Loading qualifications…",
     "loadError": "Qualifications could not be loaded. Refresh to try again.",
     "warningTitle": "Assign a Tutor Without This Qualification?",
-    "warningHelp": "Review the mismatch below. Wait three seconds, then explicitly confirm or cancel. Normal assignment and scheduling rules still apply.",
+    "warningHelp": "Review the mismatch below. Wait two seconds, then explicitly confirm or cancel. Normal assignment and scheduling rules still apply.",
     "checking": "Checking assignment",
     "checkingHelp": "Checking this tutor’s recorded subject qualifications.",
     "mismatch": "{tutor} has no approved qualification for {subject}.",
     "cancel": "Cancel",
     "confirm": "Confirm unqualified assignment",
     "wait": "Confirm in {seconds}s",
-    "working": "Assigning…"
+    "working": "Assigning…",
+    "retry": "Review again",
+    "confirmationExpired": "This confirmation expired. Review again before confirming."
   },
   "qualificationRequests": {
     "completedCount": "({count} completed)",
@@ -4020,7 +4057,10 @@
       "tuteeProfiles": "Tutee ownership links moved",
       "tutorProfiles": "Tutor history ownership links moved"
     },
-    "noCandidates": "Aucun compte ne peut être fusionné."
+    "noCandidates": "No login accounts are displayed under the current filters and search.",
+    "filteredChoices": "Choices include only login accounts displayed in the filtered and searched list below. Accountless roster records cannot be combined.",
+    "readySurvivor": "Logins can be reviewed regardless of signup history. The login to keep must have completed password setup and email verification; an unfinished login may be retired, subject to the review’s blockers.",
+    "savedRefreshFailed": "The accounts were combined, but the lists could not refresh. Retry the read; do not combine again."
   },
   "tuteeDetails": {
     "title": "Détails de l’élève",
@@ -4615,7 +4655,8 @@
   },
   "roomOrder": {
     "title": "Ordre d’affichage des salles",
-    "help": "Organisez les listes de salles et les emplois du temps. L’ordre des rondes de l’équipe se gère séparément.",
+    "help": "Préparez l’ordre avec les flèches des salles, puis enregistrez ou demandez l’ordre complet ci-dessous. L’ordre des rondes de l’équipe se gère séparément.",
+    "catalogChanged": "La liste des salles a changé. Rechargez l’ordre avant toute autre modification ; votre brouillon est conservé.",
     "room": "Salle",
     "actions": "Actions",
     "up": "Monter",
@@ -4751,5 +4792,434 @@
     "changed": "L’examen a changé pendant votre rédaction. Votre motif est conservé. Rechargez avant de réessayer.",
     "reload": "Recharger l’examen",
     "rejectedTitle": "Demande invalide close"
+  },
+  "accountDeletion": {
+    "intro": "Permanently delete the login for {name}? Review the account and its records before confirming your password.",
+    "loading": "Loading deletion review…",
+    "readFailed": "Could not refresh the deletion review. The displayed records have not been confirmed again.",
+    "reload": "Reload deletion review",
+    "consequences": "The login, sessions and recovery access are removed. Direct tutor and tutee roster records and their session history remain; original messages, policy signatures and audit actors remain. Login-local records listed below are removed. Authored content is detached, and outstanding account-bound invitation proofs become invalid.",
+    "removed": "Records removed",
+    "retained": "Records retained",
+    "noRecords": "No records in this group.",
+    "fullCounts": "View all record counts",
+    "blocked": "Resolve these blockers first",
+    "changed": "The account or its records changed. Reload and review the current consequences before confirming.",
+    "saved": "The login for {name} was deleted.",
+    "savedRefreshFailed": "The deletion was saved, but the account list could not refresh. Retry the read; do not delete again.",
+    "retryList": "Retry account list refresh",
+    "blockers": {
+      "self": "You cannot delete your own login.",
+      "head": "Transfer leadership before deleting the Head login.",
+      "combined": "Combined identities and their ownership must remain. Update the surviving account instead.",
+      "tutorHistory": "This login owns retained tutor history. Review historical ownership before deleting it.",
+      "studentHistory": "This login owns retained tutee records. Review historical ownership before deletion, or use Combine accounts instead to retire a duplicate while retaining access.",
+      "intake": "Complete or withdraw this login’s unconfirmed tutee intake first."
+    },
+    "counts": {
+      "emails": "Login email addresses",
+      "credentials": "Recovery, verification and action grants",
+      "notifications": "Notifications",
+      "deliveries": "Email delivery records",
+      "crewRequests": "Crew requests",
+      "appeals": "Account appeals",
+      "acknowledgements": "Announcement acknowledgements",
+      "academicProfiles": "Current academic profile",
+      "academics": "Academic confirmations",
+      "currentDepartures": "Current school departure",
+      "departures": "Departure events",
+      "patrols": "Patrol records",
+      "observations": "Patrol observations",
+      "creditWindows": "Patrol credit windows",
+      "tutors": "Tutor profiles",
+      "students": "Tutee profiles",
+      "messages": "Original messages",
+      "policies": "Policy acceptance records",
+      "audits": "Original actor audits",
+      "approvals": "Approval decisions and requests",
+      "studentRequests": "Tutee review requests",
+      "quarterBlocks": "Period withdrawal blocks"
+    }
+  },
+  "notificationEvents": {
+    "primary_changed": {
+      "title": "Primary Email Changed",
+      "body": "Your primary account email changed. Review your account and contact private support if you do not recognize this activity.",
+      "action": "Review your account"
+    },
+    "secondary_added": {
+      "title": "Secondary Email Verified",
+      "body": "A secondary email was verified on your account. Review your email addresses.",
+      "action": "Review your account"
+    },
+    "secondary_removed": {
+      "title": "Secondary Email Removed",
+      "body": "A secondary email was removed from your account. Review your email addresses.",
+      "action": "Review your account"
+    },
+    "security_changed": {
+      "title": "Account Security Changed",
+      "body": "Your password or two-step verification settings changed. Contact private support if you do not recognize this activity.",
+      "action": "Review your account"
+    },
+    "information_changed": {
+      "title": "Account Information Updated",
+      "body": "Your account information or access changed. Sign in to review your current account.",
+      "action": "Review your account"
+    },
+    "message_received": {
+      "title": "New Private Message",
+      "body": "You have a new private message. Open your inbox to read it and reply.",
+      "action": "Open your inbox"
+    },
+    "program_update": {
+      "title": "Program Update",
+      "body": "You have a program update. Sign in to review the notice and any next steps.",
+      "action": "View program update"
+    },
+    "tutor_application_pending": {
+      "title": "New Pending Tutor Request",
+      "body": "You have a new pending tutor application. Review the application before arranging an interview or making a decision.",
+      "action": "Review tutor applications"
+    },
+    "qualification_requested": {
+      "title": "Additional Qualification Request",
+      "body": "A tutor requested an additional subject or qualification level. Review the request through the qualification workflow.",
+      "action": "Review qualification request"
+    },
+    "qualification_approved": {
+      "title": "Qualification Request Approved",
+      "body": "Your additional qualification request was approved. Review the updated qualifications on your dashboard.",
+      "action": "View qualifications"
+    },
+    "qualification_rejected": {
+      "title": "Qualification Request Declined",
+      "body": "Your additional qualification request was declined. Review the decision in your request history.",
+      "action": "Review qualification decision"
+    },
+    "crew_application_pending": {
+      "title": "New Crew Application Awaiting Head Review",
+      "body": "A new crew application is awaiting the program Head's review. Open the crew workflow to review it.",
+      "action": "Review crew applications"
+    },
+    "viewer_registered": {
+      "title": "New Viewer Account",
+      "body": "A new viewer account was registered. Review its read-only access in Users & Roles.",
+      "action": "Review users and roles"
+    },
+    "tutor_setup_needed": {
+      "title": "Tutor Account Setup Needed",
+      "body": "A tutor was added without a login account. Review the account setup workflow and send the authorized setup invitation.",
+      "action": "Review account setup"
+    },
+    "interview_panel_assigned": {
+      "title": "Interview Panel Assignment",
+      "body": "You were assigned to an interview panel. Review the application and panel duties on your dashboard; a panel assignment alone does not schedule an interview.",
+      "action": "View interview panel"
+    },
+    "interview_scheduled": {
+      "title": "New Interview Scheduled",
+      "body": "You have a new interview scheduled. Review the recorded time and interview details on your dashboard. If no time is shown here, check the dashboard.",
+      "action": "View scheduled interview"
+    },
+    "management_review_pending": {
+      "title": "Management Change Awaiting Review",
+      "body": "A management change proposal is awaiting approval. Review its recorded evidence before applying or declining it; the proposed change has not been applied.",
+      "action": "Review management change"
+    },
+    "management_head_review_pending": {
+      "title": "Management Change Awaiting Head Review",
+      "body": "A management change proposal requires the program Head's approval. Review its recorded evidence; the proposed change has not been applied.",
+      "action": "Review management change"
+    },
+    "management_approved": {
+      "title": "Management Change Approved",
+      "body": "Your management change proposal was approved and applied. Review the recorded decision and resulting state.",
+      "action": "Review decision"
+    },
+    "management_rejected": {
+      "title": "Management Change Declined",
+      "body": "Your management change proposal was declined. The proposed change was not applied; review the recorded decision.",
+      "action": "Review decision"
+    },
+    "translation_review_pending": {
+      "title": "Translation Awaiting Review",
+      "body": "A translation draft is awaiting review. Open localization review to inspect the draft and decide whether to publish it.",
+      "action": "Review translation"
+    },
+    "announcement_published": {
+      "title": "New Program Announcement",
+      "body": "A program announcement was published for you. Open the announcement to read it and acknowledge it where required.",
+      "action": "Read announcement"
+    },
+    "tutor_optout_requested": {
+      "title": "Tutor Opt-Out Request Awaiting Review",
+      "body": "A tutor requested to opt out. Review the request after the required cooldown; the request alone does not change participation.",
+      "action": "Review tutor requests"
+    },
+    "tutor_reentry_requested": {
+      "title": "Tutor Reentry Request Awaiting Review",
+      "body": "A tutor requested to rejoin. Review the request before restoring active participation.",
+      "action": "Review tutor requests"
+    },
+    "crew_optout_requested": {
+      "title": "Crew Opt-Out Request Awaiting Head Review",
+      "body": "A crew member requested to opt out. The program Head can review the request after the required cooldown.",
+      "action": "Review crew request"
+    },
+    "crew_reentry_requested": {
+      "title": "Crew Reentry Request Awaiting Head Review",
+      "body": "A crew member requested to rejoin. The program Head must review the request before participation is restored.",
+      "action": "Review crew request"
+    },
+    "membership_optout_approved": {
+      "title": "Opt-Out Approved",
+      "body": "Your opt-out request was approved. Review your current participation status and retained records.",
+      "action": "View participation"
+    },
+    "membership_reentry_approved": {
+      "title": "Reentry Approved",
+      "body": "Your reentry request was approved and your participation is active again. Review your workspace for current responsibilities.",
+      "action": "Open your workspace"
+    },
+    "membership_declined": {
+      "title": "Participation Request Declined",
+      "body": "Your participation change request was declined. Review the decision in your workspace.",
+      "action": "Review participation decision"
+    },
+    "tutee_optout_requested": {
+      "title": "Tutee Opt-Out Awaiting Review",
+      "body": "A tutor relayed a tutee opt-out request. Review it during the recorded cooldown; the workflow may apply it automatically when that period ends.",
+      "action": "Review tutee requests"
+    },
+    "tutee_optout_cancelled": {
+      "title": "Tutee Opt-Out Cancelled",
+      "body": "Management cancelled a tutee opt-out request. Review the current assignment and request state on your dashboard.",
+      "action": "Review assignment"
+    },
+    "tutee_removed": {
+      "title": "Tutee Removed from Current Roster",
+      "body": "A tutee was removed from the current roster. Review the current assignment and retained history in your workspace.",
+      "action": "Review roster update"
+    },
+    "attendance_cards_pending": {
+      "title": "Discipline Cards Awaiting Review",
+      "body": "An attendance survey submitted {count} discipline card request(s). Review each request before issuing a card.",
+      "action": "Review discipline cards",
+      "bodyWithoutCount": "An attendance survey submitted discipline card requests. Review each request before issuing a card."
+    },
+    "attendance_room_reported": {
+      "title": "Allocated-Room Attendance Reported",
+      "body": "Attendance was reported in an allocated room. Open attendance review to inspect the recorded submission.",
+      "action": "Review attendance"
+    },
+    "attendance_review_warning": {
+      "title": "Attendance Warning Recorded",
+      "body": "An attendance review recorded a warning. Review the recorded decision on your dashboard.",
+      "action": "Review attendance decision"
+    },
+    "attendance_review_penalty": {
+      "title": "Attendance Penalty Applied",
+      "body": "An attendance review applied a service-hour penalty. Review the recorded decision and updated service hours.",
+      "action": "Review attendance decision"
+    },
+    "attendance_review_escalated": {
+      "title": "Attendance Flag Escalated for Review",
+      "body": "An attendance flag was escalated for further review. Review the recorded state; this notice does not itself confirm a penalty.",
+      "action": "Review attendance decision"
+    },
+    "attendance_history_updated": {
+      "title": "Historical Attendance Updated",
+      "body": "A catalogue change updated {count} teaching block(s). Related attendance flags and deductions were reconsidered; review the audit evidence.",
+      "action": "Review audit evidence",
+      "bodyWithoutCount": "A catalogue change updated historical teaching blocks. Related attendance flags and deductions were reconsidered; review the audit evidence."
+    },
+    "account_suspended": {
+      "title": "Account Suspended",
+      "body": "Your account access was suspended pending review. Open the suspension page to review the available appeal steps.",
+      "action": "Review suspension"
+    },
+    "account_reinstated": {
+      "title": "Account Reinstated",
+      "body": "Your account access was restored. Sign in to review your current permissions and workspace.",
+      "action": "Open your workspace"
+    },
+    "account_appeal_requested": {
+      "title": "Account Appeal Awaiting Review",
+      "body": "A suspended account submitted an appeal. Authorized management can review the appeal in Users & Roles.",
+      "action": "Review account appeal"
+    },
+    "account_appeal_approved": {
+      "title": "Account Appeal Approved",
+      "body": "Your account appeal was approved and account access was restored. Sign in to review your current access.",
+      "action": "Open your workspace"
+    },
+    "account_appeal_declined": {
+      "title": "Account Appeal Declined",
+      "body": "Your account appeal was declined and the account remains suspended. Review the available support steps.",
+      "action": "Review appeal decision"
+    },
+    "record_corrected": {
+      "title": "Management Record Correction Applied",
+      "body": "Management applied a record correction. Review the original and corrected evidence in the audit log.",
+      "action": "Review audit evidence"
+    },
+    "tutee_feedback_received": {
+      "title": "New Tutee Feedback",
+      "body": "A tutee submitted session feedback. Authorized management can review the feedback in Student Support.",
+      "action": "Review feedback"
+    },
+    "tutee_card_appeal": {
+      "title": "Tutee Card Appeal Awaiting Review",
+      "body": "A tutee appealed a discipline card. Review the appeal and recorded card evidence in Student Support.",
+      "action": "Review card appeal"
+    },
+    "tutee_appeal_reviewed": {
+      "title": "Tutee Appeal Reviewed",
+      "body": "Your discipline card appeal was reviewed. Open your student workspace to see the decision and current standing.",
+      "action": "Review appeal decision"
+    },
+    "student_assignment_updated": {
+      "title": "Tutoring Assignment Updated",
+      "body": "A tutoring assignment was updated. Review the recurring weekly schedule and its confirmation state in your workspace; this notice does not create a dated session.",
+      "action": "Review tutoring assignment"
+    },
+    "student_availability_updated": {
+      "title": "Tutee Availability Updated",
+      "body": "A tutee updated their available time slots. Review the current availability before adjusting an assignment.",
+      "action": "Review availability"
+    },
+    "student_request_recalled": {
+      "title": "Signup Request Recalled",
+      "body": "A signup request was recalled and closed. Review its retained history; a new submission is required to request participation again.",
+      "action": "Review request history"
+    },
+    "student_request_expired": {
+      "title": "Signup Verification Overdue",
+      "body": "A signup request closed because verification was not completed by its deadline. A new request is required; review the retained request history.",
+      "action": "Review request history"
+    },
+    "student_withdrawal_pending": {
+      "title": "Quarter Withdrawal Awaiting Review",
+      "body": "A request to withdraw for the current quarter is awaiting review. Participation continues until the withdrawal is approved.",
+      "action": "Review withdrawal request"
+    },
+    "student_withdrawal_approved": {
+      "title": "Quarter Withdrawal Approved",
+      "body": "A quarter withdrawal was approved and the request closed. Review the retained history; the current quarter cannot be reactivated through this request.",
+      "action": "Review withdrawal decision"
+    },
+    "student_withdrawal_declined": {
+      "title": "Quarter Withdrawal Declined",
+      "body": "A quarter withdrawal request was declined. Current participation continues; review the recorded decision.",
+      "action": "Review withdrawal decision"
+    },
+    "student_schedule_review_pending": {
+      "title": "Tutor Schedule Conflict Awaiting Review",
+      "body": "A tutor reported a schedule conflict for an assignment. Review the request before changing the current assignment.",
+      "action": "Review schedule conflict"
+    },
+    "student_schedule_review_approved": {
+      "title": "Schedule Conflict Approved; Rematching Needed",
+      "body": "A schedule conflict request was approved and the affected assignment was removed. Review the request to arrange a new match.",
+      "action": "Review rematching request"
+    },
+    "student_schedule_review_declined": {
+      "title": "Schedule Conflict Declined",
+      "body": "A schedule conflict request was declined. The current assignment continues; review the recorded decision.",
+      "action": "Review schedule decision"
+    },
+    "tutor_reactivated": {
+      "title": "Tutor Participation Reactivated",
+      "body": "A tutor became available for the current term. Review the current participation and assignment state in the tutor roster.",
+      "action": "Review tutor roster"
+    },
+    "tutor_opted_out": {
+      "title": "Tutor Opted Out for This Term",
+      "body": "A tutor opted out for the current term. Review the current participation and assignment state in the tutor roster.",
+      "action": "Review tutor roster"
+    },
+    "meeting_absence_excused": {
+      "title": "Tutor Meeting Absence Excused",
+      "body": "A tutor recorded an excuse for an upcoming meeting absence. Review the meeting's attendance state; the excuse text is available only in the authorized workflow.",
+      "action": "Review meeting attendance"
+    },
+    "school_departure_updated": {
+      "title": "School Participation Status Updated",
+      "body": "Your school departure or return status was updated. Review the recorded state and any participation steps in your account workspace.",
+      "action": "Review school participation"
+    },
+    "request_invalidity_appeal_pending": {
+      "title": "Invalid Request Appeal Awaiting Review",
+      "body": "A submitter appealed an applied invalid-request flag. Review the appeal in the request's invalidity dialog; submitting an appeal does not clear the flag.",
+      "action": "Review invalid request appeal"
+    },
+    "student_signup_rejected": {
+      "title": "Demande invalide close",
+      "body": "Le recours a été refusé. La demande est close et sa priorité retirée ; vous pouvez soumettre une nouvelle demande.",
+      "action": "Review request history"
+    }
+  },
+  "requestAppeal": {
+    "title": "Appeal an Invalid Request",
+    "description": "Explain why the request should be reviewed. Submitting an appeal does not clear its invalid flag or approve participation.",
+    "loading": "Checking the appeal link…",
+    "error": "The request could not be checked.",
+    "retry": "Retry status",
+    "invalid": "This appeal link is unavailable.",
+    "invalidHelp": "It may have expired or the flag may have changed. Contact the program through its verified contact details.",
+    "tutor": "Tutor application",
+    "tutee": "Tutee signup request",
+    "submittedTime": "Submitted: {time}",
+    "unknownTime": "Original submission time unavailable",
+    "body": "Your appeal",
+    "bodyHelp": "Use 10–2,000 characters. Include only information needed to review this request; avoid unnecessary private information about yourself or others.",
+    "submit": "Submit appeal",
+    "pending": "Submitting appeal…",
+    "failed": "The appeal could not be submitted. Your text is still here; retry this same appeal.",
+    "submitted": "Appeal submitted",
+    "submittedHelp": "Management will review the appeal. The request remains flagged invalid until an authorized clear decision is applied.",
+    "readFailed": "The appeal was accepted, but its current status could not be refreshed. Retry status only; do not submit again.",
+    "existing": "An appeal has already been recorded for this flag. Its original text cannot be replaced.",
+    "statusPending": "Awaiting management review",
+    "statusDeclined": "Appeal declined; the invalid flag remains",
+    "statusCleared": "Invalid flag cleared",
+    "contact": "Contact the program",
+    "contactHelp": "Use the verified program contact details for questions or an unavailable link."
+  },
+  "requestEmail": {
+    "title": "Submitter Email Delivery",
+    "none": "No delivery receipt exists for this request. A pending proposal does not send email.",
+    "PENDING": "Queued for delivery",
+    "retrying": "Delivery failed; waiting to retry",
+    "FAILED": "Delivery failed; retry limit reached",
+    "SENT": "Accepted by the email transport",
+    "BLOCKED": "Unavailable: submitted email is missing or invalid",
+    "SUPERSEDED": "Replaced by a newer request status",
+    "SKIPPED": "Skipped",
+    "CANCELLED": "Cancelled",
+    "SENDING": "Email being sent",
+    "unknown": "Current email status is unavailable.",
+    "retryRead": "Refresh email status",
+    "retrySend": "Retry email delivery",
+    "queued": "Email queued for retry. This does not confirm delivery.",
+    "queuedReadFailed": "Retry was queued, but status refresh failed. Refresh status before attempting another retry.",
+    "retryUnchanged": "No email was requeued. Review the refreshed delivery status.",
+    "staleAppealDraft": "This decision draft belongs to an earlier appeal or review version. Your reason is retained. Reload the current appeal explicitly before making a new decision.",
+    "reloadAppeal": "Reload current appeal",
+    "failed": "The email retry could not be queued.",
+    "sendLimit": "The mail service accepting an email does not guarantee inbox delivery. Email already being sent cannot be recalled. A retry after an interrupted send can occasionally produce a duplicate.",
+    "denied": "You do not have access to this delivery or appeal evidence.",
+    "appeal": "Submitter appeal",
+    "appealPending": "Awaiting review. Clearing the invalid flag approves this appeal; a declined appeal keeps the flag.",
+    "appealDeclined": "Appeal declined",
+    "appealCleared": "Resolved by clearing the invalid flag",
+    "decisionReason": "Reason for declining the appeal",
+    "decline": "Decline appeal",
+    "declined": "Appeal declined. The invalid flag remains.",
+    "declineFailed": "The appeal decision could not be saved. Your reason is retained.",
+    "reviewReadFailed": "The decision was saved, but status refresh failed. Refresh status without repeating the decision.",
+    "reasonDisclosure": "This is a reason for the submitter. Keep it respectful and avoid unnecessary private information. The full reason is emailed only when request-specific mailbox verification exists; other recipients receive a masked notice.",
+    "historicalSurveyAppeal": "Recours historique (lecture seule). Les recours actuels sont traités dans la révision des inscriptions."
   }
 }

@@ -1,9 +1,11 @@
+import { confirmationDelayMs } from "~/lib/confirmation-timing";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import { currentStudentSignupPayload } from "./student-signup-answers";
 import { synchronizeStudentSignupAnswers } from "./student-signup-revisions";
 import { lockCatalogue } from "./qualifications";
 import {
   assertRequestProcessable,
+  emptyRequestInvalidity,
   lockStudentRequestReview,
   requestInvalidity,
 } from "~/server/request-invalidity";
@@ -65,15 +67,24 @@ export async function prepareStudentAction(
   await db.studentActionConfirmation.deleteMany({
     where: { userId, expiresAt: { lt: new Date(now) } },
   });
-  return db.studentActionConfirmation.create({
+  const ticket = await db.studentActionConfirmation.create({
     data: {
       userId,
       action,
       target,
-      readyAt: new Date(now + (action === "POLICY" ? 10000 : 5000)),
+      readyAt: new Date(now + confirmationDelayMs[action]),
       expiresAt: new Date(now + 30 * 60_000),
     },
-    select: { id: true, readyAt: true },
+    select: { id: true, readyAt: true, expiresAt: true },
+  });
+  return { ...ticket, serverNow: new Date() };
+}
+
+/** Cancelling a local review can remove only the caller's unused proof. A submitted
+ * proof survives dialog handoff and is consumed atomically by the actual operation. */
+export function cancelStudentAction(db: DomainDb, userId: string, id: string) {
+  return db.studentActionConfirmation.deleteMany({
+    where: { id, userId, usedAt: null },
   });
 }
 
@@ -295,7 +306,7 @@ export async function assignStudentRequest(
     await notifyRequest(
       tx,
       { ...row, tuteeId: student.id },
-      "Tutor assigned / 已分配辅导伙伴",
+      "student_assignment_updated",
     );
     return { email: row.email, needsVerification: !row.confirmedAt };
   });
@@ -348,11 +359,7 @@ export async function editStudentAvailability(
       data: { editedAt: new Date() },
     });
     await synchronizeStudentSignupAnswers(tx, row, userId, { slotIds: ids });
-    await notifyRequest(
-      tx,
-      row,
-      "Tutee availability edited / 学习伙伴可用时间已修改",
-    );
+    await notifyRequest(tx, row, "student_availability_updated");
     return { ok: true };
   });
 }
@@ -409,11 +416,7 @@ export async function applyStudentAbort(
         reason,
       },
     });
-    await notifyRequest(
-      tx,
-      row,
-      "Quarter withdrawal awaiting review / 本季度退出申请待审核",
-    );
+    await notifyRequest(tx, row, "student_withdrawal_pending");
     return { ok: true };
   });
 }
@@ -469,7 +472,7 @@ export async function applyScheduleRejection(
         tx,
         tuteeId,
         userId,
-        "Tutor schedule conflict awaiting review / 辅导伙伴时间冲突待审核",
+        "student_schedule_review_pending",
       );
       return { ok: true };
     }
@@ -509,11 +512,7 @@ export async function applyScheduleRejection(
         reason,
       },
     });
-    await notifyRequest(
-      tx,
-      row,
-      "Tutor schedule conflict awaiting review / 辅导伙伴时间冲突待审核",
-    );
+    await notifyRequest(tx, row, "student_schedule_review_pending");
     return { ok: true };
   });
 }
@@ -590,11 +589,11 @@ export async function resolveStudentReview(
         review.requestedByUserId,
         review.kind === "STUDENT_ABORT"
           ? approve
-            ? "Quarter withdrawal approved / 本季度退出申请已批准"
-            : "Withdrawal declined; participation continues / 退出申请未通过，继续参加"
+            ? "student_withdrawal_approved"
+            : "student_withdrawal_declined"
           : approve
-            ? "Schedule rejection approved; rematching needed / 时间冲突申请通过，待重新匹配"
-            : "Schedule rejection declined / 时间冲突申请未通过",
+            ? "student_schedule_review_approved"
+            : "student_schedule_review_declined",
       );
       return { ok: true };
     }
@@ -657,11 +656,7 @@ export async function resolveStudentReview(
         fail(
           "This tutor assignment changed after the application was submitted. Decline this outdated application and review the current assignment.",
         );
-      await notifyRequest(
-        tx,
-        row,
-        "Schedule rejection approved; rematching needed / 时间冲突申请通过，待重新匹配",
-      );
+      await notifyRequest(tx, row, "student_schedule_review_approved");
       await preserveHistoricalAcademics(tx, "TUTEE", row.tuteeId!);
       await tx.pairingTutee.deleteMany({
         where: { pairingId: review.pairingId!, tuteeId: row.tuteeId! },
@@ -674,7 +669,9 @@ export async function resolveStudentReview(
       await notifyRequest(
         tx,
         row,
-        "Application declined; current assignment continues / 申请未通过，现有安排继续",
+        review.kind === "STUDENT_ABORT"
+          ? "student_withdrawal_declined"
+          : "student_schedule_review_declined",
       );
     await tx.studentRequestReview.update({
       where: { id },
@@ -692,7 +689,7 @@ async function notifyLegacySchedule(
   tx: TransactionDb,
   tuteeId: string,
   tutorUserId: string,
-  title: string,
+  event: NotificationEvent,
 ) {
   const users = await tx.user.findMany({
     where: {
@@ -709,7 +706,7 @@ async function notifyLegacySchedule(
   await tx.notification.createMany({
     data: users.map((user) => ({
       userId: user.id,
-      title,
+      ...notificationData(event),
       link: ["HEAD", "ADMIN"].includes(user.role)
         ? "/admin/requests"
         : user.tutorId
@@ -860,3 +857,5 @@ export async function studentRequestRows(
     };
   });
 }
+import { notificationData } from "./notifications/create";
+import type { NotificationEvent } from "~/lib/notification-events";

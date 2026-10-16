@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -16,10 +17,11 @@ const mocks = vi.hoisted(() => ({
   unassign: vi.fn(),
   appeal: vi.fn(),
   refresh: vi.fn(),
+  legacy: vi.fn(),
+  ready: true,
 }));
 import { SessionViewProvider } from "~/app/_components/session-view-state";
-import { viewStateKey } from "~/lib/session-view-state";
-const query = vi.hoisted(() => ({ ready: true }));
+import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
@@ -35,11 +37,17 @@ vi.mock("~/app/_components/timed-action-dialog", () => ({
   }: {
     action: string;
     target: string;
-    onConfirm: (ticket: string) => void;
+    onConfirm: (ticket: string) => unknown;
     onCancel: () => void;
   }) => (
     <div role="dialog" data-action={action} data-target={target}>
-      <button onClick={() => onConfirm("fresh-ticket")}>Confirm</button>
+      <button
+        onClick={() =>
+          void Promise.resolve(onConfirm("fresh-ticket")).catch(() => undefined)
+        }
+      >
+        Confirm
+      </button>
       <button onClick={onCancel}>Cancel</button>
     </div>
   ),
@@ -61,13 +69,11 @@ vi.mock("~/trpc/react", () => ({
       },
       adminRequests: {
         useQuery: () => ({
-          data: query.ready ? [] : undefined,
-          isLoading: !query.ready,
+          data: mocks.ready ? [] : undefined,
+          isLoading: !mocks.ready,
         }),
       },
-      legacyReviews: {
-        useQuery: () => ({ data: query.ready ? [] : undefined }),
-      },
+      legacyReviews: { useQuery: mocks.legacy },
     },
     admin: { tutors: { useQuery: () => ({ data: [] }) } },
   },
@@ -77,12 +83,12 @@ beforeEach(() => {
   mocks.unassign.mockResolvedValue({ ok: true, version: 3 });
   mocks.appeal.mockResolvedValue({ ok: true });
   mocks.refresh.mockResolvedValue(undefined);
+  mocks.ready = true;
+  mocks.legacy.mockReturnValue({ data: [] });
+  window.sessionStorage.clear();
+  window.history.replaceState(null, "", "/");
 });
-afterEach(() => {
-  cleanup();
-  query.ready = true;
-  sessionStorage.clear();
-});
+afterEach(cleanup);
 
 const actionRow = {
   id: "survey",
@@ -206,9 +212,87 @@ it("does not report an empty queue while another intake source is still loading"
   expect(screen.getByText("loading")).toBeTruthy();
   expect(screen.queryByText("emptySection")).toBeNull();
 });
+it("reveals a repeated notification fragment after selecting another request tab", async () => {
+  window.history.replaceState(
+    null,
+    "",
+    "/admin/requests#request-signup-source_123",
+  );
+  const entries = [
+    {
+      id: "manual-source_123",
+      sourceId: "source_123",
+      group: "assigned" as const,
+      submittedAt: new Date(),
+      content: <p>Repeated target</p>,
+    },
+  ];
+  render(
+    <SessionViewProvider identity="head" pathname="/admin/requests" verified>
+      <StudentRequestBoard additionalEntries={entries} />
+    </SessionViewProvider>,
+  );
+  fireEvent.click(screen.getByRole("tab", { name: "processed 0" }));
+  expect(screen.queryByText("Repeated target")).toBeNull();
+  await act(() => window.dispatchEvent(new HashChangeEvent("hashchange")));
+  expect(screen.getByText("Repeated target")).toBeTruthy();
+  expect(
+    screen
+      .getByRole("tab", { name: "assigned 1" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+});
+it("defers an explicit notice reveal until the delayed authorized legacy read completes", async () => {
+  const identity = "notice-reviewer",
+    pathname = "/admin/requests";
+  writeViewState(
+    window.sessionStorage,
+    viewStateKey(identity, pathname, "requests.tab.v1", ""),
+    "processed",
+  );
+  writeViewState(
+    window.sessionStorage,
+    viewStateKey(identity, pathname, "requests.invalidity.v1", ""),
+    "valid",
+  );
+  window.history.replaceState(
+    null,
+    "",
+    `${pathname}#request-signup-source_123`,
+  );
+  mocks.legacy.mockReturnValue({ data: undefined });
+  const entries = [
+    {
+      id: "manual-source_123",
+      sourceId: "source_123",
+      group: "assigned" as const,
+      invalid: true,
+      submittedAt: new Date(),
+      content: <p>Targeted invalid request</p>,
+    },
+  ];
+  const ui = () => (
+    <SessionViewProvider identity={identity} pathname={pathname} verified>
+      <StudentRequestBoard additionalEntries={entries} />
+    </SessionViewProvider>
+  );
+  const view = render(ui());
+  expect(screen.queryByText("Targeted invalid request")).toBeNull();
+  mocks.legacy.mockReturnValue({ data: [] });
+  view.rerender(ui());
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("tab", { name: "assigned 1" })
+        .getAttribute("aria-selected"),
+    ).toBe("true"),
+  );
+  expect(screen.getByText("Targeted invalid request")).toBeTruthy();
+});
 
 it("honors an early Assigned click through delayed queue reads and restores only the view", () => {
-  query.ready = false;
+  mocks.ready = false;
+  mocks.legacy.mockReturnValue({ data: undefined });
   const key = viewStateKey(
     "head-account",
     "/admin/requests",
@@ -255,7 +339,8 @@ it("honors an early Assigned click through delayed queue reads and restores only
   ).toBe("true");
   expect(screen.getByText("loading")).toBeTruthy();
   expect(sessionStorage.getItem(key)).toBe(JSON.stringify("assigned"));
-  query.ready = true;
+  mocks.ready = true;
+  mocks.legacy.mockReturnValue({ data: [] });
   view.rerender(page(true));
   expect(
     screen

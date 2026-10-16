@@ -17,6 +17,7 @@ import {
 import {
   actionNames,
   prepareStudentAction,
+  cancelStudentAction,
   acceptStudentPolicy,
   studentPolicyStatus,
   assignStudentRequest,
@@ -136,6 +137,9 @@ export const studentWorkflowRouter = createTRPCRouter({
         input.target,
       );
     }),
+  cancelAction: protectedProcedure
+    .input(z.object({ ticket }))
+    .mutation(({ ctx, input }) => cancelStudentAction(ctx.db, ctx.session.user.id, input.ticket)),
   policyStatus: publicProcedure
     .input(z.object({ tuteeEntry: z.boolean().default(false) }).optional())
     .query(({ ctx, input }) =>

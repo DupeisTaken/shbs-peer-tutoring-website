@@ -84,7 +84,8 @@ export function AvailabilityEditor() {
     >
       {slotsByDay.map(([day, daySlots]) => (
         <div key={day}>
-          <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+          {/* Active grouping labels need body-text contrast, not disabled fading. */}
+          <p className="text-xs font-semibold tracking-wide text-slate-600 uppercase">
             {formatWeekday(day, locale)}
           </p>
           <div

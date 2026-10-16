@@ -14,7 +14,7 @@ import {
   RequestInvalidityHost,
   type InvalidityFilterValue,
 } from "~/app/_components/request-invalidity";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { StudentSignupEditor } from "~/app/_components/student-signup-editor";
 import { queuedApprovalId } from "~/lib/approval-outcome";
@@ -37,7 +37,9 @@ import {
   useSessionAccessDenied,
   useSessionPageScroll,
   useSessionViewState,
+  useSessionViewVerified,
 } from "~/app/_components/session-view-state";
+import { requestBoardTarget } from "~/lib/request-notification-destination";
 import { viewEnum } from "~/lib/session-view-state";
 import {
   ParticipantName,
@@ -116,8 +118,12 @@ function SignupReviewAction({
         setApprovalId(queued);
         setAccepted(true);
         setIntent(null);
-      } else
+      } else {
         setError(failure instanceof Error ? failure.message : t("saveFailed"));
+        // Failed writes release the timed admission guard even when React batches
+        // an identical error; accepted/queued writes never pass through this path.
+        throw failure;
+      }
     } finally {
       admitted.current = false;
       setWorking(false);
@@ -148,7 +154,7 @@ function SignupReviewAction({
           onCancel={() => {
             if (!admitted.current) setIntent(null);
           }}
-          onConfirm={(ticket) => void commit(ticket)}
+          onConfirm={commit}
         />
       )}
       {needsRefresh && (
@@ -274,9 +280,10 @@ export function SignupAppealReview({ row }: { row: Row }) {
     </article>
   );
 }
-
 export type AdditionalRequestEntry = {
   id: string;
+  /** Original source identity can differ from the list's presentation key. */
+  sourceId?: string;
   submittedAt: Date;
   group: Exclude<RequestTab, "reviews">;
   content: ReactNode;
@@ -308,13 +315,17 @@ export function StudentRequestBoard({
   const pendingAppeals = (rows.data ?? []).filter(
     (row) => row.appeal?.state === "PENDING",
   );
+  const verified = useSessionViewVerified();
+  const revealed = useRef("");
+  const [targetMissing, setTargetMissing] = useState(false);
   const [tab, setTab] = useSessionViewState({
     id: "requests.tab.v1",
     initialState: "matching",
     parse: viewEnum(["matching", "assigned", "reviews", "processed"]),
     scope: viewScope,
     enabled: !denied,
-    // Static panel choices work before queue reads finish; only scroll waits for content.
+    // Static tab choices stay usable during reads; explicit notice reveal and
+    // page-scroll restoration still wait for their complete authorized content.
   });
   const [invalidity, setInvalidity] =
     useSessionViewState<InvalidityFilterValue>({
@@ -324,6 +335,74 @@ export function StudentRequestBoard({
       scope: viewScope,
       enabled: !denied,
     });
+  useEffect(() => {
+    const reveal = () => {
+      if (
+        !verified ||
+        denied ||
+        additionalLoading ||
+        !rows.data ||
+        !legacyReviews.data ||
+        rows.isFetching
+      )
+        return;
+      const hash = window.location.hash,
+        target = requestBoardTarget(hash);
+      if (!target) {
+        revealed.current = "";
+        setTargetMissing(false);
+        return;
+      }
+      if (revealed.current === hash) return;
+      const row =
+        target.kind === "survey"
+          ? rows.data.find((entry) => entry.id === target.id)
+          : null;
+      const legacy =
+        target.kind === "signup"
+          ? additionalEntries.find(
+              (entry) => (entry.sourceId ?? entry.id) === target.id,
+            )
+          : null;
+      const group = row
+        ? signupRequestGroup(
+            row.state,
+            row.subjects.map((subject) => subject.name),
+            row.pairings.map((pairing) => pairing.subject),
+          )
+        : legacy?.group;
+      revealed.current = hash;
+      setTargetMissing(!group);
+      if (group) {
+        // Explicit event navigation wins over remembered filters only for this
+        // arrival; it never rebases a retained request/editor draft.
+        setTab(group);
+        setInvalidity("all");
+        requestAnimationFrame(() =>
+          document
+            .getElementById(hash.slice(1))
+            ?.scrollIntoView({ block: "center" }),
+        );
+      }
+    };
+    reveal();
+    const navigate = () => {
+      revealed.current = "";
+      reveal();
+    };
+    window.addEventListener("hashchange", navigate);
+    return () => window.removeEventListener("hashchange", navigate);
+  }, [
+    verified,
+    denied,
+    additionalLoading,
+    rows.data,
+    rows.isFetching,
+    legacyReviews.data,
+    additionalEntries,
+    setTab,
+    setInvalidity,
+  ]);
   useSessionPageScroll({
     id: "requests",
     scope: JSON.stringify([viewScope, tab, invalidity]),
@@ -382,6 +461,9 @@ export function StudentRequestBoard({
     );
   return (
     <RequestInvalidityHost>
+      {targetMissing && (
+        <InlineNotice tone="info">{t("noticeTargetMissing")}</InlineNotice>
+      )}
       <section className="space-y-4">
         <DisclosureSection title={t("boardGuide")} lifetime="lazy">
           <p className="muted max-w-3xl text-sm">{t("boardHelp")}</p>
@@ -498,7 +580,10 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
     onSuccess: () => utils.studentWorkflow.adminRequests.invalidate(),
   });
   return (
-    <article className="card space-y-4 p-5">
+    <article
+      id={`request-survey-${row.id}`}
+      className="card scroll-mt-6 space-y-4 p-5"
+    >
       <header className="flex flex-wrap justify-between gap-3">
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -760,7 +845,7 @@ function Assignment({
           error={assign.error?.message}
           onCancel={() => setConsequenceTicket(null)}
           onConfirm={(overrideTicket) =>
-            assign.mutate({
+            assign.mutateAsync({
               id: row.id,
               subjectId: subject.id,
               tutorId,
@@ -860,7 +945,7 @@ function ReviewCard({
           error={resolve.error?.message}
           onCancel={() => setDecision(null)}
           onConfirm={(ticket) =>
-            resolve.mutate({ id: review.id, approve: decision, ticket })
+            resolve.mutateAsync({ id: review.id, approve: decision, ticket })
           }
         />
       )}

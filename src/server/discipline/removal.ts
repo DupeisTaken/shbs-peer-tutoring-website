@@ -1,3 +1,4 @@
+import { notificationEvent } from "~/lib/notification-events";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { recordDomainAudit } from "~/server/audit/evidence";
@@ -63,6 +64,7 @@ async function finalizeRemoval(
       l.pairing.tutor.user ? [l.pairing.tutor.user.id] : [],
     ),
     {
+      ...notificationEvent("tutee_removed"),
       title: "Tutee removed",
       body: `${tutee.englishName} was removed from the current roster.`,
       link: "/dashboard",
@@ -71,6 +73,7 @@ async function finalizeRemoval(
   );
   await notifyAdmins(
     {
+      ...notificationEvent("tutee_removed"),
       title: "Tutee removed",
       body: `${tutee.englishName} was removed from the current roster.`,
       link: "/admin/tutee-requests",
@@ -79,12 +82,25 @@ async function finalizeRemoval(
     tx,
   );
   await recordDomainAudit(tx, {
-    operation: "system.finalizeTuteeRemoval", entity: "TuteeRemovalRequest", entityId: requestId,
-    action: "Applied automatic tutee removal", system: true,
+    operation: "system.finalizeTuteeRemoval",
+    entity: "TuteeRemovalRequest",
+    entityId: requestId,
+    action: "Applied automatic tutee removal",
+    system: true,
     before: { id: requestId, tuteeId, state: "PENDING", status: tutee.status },
-    after: { id: requestId, tuteeId, state: "APPROVED", status: "INACTIVE", resolvedAt: now },
-    effects: { removedPairingIds: links.map(link => link.pairingId),
-      removedPeriodKey: period ? `${period.schoolYear} ${period.quarter}` : null },
+    after: {
+      id: requestId,
+      tuteeId,
+      state: "APPROVED",
+      status: "INACTIVE",
+      resolvedAt: now,
+    },
+    effects: {
+      removedPairingIds: links.map((link) => link.pairingId),
+      removedPeriodKey: period
+        ? `${period.schoolYear} ${period.quarter}`
+        : null,
+    },
   });
 }
 
@@ -123,7 +139,11 @@ export async function syncPunishmentRemoval(
         // Card corrections that restore roster membership are reversals of applied
         // removal, so their initiating correction must already have Head authority.
         if (auditActorScope.getStore()?.role !== "HEAD")
-          throw new TRPCError({ code: "FORBIDDEN", message: "Head approval is required to restore removed participation." });
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Head approval is required to restore removed participation.",
+          });
         const pairings = await tx.pairing.findMany({
           where: {
             id: { in: snapshot.data.pairingIds },
@@ -146,17 +166,41 @@ export async function syncPunishmentRemoval(
           data: { state: "REINSTATED", resolvedByName: "Card correction" },
         });
         const original = await tx.auditLog.findFirst({
-          where: { entity: "TuteeRemovalRequest", entityId: removal.id, operation: "system.finalizeTuteeRemoval" },
-          orderBy: { createdAt: "asc" }, select: { id: true },
+          where: {
+            entity: "TuteeRemovalRequest",
+            entityId: removal.id,
+            operation: "system.finalizeTuteeRemoval",
+          },
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
         });
         await recordDomainAudit(tx, {
-          operation: "system.reconcilePunishmentRemoval", entity: "TuteeRemovalRequest", entityId: removal.id,
-          action: "Restored participation after Head-authorized card correction", system: true,
-          before: { id: removal.id, tuteeId, state: "APPROVED", status: tutee.status },
-          after: { id: removal.id, tuteeId, state: "REINSTATED", status: pairings.length ? snapshot.data.status : "PENDING" },
+          operation: "system.reconcilePunishmentRemoval",
+          entity: "TuteeRemovalRequest",
+          entityId: removal.id,
+          action:
+            "Restored participation after Head-authorized card correction",
+          system: true,
+          before: {
+            id: removal.id,
+            tuteeId,
+            state: "APPROVED",
+            status: tutee.status,
+          },
+          after: {
+            id: removal.id,
+            tuteeId,
+            state: "REINSTATED",
+            status: pairings.length ? snapshot.data.status : "PENDING",
+          },
           originalActionId: original?.id,
-          effects: { originalRecordId: removal.id, restoredPairingIds: pairings.map(pairing => pairing.id),
-            ...(original ? {} : { originalAuditAvailability: "Unavailable legacy evidence" }) },
+          effects: {
+            originalRecordId: removal.id,
+            restoredPairingIds: pairings.map((pairing) => pairing.id),
+            ...(original
+              ? {}
+              : { originalAuditAvailability: "Unavailable legacy evidence" }),
+          },
         });
       }
       return { removed: false };
@@ -194,27 +238,41 @@ export async function finalizeDueOptOuts(db: DomainDb): Promise<number> {
         where: { id: request.id },
       });
       if (current?.state !== "PENDING") continue;
-      const participation = current.pairingId && current.requestedByTutorId
-        ? await tx.pairingTutee.findFirst({
-            where: {
-              pairingId: current.pairingId,
-              tuteeId: current.tuteeId,
-              pairing: { tutorId: current.requestedByTutorId, term: { active: true } },
-              tutee: { status: "ACTIVE" },
-            },
-            select: { tuteeId: true },
-          })
-        : null;
+      const participation =
+        current.pairingId && current.requestedByTutorId
+          ? await tx.pairingTutee.findFirst({
+              where: {
+                pairingId: current.pairingId,
+                tuteeId: current.tuteeId,
+                pairing: {
+                  tutorId: current.requestedByTutorId,
+                  term: { active: true },
+                },
+                tutee: { status: "ACTIVE" },
+              },
+              select: { tuteeId: true },
+            })
+          : null;
       if (!participation) {
         await tx.tuteeRemovalRequest.update({
           where: { id: current.id },
-          data: { state: "DENIED", resolvedAt: new Date(), resolvedByName: "Participation changed; stale withdrawal cancelled" },
+          data: {
+            state: "DENIED",
+            resolvedAt: new Date(),
+            resolvedByName: "Participation changed; stale withdrawal cancelled",
+          },
         });
         await recordDomainAudit(tx, {
-          operation: "system.cancelStaleOptOut", entity: "TuteeRemovalRequest", entityId: current.id,
-          action: "Cancelled stale voluntary removal", system: true, before: current,
-          after: { id: current.id, state: "DENIED" }, reason: "Participation changed before withdrawal became due",
-          outcome: "CANCELLED_STALE", effects: { rosterChanged: false },
+          operation: "system.cancelStaleOptOut",
+          entity: "TuteeRemovalRequest",
+          entityId: current.id,
+          action: "Cancelled stale voluntary removal",
+          system: true,
+          before: current,
+          after: { id: current.id, state: "DENIED" },
+          reason: "Participation changed before withdrawal became due",
+          outcome: "CANCELLED_STALE",
+          effects: { rosterChanged: false },
         });
         continue;
       }

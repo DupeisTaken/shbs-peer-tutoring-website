@@ -413,7 +413,10 @@ export const programRouter = createTRPCRouter({
         // Drop only optional backlog on disable; mandatory security alerts must still be delivered.
         if (!input.enabled)
           await tx.emailDelivery.updateMany({
-            where: { status: "PENDING", category: { not: "security" } },
+            where: {
+              status: "PENDING",
+              category: { notIn: ["security", "request_service"] },
+            },
             data: { status: "SKIPPED", completedAt: new Date() },
           });
         return { ok: true };

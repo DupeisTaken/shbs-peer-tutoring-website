@@ -30,8 +30,6 @@ const coordinator = () => actor("coordinator", "COORDINATOR");
 
 beforeEach(async () => {
   assertIsolatedTestDatabase(process.env.DATABASE_URL);
-  if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test")
-    throw new Error("Use shbs_shipping_test");
   const tables = await db.$queryRaw<{ tablename: string }[]>`
     SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'
   `;
