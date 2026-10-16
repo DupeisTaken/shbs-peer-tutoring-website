@@ -11,6 +11,8 @@ import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { RoomGrid } from "./room-grid";
+import { SessionViewProvider } from "./session-view-state";
+import { viewStateKey } from "~/lib/session-view-state";
 
 const rooms = [{ id: "room", name: "101" }];
 const slots = [
@@ -42,7 +44,137 @@ function show(locale: "en" | "zh", data = { rooms, slots }) {
     </NextIntlClientProvider>,
   );
 }
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  sessionStorage.clear();
+});
+it("restores layout and deliberate room selection only when the current catalog is ready", () => {
+  const key = viewStateKey(
+    "head-account",
+    "/admin/pairings",
+    "room-grid-selection-v1",
+    "management:term-a",
+  );
+  sessionStorage.setItem(
+    key,
+    JSON.stringify({ owner: "management", ids: ["removed", "room"] }),
+  );
+  const view = (ready: boolean) => (
+    <SessionViewProvider
+      identity="head-account"
+      pathname="/admin/pairings"
+      verified
+    >
+      <NextIntlClientProvider locale="en" messages={en}>
+        <RoomGrid
+          rooms={ready ? rooms : []}
+          slots={ready ? slots : []}
+          pairings={pairings}
+          blocks={[]}
+          catalogReady={ready}
+          viewScope="term-a"
+        />
+      </NextIntlClientProvider>
+    </SessionViewProvider>
+  );
+  const first = render(view(false));
+  expect(sessionStorage.getItem(key)).toContain("removed");
+  first.rerender(view(true));
+  expect(sessionStorage.getItem(key)).toBe(
+    JSON.stringify({ owner: "management", ids: ["room"] }),
+  );
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.roomSchedule.individual }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: en.roomSchedule.clearRooms }),
+  );
+  first.unmount();
+  render(view(true));
+  expect(
+    screen
+      .getByRole("tab", { name: en.roomSchedule.individual })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(screen.getByText(en.roomSchedule.noSelection)).toBeTruthy();
+});
+it("recalls validated detail filters without storing pairing or unavailable-reason evidence", () => {
+  const view = () => (
+    <SessionViewProvider
+      identity="head-account"
+      pathname="/admin/pairings"
+      verified
+    >
+      <NextIntlClientProvider locale="en" messages={en}>
+        <RoomGrid
+          rooms={rooms}
+          slots={slots}
+          pairings={pairings}
+          blocks={[]}
+          viewScope="term-a"
+        />
+      </NextIntlClientProvider>
+    </SessionViewProvider>
+  );
+  const first = render(view());
+  fireEvent.click(
+    screen.getByRole("button", { name: en.roomSchedule.allDetails }),
+  );
+  const dialog = screen.getByRole("dialog");
+  fireEvent.change(within(dialog).getByLabelText(en.roomSchedule.day), {
+    target: { value: "1" },
+  });
+  fireEvent.change(within(dialog).getByLabelText(en.roomSchedule.room), {
+    target: { value: "room" },
+  });
+  first.unmount();
+  render(view());
+  fireEvent.click(
+    screen.getByRole("button", { name: en.roomSchedule.allDetails }),
+  );
+  expect(
+    within(screen.getByRole("dialog")).getByLabelText<HTMLSelectElement>(
+      en.roomSchedule.day,
+    ).value,
+  ).toBe("1");
+  expect(
+    within(screen.getByRole("dialog")).getByLabelText<HTMLSelectElement>(
+      en.roomSchedule.room,
+    ).value,
+  ).toBe("room");
+  const saved = Object.keys(sessionStorage)
+    .map((key) => sessionStorage.getItem(key))
+    .join(" ");
+  expect(saved).not.toContain("Recorded Tutor");
+  expect(saved).not.toContain("Math");
+});
+it("does not append an empty outside-catalog separator to a matched recorded schedule", () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <RoomGrid
+        rooms={rooms}
+        slots={slots}
+        blocks={[]}
+        pairings={[
+          {
+            ...pairings[0]!,
+            scheduleConfirmed: true,
+            dayOfWeek: 1,
+            startMin: 930,
+            endMin: 990,
+          },
+        ]}
+      />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: en.roomSchedule.allDetails }),
+  );
+  const detail = within(screen.getByRole("dialog")).getByText(
+    /101 · Mon 15:30–16:30/,
+  );
+  expect(detail.textContent?.trim()).toBe("101 · Mon 15:30–16:30");
+});
 it("uses an account username or localized unlinked-name fallback in active detail rows", () => {
   render(
     <NextIntlClientProvider locale="en" messages={en}>

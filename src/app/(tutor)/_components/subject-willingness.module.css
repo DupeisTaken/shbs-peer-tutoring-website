@@ -4,9 +4,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 24px;
-  border-inline-start: 3px solid var(--accent-600);
+  gap: 16px;
 }
 .editor {
   color: #334155;
@@ -171,7 +169,6 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 16px;
-    padding: 20px;
   }
   .intro {
     grid-template-columns: 1fr;

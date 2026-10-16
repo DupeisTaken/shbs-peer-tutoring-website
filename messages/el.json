@@ -183,7 +183,7 @@
       "UNRESTRICT": "Access restored"
     },
     "rolePermissions": "Permissions by Role",
-    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "permissionHelp": "Οι επιλεγμένες ομάδες μπορούν να λαμβάνουν μηνύματα. Η ατομική ρύθμιση αντικαθιστά την πολιτική ρόλου· χωρίς ομάδες δεν επιτρέπονται νέες αποστολές. Όλοι οι διαθέσιμοι λογαριασμοί εξαιρούν τον δικό σας, τους ανεσταλμένους και όσους έχουν περιορισμό μηνυμάτων. Οι προηγούμενες σχέσεις με εκπαιδευτές βασίζονται σε διατηρημένες αναθέσεις ή παρουσίες· μη καταγεγραμμένες αναθέσεις δεν μπορούν να ανακτηθούν.",
     "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
@@ -418,8 +418,9 @@
       "help": "Επιλέξτε την προεπιλεγμένη χρονοθυρίδα για κάθε αντιστοίχιση (εξακολουθείτε να εισάγετε πραγματικούς χρόνους κατά την υποβολή παρουσίας)."
     },
     "availability": {
-      "title": "Η διαθεσιμότητά μου",
-      "help": "Σημειώστε τις χρονοθυρίδες που μπορείτε να διδάξετε. Βοηθούν τους συντονιστές να σας προγραμματίσουν."
+      "title": "Οι διαθέσιμες ώρες μου",
+      "help": "Σημειώστε τις χρονοθυρίδες που μπορείτε να διδάξετε. Βοηθούν τους συντονιστές να σας προγραμματίσουν.",
+      "edit": "Επεξεργασία των διαθέσιμων ωρών μου"
     },
     "attendance": {
       "title": "Υποβολή παρουσίας",
@@ -597,7 +598,7 @@
         "activity": "Δραστηριότητα & Αιτήματα",
         "history": "Ιστορικό προγράμματος",
         "announcements": "Ανακοινώσεις",
-        "program": "Πρόγραμμα & Ανανέωση",
+        "program": "Ρυθμίσεις προγράμματος",
         "tutorRoster": "Κατάλογος βοηθών",
         "tutorApplications": "Αιτήσεις βοηθών",
         "tutorRequests": "Αιτήματα κατάστασης βοηθού",
@@ -788,7 +789,7 @@
     },
     "program": {
       "title": "Ρυθμίσεις προγράμματος",
-      "subtitle": "Η τρέχουσα περίοδος και η τριμηνιαία ανανέωση που μεταβαίνει το πρόγραμμα.",
+      "subtitle": "Εγγραφές, ρυθμίσεις λογαριασμών, ανάπτυξη και προαιρετικές λειτουργίες.",
       "loading": "Φόρτωση…",
       "noPeriod": "Δεν υπάρχει ενεργή περίοδος προγράμματος. Εκτελέστε τη διαδικασία αρχικοποίησης ή δημιουργήστε μία πρώτα.",
       "currentPeriod": "Τρέχουσα περίοδος",
@@ -1929,7 +1930,7 @@
       "title": "Προσεχείς συναντήσεις",
       "help": "Δεν μπορείτε να παρευρεθείτε; Δικαιολογήστε την απουσία σας έως 30 λεπτά πριν την έναρξη.",
       "excuseBtn": "Δικαιολόγηση απουσίας",
-      "submitExcuse": "Υποβολή",
+      "submitExcuse": "Υποβολή δικαιολόγησης απουσίας",
       "cancelExcuse": "Ακύρωση",
       "reasonPlaceholder": "Λόγος (προαιρετικό)",
       "excused": "Έχετε δικαιολογήσει αυτήν την απουσία.",
@@ -1979,7 +1980,7 @@
         "UNEXCUSED_ABSENT": "Αδικαιολόγητη απουσία"
       },
       "reasonRequired": "Αιτία (απαιτείται)",
-      "ratings": "Αξιολογήσεις *",
+      "ratings": "Αυτοαξιολόγηση",
       "rating": {
         "ratingPreparedness": "Προετοιμασία",
         "ratingParticipation": "Συμμετοχή",
@@ -2035,7 +2036,8 @@
       "removalHelp": "Ζήτησε ο μαθητής να αποχωρήσει; Διαβιβάστε το. Υπάρχει 7ήμερο όπου εσείς (ή ένας διαχειριστής) μπορείτε να το ανακαλέσετε· μετά είναι αυτόματο.",
       "removalReasonPlaceholder": "Λόγος (προαιρετικό)",
       "removalSubmit": "Διαβίβαση",
-      "removalCancel": "Άκυρο"
+      "removalCancel": "Άκυρο",
+      "availabilityMissing": "Δεν έχουν καταγραφεί διαθέσιμες ώρες."
     },
     "availability": {
       "loading": "Φόρτωση χρονοθυρίδων…",
@@ -2856,7 +2858,7 @@
     "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
-    "scheduleReject": "Apply to reject: schedule conflict",
+    "scheduleReject": "Αίτηση απόρριψης λόγω σύγκρουσης ωραρίου",
     "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
@@ -2891,6 +2893,7 @@
     "sourceHelp": "Η πηγή περιγράφει πώς καταχωρίστηκε η εγγραφή. Δεν αλλάζει την έγκριση, την προτεραιότητα ή τους κανόνες συμμετοχής. Η παλαιότερη εγγραφή έχει μη επιβεβαιωμένη αρχική πηγή.",
     "boardGuide": "Πώς ομαδοποιούνται τα αιτήματα",
     "sourceGuide": "Πηγές εγγραφής και σύνδεση λογαριασμών",
+    "policyRefresh": "Ανανέωση",
     "emailStatus": "Email: {status}"
   },
   "approvals": {
@@ -4608,11 +4611,13 @@
     "saving": "Αποθήκευση…",
     "saved": "Η ανακοίνωση αποθηκεύτηκε.",
     "saveFailed": "Δεν ήταν δυνατή η αποθήκευση της ανακοίνωσης.",
-    "refreshFailed": "Η ανακοίνωση αποθηκεύτηκε, αλλά η τελευταία λίστα δεν φορτώθηκε. Ανανεώστε για συγχρονισμό χωρίς νέα αποθήκευση."
+    "refreshFailed": "Η ανακοίνωση αποθηκεύτηκε, αλλά η τελευταία λίστα δεν φορτώθηκε. Ανανεώστε για συγχρονισμό χωρίς νέα αποθήκευση.",
+    "details": "Προβολή λεπτομερειών"
   },
   "roomOrder": {
     "title": "Σειρά εμφάνισης αιθουσών",
-    "help": "Τακτοποιήστε τις αίθουσες στις λίστες και στα προγράμματα. Η σειρά ελέγχων της ομάδας διαχειρίζεται ξεχωριστά.",
+    "help": "Χρησιμοποιήστε τα βέλη για να ετοιμάσετε τη σειρά και αποθηκεύστε ή ζητήστε την πλήρη σειρά παρακάτω. Η σειρά ελέγχων της ομάδας διαχειρίζεται ξεχωριστά.",
+    "catalogChanged": "Η λίστα αιθουσών άλλαξε. Φορτώστε ξανά τη σειρά πριν από άλλες αλλαγές· το πρόχειρό σας διατηρήθηκε.",
     "room": "Αίθουσα",
     "actions": "Ενέργειες",
     "up": "Προς τα πάνω",
@@ -4626,7 +4631,8 @@
     "refresh": "Ανανέωση",
     "loadFailed": "Δεν ήταν δυνατή η φόρτωση της τελευταίας σειράς αιθουσών. Το προσχέδιό σας διατηρήθηκε.",
     "refreshFailed": "Η σειρά αποθηκεύτηκε, αλλά ο συγχρονισμός απέτυχε. Η ανανέωση διαβάζει την αποθηκευμένη σειρά χωρίς νέα υποβολή.",
-    "request": "Αίτημα αλλαγής της σειράς αιθουσών"
+    "request": "Αίτημα αλλαγής της σειράς αιθουσών",
+    "open": "Αναδιάταξη αιθουσών"
   },
   "roomSchedule": {
     "rooms": "Αίθουσες για εμφάνιση",
@@ -4635,7 +4641,7 @@
     "allDetails": "Στοιχεία προγράμματος",
     "occupied": "Κατειλημμένη",
     "noSlot": "—",
-    "legend": "Γκρι = κατειλημμένη · × = μη διαθέσιμη · Διαθέσιμη = χωρίς ανάθεση σε δημοσιευμένη χρονική ζώνη. Τα στοιχεία περιλαμβάνουν όλες τις εγγραφές στις οποίες έχετε πρόσβαση.",
+    "legend": "Γκρι = κατειλημμένο · × = μη διαθέσιμο · Διαθέσιμο = χωρίς ανάθεση σε δημοσιευμένη ώρα.",
     "combined": "Συνδυαστικός πίνακας",
     "individual": "Πρόγραμμα ανά αίθουσα",
     "noSelection": "Δεν επιλέχθηκαν αίθουσες. Επιλέξτε αίθουσες ή Όλες οι αίθουσες.",
@@ -4667,7 +4673,8 @@
     "save": "Αποθήκευση απαιτήσεων",
     "saving": "Αποθήκευση…",
     "saved": "Οι απαιτήσεις ονόματος αποθηκεύτηκαν.",
-    "refreshFailed": "Οι απαιτήσεις αποθηκεύτηκαν, αλλά ο συγχρονισμός απέτυχε. Η ανανέωση διαβάζει τους αποθηκευμένους κανόνες χωρίς νέα αποθήκευση."
+    "refreshFailed": "Οι απαιτήσεις αποθηκεύτηκαν, αλλά ο συγχρονισμός απέτυχε. Η ανανέωση διαβάζει τους αποθηκευμένους κανόνες χωρίς νέα αποθήκευση.",
+    "hiddenProfileHelp": "Εδώ εμφανίζεται το όνομα χρήστη σας. Τα αποθηκευμένα ονόματα διατηρούνται και είναι ορατά στο εξουσιοδοτημένο προσωπικό."
   },
   "participantNames": {
     "unnamed": "Δεν δόθηκε όνομα"

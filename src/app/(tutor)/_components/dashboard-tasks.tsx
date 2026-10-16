@@ -145,19 +145,7 @@ export function DashboardTasks({
         ]
       : []),
   ];
-  const navigation = [
-    { id: "tutor-pairings", label: pairingsText("title") },
-    ...(active && interviewsEnabled
-      ? [{ id: "tutor-interviews", label: t("interviewSection") }]
-      : []),
-    ...(active && meetingsEnabled
-      ? [{ id: "tutor-meetings", label: t("meetingSection") }]
-      : []),
-    { id: "qualification-requests", label: t("qualificationSection") },
-    { id: "tutor-preferences", label: t("preferences") },
-    { id: "room-schedule", label: t("roomSchedule") },
-  ];
-  // Native anchors keep history/modifier behavior; both groups share measured-header reveal.
+  // Native anchors keep history/modifier behavior; actionable tasks retain measured-header reveal.
   const anchor = (id: string, label: string) => (
     <a
       className="link inline-flex min-h-11 items-center lg:min-h-8"
@@ -234,14 +222,6 @@ export function DashboardTasks({
           queries.every(
             (query) => query.data !== undefined && !query.error,
           ) && <p className="muted text-sm">{t("emptyTasks")}</p>}
-      </nav>
-      <nav
-        aria-label={t("navigation")}
-        className="flex flex-wrap gap-x-4 border-t border-slate-100 pt-2"
-      >
-        {navigation.map(({ id, label }) => (
-          <span key={id}>{anchor(id, label)}</span>
-        ))}
       </nav>
       {active && (
         <div className="border-t border-slate-100 pt-3">

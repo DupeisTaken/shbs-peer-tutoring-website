@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { useSessionAccessDenied, useSessionPageScroll } from "~/app/_components/session-view-state";
 import { BarList, type BarItem } from "~/app/_components/charts";
 
 /**
@@ -217,7 +218,12 @@ export default function ActivityPage() {
     (elevated && activitySummary.error != null) ||
     requiredQueries.some((q) => q.error != null);
   const dataReady = !loading && !dataIncomplete;
+  const ownedQueries = [me, featuresQuery, ...requiredQueries, ...(elevated ? [activitySummary] : [])];
+  const denied = useSessionAccessDenied(...ownedQueries);
+  useSessionPageScroll({ id: "activity", scope: JSON.stringify([elevated, !!features?.DISCIPLINE, !!features?.CREW]),
+    ready: ownedQueries.every((query) => query.data !== undefined), enabled: !denied });
 
+  if (denied) return <p role="alert">{t("uiPatterns.loadFailed")}</p>;
   return (
     <div className="space-y-6">
       <div>

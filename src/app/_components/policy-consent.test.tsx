@@ -194,7 +194,9 @@ it("shows refresh failures without stale content and retries in the same popup",
     en.workflow.policyLoadError,
   );
   expect(screen.queryByText("English policy.")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: en.workflow.retry }));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.workflow.policyRefresh }),
+  );
   expect(mocks.refetch).toHaveBeenCalledTimes(2);
   query = { ...query, error: null };
   view.rerender(subject());

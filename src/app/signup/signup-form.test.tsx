@@ -18,13 +18,14 @@ import { resolveBranding } from "~/lib/branding-config";
 import { signupSettings } from "~/lib/signup-fields";
 import { SignupForm } from "./signup-form";
 const mocks = vi.hoisted(() => ({
+  locale: "en",
   options: vi.fn(),
   policy: vi.fn(),
   retry: vi.fn(),
   mutate: vi.fn(),
 }));
 vi.mock("next-intl", () => ({
-  useLocale: () => "en",
+  useLocale: () => mocks.locale,
   useTimeZone: () => "Asia/Shanghai",
   useTranslations: () => (key: string) => key,
 }));
@@ -79,6 +80,7 @@ vi.mock("~/app/_components/policy-agreement", () => ({
 vi.mock("./signin-access", () => ({ SigninAccess: () => null }));
 vi.mock("./survey-resend", () => ({ SurveyResend: () => null }));
 beforeEach(() => {
+  mocks.locale = "en";
   vi.clearAllMocks();
   mocks.options.mockReturnValue({
     isFetchedAfterMount: true,
@@ -102,6 +104,17 @@ it("keeps a loading request from pretending no time slots exist", () => {
   render(<SignupForm />);
   expect(screen.getByRole("status").textContent).toContain("loading");
   expect(screen.queryByRole("textbox")).toBeNull();
+});
+it("formats availability weekdays in the active locale while retaining numeric slot selection", () => {
+  mocks.locale = "zh";
+  render(<SignupForm />);
+  expect(screen.getByText("周一")).toBeTruthy();
+  const slot = screen.getByRole<HTMLInputElement>("checkbox", {
+    name: /15:00–16:00/,
+  });
+  fireEvent.click(slot);
+  expect(slot.checked).toBe(true);
+  expect(mocks.mutate).not.toHaveBeenCalled();
 });
 it("offers retry when prerequisites fail", () => {
   mocks.policy.mockReturnValue({ isError: true, refetch: mocks.retry });

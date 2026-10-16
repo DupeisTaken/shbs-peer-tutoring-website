@@ -183,7 +183,7 @@
       "UNRESTRICT": "Access restored"
     },
     "rolePermissions": "Permissions by Role",
-    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "permissionHelp": "Ausgewählte Gruppen können Nachrichten erhalten. Eine Benutzer-Ausnahme ersetzt die Rollenrichtlinie; ohne Gruppen sind keine neuen Nachrichten möglich. Alle verfügbaren Konten schließt das eigene Konto, gesperrte Konten und Konten mit Nachrichteneinschränkungen aus. Frühere Betreuungsverhältnisse basieren auf gespeicherten Zuordnungen oder Anwesenheiten; nicht erfasste alte Zuordnungen lassen sich nicht rekonstruieren.",
     "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
@@ -418,8 +418,9 @@
       "help": "Standardzeit für jede Zuordnung festlegen (die tatsächlichen Sitzungszeiten werden beim Einreichen der Anwesenheit angegeben)."
     },
     "availability": {
-      "title": "Meine Verfügbarkeit",
-      "help": "Zeitfenster markieren, in denen Sie unterrichten können. Das hilft Koordinatoren bei der Planung."
+      "title": "Meine verfügbaren Zeiten",
+      "help": "Zeitfenster markieren, in denen Sie unterrichten können. Das hilft Koordinatoren bei der Planung.",
+      "edit": "Meine verfügbaren Zeiten bearbeiten"
     },
     "attendance": {
       "title": "Anwesenheit einreichen",
@@ -597,7 +598,7 @@
         "activity": "Aktivität & Anfragen",
         "history": "Programmgeschichte",
         "announcements": "Ankündigungen",
-        "program": "Programm & Aktualisierung",
+        "program": "Programmeinstellungen",
         "tutorRoster": "Tutor-Liste",
         "tutorApplications": "Tutor-Bewerbungen",
         "tutorRequests": "Tutor-Statusanträge",
@@ -788,7 +789,7 @@
     },
     "program": {
       "title": "Programmeinstellungen",
-      "subtitle": "Der aktuelle Zeitraum und die quartalsweise Aktualisierung, die das Programm fortschreibt.",
+      "subtitle": "Anmeldungen, Kontoeinstellungen, Bereitstellung und optionale Funktionen.",
       "loading": "Wird geladen…",
       "noPeriod": "Kein aktiver Programmzeitraum. Zuerst einen anlegen oder Seed ausführen.",
       "currentPeriod": "Aktueller Zeitraum",
@@ -1929,7 +1930,7 @@
       "title": "Anstehende Sitzungen",
       "help": "Sie können nicht teilnehmen? Entschuldigen Sie Ihre Abwesenheit bis 30 Minuten vor Beginn.",
       "excuseBtn": "Abwesenheit entschuldigen",
-      "submitExcuse": "Senden",
+      "submitExcuse": "Abwesenheitsentschuldigung einreichen",
       "cancelExcuse": "Entschuldigung zurücknehmen",
       "reasonPlaceholder": "Grund (optional)",
       "excused": "Sie haben diese Abwesenheit entschuldigt.",
@@ -1979,7 +1980,7 @@
         "UNEXCUSED_ABSENT": "Unentschuldigt abwesend"
       },
       "reasonRequired": "Grund (erforderlich)",
-      "ratings": "Bewertungen *",
+      "ratings": "Selbsteinschätzung",
       "rating": {
         "ratingPreparedness": "Vorbereitung",
         "ratingParticipation": "Mitarbeit",
@@ -2035,7 +2036,8 @@
       "removalHelp": "Möchte der Tutee aufhören? Übermitteln Sie die Abmeldung. 7 Tage lang können Sie (oder ein Admin) sie widerrufen; danach erfolgt sie automatisch.",
       "removalReasonPlaceholder": "Grund (optional)",
       "removalSubmit": "Übermitteln",
-      "removalCancel": "Abbrechen"
+      "removalCancel": "Abbrechen",
+      "availabilityMissing": "Es wurden noch keine verfügbaren Zeiten erfasst."
     },
     "availability": {
       "loading": "Zeitfenster werden geladen…",
@@ -2856,7 +2858,7 @@
     "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
-    "scheduleReject": "Apply to reject: schedule conflict",
+    "scheduleReject": "Ablehnung wegen eines Terminkonflikts beantragen",
     "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
@@ -2891,6 +2893,7 @@
     "sourceHelp": "Die Quelle beschreibt die Erfassung der Anmeldung. Sie ändert weder Genehmigung, Priorität noch Teilnahmeregeln. Bei früheren Anmeldungen ist die ursprüngliche Quelle unbestätigt.",
     "boardGuide": "Gruppierung der Anfragen",
     "sourceGuide": "Anmeldequellen und Zuordnung",
+    "policyRefresh": "Aktualisieren",
     "emailStatus": "E-Mail: {status}"
   },
   "approvals": {
@@ -4608,11 +4611,13 @@
     "saving": "Wird gespeichert…",
     "saved": "Hinweis gespeichert.",
     "saveFailed": "Hinweis konnte nicht gespeichert werden.",
-    "refreshFailed": "Der Hinweis wurde gespeichert, aber die aktuelle Liste konnte nicht geladen werden. Aktualisieren Sie sie, ohne erneut zu speichern."
+    "refreshFailed": "Der Hinweis wurde gespeichert, aber die aktuelle Liste konnte nicht geladen werden. Aktualisieren Sie sie, ohne erneut zu speichern.",
+    "details": "Details anzeigen"
   },
   "roomOrder": {
     "title": "Anzeigereihenfolge der Räume",
-    "help": "Ordnen Sie die Raumlisten und Stundenpläne des Programms. Die Kontrollrundgänge des Teams haben eine eigene Reihenfolge.",
+    "help": "Ordnen Sie den Entwurf mit den Raumpfeilen und speichern oder beantragen Sie unten die vollständige Reihenfolge. Die Kontrollrundgänge haben eine eigene Reihenfolge.",
+    "catalogChanged": "Die Raumliste hat sich geändert. Laden Sie die Reihenfolge vor weiteren Änderungen neu; Ihr Entwurf bleibt erhalten.",
     "room": "Raum",
     "actions": "Aktionen",
     "up": "Nach oben",
@@ -4626,7 +4631,8 @@
     "refresh": "Aktualisieren",
     "loadFailed": "Die aktuelle Raumreihenfolge konnte nicht geladen werden. Ihr Entwurf wurde beibehalten.",
     "refreshFailed": "Die Reihenfolge wurde gespeichert, aber die Synchronisierung ist fehlgeschlagen. Aktualisieren liest die gespeicherte Reihenfolge, ohne sie erneut zu senden.",
-    "request": "Änderung der Raumreihenfolge beantragen"
+    "request": "Änderung der Raumreihenfolge beantragen",
+    "open": "Räume neu ordnen"
   },
   "roomSchedule": {
     "rooms": "Anzuzeigende Räume",
@@ -4635,7 +4641,7 @@
     "allDetails": "Stundenplandetails",
     "occupied": "Belegt",
     "noSlot": "—",
-    "legend": "Grau = belegt · × = nicht verfügbar · Verfügbar = keine Zuordnung in einem veröffentlichten Zeitfenster. Die Details enthalten alle berechtigten Einträge.",
+    "legend": "Grau = belegt · × = nicht verfügbar · Verfügbar = keine Zuordnung in einem veröffentlichten Zeitfenster.",
     "combined": "Gemeinsame Übersicht",
     "individual": "Einzelne Raumpläne",
     "noSelection": "Keine Räume ausgewählt. Wählen Sie Räume oder Alle Räume.",
@@ -4667,7 +4673,8 @@
     "save": "Anforderungen speichern",
     "saving": "Wird gespeichert…",
     "saved": "Namensanforderungen gespeichert.",
-    "refreshFailed": "Die Anforderungen wurden gespeichert, aber die Synchronisierung ist fehlgeschlagen. Aktualisieren liest die gespeicherten Regeln, ohne sie erneut zu speichern."
+    "refreshFailed": "Die Anforderungen wurden gespeichert, aber die Synchronisierung ist fehlgeschlagen. Aktualisieren liest die gespeicherten Regeln, ohne sie erneut zu speichern.",
+    "hiddenProfileHelp": "Hier wird dein Benutzername angezeigt. Gespeicherte Namen bleiben erhalten und können von berechtigten Mitarbeitenden eingesehen werden."
   },
   "participantNames": {
     "unnamed": "Kein Name angegeben"

@@ -139,6 +139,38 @@ const show = (active = true) => {
 const filter = (name: string, count: number) =>
   screen.getByRole("button", { name: `${name} ${count}` });
 
+it("keeps the Request/Cancel context size while Cancel clears only the local draft", () => {
+  show();
+  const request = screen.getByRole<HTMLButtonElement>("button", {
+    name: "Request qualification",
+  });
+  const cancel = screen.getByRole<HTMLButtonElement>("button", {
+    name: "Cancel draft",
+  });
+  expect(request.classList.contains("control-standard")).toBe(true);
+  expect(cancel.classList.contains("control-standard")).toBe(true);
+  expect(request.type).toBe("submit");
+  expect(cancel.type).toBe("button");
+  fireEvent.change(screen.getByLabelText("Subject and level"), {
+    target: { value: "history" },
+  });
+  fireEvent.change(screen.getByLabelText("Explain your qualifications"), {
+    target: { value: "Unsaved qualification evidence" },
+  });
+  fireEvent.click(cancel);
+  expect(
+    screen.getByLabelText<HTMLSelectElement>("Subject and level").value,
+  ).toBe("");
+  expect(
+    screen.getByLabelText<HTMLTextAreaElement>("Explain your qualifications")
+      .value,
+  ).toBe("");
+  expect(request.disabled).toBe(true);
+  expect(mocks.submit).not.toHaveBeenCalled();
+  expect(mocks.resetSubmit).toHaveBeenCalledOnce();
+  expect(screen.getByText("Science")).toBeTruthy();
+});
+
 it("submits one chosen subject and evidence without any caller-supplied tutor identity", () => {
   show();
   const button = screen.getByRole<HTMLButtonElement>("button", {

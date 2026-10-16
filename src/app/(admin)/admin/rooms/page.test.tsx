@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   pending: false,
   loading: false,
   removed: false,
+  moreRooms: false,
   queryError: null as { message: string } | null,
   writeError: null as { message: string; data?: { approvalId: string } } | null,
   calls: [] as { operation: string; input: unknown }[],
@@ -83,6 +84,15 @@ vi.mock("~/trpc/react", () => {
                         },
                       ],
                     },
+                    ...(mocks.moreRooms
+                      ? [
+                          {
+                            id: "room-beta",
+                            name: "Library",
+                            unavailabilities: [],
+                          },
+                        ]
+                      : []),
                   ],
             isLoading: mocks.loading,
             error: mocks.queryError,
@@ -106,6 +116,7 @@ beforeEach(() => {
   mocks.pending = false;
   mocks.loading = false;
   mocks.removed = false;
+  mocks.moreRooms = false;
   mocks.queryError = null;
   mocks.writeError = null;
   mocks.calls = [];
@@ -122,6 +133,76 @@ beforeEach(() => {
       this.removeAttribute("open");
     },
   });
+});
+it.each(["HEAD", "ADMIN", "COORDINATOR", "VIEWER"])(
+  "uses server-aligned room order eligibility for %s",
+  (role) => {
+    mocks.role = role;
+    show();
+    const up = screen.queryByRole("button", {
+      name: en.roomOrder.moveUpName.replace("{name}", "Science room"),
+    });
+    expect(
+      screen.queryByRole("button", { name: en.roomOrder.open }),
+    ).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    if (role === "COORDINATOR" || role === "VIEWER") {
+      expect(up).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: en.roomOrder.request }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: en.roomOrder.save }),
+      ).toBeNull();
+    } else {
+      expect(up).toBeTruthy();
+      expect(
+        screen.getByRole("button", {
+          name: role === "HEAD" ? en.roomOrder.save : en.roomOrder.request,
+        }),
+      ).toBeTruthy();
+    }
+    expect(mocks.calls).toHaveLength(0);
+  },
+);
+
+it("moves the current RoomCard once while retaining its open blocked-period draft and focused arrow", () => {
+  mocks.role = "HEAD";
+  mocks.moreRooms = true;
+  show();
+  const science = screen.getByRole("article", { name: "Science room" });
+  fireEvent.click(
+    within(science).getByRole("button", { name: "Edit details" }),
+  );
+  fireEvent.click(
+    within(science).getByRole("button", { name: en.admin.rooms.addPeriod }),
+  );
+  const reason =
+    within(science).getByLabelText<HTMLTextAreaElement>("Reason (optional)");
+  fireEvent.change(reason, {
+    target: { value: "Keep this independent room draft" },
+  });
+  fireEvent.click(
+    within(science).getByRole("button", {
+      name: en.roomOrder.moveDownName.replace("{name}", "Science room"),
+    }),
+  );
+  expect(
+    screen
+      .getAllByRole("article")
+      .map((node) => node.getAttribute("aria-label")),
+  ).toEqual(["Library", "Science room"]);
+  expect(screen.getByRole("article", { name: "Science room" })).toBe(science);
+  expect(within(science).getByLabelText("Reason (optional)")).toBe(reason);
+  expect(reason.value).toBe("Keep this independent room draft");
+  expect(document.activeElement).toBe(
+    within(science).getByRole("button", {
+      name: en.roomOrder.moveUpName.replace("{name}", "Science room"),
+    }),
+  );
+  expect(screen.queryByRole("table")).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(mocks.calls).toHaveLength(0);
 });
 afterEach(cleanup);
 const show = () =>

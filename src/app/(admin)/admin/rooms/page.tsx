@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { hmToMin, minToHm } from "~/lib/time";
@@ -12,6 +12,11 @@ import { useActionReview } from "~/app/_components/ui/action-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { queuedApprovalId } from "~/lib/approval-outcome";
 import { RoomOrderEditor } from "~/app/_components/room-order-editor";
+import { StatePanel } from "~/app/_components/ui/patterns";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+} from "~/app/_components/session-view-state";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 
 type Block = {
@@ -68,6 +73,7 @@ function RoomCard({
   onChanged,
   onDeleted,
   review,
+  orderControls,
 }: {
   room: Room;
   readOnly: boolean;
@@ -75,6 +81,7 @@ function RoomCard({
   onChanged: () => Promise<unknown>;
   onDeleted: () => Promise<unknown>;
   review: ReturnType<typeof useActionReview>;
+  orderControls?: ReactNode;
 }) {
   const t = useTranslations("admin.rooms");
   const format = useFormatter();
@@ -149,20 +156,23 @@ function RoomCard({
               : t("noBlocks")}
           </p>
         </div>
-        <button
-          type="button"
-          className={`btn-secondary gap-2 ${control}`}
-          aria-expanded={open}
-          aria-controls={regionId}
-          onClick={() => setOpen(!open)}
-        >
-          <DisclosureIcon open={open} />
-          {open
-            ? t("hidePeriods")
-            : readOnly
-              ? t("viewPeriods")
-              : t("editDetails")}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {orderControls}
+          <button
+            type="button"
+            className={`btn-secondary gap-2 ${control}`}
+            aria-expanded={open}
+            aria-controls={regionId}
+            onClick={() => setOpen(!open)}
+          >
+            <DisclosureIcon open={open} />
+            {open
+              ? t("hidePeriods")
+              : readOnly
+                ? t("viewPeriods")
+                : t("editDetails")}
+          </button>
+        </div>
       </div>
       {open && (
         <div
@@ -471,6 +481,7 @@ function RoomCard({
 
 export default function RoomsPage() {
   const t = useTranslations("admin.rooms");
+  const recovery = useTranslations("managementRecovery");
   const viewer = useReadOnly();
   const utils = api.useUtils();
   // Deleting a room removes its card; its receipt and read recovery belong to the list.
@@ -480,6 +491,12 @@ export default function RoomsPage() {
   });
   const me = api.account.me.useQuery(undefined, {
     staleTime: REFERENCE_STALE_TIME,
+  });
+  const denied = useSessionAccessDenied(rooms, me);
+  useSessionPageScroll({
+    id: "rooms-v1",
+    ready: !!rooms.data && !!me.data,
+    enabled: !denied,
   });
   const coordinator = me.data?.role === "COORDINATOR";
   const readOnly =
@@ -504,6 +521,25 @@ export default function RoomsPage() {
           : { message: error.message, error: true },
       ),
   });
+  if (denied)
+    return (
+      <StatePanel
+        kind="denied"
+        title={recovery("denied", { section: t("title") })}
+      />
+    );
+  const renderRoom = (room: Room, orderControls?: ReactNode) => (
+    <RoomCard
+      key={room.id}
+      room={room}
+      readOnly={readOnly}
+      coordinator={coordinator}
+      review={review}
+      orderControls={orderControls}
+      onChanged={invalidate}
+      onDeleted={() => invalidateAndReport(utils.admin.rooms)}
+    />
+  );
   return (
     <div className="space-y-6">
       {!readOnly && review.dialog}
@@ -547,23 +583,6 @@ export default function RoomsPage() {
         </form>
       )}
       <Notice feedback={feedback} />
-      {rooms.data && !readOnly && (
-        <RoomOrderEditor
-          rooms={rooms.data}
-          canEdit={!rooms.error && !me.error}
-          canApply={!coordinator}
-          onRefresh={async () => {
-            const result = await rooms.refetch();
-            if (!result.isSuccess)
-              throw new Error(result.error?.message ?? t("loading"));
-            await settleRefreshes([
-              () => invalidateAndReport(utils.tutor.rooms),
-              () => invalidateAndReport(utils.tutor.schedule),
-            ]);
-            return result.data;
-          }}
-        />
-      )}
       {(rooms.isLoading || me.isLoading) && (
         <p role="status" className="muted">
           {t("loading")}
@@ -585,17 +604,29 @@ export default function RoomsPage() {
         </div>
       )}
       <div className="space-y-4">
-        {rooms.data?.map((room) => (
-          <RoomCard
-            key={room.id}
-            room={room}
-            readOnly={readOnly}
-            coordinator={coordinator}
-            review={review}
-            onChanged={invalidate}
-            onDeleted={() => invalidateAndReport(utils.admin.rooms)}
-          />
-        ))}
+        {rooms.data &&
+        !readOnly &&
+        ["HEAD", "ADMIN"].includes(me.data?.role ?? "") ? (
+          <RoomOrderEditor
+            rooms={rooms.data}
+            canEdit={!rooms.error && !me.error}
+            canApply={me.data?.role === "HEAD"}
+            onRefresh={async () => {
+              const result = await rooms.refetch();
+              if (!result.isSuccess)
+                throw new Error(result.error?.message ?? t("loading"));
+              await settleRefreshes([
+                () => invalidateAndReport(utils.tutor.rooms),
+                () => invalidateAndReport(utils.tutor.schedule),
+              ]);
+              return result.data;
+            }}
+          >
+            {renderRoom}
+          </RoomOrderEditor>
+        ) : (
+          rooms.data?.map((room) => renderRoom(room))
+        )}
       </div>
       {rooms.data?.length === 0 && (
         <p className="card p-6 text-sm text-slate-500">{t("empty")}</p>

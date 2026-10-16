@@ -11,9 +11,11 @@ import { formatWeekday, minToHm } from "~/lib/time";
 import { Button } from "~/app/_components/ui/button";
 import { StatePanel } from "~/app/_components/ui/patterns";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
+import { ParticipantName } from "~/app/_components/participant-name";
 
 type Request = RouterOutputs["studentWorkflow"]["mine"][number];
-export function StudentWorkspace() {
+export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
   const t = useTranslations("workflow");
   const recovery = useTranslations("participantRecovery");
   const queryClient = useQueryClient();
@@ -30,6 +32,12 @@ export function StudentWorkspace() {
   const legacyDenied =
     legacy.error?.data?.code === "FORBIDDEN" ||
     legacy.error?.data?.code === "UNAUTHORIZED";
+  useSessionPageScroll({
+    id: "student-requests-v1",
+    scope: viewScope,
+    ready: !!query.data && !!legacy.data,
+    enabled: !denied && !requestDenied && !legacyDenied,
+  });
   useEffect(() => {
     if (!requestDenied && !legacyDenied) return;
     setDenied(true);
@@ -233,8 +241,12 @@ function CurrentRequest({
           {row.pairings.length ? (
             row.pairings.map((p) => (
               <p key={p.id} className="mt-2 text-sm">
-                {p.subject} · {p.tutor.englishName} ·{" "}
-                {pairingScheduleText(p, scheduling("awaiting"), locale)}
+                {p.subject} ·{" "}
+                <ParticipantName
+                  name={p.tutor.englishName}
+                  username={p.tutor.user?.username}
+                />{" "}
+                · {pairingScheduleText(p, scheduling("awaiting"), locale)}
               </p>
             ))
           ) : (

@@ -1,14 +1,16 @@
 "use client";
+import { participantNameLabel } from "~/app/_components/participant-name";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 
-import { StudentScheduleAction } from "./student-schedule-action";
+import { PairingTuteeDetails } from "./pairing-tutee-details";
 import { useState } from "react";
-import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { formatWeekday, minToHm } from "~/lib/time";
 import { useMerge } from "~/app/(tutor)/_components/merge-context";
 import { useDialog } from "~/app/_components/confirm-dialog";
+import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 
 /**
  * The tutor's pairings, each with a control to pick the default reference time slot and to
@@ -18,13 +20,17 @@ import { useDialog } from "~/app/_components/confirm-dialog";
 export function TutorPairings({ active = true }: { active?: boolean }) {
   const t = useTranslations();
   const locale = useLocale();
-  const format = useFormatter();
   const { confirm, dialog } = useDialog();
   const utils = api.useUtils();
   const pairings = api.tutor.myPairings.useQuery();
   const workflowRoster = api.studentWorkflow.tutorRoster.useQuery();
   const availability = api.tutor.myAvailability.useQuery();
   const removalRequests = api.tutor.myTuteeRemovalRequests.useQuery();
+  const denied = useSessionAccessDenied(
+    pairings,
+    workflowRoster,
+    removalRequests,
+  );
   const setSlot = api.tutor.setPairingSlot.useMutation({
     onSuccess: async () => {
       await Promise.all([
@@ -34,33 +40,8 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
     },
   });
 
-  const refreshRemoval = () => utils.tutor.myTuteeRemovalRequests.invalidate();
-  const requestRemoval = api.tutor.requestTuteeRemoval.useMutation({
-    onSuccess: refreshRemoval,
-  });
-  const recallRemoval = api.tutor.recallTuteeRemoval.useMutation({
-    onSuccess: refreshRemoval,
-  });
-
-  // Which (pairing,tutee) the tutor is composing a removal reason for.
-  const [removing, setRemoving] = useState<{
-    pairingId: string;
-    tuteeId: string;
-  } | null>(null);
-  const [reason, setReason] = useState("");
-  // Feedback belongs to the latest attempted action, not any earlier mutation
-  // that still has a success/error result in React Query's separate caches.
-  const [lastAction, setLastAction] = useState<
-    "slot" | "request" | "recall" | null
-  >(null);
-  const feedback =
-    lastAction === "slot"
-      ? setSlot
-      : lastAction === "request"
-        ? requestRemoval
-        : lastAction === "recall"
-          ? recallRemoval
-          : null;
+  const [lastAction, setLastAction] = useState<"slot" | null>(null);
+  const feedback = lastAction === "slot" ? setSlot : null;
 
   const { primaryPairingId, mergeIds, setMergeIds, attendanceLocked } =
     useMerge();
@@ -73,6 +54,24 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
 
   if (pairings.isLoading)
     return <p className="muted">{t("tutor.pairings.loading")}</p>;
+  // An authoritative access failure must unmount cached assignment readers and drafts.
+  if (denied)
+    return (
+      <div role="alert" className="text-sm text-red-700">
+        <p>{t("tutor.tasks.loadError")}</p>
+        <button
+          type="button"
+          className="btn-secondary btn-sm"
+          onClick={() => {
+            void pairings.refetch();
+            void workflowRoster.refetch();
+            void removalRequests.refetch();
+          }}
+        >
+          {t("tutor.tasks.retry")}
+        </button>
+      </div>
+    );
   const list = pairings.data ?? [];
   if (list.length === 0 && !pairings.error) {
     return <p className="muted">{t("tutor.pairings.empty")}</p>;
@@ -132,180 +131,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                 : t("tutor.pairings.noRoom")}
             </p>
 
-            {/* Tutees on this pairing, each with a "left the program" removal request control. */}
-            <div className="mt-2">
-              {p.tutees.length === 0 ? (
-                <p className="muted text-sm">
-                  {t("tutor.pairings.noTuteesYet")}
-                </p>
-              ) : (
-                <ul className="space-y-1">
-                  {p.tutees.map((x) => {
-                    const workflowRow = workflowRoster.data?.find(
-                      (r) => r.tuteeId === x.tuteeId && r.pairingId === p.id,
-                    );
-                    const key = `${p.id}:${x.tuteeId}`;
-                    const pendingRequest = pendingByKey.get(key);
-                    const pendingId = pendingRequest?.id;
-                    const composing =
-                      removing?.pairingId === p.id &&
-                      removing?.tuteeId === x.tuteeId;
-                    return (
-                      <li key={x.tuteeId} className="text-sm">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="min-w-0 text-slate-700">
-                            {x.tutee.englishName}
-                          </span>
-                          {workflowRow && !workflowRow.managed && (
-                            <StudentScheduleAction
-                              row={workflowRow}
-                              active={active}
-                              name={x.tutee.englishName}
-                            />
-                          )}
-                          {workflowRow?.managed ? (
-                            <StudentScheduleAction
-                              row={workflowRow}
-                              active={active}
-                              name={x.tutee.englishName}
-                            />
-                          ) : pendingId ? (
-                            <>
-                              <span className="badge-amber">
-                                {t("tutor.pairings.removalPending")}
-                              </span>
-                              {pendingRequest?.eligibleAt && (
-                                <span className="text-xs text-amber-800">
-                                  {t("tutor.tasks.recallDeadline", {
-                                    date: format.dateTime(
-                                      pendingRequest.eligibleAt,
-                                      {
-                                        dateStyle: "medium",
-                                        timeStyle: "short",
-                                      },
-                                    ),
-                                  })}
-                                </span>
-                              )}
-                              {/* Recalling a pending relay remains permitted while inactive. */}
-                              <button
-                                className="link-danger inline-flex min-h-11 items-center text-xs lg:min-h-7"
-                                disabled={recallRemoval.isPending}
-                                onClick={async () => {
-                                  if (
-                                    await confirm({
-                                      title: t("tutor.pairings.removalRecall"),
-                                      message: t("tutor.tasks.recallRemoval", {
-                                        name: x.tutee.englishName,
-                                        subject: p.subject,
-                                      }),
-                                      confirmLabel: t(
-                                        "tutor.pairings.removalRecall",
-                                      ),
-                                      cancelLabel: t("common.cancel"),
-                                    })
-                                  ) {
-                                    setLastAction("recall");
-                                    recallRemoval.mutate({
-                                      requestId: pendingId,
-                                    });
-                                  }
-                                }}
-                              >
-                                {t("tutor.pairings.removalRecall")}
-                              </button>
-                            </>
-                          ) : composing ||
-                            !active ||
-                            !workflowRoster.data ||
-                            !removalRequests.data ? null : (
-                            <button
-                              className="link inline-flex min-h-11 items-center text-xs lg:min-h-7"
-                              disabled={requestRemoval.isPending}
-                              onClick={() => {
-                                setRemoving({
-                                  pairingId: p.id,
-                                  tuteeId: x.tuteeId,
-                                });
-                                setReason("");
-                                setLastAction(null);
-                              }}
-                            >
-                              {t("tutor.pairings.requestRemoval")}
-                            </button>
-                          )}
-                        </div>
-                        {composing && (
-                          <div className="mt-1 space-y-2 rounded-md border border-slate-200 bg-slate-50 p-2">
-                            <p className="muted text-xs">
-                              {t("tutor.pairings.removalHelp")}
-                            </p>
-                            <textarea
-                              value={reason}
-                              onChange={(e) => setReason(e.target.value)}
-                              placeholder={t(
-                                "tutor.pairings.removalReasonPlaceholder",
-                              )}
-                              className="textarea w-full text-sm"
-                              aria-label={t(
-                                "tutor.pairings.removalReasonPlaceholder",
-                              )}
-                              disabled={requestRemoval.isPending}
-                              rows={2}
-                            />
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                className="btn-secondary btn-sm"
-                                disabled={requestRemoval.isPending}
-                                onClick={async () => {
-                                  if (
-                                    !(await confirm({
-                                      title: t("tutor.pairings.requestRemoval"),
-                                      message: t("tutor.tasks.confirmRemoval", {
-                                        name: x.tutee.englishName,
-                                        subject: p.subject,
-                                      }),
-                                      confirmLabel: t(
-                                        "tutor.pairings.removalSubmit",
-                                      ),
-                                      cancelLabel: t("common.cancel"),
-                                    }))
-                                  )
-                                    return;
-                                  setLastAction("request");
-                                  requestRemoval.mutate(
-                                    {
-                                      pairingId: p.id,
-                                      tuteeId: x.tuteeId,
-                                      reason: reason.trim() || undefined,
-                                    },
-                                    {
-                                      onSuccess: () => {
-                                        setRemoving(null);
-                                        setReason("");
-                                      },
-                                    },
-                                  );
-                                }}
-                              >
-                                {t("tutor.pairings.removalSubmit")}
-                              </button>
-                              <button
-                                className="btn-secondary btn-sm"
-                                disabled={requestRemoval.isPending}
-                                onClick={() => setRemoving(null)}
-                              >
-                                {t("tutor.pairings.removalCancel")}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
+            {/* Default scheduling belongs before the roster/availability actions. */}
             {active && (
               <div className="mt-2 grid gap-2 sm:flex sm:flex-wrap sm:items-center">
                 <span className="text-xs font-medium text-slate-500">
@@ -356,6 +182,62 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                 )}
               </div>
             )}
+
+            {/* Keep the roster brief; each Details owner retains its own request drafts. */}
+            <div className="mt-2">
+              {p.tutees.length === 0 ? (
+                <p className="muted text-sm">
+                  {t("tutor.pairings.noTuteesYet")}
+                </p>
+              ) : (
+                <ul className="space-y-1">
+                  {p.tutees.map((x) => {
+                    const name = participantNameLabel(
+                      x.tutee.englishName,
+                      x.tutee.user?.username,
+                      t("participantNames.unnamed"),
+                    );
+                    const workflowRow = workflowRoster.data?.find(
+                      (r) => r.tuteeId === x.tuteeId && r.pairingId === p.id,
+                    );
+                    const key = `${p.id}:${x.tuteeId}`;
+                    const pendingRequest = pendingByKey.get(key);
+                    return (
+                      <li
+                        key={x.tuteeId}
+                        className="flex items-center justify-between gap-3 text-sm"
+                      >
+                        <span className="min-w-0 break-words text-slate-700">
+                          {name}
+                        </span>
+                        <PairingTuteeDetails
+                          pairingId={p.id}
+                          tuteeId={x.tuteeId}
+                          name={name}
+                          subject={p.subject}
+                          active={active}
+                          row={workflowRow}
+                          pendingRequest={pendingRequest}
+                          ready={
+                            !!workflowRoster.data && !!removalRequests.data
+                          }
+                          failed={
+                            !!pairings.error ||
+                            !!workflowRoster.error ||
+                            !!removalRequests.error
+                          }
+                          onRetry={() => {
+                            void pairings.refetch();
+                            void workflowRoster.refetch();
+                            void removalRequests.refetch();
+                          }}
+                        />
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
             {p.scheduleConfirmed && !p.timeSlotId && (
               <p className="muted mt-1 text-sm">{t("scheduling.retained")}</p>
             )}
@@ -369,11 +251,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
       )}
       {feedback?.isSuccess && (
         <p role="status" className="text-sm text-green-700">
-          {t(
-            lastAction === "request"
-              ? "tutor.tasks.removalSubmitted"
-              : "workflows.saved",
-          )}
+          {t("workflows.saved")}
         </p>
       )}
 

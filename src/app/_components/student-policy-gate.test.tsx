@@ -238,7 +238,7 @@ it.each(["slug", "revision", "locale", "body"])(
   },
 );
 
-it("preserves a review on unchanged refetch, but resets it on retry and dismissal", async () => {
+it("preserves a review on unchanged refetch, but resets read evidence and consent on footer Refresh or dismissal", async () => {
   documentHeight = 1200;
   const view = render(<StudentPolicyGate />);
   fireEvent.scroll(screen.getByRole("region"), { target: { scrollTop: 800 } });
@@ -246,7 +246,9 @@ it("preserves a review on unchanged refetch, but resets it on retry and dismissa
   mocks.status.mockReturnValue({ data: policy(), refetch: mocks.refetch });
   view.rerender(<StudentPolicyGate />);
   expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "retry" }));
+  const refresh = screen.getByRole("button", { name: "policyRefresh" });
+  expect(refresh.closest("footer")).toBeTruthy();
+  fireEvent.click(refresh);
   expect(screen.getByRole<HTMLInputElement>("checkbox").disabled).toBe(true);
   expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
   fireEvent.scroll(screen.getByRole("region"), { target: { scrollTop: 800 } });
@@ -289,7 +291,7 @@ it("requires explicit agreement and the full wait, retries failures and refreshe
   mocks.error = { message: "Temporary failure" };
   view.rerender(<StudentPolicyGate />);
   expect(screen.getByRole("alert").textContent).toBe("Temporary failure");
-  fireEvent.click(screen.getByRole("button", { name: "retry" }));
+  fireEvent.click(screen.getByRole("button", { name: "policyRefresh" }));
   expect(mocks.reset).toHaveBeenCalled();
   expect(mocks.prepare).toHaveBeenCalledTimes(2);
   expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
@@ -342,9 +344,20 @@ it("uses chosen policy locale, falls back to English and skips accepted/public p
 });
 it.each([
   "/privacy",
-  "/register", "/register-account", "/tutee", "/tutee/account",
-  "/tutee-signup", "/tutee-signup/account", "/tutor", "/tutor-signup",
-  "/viewer", "/viewer-signup", "/crew", "/crew-signup", "/signup", "/signup/account",
+  "/register",
+  "/register-account",
+  "/tutee",
+  "/tutee/account",
+  "/tutee-signup",
+  "/tutee-signup/account",
+  "/tutor",
+  "/tutor-signup",
+  "/viewer",
+  "/viewer-signup",
+  "/crew",
+  "/crew-signup",
+  "/signup",
+  "/signup/account",
   "/onboarding/email",
   "/forgot-password",
   "/reset-password",

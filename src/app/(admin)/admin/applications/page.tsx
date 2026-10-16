@@ -5,7 +5,9 @@ import { Button } from "~/app/_components/ui/button";
 import { QualificationReview } from "~/app/_components/qualification-review";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState, useSessionViewVerified } from "~/app/_components/session-view-state";
+import { viewEnum, viewFields, viewSearch } from "~/lib/session-view-state";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -213,17 +215,9 @@ function ApplicationCard({
             </span>
           </span>
         </button>
-        {/* All record actions share compact typography and target height, including
-         * invalidity controls and account-setup links supplied by other owners. */}
+        {/* Put navigation before boxed decisions in DOM/keyboard order, with Delete
+         * last. Wrapping preserves that order and each owner's existing guards. */}
         <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto">
-          {!readOnly && !additional && (
-            <ApplicationInvalidityControls
-              record={app}
-              name={displayName}
-              canFlag
-              coordinator={account?.role === "COORDINATOR"}
-            />
-          )}
           {!additional && !app.isInvalid && app.status === "ACCEPTED" && (
             <Link
               href="/admin/users"
@@ -231,6 +225,14 @@ function ApplicationCard({
             >
               {t("admin.applications.setupAccount")}
             </Link>
+          )}
+          {!readOnly && !additional && (
+            <ApplicationInvalidityControls
+              record={app}
+              name={displayName}
+              canFlag
+              coordinator={account?.role === "COORDINATOR"}
+            />
           )}
           {canDirectAccept && (
             <Button
@@ -455,6 +457,10 @@ export default function ApplicationsPage() {
   const tutors = api.admin.tutors.useQuery();
   const features = api.program.features.useQuery();
   const readOnly = useReadOnly();
+  const [interviewScene, setInterviewScene] = useState({ ready: false, scope: "", denied: false });
+  const onInterviewView = useCallback((ready: boolean, scope: string, denied: boolean) => {
+    setInterviewScene((old) => old.ready === ready && old.scope === scope && old.denied === denied ? old : { ready, scope, denied });
+  }, []);
   // Qualification decisions distinguish a committed write from failed cache
   // synchronization. Other callers retain their existing refresh behavior.
   const invalidate = (reportErrors = false) =>
@@ -465,8 +471,24 @@ export default function ApplicationsPage() {
       ),
     );
 
-  const [filters, setFilters] = useState(emptyApplicationFilters);
-  const [invalidity, setInvalidity] = useState<InvalidityFilterValue>("valid");
+  const denied = useSessionAccessDenied(apps, tutors, features);
+  const verified = useSessionViewVerified();
+  const [filters, setFilters] = useSessionViewState({
+    id: "applications.filters.v1", initialState: emptyApplicationFilters,
+    enabled: !denied, restoreReady: !!apps.data,
+    parse: viewFields({
+      search: viewSearch,
+      status: viewEnum(["", "PENDING", "INTERVIEW", "ACCEPTED", "REJECTED", "RECALLED"]),
+      type: viewEnum(["", "INITIAL", "ADDITIONAL_SUBJECT", "HIGHER_LEVEL"]),
+      subjectId: viewEnum(["", ...(apps.data ?? []).flatMap((app) => app.subjectIntents.map((intent) => intent.subjectId))]),
+    }),
+  });
+  const [invalidity, setInvalidity] = useSessionViewState<InvalidityFilterValue>({
+    id: "applications.invalidity.v1", initialState: "valid", enabled: !denied,
+    parse: viewEnum(["valid", "invalid", "all"]),
+  });
+  useSessionPageScroll({ id: "applications", scope: JSON.stringify([filters, invalidity, interviewScene.scope]),
+    ready: !!apps.data && !!tutors.data && !!features.data && (readOnly || interviewScene.ready), enabled: !denied && !interviewScene.denied });
   // History links reveal their destination even when a previous filter hid it.
   // Ordinary filtering does not otherwise change the selected criteria.
   useEffect(() => {
@@ -476,10 +498,11 @@ export default function ApplicationsPage() {
         setInvalidity("all");
       }
     };
+    if (verified && apps.data) reveal();
     window.addEventListener("hashchange", reveal);
     return () => window.removeEventListener("hashchange", reveal);
-  }, []);
-  const list = apps.data ?? [];
+  }, [verified, !!apps.data, setFilters, setInvalidity]);
+  const list = denied ? [] : (apps.data ?? []);
   const filtered = list.filter(
     (app) =>
       matchesApplicationFilters(app, filters) &&
@@ -505,6 +528,7 @@ export default function ApplicationsPage() {
     ).values(),
   ).sort((a, b) => a.label.localeCompare(b.label));
 
+  if (denied) return <p role="alert">{apps.error?.message ?? tutors.error?.message ?? features.error?.message ?? t("uiPatterns.loadFailed")}</p>;
   return (
     <RequestInvalidityHost>
       <div className="space-y-6 max-lg:[&_button]:min-h-11 max-lg:[&_select]:min-h-11">
@@ -558,6 +582,7 @@ export default function ApplicationsPage() {
             className="scroll-mt-6 border-t border-slate-200 pt-6"
           >
             <InterviewManagement
+              onViewReadyChange={onInterviewView}
               enabled={features.data.INTERVIEWS}
               onManageApplicant={() => {
                 setFilters(emptyApplicationFilters);

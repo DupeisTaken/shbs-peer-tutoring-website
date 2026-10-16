@@ -72,20 +72,25 @@ export function CurrentPolicyDialog({
           {loading ? (
             <p role="status">{t("workflows.loading")}</p>
           ) : !ready ? (
-            <div className="space-y-3">
+            <div>
               <p role="alert">{t("workflow.policyLoadError")}</p>
-              <button
-                type="button"
-                className="btn-secondary min-h-11"
-                onClick={onRetry}
-              >
-                {t("workflow.retry")}
-              </button>
             </div>
           ) : (
             <Markdown>{document.body}</Markdown>
           )}
         </div>
+        {/* Refresh is a read-only action and remains reachable beside the reader,
+            independently of its content scroll position or recovery state. */}
+        <footer className="flex shrink-0 justify-end border-t border-slate-200 px-5 py-3">
+          <button
+            type="button"
+            className="btn-secondary min-h-11 lg:min-h-10"
+            onClick={onRetry}
+            disabled={busy || loading}
+          >
+            {t("workflow.policyRefresh")}
+          </button>
+        </footer>
       </div>
     </NativeDialog>
   );

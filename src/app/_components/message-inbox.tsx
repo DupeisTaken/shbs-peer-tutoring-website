@@ -7,6 +7,11 @@ import { Pager } from "./student-portal";
 import { Button } from "./ui/button";
 import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
 import { focusVisibleContext } from "./focus-visible-context";
+import {
+  useSessionPageScroll,
+  useSessionViewState,
+} from "./session-view-state";
+import { viewPage, viewSearch } from "~/lib/session-view-state";
 
 type Contact = {
   id: string;
@@ -15,14 +20,43 @@ type Contact = {
   role: string;
 };
 type MessageDraft = { selected: Contact[]; body: string; clientKey: string };
-export function MessageInbox() {
+type InboxView = { page: number; contactPage: number; search: string };
+function parseInboxView(value: unknown): InboxView | undefined {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !("page" in value) ||
+    !("contactPage" in value) ||
+    !("search" in value)
+  )
+    return;
+  const page = viewPage(value.page),
+    contactPage = viewPage(value.contactPage),
+    search = viewSearch(value.search);
+  return page === undefined || contactPage === undefined || search === undefined
+    ? undefined
+    : { page, contactPage, search };
+}
+export function MessageInbox({ viewScope = "" }: { viewScope?: string }) {
   const format = useFormatter();
   const t = useTranslations("workflows");
   const m = useTranslations("messaging");
   const roleLabel = useTranslations("admin.users.roles");
-  const [page, setPage] = useState(0);
-  const [contactPage, setContactPage] = useState(0);
-  const [search, setSearch] = useState("");
+  const [viewDenied, setViewDenied] = useState(false);
+  // Only the visible list/search choices persist; recipients, body, reply drafts
+  // and accepted-operation keys keep their existing private mounted lifetime.
+  const [view, setView] = useSessionViewState<InboxView>({
+    id: "message-lists-v1",
+    scope: viewScope,
+    initialState: { page: 0, contactPage: 0, search: "" },
+    parse: parseInboxView,
+    enabled: !viewDenied,
+  });
+  const { page, contactPage, search } = view;
+  const setPage = (page: number) =>
+    setView((current) => ({ ...current, page }));
+  const setContactPage = (contactPage: number) =>
+    setView((current) => ({ ...current, contactPage }));
   // Store selected identities independently of the current search/page result.
   const [selected, setSelected] = useState<Contact[]>([]);
   const [body, setBody] = useState("");
@@ -57,6 +91,21 @@ export function MessageInbox() {
     { page },
     { refetchInterval: 30000, refetchIntervalInBackground: false },
   );
+  const readDenied = [contacts, inbox].some(
+    (query) =>
+      query.error?.data?.code === "FORBIDDEN" ||
+      query.error?.data?.code === "UNAUTHORIZED",
+  );
+  useEffect(() => {
+    if (readDenied) setViewDenied(true);
+    else if (contacts.data && inbox.data) setViewDenied(false);
+  }, [readDenied, contacts.data, inbox.data]);
+  useSessionPageScroll({
+    id: "message-inbox-v1",
+    scope: `${viewScope}:${page}:${contactPage}:${search}`,
+    ready: !!contacts.data && !!inbox.data,
+    enabled: !viewDenied && !readDenied,
+  });
   const send = api.messaging.send.useMutation({
     onSuccess: async () => {
       if (replyTo) replyDrafts.current.delete(replyTo.id);
@@ -193,8 +242,12 @@ export function MessageInbox() {
                 maxLength={100}
                 aria-describedby="allowed-contacts"
                 onChange={(e) => {
-                  setSearch(e.target.value);
-                  setContactPage(0);
+                  const search = e.target.value;
+                  setView((current) => ({
+                    ...current,
+                    search,
+                    contactPage: 0,
+                  }));
                 }}
               />
             </label>

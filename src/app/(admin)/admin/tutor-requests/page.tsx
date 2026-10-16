@@ -1,4 +1,5 @@
 "use client";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import {
   ParticipantName,
   participantNameLabel,
@@ -44,6 +45,11 @@ export default function TutorRequestsPage() {
   }, [accessDenied, requests.isSuccess, requests.isFetching, queryClient]);
   const readBlocked = requests.data === undefined || !!requests.error;
   const section = t("admin.tutorRequests.title");
+  useSessionPageScroll({
+    id: "tutor-requests-v1",
+    ready: requests.data !== undefined && !denied && !accessDenied,
+    enabled: !denied && !accessDenied,
+  });
   const retry = () => {
     void requests.refetch();
   };

@@ -352,7 +352,12 @@ it("translates the recipe compositions and keeps policy reading separate from co
     "overflow-y-auto",
   );
   expect(within(reader).queryByRole("checkbox")).toBeNull();
-  expect(within(reader).getAllByRole("button")).toHaveLength(1);
+  expect(within(reader).getAllByRole("button")).toHaveLength(2);
+  expect(
+    within(reader)
+      .getByRole("button", { name: zh.workflow.policyRefresh })
+      .closest("footer"),
+  ).toBeTruthy();
 });
 
 it("uses links for destinations and focuses a wizard heading after a deliberate step", () => {

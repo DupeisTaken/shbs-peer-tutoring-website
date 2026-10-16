@@ -1,4 +1,5 @@
 "use client";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import {
   ParticipantName,
   participantNameLabel,
@@ -222,6 +223,11 @@ export default function CardsPage() {
     } else if (cards.isSuccess && !cards.isFetching) setDenied(false);
   }, [accessDenied, cards.isSuccess, cards.isFetching, queryClient]);
   const section = t("admin.cards.title");
+  useSessionPageScroll({
+    id: "discipline-v1",
+    ready: cards.data !== undefined && !denied && !accessDenied,
+    enabled: !denied && !accessDenied,
+  });
   const retry = () => {
     void cards.refetch();
   };

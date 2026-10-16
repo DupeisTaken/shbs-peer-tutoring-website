@@ -13,6 +13,8 @@ import { FilterToolbar, InlineNotice } from "./ui/patterns";
 import { ProfileDialog } from "./profile-dialog";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
+import { useSessionPageScroll, useSessionViewState } from "./session-view-state";
+import { viewEnum, viewSearch } from "~/lib/session-view-state";
 import { participantNameLabel } from "./participant-name";
 
 export function SubjectAvailability() {
@@ -76,13 +78,27 @@ export function SubjectAvailability() {
       admitted.current = false;
     },
   });
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("ALL");
+  const viewEnabled = !denied && !authorizationDenied;
+  const [search, setSearch] = useSessionViewState({ id: "subject-availability.search.v1", initialState: "", parse: viewSearch, enabled: viewEnabled });
+  const [filter, setFilter] = useSessionViewState({ id: "subject-availability.filter.v1", initialState: "ALL", parse: viewEnum(["ALL", "QUALIFIED", "WILLING", "AVAILABLE"]), enabled: viewEnabled });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // Each expanded tutor owns one toggle filter; selecting it again restores all rows.
-  const [tutorFilters, setTutorFilters] = useState<
-    Record<string, string | null>
-  >({});
+  const [tutorFilters, setTutorFilters] = useSessionViewState<Record<string, string | null>>({
+    id: "subject-availability.tutor-filters.v1", initialState: {}, enabled: viewEnabled,
+    restoreReady: !!data.data,
+    parse: (value) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return;
+      const ids = new Set((data.data?.tutors ?? []).map((tutor) => tutor.id));
+      // Bound recent per-tutor choices; removed tutors cannot reappear from storage.
+      const result: Record<string, string | null> = {};
+      for (const [id, candidate] of Object.entries(value).slice(-20)) {
+        const choice: unknown = candidate;
+        if (ids.has(id) && (choice === null || typeof choice === "string" && ["qualified", "pendingReview", "willing"].includes(choice))) result[id] = choice;
+      }
+      return result;
+    },
+  });
+  useSessionPageScroll({ id: "subject-availability", scope: JSON.stringify([search, filter, tutorFilters]), ready: !!data.data, enabled: viewEnabled });
   const toggle = (id: string) =>
     setExpanded((previous) => {
       const next = new Set(previous);
@@ -180,7 +196,7 @@ export function SubjectAvailability() {
           <select
             className="select w-full"
             value={filter}
-            onChange={(event) => setFilter(event.target.value)}
+            onChange={(event) => setFilter(event.target.value as typeof filter)}
           >
             <option value="ALL">{t("all")}</option>
             <option value="QUALIFIED">{t("qualified")}</option>

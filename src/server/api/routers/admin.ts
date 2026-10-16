@@ -379,6 +379,7 @@ export const adminRouter = createTRPCRouter({
         .map((row) => ({
           id: row.id,
           name: row.name,
+          username: row.username,
           submittedAt: row.submittedAt,
           stage:
             row.confirmedAt == null

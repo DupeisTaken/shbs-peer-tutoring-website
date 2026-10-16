@@ -21,7 +21,16 @@ beforeAll(async () => {
   stylesheet.walkAtRules("theme", (rule) => {
     fragments.push(rule.toString());
   });
-  for (const selector of [".table-action-list", ".table-action-link"]) {
+  stylesheet.walkAtRules("utility", (rule) => {
+    if (rule.params === "btn") fragments.push(rule.toString());
+  });
+  for (const selector of [
+    ".table-action-list",
+    ".table-action-link",
+    ".table-action-danger",
+    ".link-danger",
+    ".btn-danger",
+  ]) {
     let matches = 0;
     stylesheet.walkRules(selector, (rule) => {
       fragments.push(rule.toString());
@@ -95,5 +104,84 @@ describe("shared table action spacing", () => {
     ]) {
       expect(declarations(".table-action-link", property)).toHaveLength(0);
     }
+  });
+});
+
+describe("destructive action presentation", () => {
+  it.each([".table-action-link", ".table-action-danger", ".link-danger"])(
+    "keeps %s unboxed even in its compiled hover/focus states",
+    (selector) => {
+      // Inspect all nested states from the shipped rules, rather than checking
+      // a class string that could still compile into a boxed hover treatment.
+      output.walkRules(selector, (rule) => {
+        rule.walkDecls((declaration) => {
+          // Rounded focus rings do not paint a border or a button surface.
+          const paintsBox =
+            declaration.prop.startsWith("background") ||
+            (declaration.prop.startsWith("border") &&
+              !declaration.prop.endsWith("radius"));
+          expect(paintsBox).toBe(false);
+        });
+      });
+    },
+  );
+
+  it.each([".table-action-danger", ".link-danger", ".btn-danger"])(
+    "makes %s red before interaction without relying on the accent theme",
+    (selector) => {
+      const restColors: string[] = [];
+      output.walkRules(selector, (rule) => {
+        for (const node of rule.nodes) {
+          if (node.type === "decl" && node.prop === "color") {
+            restColors.push(node.value);
+          }
+        }
+      });
+      expect(restColors).toEqual(["var(--color-red-700)"]);
+    },
+  );
+
+  it.each([false, true])(
+    "keeps composed table actions unboxed with a distinct keyboard underline (danger: %s)",
+    (danger) => {
+      const focus = new Map<string, string>();
+      // TableAction composes the base rule and then its optional danger variant.
+      // Check their real compiled states: a ring can paint a rectangle even with border: 0.
+      for (const selector of [
+        ".table-action-link",
+        ...(danger ? [".table-action-danger"] : []),
+      ]) {
+        output.walkRules(selector, (rule) => {
+          rule.walkDecls((declaration) => {
+            expect(declaration.prop).not.toBe("box-shadow");
+            expect(declaration.prop.startsWith("--tw-ring-")).toBe(false);
+            for (
+              let parent: AnyNode | undefined = declaration.parent;
+              parent && parent !== rule;
+              parent = parent.parent
+            ) {
+              if (
+                parent.type === "rule" &&
+                parent.selector === "&:focus-visible"
+              ) {
+                focus.set(declaration.prop, declaration.value);
+              }
+            }
+          });
+        });
+      }
+      expect(focus.get("text-decoration-line")).toBe("underline");
+      expect(focus.get("text-decoration-thickness")).toBe("3px");
+      expect(focus.get("text-underline-offset")).toBe("4px");
+      expect(focus.get("outline-style")).toBe("none");
+    },
+  );
+
+  it("retains standalone keyboard focus, disabled feedback and boxed-button boundaries", () => {
+    expect(declarations(".link-danger", "--tw-ring-color")).not.toHaveLength(0);
+    expect(declarations(".table-action-link", "opacity")).not.toHaveLength(0);
+    expect(declarations(".link-danger", "opacity")).not.toHaveLength(0);
+    expect(declarations(".btn-danger", "border-style")).not.toHaveLength(0);
+    expect(declarations(".btn-danger", "background-color")).not.toHaveLength(0);
   });
 });

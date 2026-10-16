@@ -1,5 +1,8 @@
 "use client";
-import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
+import {
+  ConfiguredPersonNameFields as PersonNameFields,
+  useNameFieldPresentation,
+} from "~/app/_components/person-name-fields";
 import {
   nameDraft,
   personNameEdit,
@@ -94,7 +97,11 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
 
   // Name form — seeded from the loaded account.
   const [names, setNames] = useState(() => nameDraft());
-  const [namePolicyReady, setNamePolicyReady] = useState(false);
+  const {
+    ready: namePolicyReady,
+    hasFields: editableNames,
+    observe: observeNamePolicy,
+  } = useNameFieldPresentation();
   const [originalNames, setOriginalNames] = useState(() => nameDraft());
   const [legacyName, setLegacyName] = useState<string | null | undefined>();
   const identity = personNameEdit(names, originalNames, legacyName);
@@ -363,6 +370,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
                     nameBusy ||
                     nameSubmitting.current ||
                     !namePolicyReady ||
+                    !editableNames ||
                     !me.data
                   )
                     return;
@@ -382,26 +390,28 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
                   busy={nameBusy}
                   disabled={nameBusy}
                   actions={
-                    <>
-                      <Button
-                        type="submit"
-                        variant="primary"
-                        disabled={!me.data || !namePolicyReady}
-                      >
-                        {t(
-                          updateName.isPending
-                            ? "tutor.settings.saving"
-                            : "uiPatterns.saveProfile",
-                        )}
-                      </Button>
-                      <Button onClick={cancelNameDraft}>
-                        {t("uiPatterns.cancel")}
-                      </Button>
-                    </>
+                    editableNames ? (
+                      <>
+                        <Button
+                          type="submit"
+                          variant="primary"
+                          disabled={!me.data || !namePolicyReady}
+                        >
+                          {t(
+                            updateName.isPending
+                              ? "tutor.settings.saving"
+                              : "uiPatterns.saveProfile",
+                          )}
+                        </Button>
+                        <Button onClick={cancelNameDraft}>
+                          {t("uiPatterns.cancel")}
+                        </Button>
+                      </>
+                    ) : undefined
                   }
                 >
                   <PersonNameFields
-                    onPolicyAvailabilityChange={setNamePolicyReady}
+                    onPolicyAvailabilityChange={observeNamePolicy}
                     value={names}
                     onChange={(value) => {
                       setNames(value);

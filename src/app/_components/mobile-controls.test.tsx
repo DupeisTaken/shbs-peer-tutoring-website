@@ -48,7 +48,11 @@ const state = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/admin/rooms" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/admin/rooms",
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: vi.fn() }),
+}));
 vi.mock("~/app/_components/program-email-settings", () => ({
   ProgramEmailSettings: () => null,
 }));

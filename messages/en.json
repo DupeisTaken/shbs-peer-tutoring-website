@@ -183,7 +183,7 @@
       "UNRESTRICT": "Access restored"
     },
     "rolePermissions": "Permissions by Role",
-    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "permissionHelp": "Selected groups can receive messages. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
     "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
@@ -418,8 +418,9 @@
       "help": "Pick the default time slot for each pairing (you still enter actual session times when submitting attendance)."
     },
     "availability": {
-      "title": "My Availability",
-      "help": "Mark the time slots you can teach. These help coordinators schedule you."
+      "title": "My Time Availability",
+      "help": "Mark the time slots you can teach. These help coordinators schedule you.",
+      "edit": "Edit My Time Availability"
     },
     "attendance": {
       "title": "Submit Attendance",
@@ -597,7 +598,7 @@
         "activity": "Activity & Requests",
         "history": "Program History",
         "announcements": "Announcements",
-        "program": "Program & Refresh",
+        "program": "Program Settings",
         "tutorRoster": "Tutor Roster",
         "tutorApplications": "Tutor Applications",
         "tutorRequests": "Tutor Status Requests",
@@ -788,7 +789,7 @@
     },
     "program": {
       "title": "Program Settings",
-      "subtitle": "The current period and the quarterly refresh that rolls the program over.",
+      "subtitle": "Recruitment, account settings, deployment and optional features.",
       "loading": "Loading…",
       "noPeriod": "No active program period. Seed or create one first.",
       "currentPeriod": "Current Period",
@@ -1929,7 +1930,7 @@
       "title": "Upcoming Meetings",
       "help": "Can't make a meeting? Excuse your absence up to 60 minutes before it starts.",
       "excuseBtn": "Excuse Absence",
-      "submitExcuse": "Submit",
+      "submitExcuse": "Submit absence excuse",
       "cancelExcuse": "Cancel Excuse",
       "reasonPlaceholder": "Reason (optional)",
       "excused": "You've excused this absence.",
@@ -1979,7 +1980,7 @@
         "UNEXCUSED_ABSENT": "Unexcused Absent"
       },
       "reasonRequired": "Reason (required)",
-      "ratings": "Ratings *",
+      "ratings": "Self Evaluation",
       "rating": {
         "ratingPreparedness": "Preparedness",
         "ratingParticipation": "Participation",
@@ -2035,7 +2036,8 @@
       "removalHelp": "The tutee asked to leave? Relay their opt-out. There's a 7-day window where you (or an admin) can recall it; after that it's automatic.",
       "removalReasonPlaceholder": "Reason (optional)",
       "removalSubmit": "Relay Opt-Out",
-      "removalCancel": "Cancel"
+      "removalCancel": "Cancel",
+      "availabilityMissing": "Availability has not been recorded."
     },
     "availability": {
       "loading": "Loading time slots…",
@@ -2856,7 +2858,7 @@
     "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
-    "scheduleReject": "Apply to reject: schedule conflict",
+    "scheduleReject": "Apply to reject because of schedule conflict",
     "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
@@ -2891,6 +2893,7 @@
     "sourceHelp": "Source describes how a signup was entered. It does not change approval, priority or participation rules. Earlier signup means the original entry source is unconfirmed.",
     "boardGuide": "How requests are grouped",
     "sourceGuide": "Signup sources and ownership",
+    "policyRefresh": "Refresh",
     "emailStatus": "Email: {status}"
   },
   "approvals": {
@@ -4608,11 +4611,13 @@
     "saving": "Saving…",
     "saved": "Notice saved.",
     "saveFailed": "Could not save the notice.",
-    "refreshFailed": "The notice was saved, but the latest list could not be loaded. Refresh to synchronize without saving again."
+    "refreshFailed": "The notice was saved, but the latest list could not be loaded. Refresh to synchronize without saving again.",
+    "details": "View details"
   },
   "roomOrder": {
     "title": "Room Display Order",
-    "help": "Arrange the program's room lists and schedules. Crew patrol order is managed separately.",
+    "help": "Use the room arrows to arrange a draft, then save or request the complete order below. Crew patrol order is managed separately.",
+    "catalogChanged": "The room list changed. Reload order before making further order changes; your draft has been retained.",
     "room": "Room",
     "actions": "Actions",
     "up": "Move up",
@@ -4626,7 +4631,8 @@
     "refresh": "Refresh",
     "loadFailed": "Could not load the latest room order. Your draft was retained.",
     "refreshFailed": "Order saved, but synchronization failed. Refresh reads the saved order without submitting it again.",
-    "request": "Request room order change"
+    "request": "Request room order change",
+    "open": "Reorder rooms"
   },
   "roomSchedule": {
     "rooms": "Rooms to display",
@@ -4635,7 +4641,7 @@
     "allDetails": "Schedule details",
     "occupied": "Occupied",
     "noSlot": "—",
-    "legend": "Gray = occupied · × = unavailable · Available = no assignment in a published slot. Details include every authorized record.",
+    "legend": "Gray = occupied · × = unavailable · Available = no assignment in a published slot.",
     "combined": "Combined grid",
     "individual": "Individual room schedules",
     "noSelection": "No rooms selected. Choose rooms or select All rooms.",
@@ -4667,7 +4673,8 @@
     "save": "Save requirements",
     "saving": "Saving…",
     "saved": "Name requirements saved.",
-    "refreshFailed": "Requirements saved, but synchronization failed. Refresh reads the saved policy without saving it again."
+    "refreshFailed": "Requirements saved, but synchronization failed. Refresh reads the saved policy without saving it again.",
+    "hiddenProfileHelp": "Your program uses your username here. Saved names are kept and can be reviewed by authorized staff."
   },
   "participantNames": {
     "unnamed": "Name not provided"

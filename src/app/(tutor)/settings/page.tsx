@@ -1,5 +1,9 @@
 "use client";
-import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
+import {
+  ConfiguredPersonNameFields as PersonNameFields,
+  useNameFieldPresentation,
+} from "~/app/_components/person-name-fields";
 import {
   nameDraft,
   personNameEdit,
@@ -56,6 +60,11 @@ export default function SettingsPage() {
   const deniedNow =
     profile.error?.data?.code === "FORBIDDEN" ||
     profile.error?.data?.code === "UNAUTHORIZED";
+  useSessionPageScroll({
+    id: "tutor-settings-v1",
+    ready: !!profile.data && !!me.data,
+    enabled: !profileDenied && !deniedNow,
+  });
   useEffect(() => {
     // One eviction per denial episode keeps recovery bounded if another owner
     // subscribes to this profile; only successful explicit recovery clears the latch.
@@ -104,7 +113,11 @@ export default function SettingsPage() {
 
   // Profile form — seeded from the loaded profile.
   const [names, setNames] = useState(() => nameDraft());
-  const [namePolicyReady, setNamePolicyReady] = useState(false);
+  const {
+    ready: namePolicyReady,
+    hasFields: editableNames,
+    observe: observeNamePolicy,
+  } = useNameFieldPresentation();
   const [originalNames, setOriginalNames] = useState(() => nameDraft());
   const [legacyName, setLegacyName] = useState<string | null | undefined>();
   const identity = personNameEdit(names, originalNames, legacyName);
@@ -325,7 +338,8 @@ export default function SettingsPage() {
                 if (
                   profileBlocked ||
                   profileAdmission.current ||
-                  !namePolicyReady
+                  !namePolicyReady ||
+                  !editableNames
                 )
                   return;
                 profileAdmission.current = true;
@@ -340,38 +354,40 @@ export default function SettingsPage() {
                 busy={updateProfile.isPending || profileReloading}
                 disabled={profileBlocked}
                 actions={
-                  <>
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      disabled={profileBlocked || !namePolicyReady}
-                    >
-                      {t(
-                        updateProfile.isPending
-                          ? "tutor.settings.saving"
-                          : "tutor.settings.save",
-                      )}
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        if (
-                          profileBlocked ||
-                          profileAdmission.current ||
-                          !profile.data
-                        )
-                          return;
-                        // Cancel explicitly discards this section only; sibling forms keep their drafts.
-                        adoptProfile(profile.data);
-                        updateProfile.reset();
-                      }}
-                    >
-                      {t("uiPatterns.cancel")}
-                    </Button>
-                  </>
+                  editableNames ? (
+                    <>
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        disabled={profileBlocked || !namePolicyReady}
+                      >
+                        {t(
+                          updateProfile.isPending
+                            ? "tutor.settings.saving"
+                            : "tutor.settings.save",
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          if (
+                            profileBlocked ||
+                            profileAdmission.current ||
+                            !profile.data
+                          )
+                            return;
+                          // Cancel explicitly discards this section only; sibling forms keep their drafts.
+                          adoptProfile(profile.data);
+                          updateProfile.reset();
+                        }}
+                      >
+                        {t("uiPatterns.cancel")}
+                      </Button>
+                    </>
+                  ) : undefined
                 }
               >
                 <PersonNameFields
-                  onPolicyAvailabilityChange={setNamePolicyReady}
+                  onPolicyAvailabilityChange={observeNamePolicy}
                   value={names}
                   legacyName={legacyName}
                   originalValue={originalNames}
