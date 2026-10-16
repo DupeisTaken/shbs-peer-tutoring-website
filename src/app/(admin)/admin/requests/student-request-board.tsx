@@ -177,7 +177,10 @@ export function StudentRequestBoard({
       !!arrival?.group &&
       tab === arrival.group &&
       invalidity === "all",
-    () => setArrival(null),
+    (cancelled) =>
+      setArrival((current) =>
+        current?.sequence === cancelled.sequence ? null : current,
+      ),
   );
   useSessionPageScroll({
     id: "requests",

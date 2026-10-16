@@ -139,7 +139,7 @@ it("focuses the revealed application after filters commit rather than consuming 
   vi.spyOn(Element.prototype, "getClientRects").mockReturnValue({
     length: 1,
   } as DOMRectList);
-  const scroll = vi.mocked(Element.prototype.scrollIntoView);
+  const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
   const page = show();
   change("Name or email", "Bea");
   expect(screen.queryByText("Alex Chen")).toBeNull();

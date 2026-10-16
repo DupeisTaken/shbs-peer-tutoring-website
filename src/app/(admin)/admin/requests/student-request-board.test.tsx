@@ -39,6 +39,42 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("keeps the newer hash arrival when the old pending target cancels in the same event", () => {
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    configurable: true,
+    value: vi.fn(),
+  });
+  vi.spyOn(Element.prototype, "getClientRects").mockReturnValue({
+    length: 1,
+  } as DOMRectList);
+  window.history.replaceState(null, "", "/admin/requests#request-signup-A");
+  const page = (loading: boolean) => (
+    <SessionViewProvider identity="head" pathname="/admin/requests" verified>
+      <StudentRequestBoard
+        additionalLoading={loading}
+        additionalEntries={[
+          {
+            id: "B",
+            group: "assigned",
+            submittedAt: new Date(),
+            content: <article id="request-signup-B">Newer request</article>,
+          },
+        ]}
+      />
+    </SessionViewProvider>
+  );
+  const view = render(page(true));
+  act(() => {
+    window.history.replaceState(null, "", "/admin/requests#request-signup-B");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  });
+  view.rerender(page(false));
+  expect(document.activeElement).toBe(screen.getByText("Newer request"));
+  expect(Element.prototype.scrollIntoView).toHaveBeenCalledOnce();
+  view.unmount();
+  vi.restoreAllMocks();
+});
+
 it("reveals and focuses the committed record when an animation frame runs before the requested panel commits", () => {
   const frames: FrameRequestCallback[] = [];
   vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
