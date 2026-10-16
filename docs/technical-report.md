@@ -846,6 +846,13 @@ loss, the record adapter relinquishes scroll ownership. This changes presentatio
 only: no query permissions, review state, editor drafts or mutation authority move
 into the navigation helper.
 
+Desktop record reveal writes only the existing scrollable `#admin-content` pane's
+position from live target/pane rectangles; native clamping keeps the target in that
+pane. An all-ancestor `scrollIntoView` would also center the outer document and can
+move the header offscreen when descendant overflow gives it an incidental range.
+The mobile branch retains document-native reveal. No global overflow clamp or
+layout/position reset is part of this navigation correction.
+
 ## Approval transactions
 
 Additional tutor qualifications use `qualificationApplication` and explicit `ADDITIONAL_SUBJECT` / `HIGHER_LEVEL` application types linked to an existing tutor and stable subject ID. Submission is self-only for active, non-revoked tutors; an open-request unique index plus transaction locks prevents duplicate pending/interview requests. Only Admin/Head may choose a panel or decide, and an interviewed request retains the existing votes/majority/chair checks. Initial-signup reconciliation is bypassed: no roles, membership, registration codes, willingness or existing grants change. Approval uses `approveQualification` in the decision transaction and copies its concrete grants into immutable request evidence; later catalogue reordering never recalculates this evidence. SQL guards preserve request identity and final decisions. Legacy status, delete and interview-decision entry points reject additional applications before proposal middleware.

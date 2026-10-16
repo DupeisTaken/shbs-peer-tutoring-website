@@ -1,9 +1,47 @@
 // @vitest-environment jsdom
-import { expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import {
   isNotificationRecordDestination,
   navigateNotificationFragment,
 } from "./notification-navigation";
+afterEach(() => vi.restoreAllMocks());
+it("hands a different managed fragment to its page once while retaining its Back entry and router state", async () => {
+  const state = { __NA: true, retainedRouterTree: ["admin", "requests"] };
+  window.history.replaceState(state, "", "/admin/requests#request-signup-A");
+  const entries = window.history.length;
+  const push = vi.spyOn(window.history, "pushState");
+  const reveal = vi.fn<(event: HashChangeEvent) => void>();
+  window.addEventListener("hashchange", reveal);
+  const event = { preventDefault: vi.fn() };
+  navigateNotificationFragment("/admin/requests#request-survey-B", event);
+  expect(event.preventDefault).toHaveBeenCalledOnce();
+  expect(window.location.hash).toBe("#request-survey-B");
+  expect(window.history.state).toEqual(state);
+  expect(window.history.length).toBe(entries + 1);
+  expect(push).toHaveBeenCalledExactlyOnceWith(state, "", window.location.href);
+  expect(reveal).toHaveBeenCalledOnce();
+  const change = reveal.mock.calls[0]?.[0];
+  expect(change?.oldURL).toContain("#request-signup-A");
+  expect(change?.newURL).toBe(window.location.href);
+  window.removeEventListener("hashchange", reveal);
+  const back = new Promise<HashChangeEvent>((resolve) => {
+    window.addEventListener("hashchange", resolve, { once: true });
+  });
+  window.history.back();
+  const restored = await back;
+  expect(window.location.hash).toBe("#request-signup-A");
+  expect(window.history.state).toEqual(state);
+  expect(restored.newURL).toContain("#request-signup-A");
+});
+it("keeps ordinary same-page fragment navigation native", () => {
+  window.history.replaceState(null, "", "/admin/requests");
+  const push = vi.spyOn(window.history, "pushState");
+  navigateNotificationFragment("/admin/requests#ordinary-help", {
+    preventDefault: vi.fn(),
+  });
+  expect(window.location.hash).toBe("#ordinary-help");
+  expect(push).not.toHaveBeenCalled();
+});
 it.each([
   ["/admin/requests#request-survey-abc_123", true],
   ["/admin/requests#request-signup-abc-123", true],
