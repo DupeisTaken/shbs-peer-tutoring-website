@@ -2,7 +2,7 @@
 
 import { matchesPersonSearch } from "~/lib/person-search";
 import { accountMembership } from "~/lib/account-membership";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
@@ -14,6 +14,7 @@ import {
   InlineNotice,
   StatePanel,
 } from "~/app/_components/ui/patterns";
+import { Modal } from "~/app/_components/ui/modal";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -63,12 +64,7 @@ const TUTOR_STATUSES = [
 ] as const;
 const ACCOUNT_STATES = ["registered", "setup", "invited", "none"] as const;
 
-/**
- * Step-up identity check for dangerous actions (role change, leadership transfer, account
- * deletion). The admin re-enters their own password; the value is passed to the action's
- * `run` callback (which calls the mutation with `confirmPassword`). Mounted fresh per action,
- * so the password field always starts empty.
- */
+/** Deletion keeps its target and ephemeral password in the feature; Modal owns focus and dismissal. */
 function ConfirmIdentityDialog({
   title,
   body,
@@ -88,57 +84,58 @@ function ConfirmIdentityDialog({
 }) {
   const t = useTranslations();
   const [password, setPassword] = useState("");
+  const formId = useId();
+  const passwordId = useId();
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      <form
-        className="card w-full max-w-sm space-y-4 p-5"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (password) onConfirm(password);
-        }}
-      >
-        <div className="space-y-1">
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-          <p className="muted text-sm">{body}</p>
-        </div>
-        <div>
-          <label className="label">
-            {t("admin.users.confirm.passwordLabel")}
-          </label>
-          <input
-            type="password"
-            autoFocus
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={t("admin.users.confirm.passwordPlaceholder")}
-            className="input w-full"
-          />
-        </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            className="btn-secondary btn-sm"
-            onClick={onCancel}
-            disabled={pending}
-          >
-            {t("admin.users.confirm.cancel")}
-          </button>
-          <button
+    <Modal
+      title={title}
+      description={body}
+      busy={pending}
+      onClose={onCancel}
+      footer={
+        <>
+          <Button onClick={onCancel}>{t("admin.users.confirm.cancel")}</Button>
+          <Button
+            variant="danger"
             type="submit"
-            className="btn-primary btn-sm"
+            form={formId}
             disabled={pending || !password}
           >
             {pending ? t("admin.users.confirm.working") : confirmLabel}
-          </button>
-        </div>
+          </Button>
+        </>
+      }
+    >
+      <form
+        id={formId}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!pending && password) onConfirm(password);
+        }}
+      >
+        <fieldset disabled={pending} className="min-w-0 space-y-3">
+          <label className="label" htmlFor={passwordId}>
+            {t("admin.users.confirm.passwordLabel")}
+          </label>
+          <input
+            id={passwordId}
+            type="password"
+            required
+            data-dialog-autofocus
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder={t("admin.users.confirm.passwordPlaceholder")}
+            className="input w-full"
+          />
+          {error && (
+            <p role="alert" className="text-sm text-red-600">
+              {error}
+            </p>
+          )}
+        </fieldset>
       </form>
-    </div>
+    </Modal>
   );
 }
 
@@ -169,7 +166,9 @@ export default function UsersPage() {
     },
   });
 
-  // Dangerous actions run behind an identity-confirmation dialog (see ConfirmIdentityDialog).
+  // Only account deletion uses this captured target; read recovery never replays the write.
+  const deletionAdmission = useRef(false);
+  const [deletionAdmitted, setDeletionAdmitted] = useState(false);
   const [confirm, setConfirm] = useState<{
     title: string;
     body: string;
@@ -178,15 +177,22 @@ export default function UsersPage() {
   } | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const closeConfirm = () => {
+    if (deletionAdmission.current) return;
     setConfirm(null);
     setConfirmError(null);
   };
   const guardedMutation = {
     onSuccess: () => {
+      deletionAdmission.current = false;
+      setDeletionAdmitted(false);
       void invalidate();
       closeConfirm();
     },
     onError: (e: { message: string }) => setConfirmError(e.message),
+    onSettled: () => {
+      deletionAdmission.current = false;
+      setDeletionAdmitted(false);
+    },
   };
 
   const deleteUser = api.admin.deleteUser.useMutation(guardedMutation);
@@ -283,7 +289,7 @@ export default function UsersPage() {
   const callerRole = accounts.data?.caller.role;
   const isHead = callerRole === "HEAD";
   const isAdminTier = isHead || callerRole === "ADMIN";
-  const confirmPending = deleteUser.isPending;
+  const confirmPending = deletionAdmitted || deleteUser.isPending;
   const sort = useSort("name");
 
   // Persist by account only after loading that account's preference; never overwrite on hydration.
@@ -977,6 +983,9 @@ export default function UsersPage() {
           error={confirmError}
           onCancel={closeConfirm}
           onConfirm={(pwd) => {
+            if (deletionAdmission.current || deleteUser.isPending) return;
+            deletionAdmission.current = true;
+            setDeletionAdmitted(true);
             setConfirmError(null);
             confirm.run(pwd);
           }}

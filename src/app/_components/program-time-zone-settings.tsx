@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { InlineNotice } from "./ui/patterns";
+import { FormActions, InlineNotice } from "./ui/patterns";
+import { Button } from "./ui/button";
 import { api } from "~/trpc/react";
 import { isProgramTimeZone, programDateTimeInput } from "~/lib/program-time";
 import { programTimeZoneLabel } from "~/lib/program-time-zone-label";
@@ -13,16 +14,38 @@ export function ProgramTimeZoneSettings() {
   const t = useTranslations("programTimeZone");
   const common = useTranslations("uiPatterns");
   const [generation, setGeneration] = useState(0);
-  if (settings.error && !settings.data) return <p role="alert">{settings.error.message}</p>;
+  if (settings.error && !settings.data)
+    return <p role="alert">{settings.error.message}</p>;
   if (!settings.data) return <p className="muted">{t("loading")}</p>;
-  return <div className="space-y-3">
-    {settings.error && <InlineNotice tone="error" announcement="alert" action={<button className="btn-secondary" onClick={() => void settings.refetch()}>{common("retry")}</button>}>{settings.error.message}</InlineNotice>}
-    {/* Background recovery retains the draft; only an explicit successful reload adopts new evidence. */}
-    <TimeZoneEditor key={generation} {...settings.data} onReload={async () => {
-      const result = await settings.refetch();
-      if (result.isSuccess) setGeneration((value) => value + 1);
-    }} />
-  </div>;
+  return (
+    <div className="space-y-3">
+      {settings.error && (
+        <InlineNotice
+          tone="error"
+          announcement="alert"
+          action={
+            <button
+              className="btn-secondary"
+              onClick={() => void settings.refetch()}
+            >
+              {common("retry")}
+            </button>
+          }
+        >
+          {settings.error.message}
+        </InlineNotice>
+      )}
+      {/* Background recovery retains the draft; only an explicit successful reload adopts new evidence. */}
+      <TimeZoneEditor
+        key={generation}
+        {...settings.data}
+        onReload={async () => {
+          const result = await settings.refetch();
+          if (result.isSuccess) setGeneration((value) => value + 1);
+        }}
+      />
+    </div>
+  );
 }
 
 export function TimeZoneEditor({
@@ -78,7 +101,9 @@ export function TimeZoneEditor({
         <h2 className="section-title">{t("title")}</h2>
         <p className="muted mt-1">{t("help")}</p>
       </div>
-      {canEdit && !canApply && <p className="muted text-sm">{approvals("sensitiveHelp")}</p>}
+      {canEdit && !canApply && (
+        <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
+      )}
       <label className="block space-y-1">
         <span className="label">{t("referenceDate")}</span>
         <input
@@ -175,31 +200,58 @@ export function TimeZoneEditor({
               type="checkbox"
               checked={confirmed}
               onChange={(e) => setConfirmed(e.target.checked)}
-              disabled={zone === timeZone || !valid || save.isPending || reloading}
+              disabled={
+                zone === timeZone || !valid || save.isPending || reloading
+              }
               className="mt-1"
             />
             <span>{t("confirm")}</span>
           </label>
-          <button
-            className="btn-primary min-h-11 lg:min-h-10"
-            disabled={
-              !valid || !confirmed || zone === timeZone || save.isPending || reloading
-            }
-            onClick={() =>
-              save.mutate({ timeZone: zone, expectedTimeZone: timeZone })
-            }
-          >
-            {save.isPending ? t("saving") : canApply ? t("save") : approvals("requestHead")}
-          </button>
-          {onReload && <button type="button" className="btn-secondary min-h-11 lg:min-h-10" disabled={save.isPending || reloading} onClick={async () => {
-            setReloading(true);
-            try { await onReload(); } finally { setReloading(false); }
-          }}>{profile("reload")}</button>}
+          <FormActions>
+            <Button
+              variant="primary"
+              disabled={
+                !valid ||
+                !confirmed ||
+                zone === timeZone ||
+                save.isPending ||
+                reloading
+              }
+              onClick={() =>
+                save.mutate({ timeZone: zone, expectedTimeZone: timeZone })
+              }
+            >
+              {save.isPending
+                ? t("saving")
+                : canApply
+                  ? t("save")
+                  : approvals("requestHead")}
+            </Button>
+            {onReload && (
+              <Button
+                disabled={save.isPending || reloading}
+                onClick={async () => {
+                  setReloading(true);
+                  try {
+                    await onReload();
+                  } finally {
+                    setReloading(false);
+                  }
+                }}
+              >
+                {profile("reload")}
+              </Button>
+            )}
+          </FormActions>
         </>
       ) : (
         <p className="muted">{t("readOnly")}</p>
       )}
-      {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+      {save.error?.data?.approvalId && (
+        <InlineNotice tone="warning" announcement="status">
+          {approvals("queuedBody")}
+        </InlineNotice>
+      )}
       {save.error && !save.error.data?.approvalId && (
         <p role="alert" className="text-sm text-red-700">
           {save.error.message}
