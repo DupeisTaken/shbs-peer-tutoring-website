@@ -5074,7 +5074,7 @@
     },
     "request_invalidity_appeal_pending": {
       "title": "Invalid Request Appeal Awaiting Review",
-      "body": "A submitter appealed an applied invalid-request flag. Review the appeal in the request's invalidity dialog; submitting an appeal does not clear the flag.",
+      "body": "A submitter appealed an applied invalid-request flag. Open the linked request to review the appeal; submitting an appeal does not clear the flag.",
       "action": "Review invalid request appeal"
     }
   },

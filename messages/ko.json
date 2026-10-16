@@ -5074,7 +5074,7 @@
     },
     "request_invalidity_appeal_pending": {
       "title": "Invalid Request Appeal Awaiting Review",
-      "body": "A submitter appealed an applied invalid-request flag. Review the appeal in the request's invalidity dialog; submitting an appeal does not clear the flag.",
+      "body": "신청자가 적용된 신청 무효 표시에 이의를 제기했습니다. 연결된 신청을 열어 이의를 검토하세요. 이의 제출만으로 무효 표시가 해제되지는 않습니다.",
       "action": "Review invalid request appeal"
     }
   },
