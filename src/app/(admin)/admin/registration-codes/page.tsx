@@ -335,7 +335,9 @@ export default function RegistrationCodesPage() {
             <div key={c.id} className="rounded-lg border border-slate-200 p-4">
               {/* Both groups may shrink and wrap: long labels must never push record actions offscreen. */}
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex max-w-full min-w-0 items-start gap-2">
+                {/* Center the identity block on the chevron, then center badges
+                    on the name line. Inline baselines drift when the trigger is taller. */}
+                <div className="flex max-w-full min-w-0 items-center gap-2">
                   <Button
                     variant="ghost"
                     size="compact"
@@ -352,12 +354,14 @@ export default function RegistrationCodesPage() {
                     <DisclosureIcon open={open} />
                   </Button>
                   <div className="min-w-0">
-                    <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
-                      {c.label ?? c.tutorName ?? "—"}
-                      <span className={`${statusBadge(c.status)} ml-2`}>
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium [overflow-wrap:anywhere] text-slate-900">
+                      <span className="min-w-0">
+                        {c.label ?? c.tutorName ?? "—"}
+                      </span>
+                      <span className={statusBadge(c.status)}>
                         {t(`admin.registrationCodes.status.${c.status}`)}
                       </span>
-                      <span className="badge-slate ml-2">
+                      <span className="badge-slate">
                         {t(
                           `admin.registrationCodes.${registrationKindLabel[c.kind]}`,
                         )}

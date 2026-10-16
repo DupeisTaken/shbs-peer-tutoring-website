@@ -1,4 +1,8 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { parse } from "postcss";
+import { compile } from "tailwindcss";
 import {
   cleanup,
   fireEvent,
@@ -11,6 +15,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../../../messages/en.json";
+import chinese from "../../../../../messages/zh.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import { downloadCardImage } from "~/lib/download-card-image";
 import RegistrationCodesPage from "./page";
@@ -87,12 +92,12 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 
-function show(readOnly = false) {
+function show(readOnly = false, locale: "en" | "zh" = "en") {
   return render(
     <QueryClientProvider client={queryClient}>
       <NextIntlClientProvider
-        locale="en"
-        messages={messages}
+        locale={locale}
+        messages={locale === "zh" ? chinese : messages}
         timeZone="Asia/Shanghai"
       >
         <ReadOnlyProvider value={readOnly}>
@@ -129,6 +134,94 @@ afterEach(() => {
   cleanup();
   queryClient.clear();
 });
+
+it.each([
+  ["en", "active"],
+  ["en", "used"],
+  ["en", "expired"],
+  ["zh", "active"],
+  ["zh", "used"],
+  ["zh", "expired"],
+] as const)(
+  "centers the identity and badges without fixing a wrapped %s %s row height",
+  async (locale, status) => {
+    state.status = status;
+    state.label =
+      "Avery Stone — 很长的邀请姓名 " + "LongUnbrokenName".repeat(5);
+    const { container } = show(false, locale);
+    const text = locale === "zh" ? chinese : messages;
+    const toggle = screen.getByRole("button", {
+      name: `${text.admin.registrationCodes.expand}: ${state.label}`,
+    });
+    const identity = toggle.parentElement!;
+    const label = within(identity).getByText(state.label);
+    const line = label.closest("p")!;
+    expect(
+      line.contains(
+        within(identity).getByText(text.admin.registrationCodes.status[status]),
+      ),
+    ).toBe(true);
+    expect(
+      line.contains(
+        within(identity).getByText(text.admin.registrationCodes.kindTutor),
+      ),
+    ).toBe(true);
+
+    // Compile the utilities actually rendered by the real page. jsdom has no
+    // flex geometry: this guards layout semantics; browser rects verify centers.
+    const require = createRequire(import.meta.url);
+    const theme = readFileSync(
+      require.resolve("tailwindcss/theme.css"),
+      "utf8",
+    );
+    const compiler = await compile(`${theme}\n@tailwind utilities;`);
+    const candidates = [
+      ...new Set(
+        [...container.querySelectorAll("[class]")].flatMap((element) => [
+          ...element.classList,
+        ]),
+      ),
+    ];
+    const rules = parse(compiler.build(candidates));
+    function valueFor(element: Element, property: string) {
+      let value: string | undefined;
+      rules.walkRules((rule) => {
+        // Only simple utility selectors participate in these base layout properties.
+        if (
+          !/^\.[a-z][a-z0-9-]*$/.test(rule.selector) ||
+          !element.matches(rule.selector)
+        )
+          return;
+        for (const node of rule.nodes) {
+          if (node.type === "decl" && node.prop === property)
+            value = node.value;
+        }
+      });
+      return value;
+    }
+    expect(valueFor(identity, "align-items")).toBe("center");
+    expect(valueFor(line, "display")).toBe("flex");
+    expect(valueFor(line, "align-items")).toBe("center");
+    expect(valueFor(line, "flex-wrap")).toBe("wrap");
+    expect(valueFor(label, "min-width")).toMatch(/^0(?:px)?$/);
+    expect(valueFor(line, "height")).toBeUndefined();
+    for (const name of [
+      text.admin.registrationCodes.copy,
+      text.admin.registrationCodes.revoke,
+    ]) {
+      if (status === "active")
+        expect(screen.getByRole("button", { name })).toBeTruthy();
+      else expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      document.getElementById(toggle.getAttribute("aria-controls")!)?.hidden,
+    ).toBe(false);
+    expect(state.issue).not.toHaveBeenCalled();
+    expect(state.revoke).not.toHaveBeenCalled();
+  },
+);
 
 describe("registration code export availability", () => {
   it.each(["Synthetic invited tutor", null])(
