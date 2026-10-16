@@ -562,7 +562,7 @@ it.each([false, true])(
         staleTime: Infinity,
       });
       return (
-        <Modal title="Pairing editor" onClose={mocks.close}>
+        <Modal title="Pairing editor" onClose={mocks.close} footer={null}>
           <input aria-label="Pairing notes" defaultValue="Keep this draft" />
           <AssignmentConfirmation
             operation="admin.createPairing"
