@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -25,10 +26,12 @@ const state = vi.hoisted(() => ({
     tutor: { englishName: string };
   }[],
   longName: "AlexandraMontgomeryWellingtonSyntheticTutor",
+  refresh: vi.fn<() => Promise<void>>(),
+  completion: undefined as undefined | (() => Promise<void>),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    useUtils: () => ({ admin: { meetings: { invalidate: vi.fn() } } }),
+    useUtils: () => ({ admin: { meetings: { invalidate: state.refresh } } }),
     admin: {
       meetings: {
         useQuery: () => ({
@@ -38,6 +41,12 @@ vi.mock("~/trpc/react", () => ({
               title: "Synthetic briefing",
               date: new Date("2026-09-29T04:00:00Z"),
               attendances: state.attendances,
+            },
+            {
+              id: "other",
+              title: "Other briefing",
+              date: new Date("2026-10-02T04:00:00Z"),
+              attendances: [],
             },
           ],
         }),
@@ -58,8 +67,11 @@ vi.mock("~/trpc/react", () => ({
       createMeeting: { useMutation: () => ({ mutate: vi.fn() }) },
       deleteMeeting: { useMutation: () => ({ mutate: vi.fn() }) },
       recordMeetingAttendance: {
-        useMutation: () => ({
-          mutate: state.save,
+        useMutation: (options: { onSuccess: () => Promise<void> }) => ({
+          mutate: (input: unknown) => {
+            state.save(input);
+            state.completion = options.onSuccess;
+          },
           reset: state.reset,
           isPending: state.pending,
           error: state.error,
@@ -73,6 +85,8 @@ beforeEach(() => {
   state.attendances = [];
   state.pending = false;
   state.error = null;
+  state.refresh.mockResolvedValue(undefined);
+  state.completion = undefined;
 });
 afterEach(cleanup);
 function mount(readOnly = false) {
@@ -121,6 +135,81 @@ it("keeps long-name choices reachable with mobile touch targets and persists the
   expect(screen.queryByText("Past Tutor")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Show past tutors" }));
   expect(screen.getByText("Past Tutor")).toBeTruthy();
+});
+
+it("retains separate attendance drafts when selecting another meeting or collapsing", () => {
+  mount();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.admin.meetings.status.present,
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: /Other briefing/ }));
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.admin.meetings.status.unexcusedAbsent,
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: /Synthetic briefing/ }));
+  expect(
+    screen
+      .getByRole("button", { name: messages.admin.meetings.status.present })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: /Synthetic briefing/ }));
+  expect(
+    screen.queryByRole("button", {
+      name: messages.admin.meetings.saveAttendance,
+    }),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /Synthetic briefing/ }));
+  expect(
+    screen
+      .getByRole("button", { name: messages.admin.meetings.status.present })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: /Other briefing/ }));
+  expect(
+    screen
+      .getByRole("button", {
+        name: messages.admin.meetings.status.unexcusedAbsent,
+      })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  expect(state.save).not.toHaveBeenCalled();
+});
+
+it("retains accepted attendance after failed synchronization and retries reads only", async () => {
+  state.refresh.mockRejectedValue(new Error("Refresh failed"));
+  mount();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.admin.meetings.status.present,
+    }),
+  );
+  const save = screen.getByRole("button", {
+    name: messages.admin.meetings.saveAttendance,
+  });
+  fireEvent.click(save);
+  fireEvent.click(save);
+  expect(state.save).toHaveBeenCalledOnce();
+  await act(async () => {
+    await state.completion?.();
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Other briefing/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Synthetic briefing/ }));
+  expect(save.matches(":disabled")).toBe(true);
+  expect(screen.getByRole("alert").textContent).toContain(
+    "Attendance was saved",
+  );
+  state.refresh.mockResolvedValue(undefined);
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.uiPatterns.retry }),
+    );
+  });
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(state.save).toHaveBeenCalledOnce();
 });
 
 it("keeps the responsive attendance choices read-only for viewers", () => {
@@ -216,13 +305,32 @@ it("keeps all past tutors in the summary independently of the editor visibility 
 });
 
 it("identifies a recorded attendance correction and keeps queued changes out of saved state", () => {
-  state.attendances = [{ tutorId: "active", status: "PRESENT", excusedAt: null, reason: null, tutor: { englishName: state.longName } }];
+  state.attendances = [
+    {
+      tutorId: "active",
+      status: "PRESENT",
+      excusedAt: null,
+      reason: null,
+      tutor: { englishName: state.longName },
+    },
+  ];
   state.error = { message: "Queued", data: { approvalId: "request-1" } };
   mount();
-  fireEvent.click(screen.getByRole("button", { name: messages.admin.meetings.status.unexcusedAbsent }));
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.admin.meetings.status.unexcusedAbsent,
+    }),
+  );
   expect(screen.getByText(messages.approvals.reversalHelp)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: messages.admin.meetings.correctAttendance }));
-  expect(state.save).toHaveBeenCalledWith({ meetingId: "meeting", entries: [{ tutorId: "active", status: "UNEXCUSED_ABSENT" }] });
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.admin.meetings.correctAttendance,
+    }),
+  );
+  expect(state.save).toHaveBeenCalledWith({
+    meetingId: "meeting",
+    entries: [{ tutorId: "active", status: "UNEXCUSED_ABSENT" }],
+  });
   expect(screen.getByText(messages.approvals.queuedBody)).toBeTruthy();
   expect(screen.queryByText(messages.admin.meetings.saved)).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();

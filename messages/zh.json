@@ -905,7 +905,10 @@
       "appeals": {
         "heading": "恢复申诉",
         "approve": "批准",
-        "deny": "拒绝"
+        "deny": "拒绝",
+        "review": "审核申诉",
+        "message": "申诉原文",
+        "refreshFailed": "申诉处理结果已保存，但账户或申诉列表未能刷新。请重试刷新，无需再次提交处理结果。"
       }
     },
     "submissions": {
@@ -917,7 +920,8 @@
       "colStatus": "状态",
       "colTutees": "学习伙伴",
       "colSH": "服务时长",
-      "empty": "该筛选条件下暂无提交记录。"
+      "empty": "该筛选条件下暂无提交记录。",
+      "monthLabel": "月份"
     },
     "meetings": {
       "title": "辅导伙伴会议",
@@ -947,7 +951,8 @@
         "tutor": "辅导伙伴",
         "empty": "暂无出勤记录。"
       },
-      "correctAttendance": "提交出席更正"
+      "correctAttendance": "提交出席更正",
+      "refreshFailed": "出勤记录已保存，但会议列表未能刷新。请重试刷新，无需再次提交出勤记录。"
     },
     "timeslots": {
       "title": "时间段",
@@ -1144,7 +1149,8 @@
           "GRADUATED": "已毕业",
           "ARCHIVED": "已归档"
         }
-      }
+      },
+      "messageLabel": "消息正文"
     },
     "policies": {
       "title": "政策文档",
@@ -1172,7 +1178,13 @@
         "editedBy": "编辑者 {who}",
         "saving": "保存中…",
         "save": "保存",
-        "saved": "已保存。"
+        "saved": "已保存。",
+        "titleLabel": "文档标题",
+        "versionLabel": "版本（选填）",
+        "bodyLabel": "政策正文（Markdown）",
+        "unsaved": "有未保存的更改",
+        "refreshFailed": "政策已保存，但政策或版本历史未能刷新。请先重试刷新，再继续编辑。",
+        "retryRefresh": "重试刷新"
       },
       "studentTitle": "学习伙伴政策",
       "tutorTitle": "辅导伙伴政策"
@@ -1565,7 +1577,9 @@
       },
       "issuedHeading": "已签发的密钥",
       "issuedHint": "已发给通过申请者、等待注册的密钥。在“注册密钥”页撤销密钥会使其申请回到上方队列。",
-      "issuedExpires": "{date} 到期"
+      "issuedExpires": "{date} 到期",
+      "originalApplication": "申请原文",
+      "originalRequest": "请求原文"
     },
     "sessionFlags": {
       "title": "考勤标记",
@@ -1681,7 +1695,9 @@
         "insertImage": "插入图片…",
         "preview": "预览",
         "edit": "编辑",
-        "previewEmpty": "暂无可预览内容。"
+        "previewEmpty": "暂无可预览内容。",
+        "titleLabel": "标题",
+        "bodyLabel": "内容（Markdown）"
       },
       "sections": {
         "new": {
@@ -2415,8 +2431,11 @@
         "reason": "退出原因（可选）",
         "submit": "提交退出申请",
         "pending": "已申请退出——等待管理员批准。",
-        "recall": "撤回申请"
-      }
+        "recall": "撤回申请",
+        "reasonLabel": "退出原因"
+      },
+      "statusLabel": "巡查成员状态",
+      "noteLabel": "巡查备注"
     }
   },
   "suspended": {
@@ -2527,7 +2546,8 @@
       "sectionId": "待翻译内容",
       "id": "待翻译内容",
       "other": "待翻译内容"
-    }
+    },
+    "refreshFailed": "您的更改已被接受，但更新后的内容未能刷新。请重试刷新，无需再次提交。"
   },
   "workflows": {
     "interviewsDisabledHistory": "面试功能已关闭。历史记录仍可查看，重新启用后可记录完成情况。",
@@ -2655,7 +2675,9 @@
     "unscheduled": "尚未安排",
     "panelRequired": "请先分配符合资格的评审组，再记录完成情况。",
     "invalidDate": "请输入有效的日期和时间。",
-    "searchInterviews": "搜索"
+    "searchInterviews": "搜索",
+    "feedbackVisibilityLoading": "正在确认哪些人可以查看反馈…",
+    "feedbackVisibilityUnavailable": "无法确认哪些人可以查看反馈。请重试以确认可见范围。"
   },
   "survey": {
     "intro": "报名开放后，请提交辅导报名问卷。较早提交的同学将获得优先安排。随后请查收邮件，确认申请并创建学习伙伴账户。",
@@ -3773,7 +3795,9 @@
     "slot": "时间段",
     "room": "教室",
     "select": "选择",
-    "selected": "已选"
+    "selected": "已选",
+    "noRooms": "暂无教室。",
+    "noSlots": "尚未发布时间段。"
   },
   "identityUsername": {
     "preferredLatinName": "拉丁字母拼写",
@@ -4351,7 +4375,11 @@
     "translationHelp": "此操作将永久删除该语言版本，其他语言版本仍可使用。",
     "crewDeleteHelp": "此操作将永久删除仅巡查组账号及其巡查、申请记录。合并账号和保留的辅导伙伴历史不能在此删除。",
     "crewApplicationHelp": "此操作将记录申请决定。接受将发出注册邀请，拒绝将结束此次申请。既有审核规则仍然适用。",
-    "crewRequestHelp": "此操作将记录对具名参与申请的决定。批准将执行申请中的成员资格变更，拒绝将保持现有参与状态。"
+    "crewRequestHelp": "此操作将记录对具名参与申请的决定。批准将执行申请中的成员资格变更，拒绝将保持现有参与状态。",
+    "galleryRevokeScenario": "打开权限撤销示例",
+    "galleryRevoke": "模拟权限被撤销",
+    "galleryRevoked": "权限已被撤销，审核内容已隐藏。",
+    "galleryRestore": "恢复示例权限"
   },
   "accountInvitation": {
     "enterCode": "验证邮箱",
@@ -4458,5 +4486,20 @@
     "saveError": "暂时无法确认更新结果。您的选择已保留，请重试；重复退订不会造成额外影响。",
     "securityTitle": "必要邮件将继续发送",
     "securityHelp": "账户安全、验证和账户恢复邮件不受影响。已在发送中的邮件仍可能送达。"
+  },
+  "participantRecovery": {
+    "loading": "正在加载记录…",
+    "loadFailed": "无法加载这些记录",
+    "refreshFailed": "无法刷新这些记录。请重试后继续。",
+    "accessDenied": "暂时无法访问这些记录",
+    "accessDeniedHelp": "无法确认你的访问权限。请重试，或使用有权限的账号登录。",
+    "retry": "重试"
+  },
+  "managementRecovery": {
+    "loading": "正在加载{section}…",
+    "loadFailed": "无法加载{section}。",
+    "refreshFailed": "无法刷新{section}，仍显示上次加载的内容。",
+    "retry": "重试加载{section}",
+    "denied": "您已无权访问{section}。"
   }
 }

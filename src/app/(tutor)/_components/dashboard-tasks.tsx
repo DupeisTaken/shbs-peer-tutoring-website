@@ -1,11 +1,24 @@
 "use client";
 
 import { useFormatter, useTimeZone, useTranslations } from "next-intl";
+import { useCallback, useEffect, useRef } from "react";
 import { api } from "~/trpc/react";
 import { programDateKey } from "~/lib/program-time";
 import { minToHm } from "~/lib/time";
 import { InlineNotice } from "~/app/_components/ui/patterns";
 import { Button } from "~/app/_components/ui/button";
+import { focusVisibleContext } from "~/app/_components/focus-visible-context";
+
+const taskTargets = new Set([
+  "tutor-activation",
+  "attendance",
+  "tutor-pairings",
+  "tutor-interviews",
+  "tutor-meetings",
+  "qualification-requests",
+  "tutor-preferences",
+  "room-schedule",
+]);
 
 /** Summary queries share the feature components' cache. Unknown/failed reads must
  * never look like an empty task list, and inactive accounts get no write shortcuts. */
@@ -24,6 +37,28 @@ export function DashboardTasks({
   const pairingsText = useTranslations("dashboard.pairings");
   const format = useFormatter();
   const timeZone = useTimeZone();
+  const revealFrame = useRef<number | null>(null);
+  const revealTask = useCallback((id: string) => {
+    if (!taskTargets.has(id)) return;
+    if (revealFrame.current !== null) cancelAnimationFrame(revealFrame.current);
+    // Keep the anchor's native URL/history behavior; reveal after its default
+    // scroll so the measured, possibly wrapped header cannot cover the heading.
+    revealFrame.current = requestAnimationFrame(() => {
+      revealFrame.current = null;
+      if (window.location.hash === `#${id}`)
+        focusVisibleContext(document.getElementById(id));
+    });
+  }, []);
+  useEffect(() => {
+    const revealHash = () => revealTask(window.location.hash.slice(1));
+    revealHash();
+    window.addEventListener("hashchange", revealHash);
+    return () => {
+      window.removeEventListener("hashchange", revealHash);
+      if (revealFrame.current !== null)
+        cancelAnimationFrame(revealFrame.current);
+    };
+  }, [revealTask]);
   const active = status === "ACTIVE";
   const pairings = api.tutor.myPairings.useQuery();
   const roster = api.studentWorkflow.tutorRoster.useQuery();
@@ -162,10 +197,18 @@ export function DashboardTasks({
             key={`${id}-${index}`}
             className="btn-secondary btn-sm"
             href={`#${id}`}
-            onClick={() => {
-              // Native hash navigation scrolls; explicit focus gives keyboard users
-              // the section's next control instead of returning to the summary.
+            onClick={(event) => {
+              if (
+                event.defaultPrevented ||
+                event.button !== 0 ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey
+              )
+                return;
               document.getElementById(id)?.focus({ preventScroll: true });
+              revealTask(id);
             }}
           >
             {label}

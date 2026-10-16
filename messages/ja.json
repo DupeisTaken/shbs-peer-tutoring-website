@@ -29,7 +29,9 @@
     "slot": "時間枠",
     "room": "教室",
     "select": "選択",
-    "selected": "選択済み"
+    "selected": "選択済み",
+    "noRooms": "教室はまだありません。",
+    "noSlots": "時間帯はまだ公開されていません。"
   },
   "scheduling": {
     "awaiting": "日程調整待ち",
@@ -915,7 +917,10 @@
       "appeals": {
         "heading": "復帰の異議",
         "approve": "承認",
-        "deny": "却下"
+        "deny": "却下",
+        "review": "異議申し立てを審査",
+        "message": "異議申し立ての原文",
+        "refreshFailed": "審査結果は保存されましたが、アカウントまたは異議申し立て一覧を更新できませんでした。結果を再送信せず、更新を再試行してください。"
       }
     },
     "registrationCodes": {
@@ -997,7 +1002,8 @@
       "colStatus": "ステータス",
       "colTutees": "生徒",
       "colSH": "奉仕時間",
-      "empty": "このフィルターに一致する提出はありません。"
+      "empty": "このフィルターに一致する提出はありません。",
+      "monthLabel": "月"
     },
     "meetings": {
       "title": "チューターミーティング",
@@ -1027,7 +1033,8 @@
         "tutor": "チューター",
         "empty": "出席記録はまだありません。"
       },
-      "correctAttendance": "Submit attendance correction"
+      "correctAttendance": "Submit attendance correction",
+      "refreshFailed": "出欠記録は保存されましたが、会議一覧を更新できませんでした。出欠記録を再送信せず、更新を再試行してください。"
     },
     "timeslots": {
       "title": "タイムスロット",
@@ -1224,7 +1231,8 @@
           "GRADUATED": "Graduated",
           "ARCHIVED": "Archived"
         }
-      }
+      },
+      "messageLabel": "メッセージ"
     },
     "policies": {
       "title": "ポリシー文書",
@@ -1252,7 +1260,13 @@
         "editedBy": "{who}による編集",
         "saving": "保存中…",
         "save": "保存",
-        "saved": "保存しました。"
+        "saved": "保存しました。",
+        "titleLabel": "文書のタイトル",
+        "versionLabel": "バージョン（任意）",
+        "bodyLabel": "ポリシー本文（Markdown）",
+        "unsaved": "未保存の変更",
+        "refreshFailed": "ポリシーは保存されましたが、ポリシーまたはバージョン履歴を更新できませんでした。編集を続ける前に更新を再試行してください。",
+        "retryRefresh": "更新を再試行"
       },
       "studentTitle": "生徒向けポリシー",
       "tutorTitle": "チューター向けポリシー"
@@ -1567,7 +1581,9 @@
       },
       "issuedHeading": "発行済みコード",
       "issuedHint": "承認された申請者に渡した、登録待ちのコードです。登録コード画面でコードを取り消すと、その申請は上のキューに戻ります。",
-      "issuedExpires": "{date} に期限切れ"
+      "issuedExpires": "{date} に期限切れ",
+      "originalApplication": "応募の原文",
+      "originalRequest": "リクエストの原文"
     },
     "sessionFlags": {
       "title": "出席フラグ",
@@ -1683,7 +1699,9 @@
         "insertImage": "画像を挿入…",
         "preview": "プレビュー",
         "edit": "編集",
-        "previewEmpty": "プレビューする内容がありません。"
+        "previewEmpty": "プレビューする内容がありません。",
+        "titleLabel": "タイトル",
+        "bodyLabel": "内容（Markdown）"
       },
       "sections": {
         "new": {
@@ -2417,8 +2435,11 @@
         "reason": "退会の理由（任意）",
         "submit": "退会申請を送信",
         "pending": "退会を申請しました — 管理者の承認待ちです。",
-        "recall": "申請を取り消す"
-      }
+        "recall": "申請を取り消す",
+        "reasonLabel": "退出理由"
+      },
+      "statusLabel": "クルーの状態",
+      "noteLabel": "巡回メモ"
     }
   },
   "suspended": {
@@ -2529,7 +2550,8 @@
       "sectionId": "Content to Translate",
       "id": "Content to Translate",
       "other": "Content to Translate"
-    }
+    },
+    "refreshFailed": "変更は受け付けられましたが、更新後のテキストを再読み込みできませんでした。再送信せず、更新を再試行してください。"
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -2657,7 +2679,9 @@
     "unscheduled": "Not scheduled",
     "panelRequired": "Assign a qualified panel before recording completion.",
     "invalidDate": "Enter a valid date and time.",
-    "searchInterviews": "Search"
+    "searchInterviews": "Search",
+    "feedbackVisibilityLoading": "フィードバックの閲覧者を確認中…",
+    "feedbackVisibilityUnavailable": "フィードバックを閲覧できる人を確認できませんでした。公開範囲を確認するには再試行してください。"
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -4321,7 +4345,11 @@
     "translationHelp": "This permanently removes this saved language version. Other language versions remain available.",
     "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
     "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
-    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
+    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged.",
+    "galleryRevokeScenario": "アクセス権取り消しの例を開く",
+    "galleryRevoke": "アクセス権の取り消しを再現",
+    "galleryRevoked": "アクセス権が取り消されました。確認内容は非表示です。",
+    "galleryRestore": "例のアクセス権を復元"
   },
   "accountInvitation": {
     "enterCode": "メールで届いた招待コードを入力",
@@ -4428,6 +4456,21 @@
     "saveError": "更新を確認できませんでした。選択は保持されています。再試行してください。繰り返しの配信停止は安全です。",
     "securityTitle": "重要なメールは引き続き届きます",
     "securityHelp": "セキュリティ、認証、アカウント復旧メールには影響しません。すでに送信中のメールは届く場合があります。"
+  },
+  "participantRecovery": {
+    "loading": "記録を読み込み中…",
+    "loadFailed": "記録を読み込めませんでした",
+    "refreshFailed": "記録を更新できませんでした。続行するには再試行してください。",
+    "accessDenied": "この記録にはアクセスできません",
+    "accessDeniedHelp": "アクセス権を確認できませんでした。再試行するか、権限のあるアカウントでログインしてください。",
+    "retry": "再試行"
+  },
+  "managementRecovery": {
+    "loading": "{section}を読み込み中…",
+    "loadFailed": "{section}を読み込めませんでした。",
+    "refreshFailed": "{section}を更新できませんでした。前回読み込んだ内容を表示しています。",
+    "retry": "{section}を再読み込み",
+    "denied": "{section}へのアクセス権がなくなりました。"
   },
   "requestInvalidity": {
     "badge": "無効な申請",

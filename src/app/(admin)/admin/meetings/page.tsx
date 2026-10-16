@@ -3,7 +3,8 @@
 import { Button, ChoiceButton } from "~/app/_components/ui/button";
 import { FormActions, StatePanel } from "~/app/_components/ui/patterns";
 import { useDialog } from "~/app/_components/confirm-dialog";
-import { useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { useFormatter, useTranslations, useTimeZone } from "next-intl";
 
 import { parseProgramDateTime, programDateKey } from "~/lib/program-time";
@@ -54,6 +55,20 @@ export default function MeetingsPage() {
   const [date, setDate] = useState(() => programDateKey(new Date(), timeZone));
   const [time, setTime] = useState("12:00");
   const [selected, setSelected] = useState<string | null>(null);
+  const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set());
+  const [busyMeetings, setBusyMeetings] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const fieldId = useId();
+  const onEditorBusy = useCallback((id: string, pending: boolean) => {
+    setBusyMeetings((previous) => {
+      if (previous.has(id) === pending) return previous;
+      const next = new Set(previous);
+      if (pending) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
   const [showSummary, setShowSummary] = useState(false);
 
   // Meeting attendance only concerns ACTIVE tutors; the rest show as exempt (X).
@@ -123,27 +138,41 @@ export default function MeetingsPage() {
         >
           {/* Preferred widths shrink to the form width at enlarged text sizes;
               fixed rem minimums would override the controls' max-width. */}
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder={t("admin.meetings.titlePlaceholder")}
-            aria-label={t("admin.meetings.titlePlaceholder")}
-            className="input field-auto-bounded [--field-min-width:12rem]"
-          />
-          <input
-            aria-label={t("uiPatterns.meetingDate")}
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="input field-auto-bounded [--field-min-width:9rem]"
-          />
-          <input
-            type="time"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            aria-label={t("admin.meetings.timeLabel")}
-            className="input field-auto-bounded [--field-min-width:7rem]"
-          />
+          <label htmlFor={`${fieldId}-title`}>
+            <span className="label">
+              {t("admin.meetings.titlePlaceholder")}
+            </span>
+            <input
+              id={`${fieldId}-title`}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={t("admin.meetings.titlePlaceholder")}
+              aria-label={t("admin.meetings.titlePlaceholder")}
+              className="input field-auto-bounded [--field-min-width:12rem]"
+            />
+          </label>
+          <label htmlFor={`${fieldId}-date`}>
+            <span className="label">{t("uiPatterns.meetingDate")}</span>
+            <input
+              id={`${fieldId}-date`}
+              aria-label={t("uiPatterns.meetingDate")}
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="input field-auto-bounded [--field-min-width:9rem]"
+            />
+          </label>
+          <label htmlFor={`${fieldId}-time`}>
+            <span className="label">{t("admin.meetings.timeLabel")}</span>
+            <input
+              id={`${fieldId}-time`}
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              aria-label={t("admin.meetings.timeLabel")}
+              className="input field-auto-bounded [--field-min-width:7rem]"
+            />
+          </label>
           <button
             className="btn-primary"
             disabled={!title.trim() || create.isPending}
@@ -170,7 +199,10 @@ export default function MeetingsPage() {
               <li key={m.id} className="px-4 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <button
-                    onClick={() => setSelected(selected === m.id ? null : m.id)}
+                    onClick={() => {
+                      setOpened((previous) => new Set(previous).add(m.id));
+                      setSelected(selected === m.id ? null : m.id);
+                    }}
                     aria-expanded={selected === m.id}
                     className="hover:text-accent-600 min-h-11 min-w-0 flex-1 text-left font-medium break-words text-slate-900 lg:min-h-8"
                   >
@@ -182,7 +214,7 @@ export default function MeetingsPage() {
                   </button>
                   {!readOnly && (
                     <button
-                      disabled={del.isPending}
+                      disabled={del.isPending || busyMeetings.has(m.id)}
                       onClick={async () => {
                         if (
                           await confirm({
@@ -223,8 +255,13 @@ export default function MeetingsPage() {
                     </div>
                   );
                 })()}
-                {selected === m.id && (
-                  <div className="mt-3 min-w-0 space-y-3">
+                {/* Opened forms retain their own draft and pending callbacks while
+                    another meeting is selected or this disclosure is collapsed. */}
+                {opened.has(m.id) && (
+                  <div
+                    hidden={selected !== m.id}
+                    className="mt-3 min-w-0 space-y-3"
+                  >
                     <PastTutorsToggle
                       showPast={showPast}
                       onChange={setShowPast}
@@ -233,6 +270,7 @@ export default function MeetingsPage() {
                         attendance stays visible and the mounted editor keeps its draft. */}
                     <AttendanceEditor
                       meetingId={m.id}
+                      onBusyChange={onEditorBusy}
                       readOnly={readOnly}
                       tutors={visibleTutors(
                         tutorOpts,
@@ -551,21 +589,52 @@ function AttendanceEditor({
   readOnly,
   tutors,
   current,
+  onBusyChange,
 }: {
   meetingId: string;
   readOnly: boolean;
   tutors: { id: string; englishName: string; active: boolean }[];
   current: Record<string, string>;
+  onBusyChange: (id: string, pending: boolean) => void;
 }) {
   const t = useTranslations();
   const utils = api.useUtils();
   const [draft, setDraft] = useState<Record<string, MeetingStatus>>(
     () => current as Record<string, MeetingStatus>,
   );
-  const correctsRecordedAttendance = Object.entries(current).some(([id, status]) => draft[id] && draft[id] !== status);
+  const correctsRecordedAttendance = Object.entries(current).some(
+    ([id, status]) => draft[id] && draft[id] !== status,
+  );
+  const admitted = useRef(false);
+  const refreshInFlight = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const refreshSaved = async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    try {
+      await invalidateAndReport(utils.admin.meetings);
+      setRefreshFailed(false);
+      admitted.current = false;
+    } catch {
+      setRefreshFailed(true);
+    } finally {
+      setRefreshing(false);
+      refreshInFlight.current = false;
+    }
+  };
   const save = api.admin.recordMeetingAttendance.useMutation({
-    onSuccess: () => utils.admin.meetings.invalidate(),
+    onSuccess: refreshSaved,
+    onError: () => {
+      admitted.current = false;
+    },
   });
+  const pending = save.isPending || refreshing;
+  useEffect(() => {
+    onBusyChange(meetingId, pending);
+    return () => onBusyChange(meetingId, false);
+  }, [meetingId, pending, onBusyChange]);
 
   return (
     <div className="mt-3 min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -626,7 +695,7 @@ function AttendanceEditor({
                     key={opt.value}
                     selected={value === opt.value}
                     className="max-w-full [overflow-wrap:anywhere]"
-                    disabled={readOnly || save.isPending}
+                    disabled={readOnly || pending || refreshFailed}
                     onClick={() => {
                       setDraft((d) => ({ ...d, [tu.id]: opt.value }));
                       save.reset();
@@ -640,26 +709,35 @@ function AttendanceEditor({
           );
         })}
       </div>
-      {correctsRecordedAttendance && <p className="muted mt-3 text-sm">{t("approvals.reversalHelp")}</p>}
+      {correctsRecordedAttendance && (
+        <p className="muted mt-3 text-sm">{t("approvals.reversalHelp")}</p>
+      )}
       {!readOnly && (
         <FormActions>
           <Button
             type="button"
             variant="primary"
             onClick={() => {
+              if (admitted.current || pending || refreshFailed || readOnly)
+                return;
               const entries = tutors
                 .filter((tu) => tu.active && draft[tu.id])
                 .map((tu) => ({ tutorId: tu.id, status: draft[tu.id]! }));
+              admitted.current = true;
               save.mutate({ meetingId, entries });
             }}
-            disabled={save.isPending}
+            disabled={pending || refreshFailed}
           >
             {save.isPending
               ? t("admin.meetings.saving")
-              : t(correctsRecordedAttendance ? "admin.meetings.correctAttendance" : "admin.meetings.saveAttendance")}
+              : t(
+                  correctsRecordedAttendance
+                    ? "admin.meetings.correctAttendance"
+                    : "admin.meetings.saveAttendance",
+                )}
           </Button>
           <Button
-            disabled={save.isPending}
+            disabled={pending || refreshFailed}
             onClick={() => {
               setDraft(current as Record<string, MeetingStatus>);
               save.reset();
@@ -669,12 +747,29 @@ function AttendanceEditor({
           </Button>
         </FormActions>
       )}
+      {refreshFailed && (
+        <InlineNotice
+          tone="warning"
+          announcement="alert"
+          action={
+            <Button disabled={refreshing} onClick={() => void refreshSaved()}>
+              {t("uiPatterns.retry")}
+            </Button>
+          }
+        >
+          {t("admin.meetings.refreshFailed")}
+        </InlineNotice>
+      )}
       {save.isSuccess && (
         <span role="status" className="ml-2 text-sm text-green-700">
           {t("admin.meetings.saved")}
         </span>
       )}
-      {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+      {save.error?.data?.approvalId && (
+        <InlineNotice tone="warning" announcement="status">
+          {t("approvals.queuedBody")}
+        </InlineNotice>
+      )}
       {save.error && !save.error.data?.approvalId && (
         <span role="alert" className="ml-2 text-sm text-red-700">
           {save.error.message}

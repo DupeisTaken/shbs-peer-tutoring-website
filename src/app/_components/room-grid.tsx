@@ -1,7 +1,7 @@
 "use client";
 
-import { useTranslations } from "next-intl";
-import { DAY_NAMES, minToHm } from "~/lib/time";
+import { useLocale, useTranslations } from "next-intl";
+import { formatWeekday, minToHm } from "~/lib/time";
 import { SummaryTable, TableActions, TableDetails } from "./ui/summary-table";
 
 type GridRoom = { id: string; name: string };
@@ -49,11 +49,10 @@ export function RoomGrid({
   highlightTutorId?: string | null;
 }) {
   const t = useTranslations("tablePatterns");
+  const locale = useLocale();
   if (rooms.length === 0 || slots.length === 0) {
     return (
-      <p className="muted">
-        {rooms.length === 0 ? "No rooms yet." : "No time slots published yet."}
-      </p>
+      <p className="muted">{t(rooms.length === 0 ? "noRooms" : "noSlots")}</p>
     );
   }
 
@@ -87,8 +86,8 @@ export function RoomGrid({
           {slots.map((slot) => (
             <tr key={slot.id}>
               <th className="sticky left-0 z-10 border-b border-slate-100 bg-white p-2 text-left font-medium whitespace-nowrap text-slate-700">
-                {DAY_NAMES[slot.dayOfWeek]} {minToHm(slot.startMin)}–
-                {minToHm(slot.endMin)}
+                {formatWeekday(slot.dayOfWeek, locale)} {minToHm(slot.startMin)}
+                –{minToHm(slot.endMin)}
               </th>
               {rooms.map((room) => {
                 const blocked = blocks.find(
@@ -127,7 +126,7 @@ export function RoomGrid({
               <TableActions>
                 <TableDetails
                   label={t("schedule")}
-                  title={`${DAY_NAMES[slot.dayOfWeek]} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}`}
+                  title={`${formatWeekday(slot.dayOfWeek, locale)} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}`}
                 >
                   {rooms.map((room) => {
                     const blocked = blocks.find(

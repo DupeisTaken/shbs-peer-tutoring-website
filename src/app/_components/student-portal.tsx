@@ -1,10 +1,15 @@
 "use client";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 import { formText } from "~/lib/form-values";
-import { useState } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
-import { useDialog } from "./confirm-dialog";
+import { Button } from "./ui/button";
+import { Modal } from "./ui/modal";
+import { InlineNotice, StatePanel } from "./ui/patterns";
+import { QueryFeedback } from "./ui/query-feedback";
 
 /** Pending and valid cards may be appealed once while their school-day window is open. */
 export function canSubmitCardAppeal({
@@ -27,25 +32,147 @@ export function StudentPortal({
   view?: "all" | "schedule" | "attendance" | "support";
 }) {
   const programFormat = useFormatter();
+  const locale = useLocale();
   const t = useTranslations("workflows");
+  const recovery = useTranslations("participantRecovery");
+  const cardStatus = useTranslations("admin.cards.reviewStatus");
+  const cardColor = useTranslations("tutor.attendance");
   const portal = useTranslations("tuteePortal");
   const attendance = useTranslations("tutor.attendance.tuteeStatusOpt");
   const scheduling = useTranslations("scheduling");
   const [page, setPage] = useState(0);
-  const data = api.student.me.useQuery({ page });
+  const queryClient = useQueryClient();
+  const [denied, setDenied] = useState(false);
+  const data = api.student.me.useQuery({ page }, { enabled: !denied });
+  const authorizationDenied =
+    data.error?.data?.code === "FORBIDDEN" ||
+    data.error?.data?.code === "UNAUTHORIZED";
+  useEffect(() => {
+    if (!authorizationDenied) return;
+    // Revoke every cached page of this private feed, not unrelated participant reads.
+    setDenied(true);
+    queryClient.removeQueries({
+      queryKey: getQueryKey(api.student.me, undefined, "query"),
+    });
+  }, [authorizationDenied, queryClient]);
+  useEffect(() => {
+    if (data.isSuccess && !data.isFetching) setDenied(false);
+  }, [data.isSuccess, data.isFetching]);
   const shared = api.student.feedbackSettings.useQuery(undefined, {
     enabled: view === "all" || view === "attendance",
   });
-  const { promptText, dialog } = useDialog();
+  const [appealingCard, setAppealingCard] = useState<string | null>(null);
+  const [appealBody, setAppealBody] = useState("");
+  const [acceptedAppeals, setAcceptedAppeals] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const submittingAppeal = useRef(false);
   const appeal = api.student.appeal.useMutation({
-    onSuccess: () => data.refetch(),
+    onSuccess: (_result, variables) => {
+      // Accepted writes are final even when the following read fails. Never offer a replay.
+      setAcceptedAppeals((ids) => new Set(ids).add(variables.cardId));
+      setAppealingCard(null);
+      return data.refetch();
+    },
+    onSettled: () => {
+      submittingAppeal.current = false;
+    },
   });
-  if (data.error) return <p role="alert">{data.error.message}</p>;
-  if (!data.data) return <p role="status">{t("loading")}</p>;
+  const retry = () => {
+    void data.refetch();
+  };
+  const readBlocked =
+    !!data.error || denied || authorizationDenied || !data.data;
+  const feedback = (
+    <QueryFeedback
+      hasData={!!data.data}
+      loading={!data.data && !data.error}
+      error={!!data.error}
+      retrying={data.isFetching}
+      loadingTitle={recovery("loading")}
+      errorTitle={recovery(data.data ? "refreshFailed" : "loadFailed")}
+      retryLabel={recovery("retry")}
+      onRetry={retry}
+    />
+  );
+  if (denied || authorizationDenied)
+    return (
+      <StatePanel
+        kind="denied"
+        title={recovery("accessDenied")}
+        action={
+          <Button size="compact" disabled={data.isFetching} onClick={retry}>
+            {recovery("retry")}
+          </Button>
+        }
+      >
+        {recovery("accessDeniedHelp")}
+      </StatePanel>
+    );
+  if (!data.data) return feedback;
   const { schedule, sessions, cards, appeals } = data.data;
+  const selectedCard = cards.find((card) => card.id === appealingCard);
+  const appealAllowed =
+    !readBlocked &&
+    selectedCard &&
+    !acceptedAppeals.has(selectedCard.id) &&
+    canSubmitCardAppeal(selectedCard);
+  const closeAppeal = () => {
+    if (!appeal.isPending && !submittingAppeal.current) setAppealingCard(null);
+  };
   return (
     <div className="space-y-6">
-      {dialog}
+      {feedback}
+      {appealingCard && (
+        <Modal
+          title={t("appeal")}
+          busy={appeal.isPending}
+          onClose={closeAppeal}
+          footer={
+            <>
+              <Button disabled={appeal.isPending} onClick={closeAppeal}>
+                {t("cancel")}
+              </Button>
+              <Button
+                variant="primary"
+                disabled={
+                  !appealAllowed || !appealBody.trim() || appeal.isPending
+                }
+                onClick={() => {
+                  if (
+                    !appealAllowed ||
+                    !appealBody.trim() ||
+                    submittingAppeal.current
+                  )
+                    return;
+                  submittingAppeal.current = true;
+                  appeal.mutate({
+                    cardId: appealingCard,
+                    body: appealBody.trim(),
+                  });
+                }}
+              >
+                {t("submit")}
+              </Button>
+            </>
+          }
+        >
+          {/* A read failure leaves the appeal draft mounted and makes Retry reachable in the dialog. */}
+          {feedback}
+          <label className="block space-y-1">
+            <span className="label">{t("body")}</span>
+            <textarea
+              data-dialog-autofocus
+              disabled={appeal.isPending}
+              className="textarea"
+              rows={3}
+              value={appealBody}
+              onChange={(event) => setAppealBody(event.target.value)}
+            />
+          </label>
+          {appeal.error && <p role="alert">{appeal.error.message}</p>}
+        </Modal>
+      )}
       {(view === "all" || view === "schedule") && (
         <section className="card p-6">
           <h2 className="section-title">{t("schedule")}</h2>
@@ -58,7 +185,7 @@ export function StudentPortal({
                 {p.subject} · {p.tutor.englishName}
               </p>
               <p className="muted">
-                {pairingScheduleText(p, scheduling("awaiting"))}
+                {pairingScheduleText(p, scheduling("awaiting"), locale)}
                 {p.scheduleConfirmed && p.room ? ` · ${p.room.name}` : ""}
               </p>
             </div>
@@ -68,9 +195,31 @@ export function StudentPortal({
       {(view === "all" || view === "attendance") && (
         <section className="card space-y-4 p-6">
           <h2 className="section-title">{t("attendance")}</h2>
-          <p className="muted text-sm">
-            {t(shared.data ? "sharedFeedback" : "privateFeedback")}
-          </p>
+          {shared.error ? (
+            <InlineNotice
+              tone="warning"
+              announcement="alert"
+              action={
+                <Button
+                  size="compact"
+                  disabled={shared.isFetching}
+                  onClick={() => void shared.refetch()}
+                >
+                  {recovery("retry")}
+                </Button>
+              }
+            >
+              {t("feedbackVisibilityUnavailable")}
+            </InlineNotice>
+          ) : typeof shared.data === "boolean" ? (
+            <p className="muted text-sm">
+              {t(shared.data ? "sharedFeedback" : "privateFeedback")}
+            </p>
+          ) : (
+            <p role="status" className="muted text-sm">
+              {t("feedbackVisibilityLoading")}
+            </p>
+          )}
           {!sessions.length && <p>{t("empty")}</p>}
           {sessions.map((row) => (
             <div
@@ -84,7 +233,11 @@ export function StudentPortal({
                 })}{" "}
                 · {row.session.pairing.subject} · {attendance(row.status)}
               </p>
-              <FeedbackForm sessionId={row.session.id} initial={row.feedback} />
+              <FeedbackForm
+                sessionId={row.session.id}
+                initial={row.feedback}
+                readBlocked={readBlocked}
+              />
             </div>
           ))}
         </section>
@@ -99,8 +252,25 @@ export function StudentPortal({
                 key={card.id}
                 className="rounded-lg border border-slate-200 p-4"
               >
-                <p className="font-medium">
-                  {card.color} · {card.reviewStatus}
+                <p className="flex flex-wrap items-center gap-2 font-medium">
+                  <span
+                    className={
+                      card.color === "RED" ? "badge-red" : "badge-amber"
+                    }
+                  >
+                    {cardColor(card.color === "RED" ? "red" : "yellow")}
+                  </span>
+                  <span
+                    className={
+                      card.reviewStatus === "VALID"
+                        ? "badge-green"
+                        : card.reviewStatus === "INVALID"
+                          ? "badge-slate"
+                          : "badge-amber"
+                    }
+                  >
+                    {cardStatus(card.reviewStatus)}
+                  </span>
                 </p>
                 <p>{card.reason}</p>
                 <p className="muted text-xs">
@@ -114,22 +284,19 @@ export function StudentPortal({
                   <button
                     className="btn-secondary mt-3"
                     disabled={
+                      readBlocked ||
                       appeal.isPending ||
+                      acceptedAppeals.has(card.id) ||
                       !canSubmitCardAppeal({
                         reviewStatus: card.reviewStatus,
                         hasExistingAppeal: card.hasExistingAppeal,
                         deadline: card.deadline,
                       })
                     }
-                    onClick={async () => {
-                      const body = await promptText({
-                        title: t("appeal"),
-                        reasonLabel: t("body"),
-                        confirmLabel: t("submit"),
-                        cancelLabel: t("cancel"),
-                        required: true,
-                      });
-                      if (body) appeal.mutate({ cardId: card.id, body });
+                    onClick={() => {
+                      if (readBlocked) return;
+                      setAppealBody("");
+                      setAppealingCard(card.id);
                     }}
                   >
                     {t("appeal")}
@@ -146,7 +313,18 @@ export function StudentPortal({
               <div key={a.id} className="border-b border-slate-100 py-3">
                 <p>{a.body}</p>
                 <p className="muted">
-                  {a.state} · {a.decision}
+                  <span
+                    className={
+                      a.state === "PENDING" ? "badge-amber" : "badge-slate"
+                    }
+                  >
+                    {t(
+                      a.state === "PENDING"
+                        ? "pendingAppeals"
+                        : "resolvedAppeals",
+                    )}
+                  </span>
+                  {a.decision && <span className="ml-2">{a.decision}</span>}
                 </p>
               </div>
             ))}
@@ -170,9 +348,11 @@ export function StudentPortal({
 function FeedbackForm({
   sessionId,
   initial,
+  readBlocked,
 }: {
   sessionId: string;
   initial: { rating: number; body: string } | null;
+  readBlocked: boolean;
 }) {
   const t = useTranslations("workflows");
   const save = api.student.feedback.useMutation();
@@ -183,6 +363,7 @@ function FeedbackForm({
         className="mt-3 space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
+          if (readBlocked || save.isPending) return;
           const d = new FormData(e.currentTarget);
           save.mutate({
             sessionId,
@@ -213,7 +394,10 @@ function FeedbackForm({
             required
           />
         </label>
-        <button className="btn-primary" disabled={save.isPending}>
+        <button
+          className="btn-primary"
+          disabled={readBlocked || save.isPending}
+        >
           {t("save")}
         </button>
         {save.isSuccess && <p role="status">{t("saved")}</p>}

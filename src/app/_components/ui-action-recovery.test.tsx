@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import SessionFlagsPage from "../(admin)/admin/session-flags/page";
@@ -181,13 +182,15 @@ it.each(["en", "zh"] as const)(
   (locale) => {
     const messages = locale === "en" ? en : zh;
     render(
-      <NextIntlClientProvider
-        locale={locale}
-        timeZone="Asia/Shanghai"
-        messages={messages}
-      >
-        <ServiceHoursPage />
-      </NextIntlClientProvider>,
+      <QueryClientProvider client={new QueryClient()}>
+        <NextIntlClientProvider
+          locale={locale}
+          timeZone="Asia/Shanghai"
+          messages={messages}
+        >
+          <ServiceHoursPage />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
     );
     const month = screen.getByLabelText<HTMLInputElement>(
       messages.admin.summary.monthLabel,
@@ -201,7 +204,8 @@ it.each(["en", "zh"] as const)(
     expect(state.summary).toHaveBeenLastCalledWith(undefined);
     expect(month.value).toBe("");
     expect(
-      screen.getByRole("link", { name: messages.admin.summary.viewHistory })
+      screen
+        .getByRole("link", { name: messages.admin.summary.viewHistory })
         .getAttribute("href"),
     ).toBe("/admin/history");
   },

@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -10,6 +12,8 @@ import { DisciplineSlots } from "~/app/_components/discipline-slots";
 import { useReadOnly } from "~/app/_components/read-only";
 import { useDialogPending } from "~/app/_components/ui/modal";
 import { Button } from "~/app/_components/ui/button";
+import { StatePanel } from "~/app/_components/ui/patterns";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import {
   SummaryTable,
   TableActions,
@@ -35,9 +39,13 @@ const dot = (color: "YELLOW" | "RED") => (color === "RED" ? "🟥" : "🟨");
 function PendingCard({
   card,
   onChanged,
+  readBlocked,
+  readFeedback,
 }: {
   card: Card;
   onChanged: () => void;
+  readBlocked: boolean;
+  readFeedback: ReactNode;
 }) {
   const programFormat = useFormatter();
   const t = useTranslations();
@@ -60,7 +68,14 @@ function PendingCard({
   const busy = useDialogPending(review.isPending);
   const controlsBusy = busy || reloading;
   const submit = (reviewStatus: "VALID" | "INVALID") => {
-    if (busy || submitting.current || reloadPending.current || readOnly) return;
+    if (
+      readBlocked ||
+      busy ||
+      submitting.current ||
+      reloadPending.current ||
+      readOnly
+    )
+      return;
     submitting.current = true;
     review.mutate({
       id: card.id,
@@ -72,6 +87,7 @@ function PendingCard({
 
   return (
     <div className="rounded-lg border border-slate-200 p-3">
+      {readFeedback}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-medium text-slate-900">
@@ -105,14 +121,14 @@ function PendingCard({
           />
           <Button
             size="compact"
-            disabled={controlsBusy}
+            disabled={controlsBusy || readBlocked}
             onClick={() => submit("VALID")}
           >
             {t("admin.cards.valid")}
           </Button>
           <Button
             size="compact"
-            disabled={controlsBusy}
+            disabled={controlsBusy || readBlocked}
             onClick={() => submit("INVALID")}
           >
             {t("admin.cards.invalid")}
@@ -185,7 +201,43 @@ export default function CardsPage() {
   const t = useTranslations();
   const readOnly = useReadOnly();
   const utils = api.useUtils();
-  const cards = api.admin.disciplinaryCards.useQuery();
+  const queryClient = useQueryClient();
+  const [denied, setDenied] = useState(false);
+  const cards = api.admin.disciplinaryCards.useQuery(undefined, {
+    enabled: !denied,
+  });
+  const accessDenied =
+    cards.error?.data?.code === "FORBIDDEN" ||
+    cards.error?.data?.code === "UNAUTHORIZED";
+  useEffect(() => {
+    if (accessDenied) {
+      setDenied(true);
+      queryClient.removeQueries({
+        queryKey: getQueryKey(api.admin.disciplinaryCards, undefined, "query"),
+      });
+    } else if (cards.isSuccess && !cards.isFetching) setDenied(false);
+  }, [accessDenied, cards.isSuccess, cards.isFetching, queryClient]);
+  const section = t("admin.cards.title");
+  const retry = () => {
+    void cards.refetch();
+  };
+  const readFeedback = (
+    <QueryFeedback
+      hasData={cards.data !== undefined}
+      loading={cards.data === undefined && !cards.error}
+      error={!!cards.error}
+      retrying={cards.isFetching}
+      loadingTitle={t("managementRecovery.loading", { section })}
+      errorTitle={t(
+        cards.data === undefined
+          ? "managementRecovery.loadFailed"
+          : "managementRecovery.refreshFailed",
+        { section },
+      )}
+      retryLabel={t("managementRecovery.retry", { section })}
+      onRetry={retry}
+    />
+  );
   const invalidate = () => utils.admin.disciplinaryCards.invalidate();
 
   const all = useMemo(() => cards.data ?? [], [cards.data]);
@@ -217,12 +269,40 @@ export default function CardsPage() {
       .sort((a, b) => b.effectiveReds - a.effectiveReds);
   }, [all]);
 
+  // Empty standings are meaningful only after a completed read. Cached review
+  // children keep their notes/version snapshots mounted through transport errors.
+  if (denied || accessDenied || cards.data === undefined)
+    return (
+      <div className="space-y-6">
+        <h1 className="page-title">{section}</h1>
+        {denied || accessDenied ? (
+          <StatePanel
+            kind="denied"
+            title={t("managementRecovery.denied", { section })}
+            action={
+              <Button
+                size="compact"
+                disabled={cards.isFetching}
+                onClick={retry}
+              >
+                {t("managementRecovery.retry", { section })}
+              </Button>
+            }
+          />
+        ) : (
+          readFeedback
+        )}
+      </div>
+    );
+
   return (
     <div className="space-y-8">
       <div>
         <h1 className="page-title">{t("admin.cards.title")}</h1>
         <p className="muted mt-1">{t("admin.cards.intro")}</p>
       </div>
+
+      {readFeedback}
 
       <section className="card p-5">
         <h2 className="section-title">
@@ -256,7 +336,12 @@ export default function CardsPage() {
                       )}
                       title={`${c.tutee.englishName} · ${t("admin.cards.pendingReview")}`}
                     >
-                      <PendingCard card={c} onChanged={invalidate} />
+                      <PendingCard
+                        card={c}
+                        onChanged={invalidate}
+                        readBlocked={!!cards.error}
+                        readFeedback={readFeedback}
+                      />
                     </TableDetails>
                   </TableActions>
                 </tr>

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   cleanup,
   fireEvent,
@@ -71,9 +72,21 @@ vi.mock("~/app/_components/timed-action-dialog", () => ({
     </div>
   ),
 }));
-afterEach(cleanup);
+let client: QueryClient;
+beforeEach(() => {
+  client = new QueryClient();
+});
+afterEach(() => {
+  cleanup();
+  client.clear();
+});
+const page = () => (
+  <QueryClientProvider client={client}>
+    <StudentWithdrawals />
+  </QueryClientProvider>
+);
 it("shows student withdrawal sources together while excluding schedule reviews", () => {
-  render(<StudentWithdrawals />);
+  render(page());
   expect(screen.getByText("Survey Student")).toBeTruthy();
   expect(screen.getByText("Manual Student")).toBeTruthy();
   expect(screen.queryByText("Schedule Only")).toBeNull();
@@ -83,7 +96,7 @@ it("shows student withdrawal sources together while excluding schedule reviews",
   expect(screen.getAllByText(/effectiveOnApproval/)).toHaveLength(2);
 });
 it("defers approval until the existing timed confirmation returns its ticket", () => {
-  render(<StudentWithdrawals />);
+  render(page());
   fireEvent.click(
     within(screen.getByText("Survey Student").closest("article")!).getByRole(
       "button",

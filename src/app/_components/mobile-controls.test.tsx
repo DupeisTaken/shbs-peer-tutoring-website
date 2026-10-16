@@ -9,6 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import messages from "../../../messages/en.json";
 import { SortHeader, useSort } from "./sortable";
 import { NavSidebarClient } from "./nav-sidebar-client";
@@ -76,7 +77,13 @@ vi.mock("~/app/_components/email-details", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    account: { me: { useQuery: () => ({ data: { role: state.readOnly ? "VIEWER" : "HEAD" } }) } },
+    account: {
+      me: {
+        useQuery: () => ({
+          data: { role: state.readOnly ? "VIEWER" : "HEAD" },
+        }),
+      },
+    },
     useUtils: () => ({
       admin: { registrationCodes: { invalidate: async () => undefined } },
     }),
@@ -106,10 +113,17 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     crew: {
-      myStatus: { useQuery: () => ({ data: { status: state.crewStatus } }) },
+      // Query-key metadata mirrors the tRPC proxy used by patrol cache recovery.
+      myStatus: {
+        _def: () => ({ path: ["crew", "myStatus"] }),
+        useQuery: () => ({ data: { status: state.crewStatus } }),
+      },
       patrolConfig: {
+        _def: () => ({ path: ["crew", "patrolConfig"] }),
         useQuery: () => ({
           data: {
+            myHours: 0,
+            myPatrols: 0,
             rooms: [
               { id: "room-a", name: "Room A" },
               { id: "room-b", name: "Room B" },
@@ -117,7 +131,10 @@ vi.mock("~/trpc/react", () => ({
           },
         }),
       },
-      myPatrols: { useQuery: () => ({ data: [] }) },
+      myPatrols: {
+        _def: () => ({ path: ["crew", "myPatrols"] }),
+        useQuery: () => ({ data: [] }),
+      },
       requestOptOut: { useMutation: () => ({}) },
       recallOptOut: { useMutation: () => ({}) },
       requestReentry: { useMutation: () => ({}) },
@@ -198,17 +215,21 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 
+let queryClient: QueryClient;
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <NextIntlClientProvider
-    locale="en"
-    messages={messages}
-    timeZone="Asia/Shanghai"
-  >
-    {children}
-  </NextIntlClientProvider>
+  <QueryClientProvider client={queryClient}>
+    <NextIntlClientProvider
+      locale="en"
+      messages={messages}
+      timeZone="Asia/Shanghai"
+    >
+      {children}
+    </NextIntlClientProvider>
+  </QueryClientProvider>
 );
 
 beforeEach(() => {
+  queryClient = new QueryClient();
   state.pending = false;
   state.canEdit = true;
   state.readOnly = false;
@@ -223,6 +244,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  queryClient.clear();
   vi.clearAllMocks();
 });
 

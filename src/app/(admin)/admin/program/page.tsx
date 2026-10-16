@@ -1,7 +1,7 @@
 "use client";
 
 import { ProgramCaptchaSettings } from "~/app/_components/program-captcha-settings";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ProgramProfileSettings } from "~/app/_components/program-profile-settings";
 import { ProgramEmailSettings } from "~/app/_components/program-email-settings";
 import { useTranslations } from "next-intl";
@@ -21,6 +21,7 @@ type RefreshResult = {
 };
 
 export default function ProgramPage() {
+  const confirmationId = useId();
   const t = useTranslations();
   const utils = api.useUtils();
   const current = api.admin.currentPeriod.useQuery();
@@ -107,9 +108,12 @@ export default function ProgramPage() {
             </ul>
 
             <div className="mt-4 space-y-2">
-              <label className="label">{t("admin.program.confirmLabel")}</label>
+              <label className="label" htmlFor={confirmationId}>
+                {t("admin.program.confirmLabel")}
+              </label>
               <div className="flex flex-wrap items-center gap-2">
                 <input
+                  id={confirmationId}
                   value={confirm}
                   disabled={!period.canEdit || refresh.isPending}
                   onChange={(e) => setConfirm(e.target.value)}
@@ -127,12 +131,18 @@ export default function ProgramPage() {
                 >
                   {refresh.isPending
                     ? t("admin.program.refreshing")
-                    : period.canApply === false ? t("approvals.requestHead") : t("admin.program.refreshButton", {
-                        name: period.next.name,
-                      })}
+                    : period.canApply === false
+                      ? t("approvals.requestHead")
+                      : t("admin.program.refreshButton", {
+                          name: period.next.name,
+                        })}
                 </button>
               </div>
-              {refresh.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+              {refresh.error?.data?.approvalId && (
+                <InlineNotice tone="warning" announcement="status">
+                  {t("approvals.queuedBody")}
+                </InlineNotice>
+              )}
               {refresh.error && !refresh.error.data?.approvalId && (
                 <p className="mt-2 text-sm text-red-600">
                   {refresh.error.message}
@@ -218,7 +228,13 @@ function FeatureToggles() {
               {data.canEdit && (
                 // Keep the staged-setting behavior while giving each compact switch a named touch target.
                 <Switch
-                  label={data.canApply === false ? t("approvals.requestChange", { setting: t(`admin.program.features.name.${f.key}`) }) : t(`admin.program.features.name.${f.key}`)}
+                  label={
+                    data.canApply === false
+                      ? t("approvals.requestChange", {
+                          setting: t(`admin.program.features.name.${f.key}`),
+                        })
+                      : t(`admin.program.features.name.${f.key}`)
+                  }
                   checked={target}
                   disabled={setPending.isPending}
                   onChange={(enabled) =>
@@ -235,7 +251,11 @@ function FeatureToggles() {
           {t("admin.program.features.headOnly")}
         </p>
       )}
-      {setPending.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+      {setPending.error?.data?.approvalId && (
+        <InlineNotice tone="warning" announcement="status">
+          {t("approvals.queuedBody")}
+        </InlineNotice>
+      )}
       {setPending.error && !setPending.error.data?.approvalId && (
         <p className="mt-2 text-sm text-red-600">{setPending.error.message}</p>
       )}

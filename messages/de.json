@@ -29,7 +29,9 @@
     "slot": "Zeitfenster",
     "room": "Raum",
     "select": "Auswählen",
-    "selected": "Ausgewählt"
+    "selected": "Ausgewählt",
+    "noRooms": "Noch keine Räume.",
+    "noSlots": "Noch keine Zeitfenster veröffentlicht."
   },
   "scheduling": {
     "awaiting": "Termin noch offen",
@@ -915,7 +917,10 @@
       "appeals": {
         "heading": "Entsperrungs-Widersprüche",
         "approve": "Genehmigen",
-        "deny": "Ablehnen"
+        "deny": "Ablehnen",
+        "review": "Einspruch prüfen",
+        "message": "Ursprünglicher Einspruch",
+        "refreshFailed": "Die Entscheidung wurde gespeichert, aber das Konto oder die Einspruchsliste konnte nicht aktualisiert werden. Versuche die Aktualisierung erneut, ohne die Entscheidung nochmals abzusenden."
       }
     },
     "registrationCodes": {
@@ -997,7 +1002,8 @@
       "colStatus": "Status",
       "colTutees": "Lernende",
       "colSH": "SH",
-      "empty": "Keine Einträge für diesen Filter."
+      "empty": "Keine Einträge für diesen Filter.",
+      "monthLabel": "Monat"
     },
     "meetings": {
       "title": "Tutor-Treffen",
@@ -1027,7 +1033,8 @@
         "tutor": "Tutor",
         "empty": "Noch keine Anwesenheit erfasst."
       },
-      "correctAttendance": "Submit attendance correction"
+      "correctAttendance": "Submit attendance correction",
+      "refreshFailed": "Die Anwesenheit wurde gespeichert, aber die Besprechungsliste konnte nicht aktualisiert werden. Versuche die Aktualisierung erneut, ohne die Anwesenheit nochmals abzusenden."
     },
     "timeslots": {
       "title": "Zeitfenster",
@@ -1224,7 +1231,8 @@
           "GRADUATED": "Graduated",
           "ARCHIVED": "Archived"
         }
-      }
+      },
+      "messageLabel": "Nachricht"
     },
     "policies": {
       "title": "Richtliniendokumente",
@@ -1252,7 +1260,13 @@
         "editedBy": "von {who}",
         "saving": "Wird gespeichert…",
         "save": "Speichern",
-        "saved": "Gespeichert."
+        "saved": "Gespeichert.",
+        "titleLabel": "Dokumenttitel",
+        "versionLabel": "Version (optional)",
+        "bodyLabel": "Richtlinientext (Markdown)",
+        "unsaved": "Nicht gespeicherte Änderungen",
+        "refreshFailed": "Die Richtlinie wurde gespeichert, aber die Richtlinie oder der Versionsverlauf konnte nicht aktualisiert werden. Versuche die Aktualisierung erneut, bevor du weiterbearbeitest.",
+        "retryRefresh": "Aktualisierung erneut versuchen"
       },
       "studentTitle": "Richtlinie für Lernende",
       "tutorTitle": "Richtlinie für Tutoren"
@@ -1567,7 +1581,9 @@
       },
       "issuedHeading": "Ausgestellte Codes",
       "issuedHint": "Codes für angenommene Bewerber, die auf Registrierung warten. Das Widerrufen eines Codes unter Registrierungscodes bringt seine Bewerbung zurück in die Warteschlange.",
-      "issuedExpires": "Läuft ab am {date}"
+      "issuedExpires": "Läuft ab am {date}",
+      "originalApplication": "Ursprüngliche Bewerbung",
+      "originalRequest": "Ursprüngliche Anfrage"
     },
     "sessionFlags": {
       "title": "Anwesenheitsmarkierungen",
@@ -1683,7 +1699,9 @@
         "insertImage": "Bild einfügen…",
         "preview": "Vorschau",
         "edit": "Bearbeiten",
-        "previewEmpty": "Noch nichts zur Vorschau."
+        "previewEmpty": "Noch nichts zur Vorschau.",
+        "titleLabel": "Titel",
+        "bodyLabel": "Inhalt (Markdown)"
       },
       "sections": {
         "new": {
@@ -2417,8 +2435,11 @@
         "reason": "Warum gehen Sie? (optional)",
         "submit": "Austrittsantrag senden",
         "pending": "Austritt beantragt — wartet auf Admin-Freigabe.",
-        "recall": "Antrag zurückziehen"
-      }
+        "recall": "Antrag zurückziehen",
+        "reasonLabel": "Austrittsgrund"
+      },
+      "statusLabel": "Teamstatus",
+      "noteLabel": "Rundgangsnotiz"
     }
   },
   "suspended": {
@@ -2529,7 +2550,8 @@
       "sectionId": "Content to Translate",
       "id": "Content to Translate",
       "other": "Content to Translate"
-    }
+    },
+    "refreshFailed": "Deine Änderung wurde angenommen, aber der aktualisierte Text konnte nicht geladen werden. Versuche die Aktualisierung erneut, ohne die Änderung nochmals abzusenden."
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -2657,7 +2679,9 @@
     "unscheduled": "Not scheduled",
     "panelRequired": "Assign a qualified panel before recording completion.",
     "invalidDate": "Enter a valid date and time.",
-    "searchInterviews": "Search"
+    "searchInterviews": "Search",
+    "feedbackVisibilityLoading": "Es wird geprüft, wer Feedback lesen kann…",
+    "feedbackVisibilityUnavailable": "Es konnte nicht bestätigt werden, wer Feedback lesen kann. Versuche es erneut, um die Sichtbarkeit zu prüfen."
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -4321,7 +4345,11 @@
     "translationHelp": "This permanently removes this saved language version. Other language versions remain available.",
     "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
     "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
-    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
+    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged.",
+    "galleryRevokeScenario": "Beispiel für entzogenen Zugriff öffnen",
+    "galleryRevoke": "Zugriffsentzug simulieren",
+    "galleryRevoked": "Der Zugriff wurde entzogen. Die Prüfunterlagen sind ausgeblendet.",
+    "galleryRestore": "Beispielzugriff wiederherstellen"
   },
   "accountInvitation": {
     "enterCode": "Einladung aus Ihrer E-Mail eingeben",
@@ -4428,6 +4456,21 @@
     "saveError": "Die Änderung konnte nicht bestätigt werden. Deine Auswahl bleibt erhalten. Versuche es erneut; die Wiederholung ist sicher.",
     "securityTitle": "Wichtige E-Mails Bleiben Aktiv",
     "securityHelp": "Sicherheits-, Bestätigungs- und Wiederherstellungs-E-Mails sind nicht betroffen. Bereits versendete E-Mails können noch eintreffen."
+  },
+  "participantRecovery": {
+    "loading": "Einträge werden geladen…",
+    "loadFailed": "Diese Einträge konnten nicht geladen werden",
+    "refreshFailed": "Diese Einträge konnten nicht aktualisiert werden. Versuche es erneut, um fortzufahren.",
+    "accessDenied": "Der Zugriff auf diese Einträge ist nicht verfügbar",
+    "accessDeniedHelp": "Deine Zugriffsberechtigung konnte nicht bestätigt werden. Versuche es erneut oder melde dich mit einem berechtigten Konto an.",
+    "retry": "Erneut versuchen"
+  },
+  "managementRecovery": {
+    "loading": "{section} wird geladen…",
+    "loadFailed": "{section} konnte nicht geladen werden.",
+    "refreshFailed": "{section} konnte nicht aktualisiert werden. Die zuvor geladenen Inhalte werden weiterhin angezeigt.",
+    "retry": "{section} erneut laden",
+    "denied": "Du hast keinen Zugriff mehr auf {section}."
   },
   "requestInvalidity": {
     "badge": "Ungültiger Eintrag",

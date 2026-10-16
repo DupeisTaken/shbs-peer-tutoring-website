@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { translationAccess } from "~/lib/translation-access";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
+import { InlineNotice } from "~/app/_components/ui/patterns";
+import { Button } from "~/app/_components/ui/button";
 
 type StringRowData = {
   key: string;
@@ -13,6 +17,15 @@ type StringRowData = {
   base: string;
   override: string | null;
   refs?: { locale: string; value: string }[];
+};
+
+type StringDraft = {
+  value?: string;
+  submitted?: string | null;
+  pending?: boolean;
+  error?: string | null;
+  success?: boolean;
+  refreshFailed?: boolean;
 };
 
 // Safety cap on how many rows one expanded group renders at once (most groups are far smaller).
@@ -25,23 +38,51 @@ function StringRow({
   labelFor,
   onSaved,
   canPublish,
+  draft,
+  onDraftChange,
 }: {
   locale: string;
   item: StringRowData;
   labelFor: (code: string) => string;
   onSaved: () => Promise<unknown> | void;
   canPublish: boolean;
+  draft: StringDraft | undefined;
+  onDraftChange: (update: Partial<StringDraft>) => void;
 }) {
   const t = useTranslations();
   const current = item.override ?? item.base;
-  const [value, setValue] = useState(current);
-  const [submitted, setSubmitted] = useState<string | null>(null);
+  const value = draft?.value ?? current;
+  const submitted = draft?.submitted ?? null;
+  const admitted = useRef(false);
+  const refreshSaved = async () => {
+    onDraftChange({ pending: true });
+    try {
+      await onSaved();
+      onDraftChange({ refreshFailed: false });
+    } catch {
+      onDraftChange({ refreshFailed: true });
+    } finally {
+      onDraftChange({ pending: false });
+    }
+  };
   const setString = api.localization.setString.useMutation({
-    onSuccess: (_result, input) => {
-      setSubmitted(input.value || item.base);
-      return onSaved();
+    onSuccess: async (_result, input) => {
+      onDraftChange({ submitted: input.value || item.base, success: true });
+      await refreshSaved();
+    },
+    onError: (error) => onDraftChange({ error: error.message }),
+    onSettled: () => {
+      admitted.current = false;
+      onDraftChange({ pending: false });
     },
   });
+  const pending = !!draft?.pending || setString.isPending;
+  const submit = (nextValue: string) => {
+    if (pending || admitted.current || draft?.refreshFailed) return;
+    admitted.current = true;
+    onDraftChange({ pending: true, error: null, success: false });
+    setString.mutate({ locale, key: item.key, value: nextValue });
+  };
 
   const overridden = item.override !== null;
 
@@ -52,7 +93,7 @@ function StringRow({
         {overridden && (
           <span className="badge-amber">{t("localization.overridden")}</span>
         )}
-        {setString.isSuccess && (
+        {draft?.success && (
           <span className="text-xs text-green-600">
             {t(
               canPublish
@@ -65,10 +106,10 @@ function StringRow({
           <button
             type="button"
             className="link text-xs"
-            disabled={setString.isPending}
+            disabled={pending || draft?.refreshFailed}
             onClick={() => {
-              setValue(item.base);
-              setString.mutate({ locale, key: item.key, value: "" });
+              onDraftChange({ value: item.base });
+              submit("");
             }}
           >
             {t("localization.reset")}
@@ -88,17 +129,37 @@ function StringRow({
         className="textarea mt-1 w-full text-sm"
         rows={2}
         value={value}
-        disabled={setString.isPending}
+        disabled={pending || draft?.refreshFailed}
         lang={locale}
         aria-label={item.key}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) =>
+          onDraftChange({ value: e.target.value, success: false })
+        }
         onBlur={() => {
-          if (value !== current && value !== submitted && !setString.isPending)
-            setString.mutate({ locale, key: item.key, value });
+          if (value !== current && value !== submitted) submit(value);
         }}
       />
-      {setString.error && (
-        <p className="text-xs text-red-600">{setString.error.message}</p>
+      {draft?.error && (
+        <p role="alert" className="text-xs text-red-600">
+          {draft.error}
+        </p>
+      )}
+      {draft?.refreshFailed && (
+        <InlineNotice
+          tone="warning"
+          announcement="alert"
+          action={
+            <Button
+              size="compact"
+              disabled={pending}
+              onClick={() => void refreshSaved()}
+            >
+              {t("uiPatterns.retry")}
+            </Button>
+          }
+        >
+          {t("translationEditor.refreshFailed")}
+        </InlineNotice>
       )}
     </div>
   );
@@ -115,6 +176,12 @@ export function TranslationStrings() {
   const [refLocales, setRefLocales] = useState<string[]>([]);
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Cache only interacted-with row state, not thousands of hidden DOM nodes.
+  // Locale/key ownership survives namespace collapse, search and language changes;
+  // the authorized feature owner releases this memory when it unmounts.
+  const [drafts, setDrafts] = useState<Record<string, StringDraft>>({});
+  const draftKey = (language: string, key: string) =>
+    JSON.stringify([language, key]);
 
   const langOptions = useMemo(() => languages.data ?? [], [languages.data]);
   const labelFor = (code: string) =>
@@ -160,9 +227,9 @@ export function TranslationStrings() {
 
   const totalShown = view.reduce((n, g) => n + g.shownRows.length, 0);
   const onSaved = () =>
-    Promise.all([
-      utils.localization.strings.invalidate(),
-      utils.translationReview.list.invalidate(),
+    settleRefreshes([
+      () => invalidateAndReport(utils.localization.strings),
+      () => invalidateAndReport(utils.translationReview.list),
     ]);
 
   const toggle = (ns: string) =>
@@ -312,6 +379,14 @@ export function TranslationStrings() {
                           labelFor={labelFor}
                           onSaved={onSaved}
                           canPublish={access.publish}
+                          draft={drafts[draftKey(locale, item.key)]}
+                          onDraftChange={(update) => {
+                            const key = draftKey(locale, item.key);
+                            setDrafts((previous) => ({
+                              ...previous,
+                              [key]: { ...previous[key], ...update },
+                            }));
+                          }}
                         />
                       ))}
                       {shownRows.length > MAX_ROWS_PER_GROUP && (

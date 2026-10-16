@@ -1,9 +1,19 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../../messages/en.json";
 import { DashboardTasks } from "./dashboard-tasks";
+import { focusVisibleContext } from "~/app/_components/focus-visible-context";
+vi.mock("~/app/_components/focus-visible-context", () => ({
+  focusVisibleContext: vi.fn(),
+}));
 
 const state = vi.hoisted(() => ({
   error: false,
@@ -96,6 +106,8 @@ afterEach(() => {
   state.loading = false;
   state.membership = false;
   vi.clearAllMocks();
+  vi.restoreAllMocks();
+  window.history.replaceState(null, "", window.location.pathname);
 });
 const show = (status = "ACTIVE", enabled = true) =>
   render(
@@ -190,4 +202,49 @@ it("announces unknown/loading tasks and retries a failed read without hiding cac
   expect(screen.getByText("Friday maths")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
   expect(state.retry).toHaveBeenCalledOnce();
+});
+
+it("reveals repeated anchors after native hash navigation and handles history hashes", () => {
+  let frame: FrameRequestCallback = () => undefined;
+  vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+    frame = callback;
+    return 1;
+  });
+  vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+  const view = show();
+  const link = screen.getByRole("link", { name: "Record attendance" });
+  fireEvent.click(link);
+  expect(link.getAttribute("href")).toBe("#attendance");
+  // JSDOM does not execute browser scrolling. Supply only the native URL result;
+  // actual header bounds and reveal position are covered by browser evidence.
+  window.history.replaceState(null, "", "#attendance");
+  act(() => frame(0));
+  expect(focusVisibleContext).toHaveBeenLastCalledWith(
+    document.getElementById("attendance"),
+  );
+  fireEvent.click(link);
+  act(() => frame(1));
+  expect(focusVisibleContext).toHaveBeenCalledTimes(2);
+  fireEvent(window, new HashChangeEvent("hashchange"));
+  act(() => frame(2));
+  expect(focusVisibleContext).toHaveBeenCalledTimes(3);
+  view.unmount();
+});
+
+it.each([
+  { ctrlKey: true },
+  { metaKey: true },
+  { shiftKey: true },
+  { altKey: true },
+  { button: 1 },
+])("does not steal focus for modified anchor activation %j", (modifiers) => {
+  const raf = vi.spyOn(window, "requestAnimationFrame");
+  show();
+  const before = raf.mock.calls.length;
+  fireEvent.click(
+    screen.getByRole("link", { name: "Record attendance" }),
+    modifiers,
+  );
+  expect(raf.mock.calls.length).toBe(before);
+  expect(document.activeElement?.id).not.toBe("attendance");
 });
