@@ -166,15 +166,34 @@ it("restricts writes to Head, rejects essential/custom fields, and guards stale 
 });
 
 it("lets Admin request field requirements without applying them before Head review", async () => {
-  const input = { form: "tutee" as const, field: "phone", state: "required" as const, expectedState: "optional" as const };
-  await expect(caller("ADMIN").program.setSignupField(input)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  expect((await caller("ADMIN").program.signupFieldSettings()).fields.tutee.phone).toBe("optional");
-  const request = await db.approvalRequest.findFirstOrThrow({ where: { operation: "program.setSignupField" } });
+  const input = {
+    form: "tutee" as const,
+    field: "phone",
+    state: "required" as const,
+    expectedState: "optional" as const,
+  };
+  await expect(
+    caller("ADMIN").program.setSignupField(input),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(
+    (await caller("ADMIN").program.signupFieldSettings()).fields.tutee.phone,
+  ).toBe("optional");
+  const request = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "program.setSignupField" },
+  });
   expect(request.requesterId).toBe("fields-ADMIN");
-  await expect(caller("COORDINATOR").program.setSignupField(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(
+    caller("COORDINATOR").program.setSignupField(input),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.approvalRequest.count()).toBe(1);
-  await caller("HEAD").approval.decide({ id: request.id, approve: true, note: "Reviewed the requirement" });
-  expect((await caller("ADMIN").program.signupFieldSettings()).fields.tutee.phone).toBe("required");
+  await caller("HEAD").approval.decide({
+    id: request.id,
+    approve: true,
+    note: "Reviewed the requirement",
+  });
+  expect(
+    (await caller("ADMIN").program.signupFieldSettings()).fields.tutee.phone,
+  ).toBe("required");
 });
 
 it("enforces current tutee requirements, strips hidden answers, and preserves earlier submissions", async () => {
@@ -183,7 +202,10 @@ it("enforces current tutee requirements, strips hidden answers, and preserves ea
   const original = await db.studentSurvey.findFirstOrThrow();
   await change("tutee", "phone", "required");
   await expect(
-    caller().tutee.submitSurvey({ ...input, email: "missing-phone@example.test" }),
+    caller().tutee.submitSurvey({
+      ...input,
+      email: "missing-phone@example.test",
+    }),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   await change("tutee", "phone", "hidden");
   await change("tutee", "preferredContact", "hidden");
@@ -191,7 +213,10 @@ it("enforces current tutee requirements, strips hidden answers, and preserves ea
   await change("tutee", "signatureName", "optional");
   await change("tutee", "secondSubject", "required");
   await expect(
-    caller().tutee.submitSurvey({ ...input, email: "missing-subject@example.test" }),
+    caller().tutee.submitSurvey({
+      ...input,
+      email: "missing-subject@example.test",
+    }),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   await caller().tutee.submitSurvey({
     ...input,
@@ -216,15 +241,24 @@ it("enforces current tutee requirements, strips hidden answers, and preserves ea
     (await db.studentSurvey.findUniqueOrThrow({ where: { id: original.id } }))
       .payload,
   ).toEqual(original.payload);
-  for (const invalid of [
+  for (const [index, invalid] of [
     { agreed: false },
     { englishName: "" },
     { email: "" },
     { firstChoiceId: "" },
-  ])
+  ].entries())
     // Deliberately simulate forged clients, bypassing compile-time literal checks.
+    // Empty names now reach role-policy validation; isolate mailbox cooldowns so
+    // this still checks the field error rather than a previous attempt's quota.
     await expect(
-      caller().tutee.submitSurvey({ ...input, ...invalid } as typeof input),
+      caller().tutee.submitSurvey({
+        ...input,
+        ...invalid,
+        email:
+          "email" in invalid
+            ? invalid.email
+            : `forged-field-${index}@example.test`,
+      } as typeof input),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
 });
 

@@ -11,7 +11,7 @@ const state = vi.hoisted(() => ({
   save: vi.fn(),
   error: null as { message: string } | null,
 }));
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     useUtils: () => ({}),
     admin: {
@@ -24,6 +24,9 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(),
       profilePolicy: {
         useQuery: () => ({
           data: { offeredGrades: [10, 11, 12], currentSchoolYear: "26-27" },
@@ -39,7 +42,9 @@ vi.mock("./profile-dialog", () => ({
 }));
 vi.mock("./academic-profile", () => ({ AcademicPanel: () => null }));
 vi.mock("./tutor-history-link", () => ({
-  TutorHistorySection: ({ tutorId }: { tutorId: string }) => <div>History linking: {tutorId}</div>,
+  TutorHistorySection: ({ tutorId }: { tutorId: string }) => (
+    <div>History linking: {tutorId}</div>
+  ),
 }));
 const row = {
   id: "past-tutor",
@@ -55,9 +60,16 @@ const row = {
   user: null,
 } as RouterOutputs["admin"]["tutors"][number];
 function mount(isHead = true, tutor = row) {
-  render(<NextIntlClientProvider locale="en" messages={messages}><TutorProfileEditor row={tutor} isHead={isHead} onClose={vi.fn()} /></NextIntlClientProvider>);
+  render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <TutorProfileEditor row={tutor} isHead={isHead} onClose={vi.fn()} />
+    </NextIntlClientProvider>,
+  );
 }
-beforeEach(() => { state.save.mockReset(); state.error = null; });
+beforeEach(() => {
+  state.save.mockReset();
+  state.error = null;
+});
 afterEach(cleanup);
 it("offers historical linking only for archived, graduated and transferred tutors", () => {
   mount();
@@ -81,19 +93,37 @@ it("saves an archived unlinked correction without an email and preserves status"
     target: { value: "corrected93" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Save profile" }));
-  expect(state.save).toHaveBeenCalledWith(expect.objectContaining({ id: "past-tutor", expectedUpdatedAt: row.updatedAt,
-    firstName: "Corrected", lastName: "Tutor", alternativeNames: "José García", username: "corrected93", email: null, gradeLevel: 10, status: "ARCHIVED" }));
+  expect(state.save).toHaveBeenCalledWith(
+    expect.objectContaining({
+      id: "past-tutor",
+      expectedUpdatedAt: row.updatedAt,
+      firstName: "Corrected",
+      lastName: "Tutor",
+      alternativeNames: "José García",
+      username: "corrected93",
+      email: null,
+      gradeLevel: 10,
+      status: "ARCHIVED",
+    }),
+  );
 });
 it("keeps ordinary staff username fields read-only and surfaces validation failures", () => {
   state.error = { message: "That username is already taken." };
   mount(false);
-  expect(screen.getByLabelText<HTMLInputElement>("Username").readOnly).toBe(true);
-  expect(screen.getByRole("alert").textContent).toBe("That username is already taken.");
+  expect(screen.getByLabelText<HTMLInputElement>("Username").readOnly).toBe(
+    true,
+  );
+  expect(screen.getByRole("alert").textContent).toBe(
+    "That username is already taken.",
+  );
   fireEvent.click(screen.getByRole("button", { name: "Save profile" }));
   expect(state.save.mock.calls[0]?.[0]).not.toHaveProperty("username");
 });
 it("keeps linked email changes read-only and does not send legacy academic edits", () => {
-  mount(true, { ...row, user: { id: "linked", email: "linked@example.test" } } as typeof row);
+  mount(true, {
+    ...row,
+    user: { id: "linked", email: "linked@example.test" },
+  } as typeof row);
   expect(screen.getByLabelText<HTMLInputElement>(/^Email/).readOnly).toBe(true);
   expect(screen.queryByLabelText("Username")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Save profile" }));

@@ -34,7 +34,7 @@ const state = vi.hoisted(() => ({
   settled: (): void => undefined,
 }));
 
-vi.mock("~/trpc/react", () => {
+vi.mock("~/trpc/react", async () => {
   const useMutation = (options: {
     onSuccess: () => Promise<void>;
     onSettled: () => void;
@@ -71,6 +71,9 @@ vi.mock("~/trpc/react", () => {
         student: invalidation,
       }),
       program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
         profilePolicy: {
           useQuery: () => ({
             data: { offeredGrades: [10], currentSchoolYear: "26-27" },

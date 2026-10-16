@@ -271,6 +271,21 @@ browser measurements and role/language evidence still require the running pages.
 
 ### Shared UI patterns
 
+Long editors and readers use `ProfileDialog` with a sticky header and a body
+stacking context below that header. This contains nested summary-table sticky
+action cells: their local layering cannot obscure Close when a long evidence
+table scrolls under the header. Native dialog focus, pending-write registration,
+feature drafts and version ownership retain their existing boundaries. The gallery
+includes a long reader with real sticky table actions; structural/lifecycle tests
+and actual desktop/mobile English/Chinese deep-scroll captures verify the correction.
+
+Recruitment settings position each audience's fieldset to contain its absolutely
+positioned screen-reader legend and date labels. Without a local containing block,
+those clipped one-pixel boxes can extend the document beyond the desktop management
+pane and let focus or `scrollIntoView` move the header. The correction retains all
+accessible labels, audience drafts, version evidence and edit/proposal authority;
+it does not alter the shared document overflow or scroll-restoration owner.
+
 Local panel composition leaves authority in existing owners. Program keeps its
 already-mounted settings forms and their independent versions; Crew and Support
 retain draft, review and pagination state when panels change. Review controllers
@@ -495,10 +510,14 @@ what is currently implemented until their migrations and verification are comple
   or infer a next session. Preserve the existing settings approval and audit model.
 - **Name requirements:** per-account-type Required, Optional and Hidden states
   apply to signup and later profile editing. All fields may be optional or hidden;
-  an account without a displayable name uses its username. Hiding a field never
-  erases an existing name or rewrites historical evidence. Resolve intake type,
-  shared-profile policy, fallback username allocation and legacy unsplit-name
-  compatibility in the server validator as well as the UI. A presentation-only
+  an account without a displayable name uses its username. Signup uses the intake
+  type being registered; a shared profile follows the account's current role,
+  rather than combining every membership's requirements. Hidden fields do not
+  contribute to active display names or participant forms, but their saved values
+  remain visible in authorized admin management fields. Hiding a field never
+  erases an existing name or rewrites historical evidence. Resolve fallback
+  username allocation and legacy unsplit-name compatibility in the server validator
+  as well as the UI. A presentation-only
   `required` change is insufficient. Policy reads and saves retain explicit
   versions, approval boundaries and conflict recovery.
 - **Room order and schedules:** display order is a program-owned setting separate
@@ -815,7 +834,7 @@ Database triggers enqueue `EmailDelivery` in the event transaction for account c
 
 Every [email sender](../src/server/email/sender.ts) call declares SECURITY or PROGRAM purpose; configuration selects a complete sender account per purpose. Student signup confirmation uses PROGRAM, while viewer verification and history invitations use SECURITY. The notification outbox retains the event's internal destination; shared link validation and sign-in callbacks preserve it through password/2FA and session recovery, with current permissions checked at the destination. Shared HTML/plain-text rendering uses runtime branding and program-zone notification timestamps. See [sender setup](deployment.md#email--aliyun-direct-mail-邮件推送) for fallback and delivery checks.
 
-The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program & Refresh email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. No schema changes are needed; direct authentication/signup delivery history is not persisted by these diagnostics.
+The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. No schema changes are needed; direct authentication/signup delivery history is not persisted by these diagnostics.
 
 The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only failed or previously attempted pending rows without an active lease qualify, and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Existing SMTP at-least-once limitations still apply across lease expiry and crashes.
 
@@ -914,6 +933,20 @@ available. External delivery follows commit and cannot turn a committed program 
 a reported failed write. Credential verification retains its own attempt/consumption boundaries.
 
 ## Username allocation and bounded student backfill
+
+Management summaries and current selection/review labels reuse `ParticipantName`
+and `participantNameLabel`: preserve a nonblank canonical name, otherwise use an
+already authorized projected username, otherwise show translated **Name not
+provided**. This is presentation only. Raw search/sort values, selected IDs,
+mutation names, profile drafts, exports and original evidence are unchanged.
+Completed interviews/flag decisions, historical profile names and recorded actors
+retain their original text. Current Crew summaries expose `canonicalName` and
+`username` alongside the unchanged legacy label/sort field; Subject Availability
+projects the current tutor handle only through its existing staff-only read.
+The Crew DTO's `canonicalName` references the materialized current `User.name`,
+which may be a reserved username fallback. Original identity fields remain
+`firstName`, `lastName`, `preferredName`, `alternativeNames` and `legacyName`;
+reads preserve those fields and the already materialized label without writes.
 
 `src/lib/username.ts` owns the editor/generation character and length rules. All runtime handle
 writers use the transaction-scoped PostgreSQL advisory lock `identity:username-namespace` before

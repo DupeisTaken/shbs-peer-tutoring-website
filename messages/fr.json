@@ -183,7 +183,7 @@
       "UNRESTRICT": "Access restored"
     },
     "rolePermissions": "Permissions by Role",
-    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "permissionHelp": "Les groupes sélectionnés peuvent recevoir des messages. Une exception individuelle remplace la règle du rôle ; aucun groupe signifie aucun nouvel envoi. Tous les comptes disponibles exclut votre propre compte, les comptes suspendus et ceux dont la messagerie est restreinte. Les anciennes relations de tutorat reposent sur les affectations ou présences conservées ; les affectations non enregistrées ne peuvent pas être reconstituées.",
     "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
@@ -202,7 +202,8 @@
     "ownInbox": "Your inbox",
     "replyContext": "Réponse à {name}",
     "cancelReply": "Annuler la Réponse",
-    "replyDraftHelp": "Votre brouillon précédent est conservé. L’annulation conserve aussi ce brouillon de réponse sur cette page."
+    "replyDraftHelp": "Votre brouillon précédent est conservé. L’annulation conserve aussi ce brouillon de réponse sur cette page.",
+    "permissionsDestination": "Droits de messagerie dans les paramètres du programme"
   },
   "common": {
     "cancel": "Annuler",
@@ -426,7 +427,7 @@
     },
     "schedule": {
       "title": "Planning des salles",
-      "help": "Vos pairages sont mis en évidence. Les cellules grisées correspondent aux salles indisponibles."
+      "help": "Vos pairages sont mis en évidence. Consultez la légende ci-dessous pour connaître la disponibilité des salles."
     }
   },
   "admin": {
@@ -596,7 +597,7 @@
         "activity": "Activité & demandes",
         "history": "Historique du programme",
         "announcements": "Annonces",
-        "program": "Programme & actualisation",
+        "program": "Paramètres du programme",
         "tutorRoster": "Liste des tuteurs",
         "tutorApplications": "Candidatures tuteurs",
         "tutorRequests": "Demandes de statut de tuteur",
@@ -786,8 +787,8 @@
       }
     },
     "program": {
-      "title": "Programme & actualisation",
-      "subtitle": "La période en cours et l'actualisation trimestrielle qui fait avancer le programme.",
+      "title": "Paramètres du programme",
+      "subtitle": "Inscriptions, paramètres des comptes, déploiement et fonctions facultatives.",
       "loading": "Chargement…",
       "noPeriod": "Aucune période de programme active. Initialisez ou créez-en une d'abord.",
       "currentPeriod": "Période en cours",
@@ -853,10 +854,10 @@
         }
       },
       "panels": {
-        "period": "Période et recrutement",
-        "people": "Personnes et inscription",
-        "communication": "Communication",
-        "access": "Accès et modules"
+        "period": "Recrutement et renouvellement",
+        "people": "Paramètres des comptes",
+        "communication": "Configuration du déploiement",
+        "access": "Fonctionnalités facultatives"
       }
     },
     "audit": {
@@ -1144,7 +1145,8 @@
       "addRoom": "Ajouter une salle",
       "empty": "Aucune salle pour l'instant.",
       "deleteConsequence": "This removes the room and its blocked periods. Rooms currently used by pairings cannot be deleted.",
-      "deleteRequestConsequence": "This submits a deletion request for management review. The room and its assignments remain unchanged until approval."
+      "deleteRequestConsequence": "This submits a deletion request for management review. The room and its assignments remain unchanged until approval.",
+      "editDetails": "Modifier les détails"
     },
     "courses": {
       "title": "Matières & niveaux",
@@ -2730,7 +2732,8 @@
     "feedbackVisibilityLoading": "Vérification des personnes pouvant lire les commentaires…",
     "feedbackVisibilityUnavailable": "Impossible de vérifier qui peut lire les commentaires. Réessayez pour vérifier leur visibilité.",
     "pagination": "Pagination",
-    "page": "Page {page}"
+    "page": "Page {page}",
+    "calendarDestination": "Calendrier scolaire dans les paramètres du programme"
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -3293,7 +3296,11 @@
         "messaging_restrict": "Change an account messaging restriction",
         "admin_setApplicationInvalidity": "Modifier le signalement d’invalidité d’une candidature de tuteur",
         "studentWorkflow_setRequestInvalidity": "Modifier le signalement d’invalidité d’une inscription d’élève",
-        "admin_setSignupInvalidity": "Modifier le signalement d’invalidité d’une ancienne inscription publique"
+        "admin_setSignupInvalidity": "Modifier le signalement d’invalidité d’une ancienne inscription publique",
+        "program_setCalendarDay": "Enregistrer un avis de journée sans tutorat",
+        "program_removeCalendarDay": "Supprimer un avis de journée sans tutorat",
+        "program_setNameFields": "Modifier les exigences des champs de nom",
+        "admin_reorderRooms": "Réorganiser les salles du programme"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -3915,7 +3922,8 @@
     "showAlternateNames": "Afficher les noms dans une autre langue",
     "alternateDisplayHint": "Afficher le nom supplémentaire à côté du nom principal, si renseigné.",
     "latinRule": "Les prénoms, noms de famille et prénoms usuels utilisent des lettres latines. Accents, espaces, apostrophes et traits d’union sont acceptés.",
-    "displayPreview": "Aperçu du nom"
+    "displayPreview": "Aperçu du nom",
+    "nameFieldsRequired": "Renseignez les champs de nom actuellement obligatoires. Actualisez le formulaire si les exigences ont changé."
   },
   "recordTransfer": {
     "title": "Données du programme",
@@ -4181,7 +4189,8 @@
     "preferredNameHelp": "Le prénom que vous souhaitez que nous utilisions. Utilisez des lettres latines.",
     "alternativeNamesHelp": "Votre nom dans une autre langue ou écriture, par exemple 张小明.",
     "legacyPreserved": "Nom enregistré : {name}. Laissez les champs du nom en lettres latines inchangés pour le conserver. Saisissez un prénom pour le remplacer.",
-    "legacy": "Nom enregistré : {name}. Saisissez séparément votre prénom et votre nom de famille pour mettre à jour le profil."
+    "legacy": "Nom enregistré : {name}. Saisissez séparément votre prénom et votre nom de famille pour mettre à jour le profil.",
+    "hiddenRetained": "Masqué dans les formulaires des participants et les noms affichés ; conservé ici pour la gestion autorisée."
   },
   "registrationFlow": {
     "progressTitle": "Progression de l’Inscription",
@@ -4575,5 +4584,93 @@
     "blur": "Les modifications sont enregistrées lorsque vous quittez ce champ.",
     "form": "Enregistrer ne concerne que ce formulaire.",
     "layout": "Enregistrer ne concerne que cette mise en page."
+  },
+  "programCalendar": {
+    "title": "Dates sans tutorat",
+    "informational": "Dates et motifs communiqués à titre informatif. Ces avis ne limitent pas la saisie des présences et ne modifient pas le calendrier scolaire utilisé pour les recours.",
+    "refresh": "Actualiser",
+    "reload": "Recharger le brouillon",
+    "loadFailed": "Impossible de charger les avis de tutorat.",
+    "loading": "Chargement des avis de tutorat…",
+    "add": "Ajouter une date",
+    "date": "Date",
+    "reason": "Motif",
+    "actions": "Actions",
+    "edit": "Modifier l’avis",
+    "remove": "Supprimer l’avis",
+    "removeTitle": "Supprimer l’avis de tutorat",
+    "removeHelp": "Supprimer cet avis informatif. Les règles de présence et de jours scolaires restent inchangées.",
+    "empty": "Aucun avis de tutorat.",
+    "save": "Enregistrer l’avis",
+    "saving": "Enregistrement…",
+    "saved": "Avis enregistré.",
+    "saveFailed": "Impossible d’enregistrer l’avis.",
+    "refreshFailed": "L’avis a été enregistré, mais la liste à jour n’a pas pu être chargée. Actualisez pour synchroniser sans enregistrer à nouveau.",
+    "details": "Voir les détails"
+  },
+  "roomOrder": {
+    "title": "Ordre d’affichage des salles",
+    "help": "Préparez l’ordre avec les flèches des salles, puis enregistrez ou demandez l’ordre complet ci-dessous. L’ordre des rondes de l’équipe se gère séparément.",
+    "catalogChanged": "La liste des salles a changé. Rechargez l’ordre avant toute autre modification ; votre brouillon est conservé.",
+    "room": "Salle",
+    "actions": "Actions",
+    "up": "Monter",
+    "down": "Descendre",
+    "moveUpName": "Monter {name}",
+    "moveDownName": "Descendre {name}",
+    "save": "Enregistrer l’ordre",
+    "saving": "Enregistrement…",
+    "saved": "Ordre des salles enregistré.",
+    "reload": "Recharger l’ordre",
+    "refresh": "Actualiser",
+    "loadFailed": "Impossible de charger le dernier ordre des salles. Votre brouillon a été conservé.",
+    "refreshFailed": "L’ordre a été enregistré, mais la synchronisation a échoué. Actualiser lit l’ordre enregistré sans le soumettre à nouveau.",
+    "request": "Demander une modification de l’ordre des salles",
+    "open": "Réordonner les salles"
+  },
+  "roomSchedule": {
+    "rooms": "Salles à afficher",
+    "allRooms": "Toutes les salles",
+    "clearRooms": "Effacer la sélection",
+    "allDetails": "Détails de l’emploi du temps",
+    "occupied": "Occupée",
+    "noSlot": "—",
+    "legend": "Gris = occupé · × = indisponible · Disponible = aucune affectation dans un créneau publié.",
+    "combined": "Tableau combiné",
+    "individual": "Emplois du temps par salle",
+    "noSelection": "Aucune salle sélectionnée. Choisissez des salles ou Toutes les salles.",
+    "time": "Heure",
+    "detailFilters": "Filtres des détails de l’emploi du temps",
+    "day": "Jour de la semaine",
+    "allDays": "Tous les jours",
+    "allSlots": "Tous les créneaux",
+    "room": "Salle",
+    "emptyDetails": "Aucun dossier ne correspond à ces filtres.",
+    "noRoom": "Aucune salle affectée",
+    "unconfirmed": "En attente de confirmation de l’horaire",
+    "outsideCatalog": "Hors du catalogue de créneaux actif",
+    "allTimes": "Toutes les heures"
+  },
+  "nameFields": {
+    "title": "Exigences des champs de nom",
+    "help": "Configurez les champs d’inscription et de profil par type de compte. Les comptes existants suivent leur rôle actuel. Les noms masqués ne contribuent pas au nom affiché ; le personnel autorisé peut toujours consulter et modifier les valeurs conservées. Si aucun nom ne peut être affiché, le nom d’utilisateur est utilisé.",
+    "accountType": "Type de compte",
+    "summary": "Exigences",
+    "actions": "Actions",
+    "requiredCount": "{count} obligatoires",
+    "hiddenCount": "{count} masqués",
+    "configure": "Configurer",
+    "loading": "Chargement des exigences de nom…",
+    "loadFailed": "Impossible de charger les exigences de nom. Votre brouillon a été conservé.",
+    "refresh": "Actualiser",
+    "reload": "Recharger le brouillon",
+    "save": "Enregistrer les exigences",
+    "saving": "Enregistrement…",
+    "saved": "Exigences de nom enregistrées.",
+    "refreshFailed": "Les exigences ont été enregistrées, mais la synchronisation a échoué. Actualiser lit les règles enregistrées sans les enregistrer à nouveau.",
+    "hiddenProfileHelp": "Votre nom d’utilisateur est affiché ici. Les noms enregistrés sont conservés et restent consultables par le personnel autorisé."
+  },
+  "participantNames": {
+    "unnamed": "Nom non fourni"
   }
 }

@@ -14,7 +14,8 @@ import { getFeatures } from "~/server/program/features";
 import { authConfig } from "./config";
 import { clientIpFromRequest, verifySigninPassword } from "./credentials";
 import { verifyLoginCode } from "./two-factor";
-import { ensureUserUsername } from "./username";
+import { ensureUserUsername, lockUsernameNamespace } from "./username";
+import { ensureNameFallbackForRole } from "~/server/program/name-fields";
 import { resolveTutorLink } from "./tutor-link";
 import { consumeInvitationLogin } from "./account-invitations";
 
@@ -194,6 +195,7 @@ const {
         const isDesignatedHead = email ? emails[0] === email : false;
 
         const dbUser = await db.$transaction(async (tx) => {
+          await lockUsernameNamespace(tx);
           await lockEntity(tx, "program:leadership");
           await lockAccountProfile(tx, userId);
           await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
@@ -228,6 +230,7 @@ const {
           }
 
           // Persist the linkage/role bump so the admin UI can manage them later.
+          if (roleBump) await ensureNameFallbackForRole(tx, userId, roleBump);
           const updated = await tx.user.update({
             where: { id: userId },
             data: {

@@ -10,9 +10,12 @@ import {
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { NextIntlClientProvider } from "next-intl";
+import { compile } from "tailwindcss";
 import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 import { ProfileDialog } from "./profile-dialog";
 import { useDialogPending } from "./ui/modal";
+import { SummaryTable, TableActions, TableDetails } from "./ui/summary-table";
 
 beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
@@ -29,6 +32,96 @@ beforeEach(() => {
     },
   });
 });
+
+it.each(["default", "wide"] as const)(
+  "contains sticky table actions below the %s reader header and preserves nested focus",
+  async (size) => {
+    const locale = size === "wide" ? "zh" : "en";
+    const messages = locale === "zh" ? zh : en;
+    function Example() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>Open room order</button>
+          {open && (
+            <ProfileDialog
+              title="Room Display Order"
+              size={size}
+              onClose={() => setOpen(false)}
+            >
+              <SummaryTable label="Rooms">
+                <tbody>
+                  {Array.from({ length: 16 }, (_, index) => (
+                    <tr key={index}>
+                      <td>A{index + 101}</td>
+                      <TableActions>
+                        <TableDetails title={`Room ${index + 101}`}>
+                          <p>Recorded room details</p>
+                        </TableDetails>
+                      </TableActions>
+                    </tr>
+                  ))}
+                </tbody>
+              </SummaryTable>
+            </ProfileDialog>
+          )}
+        </>
+      );
+    }
+    render(
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        <Example />
+      </NextIntlClientProvider>,
+    );
+    const opener = screen.getByRole("button", { name: "Open room order" });
+    opener.focus();
+    fireEvent.click(opener);
+    const reader = screen.getByRole("dialog", { name: "Room Display Order" });
+    const close = within(reader).getByRole("button", {
+      name: messages.accountProfile.close,
+    });
+    const header = close.parentElement!;
+    const body = within(reader)
+      .getByRole("table", { name: "Rooms" })
+      .closest(".relative")!;
+    expect(header.parentElement).toBe(body.parentElement);
+    expect(body.contains(header)).toBe(false);
+    expect(body.querySelectorAll(".table-actions")).toHaveLength(16);
+    expect(body.className).toContain(size === "wide" ? "p-4 sm:p-6" : "p-5");
+
+    // Compile the shipped utilities rather than simulating their CSS. This checks
+    // the containment contract; actual overlap and hit-testing require browser QA.
+    const compiler = await compile("@tailwind utilities;");
+    const stylesheet = document.createElement("style");
+    stylesheet.textContent = compiler.build([
+      ...header.classList,
+      ...body.classList,
+    ]);
+    document.head.append(stylesheet);
+    try {
+      expect(getComputedStyle(header).position).toBe("sticky");
+      expect(getComputedStyle(header).zIndex).toBe("10");
+      expect(getComputedStyle(body).position).toBe("relative");
+      expect(getComputedStyle(body).zIndex).toBe("0");
+    } finally {
+      stylesheet.remove();
+    }
+    const detailOpener = within(reader).getByRole("button", {
+      name: `${messages.tablePatterns.details}: Room 116`,
+    });
+    detailOpener.focus();
+    fireEvent.click(detailOpener);
+    const nested = screen.getByRole("dialog", { name: "Room 116" });
+    fireEvent(nested, new Event("cancel", { bubbles: true, cancelable: true }));
+    expect(screen.queryByRole("dialog", { name: "Room 116" })).toBeNull();
+    expect(document.activeElement).toBe(detailOpener);
+    expect(reader.isConnected).toBe(true);
+    close.focus();
+    fireEvent.click(close);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  },
+);
 
 it("keeps a long translated title accessible and its Close control operable", () => {
   const onClose = vi.fn();

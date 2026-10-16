@@ -43,18 +43,276 @@ function show(locale: "en" | "zh", data = { rooms, slots }) {
   );
 }
 afterEach(cleanup);
+it("does not append an empty outside-catalog separator to a matched recorded schedule", () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <RoomGrid
+        rooms={rooms}
+        slots={slots}
+        blocks={[]}
+        pairings={[
+          {
+            ...pairings[0]!,
+            scheduleConfirmed: true,
+            dayOfWeek: 1,
+            startMin: 930,
+            endMin: 990,
+          },
+        ]}
+      />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: en.roomSchedule.allDetails }),
+  );
+  const detail = within(screen.getByRole("dialog")).getByText(
+    /101 · Mon 15:30–16:30/,
+  );
+  expect(detail.textContent?.trim()).toBe("101 · Mon 15:30–16:30");
+});
+it("uses an account username or localized unlinked-name fallback in active detail rows", () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <RoomGrid
+        rooms={rooms}
+        slots={slots}
+        pairings={[
+          {
+            ...pairings[0]!,
+            id: "linked",
+            subject: "Linked subject",
+            tutor: {
+              englishName: "",
+              username: "oldrosterhandle",
+              user: { username: "canonicalhandle" },
+            },
+          },
+          {
+            ...pairings[0]!,
+            id: "unlinked",
+            subject: "Unlinked subject",
+            tutor: { englishName: "" },
+          },
+        ]}
+        blocks={[]}
+      />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: en.roomSchedule.allDetails }),
+  );
+  expect(
+    within(screen.getByRole("dialog")).getByText(
+      "Linked subject · canonicalhandle",
+    ),
+  ).toBeTruthy();
+  expect(
+    within(screen.getByRole("dialog")).getByText(
+      `Unlinked subject · ${en.participantNames.unnamed}`,
+    ),
+  ).toBeTruthy();
+  expect(screen.queryByText(/oldrosterhandle/)).toBeNull();
+});
 it.each(["en", "zh"] as const)(
   "localizes %s weekday in both table and detail without changing clock or records",
   (locale) => {
     show(locale);
     const label = `${locale === "zh" ? "周一" : "Mon"} 15:30–16:30`;
     expect(screen.getByText(label)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${(locale === "zh" ? zh : en).tablePatterns.schedule}: ${label}`,
+      }),
+    );
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("heading", { name: label })).toBeTruthy();
     expect(within(dialog).getByText("Math · Recorded Tutor")).toBeTruthy();
   },
 );
+
+it("scales combined and individual schedules to 22 rooms with seven weekday columns", () => {
+  const manyRooms = Array.from({ length: 22 }, (_, index) => ({
+    id: `room-${index}`,
+    name: `Room ${index + 1}`,
+  }));
+  show("en", { rooms: manyRooms, slots });
+  expect(screen.getAllByRole("columnheader")).toHaveLength(24);
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.roomSchedule.individual }),
+  );
+  expect(screen.getAllByRole("table")).toHaveLength(22);
+  for (const table of screen.getAllByRole("table"))
+    expect(within(table).getAllByRole("columnheader")).toHaveLength(9);
+});
+
+it("derives tutor defaults from arriving pairings without discarding an explicit empty selection", () => {
+  const allRooms = [rooms[0]!, { id: "other", name: "202" }];
+  const tree = (data: typeof pairings, tutorId = "tutor") => (
+    <NextIntlClientProvider locale="en" messages={en}>
+      <RoomGrid
+        rooms={allRooms}
+        slots={slots}
+        pairings={data}
+        blocks={[]}
+        highlightTutorId={tutorId}
+      />
+    </NextIntlClientProvider>
+  );
+  const view = render(tree([]));
+  expect(screen.getByRole("status").textContent).toBe(
+    en.roomSchedule.noSelection,
+  );
+  view.rerender(tree(pairings));
+  expect(
+    screen.getByRole("button", { name: "101" }).getAttribute("aria-pressed"),
+  ).toBe("true");
+  expect(
+    screen.getByRole("button", { name: "202" }).getAttribute("aria-pressed"),
+  ).toBe("false");
+  fireEvent.click(
+    screen.getByRole("button", { name: en.roomSchedule.clearRooms }),
+  );
+  view.rerender(tree([...pairings]));
+  expect(screen.getByRole("status").textContent).toBe(
+    en.roomSchedule.noSelection,
+  );
+  view.rerender(
+    tree(
+      [{ ...pairings[0]!, tutorId: "new-owner", roomId: "other" }],
+      "new-owner",
+    ),
+  );
+  expect(
+    screen.getByRole("button", { name: "202" }).getAttribute("aria-pressed"),
+  ).toBe("true");
+});
+
+it("uses recorded recurring times for occupancy when an old slot link points at a changed catalog row", () => {
+  const changed = { ...slots[0]!, startMin: 600, endMin: 660 };
+  const actual = { ...changed, id: "actual", startMin: 930, endMin: 990 };
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <RoomGrid
+        rooms={rooms}
+        slots={[changed, actual]}
+        pairings={[
+          {
+            ...pairings[0]!,
+            dayOfWeek: 1,
+            startMin: 930,
+            endMin: 990,
+            scheduleConfirmed: true,
+          },
+        ]}
+        blocks={[]}
+      />
+    </NextIntlClientProvider>,
+  );
+  const rows = screen.getAllByRole("row");
+  expect(within(rows[1]!).getByText(en.tablePatterns.available)).toBeTruthy();
+  expect(within(rows[2]!).getByText("1 record")).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.roomSchedule.allDetails }),
+  );
+  expect(
+    within(screen.getByRole("dialog")).getByText(/Mon 15:30–16:30/, {
+      selector: "p",
+    }),
+  ).toBeTruthy();
+  expect(
+    within(screen.getByRole("dialog")).getByText(
+      /Outside the active slot catalog/,
+    ),
+  ).toBeTruthy();
+});
+
+it("opens individual row details at the chosen interval while retaining a way to reach every record", () => {
+  const later = { ...slots[0]!, id: "later", startMin: 1020, endMin: 1080 };
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <RoomGrid
+        rooms={rooms}
+        slots={[slots[0]!, later]}
+        pairings={[
+          ...pairings,
+          {
+            ...pairings[0]!,
+            id: "later-pair",
+            timeSlotId: later.id,
+            subject: "Later subject",
+          },
+        ]}
+        blocks={[]}
+      />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.roomSchedule.individual }),
+  );
+  const triggers = screen.getAllByRole("button", { name: /View details: 101/ });
+  fireEvent.click(triggers[0]!);
+  const dialog = screen.getByRole("dialog");
+  expect(
+    within(dialog).getByLabelText<HTMLSelectElement>(en.roomSchedule.time)
+      .value,
+  ).toBe("930:990");
+  expect(within(dialog).queryByText(/Later subject/)).toBeNull();
+  fireEvent.change(within(dialog).getByLabelText(en.roomSchedule.time), {
+    target: { value: "" },
+  });
+  expect(within(dialog).getByText(/Later subject/)).toBeTruthy();
+});
+
+it("keeps every overlapping block and unmapped/unconfirmed record reachable in the reader", () => {
+  const blocks = [1, 2].map((id) => ({
+    id: `block-${id}`,
+    roomId: "room",
+    dayOfWeek: 1,
+    startMin: 900,
+    endMin: 1000,
+    reason: `Original reason ${id}`,
+  }));
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <RoomGrid
+        rooms={rooms}
+        slots={slots}
+        pairings={[
+          ...pairings,
+          {
+            ...pairings[0]!,
+            id: "unmapped",
+            subject: "Legacy schedule",
+            timeSlotId: null,
+            dayOfWeek: 2,
+            startMin: 600,
+            endMin: 660,
+          },
+          {
+            ...pairings[0]!,
+            id: "unconfirmed",
+            subject: "Not reserved",
+            scheduleConfirmed: false,
+          },
+        ]}
+        blocks={blocks}
+      />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getByLabelText(en.tablePatterns.unavailable).textContent).toBe(
+    "×",
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: en.roomSchedule.allDetails }),
+  );
+  const dialog = screen.getByRole("dialog");
+  expect(within(dialog).getByText(/Original reason 1/)).toBeTruthy();
+  expect(within(dialog).getByText(/Original reason 2/)).toBeTruthy();
+  expect(within(dialog).getByText(/Legacy schedule/)).toBeTruthy();
+  expect(
+    within(dialog).getByText(new RegExp(en.roomSchedule.unconfirmed)),
+  ).toBeTruthy();
+});
 it.each(["rooms", "slots"] as const)(
   "localizes the successful empty %s state independently",
   (empty) => {

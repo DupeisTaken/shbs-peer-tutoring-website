@@ -75,6 +75,9 @@ vi.mock("~/trpc/react", async () => {
         tuteeHistory: invalidation,
       }),
       program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
         profilePolicy: {
           useQuery: () => ({
             data: {

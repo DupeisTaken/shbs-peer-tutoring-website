@@ -1,4 +1,5 @@
 "use client";
+import { ParticipantName } from "~/app/_components/participant-name";
 import { InlineNotice, StatePanel } from "~/app/_components/ui/patterns";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -136,7 +137,7 @@ export default function TuteeRequestsPage() {
                 >
                   <div className="min-w-0">
                     <p className="font-medium text-slate-900">
-                      {req.tutee.englishName}
+                      <ParticipantName name={req.tutee.englishName} />
                     </p>
                     <p className="muted mt-1 text-xs">
                       {t("admin.tuteeRequests.relayedBy", {

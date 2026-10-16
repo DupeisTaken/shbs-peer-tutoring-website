@@ -285,7 +285,7 @@ export const managementReadModels = {
   }),
   "admin.patrolOrder": list(summary("id name patrolOrder")),
   "admin.crewRoster": list(
-    summary("id name tutor crewOnly status patrols hours"),
+    summary("id name canonicalName username tutor crewOnly status patrols hours"),
   ),
   "admin.crewSummary": summary(
     "patrols hours openFlags members openApplications openRequests",
@@ -299,7 +299,7 @@ export const managementReadModels = {
   ),
   "admin.crewIssuedCodes": list(summary("id name expiresAt", {}, "code")),
   "admin.crewRequests": list(
-    summary("id kind member eligibleAt approvable createdAt", {}, "reason"),
+    summary("id kind member canonicalName username eligibleAt approvable createdAt", {}, "reason"),
   ),
   "admin.sessionFlags": list(
     summary(

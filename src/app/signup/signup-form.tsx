@@ -5,7 +5,7 @@ import {
   FormActions,
   InlineNotice,
 } from "~/app/_components/ui/patterns";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, fullPersonName } from "~/lib/person-name";
 
 import {
@@ -32,7 +32,7 @@ import {
   missingTuteeFields,
 } from "~/lib/signup-fields";
 import { api } from "~/trpc/react";
-import { DAY_NAMES, minToHm } from "~/lib/time";
+import { formatWeekday, minToHm } from "~/lib/time";
 import { useBranding } from "~/app/_components/branding-provider";
 import { PolicyAgreement } from "~/app/_components/policy-agreement";
 import { SigninAccess } from "./signin-access";
@@ -54,6 +54,7 @@ export function SignupForm() {
   const submit = api.tutee.submitSurvey.useMutation();
 
   const [names, setNames] = useState(() => nameDraft());
+  const [namePolicyReady, setNamePolicyReady] = useState(false);
   const englishName = fullPersonName(names);
   const [gradeLevel, setGradeLevel] = useState("");
   const [email, setEmail] = useState("");
@@ -104,12 +105,12 @@ export function SignupForm() {
   ];
   const readOnly = status !== "open" || missing.length > 0;
   const canSubmit =
+    namePolicyReady &&
     options.isFetchedAfterMount &&
     !readOnly &&
     !options.isError &&
     !policy.isError &&
     (!gradeLevel || profilePolicy.offeredGrades.includes(Number(gradeLevel))) &&
-    englishName.trim() &&
     email.trim() &&
     policy.data?.revision &&
     missingTuteeFields(normalizeTuteeFields(optionalValues, fields), fields)
@@ -244,7 +245,12 @@ export function SignupForm() {
             {/* Align identity labels with the email help trigger's mobile touch target. */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 [&_.label]:min-h-11 [&_.label]:content-center lg:[&_.label]:min-h-0">
               <div className="sm:col-span-2">
-                <PersonNameFields value={names} onChange={setNames} />
+                <PersonNameFields
+                  onPolicyAvailabilityChange={setNamePolicyReady}
+                  accountType="STUDENT"
+                  value={names}
+                  onChange={setNames}
+                />
               </div>
               {fields.gradeLevel !== "hidden" && (
                 <label className="space-y-1">
@@ -363,7 +369,7 @@ export function SignupForm() {
                   {slotsByDay.map(([day, daySlots]) => (
                     <div key={day}>
                       <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                        {DAY_NAMES[day]}
+                        {formatWeekday(day, locale)}
                       </p>
                       <div className="mt-1 flex flex-wrap gap-2">
                         {daySlots.map((s) => {

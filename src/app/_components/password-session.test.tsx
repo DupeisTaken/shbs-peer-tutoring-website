@@ -34,7 +34,7 @@ vi.mock("./account-emails", () => ({
   EmailPreferences: () => null,
 }));
 vi.mock("./two-factor-settings", () => ({ TwoFactorSettings: () => null }));
-vi.mock("~/trpc/react", () => {
+vi.mock("~/trpc/react", async () => {
   const inert = { useMutation: () => ({ mutate: vi.fn(), isPending: false }) };
   const code = {
     useMutation: (options: {
@@ -66,6 +66,9 @@ vi.mock("~/trpc/react", () => {
     api: {
       useUtils: () => ({}),
       program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
         profilePolicy: {
           useQuery: () => ({
             data: {

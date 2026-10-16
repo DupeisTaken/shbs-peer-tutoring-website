@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 
 const errorKeys = {
   PROFILE_LATIN_NAME_REQUIRED: "latinRequired",
+  PROFILE_NAME_FIELDS_REQUIRED: "nameFieldsRequired",
   PROFILE_LATIN_LEGAL_NAME_REQUIRED: "latinLegalRequired",
   PROFILE_GRADE_NOT_OFFERED: "gradeNotOffered",
   PROFILE_POLICY_CHANGED: "conflict",

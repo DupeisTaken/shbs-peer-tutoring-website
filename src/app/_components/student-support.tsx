@@ -2,7 +2,6 @@
 import { FilterToolbar, InlineNotice, SettingRow } from "./ui/patterns";
 import { Button, ChoiceButton } from "./ui/button";
 import { SectionTabs } from "./ui/section-tabs";
-import { SchoolCalendar } from "./school-calendar";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
@@ -11,9 +10,7 @@ import { useDialog } from "./confirm-dialog";
 import { Pager } from "./student-portal";
 
 export function StudentSupport() {
-  const [panel, setPanel] = useState<"feedback" | "appeals" | "calendar">(
-    "feedback",
-  );
+  const [panel, setPanel] = useState<"feedback" | "appeals">("feedback");
   const programFormat = useFormatter();
   const t = useTranslations("workflows");
   const recovery = useTranslations("participantRecovery");
@@ -54,7 +51,7 @@ export function StudentSupport() {
         value={staff ? panel : "feedback"}
         onChange={setPanel}
         items={(staff
-          ? (["feedback", "appeals", "calendar"] as const)
+          ? (["feedback", "appeals"] as const)
           : (["feedback"] as const)
         ).map((value) => ({
           value,
@@ -264,8 +261,15 @@ export function StudentSupport() {
             </section>
           )}
         </div>
-        <div hidden={panel !== "calendar"}>{staff && <SchoolCalendar />}</div>
       </SupportPanels>
+      {staff && (
+        <Link
+          className="link inline-flex min-h-11 items-center lg:min-h-8"
+          href="/admin/program"
+        >
+          {t("calendarDestination")}
+        </Link>
+      )}
       {/* Cross-panel write/read feedback remains visible even when its panel is hidden. */}
       {decide.error?.data?.approvalId && (
         <InlineNotice tone="warning" announcement="status">
@@ -300,9 +304,9 @@ function SupportPanels({
   staff: boolean;
   children: ReactNode;
   label: string;
-  value: "feedback" | "appeals" | "calendar";
-  onChange: (value: "feedback" | "appeals" | "calendar") => void;
-  items: { value: "feedback" | "appeals" | "calendar"; label: string }[];
+  value: "feedback" | "appeals";
+  onChange: (value: "feedback" | "appeals") => void;
+  items: { value: "feedback" | "appeals"; label: string }[];
 }) {
   return staff ? (
     <SectionTabs {...tabs}>{children}</SectionTabs>

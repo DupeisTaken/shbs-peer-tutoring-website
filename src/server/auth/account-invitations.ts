@@ -304,7 +304,8 @@ async function sourceState(
     // Take the interview barrier before the grant row: panel replacement owns
     // that same barrier when expiring outstanding registration codes.
     const binding = await tx.registrationCode.findUnique({
-      where: { id: source.id }, select: { applicationId: true },
+      where: { id: source.id },
+      select: { applicationId: true },
     });
     if (binding) await assertTutorRegistrationSource(tx, binding);
     await tx.$queryRaw`SELECT id FROM "RegistrationCode" WHERE id = ${source.id} FOR UPDATE`;
@@ -345,7 +346,8 @@ async function sourceState(
     // Flags and confirmation acquire this advisory lock before touching the
     // survey row. Match that order so in-flight redemption cannot deadlock them.
     const binding = await tx.studentSurvey.findUnique({
-      where: { tokenHash: source.tokenHash }, select: { email: true },
+      where: { tokenHash: source.tokenHash },
+      select: { email: true },
     });
     if (binding) await lockEntity(tx, `student-survey:${binding.email}`);
     await tx.$queryRaw`SELECT id FROM "StudentSurvey" WHERE "tokenHash" = ${source.tokenHash} FOR UPDATE`;
@@ -759,6 +761,7 @@ export async function inspectAccountInvitation(
         academicConfirmationRequired: receiptAcademicConfirmation(row),
         needsPassword: false,
         existing: true,
+        acceptedIdentity: true,
         name: owner?.name ?? "",
         legacyName: null as string | null,
         firstName: "",
@@ -810,6 +813,18 @@ export async function inspectAccountInvitation(
       completed: false,
       academicConfirmationRequired: false,
       existing: Boolean(owner),
+      // Only a fresh staff invitation has identity intake left to collect. An
+      // accepted roster/application is reviewed as source evidence, not edited
+      // under requirements that may have tightened since its submission.
+      acceptedIdentity: Boolean(
+        Boolean(owner) ||
+        !state.staff ||
+        Boolean(
+          state.staff.tutorId ??
+          state.staff.applicationId ??
+          state.staff.crewApplicationId,
+        ),
+      ),
       name:
         owner?.name ??
         state.viewer?.name ??

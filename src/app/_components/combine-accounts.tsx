@@ -1,4 +1,5 @@
 "use client";
+import { ParticipantName } from "./participant-name";
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
@@ -145,8 +146,11 @@ export function CombineAccounts() {
                         (kind === "survivor" ? duplicateId : survivorId)
                       }
                     >
-                      {person.name ?? person.username ?? person.email} ·{" "}
-                      {person.email} · {person.role}
+                      <ParticipantName
+                        name={person.name}
+                        username={person.username}
+                      />{" "}
+                      · {person.email} · {person.role}
                     </option>
                   ))}
                 </select>
