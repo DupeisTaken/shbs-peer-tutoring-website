@@ -1479,6 +1479,14 @@ Run `npm run docs:check` to validate Markdown links, heading anchors, guide disc
 
 The owner selected #385’s newer survey lifecycle when integrating #384: appeals end with the active signup period, and final rejection closes the request and ends its active priority. Modern survey flags create one `EmailDelivery` request-service receipt; `StudentSignupNotice` retains only the matching invalidity-version/account-bound appeal capability for that flag. Its flag kind is routed through the shared worker, not independently mailed. At transport admission the modern link must match the immutable receipt request version and the capability’s current ownership; transport retry never grants a later-version capability. Generic survey tokens are explicitly retired instead of retroactively acquiring modern authority. Existing generic survey appeals remain immutable, staff-readable and non-decidable; old signup-specific tokens retain their original version/account checks and current-period eligibility. Tutor/legacy generic appeal behavior remains separate.
 
+The first admitted modern appeal also preserves #384's typed staff-review event:
+`request_invalidity_appeal_pending` goes to the existing active Head/Admin audience,
+with the shared record-specific survey destination. Appeal, notifications and audit
+commit in one transaction. An exact immutable receipt replay returns before fan-out;
+failed or rolled-back submissions create no staff event. The event contains no appeal
+reason, mailbox capability or retry key. This restores the notification contract
+without changing current-period eligibility, terminal rejection or delivery authority.
+
 Signup decision controls return failed mutation promises to the shared timed admission guard. Accepted or queued writes stay accepted and recover through reads only; identical failed writes can be deliberately retried with the retained draft/ticket. Combined regressions cover one flag receipt/send, stale-version links, period rollover, rejection priority, historical appeal read-only projection and retry authority.
 
 Reviewed same-owner credential recovery rotates its appeal capability only in the
