@@ -54,6 +54,21 @@ weekly arrangements and confirmation state; they do not invent a next-session da
 Account authentication, signup confirmation and request-invalidity service mail use
 separate direct/essential flows and are not silently reclassified as optional events.
 
+### Record arrivals and scroll ownership
+
+Validated request/application record links in the bell disable Next's default page
+scroll for that navigation. The authorized destination first selects its required
+panel and filters, then reveals and focuses the committed record in its native
+scroll container. A delayed read or mount must not consume the arrival before the
+record exists. Incoming fragments take precedence over remembered page position;
+ordinary notification destinations retain normal navigation. Once revealed, later
+scrolling belongs to the user. A new location, access denial or intervening user
+gesture cancels an unfinished reveal; it must not pull the user back later.
+
+Appeal-pending copy points to the linked request without naming a particular
+dialog: legacy invalidity review and current signup review retain their own
+authorized decision interfaces and policy rules.
+
 ## Supported events
 
 ### primary_changed
