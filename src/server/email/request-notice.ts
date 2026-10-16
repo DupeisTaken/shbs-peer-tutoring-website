@@ -183,6 +183,18 @@ export async function currentRequestNotice(
     const source = await tx.studentSurvey.findUnique({
       where: { id: row.requestId },
     });
+    const modernCapability = row.requestInvalid
+      ? await tx.studentSignupNotice.findUnique({
+          where: {
+            surveyId_invalidityVersion_kind: {
+              surveyId: row.requestId,
+              invalidityVersion: row.requestVersion,
+              kind: "INVALID_FLAGGED",
+            },
+          },
+          select: { id: true },
+        })
+      : null;
     const owner = source?.tuteeId
       ? await tx.studentProfileOwnership.findUnique({
           where: { tuteeId: source.tuteeId },
@@ -198,6 +210,7 @@ export async function currentRequestNotice(
     return {
       current:
         !!source &&
+        (!modernCapability || source.state === "OPEN") &&
         source.email === row.recipient &&
         source.invalidityVersion === row.requestVersion &&
         !!source.invalidatedAt === row.requestInvalid,
@@ -410,7 +423,20 @@ export async function admitRequestDelivery(
         attempts: { increment: 1 },
       },
     });
-    return { row: admitted, verified: current.verified };
+    // Resolve only this receipt's captured flag version. Historical survey
+    // receipts never fall back to a generic appeal with different consequences.
+    const appealUrl =
+      source.kind === "survey" && row.requestInvalid
+        ? await (
+            await import("../student-signup-appeals")
+          ).modernSignupAppealUrl(
+            tx,
+            source.id,
+            row.requestVersion!,
+            row.recipient,
+          )
+        : undefined;
+    return { row: admitted, verified: current.verified, appealUrl };
   });
 }
 
@@ -460,6 +486,24 @@ export async function finishRequestDelivery(
           availableAt: new Date(Date.now() + 60_000 * 2 ** row.attempts),
           leaseUntil: null,
           lastError: "Email delivery failed; check the configured transport.",
+        },
+      });
+    }
+    // Modern capability evidence reflects the admitted shared transport result,
+    // never an enqueue or a second SMTP path. The shared receipt remains the
+    // authoritative retry/lease state shown to staff.
+    if (source.kind === "survey" && row.requestInvalid) {
+      await tx.studentSignupNotice.updateMany({
+        where: {
+          surveyId: source.id,
+          invalidityVersion: row.requestVersion!,
+          kind: "INVALID_FLAGGED",
+        },
+        data: {
+          state: sent ? "SENT" : "FAILED",
+          attempts: row.attempts,
+          lastAttemptAt: row.attemptStartedAt,
+          sentAt: sent ? new Date() : null,
         },
       });
     }

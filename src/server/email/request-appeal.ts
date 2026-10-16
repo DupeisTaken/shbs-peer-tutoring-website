@@ -33,6 +33,9 @@ async function eligibleNotice(client: DomainDb, token: string) {
   });
   if (
     notice?.category !== "request_service" ||
+    // Generic survey tokens predate the current signup lifecycle. Never grant
+    // modern version/account authority by retroactively resolving their source ID.
+    notice.requestKind === "survey" ||
     !notice.requestInvalid ||
     ["SUPERSEDED", "CANCELLED", "SKIPPED", "BLOCKED"].includes(notice.status) ||
     !(await currentRequestNotice(client, notice)).current
@@ -113,6 +116,12 @@ export async function declineRequestAppeal(
   input: z.infer<typeof declineRequestAppealInput>,
   actor: { id: string; name?: string | null },
 ) {
+  if (input.kind === "survey")
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message:
+        "Historical survey appeals are read-only. Use the current signup appeal review.",
+    });
   return inTransaction(client, async (tx) => {
     await lockRequestNoticeSource(tx, input);
     await lockEntity(tx, `request-notice:${input.kind}:${input.id}`);

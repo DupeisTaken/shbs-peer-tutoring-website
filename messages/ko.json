@@ -3337,7 +3337,10 @@
         "program_setCalendarDay": "튜터링 휴무일 안내 저장",
         "program_removeCalendarDay": "튜터링 휴무일 안내 삭제",
         "program_setNameFields": "이름 필드 입력 요건 변경",
-        "admin_reorderRooms": "프로그램 교실 순서 변경"
+        "admin_reorderRooms": "프로그램 교실 순서 변경",
+        "studentWorkflow_headEditSignup": "학생 신청 답변 수정",
+        "studentWorkflow_headUnassign": "학생 배정 해제",
+        "studentWorkflow_resolveSignupAppeal": "학생 신청 이의 검토"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -4715,7 +4718,81 @@
   "participantNames": {
     "unnamed": "이름이 제공되지 않음"
   },
-
+  "signupEditing": {
+    "title": "신청 답변 수정",
+    "edit": "신청 답변 수정",
+    "requestLocal": "이 답변은 이 튜터링 신청에만 적용됩니다. 수정해도 최초 신청 우선순위가 유지되며 계정 프로필이나 로그인 정보는 바뀌지 않습니다.",
+    "emailFixed": "로그인 이메일은 계정 설정에서 변경하세요. 이 신청에는 최초로 인증한 이메일이 유지됩니다.",
+    "evidenceFixed": "최초 서명과 동의한 정책은 제출 증빙으로 보존됩니다.",
+    "policyRevision": "최초 정책 버전",
+    "notProvided": "미입력",
+    "assignedLocked": "이 과목은 배정되었습니다. 책임자만 변경하거나 배정을 해제할 수 있습니다.",
+    "assignmentUnknown": "배정된 과목을 확인할 수 없습니다. 책임자가 해결할 때까지 과목 선택은 잠기지만 다른 답변은 저장할 수 있습니다.",
+    "availabilityHelp": "신청 답변 수정에서 가능한 시간을 변경하세요. 예약된 수업은 튜터와 조율하세요. 가능 시간을 바꿔도 기존 배정은 유지됩니다.",
+    "loading": "신청 답변 불러오는 중…",
+    "loadFailed": "답변 또는 현재 양식 설정을 불러오지 못했습니다. 작성 내용은 유지됩니다.",
+    "retry": "다시 불러오기",
+    "denied": "이 신청에 접근할 권한이 없습니다.",
+    "readOnly": "이 신청은 종료되었거나 종료된 기간에 속합니다. 제출 증빙은 읽기 전용입니다.",
+    "changed": "편집기를 연 후 신청이 변경되었습니다. 작성 내용은 유지됩니다. 최신 저장 답변을 다시 불러온 후 시도하세요.",
+    "save": "신청 답변 저장",
+    "saving": "저장 중…",
+    "saveFailed": "답변을 저장하지 못했습니다. 작성 내용은 유지됩니다.",
+    "saved": "답변을 저장했습니다. 다시 수정할 수 있습니다.",
+    "savedRefresh": "답변은 저장되었지만 최신 화면을 불러오지 못했습니다. 새로고침을 다시 시도하세요.",
+    "refreshFailed": "저장된 신청을 새로고침하지 못했습니다. 다시 시도해도 성공한 저장 작업은 반복되지 않습니다.",
+    "retryRefresh": "새로고침 다시 시도",
+    "reload": "저장 답변 다시 불러오기",
+    "reloadHelp": "최신 신청과 양식 설정을 성공적으로 불러온 경우에만 작성 내용을 교체합니다.",
+    "reloadFailed": "최신 답변을 불러오지 못했습니다. 작성 내용과 해당 버전은 유지됩니다.",
+    "submissionHeld": "제출 상태를 확인하고 있습니다. 저장되었을 수 있는 신청을 복구하는 동안 답변을 유지하세요. 재시도는 같은 제출로 처리됩니다.",
+    "recoverSubmission": "제출 복구 또는 재시도",
+    "intentVerification": "신청에 사용한 이메일과 메시지의 코드를 입력하세요. 이메일을 인증한 후에만 신청 세부 정보가 표시됩니다.",
+    "headEdit": "신청 변경 검토",
+    "headConsequences": "새 신청 답변을 확인하세요. 배정된 과목을 제거하면 해당 과목의 현재 배정만 해제됩니다. 과거 수업과 최초 제출 증빙은 유지됩니다.",
+    "queued": "제안한 변경은 책임자의 승인을 기다리고 있습니다.",
+    "returnToEditing": "접수 확인 후 답변 수정",
+    "savedMailbox": "{email} 주소로 인증 메시지를 보냈습니다. 이 제출을 확인하고 계속하세요.",
+    "savedNoMail": "{email} 신청은 저장되었지만 인증 메시지를 전달하지 못했습니다. 전송이 가능해지면 다시 보내세요.",
+    "replacementHelp": "이메일 인증과 계정 검토 후 최신 제출이 현재 신청 답변을 교체합니다. 최초 우선순위와 현재 배정은 유지됩니다. 배정된 과목은 책임자만 변경할 수 있습니다.",
+    "replacementReview": "제출한 튜터링 신청 검토",
+    "originalPriority": "최초 신청 우선순위 유지: {date}",
+    "submittedName": "제출한 표시 이름",
+    "submittedFirstName": "제출한 이름",
+    "submittedLastName": "제출한 성",
+    "submittedPreferredName": "제출한 선호 이름",
+    "submittedAlternativeNames": "제출한 다른 이름",
+    "submittedLatinName": "제출한 로마자 이름",
+    "submittedConsent": "제출한 동의 및 서명"
+  },
+  "signupAppeal": {
+    "title": "표시된 신청 검토",
+    "help": "정당한 신청이라면 자격을 유지해야 하는 이유를 설명하세요. 이의 신청 검토 중에는 배정이 차단됩니다.",
+    "reason": "이 신청을 승인해야 하는 이유",
+    "submit": "이의 신청 제출",
+    "submitting": "제출 중…",
+    "loading": "신청 검토 불러오는 중…",
+    "loadFailed": "신청 검토를 불러오지 못했습니다.",
+    "retry": "다시 불러오기",
+    "invalid": "검토 링크가 유효하지 않거나 만료되었습니다. 로그인하거나 운영팀에 문의하세요.",
+    "closed": "이 신청 또는 등록 기간의 이의 신청이 마감되었습니다.",
+    "pending": "이의 신청이 검토를 기다리고 있습니다. 배정은 계속 중단됩니다.",
+    "accepted": "이의 신청이 승인되었습니다.",
+    "rejected": "이의 신청이 거절되었습니다. 신청이 종료되고 대기 우선순위가 제거됩니다. 새 신청을 제출할 수 있습니다.",
+    "submitted": "이의 신청을 제출했습니다. 검토 중에는 배정이 중단됩니다.",
+    "saveFailed": "이의 신청을 제출하지 못했습니다. 사유는 유지됩니다.",
+    "staffTitle": "신청 이의 검토",
+    "approve": "이의 신청 승인",
+    "reject": "이의 신청 거절 및 신청 종료",
+    "approveConsequences": "이의 신청을 승인하고 무효 표시를 해제합니다. 배정을 재개할 수 있습니다.",
+    "rejectConsequences": "이의 신청을 거절하고 신청을 종료하여 활성 대기 우선순위를 제거합니다. 제출 증빙과 이력은 유지합니다.",
+    "unassign": "배정 해제",
+    "unassignConsequences": "선택한 현재 배정에서 학생을 해제합니다. 과거 수업과 출석 기록은 변경되지 않습니다.",
+    "proposeUnassign": "배정 해제 제안",
+    "changed": "작성 중 검토 정보가 변경되었습니다. 사유는 유지됩니다. 검토를 다시 불러온 후 시도하세요.",
+    "reload": "검토 다시 불러오기",
+    "rejectedTitle": "무효 신청 종료"
+  },
   "accountDeletion": {
     "intro": "Permanently delete the login for {name}? Review the account and its records before confirming your password.",
     "loading": "Loading deletion review…",
@@ -5076,6 +5153,11 @@
       "title": "Invalid Request Appeal Awaiting Review",
       "body": "신청자가 적용된 신청 무효 표시에 이의를 제기했습니다. 연결된 신청을 열어 이의를 검토하세요. 이의 제출만으로 무효 표시가 해제되지는 않습니다.",
       "action": "Review invalid request appeal"
+    },
+    "student_signup_rejected": {
+      "title": "무효 신청 종료",
+      "body": "이의 신청이 거절되었습니다. 신청이 종료되고 대기 우선순위가 제거됩니다. 새 신청을 제출할 수 있습니다.",
+      "action": "Review request history"
     }
   },
   "requestAppeal": {
@@ -5137,6 +5219,7 @@
     "declined": "Appeal declined. The invalid flag remains.",
     "declineFailed": "The appeal decision could not be saved. Your reason is retained.",
     "reviewReadFailed": "The decision was saved, but status refresh failed. Refresh status without repeating the decision.",
-    "reasonDisclosure": "This is a reason for the submitter. Keep it respectful and avoid unnecessary private information. The full reason is emailed only when request-specific mailbox verification exists; other recipients receive a masked notice."
+    "reasonDisclosure": "This is a reason for the submitter. Keep it respectful and avoid unnecessary private information. The full reason is emailed only when request-specific mailbox verification exists; other recipients receive a masked notice.",
+    "historicalSurveyAppeal": "이전 이의 신청(읽기 전용)입니다. 현재 신청의 이의 제기는 신청 검토에서 처리합니다."
   }
 }

@@ -1704,6 +1704,9 @@ model StudentSurvey {
   email String
   intakeTermId String
   payload Json
+  /// Current request answers are separate from the original signed submission.
+  currentPayload Json?
+  currentVersion Int @default(0)
   policyRevision String
   policySnapshot Json
   submittedAt DateTime @default(now())
@@ -1720,8 +1723,63 @@ model StudentSurvey {
   resolvedAt DateTime?
   lastLinkSentAt DateTime?
   reviews StudentRequestReview[]
+  signupRevisions StudentSignupRevision[]
+  signupIntents StudentSignupIntent[]
+  signupAppeals StudentSignupAppeal[]
+  signupNotices StudentSignupNotice[]
   @@index([email, intakeTermId, submittedAt])
   @@index([state, confirmedAt, verificationDueAt])
+}
+
+/// An accepted answer change also acts as its retry receipt; authorship survives account changes.
+/// Policy fields describe only a separately supplied explicit consent, never inferred acceptance.
+model StudentSignupRevision {
+  id String @id @default(cuid())
+  surveyId String
+  expectedVersion Int
+  version Int
+  actorUserId String
+  actorUserName String?
+  // Archive imports mint a fresh operational key; the private retry capability is not exported.
+  clientKey String @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  inputHash String
+  answers Json
+  policyRevision String?
+  policySnapshot Json?
+  signatureName String?
+  policyAcceptedAt DateTime?
+  createdAt DateTime @default(now())
+  survey StudentSurvey @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([surveyId, version])
+  @@unique([surveyId, actorUserId, clientKey])
+  @@index([actorUserId, createdAt])
+}
+
+/// Public answers are staged under an independent exact mailbox challenge. An email match
+/// identifies a candidate account/request but never authorizes replacing its current answers.
+model StudentSignupIntent {
+  id String @id @default(cuid())
+  keyHash String @unique
+  inputHash String
+  email String
+  submittedByUserId String?
+  accountId String?
+  sessionVersion Int?
+  surveyId String
+  expectedVersion Int
+  payload Json
+  policySnapshot Json
+  tokenHash String @unique
+  attempts Int @default(0)
+  expiresAt DateTime
+  receivedAt DateTime @default(now())
+  emailSentAt DateTime?
+  verifiedAt DateTime?
+  completedAt DateTime?
+  completedUserId String?
+  resultVersion Int?
+  survey StudentSurvey @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@index([email, receivedAt])
 }
 
 enum StudentSurveyState {
@@ -1729,6 +1787,54 @@ enum StudentSurveyState {
   RECALLED
   DISQUALIFIED
   ABORTED
+  INVALID_REJECTED
+}
+
+enum StudentSignupAppealState {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+/// Appeal reasons and decisions retain their exact request/flag version and original actor.
+model StudentSignupAppeal {
+  id String @id @default(cuid())
+  surveyId String
+  invalidityVersion Int
+  actorUserId String?
+  reason String
+  clientKey String @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  inputHash String
+  state StudentSignupAppealState @default(PENDING)
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+  resolvedByUserId String?
+  decisionKey String? @db.Uuid
+  decisionHash String?
+  survey StudentSurvey @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([surveyId, invalidityVersion])
+  @@index([state, createdAt])
+}
+
+/// Durable generic invalidity/decision mail, including accountless requests. Proofs are
+/// recipient/version-bound and re-derived for send-only retry; staff notes never enter mail.
+model StudentSignupNotice {
+  id String @id @default(cuid())
+  surveyId String
+  invalidityVersion Int
+  kind String
+  recipientEmail String?
+  accountId String?
+  sessionVersion Int?
+  tokenHash String? @unique
+  state String @default("PENDING")
+  attempts Int @default(0)
+  createdAt DateTime @default(now())
+  lastAttemptAt DateTime?
+  sentAt DateTime?
+  survey StudentSurvey @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([surveyId, invalidityVersion, kind])
+  @@index([state, createdAt])
 }
 
 /// Older public tutee requests predate StudentSurvey. Keep their staff-only review

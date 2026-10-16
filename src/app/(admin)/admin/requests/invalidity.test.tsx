@@ -75,6 +75,8 @@ vi.mock("~/trpc/react", () => ({
     }),
     account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
     studentWorkflow: {
+      headUnassign: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      resolveSignupAppeal: { useMutation: () => ({ mutateAsync: vi.fn() }) },
       adminRequests: {
         useQuery: () => ({
           data: mocks.survey

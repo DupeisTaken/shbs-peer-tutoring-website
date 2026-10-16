@@ -3337,7 +3337,10 @@
         "program_setCalendarDay": "保存停课提示",
         "program_removeCalendarDay": "移除停课提示",
         "program_setNameFields": "修改姓名字段要求",
-        "admin_reorderRooms": "调整项目教室顺序"
+        "admin_reorderRooms": "调整项目教室顺序",
+        "studentWorkflow_headEditSignup": "修改学生申请答案",
+        "studentWorkflow_headUnassign": "解除学生辅导分配",
+        "studentWorkflow_resolveSignupAppeal": "处理学生申请申诉"
       },
       "decisionRequestHelp": "“批准并执行”将执行申请的操作，包括申请中要求的拒绝决定。“拒绝并反馈”只拒绝此申请，不做任何更改。两种决定都需要说明。",
       "confirmPassword": "确认负责人账户密码"
@@ -4715,7 +4718,81 @@
   "participantNames": {
     "unnamed": "未提供姓名"
   },
-
+  "signupEditing": {
+    "title": "编辑报名回答",
+    "edit": "编辑报名回答",
+    "requestLocal": "这些回答仅属于本次辅导申请。修改后保留原提交优先顺序，不会更改账户资料或登录凭据。",
+    "emailFixed": "请在账户设置中更改登录邮箱。本申请保留最初验证的邮箱。",
+    "evidenceFixed": "原始签名和已接受的政策仍作为提交记录保留。",
+    "policyRevision": "原始政策版本",
+    "notProvided": "未提供",
+    "assignedLocked": "此科目已安排辅导。仅负责人可更改或解除安排。",
+    "assignmentUnknown": "现有分配包含无法识别的科目。科目选择将在负责人处理前锁定；其他答案仍可保存。",
+    "availabilityHelp": "通过“编辑报名回答”更新可用时间。请与辅导伙伴协调已安排的课程；更改时间不会解除现有安排。",
+    "loading": "正在加载报名回答…",
+    "loadFailed": "无法加载报名回答或当前表单设置。已保留您的草稿。",
+    "retry": "重试加载",
+    "denied": "您无权访问此申请。",
+    "readOnly": "此申请已结束，或属于已结束的报名周期。提交记录仅供查看。",
+    "changed": "您打开编辑器后，此申请发生了更改。已保留草稿。请先重新加载最新保存的回答，再继续修改。",
+    "save": "保存报名回答",
+    "saving": "正在保存…",
+    "saveFailed": "无法保存回答。已保留草稿。",
+    "saved": "报名回答已保存。您可以继续修改。",
+    "savedRefresh": "回答已保存，但更新后的页面尚未就绪。请重试刷新后继续。",
+    "refreshFailed": "无法刷新已保存的申请。请重试刷新，已完成的保存不会重复执行。",
+    "retryRefresh": "重试刷新",
+    "reload": "重新加载已保存回答",
+    "reloadHelp": "仅当最新申请和表单设置均成功加载后，才会替换当前草稿。",
+    "reloadFailed": "无法加载最新回答。已保留草稿及其版本。",
+    "submissionHeld": "正在核查您的提交。恢复可能已保存的申请期间，请保留这些回答；重试会使用同一次提交记录。",
+    "recoverSubmission": "恢复或重试本次提交",
+    "intentVerification": "请输入本申请使用的邮箱，再输入邮件中的验证码。完成邮箱验证后才会显示申请详情。",
+    "headEdit": "复核报名修改",
+    "headConsequences": "请复核新的申请回答。移除已安排的科目仅解除该科目的当前安排。历史课程及原始提交记录保持不变。",
+    "queued": "您的修改提议正在等待负责人批准。",
+    "returnToEditing": "核查提交记录并编辑回答",
+    "savedMailbox": "验证邮件已发送至 {email}。请确认本次提交后继续。",
+    "savedNoMail": "已保存 {email} 的提交，但无法送达验证邮件。邮件服务恢复后，请使用重发功能。",
+    "replacementHelp": "完成邮箱验证和账户复核后，最新提交会替换本账户的当前申请回答，同时保留首次提交的优先顺序和现有安排。仅负责人可更改已安排的科目。",
+    "replacementReview": "核对本次提交的辅导申请",
+    "originalPriority": "保留原有排队时间：{date}",
+    "submittedName": "本次提交的显示姓名",
+    "submittedFirstName": "本次提交的名",
+    "submittedLastName": "本次提交的姓",
+    "submittedPreferredName": "本次提交的常用名",
+    "submittedAlternativeNames": "本次提交的其他姓名",
+    "submittedLatinName": "本次提交的拉丁字母姓名",
+    "submittedConsent": "本次提交的同意记录及签名"
+  },
+  "signupAppeal": {
+    "title": "复核被标记的申请",
+    "help": "如果此辅导申请真实有效，请说明应继续受理的原因。申诉审核期间仍暂停匹配安排。",
+    "reason": "为什么应接受此申请？",
+    "submit": "提交申诉",
+    "submitting": "正在提交…",
+    "loading": "正在加载申请复核信息…",
+    "loadFailed": "无法加载申请复核信息。",
+    "retry": "重试加载",
+    "invalid": "此复核链接无效或已过期。请登录您的申请或联系项目团队。",
+    "closed": "此申请或其报名周期已不接受申诉。",
+    "pending": "您的申诉正在等待审核，期间仍暂停匹配。",
+    "accepted": "您的申诉已被接受。",
+    "rejected": "申诉未获接受。此申请已关闭并移除排队优先顺序；您可以重新提交申请。",
+    "submitted": "申诉已提交。审核期间仍暂停匹配。",
+    "saveFailed": "无法提交申诉。已保留您的原因说明。",
+    "staffTitle": "报名申诉",
+    "approve": "接受申诉",
+    "reject": "拒绝申诉并关闭申请",
+    "approveConsequences": "接受申诉并清除无效标记。匹配安排可以恢复。",
+    "rejectConsequences": "拒绝申诉，关闭申请并移除当前排队优先顺序。保留提交记录及历史信息。",
+    "unassign": "解除安排",
+    "unassignConsequences": "解除该学生的所选当前安排。历史课程和出勤记录保持不变。",
+    "proposeUnassign": "申请解除安排",
+    "changed": "您填写原因期间，申请复核信息发生了更改。已保留您的原因。请重新加载复核信息后再继续。",
+    "reload": "重新加载复核信息",
+    "rejectedTitle": "无效申请已关闭"
+  },
   "accountDeletion": {
     "intro": "永久删除 {name} 的登录账号？确认密码前，请核对账号及其相关记录。",
     "loading": "正在加载删除审核…",
@@ -5076,6 +5153,11 @@
       "title": "无效申请申诉待审核",
       "body": "一位申请提交者对已应用的无效标记提出申诉。请打开链接中的申请审核申诉；提交申诉不会解除标记。",
       "action": "查看无效申请申诉"
+    },
+    "student_signup_rejected": {
+      "title": "无效申请已关闭",
+      "body": "申诉未获接受。此申请已关闭并移除排队优先顺序；您可以重新提交申请。",
+      "action": "查看申请记录"
     }
   },
   "requestAppeal": {
@@ -5137,6 +5219,7 @@
     "declined": "申诉已拒绝。无效标记仍保留。",
     "declineFailed": "无法保存申诉决定。您的原因仍保留。",
     "reviewReadFailed": "决定已保存，但状态刷新失败。请刷新状态，不要重复提交决定。",
-    "reasonDisclosure": "这是提供给提交者的原因。请保持尊重，避免不必要的隐私信息。仅在具有此申请特定的邮箱验证时，邮件才会包含完整原因；其他收件人收到遮蔽详情的通知。"
+    "reasonDisclosure": "这是提供给提交者的原因。请保持尊重，避免不必要的隐私信息。仅在具有此申请特定的邮箱验证时，邮件才会包含完整原因；其他收件人收到遮蔽详情的通知。",
+    "historicalSurveyAppeal": "历史申诉（只读）。当前报名申诉请使用“报名申诉”审核。"
   }
 }

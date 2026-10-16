@@ -13,7 +13,7 @@ separately. Staff-visible `RegistrationCode` keys never authenticate an existing
 | Source | Authorization and email proof | Redemption writes | Preserved boundary |
 | --- | --- | --- | --- |
 | Tutor/Crew/management key | Existing staff authorization plus separate recipient-delivered mailbox code | Original registration transaction adds authorized access with canonical-account preservation | Management rank becomes the higher of the existing rank and invitation rank; no Head grant or demotion. |
-| Tutee request | Full submitted application and policy evidence precede mailbox-code verification; the legacy survey link remains valid | Receipt popup hands off to the original confirmation transaction, retained ownership and policy snapshot | Original request priority, intake/deadline rules and assignment stay separate. |
+| Tutee request | Full submitted application and policy evidence precede exact-submission mailbox verification; staged replacements leave the live survey proof usable | Recipient review confirms new demand or applies the independently staged answers to its owned current OPEN request | One email owner/account, original priority, fixed deadline, source consent and recorded assignments/sessions remain separate. |
 | Viewer request | Initial mailbox verification issues a distinct invitation and verified-browser proof | Receipt popup hands off to new Viewer credentials, or sign-in-only for an existing account | Viewer exclusivity and the public signup feature gate remain authoritative. |
 | Public Crew application | Mailbox verification creates a pending application; staff approval and fresh mailbox verification authorize invitation retrieval | The approved staff source issues the shared receipt for explicit new-account or additive Crew review | No Crew access before staff approval and account review; revocation and the Crew feature gate remain authoritative. |
 | Historical tutee invitation | Exact staff-reviewed record, source revision and mailbox proof | Receipt popup hands off to neutral history-only credentials and an envelope receipt | The signed-in owner must separately claim the original historical record. |
@@ -44,6 +44,9 @@ existing account ownership/generation checks. Expired mailbox proofs, login exch
 unfinished invitations remain invalid.
 Tutee submission and final redemption both resolve verified aliases and recheck quarter withdrawal
 and current-request ownership; late alias linking cannot bypass either participation restriction.
+An existing tutor can request help through the same tutee form without another account or
+credential change. Email normalization or a matching address never authorizes record access,
+account combination or replacement. Tutee replacement is independent of tutor recruitment.
 
 First successful Viewer/history verification starts a fixed 15-minute review window; retries retain its original timestamp. Envelope expiry is capped by source and authorization deadlines, and email states the exact expiry. Sending replacements never extends staff authorization or Tutee verification deadlines.
 
@@ -54,6 +57,15 @@ combination invalidate stale evidence. The login exchange is single-use independ
 membership write. The source write and completion receipt commit in one transaction, permitting
 lost-response retries without duplicating accounts, resetting passwords or replaying participation.
 An explicit receipt is distinguishable from failed session synchronization in the public form.
+
+`accountInvitation.inspect` is an ID-only read query. Verified-browser proof is
+accepted by the POST `accountInvitation.review` mutation, not by query input;
+proofs therefore do not enter query URLs, referrers or browser history. Recipient
+authority and source checks are shared by both readers. A pending tutee-intent
+review returns its exact staged answers, named subjects/time slots, stage-time
+policy/signature evidence and retained original priority separately from canonical
+account identity. That summary describes the proposed request being accepted,
+not an account-profile edit or an inferred policy acceptance.
 
 The three public entrypoints stay separate: `/register` has one centered invitation code field
 and full-width Continue action; `/viewer-signup` collects Viewer details; `/signup` collects the
@@ -933,7 +945,26 @@ unknown-source records are not reclassified as public requests. Shared processin
 locks serialize flagging with assignments and invitation redemption; existing
 memberships and completed invitation receipts remain intact. Participant reads
 receive no internal explanation, and authorized observer summaries receive only
-the invalid badge. Current flags also leave actionable activity counts.
+the invalid badge. Current flags also leave actionable activity counts. Tutee owners
+receive a notification and a separate reasoned appeal entry point until active-period
+rollover. The request remains invalid and processing-blocked during appeal review.
+Admin/Head acceptance clears the flag without changing priority; final rejection
+closes the active request and ends its priority while retaining source and decision
+evidence. A later eligible submission gets fresh priority. No deadline is inferred
+from public signup closing, and an appeal cannot extend an existing verification deadline.
+
+`student-signup-appeals.ts` records `StudentSignupAppeal` against the exact invalidity
+version and uses `StudentSignupNotice` as the committed delivery outbox. Notices
+resolve retained ownership and a current verified recipient rather than treating
+the immutable submitted email as today's owner. The mailbox appeal capability is
+bound to that recipient/account generation and invalidity version; its link does
+not reveal internal screening reasons. `studentWorkflow.inspectSignupAppeal` and
+`appealSignup` serve that exact emailed capability, while `appealOwnedSignup`
+requires signed-in ownership. `resolveSignupAppeal` rechecks Admin/Head authority,
+the current flag version and a purpose-bound consequence ticket. Acceptance and
+final `INVALID_REJECTED` closure commit with decision/audit evidence and notification
+enqueueing; SMTP delivery happens after commit. Failed notice delivery is separate
+from an accepted flag/decision, so resending a notice does not repeat the write.
 
 Invalidity reviews belong to a stable host above the request cards. Filtering,
 polling and movement between assignment groups cannot unmount an open draft or
@@ -946,16 +977,79 @@ The original survey submission determines queue priority. Mailbox-code verificat
 
 | Action                          | Invariant                                                                                   |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
-| Submit or repeat an open survey | Preserve the first payload, timestamp and exact accepted policy snapshot                    |
+| Submit fresh eligible demand | Reserve priority at acceptance, before account setup; preserve the original payload and signed policy evidence |
+| Stage same-email tutee replacement | Store an independent intent/challenge; leave the live request, priority and original proof untouched |
+| Complete a deliberately new intent | Require exact mailbox proof and existing account authentication/MFA; replace current answers and append that intent's consent revision, even for identical answers |
+| Recover an exact network retry | Return only its bound acknowledgement or saved result; no duplicate version, CAPTCHA consumption, email or notification |
 | Verify mailbox code or confirm the email link | Issue an invitation after explicit proof; opening a link alone does not confirm participation |
 | Resend a link                   | Failed delivery preserves the usable link; successful delivery replaces it                  |
-| Edit availability               | Preserve subjects, priority and assignments                                                 |
+| Edit an owned OPEN signup       | Recheck active period, ownership, field/catalog rules and version; allow edits after intake closes; preserve assigned subjects, original evidence and canonical identity |
+| Head edits assigned choices     | Review and release affected assignments with the answer change; preserve sessions and attendance |
+| Read terminal or historical signup | Keep original answers and accepted revisions read only |
 | Recall an unassigned request    | Close it permanently; a later application receives a new request and priority               |
 | Approve withdrawal              | Release all assignments and block another signup for that account/email in the period       |
 | Approve a schedule rejection    | Remove only the affected pairing and return the request for matching                        |
 | Expire an unverified assignment | Permanently disqualify it and release assignments; a fresh eligible application is separate |
 
 `StudentProfileOwnership` retains explicit links across intakes and verified email changes. Attendance, feedback and appeals use all owned profiles. Staff-entered enrollment withdrawal also requires explicit ownership and current-term evidence; it never relies on a matching email. Signup-source labels describe recorded provenance and do not change permissions or priority.
+
+`student-signup-intents.ts` stages `StudentSignupIntent` records separately from
+`StudentSurvey`. The client retry key is hashed and bound to the exact parsed
+submission and, for signed-in submissions, its submitting account. Public
+`tutee.submitSurvey`/`requestSignup` and `signupReceipt` recover accepted exact
+intents through completion admission before fresh CAPTCHA/mail admission. The
+public submission APIs require an explicit client key for independent intent/retry
+behavior; missing keys fail input validation rather than entering an older
+duplicate-submission path. Existing survey-token completion remains supported.
+A receipt grants no
+mailbox proof or private record access. Resend rotates only the staged challenge
+after successful delivery and retains its capped expiry.
+
+A per-key pre-stage admission lease covers the gap before the intent exists. Receipt
+recovery reports a retryable wait while that lease is live, rather than a definitive
+missing result that could prompt another deliberate submission. After acceptance,
+its exact acknowledgement is recoverable before fresh CAPTCHA and mail admission.
+
+`accountInvitation.verifySurvey` with an intent ID verifies the exact source mailbox
+challenge before issuing the shared `tutee-intent` envelope. Source version, owner,
+verified-alias status, credential generation, active period and eligibility are
+rechecked under the existing program, username, catalogue, account and request
+locks at redemption. Concurrent independent intents share the request's expected
+version: only the first valid completion can apply; another stale review must
+reload/resubmit rather than overwrite it. Suspension, school departure and
+quarter blocks remain authoritative. A source token's ordinary expiry can be
+superseded only by its fresh verified intent proof, never beyond the request's
+fixed `verificationDueAt`.
+
+`student-signup-editor.ts` exposes complete normalized local-answer snapshots for
+owned current OPEN requests. `studentWorkflow.signup`/`editSignup` omit email,
+login identity and original consent from the editable schema. It keeps inactive
+assigned catalogue choices in the accepted projection and fails closed when a
+legacy assignment cannot be resolved for a subject change. Hidden field settings
+cannot erase an assigned subject. Changes to names, grade, phone, contact,
+availability and unassigned choices remain request-local; they do not rewrite
+canonical User identity or academics. A stable expected version and exact retry
+key distinguish conflicts from already accepted writes. Drafts survive rejection
+and background failure; successful-write synchronization recovery performs reads.
+
+Management reads use `studentWorkflow.managedSignup`. `headEditSignup` and
+`headUnassign` independently require current Head authority and a purpose-bound
+consequence ticket; the broad management procedure wrapper does not grant Admin or
+Coordinator the Head write. Dropped assigned choices and their affected current
+`PairingTutee` links change in one transaction. Historical `Session` and
+`SessionTutee` rows survive; releasing an assignment is separate from deleting
+recorded attendance.
+
+`StudentSurvey.payload`, its original policy snapshot/revision, signature and
+`submittedAt` remain source evidence. `currentPayload`/`currentVersion` supply the
+current answer projection, while append-only `StudentSignupRevision` records each
+accepted answer snapshot and its actor/version. Ordinary signed-in edits do not
+invent fresh consent. A deliberately new public intent records its stage-time
+signature, policy snapshot/revision and acceptance timestamp. Publication after
+staging does not fabricate a newer acceptance: existing current-policy participation
+gates require that revision separately. SQL migration
+`20261014010000_student_signup_revisions` protects immutable source/revision fields
+and binds operational retry receipts to these transactions.
 
 [Historical linking and invitations](historical-participant-transition.md) add retained ownership after staff review or an explicit claim by the invited verified account. They preserve original enrollment academics, current membership and recorded attendance. Accountless tutees remain roster records; personal `/history` reads require ownership, while general observer access never grants private history. See the guide's [technical map](historical-participant-transition.md#technical-map) for endpoints and shared cache invalidation.
 
@@ -1377,6 +1471,14 @@ The archive allowlist includes original HistoricalAcademicRecord evidence, with 
 
 `src/server/record-transfer.ts` declares the domain-table allowlist in dependency order. PostgreSQL metadata supplies column types, nullability, defaults, enums and primary keys. Only allowlisted tables and validated column names enter SQL identifiers; cell values use bound JSON parameters through `jsonb_populate_record`. New columns require security review: User remains restricted to ID/name/email, and survey token hashes remain excluded. `User.csv` validates existing accounts without writing them. Scalar ownership and other live references receive explicit checks in addition to database foreign keys; historical actor snapshots can survive account deletion.
 
+Signup archives preserve the original `StudentSurvey` evidence, its current answer
+projection, immutable `StudentSignupRevision` answer/consent evidence and
+`StudentSignupAppeal` review evidence. Private client/decision retry capabilities,
+notice delivery capabilities and executable `StudentSignupIntent` challenges are
+not exported. Import mints fresh operational receipt keys and randomized
+survey proofs; archival restoration cannot reactivate an old retry or mailbox
+capability. Original answers are compared separately from the current projection.
+
 Preview runs the same validation/insertion code and deliberately rolls back the transaction. This exercises actual unique and referential constraints without retained writes, notifications or emails. A 15-minute HMAC ticket binds the exact uploaded files to the actor. Import verifies the ticket and revalidates against the current database. Exact primary-key matches are skipped only when all supplied values match; conflicting rows abort the transaction. The import audit entry commits with the data. These three operations bypass the generic post-mutation audit hook because export/import already write transactional evidence and preview must remain a dry run. Imported survey tokens are random hashes with no issued plaintext link.
 
 `src/lib/record-transfer.ts` defines strict CSV parsing and reversible, formula-safe encoding; `record-transfer-archive.ts` checks ZIP names and expanded sizes before extraction. `src/app/_components/record-transfer.tsx` loads ZIP support only on demand and clears preview/confirmation state when files change. The server page and navigation both restrict the feature to HEAD; existing Reports CSV controls use the refreshed account role. Limits are 5 MiB and 5,000 rows across a transfer. This feature is additive history ingestion, not a replacement for database backup/restore or account provisioning.
@@ -1388,3 +1490,41 @@ Regression coverage is in the three `record-transfer.test` files under `src/lib`
 Edit the existing guide for the reader's task. Keep each procedure in one place and link to it from related guides. [Documentation ownership](contributing.md#documentation-and-repository-hygiene) explains where content belongs.
 
 Run `npm run docs:check` to validate Markdown links, heading anchors, guide discoverability, role sections and issue forms. Read the guides directly in GitHub or a Markdown viewer; no compilation step is required.
+
+
+### Integrated survey appeal authority and delivery
+
+The owner selected #385’s newer survey lifecycle when integrating #384: appeals end with the active signup period, and final rejection closes the request and ends its active priority. Modern survey flags create one `EmailDelivery` request-service receipt; `StudentSignupNotice` retains only the matching invalidity-version/account-bound appeal capability for that flag. Its flag kind is routed through the shared worker, not independently mailed. At transport admission the modern link must match the immutable receipt request version and the capability’s current ownership; transport retry never grants a later-version capability. Generic survey tokens are explicitly retired instead of retroactively acquiring modern authority. Existing generic survey appeals remain immutable, staff-readable and non-decidable; old signup-specific tokens retain their original version/account checks and current-period eligibility. Tutor/legacy generic appeal behavior remains separate.
+
+The first admitted modern appeal also preserves #384's typed staff-review event:
+`request_invalidity_appeal_pending` goes to the existing active Head/Admin audience,
+with the shared record-specific survey destination. Appeal, notifications and audit
+commit in one transaction. An exact immutable receipt replay returns before fan-out;
+failed or rolled-back submissions create no staff event. The event contains no appeal
+reason, mailbox capability or retry key. This restores the notification contract
+without changing current-period eligibility, terminal rejection or delivery authority.
+
+Signup decision controls return failed mutation promises to the shared timed admission guard. Accepted or queued writes stay accepted and recover through reads only; identical failed writes can be deliberately retried with the retained draft/ticket. Combined regressions cover one flag receipt/send, stale-version links, period rollover, rejection priority, historical appeal read-only projection and retry authority.
+
+Reviewed same-owner credential recovery rotates its appeal capability only in the
+same transaction that successfully queues the matching delivery receipt. A
+`SENDING` attempt or active lease leaves the captured capability unchanged. After
+that attempt settles, another explicit retry may queue and rotate atomically;
+neither a refused retry nor a background read can invalidate an in-flight link.
+For pre-existing sent generic survey receipts without a modern capability, an
+explicit staff recovery can requeue that same receipt and create its matching
+modern capability atomically. Refused admission creates no capability; a prior
+generic SMTP attempt cannot mark a newly unsent modern link as delivered.
+
+The shared receipt's original verified alias is checked again by authoritative
+token inspection and appeal submission, under the same username namespace used
+by address removal. Removing or transferring that alias revokes a captured link
+even if the primary address and session version are unchanged. Primary-exact and
+older native notices retain their existing binding. A modern capability-backed
+flag receipt is superseded before transport when its signup has become terminal;
+the separate appeal outcome notice remains the correct final-state message.
+
+The three signup-specific actions (`SIGNUP_EDIT`, `SIGNUP_UNASSIGN`,
+`SIGNUP_APPEAL`) retain their existing five-second review delay when joining the
+action-specific confirmation map. Their ticket expiry and version/target binding
+are unchanged; no missing map entry may produce an invalid confirmation instant.

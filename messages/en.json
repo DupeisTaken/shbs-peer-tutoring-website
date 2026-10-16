@@ -3337,7 +3337,10 @@
         "program_setCalendarDay": "Save no-tutoring notice",
         "program_removeCalendarDay": "Remove no-tutoring notice",
         "program_setNameFields": "Change name field requirements",
-        "admin_reorderRooms": "Reorder program rooms"
+        "admin_reorderRooms": "Reorder program rooms",
+        "studentWorkflow_headEditSignup": "Edit student signup answers",
+        "studentWorkflow_headUnassign": "Release student assignment",
+        "studentWorkflow_resolveSignupAppeal": "Resolve student signup appeal"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -4715,7 +4718,81 @@
   "participantNames": {
     "unnamed": "Name not provided"
   },
-
+  "signupEditing": {
+    "title": "Edit Signup Answers",
+    "edit": "Edit signup answers",
+    "requestLocal": "These answers belong to this tutoring request. Editing them keeps your original submission priority and does not change your account profile or credentials.",
+    "emailFixed": "Change your sign-in email through Account Settings. This request keeps its original verified mailbox.",
+    "evidenceFixed": "Your original signature and accepted policy remain part of the submitted evidence.",
+    "policyRevision": "Original policy revision",
+    "notProvided": "Not provided",
+    "assignedLocked": "This subject is assigned. Only Head can change or release it.",
+    "assignmentUnknown": "An assignment uses a subject that cannot be resolved. Subject choices are locked until Head resolves it; you can still save other answers.",
+    "availabilityHelp": "Update your available times in Edit signup answers. Coordinate scheduled sessions with your tutor; changing availability keeps existing assignments.",
+    "loading": "Loading signup answers…",
+    "loadFailed": "Signup answers or their current form settings could not be loaded. Your draft is retained.",
+    "retry": "Retry loading",
+    "denied": "You do not have access to this request.",
+    "readOnly": "This request is closed or belongs to an ended period. Its submitted evidence is read-only.",
+    "changed": "This request changed after you opened the editor. Your draft is retained. Reload the latest saved answers before trying again.",
+    "save": "Save signup answers",
+    "saving": "Saving…",
+    "saveFailed": "Your answers could not be saved. Your draft is retained.",
+    "saved": "Signup answers saved. You can make another edit.",
+    "savedRefresh": "Your answers were saved, but the refreshed view is not ready. Retry refresh to continue.",
+    "refreshFailed": "The saved request could not be refreshed. Retry refresh; your successful save will not be repeated.",
+    "retryRefresh": "Retry refresh",
+    "reload": "Reload saved answers",
+    "reloadHelp": "Reload replaces this draft only after the latest request and form settings have loaded successfully.",
+    "reloadFailed": "The latest answers could not be loaded. Your draft and its version are retained.",
+    "submissionHeld": "Your submission is being checked. Keep these answers while recovering a possible saved request; retrying keeps the same submission intent.",
+    "recoverSubmission": "Recover or retry this submission",
+    "intentVerification": "Enter the email you used for this request, then the code from its message. Request details appear only after mailbox verification.",
+    "headEdit": "Review signup changes",
+    "headConsequences": "Review the new request answers. Removing an assigned subject releases only that subject’s current assignment. Historical sessions and original submission evidence remain unchanged.",
+    "queued": "Your proposed change is awaiting Head approval.",
+    "returnToEditing": "Check receipt and edit answers",
+    "savedMailbox": "We sent a verification message to {email}. Confirm this exact submission to continue.",
+    "savedNoMail": "Your submission is saved for {email}, but its verification message could not be delivered. Use resend when delivery is available.",
+    "replacementHelp": "After mailbox verification and account review, your latest submission replaces this account’s current request answers while retaining the first submission priority and current assignments. Only Head can change assigned subjects.",
+    "replacementReview": "Review the submitted tutoring request",
+    "originalPriority": "Original priority retained: {date}",
+    "submittedName": "Submitted display name",
+    "submittedFirstName": "Submitted first name",
+    "submittedLastName": "Submitted last name",
+    "submittedPreferredName": "Submitted preferred name",
+    "submittedAlternativeNames": "Submitted other names",
+    "submittedLatinName": "Submitted Latin-script name",
+    "submittedConsent": "Submitted consent and signature"
+  },
+  "signupAppeal": {
+    "title": "Review a Flagged Request",
+    "help": "If this tutoring request is genuine, explain why it should remain eligible. It stays blocked from matching while your appeal is reviewed.",
+    "reason": "Why should this request be accepted?",
+    "submit": "Submit appeal",
+    "submitting": "Submitting…",
+    "loading": "Loading request review…",
+    "loadFailed": "The request review could not be loaded.",
+    "retry": "Retry loading",
+    "invalid": "This review link is invalid or has expired. Sign in to your request or contact the program team.",
+    "closed": "Appeals are closed for this request or its enrollment period.",
+    "pending": "Your appeal is awaiting review. Matching remains paused.",
+    "accepted": "Your appeal was accepted.",
+    "rejected": "The appeal was declined. This request is closed and its queue priority is removed; you can submit a fresh request.",
+    "submitted": "Your appeal was submitted. Matching remains paused during review.",
+    "saveFailed": "Your appeal could not be submitted. Your reason is retained.",
+    "staffTitle": "Signup Appeal",
+    "approve": "Accept appeal",
+    "reject": "Decline appeal and close request",
+    "approveConsequences": "Accept this appeal and clear the invalidity flag. Matching may resume.",
+    "rejectConsequences": "Decline this appeal, close the request and remove its active queue priority. Keep its submitted evidence and history.",
+    "unassign": "Release assignment",
+    "unassignConsequences": "Release this student from the selected current assignment. Historical sessions and attendance stay unchanged.",
+    "proposeUnassign": "Propose releasing assignment",
+    "changed": "This request review changed while you were writing. Your reason is retained. Reload the review before trying again.",
+    "reload": "Reload review",
+    "rejectedTitle": "Invalid Request Closed"
+  },
   "accountDeletion": {
     "intro": "Permanently delete the login for {name}? Review the account and its records before confirming your password.",
     "loading": "Loading deletion review…",
@@ -5076,6 +5153,11 @@
       "title": "Invalid Request Appeal Awaiting Review",
       "body": "A submitter appealed an applied invalid-request flag. Open the linked request to review the appeal; submitting an appeal does not clear the flag.",
       "action": "Review invalid request appeal"
+    },
+    "student_signup_rejected": {
+      "title": "Invalid Request Closed",
+      "body": "The appeal was declined. This request is closed and its queue priority is removed; you can submit a fresh request.",
+      "action": "Review request history"
     }
   },
   "requestAppeal": {
@@ -5137,6 +5219,7 @@
     "declined": "Appeal declined. The invalid flag remains.",
     "declineFailed": "The appeal decision could not be saved. Your reason is retained.",
     "reviewReadFailed": "The decision was saved, but status refresh failed. Refresh status without repeating the decision.",
-    "reasonDisclosure": "This is a reason for the submitter. Keep it respectful and avoid unnecessary private information. The full reason is emailed only when request-specific mailbox verification exists; other recipients receive a masked notice."
+    "reasonDisclosure": "This is a reason for the submitter. Keep it respectful and avoid unnecessary private information. The full reason is emailed only when request-specific mailbox verification exists; other recipients receive a masked notice.",
+    "historicalSurveyAppeal": "Historical appeal (read only). Current signup appeals use the Signup Appeal review."
   }
 }

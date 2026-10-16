@@ -90,7 +90,11 @@ export async function deliverNotifications(limit = 10) {
           category: "PROGRAM",
           to: admitted.row.recipient,
           messageId: `<account-notice-${id}@shbs-notifications>`,
-          ...requestNoticeEmailCopy(admitted.row, admitted.verified),
+          ...requestNoticeEmailCopy(
+            admitted.row,
+            admitted.verified,
+            admitted.appealUrl,
+          ),
         });
         accepted = true;
       } catch {

@@ -373,7 +373,16 @@ export const approvalRouter = createTRPCRouter({
                           confirmPassword: input.confirmPassword,
                         }
                       : confirmation
-                        ? { ...(value as object), ticket: input.ticket }
+                        ? {
+                            ...(value as object),
+                            ...([
+                              "studentWorkflow.headEditSignup",
+                              "studentWorkflow.headUnassign",
+                              "studentWorkflow.resolveSignupAppeal",
+                            ].includes(request.operation)
+                              ? { signedTicket: input.ticket }
+                              : { ticket: input.ticket }),
+                          }
                         : value;
                   // Each reviewer acknowledges current eligibility with their own one-use evidence.
                   await caller[router!]![method!]!(

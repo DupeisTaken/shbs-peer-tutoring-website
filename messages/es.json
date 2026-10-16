@@ -3337,7 +3337,10 @@
         "program_setCalendarDay": "Guardar aviso de día sin tutorías",
         "program_removeCalendarDay": "Eliminar aviso de día sin tutorías",
         "program_setNameFields": "Cambiar requisitos de los campos de nombre",
-        "admin_reorderRooms": "Reordenar aulas del programa"
+        "admin_reorderRooms": "Reordenar aulas del programa",
+        "studentWorkflow_headEditSignup": "Editar respuestas de inscripción del estudiante",
+        "studentWorkflow_headUnassign": "Liberar asignación del estudiante",
+        "studentWorkflow_resolveSignupAppeal": "Resolver apelación de inscripción del estudiante"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -4715,7 +4718,81 @@
   "participantNames": {
     "unnamed": "Nombre no proporcionado"
   },
-
+  "signupEditing": {
+    "title": "Editar respuestas de inscripción",
+    "edit": "Editar respuestas de inscripción",
+    "requestLocal": "Estas respuestas pertenecen a esta solicitud de tutoría. Editarlas conserva la prioridad original y no cambia el perfil ni las credenciales de tu cuenta.",
+    "emailFixed": "Cambia tu correo de acceso en Configuración de la cuenta. Esta solicitud conserva el buzón verificado original.",
+    "evidenceFixed": "Tu firma original y la política aceptada siguen siendo parte del registro de envío.",
+    "policyRevision": "Versión original de la política",
+    "notProvided": "Sin indicar",
+    "assignedLocked": "Esta materia está asignada. Solo la dirección puede cambiarla o liberar la asignación.",
+    "assignmentUnknown": "No se puede identificar una materia asignada. Las materias quedan bloqueadas hasta que la dirección lo resuelva; puedes guardar las demás respuestas.",
+    "availabilityHelp": "Actualiza tus horarios al editar las respuestas. Coordina las sesiones con tu tutor; cambiar la disponibilidad conserva las asignaciones actuales.",
+    "loading": "Cargando respuestas…",
+    "loadFailed": "No se pudieron cargar las respuestas o la configuración actual. Tu borrador se conserva.",
+    "retry": "Reintentar carga",
+    "denied": "No tienes acceso a esta solicitud.",
+    "readOnly": "Esta solicitud está cerrada o pertenece a un período finalizado. Su registro es de solo lectura.",
+    "changed": "La solicitud cambió desde que abriste el editor. Tu borrador se conserva. Recarga las respuestas guardadas antes de reintentar.",
+    "save": "Guardar respuestas",
+    "saving": "Guardando…",
+    "saveFailed": "No se pudieron guardar las respuestas. Tu borrador se conserva.",
+    "saved": "Respuestas guardadas. Puedes hacer otra modificación.",
+    "savedRefresh": "Las respuestas se guardaron, pero la vista actualizada no está lista. Reintenta la actualización.",
+    "refreshFailed": "No se pudo actualizar la solicitud guardada. Reintenta; el guardado exitoso no se repetirá.",
+    "retryRefresh": "Reintentar actualización",
+    "reload": "Recargar respuestas guardadas",
+    "reloadHelp": "La recarga reemplaza este borrador solo cuando se cargan correctamente la solicitud y la configuración actuales.",
+    "reloadFailed": "No se pudieron cargar las respuestas actuales. Se conservan tu borrador y su versión.",
+    "submissionHeld": "Se está comprobando el envío. Conserva estas respuestas durante la recuperación; los reintentos mantienen la misma intención de envío.",
+    "recoverSubmission": "Recuperar o reintentar este envío",
+    "intentVerification": "Introduce el correo de esta solicitud y después el código del mensaje. Los detalles aparecen solo tras verificar el buzón.",
+    "headEdit": "Revisar cambios de inscripción",
+    "headConsequences": "Revisa las nuevas respuestas. Quitar una materia asignada libera solo su asignación actual. Las sesiones históricas y el registro original se conservan.",
+    "queued": "Tu propuesta espera la aprobación de la dirección.",
+    "returnToEditing": "Comprobar recibo y editar respuestas",
+    "savedMailbox": "Enviamos un mensaje de verificación a {email}. Confirma este envío para continuar.",
+    "savedNoMail": "El envío para {email} está guardado, pero no pudimos entregar el mensaje. Reenvíalo cuando sea posible.",
+    "replacementHelp": "Tras verificar el correo y revisar la cuenta, el último envío reemplaza las respuestas actuales. Conserva la prioridad inicial y las asignaciones. Solo la dirección puede cambiar materias asignadas.",
+    "replacementReview": "Revisar la solicitud enviada",
+    "originalPriority": "Prioridad original conservada: {date}",
+    "submittedName": "Nombre visible enviado",
+    "submittedFirstName": "Nombre enviado",
+    "submittedLastName": "Apellido enviado",
+    "submittedPreferredName": "Nombre preferido enviado",
+    "submittedAlternativeNames": "Otros nombres enviados",
+    "submittedLatinName": "Nombre en escritura latina enviado",
+    "submittedConsent": "Consentimiento y firma enviados"
+  },
+  "signupAppeal": {
+    "title": "Revisar solicitud marcada",
+    "help": "Si esta solicitud es legítima, explica por qué debe seguir siendo elegible. La asignación permanece bloqueada durante la revisión.",
+    "reason": "¿Por qué debe aceptarse esta solicitud?",
+    "submit": "Enviar apelación",
+    "submitting": "Enviando…",
+    "loading": "Cargando revisión…",
+    "loadFailed": "No se pudo cargar la revisión.",
+    "retry": "Reintentar carga",
+    "invalid": "Este enlace es inválido o ha caducado. Inicia sesión o contacta al equipo del programa.",
+    "closed": "Las apelaciones están cerradas para esta solicitud o período.",
+    "pending": "Tu apelación espera revisión. La asignación sigue pausada.",
+    "accepted": "Tu apelación fue aceptada.",
+    "rejected": "La apelación fue rechazada. La solicitud está cerrada y pierde su prioridad; puedes enviar una nueva.",
+    "submitted": "Apelación enviada. La asignación permanece pausada durante la revisión.",
+    "saveFailed": "No se pudo enviar la apelación. Tu motivo se conserva.",
+    "staffTitle": "Apelación de inscripción",
+    "approve": "Aceptar apelación",
+    "reject": "Rechazar apelación y cerrar solicitud",
+    "approveConsequences": "Acepta la apelación y elimina la marca de invalidez. La asignación puede reanudarse.",
+    "rejectConsequences": "Rechaza la apelación, cierra la solicitud y elimina su prioridad activa. Conserva el registro y el historial.",
+    "unassign": "Liberar asignación",
+    "unassignConsequences": "Libera al estudiante de la asignación actual seleccionada. Las sesiones y asistencias históricas no cambian.",
+    "proposeUnassign": "Proponer liberar la asignación",
+    "changed": "La revisión cambió mientras escribías. Tu motivo se conserva. Recarga antes de reintentar.",
+    "reload": "Recargar revisión",
+    "rejectedTitle": "Solicitud inválida cerrada"
+  },
   "accountDeletion": {
     "intro": "Permanently delete the login for {name}? Review the account and its records before confirming your password.",
     "loading": "Loading deletion review…",
@@ -5076,6 +5153,11 @@
       "title": "Invalid Request Appeal Awaiting Review",
       "body": "Una persona solicitante apeló una marca de solicitud no válida. Abra la solicitud enlazada para revisar la apelación; presentarla no elimina la marca.",
       "action": "Review invalid request appeal"
+    },
+    "student_signup_rejected": {
+      "title": "Solicitud inválida cerrada",
+      "body": "La apelación fue rechazada. La solicitud está cerrada y pierde su prioridad; puedes enviar una nueva.",
+      "action": "Review request history"
     }
   },
   "requestAppeal": {
@@ -5137,6 +5219,7 @@
     "declined": "Appeal declined. The invalid flag remains.",
     "declineFailed": "The appeal decision could not be saved. Your reason is retained.",
     "reviewReadFailed": "The decision was saved, but status refresh failed. Refresh status without repeating the decision.",
-    "reasonDisclosure": "This is a reason for the submitter. Keep it respectful and avoid unnecessary private information. The full reason is emailed only when request-specific mailbox verification exists; other recipients receive a masked notice."
+    "reasonDisclosure": "This is a reason for the submitter. Keep it respectful and avoid unnecessary private information. The full reason is emailed only when request-specific mailbox verification exists; other recipients receive a masked notice.",
+    "historicalSurveyAppeal": "Apelación histórica (solo lectura). Las apelaciones actuales se revisan en Apelación de inscripción."
   }
 }

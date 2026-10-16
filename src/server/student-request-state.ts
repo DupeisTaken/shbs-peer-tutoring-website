@@ -67,7 +67,7 @@ export async function notifyRequest(
 export async function closeStudentRequest(
   tx: TransactionDb,
   row: StudentSurvey,
-  state: "DISQUALIFIED" | "RECALLED" | "ABORTED",
+  state: "DISQUALIFIED" | "RECALLED" | "ABORTED" | "INVALID_REJECTED",
   now = new Date(),
 ) {
   if (row.state !== "OPEN")
@@ -79,6 +79,7 @@ export async function closeStudentRequest(
     RECALLED: "student_request_recalled",
     DISQUALIFIED: "student_request_expired",
     ABORTED: "student_withdrawal_approved",
+    INVALID_REJECTED: "student_signup_rejected",
   } as const;
   await notifyRequest(tx, row, events[state]);
   await tx.studentSurvey.update({
@@ -86,7 +87,9 @@ export async function closeStudentRequest(
     data: { state, resolvedAt: now },
   });
   if (row.tuteeId) {
-    await tx.pairingTutee.deleteMany({ where: { tuteeId: row.tuteeId } });
+    await tx.pairingTutee.deleteMany({
+      where: { tuteeId: row.tuteeId, pairing: { termId: row.intakeTermId } },
+    });
     await tx.tutee.updateMany({
       where: { id: row.tuteeId },
       data: { status: "INACTIVE" },

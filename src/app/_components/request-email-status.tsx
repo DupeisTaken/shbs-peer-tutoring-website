@@ -143,7 +143,8 @@ export function RequestEmailStatus({
       status.error ||
       !canApply ||
       (kind === "decline" &&
-        (!appeal ||
+        (source.kind === "survey" ||
+          !appeal ||
           !decisionDraft?.reason.trim() ||
           appeal.id !== decisionDraft.appealId ||
           appeal.reviewVersion !== decisionDraft.reviewVersion))
@@ -279,6 +280,11 @@ export function RequestEmailStatus({
       {appeal && (
         <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
           <h4 className="font-semibold text-slate-900">{t("appeal")}</h4>
+          {source.kind === "survey" && (
+            <p className="text-sm text-slate-700">
+              {t("historicalSurveyAppeal")}
+            </p>
+          )}
           <p className="text-sm text-slate-700">
             {t(
               appeal.status === "PENDING"
@@ -319,6 +325,7 @@ export function RequestEmailStatus({
             </InlineNotice>
           )}
           {canApply &&
+            source.kind !== "survey" &&
             appeal.status === "PENDING" &&
             appeal.notice.requestVersion === data.requestVersion && (
               <FormSection

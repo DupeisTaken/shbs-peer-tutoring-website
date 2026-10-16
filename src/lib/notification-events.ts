@@ -51,6 +51,7 @@ export const notificationEvents = [
   "student_assignment_updated",
   "student_availability_updated",
   "student_request_recalled",
+  "student_signup_rejected",
   "student_request_expired",
   "student_withdrawal_pending",
   "student_withdrawal_approved",

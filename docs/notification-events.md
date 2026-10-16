@@ -783,3 +783,15 @@ link to “Appeal this decision / 对此决定提出申诉” at /request-appeal
 See [the source copy](../src/server/email/request-notice-copy.ts),
 [staff procedure](user-guide.md#signup-request-tabs) and
 [durable admission/appeal boundaries](technical-report.md#public-request-invalidity-notices-and-appeals).
+
+
+### student_signup_rejected
+
+- Recipient: Survey request audience.
+- Trigger: Final rejection of a modern current-period signup appeal closes the request and removes active queue priority. [Emitter](../src/server/student-request-state.ts).
+- Authorized destination: Existing request-audience destinations. No appeal reason enters event context.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | Invalid Request Closed | The appeal was declined. This request is closed and its queue priority is removed; you can submit a fresh request. | Review request history |
+| 中文 | 无效申请已关闭 | 申诉未获接受。此申请已关闭并移除排队优先顺序；您可以重新提交申请。 | 查看申请记录 |

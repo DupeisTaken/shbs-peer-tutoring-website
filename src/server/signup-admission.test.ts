@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeEach, expect, it, vi } from "vitest";
+import { randomUUID } from "node:crypto";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("~/server/email/sender", () => ({
   emailSender: { send: vi.fn().mockResolvedValue(undefined) },
@@ -189,24 +190,26 @@ it("allows 100 mixed registrations, reads, verification and ordinary retries fro
     await caller().tutee.signupOptions();
     const email = `school-${i}@example.test`;
     if (i % 2 === 0) {
-      await caller().tutee.requestSignup({
+      const submission = {
+        clientKey: randomUUID(),
         englishName: `Student ${String.fromCharCode(65 + (i % 26))}`,
         email,
         firstChoiceId: "math",
         slotIds: ["slot"],
         signatureName: "Student",
         preferredContact: email,
-        agreed: true,
+        agreed: true as const,
         policyRevision: policy.revision,
-      });
-      const token = /token=([a-f0-9]{64})/.exec(
-        send.mock.calls.at(-1)![0].text,
-      )![1]!;
-      await caller().tutee.inspectSurvey({ token });
+      };
+      const signupReceipt = await caller().tutee.requestSignup(submission);
+      // Exact transport recovery shares completion capacity, consumes no additional
+      // mail allowance and cannot issue another challenge for the accepted demand.
+      await expect(caller().tutee.submitSurvey(submission)).resolves.toEqual(signupReceipt);
       const emailCode = /email verification code is ([0-9A-Z]{6})/.exec(
         send.mock.calls.at(-1)![0].text,
       )![1]!;
       const invitation = await caller().accountInvitation.verifySurvey({
+        intentId: signupReceipt.intentId,
         email,
         code: emailCode,
       });

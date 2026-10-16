@@ -27,7 +27,10 @@ import {
   setApplicationInvalidity,
   setSignupInvalidity,
   lockApplicationReview,
+  lockStudentRequestReview,
 } from "~/server/request-invalidity";
+import { synchronizeStudentSignupAnswers } from "~/server/student-signup-revisions";
+import { assertHeadDiscretionarySignupChange } from "~/server/student-signup-management";
 import { hasReadyCredentials } from "~/lib/account-readiness";
 import { accountDirectoryDetails } from "~/server/account-directory";
 import {
@@ -987,7 +990,14 @@ export const adminRouter = createTRPCRouter({
       const data = { tutorId, timeSlotId, subject };
       // Replace roster atomically; day/start/end follow the chosen slot.
       return inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
         await enforceAssignmentQualification(
+          tx,
+          ctx.session.user.id,
+          "admin.updatePairing",
+          input,
+        );
+        await assertHeadDiscretionarySignupChange(
           tx,
           ctx.session.user.id,
           "admin.updatePairing",
@@ -1039,17 +1049,27 @@ export const adminRouter = createTRPCRouter({
   deletePairing: adminProcedure
     .input(z.object({ id: cuid }))
     .mutation(async ({ ctx, input }) => {
-      const sessions = await ctx.db.session.count({
-        where: { pairingId: input.id },
-      });
-      if (sessions > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Cannot delete a pairing that has attendance submissions.",
+      return inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await lockCatalogue(tx);
+        await assertHeadDiscretionarySignupChange(
+          tx,
+          ctx.session.user.id,
+          "admin.deletePairing",
+          input,
+        );
+        const sessions = await tx.session.count({
+          where: { pairingId: input.id },
         });
-      }
-      await ctx.db.pairingTutee.deleteMany({ where: { pairingId: input.id } });
-      return ctx.db.pairing.delete({ where: { id: input.id } });
+        if (sessions > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Cannot delete a pairing that has attendance submissions.",
+          });
+        }
+        await tx.pairingTutee.deleteMany({ where: { pairingId: input.id } });
+        return tx.pairing.delete({ where: { id: input.id } });
+      });
     }),
 
   // --------------------------------------------------------------------------
@@ -2528,6 +2548,17 @@ export const adminRouter = createTRPCRouter({
         // Serialize profile restoration with departure, including historically owned profiles.
         await lockEntity(tx, "program:period");
         await lockUsernameNamespace(tx);
+        await lockCatalogue(tx);
+        const signup = await tx.studentSurvey.findUnique({
+          where: { tuteeId: input.id },
+        });
+        if (signup) await lockStudentRequestReview(tx, signup);
+        await assertHeadDiscretionarySignupChange(
+          tx,
+          ctx.session.user.id,
+          "admin.updateTutee",
+          input,
+        );
         const linkedStudent = await tx.user.findUnique({
           where: { studentId: input.id },
           select: { id: true, email: true },
@@ -2696,6 +2727,31 @@ export const adminRouter = createTRPCRouter({
               : {}),
           },
         });
+        if (signup) {
+          const currentSignup = await tx.studentSurvey.findUniqueOrThrow({
+            where: { id: signup.id },
+          });
+          await synchronizeStudentSignupAnswers(
+            tx,
+            currentSignup,
+            ctx.session.user.id,
+            {
+              ...(fields.phone !== undefined
+                ? { phone: fields.phone ?? undefined }
+                : {}),
+              ...(fields.preferredContact !== undefined
+                ? { preferredContact: fields.preferredContact ?? "" }
+                : {}),
+              ...(fields.firstChoiceId !== undefined
+                ? { firstChoiceId: fields.firstChoiceId }
+                : {}),
+              ...(fields.secondChoiceId !== undefined
+                ? { secondChoiceId: fields.secondChoiceId ?? undefined }
+                : {}),
+              ...(slotIds ? { slotIds: [...new Set(slotIds)] } : {}),
+            },
+          );
+        }
         if (linkedStudent)
           await updateAccountProfile(
             tx,
@@ -2931,6 +2987,13 @@ export const adminRouter = createTRPCRouter({
       inTransaction(ctx.db, async (tx) => {
         // Keep status, current roster removal and audit atomic; historical assignments survive.
         await lockEntity(tx, "program:period");
+        await lockCatalogue(tx);
+        await assertHeadDiscretionarySignupChange(
+          tx,
+          ctx.session.user.id,
+          "admin.setTuteeStatus",
+          input,
+        );
         await lockEntity(tx, `tutee:${input.id}`);
         if (input.status !== "INACTIVE")
           await assertStudentRequestAssignable(tx, input.id);
@@ -2977,6 +3040,14 @@ export const adminRouter = createTRPCRouter({
     .input(z.object({ id: cuid }))
     .mutation(({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await lockCatalogue(tx);
+        await assertHeadDiscretionarySignupChange(
+          tx,
+          ctx.session.user.id,
+          "admin.deleteTutee",
+          input,
+        );
         await assertTuteeInvalidityCleared(tx, input.id);
         const sessions = await tx.sessionTutee.count({
           where: { tuteeId: input.id },

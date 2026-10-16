@@ -65,6 +65,26 @@ function wrapper(canApply = true) {
     </NextIntlClientProvider>
   );
 }
+
+it("keeps a historical generic survey appeal readable without mounting a second decision form", () => {
+  query.data = { ...receipt, requestAppeal: appeal };
+  render(
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <RequestEmailStatus
+        source={{ kind: "survey", id: "survey" }}
+        canApply
+        refreshSignal={false}
+      />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getByText(appeal.body)).toBeTruthy();
+  expect(screen.getByText(en.requestEmail.historicalSurveyAppeal)).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: en.requestEmail.decline }),
+  ).toBeNull();
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(mocks.decline).not.toHaveBeenCalled();
+});
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((r) => {

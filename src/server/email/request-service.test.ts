@@ -85,6 +85,15 @@ beforeEach(async () => {
       }),
     ),
   });
+  await db.term.create({
+    data: {
+      id: "service-intake-term",
+      name: "Synthetic active period",
+      schoolYear: "26-27",
+      quarter: "Q1",
+      active: true,
+    },
+  });
   await db.programSettings.create({
     data: {
       id: "program",
@@ -293,7 +302,7 @@ it.each(["application", "survey", "signup"] as const)(
       recipient: mailbox,
       requestSubmittedAt: submittedAt,
       requestTimeZone: "Asia/Shanghai",
-      status: "PENDING",
+      status: kind === "survey" ? "SENT" : "PENDING",
     });
     await deliverNotifications();
     expect(transport.send).toHaveBeenCalledTimes(1);
@@ -303,7 +312,9 @@ it.each(["application", "survey", "signup"] as const)(
       "Appeal this decision",
     );
     expect(message.presentation?.action?.url).toContain(
-      "/request-appeal?token=",
+      kind === "survey"
+        ? "/tutee-signup/appeal#token="
+        : "/request-appeal?token=",
     );
     expect(message.text).toContain(
       kind === "application" ? "A tutor application" : "A tutee signup request",

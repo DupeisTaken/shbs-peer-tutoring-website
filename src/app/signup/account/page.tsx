@@ -11,9 +11,9 @@ export const metadata = {
 export default async function StudentAccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string; intent?: string }>;
 }) {
-  const [{ token }, t, session] = await Promise.all([
+  const [{ token, intent }, t, session] = await Promise.all([
     searchParams,
     getTranslations("survey"),
     auth(),
@@ -27,8 +27,9 @@ export default async function StudentAccountPage({
       wide
     >
       <StudentRegistration
-        key={token ?? "missing-token"}
+        key={intent ?? token ?? "missing-token"}
         token={token ?? ""}
+        intentId={intent}
         signedInEmail={session?.user.email ?? null}
       />
     </PublicFormPage>
