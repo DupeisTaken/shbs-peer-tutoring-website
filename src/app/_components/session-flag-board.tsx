@@ -16,7 +16,10 @@ import { Button, ChoiceButton } from "./ui/button";
 import { Modal } from "./ui/modal";
 import { FilterToolbar, InlineNotice, StatePanel } from "./ui/patterns";
 import { TableDetails } from "./ui/summary-table";
-import { useSessionPageScroll, useSessionViewState } from "./session-view-state";
+import {
+  useSessionPageScroll,
+  useSessionViewState,
+} from "./session-view-state";
 import { viewEnum } from "~/lib/session-view-state";
 import { participantNameLabel } from "./participant-name";
 
@@ -50,8 +53,10 @@ export function SessionFlagBoard() {
   const queryClient = useQueryClient();
   const [accessDenied, setAccessDenied] = useState(false);
   const [filter, setFilter] = useSessionViewState<SessionFlagFilter>({
-    id: "session-flags.filter.v1", initialState: "PENDING",
-    parse: viewEnum(SESSION_FLAG_FILTERS), enabled: !accessDenied,
+    id: "session-flags.filter.v1",
+    initialState: "PENDING",
+    parse: viewEnum(SESSION_FLAG_FILTERS),
+    enabled: !accessDenied,
   });
   const flags = api.admin.sessionFlags.useQuery(
     { state: filter },
@@ -106,7 +111,12 @@ export function SessionFlagBoard() {
     } else if (flags.isSuccess && !flags.isFetching) setAccessDenied(false);
   }, [authorizationDenied, flags.isSuccess, flags.isFetching, queryClient]);
   const denied = authorizationDenied || accessDenied;
-  useSessionPageScroll({ id: "session-flags", scope: filter, ready: !!flags.data, enabled: !denied });
+  useSessionPageScroll({
+    id: "session-flags",
+    scope: filter,
+    ready: !!flags.data,
+    enabled: !denied,
+  });
   const list = denied ? [] : (flags.data ?? []);
   const submit = () => {
     if (

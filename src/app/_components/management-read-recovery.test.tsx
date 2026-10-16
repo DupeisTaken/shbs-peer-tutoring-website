@@ -71,6 +71,10 @@ vi.mock("~/trpc/react", async () => {
       account: { me: read(["account", "me"], remote.identity) },
       admin: {
         registrationCodes: read(["admin", "registrationCodes"], remote.codes),
+        assignmentWorkloads: read(
+          ["admin", "assignmentWorkloads"],
+          vi.fn(async () => ({ termId: null, tutors: [] })),
+        ),
         issueRegistrationCode: write,
         revokeRegistrationCode: write,
         periodSummary: read(["admin", "periodSummary"], remote.summary),

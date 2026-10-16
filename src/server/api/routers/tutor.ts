@@ -1,5 +1,10 @@
 import { notificationEvent } from "~/lib/notification-events";
 import { optionalPersonNameFields } from "~/lib/person-name";
+import {
+  saveWorkloadPreference,
+  tutorWorkloads,
+  workloadPreferenceInput,
+} from "~/server/tutor-workload";
 import { groupMembersForSchedule } from "~/server/pairing-groups";
 import { programRoomOrder } from "~/server/room-order";
 import {
@@ -85,6 +90,26 @@ const monthInput = z
   .optional();
 
 export const tutorRouter = createTRPCRouter({
+  workloadPreference: tutorProcedure.query(async ({ ctx }) => {
+    const workload = await tutorWorkloads(ctx.db, ctx.session.tutorId);
+    const own = workload.tutors[0];
+    return own
+      ? {
+          ...own,
+          canEdit: own.status === "ACTIVE" && ctx.portalAccess.canParticipate,
+        }
+      : null;
+  }),
+  setWorkloadPreference: activeTutorProcedure
+    .input(workloadPreferenceInput)
+    .mutation(({ ctx, input }) =>
+      saveWorkloadPreference(
+        ctx.db,
+        ctx.session.user.id,
+        ctx.session.tutorId,
+        input,
+      ),
+    ),
   /** The signed-in tutor's *current* pairings (active program period), with tutees/room/term. */
   myPairings: tutorProcedure.query(async ({ ctx }) => {
     return ctx.db.pairing.findMany({

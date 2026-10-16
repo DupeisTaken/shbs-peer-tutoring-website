@@ -1,6 +1,7 @@
 "use client";
 
 import { AdminSummaryRecipe } from "./admin-summary-recipe";
+import { WorkloadPreferenceRecipe } from "./workload-preference-recipe";
 import { NavigationRecipes } from "./navigation-recipes";
 import { ActionReviewRecipe } from "./action-review-recipe";
 import { CreationRiskRecipe } from "./creation-risk-recipe";
@@ -361,7 +362,9 @@ export function RecipeGallery({
   });
   const [grade, setGrade] = useState("10");
   const [participantSaved, setParticipantSaved] = useState(false);
-  const [namePreview, setNamePreview] = useState<"default" | "optional" | "hidden">("default");
+  const [namePreview, setNamePreview] = useState<
+    "default" | "optional" | "hidden"
+  >("default");
   const [search, setSearch] = useSessionViewState({
     id: "gallery-room-search-v1",
     scope: locale,
@@ -822,6 +825,7 @@ export function RecipeGallery({
         </Recipe>
       </div>
       <AdminSummaryRecipe locale={locale} />
+      <WorkloadPreferenceRecipe />
       <NavigationRecipes locale={locale} />
       {dialog === "editor" && (
         <ProfileDialog

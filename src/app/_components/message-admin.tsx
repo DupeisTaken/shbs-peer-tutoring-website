@@ -1,6 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "./session-view-state";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+  useSessionViewState,
+} from "./session-view-state";
 import { viewEnum, viewPage } from "~/lib/session-view-state";
 import { ParticipantName } from "./participant-name";
 import { Button, ChoiceButton } from "./ui/button";
@@ -54,8 +58,18 @@ function Supervision() {
   const [search, setSearch] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
   // Message text searches and conversation selections are private and never stored.
-  const [rememberedPage, setRememberedPage] = useSessionViewState({ id: "message-supervision.page.v1", initialState: 0, parse: viewPage, enabled: !accessDenied });
-  const [visibility, setVisibility] = useSessionViewState({ id: "message-supervision.visibility.v1", initialState: "ALL", parse: viewEnum(["ALL", "VISIBLE", "HIDDEN"]), enabled: !accessDenied });
+  const [rememberedPage, setRememberedPage] = useSessionViewState({
+    id: "message-supervision.page.v1",
+    initialState: 0,
+    parse: viewPage,
+    enabled: !accessDenied,
+  });
+  const [visibility, setVisibility] = useSessionViewState({
+    id: "message-supervision.visibility.v1",
+    initialState: "ALL",
+    parse: viewEnum(["ALL", "VISIBLE", "HIDDEN"]),
+    enabled: !accessDenied,
+  });
   const [reason, setReason] = useState("");
   const [conversation, setConversation] = useState<{
     first: string;
@@ -65,8 +79,12 @@ function Supervision() {
   const [privatePage, setPrivatePage] = useState(0);
   const privateQuery = !!search || !!conversation;
   const page = privateQuery ? privatePage : rememberedPage;
-  const setPage = (value: number | ((previous: number) => number)) => privateQuery ? setPrivatePage(value) : setRememberedPage(value);
-  useEffect(() => setPrivatePage(0), [search, conversation?.first, conversation?.second]);
+  const setPage = (value: number | ((previous: number) => number)) =>
+    privateQuery ? setPrivatePage(value) : setRememberedPage(value);
+  useEffect(
+    () => setPrivatePage(0),
+    [search, conversation?.first, conversation?.second],
+  );
   const rows = api.messaging.supervision.useQuery({
     search,
     page,
@@ -77,7 +95,12 @@ function Supervision() {
   });
   const denied = useSessionAccessDenied(rows);
   useEffect(() => setAccessDenied(denied), [denied]);
-  useSessionPageScroll({ id: "message-supervision", scope: JSON.stringify([page, visibility]), ready: !!rows.data && !search && !conversation, enabled: !denied });
+  useSessionPageScroll({
+    id: "message-supervision",
+    scope: JSON.stringify([page, visibility]),
+    ready: !!rows.data && !search && !conversation,
+    enabled: !denied,
+  });
   const review = api.messaging.review.useMutation();
   const moderate = api.messaging.moderate.useMutation({
     onSuccess: async () => {
@@ -90,7 +113,8 @@ function Supervision() {
     (review.error?.data?.approvalId ? null : review.error) ??
     (moderate.error?.data?.approvalId ? null : moderate.error);
   const approvals = useTranslations("approvals");
-  if (denied) return <p role="alert">{rows.error?.message ?? ui("loadFailed")}</p>;
+  if (denied)
+    return <p role="alert">{rows.error?.message ?? ui("loadFailed")}</p>;
   return (
     <div className="space-y-4">
       <div className="card grid gap-4 p-5 md:grid-cols-2">

@@ -5,14 +5,20 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { StrictMode } from "react";
-import type { ComponentProps } from "react";
+import { StrictMode, useState, type ComponentProps } from "react";
 import { NextIntlClientProvider } from "next-intl";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import { AssignmentConfirmation } from "./assignment-confirmation";
 import { QualifiedTutorSelect } from "./qualified-tutor-select";
+import { Modal } from "./ui/modal";
 
 const mocks = vi.hoisted(() => ({
   prepare: vi.fn(),
@@ -26,6 +32,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock("~/trpc/react", () => ({
   api: {
     admin: {
+      assignmentWorkloads: {
+        useQuery: () => ({
+          data: { termId: "term", tutors: [] },
+          refetch: vi.fn(),
+        }),
+      },
       subjectEligibility: {
         useQuery: () => ({
           data: mocks.grants,
@@ -253,28 +265,30 @@ it("uses live expiry after a suspended background timer and announces renewal", 
 });
 it("uses named native groups, preserves selectable unqualified tutors, and updates by course", () => {
   const select = (subjectId: string) => (
-    <NextIntlClientProvider locale="en" messages={en}>
-      <QualifiedTutorSelect
-        label="Tutor"
-        subjectId={subjectId}
-        tutors={[
-          { id: "a", englishName: "Ada" },
-          { id: "b", englishName: "Ben" },
-        ]}
-        value=""
-        onChange={mocks.confirm}
-      />
-    </NextIntlClientProvider>
+    <QueryClientProvider client={new QueryClient()}>
+      <NextIntlClientProvider locale="en" messages={en}>
+        <QualifiedTutorSelect
+          label="Tutor"
+          subjectId={subjectId}
+          tutors={[
+            { id: "a", englishName: "Ada" },
+            { id: "b", englishName: "Ben" },
+          ]}
+          value=""
+          onChange={mocks.confirm}
+        />
+      </NextIntlClientProvider>
+    </QueryClientProvider>
   );
   const view = render(select("math"));
   expect(
     screen.getByRole("group", { name: "Qualified for this subject" })
       .textContent,
-  ).toBe("Ben");
+  ).toBe("Ben (?)");
   expect(
     screen.getByRole("group", { name: "Not qualified — confirmation required" })
       .textContent,
-  ).toBe("Ada");
+  ).toBe("Ada (?)");
   const control = screen.getByRole("combobox", { name: "Tutor" });
   control.focus();
   expect(document.activeElement).toBe(control);
@@ -313,21 +327,23 @@ it.each(["loading", "failed", "missing", "archived"])(
     mocks.grantsLoading = state === "loading";
     mocks.grantsError = state === "failed" ? new Error("Unavailable") : null;
     render(
-      <NextIntlClientProvider locale="en" messages={en}>
-        <QualifiedTutorSelect
-          label="Tutor"
-          subjectId={
-            state === "missing"
-              ? ""
-              : state === "archived"
-                ? "archived"
-                : "math"
-          }
-          tutors={[{ id: "b", englishName: "Ben" }]}
-          value=""
-          onChange={mocks.confirm}
-        />
-      </NextIntlClientProvider>,
+      <QueryClientProvider client={new QueryClient()}>
+        <NextIntlClientProvider locale="en" messages={en}>
+          <QualifiedTutorSelect
+            label="Tutor"
+            subjectId={
+              state === "missing"
+                ? ""
+                : state === "archived"
+                  ? "archived"
+                  : "math"
+            }
+            tutors={[{ id: "b", englishName: "Ben" }]}
+            value=""
+            onChange={mocks.confirm}
+          />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
     );
     expect(
       screen.getByRole<HTMLSelectElement>("combobox", { name: "Tutor" })
@@ -358,4 +374,273 @@ it("keeps Tab and Shift+Tab within the explicit dialog choices", async () => {
   fireEvent.keyDown(cancel, { key: "Tab", shiftKey: true });
   expect(document.activeElement).toBe(confirm);
   expect(mocks.confirm).not.toHaveBeenCalled();
+});
+
+it("keeps qualification evidence and countdown when a workload review also applies", async () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <AssignmentConfirmation
+        operation="admin.createPairing"
+        payload={{ tutorId: "a" }}
+        onConfirm={mocks.confirm}
+        onCancel={mocks.close}
+        workloadReview={{
+          pending: false,
+          warning: "Two sessions exceed this tutor's preferred one.",
+        }}
+      />
+    </NextIntlClientProvider>,
+  );
+  await flush();
+  expect(
+    screen.getByText("Two sessions exceed this tutor's preferred one."),
+  ).toBeTruthy();
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+  await act(() => vi.advanceTimersByTime(3000));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Confirm unqualified assignment" }),
+  );
+  expect(mocks.confirm).toHaveBeenCalledExactlyOnceWith("ticket");
+});
+
+/** Real nested shared dialogs verify the confirmation's ownership, not only its
+ * visual markup. The parent draft stays mounted while review opens and closes. */
+function NestedAssignment({
+  busy = false,
+  openerAfterClose = "enabled",
+}: {
+  busy?: boolean;
+  openerAfterClose?: "enabled" | "disabled" | "removed";
+}) {
+  const [reviewing, setReviewing] = useState(false);
+  const [closed, setClosed] = useState(false);
+  return (
+    <NextIntlClientProvider locale="en" messages={en}>
+      <Modal
+        title="Pairing editor"
+        onClose={mocks.close}
+        footer={
+          !(closed && openerAfterClose === "removed") && (
+            <button
+              disabled={closed && openerAfterClose === "disabled"}
+              onClick={() => setReviewing(true)}
+            >
+              Assign tutor
+            </button>
+          )
+        }
+      >
+        <input aria-label="Pairing notes" defaultValue="Keep this draft" />
+        {reviewing && (
+          <AssignmentConfirmation
+            operation="admin.createPairing"
+            payload={{ tutorId: "a", subjectId: "math" }}
+            busy={busy}
+            onConfirm={mocks.confirm}
+            onCancel={() => {
+              setClosed(true);
+              setReviewing(false);
+            }}
+            workloadReview={{
+              pending: false,
+              warning: "Two sessions exceed this tutor's preferred one.",
+            }}
+          />
+        )}
+      </Modal>
+    </NextIntlClientProvider>
+  );
+}
+
+it.each(["enabled", "disabled", "removed"] as const)(
+  "restores the %s opener or the remaining parent dialog after review",
+  async (openerAfterClose) => {
+    render(<NestedAssignment openerAfterClose={openerAfterClose} />);
+    const opener = screen.getByRole("button", { name: "Assign tutor" });
+    opener.focus();
+    fireEvent.click(opener);
+    await flush();
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    expect(document.activeElement).toBe(cancel);
+    fireEvent.click(cancel);
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(document.activeElement).toBe(
+      openerAfterClose === "enabled"
+        ? opener
+        : screen.getByRole("dialog", { name: "Pairing editor" }),
+    );
+    expect(
+      screen.getByRole<HTMLInputElement>("textbox", { name: "Pairing notes" })
+        .value,
+    ).toBe("Keep this draft");
+    expect(mocks.cancel).toHaveBeenCalledExactlyOnceWith({ ticket: "ticket" });
+    expect(mocks.close).not.toHaveBeenCalled();
+  },
+);
+
+it("blocks repeated Escape in both dialogs until a pending assignment's rejected promise settles", async () => {
+  let rejectWrite!: (failure: Error) => void;
+  mocks.confirm.mockImplementationOnce(
+    () =>
+      new Promise((_resolve, reject) => {
+        rejectWrite = reject;
+      }),
+  );
+  const view = render(<NestedAssignment />);
+  const opener = screen.getByRole("button", { name: "Assign tutor" });
+  opener.focus();
+  fireEvent.click(opener);
+  await flush();
+  await act(() => vi.advanceTimersByTime(3000));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Confirm unqualified assignment" }),
+  );
+  view.rerender(<NestedAssignment busy />);
+  const parent = screen.getByRole("dialog", { name: "Pairing editor" });
+  const review = screen.getByRole("dialog", {
+    name: en.assignmentQualification.warningTitle,
+  });
+  for (const dialog of [review, parent]) {
+    expect(dialog.getAttribute("closedby")).toBe("none");
+    expect(dialog.getAttribute("aria-busy")).toBe("true");
+    for (let attempt = 0; attempt < 3; attempt++) {
+      expect(fireEvent.keyDown(dialog, { key: "Escape" })).toBe(false);
+      fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    }
+  }
+  expect(document.activeElement).toBe(review);
+  expect(screen.getAllByRole("dialog")).toHaveLength(2);
+  expect(mocks.confirm).toHaveBeenCalledExactlyOnceWith("ticket");
+  expect(mocks.close).not.toHaveBeenCalled();
+  expect(mocks.cancel).not.toHaveBeenCalled();
+
+  view.rerender(<NestedAssignment />);
+  // Busy props can settle before the returned write does. Keep both dialogs
+  // protected until that actual promise rejects, then permit deliberate cancel.
+  expect(review.getAttribute("closedby")).toBe("none");
+  expect(parent.getAttribute("closedby")).toBe("none");
+  await act(async () => rejectWrite(new Error("Assignment failed")));
+  expect(review.getAttribute("closedby")).toBe("closerequest");
+  expect(parent.getAttribute("closedby")).toBe("closerequest");
+  fireEvent(review, new Event("cancel", { cancelable: true }));
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  expect(mocks.close).not.toHaveBeenCalled();
+});
+
+it.each([false, true])(
+  "does not retry a rejected assignment when a real advisory refetch clears its warning (manual=%s)",
+  async (manual) => {
+    vi.useRealTimers();
+    mocks.prepare.mockResolvedValue({ ticket: null, mismatches: [] });
+    let rejectWrite!: (failure: Error) => void;
+    mocks.confirm
+      .mockReset()
+      .mockResolvedValue(undefined)
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectWrite = reject;
+          }),
+      );
+    let finishRead!: (data: { warning: string | null }) => void;
+    const read = vi.fn(
+      () =>
+        new Promise<{ warning: string | null }>((resolve) => {
+          finishRead = resolve;
+        }),
+    );
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    function AdvisoryEditor() {
+      const [error, setError] = useState<string>();
+      const advisory = useQuery({
+        queryKey: ["assignment-advisory"],
+        queryFn: read,
+        initialData: { warning: manual ? "Above preferred workload" : null },
+        staleTime: Infinity,
+      });
+      return (
+        <Modal title="Pairing editor" onClose={mocks.close} footer={null}>
+          <input aria-label="Pairing notes" defaultValue="Keep this draft" />
+          <AssignmentConfirmation
+            operation="admin.createPairing"
+            payload={{ tutorId: "a", subjectId: "math" }}
+            error={error}
+            workloadReview={{
+              pending: advisory.isFetching,
+              warning: advisory.data.warning,
+            }}
+            onCancel={mocks.close}
+            onConfirm={async () => {
+              try {
+                await mocks.confirm();
+              } catch (failure) {
+                setError("Assignment failed");
+                throw failure;
+              }
+            }}
+          />
+        </Modal>
+      );
+    }
+    render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <QueryClientProvider client={client}>
+          <AdvisoryEditor />
+        </QueryClientProvider>
+      </NextIntlClientProvider>,
+    );
+    if (manual) {
+      fireEvent.click(
+        await screen.findByRole("button", { name: en.tutorWorkload.continue }),
+      );
+    }
+    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledOnce());
+    const parent = screen.getByRole("dialog", { name: "Pairing editor" });
+    expect(parent.getAttribute("closedby")).toBe("none");
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Cancel" })
+        .disabled,
+    ).toBe(true);
+    await act(async () => rejectWrite(new Error("Assignment failed")));
+    await screen.findByRole("alert");
+    expect(parent.getAttribute("closedby")).toBe("closerequest");
+    act(() => {
+      void client.refetchQueries({ queryKey: ["assignment-advisory"] });
+    });
+    await waitFor(() => expect(read).toHaveBeenCalledOnce());
+    expect(mocks.confirm).toHaveBeenCalledOnce();
+    await act(async () => finishRead({ warning: null }));
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    expect(mocks.confirm).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole<HTMLInputElement>("textbox", { name: "Pairing notes" })
+        .value,
+    ).toBe("Keep this draft");
+    fireEvent.click(screen.getByRole("button", { name: "Review again" }));
+    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledTimes(2));
+    expect(mocks.prepare).toHaveBeenCalledTimes(2);
+    expect(mocks.close).not.toHaveBeenCalled();
+    client.clear();
+  },
+);
+
+it("releases review after an accepted approval handoff even while the mutation is settling", async () => {
+  const view = render(<NestedAssignment />);
+  fireEvent.click(screen.getByRole("button", { name: "Assign tutor" }));
+  await flush();
+  view.rerender(<NestedAssignment busy />);
+  fireEvent(window, new Event("approval-queued"));
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  expect(
+    screen
+      .getByRole("dialog", { name: "Pairing editor" })
+      .getAttribute("closedby"),
+  ).toBe("closerequest");
+  expect(mocks.cancel).toHaveBeenCalledExactlyOnceWith({ ticket: "ticket" });
+  fireEvent(window, new Event("approval-queued"));
+  expect(mocks.cancel).toHaveBeenCalledTimes(1);
+  expect(mocks.close).not.toHaveBeenCalled();
 });

@@ -176,6 +176,7 @@ it.each(["crew.handle", null])(
     expect(state.canonicalName).toBe("  ");
   },
 );
+// Mirror the verified management layout so remounts exercise real session state.
 const show = (readOnly = false, locale = "en") =>
   render(<CrewPage />, {
     wrapper: ({ children }: { children: React.ReactNode }) => (

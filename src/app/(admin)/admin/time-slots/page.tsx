@@ -1,4 +1,5 @@
 "use client";
+import { invalidateWorkloads } from "~/lib/workload-cache";
 
 import { DismissibleNotice } from "~/app/_components/dismissible-notice";
 import { useSessionPageScroll } from "~/app/_components/session-view-state";
@@ -86,6 +87,7 @@ export default function TimeSlotsPage() {
       utils.admin.pairings.invalidate(),
       utils.tutor.myPairings.invalidate(),
       utils.tutor.schedule.invalidate(),
+      invalidateWorkloads(utils),
     ]);
   const create = api.admin.createTimeSlot.useMutation({
     onSuccess: async () => {

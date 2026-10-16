@@ -167,6 +167,12 @@ vi.mock("~/trpc/react", () => ({
     }),
     admin: {
       timeSlots: { useQuery: () => ({ data: mocks.slots }) },
+      assignmentWorkloads: {
+        useQuery: () => ({
+          data: { termId: "term", tutors: [] },
+          refetch: vi.fn(),
+        }),
+      },
       tutors: { useQuery: () => ({ data: mocks.tutors }) },
       tutees: {
         useQuery: () => ({

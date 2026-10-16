@@ -1,8 +1,9 @@
 "use client";
 import { Button } from "~/app/_components/ui/button";
+import { WorkloadAssignmentConfirmation } from "~/app/_components/assignment-workload";
+import { invalidateWorkloads } from "~/lib/workload-cache";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
-import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
 import { useReadOnly } from "~/app/_components/read-only";
 import { EmailDetails } from "~/app/_components/email-details";
 import { SignupSourceBadge } from "~/app/_components/signup-source-badge";
@@ -793,6 +794,7 @@ function Assignment({
         utils.studentWorkflow.adminRequests.invalidate(),
         utils.admin.tutees.invalidate(),
         utils.admin.pairings.invalidate(),
+        invalidateWorkloads(utils),
       ]);
     },
   });
@@ -848,7 +850,7 @@ function Assignment({
         </p>
       )}
       {consequenceTicket && !row.isInvalid && (
-        <AssignmentConfirmation
+        <WorkloadAssignmentConfirmation
           operation="studentWorkflow.assign"
           payload={{
             id: row.id,
@@ -857,6 +859,7 @@ function Assignment({
             ticket: consequenceTicket,
           }}
           busy={assign.isPending}
+          tutorId={tutorId}
           error={assign.error?.message}
           onCancel={() => setConsequenceTicket(null)}
           onConfirm={(overrideTicket) =>
@@ -913,6 +916,7 @@ function ReviewCard({
         utils.studentWorkflow.legacyReviews.invalidate(),
         utils.admin.tutees.invalidate(),
         utils.admin.pairings.invalidate(),
+        invalidateWorkloads(utils),
       ]);
     },
   });

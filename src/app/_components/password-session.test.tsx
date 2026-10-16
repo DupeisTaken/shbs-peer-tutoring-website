@@ -29,6 +29,11 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("./school-departure", () => ({ SchoolDeparturePanel: () => null }));
 vi.mock("./membership-editor", () => ({ MembershipEditor: () => null }));
 vi.mock("./academic-profile", () => ({ AcademicPanel: () => null }));
+// Password/profile flows retain their own fixtures; the independent advisory
+// editor has ownership, stale-save and recovery coverage in its component suite.
+vi.mock("./tutor-workload-preference", () => ({
+  TutorWorkloadPreference: () => null,
+}));
 vi.mock("./account-emails", () => ({
   AccountEmails: () => null,
   EmailPreferences: () => null,

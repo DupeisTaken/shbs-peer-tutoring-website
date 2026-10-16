@@ -1,4 +1,5 @@
 "use client";
+import { invalidateWorkloads } from "~/lib/workload-cache";
 import { participantNameLabel } from "~/app/_components/participant-name";
 import { pairingEntries } from "~/lib/pairing-groups";
 import { PairingGroupEditor } from "./pairing-group-editor";
@@ -40,6 +41,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
       await Promise.all([
         utils.tutor.myPairings.invalidate(),
         utils.tutor.schedule.invalidate(),
+        invalidateWorkloads(utils),
       ]);
     },
   });

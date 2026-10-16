@@ -4,6 +4,10 @@ import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { participantNameLabel } from "./participant-name";
 import {
+  AssignmentWorkloadFeedback,
+  useAssignmentWorkloads,
+} from "./assignment-workload";
+import {
   groupAssignmentTutors,
   type QualificationOption,
 } from "~/lib/assignment-qualification";
@@ -34,8 +38,22 @@ export function QualifiedTutorSelect({
   actions?: ReactNode;
 }) {
   const t = useTranslations("assignmentQualification");
+  const workloadText = useTranslations("tutorWorkload");
+  const workloads = useAssignmentWorkloads();
   const names = useTranslations("participantNames");
   const helpId = useId();
+  const workloadId = useId();
+  const tutorLabel = (tutor: QualificationOption) => {
+    const workload = workloads.data?.tutors?.find((row) => row.id === tutor.id);
+    // Keep subject/name space available. Unknown or stale data never looks like zero.
+    const suffix =
+      !workload || workloads.error || workloads.isFetching
+        ? "(?)"
+        : workload.preferredMaximum === null
+          ? `(${workload.count})`
+          : `(${workload.count}/${workload.preferredMaximum})`;
+    return `${optionName(tutor)} ${suffix}`;
+  };
   const grants = api.admin.subjectEligibility.useQuery();
   const subjects = api.admin.subjects.useQuery();
   const subject = subjects.data?.find((item) => item.id === subjectId);
@@ -66,7 +84,7 @@ export function QualifiedTutorSelect({
           className="select min-h-11 lg:min-h-10"
           value={value}
           aria-label={label}
-          aria-describedby={helpId}
+          aria-describedby={`${helpId} ${workloadId}`}
           disabled={
             disabled ||
             !subjectId ||
@@ -82,13 +100,13 @@ export function QualifiedTutorSelect({
           {value === retainedTutor?.id &&
             !tutors.some((tu) => tu.id === value) && (
               <option value={retainedTutor.id} disabled>
-                {displayName(retainedTutor)}
+                {tutorLabel(retainedTutor)}
               </option>
             )}
           <optgroup label={t("qualified")}>
             {groups.qualified.map((tu) => (
               <option key={tu.id} value={tu.id}>
-                {optionName(tu)}
+                {tutorLabel(tu)}
               </option>
             ))}
           </optgroup>
@@ -98,7 +116,7 @@ export function QualifiedTutorSelect({
           <optgroup label={t("unqualified")}>
             {groups.unqualified.map((tu) => (
               <option key={tu.id} value={tu.id}>
-                {optionName(tu)}
+                {tutorLabel(tu)}
               </option>
             ))}
           </optgroup>
@@ -128,6 +146,13 @@ export function QualifiedTutorSelect({
                   ? t("noneQualified")
                   : t("groupHelp")}
       </p>
+      <div
+        id={workloadId}
+        className={`min-w-0 space-y-2 ${leading ? "lg:col-span-2 lg:col-start-2" : "lg:col-span-full lg:col-start-1"}`}
+      >
+        <p className="sr-only">{workloadText("compactHelp")}</p>
+        <AssignmentWorkloadFeedback />
+      </div>
     </div>
   );
 }

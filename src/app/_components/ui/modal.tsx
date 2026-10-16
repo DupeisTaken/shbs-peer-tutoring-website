@@ -143,6 +143,8 @@ export function NativeDialog({
   );
   useEffect(() => {
     const trigger = document.activeElement as HTMLElement | null;
+    // Keep the parent before a child write can remove its opener from the DOM.
+    const parentDialog = trigger?.closest<HTMLDialogElement>("dialog");
     const dialog = ref.current;
     dialog?.showModal();
     const autofocus = dialog?.querySelector<HTMLElement>(
@@ -151,14 +153,12 @@ export function NativeDialog({
     (autofocus ?? dialog)?.focus();
     return () => {
       dialog?.close();
-      if (trigger?.isConnected) {
-        // A successful child write may close its review before parent refresh
-        // finishes, or clear the required draft. A disabled opener cannot focus.
-        const target = trigger.matches(":disabled")
-          ? trigger.closest<HTMLDialogElement>("dialog")
-          : trigger;
-        target?.focus();
-      }
+      // A successful child write can disable or remove its opener while the
+      // parent remains open. Return focus there instead of leaving it on body.
+      if (trigger?.isConnected && !trigger.matches(":disabled"))
+        trigger.focus();
+      else if (parentDialog?.isConnected && parentDialog.open)
+        parentDialog.focus();
     };
   }, []);
   useEffect(() => {

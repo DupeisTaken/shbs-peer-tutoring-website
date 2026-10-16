@@ -1,8 +1,9 @@
 "use client";
 import { Button } from "~/app/_components/ui/button";
+import { WorkloadAssignmentConfirmation } from "~/app/_components/assignment-workload";
+import { invalidateWorkloads } from "~/lib/workload-cache";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
-import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
 import { EmailDetails } from "~/app/_components/email-details";
 import { StudentRequestBoard } from "./student-request-board";
 import { SignupSourceBadge } from "~/app/_components/signup-source-badge";
@@ -70,8 +71,6 @@ type PendingTutee = InvalidityRecord & {
   bannedMatch: { name: boolean; email: boolean; phone: boolean } | null;
 };
 
-type Workload = Record<string, { pairings: number; tutees: number }>;
-
 function availability(av: { slot: SlotLite }[], locale: string): string {
   if (av.length === 0) return "—";
   return av
@@ -86,7 +85,6 @@ function RequestCard({
   tutee,
   order,
   tutors,
-  workload,
   assigned,
   fulfilled,
   onChanged,
@@ -100,7 +98,6 @@ function RequestCard({
     active: boolean;
     user?: { username: string | null } | null;
   }[];
-  workload: Workload;
   /** subject (course name) → tutor display name, for choices already assigned. */
   assigned: Map<string, string>;
   fulfilled: boolean;
@@ -172,19 +169,6 @@ function RequestCard({
       }
     : null;
   const activeTutors = tutors.filter((tu) => tu.active);
-  const tutorLabel = (id: string) => {
-    const tu = activeTutors.find((x) => x.id === id);
-    const w = workload[id] ?? { pairings: 0, tutees: 0 };
-    return t("admin.requests.tutorWorkload", {
-      name: participantNameLabel(
-        tu?.englishName,
-        tu?.user?.username,
-        t("participantNames.unnamed"),
-      ),
-      pairings: w.pairings,
-      tutees: w.tutees,
-    });
-  };
 
   return (
     <div
@@ -192,11 +176,12 @@ function RequestCard({
       className={`card scroll-mt-6 p-5 ${fulfilled ? "bg-slate-50" : ""}`}
     >
       {assignmentPayload && !tutee.isInvalid && (
-        <AssignmentConfirmation
+        <WorkloadAssignmentConfirmation
           operation="admin.assignSignup"
           payload={assignmentPayload}
           onCancel={() => setConfirmCourse(null)}
           busy={assign.isPending}
+          tutorId={picks[confirmCourse!.name] ?? ""}
           error={assign.error?.message}
           onConfirm={(overrideTicket) =>
             assign.mutateAsync({ ...assignmentPayload, overrideTicket })
@@ -438,7 +423,6 @@ function RequestCard({
                             }));
                         }}
                         tutors={activeTutors}
-                        optionLabel={tutorLabel}
                       />
                     </>
                   )}
@@ -503,6 +487,7 @@ export default function RequestsPage() {
     Promise.all([
       utils.admin.tutees.invalidate(),
       utils.admin.pairings.invalidate(),
+      invalidateWorkloads(utils),
     ]);
 
   const hasPeriod = !!currentPeriod.data;
@@ -561,17 +546,6 @@ export default function RequestsPage() {
       assignedByTutee,
     ],
   );
-
-  const workload: Workload = useMemo(() => {
-    const w: Workload = {};
-    for (const p of pairings.data ?? []) {
-      const cur = w[p.tutorId] ?? { pairings: 0, tutees: 0 };
-      cur.pairings += 1;
-      cur.tutees += p.tutees.length;
-      w[p.tutorId] = cur;
-    }
-    return w;
-  }, [pairings.data]);
 
   const isFulfilled = (tutee: PendingTutee) => {
     const assigned = assignedByTutee.get(tutee.id) ?? new Map<string, string>();
@@ -645,7 +619,6 @@ export default function RequestsPage() {
                         user: tu.user,
                         active: isAssignableTutor(tu),
                       }))}
-                      workload={workload}
                       assigned={assignedByTutee.get(t2.id) ?? new Map()}
                       fulfilled={isFulfilled(t2)}
                       onChanged={invalidate}
@@ -675,7 +648,6 @@ export default function RequestsPage() {
                   tutee={t2}
                   order={i + 1}
                   tutors={[]}
-                  workload={workload}
                   assigned={assignedByTutee.get(t2.id) ?? new Map()}
                   fulfilled={isFulfilled(t2)}
                   onChanged={invalidate}
