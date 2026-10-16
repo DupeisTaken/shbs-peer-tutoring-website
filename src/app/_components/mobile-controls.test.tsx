@@ -212,6 +212,9 @@ vi.mock("~/trpc/react", () => ({
           refetch: async () => ({ isSuccess: true }),
           data: {
             canEdit: state.canEdit,
+            // This suite models Head's direct staging authority. Admin's switch
+            // instead has the separate approval-request accessible name.
+            canApply: true,
             features: [
               {
                 key: "QUARTER_SYSTEM",

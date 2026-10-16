@@ -463,8 +463,22 @@ export default function PairingsPage() {
               : null,
       }
     : base;
-  const submit = async (overrideTicket?: string) => {
-    if (readOnly || admitted.current || locked) return;
+  const submit = async (overrideTicket?: string, prepared = false) => {
+    // A background reference read cannot revoke an already prepared domain review.
+    // New room-only saves stay read-gated; current authority, duplicate admission
+    // and accepted-write synchronization locks apply to both paths.
+    const preparedReview = prepared && confirming;
+    if (
+      readOnly ||
+      denied ||
+      authorizationDenied ||
+      admitted.current ||
+      working ||
+      !!completed ||
+      refreshFailed ||
+      (!preparedReview && locked)
+    )
+      return;
     admitted.current = true;
     setWorking(true);
     setWriting(true);
@@ -913,7 +927,7 @@ export default function PairingsPage() {
         <WorkloadAssignmentConfirmation
           operation={editing ? "admin.updatePairing" : "admin.createPairing"}
           payload={payload}
-          onConfirm={submit}
+          onConfirm={(ticket) => submit(ticket, true)}
           onCancel={() => setConfirming(false)}
           busy={working}
           error={error}
