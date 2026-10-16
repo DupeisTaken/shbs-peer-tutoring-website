@@ -157,9 +157,10 @@ it("binds appeal consequences to appeal id and captured invalidity version; acce
 });
 
 it("keeps the newer hash arrival when the old pending target cancels in the same event", () => {
+  const scroll = vi.fn();
   Object.defineProperty(Element.prototype, "scrollIntoView", {
     configurable: true,
-    value: vi.fn(),
+    value: scroll,
   });
   vi.spyOn(Element.prototype, "getClientRects").mockReturnValue({
     length: 1,
@@ -187,7 +188,7 @@ it("keeps the newer hash arrival when the old pending target cancels in the same
   });
   view.rerender(page(false));
   expect(document.activeElement).toBe(screen.getByText("Newer request"));
-  expect(Element.prototype.scrollIntoView).toHaveBeenCalledOnce();
+  expect(scroll).toHaveBeenCalledOnce();
   view.unmount();
   vi.restoreAllMocks();
 });
