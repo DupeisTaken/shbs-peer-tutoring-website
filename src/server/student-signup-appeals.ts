@@ -26,6 +26,8 @@ import { emailSender } from "./email/sender";
 import { emailOrigin } from "./email/urls";
 import { env } from "~/env";
 import { queueRequestNotice } from "./email/request-notice";
+import { notifyAdmins, notificationData } from "./notifications/create";
+import { requestStaffDestination } from "~/lib/request-notification-destination";
 
 const id = z.string().min(1).max(128);
 const key = z.string().uuid();
@@ -587,6 +589,17 @@ export async function appealStudentSignup(
         inputHash,
       },
     });
+    // Preserve the shared staff-review handoff in this first-admission transaction.
+    // Immutable receipt replay returned above, so neither a retry nor a failed
+    // transaction can duplicate the event or expose its private appeal evidence.
+    await notifyAdmins(
+      {
+        ...notificationData("request_invalidity_appeal_pending"),
+        link: requestStaffDestination({ kind: "survey", id: row.id }),
+      },
+      undefined,
+      tx,
+    );
     await recordDomainAudit(tx, {
       operation: "studentWorkflow.appealSignup",
       entity: "StudentSurvey",

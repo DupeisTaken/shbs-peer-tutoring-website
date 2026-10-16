@@ -259,6 +259,123 @@ it("unverified flag mail supports source-specific appeal without creating an acc
   expect(await db.tutee.count()).toBe(0);
 });
 
+it.each(["token", "owner"] as const)(
+  "notifies active reviewers once for an admitted modern %s appeal and its exact replay",
+  async (mode) => {
+    await fixture();
+    await flag();
+    await db.user.createMany({
+      data: [
+        {
+          id: "suspended-reviewer",
+          email: "suspended@example.test",
+          role: "ADMIN",
+          suspendedAt: new Date(),
+        },
+        {
+          id: "retired-reviewer",
+          email: "retired@example.test",
+          role: "ADMIN",
+          mergedIntoId: "HEAD",
+        },
+      ],
+    });
+    const common = {
+      reason: "Private appeal reason stays only in its immutable evidence.",
+      clientKey: randomUUID(),
+    };
+    const input =
+      mode === "token"
+        ? { token: proof(), ...common }
+        : { id: "source", expectedInvalidityVersion: 1, ...common };
+    const actor = mode === "owner" ? "owner" : undefined;
+    const accepted = await appealStudentSignup(db, input, actor);
+    expect(await appealStudentSignup(db, input, actor)).toEqual(accepted);
+
+    const events = await db.notification.findMany({
+      where: { event: "request_invalidity_appeal_pending" },
+      select: {
+        userId: true,
+        title: true,
+        event: true,
+        link: true,
+        body: true,
+        context: true,
+      },
+      orderBy: { userId: "asc" },
+    });
+    expect(events).toEqual(
+      ["ADMIN", "HEAD"].map((userId) => ({
+        userId,
+        title: "Invalid Request Appeal Awaiting Review",
+        event: "request_invalidity_appeal_pending",
+        link: "/admin/requests#request-survey-source",
+        body: null,
+        context: {},
+      })),
+    );
+    expect(JSON.stringify(events)).not.toContain(common.reason);
+    expect(JSON.stringify(events)).not.toContain(common.clientKey);
+    expect(JSON.stringify(events)).not.toContain(proof());
+    expect(await db.studentSignupAppeal.count()).toBe(1);
+    expect(
+      await db.emailDelivery.count({ where: { requestKind: "survey" } }),
+    ).toBe(1);
+    expect(send).toHaveBeenCalledOnce();
+  },
+);
+
+it("rolls back modern appeal and audit when its transactional staff notification fails", async () => {
+  await fixture();
+  await flag();
+  const input = {
+    token: proof(),
+    reason: "Private rollback appeal evidence",
+    clientKey: randomUUID(),
+  };
+  await expect(
+    db.$transaction(async (tx) => {
+      // Fail the real transaction's notification delegate after appeal insertion;
+      // no participant evidence may commit without its staff review handoff.
+      // Prisma delegates are dynamic; supply one stable failing delegate only to
+      // this transaction, as the transactional translation regression does.
+      const failingTx = new Proxy(tx, {
+        has(target, key) {
+          return key === "$transaction" ? false : Reflect.has(target, key);
+        },
+        get(target, key, receiver) {
+          if (key === "notification")
+            return {
+              createMany: async () => {
+                throw new Error("Synthetic staff notification write failed");
+              },
+            };
+          return Reflect.get(target, key, receiver) as unknown;
+        },
+      });
+      await appealStudentSignup(failingTx, input);
+    }),
+  ).rejects.toThrow("Synthetic staff notification write failed");
+  expect(await db.studentSignupAppeal.count()).toBe(0);
+  expect(
+    await db.notification.count({
+      where: { event: "request_invalidity_appeal_pending" },
+    }),
+  ).toBe(0);
+  expect(
+    await db.auditLog.count({
+      where: { operation: "studentWorkflow.appealSignup" },
+    }),
+  ).toBe(0);
+  await appealStudentSignup(db, input);
+  expect(await db.studentSignupAppeal.count()).toBe(1);
+  expect(
+    await db.notification.count({
+      where: { event: "request_invalidity_appeal_pending" },
+    }),
+  ).toBe(2);
+});
+
 it("uses one shared flag receipt and retires generic survey tokens without modifying historical appeal evidence", async () => {
   await fixture();
   await flag();
