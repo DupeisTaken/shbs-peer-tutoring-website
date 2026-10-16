@@ -245,6 +245,17 @@ claiming Retry succeeded; another query may have its own error banner. Keep full
 mobile forms reviewable across multiple captures. Inspect the screenshots, record
 test limitations, and stop owned browser/server/database processes after checking.
 
+For each rollout phase, capture the before and after state using the same synthetic
+record, role, language, viewport and interaction. Compare the affected content
+edges, heading hierarchy, card spacing, text wrapping and reachable actions against
+the [page-composition roles](contributing.md#compose-a-page-by-its-purpose); different
+task widths are not themselves a defect. Label changed fixtures or environments
+explicitly, and keep hosted observations separate when its deployed revision is
+unknown. Put cases, measurements, focused/full-suite results and remaining gaps in
+that phase's collapsed local HTML report log. Screenshots establish appearance in
+the recorded state; tests and interaction checks establish the corresponding draft,
+permission, pending-write and recovery behavior.
+
 ## 5. Run the tests
 
 For shared table-action sizing, run `node scripts/test-table-action-layout.mjs`
