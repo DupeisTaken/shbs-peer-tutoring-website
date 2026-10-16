@@ -21,6 +21,8 @@ import { TRPCError } from "@trpc/server";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { programDateKey } from "~/lib/program-time";
 import { z } from "zod";
+import { roomReference } from "~/lib/room-reference";
+import { requireExistingRooms } from "~/server/room-references";
 import { announcementVisibility } from "~/lib/announcement-recipients";
 import { createHash } from "node:crypto";
 import { inTransaction, lockEntity } from "~/server/transactions";
@@ -340,7 +342,7 @@ export const tutorRouter = createTRPCRouter({
           endMin: z.number().int().min(1).max(1440).optional(),
           // Where the session actually ran — the room used (defaults to the pairing's room) or
           // online. Used to match crew patrol observations to this session.
-          actualRoomId: z.string().cuid().nullable().optional(),
+          actualRoomId: roomReference.nullable().optional(),
           online: z.boolean().optional(),
           ratingPreparedness: rating,
           ratingParticipation: rating,
@@ -612,6 +614,7 @@ export const tutorRouter = createTRPCRouter({
               shCount: previous.shCount,
             };
           }
+          await requireExistingRooms(tx, actualRoomId ? [actualRoomId] : []);
           const dayStart = new Date(`${dateKey}T00:00:00Z`);
           const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
           const overlapping = await tx.session.findFirst({
