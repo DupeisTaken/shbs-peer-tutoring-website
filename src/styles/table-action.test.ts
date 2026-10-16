@@ -141,10 +141,43 @@ describe("destructive action presentation", () => {
     },
   );
 
-  it("retains a keyboard focus ring, disabled feedback and boxed-button boundaries", () => {
-    expect(
-      declarations(".table-action-link", "--tw-ring-color"),
-    ).not.toHaveLength(0);
+  it.each([false, true])(
+    "keeps composed table actions unboxed with a distinct keyboard underline (danger: %s)",
+    (danger) => {
+      const focus = new Map<string, string>();
+      // TableAction composes the base rule and then its optional danger variant.
+      // Check their real compiled states: a ring can paint a rectangle even with border: 0.
+      for (const selector of [
+        ".table-action-link",
+        ...(danger ? [".table-action-danger"] : []),
+      ]) {
+        output.walkRules(selector, (rule) => {
+          rule.walkDecls((declaration) => {
+            expect(declaration.prop).not.toBe("box-shadow");
+            expect(declaration.prop.startsWith("--tw-ring-")).toBe(false);
+            for (
+              let parent: AnyNode | undefined = declaration.parent;
+              parent && parent !== rule;
+              parent = parent.parent
+            ) {
+              if (
+                parent.type === "rule" &&
+                parent.selector === "&:focus-visible"
+              ) {
+                focus.set(declaration.prop, declaration.value);
+              }
+            }
+          });
+        });
+      }
+      expect(focus.get("text-decoration-line")).toBe("underline");
+      expect(focus.get("text-decoration-thickness")).toBe("3px");
+      expect(focus.get("text-underline-offset")).toBe("4px");
+      expect(focus.get("outline-style")).toBe("none");
+    },
+  );
+
+  it("retains standalone keyboard focus, disabled feedback and boxed-button boundaries", () => {
     expect(declarations(".link-danger", "--tw-ring-color")).not.toHaveLength(0);
     expect(declarations(".table-action-link", "opacity")).not.toHaveLength(0);
     expect(declarations(".link-danger", "opacity")).not.toHaveLength(0);
