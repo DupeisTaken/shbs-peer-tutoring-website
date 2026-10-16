@@ -203,9 +203,7 @@ it.each([
     expect(valueFor(line, "display")).toBe("flex");
     expect(valueFor(line, "align-items")).toBe("center");
     expect(valueFor(line, "flex-wrap")).toBe("wrap");
-    expect(["0px", "calc(var(--spacing) * 0)"]).toContain(
-      valueFor(label, "min-width"),
-    );
+    expect(valueFor(label, "min-width")).toMatch(/^0(?:px)?$/);
     expect(valueFor(line, "height")).toBeUndefined();
     for (const name of [
       text.admin.registrationCodes.copy,
