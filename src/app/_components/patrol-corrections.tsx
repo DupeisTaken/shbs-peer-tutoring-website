@@ -1,6 +1,9 @@
 "use client";
 import { InlineNotice } from "./ui/patterns";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSessionAccessDenied } from "./session-view-state";
+import { StatePanel } from "./ui/patterns";
+import { Button } from "./ui/button";
 import {
   useFormatter,
   useLocale,
@@ -187,12 +190,46 @@ function PatrolEditor({ row }: { row: Patrol }) {
   );
 }
 
-export function PatrolCorrections() {
+export type PatrolViewReadState = {
+  ready: boolean;
+  denied: boolean;
+  page: number;
+};
+export function PatrolCorrections({
+  onViewReadState,
+}: { onViewReadState?: (state: PatrolViewReadState) => void } = {}) {
   const programFormat = useFormatter();
   const t = useTranslations("corrections");
   const readOnly = useReadOnly();
+  const recovery = useTranslations("managementRecovery");
   const [cursors, setCursors] = useState<string[]>([]);
   const rows = api.corrections.patrols.useQuery({ cursor: cursors.at(-1) });
+  const denied = useSessionAccessDenied(rows);
+  const ready = rows.data !== undefined && !denied;
+  const page = cursors.length;
+  // The Crew page owns scroll. Report readiness and the numeric page only;
+  // opaque cursor IDs, patrol evidence and editor drafts remain in this owner.
+  useEffect(() => {
+    onViewReadState?.({ ready, denied, page });
+  }, [onViewReadState, ready, denied, page]);
+  if (denied)
+    return (
+      <section className="card space-y-4 p-5">
+        <h2 className="section-title">{t("patrolHistory")}</h2>
+        <StatePanel
+          kind="denied"
+          title={recovery("denied", { section: t("patrolHistory") })}
+          action={
+            <Button
+              disabled={rows.isFetching}
+              onClick={() => void rows.refetch()}
+            >
+              {recovery("retry", { section: t("patrolHistory") })}
+            </Button>
+          }
+        />
+      </section>
+    );
   return (
     <section className="card space-y-4 p-5">
       <h2 className="section-title">{t("patrolHistory")}</h2>

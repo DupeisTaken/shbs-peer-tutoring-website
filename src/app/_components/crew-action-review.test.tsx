@@ -13,6 +13,8 @@ import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
+import { SessionViewProvider } from "./session-view-state";
+import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 import CrewPage from "../(admin)/admin/crew/page";
 import { ReadOnlyProvider } from "./read-only";
 
@@ -133,6 +135,7 @@ beforeEach(() => {
   state.patrols = 2;
   state.hours = 1;
   state.requestKind = "OPT_OUT";
+  sessionStorage.clear();
   state.error = null;
   state.readError = null;
   state.coldRead = "";
@@ -182,7 +185,9 @@ const show = (readOnly = false, locale = "en") =>
           messages={locale === "zh" ? zh : en}
           timeZone="UTC"
         >
-          <ReadOnlyProvider value={readOnly}>{children}</ReadOnlyProvider>
+          <SessionViewProvider identity="head" pathname="/admin/crew" verified>
+            <ReadOnlyProvider value={readOnly}>{children}</ReadOnlyProvider>
+          </SessionViewProvider>
         </NextIntlClientProvider>
       </QueryClientProvider>
     ),
@@ -415,3 +420,50 @@ it.each(["en", "zh"])(
     expect(state.refresh).not.toHaveBeenCalled();
   },
 );
+
+it("restores an authorized crew panel without retaining reviewed decisions", () => {
+  const view = show(true);
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.admin.crew.panels.roster }),
+  );
+  view.unmount();
+  show(true);
+  expect(
+    screen
+      .getByRole("tab", { name: en.admin.crew.panels.roster })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(state.commit).not.toHaveBeenCalled();
+});
+it("drops a denied remembered roster but still lets staff visit its read-only Retry state", () => {
+  const key = viewStateKey("head", "/admin/crew", "crew-panel-v1", "");
+  writeViewState(sessionStorage, key, "roster");
+  state.readError = { scope: "crewRoster", code: "FORBIDDEN" };
+  const view = show(true);
+  expect(
+    screen
+      .getByRole("tab", { name: en.admin.crew.panels.review })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(JSON.parse(sessionStorage.getItem(key)!)).toBe("review");
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.admin.crew.panels.roster }),
+  );
+  expect(
+    screen.getByRole("button", {
+      name: `Retry ${en.admin.crew.rosterHeading}`,
+    }),
+  ).toBeTruthy();
+  expect(screen.queryByText("Synthetic crew member")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `Retry ${en.admin.crew.rosterHeading}`,
+    }),
+  );
+  expect(state.refetch).toHaveBeenCalledOnce();
+  expect(state.commit).not.toHaveBeenCalled();
+  state.readError = null;
+  view.rerender(<CrewPage />);
+  expect(screen.getByText("Synthetic crew member")).toBeTruthy();
+});

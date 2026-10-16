@@ -1,4 +1,5 @@
 "use client";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import { participantNameLabel } from "~/app/_components/participant-name";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
@@ -145,6 +146,11 @@ export default function PairingsPage() {
   const hasData = reads.every(({ query }) => query.data !== undefined);
   const readErrors = reads.filter(({ query }) => query.error);
   const readBlocked = !hasData || readErrors.length > 0;
+  useSessionPageScroll({
+    id: "pairings-v1",
+    ready: hasData,
+    enabled: !denied && !authorizationDenied,
+  });
   const section =
     (readErrors.length
       ? readErrors
@@ -452,6 +458,15 @@ export default function PairingsPage() {
           timeSlots.data !== undefined &&
           pairings.data !== undefined && (
             <RoomGrid
+              catalogReady={hasData}
+              viewEnabled={!denied && !authorizationDenied}
+              viewScope={[
+                ...new Set(
+                  (pairings.data ?? []).map((pairing) => pairing.termId),
+                ),
+              ]
+                .sort()
+                .join(",")}
               rooms={(rooms.data ?? []).map((r) => ({
                 id: r.id,
                 name: r.name,

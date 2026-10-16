@@ -21,6 +21,8 @@ import { Button, ChoiceButton, Switch } from "~/app/_components/ui/button";
 import { Modal, useDialogPending } from "~/app/_components/ui/modal";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
+import { useSessionViewState } from "~/app/_components/session-view-state";
+import { viewSearch } from "~/lib/session-view-state";
 import {
   SummaryTable,
   TableActions,
@@ -74,7 +76,7 @@ const en = {
     "Public signup and history claim reuse PublicFormPage, PublicPageNavigation and PublicFormCard. Their route and consent requirements remain in each feature.",
   filters: "Filter toolbar",
   filtersHelp:
-    "Pressed choices filter records. Native search and selects keep their keyboard behavior; reset and counts belong to the feature.",
+    "Pressed choices filter records. Native search and selects keep their keyboard behavior. These explicit filters are remembered on temporary navigation in the signed-in browser session; form drafts are separate.",
   search: "Search rooms",
   all: "All rooms",
   active: "Active rooms",
@@ -162,7 +164,7 @@ const zh: Record<keyof typeof en, string> = {
     "公开报名与历史认领共用 PublicFormPage、PublicPageNavigation 和 PublicFormCard。路由及同意要求仍由各功能负责。",
   filters: "筛选工具栏",
   filtersHelp:
-    "按下的选项筛选记录。原生搜索与选择框保留键盘操作；重置和计数由功能负责。",
+    "按下的选项筛选记录，原生搜索与选择框保留键盘操作。登录后的浏览器会话会记住这些明确的筛选选项，便于临时离开后返回；表单草稿仍独立管理。",
   search: "搜索教室",
   all: "所有教室",
   active: "启用的教室",
@@ -358,11 +360,19 @@ export function RecipeGallery({
   });
   const [grade, setGrade] = useState("10");
   const [participantSaved, setParticipantSaved] = useState(false);
-  const [namePreview, setNamePreview] = useState<
-    "default" | "optional" | "hidden"
-  >("default");
-  const [search, setSearch] = useState("");
-  const [activeOnly, setActiveOnly] = useState(false);
+  const [namePreview, setNamePreview] = useState<"default" | "optional" | "hidden">("default");
+  const [search, setSearch] = useSessionViewState({
+    id: "gallery-room-search-v1",
+    scope: locale,
+    initialState: "",
+    parse: viewSearch,
+  });
+  const [activeOnly, setActiveOnly] = useSessionViewState({
+    id: "gallery-room-active-v1",
+    scope: locale,
+    initialState: false,
+    parse: (value) => (typeof value === "boolean" ? value : undefined),
+  });
   const [reminders, setReminders] = useState(true);
   const [willingness, setWillingness] = useState<boolean | null>(null);
   const [displayNames, setDisplayNames] = useState(false);

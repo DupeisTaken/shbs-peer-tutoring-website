@@ -1,4 +1,5 @@
 "use client";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import {
   REGISTRATION_KINDS,
   isManagementCode,
@@ -94,6 +95,16 @@ export default function RegistrationCodesPage() {
     if (identity.error || !identity.data || denied) void identity.refetch();
   };
   const role = identity.data?.role;
+  useSessionPageScroll({
+    id: "registration-codes-v1",
+    ready:
+      codes.data !== undefined &&
+      !!identity.data &&
+      !denied &&
+      !codesDenied &&
+      !identityDenied,
+    enabled: !denied && !codesDenied && !identityDenied,
+  });
   const isHead = role === "HEAD";
   const canSubmitManagement = isHead || role === "ADMIN";
   const kinds = REGISTRATION_KINDS.filter(

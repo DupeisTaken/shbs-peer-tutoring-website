@@ -217,7 +217,7 @@ export const studentRouter = createTRPCRouter({
                     startMin: true,
                     endMin: true,
                     room: { select: { name: true } },
-                    tutor: { select: { englishName: true } },
+                    tutor: { select: { englishName: true, user: { select: { username: true } } } },
                   },
                 },
               },
@@ -248,7 +248,7 @@ export const studentRouter = createTRPCRouter({
             startMin: true,
             endMin: true,
             room: { select: { name: true } },
-            tutor: { select: { englishName: true } },
+            tutor: { select: { englishName: true, user: { select: { username: true } } } },
           },
         })
       : [];

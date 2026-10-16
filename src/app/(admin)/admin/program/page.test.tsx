@@ -1,11 +1,22 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { SessionViewProvider } from "~/app/_components/session-view-state";
+import { viewStateKey } from "~/lib/session-view-state";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
 import zh from "../../../../../messages/zh.json";
 import ProgramPage from "./page";
 const mutate = vi.hoisted(() => vi.fn());
+const navigation = vi.hoisted(() => ({
+  query: "",
+  replace: vi.fn(),
+  denied: false,
+}));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(navigation.query),
+  useRouter: () => ({ replace: navigation.replace }),
+}));
 const access = vi.hoisted(() => ({
   role: "HEAD",
   readOnly: false,
@@ -51,7 +62,9 @@ vi.mock("~/trpc/react", () => ({
       me: {
         useQuery: () => ({
           data: access.known ? { role: access.role } : undefined,
-          error: access.error,
+          error: navigation.denied
+            ? { data: { code: "FORBIDDEN" } }
+            : access.error,
           refetch: access.refetch,
         }),
       },
@@ -91,6 +104,10 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   mutate.mockReset();
+  navigation.query = "";
+  navigation.denied = false;
+  navigation.replace.mockReset();
+  sessionStorage.clear();
 });
 it.each(["en", "zh"] as const)(
   "associates the visible confirmation label in %s without changing typed confirmation",
@@ -140,6 +157,78 @@ it("retains typed refresh confirmation across settings panels", () => {
       .value,
   ).toBe("REFRESH");
   expect(mutate).not.toHaveBeenCalled();
+});
+
+it("restores a panel on return, gives a validated URL precedence, and excludes confirmation drafts", () => {
+  const key = viewStateKey(
+    "head-account",
+    "/admin/program",
+    "program-panel-v1",
+    "",
+  );
+  sessionStorage.setItem(key, JSON.stringify("access"));
+  const page = () => (
+    <SessionViewProvider
+      identity="head-account"
+      pathname="/admin/program"
+      verified
+    >
+      <NextIntlClientProvider locale="en" messages={en}>
+        <ProgramPage />
+      </NextIntlClientProvider>
+    </SessionViewProvider>
+  );
+  const first = render(page());
+  expect(
+    screen
+      .getByRole("tab", { name: en.admin.program.panels.access })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  first.unmount();
+  navigation.query = "panel=people";
+  const second = render(page());
+  expect(
+    screen
+      .getByRole("tab", { name: en.admin.program.panels.people })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.admin.program.panels.period }),
+  );
+  fireEvent.change(screen.getByLabelText(en.admin.program.confirmLabel), {
+    target: { value: "REFRESH" },
+  });
+  expect(sessionStorage.getItem(key)).toBe(JSON.stringify("period"));
+  second.unmount();
+  navigation.query = "";
+  render(page());
+  expect(
+    screen.getByLabelText<HTMLInputElement>(en.admin.program.confirmLabel)
+      .value,
+  ).toBe("");
+});
+it("clears remembered panel and hides cached settings on authoritative denial", () => {
+  const key = viewStateKey(
+    "head-account",
+    "/admin/program",
+    "program-panel-v1",
+    "",
+  );
+  sessionStorage.setItem(key, JSON.stringify("people"));
+  navigation.denied = true;
+  render(
+    <SessionViewProvider
+      identity="head-account"
+      pathname="/admin/program"
+      verified
+    >
+      <NextIntlClientProvider locale="en" messages={en}>
+        <ProgramPage />
+      </NextIntlClientProvider>
+    </SessionViewProvider>,
+  );
+  expect(screen.queryByRole("tab")).toBeNull();
+  expect(sessionStorage.getItem(key)).toBeNull();
 });
 it.each(["VIEWER", "departed HEAD"])(
   "keeps public period values readable without mounting private settings for %s",

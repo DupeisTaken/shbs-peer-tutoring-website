@@ -418,8 +418,9 @@
       "help": "Standardzeit für jede Zuordnung festlegen (die tatsächlichen Sitzungszeiten werden beim Einreichen der Anwesenheit angegeben)."
     },
     "availability": {
-      "title": "Meine Verfügbarkeit",
-      "help": "Zeitfenster markieren, in denen Sie unterrichten können. Das hilft Koordinatoren bei der Planung."
+      "title": "Meine verfügbaren Zeiten",
+      "help": "Zeitfenster markieren, in denen Sie unterrichten können. Das hilft Koordinatoren bei der Planung.",
+      "edit": "Meine verfügbaren Zeiten bearbeiten"
     },
     "attendance": {
       "title": "Anwesenheit einreichen",
@@ -1929,7 +1930,7 @@
       "title": "Anstehende Sitzungen",
       "help": "Sie können nicht teilnehmen? Entschuldigen Sie Ihre Abwesenheit bis 30 Minuten vor Beginn.",
       "excuseBtn": "Abwesenheit entschuldigen",
-      "submitExcuse": "Senden",
+      "submitExcuse": "Abwesenheitsentschuldigung einreichen",
       "cancelExcuse": "Entschuldigung zurücknehmen",
       "reasonPlaceholder": "Grund (optional)",
       "excused": "Sie haben diese Abwesenheit entschuldigt.",
@@ -1979,7 +1980,7 @@
         "UNEXCUSED_ABSENT": "Unentschuldigt abwesend"
       },
       "reasonRequired": "Grund (erforderlich)",
-      "ratings": "Bewertungen *",
+      "ratings": "Selbsteinschätzung",
       "rating": {
         "ratingPreparedness": "Vorbereitung",
         "ratingParticipation": "Mitarbeit",
@@ -2035,7 +2036,8 @@
       "removalHelp": "Möchte der Tutee aufhören? Übermitteln Sie die Abmeldung. 7 Tage lang können Sie (oder ein Admin) sie widerrufen; danach erfolgt sie automatisch.",
       "removalReasonPlaceholder": "Grund (optional)",
       "removalSubmit": "Übermitteln",
-      "removalCancel": "Abbrechen"
+      "removalCancel": "Abbrechen",
+      "availabilityMissing": "Es wurden noch keine verfügbaren Zeiten erfasst."
     },
     "availability": {
       "loading": "Zeitfenster werden geladen…",
@@ -2856,7 +2858,7 @@
     "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
-    "scheduleReject": "Apply to reject: schedule conflict",
+    "scheduleReject": "Ablehnung wegen eines Terminkonflikts beantragen",
     "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
@@ -2891,6 +2893,7 @@
     "sourceHelp": "Die Quelle beschreibt die Erfassung der Anmeldung. Sie ändert weder Genehmigung, Priorität noch Teilnahmeregeln. Bei früheren Anmeldungen ist die ursprüngliche Quelle unbestätigt.",
     "boardGuide": "Gruppierung der Anfragen",
     "sourceGuide": "Anmeldequellen und Zuordnung",
+    "policyRefresh": "Aktualisieren",
     "emailStatus": "E-Mail: {status}"
   },
   "approvals": {

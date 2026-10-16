@@ -12,6 +12,7 @@ import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { MessageInbox } from "./message-inbox";
+import { SessionViewProvider } from "./session-view-state";
 
 const mocks = vi.hoisted(() => ({
   send: vi.fn(),
@@ -115,6 +116,7 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 beforeEach(() => {
+  window.sessionStorage.clear();
   vi.clearAllMocks();
   mocks.error = false;
   mocks.loading = false;
@@ -143,6 +145,44 @@ function ui(locale: "en" | "zh" = "en") {
 function show(locale: "en" | "zh" = "en") {
   return render(ui(locale));
 }
+it("remembers only list filters across a route remount and discards private composer drafts", () => {
+  const wrapped = () => (
+    <SessionViewProvider
+      identity="synthetic-tutee"
+      pathname="/student"
+      verified
+    >
+      {ui()}
+    </SessionViewProvider>
+  );
+  const first = render(wrapped());
+  fireEvent.click(screen.getByRole("checkbox", { name: /Alex @alex-one/ }));
+  fireEvent.change(screen.getByRole("textbox", { name: en.workflows.body }), {
+    target: { value: "Private unsent message" },
+  });
+  fireEvent.change(screen.getByRole("textbox", { name: en.workflows.search }), {
+    target: { value: "Pat" },
+  });
+  const persisted = JSON.stringify(window.sessionStorage);
+  expect(persisted).toContain("Pat");
+  expect(persisted).not.toContain("Private unsent message");
+  expect(persisted).not.toContain("clientKey");
+  expect(persisted).not.toContain("selected");
+  first.unmount();
+  render(wrapped());
+  expect(
+    screen.getByRole<HTMLInputElement>("textbox", { name: en.workflows.search })
+      .value,
+  ).toBe("Pat");
+  expect(
+    screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: en.workflows.body,
+    }).value,
+  ).toBe("");
+  expect(
+    screen.queryByRole("button", { name: "Remove Alex (@alex-one)" }),
+  ).toBeNull();
+});
 it.each([
   { locale: "en" as const, messages: en },
   { locale: "zh" as const, messages: zh },

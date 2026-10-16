@@ -5,8 +5,15 @@ import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
 import { PatrolCorrections } from "./patrol-corrections";
 
-const { mutate, row } = vi.hoisted(() => ({
+const { mutate, row, state } = vi.hoisted(() => ({
   mutate: vi.fn(),
+  state: {
+    loaded: true,
+    count: 1,
+    error: null as null | { message: string; data?: { code?: string } },
+    refetch: vi.fn(),
+    input: ((): unknown => undefined)(),
+  },
   row: {
     id: "synthetic-patrol",
     createdAt: new Date("2026-11-01T06:30:00Z"),
@@ -34,13 +41,33 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     corrections: {
-      patrols: { useQuery: () => ({ data: [row] }) },
+      patrols: {
+        useQuery: (input: unknown) => {
+          state.input = input;
+          return {
+            data: state.loaded
+              ? Array.from({ length: state.count }, (_, index) =>
+                  index === 0
+                    ? row
+                    : { ...row, id: `synthetic-patrol-${index}` },
+                )
+              : undefined,
+            error: state.error,
+            isSuccess: state.loaded && !state.error,
+            isFetching: false,
+            refetch: state.refetch,
+          };
+        },
+      },
       correctPatrol: { useMutation: () => ({ mutate, isPending: false }) },
     },
   },
 }));
 afterEach(() => {
   cleanup();
+  state.loaded = true;
+  state.count = 1;
+  state.error = null;
   vi.clearAllMocks();
 });
 
@@ -107,4 +134,62 @@ it("labels a stored repeated-hour instant correctly and updates the offset when 
       ],
     }),
   );
+});
+
+it("reports patrol read/page readiness without sharing opaque cursors, evidence or editor drafts", () => {
+  const onViewReadState = vi.fn();
+  state.loaded = false;
+  const show = () => (
+    <NextIntlClientProvider
+      locale="en"
+      messages={messages}
+      timeZone="Asia/Shanghai"
+    >
+      <PatrolCorrections onViewReadState={onViewReadState} />
+    </NextIntlClientProvider>
+  );
+  const view = render(show());
+  expect(onViewReadState).toHaveBeenLastCalledWith({
+    ready: false,
+    denied: false,
+    page: 0,
+  });
+  state.loaded = true;
+  state.count = 50;
+  view.rerender(show());
+  expect(onViewReadState).toHaveBeenLastCalledWith({
+    ready: true,
+    denied: false,
+    page: 0,
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.corrections.older }),
+  );
+  expect(state.input).toEqual({ cursor: "synthetic-patrol-49" });
+  expect(onViewReadState).toHaveBeenLastCalledWith({
+    ready: true,
+    denied: false,
+    page: 1,
+  });
+  expect(JSON.stringify(onViewReadState.mock.calls)).not.toContain(
+    "synthetic-patrol",
+  );
+  state.error = { message: "Denied", data: { code: "FORBIDDEN" } };
+  view.rerender(show());
+  expect(onViewReadState).toHaveBeenLastCalledWith({
+    ready: false,
+    denied: true,
+    page: 1,
+  });
+  expect(screen.queryByText(/Synthetic crew/)).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `Retry ${messages.corrections.patrolHistory}`,
+    }),
+  );
+  expect(state.refetch).toHaveBeenCalledOnce();
+  state.error = { message: "Network failure" };
+  view.rerender(show());
+  expect(screen.queryByText(/Synthetic crew/)).toBeNull();
+  expect(mutate).not.toHaveBeenCalled();
 });

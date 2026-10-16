@@ -418,8 +418,9 @@
       "help": "为每个配对选择默认时间段（提交考勤时仍需填写实际辅导时间）。"
     },
     "availability": {
-      "title": "我的空闲时间",
-      "help": "勾选你可以辅导的时间段，方便协调员安排。"
+      "title": "我的可用时间",
+      "help": "勾选你可以辅导的时间段，方便协调员安排。",
+      "edit": "编辑我的可用时间"
     },
     "attendance": {
       "title": "提交考勤",
@@ -1929,7 +1930,7 @@
       "title": "近期会议",
       "help": "无法参加会议？最迟可在会议开始前 60 分钟请假。",
       "excuseBtn": "请假",
-      "submitExcuse": "提交",
+      "submitExcuse": "提交请假说明",
       "cancelExcuse": "取消请假",
       "reasonPlaceholder": "原因（选填）",
       "excused": "你已为此次缺席请假。",
@@ -1971,7 +1972,7 @@
         "UNEXCUSED_ABSENT": "无故缺席"
       },
       "reasonRequired": "原因（必填）",
-      "ratings": "评分 *",
+      "ratings": "自我评价",
       "rating": {
         "ratingPreparedness": "准备情况",
         "ratingParticipation": "参与度",
@@ -2027,7 +2028,8 @@
       "removalHelp": "学习伙伴要求退出？代为转达。有 7 天撤回期，你或管理员可撤回；之后自动生效。",
       "removalReasonPlaceholder": "原因（可选）",
       "removalSubmit": "转达退出",
-      "removalCancel": "取消"
+      "removalCancel": "取消",
+      "availabilityMissing": "尚未记录可用时间。"
     },
     "availability": {
       "loading": "正在加载时间段…",
@@ -2856,7 +2858,7 @@
     "assignTitle": "为{name}分配辅导伙伴",
     "assignConsequences": "如果这是首次分配，将开始七天的邮箱验证期限，并发送新的注册链接。重发邮件或更换辅导伙伴不会延长期限。若未在截止时间前验证，申请将永久取消资格并解除辅导伙伴安排。",
     "assignVerifiedConsequences": "将添加所选辅导伙伴安排。学习伙伴保留原申请的优先顺序，实际辅导时间由辅导伙伴和学习伙伴协商。",
-    "scheduleReject": "申请拒收：时间不匹配",
+    "scheduleReject": "因时间冲突申请拒绝",
     "scheduleConsequences": "请说明无法协商出合适时间的原因。管理员将审核此申请，批准前辅导伙伴安排保持有效。批准后仅解除此次辅导伙伴安排，并将该科目退回待匹配；学习伙伴保留原申请和优先顺序。",
     "needsReview": "等待管理员审核",
     "approve": "批准申请",
@@ -2891,6 +2893,7 @@
     "sourceHelp": "来源说明报名的录入方式，不会改变审批、优先顺序或参与规则。“早期报名”表示原始录入来源尚无法确认。",
     "boardGuide": "申请如何分组",
     "sourceGuide": "报名来源与归属",
+    "policyRefresh": "刷新",
     "emailStatus": "邮箱：{status}"
   },
   "approvals": {

@@ -418,8 +418,9 @@
       "help": "各ペアリングのデフォルトタイムスロットを選択してください（実際のセッション時間は出席提出時に入力します）。"
     },
     "availability": {
-      "title": "マイ空き時間",
-      "help": "指導可能なタイムスロットをマークしてください。コーディネーターがスケジュール調整に使用します。"
+      "title": "指導可能な時間",
+      "help": "指導可能なタイムスロットをマークしてください。コーディネーターがスケジュール調整に使用します。",
+      "edit": "指導可能な時間を編集"
     },
     "attendance": {
       "title": "出席を提出",
@@ -1929,7 +1930,7 @@
       "title": "今後の会議",
       "help": "会議に出られませんか？開始 60 分前まで欠席を申告できます。",
       "excuseBtn": "欠席を申告",
-      "submitExcuse": "送信",
+      "submitExcuse": "欠席理由を送信",
       "cancelExcuse": "申告を取り消す",
       "reasonPlaceholder": "理由（任意）",
       "excused": "この欠席を申告しました。",
@@ -1979,7 +1980,7 @@
         "UNEXCUSED_ABSENT": "無断欠席"
       },
       "reasonRequired": "理由（必須）",
-      "ratings": "評価 *",
+      "ratings": "自己評価",
       "rating": {
         "ratingPreparedness": "準備",
         "ratingParticipation": "参加",
@@ -2035,7 +2036,8 @@
       "removalHelp": "生徒が離脱を希望？代理で提出します。7日間はあなた（または管理者）が撤回でき、その後は自動です。",
       "removalReasonPlaceholder": "理由（任意）",
       "removalSubmit": "離脱を提出",
-      "removalCancel": "キャンセル"
+      "removalCancel": "キャンセル",
+      "availabilityMissing": "対応可能な時間はまだ登録されていません。"
     },
     "availability": {
       "loading": "タイムスロットを読み込み中…",
@@ -2856,7 +2858,7 @@
     "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
-    "scheduleReject": "Apply to reject: schedule conflict",
+    "scheduleReject": "時間の都合が合わないため辞退を申請",
     "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
@@ -2891,6 +2893,7 @@
     "sourceHelp": "申込元は入力方法を示し、承認・優先順位・参加規則は変わりません。「以前の申込」は元の入力方法を確認できない記録です。",
     "boardGuide": "申請の分類方法",
     "sourceGuide": "登録元とアカウントの紐付け",
+    "policyRefresh": "更新",
     "emailStatus": "メール：{status}"
   },
   "approvals": {

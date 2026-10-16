@@ -1,7 +1,15 @@
 "use client";
 
 import { ProgramCaptchaSettings } from "~/app/_components/program-captcha-settings";
-import { useId, useState } from "react";
+import { Suspense, useEffect, useId, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+  useSessionViewState,
+  useSessionViewVerified,
+} from "~/app/_components/session-view-state";
+import { viewEnum } from "~/lib/session-view-state";
 import { ProgramProfileSettings } from "~/app/_components/program-profile-settings";
 import { ProgramEmailSettings } from "~/app/_components/program-email-settings";
 import { useTranslations } from "next-intl";
@@ -27,14 +35,61 @@ type RefreshResult = {
 };
 
 export default function ProgramPage() {
-  const [panel, setPanel] = useState<
-    "period" | "people" | "communication" | "access"
-  >("period");
+  const t = useTranslations();
+  return (
+    <Suspense
+      fallback={
+        <StatePanel kind="loading" title={t("admin.program.loading")} />
+      }
+    >
+      <ProgramSettingsPage />
+    </Suspense>
+  );
+}
+const programPanels = ["period", "people", "communication", "access"] as const;
+type ProgramPanel = (typeof programPanels)[number];
+function ProgramSettingsPage() {
   const confirmationId = useId();
   const t = useTranslations();
   const utils = api.useUtils();
   const current = api.admin.currentPeriod.useQuery();
   const account = api.account.me.useQuery();
+  const denied = useSessionAccessDenied(current, account);
+  const params = useSearchParams();
+  const router = useRouter();
+  const verified = useSessionViewVerified();
+  const explicitPanel = viewEnum(programPanels)(params.get("panel"));
+  const [remembered, remember] = useSessionViewState<ProgramPanel>({
+    id: "program-panel-v1",
+    initialState: "period",
+    parse: viewEnum(programPanels),
+    enabled: !denied,
+  });
+  const [pendingPanel, setPendingPanel] = useState<{
+    query: string;
+    panel: ProgramPanel;
+  } | null>(null);
+  // Valid direct links win on entry. A click responds immediately while Next commits its URL.
+  const panel =
+    pendingPanel?.query === params.toString()
+      ? pendingPanel.panel
+      : (explicitPanel ?? remembered);
+  const setPanel = (panel: ProgramPanel) => {
+    remember(panel);
+    setPendingPanel({ query: params.toString(), panel });
+    const next = new URLSearchParams(params.toString());
+    next.set("panel", panel);
+    router.replace(`/admin/program?${next.toString()}`, { scroll: false });
+  };
+  useEffect(() => {
+    if (verified && explicitPanel) remember(explicitPanel);
+  }, [verified, explicitPanel, remember]);
+  useSessionPageScroll({
+    id: "program-settings-v1",
+    scope: panel,
+    ready: !!current.data && !!account.data,
+    enabled: !denied,
+  });
   const readOnly = useReadOnly();
   // Public/observer period reads do not confer access to private settings children.
   const canReadSettings =
@@ -85,6 +140,16 @@ export default function ProgramPage() {
       />
     );
   };
+
+  if (denied)
+    return (
+      <StatePanel
+        kind="denied"
+        title={t("managementRecovery.denied", {
+          section: t("admin.program.title"),
+        })}
+      />
+    );
 
   return (
     <div className="max-w-4xl space-y-6">

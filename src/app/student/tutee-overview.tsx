@@ -4,15 +4,27 @@ import { useLocale, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
+import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
 
 /** Overview reads the same owned records as the detailed panels; it never creates an enrollment. */
-export function TuteeOverview() {
+export function TuteeOverview({ viewScope = "" }: { viewScope?: string }) {
   const t = useTranslations("tuteePortal");
   const locale = useLocale();
   const scheduling = useTranslations("scheduling");
   const recovery = useTranslations("participantRecovery");
   const personal = api.student.me.useQuery({ page: 0 });
   const requests = api.studentWorkflow.mine.useQuery();
+  useSessionPageScroll({
+    id: "student-dashboard-v1",
+    scope: viewScope,
+    ready: !!personal.data && !!requests.data,
+    enabled: ![personal, requests].some(
+      (query) =>
+        query.error?.data?.code === "FORBIDDEN" ||
+        query.error?.data?.code === "UNAUTHORIZED",
+    ),
+  });
   const open = requests.data?.filter((row) => row.state === "OPEN");
   return (
     <div className="space-y-6">
@@ -106,6 +118,7 @@ export function TuteeOverview() {
           </Link>
         ))}
       </div>
+      <ProgramCalendarNotice />
     </div>
   );
 }

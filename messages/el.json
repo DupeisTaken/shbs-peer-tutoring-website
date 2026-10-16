@@ -418,8 +418,9 @@
       "help": "Επιλέξτε την προεπιλεγμένη χρονοθυρίδα για κάθε αντιστοίχιση (εξακολουθείτε να εισάγετε πραγματικούς χρόνους κατά την υποβολή παρουσίας)."
     },
     "availability": {
-      "title": "Η διαθεσιμότητά μου",
-      "help": "Σημειώστε τις χρονοθυρίδες που μπορείτε να διδάξετε. Βοηθούν τους συντονιστές να σας προγραμματίσουν."
+      "title": "Οι διαθέσιμες ώρες μου",
+      "help": "Σημειώστε τις χρονοθυρίδες που μπορείτε να διδάξετε. Βοηθούν τους συντονιστές να σας προγραμματίσουν.",
+      "edit": "Επεξεργασία των διαθέσιμων ωρών μου"
     },
     "attendance": {
       "title": "Υποβολή παρουσίας",
@@ -1929,7 +1930,7 @@
       "title": "Προσεχείς συναντήσεις",
       "help": "Δεν μπορείτε να παρευρεθείτε; Δικαιολογήστε την απουσία σας έως 30 λεπτά πριν την έναρξη.",
       "excuseBtn": "Δικαιολόγηση απουσίας",
-      "submitExcuse": "Υποβολή",
+      "submitExcuse": "Υποβολή δικαιολόγησης απουσίας",
       "cancelExcuse": "Ακύρωση",
       "reasonPlaceholder": "Λόγος (προαιρετικό)",
       "excused": "Έχετε δικαιολογήσει αυτήν την απουσία.",
@@ -1979,7 +1980,7 @@
         "UNEXCUSED_ABSENT": "Αδικαιολόγητη απουσία"
       },
       "reasonRequired": "Αιτία (απαιτείται)",
-      "ratings": "Αξιολογήσεις *",
+      "ratings": "Αυτοαξιολόγηση",
       "rating": {
         "ratingPreparedness": "Προετοιμασία",
         "ratingParticipation": "Συμμετοχή",
@@ -2035,7 +2036,8 @@
       "removalHelp": "Ζήτησε ο μαθητής να αποχωρήσει; Διαβιβάστε το. Υπάρχει 7ήμερο όπου εσείς (ή ένας διαχειριστής) μπορείτε να το ανακαλέσετε· μετά είναι αυτόματο.",
       "removalReasonPlaceholder": "Λόγος (προαιρετικό)",
       "removalSubmit": "Διαβίβαση",
-      "removalCancel": "Άκυρο"
+      "removalCancel": "Άκυρο",
+      "availabilityMissing": "Δεν έχουν καταγραφεί διαθέσιμες ώρες."
     },
     "availability": {
       "loading": "Φόρτωση χρονοθυρίδων…",
@@ -2856,7 +2858,7 @@
     "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
-    "scheduleReject": "Apply to reject: schedule conflict",
+    "scheduleReject": "Αίτηση απόρριψης λόγω σύγκρουσης ωραρίου",
     "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
@@ -2891,6 +2893,7 @@
     "sourceHelp": "Η πηγή περιγράφει πώς καταχωρίστηκε η εγγραφή. Δεν αλλάζει την έγκριση, την προτεραιότητα ή τους κανόνες συμμετοχής. Η παλαιότερη εγγραφή έχει μη επιβεβαιωμένη αρχική πηγή.",
     "boardGuide": "Πώς ομαδοποιούνται τα αιτήματα",
     "sourceGuide": "Πηγές εγγραφής και σύνδεση λογαριασμών",
+    "policyRefresh": "Ανανέωση",
     "emailStatus": "Email: {status}"
   },
   "approvals": {

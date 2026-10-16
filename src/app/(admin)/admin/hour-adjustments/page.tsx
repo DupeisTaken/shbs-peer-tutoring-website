@@ -1,4 +1,9 @@
 "use client";
+import {
+  useSessionPageScroll,
+  useSessionAccessDenied,
+} from "~/app/_components/session-view-state";
+import { StatePanel } from "~/app/_components/ui/patterns";
 import { ParticipantName } from "~/app/_components/participant-name";
 
 import { useTranslations } from "next-intl";
@@ -29,6 +34,12 @@ export default function AdjustmentsPage() {
   const tutors = api.admin.tutors.useQuery();
   const [showPast, setShowPast] = useState(false);
   const list = api.admin.adjustments.useQuery({});
+  const denied = useSessionAccessDenied(list, tutors);
+  useSessionPageScroll({
+    id: "hour-adjustments-v1",
+    ready: list.data !== undefined && tutors.data !== undefined && !denied,
+    enabled: !denied,
+  });
   const invalidate = () => utils.admin.adjustments.invalidate();
   const create = api.admin.createAdjustment.useMutation({
     onSuccess: invalidate,
@@ -43,6 +54,30 @@ export default function AdjustmentsPage() {
   const [amount, setAmount] = useState("1");
   const [reason, setReason] = useState("");
 
+  // A stale cached adjustment cannot supply an authorized page position.
+  if (denied)
+    return (
+      <div className="space-y-6">
+        <h1 className="page-title">{t("admin.adjustments.title")}</h1>
+        <StatePanel
+          kind="denied"
+          title={t("managementRecovery.denied", {
+            section: t("admin.adjustments.title"),
+          })}
+          action={
+            <Button
+              disabled={list.isFetching || tutors.isFetching}
+              onClick={() => {
+                void list.refetch();
+                void tutors.refetch();
+              }}
+            >
+              {t("uiPatterns.retry")}
+            </Button>
+          }
+        />
+      </div>
+    );
   return (
     <div className={`space-y-6 ${styles.page}`}>
       {!readOnly && review.dialog}

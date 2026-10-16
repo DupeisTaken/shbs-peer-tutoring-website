@@ -164,6 +164,25 @@ consent and historical-ownership explanations even when they require more text.
 Use existing schedule/request data when prioritizing work; layout changes alone
 must not introduce a new computed next-session feature or domain rule.
 
+Render recurring weekday labels with `formatWeekday(dayOfWeek, locale)` using the
+active `next-intl` locale, including availability group names exposed to assistive
+technology. Keep stored ISO weekday numbers, group order, slot IDs and minute
+values unchanged. A translated label must not change an availability Save or
+schedule-review request payload.
+Use a feature-specific final action label in the meeting absence-reason editor
+(“Submit absence excuse”), while preserving its cutoff, reason and request rules.
+
+Keep static tab/filter choices usable while their content queries load. Use
+`restoreReady` for a parser that needs a dynamic catalog, not a fixed enum such
+as the Requests panels or invalidity filter. Query readiness still gates page
+scroll restoration; authoritative denial still clears preferences and hides
+content. Preferences remain scoped to the current identity and program period.
+An accepted explicit choice made before live session verification has transient
+provenance for that exact identity/path/scope key. Once verified, that choice wins
+the older saved/default view; only then may storage be written. Key changes,
+denial and catalog invalidation discard the provenance. This does not persist
+drafts or authorize any content.
+
 ### Align controls to their visual row
 
 Choose the alignment reference before choosing flex or grid alignment. A labelled
@@ -263,6 +282,60 @@ scroll an inner content region while participant pages scroll the document. Scop
 state to the signed-in identity and route, validate restored values, and let an
 explicit destination/hash or access change take precedence. Store no form drafts,
 passwords, private record text or authorization results in navigation storage.
+
+Use `useSessionViewState({ id, initialState, parse, scope, enabled })` from
+`src/app/_components/session-view-state.tsx` for explicit presentation choices.
+It returns the usual state/setter pair. Give each feature/schema a stable `id`,
+include its period and validated query context in `scope`, and supply a parser
+that allowlists the currently available choices. `viewEnum`, `viewPage` and
+`viewSearch` are small helpers; record parsers must select only named filter
+fields. `viewFields` composes those named field parsers and drops unknown fields.
+Restored values are checked against the current parser on every render, and a
+normalized result replaces the stored representation so removed IDs cannot return
+when a catalog changes again.
+Parsers validate live feature values as well as restored values; they must not add
+input limits that the feature did not have. `viewSearch` checks text shape, while
+`viewIdentifier` retains a 160-character bound for IDs and URL choices before their
+catalog arrives. The separate storage writer keeps its 160-character scalar and
+4 KiB UTF-8 entry limits, including the encoded key and JSON value. Oversized query
+contexts cannot enter storage through a scroll key. A valid longer search stays
+usable in memory, including later
+filter updates, but removes its older saved entry instead of restoring stale
+criteria on return. Storage rejection or quota failure affects only that entry;
+shortening the search makes it eligible for recall again.
+Set `enabled: false` for authoritative denial or module removal, not ordinary
+loading. Explicit URL choices override the remembered state. The tutee navigation
+only recalls a previous view on a bare workspace return after identity verification.
+For dynamic catalogs, use `restoreReady: query.data !== undefined` until choices
+arrive, then allowlist current IDs. This exposes the initial presentation while
+loading and leaves the saved choice intact; `enabled: false` still clears denial.
+`useSessionAccessDenied(...ownedQueries)` provides a presentation-only denial latch:
+an authoritative access error remains denied through later transport failures until
+the owned reads succeed again. Hide cached denied content in the same owner; this
+helper never grants permission or replaces server checks.
+
+Apply-only filters save their committed read criteria, not the unfinished input.
+Audit reconstructs timezone-aware query dates from date-control strings; its form
+receives the applied values so controls match the restored query. Approval list URLs
+remain authoritative, with local feedback while `router.replace` commits. Full-message
+searches and conversation selections in supervision stay private and transient;
+pagination within those private searches also stays transient. Landing's selected
+lazy editor reports its own query readiness; image-library success alone is insufficient.
+
+Register `useSessionPageScroll({ id, scope, ready, enabled })` once in an authorized
+page, including its selected panel/filters in `scope`. Set `ready` when its owned
+reads have usable content; `SessionPagePosition` is the equivalent adapter for a
+server-rendered shell. At 1024 px and above management restores `#admin-content`;
+other layouts and narrow management pages restore the document. Breakpoint changes
+switch owners. Dialog, table and sidebar scroll are excluded. Hash destinations and
+user gestures take precedence; delayed content recovery stops after five seconds.
+That bounded window remains active after the first successful position, correcting
+late framework resets only when the measured position differs. A user gesture or
+hash immediately ends recovery, and unmount removes its frames, timer and observers.
+Storage failures fall back to normal navigation. The session-only, bounded store
+reuses the existing identity privacy check and never enables route DOM/draft caching.
+The gallery filter toolbar demonstrates the same hook without creating another
+identity provider or copying any example form fields into storage.
 
 ### Retain local work while changing panels
 

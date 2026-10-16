@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({
   usePathname: () => "/student",
   useSearchParams: () => new URLSearchParams({ view: mocks.view }),
+  useRouter: () => ({ replace: vi.fn() }),
 }));
 vi.mock("next-intl", () => ({
   useLocale: () => "en",
@@ -35,6 +36,7 @@ vi.mock("~/app/_components/confirm-dialog", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    program: { calendar: { useQuery: () => ({ data: [] }) } },
     student: {
       me: { useQuery: mocks.personal },
       feedbackSettings: { useQuery: mocks.settings },

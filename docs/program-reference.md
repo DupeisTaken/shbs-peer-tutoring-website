@@ -143,6 +143,8 @@ ADMIN/HEAD can use **Resend stuck emails** to queue up to 100 eligible failed or
 
 The room schedule offers combined and individual-room layouts, explicit room selection, a full availability legend and detail readers with room/day/time filters. Management starts with all rooms; tutors start with their paired rooms. Recorded confirmed pairing times remain authoritative when a catalog slot later differs. Unconfirmed assignments do not occupy a cell, and details retain unslotted records and every applicable block reason.
 
+Within the same browser session, returning recalls the selected Program Settings panel, roster filters and sorting, schedule layout, selected rooms and detail filters. A direct Program Settings panel link takes precedence. Schedule selections wait for the current room/slot catalog, then drop removed choices; a deliberately empty room selection remains empty. Account editor drafts and refresh confirmation text are not stored. Each authorized page owns its scroll position; the room-grid component does not compete with the Pairings page for viewport scrolling.
+
 The legend distinguishes gray occupied cells, × unavailable cells and available
 published slots without an assignment. The participant subtitle identifies the
 highlighted personal pairings and uses a room-status explanation consistent with

@@ -3,27 +3,68 @@ import { FilterToolbar, InlineNotice, SettingRow } from "./ui/patterns";
 import { Button, ChoiceButton } from "./ui/button";
 import { SectionTabs } from "./ui/section-tabs";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { useDialog } from "./confirm-dialog";
 import { Pager } from "./student-portal";
+import {
+  useSessionPageScroll,
+  useSessionViewState,
+} from "./session-view-state";
+import { viewEnum, viewPage } from "~/lib/session-view-state";
 
-export function StudentSupport() {
-  const [panel, setPanel] = useState<"feedback" | "appeals">("feedback");
+export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
+  const [deniedViews, setDeniedViews] = useState({
+    feedback: false,
+    appeals: false,
+  });
   const programFormat = useFormatter();
   const t = useTranslations("workflows");
   const recovery = useTranslations("participantRecovery");
   const approvals = useTranslations("approvals");
-  const [feedbackPage, setFeedbackPage] = useState(0);
-  const [appealPage, setAppealPage] = useState(0);
-  const [appealState, setAppealState] = useState<"PENDING" | "RESOLVED">(
-    "PENDING",
-  );
   const me = api.account.me.useQuery();
+  const accountDenied =
+    me.error?.data?.code === "FORBIDDEN" ||
+    me.error?.data?.code === "UNAUTHORIZED";
   const staff =
-    me.data && ["HEAD", "ADMIN", "COORDINATOR"].includes(me.data.role);
+    !accountDenied &&
+    me.data &&
+    ["HEAD", "ADMIN", "COORDINATOR"].includes(me.data.role);
   const setting = api.student.feedbackSettings.useQuery();
+  const [panel, setPanel] = useSessionViewState<"feedback" | "appeals">({
+    id: "support-panel-v1",
+    scope: viewScope,
+    initialState: "feedback",
+    parse: viewEnum(me.data && !staff ? ["feedback"] : ["feedback", "appeals"]),
+    enabled: !accountDenied && !deniedViews.appeals,
+  });
+  const [feedbackPage, setFeedbackPage] = useSessionViewState({
+    id: "support-feedback-page-v1",
+    scope: viewScope,
+    initialState: 0,
+    parse: viewPage,
+    enabled:
+      !accountDenied &&
+      !deniedViews.feedback &&
+      !(!staff && setting.data === false),
+  });
+  const [appealPage, setAppealPage] = useSessionViewState({
+    id: "support-appeal-page-v1",
+    scope: viewScope,
+    initialState: 0,
+    parse: viewPage,
+    enabled: !accountDenied && !deniedViews.appeals && !(me.data && !staff),
+  });
+  const [appealState, setAppealState] = useSessionViewState<
+    "PENDING" | "RESOLVED"
+  >({
+    id: "support-appeal-filter-v1",
+    scope: viewScope,
+    initialState: "PENDING",
+    parse: viewEnum(["PENDING", "RESOLVED"]),
+    enabled: !accountDenied && !deniedViews.appeals && !(me.data && !staff),
+  });
   const feedback = api.student.feedbackList.useQuery(
     { page: feedbackPage },
     { enabled: !!staff || setting.data === true },
@@ -32,6 +73,31 @@ export function StudentSupport() {
     { page: appealPage, state: appealState },
     { enabled: !!staff },
   );
+  const feedbackDenied =
+    feedback.error?.data?.code === "FORBIDDEN" ||
+    feedback.error?.data?.code === "UNAUTHORIZED";
+  const appealsDenied =
+    appeals.error?.data?.code === "FORBIDDEN" ||
+    appeals.error?.data?.code === "UNAUTHORIZED";
+  useEffect(() => {
+    setDeniedViews((current) =>
+      current.feedback === feedbackDenied && current.appeals === appealsDenied
+        ? current
+        : { feedback: feedbackDenied, appeals: appealsDenied },
+    );
+  }, [feedbackDenied, appealsDenied]);
+  const canReadFeedback =
+    !accountDenied &&
+    !feedbackDenied &&
+    (!!staff || (!setting.error && setting.data === true));
+  useSessionPageScroll({
+    id: "student-support-v1",
+    scope: `${viewScope}:${staff ? panel : "feedback"}:${feedbackPage}:${appealPage}:${appealState}`,
+    ready: staff && panel === "appeals" ? !!appeals.data : !!feedback.data,
+    enabled:
+      !accountDenied &&
+      (staff && panel === "appeals" ? !appealsDenied : canReadFeedback),
+  });
   const save = api.student.setFeedbackSettings.useMutation({
     onSuccess: () => setting.refetch(),
   });
@@ -146,26 +212,27 @@ export function StudentSupport() {
             ) : !staff && !setting.data ? (
               <p className="muted">{t("privateFeedback")}</p>
             ) : null}
-            {feedback.data?.length === 0 && (
+            {canReadFeedback && feedback.data?.length === 0 && (
               <p className="muted">{t("empty")}</p>
             )}
-            {feedback.data?.map((f) => (
-              <article
-                className="rounded-lg border border-slate-200 p-4"
-                key={f.id}
-              >
-                <p className="font-medium">
-                  {f.studentName} · {f.subject} · {f.rating}/5
-                </p>
-                <p className="mt-2 whitespace-pre-wrap">{f.body}</p>
-                <p className="muted mt-2 text-xs">
-                  {programFormat.dateTime(f.updatedAt, {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
-                </p>
-              </article>
-            ))}
+            {canReadFeedback &&
+              feedback.data?.map((f) => (
+                <article
+                  className="rounded-lg border border-slate-200 p-4"
+                  key={f.id}
+                >
+                  <p className="font-medium">
+                    {f.studentName} · {f.subject} · {f.rating}/5
+                  </p>
+                  <p className="mt-2 whitespace-pre-wrap">{f.body}</p>
+                  <p className="muted mt-2 text-xs">
+                    {programFormat.dateTime(f.updatedAt, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </p>
+                </article>
+              ))}
             <Pager
               label={t("feedback")}
               page={feedbackPage}
@@ -198,56 +265,57 @@ export function StudentSupport() {
                   ))}
                 </FilterToolbar>
               </div>
-              {appeals.data?.rows.length === 0 && (
+              {!appealsDenied && appeals.data?.rows.length === 0 && (
                 <p className="muted">{t("empty")}</p>
               )}
-              {appeals.data?.rows.map((a) => (
-                <article
-                  key={a.id}
-                  className="space-y-3 rounded-lg border border-slate-200 p-4"
-                >
-                  <p className="font-medium">
-                    {a.studentName} ·{" "}
-                    {t(
-                      a.state === "PENDING"
-                        ? "pendingAppeals"
-                        : "resolvedAppeals",
-                    )}
-                  </p>
-                  <p>{a.cardReason}</p>
-                  <p>{a.body}</p>
-                  {a.decision && <p className="muted">{a.decision}</p>}
-                  {a.state === "PENDING" && (
-                    <div className="flex gap-3">
-                      {[true, false].map((overturn) => (
-                        <button
-                          key={String(overturn)}
-                          className="btn-secondary"
-                          disabled={decide.isPending}
-                          onClick={async () => {
-                            const reason = await promptText({
-                              title: t("decision"),
-                              reasonLabel: t("body"),
-                              confirmLabel: t("submit"),
-                              cancelLabel: t("cancel"),
-                              required: true,
-                            });
-                            if (reason)
-                              decide.mutate({
-                                id: a.id,
-                                overturn,
-                                reason,
-                                expectedUpdatedAt: a.updatedAt,
+              {!appealsDenied &&
+                appeals.data?.rows.map((a) => (
+                  <article
+                    key={a.id}
+                    className="space-y-3 rounded-lg border border-slate-200 p-4"
+                  >
+                    <p className="font-medium">
+                      {a.studentName} ·{" "}
+                      {t(
+                        a.state === "PENDING"
+                          ? "pendingAppeals"
+                          : "resolvedAppeals",
+                      )}
+                    </p>
+                    <p>{a.cardReason}</p>
+                    <p>{a.body}</p>
+                    {a.decision && <p className="muted">{a.decision}</p>}
+                    {a.state === "PENDING" && (
+                      <div className="flex gap-3">
+                        {[true, false].map((overturn) => (
+                          <button
+                            key={String(overturn)}
+                            className="btn-secondary"
+                            disabled={decide.isPending}
+                            onClick={async () => {
+                              const reason = await promptText({
+                                title: t("decision"),
+                                reasonLabel: t("body"),
+                                confirmLabel: t("submit"),
+                                cancelLabel: t("cancel"),
+                                required: true,
                               });
-                          }}
-                        >
-                          {t(overturn ? "uphold" : "reject")}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </article>
-              ))}
+                              if (reason)
+                                decide.mutate({
+                                  id: a.id,
+                                  overturn,
+                                  reason,
+                                  expectedUpdatedAt: a.updatedAt,
+                                });
+                            }}
+                          >
+                            {t(overturn ? "uphold" : "reject")}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                ))}
               <Pager
                 label={t("staffAppeals")}
                 page={appealPage}

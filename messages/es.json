@@ -418,8 +418,9 @@
       "help": "Elige el horario predeterminado de cada emparejamiento (igualmente registras las horas reales al enviar la asistencia)."
     },
     "availability": {
-      "title": "Mi disponibilidad",
-      "help": "Marca los horarios en los que puedes enseñar. Ayudan a los coordinadores a programarte."
+      "title": "Mis horarios disponibles",
+      "help": "Marca los horarios en los que puedes enseñar. Ayudan a los coordinadores a programarte.",
+      "edit": "Editar mis horarios disponibles"
     },
     "attendance": {
       "title": "Registrar asistencia",
@@ -1929,7 +1930,7 @@
       "title": "Próximas reuniones",
       "help": "¿No puedes asistir a una reunión? Justifica tu ausencia hasta 60 minutos antes de que empiece.",
       "excuseBtn": "Justificar ausencia",
-      "submitExcuse": "Enviar",
+      "submitExcuse": "Enviar justificación de ausencia",
       "cancelExcuse": "Cancelar justificación",
       "reasonPlaceholder": "Motivo (opcional)",
       "excused": "Has justificado esta ausencia.",
@@ -1971,7 +1972,7 @@
         "UNEXCUSED_ABSENT": "Ausencia injustificada"
       },
       "reasonRequired": "Motivo (obligatorio)",
-      "ratings": "Valoraciones *",
+      "ratings": "Autoevaluación",
       "rating": {
         "ratingPreparedness": "Preparación",
         "ratingParticipation": "Participación",
@@ -2027,7 +2028,8 @@
       "removalHelp": "¿El alumno pidió darse de baja? Transmítela. Hay 7 días para que tú (o un admin) la retiréis; luego es automática.",
       "removalReasonPlaceholder": "Motivo (opcional)",
       "removalSubmit": "Transmitir baja",
-      "removalCancel": "Cancelar"
+      "removalCancel": "Cancelar",
+      "availabilityMissing": "Todavía no se ha registrado disponibilidad."
     },
     "availability": {
       "loading": "Cargando horarios…",
@@ -2856,7 +2858,7 @@
     "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
-    "scheduleReject": "Apply to reject: schedule conflict",
+    "scheduleReject": "Solicitar el rechazo por conflicto de horario",
     "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
@@ -2891,6 +2893,7 @@
     "sourceHelp": "La fuente indica cómo se registró la inscripción. No cambia la aprobación, la prioridad ni las reglas de participación. Inscripción anterior indica que no se conoce la fuente original.",
     "boardGuide": "Cómo se agrupan las solicitudes",
     "sourceGuide": "Origen y titularidad de las inscripciones",
+    "policyRefresh": "Actualizar",
     "emailStatus": "Correo: {status}"
   },
   "approvals": {

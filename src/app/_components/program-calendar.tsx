@@ -16,12 +16,14 @@ import { useActionReview } from "./ui/action-review";
 import { queuedApprovalId } from "~/lib/approval-outcome";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
+import { useSessionAccessDenied } from "./session-view-state";
 
 type Day = { date: string; reason: string; active: boolean; version: number };
 /** Participant schedules consume this read-only context; it cannot affect attendance validity. */
 export function ProgramCalendarNotice() {
   const t = useTranslations("programCalendar");
   const query = api.program.calendar.useQuery();
+  const denied = useSessionAccessDenied(query);
   if (!query.data?.length && !query.error) return null;
   return (
     <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -39,7 +41,7 @@ export function ProgramCalendarNotice() {
         </InlineNotice>
       )}
       <ul className="mt-3 space-y-2 text-sm">
-        {query.data?.map((day) => (
+        {!denied && query.data?.map((day) => (
           <li key={day.date}>
             <time dateTime={day.date} className="font-medium tabular-nums">
               {day.date}

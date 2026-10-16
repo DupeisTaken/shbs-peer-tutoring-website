@@ -1,5 +1,10 @@
 "use client";
 import {
+  useSessionViewState,
+  useSessionPageScroll,
+} from "~/app/_components/session-view-state";
+import { viewMonth } from "~/lib/management-view-state";
+import {
   ParticipantName,
   participantNameLabel,
 } from "~/app/_components/participant-name";
@@ -24,9 +29,14 @@ import { ServiceHoursComparison } from "~/app/_components/service-hours-comparis
 export default function SummaryPage() {
   const t = useTranslations();
   // Empty → the active period's current semester; a month ("YYYY-MM") narrows to that month.
-  const [month, setMonth] = useState("");
   const queryClient = useQueryClient();
   const [denied, setDenied] = useState(false);
+  const [month, setMonth] = useSessionViewState({
+    id: "service-hours-month-v1",
+    initialState: "",
+    parse: viewMonth,
+    enabled: !denied,
+  });
   const summary = api.admin.periodSummary.useQuery(
     month ? { month } : undefined,
     { enabled: !denied },
@@ -46,6 +56,12 @@ export default function SummaryPage() {
   const hidden = denied || accessDenied;
   const section = t("admin.summary.title");
   const scope = hidden ? undefined : summary.data?.scope.label;
+  useSessionPageScroll({
+    id: "service-hours-v1",
+    scope: month || (scope ?? ""),
+    ready: summary.data !== undefined && !hidden,
+    enabled: !hidden,
+  });
 
   return (
     <div className="space-y-6">
