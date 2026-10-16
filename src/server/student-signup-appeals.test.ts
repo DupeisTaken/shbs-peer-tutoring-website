@@ -529,6 +529,63 @@ it("reviewed resend rotates obsolete credential-bound proof without transferring
     "owner",
   );
 });
+
+it("does not rotate an in-flight capability until its shared receipt can queue credential recovery", async () => {
+  await fixture();
+  let release!: () => void;
+  let started!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const admitted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  send.mockImplementationOnce(async () => {
+    started();
+    await gate;
+  });
+  const applying = flag();
+  try {
+    await admitted;
+    const original = await db.studentSignupNotice.findFirstOrThrow();
+    const receipt = await db.emailDelivery.findFirstOrThrow({
+      where: { requestKind: "survey" },
+    });
+    expect(receipt.status).toBe("SENDING");
+    await db.user.update({
+      where: { id: "owner" },
+      data: { passwordHash: "Synthetic changed while SMTP waits" },
+    });
+    expect(
+      await staff("HEAD").studentWorkflow.resendSignupNotice({ id: "source" }),
+    ).toMatchObject({ queued: false });
+    const held = await db.studentSignupNotice.findUniqueOrThrow({
+      where: { id: original.id },
+    });
+    expect(held.tokenHash).toBe(original.tokenHash);
+    expect(held.sessionVersion).toBe(original.sessionVersion);
+    expect(
+      (await db.emailDelivery.findUniqueOrThrow({ where: { id: receipt.id } }))
+        .attemptId,
+    ).toBe(receipt.attemptId);
+  } finally {
+    release();
+    await applying;
+  }
+  const before = await db.studentSignupNotice.findFirstOrThrow();
+  expect(
+    await staff("HEAD").studentWorkflow.resendSignupNotice({ id: "source" }),
+  ).toMatchObject({ queued: true });
+  const recovered = await db.studentSignupNotice.findFirstOrThrow();
+  expect(recovered.id).toBe(before.id);
+  expect(recovered.tokenHash).not.toBe(before.tokenHash);
+  expect(recovered.accountId).toBe(before.accountId);
+  expect(recovered.invalidityVersion).toBe(1);
+  expect((await inspectSignupAppeal(db, proof())).canAppeal).toBe(true);
+  expect(
+    await db.emailDelivery.count({ where: { requestKind: "survey" } }),
+  ).toBe(1);
+});
 it("Coordinator proposal sends no notice until Head approval commits the actual flag", async () => {
   await fixture();
   await expect(

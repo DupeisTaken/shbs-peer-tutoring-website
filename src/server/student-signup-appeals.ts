@@ -324,7 +324,7 @@ export async function deliverSignupNotices(
   return sent;
 }
 /** Existing staff resend authority applies only to an already-applied survey flag.
- * Retry shares its original receipt, without rotating any existing capability. */
+ * Credential recovery retains the same source/account and delivery receipt. */
 export async function retrySignupNotices(db: DomainDb, surveyId: string) {
   const result = await inTransaction(db, async (tx) => {
     const row = await lockedSource(tx, surveyId);
@@ -349,10 +349,11 @@ export async function retrySignupNotices(db: DomainDb, surveyId: string) {
       recipient.email === capability.recipientEmail &&
       recipient.accountId === capability.accountId &&
       recipient.sessionVersion !== capability.sessionVersion;
-    if (rotate) {
+    const rotateCapability = async () => {
+      if (!rotate || !capability || !recipient) return;
       const rebound = {
         ...capability,
-        sessionVersion: recipient!.sessionVersion,
+        sessionVersion: recipient.sessionVersion,
       };
       await tx.studentSignupNotice.update({
         where: { id: capability.id },
@@ -361,7 +362,7 @@ export async function retrySignupNotices(db: DomainDb, surveyId: string) {
           tokenHash: digest(noticeToken(rebound)),
         },
       });
-    }
+    };
     await lockEntity(tx, `request-notice:survey:${row.id}`);
     const receipt = await tx.emailDelivery.findUnique({
       where: {
@@ -383,6 +384,7 @@ export async function retrySignupNotices(db: DomainDb, surveyId: string) {
         recipient: row.email,
         submittedAt: row.submittedAt,
       });
+      await rotateCapability();
       return { queued: true, emailSent: false };
     }
     const updated = await tx.emailDelivery.updateMany({
@@ -408,6 +410,9 @@ export async function retrySignupNotices(db: DomainDb, surveyId: string) {
         lastError: null,
       },
     });
+    // Refused admission must preserve a currently captured URL. Rotate only
+    // after this transaction owns a corresponding queued transport attempt.
+    if (updated.count) await rotateCapability();
     return { queued: updated.count === 1, emailSent: false };
   });
   if (result.queued) {
@@ -438,8 +443,7 @@ export async function modernSignupAppealUrl(
   const row = await db.studentSurvey.findUnique({ where: { id: surveyId } });
   if (
     !notice?.tokenHash ||
-    !row ||
-    row.invalidityVersion !== version ||
+    row?.invalidityVersion !== version ||
     !row.invalidatedAt
   )
     return null;
