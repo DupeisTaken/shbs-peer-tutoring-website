@@ -1,4 +1,9 @@
 import { APPROVAL_OPERATIONS } from "./approval-policy";
+import {
+  NAME_ACCOUNT_TYPES,
+  nameFieldPolicies,
+  type NameAccountType,
+} from "./name-field-policy";
 
 export type ReviewRecord = Record<string, unknown>;
 export type ReviewField = {
@@ -24,6 +29,7 @@ export const reviewTechnicalFields = new Set([
   "expectedRevision",
   "expectedProfileVersion",
   "expectedVersion",
+  "expectedIds",
   "expectedPolicy",
   "expectedState",
   "expectedEnabled",
@@ -58,6 +64,7 @@ const targetKeys = new Set([
 const tableAliases: Record<string, string> = {
   Room: "rooms",
   SchoolCalendarDay: "calendar",
+  ProgramCalendarDay: "programCalendar",
   StudentSettings: "settings",
   HomeContent: "content",
   MessageOverride: "translation",
@@ -69,6 +76,9 @@ const tableAliases: Record<string, string> = {
 // Only operations that write record fields directly get an automatic field comparison.
 // A decision/action's input must never be mistaken for its resulting database state.
 const comparable = new Set([
+  "admin.reorderRooms",
+  "program.setNameFields",
+  "program.setCalendarDay",
   "admin.updateRoom",
   "admin.updateTutor",
   "admin.updateTutee",
@@ -164,6 +174,55 @@ export function approvalReview(
   const unchanged: ReviewField[] = [];
   for (const [key, requested] of Object.entries(input)) {
     if (reviewTechnicalFields.has(key) || requested === undefined) continue;
+    if (operation === "program.setNameFields" && key === "accountType") {
+      context.push({ key, value: requested });
+      continue;
+    }
+    if (operation === "program.setNameFields" && key === "states") {
+      const accountType = input.accountType;
+      const knownRole =
+        typeof accountType === "string" &&
+        NAME_ACCOUNT_TYPES.includes(accountType as NameAccountType);
+      // An absent settings row is the recorded default, not missing legacy evidence.
+      const captured = Object.hasOwn(evidence, "programSettings") || !!primary;
+      const before =
+        knownRole && captured
+          ? nameFieldPolicies(primary?.nameFields)[
+              accountType as NameAccountType
+            ]
+          : undefined;
+      const field = {
+        key,
+        requested,
+        before,
+        hasBefore: knownRole && captured,
+      };
+      (field.hasBefore && equal(before, requested) ? unchanged : changes).push(
+        field,
+      );
+      continue;
+    }
+    if (operation === "admin.reorderRooms" && key === "ids") {
+      const captured = Array.isArray(evidence.roomOrder)
+        ? evidence.roomOrder.map(record)
+        : null;
+      const recorded = captured?.every(
+        (room) => typeof room?.id === "string" && typeof room.name === "string",
+      );
+      const names = recorded
+        ? new Map(captured!.map((room) => [room!.id, room!.name]))
+        : null;
+      changes.push({
+        key: "roomOrder",
+        requested:
+          Array.isArray(requested) && names
+            ? requested.map((id: unknown) => names.get(id) ?? id)
+            : requested,
+        before: recorded ? captured!.map((room) => room!.name) : undefined,
+        hasBefore: !!recorded,
+      });
+      continue;
+    }
     // Academic confirmation derives its result from the current program year.
     // The legacy schoolYear input is ignored by the executor; the expected year
     // is review context, never a promised direct edit to AcademicProfile.

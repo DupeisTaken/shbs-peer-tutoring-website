@@ -9,6 +9,7 @@ import { NextIntlClientProvider } from "next-intl";
 import enMessages from "../../../messages/en.json";
 import zhMessages from "../../../messages/zh.json";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { DEFAULT_NAME_FIELDS } from "~/lib/name-field-policy";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { OfferedGradeSelect } from "~/app/_components/profile-policy";
 import { AcademicDetails } from "~/app/_components/academic-profile";
@@ -21,7 +22,13 @@ import { Button, ChoiceButton, Switch } from "~/app/_components/ui/button";
 import { Modal, useDialogPending } from "~/app/_components/ui/modal";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
-import { TableDetails } from "~/app/_components/ui/summary-table";
+import { useSessionViewState } from "~/app/_components/session-view-state";
+import { viewSearch } from "~/lib/session-view-state";
+import {
+  SummaryTable,
+  TableActions,
+  TableDetails,
+} from "~/app/_components/ui/summary-table";
 import {
   ChangeReview,
   FilterToolbar,
@@ -39,6 +46,8 @@ const en = {
   openReader: "Open policy reader",
   openTableReader: "Open long room schedule",
   tableReader: "Room schedule details",
+  roomColumn: "Room",
+  actionsColumn: "Actions",
   policy: "Example programme policy",
   policyBody:
     "## Attendance\n\nTell the programme team when your availability changes.\n\n## Records\n\nAttendance history remains available for review.",
@@ -68,7 +77,7 @@ const en = {
     "Public signup and history claim reuse PublicFormPage, PublicPageNavigation and PublicFormCard. Their route and consent requirements remain in each feature.",
   filters: "Filter toolbar",
   filtersHelp:
-    "Pressed choices filter records. Native search and selects keep their keyboard behavior; reset and counts belong to the feature.",
+    "Pressed choices filter records. Native search and selects keep their keyboard behavior. These explicit filters are remembered on temporary navigation in the signed-in browser session; form drafts are separate.",
   search: "Search rooms",
   all: "All rooms",
   active: "Active rooms",
@@ -126,6 +135,8 @@ const zh: Record<keyof typeof en, string> = {
   openReader: "打开政策阅读器",
   openTableReader: "打开长教室安排",
   tableReader: "教室安排详情",
+  roomColumn: "教室",
+  actionsColumn: "操作",
   policy: "示例项目政策",
   policyBody:
     "## 出勤\n\n可用时间发生变化时，请通知项目团队。\n\n## 记录\n\n出勤历史始终保留供查阅。",
@@ -154,7 +165,7 @@ const zh: Record<keyof typeof en, string> = {
     "公开报名与历史认领共用 PublicFormPage、PublicPageNavigation 和 PublicFormCard。路由及同意要求仍由各功能负责。",
   filters: "筛选工具栏",
   filtersHelp:
-    "按下的选项筛选记录。原生搜索与选择框保留键盘操作；重置和计数由功能负责。",
+    "按下的选项筛选记录，原生搜索与选择框保留键盘操作。登录后的浏览器会话会记住这些明确的筛选选项，便于临时离开后返回；表单草稿仍独立管理。",
   search: "搜索教室",
   all: "所有教室",
   active: "启用的教室",
@@ -350,8 +361,19 @@ export function RecipeGallery({
   });
   const [grade, setGrade] = useState("10");
   const [participantSaved, setParticipantSaved] = useState(false);
-  const [search, setSearch] = useState("");
-  const [activeOnly, setActiveOnly] = useState(false);
+  const [namePreview, setNamePreview] = useState<"default" | "optional" | "hidden">("default");
+  const [search, setSearch] = useSessionViewState({
+    id: "gallery-room-search-v1",
+    scope: locale,
+    initialState: "",
+    parse: viewSearch,
+  });
+  const [activeOnly, setActiveOnly] = useSessionViewState({
+    id: "gallery-room-active-v1",
+    scope: locale,
+    initialState: false,
+    parse: (value) => (typeof value === "boolean" ? value : undefined),
+  });
   const [reminders, setReminders] = useState(true);
   const [willingness, setWillingness] = useState<boolean | null>(null);
   const [displayNames, setDisplayNames] = useState(false);
@@ -393,6 +415,29 @@ export function RecipeGallery({
               label={t.openTableReader}
               title={t.tableReader}
             >
+              {/* Actual sticky actions exercise deep-scroll stacking beneath Close. */}
+              <SummaryTable label={t.tableReader}>
+                <thead>
+                  <tr>
+                    <th>{t.roomColumn}</th>
+                    <th className="table-actions-heading">{t.actionsColumn}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: 16 }, (_, index) => (
+                    <tr key={index}>
+                      <td>
+                        {t.quiet} {index + 1}
+                      </td>
+                      <TableActions>
+                        <TableDetails title={`${t.quiet} ${index + 1}`}>
+                          <p>{t.longHelp}</p>
+                        </TableDetails>
+                      </TableActions>
+                    </tr>
+                  ))}
+                </tbody>
+              </SummaryTable>
               {Array.from({ length: 24 }, (_, index) => (
                 <section
                   key={index}
@@ -436,7 +481,50 @@ export function RecipeGallery({
                 className="min-w-0 space-y-4"
               >
                 <div className="max-w-2xl">
+                  <label className="mb-4 block">
+                    <span className="label">
+                      {locale === "zh"
+                        ? "姓名要求示例"
+                        : "Name requirement example"}
+                    </span>
+                    <select
+                      className="input"
+                      value={namePreview}
+                      onChange={(event) =>
+                        setNamePreview(event.target.value as typeof namePreview)
+                      }
+                    >
+                      <option value="default">
+                        {locale === "zh" ? "默认字段" : "Default fields"}
+                      </option>
+                      <option value="optional">
+                        {locale === "zh" ? "全部选填" : "All optional"}
+                      </option>
+                      <option value="hidden">
+                        {locale === "zh"
+                          ? "隐藏名，姓必填"
+                          : "First name hidden, last name required"}
+                      </option>
+                    </select>
+                  </label>
                   <PersonNameFields
+                    states={
+                      namePreview === "default"
+                        ? DEFAULT_NAME_FIELDS
+                        : namePreview === "optional"
+                          ? {
+                              firstName: "optional",
+                              lastName: "optional",
+                              preferredName: "optional",
+                              alternativeNames: "optional",
+                            }
+                          : {
+                              firstName: "hidden",
+                              lastName: "required",
+                              preferredName: "hidden",
+                              alternativeNames: "optional",
+                            }
+                    }
                     value={name}
                     onChange={(value) => {
                       setName(value);

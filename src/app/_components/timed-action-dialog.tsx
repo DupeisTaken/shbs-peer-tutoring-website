@@ -11,6 +11,7 @@ export function TimedActionDialog({
   title,
   message,
   children,
+  footerActions,
   onConfirm,
   onCancel,
   busy = false,
@@ -23,6 +24,8 @@ export function TimedActionDialog({
   title: string;
   message: string;
   children?: React.ReactNode;
+  /** Feature-owned read/recovery actions beside the unchanged timed confirmation. */
+  footerActions?: React.ReactNode;
   onConfirm: (ticket: string) => void;
   onCancel: () => void;
   busy?: boolean;
@@ -116,7 +119,8 @@ export function TimedActionDialog({
           {error ?? prepare.error?.message}
         </p>
       )}
-      <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4">
+      <footer className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4">
+        {footerActions}
         <button
           type="button"
           className="btn-secondary"
@@ -145,7 +149,7 @@ export function TimedActionDialog({
                 ? t("wait", { seconds: remaining })
                 : t("confirm")}
         </button>
-      </div>
+      </footer>
     </dialog>
   );
 }

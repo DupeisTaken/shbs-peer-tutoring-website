@@ -1,6 +1,14 @@
 "use client";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
-import { nameDraft, personNameEdit } from "~/lib/person-name";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
+import {
+  ConfiguredPersonNameFields as PersonNameFields,
+  useNameFieldPresentation,
+} from "~/app/_components/person-name-fields";
+import {
+  nameDraft,
+  personNameEdit,
+  unsplitLegacyName,
+} from "~/lib/person-name";
 
 import { useEffect, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
@@ -52,6 +60,11 @@ export default function SettingsPage() {
   const deniedNow =
     profile.error?.data?.code === "FORBIDDEN" ||
     profile.error?.data?.code === "UNAUTHORIZED";
+  useSessionPageScroll({
+    id: "tutor-settings-v1",
+    ready: !!profile.data && !!me.data,
+    enabled: !profileDenied && !deniedNow,
+  });
   useEffect(() => {
     // One eviction per denial episode keeps recovery bounded if another owner
     // subscribes to this profile; only successful explicit recovery clears the latch.
@@ -100,6 +113,11 @@ export default function SettingsPage() {
 
   // Profile form — seeded from the loaded profile.
   const [names, setNames] = useState(() => nameDraft());
+  const {
+    ready: namePolicyReady,
+    hasFields: editableNames,
+    observe: observeNamePolicy,
+  } = useNameFieldPresentation();
   const [originalNames, setOriginalNames] = useState(() => nameDraft());
   const [legacyName, setLegacyName] = useState<string | null | undefined>();
   const identity = personNameEdit(names, originalNames, legacyName);
@@ -115,7 +133,7 @@ export default function SettingsPage() {
     ) {
       setNames(nameDraft(profile.data));
       setOriginalNames(nameDraft(profile.data));
-      setLegacyName(profile.data?.legacyName ?? profile.data?.englishName);
+      setLegacyName(unsplitLegacyName(profile.data));
       setProfileVersion(profile.data.profileVersion);
     }
   }, [profile.data, profileDirty, profileCommitted, profileReloading]);
@@ -130,7 +148,7 @@ export default function SettingsPage() {
   function adoptProfile(snapshot: RouterOutputs["tutor"]["myProfile"]) {
     setNames(nameDraft(snapshot));
     setOriginalNames(nameDraft(snapshot));
-    setLegacyName(snapshot.legacyName ?? snapshot.englishName);
+    setLegacyName(unsplitLegacyName(snapshot));
     setProfileVersion(snapshot.profileVersion);
     setProfileDirty(false);
   }
@@ -320,7 +338,8 @@ export default function SettingsPage() {
                 if (
                   profileBlocked ||
                   profileAdmission.current ||
-                  (!identity.preserved && !names.firstName.trim())
+                  !namePolicyReady ||
+                  !editableNames
                 )
                   return;
                 profileAdmission.current = true;
@@ -335,37 +354,40 @@ export default function SettingsPage() {
                 busy={updateProfile.isPending || profileReloading}
                 disabled={profileBlocked}
                 actions={
-                  <>
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      disabled={!identity.preserved && !names.firstName.trim()}
-                    >
-                      {t(
-                        updateProfile.isPending
-                          ? "tutor.settings.saving"
-                          : "tutor.settings.save",
-                      )}
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        if (
-                          profileBlocked ||
-                          profileAdmission.current ||
-                          !profile.data
-                        )
-                          return;
-                        // Cancel explicitly discards this section only; sibling forms keep their drafts.
-                        adoptProfile(profile.data);
-                        updateProfile.reset();
-                      }}
-                    >
-                      {t("uiPatterns.cancel")}
-                    </Button>
-                  </>
+                  editableNames ? (
+                    <>
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        disabled={profileBlocked || !namePolicyReady}
+                      >
+                        {t(
+                          updateProfile.isPending
+                            ? "tutor.settings.saving"
+                            : "tutor.settings.save",
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          if (
+                            profileBlocked ||
+                            profileAdmission.current ||
+                            !profile.data
+                          )
+                            return;
+                          // Cancel explicitly discards this section only; sibling forms keep their drafts.
+                          adoptProfile(profile.data);
+                          updateProfile.reset();
+                        }}
+                      >
+                        {t("uiPatterns.cancel")}
+                      </Button>
+                    </>
+                  ) : undefined
                 }
               >
                 <PersonNameFields
+                  onPolicyAvailabilityChange={observeNamePolicy}
                   value={names}
                   legacyName={legacyName}
                   originalValue={originalNames}

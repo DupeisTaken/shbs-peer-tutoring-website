@@ -1,4 +1,13 @@
 "use client";
+import {
+  useSessionViewState,
+  useSessionPageScroll,
+} from "~/app/_components/session-view-state";
+import { viewMonth } from "~/lib/management-view-state";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -20,9 +29,14 @@ import { ServiceHoursComparison } from "~/app/_components/service-hours-comparis
 export default function SummaryPage() {
   const t = useTranslations();
   // Empty → the active period's current semester; a month ("YYYY-MM") narrows to that month.
-  const [month, setMonth] = useState("");
   const queryClient = useQueryClient();
   const [denied, setDenied] = useState(false);
+  const [month, setMonth] = useSessionViewState({
+    id: "service-hours-month-v1",
+    initialState: "",
+    parse: viewMonth,
+    enabled: !denied,
+  });
   const summary = api.admin.periodSummary.useQuery(
     month ? { month } : undefined,
     { enabled: !denied },
@@ -42,6 +56,12 @@ export default function SummaryPage() {
   const hidden = denied || accessDenied;
   const section = t("admin.summary.title");
   const scope = hidden ? undefined : summary.data?.scope.label;
+  useSessionPageScroll({
+    id: "service-hours-v1",
+    scope: month || (scope ?? ""),
+    ready: summary.data !== undefined && !hidden,
+    enabled: !hidden,
+  });
 
   return (
     <div className="space-y-6">
@@ -132,7 +152,7 @@ export default function SummaryPage() {
                   className={r.active ? "" : "text-slate-400"}
                 >
                   <td>
-                    {r.englishName}
+                    <ParticipantName name={r.englishName} />
                     {!r.active && ` ${t("admin.summary.inactive")}`}
                   </td>
                   <td className="text-right">{r.sessions}</td>
@@ -140,7 +160,13 @@ export default function SummaryPage() {
                     {r.total.toFixed(1)}
                   </td>
                   <TableActions>
-                    <TableDetails title={r.englishName}>
+                    <TableDetails
+                      title={participantNameLabel(
+                        r.englishName,
+                        undefined,
+                        t("participantNames.unnamed"),
+                      )}
+                    >
                       <dl className="grid grid-cols-2 gap-3">
                         <dt>{t("admin.summary.columns.sessions")}</dt>
                         <dd>{r.sessions}</dd>

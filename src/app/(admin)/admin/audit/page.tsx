@@ -1,13 +1,18 @@
 "use client";
 
-import { useFormatter, useTranslations } from "next-intl";
-import { Suspense, useState } from "react";
+import { useFormatter, useTranslations, useTimeZone } from "next-intl";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   AuditFilters,
   type AuditFilterInput,
+  emptyAuditView,
+  type AuditView,
 } from "~/app/_components/audit-filters";
+import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
+import { viewEnum, viewFields, viewSearch } from "~/lib/session-view-state";
+import { programDayStart, programDayEnd } from "~/lib/program-time";
 
 import { InlineNotice } from "~/app/_components/ui/patterns";
 import { api } from "~/trpc/react";
@@ -31,19 +36,49 @@ function AuditLog() {
   const utils = api.useUtils();
   const params = useSearchParams();
   const approvalId = params.get("approval") ?? undefined;
-  const [filters, setFilters] = useState<AuditFilterInput>({});
+  const timeZone = useTimeZone() ?? "Asia/Shanghai";
+  const dateChoice = (value: unknown) => {
+    if (typeof value !== "string") return;
+    if (!value) return value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return;
+    try { programDayStart(value, timeZone); return value; } catch { return; }
+  };
+  const options = api.admin.auditFilterOptions.useQuery();
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [view, setView] = useSessionViewState<AuditView>({
+    id: "audit.filters.v1", initialState: emptyAuditView, enabled: !accessDenied,
+    scope: JSON.stringify([approvalId ?? "all", timeZone]), restoreReady: !!options.data,
+    parse: viewFields<AuditView>({
+      userId: viewEnum(["", "__system__", ...(options.data?.users ?? []).map((user) => user.id)]),
+      kind: viewEnum(["", "ACTION", "DECISION", "SUBMISSION", "CANCELLATION"]),
+      operation: viewEnum(["", ...(options.data?.operations ?? [])]),
+      entity: viewEnum(["", ...(options.data?.entities ?? [])]), search: viewSearch,
+      from: dateChoice, until: dateChoice,
+    }),
+  });
+  // Store date control values, then rebuild the existing timezone-aware read DTO.
+  const filters: AuditFilterInput = {
+    userId: view.userId || undefined, kind: (view.kind || undefined) as "ACTION" | "DECISION" | "SUBMISSION" | "CANCELLATION" | undefined,
+    operation: view.operation || undefined, entity: view.entity || undefined, search: view.search || undefined,
+    from: view.from ? programDayStart(view.from, timeZone) : undefined,
+    until: view.until ? new Date(programDayEnd(view.until, timeZone).getTime() + 1) : undefined,
+  };
   const [cursors, setCursors] = useState<string[]>([]);
   const log = api.admin.auditLog.useQuery({
     ...filters,
     approvalId,
     cursor: cursors.at(-1),
   });
+  const denied = useSessionAccessDenied(log, options);
+  useEffect(() => setAccessDenied(denied), [denied]);
+  useSessionPageScroll({ id: "audit", scope: JSON.stringify([approvalId ?? "all", timeZone, view]), ready: !!log.data && !!options.data, enabled: !denied });
   const undo = api.admin.undoAudit.useMutation({
     onSuccess: () => utils.admin.auditLog.invalidate(),
   });
 
-  const entries = log.data ?? [];
+  const entries = denied ? [] : (log.data ?? []);
 
+  if (denied) return <p role="alert">{log.error?.message ?? options.error?.message ?? t("uiPatterns.loadFailed")}</p>;
   return (
     <div className="space-y-6">
       <div>
@@ -52,8 +87,9 @@ function AuditLog() {
         <p className="muted mt-2 text-sm">{t("approvals.reversalHelp")}</p>
       </div>
       <AuditFilters
-        onApply={(input) => {
-          setFilters(input);
+        appliedView={view}
+        onApply={(_input, nextView) => {
+          setView(nextView);
           setCursors([]);
         }}
       />

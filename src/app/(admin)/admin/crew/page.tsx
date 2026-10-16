@@ -1,4 +1,14 @@
 "use client";
+import {
+  useSessionViewState,
+  useSessionPageScroll,
+} from "~/app/_components/session-view-state";
+import {
+  CREW_PANELS,
+  crewPanelParser,
+  type CrewPanel,
+} from "~/lib/management-view-state";
+import { participantNameLabel } from "~/app/_components/participant-name";
 import { EmailDetails } from "~/app/_components/email-details";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -13,7 +23,10 @@ import { api } from "~/trpc/react";
 import { AcademicError } from "~/app/_components/academic-error";
 import { useReadOnly } from "~/app/_components/read-only";
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
-import { PatrolCorrections } from "~/app/_components/patrol-corrections";
+import {
+  PatrolCorrections,
+  type PatrolViewReadState,
+} from "~/app/_components/patrol-corrections";
 import {
   useActionReview,
   type ReviewedAction,
@@ -36,6 +49,8 @@ import {
 export default function CrewPage() {
   const programFormat = useFormatter();
   const t = useTranslations();
+  const nameFor = (name: string | null | undefined, username?: string | null) =>
+    participantNameLabel(name, username, t("participantNames.unnamed"));
   const readOnly = useReadOnly();
   const review = useActionReview();
   const utils = api.useUtils();
@@ -217,7 +232,50 @@ export default function CrewPage() {
     decideApp.isPending ||
     decideReq.isPending;
 
-  const [panel, setPanel] = useState<"review" | "roster" | "patrol">("review");
+  // Partial denial drops a remembered panel, while an explicit visit still
+  // reaches its read-only recovery. Patrol/review drafts remain mounted.
+  const [patrolRead, setPatrolRead] = useState<PatrolViewReadState>({
+    ready: false,
+    denied: false,
+    page: 0,
+  });
+  const availablePanels = CREW_PANELS.filter((panel) =>
+    panel === "review"
+      ? ["applications", "requests", "codes"].some(
+          (scope) => !hidden(scope as Scope),
+        )
+      : !hidden(panel === "roster" ? "roster" : "order") &&
+        (panel !== "patrol" || !patrolRead.denied),
+  );
+  const [rememberedPanel, setRememberedPanel] = useSessionViewState<CrewPanel>({
+    id: "crew-panel-v1",
+    initialState: availablePanels[0] ?? "review",
+    parse: crewPanelParser(availablePanels),
+    enabled: availablePanels.length > 0,
+  });
+  const [recoveryPanel, setRecoveryPanel] = useState<CrewPanel | null>(null);
+  const panel = recoveryPanel ?? rememberedPanel;
+  const setPanel = (next: CrewPanel) => {
+    if (availablePanels.includes(next)) {
+      setRecoveryPanel(null);
+      setRememberedPanel(next);
+    } else setRecoveryPanel(next);
+  };
+  const panelScopes: Scope[] =
+    panel === "review"
+      ? ["applications", "requests", "codes"]
+      : [panel === "roster" ? "roster" : "order"];
+  const panelReady = panelScopes.every(
+    (scope) => hidden(scope) || sources[scope].query.data !== undefined,
+  );
+  const panelAllowed = panelScopes.some((scope) => !hidden(scope));
+  useSessionPageScroll({
+    id: "crew-v1",
+    scope: panel === "patrol" ? `${panel}:${patrolRead.page}` : panel,
+    ready:
+      panelReady && panelAllowed && (panel !== "patrol" || patrolRead.ready),
+    enabled: panelAllowed && (panel !== "patrol" || !patrolRead.denied),
+  });
   return (
     <div className="space-y-8">
       <div>
@@ -242,7 +300,7 @@ export default function CrewPage() {
         }))}
       >
         <div hidden={panel !== "patrol"}>
-          <PatrolCorrections />
+          <PatrolCorrections onViewReadState={setPatrolRead} />
         </div>
         <div hidden={panel !== "review"} className="space-y-8">
           {/* Crew applications */}
@@ -267,7 +325,9 @@ export default function CrewPage() {
                     key={a.id}
                     className="flex flex-wrap items-center gap-3 py-3 text-sm"
                   >
-                    <span className="font-medium text-slate-800">{a.name}</span>
+                    <span className="font-medium text-slate-800">
+                      {nameFor(a.name)}
+                    </span>
                     {a.gradeLevel != null && (
                       <span className="badge-slate">G{a.gradeLevel}</span>
                     )}
@@ -276,10 +336,14 @@ export default function CrewPage() {
                         {a.preferredContact}
                       </span>
                     )}
-                    <EmailDetails contactOnly email={a.email} name={a.name} />
+                    <EmailDetails
+                      contactOnly
+                      email={a.email}
+                      name={nameFor(a.name)}
+                    />
                     {a.message && (
                       <TableDetails
-                        title={`${t("admin.crew.originalApplication")} · ${a.name}`}
+                        title={`${t("admin.crew.originalApplication")} · ${nameFor(a.name)}`}
                         longReader
                       >
                         <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
@@ -306,7 +370,10 @@ export default function CrewPage() {
                             onClick={() =>
                               openReview("applications", {
                                 key: a.id + ":application",
-                                title: t("admin.crew.accept") + " · " + a.name,
+                                title:
+                                  t("admin.crew.accept") +
+                                  " · " +
+                                  nameFor(a.name),
                                 description: t(
                                   "actionReview.crewApplicationHelp",
                                 ),
@@ -346,7 +413,10 @@ export default function CrewPage() {
                             onClick={() =>
                               openReview("applications", {
                                 key: a.id + ":application",
-                                title: t("admin.crew.reject") + " · " + a.name,
+                                title:
+                                  t("admin.crew.reject") +
+                                  " · " +
+                                  nameFor(a.name),
                                 description: t(
                                   "actionReview.crewApplicationHelp",
                                 ),
@@ -444,7 +514,12 @@ export default function CrewPage() {
                     className="flex flex-wrap items-center gap-3 py-3 text-sm"
                   >
                     <span className="font-medium text-slate-800">
-                      {r.member}
+                      {nameFor(
+                        r.canonicalName === undefined
+                          ? r.member
+                          : r.canonicalName,
+                        r.username,
+                      )}
                     </span>
                     <span
                       className={
@@ -455,7 +530,7 @@ export default function CrewPage() {
                     </span>
                     {r.reason && (
                       <TableDetails
-                        title={`${t("admin.crew.originalRequest")} · ${r.member}`}
+                        title={`${t("admin.crew.originalRequest")} · ${nameFor(r.canonicalName === undefined ? r.member : r.canonicalName, r.username)}`}
                         longReader
                       >
                         <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
@@ -490,7 +565,15 @@ export default function CrewPage() {
                           onClick={() =>
                             openReview("requests", {
                               key: r.id + ":request",
-                              title: t("admin.crew.approve") + " · " + r.member,
+                              title:
+                                t("admin.crew.approve") +
+                                " · " +
+                                nameFor(
+                                  r.canonicalName === undefined
+                                    ? r.member
+                                    : r.canonicalName,
+                                  r.username,
+                                ),
                               description: t("actionReview.crewRequestHelp"),
                               details: (
                                 <div className="space-y-2">
@@ -529,7 +612,15 @@ export default function CrewPage() {
                           onClick={() =>
                             openReview("requests", {
                               key: r.id + ":request",
-                              title: t("admin.crew.deny") + " · " + r.member,
+                              title:
+                                t("admin.crew.deny") +
+                                " · " +
+                                nameFor(
+                                  r.canonicalName === undefined
+                                    ? r.member
+                                    : r.canonicalName,
+                                  r.username,
+                                ),
                               description: t("actionReview.crewRequestHelp"),
                               details: (
                                 <div className="space-y-2">
@@ -684,7 +775,12 @@ export default function CrewPage() {
                     >
                       <td>
                         <span className="font-medium text-slate-800">
-                          {u.name}
+                          {nameFor(
+                            u.canonicalName === undefined
+                              ? u.name
+                              : u.canonicalName,
+                            u.username,
+                          )}
                         </span>
                       </td>
                       <td>
@@ -705,7 +801,14 @@ export default function CrewPage() {
                       <td className="text-right">{u.hours.toFixed(1)} h</td>
                       <TableActions>
                         {/* Membership context and status changes share the trailing text-link entry point. */}
-                        <TableDetails title={u.name}>
+                        <TableDetails
+                          title={nameFor(
+                            u.canonicalName === undefined
+                              ? u.name
+                              : u.canonicalName,
+                            u.username,
+                          )}
+                        >
                           <p>
                             {t(
                               u.tutor
@@ -747,7 +850,12 @@ export default function CrewPage() {
                                   openReview("roster", {
                                     key: u.id + ":membership",
                                     title: t("actionReview.crewEnableTitle", {
-                                      name: u.name,
+                                      name: nameFor(
+                                        u.canonicalName === undefined
+                                          ? u.name
+                                          : u.canonicalName,
+                                        u.username,
+                                      ),
                                     }),
                                     description: t(
                                       "actionReview.crewEnableHelp",
@@ -781,7 +889,12 @@ export default function CrewPage() {
                                   openReview("roster", {
                                     key: u.id + ":membership",
                                     title: t("actionReview.crewDisableTitle", {
-                                      name: u.name,
+                                      name: nameFor(
+                                        u.canonicalName === undefined
+                                          ? u.name
+                                          : u.canonicalName,
+                                        u.username,
+                                      ),
                                     }),
                                     description: t(
                                       "actionReview.crewDisableHelp",
@@ -816,7 +929,12 @@ export default function CrewPage() {
                                   openReview("roster", {
                                     key: u.id + ":delete",
                                     title: t("admin.crew.deleteConfirm", {
-                                      name: u.name,
+                                      name: nameFor(
+                                        u.canonicalName === undefined
+                                          ? u.name
+                                          : u.canonicalName,
+                                        u.username,
+                                      ),
                                     }),
                                     description: t(
                                       "actionReview.crewDeleteHelp",

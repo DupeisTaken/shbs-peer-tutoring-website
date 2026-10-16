@@ -11,6 +11,7 @@ import { NativeDisclosureIcon } from "~/app/_components/icons";
 import { Button } from "~/app/_components/ui/button";
 import { StatePanel } from "~/app/_components/ui/patterns";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
+import { ParticipantName } from "~/app/_components/participant-name";
 
 /**
  * Punishment history for the tutor's own tutees: each tutee's discipline meter plus a card
@@ -68,7 +69,7 @@ export function TutorDiscipline() {
   const dot = (color: "YELLOW" | "RED") => (color === "RED" ? "🟥" : "🟨");
 
   return (
-    <section className="card p-5">
+    <section className="card p-4 sm:p-5">
       <h2 className="section-title">{t("tutor.discipline.title")}</h2>
       <p className="muted mt-1 mb-3 text-sm">{t("tutor.discipline.help")}</p>
       <QueryFeedback
@@ -89,7 +90,7 @@ export function TutorDiscipline() {
             <summary className="flex min-h-11 cursor-pointer flex-wrap items-center gap-3 lg:min-h-8 [&::-webkit-details-marker]:hidden">
               <NativeDisclosureIcon />
               <span className="group-open:text-accent-700 min-w-0 basis-40 font-medium [overflow-wrap:anywhere] text-slate-800">
-                {d.englishName}
+                <ParticipantName name={d.englishName} username={d.username} />
               </span>
               <DisciplineSlots
                 validRed={d.validRed}

@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({
   settings: vi.fn(),
   role: "HEAD",
   feedbackError: null as Error | null,
+  feedbackBody: "",
   saveError: null as { message: string; data?: { approvalId?: string } } | null,
   decideError: null as {
     message: string;
@@ -35,7 +36,21 @@ vi.mock("~/trpc/react", () => ({
     student: {
       feedbackSettings: { useQuery: state.settings },
       feedbackList: {
-        useQuery: () => ({ data: [], error: state.feedbackError }),
+        useQuery: () => ({
+          data: state.feedbackBody
+            ? [
+                {
+                  id: "review",
+                  studentName: "Recorded learner",
+                  subject: "Math",
+                  rating: 5,
+                  body: state.feedbackBody,
+                  updatedAt: new Date("2026-10-01T00:00:00Z"),
+                },
+              ]
+            : [],
+          error: state.feedbackError,
+        }),
       },
       appeals: { useQuery: state.appealsUseQuery },
       setFeedbackSettings: {
@@ -84,14 +99,79 @@ vi.mock("./student-portal", () => ({
 }));
 
 import { StudentSupport } from "./student-support";
+import { SessionViewProvider } from "./session-view-state";
+import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 
 beforeEach(() => {
+  window.sessionStorage.clear();
   state.role = "HEAD";
   state.feedbackError = null;
+  state.feedbackBody = "";
   state.saveError = null;
   state.decideError = null;
   state.settings.mockReturnValue({ data: false, isSuccess: true });
   state.appealsUseQuery.mockReturnValue({ data: { rows: [], total: 0 } });
+});
+it("clears a denied feed page and conceals cached private feedback instead of restoring it", () => {
+  state.feedbackBody = "Sensitive review body";
+  const key = viewStateKey(
+    "head",
+    "/admin/student-support",
+    "support-feedback-page-v1",
+    "",
+  );
+  writeViewState(window.sessionStorage, key, 2);
+  const content = () => (
+    <SessionViewProvider
+      identity="head"
+      pathname="/admin/student-support"
+      verified
+    >
+      <StudentSupport />
+    </SessionViewProvider>
+  );
+  const rendered = render(content());
+  expect(screen.getByText("Sensitive review body")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "next-2" })).toBeTruthy();
+  state.feedbackError = Object.assign(new Error("Denied"), {
+    data: { code: "FORBIDDEN" },
+  });
+  rendered.rerender(content());
+  expect(screen.queryByText("Sensitive review body")).toBeNull();
+  expect(window.sessionStorage.getItem(key)).toBeNull();
+  expect(screen.getByRole("button", { name: "next-0" })).toBeTruthy();
+});
+it("drops staff-only panel/filter choices when authoritative account role loses staff access", () => {
+  const panelKey = viewStateKey(
+    "same-account",
+    "/student-support",
+    "support-panel-v1",
+    "",
+  );
+  writeViewState(window.sessionStorage, panelKey, "appeals");
+  const content = () => (
+    <SessionViewProvider
+      identity="same-account"
+      pathname="/student-support"
+      verified
+    >
+      <StudentSupport />
+    </SessionViewProvider>
+  );
+  const rendered = render(content());
+  expect(
+    screen
+      .getByRole("tab", { name: "staffAppeals" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  state.role = "TUTOR";
+  rendered.rerender(content());
+  expect(screen.queryByRole("tablist")).toBeNull();
+  expect(window.sessionStorage.getItem(panelKey)).toBeNull();
+  expect(state.appealsUseQuery).toHaveBeenLastCalledWith(
+    { page: 0, state: "PENDING" },
+    { enabled: false },
+  );
 });
 afterEach(() => {
   cleanup();

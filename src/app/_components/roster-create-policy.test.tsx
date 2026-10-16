@@ -10,7 +10,7 @@ const mock = vi.hoisted(() => ({
   mutate: vi.fn(),
   error: undefined as undefined | { message: string },
 }));
-vi.mock("~/trpc/react", () => {
+vi.mock("~/trpc/react", async () => {
   const rows = { useQuery: () => ({ data: [] }) };
   const create = {
     useMutation: () => ({
@@ -34,6 +34,9 @@ vi.mock("~/trpc/react", () => {
         },
       },
       program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
         profilePolicy: {
           useQuery: () => ({
             data: {
@@ -127,7 +130,7 @@ it.each([
       );
       fireEvent.change(
         screen.getByLabelText(
-          messages.personName.lastName + " " + messages.signupFields.required,
+          messages.personName.lastName + " " + messages.signupFields.optional,
         ),
         { target: { value: "Name" } },
       );
@@ -138,6 +141,7 @@ it.each([
           name: messages.admin.tutees.addTutee,
         }),
       );
+
       acknowledgeCreation();
       fireEvent.change(
         screen.getByLabelText(

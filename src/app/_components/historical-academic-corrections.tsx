@@ -17,6 +17,8 @@ import { HistoricalCorrectionReview } from "./historical-correction-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { InlineNotice } from "./ui/patterns";
+import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "./session-view-state";
+import { viewEnum, viewPage, viewSearch } from "~/lib/session-view-state";
 
 type AcademicRow =
   RouterOutputs["historicalAcademics"]["list"]["records"][number];
@@ -34,10 +36,15 @@ export function HistoricalAcademicCorrections({
 }) {
   const t = useTranslations("historicalAcademics");
   const utils = api.useUtils();
-  const [kind, setKind] = useState<"TUTEE" | "TUTOR">("TUTEE");
+  const [accessDenied, setAccessDenied] = useState(false);
+  const scope = initialSearch ? `participant:${initialSearch}` : "all";
+  const [kind, setKind] = useSessionViewState({ id: "academic-corrections.kind.v1", initialState: "TUTEE", parse: viewEnum(["TUTEE", "TUTOR"]), scope, enabled: !accessDenied });
   const [search, setSearch] = useState(initialSearch);
-  const [submittedSearch, setSubmittedSearch] = useState(initialSearch);
-  const [page, setPage] = useState(0);
+  const [rememberedSearch, setSubmittedSearch] = useSessionViewState({ id: "academic-corrections.search.v1", initialState: initialSearch, parse: viewSearch, scope, enabled: !accessDenied && !initialSearch });
+  // An explicit participant link wins over a previously applied list search.
+  const submittedSearch = initialSearch || rememberedSearch;
+  useEffect(() => setSearch(submittedSearch), [submittedSearch]);
+  const [page, setPage] = useSessionViewState({ id: "academic-corrections.page.v1", initialState: 0, parse: viewPage, scope, enabled: !accessDenied });
   const [drafts, setDrafts] = useState<
     Record<string, { row: HistoricalCorrectionRow; record: AcademicRow }>
   >({});
@@ -69,6 +76,9 @@ export function HistoricalAcademicCorrections({
     search: submittedSearch,
     page,
   });
+  const denied = useSessionAccessDenied(list);
+  useEffect(() => setAccessDenied(denied), [denied]);
+  useSessionPageScroll({ id: "academic-corrections", scope: JSON.stringify([scope, kind, submittedSearch, page]), ready: !!list.data, enabled: !denied });
   const preview = api.historicalAcademics.preview.useMutation();
   const save = api.historicalAcademics.correctBatch.useMutation();
   const busy =
@@ -266,6 +276,7 @@ export function HistoricalAcademicCorrections({
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  if (denied) return <p role="alert">{list.error?.message ?? t("failed")}</p>;
   return (
     <div className="max-w-6xl space-y-6">
       <header>

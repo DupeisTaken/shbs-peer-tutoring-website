@@ -1,4 +1,7 @@
-import { parsePersonNames } from "~/server/program/profile-policy";
+import {
+  configuredNewNames,
+  ensureNameFallbackForRole,
+} from "~/server/program/name-fields";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import {
   applyAcademicIntake,
@@ -350,7 +353,8 @@ export async function resolveUsableCode(
   // interview lock so a flag applied after this response cannot grant access.
   if (row.applicationId) {
     const application = await db.tutorApplication.findUnique({
-      where: { id: row.applicationId }, select: { invalidatedAt: true },
+      where: { id: row.applicationId },
+      select: { invalidatedAt: true },
     });
     if (!application || application.invalidatedAt)
       return { ok: false, error: "not-found" };
@@ -373,16 +377,16 @@ export async function bumpCodeAttempt(id: string): Promise<void> {
  */
 export async function codePrefill(row: CodeRow, client: DomainDb = db) {
   // Only explicit name parts prefill the four-field editor; old full names remain visible context.
-  const source = row.tutorId
-    ? await client.tutor.findUnique({ where: { id: row.tutorId } })
-    : row.applicationId
-      ? await client.tutorApplication.findUnique({
-          where: { id: row.applicationId },
+  const source = row.applicationId
+    ? await client.tutorApplication.findUnique({
+        where: { id: row.applicationId },
+      })
+    : row.crewApplicationId
+      ? await client.crewApplication.findUnique({
+          where: { id: row.crewApplicationId },
         })
-      : row.crewApplicationId
-        ? await client.crewApplication.findUnique({
-            where: { id: row.crewApplicationId },
-          })
+      : row.tutorId
+        ? await client.tutor.findUnique({ where: { id: row.tutorId } })
         : null;
   return {
     boundEmail: row.email?.toLowerCase() ?? null,
@@ -392,7 +396,7 @@ export async function codePrefill(row: CodeRow, client: DomainDb = db) {
     alternativeNames: source?.alternativeNames ?? "",
     legacyName: source
       ? "englishName" in source
-        ? source.englishName
+        ? (source.legacyName ?? source.englishName)
         : source.name
       : null,
     gradeLevel: source && "gradeLevel" in source ? source.gradeLevel : null,
@@ -413,39 +417,45 @@ export async function setEmailVerification(
 ): Promise<
   { ok: true; emailCode: string } | { ok: false; error: "email-mismatch" }
 > {
-  return inTransaction(client, async (tx): ReturnType<typeof setEmailVerification> => {
-    await lockUsernameNamespace(tx);
-    await assertTutorRegistrationSource(tx, row);
-    const normalized = email.trim().toLowerCase();
-    if (row.email && row.email.toLowerCase() !== normalized) {
-      return { ok: false, error: "email-mismatch" };
-    }
-    let emailCode = generateRegistrationCode();
-    // A staff-visible authorization key must never double as mailbox proof. Resends
-    // also choose a different secret so the preceding challenge cannot remain valid.
-    while (emailCode === row.code || hashCode(emailCode) === row.emailCodeHash)
-      emailCode = generateRegistrationCode();
-    const changed = await tx.registrationCode.updateMany({
-      where: {
-        id: row.id,
-        usedAt: null,
-        expiresAt: { gt: new Date() },
-        pendingEmail: row.pendingEmail,
-        emailCodeHash: row.emailCodeHash,
-      },
-      data: {
-        pendingEmail: normalized,
-        emailCodeHash: hashCode(emailCode),
-        emailCodeExpiresAt: new Date(
-          Date.now() + EMAIL_CODE_TTL_MINUTES * 60 * 1000,
-        ),
-        emailCodeAttempts: 0,
-        emailVerifiedAt: null,
-      },
-    });
-    if (changed.count !== 1) return { ok: false, error: "email-mismatch" };
-    return { ok: true, emailCode };
-  });
+  return inTransaction(
+    client,
+    async (tx): ReturnType<typeof setEmailVerification> => {
+      await lockUsernameNamespace(tx);
+      await assertTutorRegistrationSource(tx, row);
+      const normalized = email.trim().toLowerCase();
+      if (row.email && row.email.toLowerCase() !== normalized) {
+        return { ok: false, error: "email-mismatch" };
+      }
+      let emailCode = generateRegistrationCode();
+      // A staff-visible authorization key must never double as mailbox proof. Resends
+      // also choose a different secret so the preceding challenge cannot remain valid.
+      while (
+        emailCode === row.code ||
+        hashCode(emailCode) === row.emailCodeHash
+      )
+        emailCode = generateRegistrationCode();
+      const changed = await tx.registrationCode.updateMany({
+        where: {
+          id: row.id,
+          usedAt: null,
+          expiresAt: { gt: new Date() },
+          pendingEmail: row.pendingEmail,
+          emailCodeHash: row.emailCodeHash,
+        },
+        data: {
+          pendingEmail: normalized,
+          emailCodeHash: hashCode(emailCode),
+          emailCodeExpiresAt: new Date(
+            Date.now() + EMAIL_CODE_TTL_MINUTES * 60 * 1000,
+          ),
+          emailCodeAttempts: 0,
+          emailVerifiedAt: null,
+        },
+      });
+      if (changed.count !== 1) return { ok: false, error: "email-mismatch" };
+      return { ok: true, emailCode };
+    },
+  );
 }
 
 /** Verify the emailed five-character code; on success stamp emailVerifiedAt on the code row. */
@@ -531,6 +541,16 @@ export async function completeRegistration(
   row: CodeRow,
   input: CompleteRegistrationInput,
   client: DomainDb = db,
+): ReturnType<typeof completeRegistrationLocked> {
+  return inTransaction(client, async (tx) => {
+    await lockUsernameNamespace(tx);
+    return completeRegistrationLocked(row, input, tx);
+  });
+}
+async function completeRegistrationLocked(
+  row: CodeRow,
+  input: CompleteRegistrationInput,
+  client: DomainDb = db,
 ): Promise<
   | { ok: true; username: string; academicConfirmationRequired?: boolean }
   | { ok: false; error: "email-unverified" | "email-taken" }
@@ -571,24 +591,65 @@ export async function completeRegistration(
       input.authenticatedUserId !== owner.id)
   )
     return { ok: false, error: "email-taken" };
-  if (owner?.name?.trim())
+  const acceptedSource =
+    !owner && (row.applicationId || row.crewApplicationId || row.tutorId)
+      ? row.applicationId
+        ? await client.tutorApplication.findUniqueOrThrow({
+            where: { id: row.applicationId },
+          })
+        : row.crewApplicationId
+          ? await client.crewApplication.findUniqueOrThrow({
+              where: { id: row.crewApplicationId },
+            })
+          : await client.tutor.findUniqueOrThrow({
+              where: { id: row.tutorId! },
+            })
+      : null;
+  // Redemption consumes the accepted source identity, never a posted replacement.
+  // In particular, newly hidden form fields must not erase already accepted values.
+  const preservedIdentity = owner ?? acceptedSource;
+  if (preservedIdentity)
     input = {
       ...input,
-      firstName: owner.firstName ?? "",
-      lastName: owner.lastName ?? "",
-      preferredName: owner.preferredName,
-      alternativeNames: owner.alternativeNames,
+      firstName: preservedIdentity.firstName ?? "",
+      lastName: preservedIdentity.lastName ?? "",
+      preferredName: preservedIdentity.preferredName,
+      alternativeNames: preservedIdentity.alternativeNames,
     };
-  if (!owner?.name?.trim()) parsePersonNames(input);
+  if (!owner) {
+    // Accepted roster/application identity is grandfathered through redemption. A fresh
+    // staff invitation is new intake and obeys its own invited account type's current policy.
+    if (!acceptedSource)
+      input = {
+        ...input,
+        ...(await configuredNewNames(client, input, row.kind)),
+      };
+    // Stored source was validated when submitted. Tightening is applied only to
+    // subsequent profile edits, with source spelling and legacy nulls retained.
+  }
+  const sourceIdentity = acceptedSource
+    ? {
+        firstName: acceptedSource.firstName,
+        lastName: acceptedSource.lastName,
+        preferredName: acceptedSource.preferredName,
+        alternativeNames: acceptedSource.alternativeNames,
+        legacyName:
+          "legacyName" in acceptedSource
+            ? acceptedSource.legacyName
+            : acceptedSource.name,
+      }
+    : null;
   const preferredName = input.preferredName?.trim()
     ? input.preferredName.trim()
     : null;
   const email = owner?.email ?? (row.email ?? row.pendingEmail).toLowerCase();
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
-  const alternativeNames = input.alternativeNames?.trim()
-    ? input.alternativeNames.trim()
-    : null;
+  const alternativeNames = acceptedSource
+    ? acceptedSource.alternativeNames
+    : input.alternativeNames?.trim()
+      ? input.alternativeNames.trim()
+      : null;
   // Existing canonical academics are not a new report. Adding participation never
   // silently reconfirms an old grade in the current year or adopts posted profile edits.
   const gradeLevel =
@@ -683,18 +744,11 @@ export async function completeRegistration(
             ? rank[recipient.role as keyof typeof rank]
             : 0;
         const nextRole = currentRank >= rank[role] ? recipient.role : role;
+        await ensureNameFallbackForRole(tx, recipient.id, nextRole);
         await tx.user.update({
           where: { id: recipient.id },
           data: { role: nextRole },
         });
-        if (!recipient.name?.trim())
-          await updateAccountProfile(tx, recipient.id, {
-            firstName,
-            lastName,
-            preferredName,
-            alternativeNames,
-            name: `${firstName} ${lastName}`.trim(),
-          });
         await tx.registrationCode.update({
           where: { id: row.id },
           data: { usedByUserId: recipient.id },
@@ -809,6 +863,8 @@ export async function completeRegistration(
         ).crewStatus;
         // A login already exists for this verified email — grant crew access after academic review.
         // Existing credentials/role are left untouched (we don't overwrite a tutor/admin's account).
+        if (existingUser.role === "VIEWER")
+          await ensureNameFallbackForRole(tx, existingUser.id, "CREW");
         await tx.user.update({
           where: { id: existingUser.id },
           data: {
@@ -827,14 +883,6 @@ export async function completeRegistration(
               : {}),
           },
         });
-        if (!existingUser.name?.trim())
-          await updateAccountProfile(tx, existingUser.id, {
-            firstName,
-            lastName,
-            preferredName,
-            name: `${firstName} ${lastName}`.trim(),
-            alternativeNames,
-          });
         await tx.registrationCode.update({
           where: { id: row.id },
           data: { usedAt: new Date(), usedByUserId: existingUser.id },
@@ -883,6 +931,12 @@ export async function completeRegistration(
           name: `${firstName} ${lastName}`,
           alternativeNames,
           role: "CREW",
+          ...(sourceIdentity
+            ? {
+                ...sourceIdentity,
+                name: sourceIdentity.legacyName ?? `${firstName} ${lastName}`,
+              }
+            : {}),
           gradeLevel,
           crewStatus: "ACTIVE",
           passwordHash,
@@ -1060,6 +1114,13 @@ export async function completeRegistration(
             )
               ? rosterTutor.status
               : "ACTIVE",
+          ...(sourceIdentity
+            ? {
+                ...sourceIdentity,
+                englishName:
+                  sourceIdentity.legacyName ?? `${firstName} ${lastName}`,
+              }
+            : {}),
         },
       });
     } else {
@@ -1113,6 +1174,12 @@ export async function completeRegistration(
           preferredName,
           name: `${firstName} ${lastName}`,
           role: "TUTOR",
+          ...(sourceIdentity
+            ? {
+                ...sourceIdentity,
+                name: sourceIdentity.legacyName ?? `${firstName} ${lastName}`,
+              }
+            : {}),
           // Seed the already-validated legal name so unchanged roster values are preserved.
           alternativeNames,
           tutorId,
@@ -1126,19 +1193,10 @@ export async function completeRegistration(
       userId = createdUser.id;
     }
 
-    await updateAccountProfile(
-      tx,
-      userId,
-      existingUser?.name?.trim()
-        ? {}
-        : {
-            firstName,
-            lastName,
-            preferredName,
-            name: `${firstName} ${lastName}`,
-            alternativeNames,
-          },
-    );
+    // Creation already adopted the validated new intake or accepted source.
+    // Mirror that canonical identity without treating redemption as a later
+    // profile edit under requirements that may have tightened after intake.
+    await updateAccountProfile(tx, userId);
 
     // Repair legacy divergence without treating the roster alias as a second account identity.
     if (

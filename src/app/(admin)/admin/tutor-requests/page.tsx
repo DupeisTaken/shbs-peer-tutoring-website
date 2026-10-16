@@ -1,4 +1,9 @@
 "use client";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -40,6 +45,11 @@ export default function TutorRequestsPage() {
   }, [accessDenied, requests.isSuccess, requests.isFetching, queryClient]);
   const readBlocked = requests.data === undefined || !!requests.error;
   const section = t("admin.tutorRequests.title");
+  useSessionPageScroll({
+    id: "tutor-requests-v1",
+    ready: requests.data !== undefined && !denied && !accessDenied,
+    enabled: !denied && !accessDenied,
+  });
   const retry = () => {
     void requests.refetch();
   };
@@ -133,7 +143,11 @@ export default function TutorRequestsPage() {
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-sm text-amber-900">
             {t("admin.tutorRequests.requeuePrompt", {
-              name: requeue.name,
+              name: participantNameLabel(
+                requeue.name,
+                undefined,
+                t("participantNames.unnamed"),
+              ),
               count: requeue.count,
             })}
           </p>
@@ -169,7 +183,7 @@ export default function TutorRequestsPage() {
           >
             <div className="min-w-0">
               <p className="font-medium text-slate-900">
-                {req.tutor.englishName}{" "}
+                <ParticipantName name={req.tutor.englishName} />{" "}
                 <span
                   className={
                     req.kind === "OPT_OUT" ? "badge-amber" : "badge-green"

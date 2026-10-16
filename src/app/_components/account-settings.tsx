@@ -1,6 +1,13 @@
 "use client";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
-import { nameDraft, personNameEdit } from "~/lib/person-name";
+import {
+  ConfiguredPersonNameFields as PersonNameFields,
+  useNameFieldPresentation,
+} from "~/app/_components/person-name-fields";
+import {
+  nameDraft,
+  personNameEdit,
+  unsplitLegacyName,
+} from "~/lib/person-name";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -90,6 +97,11 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
 
   // Name form — seeded from the loaded account.
   const [names, setNames] = useState(() => nameDraft());
+  const {
+    ready: namePolicyReady,
+    hasFields: editableNames,
+    observe: observeNamePolicy,
+  } = useNameFieldPresentation();
   const [originalNames, setOriginalNames] = useState(() => nameDraft());
   const [legacyName, setLegacyName] = useState<string | null | undefined>();
   const identity = personNameEdit(names, originalNames, legacyName);
@@ -109,7 +121,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
   const adoptIdentity = (snapshot: NonNullable<typeof me.data>) => {
     setNames(nameDraft(snapshot));
     setOriginalNames(nameDraft(snapshot));
-    setLegacyName(snapshot.legacyName ?? snapshot.name);
+    setLegacyName(unsplitLegacyName(snapshot));
     setNameDraftVersion(snapshot.profileVersion);
     setNameDirty(false);
   };
@@ -141,7 +153,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
     if (me.data) {
       setNames(nameDraft(me.data));
       setOriginalNames(nameDraft(me.data));
-      setLegacyName(me.data.legacyName ?? me.data.name);
+      setLegacyName(unsplitLegacyName(me.data));
       setNameDraftVersion(me.data.profileVersion);
     }
     setNameDirty(false);
@@ -152,7 +164,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
     if (me.data && !nameDirty && !nameBusy) {
       setNames(nameDraft(me.data));
       setOriginalNames(nameDraft(me.data));
-      setLegacyName(me.data?.legacyName ?? me.data?.name);
+      setLegacyName(unsplitLegacyName(me.data));
       setNameDraftVersion(me.data.profileVersion);
     }
   }, [me.data, nameDirty, nameBusy]);
@@ -357,8 +369,9 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
                   if (
                     nameBusy ||
                     nameSubmitting.current ||
-                    !me.data ||
-                    (!identity.preserved && !names.firstName.trim())
+                    !namePolicyReady ||
+                    !editableNames ||
+                    !me.data
                   )
                     return;
                   nameSubmitting.current = true;
@@ -377,28 +390,28 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
                   busy={nameBusy}
                   disabled={nameBusy}
                   actions={
-                    <>
-                      <Button
-                        type="submit"
-                        variant="primary"
-                        disabled={
-                          !me.data ||
-                          (!identity.preserved && !names.firstName.trim())
-                        }
-                      >
-                        {t(
-                          updateName.isPending
-                            ? "tutor.settings.saving"
-                            : "uiPatterns.saveProfile",
-                        )}
-                      </Button>
-                      <Button onClick={cancelNameDraft}>
-                        {t("uiPatterns.cancel")}
-                      </Button>
-                    </>
+                    editableNames ? (
+                      <>
+                        <Button
+                          type="submit"
+                          variant="primary"
+                          disabled={!me.data || !namePolicyReady}
+                        >
+                          {t(
+                            updateName.isPending
+                              ? "tutor.settings.saving"
+                              : "uiPatterns.saveProfile",
+                          )}
+                        </Button>
+                        <Button onClick={cancelNameDraft}>
+                          {t("uiPatterns.cancel")}
+                        </Button>
+                      </>
+                    ) : undefined
                   }
                 >
                   <PersonNameFields
+                    onPolicyAvailabilityChange={observeNamePolicy}
                     value={names}
                     onChange={(value) => {
                       setNames(value);

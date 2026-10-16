@@ -9,7 +9,9 @@ import {
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
-import { MessageAdmin } from "./message-admin";
+import { MessageAdmin, MessagePermissions } from "./message-admin";
+import { SessionViewProvider } from "./session-view-state";
+import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 const mocks = vi.hoisted(() => ({
   role: "HEAD",
   review: vi.fn(),
@@ -18,15 +20,17 @@ const mocks = vi.hoisted(() => ({
   restrict: vi.fn(),
   reset: vi.fn(),
   opened: false,
+  more: false,
+  supervision: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
     account: { me: { useQuery: () => ({ data: { role: mocks.role } }) } },
     messaging: {
       supervision: {
-        useQuery: () => ({
+        useQuery: (input: unknown) => { mocks.supervision(input); return ({
           data: {
-            more: false,
+            more: mocks.more,
             rows: [
               {
                 id: "m1",
@@ -40,7 +44,7 @@ vi.mock("~/trpc/react", () => ({
             ],
           },
           refetch: vi.fn(),
-        }),
+        }); },
       },
       review: {
         useMutation: () => ({
@@ -54,7 +58,10 @@ vi.mock("~/trpc/react", () => ({
       moderate: { useMutation: () => ({ mutate: mocks.moderate }) },
       settings: {
         useQuery: () => ({
-          data: [{ role: "STUDENT", groups: ["MANAGEMENT"] }],
+          data: [
+            { role: "STUDENT", groups: ["MANAGEMENT"] },
+            { role: "TUTOR", groups: ["MANAGEMENT"] },
+          ],
           refetch: vi.fn(),
         }),
       },
@@ -80,8 +87,10 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 beforeEach(() => {
+  window.sessionStorage.clear();
   vi.clearAllMocks();
   mocks.opened = false;
+  mocks.more = false;
 });
 afterEach(cleanup);
 const ui = () => (
@@ -89,6 +98,26 @@ const ui = () => (
     <MessageAdmin />
   </NextIntlClientProvider>
 );
+
+it("restores visibility and public-list pagination while private message search pages and reasons stay transient", () => {
+  const key = viewStateKey("head", "/admin/messages/supervision", "message-supervision.page.v1", "");
+  writeViewState(window.sessionStorage, key, 2);
+  writeViewState(window.sessionStorage, viewStateKey("head", "/admin/messages/supervision", "message-supervision.visibility.v1", ""), "HIDDEN");
+  const tree = () => <SessionViewProvider identity="head" pathname="/admin/messages/supervision" verified>{ui()}</SessionViewProvider>;
+  mocks.more = true;
+  const page = render(tree());
+  expect(mocks.supervision).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, visibility: "HIDDEN", search: "" }));
+  fireEvent.change(screen.getByRole("textbox", { name: en.messaging.supervisionSearch }), { target: { value: "Private report text" } });
+  fireEvent.change(screen.getByRole("textbox", { name: en.messaging.reason }), { target: { value: "Private moderation reason" } });
+  fireEvent.click(screen.getByRole("button", { name: en.messaging.next }));
+  expect(mocks.supervision).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, search: "Private report text" }));
+  expect(window.sessionStorage.getItem(key)).toBe("0");
+  expect(JSON.stringify(window.sessionStorage)).not.toMatch(/Private report text|Private moderation reason/);
+  page.unmount();
+  render(tree());
+  expect(mocks.supervision).toHaveBeenLastCalledWith(expect.objectContaining({ page: 0, visibility: "HIDDEN", search: "" }));
+  expect(screen.getByRole<HTMLInputElement>("textbox", { name: en.messaging.reason }).value).toBe("");
+});
 it("requires a reason to inspect content and sends moderation as a separate audited action", () => {
   const rendered = render(ui());
   expect(screen.queryByText("Original evidence")).toBeNull();
@@ -115,8 +144,11 @@ it("requires a reason to inspect content and sends moderation as a separate audi
   });
 });
 it("shows effective user permissions, saves an empty override, and explicitly restores inheritance", () => {
-  render(ui());
-  fireEvent.click(screen.getByRole("tab", { name: en.messaging.permissions }));
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <MessagePermissions />
+    </NextIntlClientProvider>,
+  );
   fireEvent.click(screen.getByRole("button", { name: /Alex · @alex/ }));
   expect(
     screen.getByText("Effective permission source: role policy"),
@@ -150,16 +182,49 @@ it("shows effective user permissions, saves an empty override, and explicitly re
     reason: "Limit new contacts temporarily",
   });
 });
+it("shares role authority copy once while retaining independent role drafts and the user editor notice", () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <MessagePermissions />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getAllByText(en.approvals.sensitiveHelp)).toHaveLength(1);
+  const student = screen
+    .getByRole("heading", { name: en.admin.users.roles.STUDENT })
+    .closest("form")!;
+  const tutor = screen
+    .getByRole("heading", { name: en.admin.users.roles.TUTOR })
+    .closest("form")!;
+  fireEvent.change(
+    within(student).getByRole("textbox", { name: en.messaging.reason }),
+    { target: { value: "Student-only draft" } },
+  );
+  expect(
+    within(tutor).getByRole<HTMLInputElement>("textbox", {
+      name: en.messaging.reason,
+    }).value,
+  ).toBe("");
+  fireEvent.click(screen.getByRole("button", { name: /Alex · @alex/ }));
+  expect(screen.getAllByText(en.approvals.sensitiveHelp)).toHaveLength(2);
+  expect(
+    within(student).getByRole<HTMLInputElement>("textbox", {
+      name: en.messaging.reason,
+    }).value,
+  ).toBe("Student-only draft");
+  expect(mocks.save).not.toHaveBeenCalled();
+});
 
-it("retains the review reason across local permission tabs", () => {
-  render(ui());
+it("retains the review reason on refresh and links to its relocated permission configuration", () => {
+  const view = render(ui());
   fireEvent.change(screen.getByRole("textbox", { name: en.messaging.reason }), {
     target: { value: "Retain this audit context" },
   });
-  fireEvent.click(screen.getByRole("tab", { name: en.messaging.permissions }));
-  fireEvent.click(
-    screen.getByRole("tab", { name: en.messaging.reviewMessages }),
-  );
+  view.rerender(ui());
+  expect(
+    screen
+      .getByRole("link", { name: en.messaging.permissionsDestination })
+      .getAttribute("href"),
+  ).toBe("/admin/program?panel=people");
   expect(
     screen.getByRole<HTMLInputElement>("textbox", { name: en.messaging.reason })
       .value,
@@ -168,9 +233,14 @@ it("retains the review reason across local permission tabs", () => {
 
 it("disables significant messaging permission drafts for Coordinators", () => {
   mocks.role = "COORDINATOR";
-  render(<NextIntlClientProvider locale="en" messages={en}><MessageAdmin /></NextIntlClientProvider>);
-  fireEvent.click(screen.getByRole("tab", { name: en.messaging.permissions }));
-  for (const button of screen.getAllByRole<HTMLButtonElement>("button", { name: en.messaging.save })) {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <MessagePermissions />
+    </NextIntlClientProvider>,
+  );
+  for (const button of screen.getAllByRole<HTMLButtonElement>("button", {
+    name: en.messaging.save,
+  })) {
     expect(button.closest("fieldset")?.disabled).toBe(true);
     fireEvent.submit(button.closest("form")!);
   }

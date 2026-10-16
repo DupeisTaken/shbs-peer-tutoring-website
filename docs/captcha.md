@@ -66,7 +66,7 @@ No credentials enter browser configuration or the management status response.
 This adapter uses explicit credentials; it does not automatically discover an ECS
 role or refresh STS credentials. Rotate secrets/restart through normal deployment.
 
-In **Management → Program & Refresh → CAPTCHA Verification**, Head applies
+In **Management → Program Settings → Deployment Configurations → CAPTCHA Verification**, Head applies
 enable/disable changes; Admin submits them for Head review. Coordinators can read
 status but cannot propose changes. Enabling validates local configuration; readiness is **not** an
 external health check. Disabling never contacts Aliyun. Version comparisons reject

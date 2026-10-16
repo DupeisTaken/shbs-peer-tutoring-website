@@ -9,17 +9,22 @@ import { AcceptanceRecords } from "./acceptance-records";
 import { ProfileDialog } from "./profile-dialog";
 import { useReadOnly } from "./read-only";
 import { AcademicDetails } from "./academic-profile";
+import { participantNameLabel } from "./participant-name";
 
 /** Keep the entry in the roster's trailing action column.
  * No detail/history query is mounted until staff explicitly open this person. */
 export function TutorDetailsButton({
   tutorId,
   name,
+  username,
 }: {
   tutorId: string;
   name: string;
+  username?: string | null;
 }) {
   const t = useTranslations("tutorDetails");
+  const names = useTranslations("participantNames");
+  const displayName = participantNameLabel(name, username, names("unnamed"));
   const readOnly = useReadOnly();
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -30,7 +35,7 @@ export function TutorDetailsButton({
         ref={trigger}
         type="button"
         className="table-action-link"
-        aria-label={t("openFor", { name })}
+        aria-label={t("openFor", { name: displayName })}
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
       >
@@ -38,7 +43,7 @@ export function TutorDetailsButton({
       </button>
       {open && (
         <ProfileDialog
-          title={t("title", { name })}
+          title={t("title", { name: displayName })}
           onClose={() => {
             setOpen(false);
             // Restore the exact roster entry after React removes the modal.

@@ -1,6 +1,7 @@
 "use client";
+import { participantNameLabel } from "./participant-name";
 import { formText, formTexts } from "~/lib/form-values";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations, useTimeZone, useFormatter } from "next-intl";
 import { InlineNotice } from "./ui/patterns";
@@ -8,6 +9,8 @@ import { api } from "~/trpc/react";
 import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 import { DisclosureIcon } from "./icons";
 import { InvalidityBadge, InvalidityNotice } from "./request-invalidity";
+import { useSessionAccessDenied, useSessionViewState } from "./session-view-state";
+import { viewEnum, viewPage, viewSearch } from "~/lib/session-view-state";
 
 /** Explicit disclosure state survives filtering; form state stays mounted while collapsed. */
 function InterviewDisclosure({
@@ -49,9 +52,11 @@ function InterviewDisclosure({
 export function InterviewManagement({
   enabled = true,
   onManageApplicant,
+  onViewReadyChange,
 }: {
   enabled?: boolean;
   onManageApplicant?: () => void;
+  onViewReadyChange?: (ready: boolean, scope: string, denied: boolean) => void;
 }) {
   const t = useTranslations("workflows");
   const allT = useTranslations();
@@ -59,9 +64,11 @@ export function InterviewManagement({
   const timeZone = useTimeZone();
   const [inputError, setInputError] = useState("");
   const utils = api.useUtils();
-  const [page, setPage] = useState(0);
-  const [search, setSearch] = useState("");
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [page, setPage] = useSessionViewState({ id: "interviews.page.v1", initialState: 0, parse: viewPage, enabled: !accessDenied });
+  const [search, setSearch] = useSessionViewState({ id: "interviews.search.v1", initialState: "", parse: viewSearch, enabled: !accessDenied });
   const [searchDraft, setSearchDraft] = useState("");
+  useEffect(() => setSearchDraft(search), [search]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggle = (id: string) =>
     setExpanded((previous) => {
@@ -70,14 +77,18 @@ export function InterviewManagement({
       else next.add(id);
       return next;
     });
-  const [completion, setCompletion] = useState<"OPEN" | "COMPLETED" | "ALL">(
-    "OPEN",
-  );
+  const [completion, setCompletion] = useSessionViewState({ id: "interviews.completion.v1", initialState: "OPEN", parse: viewEnum(["OPEN", "COMPLETED", "ALL"]), enabled: !accessDenied });
   const data = api.interviewManagement.options.useQuery({
     page,
     search,
     completion,
   });
+  const denied = useSessionAccessDenied(data);
+  // The parent Applications page owns viewport position; nested history owns only its read controls.
+  useEffect(() => setAccessDenied(denied), [denied]);
+  useEffect(() => {
+    onViewReadyChange?.(!!data.data, JSON.stringify([page, search, completion]), denied);
+  }, [!!data.data, page, search, completion, denied, onViewReadyChange]);
   const complete = api.interviewManagement.complete.useMutation({
     onSuccess: async () => {
       setPage(0);
@@ -87,7 +98,7 @@ export function InterviewManagement({
       ]);
     },
   });
-  if (data.error) return <p role="alert">{data.error.message}</p>;
+  if (denied || data.error) return <p role="alert">{data.error?.message ?? allT("uiPatterns.loadFailed")}</p>;
   if (!data.data) return <p>{t("loading")}</p>;
   const { applications } = data.data;
   const first = applications.total === 0 ? 0 : page * applications.pageSize + 1;
@@ -145,6 +156,15 @@ export function InterviewManagement({
         {applications.rows.map((a) => {
           // Application identity keeps unrelated people with matching names separate.
           const id = `interview-${a.id}`;
+          // Pending workflow labels need readable names; completed interview evidence stays raw.
+          const currentName = (name: string) =>
+            a.interviewCompletedAt
+              ? name
+              : participantNameLabel(
+                  name,
+                  undefined,
+                  allT("participantNames.unnamed"),
+                );
           const chair = a.interviewers.find((panelist) => panelist.isHead);
           return (
             <InterviewDisclosure
@@ -155,7 +175,7 @@ export function InterviewManagement({
               summary={
                 <>
                   <span className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold">{a.name}</span>{" "}
+                    <span className="font-semibold">{currentName(a.name)}</span>{" "}
                     {a.isInvalid && <InvalidityBadge />}
                     <span
                       className={
@@ -181,13 +201,17 @@ export function InterviewManagement({
                     {t("panelSummaryNames", {
                       names:
                         a.interviewers
-                          .map((panelist) => panelist.tutor.englishName)
+                          .map((panelist) =>
+                            currentName(panelist.tutor.englishName),
+                          )
                           .join(", ") || t("unassignedPanel"),
                     })}
                   </span>{" "}
                   <span className="muted mt-1 block text-sm">
                     {t("chairSummary", {
-                      name: chair?.tutor.englishName ?? t("unassignedPanel"),
+                      name: chair
+                        ? currentName(chair.tutor.englishName)
+                        : t("unassignedPanel"),
                     })}
                   </span>{" "}
                   <span className="muted mt-1 block text-sm">
@@ -294,7 +318,7 @@ export function InterviewManagement({
                             value={panelist.tutorId}
                             defaultChecked={panelist.attended}
                           />
-                          {panelist.tutor.englishName}
+                          {currentName(panelist.tutor.englishName)}
                         </label>
                       ))}
                     </div>

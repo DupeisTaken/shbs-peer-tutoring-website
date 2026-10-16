@@ -183,7 +183,7 @@
       "UNRESTRICT": "Access restored"
     },
     "rolePermissions": "Permissions by Role",
-    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "permissionHelp": "選択したグループはメッセージを受信できます。ユーザー個別設定は役割の方針を置き換えます。グループ未選択では新規送信できません。すべての利用可能なアカウントには、自分、停止中、メッセージ制限中のアカウントは含まれません。過去の指導関係は保存済みの割り当てや出席記録に基づき、記録のない割り当ては復元できません。",
     "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
@@ -202,7 +202,8 @@
     "ownInbox": "Your inbox",
     "replyContext": "{name} に返信中",
     "cancelReply": "返信をキャンセル",
-    "replyDraftHelp": "以前の下書きは保持されます。キャンセルしても、この返信の下書きはこのページに保持されます。"
+    "replyDraftHelp": "以前の下書きは保持されます。キャンセルしても、この返信の下書きはこのページに保持されます。",
+    "permissionsDestination": "プログラム設定のメッセージ権限"
   },
   "common": {
     "cancel": "キャンセル",
@@ -417,8 +418,9 @@
       "help": "各ペアリングのデフォルトタイムスロットを選択してください（実際のセッション時間は出席提出時に入力します）。"
     },
     "availability": {
-      "title": "マイ空き時間",
-      "help": "指導可能なタイムスロットをマークしてください。コーディネーターがスケジュール調整に使用します。"
+      "title": "指導可能な時間",
+      "help": "指導可能なタイムスロットをマークしてください。コーディネーターがスケジュール調整に使用します。",
+      "edit": "指導可能な時間を編集"
     },
     "attendance": {
       "title": "出席を提出",
@@ -628,7 +630,7 @@
         "activity": "活動と申請",
         "history": "プログラム履歴",
         "announcements": "お知らせ",
-        "program": "プログラムとリフレッシュ",
+        "program": "プログラム設定",
         "tutorRoster": "チューター名簿",
         "tutorApplications": "チューター応募",
         "tutorRequests": "チューター状態申請",
@@ -818,8 +820,8 @@
       }
     },
     "program": {
-      "title": "プログラムとリフレッシュ",
-      "subtitle": "現在の期間と、プログラムを次の四半期に進める定期リフレッシュ。",
+      "title": "プログラム設定",
+      "subtitle": "募集、アカウント設定、デプロイ設定、任意機能を管理します。",
       "loading": "読み込み中…",
       "noPeriod": "有効なプログラム期間がありません。まずシードを実行するか、新規作成してください。",
       "currentPeriod": "現在の期間",
@@ -885,10 +887,10 @@
         }
       },
       "panels": {
-        "period": "学期と募集",
-        "people": "利用者と登録",
-        "communication": "連絡",
-        "access": "アクセスと機能"
+        "period": "募集と期間更新",
+        "people": "アカウント設定",
+        "communication": "デプロイ設定",
+        "access": "オプション機能"
       }
     },
     "audit": {
@@ -1176,7 +1178,8 @@
       "addRoom": "部屋を追加",
       "empty": "部屋はまだありません。",
       "deleteConsequence": "This removes the room and its blocked periods. Rooms currently used by pairings cannot be deleted.",
-      "deleteRequestConsequence": "This submits a deletion request for management review. The room and its assignments remain unchanged until approval."
+      "deleteRequestConsequence": "This submits a deletion request for management review. The room and its assignments remain unchanged until approval.",
+      "editDetails": "詳細を編集"
     },
     "courses": {
       "title": "科目とレベル",
@@ -1959,7 +1962,7 @@
       "title": "今後の会議",
       "help": "会議に出られませんか？開始 60 分前まで欠席を申告できます。",
       "excuseBtn": "欠席を申告",
-      "submitExcuse": "送信",
+      "submitExcuse": "欠席理由を送信",
       "cancelExcuse": "申告を取り消す",
       "reasonPlaceholder": "理由（任意）",
       "excused": "この欠席を申告しました。",
@@ -2009,7 +2012,7 @@
         "UNEXCUSED_ABSENT": "無断欠席"
       },
       "reasonRequired": "理由（必須）",
-      "ratings": "評価 *",
+      "ratings": "自己評価",
       "rating": {
         "ratingPreparedness": "準備",
         "ratingParticipation": "参加",
@@ -2065,7 +2068,8 @@
       "removalHelp": "生徒が離脱を希望？代理で提出します。7日間はあなた（または管理者）が撤回でき、その後は自動です。",
       "removalReasonPlaceholder": "理由（任意）",
       "removalSubmit": "離脱を提出",
-      "removalCancel": "キャンセル"
+      "removalCancel": "キャンセル",
+      "availabilityMissing": "対応可能な時間はまだ登録されていません。"
     },
     "availability": {
       "loading": "タイムスロットを読み込み中…",
@@ -2762,7 +2766,8 @@
     "feedbackVisibilityLoading": "フィードバックの閲覧者を確認中…",
     "feedbackVisibilityUnavailable": "フィードバックを閲覧できる人を確認できませんでした。公開範囲を確認するには再試行してください。",
     "pagination": "ページ送り",
-    "page": "{page} ページ"
+    "page": "{page} ページ",
+    "calendarDestination": "プログラム設定の学校カレンダー"
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -2885,7 +2890,7 @@
     "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
-    "scheduleReject": "Apply to reject: schedule conflict",
+    "scheduleReject": "時間の都合が合わないため辞退を申請",
     "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
@@ -2920,6 +2925,7 @@
     "sourceHelp": "申込元は入力方法を示し、承認・優先順位・参加規則は変わりません。「以前の申込」は元の入力方法を確認できない記録です。",
     "boardGuide": "申請の分類方法",
     "sourceGuide": "登録元とアカウントの紐付け",
+    "policyRefresh": "更新",
     "emailStatus": "メール：{status}"
   },
   "approvals": {
@@ -3325,7 +3331,11 @@
         "messaging_restrict": "Change an account messaging restriction",
         "admin_setApplicationInvalidity": "チューター応募の無効マークを変更",
         "studentWorkflow_setRequestInvalidity": "生徒の申込の無効マークを変更",
-        "admin_setSignupInvalidity": "旧方式の公開申込の無効マークを変更"
+        "admin_setSignupInvalidity": "旧方式の公開申込の無効マークを変更",
+        "program_setCalendarDay": "指導休止日のお知らせを保存",
+        "program_removeCalendarDay": "指導休止日のお知らせを削除",
+        "program_setNameFields": "氏名欄の入力要件を変更",
+        "admin_reorderRooms": "プログラムの教室表示順を変更"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -3947,7 +3957,8 @@
     "showAlternateNames": "別の言語での氏名を表示",
     "alternateDisplayHint": "入力されている場合は、主な氏名の横に追加の氏名を表示します。",
     "latinRule": "名・姓・希望する呼び名にはラテン文字を使用します。アクセント付き文字、空白、アポストロフィ、ハイフンも使用できます。",
-    "displayPreview": "名前の表示プレビュー"
+    "displayPreview": "名前の表示プレビュー",
+    "nameFieldsRequired": "現在必須となっている氏名フィールドを入力してください。要件が変わった場合はフォームを更新してください。"
   },
   "recordTransfer": {
     "title": "プログラム記録",
@@ -4213,7 +4224,8 @@
     "preferredNameHelp": "名の代わりに使用してほしい呼び名をラテン文字で入力してください。",
     "alternativeNamesHelp": "別の言語や文字で書いた氏名（例：张小明）。",
     "legacyPreserved": "以前の登録名：{name}。ラテン文字の氏名欄を変更しなければ、元の名前を保持します。変更する場合は名を入力してください。",
-    "legacy": "現在の記録：{name}。プロフィールを更新するには、名と姓を分けて入力してください。"
+    "legacy": "現在の記録：{name}。プロフィールを更新するには、名と姓を分けて入力してください。",
+    "hiddenRetained": "参加者のフォームと表示名では非表示です。権限のある管理者向けにここで保持されています。"
   },
   "registrationFlow": {
     "progressTitle": "登録の進捗",
@@ -4607,5 +4619,93 @@
     "blur": "この欄から移動すると変更が保存されます。",
     "form": "保存はこのフォームにのみ適用されます。",
     "layout": "保存はこのレイアウトにのみ適用されます。"
+  },
+  "programCalendar": {
+    "title": "チュータリング休止日",
+    "informational": "プログラムの日付と理由を知らせる案内です。出欠の記録を制限したり、異議申立てに使う登校日カレンダーを変更したりするものではありません。",
+    "refresh": "更新",
+    "reload": "下書きを再読み込み",
+    "loadFailed": "チュータリングのお知らせを読み込めませんでした。",
+    "loading": "チュータリングのお知らせを読み込み中…",
+    "add": "日付を追加",
+    "date": "日付",
+    "reason": "理由",
+    "actions": "操作",
+    "edit": "お知らせを編集",
+    "remove": "お知らせを削除",
+    "removeTitle": "チュータリングのお知らせを削除",
+    "removeHelp": "この案内を削除します。出欠と登校日のルールは変わりません。",
+    "empty": "チュータリングのお知らせはありません。",
+    "save": "お知らせを保存",
+    "saving": "保存中…",
+    "saved": "お知らせを保存しました。",
+    "saveFailed": "お知らせを保存できませんでした。",
+    "refreshFailed": "お知らせを保存しましたが、最新の一覧を読み込めませんでした。再保存せずに更新して同期してください。",
+    "details": "詳細を見る"
+  },
+  "roomOrder": {
+    "title": "教室の表示順",
+    "help": "教室の矢印で順序の下書きを作成し、下で順序全体を保存または申請してください。見回りの順序は別に管理されます。",
+    "catalogChanged": "教室一覧が変更されました。下書きは保持されています。さらに順序を変更する前に再読み込みしてください。",
+    "room": "教室",
+    "actions": "操作",
+    "up": "上へ",
+    "down": "下へ",
+    "moveUpName": "{name}を上へ移動",
+    "moveDownName": "{name}を下へ移動",
+    "save": "順序を保存",
+    "saving": "保存中…",
+    "saved": "教室の順序を保存しました。",
+    "reload": "順序を再読み込み",
+    "refresh": "更新",
+    "loadFailed": "最新の教室順序を読み込めませんでした。下書きは保持されています。",
+    "refreshFailed": "順序を保存しましたが、同期できませんでした。更新すると再送信せずに保存済みの順序を読み込みます。",
+    "request": "教室の表示順変更を申請",
+    "open": "教室の順序を変更"
+  },
+  "roomSchedule": {
+    "rooms": "表示する教室",
+    "allRooms": "すべての教室",
+    "clearRooms": "選択を解除",
+    "allDetails": "時間割の詳細",
+    "occupied": "使用中",
+    "noSlot": "—",
+    "legend": "灰色 = 使用中 · × = 使用不可 · 利用可能 = 公開済みの時間枠に割り当てなし。",
+    "combined": "統合表示",
+    "individual": "教室別の時間割",
+    "noSelection": "教室が選択されていません。教室を選ぶか、すべての教室を選択してください。",
+    "time": "時間",
+    "detailFilters": "時間割詳細の絞り込み",
+    "day": "曜日",
+    "allDays": "すべての曜日",
+    "allSlots": "すべての時間帯",
+    "room": "教室",
+    "emptyDetails": "条件に一致する記録がありません。",
+    "noRoom": "教室未割り当て",
+    "unconfirmed": "時間割の確認待ち",
+    "outsideCatalog": "有効な時間帯一覧の対象外",
+    "allTimes": "すべての時間"
+  },
+  "nameFields": {
+    "title": "氏名フィールドの要件",
+    "help": "アカウント種別ごとに登録とプロフィールのフィールドを設定します。既存アカウントには現在の役割のルールが適用されます。非表示の氏名は表示名に含まれませんが、権限のある担当者は保存済みの値を確認・編集できます。表示できる氏名がない場合はユーザー名を使用します。",
+    "accountType": "アカウント種別",
+    "summary": "要件",
+    "actions": "操作",
+    "requiredCount": "必須 {count} 項目",
+    "hiddenCount": "非表示 {count} 項目",
+    "configure": "設定",
+    "loading": "氏名の要件を読み込み中…",
+    "loadFailed": "氏名の要件を読み込めませんでした。下書きは保持されています。",
+    "refresh": "更新",
+    "reload": "下書きを再読み込み",
+    "save": "要件を保存",
+    "saving": "保存中…",
+    "saved": "氏名の要件を保存しました。",
+    "refreshFailed": "要件を保存しましたが、同期できませんでした。更新すると再保存せずに保存済みのルールを読み込みます。",
+    "hiddenProfileHelp": "ここではユーザー名を表示します。保存済みの氏名は保持され、権限のあるスタッフが確認できます。"
+  },
+  "participantNames": {
+    "unnamed": "氏名未入力"
   }
 }

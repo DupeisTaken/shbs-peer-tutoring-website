@@ -2,8 +2,12 @@
 import { useProfileReloadFocus } from "./use-profile-reload-focus";
 import { ProfileEditSection } from "./profile-edit-section";
 import { Button } from "./ui/button";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
-import { nameDraft, personNameEdit } from "~/lib/person-name";
+import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
+import {
+  nameDraft,
+  personNameEdit,
+  unsplitLegacyName,
+} from "~/lib/person-name";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 
@@ -66,10 +70,9 @@ function TutorProfileForm({
   const committed = useRef(false);
   const [expectedUpdatedAt, setExpectedUpdatedAt] = useState(row.updatedAt);
   const [names, setNames] = useState(() => nameDraft(row));
+  const [namePolicyReady, setNamePolicyReady] = useState(false);
   const [originalNames, setOriginalNames] = useState(() => nameDraft(row));
-  const [legacyName, setLegacyName] = useState(
-    row.legacyName ?? row.englishName,
-  );
+  const [legacyName, setLegacyName] = useState(unsplitLegacyName(row));
   const identity = personNameEdit(names, originalNames, legacyName);
   const policy = useProfilePolicy();
   const [grade, setGrade] = useState(
@@ -99,7 +102,7 @@ function TutorProfileForm({
       setExpectedUpdatedAt(latest.updatedAt);
       setNames(nameDraft(latest));
       setOriginalNames(nameDraft(latest));
-      setLegacyName(latest.legacyName ?? latest.englishName);
+      setLegacyName(unsplitLegacyName(latest));
       setGrade(
         latest.academicallyGraduated
           ? GRADUATED_GRADE
@@ -146,6 +149,7 @@ function TutorProfileForm({
         onSubmit={(event) => {
           event.preventDefault();
           if (
+            !namePolicyReady ||
             busy ||
             submitting.current ||
             committed.current ||
@@ -204,7 +208,7 @@ function TutorProfileForm({
             <Button
               type="submit"
               variant="primary"
-              disabled={busy || reloading || needsRefresh}
+              disabled={busy || reloading || needsRefresh || !namePolicyReady}
             >
               {canApply ? t("accountProfile.save") : t("approvals.requestHead")}
             </Button>
@@ -233,6 +237,9 @@ function TutorProfileForm({
           )}
           <div className="sm:col-span-2">
             <PersonNameFields
+              onPolicyAvailabilityChange={setNamePolicyReady}
+              profileTarget={{ tutorId: row.id }}
+              management
               value={names}
               onChange={setNames}
               legacyName={legacyName}
@@ -308,7 +315,11 @@ function TutorProfileForm({
               ))}
             </select>
           </label>
-          {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+          {save.error?.data?.approvalId && (
+            <InlineNotice tone="warning" announcement="status">
+              {t("approvals.queuedBody")}
+            </InlineNotice>
+          )}
           {save.error && !save.error.data?.approvalId && (
             <p role="alert" className="text-sm text-red-600 sm:col-span-2">
               <AcademicError message={save.error.message} />

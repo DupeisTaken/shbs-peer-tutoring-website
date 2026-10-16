@@ -16,6 +16,9 @@ import {
 } from "~/app/_components/request-invalidity";
 
 import { useEffect, useId, useMemo, useState } from "react";
+import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
+import { viewEnum } from "~/lib/session-view-state";
+import { ParticipantName, participantNameLabel } from "~/app/_components/participant-name";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import {
   isCurrentManualSignup,
@@ -43,6 +46,7 @@ type PendingTutee = InvalidityRecord & {
   signupSource: string;
   unverified?: boolean;
   englishName: string;
+  user?: { username: string | null } | null;
   gradeLevel: string | null;
   email: string | null;
   phone: string | null;
@@ -83,7 +87,7 @@ function RequestCard({
 }: {
   tutee: PendingTutee;
   order: number;
-  tutors: { id: string; englishName: string; active: boolean }[];
+  tutors: { id: string; englishName: string; active: boolean; user?: { username: string | null } | null }[];
   workload: Workload;
   /** subject (course name) → tutor display name, for choices already assigned. */
   assigned: Map<string, string>;
@@ -92,6 +96,7 @@ function RequestCard({
   onFulfilled: (tuteeId: string) => void;
 }) {
   const t = useTranslations();
+  const displayName = participantNameLabel(tutee.englishName, tutee.user?.username, t("participantNames.unnamed"));
   const format = useFormatter();
   const locale = useLocale();
   const readOnly = useReadOnly();
@@ -155,7 +160,7 @@ function RequestCard({
     const tu = activeTutors.find((x) => x.id === id);
     const w = workload[id] ?? { pairings: 0, tutees: 0 };
     return t("admin.requests.tutorWorkload", {
-      name: tu?.englishName ?? "?",
+      name: participantNameLabel(tu?.englishName, tu?.user?.username, t("participantNames.unnamed")),
       pairings: w.pairings,
       tutees: w.tutees,
     });
@@ -196,7 +201,7 @@ function RequestCard({
           <div className="min-w-0 space-y-1">
             <p className="flex flex-wrap items-center gap-2 font-semibold text-slate-900">
               <span className="badge-slate mr-2">#{order}</span>
-              {tutee.englishName}
+              <ParticipantName name={tutee.englishName} username={tutee.user?.username} />
               <span className="ml-2">
                 <SignupSourceBadge source={tutee.signupSource} />
               </span>
@@ -273,7 +278,7 @@ function RequestCard({
             tutee.signupSource === "SELF_SERVICE" && (
               <SignupInvalidityControls
                 record={tutee}
-                name={tutee.englishName}
+                name={displayName}
                 canFlag
                 coordinator={account?.role === "COORDINATOR"}
               />
@@ -287,7 +292,7 @@ function RequestCard({
                 if (
                   await confirm({
                     title: t("admin.requests.declineConfirm", {
-                      name: tutee.englishName,
+                      name: displayName,
                     }),
                     confirmLabel: t("common.confirm"),
                     cancelLabel: t("common.cancel"),
@@ -323,7 +328,7 @@ function RequestCard({
             <EmailDetails
               contactOnly
               email={tutee.email}
-              name={tutee.englishName}
+              name={displayName}
             />
           </div>
         )}
@@ -436,8 +441,6 @@ export default function RequestsPage() {
   const t = useTranslations();
   const utils = api.useUtils();
   const readOnly = useReadOnly();
-  const [observerInvalidity, setObserverInvalidity] =
-    useState<InvalidityFilterValue>("valid");
   const tutees = api.admin.tutees.useQuery();
   const managed = api.studentWorkflow.adminRequests.useQuery(undefined, {
     enabled: !readOnly,
@@ -447,6 +450,14 @@ export default function RequestsPage() {
     staleTime: REFERENCE_STALE_TIME,
   });
   const pairings = api.admin.pairings.useQuery();
+  const denied = useSessionAccessDenied(tutees, tutors, currentPeriod, pairings, ...(readOnly ? [] : [managed]));
+  const viewScope = currentPeriod.data?.termId ?? "no-active-period";
+  const [observerInvalidity, setObserverInvalidity] = useSessionViewState<InvalidityFilterValue>({
+    id: "requests.observer-invalidity.v1", initialState: "valid", parse: viewEnum(["valid", "invalid", "all"]),
+    enabled: readOnly && !denied, scope: viewScope,
+  });
+  useSessionPageScroll({ id: "requests-observer", scope: JSON.stringify([viewScope, observerInvalidity]),
+    ready: !!tutees.data && !!tutors.data && !!pairings.data && !currentPeriod.isLoading, enabled: readOnly && !denied });
 
   const invalidate = () =>
     Promise.all([
@@ -468,12 +479,13 @@ export default function RequestsPage() {
     for (const p of pairings.data ?? []) {
       for (const pt of p.tutees) {
         const inner = m.get(pt.tutee.id) ?? new Map<string, string>();
-        inner.set(p.subject, p.tutor.englishName);
+        inner.set(p.subject, participantNameLabel(p.tutor.englishName,
+          tutors.data?.find((tutor) => tutor.id === p.tutorId)?.user?.username, t("participantNames.unnamed")));
         m.set(pt.tutee.id, inner);
       }
     }
     return m;
-  }, [pairings.data]);
+  }, [pairings.data, tutors.data, t]);
 
   // Display = still-pending requests plus any retained-this-session (now ACTIVE) ones, earliest
   // first. Earliest-first keeps the priority order; retained items hold their original slot.
@@ -522,6 +534,7 @@ export default function RequestsPage() {
     return provided.length > 0 && provided.every((c) => assigned.has(c));
   };
 
+  if (denied) return <p role="alert">{tutees.error?.message ?? tutors.error?.message ?? currentPeriod.error?.message ?? pairings.error?.message ?? managed.error?.message ?? t("uiPatterns.loadFailed")}</p>;
   return (
     <div className="space-y-6">
       <div>
@@ -543,6 +556,8 @@ export default function RequestsPage() {
       )}
       {!readOnly ? (
         <StudentRequestBoard
+          viewScope={viewScope}
+          viewDenied={denied}
           additionalLoading={
             tutees.isLoading ||
             managed.isLoading ||
@@ -569,6 +584,7 @@ export default function RequestsPage() {
                       tutors={(tutors.data ?? []).map((tu) => ({
                         id: tu.id,
                         englishName: tu.englishName,
+                        user: tu.user,
                         active: isAssignableTutor(tu),
                       }))}
                       workload={workload}

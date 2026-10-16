@@ -24,6 +24,14 @@ const bundledMessages = {
   Locale,
   { common: { language: string }; landing: { nav: { menu: string } } }
 >;
+it("uses the same Program Settings label in navigation and page titles in every bundled locale", () => {
+  for (const messages of Object.values(bundledMessages)) {
+    expect(messages.admin.nav.links.program).toBe(messages.admin.program.title);
+    expect(messages.roomOrder.open.trim()).not.toBe("");
+    expect(messages.nameFields.hiddenProfileHelp.trim()).not.toBe("");
+    expect(messages.programCalendar.details.trim()).not.toBe("");
+  }
+});
 
 describe("UI recovery and persistent field labels", () => {
   // Built-in locales do not inherit English. Every newly reachable recovery or

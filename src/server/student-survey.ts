@@ -1,4 +1,9 @@
-import { optionalPersonNameFields } from "~/lib/person-name";
+import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
+import {
+  configuredNewNames,
+  configuredLegacyIntakeName,
+  ensureNameFallbackForRole,
+} from "~/server/program/name-fields";
 import { requestInvalidity } from "~/server/request-invalidity";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { emailOrigin as publicEmailOrigin } from "~/server/email/urls";
@@ -44,7 +49,7 @@ import { getPeriodDisplay } from "~/lib/period";
 
 export const surveyInput = z.object({
   ...optionalPersonNameFields,
-  englishName: z.string().trim().min(1).max(200),
+  englishName: z.string().trim().max(200),
   preferredLatinName: preferredLatinNameSchema,
   email: z
     .string()
@@ -254,8 +259,8 @@ export async function submitSurvey(
   const origin = emailOrigin();
   const token = randomBytes(32).toString("hex");
   const result = await inTransaction(db, async (tx) => {
-    await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
+    await lockEntity(tx, "program:period");
     await lockEntity(tx, `student-survey:${input.email}`);
     await lockEntity(tx, "policy:tutee-policy");
     const term = await activeIntake(tx);
@@ -305,6 +310,28 @@ export async function submitSurvey(
     await lockEntity(tx, "signup-fields");
     const fields = (await getSignupSettings(tx)).tutee;
     input = normalizeTuteeFields(input, fields);
+    if (
+      input.firstName !== undefined ||
+      input.lastName !== undefined ||
+      input.preferredName !== undefined
+    ) {
+      const names = await configuredNewNames(tx, input, "STUDENT");
+      input = {
+        ...input,
+        ...names,
+        preferredName: names.preferredName ?? undefined,
+        alternativeNames: names.alternativeNames ?? undefined,
+        englishName: fullPersonName(names),
+      };
+    } else
+      input = {
+        ...input,
+        englishName: await configuredLegacyIntakeName(
+          tx,
+          input.englishName,
+          "STUDENT",
+        ),
+      };
     await assertPrimaryName(
       tx,
       account?.name ?? input.englishName,
@@ -406,7 +433,12 @@ export async function resendSurvey(
     // Publish only successfully delivered replacements. Failed/concurrent retries cannot
     // invalidate the previous link, and confirmation during delivery cannot resurrect it.
     await db.studentSurvey.updateMany({
-      where: { id: updated.id, confirmedAt: null, state: "OPEN", invalidatedAt: null },
+      where: {
+        id: updated.id,
+        confirmedAt: null,
+        state: "OPEN",
+        invalidatedAt: null,
+      },
       data: {
         lastLinkSentAt: new Date(),
         tokenHash: digest(token),
@@ -506,8 +538,8 @@ export async function confirmSurvey(
   await expireStudentRequests(db);
   const initial = await validSurvey(db, token, identity?.tokenIsDigest);
   return inTransaction(db, async (tx) => {
-    await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
+    await lockEntity(tx, "program:period");
     await lockEntity(tx, `student-survey:${initial.email}`);
     const row = await validSurvey(tx, token, identity?.tokenIsDigest);
     const term = await activeIntake(tx);
@@ -538,9 +570,13 @@ export async function confirmSurvey(
         code: "UNAUTHORIZED",
         message: "Sign in to the invited account before reviewing access.",
       });
-    // Recheck at verification: a link issued before the policy changed cannot create a
-    // noncompliant identity. Existing verified identities remain the canonical source.
-    await assertPrimaryName(tx, user?.name ?? input.englishName, user?.name);
+    // Accepted identity remains grandfathered through redemption; existing
+    // verified accounts remain canonical. Later profile edits use current requirements.
+    await assertPrimaryName(
+      tx,
+      user?.name ?? input.englishName,
+      user?.name ?? input.englishName,
+    );
     await assertOfferedGrade(tx, normalizeGrade(input.gradeLevel).gradeLevel);
     if (user) {
       await lockAccountProfile(tx, user.id);
@@ -599,6 +635,8 @@ export async function confirmSurvey(
     if (user.studentId)
       await retainStudentOwnership(tx, user.id, user.studentId);
     await retainStudentOwnership(tx, user.id, student.id);
+    if (user.role === "VIEWER")
+      await ensureNameFallbackForRole(tx, user.id, "STUDENT");
     await tx.user.update({
       where: { id: user.id },
       data: {

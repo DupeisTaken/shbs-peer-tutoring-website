@@ -1,4 +1,17 @@
 "use client";
+import {
+  useSessionViewState,
+  useSessionPageScroll,
+} from "~/app/_components/session-view-state";
+import {
+  attendanceViewParser,
+  type AttendanceView,
+} from "~/lib/management-view-state";
+import { viewAccessDenied } from "~/lib/session-view-state";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 
 import { useEffect, useId, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
@@ -25,23 +38,35 @@ export default function SubmissionsPage() {
   const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
-  const [month, setMonth] = useState(currentMonth());
-  const [tutorId, setTutorId] = useState("");
   const filterId = useId();
   const queryClient = useQueryClient();
   const [deniedTutors, setDeniedTutors] = useState(false);
-  const [deniedSessions, setDeniedSessions] = useState<string | null>(null);
+  const [deniedSessions, setDeniedSessions] = useState(false);
   const tutors = api.admin.tutors.useQuery(undefined, {
     enabled: !deniedTutors,
   });
-  const [showPast, setShowPast] = useState(false);
+  // Live options validate the remembered ID; correction drafts remain private.
+  const [view, setView] = useSessionViewState<AttendanceView>({
+    id: "attendance-filters-v1",
+    initialState: { month: currentMonth(), tutorId: "", showPast: false },
+    parse: attendanceViewParser((tutors.data ?? []).map((row) => row.id)),
+    restoreReady: tutors.data !== undefined,
+    enabled:
+      !deniedTutors && !deniedSessions && !viewAccessDenied(tutors.error),
+  });
+  const { month, tutorId, showPast } = view;
+  const setMonth = (month: string) =>
+    setView((previous) => ({ ...previous, month }));
+  const setTutorId = (tutorId: string) =>
+    setView((previous) => ({ ...previous, tutorId }));
+  const setShowPast = (showPast: boolean) =>
+    setView((previous) => ({ ...previous, showPast }));
   const input = {
     month: month || undefined,
     tutorId: tutorId || undefined,
   };
-  const filterKey = JSON.stringify(input);
   const sessions = api.admin.sessions.useQuery(input, {
-    enabled: deniedSessions !== filterKey,
+    enabled: !deniedSessions,
   });
   const tutorAccessDenied =
     tutors.error?.data?.code === "FORBIDDEN" ||
@@ -50,7 +75,17 @@ export default function SubmissionsPage() {
     sessions.error?.data?.code === "FORBIDDEN" ||
     sessions.error?.data?.code === "UNAUTHORIZED";
   const tutorsHidden = tutorAccessDenied || deniedTutors;
-  const sessionsHidden = sessionAccessDenied || deniedSessions === filterKey;
+  const sessionsHidden = sessionAccessDenied || deniedSessions;
+  useSessionPageScroll({
+    id: "attendance-v1",
+    scope: JSON.stringify(view),
+    ready:
+      tutors.data !== undefined &&
+      sessions.data !== undefined &&
+      !tutorsHidden &&
+      !sessionsHidden,
+    enabled: !tutorsHidden && !sessionsHidden,
+  });
   // These keys and their authorization belong to the attendance feature. The
   // feedback component only presents the resulting read/retry state.
   useEffect(() => {
@@ -64,24 +99,18 @@ export default function SubmissionsPage() {
   }, [tutorAccessDenied, tutors.isSuccess, tutors.isFetching, queryClient]);
   useEffect(() => {
     if (sessionAccessDenied) {
-      setDeniedSessions(filterKey);
+      setDeniedSessions(true);
       queryClient.removeQueries({
-        queryKey: getQueryKey(
-          api.admin.sessions,
-          { month: month || undefined, tutorId: tutorId || undefined },
-          "query",
-        ),
-        exact: true,
+        // Clearing saved filters changes the query key; conceal and evict all
+        // attendance scopes so another cached month cannot release the denial.
+        queryKey: getQueryKey(api.admin.sessions, undefined, "query"),
       });
     } else if (sessions.isSuccess && !sessions.isFetching)
-      setDeniedSessions(null);
+      setDeniedSessions(false);
   }, [
     sessionAccessDenied,
     sessions.isSuccess,
     sessions.isFetching,
-    filterKey,
-    month,
-    tutorId,
     queryClient,
   ]);
 
@@ -114,7 +143,7 @@ export default function SubmissionsPage() {
               tutorId,
             ]).map((t) => (
               <option key={t.id} value={t.id}>
-                {t.englishName}
+                <ParticipantName name={t.englishName} username={t.username} />
               </option>
             ))}
           </select>
@@ -225,7 +254,9 @@ export default function SubmissionsPage() {
                       timeZone: "UTC",
                     })}
                   </td>
-                  <td className="min-w-32">{s.tutor.englishName}</td>
+                  <td className="min-w-32">
+                    <ParticipantName name={s.tutor.englishName} />
+                  </td>
                   <td className="min-w-36">{s.pairing.subject}</td>
                   <td className="min-w-24 text-slate-500">
                     {t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`)}
@@ -235,7 +266,7 @@ export default function SubmissionsPage() {
                   <TableActions>
                     <TableDetails
                       longReader
-                      title={`${s.tutor.englishName} · ${s.pairing.subject}`}
+                      title={`${participantNameLabel(s.tutor.englishName, undefined, t("participantNames.unnamed"))} · ${s.pairing.subject}`}
                     >
                       <SessionRecordDetails session={s} />
                     </TableDetails>
@@ -243,7 +274,7 @@ export default function SubmissionsPage() {
                       (!s.mergeGroupId || s.mergeGroupId === s.id) && (
                         <TableDetails
                           label={t("corrections.editAttendance")}
-                          title={`${s.tutor.englishName} · ${s.pairing.subject}`}
+                          title={`${participantNameLabel(s.tutor.englishName, undefined, t("participantNames.unnamed"))} · ${s.pairing.subject}`}
                         >
                           <AttendanceCorrection id={s.id} />
                         </TableDetails>

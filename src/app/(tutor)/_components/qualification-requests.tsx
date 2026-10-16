@@ -1,12 +1,14 @@
 "use client";
 
 import { useId, useState } from "react";
-import { ChoiceButton } from "~/app/_components/ui/button";
+import { Button, ChoiceButton } from "~/app/_components/ui/button";
 import { FilterToolbar } from "~/app/_components/ui/patterns";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { useDialog } from "~/app/_components/confirm-dialog";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
+import { useSessionViewState } from "~/app/_components/session-view-state";
+import { viewEnum } from "~/lib/session-view-state";
 
 const HISTORY_FILTERS = [
   "PENDING",
@@ -17,7 +19,13 @@ const HISTORY_FILTERS = [
 type HistoryFilter = (typeof HISTORY_FILTERS)[number];
 
 /** Self-only query supplies choices, actual grants and history; pending intents never appear approved. */
-export function QualificationRequests({ active }: { active: boolean }) {
+export function QualificationRequests({
+  active,
+  viewScope = "",
+}: {
+  active: boolean;
+  viewScope?: string;
+}) {
   const t = useTranslations("qualificationRequests");
   const format = useFormatter();
   const utils = api.useUtils();
@@ -25,7 +33,15 @@ export function QualificationRequests({ active }: { active: boolean }) {
   const query = api.qualificationApplication.mine.useQuery();
   const [subjectId, setSubjectId] = useState("");
   const [reason, setReason] = useState("");
-  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("PENDING");
+  const [historyFilter, setHistoryFilter] = useSessionViewState<HistoryFilter>({
+    id: "qualification-history-v1",
+    scope: viewScope,
+    initialState: "PENDING",
+    parse: viewEnum(HISTORY_FILTERS),
+    enabled:
+      query.error?.data?.code !== "FORBIDDEN" &&
+      query.error?.data?.code !== "UNAUTHORIZED",
+  });
   const [historyExpanded, setHistoryExpanded] = useState(true);
   const historyId = useId();
   // Interviews are still awaiting a decision. Derive groups from fresh query data
@@ -104,85 +120,90 @@ export function QualificationRequests({ active }: { active: boolean }) {
               t("noApproved")}
           </p>
           {active && (
-            <DisclosureSection title={t("submit")} lifetime="retained">
-              <form
-                className="mt-4 space-y-3"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (subjectId && reason.trim())
-                    submit.mutate({ subjectId, reason });
-                }}
-              >
-                <label
-                  className="block text-sm font-medium"
-                  htmlFor="qualification-subject"
-                >
-                  {t("subject")}
-                </label>
-                <select
-                  id="qualification-subject"
-                  className="select min-h-11 lg:min-h-10"
-                  value={subjectId}
-                  required
-                  disabled={submit.isPending || !query.data.options.length}
-                  onChange={(event) => setSubjectId(event.target.value)}
-                >
-                  <option value="">{t("choose")}</option>
-                  {query.data.options.map((subject) => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.name} · {t(subject.type)}
-                    </option>
-                  ))}
-                </select>
-                {!query.data.options.length && (
-                  <p className="muted text-sm">{t("noOptions")}</p>
-                )}
-                <label
-                  className="block text-sm font-medium"
-                  htmlFor="qualification-reason"
-                >
-                  {t("reason")}
-                </label>
-                <textarea
-                  id="qualification-reason"
-                  className="textarea w-full"
-                  rows={3}
-                  required
-                  maxLength={2000}
-                  value={reason}
-                  disabled={submit.isPending}
-                  onChange={(event) => setReason(event.target.value)}
-                />
-                <button
-                  className="btn-primary min-h-11 max-w-full whitespace-normal lg:min-h-10"
-                  disabled={submit.isPending || !subjectId || !reason.trim()}
-                >
-                  {submit.isPending ? t("saving") : t("submit")}
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary ml-2"
-                  disabled={submit.isPending}
-                  onClick={() => {
-                    setSubjectId("");
-                    setReason("");
-                    submit.reset();
+            <div className="mt-4">
+              <DisclosureSection title={t("submit")} lifetime="retained">
+                <form
+                  className="mt-4 space-y-3"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (subjectId && reason.trim())
+                      submit.mutate({ subjectId, reason });
                   }}
                 >
-                  {t("cancelDraft")}
-                </button>
-                {submit.error && (
-                  <p role="alert" className="text-sm text-red-700">
-                    {submit.error.message}
-                  </p>
-                )}
-                {submit.isSuccess && (
-                  <p role="status" className="text-sm text-green-700">
-                    {t("submitted")}
-                  </p>
-                )}
-              </form>
-            </DisclosureSection>
+                  <label
+                    className="block text-sm font-medium"
+                    htmlFor="qualification-subject"
+                  >
+                    {t("subject")}
+                  </label>
+                  <select
+                    id="qualification-subject"
+                    className="select min-h-11 lg:min-h-10"
+                    value={subjectId}
+                    required
+                    disabled={submit.isPending || !query.data.options.length}
+                    onChange={(event) => setSubjectId(event.target.value)}
+                  >
+                    <option value="">{t("choose")}</option>
+                    {query.data.options.map((subject) => (
+                      <option key={subject.id} value={subject.id}>
+                        {subject.name} · {t(subject.type)}
+                      </option>
+                    ))}
+                  </select>
+                  {!query.data.options.length && (
+                    <p className="muted text-sm">{t("noOptions")}</p>
+                  )}
+                  <label
+                    className="block text-sm font-medium"
+                    htmlFor="qualification-reason"
+                  >
+                    {t("reason")}
+                  </label>
+                  <textarea
+                    id="qualification-reason"
+                    className="textarea w-full"
+                    rows={3}
+                    required
+                    maxLength={2000}
+                    value={reason}
+                    disabled={submit.isPending}
+                    onChange={(event) => setReason(event.target.value)}
+                  />
+                  {/* Both actions use the same context size; color owns emphasis. */}
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    className="max-w-full whitespace-normal"
+                    disabled={submit.isPending || !subjectId || !reason.trim()}
+                  >
+                    {submit.isPending ? t("saving") : t("submit")}
+                  </Button>
+                  <Button
+                    type="button"
+                    className="ml-2 max-w-full whitespace-normal"
+                    disabled={submit.isPending}
+                    onClick={() => {
+                      setSubjectId("");
+                      setReason("");
+                      submit.reset();
+                    }}
+                  >
+                    {t("cancelDraft")}
+                  </Button>
+                  {submit.error && (
+                    <p role="alert" className="text-sm text-red-700">
+                      {submit.error.message}
+                    </p>
+                  )}
+                  {submit.isSuccess && (
+                    <p role="status" className="text-sm text-green-700">
+                      {t("submitted")}
+                    </p>
+                  )}
+                </form>
+              </DisclosureSection>
+            </div>
           )}
           <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold">

@@ -20,6 +20,10 @@ const state = vi.hoisted(() => ({
   pending: false,
   removalPending: false,
   confirmed: true,
+  name: "Sample Learner",
+  username: null as string | null,
+  rosterFailure: "",
+  refetch: vi.fn(),
 }));
 vi.mock("~/app/_components/confirm-dialog", () => ({
   useDialog: () => ({ confirm: state.confirm, dialog: null }),
@@ -33,10 +37,31 @@ vi.mock("~/trpc/react", () => ({
         myTuteeRemovalRequests: { invalidate: vi.fn() },
       },
     }),
-    studentWorkflow: { tutorRoster: { useQuery: () => ({ data: [] }) } },
+    studentWorkflow: {
+      tutorRoster: {
+        useQuery: () => ({
+          data: [],
+          isSuccess: !state.rosterFailure,
+          error: state.rosterFailure
+            ? {
+                message: "Read failed",
+                data: {
+                  code:
+                    state.rosterFailure === "denied"
+                      ? "FORBIDDEN"
+                      : "INTERNAL_SERVER_ERROR",
+                },
+              }
+            : null,
+          refetch: state.refetch,
+        }),
+      },
+    },
     tutor: {
       myPairings: {
         useQuery: () => ({
+          isSuccess: true,
+          refetch: state.refetch,
           data: [
             {
               id: "pairing",
@@ -49,7 +74,13 @@ vi.mock("~/trpc/react", () => ({
               timeSlotId: "one",
               timeSlot: null,
               tutees: [
-                { tuteeId: "tutee", tutee: { englishName: "Sample Learner" } },
+                {
+                  tuteeId: "tutee",
+                  tutee: {
+                    englishName: state.name,
+                    user: { username: state.username },
+                  },
+                },
               ],
             },
             {
@@ -84,6 +115,8 @@ vi.mock("~/trpc/react", () => ({
       },
       myTuteeRemovalRequests: {
         useQuery: () => ({
+          isSuccess: true,
+          refetch: state.refetch,
           data: state.removalPending
             ? [
                 {
@@ -116,6 +149,9 @@ afterEach(() => {
   state.pending = false;
   state.removalPending = false;
   state.confirmed = true;
+  state.name = "Sample Learner";
+  state.username = null;
+  state.rosterFailure = "";
 });
 const element = (active = true, locale = "en") => (
   <NextIntlClientProvider
@@ -127,6 +163,28 @@ const element = (active = true, locale = "en") => (
       <TutorPairings active={active} />
     </MergeProvider>
   </NextIntlClientProvider>
+);
+it("places the default slot before tutee availability and preserves a named participant", () => {
+  render(element());
+  const select = screen.getAllByRole("combobox")[0]!;
+  const participant = screen.getByText("Sample Learner");
+  expect(
+    select.compareDocumentPosition(participant) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});
+it.each(["learner", null])(
+  "uses current account identity or localized unnamed fallback without changing saved names (%s)",
+  (username) => {
+    state.name = "";
+    state.username = username;
+    render(element(false));
+    expect(
+      screen.getByText(username ?? messages.participantNames.unnamed),
+    ).toBeTruthy();
+    expect(state.setSlot).not.toHaveBeenCalled();
+    expect(state.remove).not.toHaveBeenCalled();
+  },
 );
 it.each([
   ["en", "Mon"],
@@ -146,7 +204,21 @@ it("inactive tutors keep pairing evidence without schedule/removal/merge writes"
   render(element(false));
   expect(screen.getByText("Sample Learner")).toBeTruthy();
   expect(screen.queryByRole("combobox")).toBeNull();
-  expect(screen.queryByRole("button")).toBeNull();
+  expect(
+    screen.getByRole("button", {
+      name: `${messages.tablePatterns.details}: Sample Learner`,
+    }),
+  ).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `${messages.tablePatterns.details}: Sample Learner`,
+    }),
+  );
+  expect(
+    screen.queryByRole("button", {
+      name: messages.tutor.pairings.requestRemoval,
+    }),
+  ).toBeNull();
   expect(screen.queryByRole("checkbox")).toBeNull();
 });
 it("names the changed schedule and cancel performs no write", async () => {
@@ -170,6 +242,11 @@ it("names the changed schedule and cancel performs no write", async () => {
 });
 it("canceling removal writes nothing, while a failed confirmed request retains the reason", async () => {
   const view = render(element());
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `${messages.tablePatterns.details}: Sample Learner`,
+    }),
+  );
   fireEvent.click(
     screen.getByRole("button", {
       name: messages.tutor.pairings.requestRemoval,
@@ -208,6 +285,12 @@ it("keeps the learner present during the recall window and permits an inactive t
   state.removalPending = true;
   render(element(false));
   expect(screen.getByText("Sample Learner")).toBeTruthy();
+  expect(screen.queryByText(messages.tutor.pairings.removalPending)).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `${messages.tablePatterns.details}: Sample Learner`,
+    }),
+  );
   expect(screen.getByText(messages.tutor.pairings.removalPending)).toBeTruthy();
   expect(screen.getByText(/^Recall window ends:/)).toBeTruthy();
   fireEvent.click(
@@ -261,4 +344,46 @@ it("locks merge choices with the attendance save and releases them for a new ent
     screen.getByRole("button", { name: "Begin another attendance" }),
   );
   expect(merge.disabled).toBe(false);
+});
+
+it("conceals cached Details and forgets its drafts after authoritative denial until fresh recovery", () => {
+  const view = render(element());
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `${messages.tablePatterns.details}: Sample Learner`,
+    }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.tutor.pairings.requestRemoval,
+    }),
+  );
+  fireEvent.change(screen.getByRole("textbox"), {
+    target: { value: "Private transient reason" },
+  });
+  state.rosterFailure = "denied";
+  view.rerender(element());
+  expect(screen.queryByText("Sample Learner")).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.tutor.tasks.retry }),
+  );
+  expect(state.refetch).toHaveBeenCalledTimes(3);
+  state.rosterFailure = "transport";
+  view.rerender(element());
+  expect(screen.queryByText("Sample Learner")).toBeNull();
+  state.rosterFailure = "";
+  view.rerender(element());
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `${messages.tablePatterns.details}: Sample Learner`,
+    }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.tutor.pairings.requestRemoval,
+    }),
+  );
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe("");
+  expect(state.remove).not.toHaveBeenCalled();
 });

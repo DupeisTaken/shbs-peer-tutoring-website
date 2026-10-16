@@ -1,4 +1,8 @@
 "use client";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -10,9 +14,14 @@ import { Button } from "~/app/_components/ui/button";
 import { FormActions, StatePanel } from "~/app/_components/ui/patterns";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 
+export type WithdrawalViewReadState = { ready: boolean; denied: boolean };
+
 /** Both intake sources share the existing timed staff-review mutation and approval policy. */
-export function StudentWithdrawals() {
+export function StudentWithdrawals({
+  onViewReadState,
+}: { onViewReadState?: (state: WithdrawalViewReadState) => void } = {}) {
   const t = useTranslations("admin.tuteeRequests");
+  const names = useTranslations("participantNames");
   const workflow = useTranslations("workflow");
   const recovery = useTranslations("managementRecovery");
   const format = useFormatter();
@@ -65,6 +74,13 @@ export function StudentWithdrawals() {
   ]);
   const hasData = rows.data !== undefined && legacy.data !== undefined;
   const readError = !!rows.error || !!legacy.error;
+  // Report only read lifecycle booleans, never the review records or drafts.
+  useEffect(() => {
+    onViewReadState?.({
+      ready: hasData && !denied && !accessDenied,
+      denied: denied || accessDenied,
+    });
+  }, [onViewReadState, hasData, denied, accessDenied]);
   const readBlocked = !hasData || readError;
   const section = t("studentHeading");
   const retry = () => {
@@ -151,7 +167,9 @@ export function StudentWithdrawals() {
               className="space-y-3 rounded-lg border border-slate-200 p-4"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-semibold">{review.name}</h3>
+                <h3 className="font-semibold">
+                  <ParticipantName name={review.name} />
+                </h3>
                 <span className="badge-amber">{workflow("needsReview")}</span>
               </div>
               <p className="muted text-sm">
@@ -235,7 +253,7 @@ export function StudentWithdrawals() {
           action={decision.approve ? "APPROVE" : "DENY"}
           target={decision.id}
           title={workflow(decision.approve ? "approve" : "deny")}
-          message={`${decision.name}\n\n${workflow(decision.approve ? "approveAbortConsequences" : "denyConsequences")}`}
+          message={`${participantNameLabel(decision.name, undefined, names("unnamed"))}\n\n${workflow(decision.approve ? "approveAbortConsequences" : "denyConsequences")}`}
           busy={resolve.isPending}
           canConfirm={!readBlocked}
           error={resolve.error?.message}

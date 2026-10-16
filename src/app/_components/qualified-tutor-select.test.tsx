@@ -66,3 +66,41 @@ it("keeps the original default field and disables inactive subjects", () => {
   expect(screen.getByRole<HTMLSelectElement>("combobox").disabled).toBe(true);
   expect(screen.queryByRole("button")).toBeNull();
 });
+it("keeps blank participant options identifiable without changing assignment IDs or decorated labels", () => {
+  const change = vi.fn();
+  const tutors = [
+    { id: "handled", englishName: "  ", username: "known.handle" },
+    { id: "accountless", englishName: "" },
+    { id: "decorated", englishName: "", username: "other.handle" },
+  ];
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <QualifiedTutorSelect
+        tutors={tutors}
+        subjectId="math"
+        value=""
+        onChange={change}
+        label="Tutor"
+        optionLabel={(id) =>
+          id === "decorated" ? "Other tutor · 2 sessions" : "  "
+        }
+      />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    screen.getByRole("option", { name: "known.handle" }).getAttribute("value"),
+  ).toBe("handled");
+  expect(
+    screen
+      .getByRole("option", { name: en.participantNames.unnamed })
+      .getAttribute("value"),
+  ).toBe("accountless");
+  expect(
+    screen.getByRole("option", { name: "Other tutor · 2 sessions" }),
+  ).toBeTruthy();
+  fireEvent.change(screen.getByRole("combobox"), {
+    target: { value: "handled" },
+  });
+  expect(change).toHaveBeenCalledExactlyOnceWith("handled");
+  expect(tutors[0]?.englishName).toBe("  ");
+});

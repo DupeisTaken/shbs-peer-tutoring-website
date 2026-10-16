@@ -1,4 +1,17 @@
 "use client";
+import {
+  useSessionViewState,
+  useSessionPageScroll,
+  useSessionAccessDenied,
+} from "~/app/_components/session-view-state";
+import { useRosterSort } from "~/app/_components/roster-view-state";
+import {
+  userDirectoryView,
+  userDirectoryViewParser,
+  userDirectoryFilters,
+  type UserDirectoryView,
+} from "~/lib/management-view-state";
+import { participantNameLabel } from "~/app/_components/participant-name";
 
 import { matchesPersonSearch } from "~/lib/person-search";
 import { accountMembership } from "~/lib/account-membership";
@@ -33,11 +46,10 @@ import {
   isTutorStatusApplicable,
   matchesUserFilters,
   normalizeUserFilters,
-  parseUserFilters,
   type UserFilters,
 } from "~/lib/user-filters";
 import { api } from "~/trpc/react";
-import { SortHeader, useSort, compare } from "~/app/_components/sortable";
+import { SortHeader, compare } from "~/app/_components/sortable";
 import { useDialog } from "~/app/_components/confirm-dialog";
 import {
   SummaryTable,
@@ -141,9 +153,12 @@ function ConfirmIdentityDialog({
 
 export default function UsersPage() {
   const t = useTranslations();
+  const nameFor = (name: string | null | undefined, username?: string | null) =>
+    participantNameLabel(name, username, t("participantNames.unnamed"));
   const readOnly = useReadOnly();
   const utils = api.useUtils();
   const accounts = api.admin.accounts.useQuery();
+  const directoryDenied = useSessionAccessDenied(accounts);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [editingTutorId, setEditingTutorId] = useState<string | null>(null);
   // Fetch the full roster record only when staff open an unlinked profile.
@@ -199,7 +214,9 @@ export default function UsersPage() {
   const queryClient = useQueryClient();
   const [appealDenial, setAppealDenial] = useState(false);
   const canReadAppeals =
-    !readOnly && ["HEAD", "ADMIN"].includes(accounts.data?.caller.role ?? "");
+    !readOnly &&
+    !directoryDenied &&
+    ["HEAD", "ADMIN"].includes(accounts.data?.caller.role ?? "");
   const appeals = api.admin.appeals.useQuery(undefined, {
     enabled: canReadAppeals && !appealDenial,
   });
@@ -290,56 +307,36 @@ export default function UsersPage() {
   const isHead = callerRole === "HEAD";
   const isAdminTier = isHead || callerRole === "ADMIN";
   const confirmPending = deletionAdmitted || deleteUser.isPending;
-  const sort = useSort("name");
-
-  // Persist by account only after loading that account's preference; never overwrite on hydration.
-  const [filterState, setFilterState] = useState<{
-    userId: string;
-    filters: UserFilters;
-  } | null>(null);
-  const viewerId = accounts.data?.caller.id;
-  useEffect(() => {
-    if (!viewerId) return;
-    let raw: string | null = null;
-    try {
-      raw = localStorage.getItem(`shbs:user-filters:${viewerId}:v1`);
-    } catch {
-      /* Private browsing may disable storage. */
-    }
-    const restored = parseUserFilters(raw);
-    setFilterState({ userId: viewerId, filters: restored });
-    // Repair this account's saved preference after reading it, including stale hidden status.
-    try {
-      if (raw !== null)
-        localStorage.setItem(
-          `shbs:user-filters:${viewerId}:v1`,
-          JSON.stringify(restored),
-        );
-    } catch {
-      /* Storage restrictions must not prevent the normalized in-memory result. */
-    }
-  }, [viewerId]);
-  const filters = useMemo(
-    () =>
-      filterState?.userId === viewerId
-        ? (filterState?.filters ?? emptyUserFilters())
-        : emptyUserFilters(),
-    [filterState, viewerId],
+  const sort = useRosterSort(
+    "users-sort-v1",
+    ["name", "account", "role"],
+    "name",
+    !directoryDenied,
   );
-  const updateFilters = (next: UserFilters) => {
-    if (!viewerId) return;
-    const normalized = normalizeUserFilters(next);
-    setFilterState({ userId: viewerId, filters: normalized });
-    try {
-      localStorage.setItem(
-        `shbs:user-filters:${viewerId}:v1`,
-        JSON.stringify(normalized),
-      );
-    } catch {
-      /* Keep in-memory filtering usable. */
-    }
-  };
-  const [search, setSearch] = useState("");
+
+  // Replace cross-session localStorage without migration. Editors, passwords,
+  // appeal reviews and selected targets never enter the flat view allowlist.
+  const [view, setView] = useSessionViewState<UserDirectoryView>({
+    id: "user-directory-v1",
+    initialState: userDirectoryView(),
+    parse: userDirectoryViewParser,
+    enabled: !directoryDenied,
+    restoreReady: accounts.data !== undefined,
+  });
+  const filters = useMemo(() => userDirectoryFilters(view), [view]);
+  const search = view.search;
+  const setSearch = (search: string) =>
+    setView((previous) => ({ ...previous, search }));
+  const updateFilters = (next: UserFilters) =>
+    setView((previous) =>
+      userDirectoryView(normalizeUserFilters(next), previous.search),
+    );
+  useSessionPageScroll({
+    id: "users-v1",
+    scope: JSON.stringify({ ...view, sort: [sort.key, sort.dir] }),
+    ready: accounts.data !== undefined && !directoryDenied,
+    enabled: !directoryDenied,
+  });
   const scopedRows = (accounts.data?.rows ?? []).filter((row) =>
     matchesUserFilters(row, filters),
   );
@@ -368,6 +365,26 @@ export default function UsersPage() {
     });
   }, [accounts.data, sort.key, sort.dir, filters, search]);
 
+  if (directoryDenied)
+    return (
+      <div className="space-y-6">
+        <h1 className="page-title">{t("admin.users.title")}</h1>
+        <StatePanel
+          kind="denied"
+          title={t("managementRecovery.denied", {
+            section: t("admin.users.title"),
+          })}
+          action={
+            <Button
+              disabled={accounts.isFetching}
+              onClick={() => void accounts.refetch()}
+            >
+              {t("uiPatterns.retry")}
+            </Button>
+          }
+        />
+      </div>
+    );
   return (
     <div className="space-y-6">
       {isAdminTier && editingTutor && !editingTutor.user && (
@@ -631,7 +648,9 @@ export default function UsersPage() {
                 key={a.id}
                 className="flex flex-wrap items-center gap-3 py-3 text-sm"
               >
-                <span className="font-medium text-slate-800">{a.name}</span>
+                <span className="font-medium text-slate-800">
+                  {nameFor(a.name)}
+                </span>
                 {a.affiliation && (
                   <span className="muted text-xs">{a.affiliation}</span>
                 )}
@@ -652,7 +671,7 @@ export default function UsersPage() {
       )}
       {canReadAppeals && !appealDenied && appealReview && (
         <ProfileDialog
-          title={`${t("admin.users.appeals.review")} · ${appealReview.name}`}
+          title={`${t("admin.users.appeals.review")} · ${nameFor(appealReview.name)}`}
           pending={decideAppeal.isPending || appealRefreshing}
           onClose={() => setAppealReview(null)}
         >
@@ -810,7 +829,9 @@ export default function UsersPage() {
                   {/* Identity contains names and the handle; all row actions live in the last column. */}
                   <td>
                     <div className="leading-tight">
-                      <p className="font-medium text-slate-900">{u.name}</p>
+                      <p className="font-medium text-slate-900">
+                        {nameFor(u.name, u.username)}
+                      </p>
                       {(u.username ?? u.tutor?.username) ? (
                         <p className="muted text-xs">
                           @{u.username ?? u.tutor?.username}
@@ -918,7 +939,7 @@ export default function UsersPage() {
                             if (
                               await confirmUsername({
                                 title: t("identityUsername.assignTitle", {
-                                  name: u.name,
+                                  name: nameFor(u.name, u.username),
                                 }),
                                 message: t("identityUsername.assignHelp"),
                                 confirmLabel: t("identityUsername.assign"),
@@ -941,7 +962,7 @@ export default function UsersPage() {
                           setConfirm({
                             title: t("admin.users.confirm.deleteTitle"),
                             body: t("admin.users.confirm.deleteBody", {
-                              name: u.name,
+                              name: nameFor(u.name, u.username),
                             }),
                             confirmLabel: t("admin.users.delete"),
                             run: (pwd) =>

@@ -1,7 +1,14 @@
 "use client";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+  useSessionViewState,
+} from "~/app/_components/session-view-state";
+import { useRosterSort } from "~/app/_components/roster-view-state";
+import { viewSearch } from "~/lib/session-view-state";
 import { Button } from "~/app/_components/ui/button";
 import { FilterToolbar, StatePanel } from "~/app/_components/ui/patterns";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { matchesPersonSearch } from "~/lib/person-search";
 import { nameDraft } from "~/lib/person-name";
@@ -22,7 +29,7 @@ import {
   OfferedGradeSelect,
 } from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
-import { SortHeader, useSort, compare } from "~/app/_components/sortable";
+import { SortHeader, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
 import {
   SummaryTable,
@@ -47,10 +54,21 @@ export default function TutorsPage() {
   const statusLabel = (s: string) => t(`admin.tutorStatus.${s}`);
   const utils = api.useUtils();
   const tutors = api.admin.tutors.useQuery();
-  const [showPast, setShowPast] = useState(false);
-  const [search, setSearch] = useState("");
+  const denied = useSessionAccessDenied(tutors, identity);
+  const [showPast, setShowPast] = useSessionViewState({
+    id: "tutors-past-v1",
+    initialState: false,
+    parse: (value) => (typeof value === "boolean" ? value : undefined),
+    enabled: !denied,
+  });
+  const [search, setSearch] = useSessionViewState({
+    id: "tutors-search-v1",
+    initialState: "",
+    parse: viewSearch,
+    enabled: !denied,
+  });
   const [names, setNames] = useState(() => nameDraft());
-  const { firstName, lastName } = names;
+  const [namePolicyReady, setNamePolicyReady] = useState(false);
   const [email, setEmail] = useState("");
   const [grade, setGrade] = useState("");
   // Draft values belong to the page, so dismissing the dialog does not discard them.
@@ -60,7 +78,18 @@ export default function TutorsPage() {
   const addTrigger = useRef<HTMLButtonElement>(null);
   const restoreCreateFocus = useRef(false);
 
-  const sort = useSort("lastName");
+  const sort = useRosterSort(
+    "tutors-sort-v1",
+    ["firstName", "lastName", "username", "email", "grade", "status"],
+    "lastName",
+    !denied,
+  );
+  useSessionPageScroll({
+    id: "tutors-v1",
+    scope: JSON.stringify([search, showPast, sort.key, sort.dir]),
+    ready: !!tutors.data && !!identity.data,
+    enabled: !denied,
+  });
 
   const invalidate = () => utils.admin.tutors.invalidate();
   const create = api.admin.createTutor.useMutation({
@@ -123,6 +152,15 @@ export default function TutorsPage() {
     });
   }, [tutors.data, sort.key, sort.dir, showPast, search]);
 
+  if (denied)
+    return (
+      <StatePanel
+        kind="denied"
+        title={t("managementRecovery.denied", {
+          section: t("admin.tutors.title"),
+        })}
+      />
+    );
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -180,7 +218,7 @@ export default function TutorsPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (!create.isPending && firstName.trim() && lastName.trim())
+              if (!create.isPending && namePolicyReady)
                 create.mutate({
                   ...names,
                   email: email.trim() || undefined,
@@ -199,9 +237,11 @@ export default function TutorsPage() {
               <legend className="sr-only">{t("admin.tutors.addTutor")}</legend>
               <div className="min-w-0">
                 <PersonNameFields
+                  onPolicyAvailabilityChange={setNamePolicyReady}
                   value={names}
                   onChange={setNames}
-                  requireLastName
+                  accountType="TUTOR"
+                  management
                 />
               </div>
               {/* Single-line controls live inside labels, never as stretchable peers
@@ -235,9 +275,7 @@ export default function TutorsPage() {
                 </label>
                 <button
                   className="btn-primary min-h-11 self-start lg:min-h-10"
-                  disabled={
-                    !firstName.trim() || !lastName.trim() || create.isPending
-                  }
+                  disabled={create.isPending || !namePolicyReady}
                 >
                   {t("admin.tutors.addTutor")}
                 </button>
