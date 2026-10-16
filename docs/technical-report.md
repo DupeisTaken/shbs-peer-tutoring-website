@@ -653,6 +653,49 @@ These are feature contracts, not a general form engine or permission registry.
 Add shared layout helpers only where real callers have the same alignment and
 lifetime requirements, with gallery examples and meaningful behavior coverage.
 
+### Confirmation timing contract
+
+[`confirmationDelayMs`](../src/lib/confirmation-timing.ts) is the source for server
+confirmation delays. These shorter action-specific waits replace the previous
+uniform five-second action delay, ten-second policy delay and three-second
+qualification override delay:
+
+| Ticket action         | Previous | Current | Reason                                                                                                |
+| --------------------- | -------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| `RECALL`              | 5 s      | 2 s     | Brief single-request consequence; permanent closure and new queue priority stay explicit              |
+| `ABORT`               | 5 s      | 3 s     | Quarter withdrawal warrants a longer consequence review                                               |
+| `SCHEDULE`            | 5 s      | 2 s     | Proposal with an explicit reason; approval still owns assignment removal                              |
+| `APPROVE`             | 5 s      | 3 s     | Participation-ending or assignment-releasing decision                                                 |
+| `DENY`                | 5 s      | 2 s     | Close the application while preserving the current request/assignment                                 |
+| `ASSIGN`              | 5 s      | 2 s     | Review the learner, subject and tutor before the assignment or proposal                               |
+| `ASSIGNMENT_OVERRIDE` | 3 s      | 2 s     | Named qualification mismatch, independently acknowledged by proposer and reviewer                     |
+| `POLICY`              | 10 s     | 5 s     | Retain more reading time alongside unchanged document-bottom, agreement and immutable evidence checks |
+
+`prepareStudentAction` and `prepareAssignmentOverride` return `readyAt`,
+`expiresAt` and a `serverNow` snapshot taken after ticket creation. Both dialogs
+anchor that snapshot to `performance.now()` at response receipt. Readiness ignores
+client wall-clock skew; expiry conservatively subtracts the observed request
+round trip, an upper bound on response transit. Boundary callbacks and
+focus/visibility recovery update the label/status, while a live click-time check
+uses the same calculation before admission. No callback submits an action at zero.
+
+Changing the action/target or assignment identity remounts its preparation
+generation. Late responses cannot expose old proof, and cancellation removes only
+the actor's unused ticket. Submitted proof survives a dialog handoff to the
+qualification step. A ref blocks same-turn duplicate admission until its returned
+mutation promise rejects (even if the pending render is batched away), or a legacy
+callback exposes a rejection; an already-visible error cannot release that guard.
+Failed qualified writes offer explicit rechecking instead of an automatic retry loop.
+Expired reviews offer renewal; policy Refresh remains in its existing footer and
+resets read/agreement evidence through the policy feature's own recovery.
+
+The server remains authoritative: `readyAt <= now`, `expiresAt > now`, matching
+actor/action/target and unused proof are required atomically with the operation.
+Permissions, password step-up, proposal approval and policy revision ownership
+remain feature-owned. Ticket lifetimes stay at 30 minutes for student actions and
+5 minutes for qualification overrides. Verification expiry, resend cooldowns,
+rate limits, signup opening clocks and session timeouts are outside this contract.
+
 ## Identity and authorization
 
 Confirmed school departures are stored separately in `SchoolDeparture`, with versioned
@@ -879,7 +922,7 @@ Application locks protect supported API writes. Do not import directly into requ
 
 ### Assignment qualification confirmations
 
-`src/server/assignment-qualification.ts` checks stored grants from approved qualification sources under the catalogue lock. Assignment entry points and coordinator proposal creation share this guard. An unqualified assignment requires a one-use `StudentActionConfirmation` with action `ASSIGNMENT_OVERRIDE`, a three-second server deadline, and a hash of the operation and complete parsed assignment payload. The actor, course, tutor, request version, roster and schedule are bound; confirmation tokens themselves are excluded. New warning preparation invalidates older unused override tickets, cancellation deletes the current unused ticket, and approval replay requires the reviewer's fresh evidence. Existing student consequence confirmation remains a separate requirement. Active unlinked roster tutors remain eligible for assignment; a linked account with explicitly revoked tutoring membership is excluded and assignment never restores account access. No additional schema is needed beyond the course grant migration.
+`src/server/assignment-qualification.ts` checks stored grants from approved qualification sources under the catalogue lock. Assignment entry points and coordinator proposal creation share this guard. An unqualified assignment requires a one-use `StudentActionConfirmation` with action `ASSIGNMENT_OVERRIDE`, a two-second server deadline, and a hash of the operation and complete parsed assignment payload. The actor, course, tutor, request version, roster and schedule are bound; confirmation tokens themselves are excluded. New warning preparation invalidates older unused override tickets, cancellation deletes the current unused ticket, and approval replay requires the reviewer's fresh evidence. Existing student consequence confirmation remains a separate requirement. Active unlinked roster tutors remain eligible for assignment; a linked account with explicitly revoked tutoring membership is excluded and assignment never restores account access. No additional schema is needed beyond the course grant migration.
 
 ## Scheduling, hours and discipline
 
@@ -902,6 +945,8 @@ Confirmed planned room bookings cannot overlap within a program period or confli
 Room block create/edit/remove operations use `adminProcedure` and the approval allowlist: Admin/Head apply writes, while Coordinators submit proposals. The shared [room block schemas](../src/lib/room-blocks.ts) validate day, minute bounds, reason length and increasing times before a request enters review. [Room validation](../src/server/room-bookings.ts) serializes block edits and removals with planned booking writes, excludes the edited block from overlap checks, and rejects conflicts with other blocks or active-term pairings. [Proposal preflight](../src/server/room-block-proposals.ts) validates current feasibility without reserving a time; approval checks target evidence and reruns the mutation inside the review transaction. Rejected or failed approvals do not change availability. The room-block migration extends the existing database trigger to enforce valid ranges and disjoint blocks on inserts/updates without rewriting historical rows.
 
 Room-block review summaries use immutable payload/target evidence, not current room lookups. New proposals capture `roomBlockContext` for readable room identity. Review recomputes this context only when it was originally recorded, preserving the fingerprint shape of legacy requests. Missing legacy details are explicitly unavailable; raw proposal values remain in the evidence disclosure.
+
+Attendance and crew patrol treat room IDs as opaque nonempty strings, including legacy/imported keys; a CUID generation default is not a restriction on stored IDs. The shared [room-reference check](../src/server/room-references.ts) verifies effective physical rooms inside the write transaction and holds key-share row locks through commit. Unknown/deleted rooms return a room-specific error before attendance, observations or credits are written. Online attendance needs no room, while omitted/null physical-room overrides retain the pairing default. Accepted submission retries return their existing receipt before this check, preserving replay after catalogue changes. No ID migration or frontend change is required.
 
 The [hour calculator](../src/lib/service-hours.ts) owns session rounding; use the [policy examples](../prisma/policies/tutor-policy.en.md#iii-service-hours-accrual) rather than ordinary nearest-half-hour rounding. Completed interviews credit actual duration. Meeting deductions use the semester allowance in [meeting-hours.ts](../src/server/meeting-hours.ts); corrections recompute system credits while preserving manual adjustments.
 

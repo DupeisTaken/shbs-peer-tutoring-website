@@ -83,7 +83,7 @@ export function PolicyConsent({
           error={save.error?.message}
           onCancel={() => setConfirming(false)}
           onConfirm={(ticket) =>
-            save.mutate({
+            save.mutateAsync({
               slug,
               revision: query.data.revision,
               signature,

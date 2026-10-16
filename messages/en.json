@@ -2895,7 +2895,8 @@
     "sourceGuide": "Signup sources and ownership",
     "policyRefresh": "Refresh",
     "emailStatus": "Email: {status}",
-    "noticeTargetMissing": "This request is no longer in the current queue. Review the retained program records or contact management."
+    "noticeTargetMissing": "This request is no longer in the current queue. Review the retained program records or contact management.",
+    "confirmationExpired": "This confirmation expired. Reopen or refresh it to review again."
   },
   "approvals": {
     "reviewPermissions": "Admin and Head review daily operations. Head reviews significant settings, management profiles and roles, requested registration-code grants and reversals. Admin and Head issue Tutor/Crew codes directly. Head may review their own requests; everyone else needs another eligible reviewer.",
@@ -3618,14 +3619,16 @@
     "loading": "Loading qualifications…",
     "loadError": "Qualifications could not be loaded. Refresh to try again.",
     "warningTitle": "Assign a Tutor Without This Qualification?",
-    "warningHelp": "Review the mismatch below. Wait three seconds, then explicitly confirm or cancel. Normal assignment and scheduling rules still apply.",
+    "warningHelp": "Review the mismatch below. Wait two seconds, then explicitly confirm or cancel. Normal assignment and scheduling rules still apply.",
     "checking": "Checking assignment",
     "checkingHelp": "Checking this tutor’s recorded subject qualifications.",
     "mismatch": "{tutor} has no approved qualification for {subject}.",
     "cancel": "Cancel",
     "confirm": "Confirm unqualified assignment",
     "wait": "Confirm in {seconds}s",
-    "working": "Assigning…"
+    "working": "Assigning…",
+    "retry": "Review again",
+    "confirmationExpired": "This confirmation expired. Review again before confirming."
   },
   "qualificationRequests": {
     "completedCount": "({count} completed)",

@@ -2895,7 +2895,8 @@
     "sourceGuide": "报名来源与归属",
     "policyRefresh": "刷新",
     "emailStatus": "邮箱：{status}",
-    "noticeTargetMissing": "此申请已不在当前队列中。请查看保留的项目记录或联系管理团队。"
+    "noticeTargetMissing": "此申请已不在当前队列中。请查看保留的项目记录或联系管理团队。",
+    "confirmationExpired": "此确认已过期。请重新打开或刷新后再次审核。"
   },
   "approvals": {
     "reviewPermissions": "管理员和负责人审批日常管理操作。重大设置、管理账户资料与权限、注册码授权申请及撤销操作由负责人审批。管理员和负责人可直接签发辅导伙伴及巡视员注册码。负责人可审批自己提交的请求；其他人员需要另一位有权限的审批人员。",
@@ -3618,14 +3619,16 @@
     "loading": "正在加载资格…",
     "loadError": "无法加载资格。请刷新重试。",
     "warningTitle": "分配未具备此资格的辅导伙伴？",
-    "warningHelp": "请查看以下资格不符情况。等待三秒后，明确确认或取消。正常的分配和排课规则仍然适用。",
+    "warningHelp": "请查看以下资格不符情况。等待两秒后，明确确认或取消。正常的分配和排课规则仍然适用。",
     "checking": "正在检查分配",
     "checkingHelp": "正在检查辅导伙伴已记录的科目资格。",
     "mismatch": "{tutor} 未具备 {subject} 的已批准资格。",
     "cancel": "取消",
     "confirm": "确认分配未具备资格的辅导伙伴",
     "wait": "{seconds}秒后可确认",
-    "working": "正在分配…"
+    "working": "正在分配…",
+    "retry": "重新审核",
+    "confirmationExpired": "此确认已过期。请重新审核后再确认。"
   },
   "qualificationRequests": {
     "completedCount": "（已完成 {count} 项）",
