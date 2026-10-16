@@ -4990,7 +4990,7 @@
     },
     "request_invalidity_appeal_pending": {
       "title": "Invalid Request Appeal Awaiting Review",
-      "body": "A submitter appealed an applied invalid-request flag. Review the appeal in the request's invalidity dialog; submitting an appeal does not clear the flag.",
+      "body": "Une personne a fait appel du marquage de sa demande comme non valide. Ouvrez la demande liée pour examiner le recours ; son dépôt ne supprime pas le marquage.",
       "action": "Review invalid request appeal"
     }
   },

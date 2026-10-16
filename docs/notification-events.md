@@ -756,8 +756,8 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Invalid Request Appeal Awaiting Review | A submitter appealed an applied invalid-request flag. Review the appeal in the request's invalidity dialog; submitting an appeal does not clear the flag. | Review invalid request appeal |
-| 中文 | 无效申请申诉待审核 | 一位申请提交者对已应用的无效标记提出申诉。请在申请的无效标记对话框中审核；提交申诉不会解除标记。 | 查看无效申请申诉 |
+| English | Invalid Request Appeal Awaiting Review | A submitter appealed an applied invalid-request flag. Open the linked request to review the appeal; submitting an appeal does not clear the flag. | Review invalid request appeal |
+| 中文 | 无效申请申诉待审核 | 一位申请提交者对已应用的无效标记提出申诉。请打开链接中的申请审核申诉；提交申诉不会解除标记。 | 查看无效申请申诉 |
 
 ## Essential request-service notices
 
