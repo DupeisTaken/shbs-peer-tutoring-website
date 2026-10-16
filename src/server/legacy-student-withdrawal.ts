@@ -47,9 +47,7 @@ export async function ownedLegacyParticipation(
       !(student.intakeTermId === null && user.studentId === student.id) &&
       !student.pairings.some((p) => p.pairing.termId === term.id))
   )
-    invalid(
-      "There is no current enrollment to withdraw from.",
-    );
+    invalid("There is no current enrollment to withdraw from.");
   if (!user.email)
     invalid(
       "Contact staff to add an account email before requesting withdrawal.",
@@ -107,6 +105,7 @@ export async function applyLegacyStudentWithdrawal(
       data: managers.map((u) => ({
         userId: u.id,
         title: "Tutee withdrawal awaiting review / 学习伙伴退出申请待审核",
+        ...notificationEvent("student_withdrawal_pending"),
         link: "/admin/tutee-requests",
       })),
     });
@@ -155,3 +154,4 @@ export async function approveLegacyStudentWithdrawal(
     data: { state: "DENIED", resolvedAt: new Date() },
   });
 }
+import { notificationEvent } from "~/lib/notification-events";

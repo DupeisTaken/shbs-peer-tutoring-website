@@ -373,7 +373,16 @@ export const approvalRouter = createTRPCRouter({
                           confirmPassword: input.confirmPassword,
                         }
                       : confirmation
-                        ? { ...(value as object), ticket: input.ticket }
+                        ? {
+                            ...(value as object),
+                            ...([
+                              "studentWorkflow.headEditSignup",
+                              "studentWorkflow.headUnassign",
+                              "studentWorkflow.resolveSignupAppeal",
+                            ].includes(request.operation)
+                              ? { signedTicket: input.ticket }
+                              : { ticket: input.ticket }),
+                          }
                         : value;
                   // Each reviewer acknowledges current eligibility with their own one-use evidence.
                   await caller[router!]![method!]!(
@@ -434,6 +443,11 @@ export const approvalRouter = createTRPCRouter({
                     data: {
                       userId: request.requesterId,
                       title: `Change ${input.approve ? "approved" : "rejected"}`,
+                      ...notificationEvent(
+                        input.approve
+                          ? "management_approved"
+                          : "management_rejected",
+                      ),
                       body: `${reviewerName}: ${input.note}`,
                       link:
                         request.operation === "departure.setState"
@@ -516,3 +530,4 @@ export const approvalRouter = createTRPCRouter({
     ),
 });
 import { accountHistoryIds } from "~/server/account-history";
+import { notificationEvent } from "~/lib/notification-events";

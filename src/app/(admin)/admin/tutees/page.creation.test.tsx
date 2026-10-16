@@ -116,6 +116,7 @@ it.each(["en", "zh"] as const)(
     const { messages, trigger, panel, first, footer, submit } = mount(locale);
     for (const hide of [footer, trigger]) {
       fireEvent.click(trigger);
+      acknowledgeCreation(messages);
       fireEvent.change(first, { target: { value: "Saved" } });
       fireEvent.click(submit);
       await waitFor(() =>
@@ -126,6 +127,7 @@ it.each(["en", "zh"] as const)(
       expect(panel.hidden).toBe(true);
       expect(document.activeElement).toBe(trigger);
       fireEvent.click(trigger);
+      acknowledgeCreation(messages);
       expect(first.value).toBe("");
       expect(screen.queryByText(messages.admin.tutees.addSaved)).toBeNull();
       fireEvent.change(first, { target: { value: "Unsaved" } });
@@ -133,6 +135,7 @@ it.each(["en", "zh"] as const)(
       expect(panel.hidden).toBe(true);
       expect(screen.queryByText(messages.admin.tutees.addSaved)).toBeNull();
       fireEvent.click(trigger);
+      acknowledgeCreation(messages);
       expect(first.value).toBe("Unsaved");
       fireEvent.click(hide);
     }
@@ -147,6 +150,7 @@ it("freezes every draft control, blocks hiding and duplicate submission, then re
   mocks.invalidate.mockReturnValue(invalidation.promise);
   const { messages, trigger, panel, form, first, footer } = mount();
   fireEvent.click(trigger);
+  acknowledgeCreation(messages);
   fireEvent.change(first, { target: { value: "Snapshot" } });
   // Dispatch in one batch: the guard must work before isPending renders.
   act(() => {
@@ -187,6 +191,7 @@ it("retains all failed fields and errors through hiding, allows corrections, and
     .mockResolvedValue({ id: "retry" });
   const { messages, trigger, panel, first, submit, footer } = mount();
   fireEvent.click(trigger);
+  acknowledgeCreation(messages);
   const names = ["Original", "Learner", "Nickname", "示例"];
   const inputs = [...panel.querySelectorAll<HTMLInputElement>("input")];
   inputs.forEach((input, index) =>
@@ -212,6 +217,7 @@ it("retains all failed fields and errors through hiding, allows corrections, and
     fireEvent.click(hide);
     expect(screen.queryByText(messages.admin.tutees.addSaved)).toBeNull();
     fireEvent.click(trigger);
+    acknowledgeCreation(messages);
     expect(screen.getByRole("alert").textContent).toBe("Save failed; retry");
     expect(first.value).toBe("Original");
   }
@@ -237,6 +243,7 @@ it("retains native required validation and permits a first-name-only submission"
   mocks.create.mockResolvedValue({ id: "minimal" });
   const { messages, trigger, form, first, submit } = mount();
   fireEvent.click(trigger);
+  acknowledgeCreation(messages);
   expect(first.required).toBe(true);
   expect(form.checkValidity()).toBe(false);
   fireEvent.click(submit);
@@ -254,3 +261,54 @@ it("retains native required validation and permits a first-name-only submission"
     secondChoiceId: undefined,
   });
 });
+
+function acknowledgeCreation(messages = en) {
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: messages.admin.creationRisk.acknowledgement,
+    }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.creationRisk.continue }),
+  );
+}
+
+it.each(["en", "zh"] as const)(
+  "gates every tutee opening and retains a draft through cancelled re-entry (%s)",
+  (locale) => {
+    const { messages, trigger, panel, first, footer } = mount(locale);
+    trigger.focus();
+    fireEvent.click(trigger);
+    expect(panel.hidden).toBe(true);
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: messages.admin.creationRisk.continue,
+      }).disabled,
+    ).toBe(true);
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.admin.creationRisk.cancel }),
+    );
+    expect(panel.hidden).toBe(true);
+    expect(document.activeElement).toBe(trigger);
+    fireEvent.click(trigger);
+    acknowledgeCreation(messages);
+    expect(panel.hidden).toBe(false);
+    expect(document.activeElement).toBe(first);
+    fireEvent.change(first, { target: { value: "Retained" } });
+    fireEvent.click(footer);
+    fireEvent.click(trigger);
+    expect(panel.hidden).toBe(true);
+    expect(
+      screen.getByRole<HTMLInputElement>("checkbox", {
+        name: messages.admin.creationRisk.acknowledgement,
+      }).checked,
+    ).toBe(false);
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.admin.creationRisk.cancel }),
+    );
+    fireEvent.click(trigger);
+    acknowledgeCreation(messages);
+    expect(first.value).toBe("Retained");
+    expect(mocks.create).not.toHaveBeenCalled();
+  },
+);

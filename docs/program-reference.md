@@ -23,6 +23,8 @@ retain their existing ownership rules; subject qualification levels are distinct
 | Admin/Coordinator registration invitations                                                                                                                        | Head             | Admin                                                               | Head                    |
 | Audit undo, reinstatement, deletion of hour adjustments, invitation revocation, attendance/patrol correction and changes to an applied card decision              | Head             | Eligible Admin/Coordinator requesters; messaging remains Admin-only | Head                    |
 | Time-slot clock changes that propagate into recorded attendance, credits or reviewed flags                                                                        | Head             | Admin/Coordinator                                                   | Head                    |
+| Current tutee signup assigned-choice edits and their affected assignment release                                                                                 | Head             | Admin/Coordinator request Head review; owners cannot drop assigned choices | Head               |
+| Public-request invalid flags; tutee signup appeal decisions                                                                                                      | Admin or Head    | Coordinator proposes flags; the owned tutee request may be appealed   | Admin or Head          |
 | Message restoration, removal of messaging restrictions, and an appeal that overturns an applied decision                                                          | Head             | Eligible requesters in the underlying workflow                      | Head                    |
 | Assignments, rooms/blocks/slots, catalogues, meetings/attendance, ordinary hours, announcements, initial discipline decisions and other reviewed daily work       | Admin or Head    | Coordinator                                                         | All eligible Admin/Head |
 
@@ -83,6 +85,12 @@ of the existing and authorized ranks, never demote and never grant Head. MFA and
 remain enforced. Participation grants retain school departure checks, intake priority, policy
 evidence and historical ownership; departure alone does not block a management rank grant.
 
+Tutee public forms reuse the primary or verified-secondary address's existing
+account, including a tutor requesting help. Same-email replacement requires proof
+for that exact submitted request plus existing sign-in/MFA and explicit review;
+email matching alone never grants access or combines accounts. Tutor recruitment
+and its existing approval process remain separate.
+
 New invitation and staff registration codes retain the five-character uppercase
 Steam-style format, containing both letters and digits, including `0` and `I`. Input accepts
 `O`/`o` as `0` and, in five-character codes, `1` as `I`. Codes are opaque; their characters
@@ -131,13 +139,48 @@ When Email 2FA is on, password changes also require an emailed verification code
 
 Head can enable **Email Notifications** in **Program Settings → Deployment Configurations**; Admin submits the change for Head review. The setting takes effect when applied, defaults off and is separate from staged modules and email 2FA. Production requires configured email delivery. Individuals then choose private-message and information/program categories, and whether verified secondary addresses receive copies; see [personal preferences](user-guide.md#optional-email-notifications).
 
-Disabling the setting cancels pending optional notices and preserves personal preferences. Users cannot enable notifications themselves while this program switch is off. Security alerts remain mandatory.
+Disabling the setting cancels pending optional notices and preserves personal preferences. Users cannot enable notifications themselves while this program switch is off. Security alerts and essential public-request invalidity/clear notices remain mandatory. Request-status mail uses the PROGRAM sender but bypasses optional switches and personal preferences, goes only to the request's recorded address, and has no unsubscribe link.
+
+New event notices explain the actual action and next step in the selected interface
+language. Email includes English and Chinese together; the system does not save a
+recipient email-language preference. The [notification event inventory](notification-events.md)
+maps all supported events to their actual trigger, recipients, wording and destination.
+Interview scheduling can carry a recorded date/time/timezone. Tutoring assignments
+remain recurring weekly arrangements: there is no dated tutoring-session notification
+emitter, and an assignment notice does not create or promise a specific session date.
 
 The independent **Secondary-Email Binding** switch takes effect when Head applies it; Admin can request Head review, and Coordinators cannot submit either email switch. Binding availability defaults on to preserve the existing workflow. Turning it off blocks add/resend/confirm operations, including a code issued before the switch changed. It preserves existing account addresses, sign-in/recovery, primary-email changes and removal/cancellation. A secondary email is never required for signup, setup or use. This switch does not require notification emails to be enabled.
 
 The settings panel checks both security and program SMTP connection/authentication, warns about unavailable or missing transport, and reports retrying and terminal notification failures separately. **Refresh status** reads diagnostics without sending mail or changing the program; checks may be cached for one minute. Passing the check does not guarantee inbox delivery. Operators should inspect the safe failure summaries in `EmailDelivery` and follow the [delivery operations guide](deployment.md#optional-notification-delivery). Essential authentication mail remains independent.
 
-ADMIN/HEAD can use **Resend stuck emails** to queue up to 100 eligible failed or retrying notifications after transport recovery. It excludes active leases, completed/skipped mail, unconfigured production categories and disabled optional notifications. The normal worker applies current preferences and recipient ownership before delivery. This immediate, audited action cannot be proposed by coordinators; a successful result confirms queuing rather than inbox delivery.
+ADMIN/HEAD can use **Resend stuck emails** to queue up to 100 eligible failed or retrying notifications after transport recovery. It excludes active leases, completed/skipped mail, unconfigured production categories and disabled optional notifications. The normal worker applies current preferences and recipient ownership for account notifications, and exact source/revision checks for essential request notices. This immediate, audited action cannot be proposed by coordinators; a successful result confirms queuing rather than inbox delivery.
+
+Public-request invalidity remains an ordinary daily operation: Admin/Head apply it,
+while Coordinators propose it for approval. Only an applied flag, clear or later
+reflag creates a request-email receipt; pending/rejected proposals send no invalidity
+mail to the submitter. A required reason, actor, time, revision and history are retained,
+without rewriting the original intake, priority, answers or participation state.
+Write reasons suitable for a verified submitter to read. Unverified recipients receive
+only the request kind and original submission date/time/timezone plus the appeal action;
+names, answers and reason are masked. Only request-specific mailbox proof permits the
+reason, and missing historical times remain unavailable. Missing/invalid addresses
+are blocked rather than treated as delivered.
+
+The request's invalidity dialog includes receipt status and the latest appeal.
+Admin/Head may retry an eligible receipt or decline an appeal with a reason.
+Status refresh is read-only, and retry preserves the receipt and original payload.
+Request mail has five admitted attempts per retry budget. Admission commits **Sending**
+before external SMTP starts; source locks and a unique attempt fence order admission
+against clear/reflag and prevent an expired worker from completing a newer attempt.
+Clearing supersedes queued obsolete notices; an already admitted attempt may finish.
+SMTP acceptance followed by a crash can still produce an uncertain result and duplicate
+retry, so receipt states do not promise exactly-once delivery or inbox arrival.
+
+**Appeal this decision** opens a public, request-specific capability valid for 90 days
+from receipt creation. It grants no login or participation and GET changes nothing.
+One immutable appeal is accepted per flag. Admin/Head review it; submission never
+clears the flag. Clearing remains the existing authorized action, including Coordinator
+proposals. Old links cease to work after clear/reflag while earlier evidence remains.
 
 ## Schedule rooms and periods
 
@@ -254,10 +297,17 @@ Historical participants can remain accountless. After import, use [historical re
 | Scheduling                          | RoomUnavailability, TutorAvailability, TuteeAvailability, TutorSubjectWillingness, PairingGroup, Pairing, PairingTutee                                                                                                                                                                               |
 | Attendance and hours                | Session, SessionTutee, TutorMeeting, MeetingAttendance, ServiceHourAdjustment, Patrol, PatrolObservation, PatrolCreditWindow, SessionFlag                                                                                                                                              |
 | Applications and membership history | TutorApplication, ApplicationSubjectIntent, InterviewAssignment, InterviewVote, TutorStatusRequest, TuteeRemovalRequest, CrewApplication, CrewStatusRequest                                                                                                                            |
-| Student and academic history        | StudentSurvey, StudentRequestReview, TuteeRequestInvalidity, StudentQuarterBlock, StudentProfileOwnership, HistoricalAcademicRecord, PolicyAcceptance, DisciplinaryCard, StudentFeedback, StudentAppeal, TutorQualification, QualificationGrant, AcademicProfile, AcademicConfirmation |
+| Student and academic history        | StudentSurvey, StudentSignupRevision, StudentSignupAppeal, StudentRequestReview, TuteeRequestInvalidity, StudentQuarterBlock, StudentProfileOwnership, HistoricalAcademicRecord, PolicyAcceptance, DisciplinaryCard, StudentFeedback, StudentAppeal, TutorQualification, QualificationGrant, AcademicProfile, AcademicConfirmation |
 | Announcements                       | Announcement, AnnouncementAck                                                                                                                                                                                                                                                          |
 
 This is a program-record archive, not a full deployment backup. It excludes retained tutor ownership links and historical academic correction revisions; account passwords, roles and access settings; verification/registration/reset tokens; private messages; executable approval and audit payloads; live program configuration; website content; and uploaded files. `User.csv` contains reference IDs, names and emails only. Its accounts must already exist with matching values; importing never creates logins or changes account privileges. New tutor handles cannot collide with account handles, and account-owned email addresses must be reconciled through account management first. Existing users retain their own account-to-tutor links; the archive does not create those links by matching names or email addresses. Student ownership rows use explicit IDs and cannot claim a profile linked to another account. Imported survey verification hashes are newly randomized, so an old verification link cannot become usable again.
+
+Signup exports retain the original submission, current answer projection,
+immutable accepted answer/consent revisions and signup appeal decision evidence.
+Staged intent challenges, notice delivery capabilities and private client/decision
+retry capabilities are excluded. Restoring revisions creates fresh operational
+receipt keys; importing history cannot authorize a live replacement or revive an
+old mailbox proof.
 
 ### Prepare CSV files
 
@@ -323,7 +373,7 @@ In **Announcements → Recipients**, choose all current tutors, filtered tutors 
 
 **Include** adds a tutor regardless of filters; **Exclude** wins over both filters and inclusion. Search narrows only the override picker. Check the complete audience count and name preview before publishing; an empty audience is blocked. Assignment filters need an active term and count unique active tutees in that term.
 
-The published audience is fixed. For coordinator proposals, approval freezes the recipients and rejects changed audience evidence. Editing, pinning, reactivating or restoring a post does not select a new audience; publish a new announcement to change recipients. Tutors can read and dismiss only active posts addressed to their linked identity, plus applicable broadcasts. In-app notifications can also produce generic program-update email notices when program and personal information-notification preferences are enabled; these notices do not contain the announcement body.
+The published audience is fixed. For coordinator proposals, approval freezes the recipients and rejects changed audience evidence. Editing, pinning, reactivating or restoring a post does not select a new audience; publish a new announcement to change recipients. Tutors can read and dismiss only active posts addressed to their linked identity, plus applicable broadcasts. In-app notifications can also produce announcement event emails when program and personal information-notification preferences are enabled; these notices explain how to open the announcement and do not contain its title or body.
 
 ## Message permissions and supervision
 
@@ -364,6 +414,32 @@ Participants can always read `/tutor-signup` and `/tutee-signup`; old `/signup` 
 Publish the English source of both policies through **Policy Documents**, configure active **Subjects & Levels**, and add **Time Slots** when tutee availability is required. Missing or empty policy publication is shown as incomplete setup, rather than a retryable loading error. Real database/network failures still show Retry. Tutee submission also requires working transactional email.
 
 The server rechecks the current recruitment window on every submission. Open browser tabs update timed boundaries and poll schedule changes every 30 seconds. A form submitted after closing is rejected even before its next poll. Schedule saves reject an ending time at or before the start and reject a stale active-period ID. Existing opening times and external preview links survive the recruitment migration.
+
+Public closing stops new submissions. It does not end signed-in editing of an
+owned current **OPEN** request or create an extra verification deadline. Owners
+can correct request names, grade, phone, preferred contact, availability and
+unassigned subject choices until active-period rollover or a terminal transition.
+Historical requests are read only. Head reviews assigned-choice edits and any
+affected assignment release; stored sessions and attendance remain intact. Current
+field and catalogue rules are checked again when a change is accepted.
+
+| Tutee request event | Identity and consent | Priority, deadline and records |
+| --- | --- | --- |
+| Fresh eligible public request | No duplicate account is created by email matching; account setup follows exact mailbox proof and invitation review | Reserve priority at the first accepted submission |
+| Deliberate same-email submission | Independent challenge and signed consent; existing account sign-in/MFA is required for its reviewed replacement | Keep the current OPEN request's original timestamp, fixed deadline, assignments and original signed source |
+| Exact retry of accepted submission | Recover only its bound receipt; changing answers requires a new deliberate submission | No duplicate revision, CAPTCHA check, email or notification |
+| Signed-in owner edit | Explicit ownership and version required; shared login identity and original signature are separate | Keep priority and assigned choices; allow request-local edits after public closing |
+| Policy published after staging | Keep the signed stage-time revision; do not automatically accept the later policy | Existing current-policy participation gates require separate acceptance |
+| First assignment before verification | Existing source or fresh bounded exact-intent proof can complete verification | Fixed seven-day deadline; resends, replacement, reassignment and appeals never extend it |
+| Invalid request under appeal | Owner supplies a reason before active-period rollover; Admin/Head decide | Stay invalid and processing-blocked during review; acceptance keeps priority |
+| Final invalidity rejection | Keep original and decision evidence | Close active request and end its priority; later eligible resubmission starts fresh |
+
+Flagging invalid requires a reason. Admin/Head apply the flag, and Coordinator
+proposals use the existing approval flow. The owner receives a notice and email
+notification with an appeal route; internal review details remain staff-only.
+Acceptance clears the flag, while final rejection retains a closed auditable
+request. Drafts survive failed saves. If a write succeeds but refreshing fails,
+its recovery action reloads reads without applying the change again.
 
 ## CAPTCHA verification
 

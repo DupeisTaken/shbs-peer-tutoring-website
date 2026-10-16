@@ -444,10 +444,8 @@ it("preserves JSON scalar types and JSON null while rejecting partial JSON match
   await expect(
     caller().recordTransfer.preview({ files: exported.files }),
   ).resolves.toBeDefined();
-  await db.studentSurvey.update({
-    where: { id: "survey-json" },
-    data: { payload: { a: 1, b: 2 } },
-  });
+  // Original submission evidence is now immutable; a distinct incoming JSON value
+  // must still be rejected rather than compared as a partial object match.
   await expect(
     caller().recordTransfer.preview({
       files: [file("StudentSurvey", [{ ...row, payload: { a: 1 } }])],

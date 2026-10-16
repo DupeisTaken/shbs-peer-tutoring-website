@@ -1,5 +1,6 @@
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
 import type { EmailMessage } from "~/server/email/sender";
+import { createHash } from "node:crypto";
 import {
   stageCrewVerification,
   verifyCrewApplication,
@@ -667,16 +668,23 @@ it("checks new student intake and preserves accepted pre-policy identity at rede
     submitSurvey(db, await studentInput("王小明")),
   ).rejects.toMatchObject(policyError);
   expect(await db.studentSurvey.count()).toBe(0);
-  await setRequired(false);
-  const historicalPayload = await studentInput("Xiaoming Wang");
-  await submitSurvey(db, historicalPayload);
-  await db.studentSurvey.updateMany({
-    data: { payload: { ...historicalPayload, englishName: "王小明" } },
+  const historicalPayload = await studentInput("王小明");
+  const policy = await currentPolicy(db, "tutee-policy");
+  const token = "7".repeat(64);
+  // Model an actual pre-policy source at creation. Current intake must reject it,
+  // and immutable original evidence must never be fabricated by a later UPDATE.
+  await db.studentSurvey.create({
+    data: {
+      email: historicalPayload.email,
+      intakeTermId: "policy-term",
+      payload: historicalPayload,
+      policyRevision: policy.revision,
+      policySnapshot: policy.documents,
+      tokenHash: createHash("sha256").update(token).digest("hex"),
+      expiresAt: new Date(Date.now() + 86400000),
+    },
   });
-  const token = lastStudentToken();
-  await setRequired(true);
-  // Stored intake is accepted source evidence; a tightened rule governs later
-  // profile edits, rather than stranding the verified recipient at redemption.
+  // Stored intake remains grandfathered, without weakening today's new-name rule.
   await expect(confirmSurvey(db, token, password)).resolves.toEqual({
     ok: true,
   });
@@ -866,5 +874,8 @@ it("preserves an accepted invited roster identity through first login without ad
   expect(await db.tutor.findUnique({ where: { id: roster.id } })).toMatchObject(
     { englishName: "王小明", legacyName: "王小明", username: "rosterhandle" },
   );
-  expect((await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } })).usedAt).toBeInstanceOf(Date);
+  expect(
+    (await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } }))
+      .usedAt,
+  ).toBeInstanceOf(Date);
 });

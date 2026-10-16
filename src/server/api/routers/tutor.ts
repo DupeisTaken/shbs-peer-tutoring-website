@@ -1,3 +1,4 @@
+import { notificationEvent } from "~/lib/notification-events";
 import { optionalPersonNameFields } from "~/lib/person-name";
 import { groupMembersForSchedule } from "~/server/pairing-groups";
 import { programRoomOrder } from "~/server/room-order";
@@ -22,6 +23,8 @@ import { TRPCError } from "@trpc/server";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { programDateKey } from "~/lib/program-time";
 import { z } from "zod";
+import { roomReference } from "~/lib/room-reference";
+import { requireExistingRooms } from "~/server/room-references";
 import { announcementVisibility } from "~/lib/announcement-recipients";
 import { createHash } from "node:crypto";
 import { inTransaction, lockEntity } from "~/server/transactions";
@@ -342,7 +345,7 @@ export const tutorRouter = createTRPCRouter({
           endMin: z.number().int().min(1).max(1440).optional(),
           // Where the session actually ran — the room used (defaults to the pairing's room) or
           // online. Used to match crew patrol observations to this session.
-          actualRoomId: z.string().cuid().nullable().optional(),
+          actualRoomId: roomReference.nullable().optional(),
           online: z.boolean().optional(),
           ratingPreparedness: rating,
           ratingParticipation: rating,
@@ -614,6 +617,7 @@ export const tutorRouter = createTRPCRouter({
               shCount: previous.shCount,
             };
           }
+          await requireExistingRooms(tx, actualRoomId ? [actualRoomId] : []);
           const dayStart = new Date(`${dateKey}T00:00:00Z`);
           const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
           const overlapping = await tx.session.findFirst({
@@ -742,6 +746,9 @@ export const tutorRouter = createTRPCRouter({
           if (features.DISCIPLINE && cardRequests.length > 0) {
             await notifyAdmins(
               {
+                ...notificationEvent("attendance_cards_pending", {
+                  count: cardRequests.length,
+                }),
                 title: "Discipline cards to review",
                 body: `${cardRequests.length} card(s) submitted with an attendance survey.`,
                 link: "/admin/discipline",
@@ -806,6 +813,7 @@ export const tutorRouter = createTRPCRouter({
               });
               await notifyAdmins(
                 {
+                  ...notificationEvent("attendance_room_reported"),
                   title: "Attendance reported in an allocated room",
                   link: "/admin/attendance",
                 },
@@ -1461,6 +1469,10 @@ export const tutorRouter = createTRPCRouter({
           await notifyTutors(
             panel.map((p) => p.tutorId),
             {
+              ...notificationEvent("interview_scheduled", {
+                startsAt: input.interviewAt.toISOString(),
+                timeZone: await getProgramTimeZone(tx),
+              }),
               title: "Interview scheduled",
               body: `An interview was scheduled for ${new Intl.DateTimeFormat("en", { timeZone: await getProgramTimeZone(tx), dateStyle: "medium", timeStyle: "short" }).format(input.interviewAt)}.`,
               link: "/dashboard",
@@ -1788,6 +1800,7 @@ export const tutorRouter = createTRPCRouter({
         });
         await notifyAdmins(
           {
+            ...notificationEvent("tutee_optout_requested"),
             title: "Tutee opt-out",
             body: `${tutor?.englishName ?? "A tutor"} relayed an opt-out for ${tutee?.englishName ?? "a tutee"} (auto-approves in ${TUTEE_OPT_OUT_COOLDOWN_DAYS} days).`,
             link: "/admin/tutee-requests",
@@ -1861,6 +1874,9 @@ export const tutorRouter = createTRPCRouter({
       });
       await notifyAdmins({
         title: input.available ? "Tutor reactivated" : "Tutor opted out",
+        ...notificationEvent(
+          input.available ? "tutor_reactivated" : "tutor_opted_out",
+        ),
         body: `${tutor.englishName} ${input.available ? "is available" : "opted out"} this term.`,
         link: "/admin/tutors",
       });
@@ -1961,6 +1977,7 @@ export const tutorRouter = createTRPCRouter({
         select: { englishName: true },
       });
       await notifyAdmins({
+        ...notificationEvent("meeting_absence_excused"),
         title: "Meeting absence excused",
         body: `${tutor?.englishName ?? "A tutor"} will miss "${meeting.title}".`,
         link: "/admin/meetings",

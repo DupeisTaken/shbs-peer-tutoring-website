@@ -1,4 +1,5 @@
 import { requireSchoolParticipation } from "./school-departure";
+import { confirmationDelayMs } from "~/lib/confirmation-timing";
 import { createHash } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -165,12 +166,12 @@ export async function prepareAssignmentOverride(
       userId,
       action: ACTION,
       target: overrideTarget(operation, { input, mismatches }),
-      readyAt: new Date(now + 3000),
+      readyAt: new Date(now + confirmationDelayMs.ASSIGNMENT_OVERRIDE),
       expiresAt: new Date(now + 5 * 60_000),
     },
-    select: { id: true, readyAt: true },
+    select: { id: true, readyAt: true, expiresAt: true },
   });
-  return { mismatches, ticket };
+  return { mismatches, ticket: { ...ticket, serverNow: new Date() } };
 }
 
 /** Runs inside the live assignment or proposal transaction: one-use evidence cannot bypass
@@ -205,6 +206,6 @@ export async function enforceAssignmentQualification(
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message:
-        "This tutor has no approved qualification for the selected subject. Open the warning, wait three seconds, and explicitly confirm this assignment.",
+        "This tutor has no approved qualification for the selected subject. Open the warning, wait two seconds, and explicitly confirm this assignment.",
     });
 }

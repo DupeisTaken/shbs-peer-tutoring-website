@@ -23,6 +23,7 @@ type Row = Record<string, unknown>;
 const safeFields = new Set([
   "programOrder",
   "version",
+  "currentVersion",
   "nameFieldsVersion",
   "invalidatedAt",
   "invalidatedById",

@@ -1,4 +1,5 @@
 import { enforceAssignmentQualification } from "./assignment-qualification";
+import { discretionarySignupChange } from "./student-signup-management";
 import { createHash } from "node:crypto";
 import { TRPCError, type AnyTRPCProcedure } from "@trpc/server";
 import type { Session } from "next-auth";
@@ -238,6 +239,11 @@ export async function proposalAuthority(
     changesRecordedSlotAttendance,
     currentRegistrationKind: code?.kind,
     restoresArchivedRecord,
+    discretionarySignupChange: await discretionarySignupChange(
+      client,
+      operation,
+      value,
+    ),
   });
 }
 
@@ -506,6 +512,12 @@ export async function proposalTargets(
     });
     if (appeal) ids.set("User", new Set([appeal.userId]));
   }
+  if (primary === "StudentSignupAppeal") {
+    const appeal = await client.studentSignupAppeal.findUnique({
+      where: { id: z.string().parse(fields.id) },
+    });
+    if (appeal) ids.set("StudentSurvey", new Set([appeal.surveyId]));
+  }
   // Student review decisions depend on the request and its current membership, not just the review row.
   if (primary === "StudentRequestReview") {
     const review = await client.studentRequestReview.findUnique({
@@ -701,13 +713,15 @@ export async function proposalTargets(
           : "jsonb_build_object('id', t.id, 'name', t.name, 'role', t.role, 'tutorId', t.\"tutorId\", 'tutorAccessRevoked', t.\"tutorAccessRevoked\", 'tuteeMember', t.\"tuteeMember\", 'canTranslate', t.\"canTranslate\", 'crewStatus', t.\"crewStatus\", 'suspendedAt', t.\"suspendedAt\")"
         : table === "DirectMessage"
           ? "to_jsonb(t) - ARRAY['body','clientKey']::text[]"
-          : table === "RegistrationCode"
-            ? "jsonb_build_object('id', t.id, 'kind', t.kind, 'tutorId', t.\"tutorId\", 'applicationId', t.\"applicationId\", 'crewApplicationId', t.\"crewApplicationId\", 'label', t.label, 'issuedById', t.\"issuedById\", 'issuedByName', t.\"issuedByName\", 'expiresAt', t.\"expiresAt\", 'usedAt', t.\"usedAt\", 'usedByUserId', t.\"usedByUserId\", 'emailVerifiedAt', t.\"emailVerifiedAt\", 'createdAt', t.\"createdAt\")"
-            : ["TutorApplication", "StudentSurvey"].includes(table)
-              ? // Untouched additive columns must not invalidate pre-migration proposals.
-                // A first flag or later clear leaves a positive revision in every future snapshot.
-                "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[] - CASE WHEN t.\"invalidityVersion\" = 0 AND t.\"invalidatedAt\" IS NULL THEN ARRAY['invalidReason','invalidatedAt','invalidatedById','invalidatedByName','invalidityVersion']::text[] ELSE ARRAY[]::text[] END"
-              : "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[]";
+          : table === "StudentSignupAppeal"
+            ? "to_jsonb(t) - ARRAY['clientKey','inputHash','decisionKey','decisionHash']::text[]"
+            : table === "RegistrationCode"
+              ? "jsonb_build_object('id', t.id, 'kind', t.kind, 'tutorId', t.\"tutorId\", 'applicationId', t.\"applicationId\", 'crewApplicationId', t.\"crewApplicationId\", 'label', t.label, 'issuedById', t.\"issuedById\", 'issuedByName', t.\"issuedByName\", 'expiresAt', t.\"expiresAt\", 'usedAt', t.\"usedAt\", 'usedByUserId', t.\"usedByUserId\", 'emailVerifiedAt', t.\"emailVerifiedAt\", 'createdAt', t.\"createdAt\")"
+              : ["TutorApplication", "StudentSurvey"].includes(table)
+                ? // Untouched additive columns must not invalidate pre-migration proposals.
+                  // A first flag or later clear leaves a positive revision in every future snapshot.
+                  "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[] - CASE WHEN t.\"invalidityVersion\" = 0 AND t.\"invalidatedAt\" IS NULL THEN ARRAY['invalidReason','invalidatedAt','invalidatedById','invalidatedByName','invalidityVersion']::text[] ELSE ARRAY[]::text[] END"
+                : "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[]";
     targets[table] = await client.$queryRaw(
       Prisma.sql`SELECT ${Prisma.raw(fields)} AS record FROM ${Prisma.raw('"' + table + '"')} t WHERE t.id IN (${Prisma.join([...values].sort())}) ORDER BY t.id`,
     );
@@ -903,7 +917,18 @@ export async function queueProposal(
     const confirmation = proposalConfirmation(operation, value);
     if (confirmation) {
       const { consumeStudentAction } = await import("./student-workflow");
-      const ticket = z.object({ ticket: z.string() }).parse(value).ticket;
+      const postedTicket = z
+        .object({
+          ticket: z.string().optional(),
+          signedTicket: z.string().optional(),
+        })
+        .parse(value);
+      const ticket = postedTicket.signedTicket ?? postedTicket.ticket;
+      if (!ticket)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Open the confirmation first.",
+        });
       await consumeStudentAction(
         tx,
         ticket,
@@ -988,6 +1013,11 @@ export async function queueProposal(
           authority.reviewerRoles.length === 1
             ? "Management change awaiting Head approval"
             : "Management change awaiting approval",
+        ...notificationEvent(
+          authority.reviewerRoles.length === 1
+            ? "management_head_review_pending"
+            : "management_review_pending",
+        ),
         body: `${requesterName}: ${humanizeOperation(operation)}`,
         link: `/admin/approvals?request=${request.id}`,
       })),
@@ -995,3 +1025,4 @@ export async function queueProposal(
     return request;
   });
 }
+import { notificationEvent } from "~/lib/notification-events";

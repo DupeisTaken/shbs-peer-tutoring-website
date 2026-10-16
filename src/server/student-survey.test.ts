@@ -1,6 +1,7 @@
 import { approveQualification } from "~/server/qualifications";
 import { applyLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
 import { beforeEach, afterAll, describe, it, expect, vi } from "vitest";
+import { randomUUID } from "node:crypto";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("~/server/email/sender", () => ({
   emailSender: { send: vi.fn().mockResolvedValue(undefined) },
@@ -30,6 +31,9 @@ import {
 } from "~/server/auth/account-invitations";
 import {
   prepareStudentAction,
+  consumeStudentAction,
+  cancelStudentAction,
+  actionNames,
   assignStudentRequest,
   editStudentAvailability,
   recallStudentRequest,
@@ -40,6 +44,7 @@ import {
   studentPolicyStatus,
   studentRequestRows,
 } from "./student-workflow";
+import { confirmationDelayMs } from "~/lib/confirmation-timing";
 import {
   expireStudentRequests,
   VERIFICATION_WEEK_MS,
@@ -488,7 +493,7 @@ describe("survey-first enrollment", () => {
                   }
                 : null,
             });
-            const request = api[operation]({ ...input(), email: accountEmail });
+            const request = api[operation]({ ...input(), email: accountEmail, clientKey: randomUUID() });
             if (allowed)
               await expect(request).resolves.toMatchObject({ ok: true });
             else
@@ -538,7 +543,7 @@ describe("survey-first enrollment", () => {
       data: { signupClosesAt: new Date(Date.now() - 1) },
     });
     send.mockClear();
-    await expect(api.submitSurvey(input())).rejects.toMatchObject({
+    await expect(api.submitSurvey({ ...input(), clientKey: randomUUID() })).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
     });
     expect(await db.studentSurvey.findFirstOrThrow()).toEqual(original);
@@ -549,7 +554,9 @@ describe("survey-first enrollment", () => {
     await expect(continuation).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
     });
-    await expect(continuation).rejects.toThrow("Account setup now uses invitations");
+    await expect(continuation).rejects.toThrow(
+      "Account setup now uses invitations",
+    );
     expect((await db.studentSurvey.findFirstOrThrow()).confirmedAt).toBeNull();
     expect(await db.tutee.count()).toBe(0);
     const invitation = await db.accountInvitation.findFirstOrThrow({
@@ -777,6 +784,146 @@ describe("survey-first enrollment", () => {
 });
 
 describe("student request lifecycle", () => {
+  it("admits one concurrent consumer of the same confirmation proof", async () => {
+    const ticket = await ready("RECALL", "review-target");
+    const attempts = await Promise.allSettled([
+      db.$transaction((tx) =>
+        consumeStudentAction(tx, ticket, "manager", "RECALL", "review-target"),
+      ),
+      db.$transaction((tx) =>
+        consumeStudentAction(tx, ticket, "manager", "RECALL", "review-target"),
+      ),
+    ]);
+    expect(
+      attempts.filter((attempt) => attempt.status === "fulfilled"),
+    ).toHaveLength(1);
+    const rejected = attempts.filter(
+      (attempt) => attempt.status === "rejected",
+    );
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]).toMatchObject({
+      reason: { code: "PRECONDITION_FAILED" },
+    });
+    expect(
+      (
+        await db.studentActionConfirmation.findUniqueOrThrow({
+          where: { id: ticket },
+        })
+      ).usedAt,
+    ).not.toBeNull();
+  });
+  it.each(actionNames)(
+    "enforces the exact %s delay and unchanged ticket expiry",
+    async (action) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      const start = new Date("2030-01-01T00:00:00Z");
+      vi.setSystemTime(start);
+      try {
+        const ticket = await prepareStudentAction(
+          db,
+          "manager",
+          action,
+          "review-target",
+        );
+        const wait = confirmationDelayMs[action];
+        expect(+ticket.readyAt - +start).toBe(wait);
+        expect(+ticket.expiresAt - +start).toBe(30 * 60_000);
+        vi.setSystemTime(+start + wait - 1);
+        await expect(
+          db.$transaction((tx) =>
+            consumeStudentAction(
+              tx,
+              ticket.id,
+              "manager",
+              action,
+              "review-target",
+            ),
+          ),
+        ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+        vi.setSystemTime(+start + wait);
+        await expect(
+          db.$transaction((tx) =>
+            consumeStudentAction(
+              tx,
+              ticket.id,
+              "manager",
+              action,
+              "review-target",
+            ),
+          ),
+        ).resolves.toBeUndefined();
+        await expect(
+          db.$transaction((tx) =>
+            consumeStudentAction(
+              tx,
+              ticket.id,
+              "manager",
+              action,
+              "review-target",
+            ),
+          ),
+        ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+        const expired = await prepareStudentAction(
+          db,
+          "manager",
+          action,
+          "expired-target",
+        );
+        vi.setSystemTime(expired.expiresAt);
+        await expect(
+          db.$transaction((tx) =>
+            consumeStudentAction(
+              tx,
+              expired.id,
+              "manager",
+              action,
+              "expired-target",
+            ),
+          ),
+        ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+  it("rejects cancelled proof, actor/action/target changes, and permits fresh reopening", async () => {
+    const ticket = await ready("RECALL", "review-target");
+    for (const [user, action, target] of [
+      ["other", "RECALL", "review-target"],
+      ["manager", "ABORT", "review-target"],
+      ["manager", "RECALL", "changed-target"],
+    ] as const) {
+      await expect(
+        db.$transaction((tx) =>
+          consumeStudentAction(tx, ticket, user, action, target),
+        ),
+      ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    }
+    await cancelStudentAction(db, "manager", ticket);
+    await expect(
+      db.$transaction((tx) =>
+        consumeStudentAction(tx, ticket, "manager", "RECALL", "review-target"),
+      ),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    const fresh = await prepareStudentAction(
+      db,
+      "manager",
+      "RECALL",
+      "review-target",
+    );
+    expect(fresh.id).not.toBe(ticket);
+    await expect(
+      db.$transaction((tx) =>
+        consumeStudentAction(
+          tx,
+          fresh.id,
+          "manager",
+          "RECALL",
+          "review-target",
+        ),
+      ),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  });
   it("enforces a user-bound confirmation delay and single use", async () => {
     await submitSurvey(db, input());
     const row = await db.studentSurvey.findFirstOrThrow();

@@ -1,5 +1,14 @@
+import { confirmationDelayMs } from "~/lib/confirmation-timing";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
-import { assertRequestProcessable, emptyRequestInvalidity, lockStudentRequestReview, requestInvalidity } from "~/server/request-invalidity";
+import { currentStudentSignupPayload } from "./student-signup-answers";
+import { synchronizeStudentSignupAnswers } from "./student-signup-revisions";
+import { lockCatalogue } from "./qualifications";
+import {
+  assertRequestProcessable,
+  emptyRequestInvalidity,
+  lockStudentRequestReview,
+  requestInvalidity,
+} from "~/server/request-invalidity";
 import { findAccountPolicy } from "./policy-acceptance";
 import { enforceAssignmentQualification } from "./assignment-qualification";
 import { approveLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
@@ -8,7 +17,11 @@ import { approvalScope } from "./db-scope";
 import { ownedStudentIds } from "./student-ownership";
 import type { DomainDb, TransactionDb } from "./transactions";
 import { inTransaction, lockEntity } from "./transactions";
-import { currentPolicy, publishedPolicy, requirePolicy } from "./policy-acceptance";
+import {
+  currentPolicy,
+  publishedPolicy,
+  requirePolicy,
+} from "./policy-acceptance";
 import {
   applicablePolicySlugs,
   policyActionTarget,
@@ -37,6 +50,9 @@ export const actionNames = [
   "DENY",
   "POLICY",
   "ASSIGN",
+  "SIGNUP_EDIT",
+  "SIGNUP_UNASSIGN",
+  "SIGNUP_APPEAL",
 ] as const;
 export type StudentAction = (typeof actionNames)[number];
 
@@ -51,15 +67,24 @@ export async function prepareStudentAction(
   await db.studentActionConfirmation.deleteMany({
     where: { userId, expiresAt: { lt: new Date(now) } },
   });
-  return db.studentActionConfirmation.create({
+  const ticket = await db.studentActionConfirmation.create({
     data: {
       userId,
       action,
       target,
-      readyAt: new Date(now + (action === "POLICY" ? 10000 : 5000)),
+      readyAt: new Date(now + confirmationDelayMs[action]),
       expiresAt: new Date(now + 30 * 60_000),
     },
-    select: { id: true, readyAt: true },
+    select: { id: true, readyAt: true, expiresAt: true },
+  });
+  return { ...ticket, serverNow: new Date() };
+}
+
+/** Cancelling a local review can remove only the caller's unused proof. A submitted
+ * proof survives dialog handoff and is consumed atomically by the actual operation. */
+export function cancelStudentAction(db: DomainDb, userId: string, id: string) {
+  return db.studentActionConfirmation.deleteMany({
+    where: { id, userId, usedAt: null },
   });
 }
 
@@ -144,7 +169,12 @@ export async function acceptStudentPolicy(
       policyActionTarget(slug, revision),
     );
     const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
-    if (user.role === "VIEWER" || (slug !== "tutee-policy" && !applicablePolicySlugs(user).includes(slug)) || user.suspendedAt)
+    if (
+      user.role === "VIEWER" ||
+      (slug !== "tutee-policy" &&
+        !applicablePolicySlugs(user).includes(slug)) ||
+      user.suspendedAt
+    )
       throw new TRPCError({ code: "FORBIDDEN" });
     await tx.policyAcceptance.upsert({
       where: { userId_slug_revision: { userId, slug: policy.slug, revision } },
@@ -158,7 +188,11 @@ export async function acceptStudentPolicy(
         acceptedAt: new Date(),
       },
     });
-    if (slug === "tutee-policy") await tx.user.update({ where: { id: userId }, data: { tuteeMember: true } });
+    if (slug === "tutee-policy")
+      await tx.user.update({
+        where: { id: userId },
+        data: { tuteeMember: true },
+      });
     return { ok: true };
   });
 }
@@ -179,7 +213,13 @@ export async function studentPolicyStatus(
       schoolDeparture: true,
     },
   });
-  if (!user || user.suspendedAt || user.role === "VIEWER" || user.schoolDeparture?.reason) return null;
+  if (
+    !user ||
+    user.suspendedAt ||
+    user.role === "VIEWER" ||
+    user.schoolDeparture?.reason
+  )
+    return null;
   // An unpublished membership must not hide another membership's published review.
   // Only publication absence is a setup state; database errors still propagate.
   const missingSlugs: PolicySlug[] = [];
@@ -191,7 +231,12 @@ export async function studentPolicyStatus(
       missingSlugs.push(slug);
       continue;
     }
-    const acceptance = await findAccountPolicy(db, userId, policy.slug, policy.revision);
+    const acceptance = await findAccountPolicy(
+      db,
+      userId,
+      policy.slug,
+      policy.revision,
+    );
     if (!acceptance || (tuteeEntry && !user.tuteeMember))
       return { state: "review" as const, ...policy };
   }
@@ -215,11 +260,17 @@ export async function assignStudentRequest(
 ) {
   await expireStudentRequests(db);
   const result = await inTransaction(db, async (tx) => {
-    await enforceAssignmentQualification(tx, userId, "studentWorkflow.assign", { id, ticket, subjectId, tutorId, overrideTicket });
+    await enforceAssignmentQualification(tx, userId, "studentWorkflow.assign", {
+      id,
+      ticket,
+      subjectId,
+      tutorId,
+      overrideTicket,
+    });
     const row = await lockedRequest(tx, id);
     assertRequestProcessable(row);
     await consumeStudentAction(tx, ticket, userId, "ASSIGN", id);
-    const input = surveyInput.parse(row.payload);
+    const input = surveyInput.parse(currentStudentSignupPayload(row));
     if (![input.firstChoiceId, input.secondChoiceId].includes(subjectId))
       fail("Choose a subject requested in this survey.");
     const subject = await tx.subject.findUnique({ where: { id: subjectId } });
@@ -255,7 +306,7 @@ export async function assignStudentRequest(
     await notifyRequest(
       tx,
       { ...row, tuteeId: student.id },
-      "Tutor assigned / 已分配辅导伙伴",
+      "student_assignment_updated",
     );
     return { email: row.email, needsVerification: !row.confirmedAt };
   });
@@ -273,9 +324,11 @@ export async function editStudentAvailability(
   userId: string,
   id: string,
   slotIds: string[],
+  expectedVersion?: number,
 ) {
   await expireStudentRequests(db);
   return inTransaction(db, async (tx) => {
+    await lockCatalogue(tx);
     const row = await ownedRequest(tx, userId, id);
     const ids = [...new Set(slotIds)];
     await tx.$queryRaw`SELECT id FROM "TimeSlot" WHERE id = ANY(${ids}::text[]) ORDER BY id FOR SHARE`;
@@ -291,6 +344,11 @@ export async function editStudentAvailability(
     });
     if (old.length === ids.length && old.every((s) => ids.includes(s.slotId)))
       return { ok: true };
+    if (expectedVersion !== undefined && row.currentVersion !== expectedVersion)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "This changed since you loaded it — refresh and try again.",
+      });
     await tx.tuteeAvailability.deleteMany({ where: { tuteeId: row.tuteeId! } });
     await tx.tuteeAvailability.createMany({
       data: ids.map((slotId) => ({ tuteeId: row.tuteeId!, slotId })),
@@ -300,11 +358,8 @@ export async function editStudentAvailability(
       where: { id },
       data: { editedAt: new Date() },
     });
-    await notifyRequest(
-      tx,
-      row,
-      "Tutee availability edited / 学习伙伴可用时间已修改",
-    );
+    await synchronizeStudentSignupAnswers(tx, row, userId, { slotIds: ids });
+    await notifyRequest(tx, row, "student_availability_updated");
     return { ok: true };
   });
 }
@@ -361,11 +416,7 @@ export async function applyStudentAbort(
         reason,
       },
     });
-    await notifyRequest(
-      tx,
-      row,
-      "Quarter withdrawal awaiting review / 本季度退出申请待审核",
-    );
+    await notifyRequest(tx, row, "student_withdrawal_pending");
     return { ok: true };
   });
 }
@@ -421,7 +472,7 @@ export async function applyScheduleRejection(
         tx,
         tuteeId,
         userId,
-        "Tutor schedule conflict awaiting review / 辅导伙伴时间冲突待审核",
+        "student_schedule_review_pending",
       );
       return { ok: true };
     }
@@ -461,11 +512,7 @@ export async function applyScheduleRejection(
         reason,
       },
     });
-    await notifyRequest(
-      tx,
-      row,
-      "Tutor schedule conflict awaiting review / 辅导伙伴时间冲突待审核",
-    );
+    await notifyRequest(tx, row, "student_schedule_review_pending");
     return { ok: true };
   });
 }
@@ -542,11 +589,11 @@ export async function resolveStudentReview(
         review.requestedByUserId,
         review.kind === "STUDENT_ABORT"
           ? approve
-            ? "Quarter withdrawal approved / 本季度退出申请已批准"
-            : "Withdrawal declined; participation continues / 退出申请未通过，继续参加"
+            ? "student_withdrawal_approved"
+            : "student_withdrawal_declined"
           : approve
-            ? "Schedule rejection approved; rematching needed / 时间冲突申请通过，待重新匹配"
-            : "Schedule rejection declined / 时间冲突申请未通过",
+            ? "student_schedule_review_approved"
+            : "student_schedule_review_declined",
       );
       return { ok: true };
     }
@@ -609,11 +656,7 @@ export async function resolveStudentReview(
         fail(
           "This tutor assignment changed after the application was submitted. Decline this outdated application and review the current assignment.",
         );
-      await notifyRequest(
-        tx,
-        row,
-        "Schedule rejection approved; rematching needed / 时间冲突申请通过，待重新匹配",
-      );
+      await notifyRequest(tx, row, "student_schedule_review_approved");
       await preserveHistoricalAcademics(tx, "TUTEE", row.tuteeId!);
       await tx.pairingTutee.deleteMany({
         where: { pairingId: review.pairingId!, tuteeId: row.tuteeId! },
@@ -626,7 +669,9 @@ export async function resolveStudentReview(
       await notifyRequest(
         tx,
         row,
-        "Application declined; current assignment continues / 申请未通过，现有安排继续",
+        review.kind === "STUDENT_ABORT"
+          ? "student_withdrawal_declined"
+          : "student_schedule_review_declined",
       );
     await tx.studentRequestReview.update({
       where: { id },
@@ -644,7 +689,7 @@ async function notifyLegacySchedule(
   tx: TransactionDb,
   tuteeId: string,
   tutorUserId: string,
-  title: string,
+  event: NotificationEvent,
 ) {
   const users = await tx.user.findMany({
     where: {
@@ -661,7 +706,7 @@ async function notifyLegacySchedule(
   await tx.notification.createMany({
     data: users.map((user) => ({
       userId: user.id,
-      title,
+      ...notificationData(event),
       link: ["HEAD", "ADMIN"].includes(user.role)
         ? "/admin/requests"
         : user.tutorId
@@ -692,7 +737,10 @@ export async function studentRequestRows(
         ...(owned ? { tuteeId: { in: owned } } : email ? { email } : {}),
       },
       orderBy: [{ submittedAt: "asc" }, { id: "asc" }],
-      include: { reviews: { orderBy: { createdAt: "desc" } } },
+      include: {
+        reviews: { orderBy: { createdAt: "desc" } },
+        signupAppeals: { orderBy: { createdAt: "desc" } },
+      },
     }),
     db.subject.findMany({ select: { id: true, name: true } }),
     db.tutee.findMany({
@@ -706,7 +754,16 @@ export async function studentRequestRows(
         pairings: {
           where: { pairing: { termId: term.id } },
           include: {
-            pairing: { include: { tutor: { select: { englishName: true, user: { select: { username: true } } } } } },
+            pairing: {
+              include: {
+                tutor: {
+                  select: {
+                    englishName: true,
+                    user: { select: { username: true } },
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -730,11 +787,35 @@ export async function studentRequestRows(
     },
   });
   return rows.map((row) => {
-    const input = surveyInput.parse(row.payload);
+    const input = surveyInput.parse(currentStudentSignupPayload(row));
     const profile = profiles.find((p) => p.id === row.tuteeId);
     return {
       id: row.id,
-      ...(includeStaffReview ? requestInvalidity(row) : emptyRequestInvalidity),
+      ...requestInvalidity(row, includeStaffReview),
+      invalidityVersion: row.invalidityVersion,
+      canAppeal:
+        !!row.invalidatedAt &&
+        row.state === "OPEN" &&
+        !row.signupAppeals.some(
+          (a) => a.invalidityVersion === row.invalidityVersion,
+        ),
+      appeal: (() => {
+        // A resolved acceptance remains visible after clearing increments the flag
+        // version. Reflagged requests show only their new current appeal generation.
+        const a = row.invalidatedAt
+          ? row.signupAppeals.find(
+              (a) => a.invalidityVersion === row.invalidityVersion,
+            )
+          : row.signupAppeals[0];
+        return a
+          ? {
+              id: a.id,
+              reason: a.reason,
+              state: a.state,
+              createdAt: a.createdAt,
+            }
+          : null;
+      })(),
       email: row.email,
       name: input.englishName,
       // Current rendering may use a linked handle without rewriting intake evidence.
@@ -745,6 +826,7 @@ export async function studentRequestRows(
       state: row.state,
       confirmedAt: row.confirmedAt,
       editedAt: row.editedAt,
+      currentVersion: row.currentVersion,
       firstAssignedAt: row.firstAssignedAt,
       verificationDueAt: row.verificationDueAt,
       lastLinkSentAt: row.lastLinkSentAt,
@@ -775,3 +857,5 @@ export async function studentRequestRows(
     };
   });
 }
+import { notificationData } from "./notifications/create";
+import type { NotificationEvent } from "~/lib/notification-events";

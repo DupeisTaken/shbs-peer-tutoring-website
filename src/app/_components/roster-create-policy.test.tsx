@@ -70,6 +70,12 @@ beforeEach(() => {
       this.setAttribute("open", "");
     },
   });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    },
+  });
 });
 afterEach(cleanup);
 
@@ -92,6 +98,22 @@ it.each([
       </NextIntlClientProvider>
     );
     const view = render(ui());
+    // The policy rejection still belongs to the creation form; entry consent
+    // admits that form without issuing a mutation of its own.
+    const acknowledgeCreation = () => {
+      const proceed = screen.getByRole("button", {
+        name: messages.admin.creationRisk.continue,
+      });
+      expect((proceed as HTMLButtonElement).disabled).toBe(true);
+      expect(mock.mutate).not.toHaveBeenCalled();
+      fireEvent.click(
+        screen.getByRole("checkbox", {
+          name: messages.admin.creationRisk.acknowledgement,
+        }),
+      );
+      fireEvent.click(proceed);
+      expect(mock.mutate).not.toHaveBeenCalled();
+    };
     if (tutor) {
       expect(screen.queryByRole("dialog")).toBeNull();
       fireEvent.click(
@@ -99,6 +121,7 @@ it.each([
           name: messages.admin.tutors.addTutor,
         }),
       );
+      acknowledgeCreation();
       fireEvent.change(
         screen.getByLabelText(
           messages.personName.firstName + " " + messages.signupFields.required,
@@ -118,6 +141,8 @@ it.each([
           name: messages.admin.tutees.addTutee,
         }),
       );
+
+      acknowledgeCreation();
       fireEvent.change(
         screen.getByLabelText(
           messages.personName.firstName + " " + messages.signupFields.required,

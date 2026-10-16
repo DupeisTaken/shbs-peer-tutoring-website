@@ -92,7 +92,9 @@ export function StudentScheduleAction({
           onConfirm={(ticket) => {
             // A retained review must honor current read/assignment eligibility.
             if (!eligible || busy || !reason.trim()) return;
-            request.mutate({
+            // Return the write promise so an identical rejection releases the
+            // timed dialog's admission guard without discarding this draft.
+            return request.mutateAsync({
               tuteeId: row.tuteeId,
               pairingId: row.pairingId,
               reason,

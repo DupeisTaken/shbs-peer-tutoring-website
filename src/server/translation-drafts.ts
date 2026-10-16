@@ -1,3 +1,4 @@
+import { notificationEvent } from "~/lib/notification-events";
 import type { Prisma } from "../../generated/prisma";
 import type { TransactionDb } from "~/server/transactions";
 import { notifyAdmins } from "~/server/notifications/create";
@@ -30,6 +31,7 @@ export async function proposeTranslation(
     });
     await notifyAdmins(
       {
+        ...notificationEvent("translation_review_pending"),
         title: "Translation awaiting review",
         link: "/localization?view=review",
       },

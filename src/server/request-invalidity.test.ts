@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
-const sendEmail = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+import type { EmailMessage } from "./email/sender";
+const sendEmail = vi.hoisted(() =>
+  vi
+    .fn<(message: EmailMessage) => Promise<void>>()
+    .mockResolvedValue(undefined),
+);
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("~/server/email/sender", () => ({
   emailSender: { send: sendEmail },
@@ -396,10 +401,10 @@ it("preserves tutee priority and payload, hides staff metadata from participant 
     invalidReason: "Synthetic duplicate request",
   });
   expect((await studentRequestRows(db))[0]).toMatchObject({
-    isInvalid: false,
+    isInvalid: true,
     invalidReason: null,
     invalidatedAt: null,
-    invalidityVersion: 0,
+    invalidityVersion: 1,
   });
   expect(await caller().admin.activitySummary()).toMatchObject({
     unverified: 0,
@@ -413,7 +418,12 @@ it("preserves tutee priority and payload, hides staff metadata from participant 
     caller().studentWorkflow.resend({ id: row.id }),
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   await resendSurvey(db, row.email, false);
-  expect(sendEmail).not.toHaveBeenCalled();
+  // Invalidity gets its own safe confirmation/appeal mail. Ordinary signup-link
+  // resend remains blocked and must not expose the original private staff reason.
+  expect(sendEmail).toHaveBeenCalledTimes(1);
+  expect(sendEmail.mock.calls[0]![0].text).not.toContain(
+    "Synthetic duplicate request",
+  );
   await caller().studentWorkflow.setRequestInvalidity(flag(row.id, 1, false));
   expect((await validSurvey(db, token)).id).toBe(row.id);
   expect(await caller().admin.activitySummary()).toMatchObject({

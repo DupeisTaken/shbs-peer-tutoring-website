@@ -1,14 +1,16 @@
-import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
+import { fullPersonName } from "~/lib/person-name";
 import {
   configuredNewNames,
   configuredLegacyIntakeName,
   ensureNameFallbackForRole,
 } from "~/server/program/name-fields";
 import { requestInvalidity } from "~/server/request-invalidity";
+import { currentStudentSignupPayload } from "./student-signup-answers";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { emailOrigin as publicEmailOrigin } from "~/server/email/urls";
 import { signupMetric } from "~/server/signup-admission";
-import { preferredLatinNameSchema } from "~/lib/username";
+import { surveyInput } from "~/lib/student-signup";
+export { surveyInput, surveyToken } from "~/lib/student-signup";
 import { normalizeGrade } from "~/lib/academics";
 import {
   assertPrimaryName,
@@ -19,7 +21,8 @@ import {
   lockUsernameNamespace,
 } from "~/server/auth/username";
 import { applyAcademicIntake, accountAcademics } from "~/server/academics";
-import { lockCatalogue } from "~/server/qualifications";
+import { validateChoices } from "./student-signup-validation";
+import { lockCatalogue } from "./qualifications";
 import { getSignupSettings } from "~/server/program/signup-fields";
 import { normalizeTuteeFields, missingTuteeFields } from "~/lib/signup-fields";
 import {
@@ -47,32 +50,6 @@ import { rateLimit } from "~/server/rate-limit";
 import { getFeatures } from "~/server/program/features";
 import { getPeriodDisplay } from "~/lib/period";
 
-export const surveyInput = z.object({
-  ...optionalPersonNameFields,
-  englishName: z.string().trim().max(200),
-  preferredLatinName: preferredLatinNameSchema,
-  email: z
-    .string()
-    .trim()
-    .email()
-    .max(254)
-    .transform((v) => v.toLowerCase()),
-  phone: z.string().trim().max(40).optional(),
-  preferredContact: z.string().trim().max(200).default(""),
-  gradeLevel: z.string().trim().max(40).optional(),
-  firstChoiceId: z.string().min(1),
-  secondChoiceId: z
-    .string()
-    .trim()
-    .max(200)
-    .optional()
-    .transform((value) => (value === "" ? undefined : value)),
-  slotIds: z.array(z.string().min(1)).max(100).default([]),
-  signatureName: z.string().trim().max(120).default(""),
-  agreed: z.literal(true),
-  policyRevision: z.string().min(1),
-});
-export const surveyToken = z.string().regex(/^[a-f0-9]{64}$/);
 const digest = (token: string) =>
   createHash("sha256").update(token).digest("hex");
 
@@ -150,28 +127,6 @@ async function activeIntake(tx: TransactionDb) {
   });
 }
 
-async function validateChoices(
-  tx: TransactionDb,
-  input: z.infer<typeof surveyInput>,
-) {
-  await lockCatalogue(tx);
-  // Prevent deletion/deactivation between validation and creating the related records.
-  await tx.$queryRaw`SELECT id FROM "Subject" WHERE id = ${input.firstChoiceId} OR id = ${input.secondChoiceId ?? ""} FOR SHARE`;
-  await tx.$queryRaw`SELECT id FROM "TimeSlot" WHERE id = ANY(${input.slotIds}::text[]) ORDER BY id FOR SHARE`;
-  const ids = [
-    input.firstChoiceId,
-    ...(input.secondChoiceId ? [input.secondChoiceId] : []),
-  ];
-  return (
-    new Set(ids).size === ids.length &&
-    (await tx.subject.count({ where: { id: { in: ids }, active: true } })) ===
-      ids.length &&
-    (await tx.timeSlot.count({
-      where: { id: { in: input.slotIds }, active: true },
-    })) === new Set(input.slotIds).size
-  );
-}
-
 /** Mail failures must not erase a successfully reserved place. Resending only rotates the token. */
 async function deliver(
   to: string,
@@ -203,7 +158,7 @@ async function deliver(
 
 /** Submission and final redemption share account-aware intake restrictions. Recheck after
  * mailbox proof because an address can become a verified alias after the original request. */
-async function assertIntakeEligibility(
+export async function assertIntakeEligibility(
   tx: TransactionDb,
   intakeTermId: string,
   email: string,
@@ -259,8 +214,9 @@ export async function submitSurvey(
   const origin = emailOrigin();
   const token = randomBytes(32).toString("hex");
   const result = await inTransaction(db, async (tx) => {
-    await lockUsernameNamespace(tx);
     await lockEntity(tx, "program:period");
+    await lockUsernameNamespace(tx);
+    await lockCatalogue(tx);
     await lockEntity(tx, `student-survey:${input.email}`);
     await lockEntity(tx, "policy:tutee-policy");
     const term = await activeIntake(tx);
@@ -454,15 +410,31 @@ export async function validSurvey(
   db: DomainDb,
   token: string,
   tokenIsDigest = false,
+  verifiedSignupIntentId?: string,
 ) {
   const row = await db.studentSurvey.findUnique({
     where: { tokenHash: tokenIsDigest ? token : digest(token) },
   });
+  // Only the trusted shared invitation completion supplies this source. A fresh exact
+  // mailbox proof can outlive the old link, but never its assignment/period deadline.
+  const intentProof = verifiedSignupIntentId
+    ? await db.studentSignupIntent.findUnique({
+        where: { id: verifiedSignupIntentId },
+      })
+    : null;
+  const hasIntentProof =
+    !!intentProof &&
+    !!intentProof.verifiedAt &&
+    !intentProof.completedAt &&
+    intentProof.surveyId === row?.id &&
+    intentProof.expiresAt > new Date();
+  if (verifiedSignupIntentId && !hasIntentProof)
+    throw new TRPCError({ code: "BAD_REQUEST", message: "INVITATION_INVALID" });
   if (
     row?.state !== "OPEN" ||
     row.invalidatedAt ||
     row.confirmedAt ||
-    row.expiresAt <= new Date() ||
+    (!hasIntentProof && row.expiresAt <= new Date()) ||
     (row.verificationDueAt && row.verificationDueAt <= new Date())
   )
     throw new TRPCError({
@@ -476,13 +448,20 @@ export async function validSurvey(
 export async function inspectSurvey(db: DomainDb, token: string) {
   await expireStudentRequests(db);
   const row = await validSurvey(db, token);
-  const user = await db.user.findUnique({ where: { email: row.email } });
+  const user = await db.user.findFirst({
+    where: {
+      OR: [
+        { email: row.email },
+        { emails: { some: { email: row.email, verifiedAt: { not: null } } } },
+      ],
+    },
+  });
   if (user?.mergedIntoId)
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Contact the team about your account.",
     });
-  const input = surveyInput.parse(row.payload);
+  const input = surveyInput.parse(currentStudentSignupPayload(row));
   // Confirmation describes the intake actually submitted, even after the active period changes.
   const [intake, features] = await Promise.all([
     db.term.findUnique({ where: { id: row.intakeTermId } }),
@@ -533,15 +512,30 @@ export async function confirmSurvey(
   db: DomainDb,
   token: string,
   password?: string,
-  identity?: { tokenIsDigest: true; authenticatedUserId?: string },
+  identity?: {
+    tokenIsDigest: true;
+    authenticatedUserId?: string;
+    verifiedSignupIntentId?: string;
+  },
 ) {
   await expireStudentRequests(db);
-  const initial = await validSurvey(db, token, identity?.tokenIsDigest);
+  const initial = await validSurvey(
+    db,
+    token,
+    identity?.tokenIsDigest,
+    identity?.verifiedSignupIntentId,
+  );
   return inTransaction(db, async (tx) => {
-    await lockUsernameNamespace(tx);
     await lockEntity(tx, "program:period");
+    await lockUsernameNamespace(tx);
+    await lockCatalogue(tx);
     await lockEntity(tx, `student-survey:${initial.email}`);
-    const row = await validSurvey(tx, token, identity?.tokenIsDigest);
+    const row = await validSurvey(
+      tx,
+      token,
+      identity?.tokenIsDigest,
+      identity?.verifiedSignupIntentId,
+    );
     const term = await activeIntake(tx);
     if (term?.id !== row.intakeTermId)
       throw new TRPCError({
@@ -549,7 +543,16 @@ export async function confirmSurvey(
         message:
           "This intake has ended. Submit a new survey for the current intake.",
       });
-    const input = surveyInput.parse(row.payload);
+    const input = surveyInput.parse(currentStudentSignupPayload(row));
+    const proofEmail = identity?.verifiedSignupIntentId
+      ? (
+          await tx.studentSignupIntent.findUniqueOrThrow({
+            where: { id: identity.verifiedSignupIntentId },
+            select: { email: true },
+          })
+        ).email
+      : row.email;
+    const originalInput = surveyInput.parse(row.payload);
     if (!row.tuteeId && !(await validateChoices(tx, input)))
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
@@ -611,7 +614,7 @@ export async function confirmSurvey(
           alternativeNames: input.alternativeNames,
           name: input.englishName,
           passwordHash: hashPassword(password),
-          emailVerifiedAt: new Date(),
+          ...(proofEmail === row.email ? { emailVerifiedAt: new Date() } : {}),
           role: "STUDENT",
         },
       });
@@ -626,7 +629,7 @@ export async function confirmSurvey(
         where: { id: user.id },
         data: {
           passwordHash: hashPassword(password),
-          emailVerifiedAt: new Date(),
+          ...(proofEmail === user.email ? { emailVerifiedAt: new Date() } : {}),
           mustChangePassword: false,
         },
       });
@@ -646,7 +649,7 @@ export async function confirmSurvey(
         // Proof of a verified secondary address must not mark the primary address verified.
         emailVerifiedAt:
           user.emailVerifiedAt ??
-          (row.email === user.email ? new Date() : null),
+          (proofEmail === user.email ? new Date() : null),
       },
     });
     // Verification establishes the explicit link; the existing account remains the identity source.
@@ -665,7 +668,7 @@ export async function confirmSurvey(
     await applyAcademicIntake(
       tx,
       user.id,
-      input.gradeLevel,
+      originalInput.gradeLevel,
       term?.schoolYear ?? null,
       row.submittedAt,
       "VERIFIED_SURVEY",
@@ -735,7 +738,7 @@ export async function pendingSurveys(db: DomainDb) {
     }),
   ]);
   return rows.map((row) => {
-    const input = surveyInput.parse(row.payload);
+    const input = surveyInput.parse(currentStudentSignupPayload(row));
     return {
       id: `survey:${row.id}`,
       ...requestInvalidity(row),
@@ -769,6 +772,7 @@ export async function materializeStudent(
     id: string;
     tuteeId: string | null;
     payload: Prisma.JsonValue;
+    currentPayload?: Prisma.JsonValue | null;
     email: string;
     submittedAt: Date;
     intakeTermId: string;
@@ -776,7 +780,7 @@ export async function materializeStudent(
 ) {
   if (row.tuteeId)
     return tx.tutee.findUniqueOrThrow({ where: { id: row.tuteeId } });
-  const input = surveyInput.parse(row.payload);
+  const input = surveyInput.parse(currentStudentSignupPayload(row));
   if (!(await validateChoices(tx, input)))
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
