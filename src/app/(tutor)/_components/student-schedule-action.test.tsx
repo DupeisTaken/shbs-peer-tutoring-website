@@ -6,7 +6,7 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import type { ComponentProps } from "react";
 import messages from "../../../../messages/en.json";
@@ -70,6 +70,14 @@ const element = (active = true, locale = "en", schedule = row) => (
     />
   </NextIntlClientProvider>
 );
+beforeEach(() => {
+  state.prepare.mockResolvedValue({
+    id: "issued-server-ticket",
+    readyAt: new Date(0),
+    serverNow: new Date(),
+    expiresAt: new Date(Date.now() + 30 * 60_000),
+  });
+});
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -193,7 +201,7 @@ it.each([
   { locale: "zh", catalog: zh, weekday: "周日" },
 ])(
   "localizes $locale schedule evidence and preserves the confirmation payload",
-  ({ locale, catalog, weekday }) => {
+  async ({ locale, catalog, weekday }) => {
     const schedule = {
       ...row,
       slots: [
@@ -217,6 +225,7 @@ it.each([
     fireEvent.click(
       screen.getByRole("button", { name: catalog.workflow.scheduleReject }),
     );
+    await act(async () => undefined);
     expect(state.prepare).toHaveBeenCalledExactlyOnceWith({
       action: "SCHEDULE",
       target: "pairing:tutee",
