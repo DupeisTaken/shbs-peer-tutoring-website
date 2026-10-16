@@ -1,5 +1,6 @@
 "use client";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
+import { pairingEntries } from "~/lib/pairing-groups";
 import { useDialog } from "~/app/_components/confirm-dialog";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 
 import { api } from "~/trpc/react";
+import type { RouterOutputs } from "~/trpc/react";
 import { hmToMin, minToHm } from "~/lib/time";
 import { useMerge } from "~/app/(tutor)/_components/merge-context";
 import { DisciplineSlots } from "~/app/_components/discipline-slots";
@@ -122,8 +124,13 @@ export function AttendanceForm() {
   const [online, setOnline] = useState(false);
   const [actualRoomId, setActualRoomId] = useState<string>("");
   // Which other pairings are merged into this block is chosen under "My pairings" (shared state).
-  const { setPrimaryPairingId, mergeIds, setMergeIds, setAttendanceLocked } =
-    useMerge();
+  const {
+    setPrimaryPairingId,
+    mergeIds,
+    setMergeIds,
+    setAttendanceLocked,
+    attendanceSelection,
+  } = useMerge();
   useEffect(() => {
     // The merge checkboxes live in another card but belong to this same save.
     setAttendanceLocked(submit.isPending || submit.isSuccess);
@@ -155,7 +162,7 @@ export function AttendanceForm() {
     defaultValues: { date: todayIso(), tutorStatus: "PRESENT", comments: "" },
   });
 
-  const selectedPairingId = watch("pairingId");
+  const selectionKey = watch("pairingId");
   const tutorStatus = watch("tutorStatus") as TutorStatus;
   const comments = watch("comments");
   // The always-required fields — gray the submit until they're filled (the rest is
@@ -163,13 +170,37 @@ export function AttendanceForm() {
   const startTime = watch("startTime");
   const endTime = watch("endTime");
   const incomplete =
-    !selectedPairingId || !comments?.trim() || !startTime || !endTime;
+    !selectionKey || !comments?.trim() || !startTime || !endTime;
   const pairings = pairingsQuery.data ?? [];
-  const selectedPairing = pairings.find((p) => p.id === selectedPairingId);
+  const entries = pairingEntries(pairings);
+  const selectedEntry = entries.find(
+    (entry) =>
+      selectionKey === (entry.groupId ? `group:${entry.groupId}` : entry.id),
+  );
+  const selectedPairingId = selectedEntry?.primary.id ?? selectionKey;
+  type Pairing = RouterOutputs["tutor"]["myPairings"][number];
+  // A draft keeps its assignment/roster snapshot if a saved group changes in another editor.
+  const [draftSelection, setDraftSelection] = useState<{
+    key: string;
+    primary: Pairing;
+    members: Pairing[];
+  }>();
+  const retainedSelection =
+    draftSelection?.key === selectionKey ? draftSelection : undefined;
+  const selectedPairing =
+    retainedSelection?.primary ??
+    pairings.find((p) => p.id === selectedPairingId);
   // Tutee attendance is tracked for any held session (present / rescheduled / extra).
   const held = tutorStatus !== "TUTOR_ABSENT";
 
-  const mergedPairings = pairings.filter(
+  const availableDraftPairings = retainedSelection
+    ? [
+        ...new Map(
+          [...pairings, ...retainedSelection.members].map((p) => [p.id, p]),
+        ).values(),
+      ]
+    : pairings;
+  const mergedPairings = availableDraftPairings.filter(
     (p) => mergeIds.includes(p.id) && p.id !== selectedPairingId,
   );
   // The block's combined roster — the primary plus every merged course, de-duplicated.
@@ -190,6 +221,14 @@ export function AttendanceForm() {
 
   // When the primary pairing changes, default the time fields and clear merge/per-tutee state.
   useEffect(() => {
+    if (attendanceSelection && !submit.isPending && !submit.isSuccess) {
+      initializedPairing.current = null;
+      setValue("pairingId", attendanceSelection.value);
+    }
+    // Only an explicit catalogue action replaces a draft; background group refreshes do not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attendanceSelection]);
+  useEffect(() => {
     // Tell "My pairings" which pairing is primary so it can offer eligible merges.
     setPrimaryPairingId(selectedPairingId ?? "");
     if (!selectedPairing) {
@@ -198,8 +237,10 @@ export function AttendanceForm() {
     }
     // A cache refresh can change schedule metadata while a tutor writes notes.
     // Only choosing a different pairing initializes its attendance draft.
-    if (initializedPairing.current === selectedPairing.id) return;
-    initializedPairing.current = selectedPairing.id;
+    if (initializedPairing.current === selectionKey) return;
+    initializedPairing.current = selectionKey;
+    const members = selectedEntry?.pairings ?? [selectedPairing];
+    setDraftSelection({ key: selectionKey, primary: selectedPairing, members });
     setValue(
       "startTime",
       selectedPairing.scheduleConfirmed
@@ -212,7 +253,9 @@ export function AttendanceForm() {
     );
     setOnline(false);
     setActualRoomId(selectedPairing.room?.id ?? "");
-    setMergeIds([]);
+    setMergeIds(
+      members.filter((p) => p.id !== selectedPairing.id).map((p) => p.id),
+    );
     setTuteeState(
       Object.fromEntries(
         selectedPairing.tutees.map((t) => [
@@ -225,7 +268,8 @@ export function AttendanceForm() {
     setFormError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    selectedPairingId,
+    selectionKey,
+    attendanceSelection?.sequence,
     selectedPairing?.scheduleConfirmed,
     selectedPairing?.startMin,
     selectedPairing?.endMin,
@@ -329,7 +373,7 @@ export function AttendanceForm() {
 
     submissionState.current = "pending";
     submit.mutate({
-      pairingId: values.pairingId,
+      pairingId: selectedPairing.id,
       mergePairingIds: mergeIds.length > 0 ? mergeIds : undefined,
       date: new Date(values.date),
       tutorStatus: status,
@@ -408,13 +452,43 @@ export function AttendanceForm() {
             <option value="" disabled>
               {t("tutor.attendance.selectPairing")}
             </option>
-            {pairings.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.subject} ·{" "}
-                {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
-                {p.room ? ` · ${p.room.name}` : ""}
+            {entries.map((entry) => (
+              <option
+                key={entry.id}
+                value={entry.groupId ? `group:${entry.groupId}` : entry.id}
+              >
+                {entry.pairings.map((p) => p.subject).join(" + ")} ·{" "}
+                {pairingScheduleText(
+                  entry.primary,
+                  t("scheduling.awaiting"),
+                  locale,
+                )}
+                {entry.primary.room ? ` · ${entry.primary.room.name}` : ""}
               </option>
             ))}
+            {entries.some((entry) => entry.groupId) && (
+              <optgroup label={t("pairingGroups.individualAttendance")}>
+                {entries
+                  .filter((entry) => entry.groupId)
+                  .flatMap((entry) => entry.pairings)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.subject}
+                    </option>
+                  ))}
+              </optgroup>
+            )}
+            {selectionKey &&
+              !entries.some(
+                (entry) =>
+                  selectionKey ===
+                  (entry.groupId ? `group:${entry.groupId}` : entry.id),
+              ) &&
+              draftSelection?.key === selectionKey && (
+                <option value={selectionKey}>
+                  {draftSelection.members.map((p) => p.subject).join(" + ")}
+                </option>
+              )}
           </select>
           {errors.pairingId && (
             <p className="text-sm text-red-600">{errors.pairingId.message}</p>
@@ -847,6 +921,7 @@ export function AttendanceForm() {
             setTuteeState({});
             setCards({});
             setMergeIds([]);
+            setDraftSelection(undefined);
             setFormError(null);
             submit.reset();
             setRefreshFailed(false);

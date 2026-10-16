@@ -37,6 +37,7 @@ export const RECORD_TABLES = [
   "TutorAvailability",
   "TuteeAvailability",
   "TutorSubjectWillingness",
+  "PairingGroup",
   "Pairing",
   "PairingTutee",
   "Session",
@@ -433,9 +434,9 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
               );
           }
         }
-        if (table === "Pairing" || table === "Session") {
+        if (table === "Pairing" || table === "PairingGroup" || table === "Session") {
           const active =
-            table === "Pairing"
+            table !== "Session"
               ? await tx.term.findUnique({
                   where: { id: String(row.termId) },
                   select: { active: true },

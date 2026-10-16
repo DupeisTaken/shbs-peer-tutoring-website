@@ -431,6 +431,7 @@ model Term {
   signupPreviewUrl String?
   active     Boolean        @default(false)
   pairings   Pairing[]
+  pairingGroups PairingGroup[]
   meetings   TutorMeeting[]
   patrols    Patrol[]
   createdAt  DateTime       @default(now())
@@ -476,6 +477,7 @@ model Tutor {
 
   user                 User?
   pairings             Pairing[]
+  pairingGroups        PairingGroup[]
   sessions             Session[]
   adjustments          ServiceHourAdjustment[]
   meetingAttendances   MeetingAttendance[]
@@ -850,6 +852,9 @@ model RoomUnavailability {
 }
 
 model Pairing {
+  // Reusable teaching groups affect future plans only; Session mergeGroupId is immutable evidence.
+  groupId String?
+  group PairingGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
   // Legacy rows retain copied schedules; new assignments await an explicit slot choice.
   scheduleConfirmed Boolean @default(false)
   id        String   @id @default(cuid())
@@ -875,6 +880,22 @@ model Pairing {
 
   @@index([tutorId])
   @@index([termId])
+  @@index([groupId])
+}
+
+/// Tutor-owned current-period groups. Schedule/room values are copied atomically to every member.
+model PairingGroup {
+  id String @id @default(cuid())
+  tutorId String
+  tutor Tutor @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  termId String
+  term Term @relation(fields: [termId], references: [id], onDelete: Cascade)
+  // Kept as an opaque member ID: reads fall back safely if an assignment is removed.
+  primaryPairingId String
+  pairings Pairing[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([tutorId, termId])
 }
 
 /// Join table: the tutees rostered on a pairing.

@@ -1,5 +1,6 @@
 import { notificationEvent } from "~/lib/notification-events";
 import { optionalPersonNameFields } from "~/lib/person-name";
+import { groupMembersForSchedule } from "~/server/pairing-groups";
 import { programRoomOrder } from "~/server/room-order";
 import {
   assertRequestProcessable,
@@ -93,6 +94,7 @@ export const tutorRouter = createTRPCRouter({
         room: true,
         term: true,
         timeSlot: true,
+        group: { select: { primaryPairingId: true } },
         // Removed (INACTIVE) tutees drop off the roster immediately — only show current ones.
         tutees: {
           where: { tutee: { status: { not: "INACTIVE" } } },
@@ -1217,7 +1219,13 @@ export const tutorRouter = createTRPCRouter({
             tutorId: ctx.session.tutorId,
             term: { active: true },
           },
-          select: { id: true, roomId: true, termId: true },
+          select: {
+            id: true,
+            roomId: true,
+            termId: true,
+            groupId: true,
+            tutorId: true,
+          },
         });
         if (!pairing) {
           throw new TRPCError({
@@ -1226,11 +1234,14 @@ export const tutorRouter = createTRPCRouter({
           });
         }
 
+        const members = await groupMembersForSchedule(tx, pairing);
+        const memberIds = members.map((p) => p.id);
         if (input.slotId === null) {
-          return tx.pairing.update({
-            where: { id: pairing.id },
+          await tx.pairing.updateMany({
+            where: { id: { in: memberIds } },
             data: { timeSlotId: null },
           });
+          return tx.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
         }
 
         const slot = await tx.timeSlot.findFirst({
@@ -1249,11 +1260,19 @@ export const tutorRouter = createTRPCRouter({
           dayOfWeek: slot.dayOfWeek,
           startMin: slot.startMin,
           endMin: slot.endMin,
-          excludePairingId: pairing.id,
+          excludePairingIds: memberIds,
         });
-        return tx.pairing.update({
-          where: { id: pairing.id },
+        // Preserve the group through a deliberate all-member schedule change.
+        // Independent management edits instead detach only their changed member.
+        if (pairing.groupId)
+          await tx.pairing.updateMany({
+            where: { id: { in: memberIds } },
+            data: { groupId: null, scheduleConfirmed: false },
+          });
+        await tx.pairing.updateMany({
+          where: { id: { in: memberIds } },
           data: {
+            groupId: pairing.groupId,
             scheduleConfirmed: true,
             timeSlotId: input.slotId,
             dayOfWeek: slot.dayOfWeek,
@@ -1261,6 +1280,7 @@ export const tutorRouter = createTRPCRouter({
             endMin: slot.endMin,
           },
         });
+        return tx.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
       });
     }),
 

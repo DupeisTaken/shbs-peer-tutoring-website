@@ -14,6 +14,7 @@ import {
   publicProcedure,
 } from "~/server/api/trpc";
 import { tutorRouter } from "~/server/api/routers/tutor";
+import { pairingGroupsRouter } from "~/server/api/routers/pairing-groups";
 import { tutorDetailsRouter } from "~/server/api/routers/tutor-details";
 import { tuteeRouter } from "~/server/api/routers/tutee";
 import { applicationRouter } from "~/server/api/routers/application";
@@ -62,6 +63,7 @@ export const appRouter = createTRPCRouter({
   health: publicProcedure.query(() => ({ ok: true, ts: Date.now() })),
   studentWorkflow: studentWorkflowRouter,
   tutor: tutorRouter,
+  pairingGroups: pairingGroupsRouter,
   tutorDetails: tutorDetailsRouter,
   tutee: tuteeRouter,
   application: applicationRouter,
