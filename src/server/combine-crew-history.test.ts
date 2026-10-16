@@ -100,7 +100,11 @@ it("shows one crew member with both patrol histories and refuses merge-family de
       code: "CONFLICT",
     });
     await expect(
-      staff.admin.deleteUser({ userId, confirmPassword: password }),
+      staff.admin.deleteUser({
+        fingerprint: "a".repeat(64),
+        userId,
+        confirmPassword: password,
+      }),
     ).rejects.toMatchObject({
       code: "CONFLICT",
     });

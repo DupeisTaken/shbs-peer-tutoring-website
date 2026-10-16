@@ -6,12 +6,13 @@ import {
   render,
   screen,
   waitFor,
+  act,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
 import { CombineAccounts } from "./combine-accounts";
 const fixture = vi.hoisted(() => ({
-  fetch: vi.fn(),
+  fetch: vi.fn<() => Promise<unknown>>(),
   mutate: vi.fn(),
   refetch: vi.fn(),
   data: undefined as
@@ -19,6 +20,9 @@ const fixture = vi.hoisted(() => ({
   error: null as Error | null,
   fetching: false,
   options: vi.fn(),
+  pending: false,
+  callbacks: undefined as
+    undefined | { onSuccess: () => Promise<void>; onSettled: () => void },
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -43,7 +47,10 @@ vi.mock("~/trpc/react", () => ({
         },
       },
       combine: {
-        useMutation: () => ({ mutate: fixture.mutate, isPending: false }),
+        useMutation: (callbacks: typeof fixture.callbacks) => {
+          fixture.callbacks = callbacks;
+          return { mutate: fixture.mutate, isPending: fixture.pending };
+        },
       },
     },
   },
@@ -66,6 +73,7 @@ beforeEach(() => {
   ];
   fixture.error = null;
   fixture.fetching = false;
+  fixture.pending = false;
   fixture.fetch.mockResolvedValue({
     survivor: { email: "keep@example.test", username: "keep" },
     duplicate: { email: "retire@example.test", username: "retire" },
@@ -83,10 +91,29 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+let visible: {
+  userId: string | null;
+  name: string;
+  email: string | null;
+  role: string | null;
+}[];
+function component() {
+  return (
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <CombineAccounts visibleAccounts={visible} />
+    </NextIntlClientProvider>
+  );
+}
 function mount() {
+  visible = (fixture.data ?? []).map((row) => ({
+    userId: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+  }));
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <CombineAccounts />
+      <CombineAccounts visibleAccounts={visible} />
     </NextIntlClientProvider>,
   );
 }
@@ -126,7 +153,7 @@ it("announces candidate failure without loading and offers a disabled-while-fetc
   fixture.fetching = true;
   view.rerender(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <CombineAccounts />
+      <CombineAccounts visibleAccounts={visible} />
     </NextIntlClientProvider>,
   );
   expect(
@@ -153,7 +180,7 @@ it("retains selected identities through a cached candidate refetch failure", asy
   fixture.error = new Error("Retry later");
   view.rerender(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <CombineAccounts />
+      <CombineAccounts visibleAccounts={visible} />
     </NextIntlClientProvider>,
   );
   expect(screen.getByLabelText<HTMLSelectElement>("Login to keep").value).toBe(
@@ -164,6 +191,92 @@ it("retains selected identities through a cached candidate refetch failure", asy
   ).toBe("retire");
   expect(screen.getByText("Retained login")).toBeTruthy();
   expect(fixture.mutate).not.toHaveBeenCalled();
+});
+
+it("offers only displayed real logins and clears a reviewed pair hidden by a filter or search", async () => {
+  const view = mount();
+  await selectAndPreview();
+  fireEvent.change(screen.getByLabelText("Your Head account password"), {
+    target: { value: "secret" },
+  });
+  visible = [
+    visible[0]!,
+    {
+      userId: null,
+      name: "Accountless archive",
+      email: "roster@example.test",
+      role: null,
+    },
+  ];
+  view.rerender(component());
+  expect(screen.queryByText("Retained login")).toBeNull();
+  expect(screen.queryByLabelText("Your Head account password")).toBeNull();
+  const choices = screen.getByLabelText<HTMLSelectElement>(
+    "Duplicate login to retire",
+  );
+  expect([...choices.options].map((option) => option.value)).toEqual([
+    "",
+    "keep",
+  ]);
+  expect(screen.getByLabelText<HTMLSelectElement>("Login to keep").value).toBe(
+    "",
+  );
+  expect(fixture.mutate).not.toHaveBeenCalled();
+});
+
+it("discards a delayed preview response after search hides one selected login", async () => {
+  let finish!: (value: unknown) => void;
+  const response = await fixture.fetch();
+  fixture.fetch.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finish = resolve;
+    }),
+  );
+  const view = mount();
+  fireEvent.click(screen.getByRole("button", { name: "Combine accounts" }));
+  fireEvent.change(screen.getByLabelText("Login to keep"), {
+    target: { value: "keep" },
+  });
+  fireEvent.change(screen.getByLabelText("Duplicate login to retire"), {
+    target: { value: "retire" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Preview combine" }));
+  visible = [visible[0]!];
+  view.rerender(component());
+  await act(async () => {
+    finish(response);
+  });
+  expect(screen.queryByText("Retained login")).toBeNull();
+  expect(screen.queryByLabelText("Your Head account password")).toBeNull();
+  expect(fixture.mutate).not.toHaveBeenCalled();
+});
+
+it("admits one combine and preserves its pending/result ownership when displayed rows change", async () => {
+  const view = mount();
+  await selectAndPreview();
+  fireEvent.click(screen.getByRole("checkbox"));
+  fireEvent.change(screen.getByLabelText("Your Head account password"), {
+    target: { value: "secret" },
+  });
+  const submit = screen.getByRole("button", { name: "Confirm and combine" });
+  act(() => {
+    fireEvent.click(submit);
+    fireEvent.click(submit);
+  });
+  expect(fixture.mutate).toHaveBeenCalledOnce();
+  visible = [visible[0]!];
+  view.rerender(component());
+  expect(screen.getByRole("status").textContent).toBe(
+    messages.combineAccounts.working,
+  );
+  await act(async () => {
+    await fixture.callbacks!.onSuccess();
+    fixture.callbacks!.onSettled();
+  });
+  expect(screen.getByRole("status").textContent).toBe(
+    messages.combineAccounts.success,
+  );
+  expect(fixture.mutate).toHaveBeenCalledOnce();
 });
 async function selectAndPreview() {
   fireEvent.click(screen.getByRole("button", { name: "Combine accounts" }));

@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("~/server/db", () => ({ db: {
   user: { findFirst: mocks.findUser, findUnique: mocks.findUser, findUniqueOrThrow: mocks.findUser, update: mocks.updateUser },
-  auditLog: { create: mocks.audit },
+  auditLog: { create: mocks.audit }, $executeRaw: vi.fn(), $queryRaw: vi.fn(),
 } }));
 vi.mock("./password", () => ({ verifyPassword: mocks.hash }));
 vi.mock("./step-up", () => ({ issueStepUpCode: mocks.issueCode, verifyStepUpCode: mocks.verifyCode }));
@@ -99,7 +99,7 @@ it("rejects oversized input and unauthorized callers before verification", async
   await expect(api.account.changePassword({ currentPassword: "valid", newPassword: "x".repeat(1025) })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   mocks.findUser.mockResolvedValue({ role: "VIEWER", tutorId: null });
   await expect(api.tutor.requestPasswordChangeCode({ currentPassword: "wrong" })).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await expect(api.admin.deleteUser({ userId: "cjld2cjxh0000qzrmn831i7rn", confirmPassword: "wrong" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(api.admin.deleteUser({ fingerprint: "a".repeat(64), userId: "cjld2cjxh0000qzrmn831i7rn", confirmPassword: "wrong" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(mocks.hash).not.toHaveBeenCalled();
 });
 
@@ -126,7 +126,7 @@ it("keys privileged confirmations to the caller even when actions and targets ro
   }
   await expect(api.admin.transferHead({ userId: target, confirmPassword: "wrong" }))
     .rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
-  await expect(api.admin.deleteUser({ userId: `${target.slice(0, -1)}x`, confirmPassword: "wrong" }))
+  await expect(api.admin.deleteUser({ fingerprint: "a".repeat(64), userId: `${target.slice(0, -1)}x`, confirmPassword: "wrong" }))
     .rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
   expect(mocks.hash).toHaveBeenCalledTimes(10);
   expect(mocks.updateUser).not.toHaveBeenCalled();
@@ -185,7 +185,7 @@ it.each([
   { role: "HEAD", tutorId: "tutor", mergedIntoId: "survivor" },
 ])("rechecks live privileges before privileged hashing: %j", async (current) => {
   mocks.findUser.mockResolvedValue({ ...current, passwordHash: "stored" });
-  await expect(caller(randomUUID()).admin.deleteUser({
+  await expect(caller(randomUUID()).admin.deleteUser({ fingerprint: "a".repeat(64),
     userId: "cjld2cjxh0000qzrmn831i7rn", confirmPassword: "valid",
   })).rejects.toMatchObject({ code: current.mergedIntoId ? "UNAUTHORIZED" : "FORBIDDEN" });
   expect(mocks.hash).not.toHaveBeenCalled();

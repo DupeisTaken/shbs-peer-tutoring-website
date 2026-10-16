@@ -483,17 +483,39 @@ Use **Edit profile** to edit the independent Tutor, Tutee, Translator and Crew b
 Account setup links are sent privately to the account holder by email. Management cannot copy the password-setting link from the website. If mail delivery is unavailable, ask the deployment administrator to configure it before retrying.
 
 For an eligible account, Head can open **Delete** in the row's Actions column.
-The confirmation identifies the account and asks for the Head's own password.
+The confirmation freshly loads the account, counts the records removed and retained,
+and explains any blocker before asking for the Head's own password. A login needs
+no signup and may have unfinished setup. Accountless roster records have no login
+to delete. Direct tutor/tutee roster records and session history remain; login-local
+email addresses, recovery/verification grants, notices, delivery records, appeals,
+Crew requests, acknowledgements, academic profiles/confirmations, school-departure
+records/events and patrol evidence are removed. Original messages, policy signatures,
+audit actors, approval decisions and tutee review requests remain. Authored content loses its login attachment.
+Sessions and account-bound invitation proofs become invalid.
 Cancel or Escape before submission returns to the same row without deleting it.
 While deletion is pending, the confirmation stays open and its fields are disabled.
 A failed attempt keeps the password available for correction; canceling and opening
 a new confirmation starts with a blank password.
+Changed accounts or dependencies require **Reload deletion review** and another
+review; Reload performs no deletion. Combined identities and retained Tutor/Tutee
+ownership cannot be deleted through this action. Review historical ownership first,
+or use Combine accounts instead to retire a genuine duplicate while retaining access.
+Complete or withdraw unconfirmed tutee intake before deleting its login. If deletion
+succeeds but the list fails to refresh, retry the read; the saved deletion cannot run again.
 
 ### Combine duplicate accounts (Head only)
 
 In **Users & Roles → Combine accounts**, select the **Login to keep** and the
 **Duplicate login to retire**. Use this only after independently confirming they
 belong to the same person. Matching names or addresses never combine accounts.
+The selection boxes contain only actual logins displayed by the table's current
+filters and search. Existing visibility defaults remain unchanged: reveal unverified
+or historical accounts through their existing filters when needed. Roster records
+without a login are excluded. A login can be reviewed regardless of signup history;
+the survivor must have completed password setup and email verification, while an
+unfinished login can be retired subject to the other blockers. Hiding a selected
+login clears both selections and their review. Filters stay fixed during a submitted
+combine; a saved combine with failed synchronization offers a read-only retry.
 Choose **Preview combine** to review the retained email/username, membership,
 linked profiles, counts of retained history, and blocking conflicts. Confirm the
 review checkbox and enter your own Head password to perform the combine.
