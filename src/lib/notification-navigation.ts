@@ -3,6 +3,14 @@
  * record adapter reveals its target without unmounting independent editor drafts.
  * Modified/new-tab clicks never enter Link.onNavigate; other destinations stay
  * under Next's normal navigation. A repeated fragment still reveals hidden rows. */
+/** Only server-issued, relative record destinations delegate scroll to their
+ * authorized page adapter. Ordinary and external links keep Next's defaults. */
+export function isNotificationRecordDestination(href: string) {
+  return /^\/admin\/(?:requests#request-(?:survey|signup)-|applications#application-)[a-zA-Z0-9_-]{1,128}$/.test(
+    href,
+  );
+}
+
 export function navigateNotificationFragment(
   href: string,
   event: { preventDefault(): void },

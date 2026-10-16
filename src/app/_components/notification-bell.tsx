@@ -5,7 +5,10 @@ import { useState } from "react";
 
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { formatNotificationEvent } from "~/lib/notification-events";
-import { navigateNotificationFragment } from "~/lib/notification-navigation";
+import {
+  isNotificationRecordDestination,
+  navigateNotificationFragment,
+} from "~/lib/notification-navigation";
 
 import { api } from "~/trpc/react";
 import { DetailsAutoClose } from "~/app/_components/details-auto-close";
@@ -129,6 +132,11 @@ export function NotificationBell() {
                 {n.link ? (
                   <Link
                     href={n.link}
+                    scroll={
+                      isNotificationRecordDestination(n.link)
+                        ? false
+                        : undefined
+                    }
                     onNavigate={(event) =>
                       navigateNotificationFragment(n.link!, event)
                     }

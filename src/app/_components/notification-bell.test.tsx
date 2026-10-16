@@ -31,9 +31,18 @@ vi.mock("next/link", () => ({
   default: ({
     children,
     onNavigate: _onNavigate,
+    scroll,
     ...props
-  }: React.ComponentProps<"a"> & { onNavigate?: unknown }) => (
-    <a {...props}>{children}</a>
+  }: React.ComponentProps<"a"> & {
+    onNavigate?: unknown;
+    scroll?: boolean;
+  }) => (
+    <a
+      {...props}
+      data-default-scroll={scroll === false ? "disabled" : "normal"}
+    >
+      {children}
+    </a>
   ),
 }));
 beforeEach(() => {
@@ -64,6 +73,45 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+it.each([
+  ["/admin/requests#request-survey-abc123", "disabled"],
+  ["/admin/requests#request-signup-abc123", "disabled"],
+  ["/admin/applications#application-abc123", "disabled"],
+  ["/admin/applications", "normal"],
+  ["https://external.example/admin/requests#request-survey-abc123", "normal"],
+])(
+  "delegates only validated record arrivals to the committed page scroller: %s",
+  (link, expected) => {
+    mocks.list.mockReturnValue({
+      data: [
+        {
+          id: "record",
+          event: null,
+          context: null,
+          title: "Exact record",
+          body: null,
+          link,
+          createdAt: new Date(),
+          readAt: null,
+        },
+      ],
+    });
+    render(
+      <NextIntlClientProvider
+        locale="en"
+        messages={en}
+        timeZone="Asia/Shanghai"
+      >
+        <NotificationBell />
+      </NextIntlClientProvider>,
+    );
+    const target = screen.getByText("Exact record").closest("a")!;
+    expect(target.getAttribute("data-default-scroll")).toBe(expected);
+    expect(target.getAttribute("href")).toBe(link);
+    fireEvent.click(target);
+    expect(mocks.mark).toHaveBeenCalledWith({ id: "record" });
+  },
+);
 it.each(["en", "zh"] as const)(
   "renders localized %s event copy and keeps old notices readable",
   (locale) => {
