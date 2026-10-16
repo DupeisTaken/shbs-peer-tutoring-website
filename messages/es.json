@@ -452,7 +452,10 @@
       "colRoom": "Aula",
       "colTutees": "Estudiantes",
       "edit": "Editar",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "searchTutees": "Buscar estudiantes",
+      "selectedTutees": "{count} seleccionados",
+      "removeSelected": "Quitar a {name}"
     },
     "tutors": {
       "title": "Tutores",
@@ -835,6 +838,12 @@
           "VIEWER_SIGNUP": "Registro de Observadores",
           "EMAIL_2FA": "2FA por correo"
         }
+      },
+      "panels": {
+        "period": "Período y convocatoria",
+        "people": "Personas e inscripción",
+        "communication": "Comunicación",
+        "access": "Acceso y módulos"
       }
     },
     "audit": {
@@ -1154,7 +1163,8 @@
           "ARCHIVED": "Archived"
         }
       },
-      "messageLabel": "Mensaje"
+      "messageLabel": "Mensaje",
+      "create": "Nuevo anuncio"
     },
     "policies": {
       "title": "Documentos de políticas",
@@ -1219,7 +1229,8 @@
         "title": "Delete hour adjustment?",
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
-      }
+      },
+      "create": "Nuevo ajuste de horas"
     },
     "applications": {
       "title": "Solicitudes de tutores",
@@ -1583,7 +1594,12 @@
       "issuedHint": "Códigos entregados a solicitantes aceptados, a la espera de registro. Revocar un código en Códigos de Registro devuelve su solicitud a la cola.",
       "issuedExpires": "Caduca el {date}",
       "originalApplication": "Solicitud original de incorporación",
-      "originalRequest": "Petición original"
+      "originalRequest": "Petición original",
+      "panels": {
+        "review": "Revisión",
+        "roster": "Lista de miembros",
+        "patrol": "Configuración de patrullas"
+      }
     },
     "sessionFlags": {
       "title": "Avisos de asistencia",
@@ -1868,7 +1884,15 @@
       "confirmDecision": "Record {outcome} for {name}? The panel vote and current application version will be checked. If approval is required, this creates a pending proposal and does not apply the decision.",
       "completedInterview": "Completed interview · {name} ({count})",
       "savedRefreshError": "Attendance was saved, but the refreshed totals could not be loaded. Do not resubmit this entry.",
-      "verificationDeadline": "Verification due: {date}"
+      "verificationDeadline": "Verification due: {date}",
+      "attention": "Requieren atención",
+      "navigation": "Secciones del panel",
+      "emptyTasks": "No hay asuntos pendientes en los registros cargados.",
+      "unconfirmedCount": "Horarios sin confirmar ({count})",
+      "rosterCount": "Seguimiento de la lista de estudiantes ({count})",
+      "interviewSection": "Entrevistas",
+      "meetingSection": "Reuniones",
+      "qualificationSection": "Cualificaciones"
     },
     "activate": {
       "title": "Confirma tu disponibilidad",
@@ -2059,7 +2083,8 @@
       "reentryHelp": "¿Quieres volver al programa? Solicita la reincorporación y un administrador la revisará.",
       "reentryBtn": "Solicitar reincorporación",
       "recall": "Cancelar solicitud",
-      "statusNote": "Tu estado como tutor es {status}. Este es acceso de solo lectura — contacta a un administrador para realizar cambios."
+      "statusNote": "Tu estado como tutor es {status}. Este es acceso de solo lectura — contacta a un administrador para realizar cambios.",
+      "profileSyncFailed": "Tu perfil se guardó, pero no se pudo actualizar la vista. Reintenta la actualización sin volver a enviarlo."
     },
     "dashboard": {
       "pending": {
@@ -4510,5 +4535,17 @@
     "retryRefresh": "Reintentar actualización",
     "reload": "Recargar solicitud",
     "reloadHelp": "Se conservan tu motivo y la versión original. Recarga la solicitud expresamente para sustituir este borrador por la versión más reciente."
+  },
+  "rosterSearch": {
+    "label": "Buscar personas",
+    "placeholder": "Nombre, usuario o correo electrónico",
+    "clear": "Borrar búsqueda",
+    "noMatches": "Ninguna persona coincide con esta búsqueda.",
+    "results": "{count} de {total} personas"
+  },
+  "saveBoundary": {
+    "blur": "Los cambios se guardan al salir de este campo.",
+    "form": "Guardar se aplica solo a este formulario.",
+    "layout": "Guardar se aplica solo a este diseño."
   }
 }

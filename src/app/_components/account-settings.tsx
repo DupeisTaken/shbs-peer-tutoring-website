@@ -6,9 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
 
 import { Button } from "./ui/button";
-import { FormSection } from "./ui/patterns";
+import { FormSection, InlineNotice, StatePanel } from "./ui/patterns";
+import { QueryFeedback } from "./ui/query-feedback";
 import { MembershipEditor } from "./membership-editor";
 import { SchoolDeparturePanel } from "~/app/_components/school-departure";
 import { AcademicPanel } from "./academic-profile";
@@ -49,21 +52,39 @@ function initialsOf(
 export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
   const t = useTranslations();
   const router = useRouter();
-  const utils = api.useUtils();
-  const me = api.account.me.useQuery();
+  const queryClient = useQueryClient();
+  const recovery = useTranslations("participantRecovery");
+  const [identityDenied, setIdentityDenied] = useState(false);
+  const me = api.account.me.useQuery(undefined, { enabled: !identityDenied });
   const features = api.program.features.useQuery();
-  const email2fa = features.data?.EMAIL_2FA ?? false;
+  const email2fa = features.data?.EMAIL_2FA;
+  const passwordSubmitting = useRef(false);
 
   // A synchronous guard covers the interval before mutation state disables the form.
   const nameSubmitting = useRef(false);
   const [nameReloading, setNameReloading] = useState(false);
+  const [nameCommitted, setNameCommitted] = useState(false);
+  const [nameSyncError, setNameSyncError] = useState(false);
+  const deniedNow =
+    me.error?.data?.code === "FORBIDDEN" ||
+    me.error?.data?.code === "UNAUTHORIZED";
+  useEffect(() => {
+    // Sibling academic/security owners subscribe to this query. Evict once per denial
+    // episode so an enabled sibling cannot turn recreated denied reads into a loop.
+    if (!deniedNow || identityDenied) return;
+    setIdentityDenied(true);
+    queryClient.removeQueries({
+      queryKey: getQueryKey(api.account.me, undefined, "query"),
+    });
+  }, [deniedNow, identityDenied, queryClient]);
   const updateName = api.account.updateName.useMutation({
     onSettled: () => {
       nameSubmitting.current = false;
     },
     onSuccess: async () => {
-      await utils.account.me.invalidate();
-      router.refresh();
+      // A committed write stays locked until its refreshed authoritative version is adopted.
+      setNameCommitted(true);
+      await refreshIdentity(true);
     },
   });
 
@@ -77,7 +98,43 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
     number | undefined
   >();
   const [nameDirty, setNameDirty] = useState(false);
-  const nameBusy = !me.data || updateName.isPending || nameReloading;
+  const nameBusy =
+    !me.data ||
+    updateName.isPending ||
+    nameReloading ||
+    nameCommitted ||
+    identityDenied ||
+    deniedNow ||
+    !!me.error;
+  const adoptIdentity = (snapshot: NonNullable<typeof me.data>) => {
+    setNames(nameDraft(snapshot));
+    setOriginalNames(nameDraft(snapshot));
+    setLegacyName(snapshot.legacyName ?? snapshot.name);
+    setNameDraftVersion(snapshot.profileVersion);
+    setNameDirty(false);
+  };
+  async function refreshIdentity(afterWrite = false) {
+    if (nameReloading || (!afterWrite && nameSubmitting.current)) return;
+    if (!afterWrite) nameSubmitting.current = true;
+    setNameReloading(true);
+    try {
+      const result = await me.refetch();
+      // Cached data returned with a failed read never authorizes discarding a draft.
+      if (!result.isSuccess || !result.data)
+        throw new Error("Identity refresh failed");
+      adoptIdentity(result.data);
+      setIdentityDenied(false);
+      setNameCommitted(false);
+      setNameSyncError(false);
+      if (!afterWrite) updateName.reset();
+      router.refresh();
+    } catch {
+      setNameSyncError(true);
+    } finally {
+      if (!afterWrite) nameSubmitting.current = false;
+      setNameReloading(false);
+    }
+  }
   const cancelNameDraft = () => {
     if (nameBusy || nameSubmitting.current) return;
     // Cancel is an explicit discard. Background refreshes alone never adopt a new version.
@@ -120,16 +177,30 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
 
   const requestCode = api.account.requestPasswordChangeCode.useMutation({
     onSuccess: (data) => setSentTo(data.email),
+    onSettled: () => {
+      passwordSubmitting.current = false;
+    },
   });
   const changePassword = api.account.changePassword.useMutation({
     onSuccess: () => {
       resetPasswordForm();
       signInAfterPasswordChange();
     },
+    onSettled: () => {
+      passwordSubmitting.current = false;
+    },
   });
 
   // Step 1: validate the new password locally, then ask for the emailed code.
   const sendCode = () => {
+    if (
+      passwordSubmitting.current ||
+      email2fa === undefined ||
+      features.error ||
+      requestCode.isPending ||
+      changePassword.isPending
+    )
+      return;
     setPwError(null);
     if (next.length < 8) {
       setPwError(t("tutor.settings.pwTooShort"));
@@ -139,6 +210,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
       setPwError(t("tutor.settings.pwMismatch"));
       return;
     }
+    passwordSubmitting.current = true;
     if (email2fa) {
       requestCode.mutate({ currentPassword: current });
     } else {
@@ -149,6 +221,16 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
 
   // Step 2: submit the new password with the emailed code.
   const submitPassword = () => {
+    if (
+      passwordSubmitting.current ||
+      email2fa === undefined ||
+      features.error ||
+      requestCode.isPending ||
+      changePassword.isPending ||
+      !code.trim()
+    )
+      return;
+    passwordSubmitting.current = true;
     setPwError(null);
     changePassword.mutate({
       currentPassword: current,
@@ -160,6 +242,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
   const role = me.data?.role;
   const roleBadge = role === "HEAD" ? "badge-green" : "badge-slate";
   const initials = initialsOf(me.data?.name, me.data?.username, me.data?.email);
+  const passwordBusy = requestCode.isPending || changePassword.isPending;
 
   return (
     // A VIEWER may still manage their OWN login here — this self-service page is intentionally
@@ -193,149 +276,187 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
 
       {/* Identity pass — the account's monogram, name, @handle (its call-sign) and role. */}
       <section className="card overflow-hidden">
-        <div className="from-accent-50 bg-gradient-to-br to-white px-5 py-5 sm:px-6">
-          <div className="flex items-start gap-4">
-            <div
-              aria-hidden
-              className="bg-accent-600 grid h-14 w-14 shrink-0 place-items-center rounded-full text-lg font-bold text-white shadow-sm ring-2 ring-white"
-            >
-              {initials}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <h2 className="truncate text-xl font-bold tracking-tight text-slate-900">
-                  {me.data?.name ?? "—"}
-                </h2>
-                {role && (
-                  <span className={roleBadge}>
-                    {t(`admin.users.roles.${role}`)}
-                  </span>
-                )}
-              </div>
-              <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
-                <span className="text-accent-700 font-mono font-medium">
-                  {me.data?.username
-                    ? `@${me.data.username}`
-                    : t("academics.usernameMissing")}
-                </span>
-                {me.data?.email && (
-                  <>
-                    <span className="text-slate-300" aria-hidden>
-                      {SYMBOLS.dot}
-                    </span>
-                    <span className="truncate text-slate-500">
-                      {me.data.email}
-                    </span>
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Identity uses one deliberate commit; security and membership retain independent authority. */}
-        <div className="space-y-4 border-t border-slate-100 px-5 py-5 sm:px-6">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (
-                nameBusy ||
-                nameSubmitting.current ||
-                !me.data ||
-                (!identity.preserved && !names.firstName.trim())
-              )
-                return;
-              nameSubmitting.current = true;
-              updateName.mutate(
-                {
-                  ...identity.fields,
-                  name,
-                  expectedProfileVersion: nameDraftVersion,
-                },
-                { onSuccess: () => setNameDirty(false) },
-              );
-            }}
-          >
-            <FormSection
-              title={t("uiPatterns.profile")}
-              busy={nameBusy}
-              actions={
-                <>
+        {(identityDenied || deniedNow || !me.data || me.error) && (
+          <div className="px-5 py-5 sm:px-6">
+            {identityDenied || deniedNow ? (
+              <StatePanel
+                kind="denied"
+                title={recovery("accessDenied")}
+                action={
                   <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={
-                      !me.data ||
-                      (!identity.preserved && !names.firstName.trim())
-                    }
+                    disabled={nameReloading}
+                    onClick={() => void refreshIdentity()}
                   >
-                    {t(
-                      updateName.isPending
-                        ? "tutor.settings.saving"
-                        : "uiPatterns.saveProfile",
-                    )}
+                    {recovery("retry")}
                   </Button>
-                  <Button onClick={cancelNameDraft}>
-                    {t("uiPatterns.cancel")}
-                  </Button>
-                </>
-              }
-            >
-              <PersonNameFields
-                value={names}
-                onChange={(value) => {
-                  setNames(value);
-                  setNameDirty(true);
-                  if (updateName.isSuccess) updateName.reset();
-                }}
-                legacyName={legacyName}
-                originalValue={originalNames}
+                }
+              >
+                {recovery("accessDeniedHelp")}
+              </StatePanel>
+            ) : (
+              <QueryFeedback
+                hasData={!!me.data}
+                loading={!me.data && !me.error}
+                error={!!me.error}
+                retrying={me.isFetching}
+                loadingTitle={recovery("loading")}
+                errorTitle={recovery(me.data ? "refreshFailed" : "loadFailed")}
+                retryLabel={recovery("retry")}
+                onRetry={() => void me.refetch()}
               />
-              {updateName.isSuccess && (
-                <p role="status" className="text-sm text-green-700">
-                  {t("tutor.settings.saved")}
-                </p>
-              )}
-              {updateName.error && (
-                <p role="alert" className="text-sm text-red-600">
-                  <ProfilePolicyError message={updateName.error.message} />
-                </p>
-              )}
-              {updateName.error?.data?.code === "CONFLICT" && (
-                <Button
-                  onClick={async () => {
-                    if (nameBusy || nameSubmitting.current) return;
-                    nameSubmitting.current = true;
-                    setNameReloading(true);
-                    try {
-                      const result = await me.refetch();
-                      // A failed refetch can still contain stale cached data. Only a successful
-                      // reload authorizes discarding this draft and its original version.
-                      if (result.isSuccess) {
-                        setNameDirty(false);
-                        updateName.reset();
-                      }
-                    } finally {
-                      nameSubmitting.current = false;
-                      setNameReloading(false);
-                    }
-                  }}
+            )}
+          </div>
+        )}
+        {me.data && !identityDenied && !deniedNow && (
+          <>
+            <div className="from-accent-50 bg-gradient-to-br to-white px-5 py-5 sm:px-6">
+              <div className="flex items-start gap-4">
+                <div
+                  aria-hidden
+                  className="bg-accent-600 grid h-14 w-14 shrink-0 place-items-center rounded-full text-lg font-bold text-white shadow-sm ring-2 ring-white"
                 >
-                  {t("accountProfile.reloadIdentity")}
-                </Button>
-              )}
-            </FormSection>
-          </form>
+                  {initials}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <h2 className="truncate text-xl font-bold tracking-tight text-slate-900">
+                      {me.data?.name ?? "—"}
+                    </h2>
+                    {role && (
+                      <span className={roleBadge}>
+                        {t(`admin.users.roles.${role}`)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
+                    <span className="text-accent-700 font-mono font-medium">
+                      {me.data?.username
+                        ? `@${me.data.username}`
+                        : t("academics.usernameMissing")}
+                    </span>
+                    {me.data?.email && (
+                      <>
+                        <span className="text-slate-300" aria-hidden>
+                          {SYMBOLS.dot}
+                        </span>
+                        <span className="truncate text-slate-500">
+                          {me.data.email}
+                        </span>
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
 
-          {me.data?.tutor && (
-            <p className="muted flex items-center gap-1.5 border-t border-slate-100 pt-4 text-sm">
-              <span>{t("account.tutorNote")}</span>
-              <Link href="/settings" className="link">
-                {t("account.openTutorSettings")} →
-              </Link>
-            </p>
-          )}
-        </div>
+            {/* Identity uses one deliberate commit; security and membership retain independent authority. */}
+            <div className="space-y-4 border-t border-slate-100 px-5 py-5 sm:px-6">
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (
+                    nameBusy ||
+                    nameSubmitting.current ||
+                    !me.data ||
+                    (!identity.preserved && !names.firstName.trim())
+                  )
+                    return;
+                  nameSubmitting.current = true;
+                  updateName.mutate(
+                    {
+                      ...identity.fields,
+                      name,
+                      expectedProfileVersion: nameDraftVersion,
+                    },
+                    {},
+                  );
+                }}
+              >
+                <FormSection
+                  title={t("uiPatterns.profile")}
+                  busy={nameBusy}
+                  disabled={nameBusy}
+                  actions={
+                    <>
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        disabled={
+                          !me.data ||
+                          (!identity.preserved && !names.firstName.trim())
+                        }
+                      >
+                        {t(
+                          updateName.isPending
+                            ? "tutor.settings.saving"
+                            : "uiPatterns.saveProfile",
+                        )}
+                      </Button>
+                      <Button onClick={cancelNameDraft}>
+                        {t("uiPatterns.cancel")}
+                      </Button>
+                    </>
+                  }
+                >
+                  <PersonNameFields
+                    value={names}
+                    onChange={(value) => {
+                      setNames(value);
+                      setNameDirty(true);
+                      if (updateName.isSuccess) updateName.reset();
+                    }}
+                    legacyName={legacyName}
+                    originalValue={originalNames}
+                  />
+                  {updateName.isSuccess && (
+                    <p role="status" className="text-sm text-green-700">
+                      {t("tutor.settings.saved")}
+                    </p>
+                  )}
+                  {updateName.error && (
+                    <p role="alert" className="text-sm text-red-600">
+                      <ProfilePolicyError message={updateName.error.message} />
+                    </p>
+                  )}
+                  {updateName.error?.data?.code === "CONFLICT" && (
+                    <Button onClick={() => void refreshIdentity()}>
+                      {t("accountProfile.reloadIdentity")}
+                    </Button>
+                  )}
+                </FormSection>
+              </form>
+              {nameSyncError && (
+                <InlineNotice
+                  tone="error"
+                  announcement="alert"
+                  action={
+                    <Button
+                      disabled={nameReloading || updateName.isPending}
+                      onClick={() => void refreshIdentity()}
+                    >
+                      {t("accountProfile.retryRefresh")}
+                    </Button>
+                  }
+                >
+                  {t(
+                    nameCommitted
+                      ? "tutor.settings.profileSyncFailed"
+                      : "participantRecovery.loadFailed",
+                  )}
+                </InlineNotice>
+              )}
+
+              {me.data?.tutor && (
+                <p className="muted flex items-center gap-1.5 border-t border-slate-100 pt-4 text-sm">
+                  <span>{t("account.tutorNote")}</span>
+                  <Link href="/settings" className="link">
+                    {t("account.openTutorSettings")} →
+                  </Link>
+                </p>
+              )}
+            </div>
+          </>
+        )}
       </section>
 
       <AcademicPanel />
@@ -354,143 +475,172 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
           )}
         </div>
 
-        <label className="block space-y-1">
-          <span className="label">{t("tutor.settings.currentPassword")}</span>
-          <input
-            value={current}
-            onChange={(e) => setCurrent(e.target.value)}
-            type="password"
-            autoComplete="current-password"
-            disabled={!!sentTo}
-            className="input"
-          />
-        </label>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <QueryFeedback
+          hasData={!!features.data}
+          loading={!features.data && !features.error}
+          error={!!features.error}
+          retrying={features.isFetching}
+          loadingTitle={recovery("loading")}
+          errorTitle={recovery("loadFailed")}
+          retryLabel={recovery("retry")}
+          onRetry={() => void features.refetch()}
+        />
+        <fieldset
+          disabled={passwordBusy || email2fa === undefined || !!features.error}
+          className="min-w-0 space-y-4"
+        >
           <label className="block space-y-1">
-            <span className="label">{t("tutor.settings.newPassword")}</span>
+            <span className="label">{t("tutor.settings.currentPassword")}</span>
             <input
-              value={next}
-              onChange={(e) => setNext(e.target.value)}
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
               type="password"
-              autoComplete="new-password"
-              minLength={8}
-              disabled={!!sentTo}
-              className="input"
-            />
-            <span className="muted text-xs">{t("tutor.settings.pwHelp")}</span>
-          </label>
-          <label className="block space-y-1">
-            <span className="label">{t("tutor.settings.confirmPassword")}</span>
-            <input
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              type="password"
-              autoComplete="new-password"
+              autoComplete="current-password"
               disabled={!!sentTo}
               className="input"
             />
           </label>
-        </div>
-
-        {/* Step 2 appears once the code is emailed. */}
-        {sentTo && (
-          <div className="border-accent-200 bg-accent-50/60 space-y-2 rounded-lg border p-4">
-            <p className="text-sm text-slate-700">
-              {t("account.password.codeSent", { email: sentTo })}
-            </p>
+          <div className="grid gap-4 sm:grid-cols-2">
             <label className="block space-y-1">
-              <span className="label">{t("account.password.codeLabel")}</span>
+              <span className="label">{t("tutor.settings.newPassword")}</span>
               <input
-                value={code}
-                onChange={(e) =>
-                  setCode(
-                    e.target.value
-                      .toUpperCase()
-                      .replace(/[^0-9A-Z]/g, "")
-                      .slice(0, 5),
-                  )
-                }
-                autoCapitalize="characters"
-                autoComplete="one-time-code"
-                maxLength={5}
-                placeholder="XXXXX"
-                className="input field-auto min-w-40 font-mono tracking-[0.3em] uppercase"
+                value={next}
+                onChange={(e) => setNext(e.target.value)}
+                type="password"
+                autoComplete="new-password"
+                minLength={8}
+                disabled={!!sentTo}
+                className="input"
+              />
+              <span className="muted text-xs">
+                {t("tutor.settings.pwHelp")}
+              </span>
+            </label>
+            <label className="block space-y-1">
+              <span className="label">
+                {t("tutor.settings.confirmPassword")}
+              </span>
+              <input
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                type="password"
+                autoComplete="new-password"
+                disabled={!!sentTo}
+                className="input"
               />
             </label>
-            <button
-              type="button"
-              className="link text-xs"
-              disabled={requestCode.isPending}
-              onClick={() => requestCode.mutate({ currentPassword: current })}
-            >
-              {t("account.password.resend")}
-            </button>
           </div>
-        )}
 
-        <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
-          {!sentTo ? (
-            <button
-              className="btn-primary"
-              disabled={
-                (email2fa ? requestCode.isPending : changePassword.isPending) ||
-                !current ||
-                !next ||
-                !confirm
-              }
-              onClick={sendCode}
-            >
-              {email2fa
-                ? requestCode.isPending
-                  ? t("account.password.sending")
-                  : t("account.password.sendCode")
-                : changePassword.isPending
-                  ? t("tutor.settings.changing")
-                  : t("tutor.settings.changePasswordBtn")}
-            </button>
-          ) : (
-            <>
-              <button
-                className="btn-primary"
-                disabled={changePassword.isPending || !code.trim()}
-                onClick={submitPassword}
-              >
-                {changePassword.isPending
-                  ? t("tutor.settings.changing")
-                  : t("tutor.settings.changePasswordBtn")}
-              </button>
+          {/* Step 2 appears once the code is emailed. */}
+          {sentTo && (
+            <div className="border-accent-200 bg-accent-50/60 space-y-2 rounded-lg border p-4">
+              <p className="text-sm text-slate-700">
+                {t("account.password.codeSent", { email: sentTo })}
+              </p>
+              <label className="block space-y-1">
+                <span className="label">{t("account.password.codeLabel")}</span>
+                <input
+                  value={code}
+                  onChange={(e) =>
+                    setCode(
+                      e.target.value
+                        .toUpperCase()
+                        .replace(/[^0-9A-Z]/g, "")
+                        .slice(0, 5),
+                    )
+                  }
+                  autoCapitalize="characters"
+                  autoComplete="one-time-code"
+                  maxLength={5}
+                  placeholder="XXXXX"
+                  className="input field-auto min-w-40 font-mono tracking-[0.3em] uppercase"
+                />
+              </label>
               <button
                 type="button"
-                className="btn-secondary"
-                onClick={resetPasswordForm}
+                className="link text-xs"
+                disabled={requestCode.isPending}
+                onClick={() => {
+                  if (passwordBusy || passwordSubmitting.current) return;
+                  passwordSubmitting.current = true;
+                  requestCode.mutate({ currentPassword: current });
+                }}
               >
-                {t("account.password.cancel")}
+                {t("account.password.resend")}
               </button>
-            </>
+            </div>
           )}
-          {changePassword.isSuccess && (
-            <span className="text-sm text-green-600">
-              {t("tutor.settings.passwordChanged")}
-            </span>
-          )}
-          {(pwError ?? changePassword.error ?? requestCode.error) && (
-            <span className="text-sm text-red-600">
-              {pwError ??
-                changePassword.error?.message ??
-                requestCode.error?.message}
-            </span>
-          )}
-        </div>
+
+          <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+            {!sentTo ? (
+              <button
+                className="btn-primary"
+                disabled={
+                  (email2fa
+                    ? requestCode.isPending
+                    : changePassword.isPending) ||
+                  !current ||
+                  !next ||
+                  !confirm
+                }
+                onClick={sendCode}
+              >
+                {email2fa
+                  ? requestCode.isPending
+                    ? t("account.password.sending")
+                    : t("account.password.sendCode")
+                  : changePassword.isPending
+                    ? t("tutor.settings.changing")
+                    : t("tutor.settings.changePasswordBtn")}
+              </button>
+            ) : (
+              <>
+                <button
+                  className="btn-primary"
+                  disabled={changePassword.isPending || !code.trim()}
+                  onClick={submitPassword}
+                >
+                  {changePassword.isPending
+                    ? t("tutor.settings.changing")
+                    : t("tutor.settings.changePasswordBtn")}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={resetPasswordForm}
+                  disabled={passwordBusy}
+                >
+                  {t("account.password.cancel")}
+                </button>
+              </>
+            )}
+            {changePassword.isSuccess && (
+              <span className="text-sm text-green-600">
+                {t("tutor.settings.passwordChanged")}
+              </span>
+            )}
+            {(pwError ?? changePassword.error ?? requestCode.error) && (
+              <span className="text-sm text-red-600">
+                {pwError ??
+                  changePassword.error?.message ??
+                  requestCode.error?.message}
+              </span>
+            )}
+          </div>
+        </fieldset>
       </section>
 
       {/* Participant badge requests cannot carry a management rank. Staff edits use Users & Roles. */}
-      {me.data && accountMembership(me.data).rank === "NONE" && (
-        <MembershipEditor
-          userId={me.data.id}
-          initial={accountMembership(me.data)}
-          selfService
-        />
-      )}
+      {me.data &&
+        !identityDenied &&
+        !deniedNow &&
+        accountMembership(me.data).rank === "NONE" && (
+          <MembershipEditor
+            userId={me.data.id}
+            initial={accountMembership(me.data)}
+            selfService
+          />
+        )}
       <AccountEmails />
       <section className="card space-y-3 p-5">
         <h2 className="section-title">{t("accountInvitation.addAccess")}</h2>

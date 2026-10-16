@@ -452,7 +452,10 @@
       "colRoom": "Room",
       "colTutees": "Tutees",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "searchTutees": "Search tutees",
+      "selectedTutees": "{count} selected",
+      "removeSelected": "Remove {name}"
     },
     "tutors": {
       "title": "Tutors",
@@ -843,6 +846,12 @@
           "VIEWER_SIGNUP": "Viewer Signup",
           "EMAIL_2FA": "Email 2FA"
         }
+      },
+      "panels": {
+        "period": "Period & recruitment",
+        "people": "People & signup",
+        "communication": "Communication",
+        "access": "Access & modules"
       }
     },
     "audit": {
@@ -1232,7 +1241,8 @@
           "ARCHIVED": "Archived"
         }
       },
-      "messageLabel": "Message"
+      "messageLabel": "Message",
+      "create": "New announcement"
     },
     "policies": {
       "title": "Policy Documents",
@@ -1297,7 +1307,8 @@
         "title": "Delete Hour Adjustment?",
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
-      }
+      },
+      "create": "New hour adjustment"
     },
     "applications": {
       "title": "Tutor Applications",
@@ -1583,7 +1594,12 @@
       "issuedHint": "Codes handed to accepted applicants, awaiting registration. Revoking a code on Registration Codes returns its application to the queue above.",
       "issuedExpires": "Expires {date}",
       "originalApplication": "Original application",
-      "originalRequest": "Original request"
+      "originalRequest": "Original request",
+      "panels": {
+        "review": "Review",
+        "roster": "Roster",
+        "patrol": "Patrol settings"
+      }
     },
     "sessionFlags": {
       "title": "Attendance Flags",
@@ -1868,7 +1884,15 @@
       "confirmDecision": "Record {outcome} for {name}? The panel vote and current application version will be checked. If approval is required, this creates a pending proposal and does not apply the decision.",
       "completedInterview": "Completed interview · {name} ({count})",
       "savedRefreshError": "Attendance was saved, but the refreshed totals could not be loaded. Do not resubmit this entry.",
-      "verificationDeadline": "Verification due: {date}"
+      "verificationDeadline": "Verification due: {date}",
+      "attention": "Needs attention",
+      "navigation": "Dashboard sections",
+      "emptyTasks": "No follow-ups in the loaded records.",
+      "unconfirmedCount": "Unconfirmed schedules ({count})",
+      "rosterCount": "Roster follow-ups ({count})",
+      "interviewSection": "Interviews",
+      "meetingSection": "Meetings",
+      "qualificationSection": "Qualifications"
     },
     "activate": {
       "title": "Confirm Your Availability",
@@ -2067,7 +2091,8 @@
       "reentryHelp": "Want to rejoin the program? Request reentry and an admin will review it.",
       "reentryBtn": "Request Reentry",
       "recall": "Recall Request",
-      "statusNote": "Your tutor status is {status}. This is read-only access — contact an admin for changes."
+      "statusNote": "Your tutor status is {status}. This is read-only access — contact an admin for changes.",
+      "profileSyncFailed": "Your profile was saved, but refreshing failed. Retry refresh without submitting again."
     },
     "dashboard": {
       "pending": {
@@ -4510,5 +4535,17 @@
     "refreshFailed": "Could not refresh {section}. Previously loaded content is still shown.",
     "retry": "Retry {section}",
     "denied": "You no longer have access to {section}."
+  },
+  "rosterSearch": {
+    "label": "Search people",
+    "placeholder": "Name, username or email",
+    "clear": "Clear search",
+    "noMatches": "No people match this search.",
+    "results": "{count} of {total} people"
+  },
+  "saveBoundary": {
+    "blur": "Changes save when you leave this field.",
+    "form": "Save applies to this form only.",
+    "layout": "Save applies to this layout only."
   }
 }

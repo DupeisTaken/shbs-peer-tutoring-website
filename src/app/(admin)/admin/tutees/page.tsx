@@ -649,14 +649,20 @@ export default function TuteesPage() {
             <p className="muted text-sm">{h("historyHelp")}</p>
             <div className="flex flex-wrap items-center gap-3">
               <label className="flex-1">
-                <span className="sr-only">{h("searchRecords")}</span>
+                <span className="label">{h("searchRecords")}</span>
                 <input
                   className="input min-h-11 w-full lg:min-h-10"
+                  type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={h("searchRecords")}
                 />
               </label>
+              {search && (
+                <Button size="compact" onClick={() => setSearch("")}>
+                  {t("rosterSearch.clear")}
+                </Button>
+              )}
               <label className="flex min-h-11 items-center gap-2 text-sm">
                 <input
                   type="checkbox"

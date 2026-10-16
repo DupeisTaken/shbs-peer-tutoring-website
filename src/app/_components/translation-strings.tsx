@@ -246,6 +246,7 @@ export function TranslationStrings() {
         <h2 className="section-title">{t("translationEditor.strings")}</h2>
 
         <p className="muted mt-1">{t("localization.subtitle")}</p>
+        <p className="muted mt-2 text-sm">{t("saveBoundary.blur")}</p>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">

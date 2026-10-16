@@ -559,3 +559,25 @@ it("keeps account profiles and ranks out of Coordinator edit actions", () => {
     }),
   ).toBeNull();
 });
+
+it("composes saved identity search with existing roster scope and restores it on clear", () => {
+  mount();
+  const search = screen.getByRole("searchbox", {
+    name: messages.rosterSearch.label,
+  });
+  fireEvent.change(search, { target: { value: "pasttutor" } });
+  expect(screen.getByText(messages.rosterSearch.noMatches)).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.tuteeHistory.showHistorical }),
+  );
+  expect(screen.getByRole("table").textContent).toContain("Past tutor");
+  expect(screen.getByRole("table").textContent).not.toContain(
+    "Combined account",
+  );
+  fireEvent.change(search, { target: { value: "missing synthetic identity" } });
+  expect(screen.getByText(messages.rosterSearch.noMatches)).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.rosterSearch.clear }),
+  );
+  expect(screen.getByRole("table").textContent).toContain("Combined account");
+});

@@ -31,6 +31,7 @@ function GroupEditor({
   invalidate: () => Promise<unknown>;
 }) {
   const t = useTranslations("courseGroups");
+  const saveText = useTranslations("saveBoundary");
   const [name, setName] = useState(group?.name ?? "");
   const [offers, setOffers] = useState<
     Record<string, { baseName: string; subjectId?: string }>
@@ -179,6 +180,7 @@ function GroupEditor({
           {save.error.message}
         </p>
       )}
+      <p className="muted text-sm">{saveText("form")}</p>
       <div className="flex flex-wrap gap-2">
         <button
           className="btn-primary min-h-11 lg:min-h-9"
@@ -200,6 +202,7 @@ function GroupEditor({
 
 export default function SubjectsPage() {
   const t = useTranslations("courseGroups");
+  const saveText = useTranslations("saveBoundary");
   const readOnly = useReadOnly();
   const utils = api.useUtils();
   const groups = api.admin.courseGroups.useQuery();
@@ -308,6 +311,7 @@ export default function SubjectsPage() {
               </span>
               <label className="min-w-28 flex-1">
                 <span className="label">{t("levelName")}</span>
+                <span className="muted block text-xs">{saveText("blur")}</span>
                 <input
                   aria-label={t("levelLabel", { name: level.name })}
                   className="input min-h-11 w-full lg:min-h-9"
@@ -327,6 +331,7 @@ export default function SubjectsPage() {
               </label>
               <label className="min-w-28 flex-1">
                 <span className="label">{t("prefix")}</span>
+                <span className="muted block text-xs">{saveText("blur")}</span>
                 <input
                   aria-label={t("prefixLabel", { name: level.name })}
                   className="input min-h-11 w-full lg:min-h-9"

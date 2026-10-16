@@ -12,7 +12,11 @@ import {
 import { useTranslations } from "next-intl";
 
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
-import { InlineNotice, StatePanel } from "~/app/_components/ui/patterns";
+import {
+  FormActions,
+  InlineNotice,
+  StatePanel,
+} from "~/app/_components/ui/patterns";
 import { Button } from "~/app/_components/ui/button";
 import { api } from "~/trpc/react";
 import { Markdown } from "~/app/_components/markdown";
@@ -249,6 +253,7 @@ function ContentEditor({
 
   return (
     <div className="space-y-5">
+      <p className="muted text-sm">{t("saveBoundary.form")}</p>
       <label className="flex items-center gap-2 text-sm">
         <span className="muted">{t("common.language")}</span>
         <select
@@ -1658,11 +1663,13 @@ function SlugField({
   return (
     <span className="flex items-center gap-1.5">
       <span className="muted">/p/</span>
+      <span className="muted text-xs">{t("saveBoundary.blur")}</span>
       <input
         className="input field-auto min-w-32"
         value={slug}
         placeholder={t("admin.landing.sections.slug.placeholder")}
         onChange={(e) => setSlug(e.target.value)}
+        aria-description={t("saveBoundary.blur")}
         onBlur={commit}
       />
       {section.slug && (
@@ -1775,7 +1782,7 @@ function makePreset(name: string): Block[] {
   return [];
 }
 
-function LayoutEditor({
+export function LayoutEditor({
   images,
   readOnly,
   owner = "landing",
@@ -1795,6 +1802,7 @@ function LayoutEditor({
   const save = api.home.setLayout.useMutation({
     onSuccess: () => utils.home.layout.invalidate({ owner }),
   });
+  const saveLock = useRef(false);
   const [locale, setLocale] = useState("en");
   const [blocks, setBlocks] = useState<Block[] | null>(null);
   const [baseline, setBaseline] = useState<string | null>(null);
@@ -1831,6 +1839,21 @@ function LayoutEditor({
   }
 
   const dirty = baseline !== JSON.stringify(blocks);
+  // Both save locations share a same-tick guard and the exact submitted snapshot.
+  const saveLayout = () => {
+    if (readOnly || !dirty || save.isPending || saveLock.current) return;
+    saveLock.current = true;
+    const submitted = JSON.stringify(blocks);
+    save.mutate(
+      { owner, blocks },
+      {
+        onSuccess: () => setBaseline(submitted),
+        onSettled: () => {
+          saveLock.current = false;
+        },
+      },
+    );
+  };
   const present = new Set(blocks.map((b) => b.type));
   const missingSystem = SYSTEM_BLOCK_TYPES.filter((tp) => !present.has(tp));
 
@@ -1871,6 +1894,7 @@ function LayoutEditor({
 
   return (
     <div className="space-y-4">
+      <p className="muted text-sm">{t("saveBoundary.layout")}</p>
       {/* Save bar (no heading — the tab description / page card provides context). */}
       <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -1909,12 +1933,7 @@ function LayoutEditor({
                 type="button"
                 className="btn-primary btn-sm"
                 disabled={!dirty || save.isPending}
-                onClick={() =>
-                  save.mutate(
-                    { owner, blocks },
-                    { onSuccess: () => setBaseline(JSON.stringify(blocks)) },
-                  )
-                }
+                onClick={saveLayout}
               >
                 {t("admin.landing.layout.save")}
               </button>
@@ -1978,6 +1997,13 @@ function LayoutEditor({
             </optgroup>
           )}
         </select>
+      )}
+      {!readOnly && (
+        <FormActions>
+          <Button disabled={!dirty || save.isPending} onClick={saveLayout}>
+            {t("admin.landing.layout.save")}
+          </Button>
+        </FormActions>
       )}
     </div>
   );
@@ -2814,24 +2840,32 @@ function PageTitleField({
   setTitle: ReturnType<typeof api.home.setPageTitle.useMutation>;
 }) {
   const t = useTranslations();
+  const guidanceId = useId();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const val = drafts[locale] ?? page.title[locale] ?? "";
   return (
-    <label className="flex items-center gap-2">
-      <span className="muted">{t("admin.landing.pages.titleLabel")}</span>
-      <input
-        className="input field-auto min-w-40"
-        value={val}
-        disabled={setTitle.isPending}
-        onChange={(e) =>
-          setDrafts((previous) => ({ ...previous, [locale]: e.target.value }))
-        }
-        onBlur={() => {
-          if (val !== (page.title[locale] ?? ""))
-            setTitle.mutate({ id: page.id, locale, value: val });
-        }}
-      />
-    </label>
+    <div className="space-y-1">
+      {/* Save guidance describes the field without becoming part of its concise name. */}
+      <label className="flex items-center gap-2">
+        <span className="muted">{t("admin.landing.pages.titleLabel")}</span>
+        <input
+          aria-describedby={guidanceId}
+          className="input field-auto min-w-40"
+          value={val}
+          disabled={setTitle.isPending}
+          onChange={(e) =>
+            setDrafts((previous) => ({ ...previous, [locale]: e.target.value }))
+          }
+          onBlur={() => {
+            if (val !== (page.title[locale] ?? ""))
+              setTitle.mutate({ id: page.id, locale, value: val });
+          }}
+        />
+      </label>
+      <p id={guidanceId} className="muted text-xs">
+        {t("saveBoundary.blur")}
+      </p>
+    </div>
   );
 }
 
@@ -2842,6 +2876,7 @@ function PageSlugField({
   page: PageRow;
   update: ReturnType<typeof api.home.updatePage.useMutation>;
 }) {
+  const t = useTranslations();
   const [slug, setSlug] = useState(page.slug);
   useEffect(() => {
     setSlug(page.slug);
@@ -2862,6 +2897,7 @@ function PageSlugField({
         className="input field-auto min-w-28"
         value={slug}
         onChange={(e) => setSlug(e.target.value)}
+        aria-description={t("saveBoundary.blur")}
         onBlur={commit}
       />
     </span>

@@ -452,7 +452,10 @@
       "colRoom": "部屋",
       "colTutees": "生徒",
       "edit": "編集",
-      "delete": "削除"
+      "delete": "削除",
+      "searchTutees": "受講者を検索",
+      "selectedTutees": "{count}人を選択中",
+      "removeSelected": "{name}を選択から外す"
     },
     "tutors": {
       "title": "チューター",
@@ -843,6 +846,12 @@
           "VIEWER_SIGNUP": "オブザーバー登録",
           "EMAIL_2FA": "メール二要素認証"
         }
+      },
+      "panels": {
+        "period": "学期と募集",
+        "people": "利用者と登録",
+        "communication": "連絡",
+        "access": "アクセスと機能"
       }
     },
     "audit": {
@@ -1232,7 +1241,8 @@
           "ARCHIVED": "Archived"
         }
       },
-      "messageLabel": "メッセージ"
+      "messageLabel": "メッセージ",
+      "create": "新しいお知らせ"
     },
     "policies": {
       "title": "ポリシー文書",
@@ -1297,7 +1307,8 @@
         "title": "Delete hour adjustment?",
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
-      }
+      },
+      "create": "活動時間の調整を追加"
     },
     "applications": {
       "title": "チューター応募",
@@ -1583,7 +1594,12 @@
       "issuedHint": "承認された申請者に渡した、登録待ちのコードです。登録コード画面でコードを取り消すと、その申請は上のキューに戻ります。",
       "issuedExpires": "{date} に期限切れ",
       "originalApplication": "応募の原文",
-      "originalRequest": "リクエストの原文"
+      "originalRequest": "リクエストの原文",
+      "panels": {
+        "review": "審査",
+        "roster": "メンバー一覧",
+        "patrol": "巡回設定"
+      }
     },
     "sessionFlags": {
       "title": "出席フラグ",
@@ -1868,7 +1884,15 @@
       "confirmDecision": "Record {outcome} for {name}? The panel vote and current application version will be checked. If approval is required, this creates a pending proposal and does not apply the decision.",
       "completedInterview": "Completed interview · {name} ({count})",
       "savedRefreshError": "Attendance was saved, but the refreshed totals could not be loaded. Do not resubmit this entry.",
-      "verificationDeadline": "Verification due: {date}"
+      "verificationDeadline": "Verification due: {date}",
+      "attention": "対応が必要な項目",
+      "navigation": "ダッシュボードの項目",
+      "emptyTasks": "読み込んだ記録に対応が必要な項目はありません。",
+      "unconfirmedCount": "未確定の時間割（{count}）",
+      "rosterCount": "受講者名簿の確認事項（{count}）",
+      "interviewSection": "面接",
+      "meetingSection": "ミーティング",
+      "qualificationSection": "資格"
     },
     "activate": {
       "title": "参加状況の確認",
@@ -2067,7 +2091,8 @@
       "reentryHelp": "プログラムに再参加したいですか？復帰申請を提出すると管理者が審査します。",
       "reentryBtn": "復帰を申請",
       "recall": "申請を取り消す",
-      "statusNote": "チューターのステータスは {status} です。読み取り専用アクセスです — 変更は管理者にお問い合わせください。"
+      "statusNote": "チューターのステータスは {status} です。読み取り専用アクセスです — 変更は管理者にお問い合わせください。",
+      "profileSyncFailed": "プロフィールは保存されましたが、再読み込みに失敗しました。再送信せずに、もう一度読み込んでください。"
     },
     "dashboard": {
       "pending": {
@@ -4510,5 +4535,17 @@
     "retryRefresh": "再読み込みを再試行",
     "reload": "申請を再読み込み",
     "reloadHelp": "入力した理由と元のバージョンは保持されています。この下書きを最新の申請に置き換えるには、明示的に再読み込みしてください。"
+  },
+  "rosterSearch": {
+    "label": "利用者を検索",
+    "placeholder": "氏名、ユーザー名、メールアドレス",
+    "clear": "検索をクリア",
+    "noMatches": "検索条件に一致する利用者はいません。",
+    "results": "{total}人中{count}人"
+  },
+  "saveBoundary": {
+    "blur": "この欄から移動すると変更が保存されます。",
+    "form": "保存はこのフォームにのみ適用されます。",
+    "layout": "保存はこのレイアウトにのみ適用されます。"
   }
 }

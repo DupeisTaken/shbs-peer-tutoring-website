@@ -86,3 +86,20 @@ it("keeps authorized editing and propagation guidance after removing the redunda
     screen.getAllByText(en.admin.timeslots.propagationNote).length,
   ).toBeGreaterThan(0);
 });
+
+it("keeps a new slot draft after dismissing and reopening creation", () => {
+  mount("en", false);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.timeslots.addSlot }),
+  );
+  const input = screen.getByRole("textbox");
+  fireEvent.change(input, { target: { value: "Synthetic draft slot" } });
+  fireEvent.click(screen.getByRole("button", { name: en.common.close }));
+  expect(screen.queryByRole("textbox")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.timeslots.addSlot }),
+  );
+  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe(
+    "Synthetic draft slot",
+  );
+});

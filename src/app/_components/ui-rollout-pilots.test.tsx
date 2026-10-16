@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 /** @vitest-environment jsdom */
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -187,9 +188,13 @@ vi.mock("~/trpc/react", () => ({
 }));
 
 const wrapper = ({ children }: { children: ReactNode }) => (
-  <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-    {children}
-  </NextIntlClientProvider>
+  <QueryClientProvider
+    client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+  >
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      {children}
+    </NextIntlClientProvider>
+  </QueryClientProvider>
 );
 
 beforeEach(() => {
@@ -336,13 +341,15 @@ it("disables the entire profile while pending and preserves the draft when the s
 it("does not permit a profile commit before the account loads", () => {
   mocks.accountLoaded = false;
   render(<AccountSettings />, { wrapper });
-  const group = screen.getByRole("group", { name: en.uiPatterns.profile });
-  expect(group.getAttribute("aria-busy")).toBe("true");
+  expect(screen.getByRole("status").textContent).toContain(
+    en.participantRecovery.loading,
+  );
   expect(
-    within(group)
-      .getByRole("button", { name: en.uiPatterns.saveProfile })
-      .matches(":disabled"),
-  ).toBe(true);
+    screen.queryByRole("group", { name: en.uiPatterns.profile }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: en.uiPatterns.saveProfile }),
+  ).toBeNull();
   expect(mocks.updateName).not.toHaveBeenCalled();
 });
 

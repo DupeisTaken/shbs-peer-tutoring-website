@@ -2,7 +2,7 @@
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type SetStateAction } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
@@ -20,7 +20,8 @@ import {
   TableAction,
   TableDetails,
 } from "~/app/_components/ui/summary-table";
-import { Modal } from "~/app/_components/ui/modal";
+import { ProfileDialog } from "~/app/_components/profile-dialog";
+import { matchesPersonSearch } from "~/lib/person-search";
 import { Button } from "~/app/_components/ui/button";
 import { StatePanel } from "~/app/_components/ui/patterns";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
@@ -160,9 +161,21 @@ export default function PairingsPage() {
   const del = api.admin.deletePairing.useMutation();
   const review = useActionReview();
 
-  const [form, setForm] = useState<PairingForm>(EMPTY);
+  // Creation and row editing have independent owners: opening an edit cannot overwrite a draft.
+  const [createDraft, setCreateDraft] = useState<PairingForm>(EMPTY);
+  const [editDraft, setEditDraft] = useState<PairingForm | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [tuteeSearch, setTuteeSearch] = useState("");
+  const form = editDraft ?? createDraft;
+  const setForm = (next: SetStateAction<PairingForm>) => {
+    if (editDraft)
+      setEditDraft((current) =>
+        typeof next === "function" ? next(current!) : next,
+      );
+    else setCreateDraft(next);
+  };
   const [confirming, setConfirming] = useState(false);
-  const editing = form.id !== null;
+  const editing = editDraft !== null;
   const set = <K extends keyof PairingForm>(k: K, v: PairingForm[K]) => {
     setConfirming(false);
     setForm((f) => ({ ...f, [k]: v }));
@@ -199,7 +212,11 @@ export default function PairingsPage() {
   const submit = (overrideTicket?: string) => {
     const onSuccess = () => {
       setConfirming(false);
-      setForm(EMPTY);
+      if (editing) setEditDraft(null);
+      else {
+        setCreateDraft(EMPTY);
+        setCreateOpen(false);
+      }
     };
     if (form.id)
       update.mutate(
@@ -215,13 +232,8 @@ export default function PairingsPage() {
   const editor = (
     <fieldset
       disabled={create.isPending || update.isPending}
-      className={editing ? "min-w-0 space-y-3" : "card min-w-0 p-5"}
+      className="min-w-0 space-y-3"
     >
-      <h2 className="section-title">
-        {editing
-          ? t("admin.pairings.editPairing")
-          : t("admin.pairings.newPairing")}
-      </h2>
       <p className="muted mt-1">{t("admin.pairings.slotHelp")}</p>
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Select
@@ -281,24 +293,66 @@ export default function PairingsPage() {
 
       <fieldset className="mt-3">
         <legend className="label">{t("admin.pairings.tutees")}</legend>
-        <div className="mt-1 grid grid-cols-2 gap-1 sm:grid-cols-3">
-          {(tutees.data ?? []).map((t) => (
-            <label key={t.id} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.tuteeIds.includes(t.id)}
-                onChange={(e) =>
+        <label className="mt-2 block">
+          <span className="label">{t("admin.pairings.searchTutees")}</span>
+          <input
+            type="search"
+            className="input w-full"
+            value={tuteeSearch}
+            onChange={(event) => setTuteeSearch(event.target.value)}
+          />
+        </label>
+        <p className="muted mt-2 text-sm" role="status">
+          {t("admin.pairings.selectedTutees", { count: form.tuteeIds.length })}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {form.tuteeIds.map((id) => {
+            const person =
+              (tutees.data ?? []).find((row) => row.id === id) ??
+              originalPairing?.tutees.find((row) => row.tuteeId === id)?.tutee;
+            return (
+              <Button
+                key={id}
+                size="compact"
+                aria-label={t("admin.pairings.removeSelected", {
+                  name: person?.englishName ?? id,
+                })}
+                onClick={() =>
                   set(
                     "tuteeIds",
-                    e.target.checked
-                      ? [...form.tuteeIds, t.id]
-                      : form.tuteeIds.filter((id) => id !== t.id),
+                    form.tuteeIds.filter((selected) => selected !== id),
                   )
                 }
-              />
-              {t.englishName}
-            </label>
-          ))}
+              >
+                {person?.englishName ?? id} ×
+              </Button>
+            );
+          })}
+        </div>
+        {/* Filtering changes visibility, never selection. Keep long names readable in a bounded list. */}
+        <div className="mt-2 max-h-72 overflow-y-auto rounded-lg border border-slate-200 p-2">
+          {(tutees.data ?? [])
+            .filter((person) => matchesPersonSearch(person, tuteeSearch))
+            .map((t) => (
+              <label
+                key={t.id}
+                className="flex min-h-11 items-center gap-3 rounded px-2 py-2 text-sm [overflow-wrap:anywhere]"
+              >
+                <input
+                  type="checkbox"
+                  checked={form.tuteeIds.includes(t.id)}
+                  onChange={(e) =>
+                    set(
+                      "tuteeIds",
+                      e.target.checked
+                        ? [...form.tuteeIds, t.id]
+                        : form.tuteeIds.filter((id) => id !== t.id),
+                    )
+                  }
+                />
+                {t.englishName}
+              </label>
+            ))}
         </div>
       </fieldset>
 
@@ -355,7 +409,18 @@ export default function PairingsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="page-title">{t("admin.pairings.title")}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="page-title">{t("admin.pairings.title")}</h1>
+        {!readOnly && hasData && (
+          <Button
+            variant="primary"
+            disabled={create.isPending || update.isPending}
+            onClick={() => setCreateOpen(true)}
+          >
+            {t("admin.pairings.newPairing")}
+          </Button>
+        )}
+      </div>
       {readFeedback}
 
       {/* Slot × room schedule grid */}
@@ -378,38 +443,25 @@ export default function PairingsPage() {
           )}
       </section>
 
-      {/* Create / edit form */}
-      {!readOnly &&
-        hasData &&
-        (editing ? (
-          <Modal
-            title={t("admin.pairings.editPairing")}
-            wide
-            busy={update.isPending}
-            onClose={() => {
-              setConfirming(false);
-              setForm(EMPTY);
-            }}
-            footer={
-              <Button
-                data-dialog-autofocus
-                disabled={update.isPending}
-                onClick={() => {
-                  setConfirming(false);
-                  setForm(EMPTY);
-                }}
-              >
-                {t("admin.pairings.cancel")}
-              </Button>
-            }
-          >
-            {readFeedback}
-            {editor}
-          </Modal>
-        ) : (
-          editor
-        ))}
-
+      {!readOnly && hasData && (editing || createOpen) && (
+        <ProfileDialog
+          title={t(
+            editing
+              ? "admin.pairings.editPairing"
+              : "admin.pairings.newPairing",
+          )}
+          size="wide"
+          pending={create.isPending || update.isPending}
+          onClose={() => {
+            if (create.isPending || update.isPending || confirming) return;
+            if (editing) setEditDraft(null);
+            else setCreateOpen(false);
+          }}
+        >
+          {readFeedback}
+          {editor}
+        </ProfileDialog>
+      )}
       {confirming && (
         <AssignmentConfirmation
           operation={editing ? "admin.updatePairing" : "admin.createPairing"}
@@ -485,7 +537,7 @@ export default function PairingsPage() {
                         }
                         onClick={() => {
                           setConfirming(false);
-                          setForm({
+                          setEditDraft({
                             id: p.id,
                             tutorId: p.tutorId,
                             roomId: p.roomId ?? "",

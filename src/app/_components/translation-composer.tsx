@@ -160,6 +160,7 @@ export function TranslationComposer() {
         else savePage.mutate({ locale, id: target, value: body });
       }}
     >
+      <p className="muted text-sm">{t("saveBoundary.form")}</p>
       <h2 className="section-title">{t("prepareTranslation")}</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <label>

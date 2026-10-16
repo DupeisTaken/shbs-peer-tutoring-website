@@ -453,7 +453,7 @@ it("reveals historical and unverified records independently without setup or cur
   );
   expect(screen.getByText("Unverified Learner")).toBeTruthy();
   fireEvent.change(
-    screen.getByRole("textbox", { name: "Search tutee records" }),
+    screen.getByRole("searchbox", { name: "Search tutee records" }),
     { target: { value: "archive" } },
   );
   expect(screen.getByText("Archive Learner")).toBeTruthy();
@@ -535,7 +535,7 @@ it.each([false, true])(
     const messages = chinese ? zh : en;
     mount(chinese);
     expect(
-      screen.getByRole("textbox", {
+      screen.getByRole("searchbox", {
         name: messages.tuteeHistory.searchRecords,
       }),
     ).toBeTruthy();
@@ -714,7 +714,7 @@ it.each([
       "陈晓明",
     ]) {
       fireEvent.change(
-        screen.getByRole("textbox", { name: en.tuteeHistory.searchRecords }),
+        screen.getByRole("searchbox", { name: en.tuteeHistory.searchRecords }),
         { target: { value: query } },
       );
       expect(screen.getByText(display)).toBeTruthy();
@@ -733,7 +733,7 @@ it.each([false, true])(
         }),
       );
       fireEvent.change(
-        screen.getByRole("textbox", {
+        screen.getByRole("searchbox", {
           name: messages.tuteeHistory.searchRecords,
         }),
         { target: { value: "No such person" } },

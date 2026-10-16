@@ -454,3 +454,32 @@ it("keeps cached tutor rows and their trailing actions after a refresh fails", (
     within(table).getByRole("columnheader", { name: en.tablePatterns.actions }),
   ).toBeTruthy();
 });
+
+it.each([false, true])(
+  "search refines the current roster and clears without changing history scope (%s)",
+  (chinese) => {
+    mount(false, chinese);
+    const messages = chinese ? zh : en;
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: messages.rosterSearch.label }),
+      { target: { value: "example" } },
+    );
+    expect(screen.getByRole("table").textContent).toContain("Example Tutor");
+    expect(screen.getByRole("table").textContent).not.toContain(
+      "Unconfirmed Tutor",
+    );
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "historical" },
+    });
+    expect(screen.getByText(messages.rosterSearch.noMatches)).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.rosterSearch.clear }),
+    );
+    expect(screen.getByRole("table").textContent).toContain(
+      "Unconfirmed Tutor",
+    );
+    expect(screen.getByRole("table").textContent).not.toContain(
+      "Historical Tutor",
+    );
+  },
+);

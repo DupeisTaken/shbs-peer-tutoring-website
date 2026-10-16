@@ -243,8 +243,12 @@ See the [tutee policy draft](../prisma/policies/tutee-policy.en.md) or [中文�
 
 ## Tutors
 
-The dashboard starts with **Your Next Steps**. Its links move keyboard focus to
-attendance, pairings, unresolved interviews, meetings and pending qualifications.
+The dashboard distinguishes **Needs attention** from **Dashboard sections**.
+Attention links summarize loaded records that need follow-up: unconfirmed
+schedules, roster changes, active interviews, meetings and pending qualifications.
+A paused invalid interview is not counted as actionable work. Section links remain
+available even when there are no follow-ups; unavailable reads are not reported as
+zero tasks. Links move keyboard focus to the corresponding section.
 Today's regular schedule uses the program time zone and confirmed weekly times;
 check announcements for holidays or one-off changes. Attendance comes before
 optional editors. Pending participation, policy and request notices remain visible.
@@ -407,6 +411,17 @@ In **Program → Names and Grades**, Head can apply **Use preferred names** and 
 
 Tables show brief information for scanning. Use the text links in the rightmost **Actions** column to open full details or an editor. On a narrow screen, that column stays reachable while the other columns scroll sideways. Closing a detail dialog returns you to its link. Detailed report exports and printed history retain their full content.
 
+Roster search combines with the selected role, account and participation filters.
+Clearing the search keeps those filters. Pairing participant search does not clear
+selected students when they disappear from the matching results; review the
+selected summary and remove a person deliberately when needed.
+
+Pairings, Announcements, Time Slots and Hour Adjustments start with their records
+and one creation action. Closing and reopening a creation editor keeps its draft
+during the current visit. Editing a pairing preserves a separate unfinished
+creation draft. A pending save blocks dismissal; leaving or refreshing the page
+does not preserve these local drafts.
+
 Long room-grid and original Crew-message readers keep Close at the top while the
 body scrolls. Time Slots keeps its complete summary in the row; authorized staff
 use **Edit** to change it, and the propagation guidance remains available through
@@ -489,6 +504,17 @@ In **Subjects & Levels**, use the **Offered Course Catalogue** above the subject
 **Select all visible** selects only the matching rows. The selection summary shows the total and how many are hidden by filters; **Clear selection** removes both visible and hidden selections. Choose a batch level and/or status and use **Apply to … visible selected**. Only those visible selected courses are changed; hidden selections remain. Successful changes clear the submitted selection, while failures preserve it for retry. Group editing and JSON/CSV import remain below the table.
 
 ### Run the program
+
+**Program** groups its existing controls into **Period & recruitment**, **People &
+signup**, **Communication**, and **Access & modules**. The current period stays
+visible. Each form keeps its own Save or approval process; changing panels does
+not save or discard its draft. Both tutor and tutee recruitment windows remain in
+the period panel. Refreshing the period still requires its deliberate confirmation.
+
+**Crew** separates review work, the roster and patrol settings. Staff **Support**
+separates feedback, appeals and calendar controls; other users see only their
+permitted content. Switching panels preserves the existing draft, filters and
+pagination. An open review and its refresh recovery keep their own controls.
 
 - In **Meetings**, open a meeting to edit attendance, choose statuses, then use the attendance save action. Collapsing it or opening another meeting retains each attendance draft during the current visit. A successful save followed by a failed refresh offers read-only Retry; it does not record attendance again. On a narrow screen, individual records show labels and keep their actions visible. The multi-meeting comparison remains a table; scroll its own region horizontally to compare columns. Deletion opens a confirmation that names the affected meeting; cancel returns to the same record.
 - In **Landing Editor**, use the section tabs to move between layout, fixed content, sections, news, pages and images. With a keyboard, arrow keys move between tab labels; Enter or Space opens the focused tab. Switching an opened tab or language preserves its independent unsaved draft during this visit; switching does not save it. If your role lacks editing access, the page explains this and offers a return to management. A failed load shows an error and retry action instead of an indefinite loading state. Editor access follows the same permission rule as landing preview.
@@ -696,6 +722,13 @@ Current account roster cells summarize unknown or unconfirmed grades as **Unknow
 For period-specific history, management uses **Academic Corrections** to edit selected records or upload a validated correction CSV. Both show the same before/after preview, retain original evidence and reject stale changes. Head applies whole batches; Admin requests Head approval. Coordinators cannot submit historical academic batches. Historical correction dates and reference years are separate from current academic confirmations. Follow the [historical correction procedure](historical-participant-transition.md#correct-historical-academics) for identifiers, CSV limits, provenance and recovery.
 
 The profile section places **Save profile** and **Cancel** after the name fields. Save applies all name fields together; Cancel restores their last loaded values. Saving disables this section while it is pending, and a failed save keeps the draft visible for correction or retry. Password, email and membership controls have their own actions and are not submitted by Save profile.
+
+Tutor Settings follows these same independent sections. A failed identity refresh
+retains the permitted draft and offers Retry while its save waits for trustworthy
+data. After an accepted profile save, a failed refresh offers **Retry refresh**;
+it does not send the profile again. A conflict **Reload** replaces a draft only
+after a successful fresh read. Security and membership controls distinguish an
+unavailable setting or request from a known disabled or empty state.
 
 Changing or resetting your password signs out every existing session, including the browser making the change. Account Settings and tutor Settings return you to Sign In; use your new password. Other browsers require sign-in on their next request. Your account, permissions and tutoring history remain. This update also requires one fresh sign-in for sessions created before session revocation was introduced. Existing email two-factor requirements remain in effect.
 

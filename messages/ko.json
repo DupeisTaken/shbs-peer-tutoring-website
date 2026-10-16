@@ -452,7 +452,10 @@
       "colRoom": "강의실",
       "colTutees": "학생",
       "edit": "수정",
-      "delete": "삭제"
+      "delete": "삭제",
+      "searchTutees": "학생 검색",
+      "selectedTutees": "{count}명 선택됨",
+      "removeSelected": "{name} 선택 해제"
     },
     "tutors": {
       "title": "튜터",
@@ -843,6 +846,12 @@
           "VIEWER_SIGNUP": "옵저버 가입",
           "EMAIL_2FA": "이메일 2FA"
         }
+      },
+      "panels": {
+        "period": "학기 및 모집",
+        "people": "사용자 및 가입",
+        "communication": "소통",
+        "access": "접근 및 기능"
       }
     },
     "audit": {
@@ -1232,7 +1241,8 @@
           "ARCHIVED": "Archived"
         }
       },
-      "messageLabel": "메시지"
+      "messageLabel": "메시지",
+      "create": "새 공지"
     },
     "policies": {
       "title": "정책 문서",
@@ -1297,7 +1307,8 @@
         "title": "Delete hour adjustment?",
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
-      }
+      },
+      "create": "새 활동 시간 조정"
     },
     "applications": {
       "title": "튜터 지원",
@@ -1583,7 +1594,12 @@
       "issuedHint": "승인된 지원자에게 전달되어 등록을 기다리는 코드입니다. 등록 코드 화면에서 코드를 취소하면 해당 지원이 위 대기열로 돌아갑니다.",
       "issuedExpires": "{date} 만료",
       "originalApplication": "지원서 원문",
-      "originalRequest": "요청 원문"
+      "originalRequest": "요청 원문",
+      "panels": {
+        "review": "검토",
+        "roster": "구성원 명단",
+        "patrol": "순찰 설정"
+      }
     },
     "sessionFlags": {
       "title": "출석 플래그",
@@ -1868,7 +1884,15 @@
       "confirmDecision": "Record {outcome} for {name}? The panel vote and current application version will be checked. If approval is required, this creates a pending proposal and does not apply the decision.",
       "completedInterview": "Completed interview · {name} ({count})",
       "savedRefreshError": "Attendance was saved, but the refreshed totals could not be loaded. Do not resubmit this entry.",
-      "verificationDeadline": "Verification due: {date}"
+      "verificationDeadline": "Verification due: {date}",
+      "attention": "확인이 필요한 항목",
+      "navigation": "대시보드 섹션",
+      "emptyTasks": "불러온 기록에 후속 조치가 필요한 항목이 없습니다.",
+      "unconfirmedCount": "미확정 일정 ({count})",
+      "rosterCount": "학생 명단 후속 조치 ({count})",
+      "interviewSection": "면접",
+      "meetingSection": "회의",
+      "qualificationSection": "자격"
     },
     "activate": {
       "title": "참여 여부 확인",
@@ -2067,7 +2091,8 @@
       "reentryHelp": "프로그램에 다시 참여하고 싶으신가요? 재가입을 요청하면 관리자가 검토합니다.",
       "reentryBtn": "재가입 요청",
       "recall": "요청 취소",
-      "statusNote": "현재 튜터 상태는 {status}입니다. 읽기 전용 접근 — 변경은 관리자에게 문의하세요."
+      "statusNote": "현재 튜터 상태는 {status}입니다. 읽기 전용 접근 — 변경은 관리자에게 문의하세요.",
+      "profileSyncFailed": "프로필은 저장되었지만 새로고침에 실패했습니다. 다시 제출하지 말고 새로고침을 재시도하세요."
     },
     "dashboard": {
       "pending": {
@@ -4510,5 +4535,17 @@
     "retryRefresh": "새로고침 재시도",
     "reload": "요청 다시 불러오기",
     "reloadHelp": "작성한 사유와 원래 버전은 유지됩니다. 이 초안을 최신 요청으로 바꾸려면 직접 다시 불러오세요."
+  },
+  "rosterSearch": {
+    "label": "사용자 검색",
+    "placeholder": "이름, 사용자 이름 또는 이메일",
+    "clear": "검색 지우기",
+    "noMatches": "검색 조건에 맞는 사용자가 없습니다.",
+    "results": "전체 {total}명 중 {count}명"
+  },
+  "saveBoundary": {
+    "blur": "이 필드에서 벗어나면 변경 사항이 저장됩니다.",
+    "form": "저장은 이 양식에만 적용됩니다.",
+    "layout": "저장은 이 레이아웃에만 적용됩니다."
   }
 }
