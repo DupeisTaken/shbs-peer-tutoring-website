@@ -2746,6 +2746,14 @@ function PageCard({
         </div>
         {!readOnly && (
           <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={`/p/${page.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="link text-xs"
+            >
+              {t("admin.landing.sections.viewPage")} ↗
+            </a>
             <button
               type="button"
               className="btn-secondary btn-sm"
@@ -2776,14 +2784,6 @@ function PageCard({
                 ? t("admin.landing.sections.actions.hide")
                 : t("admin.landing.sections.actions.show")}
             </button>
-            <a
-              href={`/p/${page.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="link text-xs"
-            >
-              {t("admin.landing.sections.viewPage")} ↗
-            </a>
             <button
               type="button"
               className="link-danger text-xs"

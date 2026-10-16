@@ -80,8 +80,12 @@ it.each([
     expect(groups.map((group) => group.getAttribute("aria-label"))).toEqual(
       weekdays,
     );
-    for (const weekday of weekdays)
-      expect(screen.getByText(weekday)).toBeTruthy();
+    for (const weekday of weekdays) {
+      const heading = screen.getByText(weekday);
+      // Guard the painted leaf: a readable parent cannot fix a faded child.
+      expect(heading.classList.contains("text-slate-600")).toBe(true);
+      expect(heading.classList.contains("text-slate-400")).toBe(false);
+    }
     const monday = screen.getByRole("group", { name: weekdays[0] });
     const sunday = screen.getByRole("group", { name: weekdays[6] });
     const morning = within(monday).getByRole("button", {

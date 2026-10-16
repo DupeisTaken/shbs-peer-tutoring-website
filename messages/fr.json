@@ -428,7 +428,7 @@
     },
     "schedule": {
       "title": "Planning des salles",
-      "help": "Vos pairages sont mis en évidence. Les cellules grisées correspondent aux salles indisponibles."
+      "help": "Vos pairages sont mis en évidence. Consultez la légende ci-dessous pour connaître la disponibilité des salles."
     }
   },
   "admin": {
@@ -2036,7 +2036,8 @@
       "removalHelp": "Le tutoré souhaite partir ? Relayez sa demande. Vous (ou un admin) avez 7 jours pour la rétracter ; ensuite c'est automatique.",
       "removalReasonPlaceholder": "Motif (facultatif)",
       "removalSubmit": "Relayer",
-      "removalCancel": "Annuler"
+      "removalCancel": "Annuler",
+      "availabilityMissing": "Aucune disponibilité enregistrée."
     },
     "availability": {
       "loading": "Chargement des créneaux…",
@@ -4613,7 +4614,8 @@
   },
   "roomOrder": {
     "title": "Ordre d’affichage des salles",
-    "help": "Organisez les listes de salles et les emplois du temps. L’ordre des rondes de l’équipe se gère séparément.",
+    "help": "Préparez l’ordre avec les flèches des salles, puis enregistrez ou demandez l’ordre complet ci-dessous. L’ordre des rondes de l’équipe se gère séparément.",
+    "catalogChanged": "La liste des salles a changé. Rechargez l’ordre avant toute autre modification ; votre brouillon est conservé.",
     "room": "Salle",
     "actions": "Actions",
     "up": "Monter",

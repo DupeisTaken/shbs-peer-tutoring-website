@@ -256,9 +256,14 @@ remain distinct. The reader never reconstructs evidence from current records and
 continues to exclude executable `undoData` recursively. Denial eviction and
 read-only refresh remain owned by the audit feature.
 
-Consequential buttons, text actions and table entries use a neutral outlined
-boundary at rest and red hover/focus/activation treatment. Their labels, native
-button semantics, confirmation/ticket rules and responsive targets remain intact.
+Consequential boxed buttons keep their outlined boundary with red labels at rest.
+Destructive text actions and table entries are red and unboxed at rest and on
+hover. Shared table actions use a thick, offset keyboard-focus underline instead
+of a surrounding ring; standalone text actions retain their existing focus treatment.
+Ordinary links precede boxed decisions
+in a record action group, and Delete remains last in DOM and keyboard order.
+Native button/link semantics, confirmation/ticket rules and responsive targets
+remain intact; styling is assigned explicitly rather than inferred from labels.
 The synthetic management summary recipe in `/ui-gallery` demonstrates control-row
 alignment, leading selection and consequential review/focus return. Focused
 regressions cover the corresponding feature components and real-page compositions;
@@ -349,6 +354,31 @@ domain values rather than presentation fallback labels.
 Behavioral coverage is in `session-view-state.test.tsx`, the pure storage tests and
 the existing identity-cache/privacy tests; actual page screenshots remain separate
 from these mocked layout checks.
+
+Viewport recovery belongs to the mounted feature and its original pathname.
+During a Next navigation, the outgoing listener must ignore destination scroll
+events, queued persistence and recovery callbacks once the browser URL leaves
+that pathname. Cleanup flushes only its last valid source-page measurement.
+A retained outgoing feature cannot adopt a newly verified destination pathname;
+a different feature ID or a new mount establishes the next owner. Genuine
+same-route scrolling to zero, explicit hashes and user gestures retain precedence.
+Unit coverage must model URL change before React teardown, and actual Next
+out/back verification remains the acceptance gate for this ordering.
+
+Long editors and readers use `ProfileDialog` with a sticky header and a body
+stacking context below that header. This contains nested summary-table sticky
+action cells: their local layering cannot obscure Close when a long evidence
+table scrolls under the header. Native dialog focus, pending-write registration,
+feature drafts and version ownership retain their existing boundaries. The gallery
+includes a long reader with real sticky table actions; structural/lifecycle tests
+and actual desktop/mobile English/Chinese deep-scroll captures verify the correction.
+
+Recruitment settings position each audience's fieldset to contain its absolutely
+positioned screen-reader legend and date labels. Without a local containing block,
+those clipped one-pixel boxes can extend the document beyond the desktop management
+pane and let focus or `scrollIntoView` move the header. The correction retains all
+accessible labels, audience drafts, version evidence and edit/proposal authority;
+it does not alter the shared document overflow or scroll-restoration owner.
 
 Local panel composition leaves authority in existing owners. Program keeps its
 already-mounted settings forms and their independent versions; Crew and Support
@@ -595,6 +625,12 @@ what is currently implemented until their migrations and verification are comple
   summaries use the active locale through `formatWeekday`. Its fixed UTC/ISO
   reference localizes presentation without changing weekday indices, slot IDs,
   minute values, availability saves or confirmation-ticket request targets.
+  Active availability weekday labels must use readable slate text on the white
+  editor surface; they are grouping labels, not disabled metadata. The tutor
+  qualification Request and Cancel controls share the standard action size
+  (40 px desktop minimum, 44 px touch minimum), while their colors express
+  emphasis. Browser verification measures the painted weekday leaf and both
+  action rectangles; locale, slot IDs, drafts and mutation ownership are unchanged.
 - **Flag history:** state filters must query the authorized server dataset; a
   client-only filter cannot reconstruct resolved entries from a pending-only read.
   Preserve pending-only decision guards, immutable resolution evidence and the

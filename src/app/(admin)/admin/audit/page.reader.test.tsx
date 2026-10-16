@@ -20,8 +20,8 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 vi.mock("~/app/_components/audit-filters", async (importOriginal) => ({
-  // Keep the real persisted-view defaults/parser exports; this reader test only
-  // replaces the unrelated filter editor, not the page's restoration contract.
+  // The integrated page uses the editor's pure defaults/parsers; skip only its
+  // UI so the actual immutable reader and its authorization checks stay real.
   ...(await importOriginal<typeof import("~/app/_components/audit-filters")>()),
   AuditFilters: () => null,
 }));

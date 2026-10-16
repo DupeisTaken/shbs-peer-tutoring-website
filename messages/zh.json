@@ -428,7 +428,7 @@
     },
     "schedule": {
       "title": "教室安排",
-      "help": "高亮的是你的配对；灰色格子为不可用的教室。"
+      "help": "高亮的是你的配对；教室状态请参见下方图例。"
     }
   },
   "admin": {
@@ -2028,7 +2028,8 @@
       "removalHelp": "学习伙伴要求退出？代为转达。有 7 天撤回期，你或管理员可撤回；之后自动生效。",
       "removalReasonPlaceholder": "原因（可选）",
       "removalSubmit": "转达退出",
-      "removalCancel": "取消"
+      "removalCancel": "取消",
+      "availabilityMissing": "尚未记录可用时间。"
     },
     "availability": {
       "loading": "正在加载时间段…",
@@ -4613,7 +4614,8 @@
   },
   "roomOrder": {
     "title": "教室显示顺序",
-    "help": "调整项目教室列表与课表顺序。巡查顺序单独管理。",
+    "help": "使用教室旁的箭头调整草稿，再在下方保存完整顺序或提交变更请求。巡查顺序单独管理。",
+    "catalogChanged": "教室列表已变更。请重新加载顺序后再调整；当前草稿已保留。",
     "room": "教室",
     "actions": "操作",
     "up": "上移",
