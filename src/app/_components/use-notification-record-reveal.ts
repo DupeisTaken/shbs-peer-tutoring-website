@@ -50,7 +50,26 @@ export function useNotificationRecordReveal(
       if (!target?.getClientRects().length) return;
       stop();
       completed.current = arrival;
-      target.scrollIntoView({ block: "center" });
+      const pane =
+        window.innerWidth >= 1024
+          ? document.getElementById("admin-content")
+          : null;
+      if (
+        pane?.contains(target) &&
+        pane.clientHeight > 0 &&
+        ["auto", "scroll"].includes(window.getComputedStyle(pane).overflowY)
+      ) {
+        // scrollIntoView traverses every ancestor. Position only the existing
+        // desktop owner so incidental document overflow cannot move the shell.
+        // Native scrollTop clamping handles records near the end of the queue;
+        // oversized records start at their identity instead of their middle.
+        const record = target.getBoundingClientRect();
+        pane.scrollTop +=
+          record.top -
+          pane.getBoundingClientRect().top -
+          pane.clientTop -
+          Math.max(0, (pane.clientHeight - record.height) / 2);
+      } else target.scrollIntoView({ block: "center" });
       // Programmatic record focus adds no sequential keyboard stop and does not
       // start a second scroll in either the document or desktop admin pane.
       if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
