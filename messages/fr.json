@@ -116,7 +116,10 @@
     "qualifiedOnly": "Your qualified subjects",
     "choiceHelp": "Choose what you would like to tutor right now.",
     "scheduleSeparate": "Your timetable is arranged separately.",
-    "savesAutomatically": "Changes save automatically"
+    "savesAutomatically": "Changes save automatically",
+    "edit": "Modifier les détails",
+    "editTitle": "{tutor} · {subject}",
+    "refreshFailed": "La modification a été enregistrée. Actualisez les matières avant toute autre modification."
   },
   "messaging": {
     "privacyTitle": "Private Deliveries, with Staff Oversight",
@@ -573,7 +576,9 @@
         "name": "nom",
         "email": "e-mail",
         "phone": "téléphone"
-      }
+      },
+      "emailVerifiedShort": "Vérifié",
+      "emailUnverifiedShort": "Non vérifié"
     },
     "readOnly": {
       "banner": "Accès en lecture seule à l’espace de gestion : consultez les synthèses autorisées ; les coordonnées personnelles sont masquées."
@@ -1012,7 +1017,12 @@
       "colTutees": "Élèves",
       "colSH": "HS",
       "empty": "Aucune soumission pour ce filtre.",
-      "monthLabel": "Mois"
+      "monthLabel": "Mois",
+      "actualTime": "Horaire enregistré",
+      "duration": "{minutes} minutes",
+      "hourFactor": "Coefficient : {factor}",
+      "selfEvaluation": "Autoévaluation",
+      "comments": "Commentaires"
     },
     "meetings": {
       "title": "Réunions tuteurs",
@@ -1619,7 +1629,19 @@
         "WARNED": "Averti",
         "PENALIZED": "Pénalisé",
         "ESCALATED": "Escaladé"
-      }
+      },
+      "filterLabel": "État de vérification des présences",
+      "states": {
+        "PENDING": "En attente",
+        "DISMISSED": "Classé sans suite",
+        "WARNED": "Avertissement enregistré",
+        "PENALIZED": "Heures déduites",
+        "ESCALATED": "Transmis au niveau supérieur",
+        "ALL": "Tous les états"
+      },
+      "resolved": "Vérifié par {name} · {date}",
+      "queued": "Décision soumise pour approbation",
+      "refreshFailed": "La décision a été enregistrée. Actualisez les dossiers pour voir le dernier état de vérification."
     },
     "landing": {
       "title": "Page d’accueil",
@@ -2865,7 +2887,8 @@
     "unknownSource": "Inscription antérieure",
     "sourceHelp": "La source décrit comment une inscription a été saisie. Elle ne change ni approbation, ni priorité, ni règles de participation. Une inscription antérieure a une source initiale non confirmée.",
     "boardGuide": "Comment les demandes sont regroupées",
-    "sourceGuide": "Origine et rattachement des inscriptions"
+    "sourceGuide": "Origine et rattachement des inscriptions",
+    "emailStatus": "E-mail : {status}"
   },
   "approvals": {
     "reviewPermissions": "Admin et Head examinent les demandes de gestion ordinaires. Seul Head examine les changements de rôles et de badges. Head peut examiner ses propres demandes ; les autres doivent faire appel à une autre personne autorisée.",
@@ -3316,7 +3339,12 @@
     "accessDeniedHelp": "Votre session n’a plus accès à ces détails. Les éléments en cache sont masqués.",
     "loadFailed": "Impossible de charger les détails de l’événement",
     "refreshFailed": "Impossible d’actualiser les détails de l’événement. Les derniers éléments chargés restent visibles.",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "difference": {
+      "added": "Ajouté",
+      "removed": "Supprimé",
+      "changed": "Modifié"
+    }
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
@@ -3819,7 +3847,7 @@
     "unknown": "Inconnu",
     "graduated": "Diplômé",
     "rosterUnknown": "Niveau scolaire inconnu",
-    "rosterNeedsConfirmation": "Vérification et confirmation requises",
+    "rosterNeedsConfirmation": "Vérification requise",
     "notApplicable": "Not Applicable",
     "reported": "School Grade (1–12)",
     "original": "Original report: {value}",
@@ -3996,7 +4024,7 @@
     "emptyAll": "Aucun dossier d’élève à afficher.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
-    "reviewNeeded": "Review needed",
+    "reviewNeeded": "Vérification requise",
     "linkSaved": "Historical records linked.",
     "failed": "Could not complete this request. Refresh and try again.",
     "HISTORY_ACCOUNT_NOT_READY": "Choose an account with completed setup and a verified email.",
@@ -4507,8 +4535,8 @@
     "filterLabel": "Validité des demandes",
     "filter": {
       "all": "Toutes les entrées",
-      "valid": "Non signalées",
-      "invalid": "Entrées invalides"
+      "valid": "Entrées actives",
+      "invalid": "Entrées non valides"
     },
     "flag": "Signaler comme invalide",
     "review": "Examiner le signalement",

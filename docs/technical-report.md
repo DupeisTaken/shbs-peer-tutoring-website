@@ -188,6 +188,87 @@ The Users & Roles page composes existing table actions, `ProfileDialog`, `TableD
 
 Focused regressions live in `src/app/(admin)/admin/users`, `src/lib/user-filters.test.ts`, `src/lib/account-membership.test.ts` and `src/server/account-directory.test.ts`. Include `src/server/tutor-details.test.ts` for the preserved-academics boundary. Browser verification must use the actual Users & Roles page and native nested dialogs in both languages, then measure badge contrast and control bounds; screenshots and HTML evidence belong in ignored `outputs/`.
 
+### Management review summaries
+
+Management summaries keep participant identity, wrapped metadata and source/status
+badges on one content edge. Announcement badges and assignment companions align
+with the actual input/select row; labels and described guidance occupy separate
+grid rows. Subject-group actions align with the complete summary, including its
+offered-subject badges. Leading subject-selection checkboxes preserve the existing
+visible-only batch submission and hidden-selection count; detail entries remain
+in the trailing Actions column. Offered subjects retain `courseChoices` ordering,
+shared with signup forms, rather than introducing a second display comparator.
+
+Action typography follows the record's context: application and signup header
+actions share the compact Button treatment (including invalidity and decline),
+while brief meeting detail/delete entries share TableAction typography and target
+height. The destructive variant changes color and border without changing size.
+
+Tutor Applications and Signup Requests default to **Active entries**, meaning
+only that the record is not flagged invalid. Workflow status, intake priority and
+processing permissions remain independent. Observers may use the same validity
+filter on their authorized signup summary without acquiring private flag actions
+or reasons. Uncertain current academics use one **Review Needed** indicator;
+historical enrollment originals, correction overlays and reference years retain
+their existing precedence and detail evidence.
+
+Both signup sources show verification once in a compact **Email: Verified** or
+**Email: Unverified** contact line. The contextual short labels do not replace
+full-sentence verification messages elsewhere, and contact access stays with the
+existing email reader.
+
+Subject Availability shows each subject with its level and qualification summary.
+Qualified subjects also show willingness, including an explicit **Not recorded**
+state. Display order is qualified/willing, qualified/unwilling,
+qualified/not-recorded, then unqualified, retaining catalog order within each
+group. The editor retains separate immediate qualification and willingness writes,
+stored inheritance provenance and inactive-source restrictions. Its owner stays
+above filtered rows, and accepted-write synchronization failures expose read-only
+refresh recovery. Qualification edits still use the existing management operation;
+missing willingness never becomes a negative answer.
+
+Subject Offerings retains the server's level-first signup catalogue order. The
+parent page does not alphabetize the incoming rows; local filters preserve that
+order and selected IDs remain independent of the visible subset.
+
+Tutor Meetings uses P/EA/UA headings with a visible full legend, and opens complete
+self-excuse reasons through details. Participant rows reserve the same desktop and
+touch control area for choices and badge-only attendance. Attendance submission
+details read the recorded start/end/duration, tutor and tutee absence reasons, five
+self-evaluation values, full comments and service-hour factor/count. Null evaluations
+remain unrecorded; merged sibling zero hours remain zero. These readers do not
+infer past evidence from a pairing's current configuration.
+
+Attendance flags filter the existing `viewerProcedure` read by recorded decision
+state, defaulting to Pending. Resolved records remain readable and cannot be
+decided again; the existing locked, pending-only mutation and approval rules stay
+authoritative. Decision notes and reviewer names are masked for management
+observers. Feature-owned note/penalty drafts survive dialog close and filters.
+Admission guards block same-turn duplicates, pending writes prevent dismissal,
+and accepted/queued decisions cannot replay through failed synchronization.
+
+Audit difference markers compare only stored JSON values and presence. They
+support both root before/after snapshots and canonical `changes[n].before/after`
+pairs while keeping entity/write/count context and complete raw evidence.
+Type changes, additions and removals receive text as well as color; arrays compare
+recorded positions without guessed identity. Empty, null, missing, false and zero
+remain distinct. The reader never reconstructs evidence from current records and
+continues to exclude executable `undoData` recursively. Denial eviction and
+read-only refresh remain owned by the audit feature.
+
+Consequential boxed buttons keep their outlined boundary with red labels at rest.
+Destructive text actions and table entries are red and unboxed at rest and on
+hover. Shared table actions use a thick, offset keyboard-focus underline instead
+of a surrounding ring; standalone text actions retain their existing focus treatment.
+Ordinary links precede boxed decisions
+in a record action group, and Delete remains last in DOM and keyboard order.
+Native button/link semantics, confirmation/ticket rules and responsive targets
+remain intact; styling is assigned explicitly rather than inferred from labels.
+The synthetic management summary recipe in `/ui-gallery` demonstrates control-row
+alignment, leading selection and consequential review/focus return. Focused
+regressions cover the corresponding feature components and real-page compositions;
+browser measurements and role/language evidence still require the running pages.
+
 ### Shared UI patterns
 
 Local panel composition leaves authority in existing owners. Program keeps its
@@ -589,8 +670,12 @@ Audit events identify actors by stable account ID and current role. The default 
 `admin.auditLogDetail` is an on-demand, live-staff-authorized projection of one
 stored event. It selects recorded metadata, evidence and undo status/time, excluding
 executable `undoData`; it never joins current actors or targets to reconstruct
-history. The audit page mounts `AuditEventDetails` inside `TableDetails` only for
-staff, refreshing on each opening. Observers keep the existing projected summary
+history. The audit page mounts `AuditEventDetails` inside `TableDetails longReader`
+only for staff, refreshing on each opening. Full evidence can extend beyond the
+viewport; the shared reader keeps its Close header reachable while scrolling the
+recorded comparison or expanded stored JSON. Close and Escape restore the selected
+row's opener without altering evidence or invoking Undo. Observers keep the compact,
+existing projected summary
 and cannot call the detail endpoint. The feature renders stored before/after and
 nested evidence with exact field names, an explicit no-evidence state, precise
 local/UTC times and read-only retry. It changes neither writer coverage nor old

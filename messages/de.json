@@ -116,7 +116,10 @@
     "qualifiedOnly": "Your qualified subjects",
     "choiceHelp": "Choose what you would like to tutor right now.",
     "scheduleSeparate": "Your timetable is arranged separately.",
-    "savesAutomatically": "Changes save automatically"
+    "savesAutomatically": "Changes save automatically",
+    "edit": "Details bearbeiten",
+    "editTitle": "{tutor} · {subject}",
+    "refreshFailed": "Die Änderung wurde gespeichert. Aktualisieren Sie die Facheinträge, bevor Sie weitere Änderungen vornehmen."
   },
   "messaging": {
     "privacyTitle": "Private Deliveries, with Staff Oversight",
@@ -573,7 +576,9 @@
         "name": "Name",
         "email": "E-Mail",
         "phone": "Telefon"
-      }
+      },
+      "emailVerifiedShort": "Bestätigt",
+      "emailUnverifiedShort": "Nicht bestätigt"
     },
     "readOnly": {
       "banner": "Schreibgeschützter Verwaltungszugang: Sie können freigegebene Übersichten einsehen; persönliche Kontaktdaten sind ausgeblendet."
@@ -1012,7 +1017,12 @@
       "colTutees": "Lernende",
       "colSH": "SH",
       "empty": "Keine Einträge für diesen Filter.",
-      "monthLabel": "Monat"
+      "monthLabel": "Monat",
+      "actualTime": "Erfasste Zeit",
+      "duration": "{minutes} Minuten",
+      "hourFactor": "Faktor: {factor}",
+      "selfEvaluation": "Selbsteinschätzung",
+      "comments": "Kommentare"
     },
     "meetings": {
       "title": "Tutor-Treffen",
@@ -1619,7 +1629,19 @@
         "WARNED": "Verwarnt",
         "PENALIZED": "Abzug",
         "ESCALATED": "Eskaliert"
-      }
+      },
+      "filterLabel": "Prüfstatus der Anwesenheit",
+      "states": {
+        "PENDING": "Ausstehend",
+        "DISMISSED": "Verworfen",
+        "WARNED": "Verwarnt",
+        "PENALIZED": "Stunden abgezogen",
+        "ESCALATED": "Eskaliert",
+        "ALL": "Alle Status"
+      },
+      "resolved": "Geprüft von {name} · {date}",
+      "queued": "Entscheidung zur Genehmigung eingereicht",
+      "refreshFailed": "Die Entscheidung wurde gespeichert. Aktualisieren Sie die Einträge, um den aktuellen Prüfstatus zu sehen."
     },
     "landing": {
       "title": "Startseite",
@@ -2865,7 +2887,8 @@
     "unknownSource": "Frühere Anmeldung",
     "sourceHelp": "Die Quelle beschreibt die Erfassung der Anmeldung. Sie ändert weder Genehmigung, Priorität noch Teilnahmeregeln. Bei früheren Anmeldungen ist die ursprüngliche Quelle unbestätigt.",
     "boardGuide": "Gruppierung der Anfragen",
-    "sourceGuide": "Anmeldequellen und Zuordnung"
+    "sourceGuide": "Anmeldequellen und Zuordnung",
+    "emailStatus": "E-Mail: {status}"
   },
   "approvals": {
     "reviewPermissions": "Admin und Head prüfen allgemeine Verwaltungsanträge. Nur Head prüft Rollen- und Abzeichenänderungen. Head darf eigene Anträge prüfen; alle anderen benötigen eine andere berechtigte Person.",
@@ -3316,7 +3339,12 @@
     "accessDeniedHelp": "Ihre Sitzung hat keinen Zugriff mehr auf diese Details. Zwischengespeicherte Nachweise werden ausgeblendet.",
     "loadFailed": "Ereignisdetails konnten nicht geladen werden",
     "refreshFailed": "Ereignisdetails konnten nicht aktualisiert werden. Die zuletzt geladenen Nachweise bleiben sichtbar.",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "difference": {
+      "added": "Hinzugefügt",
+      "removed": "Entfernt",
+      "changed": "Geändert"
+    }
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
@@ -3819,7 +3847,7 @@
     "unknown": "Unbekannt",
     "graduated": "Abgeschlossen",
     "rosterUnknown": "Klassenstufe unbekannt",
-    "rosterNeedsConfirmation": "Prüfung und Bestätigung erforderlich",
+    "rosterNeedsConfirmation": "Prüfung erforderlich",
     "notApplicable": "Not Applicable",
     "reported": "School Grade (1–12)",
     "original": "Original report: {value}",
@@ -3996,7 +4024,7 @@
     "emptyAll": "Keine Lernenden-Datensätze anzuzeigen.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
-    "reviewNeeded": "Review needed",
+    "reviewNeeded": "Prüfung erforderlich",
     "linkSaved": "Historical records linked.",
     "failed": "Could not complete this request. Refresh and try again.",
     "HISTORY_ACCOUNT_NOT_READY": "Choose an account with completed setup and a verified email.",
@@ -4507,7 +4535,7 @@
     "filterLabel": "Gültigkeit der Anfragen",
     "filter": {
       "all": "Alle Einträge",
-      "valid": "Nicht markiert",
+      "valid": "Aktive Einträge",
       "invalid": "Ungültige Einträge"
     },
     "flag": "Als ungültig markieren",

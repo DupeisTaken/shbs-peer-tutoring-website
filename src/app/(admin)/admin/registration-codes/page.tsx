@@ -323,8 +323,10 @@ export default function RegistrationCodesPage() {
           return (
             <div key={c.id} className="rounded-lg border border-slate-200 p-4">
               {/* Both groups may shrink and wrap: long labels must never push record actions offscreen. */}
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex max-w-full min-w-0 items-start gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* Center the identity block on the chevron, then center badges
+                    on the name line. Inline baselines drift when the trigger is taller. */}
+                <div className="flex max-w-full min-w-0 items-center gap-2">
                   <Button
                     variant="ghost"
                     size="compact"
@@ -341,12 +343,14 @@ export default function RegistrationCodesPage() {
                     <DisclosureIcon open={open} />
                   </Button>
                   <div className="min-w-0">
-                    <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
-                      {c.label ?? c.tutorName ?? "—"}
-                      <span className={`${statusBadge(c.status)} ml-2`}>
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium [overflow-wrap:anywhere] text-slate-900">
+                      <span className="min-w-0">
+                        {c.label ?? c.tutorName ?? "—"}
+                      </span>
+                      <span className={statusBadge(c.status)}>
                         {t(`admin.registrationCodes.status.${c.status}`)}
                       </span>
-                      <span className="badge-slate ml-2">
+                      <span className="badge-slate">
                         {t(
                           `admin.registrationCodes.${registrationKindLabel[c.kind]}`,
                         )}
@@ -356,17 +360,17 @@ export default function RegistrationCodesPage() {
                 </div>
                 <div className="flex w-full min-w-0 flex-wrap items-center gap-3 lg:w-auto lg:justify-end">
                   {/* Issuer account + bound email, to the left of the expiry. */}
-                  <div className="min-w-0 text-xs leading-tight [overflow-wrap:anywhere] text-slate-500 lg:text-right">
-                    <p>
-                      {t("admin.registrationCodes.colIssuedBy")}:{" "}
-                      {c.issuedByName ?? "—"}
-                    </p>
-                    {c.issuedByEmail && (
+                  <div className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-slate-500">
+                    <span>{t("admin.registrationCodes.colIssuedBy")}:</span>
+                    {c.issuedByEmail ? (
                       <EmailDetails
                         contactOnly
+                        triggerLabel={c.issuedByName ?? "—"}
                         email={c.issuedByEmail}
                         name={c.issuedByName ?? "—"}
                       />
+                    ) : (
+                      <span>{c.issuedByName ?? "—"}</span>
                     )}
                   </div>
                   <p className="text-xs text-slate-500">

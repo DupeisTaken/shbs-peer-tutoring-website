@@ -26,7 +26,7 @@ export function AcademicDetails({
   compact?: boolean;
 }) {
   const t = useTranslations("academics");
-  // Rosters flag uncertain grades in two lines; detail views preserve the original report.
+  // Compact summaries show one warning; detail views preserve the original report.
   if (
     compact &&
     (!academic ||
@@ -35,10 +35,7 @@ export function AcademicDetails({
   ) {
     return (
       <div className="text-sm leading-5">
-        <p className="font-medium text-slate-900">{t("rosterUnknown")}</p>
-        <p className="text-xs font-medium text-amber-800">
-          {t("rosterNeedsConfirmation")}
-        </p>
+        <p className="badge-amber">{t("rosterNeedsConfirmation")}</p>
       </div>
     );
   }
@@ -222,7 +219,11 @@ export function AcademicForm({
             className="btn-primary min-h-11 lg:min-h-10"
             disabled={!valid || busy}
           >
-            {pending ? t("saving") : canApply ? t("confirm") : approvals("requestHead")}
+            {pending
+              ? t("saving")
+              : canApply
+                ? t("confirm")
+                : approvals("requestHead")}
           </button>
           <button
             type="button"
@@ -245,7 +246,13 @@ export function AcademicForm({
   );
 }
 
-export function AcademicPanel({ userId, canApply = true }: { userId?: string; canApply?: boolean }) {
+export function AcademicPanel({
+  userId,
+  canApply = true,
+}: {
+  userId?: string;
+  canApply?: boolean;
+}) {
   const t = useTranslations("academics");
   const format = useFormatter();
   const utils = api.useUtils();

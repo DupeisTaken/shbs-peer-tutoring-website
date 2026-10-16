@@ -9,6 +9,7 @@ import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { Button } from "~/app/_components/ui/button";
 
 import { api } from "~/trpc/react";
+import { SessionRecordDetails } from "~/app/_components/session-record-details";
 import { AttendanceCorrection } from "~/app/_components/attendance-correction";
 import { useReadOnly } from "~/app/_components/read-only";
 import { currentMonth } from "~/lib/time";
@@ -233,27 +234,10 @@ export default function SubmissionsPage() {
                   <td className="text-right">{s.shCount.toFixed(1)}</td>
                   <TableActions>
                     <TableDetails
+                      longReader
                       title={`${s.tutor.englishName} · ${s.pairing.subject}`}
                     >
-                      <p>
-                        {programFormat.dateTime(new Date(s.date), {
-                          dateStyle: "full",
-                          timeZone: "UTC",
-                        })}{" "}
-                        ·{" "}
-                        {t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`)}
-                      </p>
-                      <h3 className="font-semibold">
-                        {t("admin.submissions.colTutees")}
-                      </h3>
-                      <ul className="list-inside list-disc">
-                        {s.tutees.map((entry, index) => (
-                          <li key={index}>{entry.tutee.englishName}</li>
-                        ))}
-                      </ul>
-                      <p>
-                        {t("admin.submissions.colSH")}: {s.shCount.toFixed(1)}
-                      </p>
+                      <SessionRecordDetails session={s} />
                     </TableDetails>
                     {!readOnly &&
                       (!s.mergeGroupId || s.mergeGroupId === s.id) && (

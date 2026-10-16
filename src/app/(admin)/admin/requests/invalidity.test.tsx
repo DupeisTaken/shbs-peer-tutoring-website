@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   invalid: true,
   source: "SELF_SERVICE",
   assigned: false,
+  verified: true,
   invalidateRequests: vi.fn(),
   invalidateTutees: vi.fn(),
   fetchRequests: vi.fn(),
@@ -69,7 +70,7 @@ vi.mock("~/trpc/react", () => ({
                   email: "student@example.test",
                   contact: "Email",
                   state: "OPEN",
-                  confirmedAt: new Date("2026-10-01"),
+                  confirmedAt: mocks.verified ? new Date("2026-10-01") : null,
                   submittedAt: new Date("2026-10-01"),
                   editedAt: null,
                   verificationDueAt: null,
@@ -141,6 +142,7 @@ vi.mock("~/trpc/react", () => ({
               phone: null,
               preferredContact: null,
               signedRulebook: false,
+              unverified: !mocks.verified,
               signatureName: null,
               firstChoice: { id: "math", name: "Mathematics" },
               secondChoice: null,
@@ -173,14 +175,19 @@ const content = (
     </ReadOnlyProvider>
   </NextIntlClientProvider>
 );
-const show = (legacy = false, viewer = false) =>
-  render(content(legacy, viewer));
+const show = (legacy = false, viewer = false) => {
+  const view = render(content(legacy, viewer));
+  if (mocks.invalid)
+    fireEvent.click(screen.getByRole("button", { name: "Invalid entries" }));
+  return view;
+};
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.survey = true;
   mocks.invalid = true;
   mocks.source = "SELF_SERVICE";
   mocks.assigned = false;
+  mocks.verified = true;
   mocks.invalidateRequests.mockResolvedValue(undefined);
   mocks.invalidateTutees.mockResolvedValue(undefined);
   mocks.changeSurvey.mockResolvedValue({ ok: true });
@@ -200,6 +207,26 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it.each([
+  [false, true],
+  [false, false],
+  [true, true],
+  [true, false],
+])(
+  "shows one compact email status for legacy=%s verified=%s",
+  (legacy, verified) => {
+    mocks.invalid = false;
+    mocks.verified = verified;
+    mocks.survey = !legacy;
+    render(content(legacy));
+    expect(
+      screen.getAllByText(`Email: ${verified ? "Verified" : "Unverified"}`),
+    ).toHaveLength(1);
+    expect(screen.queryByText("Email verified")).toBeNull();
+    expect(screen.queryByText("Email not verified")).toBeNull();
+  },
+);
+
 it("keeps a flagged public request visible in its original queue without assignment controls or inline private reason", () => {
   show();
   expect(screen.getByText("Public survey student")).toBeTruthy();
@@ -209,7 +236,7 @@ it("keeps a flagged public request visible in its original queue without assignm
   ).toBeTruthy();
   expect(screen.queryByRole("combobox")).toBeNull();
   expect(screen.queryByText("Private staff reason")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Not flagged" }));
+  fireEvent.click(screen.getByRole("button", { name: "Active entries" }));
   expect(screen.queryByText("Public survey student")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Invalid entries" }));
   expect(screen.getByText("Public survey student")).toBeTruthy();
@@ -277,7 +304,7 @@ it.each([
     const name = legacy ? "Legacy public student" : "Public survey student";
     const mutation = legacy ? mocks.changeSignup : mocks.changeSurvey;
     const view = show(legacy);
-    fireEvent.click(screen.getByRole("button", { name: "Not flagged" }));
+    fireEvent.click(screen.getByRole("button", { name: "Active entries" }));
     fireEvent.click(screen.getByRole("button", { name: "Flag invalid" }));
     fireEvent.change(within(screen.getByRole("dialog")).getByRole("textbox"), {
       target: { value: "My pending signup review" },
@@ -331,7 +358,7 @@ it.each([
     const view = show(legacy);
     fireEvent.click(
       screen.getByRole("button", {
-        name: clearing ? "Invalid entries" : "Not flagged",
+        name: clearing ? "Invalid entries" : "Active entries",
       }),
     );
     fireEvent.click(
@@ -402,6 +429,11 @@ it.each(["en", "zh"] as const)(
   (locale) => {
     render(content(true, true, locale));
     const messages = locale === "zh" ? zh : en;
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.requestInvalidity.filter.invalid,
+      }),
+    );
     const control = screen.getByRole<HTMLButtonElement>("button", {
       name: messages.admin.requests.collapse,
     });
