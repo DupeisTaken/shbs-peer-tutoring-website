@@ -27,6 +27,8 @@ type GridSlot = {
 type GridPairing = {
   id: string;
   termId?: string;
+  /** Explicit teaching groups reserve one shared room; independent records remain distinct. */
+  groupId?: string | null;
   subject: string;
   tutorId: string;
   roomId: string | null;
@@ -187,7 +189,10 @@ export function RoomGrid(data: ScheduleData) {
       ...new Map(
         entries
           .flatMap((entry) => entry.occupants)
-          .map((pairing) => [pairing.id, pairing]),
+          .map((pairing) => [
+            pairing.groupId ? `group:${pairing.groupId}` : pairing.id,
+            pairing,
+          ]),
       ).values(),
     ];
     const mine = occupants.some(

@@ -376,6 +376,9 @@ export async function proposalTargets(
     payload as Parameters<typeof superjson.deserialize>[0],
   );
   const fields = z.record(z.unknown()).parse(input);
+  // An automatic proposal approves the scheduling intent, not a previewed candidate room.
+  // The slot itself and the edited pairing remain immutable review evidence.
+  const automaticRoomIntent = ["admin.createPairing", "admin.updatePairing", "admin.setPairingRoom"].includes(operation) && fields.roomMode === "AUTO";
   if (operation === "admin.reorderRooms") {
     const { assertProgramRoomOrder, roomOrderInput } =
       await import("./room-order");
@@ -471,6 +474,18 @@ export async function proposalTargets(
       Object.entries(value).forEach(([k, v]) => collect(v, k));
   };
   collect(input);
+  // A room-only proposal owns the complete explicit group, including sibling
+  // membership/roster/version evidence. Approval never silently targets a later unit.
+  if (["admin.setPairingRoom", "admin.retryRoomAllocation"].includes(operation)) {
+    const selected = await client.pairing.findUnique({ where: { id: z.string().parse(fields.id) }, select: { groupId: true } });
+    if (selected?.groupId) {
+      const members = await client.pairing.findMany({ where: { groupId: selected.groupId }, select: { id: true } });
+      const pairingIds = ids.get("Pairing") ?? new Set<string>();
+      members.forEach(member => pairingIds.add(member.id));
+      ids.set("Pairing", pairingIds);
+    }
+  }
+  if (automaticRoomIntent) ids.delete("Room");
   if (operation === "admin.updateTimeSlot" && includeAuthorityContext) {
     const sessions = await slotAttendance(client, z.string().parse(fields.id));
     if (sessions.length) {
@@ -711,6 +726,9 @@ export async function proposalTargets(
           ? // Review both explicit links and the current alternative name without exposing credentials.
             "jsonb_build_object('id', t.id, 'name', t.name, 'alternativeNames', t.\"alternativeNames\", 'profileVersion', t.\"profileVersion\", 'role', t.role, 'tutorId', t.\"tutorId\", 'studentId', t.\"studentId\")"
           : "jsonb_build_object('id', t.id, 'name', t.name, 'role', t.role, 'tutorId', t.\"tutorId\", 'tutorAccessRevoked', t.\"tutorAccessRevoked\", 'tuteeMember', t.\"tuteeMember\", 'canTranslate', t.\"canTranslate\", 'crewStatus', t.\"crewStatus\", 'suspendedAt', t.\"suspendedAt\")"
+        : table === "Pairing"
+          // Additive room columns do not stale untouched pre-deployment proposals.
+          ? "to_jsonb(t) - CASE WHEN t.\"roomVersion\" = 0 AND t.\"roomMode\" IN ('LEGACY','FIXED') AND NOT t.\"roomNeedsAssignment\" AND t.\"roomShortageKey\" IS NULL THEN ARRAY['roomMode','roomVersion','roomNeedsAssignment','roomShortageKey']::text[] ELSE ARRAY[]::text[] END"
         : table === "Tutor"
           ? // Advisory self-service changes never stale assignments or older proposal shapes.
             "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot','preferredAssignedBlocks','workloadPreferenceVersion']::text[]"
@@ -766,18 +784,15 @@ export async function proposalTargets(
     ["NewsPost", "NewsTranslation", "postId"],
     ["LandingSection", "LandingSectionTranslation", "sectionId"],
   ] as const) {
-    if (
-      !includeAuthorityContext &&
-      (child === "ServiceHourAdjustment" ||
-        child === "TuteeRemovalRequest" ||
-        child === "DisciplinaryCard" ||
-        child === "SessionFlag")
-    )
-      continue;
+    if (automaticRoomIntent && parent === "TimeSlot" && child === "Pairing") continue;
+    if (!includeAuthorityContext && (child === "ServiceHourAdjustment" || child === "TuteeRemovalRequest" || child === "DisciplinaryCard" || child === "SessionFlag")) continue;
     const values = ids.get(parent);
     if (values?.size) {
+      const childFields = child === "Pairing"
+        ? "to_jsonb(t) - CASE WHEN t.\"roomVersion\" = 0 AND t.\"roomMode\" IN ('LEGACY','FIXED') AND NOT t.\"roomNeedsAssignment\" AND t.\"roomShortageKey\" IS NULL THEN ARRAY['roomMode','roomVersion','roomNeedsAssignment','roomShortageKey']::text[] ELSE ARRAY[]::text[] END"
+        : "to_jsonb(t)";
       const rows = await client.$queryRaw<unknown[]>(
-        Prisma.sql`SELECT to_jsonb(t) AS record FROM ${Prisma.raw('"' + child + '"')} t WHERE ${Prisma.raw('"' + field + '"')} IN (${Prisma.join([...values])}) ORDER BY to_jsonb(t)::text`,
+        Prisma.sql`SELECT ${Prisma.raw(childFields)} AS record FROM ${Prisma.raw('"' + child + '"')} t WHERE ${Prisma.raw('"' + field + '"')} IN (${Prisma.join([...values])}) ORDER BY to_jsonb(t)::text`,
       );
       if (child !== "TuteeRequestInvalidity" || rows.length)
         targets[`${parent}.${child}`] = rows;

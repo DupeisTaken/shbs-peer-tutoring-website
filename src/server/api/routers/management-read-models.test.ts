@@ -129,6 +129,38 @@ function fixture(access: Access = "VIEWER") {
 describe.each<Access>(["VIEWER", "observer"])(
   "%s management response boundary",
   (access) => {
+    it("preserves public room intent and shortages while withholding allocation internals", async () => {
+      const { caller, mock } = fixture(access);
+      mock.pairing.findMany.mockResolvedValue(
+        ["AUTO", "FIXED", "NONE", "LEGACY"].map((roomMode) => ({
+          id: `room-summary-${roomMode}`,
+          subject: "Mathematics",
+          scheduleConfirmed: true,
+          roomMode,
+          roomNeedsAssignment: roomMode === "AUTO",
+          roomVersion: 42,
+          roomShortageKey: PRIVATE,
+          tutor: { id: "tutor", englishName: "Tutor One" },
+          room: roomMode === "FIXED" ? { id: "room", name: "Room One" } : null,
+          term: { id: "term", name: "Current period" },
+          timeSlot: null,
+          tutees: [],
+        })),
+      );
+      const rows = await caller.admin.pairings();
+      expect(rows.map((row) => ({ mode: row.roomMode, needsRoom: row.roomNeedsAssignment }))).toEqual([
+        { mode: "AUTO", needsRoom: true },
+        { mode: "FIXED", needsRoom: false },
+        { mode: "NONE", needsRoom: false },
+        { mode: "LEGACY", needsRoom: false },
+      ]);
+      for (const row of rows) {
+        expect(row).not.toHaveProperty("roomVersion");
+        expect(row).not.toHaveProperty("roomShortageKey");
+      }
+      expect(JSON.stringify(rows)).not.toContain(PRIVATE);
+    });
+
     it("withholds attendance narratives and application evidence through real RPC handlers", async () => {
       const { caller } = fixture(access);
       const sessions = await caller.admin.sessions();

@@ -68,6 +68,7 @@ const featureKey = z.enum([
   "QUARTER_SYSTEM",
   "VIEWER_SIGNUP",
   "EMAIL_2FA",
+  "AUTO_ASSIGN_ROOMS",
 ]);
 
 const httpUrl = z

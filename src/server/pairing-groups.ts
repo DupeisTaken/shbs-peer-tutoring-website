@@ -8,10 +8,8 @@ import {
   type DomainDb,
   type TransactionDb,
 } from "./transactions";
-import {
-  assertPlannedRoomAvailable,
-  lockPlannedRoomSchedule,
-} from "./room-bookings";
+import { lockPlannedRoomSchedule } from "./room-bookings";
+import { allocateRoom, persistRoomUnit, roomUnitInclude, roomUnitSchedule, notifyRoomShortage } from "./room-allocation";
 
 export const pairingGroupsInput = z.object({
   snapshot: z.string().length(64),
@@ -47,6 +45,9 @@ export async function readPairingGroups(db: DomainDb, tutorId: string) {
           endMin: true,
           timeSlotId: true,
           roomId: true,
+          roomMode: true,
+          roomNeedsAssignment: true,
+          roomVersion: true,
           room: { select: { id: true, name: true } },
           tutees: {
             where: { tutee: { status: { not: "INACTIVE" } } },
@@ -122,6 +123,10 @@ export async function savePairingGroups(
           "Pairings or schedules changed. Reload before saving this group draft.",
       });
     const pairings = new Map(before.pairings.map((p) => [p.id, p]));
+    // Display projections omit inactive students; allocation evidence keeps the full roster.
+    const fullPairings = new Map((await tx.pairing.findMany({
+      where: { tutorId, termId: before.termId }, include: roomUnitInclude,
+    })).map(pairing => [pairing.id, pairing]));
     const stored = await tx.pairingGroup.findMany({
       where: { tutorId, termId: before.termId },
     });
@@ -159,20 +164,17 @@ export async function savePairingGroups(
     if (affected.length)
       await tx.pairing.updateMany({
         where: { id: { in: affected } },
-        data: { groupId: null, scheduleConfirmed: false, timeSlotId: null },
+        data: {
+          groupId: null, scheduleConfirmed: false, timeSlotId: null,
+          roomNeedsAssignment: false, roomShortageKey: null, roomVersion: { increment: 1 },
+        },
       });
     await tx.pairingGroup.deleteMany({
       where: { tutorId, termId: before.termId, id: { notIn: [...groupIds] } },
     });
     for (const group of input.groups) {
-      const primary = pairings.get(group.pairingIds[0]!)!;
+      const primary = fullPairings.get(group.pairingIds[0]!)!;
       const slot = before.slots.find((s) => s.id === group.slotId)!;
-      await assertPlannedRoomAvailable(tx, {
-        roomId: primary.roomId,
-        termId: before.termId,
-        ...slot,
-        excludePairingIds: group.pairingIds,
-      });
       const saved = group.id
         ? await tx.pairingGroup.update({
             where: { id: group.id },
@@ -185,18 +187,12 @@ export async function savePairingGroups(
               primaryPairingId: primary.id,
             },
           });
-      await tx.pairing.updateMany({
-        where: { id: { in: group.pairingIds } },
-        data: {
-          groupId: saved.id,
-          roomId: primary.roomId,
-          timeSlotId: group.slotId,
-          scheduleConfirmed: true,
-          dayOfWeek: slot.dayOfWeek,
-          startMin: slot.startMin,
-          endMin: slot.endMin,
-        },
-      });
+      const members = group.pairingIds.map(id => ({ ...fullPairings.get(id)!, groupId: saved.id }));
+      const allocation = await allocateRoom(tx,
+        { ...roomUnitSchedule(members), ...slot, scheduleConfirmed: true }, {}, primary);
+      await persistRoomUnit(tx, members, allocation,
+        { ...slot, timeSlotId: group.slotId, scheduleConfirmed: true });
+      await notifyRoomShortage(tx, primary.id, allocation, primary.roomShortageKey);
     }
     return readPairingGroups(tx, tutorId);
   });

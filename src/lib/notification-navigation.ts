@@ -6,7 +6,7 @@
 /** Only server-issued, relative record destinations delegate scroll to their
  * authorized page adapter. Ordinary and external links keep Next's defaults. */
 export function isNotificationRecordDestination(href: string) {
-  return /^\/admin\/(?:requests#request-(?:survey|signup)-|applications#application-)[a-zA-Z0-9_-]{1,128}$/.test(
+  return /^\/admin\/(?:requests#request-(?:survey|signup)-|applications#application-|pairings#)[a-zA-Z0-9_-]{1,128}$/.test(
     href,
   );
 }

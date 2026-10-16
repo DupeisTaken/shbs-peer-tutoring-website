@@ -433,3 +433,48 @@ it.each(["rooms", "slots"] as const)(
     expect(screen.queryByRole("table")).toBeNull();
   },
 );
+
+it.each([true, false])(
+  "counts an explicit shared group once without collapsing independent reservations (grouped=%s)",
+  (grouped) => {
+    render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <RoomGrid
+          rooms={rooms}
+          slots={slots}
+          blocks={[]}
+          pairings={[
+            {
+              ...pairings[0]!,
+              id: "member-a",
+              groupId: grouped ? "shared" : null,
+              scheduleConfirmed: true,
+              dayOfWeek: 1,
+              startMin: 930,
+              endMin: 990,
+              timeSlotId: null,
+            },
+            {
+              ...pairings[0]!,
+              id: "member-b",
+              subject: "Physics",
+              groupId: grouped ? "shared" : null,
+              scheduleConfirmed: true,
+              dayOfWeek: 1,
+              startMin: 945,
+              endMin: 975,
+              timeSlotId: "different",
+            },
+          ]}
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByText(grouped ? "1 record" : "2 records")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: en.roomSchedule.allDetails }),
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.textContent).toContain("Math");
+    expect(dialog.textContent).toContain("Physics");
+  },
+);

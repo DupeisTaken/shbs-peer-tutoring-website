@@ -114,6 +114,8 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "admin.deleteSubjectLevel": "SubjectLevel",
   "admin.createPairing": "Pairing",
   "admin.updatePairing": "Pairing",
+  "admin.retryRoomAllocation": "Pairing",
+  "admin.setPairingRoom": "Pairing",
   "admin.deletePairing": "Pairing",
   "admin.setUserCanTutor": "User",
   "admin.setMemberships": "User",

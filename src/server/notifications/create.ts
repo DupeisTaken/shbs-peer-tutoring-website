@@ -26,6 +26,8 @@ export interface NotificationInput {
   title: string;
   body?: string;
   link?: string;
+  /** Explicitly suppress optional email copies for a workflow with an in-app-only contract. */
+  inAppOnly?: boolean;
   event?: NotificationEvent;
   context?: NotificationContext;
 }
@@ -44,6 +46,7 @@ export async function notifyUsers(
       title: data.title,
       body: data.body ?? null,
       link: data.link ?? null,
+      ...(data.inAppOnly ? { inAppOnly: true } : {}),
       ...(data.event ? notificationEvent(data.event, data.context) : {}),
     })),
   });

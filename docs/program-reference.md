@@ -101,22 +101,33 @@ Mailbox verification codes remain separate and keep their existing formats.
 
 **Program Settings** groups controls into **Recruitment and Refresh**, **Account Settings**, **Deployment Configurations** and **Optional Features**. Recruitment and Refresh contains the separate tutoring notices and school-day calendar, timezone, recruitment windows and refresh. Account Settings contains name/grade policies, per-account-type name requirements and message-contact permissions. Deployment Configurations contains email/binding configuration and CAPTCHA. Optional Features contains staged feature switches. Message supervision remains in Messages; feedback and appeals remain in Tutee Support. Moving a control does not change its authority or effective timing.
 
-HEAD stages these switches in **Program Settings → Optional Features**. They take effect at the **next program refresh**, not when the switch is clicked. Existing records remain history. Do not refresh just to preview a switch: refresh changes participation and the current period.
+HEAD stages changes to these switches in **Program Settings → Optional Features**. Changes take effect at the **next program refresh**, not when the switch is clicked. Auto-assign rooms alone is initially On at deployment, as described below. Existing records remain history. Do not refresh just to preview a switch: refresh changes participation and the current period.
 
-| Switch                             | Default | Effect when applied                                                                                                                        |
-| ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Crew patrols (`CREW`)              | On      | Enables crew navigation, patrol workflows and procedures                                                                                   |
-| Discipline cards (`DISCIPLINE`)    | On      | Enables disciplinary workflows and their controls                                                                                          |
-| Tutor meetings (`MEETINGS`)        | On      | Enables meeting scheduling, attendance and advance excuses                                                                                 |
-| Interviews & voting (`INTERVIEWS`) | On      | Enables panel interviews, voting and completion workflows                                                                                  |
-| Service hours (`SERVICE_HOURS`)    | On      | Enables service-hour views and related program controls                                                                                    |
-| Quarter system (`QUARTER_SYSTEM`)  | On      | On uses Q1–Q4; Off uses S1/S2. Applied mode controls intake and withdrawal wording                                                         |
-| Viewer signup (`VIEWER_SIGNUP`)    | On      | Allows public observer account registration; does not expand viewer permissions                                                            |
-| Email 2FA (`EMAIL_2FA`)            | On      | Makes email two-factor functionality available; users opt into sign-in 2FA in Settings. Configure and test SMTP for production email flows |
+| Switch | Default | Effect when applied |
+| --- | --- | --- |
+| Crew patrols (`CREW`) | On | Enables crew navigation, patrol workflows and procedures |
+| Discipline cards (`DISCIPLINE`) | On | Enables disciplinary workflows and their controls |
+| Tutor meetings (`MEETINGS`) | On | Enables meeting scheduling, attendance and advance excuses |
+| Interviews & voting (`INTERVIEWS`) | On | Enables panel interviews, voting and completion workflows |
+| Service hours (`SERVICE_HOURS`) | On | Enables service-hour views and related program controls |
+| Quarter system (`QUARTER_SYSTEM`) | On | On uses Q1–Q4; Off uses S1/S2. Applied mode controls intake and withdrawal wording |
+| Viewer signup (`VIEWER_SIGNUP`) | On | Allows public observer account registration; does not expand viewer permissions |
+| Email 2FA (`EMAIL_2FA`) | On | Makes email two-factor functionality available; users opt into sign-in 2FA in Settings. Configure and test SMTP for production email flows |
+| Auto-assign rooms (`AUTO_ASSIGN_ROOMS`) | On immediately at deployment | Allocates available rooms when schedules are confirmed or changed; disabling only stops automatic allocation |
 
 Switches control available pages and operations; they do not erase historical data. Turning off service-hour views does not stop attendance from recording calculated hours. See [feature implementation](../src/server/program/features.ts) and [refresh behavior](#refresh-the-program).
 
 When Email 2FA is on, password changes also require an emailed verification code, even if the user has not opted into sign-in 2FA. Configure working email delivery before relying on this flow in production.
+
+Auto-assign rooms is effective immediately when first deployed, even before a
+feature setting has been saved. Turning it off or enabling it again is staged
+until the next program refresh. The current On/Off badge remains authoritative;
+the pending badge describes the next refresh. Switch back to the current value
+to cancel a pending change. Admin changes require Head approval before staging.
+Neither deployment nor changing the switch reallocates existing bookings.
+When off, existing/manual reservations, conflict protection and room displays
+continue to operate. If saving succeeds but reloading settings fails, use
+**Retry refresh**; this only reads the saved states.
 
 ## Other configurable behavior
 
@@ -196,6 +207,43 @@ that legend.
 In **Rooms**, Head/Admin use the up/down arrows beside each room's existing actions to stage the display order in the current list. There is no separate ordering menu or duplicate room list. The single **Save order** or **Request room order change** row saves the complete order; **Reload order** explicitly replaces that draft and its expected order only after a successful read. Room-detail editors remain keyed by room ID, so moving a room does not save or discard their independent drafts. Pending order writes block additional order changes; failed writes retain the draft, and failed synchronization after an accepted write uses read-only refresh rather than resubmission. A changed room catalog requires Reload before further ordering. Stale or incomplete lists are rejected by the existing server authority. New rooms append to the saved order. Head applies the change and Admin submits it for Head review. Coordinators and Viewers do not edit this program setting. This order is independent from the Crew patrol order: reordering does not move a pairing or change patrol sequencing.
 
 Use **Time Slots**, **Rooms** and **Pairings** to plan recurring sessions. A room cannot host overlapping pairings in one program period or a pairing during a recurring blackout; back-to-back sessions are allowed. Availability helps participants agree on a slot and does not prevent staff from assigning a tutor before that agreement. New assignments display **Awaiting schedule** until a tutor or manager selects a catalog slot. These assignments do not reserve rooms or count as scheduled subjects; the assigned tutor remains visible to the tutee.
+
+Each independent Pairings row reserves at most one room. An explicitly combined
+pairing group instead shares one reservation using its primary assignment’s room
+and schedule. Coincident times, shared students and one-off combined attendance
+do not implicitly create a shared-room group. **Automatic** selects an eligible
+room; **Fixed** preserves a room explicitly chosen by staff; **No physical room**
+is an intentional choice that stays in effect until staff changes it. Existing
+assigned rooms are fixed at rollout, and existing roomless records are not
+silently backfilled. An authorized explicit release to Automatic permits the
+next save to choose a room. A time change that conflicts with a fixed room is
+rejected rather than moving that reservation.
+
+An eligible room already assigned automatically stays in place. Otherwise the
+allocator favors the greatest number of familiar participants, then familiarity
+to the tutor, then fewer planned occupied minutes, then a stable room identifier.
+Familiarity uses confirmed planned bookings in the current program period and
+verified stable participant identities; the tutor and each distinct tutee count
+once per candidate room. Repeated bookings do not create extra votes. Room names,
+display order and patrol order do not imply capacity or suitability.
+
+If no eligible room exists, the schedule is saved as **Needs room**, with no
+physical reservation. Head/Admin receive an in-app notice when the shortage
+starts or materially changes. Use the Pairings shortage filter and explicit
+retry after resolving capacity; unchanged retries do not repeat the notice.
+Its count uses reservations, so an explicit group is counted once; room-change
+and retry reviews identify all affected group subjects before submission.
+Room or blackout edits do not silently redistribute unrelated pairings.
+Catalog-slot changes consider all affected pairings together and preserve
+unaffected reservations. A Coordinator's proposal approves automatic-allocation
+intent; the available room is chosen only when an authorized reviewer applies
+the proposal. A queued proposal is not a live assignment.
+
+The timetable uses actual confirmed weekday/time overlap, including a confirmed
+schedule whose catalog link was cleared. Clearing that link does not unschedule
+the pairing. Actual attendance location remains independent historical evidence.
+After a successful save, failed reads are recovered through **Retry refresh**,
+without replaying allocation or losing unrelated drafts.
 
 Assignment selectors and Pairings show the current quarter's approximate assigned
 session-block load and an optional tutor preference of 0–4 sessions. Selectors use

@@ -23,7 +23,7 @@ import { DashboardTasks } from "~/app/(tutor)/_components/dashboard-tasks";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
 
-import { RoomGrid } from "~/app/_components/room-grid";
+import { TutorRoomSchedule } from "~/app/(tutor)/_components/tutor-room-schedule";
 import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
 
 export default async function TutorDashboard() {
@@ -220,13 +220,7 @@ export default async function TutorDashboard() {
           <p className="muted">{t("dashboard.schedule.help")}</p>
         </div>
         <ProgramCalendarNotice />
-        <RoomGrid
-          rooms={schedule.rooms}
-          slots={schedule.slots}
-          pairings={schedule.pairings}
-          blocks={schedule.blocks}
-          highlightTutorId={schedule.myTutorId}
-        />
+        <TutorRoomSchedule initialData={schedule} />
       </section>
     </div>
   );

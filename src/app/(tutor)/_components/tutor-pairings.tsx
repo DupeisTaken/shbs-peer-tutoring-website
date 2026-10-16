@@ -8,7 +8,11 @@ import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 
 import { PairingTuteeDetails } from "./pairing-tutee-details";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { InlineNotice } from "~/app/_components/ui/patterns";
+import { RoomAllocationStatus } from "~/app/_components/room-allocation-status";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -25,6 +29,7 @@ import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 export function TutorPairings({ active = true }: { active?: boolean }) {
   const t = useTranslations();
   const locale = useLocale();
+  const a = useTranslations("roomAllocation");
   const { confirm, dialog } = useDialog();
   const utils = api.useUtils();
   const pairings = api.tutor.myPairings.useQuery();
@@ -34,17 +39,141 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
   const denied = useSessionAccessDenied(
     pairings,
     workflowRoster,
+    availability,
     removalRequests,
   );
-  const setSlot = api.tutor.setPairingSlot.useMutation({
-    onSuccess: async () => {
-      await Promise.all([
-        utils.tutor.myPairings.invalidate(),
-        utils.tutor.schedule.invalidate(),
-        invalidateWorkloads(utils),
+  const slotEligibility = useRef({ active, blocked: true });
+  useLayoutEffect(() => {
+    slotEligibility.current = {
+      active,
+      blocked:
+        denied ||
+        !!pairings.error ||
+        !!availability.error ||
+        !availability.data,
+    };
+  }, [active, denied, pairings.error, availability.error, availability.data]);
+  const slotAdmitted = useRef(false);
+  const slotAccepted = useRef(false);
+  const slotTarget = useRef<string | undefined>(undefined);
+  const [slotDrafts, setSlotDrafts] = useState<
+    Record<string, { slotId: string | null; version: number }>
+  >({});
+  const clearSlotDraft = (id: string) =>
+    setSlotDrafts((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  const [slotWorking, setSlotWorking] = useState(false);
+  const [slotOutcome, setSlotOutcome] = useState<string>();
+  const [slotRefreshFailed, setSlotRefreshFailed] = useState(false);
+  const refreshSlot = async () => {
+    setSlotWorking(true);
+    setSlotRefreshFailed(false);
+    try {
+      await settleRefreshes([
+        () => invalidateAndReport(utils.tutor.myPairings),
+        () => invalidateAndReport(utils.tutor.schedule),
+        () =>
+          availability.refetch({ throwOnError: true }).then((result) => {
+            if (!result.isSuccess)
+              throw new Error("Availability refresh failed");
+          }),
+        () => invalidateAndReport(utils.student.me),
+        () => invalidateAndReport(utils.studentWorkflow.mine),
+        () => invalidateAndReport(utils.pairingGroups.mine),
+        () => invalidateWorkloads(utils, true),
+        () => invalidateAndReport(utils.notification.list),
+        () => invalidateAndReport(utils.notification.unreadCount),
       ]);
+      slotAdmitted.current = false;
+      if (slotAccepted.current && slotTarget.current)
+        clearSlotDraft(slotTarget.current);
+    } catch {
+      setSlotRefreshFailed(true);
+    } finally {
+      setSlotWorking(false);
+    }
+  };
+  const setSlot = api.tutor.setPairingSlot.useMutation({
+    // Completion and synchronization are separate: failed reads leave a read-only
+    // retry and cannot replay the accepted allocation.
+    onSuccess: async (result) => {
+      slotAccepted.current = true;
+      setSlotOutcome(result.roomOutcome);
+      await refreshSlot();
+    },
+    onError: () => {
+      slotAdmitted.current = false;
+      slotAccepted.current = false;
+      setSlotWorking(false);
     },
   });
+
+  const changeSlot = async (
+    p: NonNullable<typeof pairings.data>[number],
+    slotId: string | null,
+  ) => {
+    if (
+      slotAdmitted.current ||
+      !slotEligibility.current.active ||
+      slotEligibility.current.blocked ||
+      slotRefreshFailed
+    )
+      return;
+    const draft = {
+      slotId,
+      version: slotDrafts[p.id]?.version ?? p.roomVersion,
+    };
+    const slot = availability.data?.slots.find((s) => s.id === slotId);
+    if (
+      !(await confirm({
+        title: t("tutor.tasks.changeSchedule"),
+        message: t("tutor.tasks.confirmSchedule", {
+          subject: scheduleSubjects(p.id) ?? p.subject,
+          slot: slot
+            ? `${slot.label} · ${formatWeekday(slot.dayOfWeek, locale)} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}`
+            : t("scheduling.noLinkedSlot"),
+        }),
+        confirmLabel: t("common.save"),
+        cancelLabel: t("common.cancel"),
+      }))
+    )
+      return;
+    if (
+      slotAdmitted.current ||
+      !slotEligibility.current.active ||
+      slotEligibility.current.blocked
+    )
+      return;
+    // Keep the attempted slot and its original concurrency version until a save
+    // has synchronized, or an explicit successful Reload discards this draft.
+    setSlotDrafts((current) => ({ ...current, [p.id]: draft }));
+    slotTarget.current = p.id;
+    slotAccepted.current = false;
+    slotAdmitted.current = true;
+    setSlotWorking(true);
+    setSlotOutcome(undefined);
+    setLastAction("slot");
+    setSlot.mutate({
+      pairingId: p.id,
+      slotId: draft.slotId,
+      expectedRoomVersion: draft.version,
+    });
+  };
+  const reloadSlot = async (id: string) => {
+    if (slotWorking) return;
+    setSlotWorking(true);
+    try {
+      const result = await pairings.refetch({ throwOnError: true });
+      if (result.data?.some((p) => p.id === id)) clearSlotDraft(id);
+    } catch {
+      /* Retain the original draft; the query owns its recovery message. */
+    } finally {
+      setSlotWorking(false);
+    }
+  };
 
   const [lastAction, setLastAction] = useState<"slot" | null>(null);
   const feedback = lastAction === "slot" ? setSlot : null;
@@ -76,6 +205,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
           onClick={() => {
             void pairings.refetch();
             void workflowRoster.refetch();
+            void availability.refetch();
             void removalRequests.refetch();
           }}
         >
@@ -110,11 +240,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
           {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
         </span>
       </p>
-      <p className="muted">
-        {p.room
-          ? t("tutor.pairings.roomOnly", { room: p.room.name })
-          : t("tutor.pairings.noRoom")}
-      </p>
+      <RoomAllocationStatus pairing={p} />
 
       {/* Default scheduling belongs before the roster/availability actions. */}
       {active && (
@@ -123,32 +249,20 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
             {t("tutor.pairings.defaultSlotLabel")}
           </span>
           <select
-            value={p.timeSlotId ?? ""}
+            value={
+              slotDrafts[p.id]?.slotId ??
+              (slotDrafts[p.id] ? "" : p.timeSlotId) ??
+              ""
+            }
             aria-label={`${p.subject}: ${t("tutor.pairings.defaultSlotLabel")}`}
-            disabled={setSlot.isPending}
-            onChange={async (e) => {
-              const slotId = e.target.value || null;
-              const slot = slots.find((s) => s.id === slotId);
-              if (
-                !(await confirm({
-                  title: t("tutor.tasks.changeSchedule"),
-                  message: t("tutor.tasks.confirmSchedule", {
-                    subject: scheduleSubjects(p.id) ?? p.subject,
-                    slot: slot
-                      ? `${slot.label} · ${formatWeekday(slot.dayOfWeek, locale)} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}`
-                      : t("scheduling.noLinkedSlot"),
-                  }),
-                  confirmLabel: t("common.save"),
-                  cancelLabel: t("common.cancel"),
-                }))
-              )
-                return;
-              setLastAction("slot");
-              setSlot.mutate({
-                pairingId: p.id,
-                slotId,
-              });
-            }}
+            disabled={
+              setSlot.isPending ||
+              slotWorking ||
+              slotRefreshFailed ||
+              !!pairings.error ||
+              !!availability.error
+            }
+            onChange={(e) => void changeSlot(p, e.target.value || null)}
             className="select min-w-0 sm:w-auto"
           >
             <option value="">{t("scheduling.noLinkedSlot")}</option>
@@ -159,6 +273,20 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
               </option>
             ))}
           </select>
+          {slotDrafts[p.id] && !slotWorking && !slotRefreshFailed && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="compact"
+                disabled={!!pairings.error || !!availability.error}
+                onClick={() => void changeSlot(p, slotDrafts[p.id]!.slotId)}
+              >
+                {t("common.save")}
+              </Button>
+              <Button size="compact" onClick={() => void reloadSlot(p.id)}>
+                {a("reload")}
+              </Button>
+            </div>
+          )}
           {p.timeSlot && (
             <span className="muted">
               ({formatWeekday(p.timeSlot.dayOfWeek, locale)}{" "}
@@ -251,7 +379,13 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
       )}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="muted text-sm">{t("pairingGroups.catalogueHelp")}</p>
-        <PairingGroupEditor pairings={list} slots={slots} active={active} />
+        <PairingGroupEditor
+          pairings={list}
+          slots={slots}
+          active={
+            active && !slotWorking && !pairings.error && !availability.error
+          }
+        />
       </div>
       <ul className="divide-y divide-slate-100">
         {entries.map((entry) =>
@@ -267,8 +401,8 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                   t("scheduling.awaiting"),
                   locale,
                 )}{" "}
-                · {entry.primary.room?.name ?? t("pairingGroups.noRoom")}
               </p>
+              <RoomAllocationStatus pairing={entry.primary} />
               <ul
                 className="space-y-2"
                 aria-label={t("pairingGroups.combinedRoster")}
@@ -325,12 +459,46 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
           ),
         )}
       </ul>
+      {slotOutcome && (
+        <InlineNotice
+          tone={slotOutcome === "UNAVAILABLE" ? "warning" : "success"}
+          announcement="status"
+        >
+          {a(`outcome.${slotOutcome}`)}
+        </InlineNotice>
+      )}
+      {slotRefreshFailed && (
+        <InlineNotice
+          tone="error"
+          announcement="alert"
+          action={
+            <Button disabled={slotWorking} onClick={() => void refreshSlot()}>
+              {a("retryRefresh")}
+            </Button>
+          }
+        >
+          {a(slotOutcome !== undefined ? "savedRefreshFailed" : "readFailed")}
+        </InlineNotice>
+      )}
+      {(pairings.error ?? availability.error) && !slotRefreshFailed && (
+        <InlineNotice
+          tone="error"
+          announcement="alert"
+          action={
+            <Button disabled={slotWorking} onClick={() => void refreshSlot()}>
+              {a("retryRefresh")}
+            </Button>
+          }
+        >
+          {a("readFailed")}
+        </InlineNotice>
+      )}
       {feedback?.error && (
         <p role="alert" className="text-sm text-red-700">
           {feedback.error.message}
         </p>
       )}
-      {feedback?.isSuccess && (
+      {feedback?.isSuccess && lastAction !== "slot" && (
         <p role="status" className="text-sm text-green-700">
           {t("workflows.saved")}
         </p>

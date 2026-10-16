@@ -23,6 +23,8 @@ const state = vi.hoisted(() => ({
   name: "Sample Learner",
   username: null as string | null,
   rosterFailure: "",
+  availabilityFailure: "",
+  availabilityRefetch: vi.fn(),
   refetch: vi.fn(),
 }));
 vi.mock("~/app/_components/confirm-dialog", () => ({
@@ -31,6 +33,13 @@ vi.mock("~/app/_components/confirm-dialog", () => ({
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
+      student: { me: { invalidate: vi.fn() } },
+      studentWorkflow: { mine: { invalidate: vi.fn() } },
+      pairingGroups: { mine: { invalidate: vi.fn() } },
+      notification: {
+        list: { invalidate: vi.fn() },
+        unreadCount: { invalidate: vi.fn() },
+      },
       tutor: {
         myPairings: { invalidate: vi.fn() },
         schedule: { invalidate: vi.fn() },
@@ -65,6 +74,9 @@ vi.mock("~/trpc/react", () => ({
           data: [
             {
               id: "pairing",
+              roomMode: "FIXED",
+              roomNeedsAssignment: false,
+              roomVersion: 2,
               subject: "Maths",
               scheduleConfirmed: state.confirmed,
               dayOfWeek: 1,
@@ -85,6 +97,9 @@ vi.mock("~/trpc/react", () => ({
             },
             {
               id: "merge-pairing",
+              roomMode: "AUTO",
+              roomNeedsAssignment: false,
+              roomVersion: 0,
               subject: "Maths",
               scheduleConfirmed: true,
               dayOfWeek: 2,
@@ -100,6 +115,19 @@ vi.mock("~/trpc/react", () => ({
       },
       myAvailability: {
         useQuery: () => ({
+          isSuccess: !state.availabilityFailure,
+          error: state.availabilityFailure
+            ? {
+                message: "Availability read failed",
+                data: {
+                  code:
+                    state.availabilityFailure === "denied"
+                      ? "FORBIDDEN"
+                      : "INTERNAL_SERVER_ERROR",
+                },
+              }
+            : null,
+          refetch: state.availabilityRefetch,
           data: {
             slots: [
               {
@@ -152,6 +180,8 @@ afterEach(() => {
   state.name = "Sample Learner";
   state.username = null;
   state.rosterFailure = "";
+  state.availabilityFailure = "";
+  state.availabilityRefetch.mockResolvedValue({ isSuccess: true });
 });
 const element = (active = true, locale = "en") => (
   <NextIntlClientProvider
@@ -237,6 +267,7 @@ it("names the changed schedule and cancel performs no write", async () => {
     expect(state.setSlot).toHaveBeenCalledWith({
       pairingId: "pairing",
       slotId: null,
+      expectedRoomVersion: 2,
     }),
   );
 });
@@ -386,4 +417,67 @@ it("conceals cached Details and forgets its drafts after authoritative denial un
   );
   expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe("");
   expect(state.remove).not.toHaveBeenCalled();
+});
+
+it.each(["denied", "transport"])(
+  "recovers a lone availability %s failure using read-only Retry",
+  async (failure) => {
+    const view = render(element());
+    state.availabilityFailure = failure;
+    view.rerender(element());
+    const retryName =
+      failure === "denied"
+        ? messages.tutor.tasks.retry
+        : messages.roomAllocation.retryRefresh;
+    if (failure === "denied")
+      expect(screen.queryByText("Sample Learner")).toBeNull();
+    else {
+      expect(screen.getByText(messages.roomAllocation.readFailed)).toBeTruthy();
+      expect(
+        screen.getAllByRole<HTMLSelectElement>("combobox")[0]!.disabled,
+      ).toBe(true);
+    }
+    fireEvent.click(screen.getByRole("button", { name: retryName }));
+    expect(state.availabilityRefetch).toHaveBeenCalledOnce();
+    state.availabilityFailure = "";
+    view.rerender(element());
+    await waitFor(() =>
+      expect(screen.getByText("Sample Learner")).toBeTruthy(),
+    );
+    expect(state.setSlot).not.toHaveBeenCalled();
+  },
+);
+
+it("does not claim an allocation was saved when ordinary availability recovery also fails", async () => {
+  state.availabilityFailure = "transport";
+  state.availabilityRefetch.mockRejectedValueOnce(new Error("Still offline"));
+  const view = render(element());
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.roomAllocation.retryRefresh }),
+  );
+  await waitFor(() => expect(state.availabilityRefetch).toHaveBeenCalledOnce());
+  await waitFor(() =>
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: messages.roomAllocation.retryRefresh,
+      }).disabled,
+    ).toBe(false),
+  );
+  expect(screen.getByText(messages.roomAllocation.readFailed)).toBeTruthy();
+  expect(
+    screen.queryByText(messages.roomAllocation.savedRefreshFailed),
+  ).toBeNull();
+  expect(state.setSlot).not.toHaveBeenCalled();
+  state.availabilityFailure = "";
+  view.rerender(element());
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.roomAllocation.retryRefresh }),
+  );
+  await waitFor(() =>
+    expect(state.availabilityRefetch).toHaveBeenCalledTimes(2),
+  );
+  await waitFor(() =>
+    expect(screen.queryByText(messages.roomAllocation.readFailed)).toBeNull(),
+  );
+  expect(state.setSlot).not.toHaveBeenCalled();
 });

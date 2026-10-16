@@ -228,7 +228,12 @@ it("Head assigned-choice edit releases only affected current links and preserves
   await expect(head().studentWorkflow.headEditSignup(input)).resolves.toEqual({ ok: true, version: 1 });
   expect(await db.pairingTutee.findUnique({ where: { pairingId_tuteeId: { pairingId: data.pairing.id, tuteeId: data.tutee.id } } })).toBeNull();
   for (const pairingId of [data.history.id, data.second!.id]) expect(await db.pairingTutee.count({ where: { pairingId, tuteeId: data.tutee.id } })).toBe(1);
-  expect(await db.pairing.findUniqueOrThrow({ where: { id: data.pairing.id } })).toEqual(data.pairing);
+  // Removing the one affected roster link deliberately invalidates its room
+  // editor snapshot. Every other pairing column and unrelated record stays exact.
+  const releasedPairing = { ...data.pairing, roomVersion: data.pairing.roomVersion + 1 };
+  expect(await db.pairing.findUniqueOrThrow({ where: { id: data.pairing.id } })).toEqual(releasedPairing);
+  for (const unrelated of [data.history, data.second!])
+    expect(await db.pairing.findUniqueOrThrow({ where: { id: unrelated.id } })).toEqual(unrelated);
   expect(await db.session.findUniqueOrThrow({ where: { id: data.session!.id } })).toEqual(data.session);
   expect(await db.sessionTutee.findMany()).toEqual(attendance);
   expect(await db.user.findUniqueOrThrow({ where: { id: data.user.id } })).toEqual(data.user);
@@ -239,10 +244,12 @@ it("Head assigned-choice edit releases only affected current links and preserves
   });
   await expect(head().studentWorkflow.headEditSignup(input)).resolves.toEqual({ ok: true, version: 1 });
   expect(await db.studentSignupRevision.count()).toBe(1);
+  expect(await db.pairing.findUniqueOrThrow({ where: { id: data.pairing.id } })).toEqual(releasedPairing);
   const freshTicket = await readyTicket("head", "SIGNUP_EDIT", data.survey.id);
   await expect(head().studentWorkflow.headEditSignup({ ...input, signedTicket: freshTicket })).resolves.toEqual({ ok: true, version: 1 });
   expect((await db.studentActionConfirmation.findUniqueOrThrow({ where: { id: freshTicket } })).usedAt).toBeNull();
   expect(await db.studentSignupRevision.count()).toBe(1);
+  expect(await db.pairing.findUniqueOrThrow({ where: { id: data.pairing.id } })).toEqual(releasedPairing);
 });
 
 it("requires elapsed, actor/purpose/target-bound Head confirmation before assigned-choice release", async () => {

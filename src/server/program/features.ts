@@ -5,7 +5,8 @@
  * refresh — see `applyPendingFeatures`. Node runtime only (touches the DB).
  *
  * QUARTER_SYSTEM is a mode, not a disable: enabled = quarters (Q1–Q4), disabled = semesters
- * (S1/S2). Everything else, when disabled, hides its portals/nav/cards and blocks its procedures.
+ * (S1/S2). AUTO_ASSIGN_ROOMS only skips automatic selection: room readers and reservation
+ * validation remain active. Other disabled modules hide their portals and block procedures.
  */
 import { TRPCError } from "@trpc/server";
 
@@ -22,13 +23,14 @@ export const FEATURE_KEYS = [
   "QUARTER_SYSTEM",
   "VIEWER_SIGNUP",
   "EMAIL_2FA",
+  "AUTO_ASSIGN_ROOMS",
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 export type Features = Record<FeatureKey, boolean>;
 
 /**
- * Defaults for an unconfigured deployment. Email 2FA is available by default; individual
- * sign-in enrollment remains opt-in, and email flows still enforce delivery availability.
+ * Defaults for an unconfigured deployment. Automatic rooms are effective immediately with no
+ * booking backfill. Email 2FA remains available with individual sign-in enrollment opt-in.
  */
 export const DEFAULT_FEATURES: Features = {
   CREW: true,
@@ -39,6 +41,7 @@ export const DEFAULT_FEATURES: Features = {
   QUARTER_SYSTEM: true,
   VIEWER_SIGNUP: true,
   EMAIL_2FA: true,
+  AUTO_ASSIGN_ROOMS: true,
 };
 
 /** Effective on/off for every module (missing row = its safe default). */

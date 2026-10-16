@@ -5,7 +5,6 @@ import {
   tutorWorkloads,
   workloadPreferenceInput,
 } from "~/server/tutor-workload";
-import { groupMembersForSchedule } from "~/server/pairing-groups";
 import { programRoomOrder } from "~/server/room-order";
 import {
   assertRequestProcessable,
@@ -60,10 +59,8 @@ import {
 import { standingFromCounts } from "~/lib/discipline";
 import { syncSessionFlag } from "~/server/crew/flags";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
-import {
-  assertPlannedRoomAvailable,
-  lockPlannedRoomSchedule,
-} from "~/server/room-bookings";
+import { lockPlannedRoomSchedule } from "~/server/room-bookings";
+import { allocateAndPersistRoomUnit, assertRoomVersion, roomUnitInclude, roomUnitMembers } from "~/server/room-allocation";
 
 const TUTOR_STATUS = [
   "PRESENT",
@@ -1220,6 +1217,7 @@ export const tutorRouter = createTRPCRouter({
       z.object({
         pairingId: z.string().min(1),
         slotId: z.string().min(1).nullable(),
+        expectedRoomVersion: z.number().int().nonnegative().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -1239,73 +1237,25 @@ export const tutorRouter = createTRPCRouter({
         // cannot combine with this slot change into an unvalidated final tuple.
         await lockPlannedRoomSchedule(tx);
         const pairing = await tx.pairing.findFirst({
-          where: {
-            id: input.pairingId,
-            tutorId: ctx.session.tutorId,
-            term: { active: true },
-          },
-          select: {
-            id: true,
-            roomId: true,
-            termId: true,
-            groupId: true,
-            tutorId: true,
-          },
+          where: { id: input.pairingId, tutorId: ctx.session.tutorId, term: { active: true } },
+          include: roomUnitInclude,
         });
-        if (!pairing) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Current pairing not found for this tutor.",
-          });
-        }
-
-        const members = await groupMembersForSchedule(tx, pairing);
-        const memberIds = members.map((p) => p.id);
+        if (!pairing) throw new TRPCError({ code: "NOT_FOUND", message: "Current pairing not found for this tutor." });
+        assertRoomVersion(pairing, input.expectedRoomVersion);
         if (input.slotId === null) {
-          await tx.pairing.updateMany({
-            where: { id: { in: memberIds } },
-            data: { timeSlotId: null },
-          });
-          return tx.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
+          const members = await roomUnitMembers(tx, pairing);
+          // Detaching only the catalog link retains the confirmed shared reservation.
+          await tx.pairing.updateMany({ where: { id: { in: members.map(member => member.id) } },
+            data: { timeSlotId: null, roomVersion: { increment: 1 } } });
+          const saved = await tx.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
+          const roomOutcome = saved.roomId ? "RETAINED" as const : saved.roomNeedsAssignment ? "UNAVAILABLE" as const : saved.roomMode === "NONE" ? "NONE" as const : "UNASSIGNED" as const;
+          return { ...saved, roomOutcome };
         }
-
-        const slot = await tx.timeSlot.findFirst({
-          where: { id: input.slotId, active: true },
-          select: { dayOfWeek: true, startMin: true, endMin: true },
-        });
-        if (!slot) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Time slot not found.",
-          });
-        }
-        await assertPlannedRoomAvailable(tx, {
-          roomId: pairing.roomId,
-          termId: pairing.termId,
-          dayOfWeek: slot.dayOfWeek,
-          startMin: slot.startMin,
-          endMin: slot.endMin,
-          excludePairingIds: memberIds,
-        });
-        // Preserve the group through a deliberate all-member schedule change.
-        // Independent management edits instead detach only their changed member.
-        if (pairing.groupId)
-          await tx.pairing.updateMany({
-            where: { id: { in: memberIds } },
-            data: { groupId: null, scheduleConfirmed: false },
-          });
-        await tx.pairing.updateMany({
-          where: { id: { in: memberIds } },
-          data: {
-            groupId: pairing.groupId,
-            scheduleConfirmed: true,
-            timeSlotId: input.slotId,
-            dayOfWeek: slot.dayOfWeek,
-            startMin: slot.startMin,
-            endMin: slot.endMin,
-          },
-        });
-        return tx.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
+        const slot = await tx.timeSlot.findFirst({ where: { id: input.slotId, active: true },
+          select: { dayOfWeek: true, startMin: true, endMin: true } });
+        if (!slot) throw new TRPCError({ code: "BAD_REQUEST", message: "Time slot not found." });
+        return allocateAndPersistRoomUnit(tx, pairing, { expectedRoomVersion: input.expectedRoomVersion },
+          { ...slot, timeSlotId: input.slotId, scheduleConfirmed: true });
       });
     }),
 
@@ -1335,8 +1285,10 @@ export const tutorRouter = createTRPCRouter({
         where: { term: { active: true }, scheduleConfirmed: true },
         select: {
           id: true,
+          groupId: true,
           termId: true,
           subject: true,
+          scheduleConfirmed: true,
           dayOfWeek: true,
           startMin: true,
           endMin: true,

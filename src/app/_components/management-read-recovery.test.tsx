@@ -65,8 +65,14 @@ vi.mock("~/trpc/react", async () => {
           registrationCodes: refresh,
           timeSlots: refresh,
           pairings: refresh,
+          rooms: refresh,
+          assignmentWorkloads: refresh,
         },
         tutor: { myPairings: refresh, schedule: refresh },
+        student: { me: refresh },
+        studentWorkflow: { mine: refresh },
+        pairingGroups: { mine: refresh },
+        notification: { list: refresh, unreadCount: refresh },
       }),
       account: { me: read(["account", "me"], remote.identity) },
       admin: {
@@ -85,6 +91,8 @@ vi.mock("~/trpc/react", async () => {
         pairings: read(["admin", "pairings"], remote.pairings),
         createPairing: write,
         updatePairing: write,
+        retryRoomAllocation: write,
+        setPairingRoom: write,
         deletePairing: write,
         tutors: read(["admin", "tutors"], remote.tutors),
         subjects: read(["admin", "subjects"], remote.subjects),
@@ -141,6 +149,11 @@ const pairing = {
   tutorId: "tutor",
   tutor: { id: "tutor", englishName: "Tutor A", status: "ACTIVE" },
   roomId: "room",
+  // This existing assignment predates explicit room intent; retain its legacy
+  // route through qualification review rather than the new room-only operation.
+  roomMode: "LEGACY",
+  roomVersion: 1,
+  roomNeedsAssignment: false,
   room: { name: "101" },
   timeSlotId: "slot",
   timeSlot: slot,
@@ -216,6 +229,7 @@ beforeEach(() => {
     { id: "room", name: "101", unavailabilities: [] },
   ]);
   remote.summary.mockResolvedValue(totals);
+  remote.write.mockResolvedValue({ roomOutcome: "none" });
 });
 afterEach(() => {
   cleanup();
@@ -400,9 +414,9 @@ it("retains pairing edits, identifies the failed prerequisite and preserves an a
   fireEvent.click(
     screen.getByRole("button", { name: "Confirm admitted assignment" }),
   );
+  await waitFor(() => expect(remote.write).toHaveBeenCalledTimes(1));
   expect(remote.write).toHaveBeenCalledWith(
     expect.objectContaining({ id: "pair", overrideTicket: "existing-ticket" }),
-    expect.any(Object),
   );
 });
 it("retains recorded service-hour totals beside background recovery", async () => {
@@ -412,6 +426,35 @@ it("retains recorded service-hour totals beside background recovery", async () =
   await refresh("periodSummary");
   await screen.findByText(message("refreshFailed", en.admin.summary.title));
   expect(screen.getAllByText("Private Tutor").length).toBeGreaterThan(0);
+  expect(remote.write).not.toHaveBeenCalled();
+});
+
+it("conceals an already-admitted pairing review when prerequisite authority is denied", async () => {
+  mount(<PairingsPage />);
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: `${en.admin.pairings.edit}: Tutor A · Math`,
+    }),
+  );
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: en.admin.pairings.saveChanges,
+    }),
+  );
+  await screen.findByRole("button", { name: "Confirm admitted assignment" });
+
+  // Transient read recovery cannot revoke a prepared ticket, but authoritative
+  // denial must conceal its controls and prevent a cached review from writing.
+  remote.rooms.mockRejectedValue(
+    Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } }),
+  );
+  await refresh("rooms");
+  await screen.findByText(message("denied", en.admin.pairings.title));
+  expect(
+    screen.queryByRole("button", { name: "Confirm admitted assignment" }),
+  ).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByText("Tutor A")).toBeNull();
   expect(remote.write).not.toHaveBeenCalled();
 });
 

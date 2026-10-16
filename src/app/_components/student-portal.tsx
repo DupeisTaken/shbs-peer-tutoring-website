@@ -1,4 +1,5 @@
 "use client";
+import { RoomAllocationStatus } from "~/app/_components/room-allocation-status";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 import { formText } from "~/lib/form-values";
 import { useEffect, useRef, useState } from "react";
@@ -212,8 +213,8 @@ export function StudentPortal({
               </p>
               <p className="muted">
                 {pairingScheduleText(p, scheduling("awaiting"), locale)}
-                {p.scheduleConfirmed && p.room ? ` · ${p.room.name}` : ""}
               </p>
+              <RoomAllocationStatus pairing={p} />
             </div>
           ))}
         </section>

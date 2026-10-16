@@ -46,6 +46,10 @@ it.each([
   ["/admin/requests#request-survey-abc_123", true],
   ["/admin/requests#request-signup-abc-123", true],
   ["/admin/applications#application-abc123", true],
+  ["/admin/pairings#opaque-room-pairing_123", true],
+  ["/admin/pairings", false],
+  ["/admin/pairings#", false],
+  ["/admin/pairings#bad%2Ftarget", false],
   ["/admin/requests", false],
   ["/admin/requests?tab=all#request-survey-abc", false],
   ["/admin/requests#request-survey-", false],
@@ -89,4 +93,18 @@ it.each([
   navigateNotificationFragment(href, event);
   expect(event.preventDefault).not.toHaveBeenCalled();
   expect(window.location.hash).toBe("");
+});
+
+it("preserves router history state when a same-page shortage link changes its target", () => {
+  const routerState = { __NA: true, retained: ["pairings"] };
+  window.history.replaceState(routerState, "", "/admin/pairings#old");
+  const event = { preventDefault: vi.fn() },
+    reveal = vi.fn();
+  window.addEventListener("hashchange", reveal);
+  navigateNotificationFragment("/admin/pairings#shortage-123", event);
+  expect(event.preventDefault).toHaveBeenCalledOnce();
+  expect(window.history.state).toEqual(routerState);
+  expect(window.location.hash).toBe("#shortage-123");
+  expect(reveal).toHaveBeenCalledOnce();
+  window.removeEventListener("hashchange", reveal);
 });
