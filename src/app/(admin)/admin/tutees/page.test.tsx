@@ -24,6 +24,8 @@ const mocks = vi.hoisted(() => ({
   rosterError: null as { message: string } | null,
   rosterRefetch: vi.fn(),
   searchRows: null as Record<string, unknown>[] | null,
+  pairingFixture: false,
+  scheduleConfirmed: true,
 }));
 vi.mock("~/trpc/react", () => {
   const empty = { useQuery: () => ({ data: [] }) };
@@ -63,8 +65,38 @@ vi.mock("~/trpc/react", () => {
             ],
           }),
         },
-        tutors: empty,
-        pairings: empty,
+        tutors: {
+          useQuery: () => ({
+            data: mocks.pairingFixture
+              ? [
+                  {
+                    id: "tutor",
+                    englishName: "Synthetic tutor",
+                    status: "ACTIVE",
+                  },
+                ]
+              : [],
+          }),
+        },
+        pairings: {
+          useQuery: () => ({
+            data: mocks.pairingFixture
+              ? [
+                  {
+                    id: "pairing",
+                    tutorId: "tutor",
+                    subject: "Synthetic subject",
+                    scheduleConfirmed: mocks.scheduleConfirmed,
+                    dayOfWeek: 1,
+                    startMin: 900,
+                    endMin: 960,
+                    tutees: [],
+                    timeSlot: null,
+                  },
+                ]
+              : [],
+          }),
+        },
         tuteeStats: { useQuery: () => ({ data: {} }) },
         tutees: {
           useQuery: () => ({
@@ -148,6 +180,8 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   mocks.moreHistory = false;
+  mocks.pairingFixture = false;
+  mocks.scheduleConfirmed = true;
   mocks.pending = false;
   mocks.error = null;
   mocks.rosterPending = false;
@@ -167,6 +201,46 @@ function mount(chinese = false, readOnly = false) {
     </NextIntlClientProvider>,
   );
 }
+
+it.each([
+  [false, "Mon"],
+  [true, "周一"],
+] as const)(
+  "localizes the tutor-view pairing summary and reader (Chinese=%s)",
+  (chinese, weekday) => {
+    mocks.pairingFixture = true;
+    mount(chinese, true);
+    fireEvent.click(
+      screen.getByRole("tab", {
+        name: (chinese ? zh : en).admin.tutees.viewTutors,
+      }),
+    );
+    expect(
+      screen.getByRole("cell", { name: `${weekday} 15:00–16:00` }),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Synthetic tutor · Synthetic subject/,
+      }),
+    );
+    expect(screen.getByRole("dialog").textContent).toContain(
+      `${weekday} 15:00–16:00`,
+    );
+  },
+);
+
+it("keeps unconfirmed tutor-view schedule placeholders private in Chinese", () => {
+  mocks.pairingFixture = true;
+  mocks.scheduleConfirmed = false;
+  mount(true, true);
+  fireEvent.click(
+    screen.getByRole("tab", { name: zh.admin.tutees.viewTutors }),
+  );
+  expect(
+    screen.getByRole("cell", { name: zh.scheduling.awaiting }),
+  ).toBeTruthy();
+  expect(screen.queryByText(/15:00/)).toBeNull();
+});
 
 it.each([false, true])(
   "distinguishes loading and failed reads from an empty roster (Chinese=%s)",

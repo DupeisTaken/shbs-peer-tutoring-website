@@ -541,7 +541,7 @@
     },
     "requests": {
       "title": "Anmeldeanträge (Lernende)",
-      "help": "Öffentliche Anmeldungen von Lernenden, die auf Zuweisung warten, nach Einreichungsdatum sortiert. Jedes Fachwunsch einem Tutor zuweisen – dadurch wird die Zuordnung erstellt, und der Tutor wählt anschließend das Zeitfenster.",
+      "help": "Prüfen Sie neue Anfragen, ordnen Sie Fächer zu und verfolgen Sie zugewiesene Schüler.",
       "noTerm": "Zuerst ein Semester anlegen, bevor Anträge zugewiesen werden können.",
       "decline": "Ablehnen",
       "declineConfirm": "Antrag von {name} ablehnen und löschen?",
@@ -2681,7 +2681,9 @@
     "invalidDate": "Enter a valid date and time.",
     "searchInterviews": "Search",
     "feedbackVisibilityLoading": "Es wird geprüft, wer Feedback lesen kann…",
-    "feedbackVisibilityUnavailable": "Es konnte nicht bestätigt werden, wer Feedback lesen kann. Versuche es erneut, um die Sichtbarkeit zu prüfen."
+    "feedbackVisibilityUnavailable": "Es konnte nicht bestätigt werden, wer Feedback lesen kann. Versuche es erneut, um die Sichtbarkeit zu prüfen.",
+    "pagination": "Seitennavigation",
+    "page": "Seite {page}"
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -2836,7 +2838,9 @@
     },
     "selfServiceSource": "Selbst angemeldet",
     "unknownSource": "Frühere Anmeldung",
-    "sourceHelp": "Die Quelle beschreibt die Erfassung der Anmeldung. Sie ändert weder Genehmigung, Priorität noch Teilnahmeregeln. Bei früheren Anmeldungen ist die ursprüngliche Quelle unbestätigt."
+    "sourceHelp": "Die Quelle beschreibt die Erfassung der Anmeldung. Sie ändert weder Genehmigung, Priorität noch Teilnahmeregeln. Bei früheren Anmeldungen ist die ursprüngliche Quelle unbestätigt.",
+    "boardGuide": "Gruppierung der Anfragen",
+    "sourceGuide": "Anmeldequellen und Zuordnung"
   },
   "approvals": {
     "reviewPermissions": "Admin und Head prüfen allgemeine Verwaltungsanträge. Nur Head prüft Rollen- und Abzeichenänderungen. Head darf eigene Anträge prüfen; alle anderen benötigen eine andere berechtigte Person.",
@@ -3663,7 +3667,8 @@
       "grade": "Kursnote",
       "apScore": "AP-Ergebnis",
       "selfStudyNote": "Details zum Selbststudium"
-    }
+    },
+    "requirementsHelp": "Feldanforderungen und E-Mail-Einstellungen"
   },
   "courseGroups": {
     "title": "Subjects & Levels",

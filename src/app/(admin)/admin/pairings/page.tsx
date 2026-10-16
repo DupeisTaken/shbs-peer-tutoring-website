@@ -7,10 +7,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
 import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
-import { DAY_NAMES, minToHm } from "~/lib/time";
+import { formatWeekday, minToHm } from "~/lib/time";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { RoomGrid } from "~/app/_components/room-grid";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -50,6 +50,7 @@ const accessDenied = (error: { data?: { code?: string } | null } | null) =>
 
 export default function PairingsPage() {
   const t = useTranslations();
+  const locale = useLocale();
   const readOnly = useReadOnly();
   const utils = api.useUtils();
   const queryClient = useQueryClient();
@@ -272,7 +273,7 @@ export default function PairingsPage() {
             { value: "", label: t("admin.pairings.selectSlot") },
             ...activeSlots.map((s) => ({
               value: s.id,
-              label: `${s.label} · ${DAY_NAMES[s.dayOfWeek]} ${minToHm(s.startMin)}–${minToHm(s.endMin)}`,
+              label: `${s.label} · ${formatWeekday(s.dayOfWeek, locale)} ${minToHm(s.startMin)}–${minToHm(s.endMin)}`,
             })),
           ]}
         />
@@ -439,7 +440,9 @@ export default function PairingsPage() {
               <tr key={p.id}>
                 <td>{p.tutor.englishName}</td>
                 <td>{p.subject}</td>
-                <td>{pairingScheduleText(p, t("scheduling.awaiting"))}</td>
+                <td>
+                  {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
+                </td>
                 <td>{p.room?.name ?? "—"}</td>
                 <td>{p.tutees.length}</td>
                 <TableActions>
@@ -448,7 +451,11 @@ export default function PairingsPage() {
                       <div>
                         <dt className="label">{t("admin.pairings.colWhen")}</dt>
                         <dd>
-                          {pairingScheduleText(p, t("scheduling.awaiting"))}
+                          {pairingScheduleText(
+                            p,
+                            t("scheduling.awaiting"),
+                            locale,
+                          )}
                         </dd>
                       </div>
                       <div>

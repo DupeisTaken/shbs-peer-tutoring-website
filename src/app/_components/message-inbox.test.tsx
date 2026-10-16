@@ -5,6 +5,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
@@ -21,10 +22,10 @@ const mocks = vi.hoisted(() => ({
   more: false,
   permission: "ready",
   replies: false,
+  unread: false,
   sending: false,
   onSent: undefined as undefined | (() => Promise<void>),
 }));
-vi.mock("./student-portal", () => ({ Pager: () => null }));
 vi.mock("~/trpc/react", () => ({
   api: {
     messaging: {
@@ -92,7 +93,7 @@ vi.mock("~/trpc/react", () => ({
                 createdAt: new Date("2026-09-01T03:00:00Z"),
                 incoming: true,
                 canReply: true,
-                readAt: new Date(),
+                readAt: mocks.unread ? null : new Date(),
                 body: `Incoming message ${id}`,
               }))
             : [],
@@ -120,6 +121,7 @@ beforeEach(() => {
   mocks.more = false;
   mocks.permission = "ready";
   mocks.replies = false;
+  mocks.unread = false;
   mocks.sending = false;
   vi.spyOn(window, "scrollBy").mockImplementation(() => undefined);
 });
@@ -233,7 +235,12 @@ it("paginates recipients while retaining selections and resets paging for a new 
   mocks.more = true;
   show();
   fireEvent.click(screen.getByRole("checkbox", { name: /Pat @pat/ }));
-  fireEvent.click(screen.getByRole("button", { name: en.messaging.next }));
+  const recipients = screen.getByRole("navigation", {
+    name: en.messaging.recipients,
+  });
+  fireEvent.click(
+    within(recipients).getByRole("button", { name: en.workflows.next }),
+  );
   expect(screen.getByRole("checkbox", { name: /Second Page/ })).toBeTruthy();
   expect(
     screen.getByRole("button", { name: "Remove Pat (@pat)" }),
@@ -242,6 +249,24 @@ it("paginates recipients while retaining selections and resets paging for a new 
     target: { value: "Alex" },
   });
   expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+  expect(within(recipients).getByRole("status").textContent).toContain("1");
+});
+
+it("uses the selected accent for recipients and a neutral supervision notice", () => {
+  mocks.replies = true;
+  mocks.unread = true;
+  show();
+  fireEvent.click(screen.getByRole("checkbox", { name: /Pat @pat/ }));
+  expect(
+    screen.getByRole("button", { name: "Remove Pat (@pat)" }).className,
+  ).toContain("bg-accent-50");
+  expect(
+    screen.getByText(en.messaging.disclosure).closest(".bg-blue-50"),
+  ).toBeNull();
+  expect(screen.getAllByRole("navigation")).toHaveLength(2);
+  expect(
+    screen.getByText("Incoming message 1").closest("article")?.className,
+  ).toContain("border-l-accent-500");
 });
 it("provides explicit loading, error retry and no-match states", () => {
   mocks.loading = true;

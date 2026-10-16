@@ -62,6 +62,7 @@ root; the override references it with `$fast-glob`. Keep the adapter's Docker
 Review the development-only [UI gallery](local-development.md#ui-pattern-gallery) before building a new interaction. Its examples use the same [shared components](../src/app/_components/ui) as the application. Keep the existing slate surfaces, white cards and accent themes. The [agent entry point](../AGENTS.md#start-with-the-shared-patterns) maps interactions to components and owns the control-height, table-action and responsive-header conventions.
 
 - Use links for navigation, `SectionTabs` for in-page panels and `ChoiceButton` for persistent selections. A selected value is not a submitted action.
+- Use the shared `Pager` from `student-portal.tsx` for participant and message lists. Give separate lists distinct translated labels, preserve their own page/filter state and use their existing `more` signal. Show the known current page; do not invent a total from a full batch or another list's count.
 - Put related fields in `FormSection` and place its Save/Cancel actions after all fields they affect. Keep mutation state, validation and permission checks in the feature that owns the operation.
 - Use `Modal` for review and confirmation, with a specific action label and consequence. Existing action tickets, countdowns and approval rules still apply; the component does not authorize a write.
 - For a `useActionReview` containing private evidence, the feature must conceal it when authoritative access is revoked and call `revoke()` to release the stored review. Preserve accepted keys and pending writes; ordinary read failures should retain the review and its recovery.
@@ -69,6 +70,11 @@ Review the development-only [UI gallery](local-development.md#ui-pattern-gallery
 - Use `SummaryTable` for tables: only brief names, dates, counts and statuses in columns. Put existing details and editors behind compact text links in the rightmost `TableActions` cell. Read-only history tables can omit actions; only explicit action cells become sticky. `TableDetails` opens an on-demand dialog. Related contact, account, course and history sections may share a feature-owned reader, as in Tutee details, while retaining their separate authorization. Never mount private query or mutation children for observers.
 - Compose new screens from the gallery's long-dialog, participant-form, filter, disclosure, settings, change-review and inline-notice examples. Reuse existing domain components. Set disclosure lifetime deliberately so collapsing a form never discards its draft.
 - Register each dialog form's own pending write with `useDialogPending`; do not feed its aggregate return value back into registration. Keep independent forms and their version snapshots separate. Preserve cached drafts on refresh failure. Clear or replace them through the feature's confirmed save/synchronization path, an explicit successful reload or cancellation; a background refetch alone must not discard edits.
+
+For potentially long table details, opt into `TableDetails longReader` as the room
+grid and Crew original-text readers do. This composes the existing `ProfileDialog`
+with a reachable header Close while preserving on-demand mounting. Keep brief
+reviews compact; the feature still owns any pending writes and access checks.
 
 Start by identifying the save boundary, query lifetime and authorized audience, then select a composition. Use an existing feature integration as well as a gallery example: long editors, immediate settings and staged forms intentionally have different save behavior. Keep new domain logic in the owning feature; a generic component must not infer permissions or expected versions from its visual state.
 

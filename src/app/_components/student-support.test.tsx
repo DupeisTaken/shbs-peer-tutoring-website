@@ -49,17 +49,21 @@ vi.mock("./student-portal", () => ({
     page,
     setPage,
     more,
+    label,
   }: {
     page: number;
     setPage: (page: number) => void;
     more: boolean;
+    label?: string;
   }) => (
-    <button
-      type="button"
-      aria-label={`next-${page}`}
-      disabled={!more}
-      onClick={() => setPage(page + 1)}
-    />
+    <nav aria-label={label}>
+      <button
+        type="button"
+        aria-label={`next-${page}`}
+        disabled={!more}
+        onClick={() => setPage(page + 1)}
+      />
+    </nav>
   ),
 }));
 
@@ -109,6 +113,8 @@ it("defaults to pending appeals and uses the filtered total for navigation", () 
   });
   render(<StudentSupport />);
 
+  expect(screen.getByRole("navigation", { name: "feedback" })).toBeTruthy();
+  expect(screen.getByRole("navigation", { name: "staffAppeals" })).toBeTruthy();
   expect(state.appealsUseQuery).toHaveBeenLastCalledWith(
     { page: 0, state: "PENDING" },
     { enabled: true },
@@ -119,6 +125,33 @@ it("defaults to pending appeals and uses the filtered total for navigation", () 
     { enabled: true },
   );
 });
+
+it.each(["PENDING", "RESOLVED"])(
+  "labels %s appeal records without leaking server states",
+  (stateValue) => {
+    state.appealsUseQuery.mockReturnValue({
+      data: {
+        rows: [
+          {
+            id: "appeal",
+            studentName: "Synthetic student",
+            state: stateValue,
+            cardReason: "Reason",
+            body: "Body",
+          },
+        ],
+        total: 1,
+      },
+    });
+    render(<StudentSupport />);
+    expect(
+      screen.getByText(
+        `Synthetic student · ${stateValue === "PENDING" ? "pendingAppeals" : "resolvedAppeals"}`,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(`Synthetic student · ${stateValue}`)).toBeNull();
+  },
+);
 
 it("switches to resolved history and resets only the appeal page", () => {
   state.appealsUseQuery.mockReturnValue({

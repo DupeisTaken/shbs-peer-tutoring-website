@@ -541,7 +541,7 @@
     },
     "requests": {
       "title": "신청 요청 (학생)",
-      "help": "배정 대기 중인 학생 공개 신청 목록입니다. 접수 순으로 처리합니다. 각 과목 선택에 튜터를 배정하면 매칭이 생성되고, 튜터가 시간대를 선택합니다.",
+      "help": "새 신청을 검토하고 과목을 매칭하며 배정된 학생을 확인하세요.",
       "noTerm": "요청을 배정하려면 먼저 학기를 생성하세요.",
       "decline": "거절",
       "declineConfirm": "{name}의 신청을 거절하고 삭제하시겠습니까?",
@@ -2681,7 +2681,9 @@
     "invalidDate": "Enter a valid date and time.",
     "searchInterviews": "Search",
     "feedbackVisibilityLoading": "피드백을 읽을 수 있는 사람을 확인하는 중…",
-    "feedbackVisibilityUnavailable": "피드백을 읽을 수 있는 사람을 확인할 수 없습니다. 공개 범위를 확인하려면 다시 시도하세요."
+    "feedbackVisibilityUnavailable": "피드백을 읽을 수 있는 사람을 확인할 수 없습니다. 공개 범위를 확인하려면 다시 시도하세요.",
+    "pagination": "페이지 탐색",
+    "page": "{page}페이지"
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -2836,7 +2838,9 @@
     },
     "selfServiceSource": "직접 신청",
     "unknownSource": "이전 신청",
-    "sourceHelp": "출처는 신청 입력 방식을 나타내며 승인, 우선순위, 참여 규칙을 바꾸지 않습니다. 이전 신청은 원래 입력 출처를 확인할 수 없는 기록입니다."
+    "sourceHelp": "출처는 신청 입력 방식을 나타내며 승인, 우선순위, 참여 규칙을 바꾸지 않습니다. 이전 신청은 원래 입력 출처를 확인할 수 없는 기록입니다.",
+    "boardGuide": "신청 분류 방식",
+    "sourceGuide": "등록 경로와 계정 연결"
   },
   "approvals": {
     "reviewPermissions": "일반 관리 요청은 Admin과 Head가 검토합니다. 역할 및 배지 변경은 Head만 검토할 수 있습니다. Head는 자신의 요청도 검토할 수 있으며, 다른 사용자는 별도의 권한 있는 검토자가 필요합니다.",
@@ -3663,7 +3667,8 @@
       "grade": "과목 성적",
       "apScore": "AP 점수",
       "selfStudyNote": "독학 세부 정보"
-    }
+    },
+    "requirementsHelp": "필드 요구 사항 및 이메일 설정"
   },
   "courseGroups": {
     "title": "Subjects & Levels",

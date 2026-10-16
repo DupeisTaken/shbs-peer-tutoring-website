@@ -18,6 +18,8 @@ import { ReadOnlyProvider } from "./read-only";
 
 const state = vi.hoisted(() => ({
   status: "ACTIVE",
+  patrols: 2,
+  hours: 1,
   requestKind: "OPT_OUT",
   empty: [],
   commit: vi.fn(),
@@ -72,8 +74,8 @@ vi.mock("~/trpc/react", () => ({
                         status: state.status,
                         crewOnly: true,
                         tutor: null,
-                        patrols: 2,
-                        hours: 1,
+                        patrols: state.patrols,
+                        hours: state.hours,
                       },
                     ]
                   : name === "crewApplications"
@@ -124,6 +126,8 @@ beforeEach(() => {
     defaultOptions: { queries: { retry: false } },
   });
   state.status = "ACTIVE";
+  state.patrols = 2;
+  state.hours = 1;
   state.requestKind = "OPT_OUT";
   state.error = null;
   state.readError = null;
@@ -158,6 +162,18 @@ const show = (readOnly = false, locale = "en") =>
       </QueryClientProvider>
     ),
   });
+
+it.each(["en", "zh"])(
+  "shows known zero crew totals in the %s roster",
+  (locale) => {
+    state.patrols = 0;
+    state.hours = 0;
+    show(true, locale);
+    const row = screen.getByText("Synthetic crew member").closest("tr")!;
+    expect(within(row).getByRole("cell", { name: "0" })).toBeTruthy();
+    expect(within(row).getByRole("cell", { name: "0.0 h" })).toBeTruthy();
+  },
+);
 const cases = [
   [
     en.admin.crew.softRemove,
@@ -210,6 +226,10 @@ it("keeps full application/request evidence readable before a decision, includin
     );
     const dialog = screen.getByRole("dialog");
     expect(dialog.textContent?.split(text)).toHaveLength(31);
+    expect(
+      within(dialog).getByRole("button", { name: "Close" }).parentElement
+        ?.className,
+    ).toContain("sticky");
     fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
   }
   expect(state.commit).not.toHaveBeenCalled();

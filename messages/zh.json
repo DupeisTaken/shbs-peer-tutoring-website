@@ -529,7 +529,7 @@
     },
     "requests": {
       "title": "报名请求（学习伙伴）",
-      "help": "等待分配的公开学习伙伴报名，按最早优先处理。为每个科目志愿分配一位辅导伙伴——这会创建配对，随后由辅导伙伴选择时间段。",
+      "help": "审核新申请、匹配科目并跟进已分配学生。",
       "noTerm": "请先创建学期，才能分配请求。",
       "decline": "拒绝",
       "declineConfirm": "拒绝并删除 {name} 的请求？",
@@ -2677,7 +2677,9 @@
     "invalidDate": "请输入有效的日期和时间。",
     "searchInterviews": "搜索",
     "feedbackVisibilityLoading": "正在确认哪些人可以查看反馈…",
-    "feedbackVisibilityUnavailable": "无法确认哪些人可以查看反馈。请重试以确认可见范围。"
+    "feedbackVisibilityUnavailable": "无法确认哪些人可以查看反馈。请重试以确认可见范围。",
+    "pagination": "分页",
+    "page": "第 {page} 页"
   },
   "survey": {
     "intro": "报名开放后，请提交辅导报名问卷。较早提交的同学将获得优先安排。随后请查收邮件，确认申请并创建学习伙伴账户。",
@@ -2832,7 +2834,9 @@
     },
     "selfServiceSource": "自主报名",
     "unknownSource": "早期报名",
-    "sourceHelp": "来源说明报名的录入方式，不会改变审批、优先顺序或参与规则。“早期报名”表示原始录入来源尚无法确认。"
+    "sourceHelp": "来源说明报名的录入方式，不会改变审批、优先顺序或参与规则。“早期报名”表示原始录入来源尚无法确认。",
+    "boardGuide": "申请如何分组",
+    "sourceGuide": "报名来源与归属"
   },
   "approvals": {
     "reviewPermissions": "管理员和负责人审批日常管理操作。重大设置、管理账户资料与权限、注册码授权申请及撤销操作由负责人审批。管理员和负责人可直接签发辅导伙伴及巡视员注册码。负责人可审批自己提交的请求；其他人员需要另一位有权限的审批人员。",
@@ -3659,7 +3663,8 @@
       "grade": "课程成绩",
       "apScore": "AP成绩",
       "selfStudyNote": "自学详情"
-    }
+    },
+    "requirementsHelp": "字段要求与邮箱设置"
   },
   "courseGroups": {
     "title": "科目与级别",

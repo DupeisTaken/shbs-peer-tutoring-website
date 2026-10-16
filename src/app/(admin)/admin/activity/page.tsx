@@ -336,7 +336,9 @@ export default function ActivityPage() {
         {openApps.map((a) => (
           <Row key={a.id}>
             <span className="font-medium text-slate-800">{a.name}</span>
-            <span className="badge-amber">{a.status.toLowerCase()}</span>
+            <span className="badge-amber">
+              {t(`admin.applications.status.${a.status}`)}
+            </span>
             <span className="muted text-xs">
               {t("admin.activity.panels.tutorApplications.votes", {
                 count: a.votes.length,

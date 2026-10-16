@@ -44,6 +44,32 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+it.each([
+  ["ZERO", "0"],
+  ["ONE", "1"],
+  ["TWO", "2"],
+  ["THREE", "3"],
+  ["FOUR_PLUS", "4+"],
+])(
+  "renders stored %s headcount as %s without exposing its enum",
+  (bucket, label) => {
+    const original = row.observations[0]!.headcount;
+    row.observations[0]!.headcount = bucket;
+    render(
+      <NextIntlClientProvider
+        locale="en"
+        messages={messages}
+        timeZone="Asia/Shanghai"
+      >
+        <PatrolCorrections />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByText(`Synthetic room: ${label}`)).toBeTruthy();
+    expect(screen.queryByText(`Synthetic room: ${bucket}`)).toBeNull();
+    row.observations[0]!.headcount = original;
+  },
+);
+
 it("labels a stored repeated-hour instant correctly and updates the offset when editing its date", () => {
   const { container } = render(
     <NextIntlClientProvider

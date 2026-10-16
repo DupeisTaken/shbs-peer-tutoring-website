@@ -27,6 +27,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: transport.refresh }),
 }));
 vi.mock("next-intl", () => ({
+  useLocale: () => "en",
   useTimeZone: () => "Asia/Shanghai",
   useTranslations: () => (key: string) => key,
 }));
@@ -225,9 +226,12 @@ it("leaves a locally invalid draft editable without consuming submission admissi
   expect(screen.getByRole("alert").textContent).toContain(
     "tutor.attendance.errors.absenceReason",
   );
-  fireEvent.change(screen.getByLabelText("tutor.attendance.tutorAbsentReason"), {
-    target: { value: "Synthetic absence reason" },
-  });
+  fireEvent.change(
+    screen.getByLabelText("tutor.attendance.tutorAbsentReason"),
+    {
+      target: { value: "Synthetic absence reason" },
+    },
+  );
   await submit();
   await waitFor(() => expect(transport.requests).toHaveLength(1));
   await act(async () => {

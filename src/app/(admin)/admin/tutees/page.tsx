@@ -11,7 +11,7 @@ import { pairingScheduleText } from "~/lib/pairing-schedule";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import {
   useProfilePolicy,
@@ -101,6 +101,7 @@ function StatsCells({
 
 export default function TuteesPage() {
   const t = useTranslations();
+  const locale = useLocale();
   const h = useTranslations("tuteeHistory");
   const [historyView, setHistoryView] = useState<TuteeHistoryView>("current");
   const [detailsId, setDetailsId] = useState<string | null>(null);
@@ -552,7 +553,11 @@ export default function TuteesPage() {
                         </span>
                       </td>
                       <td className="text-slate-600">
-                        {pairingScheduleText(p, t("scheduling.awaiting"))}
+                        {pairingScheduleText(
+                          p,
+                          t("scheduling.awaiting"),
+                          locale,
+                        )}
                       </td>
                       <td className="text-slate-600">
                         <span className="block max-w-40 truncate">
@@ -580,6 +585,7 @@ export default function TuteesPage() {
                                 {pairingScheduleText(
                                   p,
                                   t("scheduling.awaiting"),
+                                  locale,
                                 )}
                               </dd>
                             </div>

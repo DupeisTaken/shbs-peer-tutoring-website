@@ -5,7 +5,7 @@ import { useDialog } from "~/app/_components/confirm-dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useTranslations, useTimeZone } from "next-intl";
+import { useLocale, useTranslations, useTimeZone } from "next-intl";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 
@@ -65,6 +65,7 @@ import { programDateKey, programDateTimeInput } from "~/lib/program-time";
 
 export function AttendanceForm() {
   const t = useTranslations();
+  const locale = useLocale();
   const timeZone = useTimeZone();
   const todayIso = () => programDateKey(new Date(), timeZone);
   const nowHm = () => programDateTimeInput(new Date(), timeZone).slice(11);
@@ -404,7 +405,8 @@ export function AttendanceForm() {
             </option>
             {pairings.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.subject} · {pairingScheduleText(p, t("scheduling.awaiting"))}
+                {p.subject} ·{" "}
+                {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
                 {p.room ? ` · ${p.room.name}` : ""}
               </option>
             ))}

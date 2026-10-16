@@ -6,6 +6,8 @@ import messages from "../../../../../messages/en.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import AuditPage from "./page";
 
+const state = vi.hoisted(() => ({ undone: false }));
+
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -31,7 +33,7 @@ vi.mock("~/trpc/react", () => ({
               userName: "Recorded actor",
               action: "Management action",
               kind: "ACTION",
-              undone: false,
+              undone: state.undone,
               details: null,
               undoData: null,
               approvalId: null,
@@ -43,7 +45,10 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  state.undone = false;
+});
 
 function mount(readOnly = false) {
   render(
@@ -68,6 +73,16 @@ it("mounts staff evidence only while the selected event dialog is open", () => {
   expect(screen.queryByText("Private evidence for event-1")).toBeNull();
 });
 
+it("keeps undone records and their detail reader available without an inherited opacity", () => {
+  state.undone = true;
+  mount();
+  const row = screen.getByText("Recorded actor").closest("tr")!;
+  expect(row.className).toContain("bg-slate-50");
+  expect(row.className).not.toMatch(/opacity-/);
+  fireEvent.click(screen.getByRole("button", { name: /View details:/ }));
+  expect(screen.getByText("Private evidence for event-1")).toBeTruthy();
+});
+
 it("keeps observer dialogs on the projected summary without mounting staff evidence", () => {
   mount(true);
   fireEvent.click(screen.getByRole("button", { name: /View details:/ }));
@@ -75,4 +90,3 @@ it("keeps observer dialogs on the projected summary without mounting staff evide
   expect(screen.queryByText("Private evidence for event-1")).toBeNull();
   expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
 });
-

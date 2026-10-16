@@ -88,7 +88,7 @@ function AuditLog() {
           </thead>
           <tbody>
             {entries.map((e) => (
-              <tr key={e.id} className={e.undone ? "opacity-50" : ""}>
+              <tr key={e.id} className={e.undone ? "bg-slate-50" : ""}>
                 <td className="text-xs text-slate-500">
                   {format.dateTime(new Date(e.createdAt), {
                     dateStyle: "medium",
@@ -190,7 +190,11 @@ function AuditLog() {
           {t("approvals.next")}
         </button>
       </div>
-      {!readOnly && undo.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+      {!readOnly && undo.error?.data?.approvalId && (
+        <InlineNotice tone="warning" announcement="status">
+          {t("approvals.queuedBody")}
+        </InlineNotice>
+      )}
       {!readOnly && undo.error && !undo.error.data?.approvalId && (
         <p className="text-sm text-red-600">{undo.error.message}</p>
       )}

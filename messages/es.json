@@ -533,7 +533,7 @@
     },
     "requests": {
       "title": "Solicitudes de registro (estudiantes)",
-      "help": "Registros públicos de estudiantes en espera de asignación, procesados del más antiguo al más reciente. Asigna cada opción de materia a un tutor: eso crea el emparejamiento, y luego el tutor elige el horario.",
+      "help": "Revisa las nuevas solicitudes, asigna las materias y da seguimiento a los estudiantes asignados.",
       "noTerm": "Crea primero un período para poder asignar solicitudes.",
       "decline": "Rechazar",
       "declineConfirm": "¿Rechazar y eliminar la solicitud de {name}?",
@@ -2681,7 +2681,9 @@
     "invalidDate": "Enter a valid date and time.",
     "searchInterviews": "Search",
     "feedbackVisibilityLoading": "Comprobando quién puede leer los comentarios…",
-    "feedbackVisibilityUnavailable": "No se pudo verificar quién puede leer los comentarios. Inténtalo de nuevo para comprobar su visibilidad."
+    "feedbackVisibilityUnavailable": "No se pudo verificar quién puede leer los comentarios. Inténtalo de nuevo para comprobar su visibilidad.",
+    "pagination": "Paginación",
+    "page": "Página {page}"
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -2836,7 +2838,9 @@
     },
     "selfServiceSource": "Autoservicio",
     "unknownSource": "Inscripción anterior",
-    "sourceHelp": "La fuente indica cómo se registró la inscripción. No cambia la aprobación, la prioridad ni las reglas de participación. Inscripción anterior indica que no se conoce la fuente original."
+    "sourceHelp": "La fuente indica cómo se registró la inscripción. No cambia la aprobación, la prioridad ni las reglas de participación. Inscripción anterior indica que no se conoce la fuente original.",
+    "boardGuide": "Cómo se agrupan las solicitudes",
+    "sourceGuide": "Origen y titularidad de las inscripciones"
   },
   "approvals": {
     "reviewPermissions": "Admin y Head revisan las solicitudes de gestión ordinarias. Solo Head revisa cambios de roles y credenciales. Head puede revisar sus propias solicitudes; los demás necesitan otro revisor autorizado.",
@@ -3663,7 +3667,8 @@
       "grade": "Nota del curso",
       "apScore": "Puntuación AP",
       "selfStudyNote": "Detalles del estudio autónomo"
-    }
+    },
+    "requirementsHelp": "Requisitos de los campos y ajustes de correo"
   },
   "courseGroups": {
     "title": "Asignaturas y niveles",

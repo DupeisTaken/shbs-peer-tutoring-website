@@ -175,7 +175,7 @@ export function StudentPortal({
       )}
       {(view === "all" || view === "schedule") && (
         <section className="card p-6">
-          <h2 className="section-title">{t("schedule")}</h2>
+          {view === "all" && <h2 className="section-title">{t("schedule")}</h2>}
           {!schedule.length && (
             <p className="muted mt-3">{portal("scheduleEmpty")}</p>
           )}
@@ -194,7 +194,9 @@ export function StudentPortal({
       )}
       {(view === "all" || view === "attendance") && (
         <section className="card space-y-4 p-6">
-          <h2 className="section-title">{t("attendance")}</h2>
+          {view === "all" && (
+            <h2 className="section-title">{t("attendance")}</h2>
+          )}
           {shared.error ? (
             <InlineNotice
               tone="warning"
@@ -410,28 +412,29 @@ export function Pager({
   page,
   setPage,
   more,
+  label,
 }: {
   page: number;
   setPage: (p: number) => void;
   more: boolean;
+  label?: string;
 }) {
   const t = useTranslations("workflows");
   return (
-    <nav className="flex gap-3">
-      <button
-        className="btn-secondary"
-        disabled={!page}
-        onClick={() => setPage(page - 1)}
-      >
+    <nav
+      aria-label={label ?? t("pagination")}
+      className="flex flex-wrap items-center gap-2"
+    >
+      {/* APIs expose only a next-page signal; never imply an unknown total. */}
+      <Button size="compact" disabled={!page} onClick={() => setPage(page - 1)}>
         {t("previous")}
-      </button>
-      <button
-        className="btn-secondary"
-        disabled={!more}
-        onClick={() => setPage(page + 1)}
-      >
+      </Button>
+      <span role="status" className="muted text-sm">
+        {t("page", { page: page + 1 })}
+      </span>
+      <Button size="compact" disabled={!more} onClick={() => setPage(page + 1)}>
         {t("next")}
-      </button>
+      </Button>
     </nav>
   );
 }

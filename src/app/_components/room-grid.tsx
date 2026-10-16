@@ -125,6 +125,7 @@ export function RoomGrid({
               })}
               <TableActions>
                 <TableDetails
+                  longReader
                   label={t("schedule")}
                   title={`${formatWeekday(slot.dayOfWeek, locale)} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}`}
                 >

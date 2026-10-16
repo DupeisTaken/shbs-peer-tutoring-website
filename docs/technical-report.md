@@ -251,6 +251,19 @@ Historical or corrected tutee contact saves and historical or preserved tutor pr
 
 `FilterToolbar`, `SettingRow`, `ChangeReview` and `InlineNotice` are presentation compositions with caller-owned state. A filter uses pressed choices; only actual content views use tabs. Immediate switches, explicit unknown/yes/no willingness and staged checkbox settings preserve their distinct save behavior. Change review accepts domain-owned immutable evidence such as `ApprovalReviewDetails`; it never generates authorization or confirmation tickets. Announce new failures or completions explicitly and avoid wrapping existing alerts in another alert.
 
+`TableDetails` can opt into `longReader`, composing `ProfileDialog` for a persistent
+header Close and an internally scrolling body. The room grid, original Crew
+application/request readers and gallery exercise this option. Children still mount
+only after opening; nested focus, Escape and pending child writes use the existing
+native-dialog contract. This adds no detail query or authorization behavior.
+
+The participant `Pager` wraps compact previous/next controls in a named navigation
+region and reports the current page. Its optional translated `label` distinguishes
+multiple lists on one page, including message recipients and inbox results. Each
+feature retains its own `page`, setter, `more` calculation and filter reset rules;
+the component does not fetch data or infer a total number of pages. Controls wrap
+for long labels and keep the existing desktop/touch size hierarchy.
+
 Discipline review, the Service Hours month filter and Session Flags use compact
 actions beside native fields with explicit desktop padding/min-height overrides.
 Measure their rendered rows; class names alone do not establish equal height.

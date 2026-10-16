@@ -217,15 +217,16 @@ export default function SubmissionsPage() {
             <tbody>
               {(sessions.data ?? []).map((s) => (
                 <tr key={s.id}>
-                  <td>
+                  {/* Date components must stay together while this table scrolls locally. */}
+                  <td className="min-w-28 whitespace-nowrap">
                     {programFormat.dateTime(new Date(s.date), {
                       dateStyle: "medium",
                       timeZone: "UTC",
                     })}
                   </td>
-                  <td>{s.tutor.englishName}</td>
-                  <td>{s.pairing.subject}</td>
-                  <td className="text-slate-500">
+                  <td className="min-w-32">{s.tutor.englishName}</td>
+                  <td className="min-w-36">{s.pairing.subject}</td>
+                  <td className="min-w-24 text-slate-500">
                     {t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`)}
                   </td>
                   <td>{s.tutees.length}</td>

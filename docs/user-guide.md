@@ -189,9 +189,15 @@ The tutee page uses the same top bar, account menu, theme and card layout as the
 | Messages             | Read and send messages within the tutee workspace                                                                                  |
 | Account              | Manage your shared account within the tutee workspace                                                                              |
 
-**Request a Tutor** is available in every section and opens the existing request form. A program period is labeled **Quarter** when quarters are enabled and **Semester** when semester mode is applied; request and withdrawal wording follows that setting. A staged mode change does not change the current display.
+While eligible to participate, **Request a Tutor** appears once in the page header of every section and opens the existing request form. A program period is labeled **Quarter** when quarters are enabled and **Semester** when semester mode is applied; request and withdrawal wording follows that setting. A staged mode change does not change the current display.
 
 Current schedules include only active-period assignments on explicitly owned, non-inactive profiles. A new tutor assignment displays **Awaiting schedule** until a tutor or manager chooses a time slot; the assigned tutor remains visible. The dashboard counts only subjects with confirmed schedules. Multiple profiles on the same assignment produce one schedule entry. A matching name or email does not grant access to another person’s records. Historical attendance remains available after a refresh.
+
+The dashboard previews up to three existing recurring schedules and links to the
+complete schedule and request lists. Confirm individual meeting dates with your
+tutor. An unavailable count is shown as unknown with a Retry action. Paginated
+participant and message lists show the current page and available Previous/Next
+actions. Each list keeps its own page and navigation state.
 
 ### Manage a request
 
@@ -380,6 +386,9 @@ A settings request leaves the effective switch, schedule and policy version unch
 
 Open **Management → Signup Forms** and choose Tutor signup or Tutee signup. Head and Admin can open **Configure** beside an existing field and choose Required, Optional, or Hidden. Head applies directly; Admin uses **Request Head Approval**, preserving the draft and live settings until approval. Coordinators can review settings but cannot submit them. Applied changes affect new submissions, including a form opened before the change; reload that form if validation reports changed requirements. Existing submissions and their original answers remain unchanged.
 
+Open **Field requirements and email settings** for the shared rules. Keyboard
+arrow keys move focus between signup tabs; Enter or Space selects the focused tab.
+
 Name, sign-in email, the first subject and policy acceptance are locked as visible and required. Additional subject choices can be configured independently, without reordering or adding fields. Required qualification questions ask for an explicit Yes or No, not a positive qualification. Grade, AP score and self-study details are required only when their visible parent answer is Yes; AP questions apply only to AP-scored subjects. Hidden questions and their dependent details cannot block submission.
 
 Visible fields show translated **Required** or **Optional** text beside the label. On the tutee form, hover, focus or tap the email label to read its guidance; Escape or an outside interaction closes it.
@@ -397,6 +406,12 @@ In **Program → Names and Grades**, Head can apply **Use preferred names** and 
 ### Find records and confirm saves
 
 Tables show brief information for scanning. Use the text links in the rightmost **Actions** column to open full details or an editor. On a narrow screen, that column stays reachable while the other columns scroll sideways. Closing a detail dialog returns you to its link. Detailed report exports and printed history retain their full content.
+
+Long room-grid and original Crew-message readers keep Close at the top while the
+body scrolls. Time Slots keeps its complete summary in the row; authorized staff
+use **Edit** to change it, and the propagation guidance remains available through
+Help for readers too. Crew totals display a recorded zero as **0** patrols and
+**0.0 h**. Inactive or historical rows retain readable text and their status labels.
 
 Profile sections save independently. While any section inside an editor is saving, its fields and the editor's dismissal controls are temporarily unavailable. A failed save keeps your draft for correction or retry. After a successful profile or Head username save, that section automatically refreshes and becomes editable again. Other sections keep their unsaved drafts and errors; they are saved only when you choose their own Save. You can make another change without closing the editor or choosing a restart action. If refreshing fails after the save was accepted, the section stays read-only and shows a separate warning. Choose **Retry refresh** to reload the accepted values without submitting the change again. Choose **Close** when you are ready. Closing a nested review returns to the profile rather than closing both. In **Names and Grades**, retrying a failed background refresh keeps unsaved choices; **Reload** after a version conflict replaces them only when the new settings load successfully.
 
@@ -558,6 +573,10 @@ retry; after a successful save, **Retry refresh** reloads the records without
 submitting the same change again.
 
 Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history.
+
+Use **How requests are grouped** and **Signup sources and ownership** for the
+contextual explanations. The tabs retain their counts and manual keyboard
+activation; moving focus alone does not select another queue.
 
 Course-aware tutor selectors in Signup Requests and Pairings list tutors with approved, recorded subject grants first, followed by a separate unqualified group. Inherited grants remain valid after level reordering. Choose the subject first in Pairings. Assigning an unqualified tutor opens a warning naming the tutor and subject; confirmation becomes available after three full seconds. Cancel or change the selection to discard that acknowledgement. Coordinators still submit proposals, and the reviewer must confirm any remaining qualification mismatch independently. This override does not waive active-tutor, request, permission, or scheduling checks.
 

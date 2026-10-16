@@ -1,7 +1,75 @@
 // @vitest-environment jsdom
-import { expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
+import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 
-import { canSubmitCardAppeal } from "./student-portal";
+import { canSubmitCardAppeal, Pager } from "./student-portal";
+
+afterEach(cleanup);
+
+it.each(["en", "zh"] as const)(
+  "names %s pagination and exposes only the known page position",
+  (locale) => {
+    const setPage = vi.fn();
+    const messages = locale === "en" ? en : zh;
+    const ui = (page: number, more: boolean) => (
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        <Pager
+          label="Attendance records"
+          page={page}
+          setPage={setPage}
+          more={more}
+        />
+      </NextIntlClientProvider>
+    );
+    const { rerender } = render(ui(0, true));
+    const nav = screen.getByRole("navigation", { name: "Attendance records" });
+    const buttons = within(nav).getAllByRole("button");
+    const previous = within(nav).getByRole("button", {
+      name: messages.workflows.previous,
+    });
+    const next = within(nav).getByRole("button", {
+      name: messages.workflows.next,
+    });
+    expect(previous.hasAttribute("disabled")).toBe(true);
+    expect(next.hasAttribute("disabled")).toBe(false);
+    expect(within(nav).getByRole("status").textContent).toContain("1");
+    expect(
+      buttons.every((button) => button.getAttribute("type") === "button"),
+    ).toBe(true);
+    fireEvent.click(next);
+    expect(setPage).toHaveBeenLastCalledWith(1);
+    rerender(ui(1, true));
+    fireEvent.click(previous);
+    expect(setPage).toHaveBeenLastCalledWith(0);
+    rerender(ui(2, false));
+    expect(next.hasAttribute("disabled")).toBe(true);
+    expect(within(nav).getByRole("status").textContent).toContain("3");
+    expect(nav.textContent).not.toMatch(/of|共/);
+  },
+);
+
+it("supplies a translated default name and disables forward navigation for an empty first page", () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <Pager page={0} setPage={vi.fn()} more={false} />
+    </NextIntlClientProvider>,
+  );
+  const nav = screen.getByRole("navigation", { name: en.workflows.pagination });
+  expect(
+    within(nav)
+      .getAllByRole("button")
+      .every((button) => button.hasAttribute("disabled")),
+  ).toBe(true);
+});
 
 const now = new Date("2026-09-10T00:00:00Z");
 

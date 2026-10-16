@@ -6,9 +6,10 @@ import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 
-import { Button } from "~/app/_components/ui/button";
+import { Button, ChoiceButton } from "~/app/_components/ui/button";
 import {
   FormActions,
+  FilterToolbar,
   InlineNotice,
   StatePanel,
 } from "~/app/_components/ui/patterns";
@@ -396,9 +397,9 @@ export default function UsersPage() {
       </div>
 
       <section className="card space-y-3 p-4 text-sm">
-        <p>{t("usersDirectory.intro")}</p>
         <DisclosureSection title={t("usersDirectory.pathways")} lifetime="lazy">
           <div className="space-y-3 pt-3 text-slate-700">
+            <p>{t("usersDirectory.intro")}</p>
             <p>
               {t("usersDirectory.pathwaysTutee")}{" "}
               <Link href="/admin/tutees" className="link">
@@ -470,11 +471,9 @@ export default function UsersPage() {
               hidden: (accounts.data?.rows.length ?? 0) - rows.length,
             })}
           </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="btn-secondary btn-sm min-h-11 lg:min-h-8"
-              aria-pressed={filters.showUnverified}
+          <FilterToolbar label={t("usersDirectory.visibility")}>
+            <ChoiceButton
+              selected={filters.showUnverified}
               onClick={() =>
                 updateFilters({
                   ...filters,
@@ -487,11 +486,9 @@ export default function UsersPage() {
                   ? "tuteeHistory.hideUnverified"
                   : "tuteeHistory.showUnverified",
               )}
-            </button>
-            <button
-              type="button"
-              className="btn-secondary btn-sm min-h-11 lg:min-h-8"
-              aria-pressed={filters.showPastTutors}
+            </ChoiceButton>
+            <ChoiceButton
+              selected={filters.showPastTutors}
               onClick={() =>
                 updateFilters({
                   ...filters,
@@ -504,7 +501,7 @@ export default function UsersPage() {
                   ? "tuteeHistory.hideHistorical"
                   : "tuteeHistory.showHistorical",
               )}
-            </button>
+            </ChoiceButton>
             <button
               type="button"
               className="btn-secondary btn-sm min-h-11 lg:min-h-8"
@@ -512,7 +509,7 @@ export default function UsersPage() {
             >
               {t("userMultiFilters.clear")}
             </button>
-          </div>
+          </FilterToolbar>
         </div>
       </section>
 
@@ -783,10 +780,12 @@ export default function UsersPage() {
                     </div>
                   </td>
 
-                  <td className="max-w-56">
+                  <td className="max-w-56 min-w-32">
                     <LoginSetup account={u.account} suspended={u.suspended} />
                   </td>
-                  <td className="max-w-56">
+                  {/* Measured 68px mobile columns fragmented Chinese role labels.
+                      Keep readable columns inside the existing local scroll region. */}
+                  <td className="max-w-56 min-w-40">
                     <MembershipBadges membership={accountMembership(u)} />
                   </td>
 

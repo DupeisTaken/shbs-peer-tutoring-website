@@ -91,6 +91,22 @@ describe("UI recovery and persistent field labels", () => {
 });
 
 describe("bundled header translations", () => {
+  it("provides named pagination and current-page context in every locale", () => {
+    for (const locale of LOCALES) {
+      const copy = bundledMessages[locale].workflows;
+      expect(copy.pagination, `${locale} pagination name`).toMatch(/\S/);
+      expect(copy.page, `${locale} current-page argument`).toContain("{page}");
+    }
+  });
+
+  it("keeps contextual field and request guidance discoverable in every locale", () => {
+    for (const locale of LOCALES) {
+      expect(bundledMessages[locale].signupFields.requirementsHelp).toMatch(/\S/);
+      expect(bundledMessages[locale].workflow.boardGuide).toMatch(/\S/);
+      expect(bundledMessages[locale].workflow.sourceGuide).toMatch(/\S/);
+    }
+  });
+
   it("provides qualification direct-review and recovery copy in every bundled locale", () => {
     for (const locale of LOCALES) {
       const copy = bundledMessages[locale].qualificationRequests;

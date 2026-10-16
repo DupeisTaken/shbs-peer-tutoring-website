@@ -114,11 +114,11 @@ export function MessageInbox() {
   }
   return (
     <div className="space-y-5">
-      <aside className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-slate-800">
+      <InlineNotice>
         <p className="font-semibold">{m("privacyTitle")}</p>
         <p className="mt-1">{m("disclosure")}</p>
         <p className="mt-2 text-xs">{m("legacyHelp")}</p>
-      </aside>
+      </InlineNotice>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <form
           aria-label={t("send")}
@@ -213,7 +213,7 @@ export function MessageInbox() {
                   <li key={c.id}>
                     <button
                       type="button"
-                      className="control-compact rounded-full border border-blue-200 bg-blue-50 text-sm text-slate-900"
+                      className="control-compact border-accent-200 bg-accent-50 rounded-full border text-sm text-slate-900"
                       aria-label={m("remove", {
                         name: `${c.name ?? c.username ?? c.id} (@${c.username ?? c.id})`,
                       })}
@@ -286,25 +286,12 @@ export function MessageInbox() {
                 </Button>
               </div>
             )}
-            <div className="flex items-center justify-between gap-2">
-              <Button
-                size="compact"
-                disabled={contactPage === 0}
-                onClick={() => setContactPage((p) => p - 1)}
-              >
-                {m("previous")}
-              </Button>
-              <span className="muted text-xs">
-                {m("page", { page: contactPage + 1 })}
-              </span>
-              <Button
-                size="compact"
-                disabled={!contacts.data?.more}
-                onClick={() => setContactPage((p) => p + 1)}
-              >
-                {m("next")}
-              </Button>
-            </div>
+            <Pager
+              label={m("recipients")}
+              page={contactPage}
+              setPage={setContactPage}
+              more={!!contacts.data?.more}
+            />
           </fieldset>
           <div ref={composerContext} className="space-y-3">
             {replyTo && (
@@ -385,7 +372,7 @@ export function MessageInbox() {
           )}
           {inbox.data?.map((msg) => (
             <article
-              className={`card min-w-0 p-5 ${msg.incoming && !msg.readAt ? "border-l-4 border-l-blue-500" : ""}`}
+              className={`card min-w-0 p-5 ${msg.incoming && !msg.readAt ? "border-l-accent-500 border-l-4" : ""}`}
               key={msg.id}
             >
               <div className="flex flex-wrap justify-between gap-2">
@@ -443,6 +430,7 @@ export function MessageInbox() {
             </article>
           ))}
           <Pager
+            label={m("inbox")}
             page={page}
             setPage={setPage}
             more={inbox.data?.length === 30}

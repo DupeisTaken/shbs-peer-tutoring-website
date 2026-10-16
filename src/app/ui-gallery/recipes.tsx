@@ -19,6 +19,7 @@ import { Button, ChoiceButton, Switch } from "~/app/_components/ui/button";
 import { Modal, useDialogPending } from "~/app/_components/ui/modal";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
+import { TableDetails } from "~/app/_components/ui/summary-table";
 import {
   ChangeReview,
   FilterToolbar,
@@ -34,6 +35,8 @@ const en = {
     "Wide forms retain a sticky Close header. Readers scroll their document independently. A child review owns Escape and returns focus to its opener.",
   openLong: "Open wide participant editor",
   openReader: "Open policy reader",
+  openTableReader: "Open long room schedule",
+  tableReader: "Room schedule details",
   policy: "Example programme policy",
   policyBody:
     "## Attendance\n\nTell the programme team when your availability changes.\n\n## Records\n\nAttendance history remains available for review.",
@@ -119,6 +122,8 @@ const zh: Record<keyof typeof en, string> = {
     "宽表单保留固定关闭标题栏。阅读器正文独立滚动。子审核弹窗处理 Escape，关闭后焦点返回打开按钮。",
   openLong: "打开宽版参与者编辑器",
   openReader: "打开政策阅读器",
+  openTableReader: "打开长教室安排",
+  tableReader: "教室安排详情",
   policy: "示例项目政策",
   policyBody:
     "## 出勤\n\n可用时间发生变化时，请通知项目团队。\n\n## 记录\n\n出勤历史始终保留供查阅。",
@@ -375,11 +380,28 @@ export function RecipeGallery({
         <Recipe
           title={t.long}
           help={t.longHelp}
-          components="NativeDialog · ProfileDialog · CurrentPolicyDialog · useDialogPending"
+          components="NativeDialog · ProfileDialog · CurrentPolicyDialog · TableDetails · useDialogPending"
         >
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => setDialog("editor")}>{t.openLong}</Button>
             <Button onClick={() => setDialog("reader")}>{t.openReader}</Button>
+            <TableDetails
+              longReader
+              label={t.openTableReader}
+              title={t.tableReader}
+            >
+              {Array.from({ length: 24 }, (_, index) => (
+                <section
+                  key={index}
+                  className="space-y-2 rounded-lg border border-slate-200 p-4"
+                >
+                  <h3 className="font-semibold">
+                    {t.quiet} {index + 1}
+                  </h3>
+                  <p>{t.longHelp}</p>
+                </section>
+              ))}
+            </TableDetails>
           </div>
         </Recipe>
         <Recipe
