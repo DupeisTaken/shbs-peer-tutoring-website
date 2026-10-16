@@ -988,6 +988,11 @@ export async function queueProposal(
           authority.reviewerRoles.length === 1
             ? "Management change awaiting Head approval"
             : "Management change awaiting approval",
+        ...notificationEvent(
+          authority.reviewerRoles.length === 1
+            ? "management_head_review_pending"
+            : "management_review_pending",
+        ),
         body: `${requesterName}: ${humanizeOperation(operation)}`,
         link: `/admin/approvals?request=${request.id}`,
       })),
@@ -995,3 +1000,4 @@ export async function queueProposal(
     return request;
   });
 }
+import { notificationEvent } from "~/lib/notification-events";

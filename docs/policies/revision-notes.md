@@ -1,8 +1,10 @@
-# Policy revision review: 2026.10.02
+# Policy revision review: 2026.10.14
 
 [Policy sources and publication](README.md)
 
 The four English/Chinese tutor and tutee documents are review drafts for the current website. Tutor sections I–VIII and tutee sections I–IV follow the legacy sequence. Numbered subsections retain practical expectations while placing the website procedures beside the relevant rule. Chinese uses the current website's 辅导伙伴 / 学习伙伴 terminology.
+
+Revision 2026.10.14 updates only the confirmation-duration wording and draft revision markers: two seconds for brief request/proposal reviews, three seconds for withdrawal and consequential approval, and five seconds for policy consent. Published database documents change only through a separately reviewed publication. Historical acceptance snapshots always retain their original wording.
 
 ## Legacy source and scope
 

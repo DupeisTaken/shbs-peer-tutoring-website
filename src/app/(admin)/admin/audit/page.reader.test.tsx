@@ -12,6 +12,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../../../messages/en.json";
 import zh from "../../../../../messages/zh.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
+import { SessionViewProvider } from "~/app/_components/session-view-state";
 import AuditPage from "./page";
 
 const mocks = vi.hoisted(() => ({ detail: vi.fn(), undo: vi.fn() }));
@@ -37,6 +38,8 @@ vi.mock("~/trpc/react", () => ({
       },
       auditLog: {
         useQuery: () => ({
+          isSuccess: true,
+          isFetching: false,
           data: [
             {
               id: "event-1",
@@ -80,6 +83,7 @@ const evidence = {
 };
 let client: QueryClient;
 beforeEach(() => {
+  sessionStorage.clear();
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   mocks.detail.mockReturnValue({
     data: {
@@ -131,9 +135,15 @@ function mount(locale: "en" | "zh", readOnly = false) {
         messages={messages}
         timeZone="Asia/Shanghai"
       >
-        <ReadOnlyProvider value={readOnly}>
-          <AuditPage />
-        </ReadOnlyProvider>
+        <SessionViewProvider
+          identity={readOnly ? "synthetic-viewer" : "synthetic-head"}
+          pathname="/admin/audit"
+          verified
+        >
+          <ReadOnlyProvider value={readOnly}>
+            <AuditPage />
+          </ReadOnlyProvider>
+        </SessionViewProvider>
       </NextIntlClientProvider>
     </QueryClientProvider>,
   );

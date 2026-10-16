@@ -1,15 +1,28 @@
 "use client";
 import { ParticipantName } from "./participant-name";
 
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { Button } from "./ui/button";
-import { StatePanel } from "./ui/patterns";
+import { InlineNotice, StatePanel } from "./ui/patterns";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 
-/** Kept independent of roster filters: a deliberate pair selection never follows matching names.
- * Any selection change discards the preview and password, preventing stale confirmation. */
-export function CombineAccounts() {
+/** The displayed directory rows supply choices; only deliberate IDs select a pair.
+ * Hiding either identity discards its review without cancelling an admitted write. */
+export function CombineAccounts({
+  visibleAccounts,
+  onPendingChange,
+}: {
+  visibleAccounts: readonly {
+    userId: string | null;
+    name: string;
+    email: string | null;
+    role: string | null;
+  }[];
+  onPendingChange?: (pending: boolean) => void;
+}) {
   const t = useTranslations("combineAccounts");
   const patterns = useTranslations("uiPatterns");
   const utils = api.useUtils();
@@ -24,6 +37,22 @@ export function CombineAccounts() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [refreshError, setRefreshError] = useState(false);
+  const admission = useRef(false);
+  const [admitted, setAdmitted] = useState(false);
+  const generation = useRef(0);
+  const visibleIds = useMemo(
+    () =>
+      new Set(
+        visibleAccounts.flatMap((row) => (row.userId ? [row.userId] : [])),
+      ),
+    [visibleAccounts],
+  );
+  const latestVisibleIds = useRef(visibleIds);
+  // Only committed directory rows may authorize a delayed preview response.
+  useLayoutEffect(() => {
+    latestVisibleIds.current = visibleIds;
+  }, [visibleIds]);
   const candidates = api.accountCombine.candidates.useQuery(undefined, {
     enabled: open,
   });
@@ -36,7 +65,7 @@ export function CombineAccounts() {
       setDuplicateId("");
       setDone(true);
       // A merge changes ownership across every workspace, including retained history.
-      await utils.invalidate();
+      await refresh();
     },
     onError: (failure) => {
       setError(failure.message);
@@ -44,9 +73,50 @@ export function CombineAccounts() {
       setAcknowledged(false);
       setPreview(null);
     },
+    onSettled: () => {
+      admission.current = false;
+      setAdmitted(false);
+      onPendingChange?.(false);
+    },
   });
-  const pending = loading || combine.isPending;
+  const mutationPending = admitted || combine.isPending;
+  const pending = loading || mutationPending;
+  useEffect(() => {
+    onPendingChange?.(mutationPending);
+  }, [mutationPending, onPendingChange]);
+  const available = candidates.data?.filter((person) =>
+    visibleIds.has(person.id),
+  );
+  const pairVisible =
+    (!survivorId || visibleIds.has(survivorId)) &&
+    (!duplicateId || visibleIds.has(duplicateId));
+  // Filters/search are the candidate authority in this page. A hidden pair never
+  // regains a review from a delayed response; an admitted mutation remains owned.
+  useEffect(() => {
+    if (pairVisible || admission.current || mutationPending) return;
+    generation.current++;
+    setSurvivorId("");
+    setDuplicateId("");
+    setPreview(null);
+    setPassword("");
+    setAcknowledged(false);
+    setLoading(false);
+    setError(null);
+  }, [pairVisible, mutationPending]);
+  async function refresh() {
+    setRefreshError(false);
+    try {
+      await settleRefreshes([
+        () => utils.invalidate(),
+        () => invalidateAndReport(utils.admin.accounts),
+        () => invalidateAndReport(utils.accountCombine.candidates),
+      ]);
+    } catch {
+      setRefreshError(true);
+    }
+  }
   function resetReview() {
+    generation.current++;
     setPreview(null);
     setPassword("");
     setAcknowledged(false);
@@ -55,15 +125,22 @@ export function CombineAccounts() {
   }
   async function review() {
     resetReview();
+    const requestGeneration = generation.current;
+    const pair = { survivorId, duplicateId };
     setLoading(true);
     try {
-      setPreview(
-        await utils.accountCombine.preview.fetch({ survivorId, duplicateId }),
-      );
+      const result = await utils.accountCombine.preview.fetch(pair);
+      if (
+        requestGeneration === generation.current &&
+        latestVisibleIds.current.has(pair.survivorId) &&
+        latestVisibleIds.current.has(pair.duplicateId)
+      )
+        setPreview(result);
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : t("failed"));
+      if (requestGeneration === generation.current)
+        setError(failure instanceof Error ? failure.message : t("failed"));
     } finally {
-      setLoading(false);
+      if (requestGeneration === generation.current) setLoading(false);
     }
   }
   return (
@@ -89,6 +166,17 @@ export function CombineAccounts() {
           {open ? t("close") : t("open")}
         </button>
       </div>
+      {refreshError && (
+        <InlineNotice
+          tone="warning"
+          announcement="alert"
+          action={
+            <Button onClick={() => void refresh()}>{patterns("retry")}</Button>
+          }
+        >
+          {t("savedRefreshFailed")}
+        </InlineNotice>
+      )}
       {open && (
         <div
           id="combine-content"
@@ -97,6 +185,8 @@ export function CombineAccounts() {
           <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
             {t("warning")}
           </p>
+          <p className="muted text-sm">{t("filteredChoices")}</p>
+          <p className="muted text-sm">{t("readySurvivor")}</p>
           {candidates.error && (
             <StatePanel
               kind="error"
@@ -116,7 +206,7 @@ export function CombineAccounts() {
           {!candidates.data && !candidates.error && (
             <StatePanel kind="loading" title={t("loading")} />
           )}
-          {candidates.data?.length === 0 && (
+          {available?.length === 0 && (
             <StatePanel kind="empty" title={t("noCandidates")} />
           )}
           {/* Keep cached identities visible after a transient failure; only initial
@@ -127,9 +217,17 @@ export function CombineAccounts() {
                 <span>{t(kind)}</span>
                 <select
                   className="input min-h-11 w-full"
-                  value={kind === "survivor" ? survivorId : duplicateId}
-                  disabled={pending || !candidates.data?.length}
+                  aria-label={t(kind)}
+                  value={
+                    pairVisible
+                      ? kind === "survivor"
+                        ? survivorId
+                        : duplicateId
+                      : ""
+                  }
+                  disabled={pending || refreshError || !available?.length}
                   onChange={(event) => {
+                    if (admission.current) return;
                     resetReview();
                     (kind === "survivor" ? setSurvivorId : setDuplicateId)(
                       event.target.value,
@@ -137,7 +235,7 @@ export function CombineAccounts() {
                   }}
                 >
                   <option value="">{t("choose")}</option>
-                  {candidates.data?.map((person) => (
+                  {available?.map((person) => (
                     <option
                       key={person.id}
                       value={person.id}
@@ -162,7 +260,9 @@ export function CombineAccounts() {
             className="btn-secondary min-h-11"
             disabled={
               pending ||
-              !candidates.data?.length ||
+              refreshError ||
+              !available?.length ||
+              !pairVisible ||
               !survivorId ||
               !duplicateId ||
               survivorId === duplicateId
@@ -184,7 +284,8 @@ export function CombineAccounts() {
               {t("success")}
             </p>
           )}
-          {preview && (
+          {mutationPending && <p role="status">{t("working")}</p>}
+          {preview && pairVisible && (
             <div className="space-y-4" aria-live="polite">
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
@@ -253,13 +354,24 @@ export function CombineAccounts() {
                   className="space-y-3 border-t border-slate-200 pt-4"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    if (password && acknowledged)
+                    if (
+                      !admission.current &&
+                      !pending &&
+                      !refreshError &&
+                      pairVisible &&
+                      password &&
+                      acknowledged
+                    ) {
+                      admission.current = true;
+                      setAdmitted(true);
+                      onPendingChange?.(true);
                       combine.mutate({
                         survivorId,
                         duplicateId,
                         fingerprint: preview.fingerprint,
                         confirmPassword: password,
                       });
+                    }
                   }}
                 >
                   <label className="flex min-h-11 items-start gap-3 text-sm">

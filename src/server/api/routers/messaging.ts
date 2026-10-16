@@ -1,3 +1,4 @@
+import { notificationEvent } from "~/lib/notification-events";
 import { createHash } from "node:crypto";
 import { accountHistoryIds } from "~/server/account-history";
 import { z } from "zod";
@@ -84,10 +85,7 @@ export const messagingRouter = createTRPCRouter({
     const ownIds = await accountHistoryIds(ctx.db, ctx.session.user.id);
     const rows = await ctx.db.directMessage.findMany({
       where: {
-        OR: [
-          { senderId: { in: ownIds } },
-          { recipientId: { in: ownIds } },
-        ],
+        OR: [{ senderId: { in: ownIds } }, { recipientId: { in: ownIds } }],
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 30,
@@ -261,7 +259,11 @@ export const messagingRouter = createTRPCRouter({
         // even after a later role change; previews contain no content or other recipients.
         await notifyUsers(
           people.map((p) => p.id),
-          { title: "New private message", link: "/messages" },
+          {
+            ...notificationEvent("message_received"),
+            title: "New private message",
+            link: "/messages",
+          },
           tx,
         );
         return { ok: true, count: recipients.length };
@@ -271,7 +273,13 @@ export const messagingRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await ctx.db.directMessage.updateMany({
-        where: { id: input.id, recipientId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) }, readAt: null },
+        where: {
+          id: input.id,
+          recipientId: {
+            in: await accountHistoryIds(ctx.db, ctx.session.user.id),
+          },
+          readAt: null,
+        },
         data: { readAt: new Date() },
       });
       return { ok: true };
@@ -461,13 +469,11 @@ export const messagingRouter = createTRPCRouter({
       });
       return {
         more: rows.length > 30,
-        rows: rows
-          .slice(0, 30)
-          .map((r) => ({
-            ...r,
-            sender: names.find((n) => n.id === r.senderId),
-            recipient: names.find((n) => n.id === r.recipientId),
-          })),
+        rows: rows.slice(0, 30).map((r) => ({
+          ...r,
+          sender: names.find((n) => n.id === r.senderId),
+          recipient: names.find((n) => n.id === r.recipientId),
+        })),
       };
     }),
   // Opening content is an explicit audited review. It never updates participant readAt.

@@ -1,3 +1,9 @@
+import {
+  deleteAccount,
+  deleteAccountInput,
+  previewDeleteAccount,
+} from "~/server/delete-account";
+import { notificationEvent } from "~/lib/notification-events";
 import { SESSION_FLAG_FILTERS } from "~/lib/session-flag-state";
 import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
 import {
@@ -2061,6 +2067,7 @@ export const adminRouter = createTRPCRouter({
       // Manually-added tutors have no login yet — remind the team to send a setup link.
       await notifyAdmins(
         {
+          ...notificationEvent("tutor_setup_needed"),
           title: "New tutor needs an account",
           body: `${tutor.englishName} was added — send them a setup link.`,
           link: "/admin/users",
@@ -2257,7 +2264,8 @@ export const adminRouter = createTRPCRouter({
           !!explicitNames &&
           (["firstName", "lastName", "preferredName"] as const).some(
             (key) =>
-              (explicitNames[key]?.trim() ?? "") !== (before[key]?.trim() ?? ""),
+              (explicitNames[key]?.trim() ?? "") !==
+              (before[key]?.trim() ?? ""),
           );
 
         const changedAcademicChoice =
@@ -2567,7 +2575,9 @@ export const adminRouter = createTRPCRouter({
               input.alternativeNames === undefined
                 ? undefined
                 : (names.alternativeNames ?? null),
-            englishName: latinNameChanged ? fullPersonName(names) : before.englishName,
+            englishName: latinNameChanged
+              ? fullPersonName(names)
+              : before.englishName,
           };
         }
         if (input.status !== "INACTIVE" && input.status !== before.status)
@@ -2900,7 +2910,11 @@ export const adminRouter = createTRPCRouter({
         if (account)
           await notifyUsers(
             [account.id],
-            { title: "Your tutoring assignment was updated", link: "/student" },
+            {
+              ...notificationEvent("student_assignment_updated"),
+              title: "Your tutoring assignment was updated",
+              link: "/student",
+            },
             tx,
           );
         await stampStudentAssignment(tx, input.tuteeId);
@@ -3675,6 +3689,7 @@ export const adminRouter = createTRPCRouter({
       });
       // Notify the assigned panelists.
       await notifyTutors(tutorIds, {
+        ...notificationEvent("interview_panel_assigned"),
         title: "You're on an interview panel",
         body: `Applicant: ${app.name}`,
         link: "/dashboard",
@@ -4018,6 +4033,7 @@ export const adminRouter = createTRPCRouter({
         });
         if (tutor?.user?.id) {
           await notifyUsers([tutor.user.id], {
+            ...notificationEvent("tutee_optout_cancelled"),
             title: "Tutee opt-out cancelled",
             body: `An admin cancelled the opt-out for ${req.tutee.englishName}.`,
             link: "/dashboard",
@@ -4552,7 +4568,18 @@ export const adminRouter = createTRPCRouter({
                 : "An attendance entry was flagged after a crew check and escalated for review.";
           await notifyUsers(
             [flag.tutor.user.id],
-            { title: "Attendance review", body, link: "/dashboard" },
+            {
+              title: "Attendance review",
+              body,
+              link: "/dashboard",
+              ...notificationEvent(
+                input.action === "WARN"
+                  ? "attendance_review_warning"
+                  : input.action === "PENALIZE"
+                    ? "attendance_review_penalty"
+                    : "attendance_review_escalated",
+              ),
+            },
             tx,
           );
         }
@@ -5229,91 +5256,22 @@ export const adminRouter = createTRPCRouter({
   /**
    * Delete a login account (HEAD only, identity-confirmed). The linked Tutor record is NOT
    * deleted — the user's tutor link is dropped first so its username/class/history stay on the
-   * roster and the person can be re-invited later (revertible). The login's personal rows
+   * roster. A fresh invitation is a separate account-creation decision, not deletion undo. The login's personal rows
    * (notifications, acks, verification codes, reset tokens) cascade away; authored content
    * (announcements, card reviews, policy edits) is detached (set-null), not lost. You cannot
    * delete yourself or another head — transfer leadership first.
    */
-  deleteUser: headProcedure
-    .input(
-      z.object({ userId: cuid, confirmPassword: z.string().min(1).max(1024) }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      await assertCallerPassword(ctx.session.user.id, input.confirmPassword);
-      if (input.userId === ctx.session.user.id) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "You cannot delete your own account.",
-        });
-      }
-      const target = await inTransaction(ctx.db, async (tx) => {
-        // Account deletion and leadership transfer share one serialization boundary. The
-        // middleware's earlier role snapshot cannot authorize a request after transfer.
-        await lockEntity(tx, "program:leadership");
-        const actor = await tx.user.findUnique({
-          where: { id: ctx.session.user.id },
-          select: { role: true, suspendedAt: true },
-        });
-        if (actor?.role !== "HEAD" || actor.suspendedAt)
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Only the current active Head can delete accounts.",
-          });
-        const target = await tx.user.findUniqueOrThrow({
-          where: { id: input.userId },
-          select: {
-            id: true,
-            role: true,
-            name: true,
-            email: true,
-            tutorId: true,
-            mergedIntoId: true,
-          },
-        });
-        if (
-          target.mergedIntoId ||
-          (await tx.user.count({ where: { mergedIntoId: target.id } }))
-        )
-          throw new TRPCError({
-            code: "CONFLICT",
-            message:
-              "Combined account history must be retained. Update the surviving account's memberships instead.",
-          });
-        if (target.role === "HEAD") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Transfer leadership before deleting the head account.",
-          });
-        }
-        // Preserve the tutor: detach it from the login before deleting so the roster row
-        // (username, class, attendance history) survives.
-        if (
-          await tx.tutorProfileOwnership.count({ where: { userId: target.id } })
-        )
-          throw new TRPCError({
-            code: "CONFLICT",
-            message:
-              "Retained tutor history must be preserved. Review historical ownership before deleting this account.",
-          });
-        if (target.tutorId) {
-          await tx.user.update({
-            where: { id: target.id },
-            data: { tutorId: null },
-          });
-        }
-        await tx.user.delete({ where: { id: target.id } });
-        return target;
-      });
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `Deleted account ${target.name ?? target.email}`,
-        entity: "User",
-        entityId: target.id,
-      });
-      return { ok: true };
-    }),
+  previewDeleteUser: headProcedure
+    .input(z.object({ userId: cuid }))
+    .query(({ ctx, input }) =>
+      previewDeleteAccount(ctx.db, ctx.session.user.id, input.userId),
+    ),
 
+  deleteUser: headProcedure
+    .input(deleteAccountInput)
+    .mutation(({ ctx, input }) =>
+      deleteAccount(ctx.db, ctx.session.user.id, input),
+    ),
   /** Assign (or unassign) a user as a translator — grants access to the /localization editor. */
   setUserCanTranslate: headProcedure
     .input(z.object({ userId: cuid, canTranslate: z.boolean() }))
@@ -5357,6 +5315,7 @@ export const adminRouter = createTRPCRouter({
         },
       });
       await notifyUsers([target.id], {
+        ...notificationEvent("account_suspended"),
         title: "Account suspended",
         body: "Your account access was suspended pending review. You can submit an appeal.",
         link: "/suspended",
@@ -5390,6 +5349,7 @@ export const adminRouter = createTRPCRouter({
         });
       });
       await notifyUsers([input.userId], {
+        ...notificationEvent("account_reinstated"),
         title: "Account reinstated",
         body: "Your account access has been restored.",
         link: "/",
@@ -5464,6 +5424,11 @@ export const adminRouter = createTRPCRouter({
       await notifyUsers([appeal.userId], {
         title:
           input.action === "APPROVE" ? "Appeal approved" : "Appeal declined",
+        ...notificationEvent(
+          input.action === "APPROVE"
+            ? "account_appeal_approved"
+            : "account_appeal_declined",
+        ),
         body:
           input.action === "APPROVE"
             ? "Your account access has been restored."
@@ -5846,7 +5811,12 @@ export const adminRouter = createTRPCRouter({
             users
               .filter((u) => u.tutorId && recipientTutorIds.includes(u.tutorId))
               .map((u) => u.id),
-            { title, body, link: "/dashboard" },
+            {
+              title,
+              body,
+              link: "/dashboard",
+              ...notificationEvent("announcement_published"),
+            },
             tx,
           ),
           notifyUsers(
@@ -5855,7 +5825,12 @@ export const adminRouter = createTRPCRouter({
                 (u) => !u.tutorId || !recipientTutorIds.includes(u.tutorId),
               )
               .map((u) => u.id),
-            { title, body, link: "/admin/announcements" },
+            {
+              title,
+              body,
+              link: "/admin/announcements",
+              ...notificationEvent("announcement_published"),
+            },
             tx,
           ),
         ]);

@@ -14,7 +14,7 @@ import {
   RequestInvalidityHost,
   type InvalidityFilterValue,
 } from "~/app/_components/request-invalidity";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import {
   bySignupPriority,
@@ -27,14 +27,30 @@ import { formatWeekday, minToHm } from "~/lib/time";
 
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
-import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+  useSessionViewState,
+  useSessionViewVerified,
+} from "~/app/_components/session-view-state";
+import { requestBoardTarget } from "~/lib/request-notification-destination";
+import { InlineNotice } from "~/app/_components/ui/patterns";
 import { viewEnum } from "~/lib/session-view-state";
-import { ParticipantName, participantNameLabel } from "~/app/_components/participant-name";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 
 type Row = RouterOutputs["studentWorkflow"]["adminRequests"][number];
-type Tutor = { id: string; englishName: string; user?: { username: string | null } | null };
+type Tutor = {
+  id: string;
+  englishName: string;
+  user?: { username: string | null } | null;
+};
 export type AdditionalRequestEntry = {
   id: string;
+  /** Original source identity can differ from the list's presentation key. */
+  sourceId?: string;
   submittedAt: Date;
   group: Exclude<RequestTab, "reviews">;
   content: ReactNode;
@@ -63,14 +79,104 @@ export function StudentRequestBoard({
   );
   const queryDenied = useSessionAccessDenied(rows, tutors, legacyReviews);
   const denied = viewDenied || queryDenied;
-  const [tab, setTab] = useSessionViewState({ id: "requests.tab.v1", initialState: "matching",
-    parse: viewEnum(["matching", "assigned", "reviews", "processed"]), scope: viewScope,
-    // A static panel choice is usable before its queue reads finish; only scroll waits for content.
-    enabled: !denied });
-  const [invalidity, setInvalidity] = useSessionViewState<InvalidityFilterValue>({ id: "requests.invalidity.v1", initialState: "valid",
-    parse: viewEnum(["valid", "invalid", "all"]), scope: viewScope, enabled: !denied });
-  useSessionPageScroll({ id: "requests", scope: JSON.stringify([viewScope, tab, invalidity]),
-    ready: !additionalLoading && !!rows.data && !!tutors.data && !!legacyReviews.data, enabled: !denied });
+  const verified = useSessionViewVerified();
+  const revealed = useRef("");
+  const [targetMissing, setTargetMissing] = useState(false);
+  const [tab, setTab] = useSessionViewState({
+    id: "requests.tab.v1",
+    initialState: "matching",
+    parse: viewEnum(["matching", "assigned", "reviews", "processed"]),
+    scope: viewScope,
+    enabled: !denied,
+    // Static tab choices stay usable during reads; explicit notice reveal and
+    // page-scroll restoration still wait for their complete authorized content.
+  });
+  const [invalidity, setInvalidity] =
+    useSessionViewState<InvalidityFilterValue>({
+      id: "requests.invalidity.v1",
+      initialState: "valid",
+      parse: viewEnum(["valid", "invalid", "all"]),
+      scope: viewScope,
+      enabled: !denied,
+    });
+  useEffect(() => {
+    const reveal = () => {
+      if (
+        !verified ||
+        denied ||
+        additionalLoading ||
+        !rows.data ||
+        !legacyReviews.data ||
+        rows.isFetching
+      )
+        return;
+      const hash = window.location.hash,
+        target = requestBoardTarget(hash);
+      if (!target) {
+        revealed.current = "";
+        setTargetMissing(false);
+        return;
+      }
+      if (revealed.current === hash) return;
+      const row =
+        target.kind === "survey"
+          ? rows.data.find((entry) => entry.id === target.id)
+          : null;
+      const legacy =
+        target.kind === "signup"
+          ? additionalEntries.find(
+              (entry) => (entry.sourceId ?? entry.id) === target.id,
+            )
+          : null;
+      const group = row
+        ? signupRequestGroup(
+            row.state,
+            row.subjects.map((subject) => subject.name),
+            row.pairings.map((pairing) => pairing.subject),
+          )
+        : legacy?.group;
+      revealed.current = hash;
+      setTargetMissing(!group);
+      if (group) {
+        // Explicit event navigation wins over remembered filters only for this
+        // arrival; it never rebases a retained request/editor draft.
+        setTab(group);
+        setInvalidity("all");
+        requestAnimationFrame(() =>
+          document
+            .getElementById(hash.slice(1))
+            ?.scrollIntoView({ block: "center" }),
+        );
+      }
+    };
+    reveal();
+    const navigate = () => {
+      revealed.current = "";
+      reveal();
+    };
+    window.addEventListener("hashchange", navigate);
+    return () => window.removeEventListener("hashchange", navigate);
+  }, [
+    verified,
+    denied,
+    additionalLoading,
+    rows.data,
+    rows.isFetching,
+    legacyReviews.data,
+    additionalEntries,
+    setTab,
+    setInvalidity,
+  ]);
+  useSessionPageScroll({
+    id: "requests",
+    scope: JSON.stringify([viewScope, tab, invalidity]),
+    ready:
+      !additionalLoading &&
+      !!rows.data &&
+      !!tutors.data &&
+      !!legacyReviews.data,
+    enabled: !denied,
+  });
   const matchingValidity = (invalid: boolean) =>
     invalidity === "all" || invalid === (invalidity === "invalid");
   const visibleRows = (rows.data ?? []).filter((row) =>
@@ -108,9 +214,20 @@ export function StudentRequestBoard({
     ],
     processed: visibleRows.filter((r) => r.state !== "OPEN"),
   };
-  if (denied) return <p role="alert">{rows.error?.message ?? legacyReviews.error?.message ?? tutors.error?.message ?? ui("loadFailed")}</p>;
+  if (denied)
+    return (
+      <p role="alert">
+        {rows.error?.message ??
+          legacyReviews.error?.message ??
+          tutors.error?.message ??
+          ui("loadFailed")}
+      </p>
+    );
   return (
     <RequestInvalidityHost>
+      {targetMissing && (
+        <InlineNotice tone="info">{t("noticeTargetMissing")}</InlineNotice>
+      )}
       <section className="space-y-4">
         <DisclosureSection title={t("boardGuide")} lifetime="lazy">
           <p className="muted max-w-3xl text-sm">{t("boardHelp")}</p>
@@ -205,7 +322,11 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
   const t = useTranslations("workflow");
   const requests = useTranslations("admin.requests");
   const names = useTranslations("participantNames");
-  const displayName = participantNameLabel(row.name, row.username, names("unnamed"));
+  const displayName = participantNameLabel(
+    row.name,
+    row.username,
+    names("unnamed"),
+  );
   const utils = api.useUtils();
   const readOnly = useReadOnly();
   const account = api.account.me.useQuery().data;
@@ -213,11 +334,16 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
     onSuccess: () => utils.studentWorkflow.adminRequests.invalidate(),
   });
   return (
-    <article className="card space-y-4 p-5">
+    <article
+      id={`request-survey-${row.id}`}
+      className="card scroll-mt-6 space-y-4 p-5"
+    >
       <header className="flex flex-wrap justify-between gap-3">
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-semibold break-words"><ParticipantName name={row.name} username={row.username} /></h3>
+            <h3 className="font-semibold break-words">
+              <ParticipantName name={row.name} username={row.username} />
+            </h3>
             <SignupSourceBadge source="SELF_SERVICE" />
             {row.isInvalid && <InvalidityBadge />}
             {row.state !== "OPEN" && (
@@ -383,7 +509,12 @@ function Assignment({
         <span className="min-w-0 text-sm font-medium">{subject.name}</span>
       )}
       {pairing ? (
-        <span className="badge-green"><ParticipantName name={pairing.tutor.englishName} username={pairing.tutor.user?.username} /></span>
+        <span className="badge-green">
+          <ParticipantName
+            name={pairing.tutor.englishName}
+            username={pairing.tutor.user?.username}
+          />
+        </span>
       ) : !readOnly && !row.isInvalid ? (
         <>
           <QualifiedTutorSelect
@@ -401,7 +532,11 @@ function Assignment({
             tutors={tutors}
             optionLabel={(id) => {
               const tutor = tutors.find((candidate) => candidate.id === id);
-              return participantNameLabel(tutor?.englishName, tutor?.user?.username, names("unnamed"));
+              return participantNameLabel(
+                tutor?.englishName,
+                tutor?.user?.username,
+                names("unnamed"),
+              );
             }}
             subjectId={subject.id}
             value={tutorId}
@@ -431,7 +566,7 @@ function Assignment({
           error={assign.error?.message}
           onCancel={() => setConsequenceTicket(null)}
           onConfirm={(overrideTicket) =>
-            assign.mutate({
+            assign.mutateAsync({
               id: row.id,
               subjectId: subject.id,
               tutorId,
@@ -446,7 +581,13 @@ function Assignment({
           key={`${row.id}:${subject.id}:${tutorId}`}
           action="ASSIGN"
           target={row.id}
-          title={t("assignTitle", { name: participantNameLabel(row.name, row.username, names("unnamed")) })}
+          title={t("assignTitle", {
+            name: participantNameLabel(
+              row.name,
+              row.username,
+              names("unnamed"),
+            ),
+          })}
           message={`${subject.name} → ${participantNameLabel(tutors.find((tu) => tu.id === tutorId)?.englishName, tutors.find((tu) => tu.id === tutorId)?.user?.username, names("unnamed"))}\n\n${t(row.confirmedAt ? "assignVerifiedConsequences" : "assignConsequences")}`}
           busy={assign.isPending}
           error={assign.error?.message}
@@ -525,7 +666,7 @@ function ReviewCard({
           error={resolve.error?.message}
           onCancel={() => setDecision(null)}
           onConfirm={(ticket) =>
-            resolve.mutate({ id: review.id, approve: decision, ticket })
+            resolve.mutateAsync({ id: review.id, approve: decision, ticket })
           }
         />
       )}
