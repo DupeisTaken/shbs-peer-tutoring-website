@@ -40,14 +40,10 @@ import {
   useSessionViewVerified,
 } from "~/app/_components/session-view-state";
 import { requestBoardTarget } from "~/lib/request-notification-destination";
-<<<<<<< HEAD
-=======
 import {
   useNotificationRecordReveal,
   type NotificationRecordArrival,
 } from "~/app/_components/use-notification-record-reveal";
-import { InlineNotice } from "~/app/_components/ui/patterns";
->>>>>>> codex/merge-387-final-reveal
 import { viewEnum } from "~/lib/session-view-state";
 import {
   ParticipantName,

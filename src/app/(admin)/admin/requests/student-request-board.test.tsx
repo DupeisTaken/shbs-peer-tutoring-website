@@ -90,7 +90,6 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-<<<<<<< HEAD
 const actionRow = {
   id: "survey",
   name: "Applicant",
@@ -155,7 +154,8 @@ it("binds appeal consequences to appeal id and captured invalidity version; acce
   fireEvent.click(screen.getByRole("button", { name: "retryRefresh" }));
   await waitFor(() => expect(screen.queryByText("savedRefresh")).toBeNull());
   expect(mocks.appeal).toHaveBeenCalledOnce();
-=======
+});
+
 it("keeps the newer hash arrival when the old pending target cancels in the same event", () => {
   Object.defineProperty(Element.prototype, "scrollIntoView", {
     configurable: true,
@@ -248,7 +248,6 @@ it("reveals and focuses the committed record when an animation frame runs before
   );
   expect(scroll).not.toHaveBeenCalled();
   vi.restoreAllMocks();
->>>>>>> codex/merge-387-final-reveal
 });
 
 it("moves focus with arrows and Home/End without changing the selected request panel", () => {
