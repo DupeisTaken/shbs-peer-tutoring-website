@@ -5,11 +5,16 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { StrictMode, useState, type ComponentProps } from "react";
 import { NextIntlClientProvider } from "next-intl";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import { AssignmentConfirmation } from "./assignment-confirmation";
 import { QualifiedTutorSelect } from "./qualified-tutor-select";
@@ -523,42 +528,104 @@ it("blocks repeated Escape in both dialogs until a pending assignment's rejected
   expect(mocks.close).not.toHaveBeenCalled();
 });
 
-it("does not silently repeat a failed qualified fast path when workload reads refresh", async () => {
-  mocks.prepare.mockResolvedValue({ ticket: null, mismatches: [] });
-  mocks.confirm.mockRejectedValueOnce(new Error("Assignment failed"));
-  const view = render(
-    dialog("a", {
-      workloadReview: { pending: true, warning: null },
-    }),
-  );
-  await flush();
-  expect(mocks.confirm).not.toHaveBeenCalled();
-  view.rerender(
-    dialog("a", {
-      workloadReview: { pending: false, warning: null },
-    }),
-  );
-  await flush();
-  expect(mocks.confirm).toHaveBeenCalledOnce();
-  view.rerender(
-    dialog("a", {
-      error: "Assignment failed",
-      workloadReview: { pending: true, warning: null },
-    }),
-  );
-  view.rerender(
-    dialog("a", {
-      error: "Assignment failed",
-      workloadReview: { pending: false, warning: null },
-    }),
-  );
-  await flush();
-  expect(mocks.confirm).toHaveBeenCalledOnce();
-  fireEvent.click(screen.getByRole("button", { name: "Review again" }));
-  await flush();
-  expect(mocks.prepare).toHaveBeenCalledTimes(2);
-  expect(mocks.confirm).toHaveBeenCalledTimes(2);
-});
+it.each([false, true])(
+  "does not retry a rejected assignment when a real advisory refetch clears its warning (manual=%s)",
+  async (manual) => {
+    vi.useRealTimers();
+    mocks.prepare.mockResolvedValue({ ticket: null, mismatches: [] });
+    let rejectWrite!: (failure: Error) => void;
+    mocks.confirm
+      .mockReset()
+      .mockResolvedValue(undefined)
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectWrite = reject;
+          }),
+      );
+    let finishRead!: (data: { warning: string | null }) => void;
+    const read = vi.fn(
+      () =>
+        new Promise<{ warning: string | null }>((resolve) => {
+          finishRead = resolve;
+        }),
+    );
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    function AdvisoryEditor() {
+      const [error, setError] = useState<string>();
+      const advisory = useQuery({
+        queryKey: ["assignment-advisory"],
+        queryFn: read,
+        initialData: { warning: manual ? "Above preferred workload" : null },
+        staleTime: Infinity,
+      });
+      return (
+        <Modal title="Pairing editor" onClose={mocks.close}>
+          <input aria-label="Pairing notes" defaultValue="Keep this draft" />
+          <AssignmentConfirmation
+            operation="admin.createPairing"
+            payload={{ tutorId: "a", subjectId: "math" }}
+            error={error}
+            workloadReview={{
+              pending: advisory.isFetching,
+              warning: advisory.data.warning,
+            }}
+            onCancel={mocks.close}
+            onConfirm={async () => {
+              try {
+                await mocks.confirm();
+              } catch (failure) {
+                setError("Assignment failed");
+                throw failure;
+              }
+            }}
+          />
+        </Modal>
+      );
+    }
+    render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <QueryClientProvider client={client}>
+          <AdvisoryEditor />
+        </QueryClientProvider>
+      </NextIntlClientProvider>,
+    );
+    if (manual) {
+      fireEvent.click(
+        await screen.findByRole("button", { name: en.tutorWorkload.continue }),
+      );
+    }
+    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledOnce());
+    const parent = screen.getByRole("dialog", { name: "Pairing editor" });
+    expect(parent.getAttribute("closedby")).toBe("none");
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Cancel" })
+        .disabled,
+    ).toBe(true);
+    await act(async () => rejectWrite(new Error("Assignment failed")));
+    await screen.findByRole("alert");
+    expect(parent.getAttribute("closedby")).toBe("closerequest");
+    act(() => {
+      void client.refetchQueries({ queryKey: ["assignment-advisory"] });
+    });
+    await waitFor(() => expect(read).toHaveBeenCalledOnce());
+    expect(mocks.confirm).toHaveBeenCalledOnce();
+    await act(async () => finishRead({ warning: null }));
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    expect(mocks.confirm).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole<HTMLInputElement>("textbox", { name: "Pairing notes" })
+        .value,
+    ).toBe("Keep this draft");
+    fireEvent.click(screen.getByRole("button", { name: "Review again" }));
+    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledTimes(2));
+    expect(mocks.prepare).toHaveBeenCalledTimes(2);
+    expect(mocks.close).not.toHaveBeenCalled();
+    client.clear();
+  },
+);
 
 it("releases review after an accepted approval handoff even while the mutation is settling", async () => {
   const view = render(<NestedAssignment />);

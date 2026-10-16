@@ -1,5 +1,12 @@
 "use client";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import {
@@ -54,11 +61,22 @@ function ConfirmationInstance({
   const [attempt, setAttempt] = useState(0);
   const clock = useConfirmationClock(anchor);
   const submission = useConfirmationSubmission(busy, error);
-  const callbacks = useRef({ onConfirm, onCancel, run: submission.run });
-  useEffect(() => {
-    callbacks.current = { onConfirm, onCancel, run: submission.run };
-  }, [onConfirm, onCancel, submission.run]);
   const automaticAttempt = useRef(false);
+  const { run } = submission;
+  const runAttempt = useCallback(
+    (callback: () => unknown) =>
+      run(() => {
+        // Manual and automatic admission consume the same prepared attempt. Only
+        // explicit Review again/new preparation permits a later automatic write.
+        automaticAttempt.current = true;
+        return callback();
+      }),
+    [run],
+  );
+  const callbacks = useRef({ onConfirm, onCancel, run: runAttempt });
+  useEffect(() => {
+    callbacks.current = { onConfirm, onCancel, run: runAttempt };
+  }, [onConfirm, onCancel, runAttempt]);
   const ticketRef = useRef<string | null>(null);
   const { submitted } = submission;
   const { mutateAsync } = prepare;
@@ -113,7 +131,6 @@ function ConfirmationInstance({
     ) {
       // A failed write needs deliberate Retry; a later advisory refresh must
       // not silently repeat this qualified fast path with the same intent.
-      automaticAttempt.current = true;
       callbacks.current.run(() => callbacks.current.onConfirm());
     }
   }, [result, workloadReview?.pending, workloadReview?.warning]);
@@ -190,7 +207,7 @@ function ConfirmationInstance({
                   result &&
                   !pending
                 ) {
-                  submission.run(() => onConfirm(result.ticket?.id));
+                  runAttempt(() => onConfirm(result.ticket?.id));
                 }
               }}
             >
