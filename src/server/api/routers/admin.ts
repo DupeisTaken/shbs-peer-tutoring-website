@@ -3,6 +3,7 @@ import {
   deleteAccountInput,
   previewDeleteAccount,
 } from "~/server/delete-account";
+import { notificationEvent } from "~/lib/notification-events";
 import { SESSION_FLAG_FILTERS } from "~/lib/session-flag-state";
 import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
 import {
@@ -2066,6 +2067,7 @@ export const adminRouter = createTRPCRouter({
       // Manually-added tutors have no login yet — remind the team to send a setup link.
       await notifyAdmins(
         {
+          ...notificationEvent("tutor_setup_needed"),
           title: "New tutor needs an account",
           body: `${tutor.englishName} was added — send them a setup link.`,
           link: "/admin/users",
@@ -2262,7 +2264,8 @@ export const adminRouter = createTRPCRouter({
           !!explicitNames &&
           (["firstName", "lastName", "preferredName"] as const).some(
             (key) =>
-              (explicitNames[key]?.trim() ?? "") !== (before[key]?.trim() ?? ""),
+              (explicitNames[key]?.trim() ?? "") !==
+              (before[key]?.trim() ?? ""),
           );
 
         const changedAcademicChoice =
@@ -2572,7 +2575,9 @@ export const adminRouter = createTRPCRouter({
               input.alternativeNames === undefined
                 ? undefined
                 : (names.alternativeNames ?? null),
-            englishName: latinNameChanged ? fullPersonName(names) : before.englishName,
+            englishName: latinNameChanged
+              ? fullPersonName(names)
+              : before.englishName,
           };
         }
         if (input.status !== "INACTIVE" && input.status !== before.status)
@@ -2905,7 +2910,11 @@ export const adminRouter = createTRPCRouter({
         if (account)
           await notifyUsers(
             [account.id],
-            { title: "Your tutoring assignment was updated", link: "/student" },
+            {
+              ...notificationEvent("student_assignment_updated"),
+              title: "Your tutoring assignment was updated",
+              link: "/student",
+            },
             tx,
           );
         await stampStudentAssignment(tx, input.tuteeId);
@@ -3680,6 +3689,7 @@ export const adminRouter = createTRPCRouter({
       });
       // Notify the assigned panelists.
       await notifyTutors(tutorIds, {
+        ...notificationEvent("interview_panel_assigned"),
         title: "You're on an interview panel",
         body: `Applicant: ${app.name}`,
         link: "/dashboard",
@@ -4023,6 +4033,7 @@ export const adminRouter = createTRPCRouter({
         });
         if (tutor?.user?.id) {
           await notifyUsers([tutor.user.id], {
+            ...notificationEvent("tutee_optout_cancelled"),
             title: "Tutee opt-out cancelled",
             body: `An admin cancelled the opt-out for ${req.tutee.englishName}.`,
             link: "/dashboard",
@@ -4557,7 +4568,18 @@ export const adminRouter = createTRPCRouter({
                 : "An attendance entry was flagged after a crew check and escalated for review.";
           await notifyUsers(
             [flag.tutor.user.id],
-            { title: "Attendance review", body, link: "/dashboard" },
+            {
+              title: "Attendance review",
+              body,
+              link: "/dashboard",
+              ...notificationEvent(
+                input.action === "WARN"
+                  ? "attendance_review_warning"
+                  : input.action === "PENALIZE"
+                    ? "attendance_review_penalty"
+                    : "attendance_review_escalated",
+              ),
+            },
             tx,
           );
         }
@@ -5293,6 +5315,7 @@ export const adminRouter = createTRPCRouter({
         },
       });
       await notifyUsers([target.id], {
+        ...notificationEvent("account_suspended"),
         title: "Account suspended",
         body: "Your account access was suspended pending review. You can submit an appeal.",
         link: "/suspended",
@@ -5326,6 +5349,7 @@ export const adminRouter = createTRPCRouter({
         });
       });
       await notifyUsers([input.userId], {
+        ...notificationEvent("account_reinstated"),
         title: "Account reinstated",
         body: "Your account access has been restored.",
         link: "/",
@@ -5400,6 +5424,11 @@ export const adminRouter = createTRPCRouter({
       await notifyUsers([appeal.userId], {
         title:
           input.action === "APPROVE" ? "Appeal approved" : "Appeal declined",
+        ...notificationEvent(
+          input.action === "APPROVE"
+            ? "account_appeal_approved"
+            : "account_appeal_declined",
+        ),
         body:
           input.action === "APPROVE"
             ? "Your account access has been restored."
@@ -5782,7 +5811,12 @@ export const adminRouter = createTRPCRouter({
             users
               .filter((u) => u.tutorId && recipientTutorIds.includes(u.tutorId))
               .map((u) => u.id),
-            { title, body, link: "/dashboard" },
+            {
+              title,
+              body,
+              link: "/dashboard",
+              ...notificationEvent("announcement_published"),
+            },
             tx,
           ),
           notifyUsers(
@@ -5791,7 +5825,12 @@ export const adminRouter = createTRPCRouter({
                 (u) => !u.tutorId || !recipientTutorIds.includes(u.tutorId),
               )
               .map((u) => u.id),
-            { title, body, link: "/admin/announcements" },
+            {
+              title,
+              body,
+              link: "/admin/announcements",
+              ...notificationEvent("announcement_published"),
+            },
             tx,
           ),
         ]);

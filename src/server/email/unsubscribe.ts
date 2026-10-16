@@ -28,14 +28,16 @@ async function eligibleDelivery(client: DomainDb, deliveryId: string) {
     where: { id: deliveryId },
     include: { user: { include: { emails: true } } },
   });
-  if (!row || row.user.mergedIntoId || row.previousPrimary) return null;
+  if (!row?.user || row.user.mergedIntoId || row.previousPrimary) return null;
   const category = optionalEmailCategory(row.category);
   // Retired accounts and removed/unverified addresses cannot control current preferences.
   // A still-owned secondary address remains valid even if secondary delivery was disabled.
   const owned = row.user.emails.some(
     (address) => address.email === row.recipient && address.verifiedAt !== null,
   );
-  return category && owned ? { row, category } : null;
+  return category && owned
+    ? { row: { ...row, user: row.user }, category }
+    : null;
 }
 
 /** Link scanners and page previews perform only reads. No account identity is returned. */
@@ -71,12 +73,11 @@ export async function unsubscribeFromEmail(
       where: { id },
       select: { userId: true },
     });
-    if (!initial) return { status: "invalid" };
+    if (!initial?.userId) return { status: "invalid" };
     // Match email removal/merge lock order, then re-check ownership under that lock.
     await lockAccountProfile(tx, initial.userId);
     const delivery = await eligibleDelivery(tx, id);
-    if (delivery?.row.userId !== initial.userId)
-      return { status: "invalid" };
+    if (delivery?.row.userId !== initial.userId) return { status: "invalid" };
     const stopMessages = scope === "all" || delivery.category === "messages";
     const stopInfo = scope === "all" || delivery.category === "info";
     await tx.user.update({

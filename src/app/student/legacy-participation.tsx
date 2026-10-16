@@ -144,7 +144,7 @@ function Participation({
           canConfirm={!readBlocked && !!reason.trim()}
           onCancel={() => setOpen(false)}
           onConfirm={(ticket) =>
-            !readBlocked && mutation.mutate({ tuteeId: row.id, reason, ticket })
+            !readBlocked && mutation.mutateAsync({ tuteeId: row.id, reason, ticket })
           }
         >
           {readFeedback}

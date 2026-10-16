@@ -1,6 +1,6 @@
 # SHBS Peer Tutoring Tutor Policy
 
-**Revision:** 2026.10.02 | **Status:** Draft for school review
+**Revision:** 2026.10.14 | **Status:** Draft for school review
 
 This policy establishes expectations, responsibilities and procedures for tutors in the SHBS Peer Tutoring Program. It retains the structure of the October 2025 policy and incorporates the program website.
 
@@ -149,7 +149,7 @@ Session feedback is management-only by default. Management may share it with the
 
 ### 3. Policy acceptance and account security
 
-Read and explicitly accept the published policy. A published change prompts renewed review on a visit or window focus: read to the end, check agreement and complete the ten-second confirmation. Accounts linked to both tutor and tutee profiles review both policies. Missing translations fall back to English. Acceptance preserves the exact revision, text, signature and time; unpublished proposals do not renew consent.
+Read and explicitly accept the published policy. A published change prompts renewed review on a visit or window focus: read to the end, check agreement and complete the five-second confirmation. Accounts linked to both tutor and tutee profiles review both policies. Missing translations fall back to English. Acceptance preserves the exact revision, text, signature and time; unpublished proposals do not renew consent.
 
 Current tutor-policy acceptance is required to submit attendance. Dismissing a renewal prompt preserves access to history, feedback, appeals, messages and account settings, subject to ordinary permissions. It does not permit participation requiring current acceptance.
 
@@ -157,4 +157,4 @@ Keep passwords, codes and account links private. Change login email through veri
 
 By explicitly accepting the school's published version, tutors agree to these responsibilities and procedures. Contact management with questions before accepting.
 
-**The Peer Tutoring Team** | **Revision:** 2026.10.02 | **Draft for school review**
+**The Peer Tutoring Team** | **Revision:** 2026.10.14 | **Draft for school review**

@@ -3,16 +3,13 @@ import { deferUntilCommit } from "~/server/db-scope";
 import { emailSender, isEmailDeliveryAvailable } from "./sender";
 import { emailUrl, notificationDestination } from "./urls";
 import { notificationUnsubscribeUrl } from "./unsubscribe-token";
-
-const descriptions: Record<string, string> = {
-  primary_changed: "Your primary account email changed",
-  secondary_added: "A secondary email was verified on your account",
-  secondary_removed: "A secondary email was removed from your account",
-  security_changed: "Your account security settings changed",
-  information_changed: "Your account information changed",
-  message_received: "You have a new private message",
-  program_update: "You have a new program notification",
-};
+import { notificationEmailCopy } from "./notification-copy";
+import { requestNoticeEmailCopy } from "./request-notice-copy";
+import {
+  admitRequestDelivery,
+  finishRequestDelivery,
+  requestServiceCategory,
+} from "./request-notice";
 
 /** Leased batches survive restarts and SKIP LOCKED keeps concurrent application workers independent.
  * SMTP has no exactly-once guarantee: a crash after acceptance may retry, but ordinary concurrent
@@ -26,7 +23,10 @@ export async function deliverNotifications(limit = 10) {
   });
   if (!settings?.emailNotificationsEnabled) {
     await db.emailDelivery.updateMany({
-      where: { status: "PENDING", category: { not: "security" } },
+      where: {
+        status: "PENDING",
+        category: { notIn: ["security", requestServiceCategory] },
+      },
       data: { status: "SKIPPED", completedAt: new Date() },
     });
   }
@@ -35,23 +35,38 @@ export async function deliverNotifications(limit = 10) {
     !isEmailDeliveryAvailable("PROGRAM")
   )
     return;
-  const rows = await db.$queryRaw<{ id: string }[]>`
-    UPDATE "EmailDelivery" SET "leaseUntil" = NOW() + INTERVAL '5 minutes'
-    WHERE id IN (SELECT id FROM "EmailDelivery" WHERE status = 'PENDING' AND "availableAt" <= NOW()
+  // Freeze the candidate set before updating leases so eligibility changes do
+  // not expand a bounded sweep; row locks still give concurrent workers disjoint rows.
+  const rows = await db.$queryRaw<
+    { id: string; leaseUntil: Date; attemptId: string | null }[]
+  >`
+    WITH candidates AS MATERIALIZED (SELECT id FROM "EmailDelivery" WHERE (status = 'PENDING'
+      OR (status = 'SENDING' AND category = 'request_service')) AND "availableAt" <= NOW()
       AND ("leaseUntil" IS NULL OR "leaseUntil" < NOW()) ORDER BY "createdAt" LIMIT ${limit} FOR UPDATE SKIP LOCKED)
-    RETURNING id`;
-  for (const { id } of rows) {
+    UPDATE "EmailDelivery" delivery SET "leaseUntil" = NOW() + INTERVAL '5 minutes'
+    FROM candidates WHERE delivery.id = candidates.id
+    RETURNING delivery.id, delivery."leaseUntil", delivery."attemptId"`;
+  for (const { id, leaseUntil, attemptId } of rows) {
     const row = await db.emailDelivery.findUniqueOrThrow({
       where: { id },
       include: { user: { include: { emails: true } } },
     });
-    if (row.status !== "PENDING") continue;
+    if (
+      row.status !== "PENDING" &&
+      !(row.category === requestServiceCategory && row.status === "SENDING")
+    )
+      continue;
     // Account security notices are essential; other notifications are program mail.
     const category = row.category === "security" ? "SECURITY" : "PROGRAM";
     if (!isEmailDeliveryAvailable(category)) {
       // Defer unavailable-category notices without consuming a delivery attempt.
-      await db.emailDelivery.update({
-        where: { id },
+      await db.emailDelivery.updateMany({
+        where: {
+          id,
+          leaseUntil,
+          attemptId: attemptId ?? null,
+          status: { in: ["PENDING", "SENDING"] },
+        },
         data: { leaseUntil: null, availableAt: new Date(Date.now() + 60_000) },
       });
       continue;
@@ -59,41 +74,72 @@ export async function deliverNotifications(limit = 10) {
     const current = await db.programSettings.findUnique({
       where: { id: "program" },
     });
-    // Security notices are essential, including for legacy users with emailSecurity=false.
-    const essential = row.category === "security";
-    const preference =
-      row.category === "security"
-        ? true
-        : row.category === "messages"
-          ? row.user.emailMessages
-          : row.user.emailInfo;
-    const owned = row.user.emails.some(
-      (address) =>
-        address.email === row.recipient &&
-        address.verifiedAt &&
-        (address.email === row.user.email || row.user.emailSecondaryRecipients),
-    );
-    if (
-      row.user.mergedIntoId ||
-      (!essential && !current?.emailNotificationsEnabled) ||
-      !preference ||
-      (!owned && !row.previousPrimary)
-    ) {
-      await db.emailDelivery.update({
-        where: { id },
-        data: { status: "SKIPPED", completedAt: new Date(), leaseUntil: null },
-      });
+    if (row.category === requestServiceCategory) {
+      // Preserve the lease/fence from the UPDATE itself. A paused older candidate
+      // must not borrow a newer worker's lease from this later row read.
+      const admitted = await admitRequestDelivery(
+        db,
+        id,
+        leaseUntil,
+        attemptId,
+      );
+      if (!admitted?.row.attemptId) continue;
+      let accepted = false;
+      try {
+        await emailSender.send({
+          category: "PROGRAM",
+          to: admitted.row.recipient,
+          messageId: `<account-notice-${id}@shbs-notifications>`,
+          ...requestNoticeEmailCopy(admitted.row, admitted.verified),
+        });
+        accepted = true;
+      } catch {
+        // The provider outcome is recorded separately from a database-completion
+        // failure. If recording fails after acceptance, retain SENDING evidence.
+      }
+      await finishRequestDelivery(db, id, admitted.row.attemptId, accepted);
       continue;
     }
-    const subject = descriptions[row.event] ?? "Your account was updated";
     try {
-      // Build inside the retry boundary: bad origin configuration must release the lease too.
+      // Security notices are essential, including legacy emailSecurity=false. An
+      // ordinary row with no account fails closed rather than taking a request path.
+      const essential = row.category === "security";
+      const user = row.user;
+      const preference = essential
+        ? true
+        : row.category === "messages"
+          ? user?.emailMessages
+          : user?.emailInfo;
+      const owned = user?.emails.some(
+        (address) =>
+          address.email === row.recipient &&
+          address.verifiedAt &&
+          (address.email === user.email || user.emailSecondaryRecipients),
+      );
+      if (
+        !user ||
+        user.mergedIntoId ||
+        (!essential && !current?.emailNotificationsEnabled) ||
+        !preference ||
+        (!owned && !row.previousPrimary)
+      ) {
+        await db.emailDelivery.updateMany({
+          where: { id, status: "PENDING" },
+          data: {
+            status: "SKIPPED",
+            completedAt: new Date(),
+            leaseUntil: null,
+          },
+        });
+        continue;
+      }
+      // Build inside the retry boundary: bad origin configuration releases the lease.
       const link = emailUrl(
         notificationDestination(
           row.category,
           row.event,
           row.destination,
-          row.user.role,
+          user.role,
         ),
       );
       const timeZone = current?.timeZone ?? "Asia/Shanghai";
@@ -102,9 +148,10 @@ export async function deliverNotifications(limit = 10) {
         timeStyle: "short",
         timeZone,
       }).format(row.createdAt);
+      const copy = notificationEmailCopy(row.event, row.context);
       const footer = essential
-        ? "If you do not recognize this activity, contact the program team through private support."
-        : "Sign in to review the update. You can manage optional email notifications in account settings.";
+        ? "If you do not recognize this activity, contact the program team through private support.\n如非本人操作，请通过私密支持联系项目团队。"
+        : "Sign in to review the update. You can manage optional email notifications in account settings.\n请登录查看通知。您可在账户设置中管理可选邮件通知。";
       // Only optional notification classes receive this narrowly scoped account capability.
       const unsubscribeUrl = ["messages", "info", "information"].includes(
         row.category,
@@ -114,9 +161,9 @@ export async function deliverNotifications(limit = 10) {
       await emailSender.send({
         category,
         to: row.recipient,
-        subject,
+        subject: copy.subject,
         messageId: `<account-notice-${id}@shbs-notifications>`,
-        text: `${subject}.\n\n${time} (${timeZone})\n\n${footer}\n\n${link}${unsubscribeUrl ? `\n\nUnsubscribe: ${unsubscribeUrl}` : ""}`,
+        text: `${copy.description}\n\nNotice issued: ${time} (${timeZone}) / 通知发出时间\n\n${footer}\n\n${link}${unsubscribeUrl ? `\n\nUnsubscribe / 取消订阅: ${unsubscribeUrl}` : ""}`,
         presentation: {
           ...(unsubscribeUrl ? { unsubscribeUrl } : {}),
           eyebrow: essential
@@ -125,12 +172,7 @@ export async function deliverNotifications(limit = 10) {
               ? "PRIVATE MESSAGES"
               : "PROGRAM UPDATE",
           action: {
-            label:
-              row.category === "messages"
-                ? "Open your inbox"
-                : row.event === "program_update"
-                  ? "View program update"
-                  : "Review your account",
+            label: copy.action,
             url: link,
           },
         },

@@ -256,6 +256,17 @@ claiming Retry succeeded; another query may have its own error banner. Keep full
 mobile forms reviewable across multiple captures. Inspect the screenshots, record
 test limitations, and stop owned browser/server/database processes after checking.
 
+For confirmation timing changes, use the [action matrix](technical-report.md#confirmation-timing-contract).
+Capture real countdown states before and after using the same synthetic record,
+role, locale and viewport; record the rendered label as well as the nominal server
+delay. Check exact readiness/expiry boundaries, client clock jumps, throttled
+background callbacks and focus/visibility resume, cancelled/reopened or changed
+targets, late preparation, same-turn duplicates and repeated identical write
+rejections. Verify policy read/agreement evidence and the assignment-to-qualification
+ticket handoff. The dedicated timing, dialog and submission tests cover these
+boundaries; the survey and assignment router suites verify actual stored ticket
+consumption, cancellation scope and unchanged lifetimes against the isolated DB.
+
 For each rollout phase, capture the before and after state using the same synthetic
 record, role, language, viewport and interaction. Compare the affected content
 edges, heading hierarchy, card spacing, text wrapping and reachable actions against

@@ -95,10 +95,10 @@ afterEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
 });
-it("requires explicit evidence at 2999ms and accepts it exactly at 3000ms only once", async () => {
+it("requires explicit evidence at 1999ms and accepts it exactly at 2000ms only once", async () => {
   await prepareAssignmentOverride(tx, "actor", operation, value);
   const input = { ...value, overrideTicket: "ticket" };
-  await vi.advanceTimersByTimeAsync(2999);
+  await vi.advanceTimersByTimeAsync(1999);
   await expect(
     enforceAssignmentQualification(tx, "actor", operation, input),
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
@@ -112,7 +112,7 @@ it("requires explicit evidence at 2999ms and accepts it exactly at 3000ms only o
 });
 it("rejects another actor, changed assignment, or expired evidence", async () => {
   await prepareAssignmentOverride(tx, "actor", operation, value);
-  await vi.advanceTimersByTimeAsync(3000);
+  await vi.advanceTimersByTimeAsync(2000);
   await expect(
     enforceAssignmentQualification(tx, "reviewer", operation, {
       ...value,
@@ -139,7 +139,7 @@ it("rejects another actor, changed assignment, or expired evidence", async () =>
 });
 it("reopening restarts the delay and eligibility uses only approved concrete grants", async () => {
   await prepareAssignmentOverride(tx, "actor", operation, value);
-  await vi.advanceTimersByTimeAsync(3000);
+  await vi.advanceTimersByTimeAsync(2000);
   await prepareAssignmentOverride(tx, "actor", operation, value);
   await expect(
     enforceAssignmentQualification(tx, "actor", operation, {
@@ -158,4 +158,17 @@ it("reopening restarts the delay and eligibility uses only approved concrete gra
       qualification: { status: "APPROVED" },
     },
   });
+});
+it("keeps the five-minute lifetime and rejects at the exact expiry boundary", async () => {
+  const start = Date.now();
+  const result = await prepareAssignmentOverride(tx, "actor", operation, value);
+  expect(+result.ticket!.readyAt - start).toBe(2000);
+  expect(+result.ticket!.expiresAt - start).toBe(5 * 60_000);
+  vi.setSystemTime(result.ticket!.expiresAt);
+  await expect(
+    enforceAssignmentQualification(tx, "actor", operation, {
+      ...value,
+      overrideTicket: result.ticket!.id,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
 });

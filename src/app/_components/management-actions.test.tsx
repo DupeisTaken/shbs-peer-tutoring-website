@@ -71,6 +71,7 @@ vi.mock("~/trpc/react", () => ({
       decide: {
         useMutation: (options: { onSuccess: () => void }) => ({
           ...mocks.decisionState,
+          mutateAsync: async (value: unknown) => { mocks.decide(value); options.onSuccess(); },
           mutate: (value: unknown) => {
             mocks.decide(value);
             options.onSuccess();

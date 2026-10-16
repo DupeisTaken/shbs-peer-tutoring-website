@@ -105,9 +105,19 @@ const applications = [
 }));
 const show = () =>
   render(
-    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-      <ApplicationsPage />
-    </NextIntlClientProvider>,
+    <SessionViewProvider
+      identity="head"
+      pathname="/admin/applications"
+      verified
+    >
+      <NextIntlClientProvider
+        locale="en"
+        messages={en}
+        timeZone="Asia/Shanghai"
+      >
+        <ApplicationsPage />
+      </NextIntlClientProvider>
+    </SessionViewProvider>,
   );
 const change = (label: string, value: string) =>
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
@@ -120,11 +130,33 @@ beforeEach(() => {
 afterEach(cleanup);
 
 it("restores the authorized queue filters after slow choices, lets an application hash reveal its target, and clears denial", () => {
-  const key = viewStateKey("head", "/admin/applications", "applications.filters.v1", "");
-  writeViewState(window.sessionStorage, key, { search: "Bea", status: "ACCEPTED", type: "ADDITIONAL_SUBJECT", subjectId: "math" });
-  const tree = () => <SessionViewProvider identity="head" pathname="/admin/applications" verified>
-    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai"><ApplicationsPage /></NextIntlClientProvider>
-  </SessionViewProvider>;
+  const key = viewStateKey(
+    "head",
+    "/admin/applications",
+    "applications.filters.v1",
+    "",
+  );
+  writeViewState(window.sessionStorage, key, {
+    search: "Bea",
+    status: "ACCEPTED",
+    type: "ADDITIONAL_SUBJECT",
+    subjectId: "math",
+  });
+  const tree = () => (
+    <SessionViewProvider
+      identity="head"
+      pathname="/admin/applications"
+      verified
+    >
+      <NextIntlClientProvider
+        locale="en"
+        messages={en}
+        timeZone="Asia/Shanghai"
+      >
+        <ApplicationsPage />
+      </NextIntlClientProvider>
+    </SessionViewProvider>
+  );
   mocks.query.mockReturnValue({ data: undefined, isLoading: true });
   const page = render(tree());
   expect(window.sessionStorage.getItem(key)).toContain("Bea");
@@ -132,10 +164,16 @@ it("restores the authorized queue filters after slow choices, lets an applicatio
   page.rerender(tree());
   expect(screen.getByText("Bea Lin")).toBeTruthy();
   expect(screen.queryByText("Alex Chen")).toBeNull();
-  act(() => { window.history.replaceState(null, "", "/#application-a"); window.dispatchEvent(new Event("hashchange")); });
+  act(() => {
+    window.history.replaceState(null, "", "/#application-a");
+    window.dispatchEvent(new Event("hashchange"));
+  });
   expect(screen.getByText("Alex Chen")).toBeTruthy();
   expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe("");
-  mocks.query.mockReturnValue({ data: applications, error: { message: "Denied", data: { code: "FORBIDDEN" } } });
+  mocks.query.mockReturnValue({
+    data: applications,
+    error: { message: "Denied", data: { code: "FORBIDDEN" } },
+  });
   page.rerender(tree());
   expect(screen.queryByText("Alex Chen")).toBeNull();
   expect(window.sessionStorage.getItem(key)).toBeNull();
@@ -223,6 +261,17 @@ it("resets filters when the history link repeats the current hash", () => {
       .getAttribute("aria-expanded"),
   ).toBe("true");
   expect(screen.getByText("3 of 3 applications")).toBeTruthy();
+});
+it("reveals the same notification fragment again after later filtering", async () => {
+  window.history.replaceState(null, "", "/#application-a");
+  show();
+  change("Name or email", "Cai");
+  await act(() => window.dispatchEvent(new HashChangeEvent("hashchange")));
+  expect(screen.getByRole("button", { name: /Alex Chen/ })).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLInputElement>("searchbox", { name: "Name or email" })
+      .value,
+  ).toBe("");
 });
 it("distinguishes an empty queue from filtered results, loading and query errors", () => {
   mocks.query.mockReturnValue({ data: [], isLoading: false });

@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import type { ComponentProps } from "react";
 import messages from "../../../../messages/en.json";
@@ -10,6 +16,7 @@ import { StudentScheduleAction } from "./student-schedule-action";
 const state = vi.hoisted(() => ({
   mutate: vi.fn(),
   prepare: vi.fn(),
+  cancelTicket: vi.fn(),
   pending: false,
   error: "",
 }));
@@ -19,15 +26,17 @@ vi.mock("~/trpc/react", () => ({
       studentWorkflow: { tutorRoster: { invalidate: vi.fn() } },
     }),
     studentWorkflow: {
+      cancelAction: { useMutation: () => ({ mutate: state.cancelTicket }) },
       prepareAction: {
         useMutation: () => ({
-          mutate: state.prepare,
-          data: { id: "issued-server-ticket", readyAt: new Date(0) },
+          mutateAsync: state.prepare,
+          reset: vi.fn(),
         }),
       },
       rejectSchedule: {
         useMutation: () => ({
           mutate: state.mutate,
+          mutateAsync: state.mutate,
           isPending: state.pending,
           error: state.error ? new Error(state.error) : null,
         }),
@@ -61,6 +70,14 @@ const element = (active = true, locale = "en", schedule = row) => (
     />
   </NextIntlClientProvider>
 );
+beforeEach(() => {
+  state.prepare.mockResolvedValue({
+    id: "issued-server-ticket",
+    readyAt: new Date(0),
+    serverNow: new Date(),
+    expiresAt: new Date(Date.now() + 30 * 60_000),
+  });
+});
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -68,13 +85,20 @@ afterEach(() => {
   state.error = "";
 });
 
-it("retains canceled/failed reasons and passes the unchanged server ticket and target", () => {
+it("retains canceled/failed reasons and passes the unchanged server ticket and target", async () => {
+  state.prepare.mockImplementation(async () => ({
+    id: "issued-server-ticket",
+    readyAt: new Date(0),
+    serverNow: new Date(),
+    expiresAt: new Date(Date.now() + 30 * 60_000),
+  }));
   const view = render(element());
   const open = () =>
     fireEvent.click(
       screen.getByRole("button", { name: messages.workflow.scheduleReject }),
     );
   open();
+  await act(async () => undefined);
   expect(screen.getByRole("dialog", { name: /Sample Learner/ })).toBeTruthy();
   expect(state.prepare).toHaveBeenCalledWith({
     action: "SCHEDULE",
@@ -86,6 +110,7 @@ it("retains canceled/failed reasons and passes the unchanged server ticket and t
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(state.mutate).not.toHaveBeenCalled();
   open();
+  await act(async () => undefined);
   expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe(
     "Schedule conflict draft",
   );
@@ -113,9 +138,13 @@ it("retains canceled/failed reasons and passes the unchanged server ticket and t
   expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe(
     "Schedule conflict draft",
   );
+  // The feature returns its mutation promise; model the retried rejection even
+  // when no new pending/error-prop render is observed before cancellation.
+  state.mutate.mockRejectedValueOnce(new Error("Review failed"));
   fireEvent.click(screen.getByRole("button", { name: "Yes, confirm" }));
   expect(state.mutate).toHaveBeenCalledTimes(2);
   expect(state.mutate.mock.calls[1]).toEqual(state.mutate.mock.calls[0]);
+  await act(async () => undefined);
   fireEvent(dialog, new Event("cancel", { cancelable: true }));
   expect(screen.queryByRole("dialog")).toBeNull();
 });
@@ -125,12 +154,54 @@ it("shows the verification deadline without offering inactive tutors a new reque
   expect(screen.queryByRole("button")).toBeNull();
 });
 
+it.each(["read-failure", "pending-review"] as const)(
+  "retains an open reason but blocks the ready ticket after %s until eligibility returns",
+  async (transition) => {
+    state.prepare.mockResolvedValue({
+      id: "ready-ticket",
+      readyAt: new Date(0),
+      serverNow: new Date(),
+      expiresAt: new Date(Date.now() + 30 * 60_000),
+    });
+    const view = render(element());
+    fireEvent.click(screen.getByRole("button", {
+      name: messages.workflow.scheduleReject,
+    }));
+    await act(async () => undefined);
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Retained schedule reason" },
+    });
+    const changed = transition === "pending-review"
+      ? { ...row, pending: true }
+      : row;
+    view.rerender(element(transition !== "read-failure", "en", changed));
+    const confirm = screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.workflow.confirm,
+    });
+    expect(confirm.disabled).toBe(true);
+    fireEvent.click(confirm);
+    expect(state.mutate).not.toHaveBeenCalled();
+    expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe(
+      "Retained schedule reason",
+    );
+    view.rerender(element());
+    expect(confirm.disabled).toBe(false);
+    fireEvent.click(confirm);
+    expect(state.mutate).toHaveBeenCalledExactlyOnceWith({
+      pairingId: "pairing",
+      tuteeId: "tutee",
+      reason: "Retained schedule reason",
+      ticket: "ready-ticket",
+    });
+  },
+);
+
 it.each([
   { locale: "en", catalog: messages, weekday: "Sun" },
   { locale: "zh", catalog: zh, weekday: "周日" },
 ])(
   "localizes $locale schedule evidence and preserves the confirmation payload",
-  ({ locale, catalog, weekday }) => {
+  async ({ locale, catalog, weekday }) => {
     const schedule = {
       ...row,
       slots: [
@@ -154,6 +225,7 @@ it.each([
     fireEvent.click(
       screen.getByRole("button", { name: catalog.workflow.scheduleReject }),
     );
+    await act(async () => undefined);
     expect(state.prepare).toHaveBeenCalledExactlyOnceWith({
       action: "SCHEDULE",
       target: "pairing:tutee",

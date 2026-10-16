@@ -47,6 +47,18 @@ vi.mock("~/app/_components/qualified-tutor-select", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    notification: {
+      requestEmailStatus: {
+        useQuery: () => ({
+          data: null,
+          isSuccess: true,
+          isFetching: false,
+          refetch: async () => ({ data: null, error: null }),
+        }),
+      },
+      retryRequestEmail: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      declineRequestAppeal: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+    },
     useUtils: () => ({
       studentWorkflow: {
         adminRequests: {
@@ -219,18 +231,6 @@ beforeEach(() => {
   mocks.fetchTutees.mockImplementation(async () => fresh("legacy-1"));
 });
 afterEach(cleanup);
-
-it("lets an observer choose the static invalidity filter while its period read loads", () => {
-  mocks.periodLoading = true;
-  render(content(true, true));
-  const invalid = screen.getByRole("button", {
-    name: en.requestInvalidity.filter.invalid,
-  });
-  fireEvent.click(invalid);
-  expect(invalid.getAttribute("aria-pressed")).toBe("true");
-  expect(screen.queryByText("Legacy public student")).toBeNull();
-  expect(mocks.changeSignup).not.toHaveBeenCalled();
-});
 
 it.each([false, true])(
   "renders current unnamed requests with a handle or localized fallback (legacy=%s), preserving original labels when supplied",
@@ -529,4 +529,16 @@ it("starts fulfilled legacy requests collapsed and auto-collapses after fulfillm
       .getByRole("button", { name: en.admin.requests.expand })
       .getAttribute("aria-expanded"),
   ).toBe("false");
+});
+
+it("lets an observer choose the static invalidity filter while its period read loads", () => {
+  mocks.periodLoading = true;
+  render(content(true, true));
+  const invalid = screen.getByRole("button", {
+    name: en.requestInvalidity.filter.invalid,
+  });
+  fireEvent.click(invalid);
+  expect(invalid.getAttribute("aria-pressed")).toBe("true");
+  expect(screen.queryByText("Legacy public student")).toBeNull();
+  expect(mocks.changeSignup).not.toHaveBeenCalled();
 });
