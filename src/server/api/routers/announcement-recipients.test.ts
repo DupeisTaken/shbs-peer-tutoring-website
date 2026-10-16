@@ -99,6 +99,8 @@ describe("announcement publication and access", () => {
           title: "📣 Grade 12",
           body: "Private",
           link: "/dashboard",
+          event: "announcement_published",
+          context: {},
         },
       ],
     });

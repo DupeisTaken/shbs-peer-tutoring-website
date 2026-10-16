@@ -1,3 +1,4 @@
+import { notificationEvent } from "~/lib/notification-events";
 import { optionalPersonNameFields } from "~/lib/person-name";
 import { accountHistoryIds } from "~/server/account-history";
 import { currentAcademicInput, academicSummary } from "~/lib/academics";
@@ -305,6 +306,7 @@ export const accountRouter = createTRPCRouter({
         data: { userId: ctx.session.user.id, message: input.message },
       });
       await notifyAdmins({
+        ...notificationEvent("account_appeal_requested"),
         title: "Account appeal",
         body: `${user.name ?? "A suspended user"} submitted an appeal.`,
         link: "/admin/users",

@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { notificationEvent } from "~/lib/notification-events";
 import type { TransactionDb } from "~/server/transactions";
 import {
   approveQualification,
@@ -182,6 +183,9 @@ export async function decideQualificationApplication(
       title: input.accept
         ? "Qualification request approved"
         : "Qualification request rejected",
+      ...notificationEvent(
+        input.accept ? "qualification_approved" : "qualification_rejected",
+      ),
       body: input.comment,
       link: "/dashboard#qualification-requests",
     },

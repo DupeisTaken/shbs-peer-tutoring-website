@@ -1,3 +1,4 @@
+import { notificationEvent } from "~/lib/notification-events";
 import { accountHistoryIds } from "~/server/account-history";
 import { findAccountPolicy } from "~/server/policy-acceptance";
 import type { Prisma } from "../../../../generated/prisma";
@@ -61,27 +62,45 @@ export const studentRouter = createTRPCRouter({
       });
       if (!user) throw new TRPCError({ code: "NOT_FOUND" });
       const rows = await ctx.db.policyAcceptance.findMany({
-        where: { userId: { in: await accountHistoryIds(ctx.db, input.userId) } },
+        where: {
+          userId: { in: await accountHistoryIds(ctx.db, input.userId) },
+        },
         orderBy: [{ acceptedAt: "desc" }, { id: "desc" }],
         take: 21,
         skip: input.page * 20,
       });
       const current = await Promise.all(
-        applicablePolicySlugs(user).concat(user.tutorId && !user.tuteeMember && !user.studentId ? ["tutee-policy"] : []).map(async (slug) => {
-          const documents = await ctx.db.policyDocument.count({
-            where: { slug, locale: "en" },
-          });
-          if (!documents)
-            return { slug, documents: [], acceptedAt: null, published: false };
-          const policy = await currentPolicy(ctx.db, slug);
-          const acceptance = await findAccountPolicy(ctx.db, input.userId, slug, policy.revision);
-          return {
-            slug,
-            documents: policy.documents,
-            acceptedAt: acceptance?.acceptedAt ?? null,
-            published: true,
-          };
-        }),
+        applicablePolicySlugs(user)
+          .concat(
+            user.tutorId && !user.tuteeMember && !user.studentId
+              ? ["tutee-policy"]
+              : [],
+          )
+          .map(async (slug) => {
+            const documents = await ctx.db.policyDocument.count({
+              where: { slug, locale: "en" },
+            });
+            if (!documents)
+              return {
+                slug,
+                documents: [],
+                acceptedAt: null,
+                published: false,
+              };
+            const policy = await currentPolicy(ctx.db, slug);
+            const acceptance = await findAccountPolicy(
+              ctx.db,
+              input.userId,
+              slug,
+              policy.revision,
+            );
+            return {
+              slug,
+              documents: policy.documents,
+              acceptedAt: acceptance?.acceptedAt ?? null,
+              published: true,
+            };
+          }),
       );
       return {
         current,
@@ -139,7 +158,12 @@ export const studentRouter = createTRPCRouter({
     .input(z.object({ slug: z.enum(["tutee-policy", "tutor-policy"]) }))
     .query(async ({ ctx, input }) => {
       const policy = await currentPolicy(ctx.db, input.slug);
-      const accepted = await findAccountPolicy(ctx.db, ctx.session.user.id, input.slug, policy.revision);
+      const accepted = await findAccountPolicy(
+        ctx.db,
+        ctx.session.user.id,
+        input.slug,
+        policy.revision,
+      );
       return { ...policy, accepted: !!accepted };
     }),
   acceptPolicy: protectedProcedure
@@ -154,8 +178,14 @@ export const studentRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         await lockEntity(tx, `policy:${input.slug}`);
-        const user = await tx.user.findUniqueOrThrow({ where: { id: ctx.session.user.id } });
-        if (user.role === "VIEWER") throw new TRPCError({ code: "FORBIDDEN", message: "Viewer cannot acquire participant membership." });
+        const user = await tx.user.findUniqueOrThrow({
+          where: { id: ctx.session.user.id },
+        });
+        if (user.role === "VIEWER")
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Viewer cannot acquire participant membership.",
+          });
         const current = await currentPolicy(tx, input.slug);
         if (current.revision !== input.revision)
           throw new TRPCError({
@@ -187,7 +217,11 @@ export const studentRouter = createTRPCRouter({
             snapshot: current.documents,
           },
         });
-        if (input.slug === "tutee-policy") await tx.user.update({ where: { id: user.id }, data: { tuteeMember: true } });
+        if (input.slug === "tutee-policy")
+          await tx.user.update({
+            where: { id: user.id },
+            data: { tuteeMember: true },
+          });
         return { ok: true };
       }),
     ),
@@ -217,7 +251,12 @@ export const studentRouter = createTRPCRouter({
                     startMin: true,
                     endMin: true,
                     room: { select: { name: true } },
-                    tutor: { select: { englishName: true, user: { select: { username: true } } } },
+                    tutor: {
+                      select: {
+                        englishName: true,
+                        user: { select: { username: true } },
+                      },
+                    },
                   },
                 },
               },
@@ -248,7 +287,12 @@ export const studentRouter = createTRPCRouter({
             startMin: true,
             endMin: true,
             room: { select: { name: true } },
-            tutor: { select: { englishName: true, user: { select: { username: true } } } },
+            tutor: {
+              select: {
+                englishName: true,
+                user: { select: { username: true } },
+              },
+            },
           },
         })
       : [];
@@ -382,7 +426,11 @@ export const studentRouter = createTRPCRouter({
           create: { studentId: attendance.tuteeId, ...input },
         });
         await notifyAdmins(
-          { title: "Tutee feedback received", link: "/student-support" },
+          {
+            ...notificationEvent("tutee_feedback_received"),
+            title: "Tutee feedback received",
+            link: "/student-support",
+          },
           undefined,
           tx,
         );
@@ -470,7 +518,11 @@ export const studentRouter = createTRPCRouter({
           data: { studentId: card.tuteeId, ...input },
         });
         await notifyAdmins(
-          { title: "Tutee card appeal", link: "/student-support" },
+          {
+            ...notificationEvent("tutee_card_appeal"),
+            title: "Tutee card appeal",
+            link: "/student-support",
+          },
           undefined,
           tx,
         );
@@ -590,7 +642,11 @@ export const studentRouter = createTRPCRouter({
         if (owner)
           await notifyUsers(
             [owner.id],
-            { title: "Your appeal was reviewed", link: "/student" },
+            {
+              ...notificationEvent("tutee_appeal_reviewed"),
+              title: "Your appeal was reviewed",
+              link: "/student",
+            },
             tx,
           );
         return { ok: true };

@@ -1,5 +1,11 @@
 import { requireStudentSchoolParticipation } from "./school-departure";
-import { assertRequestProcessable, lockLegacySignupReview, lockStudentRequestReview } from "./request-invalidity";
+import { notificationData } from "./notifications/create";
+import type { NotificationEvent } from "~/lib/notification-events";
+import {
+  assertRequestProcessable,
+  lockLegacySignupReview,
+  lockStudentRequestReview,
+} from "./request-invalidity";
 import { recordDomainAudit } from "./audit/evidence";
 import { TRPCError } from "@trpc/server";
 import type { StudentSurvey } from "../../generated/prisma";
@@ -15,7 +21,7 @@ export const VERIFICATION_WEEK_MS = 7 * 24 * 60 * 60_000;
 export async function notifyRequest(
   tx: TransactionDb,
   row: StudentSurvey,
-  title: string,
+  event: NotificationEvent,
 ) {
   const links = row.tuteeId
     ? await tx.pairingTutee.findMany({
@@ -47,8 +53,7 @@ export async function notifyRequest(
   await tx.notification.createMany({
     data: users.map((user) => ({
       userId: user.id,
-      title,
-      body: row.email,
+      ...notificationData(event),
       link: ["HEAD", "ADMIN"].includes(user.role)
         ? "/admin/requests"
         : user.id === owner?.userId || user.email === row.email
@@ -70,13 +75,12 @@ export async function closeStudentRequest(
       code: "CONFLICT",
       message: "This request is already processed.",
     });
-  const titles = {
-    RECALLED: "Request recalled / 申请已撤回",
-    DISQUALIFIED:
-      "Verification overdue; submit a new request / 验证逾期，请重新申请",
-    ABORTED: "Quarter withdrawal approved / 本季度退出申请已批准",
-  };
-  await notifyRequest(tx, row, titles[state]);
+  const events = {
+    RECALLED: "student_request_recalled",
+    DISQUALIFIED: "student_request_expired",
+    ABORTED: "student_withdrawal_approved",
+  } as const;
+  await notifyRequest(tx, row, events[state]);
   await tx.studentSurvey.update({
     where: { id: row.id },
     data: { state, resolvedAt: now },
@@ -118,17 +122,35 @@ export async function expireStudentRequests(db: DomainDb, now = new Date()) {
         row.verificationDueAt > now
       )
         return 0;
-      const links = row.tuteeId ? await tx.pairingTutee.findMany({ where: { tuteeId: row.tuteeId }, select: { pairingId: true } }) : [];
-      const tutee = row.tuteeId ? await tx.tutee.findUnique({ where: { id: row.tuteeId }, select: { status: true } }) : null;
+      const links = row.tuteeId
+        ? await tx.pairingTutee.findMany({
+            where: { tuteeId: row.tuteeId },
+            select: { pairingId: true },
+          })
+        : [];
+      const tutee = row.tuteeId
+        ? await tx.tutee.findUnique({
+            where: { id: row.tuteeId },
+            select: { status: true },
+          })
+        : null;
       await closeStudentRequest(tx, row, "DISQUALIFIED", now);
       await recordDomainAudit(tx, {
-        operation: "system.expireStudentRequest", entity: "StudentSurvey", entityId: row.id,
-        action: "Expired unverified student request", system: true, before: row,
+        operation: "system.expireStudentRequest",
+        entity: "StudentSurvey",
+        entityId: row.id,
+        action: "Expired unverified student request",
+        system: true,
+        before: row,
         after: { id: row.id, state: "DISQUALIFIED", resolvedAt: now },
         reason: "Verification deadline passed without confirmation",
-        effects: { tuteeId: row.tuteeId, beforeStatus: tutee?.status ?? null,
-          afterStatus: row.tuteeId ? "INACTIVE" : null, removedPairingIds: links.map(link => link.pairingId),
-          pendingReviews: "DENIED" },
+        effects: {
+          tuteeId: row.tuteeId,
+          beforeStatus: tutee?.status ?? null,
+          afterStatus: row.tuteeId ? "INACTIVE" : null,
+          removedPairingIds: links.map((link) => link.pairingId),
+          pendingReviews: "DENIED",
+        },
       });
       return 1;
     });
@@ -146,7 +168,9 @@ export async function assertStudentRequestAssignable(
   if (!row) {
     // Share the legacy review lock, including the first flag when no metadata row exists.
     await lockLegacySignupReview(tx, tuteeId);
-    const invalidity = await tx.tuteeRequestInvalidity.findUnique({ where: { tuteeId } });
+    const invalidity = await tx.tuteeRequestInvalidity.findUnique({
+      where: { tuteeId },
+    });
     if (invalidity) assertRequestProcessable(invalidity);
     // Manual withdrawals are terminal for their quarter just like survey withdrawals.
     const term = await tx.term.findFirst({

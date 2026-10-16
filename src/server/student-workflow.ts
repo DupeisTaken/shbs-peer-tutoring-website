@@ -1,6 +1,11 @@
 import { confirmationDelayMs } from "~/lib/confirmation-timing";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
-import { assertRequestProcessable, emptyRequestInvalidity, lockStudentRequestReview, requestInvalidity } from "~/server/request-invalidity";
+import {
+  assertRequestProcessable,
+  emptyRequestInvalidity,
+  lockStudentRequestReview,
+  requestInvalidity,
+} from "~/server/request-invalidity";
 import { findAccountPolicy } from "./policy-acceptance";
 import { enforceAssignmentQualification } from "./assignment-qualification";
 import { approveLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
@@ -9,7 +14,11 @@ import { approvalScope } from "./db-scope";
 import { ownedStudentIds } from "./student-ownership";
 import type { DomainDb, TransactionDb } from "./transactions";
 import { inTransaction, lockEntity } from "./transactions";
-import { currentPolicy, publishedPolicy, requirePolicy } from "./policy-acceptance";
+import {
+  currentPolicy,
+  publishedPolicy,
+  requirePolicy,
+} from "./policy-acceptance";
 import {
   applicablePolicySlugs,
   policyActionTarget,
@@ -154,7 +163,12 @@ export async function acceptStudentPolicy(
       policyActionTarget(slug, revision),
     );
     const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
-    if (user.role === "VIEWER" || (slug !== "tutee-policy" && !applicablePolicySlugs(user).includes(slug)) || user.suspendedAt)
+    if (
+      user.role === "VIEWER" ||
+      (slug !== "tutee-policy" &&
+        !applicablePolicySlugs(user).includes(slug)) ||
+      user.suspendedAt
+    )
       throw new TRPCError({ code: "FORBIDDEN" });
     await tx.policyAcceptance.upsert({
       where: { userId_slug_revision: { userId, slug: policy.slug, revision } },
@@ -168,7 +182,11 @@ export async function acceptStudentPolicy(
         acceptedAt: new Date(),
       },
     });
-    if (slug === "tutee-policy") await tx.user.update({ where: { id: userId }, data: { tuteeMember: true } });
+    if (slug === "tutee-policy")
+      await tx.user.update({
+        where: { id: userId },
+        data: { tuteeMember: true },
+      });
     return { ok: true };
   });
 }
@@ -189,7 +207,13 @@ export async function studentPolicyStatus(
       schoolDeparture: true,
     },
   });
-  if (!user || user.suspendedAt || user.role === "VIEWER" || user.schoolDeparture?.reason) return null;
+  if (
+    !user ||
+    user.suspendedAt ||
+    user.role === "VIEWER" ||
+    user.schoolDeparture?.reason
+  )
+    return null;
   // An unpublished membership must not hide another membership's published review.
   // Only publication absence is a setup state; database errors still propagate.
   const missingSlugs: PolicySlug[] = [];
@@ -201,7 +225,12 @@ export async function studentPolicyStatus(
       missingSlugs.push(slug);
       continue;
     }
-    const acceptance = await findAccountPolicy(db, userId, policy.slug, policy.revision);
+    const acceptance = await findAccountPolicy(
+      db,
+      userId,
+      policy.slug,
+      policy.revision,
+    );
     if (!acceptance || (tuteeEntry && !user.tuteeMember))
       return { state: "review" as const, ...policy };
   }
@@ -225,7 +254,13 @@ export async function assignStudentRequest(
 ) {
   await expireStudentRequests(db);
   const result = await inTransaction(db, async (tx) => {
-    await enforceAssignmentQualification(tx, userId, "studentWorkflow.assign", { id, ticket, subjectId, tutorId, overrideTicket });
+    await enforceAssignmentQualification(tx, userId, "studentWorkflow.assign", {
+      id,
+      ticket,
+      subjectId,
+      tutorId,
+      overrideTicket,
+    });
     const row = await lockedRequest(tx, id);
     assertRequestProcessable(row);
     await consumeStudentAction(tx, ticket, userId, "ASSIGN", id);
@@ -265,7 +300,7 @@ export async function assignStudentRequest(
     await notifyRequest(
       tx,
       { ...row, tuteeId: student.id },
-      "Tutor assigned / 已分配辅导伙伴",
+      "student_assignment_updated",
     );
     return { email: row.email, needsVerification: !row.confirmedAt };
   });
@@ -310,11 +345,7 @@ export async function editStudentAvailability(
       where: { id },
       data: { editedAt: new Date() },
     });
-    await notifyRequest(
-      tx,
-      row,
-      "Tutee availability edited / 学习伙伴可用时间已修改",
-    );
+    await notifyRequest(tx, row, "student_availability_updated");
     return { ok: true };
   });
 }
@@ -371,11 +402,7 @@ export async function applyStudentAbort(
         reason,
       },
     });
-    await notifyRequest(
-      tx,
-      row,
-      "Quarter withdrawal awaiting review / 本季度退出申请待审核",
-    );
+    await notifyRequest(tx, row, "student_withdrawal_pending");
     return { ok: true };
   });
 }
@@ -431,7 +458,7 @@ export async function applyScheduleRejection(
         tx,
         tuteeId,
         userId,
-        "Tutor schedule conflict awaiting review / 辅导伙伴时间冲突待审核",
+        "student_schedule_review_pending",
       );
       return { ok: true };
     }
@@ -471,11 +498,7 @@ export async function applyScheduleRejection(
         reason,
       },
     });
-    await notifyRequest(
-      tx,
-      row,
-      "Tutor schedule conflict awaiting review / 辅导伙伴时间冲突待审核",
-    );
+    await notifyRequest(tx, row, "student_schedule_review_pending");
     return { ok: true };
   });
 }
@@ -552,11 +575,11 @@ export async function resolveStudentReview(
         review.requestedByUserId,
         review.kind === "STUDENT_ABORT"
           ? approve
-            ? "Quarter withdrawal approved / 本季度退出申请已批准"
-            : "Withdrawal declined; participation continues / 退出申请未通过，继续参加"
+            ? "student_withdrawal_approved"
+            : "student_withdrawal_declined"
           : approve
-            ? "Schedule rejection approved; rematching needed / 时间冲突申请通过，待重新匹配"
-            : "Schedule rejection declined / 时间冲突申请未通过",
+            ? "student_schedule_review_approved"
+            : "student_schedule_review_declined",
       );
       return { ok: true };
     }
@@ -619,11 +642,7 @@ export async function resolveStudentReview(
         fail(
           "This tutor assignment changed after the application was submitted. Decline this outdated application and review the current assignment.",
         );
-      await notifyRequest(
-        tx,
-        row,
-        "Schedule rejection approved; rematching needed / 时间冲突申请通过，待重新匹配",
-      );
+      await notifyRequest(tx, row, "student_schedule_review_approved");
       await preserveHistoricalAcademics(tx, "TUTEE", row.tuteeId!);
       await tx.pairingTutee.deleteMany({
         where: { pairingId: review.pairingId!, tuteeId: row.tuteeId! },
@@ -636,7 +655,9 @@ export async function resolveStudentReview(
       await notifyRequest(
         tx,
         row,
-        "Application declined; current assignment continues / 申请未通过，现有安排继续",
+        review.kind === "STUDENT_ABORT"
+          ? "student_withdrawal_declined"
+          : "student_schedule_review_declined",
       );
     await tx.studentRequestReview.update({
       where: { id },
@@ -654,7 +675,7 @@ async function notifyLegacySchedule(
   tx: TransactionDb,
   tuteeId: string,
   tutorUserId: string,
-  title: string,
+  event: NotificationEvent,
 ) {
   const users = await tx.user.findMany({
     where: {
@@ -671,7 +692,7 @@ async function notifyLegacySchedule(
   await tx.notification.createMany({
     data: users.map((user) => ({
       userId: user.id,
-      title,
+      ...notificationData(event),
       link: ["HEAD", "ADMIN"].includes(user.role)
         ? "/admin/requests"
         : user.tutorId
@@ -716,7 +737,16 @@ export async function studentRequestRows(
         pairings: {
           where: { pairing: { termId: term.id } },
           include: {
-            pairing: { include: { tutor: { select: { englishName: true, user: { select: { username: true } } } } } },
+            pairing: {
+              include: {
+                tutor: {
+                  select: {
+                    englishName: true,
+                    user: { select: { username: true } },
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -785,3 +815,5 @@ export async function studentRequestRows(
     };
   });
 }
+import { notificationData } from "./notifications/create";
+import type { NotificationEvent } from "~/lib/notification-events";
