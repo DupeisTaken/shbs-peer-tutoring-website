@@ -836,6 +836,16 @@ automatic-allocation policy; an explicitly assigned existing handle remains vali
 
 In **Users & Roles → Edit profile**, Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admins may submit username changes for Head review; Coordinators cannot submit them. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op; stale profile versions require explicit **Reload**. After a successful save, the section automatically reads its current username and profile version, then allows another explicit Save in the same dialog. Other sections retain their drafts and version snapshots.
 
+Notification record navigation composes the existing bell and authorized request/
+application cards. Validated record links opt out of Next's default scroll so it
+cannot overwrite an intentional incoming fragment. Destination filters commit
+before a mounted target is revealed and focused; delayed mounting waits on DOM
+changes rather than a timer. The page's session scroll owner already skips incoming
+fragments. After a successful reveal, or a user gesture, location change or access
+loss, the record adapter relinquishes scroll ownership. This changes presentation
+only: no query permissions, review state, editor drafts or mutation authority move
+into the navigation helper.
+
 ## Approval transactions
 
 Additional tutor qualifications use `qualificationApplication` and explicit `ADDITIONAL_SUBJECT` / `HIGHER_LEVEL` application types linked to an existing tutor and stable subject ID. Submission is self-only for active, non-revoked tutors; an open-request unique index plus transaction locks prevents duplicate pending/interview requests. Only Admin/Head may choose a panel or decide, and an interviewed request retains the existing votes/majority/chair checks. Initial-signup reconciliation is bypassed: no roles, membership, registration codes, willingness or existing grants change. Approval uses `approveQualification` in the decision transaction and copies its concrete grants into immutable request evidence; later catalogue reordering never recalculates this evidence. SQL guards preserve request identity and final decisions. Legacy status, delete and interview-decision entry points reject additional applications before proposal middleware.

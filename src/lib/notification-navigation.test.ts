@@ -1,6 +1,26 @@
 // @vitest-environment jsdom
 import { expect, it, vi } from "vitest";
-import { navigateNotificationFragment } from "./notification-navigation";
+import {
+  isNotificationRecordDestination,
+  navigateNotificationFragment,
+} from "./notification-navigation";
+it.each([
+  ["/admin/requests#request-survey-abc_123", true],
+  ["/admin/requests#request-signup-abc-123", true],
+  ["/admin/applications#application-abc123", true],
+  ["/admin/requests", false],
+  ["/admin/requests?tab=all#request-survey-abc", false],
+  ["/admin/requests#request-survey-", false],
+  ["/admin/requests#request-survey-" + "a".repeat(129), false],
+  ["/admin/requests#request-survey-abc%2Fdef", false],
+  ["https://external.example/admin/requests#request-survey-abc", false],
+  ["//external.example/admin/requests#request-survey-abc", false],
+])(
+  "validates the exact relative managed record destination %s",
+  (href, expected) => {
+    expect(isNotificationRecordDestination(href)).toBe(expected);
+  },
+);
 it("repeats a same-document fragment through the record adapter without replacing the mounted page", () => {
   window.history.replaceState(null, "", "/admin/applications#application-123");
   const reveal = vi.fn(),

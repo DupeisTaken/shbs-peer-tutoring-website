@@ -5042,7 +5042,7 @@
     },
     "request_invalidity_appeal_pending": {
       "title": "Invalid Request Appeal Awaiting Review",
-      "body": "A submitter appealed an applied invalid-request flag. Review the appeal in the request's invalidity dialog; submitting an appeal does not clear the flag.",
+      "body": "Eine antragstellende Person hat gegen eine gesetzte Ungültigkeitsmarkierung Einspruch eingelegt. Öffnen Sie den verlinkten Antrag, um den Einspruch zu prüfen. Das Einreichen des Einspruchs hebt die Markierung nicht auf.",
       "action": "Review invalid request appeal"
     }
   },
