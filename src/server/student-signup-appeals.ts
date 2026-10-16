@@ -279,6 +279,19 @@ export async function deliverSignupNotice(db: DomainDb, noticeId: string) {
     return false;
   }
 }
+async function transportRecipientIsCurrent(
+  db: DomainDb,
+  notice: { recipientEmail: string | null; accountId: string | null },
+  receiptRecipient: string,
+) {
+  if (receiptRecipient === notice.recipientEmail) return true;
+  if (!notice.accountId) return false;
+  const address = await db.accountEmail.findUnique({
+    where: { email: receiptRecipient },
+  });
+  return address?.userId === notice.accountId && !!address.verifiedAt;
+}
+
 async function sourceFromToken(tx: TransactionDb, token: string) {
   const notice = await tx.studentSignupNotice.findUnique({
     where: { tokenHash: digest(token) },
@@ -291,6 +304,23 @@ async function sourceFromToken(tx: TransactionDb, token: string) {
     recipient?.accountId !== notice.accountId ||
     recipient?.sessionVersion !== notice.sessionVersion ||
     row.invalidityVersion !== notice.invalidityVersion
+  )
+    throw invalid();
+  const receipt = await tx.emailDelivery.findUnique({
+    where: {
+      requestKind_requestId_requestVersion: {
+        requestKind: "survey",
+        requestId: row.id,
+        requestVersion: notice.invalidityVersion,
+      },
+    },
+    select: { recipient: true, requestInvalid: true },
+  });
+  // lockedSource holds the username namespace, shared with address removal.
+  // A captured alias URL cannot retain authority after that alias is revoked.
+  if (
+    receipt?.requestInvalid &&
+    !(await transportRecipientIsCurrent(tx, notice, receipt.recipient))
   )
     throw invalid();
   return row;
@@ -339,7 +369,6 @@ export async function retrySignupNotices(db: DomainDb, surveyId: string) {
         },
       },
     });
-    if (!capability) await enqueueSignupNotice(tx, row, "INVALID_FLAGGED");
     const recipient = await deliveryOwner(tx, row);
     // Preserve the existing reviewed credential-recovery path for the SAME
     // account/mailbox. Never transfer a retained proof to a different owner.
@@ -349,7 +378,11 @@ export async function retrySignupNotices(db: DomainDb, surveyId: string) {
       recipient.email === capability.recipientEmail &&
       recipient.accountId === capability.accountId &&
       recipient.sessionVersion !== capability.sessionVersion;
-    const rotateCapability = async () => {
+    const admitCapability = async () => {
+      if (!capability) {
+        await enqueueSignupNotice(tx, row, "INVALID_FLAGGED");
+        return;
+      }
       if (!rotate || !capability || !recipient) return;
       const rebound = {
         ...capability,
@@ -384,7 +417,7 @@ export async function retrySignupNotices(db: DomainDb, surveyId: string) {
         recipient: row.email,
         submittedAt: row.submittedAt,
       });
-      await rotateCapability();
+      await admitCapability();
       return { queued: true, emailSent: false };
     }
     const updated = await tx.emailDelivery.updateMany({
@@ -393,7 +426,7 @@ export async function retrySignupNotices(db: DomainDb, surveyId: string) {
         OR: [
           { status: "FAILED" },
           { status: "PENDING", attempts: { gt: 0 } },
-          ...(rotate ? [{ status: "SENT" }] : []),
+          ...(rotate || !capability ? [{ status: "SENT" }] : []),
         ],
         AND: [
           { OR: [{ leaseUntil: null }, { leaseUntil: { lte: new Date() } }] },
@@ -412,7 +445,7 @@ export async function retrySignupNotices(db: DomainDb, surveyId: string) {
     });
     // Refused admission must preserve a currently captured URL. Rotate only
     // after this transaction owns a corresponding queued transport attempt.
-    if (updated.count) await rotateCapability();
+    if (updated.count) await admitCapability();
     return { queued: updated.count === 1, emailSent: false };
   });
   if (result.queued) {
@@ -459,19 +492,8 @@ export async function modernSignupAppealUrl(
     recipient?.sessionVersion !== notice.sessionVersion
   )
     return null;
-  if (receiptRecipient !== notice.recipientEmail) {
-    const address = await db.accountEmail.findUnique({
-      where: { email: receiptRecipient },
-    });
-    // The immutable transport recipient must still be the same owner's verified
-    // alias; removed/transferred mailboxes cannot receive a modern capability.
-    if (
-      !notice.accountId ||
-      address?.userId !== notice.accountId ||
-      !address.verifiedAt
-    )
-      return null;
-  }
+  if (!(await transportRecipientIsCurrent(db, notice, receiptRecipient)))
+    return null;
   return `${emailOrigin()}/tutee-signup/appeal#token=${noticeToken(notice)}`;
 }
 

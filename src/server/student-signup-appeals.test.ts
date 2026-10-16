@@ -26,6 +26,10 @@ import {
   modernSignupAppealUrl,
 } from "./student-signup-appeals";
 import { requestAppealToken } from "./email/request-appeal-token";
+import { queueRequestNotice } from "./email/request-notice";
+import { deliverNotifications } from "./email/notification-delivery";
+import { hashPassword } from "./auth/password";
+import { manageSecondaryEmail } from "./auth/account-emails";
 import {
   requestAppealStatus,
   submitRequestAppeal,
@@ -100,11 +104,11 @@ beforeEach(async () => {
     });
 });
 afterAll(() => db.$disconnect());
-async function fixture(confirmed = true) {
+async function fixture(confirmed = true, sourceEmail = "owner@example.test") {
   const policy = await currentPolicy(db, "tutee-policy");
   const payload = surveyInput.parse({
     englishName: "Original Request",
-    email: "owner@example.test",
+    email: sourceEmail,
     preferredContact: "Original contact",
     firstChoiceId: "math",
     slotIds: ["slot"],
@@ -129,13 +133,17 @@ async function fixture(confirmed = true) {
     await db.user.create({
       data: {
         id: "owner",
-        email: payload.email,
+        email: "owner@example.test",
         username: "owner",
         studentId: tutee.id,
         emailVerifiedAt: new Date(),
         tuteeMember: true,
       },
     });
+    if (sourceEmail !== "owner@example.test")
+      await db.accountEmail.create({
+        data: { email: sourceEmail, userId: "owner", verifiedAt: new Date() },
+      });
     await db.studentProfileOwnership.create({
       data: { userId: "owner", tuteeId: tutee.id },
     });
@@ -585,6 +593,195 @@ it("does not rotate an in-flight capability until its shared receipt can queue c
   expect(
     await db.emailDelivery.count({ where: { requestKind: "survey" } }),
   ).toBe(1);
+});
+
+it.each([false, true])(
+  "recovers a pre-existing generic receipt without a modern capability (in flight=%s)",
+  async (inFlight) => {
+    const { row } = await fixture();
+    await db.studentSurvey.update({
+      where: { id: row.id },
+      data: {
+        invalidityVersion: 1,
+        invalidatedAt: new Date(),
+        invalidatedById: "HEAD",
+        invalidReason: "Existing participant-facing flag",
+      },
+    });
+    await db.$transaction((tx) =>
+      queueRequestNotice(tx, {
+        kind: "survey",
+        id: row.id,
+        version: 1,
+        invalid: true,
+        reason: "Existing participant-facing flag",
+        actorId: "HEAD",
+        recipient: row.email,
+        submittedAt: row.submittedAt,
+      }),
+    );
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const admitted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    if (inFlight)
+      send.mockImplementationOnce(async () => {
+        started();
+        await gate;
+      });
+    const delivering = deliverNotifications();
+    const original = await db.emailDelivery.findFirstOrThrow({
+      where: { requestKind: "survey" },
+    });
+    try {
+      if (inFlight) {
+        await admitted;
+        expect(
+          await staff("HEAD").studentWorkflow.resendSignupNotice({
+            id: row.id,
+          }),
+        ).toMatchObject({ queued: false });
+        expect(await db.studentSignupNotice.count()).toBe(0);
+      }
+    } finally {
+      release();
+      await delivering;
+    }
+    expect(await db.studentSignupNotice.count()).toBe(0);
+    expect(
+      (await db.emailDelivery.findUniqueOrThrow({ where: { id: original.id } }))
+        .status,
+    ).toBe("SENT");
+    const results = await Promise.all([
+      staff("HEAD").studentWorkflow.resendSignupNotice({ id: row.id }),
+      staff("HEAD").studentWorkflow.resendSignupNotice({ id: row.id }),
+    ]);
+    expect(results.filter((result) => result.queued)).toHaveLength(1);
+    expect(await db.studentSignupNotice.count()).toBe(1);
+    expect(
+      await db.emailDelivery.count({ where: { requestKind: "survey" } }),
+    ).toBe(1);
+    expect(
+      (await db.emailDelivery.findUniqueOrThrow({ where: { id: original.id } }))
+        .status,
+    ).toBe("SENT");
+    expect((await inspectSignupAppeal(db, proof())).canAppeal).toBe(true);
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(
+      (await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }))
+        .invalidityVersion,
+    ).toBe(1);
+  },
+);
+
+it.each([false, true])(
+  "revokes a shared alias capability after removal or transfer during SMTP (transfer=%s)",
+  async (transfer) => {
+    const alias = "source-alias@example.test";
+    await fixture(true, alias);
+    const password = "Synthetic-alias-review!";
+    await db.user.update({
+      where: { id: "owner" },
+      data: { passwordHash: hashPassword(password) },
+    });
+    const owner = await db.user.findUniqueOrThrow({ where: { id: "owner" } });
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const admitted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    send.mockImplementation(async (message) => {
+      // Credential setup can queue a separate security event. Hold only the
+      // modern flag URL whose transport-alias authority this case exercises.
+      if (message.text.includes("/tutee-signup/appeal#token=")) {
+        started();
+        await gate;
+      }
+    });
+    const applying = flag();
+    try {
+      await admitted;
+      const token = proof();
+      expect((await inspectSignupAppeal(db, token)).canAppeal).toBe(true);
+      await manageSecondaryEmail("owner", alias, password, "remove");
+      if (transfer)
+        await db.user.create({
+          data: {
+            email: alias,
+            username: "different-alias-owner",
+            role: "VIEWER",
+            emailVerifiedAt: new Date(),
+          },
+        });
+      expect(
+        (await db.user.findUniqueOrThrow({ where: { id: "owner" } }))
+          .sessionVersion,
+      ).toBe(owner.sessionVersion);
+      await expect(inspectSignupAppeal(db, token)).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+      });
+      await expect(
+        appealStudentSignup(db, {
+          token,
+          reason: "An obsolete mailbox cannot appeal",
+          clientKey: randomUUID(),
+        }),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      expect(await db.studentSignupAppeal.count()).toBe(0);
+    } finally {
+      release();
+      await applying;
+    }
+  },
+);
+
+it("suppresses a queued modern flag after terminal appeal rejection without changing generic delivery rules", async () => {
+  await fixture();
+  const effects: Array<() => Promise<void>> = [];
+  await afterCommitScope.run(
+    { effects, committed: false, onFailure: async () => undefined },
+    () => db.$transaction((tx) => databaseScope.run(tx, () => flag())),
+  );
+  expect(send).not.toHaveBeenCalled();
+  const appeal = await appealStudentSignup(
+    db,
+    {
+      id: "source",
+      expectedInvalidityVersion: 1,
+      reason: "Please review the request",
+      clientKey: randomUUID(),
+    },
+    "owner",
+  );
+  await resolveStudentSignupAppeal(db, "HEAD", {
+    id: appeal.appealId,
+    approve: false,
+    expectedInvalidityVersion: 1,
+    clientKey: randomUUID(),
+    signedTicket: await ticket("SIGNUP_APPEAL", `${appeal.appealId}:false`),
+  });
+  expect(
+    (await db.studentSurvey.findUniqueOrThrow({ where: { id: "source" } }))
+      .state,
+  ).toBe("INVALID_REJECTED");
+  const sentBeforeWorker = send.mock.calls.length;
+  await deliverNotifications();
+  expect(send).toHaveBeenCalledTimes(sentBeforeWorker);
+  expect(
+    (
+      await db.emailDelivery.findFirstOrThrow({
+        where: { requestKind: "survey" },
+      })
+    ).status,
+  ).toBe("SUPERSEDED");
+  expect(await db.studentSignupAppeal.count()).toBe(1);
 });
 it("Coordinator proposal sends no notice until Head approval commits the actual flag", async () => {
   await fixture();

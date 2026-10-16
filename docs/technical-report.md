@@ -1486,6 +1486,18 @@ same transaction that successfully queues the matching delivery receipt. A
 `SENDING` attempt or active lease leaves the captured capability unchanged. After
 that attempt settles, another explicit retry may queue and rotate atomically;
 neither a refused retry nor a background read can invalidate an in-flight link.
+For pre-existing sent generic survey receipts without a modern capability, an
+explicit staff recovery can requeue that same receipt and create its matching
+modern capability atomically. Refused admission creates no capability; a prior
+generic SMTP attempt cannot mark a newly unsent modern link as delivered.
+
+The shared receipt's original verified alias is checked again by authoritative
+token inspection and appeal submission, under the same username namespace used
+by address removal. Removing or transferring that alias revokes a captured link
+even if the primary address and session version are unchanged. Primary-exact and
+older native notices retain their existing binding. A modern capability-backed
+flag receipt is superseded before transport when its signup has become terminal;
+the separate appeal outcome notice remains the correct final-state message.
 
 The three signup-specific actions (`SIGNUP_EDIT`, `SIGNUP_UNASSIGN`,
 `SIGNUP_APPEAL`) retain their existing five-second review delay when joining the
