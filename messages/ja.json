@@ -29,7 +29,9 @@
     "slot": "時間枠",
     "room": "教室",
     "select": "選択",
-    "selected": "選択済み"
+    "selected": "選択済み",
+    "noRooms": "教室はまだありません。",
+    "noSlots": "時間帯はまだ公開されていません。"
   },
   "scheduling": {
     "awaiting": "日程調整待ち",
@@ -114,7 +116,10 @@
     "qualifiedOnly": "Your qualified subjects",
     "choiceHelp": "Choose what you would like to tutor right now.",
     "scheduleSeparate": "Your timetable is arranged separately.",
-    "savesAutomatically": "Changes save automatically"
+    "savesAutomatically": "Changes save automatically",
+    "edit": "詳細を編集",
+    "editTitle": "{tutor} · {subject}",
+    "refreshFailed": "変更を保存しました。次の変更を行う前に科目の記録を更新してください。"
   },
   "messaging": {
     "privacyTitle": "Private Deliveries, with Staff Oversight",
@@ -178,7 +183,7 @@
       "UNRESTRICT": "Access restored"
     },
     "rolePermissions": "Permissions by Role",
-    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "permissionHelp": "選択したグループはメッセージを受信できます。ユーザー個別設定は役割の方針を置き換えます。グループ未選択では新規送信できません。すべての利用可能なアカウントには、自分、停止中、メッセージ制限中のアカウントは含まれません。過去の指導関係は保存済みの割り当てや出席記録に基づき、記録のない割り当ては復元できません。",
     "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
@@ -197,7 +202,8 @@
     "ownInbox": "Your inbox",
     "replyContext": "{name} に返信中",
     "cancelReply": "返信をキャンセル",
-    "replyDraftHelp": "以前の下書きは保持されます。キャンセルしても、この返信の下書きはこのページに保持されます。"
+    "replyDraftHelp": "以前の下書きは保持されます。キャンセルしても、この返信の下書きはこのページに保持されます。",
+    "permissionsDestination": "プログラム設定のメッセージ権限"
   },
   "common": {
     "cancel": "キャンセル",
@@ -412,8 +418,9 @@
       "help": "各ペアリングのデフォルトタイムスロットを選択してください（実際のセッション時間は出席提出時に入力します）。"
     },
     "availability": {
-      "title": "マイ空き時間",
-      "help": "指導可能なタイムスロットをマークしてください。コーディネーターがスケジュール調整に使用します。"
+      "title": "指導可能な時間",
+      "help": "指導可能なタイムスロットをマークしてください。コーディネーターがスケジュール調整に使用します。",
+      "edit": "指導可能な時間を編集"
     },
     "attendance": {
       "title": "出席を提出",
@@ -450,7 +457,10 @@
       "colRoom": "部屋",
       "colTutees": "生徒",
       "edit": "編集",
-      "delete": "削除"
+      "delete": "削除",
+      "searchTutees": "受講者を検索",
+      "selectedTutees": "{count}人を選択中",
+      "removeSelected": "{name}を選択から外す"
     },
     "tutors": {
       "title": "チューター",
@@ -539,7 +549,7 @@
     },
     "requests": {
       "title": "申請一覧（生徒）",
-      "help": "割り当て待ちの公開生徒申請です。申請が古い順に処理します。各科目の希望をチューターに割り当てると、ペアリングが作成され、チューターがタイムスロットを選択します。",
+      "help": "新しい申請を確認し、科目をマッチングして割り当て済みの生徒を確認します。",
       "noTerm": "申請を割り当てるには、最初に学期を作成してください。",
       "decline": "却下",
       "declineConfirm": "{name}の申請を却下・削除しますか？",
@@ -568,7 +578,9 @@
         "name": "氏名",
         "email": "メール",
         "phone": "電話"
-      }
+      },
+      "emailVerifiedShort": "確認済み",
+      "emailUnverifiedShort": "未確認"
     },
     "readOnly": {
       "banner": "管理エリアは閲覧専用です。許可された概要を閲覧できます。個人の連絡先情報は非表示です。"
@@ -586,7 +598,7 @@
         "activity": "活動と申請",
         "history": "プログラム履歴",
         "announcements": "お知らせ",
-        "program": "プログラムとリフレッシュ",
+        "program": "プログラム設定",
         "tutorRoster": "チューター名簿",
         "tutorApplications": "チューター応募",
         "tutorRequests": "チューター状態申請",
@@ -776,8 +788,8 @@
       }
     },
     "program": {
-      "title": "プログラムとリフレッシュ",
-      "subtitle": "現在の期間と、プログラムを次の四半期に進める定期リフレッシュ。",
+      "title": "プログラム設定",
+      "subtitle": "募集、アカウント設定、デプロイ設定、任意機能を管理します。",
       "loading": "読み込み中…",
       "noPeriod": "有効なプログラム期間がありません。まずシードを実行するか、新規作成してください。",
       "currentPeriod": "現在の期間",
@@ -841,6 +853,12 @@
           "VIEWER_SIGNUP": "オブザーバー登録",
           "EMAIL_2FA": "メール二要素認証"
         }
+      },
+      "panels": {
+        "period": "募集と期間更新",
+        "people": "アカウント設定",
+        "communication": "デプロイ設定",
+        "access": "オプション機能"
       }
     },
     "audit": {
@@ -915,7 +933,10 @@
       "appeals": {
         "heading": "復帰の異議",
         "approve": "承認",
-        "deny": "却下"
+        "deny": "却下",
+        "review": "異議申し立てを審査",
+        "message": "異議申し立ての原文",
+        "refreshFailed": "審査結果は保存されましたが、アカウントまたは異議申し立て一覧を更新できませんでした。結果を再送信せず、更新を再試行してください。"
       }
     },
     "registrationCodes": {
@@ -997,7 +1018,13 @@
       "colStatus": "ステータス",
       "colTutees": "生徒",
       "colSH": "奉仕時間",
-      "empty": "このフィルターに一致する提出はありません。"
+      "empty": "このフィルターに一致する提出はありません。",
+      "monthLabel": "月",
+      "actualTime": "記録された時間",
+      "duration": "{minutes} 分",
+      "hourFactor": "係数：{factor}",
+      "selfEvaluation": "自己評価",
+      "comments": "コメント"
     },
     "meetings": {
       "title": "チューターミーティング",
@@ -1027,7 +1054,8 @@
         "tutor": "チューター",
         "empty": "出席記録はまだありません。"
       },
-      "correctAttendance": "Submit attendance correction"
+      "correctAttendance": "Submit attendance correction",
+      "refreshFailed": "出欠記録は保存されましたが、会議一覧を更新できませんでした。出欠記録を再送信せず、更新を再試行してください。"
     },
     "timeslots": {
       "title": "タイムスロット",
@@ -1118,7 +1146,8 @@
       "addRoom": "部屋を追加",
       "empty": "部屋はまだありません。",
       "deleteConsequence": "This removes the room and its blocked periods. Rooms currently used by pairings cannot be deleted.",
-      "deleteRequestConsequence": "This submits a deletion request for management review. The room and its assignments remain unchanged until approval."
+      "deleteRequestConsequence": "This submits a deletion request for management review. The room and its assignments remain unchanged until approval.",
+      "editDetails": "詳細を編集"
     },
     "courses": {
       "title": "科目とレベル",
@@ -1224,7 +1253,9 @@
           "GRADUATED": "Graduated",
           "ARCHIVED": "Archived"
         }
-      }
+      },
+      "messageLabel": "メッセージ",
+      "create": "新しいお知らせ"
     },
     "policies": {
       "title": "ポリシー文書",
@@ -1252,7 +1283,13 @@
         "editedBy": "{who}による編集",
         "saving": "保存中…",
         "save": "保存",
-        "saved": "保存しました。"
+        "saved": "保存しました。",
+        "titleLabel": "文書のタイトル",
+        "versionLabel": "バージョン（任意）",
+        "bodyLabel": "ポリシー本文（Markdown）",
+        "unsaved": "未保存の変更",
+        "refreshFailed": "ポリシーは保存されましたが、ポリシーまたはバージョン履歴を更新できませんでした。編集を続ける前に更新を再試行してください。",
+        "retryRefresh": "更新を再試行"
       },
       "studentTitle": "生徒向けポリシー",
       "tutorTitle": "チューター向けポリシー"
@@ -1283,7 +1320,8 @@
         "title": "Delete hour adjustment?",
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
-      }
+      },
+      "create": "活動時間の調整を追加"
     },
     "applications": {
       "title": "チューター応募",
@@ -1567,7 +1605,14 @@
       },
       "issuedHeading": "発行済みコード",
       "issuedHint": "承認された申請者に渡した、登録待ちのコードです。登録コード画面でコードを取り消すと、その申請は上のキューに戻ります。",
-      "issuedExpires": "{date} に期限切れ"
+      "issuedExpires": "{date} に期限切れ",
+      "originalApplication": "応募の原文",
+      "originalRequest": "リクエストの原文",
+      "panels": {
+        "review": "審査",
+        "roster": "メンバー一覧",
+        "patrol": "巡回設定"
+      }
     },
     "sessionFlags": {
       "title": "出席フラグ",
@@ -1587,7 +1632,19 @@
         "WARNED": "警告済み",
         "PENALIZED": "減算済み",
         "ESCALATED": "エスカレーション"
-      }
+      },
+      "filterLabel": "出欠の審査状況",
+      "states": {
+        "PENDING": "審査待ち",
+        "DISMISSED": "却下済み",
+        "WARNED": "警告済み",
+        "PENALIZED": "時間控除済み",
+        "ESCALATED": "上位審査へ移行済み",
+        "ALL": "すべての状態"
+      },
+      "resolved": "確認者：{name} · {date}",
+      "queued": "決定を承認申請しました",
+      "refreshFailed": "決定を保存しました。記録を更新して最新の審査状況を確認してください。"
     },
     "landing": {
       "title": "トップページ",
@@ -1683,7 +1740,9 @@
         "insertImage": "画像を挿入…",
         "preview": "プレビュー",
         "edit": "編集",
-        "previewEmpty": "プレビューする内容がありません。"
+        "previewEmpty": "プレビューする内容がありません。",
+        "titleLabel": "タイトル",
+        "bodyLabel": "内容（Markdown）"
       },
       "sections": {
         "new": {
@@ -1850,7 +1909,15 @@
       "confirmDecision": "Record {outcome} for {name}? The panel vote and current application version will be checked. If approval is required, this creates a pending proposal and does not apply the decision.",
       "completedInterview": "Completed interview · {name} ({count})",
       "savedRefreshError": "Attendance was saved, but the refreshed totals could not be loaded. Do not resubmit this entry.",
-      "verificationDeadline": "Verification due: {date}"
+      "verificationDeadline": "Verification due: {date}",
+      "attention": "対応が必要な項目",
+      "navigation": "ダッシュボードの項目",
+      "emptyTasks": "読み込んだ記録に対応が必要な項目はありません。",
+      "unconfirmedCount": "未確定の時間割（{count}）",
+      "rosterCount": "受講者名簿の確認事項（{count}）",
+      "interviewSection": "面接",
+      "meetingSection": "ミーティング",
+      "qualificationSection": "資格"
     },
     "activate": {
       "title": "参加状況の確認",
@@ -1863,7 +1930,7 @@
       "title": "今後の会議",
       "help": "会議に出られませんか？開始 60 分前まで欠席を申告できます。",
       "excuseBtn": "欠席を申告",
-      "submitExcuse": "送信",
+      "submitExcuse": "欠席理由を送信",
       "cancelExcuse": "申告を取り消す",
       "reasonPlaceholder": "理由（任意）",
       "excused": "この欠席を申告しました。",
@@ -1913,7 +1980,7 @@
         "UNEXCUSED_ABSENT": "無断欠席"
       },
       "reasonRequired": "理由（必須）",
-      "ratings": "評価 *",
+      "ratings": "自己評価",
       "rating": {
         "ratingPreparedness": "準備",
         "ratingParticipation": "参加",
@@ -1969,7 +2036,8 @@
       "removalHelp": "生徒が離脱を希望？代理で提出します。7日間はあなた（または管理者）が撤回でき、その後は自動です。",
       "removalReasonPlaceholder": "理由（任意）",
       "removalSubmit": "離脱を提出",
-      "removalCancel": "キャンセル"
+      "removalCancel": "キャンセル",
+      "availabilityMissing": "対応可能な時間はまだ登録されていません。"
     },
     "availability": {
       "loading": "タイムスロットを読み込み中…",
@@ -2049,7 +2117,8 @@
       "reentryHelp": "プログラムに再参加したいですか？復帰申請を提出すると管理者が審査します。",
       "reentryBtn": "復帰を申請",
       "recall": "申請を取り消す",
-      "statusNote": "チューターのステータスは {status} です。読み取り専用アクセスです — 変更は管理者にお問い合わせください。"
+      "statusNote": "チューターのステータスは {status} です。読み取り専用アクセスです — 変更は管理者にお問い合わせください。",
+      "profileSyncFailed": "プロフィールは保存されましたが、再読み込みに失敗しました。再送信せずに、もう一度読み込んでください。"
     },
     "dashboard": {
       "pending": {
@@ -2417,8 +2486,11 @@
         "reason": "退会の理由（任意）",
         "submit": "退会申請を送信",
         "pending": "退会を申請しました — 管理者の承認待ちです。",
-        "recall": "申請を取り消す"
-      }
+        "recall": "申請を取り消す",
+        "reasonLabel": "退出理由"
+      },
+      "statusLabel": "クルーの状態",
+      "noteLabel": "巡回メモ"
     }
   },
   "suspended": {
@@ -2529,7 +2601,8 @@
       "sectionId": "Content to Translate",
       "id": "Content to Translate",
       "other": "Content to Translate"
-    }
+    },
+    "refreshFailed": "変更は受け付けられましたが、更新後のテキストを再読み込みできませんでした。再送信せず、更新を再試行してください。"
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -2657,7 +2730,12 @@
     "unscheduled": "Not scheduled",
     "panelRequired": "Assign a qualified panel before recording completion.",
     "invalidDate": "Enter a valid date and time.",
-    "searchInterviews": "Search"
+    "searchInterviews": "Search",
+    "feedbackVisibilityLoading": "フィードバックの閲覧者を確認中…",
+    "feedbackVisibilityUnavailable": "フィードバックを閲覧できる人を確認できませんでした。公開範囲を確認するには再試行してください。",
+    "pagination": "ページ送り",
+    "page": "{page} ページ",
+    "calendarDestination": "プログラム設定の学校カレンダー"
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -2780,7 +2858,7 @@
     "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
-    "scheduleReject": "Apply to reject: schedule conflict",
+    "scheduleReject": "時間の都合が合わないため辞退を申請",
     "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
@@ -2812,7 +2890,11 @@
     },
     "selfServiceSource": "本人による申込",
     "unknownSource": "以前の申込",
-    "sourceHelp": "申込元は入力方法を示し、承認・優先順位・参加規則は変わりません。「以前の申込」は元の入力方法を確認できない記録です。"
+    "sourceHelp": "申込元は入力方法を示し、承認・優先順位・参加規則は変わりません。「以前の申込」は元の入力方法を確認できない記録です。",
+    "boardGuide": "申請の分類方法",
+    "sourceGuide": "登録元とアカウントの紐付け",
+    "policyRefresh": "更新",
+    "emailStatus": "メール：{status}"
   },
   "approvals": {
     "reviewPermissions": "通常の管理申請はAdminとHeadが審査します。役割・バッジの変更はHeadのみが審査できます。Headは自分の申請も審査できますが、他の人には別の権限を持つ審査担当者が必要です。",
@@ -3217,7 +3299,11 @@
         "messaging_restrict": "Change an account messaging restriction",
         "admin_setApplicationInvalidity": "チューター応募の無効マークを変更",
         "studentWorkflow_setRequestInvalidity": "生徒の申込の無効マークを変更",
-        "admin_setSignupInvalidity": "旧方式の公開申込の無効マークを変更"
+        "admin_setSignupInvalidity": "旧方式の公開申込の無効マークを変更",
+        "program_setCalendarDay": "指導休止日のお知らせを保存",
+        "program_removeCalendarDay": "指導休止日のお知らせを削除",
+        "program_setNameFields": "氏名欄の入力要件を変更",
+        "admin_reorderRooms": "プログラムの教室表示順を変更"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -3263,7 +3349,12 @@
     "accessDeniedHelp": "現在のセッションでは、この詳細にアクセスできなくなりました。キャッシュされた証拠は非表示になっています。",
     "loadFailed": "イベントの詳細を読み込めませんでした",
     "refreshFailed": "イベントの詳細を更新できませんでした。最後に読み込まれた証拠を引き続き表示しています。",
-    "retry": "再試行"
+    "retry": "再試行",
+    "difference": {
+      "added": "追加",
+      "removed": "削除",
+      "changed": "変更"
+    }
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
@@ -3639,7 +3730,8 @@
       "grade": "授業の成績",
       "apScore": "APスコア",
       "selfStudyNote": "独学の詳細"
-    }
+    },
+    "requirementsHelp": "項目の必須設定とメール設定"
   },
   "courseGroups": {
     "title": "Subjects & Levels",
@@ -3765,7 +3857,7 @@
     "unknown": "不明",
     "graduated": "卒業済み",
     "rosterUnknown": "学年不明",
-    "rosterNeedsConfirmation": "見直しと確認が必要",
+    "rosterNeedsConfirmation": "要確認",
     "notApplicable": "Not Applicable",
     "reported": "School Grade (1–12)",
     "original": "Original report: {value}",
@@ -3833,7 +3925,8 @@
     "showAlternateNames": "別の言語での氏名を表示",
     "alternateDisplayHint": "入力されている場合は、主な氏名の横に追加の氏名を表示します。",
     "latinRule": "名・姓・希望する呼び名にはラテン文字を使用します。アクセント付き文字、空白、アポストロフィ、ハイフンも使用できます。",
-    "displayPreview": "名前の表示プレビュー"
+    "displayPreview": "名前の表示プレビュー",
+    "nameFieldsRequired": "現在必須となっている氏名フィールドを入力してください。要件が変わった場合はフォームを更新してください。"
   },
   "recordTransfer": {
     "title": "プログラム記録",
@@ -3942,7 +4035,7 @@
     "emptyAll": "表示できる学習パートナーの記録はありません。",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
-    "reviewNeeded": "Review needed",
+    "reviewNeeded": "要確認",
     "linkSaved": "Historical records linked.",
     "failed": "Could not complete this request. Refresh and try again.",
     "HISTORY_ACCOUNT_NOT_READY": "Choose an account with completed setup and a verified email.",
@@ -4099,7 +4192,8 @@
     "preferredNameHelp": "名の代わりに使用してほしい呼び名をラテン文字で入力してください。",
     "alternativeNamesHelp": "別の言語や文字で書いた氏名（例：张小明）。",
     "legacyPreserved": "以前の登録名：{name}。ラテン文字の氏名欄を変更しなければ、元の名前を保持します。変更する場合は名を入力してください。",
-    "legacy": "現在の記録：{name}。プロフィールを更新するには、名と姓を分けて入力してください。"
+    "legacy": "現在の記録：{name}。プロフィールを更新するには、名と姓を分けて入力してください。",
+    "hiddenRetained": "参加者のフォームと表示名では非表示です。権限のある管理者向けにここで保持されています。"
   },
   "registrationFlow": {
     "progressTitle": "登録の進捗",
@@ -4321,7 +4415,11 @@
     "translationHelp": "This permanently removes this saved language version. Other language versions remain available.",
     "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
     "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
-    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
+    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged.",
+    "galleryRevokeScenario": "アクセス権取り消しの例を開く",
+    "galleryRevoke": "アクセス権の取り消しを再現",
+    "galleryRevoked": "アクセス権が取り消されました。確認内容は非表示です。",
+    "galleryRestore": "例のアクセス権を復元"
   },
   "accountInvitation": {
     "enterCode": "メールで届いた招待コードを入力",
@@ -4429,13 +4527,28 @@
     "securityTitle": "重要なメールは引き続き届きます",
     "securityHelp": "セキュリティ、認証、アカウント復旧メールには影響しません。すでに送信中のメールは届く場合があります。"
   },
+  "participantRecovery": {
+    "loading": "記録を読み込み中…",
+    "loadFailed": "記録を読み込めませんでした",
+    "refreshFailed": "記録を更新できませんでした。続行するには再試行してください。",
+    "accessDenied": "この記録にはアクセスできません",
+    "accessDeniedHelp": "アクセス権を確認できませんでした。再試行するか、権限のあるアカウントでログインしてください。",
+    "retry": "再試行"
+  },
+  "managementRecovery": {
+    "loading": "{section}を読み込み中…",
+    "loadFailed": "{section}を読み込めませんでした。",
+    "refreshFailed": "{section}を更新できませんでした。前回読み込んだ内容を表示しています。",
+    "retry": "{section}を再読み込み",
+    "denied": "{section}へのアクセス権がなくなりました。"
+  },
   "requestInvalidity": {
     "badge": "無効な申請",
     "filterLabel": "申請の有効性",
     "filter": {
-      "all": "すべての申請",
-      "valid": "無効マークなし",
-      "invalid": "無効な申請"
+      "all": "すべての記録",
+      "valid": "有効な記録",
+      "invalid": "無効な記録"
     },
     "flag": "無効としてマーク",
     "review": "無効マークを確認",
@@ -4462,5 +4575,105 @@
     "retryRefresh": "再読み込みを再試行",
     "reload": "申請を再読み込み",
     "reloadHelp": "入力した理由と元のバージョンは保持されています。この下書きを最新の申請に置き換えるには、明示的に再読み込みしてください。"
+  },
+  "rosterSearch": {
+    "label": "利用者を検索",
+    "placeholder": "氏名、ユーザー名、メールアドレス",
+    "clear": "検索をクリア",
+    "noMatches": "検索条件に一致する利用者はいません。",
+    "results": "{total}人中{count}人"
+  },
+  "saveBoundary": {
+    "blur": "この欄から移動すると変更が保存されます。",
+    "form": "保存はこのフォームにのみ適用されます。",
+    "layout": "保存はこのレイアウトにのみ適用されます。"
+  },
+  "programCalendar": {
+    "title": "チュータリング休止日",
+    "informational": "プログラムの日付と理由を知らせる案内です。出欠の記録を制限したり、異議申立てに使う登校日カレンダーを変更したりするものではありません。",
+    "refresh": "更新",
+    "reload": "下書きを再読み込み",
+    "loadFailed": "チュータリングのお知らせを読み込めませんでした。",
+    "loading": "チュータリングのお知らせを読み込み中…",
+    "add": "日付を追加",
+    "date": "日付",
+    "reason": "理由",
+    "actions": "操作",
+    "edit": "お知らせを編集",
+    "remove": "お知らせを削除",
+    "removeTitle": "チュータリングのお知らせを削除",
+    "removeHelp": "この案内を削除します。出欠と登校日のルールは変わりません。",
+    "empty": "チュータリングのお知らせはありません。",
+    "save": "お知らせを保存",
+    "saving": "保存中…",
+    "saved": "お知らせを保存しました。",
+    "saveFailed": "お知らせを保存できませんでした。",
+    "refreshFailed": "お知らせを保存しましたが、最新の一覧を読み込めませんでした。再保存せずに更新して同期してください。",
+    "details": "詳細を見る"
+  },
+  "roomOrder": {
+    "title": "教室の表示順",
+    "help": "教室の矢印で順序の下書きを作成し、下で順序全体を保存または申請してください。見回りの順序は別に管理されます。",
+    "catalogChanged": "教室一覧が変更されました。下書きは保持されています。さらに順序を変更する前に再読み込みしてください。",
+    "room": "教室",
+    "actions": "操作",
+    "up": "上へ",
+    "down": "下へ",
+    "moveUpName": "{name}を上へ移動",
+    "moveDownName": "{name}を下へ移動",
+    "save": "順序を保存",
+    "saving": "保存中…",
+    "saved": "教室の順序を保存しました。",
+    "reload": "順序を再読み込み",
+    "refresh": "更新",
+    "loadFailed": "最新の教室順序を読み込めませんでした。下書きは保持されています。",
+    "refreshFailed": "順序を保存しましたが、同期できませんでした。更新すると再送信せずに保存済みの順序を読み込みます。",
+    "request": "教室の表示順変更を申請",
+    "open": "教室の順序を変更"
+  },
+  "roomSchedule": {
+    "rooms": "表示する教室",
+    "allRooms": "すべての教室",
+    "clearRooms": "選択を解除",
+    "allDetails": "時間割の詳細",
+    "occupied": "使用中",
+    "noSlot": "—",
+    "legend": "灰色 = 使用中 · × = 使用不可 · 利用可能 = 公開済みの時間枠に割り当てなし。",
+    "combined": "統合表示",
+    "individual": "教室別の時間割",
+    "noSelection": "教室が選択されていません。教室を選ぶか、すべての教室を選択してください。",
+    "time": "時間",
+    "detailFilters": "時間割詳細の絞り込み",
+    "day": "曜日",
+    "allDays": "すべての曜日",
+    "allSlots": "すべての時間帯",
+    "room": "教室",
+    "emptyDetails": "条件に一致する記録がありません。",
+    "noRoom": "教室未割り当て",
+    "unconfirmed": "時間割の確認待ち",
+    "outsideCatalog": "有効な時間帯一覧の対象外",
+    "allTimes": "すべての時間"
+  },
+  "nameFields": {
+    "title": "氏名フィールドの要件",
+    "help": "アカウント種別ごとに登録とプロフィールのフィールドを設定します。既存アカウントには現在の役割のルールが適用されます。非表示の氏名は表示名に含まれませんが、権限のある担当者は保存済みの値を確認・編集できます。表示できる氏名がない場合はユーザー名を使用します。",
+    "accountType": "アカウント種別",
+    "summary": "要件",
+    "actions": "操作",
+    "requiredCount": "必須 {count} 項目",
+    "hiddenCount": "非表示 {count} 項目",
+    "configure": "設定",
+    "loading": "氏名の要件を読み込み中…",
+    "loadFailed": "氏名の要件を読み込めませんでした。下書きは保持されています。",
+    "refresh": "更新",
+    "reload": "下書きを再読み込み",
+    "save": "要件を保存",
+    "saving": "保存中…",
+    "saved": "氏名の要件を保存しました。",
+    "refreshFailed": "要件を保存しましたが、同期できませんでした。更新すると再保存せずに保存済みのルールを読み込みます。",
+    "hiddenProfileHelp": "ここではユーザー名を表示します。保存済みの氏名は保持され、権限のあるスタッフが確認できます。"
+  },
+  "participantNames": {
+    "unnamed": "氏名未入力"
   }
 }

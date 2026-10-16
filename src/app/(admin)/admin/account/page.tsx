@@ -1,5 +1,5 @@
-import { AccountSettings } from "~/app/_components/account-settings";
+import { AdminAccountView } from "~/app/_components/admin-account-view";
 
 export default function AccountPage() {
-  return <AccountSettings />;
+  return <AdminAccountView />;
 }

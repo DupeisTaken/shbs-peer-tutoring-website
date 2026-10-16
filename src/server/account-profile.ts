@@ -1,8 +1,13 @@
-import {
-  assertPrimaryName,
-  parsePersonNames,
-} from "~/server/program/profile-policy";
+import { assertPrimaryName } from "~/server/program/profile-policy";
 import { fullPersonName } from "~/lib/person-name";
+import {
+  configuredProfileNames,
+  getNameFieldPolicy,
+} from "~/server/program/name-fields";
+import {
+  lockUsernameNamespace,
+  ensureUserUsername,
+} from "~/server/auth/username";
 import { TRPCError } from "@trpc/server";
 import { staleConflict } from "~/server/concurrency";
 import {
@@ -12,8 +17,12 @@ import {
   type TransactionDb,
 } from "~/server/transactions";
 
-/** All profile writers take the account lock before touching a linked roster row. */
+/** Account writes share one order: username namespace, account lock, User row,
+ * then linked roster rows. The namespace belongs here because callers may retain
+ * this lock across nested name/handle writes; acquiring it later creates a cycle
+ * with reviewed policies that fence every live identity before refreshing labels. */
 export async function lockAccountProfile(tx: TransactionDb, userId: string) {
+  await lockUsernameNamespace(tx);
   await lockEntity(tx, `account-profile:${userId}`);
   // Email/credential writers already lock User through UPDATE. Take the same row first,
   // so a profile edit never holds Tutor while waiting behind an email change on User.
@@ -35,10 +44,22 @@ export async function updateAccountProfile(
     expectedTutorId?: string;
     expectedStudentId?: string;
   } = {},
+  options: { management?: boolean } = {},
 ) {
   return inTransaction(db, async (tx) => {
+    await lockUsernameNamespace(tx);
     await lockAccountProfile(tx, userId);
     const current = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    const nameStates = (await getNameFieldPolicy(tx)).policies[current.role];
+    const shouldWriteName = (
+      key: "firstName" | "lastName" | "preferredName" | "alternativeNames",
+    ) =>
+      input[key] !== undefined &&
+      (options.management === true || nameStates[key] !== "hidden") &&
+      (input[key]?.trim() ?? "") !== (current[key]?.trim() ?? "");
+    const latinEdited = (
+      ["firstName", "lastName", "preferredName"] as const
+    ).some(shouldWriteName);
     if (
       input.expectedProfileVersion !== undefined &&
       current.profileVersion !== input.expectedProfileVersion
@@ -52,17 +73,28 @@ export async function updateAccountProfile(
     const explicit =
       input.firstName !== undefined ||
       input.lastName !== undefined ||
-      input.preferredName !== undefined
-        ? parsePersonNames({
-            ...current,
-            ...input,
-            firstName: input.firstName ?? current.firstName ?? "",
-            lastName: input.lastName ?? current.lastName ?? "",
-          })
+      input.preferredName !== undefined ||
+      input.alternativeNames !== undefined
+        ? await configuredProfileNames(
+            tx,
+            {
+              ...current,
+              ...input,
+              firstName: input.firstName ?? current.firstName ?? "",
+              lastName: input.lastName ?? current.lastName ?? "",
+            },
+            current,
+            current.role,
+            options.management,
+          )
         : null;
-    const name = explicit
-      ? fullPersonName(explicit)
-      : (input.name?.trim() ?? current.legacyName ?? current.name);
+    let name =
+      explicit && latinEdited
+        ? fullPersonName(explicit)
+        : (input.name?.trim() ?? current.legacyName ?? current.name);
+    if (!name?.trim() && !current.username) {
+      name = await ensureUserUsername(userId, tx, { namelessIdentity: true });
+    }
     // A full display string cannot safely replace structured fields (it may include
     // a preferred name or another script). Require the current editor for that change.
     if (
@@ -90,13 +122,15 @@ export async function updateAccountProfile(
         current.firstName ? current.name : (current.legacyName ?? current.name),
       );
 
-    const alternative = input.alternativeNames?.trim() ?? "";
-    const alternativeNames =
-      input.alternativeNames === undefined
-        ? current.alternativeNames
-        : alternative.length === 0
-          ? null
-          : alternative;
+    const alternative =
+      explicit?.alternativeNames?.trim() ??
+      input.alternativeNames?.trim() ??
+      "";
+    const alternativeNames = !shouldWriteName("alternativeNames")
+      ? current.alternativeNames
+      : alternative.length === 0
+        ? null
+        : alternative;
     const updated = await tx.user.update({
       where: { id: userId },
       data: {
@@ -104,15 +138,21 @@ export async function updateAccountProfile(
         alternativeNames,
         ...(explicit
           ? {
-              firstName: explicit.firstName,
-              lastName: explicit.lastName,
-              preferredName: explicit.preferredName ?? null,
+              firstName: shouldWriteName("firstName")
+                ? explicit.firstName
+                : current.firstName,
+              lastName: shouldWriteName("lastName")
+                ? explicit.lastName
+                : current.lastName,
+              preferredName: shouldWriteName("preferredName")
+                ? (explicit.preferredName ?? null)
+                : current.preferredName,
             }
           : {}),
         profileVersion: { increment: 1 },
       },
     });
-    if (name) {
+    if (name || explicit) {
       // Mirror explicit fields directly; a display label can contain a preferred name
       // and a second script and must never be split back into identity fields.
       const identity = {
@@ -126,15 +166,18 @@ export async function updateAccountProfile(
         await tx.tutor.update({
           where: { id: current.tutorId },
           data: {
-            englishName: name,
+            englishName: updated.name ?? updated.username ?? "",
             ...identity,
-            ...(explicit ? { nameFieldsConfirmed: true } : {}),
+            ...(latinEdited ? { nameFieldsConfirmed: true } : {}),
           },
         });
       if (current.studentId)
         await tx.tutee.update({
           where: { id: current.studentId },
-          data: { englishName: name, ...identity },
+          data: {
+            englishName: updated.name ?? updated.username ?? "",
+            ...identity,
+          },
         });
     }
     return updated;

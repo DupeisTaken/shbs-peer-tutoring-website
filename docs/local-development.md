@@ -217,14 +217,24 @@ does not establish authorization, native browser focus or persisted behavior.
 | --- | --- |
 | Tables | Brief cells; authorized text actions at the right edge before/after local scrolling; named region reachable by keyboard; populated, empty, error and read-only states |
 | Forms and dialogs | Save scope; pending fields/dismissal; failed-save draft retention; nested Escape/Tab and focus return; successful child write with pending refetch; actual long-content scrolling |
+| Account deletion step-up | Users & Roles: named native dialog, bound password label, autofocus and exact opener restoration; Cancel/Escape performs no write. Check Head eligibility, blank and pending controls, repeated submission and failure retention in tests. Use synthetic accounts for browser evidence; opening and canceling the dialog is sufficient for visual/focus verification |
+| Request disclosure | Measure the sole Expand/Collapse target at desktop and mobile widths and the actual arrow leaf's contrast. Verify Enter/Space, focus, expanded state, retained selections, fulfilled auto-collapse and visible invalid-record review controls; include long labels and enlarged text without document overflow |
 | Repeat profile edits | Account, tutor, tutee and Head username: Save → automatic refresh → Save without closing or a restart action; forced fresh version read; Retry refresh without a POST; automatic completion leaves sibling focus alone; retained academic/history drafts and original versions |
 | Tutee detail reader | Actual Tutees roster: one trailing View details action; ordered subject choices, email copy and paginated history in one wide dialog; current versus historical academics; missing email and retained-owner setup restrictions. Check EN/ZH, long names/subjects/email, desktop/mobile scrolling, sticky Close, Escape/focus return and pending verification dismissal. History mounts on opening, refreshes on reopening, and retains cached content with Retry after failure. Viewers and departure observers must retain summary/subject access without contact or history queries |
 | Named destructive review | Rooms, hour adjustments, pairings, time slots, subject levels, tutees and registration invitations: exact target/consequence, Cancel/Escape without writes, one confirmed mutation, queued versus applied result, failed-write retry, held refresh and read-only recovery after Close. Viewers retain only authorized read access |
 | Timed confirmations | Hold a schedule-conflict write and press Escape repeatedly: the dialog and reason remain. After rejection, retry retains the reason/ticket; idle Cancel restores the opener. Mandatory policy review blocks repeated Escape even when idle while keeping explicit Sign out available. Verify native behavior separately from jsdom handlers. |
 | Tutor attendance | Submit twice before the first response and verify one feature POST; reject it and retry the retained draft. Hold/fail totals refresh after acceptance, verify read-only Retry issues no attendance POST, then use Submit another entry to start a new draft. Server deduplication is a separate integration assertion. |
-| Cached queries | Initial loading/error/empty are distinct; background failure retains content and draft; Retry completes; explicit conflict Reload adopts data only on success |
+| Cached queries | Initial loading/error/empty are distinct; background failure retains content and draft; Retry completes without a mutation; explicit conflict Reload adopts data only on success. Use a real QueryClient for denial → cache eviction → transport failure → authorized recovery, including independent query scopes and unchanged observer restrictions |
+| Retained editor contexts | Policy/landing languages, meeting selection and translation targets keep independent drafts. Collapse, search and tab changes retain pending/error state without eagerly mounting untouched contexts. Accepted writes with failed synchronization recover through reads only; leaving or reloading the feature ends local draft retention |
+| Review evidence and revocation | Policy archives use the exact selected language/version. Appeals and Crew reviews expose original full text. Exercise named dialogs, Escape and exact focus return. In the gallery and Crew, authoritative access revocation conceals the active evidence; pending generations still settle, accepted/queued keys stay blocked and stale callbacks cannot affect a later authorized review |
+| Feedback audience and recurring schedules | Verify unknown/loading, failed, cached-true, cached-false and confirmed audience settings without inventing a privacy guarantee. Check all seven stored weekdays in English/Chinese, including availability headings and accessible group names, confirmed/unconfirmed schedules and empty room/slot states. Measure active weekday text against its actual background (at least 4.5:1), not a parent color. Confirm unchanged numeric weekdays, slot IDs and Save/review payloads; do not infer a next session date |
 | Invalid public requests | Tutor Applications and Signup Requests, including older public entries: required reason, invalid badge/filter, recorded staff reason, clear with reason, unchanged original status and blocked processing. Check Admin/Head direct changes, Coordinator proposals, observer badge without private details, EN/ZH at 1440/390 px, Escape/focus return, retained draft, pending dismissal and read-only refresh recovery. Include `request-invalidity.test.ts`, the shared dialog/page tests and invitation regressions; verify concurrent processing cannot pass a newly committed flag. |
-| Filters and settings | Pressed selections versus content tabs; filter/page reset rules; consistent control heights; immediate switches, unknown/yes/no choices and staged saves keep their own semantics |
+| Filters and settings | Pressed selections versus content tabs; filter/page reset rules; consistent control heights, including the tutor qualification Request/Cancel action pair at 40 px desktop and at least 44 px mobile; immediate switches, unknown/yes/no choices and staged saves keep their own semantics |
+| Roster search and pairing selection | Search within the authorized role/participation scope using four-part and legacy names plus permitted identifiers. Clearing search preserves other filters. Select → search away → clear retains exact IDs; removing one leaves others intact. Use long names and at least 50 candidates on mobile without document overflow |
+| Creation and grouped workspaces | Pairings, Announcements, Time Slots and Hour Adjustments: one creation entry, close/reopen draft retention, independent create/edit drafts, rejected saves, pending dismissal and nested review. Program, Crew and Support: inventory every existing control, retained panel drafts/filters/pagination, review and accepted-write recovery outside hidden panels, keyboard tabs and unchanged roles |
+| Save scope and tutor orientation | Blur guidance describes only existing immediate fields; focus without changes writes nothing. Top/footer layout Save share one pending state and admission guard. Tutor attention counts exclude paused interviews and distinguish unavailable from empty reads; task-specific attention links and today's schedule remain, while the duplicated permanent section-link strip is removed. Actual workspace navigation stays reachable. WorkflowShell keeps one shared utility set and correct role/return context at 1024 px and narrow widths |
+| Long table readers and pagination | Room-grid and original Crew text: header Close remains reachable after scrolling; lazy mounting, nested Escape/focus return and pending child writes. Participant/support/message lists: distinct navigation names, first/middle/final/empty states, independent page resets and 44 px narrow controls with enlarged text |
+| Readable historical states | Measure actual foreground/background contrast for undone audit entries, inactive announcements and fulfilled request metadata/actions. Inspect the painted text or glyph leaf: a parent color does not establish a child icon's contrast when the child overrides it. Keep status meaning without fading whole records; verify selected recipients and unread messages under all six accent themes. A passing body-text ratio does not establish metadata, action or focus contrast |
 | Mixed review/filter rows | Measure Discipline note/actions, Service Hours month/Clear/History, and Session Flags penalty/actions at 1440 and 390 px in EN/ZH, including long labels and 200% text. Check 32 px desktop baselines, at least 44 px mobile targets, wrapping and retained pending/error drafts. Session Flags must not label unknown or failed reads as an empty queue. |
 | Headers and navigation | Public, patrol, localization, management, tutor, tutee and standalone account headers: single utilities, 32 px desktop / 44 px narrow controls, wrapping labels, one H1; native route Back/Forward and manual local tab activation with retained drafts. At 200% text size, check actual control bounds and pixels for overlap: workspace utilities may wrap within their mobile grid area, preserving target sizes and keeping navigation unobscured. Document width alone cannot detect controls overlapping inside the header. |
 | Registration and reply | EN/ZH invitation code card, numbered later steps and heading focus; separate Viewer/tutee entrypoints; full tutee form before OTP verification and legacy-link confirmation; receipt copy, optional email success/failure, prefilled continuation, Close/reopen and exact focus return; bound email, edit/reverify, resend failure and pending locks. Check signed-in Add access, new-account prefill, primary/verified-secondary ownership, additive Tutor/Crew/tutee access, exclusive Viewer transition and management max-rank/no-demotion. Existing Viewer-source LOGIN changes no membership. Preserve MFA, suspension, participation departure refusal, credentials, intake priority and policy evidence; departure alone must not block an authorized management grant. Verify the short-lived HttpOnly handoff cookie and absence of proofs/passwords from URLs or JavaScript storage. Reply retains recipient context, separate drafts, cancel focus return, retry keys and permission failures below the sticky header |
@@ -244,6 +254,41 @@ failure/pending scenarios. Wait for the specific recovery notice to clear before
 claiming Retry succeeded; another query may have its own error banner. Keep full
 mobile forms reviewable across multiple captures. Inspect the screenshots, record
 test limitations, and stop owned browser/server/database processes after checking.
+
+For each rollout phase, capture the before and after state using the same synthetic
+record, role, language, viewport and interaction. Compare the affected content
+edges, heading hierarchy, card spacing, text wrapping and reachable actions against
+the [page-composition roles](contributing.md#compose-a-page-by-its-purpose); different
+task widths are not themselves a defect. Label changed fixtures or environments
+explicitly, and keep hosted observations separate when its deployed revision is
+unknown. Put cases, measurements, focused/full-suite results and remaining gaps in
+that phase's collapsed local HTML report log. Screenshots establish appearance in
+the recorded state; tests and interaction checks establish the corresponding draft,
+permission, pending-write and recovery behavior.
+
+### Evidence for a UI review batch
+
+Keep a separate before/after evidence matrix for **desktop English**, **desktop
+Chinese**, **mobile English** and **mobile Chinese**. Use the same synthetic record,
+role, locale, viewport and interaction for each pair. A desktop English crop does
+not stand in for mobile Chinese verification. Record actual client width as well
+as the requested viewport, the source revision and whether the capture shows a
+summary, editor, pending state or intentional read failure.
+
+Measure the intended visual row: compare badge/action centers with the input box
+when labels and helpers sit outside it, and compare whole-card actions with the
+summary's bounds. Check wrapping application metadata starts at the name edge.
+For room grids, include at least 20 rooms, overlapping occupied slots, unavailable
+periods, empty room selection, both view modes and long translated room names.
+For navigation, leave and return through links and Back/Forward; verify the actual
+management content scroller as well as document scroll and identity changes.
+
+Reports explain the design rules and implementation alongside each numbered
+request, then expose the four evidence groups separately. Keep logs, raw immutable
+evidence, user-annotated references and failure/recovery cases collapsed. Identify
+missing baselines and test-only behavior explicitly; a source inspection or an
+annotated user crop is not a measured browser result. Preserve earlier reports
+with their original revisions instead of rewriting their historical claims.
 
 ## 5. Run the tests
 

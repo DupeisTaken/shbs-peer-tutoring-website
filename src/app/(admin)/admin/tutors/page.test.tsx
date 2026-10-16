@@ -13,6 +13,8 @@ import zh from "../../../../../messages/zh.json";
 import en from "../../../../../messages/en.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import TutorsPage from "./page";
+import { SessionViewProvider } from "~/app/_components/session-view-state";
+import { viewStateKey } from "~/lib/session-view-state";
 
 const createTutor = vi.hoisted(() => vi.fn());
 const mutation = vi.hoisted(() => {
@@ -29,13 +31,16 @@ const mutation = vi.hoisted(() => {
   };
 });
 
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
     useUtils: () => ({
       admin: { tutors: { invalidate: mutation.invalidate } },
     }),
     program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(),
       profilePolicy: {
         useQuery: () => ({
           data: { offeredGrades: [12], currentSchoolYear: "26-27" },
@@ -107,7 +112,10 @@ vi.mock("~/app/_components/tutor-profile-editor", () => ({
     <div role="dialog">Editing {row.id}</div>
   ),
 }));
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  sessionStorage.clear();
+});
 beforeEach(() => {
   createTutor.mockClear();
   mutation.isPending = false;
@@ -123,6 +131,48 @@ beforeEach(() => {
       this.setAttribute("open", "");
     },
   });
+});
+it("restores roster search, past visibility and sorting without remembering an editor draft", () => {
+  const page = () => (
+    <SessionViewProvider
+      identity="head-account"
+      pathname="/admin/tutors"
+      verified
+    >
+      {app()}
+    </SessionViewProvider>
+  );
+  const first = render(page());
+  fireEvent.click(screen.getByRole("button", { name: "Show past tutors" }));
+  fireEvent.change(screen.getByRole("searchbox"), {
+    target: { value: "historical" },
+  });
+  const sortKey = viewStateKey(
+    "head-account",
+    "/admin/tutors",
+    "tutors-sort-v1",
+    "",
+  );
+  // The same allowlisted column/direction contract drives the existing SortHeader.
+  const heading = screen.getByRole("button", { name: en.accountProfile.name });
+  fireEvent.click(heading);
+  fireEvent.click(heading);
+  expect(sessionStorage.getItem(sortKey)).toBe(
+    JSON.stringify({ key: "firstName", dir: "desc" }),
+  );
+  first.unmount();
+  render(page());
+  expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe(
+    "historical",
+  );
+  expect(screen.getByText("Historical Tutor")).toBeTruthy();
+  expect(
+    screen
+      .getByRole("button", { name: en.accountProfile.name })
+      .closest("th")
+      ?.getAttribute("aria-sort"),
+  ).toBe("descending");
+  expect(screen.queryByRole("dialog")).toBeNull();
 });
 
 function app(readOnly = false, chinese = false) {
@@ -181,8 +231,10 @@ it("keeps private row actions hidden for read-only viewers", () => {
 it("uses the shared text-action stack and compact unknown grade summary", () => {
   mount();
   const row = screen.getByText("Unconfirmed Tutor").closest("tr")!;
-  expect(within(row).getByText("Unknown Grade Level")).toBeTruthy();
-  expect(within(row).getByText("Needs Review & Confirmation")).toBeTruthy();
+  expect(within(row).queryByText("Unknown Grade Level")).toBeNull();
+  expect(
+    within(row).getByText(en.academics.rosterNeedsConfirmation),
+  ).toBeTruthy();
   expect(
     within(row).queryByText(/Original report|Expected graduation/),
   ).toBeNull();
@@ -206,7 +258,7 @@ it("offers Unknown and Graduated when adding a tutor", () => {
   fireEvent.change(screen.getByLabelText("First Name Required"), {
     target: { value: "Ada" },
   });
-  fireEvent.change(screen.getByLabelText("Last Name Required"), {
+  fireEvent.change(screen.getByLabelText("Last Name Optional"), {
     target: { value: "Lovelace" },
   });
   fireEvent.change(grade, { target: { value: "GRADUATED" } });
@@ -250,11 +302,11 @@ it.each([false, true])(
       `${messages.personName.firstName} ${messages.signupFields.required}`,
     );
     const last = screen.getByLabelText<HTMLInputElement>(
-      `${messages.personName.lastName} ${messages.signupFields.required}`,
+      `${messages.personName.lastName} ${messages.signupFields.optional}`,
     );
     const form = email.closest("form")!;
     expect(first.required).toBe(true);
-    expect(last.required).toBe(true);
+    expect(last.required).toBe(false);
     expect(email.required).toBe(false);
     expect(form.checkValidity()).toBe(false);
     fireEvent.change(first, { target: { value: "Ada" } });
@@ -454,3 +506,32 @@ it("keeps cached tutor rows and their trailing actions after a refresh fails", (
     within(table).getByRole("columnheader", { name: en.tablePatterns.actions }),
   ).toBeTruthy();
 });
+
+it.each([false, true])(
+  "search refines the current roster and clears without changing history scope (%s)",
+  (chinese) => {
+    mount(false, chinese);
+    const messages = chinese ? zh : en;
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: messages.rosterSearch.label }),
+      { target: { value: "example" } },
+    );
+    expect(screen.getByRole("table").textContent).toContain("Example Tutor");
+    expect(screen.getByRole("table").textContent).not.toContain(
+      "Unconfirmed Tutor",
+    );
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "historical" },
+    });
+    expect(screen.getByText(messages.rosterSearch.noMatches)).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.rosterSearch.clear }),
+    );
+    expect(screen.getByRole("table").textContent).toContain(
+      "Unconfirmed Tutor",
+    );
+    expect(screen.getByRole("table").textContent).not.toContain(
+      "Historical Tutor",
+    );
+  },
+);

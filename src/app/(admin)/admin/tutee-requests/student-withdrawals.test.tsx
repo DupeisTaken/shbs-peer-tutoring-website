@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   cleanup,
   fireEvent,
@@ -8,7 +9,14 @@ import {
   within,
 } from "@testing-library/react";
 import { StudentWithdrawals } from "./student-withdrawals";
-const mocks = vi.hoisted(() => ({ mutate: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  mutate: vi.fn(),
+  loaded: true,
+  error: null as null | { message: string; data?: { code?: string } },
+}));
+vi.mock("@trpc/react-query", () => ({
+  getQueryKey: () => ["withdrawal-test"],
+}));
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
   useFormatter: () => ({ dateTime: () => "Sep 12, 2026, 14:30" }),
@@ -19,20 +27,25 @@ vi.mock("~/trpc/react", () => ({
     studentWorkflow: {
       adminRequests: {
         useQuery: () => ({
-          data: [
-            {
-              name: "Survey Student",
-              reviews: [
+          error: mocks.error,
+          isSuccess: mocks.loaded && !mocks.error,
+          isFetching: false,
+          data: mocks.loaded
+            ? [
                 {
-                  id: "survey-review",
-                  kind: "STUDENT_ABORT",
-                  state: "PENDING",
-                  createdAt: new Date(),
-                  reason: "Personal reason",
+                  name: "Survey Student",
+                  reviews: [
+                    {
+                      id: "survey-review",
+                      kind: "STUDENT_ABORT",
+                      state: "PENDING",
+                      createdAt: new Date(),
+                      reason: "Personal reason",
+                    },
+                  ],
                 },
-              ],
-            },
-          ],
+              ]
+            : undefined,
         }),
       },
       legacyReviews: {
@@ -71,9 +84,24 @@ vi.mock("~/app/_components/timed-action-dialog", () => ({
     </div>
   ),
 }));
-afterEach(cleanup);
+let client: QueryClient;
+beforeEach(() => {
+  client = new QueryClient();
+  mocks.loaded = true;
+  mocks.error = null;
+  mocks.mutate.mockClear();
+});
+afterEach(() => {
+  cleanup();
+  client.clear();
+});
+const page = () => (
+  <QueryClientProvider client={client}>
+    <StudentWithdrawals />
+  </QueryClientProvider>
+);
 it("shows student withdrawal sources together while excluding schedule reviews", () => {
-  render(<StudentWithdrawals />);
+  render(page());
   expect(screen.getByText("Survey Student")).toBeTruthy();
   expect(screen.getByText("Manual Student")).toBeTruthy();
   expect(screen.queryByText("Schedule Only")).toBeNull();
@@ -83,7 +111,7 @@ it("shows student withdrawal sources together while excluding schedule reviews",
   expect(screen.getAllByText(/effectiveOnApproval/)).toHaveLength(2);
 });
 it("defers approval until the existing timed confirmation returns its ticket", () => {
-  render(<StudentWithdrawals />);
+  render(page());
   fireEvent.click(
     within(screen.getByText("Survey Student").closest("article")!).getByRole(
       "button",
@@ -97,4 +125,50 @@ it("defers approval until the existing timed confirmation returns its ticket", (
     approve: true,
     ticket: "timed-ticket",
   });
+});
+it("defers a decline to the same timed review while keeping both decisions compact", () => {
+  mocks.mutate.mockClear();
+  render(page());
+  const card = within(screen.getByText("Survey Student").closest("article")!);
+  const approve = card.getByRole("button", { name: "approve" });
+  const decline = card.getByRole("button", { name: "deny" });
+  expect(approve.className).toContain("control-compact");
+  expect(decline.className).toContain("control-compact");
+  fireEvent.click(decline);
+  expect(mocks.mutate).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Confirm review" }));
+  expect(mocks.mutate).toHaveBeenCalledExactlyOnceWith({
+    id: "survey-review",
+    approve: false,
+    ticket: "timed-ticket",
+  });
+});
+
+it("reports parent page readiness from both authorized feeds without passing records or writing decisions", () => {
+  const onViewReadState = vi.fn();
+  mocks.loaded = false;
+  const show = () => (
+    <QueryClientProvider client={client}>
+      <StudentWithdrawals onViewReadState={onViewReadState} />
+    </QueryClientProvider>
+  );
+  const view = render(show());
+  expect(onViewReadState).toHaveBeenLastCalledWith({
+    ready: false,
+    denied: false,
+  });
+  mocks.loaded = true;
+  view.rerender(show());
+  expect(onViewReadState).toHaveBeenLastCalledWith({
+    ready: true,
+    denied: false,
+  });
+  mocks.error = { message: "Denied", data: { code: "FORBIDDEN" } };
+  view.rerender(show());
+  expect(onViewReadState).toHaveBeenLastCalledWith({
+    ready: false,
+    denied: true,
+  });
+  expect(screen.queryByText("Survey Student")).toBeNull();
+  expect(mocks.mutate).not.toHaveBeenCalled();
 });

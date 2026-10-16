@@ -285,7 +285,7 @@ export const managementReadModels = {
   }),
   "admin.patrolOrder": list(summary("id name patrolOrder")),
   "admin.crewRoster": list(
-    summary("id name tutor crewOnly status patrols hours"),
+    summary("id name canonicalName username tutor crewOnly status patrols hours"),
   ),
   "admin.crewSummary": summary(
     "patrols hours openFlags members openApplications openRequests",
@@ -299,11 +299,15 @@ export const managementReadModels = {
   ),
   "admin.crewIssuedCodes": list(summary("id name expiresAt", {}, "code")),
   "admin.crewRequests": list(
-    summary("id kind member eligibleAt approvable createdAt", {}, "reason"),
+    summary("id kind member canonicalName username eligibleAt approvable createdAt", {}, "reason"),
   ),
   "admin.sessionFlags": list(
     summary(
-      "id expected observed createdAt tutor subject room date startMin endMin",
+      // Recorded state is public summary data; reviewer identity and decision
+      // notes remain explicitly redacted even as filtered reads include history.
+      "id state expected observed createdAt tutor subject room date startMin endMin",
+      {},
+      "decisionNote resolvedByName",
     ),
   ),
   "admin.registrationCodes": list(

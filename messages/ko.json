@@ -29,7 +29,9 @@
     "slot": "시간대",
     "room": "교실",
     "select": "선택",
-    "selected": "선택됨"
+    "selected": "선택됨",
+    "noRooms": "아직 교실이 없습니다.",
+    "noSlots": "아직 공개된 시간대가 없습니다."
   },
   "scheduling": {
     "awaiting": "일정 확정 대기",
@@ -114,7 +116,10 @@
     "qualifiedOnly": "Your qualified subjects",
     "choiceHelp": "Choose what you would like to tutor right now.",
     "scheduleSeparate": "Your timetable is arranged separately.",
-    "savesAutomatically": "Changes save automatically"
+    "savesAutomatically": "Changes save automatically",
+    "edit": "세부 정보 편집",
+    "editTitle": "{tutor} · {subject}",
+    "refreshFailed": "변경 사항이 저장되었습니다. 다음 변경 전에 과목 기록을 새로 고침하세요."
   },
   "messaging": {
     "privacyTitle": "Private Deliveries, with Staff Oversight",
@@ -178,7 +183,7 @@
       "UNRESTRICT": "Access restored"
     },
     "rolePermissions": "Permissions by Role",
-    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "permissionHelp": "선택한 그룹은 메시지를 받을 수 있습니다. 사용자별 설정은 역할 정책을 대체하며, 그룹을 선택하지 않으면 새 메시지를 보낼 수 없습니다. 모든 사용 가능한 계정에서 본인, 정지된 계정 및 메시지가 제한된 계정은 제외됩니다. 과거 튜터 관계는 보존된 배정 또는 출석 기록을 기반으로 하며, 기록이 없는 과거 배정은 복원할 수 없습니다.",
     "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
@@ -197,7 +202,8 @@
     "ownInbox": "Your inbox",
     "replyContext": "{name}에게 답장 중",
     "cancelReply": "답장 취소",
-    "replyDraftHelp": "이전 초안은 유지됩니다. 취소해도 이 답장 초안은 현재 페이지에 유지됩니다."
+    "replyDraftHelp": "이전 초안은 유지됩니다. 취소해도 이 답장 초안은 현재 페이지에 유지됩니다.",
+    "permissionsDestination": "프로그램 설정의 메시지 권한"
   },
   "common": {
     "cancel": "취소",
@@ -412,8 +418,9 @@
       "help": "각 매칭의 기본 시간대를 선택하세요 (출석 제출 시 실제 수업 시간을 따로 입력합니다)."
     },
     "availability": {
-      "title": "내 가용 시간",
-      "help": "수업 가능한 시간대를 표시하세요. 코디네이터가 일정을 잡는 데 활용합니다."
+      "title": "내 가능한 시간",
+      "help": "수업 가능한 시간대를 표시하세요. 코디네이터가 일정을 잡는 데 활용합니다.",
+      "edit": "내 가능한 시간 수정"
     },
     "attendance": {
       "title": "출석 제출",
@@ -421,7 +428,7 @@
     },
     "schedule": {
       "title": "강의실 일정",
-      "help": "내 매칭이 강조 표시됩니다. 색칠된 칸은 사용 불가 강의실입니다."
+      "help": "내 매칭이 강조 표시됩니다. 강의실 이용 상태는 아래 범례를 확인하세요."
     }
   },
   "admin": {
@@ -450,7 +457,10 @@
       "colRoom": "강의실",
       "colTutees": "학생",
       "edit": "수정",
-      "delete": "삭제"
+      "delete": "삭제",
+      "searchTutees": "학생 검색",
+      "selectedTutees": "{count}명 선택됨",
+      "removeSelected": "{name} 선택 해제"
     },
     "tutors": {
       "title": "튜터",
@@ -539,7 +549,7 @@
     },
     "requests": {
       "title": "신청 요청 (학생)",
-      "help": "배정 대기 중인 학생 공개 신청 목록입니다. 접수 순으로 처리합니다. 각 과목 선택에 튜터를 배정하면 매칭이 생성되고, 튜터가 시간대를 선택합니다.",
+      "help": "새 신청을 검토하고 과목을 매칭하며 배정된 학생을 확인하세요.",
       "noTerm": "요청을 배정하려면 먼저 학기를 생성하세요.",
       "decline": "거절",
       "declineConfirm": "{name}의 신청을 거절하고 삭제하시겠습니까?",
@@ -568,7 +578,9 @@
         "name": "이름",
         "email": "이메일",
         "phone": "전화"
-      }
+      },
+      "emailVerifiedShort": "인증됨",
+      "emailUnverifiedShort": "미인증"
     },
     "readOnly": {
       "banner": "관리 영역은 읽기 전용입니다. 허용된 요약을 볼 수 있으며 개인 연락처 정보는 숨겨집니다."
@@ -586,7 +598,7 @@
         "activity": "활동 및 요청",
         "history": "프로그램 이력",
         "announcements": "공지사항",
-        "program": "프로그램 및 갱신",
+        "program": "프로그램 설정",
         "tutorRoster": "튜터 명단",
         "tutorApplications": "튜터 지원",
         "tutorRequests": "튜터 상태 요청",
@@ -776,8 +788,8 @@
       }
     },
     "program": {
-      "title": "프로그램 및 갱신",
-      "subtitle": "현재 기간과 프로그램을 전환하는 분기별 갱신입니다.",
+      "title": "프로그램 설정",
+      "subtitle": "모집, 계정 설정, 배포 설정 및 선택 기능을 관리합니다.",
       "loading": "불러오는 중…",
       "noPeriod": "활성 프로그램 기간이 없습니다. 먼저 시드 또는 생성하세요.",
       "currentPeriod": "현재 기간",
@@ -841,6 +853,12 @@
           "VIEWER_SIGNUP": "옵저버 가입",
           "EMAIL_2FA": "이메일 2FA"
         }
+      },
+      "panels": {
+        "period": "모집 및 갱신",
+        "people": "계정 설정",
+        "communication": "배포 구성",
+        "access": "선택 기능"
       }
     },
     "audit": {
@@ -915,7 +933,10 @@
       "appeals": {
         "heading": "복구 이의",
         "approve": "승인",
-        "deny": "거부"
+        "deny": "거부",
+        "review": "이의 신청 검토",
+        "message": "이의 신청 원문",
+        "refreshFailed": "결정은 저장되었지만 계정 또는 이의 신청 목록을 새로 고칠 수 없습니다. 결정을 다시 제출하지 말고 새로 고침을 다시 시도하세요."
       }
     },
     "registrationCodes": {
@@ -997,7 +1018,13 @@
       "colStatus": "상태",
       "colTutees": "학생",
       "colSH": "봉사 시간",
-      "empty": "이 필터에 해당하는 제출이 없습니다."
+      "empty": "이 필터에 해당하는 제출이 없습니다.",
+      "monthLabel": "월",
+      "actualTime": "기록된 시간",
+      "duration": "{minutes}분",
+      "hourFactor": "계수: {factor}",
+      "selfEvaluation": "자기 평가",
+      "comments": "의견"
     },
     "meetings": {
       "title": "튜터 회의",
@@ -1027,7 +1054,8 @@
         "tutor": "튜터",
         "empty": "아직 기록된 출석이 없습니다."
       },
-      "correctAttendance": "Submit attendance correction"
+      "correctAttendance": "Submit attendance correction",
+      "refreshFailed": "출석은 저장되었지만 회의 목록을 새로 고칠 수 없습니다. 출석을 다시 제출하지 말고 새로 고침을 다시 시도하세요."
     },
     "timeslots": {
       "title": "시간대",
@@ -1118,7 +1146,8 @@
       "addRoom": "강의실 추가",
       "empty": "아직 강의실이 없습니다.",
       "deleteConsequence": "This removes the room and its blocked periods. Rooms currently used by pairings cannot be deleted.",
-      "deleteRequestConsequence": "This submits a deletion request for management review. The room and its assignments remain unchanged until approval."
+      "deleteRequestConsequence": "This submits a deletion request for management review. The room and its assignments remain unchanged until approval.",
+      "editDetails": "세부 정보 편집"
     },
     "courses": {
       "title": "과목 및 수준",
@@ -1224,7 +1253,9 @@
           "GRADUATED": "Graduated",
           "ARCHIVED": "Archived"
         }
-      }
+      },
+      "messageLabel": "메시지",
+      "create": "새 공지"
     },
     "policies": {
       "title": "정책 문서",
@@ -1252,7 +1283,13 @@
         "editedBy": "{who} 편집",
         "saving": "저장 중…",
         "save": "저장",
-        "saved": "저장되었습니다."
+        "saved": "저장되었습니다.",
+        "titleLabel": "문서 제목",
+        "versionLabel": "버전 (선택)",
+        "bodyLabel": "정책 본문 (Markdown)",
+        "unsaved": "저장하지 않은 변경 사항",
+        "refreshFailed": "정책은 저장되었지만 정책 또는 버전 기록을 새로 고칠 수 없습니다. 편집을 계속하기 전에 새로 고침을 다시 시도하세요.",
+        "retryRefresh": "새로 고침 다시 시도"
       },
       "studentTitle": "학생 정책",
       "tutorTitle": "튜터 정책"
@@ -1283,7 +1320,8 @@
         "title": "Delete hour adjustment?",
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
-      }
+      },
+      "create": "새 활동 시간 조정"
     },
     "applications": {
       "title": "튜터 지원",
@@ -1567,7 +1605,14 @@
       },
       "issuedHeading": "발급된 코드",
       "issuedHint": "승인된 지원자에게 전달되어 등록을 기다리는 코드입니다. 등록 코드 화면에서 코드를 취소하면 해당 지원이 위 대기열로 돌아갑니다.",
-      "issuedExpires": "{date} 만료"
+      "issuedExpires": "{date} 만료",
+      "originalApplication": "지원서 원문",
+      "originalRequest": "요청 원문",
+      "panels": {
+        "review": "검토",
+        "roster": "구성원 명단",
+        "patrol": "순찰 설정"
+      }
     },
     "sessionFlags": {
       "title": "출석 플래그",
@@ -1587,7 +1632,19 @@
         "WARNED": "경고됨",
         "PENALIZED": "차감됨",
         "ESCALATED": "상신됨"
-      }
+      },
+      "filterLabel": "출석 검토 상태",
+      "states": {
+        "PENDING": "검토 대기",
+        "DISMISSED": "기각됨",
+        "WARNED": "경고됨",
+        "PENALIZED": "시간 차감됨",
+        "ESCALATED": "상위 검토로 이관됨",
+        "ALL": "모든 상태"
+      },
+      "resolved": "검토자: {name} · {date}",
+      "queued": "승인을 위해 결정을 제출했습니다",
+      "refreshFailed": "결정이 저장되었습니다. 최신 검토 상태를 보려면 기록을 새로 고침하세요."
     },
     "landing": {
       "title": "홈페이지",
@@ -1683,7 +1740,9 @@
         "insertImage": "이미지 삽입…",
         "preview": "미리보기",
         "edit": "편집",
-        "previewEmpty": "아직 미리볼 내용이 없습니다."
+        "previewEmpty": "아직 미리볼 내용이 없습니다.",
+        "titleLabel": "제목",
+        "bodyLabel": "내용 (Markdown)"
       },
       "sections": {
         "new": {
@@ -1850,7 +1909,15 @@
       "confirmDecision": "Record {outcome} for {name}? The panel vote and current application version will be checked. If approval is required, this creates a pending proposal and does not apply the decision.",
       "completedInterview": "Completed interview · {name} ({count})",
       "savedRefreshError": "Attendance was saved, but the refreshed totals could not be loaded. Do not resubmit this entry.",
-      "verificationDeadline": "Verification due: {date}"
+      "verificationDeadline": "Verification due: {date}",
+      "attention": "확인이 필요한 항목",
+      "navigation": "대시보드 섹션",
+      "emptyTasks": "불러온 기록에 후속 조치가 필요한 항목이 없습니다.",
+      "unconfirmedCount": "미확정 일정 ({count})",
+      "rosterCount": "학생 명단 후속 조치 ({count})",
+      "interviewSection": "면접",
+      "meetingSection": "회의",
+      "qualificationSection": "자격"
     },
     "activate": {
       "title": "참여 여부 확인",
@@ -1863,7 +1930,7 @@
       "title": "예정된 회의",
       "help": "회의에 참석할 수 없나요? 시작 30분 전까지 결석을 신청할 수 있습니다.",
       "excuseBtn": "결석 신청",
-      "submitExcuse": "제출",
+      "submitExcuse": "결석 사유 제출",
       "cancelExcuse": "신청 취소",
       "reasonPlaceholder": "사유 (선택)",
       "excused": "이 결석을 신청했습니다.",
@@ -1913,7 +1980,7 @@
         "UNEXCUSED_ABSENT": "무단결석"
       },
       "reasonRequired": "사유 (필수)",
-      "ratings": "평가 *",
+      "ratings": "자기 평가",
       "rating": {
         "ratingPreparedness": "준비도",
         "ratingParticipation": "참여도",
@@ -1969,7 +2036,8 @@
       "removalHelp": "학생이 탈퇴를 원하나요? 대신 전달하세요. 7일 동안 본인(또는 관리자)이 철회할 수 있고, 이후에는 자동 처리됩니다.",
       "removalReasonPlaceholder": "사유(선택)",
       "removalSubmit": "탈퇴 전달",
-      "removalCancel": "취소"
+      "removalCancel": "취소",
+      "availabilityMissing": "아직 가능한 시간이 등록되지 않았습니다."
     },
     "availability": {
       "loading": "시간대 불러오는 중…",
@@ -2049,7 +2117,8 @@
       "reentryHelp": "프로그램에 다시 참여하고 싶으신가요? 재가입을 요청하면 관리자가 검토합니다.",
       "reentryBtn": "재가입 요청",
       "recall": "요청 취소",
-      "statusNote": "현재 튜터 상태는 {status}입니다. 읽기 전용 접근 — 변경은 관리자에게 문의하세요."
+      "statusNote": "현재 튜터 상태는 {status}입니다. 읽기 전용 접근 — 변경은 관리자에게 문의하세요.",
+      "profileSyncFailed": "프로필은 저장되었지만 새로고침에 실패했습니다. 다시 제출하지 말고 새로고침을 재시도하세요."
     },
     "dashboard": {
       "pending": {
@@ -2417,8 +2486,11 @@
         "reason": "탈퇴 사유 (선택)",
         "submit": "탈퇴 신청 제출",
         "pending": "탈퇴를 신청했습니다 — 관리자 승인 대기 중.",
-        "recall": "신청 철회"
-      }
+        "recall": "신청 철회",
+        "reasonLabel": "탈퇴 사유"
+      },
+      "statusLabel": "크루 상태",
+      "noteLabel": "순찰 메모"
     }
   },
   "suspended": {
@@ -2529,7 +2601,8 @@
       "sectionId": "Content to Translate",
       "id": "Content to Translate",
       "other": "Content to Translate"
-    }
+    },
+    "refreshFailed": "변경 사항이 접수되었지만 갱신된 텍스트를 불러올 수 없습니다. 다시 제출하지 말고 새로 고침을 다시 시도하세요."
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -2657,7 +2730,12 @@
     "unscheduled": "Not scheduled",
     "panelRequired": "Assign a qualified panel before recording completion.",
     "invalidDate": "Enter a valid date and time.",
-    "searchInterviews": "Search"
+    "searchInterviews": "Search",
+    "feedbackVisibilityLoading": "피드백을 읽을 수 있는 사람을 확인하는 중…",
+    "feedbackVisibilityUnavailable": "피드백을 읽을 수 있는 사람을 확인할 수 없습니다. 공개 범위를 확인하려면 다시 시도하세요.",
+    "pagination": "페이지 탐색",
+    "page": "{page}페이지",
+    "calendarDestination": "프로그램 설정의 학교 일정"
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -2780,7 +2858,7 @@
     "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
-    "scheduleReject": "Apply to reject: schedule conflict",
+    "scheduleReject": "일정 충돌로 배정 거절 신청",
     "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
@@ -2812,7 +2890,11 @@
     },
     "selfServiceSource": "직접 신청",
     "unknownSource": "이전 신청",
-    "sourceHelp": "출처는 신청 입력 방식을 나타내며 승인, 우선순위, 참여 규칙을 바꾸지 않습니다. 이전 신청은 원래 입력 출처를 확인할 수 없는 기록입니다."
+    "sourceHelp": "출처는 신청 입력 방식을 나타내며 승인, 우선순위, 참여 규칙을 바꾸지 않습니다. 이전 신청은 원래 입력 출처를 확인할 수 없는 기록입니다.",
+    "boardGuide": "신청 분류 방식",
+    "sourceGuide": "등록 경로와 계정 연결",
+    "policyRefresh": "새로고침",
+    "emailStatus": "이메일: {status}"
   },
   "approvals": {
     "reviewPermissions": "일반 관리 요청은 Admin과 Head가 검토합니다. 역할 및 배지 변경은 Head만 검토할 수 있습니다. Head는 자신의 요청도 검토할 수 있으며, 다른 사용자는 별도의 권한 있는 검토자가 필요합니다.",
@@ -3217,7 +3299,11 @@
         "messaging_restrict": "Change an account messaging restriction",
         "admin_setApplicationInvalidity": "튜터 지원서의 무효 표시 변경",
         "studentWorkflow_setRequestInvalidity": "학생 신청의 무효 표시 변경",
-        "admin_setSignupInvalidity": "이전 방식의 공개 신청의 무효 표시 변경"
+        "admin_setSignupInvalidity": "이전 방식의 공개 신청의 무효 표시 변경",
+        "program_setCalendarDay": "튜터링 휴무일 안내 저장",
+        "program_removeCalendarDay": "튜터링 휴무일 안내 삭제",
+        "program_setNameFields": "이름 필드 입력 요건 변경",
+        "admin_reorderRooms": "프로그램 교실 순서 변경"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -3263,7 +3349,12 @@
     "accessDeniedHelp": "현재 세션에서 더 이상 이 세부 정보에 접근할 수 없습니다. 캐시된 증거는 숨겨집니다.",
     "loadFailed": "이벤트 세부 정보를 불러올 수 없습니다",
     "refreshFailed": "이벤트 세부 정보를 새로 고칠 수 없습니다. 마지막으로 불러온 증거가 계속 표시됩니다.",
-    "retry": "다시 시도"
+    "retry": "다시 시도",
+    "difference": {
+      "added": "추가됨",
+      "removed": "삭제됨",
+      "changed": "변경됨"
+    }
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
@@ -3639,7 +3730,8 @@
       "grade": "과목 성적",
       "apScore": "AP 점수",
       "selfStudyNote": "독학 세부 정보"
-    }
+    },
+    "requirementsHelp": "필드 요구 사항 및 이메일 설정"
   },
   "courseGroups": {
     "title": "Subjects & Levels",
@@ -3765,7 +3857,7 @@
     "unknown": "알 수 없음",
     "graduated": "졸업",
     "rosterUnknown": "학년 미상",
-    "rosterNeedsConfirmation": "검토 및 확인 필요",
+    "rosterNeedsConfirmation": "검토 필요",
     "notApplicable": "Not Applicable",
     "reported": "School Grade (1–12)",
     "original": "Original report: {value}",
@@ -3833,7 +3925,8 @@
     "showAlternateNames": "다른 언어로 된 이름 표시",
     "alternateDisplayHint": "입력된 경우 기본 이름 옆에 다른 언어로 된 이름을 표시합니다.",
     "latinRule": "이름, 성, 선호하는 이름에는 라틴 문자를 사용합니다. 악센트, 공백, 아포스트로피와 하이픈을 사용할 수 있습니다.",
-    "displayPreview": "이름 표시 미리보기"
+    "displayPreview": "이름 표시 미리보기",
+    "nameFieldsRequired": "현재 필수인 이름 필드를 입력하세요. 요구 사항이 변경되었다면 양식을 새로 고침하세요."
   },
   "recordTransfer": {
     "title": "프로그램 기록",
@@ -3942,7 +4035,7 @@
     "emptyAll": "표시할 학습 파트너 기록이 없습니다.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
-    "reviewNeeded": "Review needed",
+    "reviewNeeded": "검토 필요",
     "linkSaved": "Historical records linked.",
     "failed": "Could not complete this request. Refresh and try again.",
     "HISTORY_ACCOUNT_NOT_READY": "Choose an account with completed setup and a verified email.",
@@ -4099,7 +4192,8 @@
     "preferredNameHelp": "이름 대신 불러드릴 이름을 라틴 문자로 입력하세요.",
     "alternativeNamesHelp": "다른 언어나 문자로 쓴 이름입니다. 예: 张小明.",
     "legacyPreserved": "기존 이름: {name}. 라틴 문자 이름 필드를 변경하지 않으면 기존 이름이 유지됩니다. 변경하려면 이름을 입력하세요.",
-    "legacy": "기존 이름: {name}. 프로필을 수정하려면 이름과 성을 따로 입력하세요."
+    "legacy": "기존 이름: {name}. 프로필을 수정하려면 이름과 성을 따로 입력하세요.",
+    "hiddenRetained": "참여자 양식과 표시 이름에서 숨겨지며, 권한이 있는 관리자를 위해 여기에 보관됩니다."
   },
   "registrationFlow": {
     "progressTitle": "등록 진행 상황",
@@ -4321,7 +4415,11 @@
     "translationHelp": "This permanently removes this saved language version. Other language versions remain available.",
     "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
     "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
-    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
+    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged.",
+    "galleryRevokeScenario": "접근 권한 철회 예시 열기",
+    "galleryRevoke": "접근 권한 철회 시뮬레이션",
+    "galleryRevoked": "접근 권한이 철회되어 검토 내용이 숨겨졌습니다.",
+    "galleryRestore": "예시 접근 권한 복원"
   },
   "accountInvitation": {
     "enterCode": "이메일로 받은 초대 코드 입력",
@@ -4429,13 +4527,28 @@
     "securityTitle": "필수 이메일은 계속 발송됩니다",
     "securityHelp": "계정 보안, 인증, 복구 이메일은 영향을 받지 않습니다. 이미 발송 중인 이메일은 도착할 수 있습니다."
   },
+  "participantRecovery": {
+    "loading": "기록을 불러오는 중…",
+    "loadFailed": "이 기록을 불러올 수 없습니다",
+    "refreshFailed": "이 기록을 새로 고칠 수 없습니다. 계속하려면 다시 시도하세요.",
+    "accessDenied": "이 기록에 접근할 수 없습니다",
+    "accessDeniedHelp": "접근 권한을 확인할 수 없습니다. 다시 시도하거나 권한이 있는 계정으로 로그인하세요.",
+    "retry": "다시 시도"
+  },
+  "managementRecovery": {
+    "loading": "{section} 불러오는 중…",
+    "loadFailed": "{section} 불러오기에 실패했습니다.",
+    "refreshFailed": "{section} 새로 고침에 실패했습니다. 이전에 불러온 내용을 계속 표시합니다.",
+    "retry": "{section} 다시 불러오기",
+    "denied": "더 이상 {section}에 접근할 수 없습니다."
+  },
   "requestInvalidity": {
     "badge": "무효 항목",
     "filterLabel": "요청 유효성",
     "filter": {
       "all": "모든 항목",
-      "valid": "무효 표시 없음",
-      "invalid": "무효 항목"
+      "valid": "유효한 항목",
+      "invalid": "무효한 항목"
     },
     "flag": "무효로 표시",
     "review": "무효 표시 검토",
@@ -4462,5 +4575,105 @@
     "retryRefresh": "새로고침 재시도",
     "reload": "요청 다시 불러오기",
     "reloadHelp": "작성한 사유와 원래 버전은 유지됩니다. 이 초안을 최신 요청으로 바꾸려면 직접 다시 불러오세요."
+  },
+  "rosterSearch": {
+    "label": "사용자 검색",
+    "placeholder": "이름, 사용자 이름 또는 이메일",
+    "clear": "검색 지우기",
+    "noMatches": "검색 조건에 맞는 사용자가 없습니다.",
+    "results": "전체 {total}명 중 {count}명"
+  },
+  "saveBoundary": {
+    "blur": "이 필드에서 벗어나면 변경 사항이 저장됩니다.",
+    "form": "저장은 이 양식에만 적용됩니다.",
+    "layout": "저장은 이 레이아웃에만 적용됩니다."
+  },
+  "programCalendar": {
+    "title": "튜터링 휴무일",
+    "informational": "프로그램 날짜와 사유를 알리는 안내입니다. 출석 기록을 제한하거나 이의 신청에 사용하는 수업일 달력을 변경하지 않습니다.",
+    "refresh": "새로 고침",
+    "reload": "초안 다시 불러오기",
+    "loadFailed": "튜터링 안내를 불러오지 못했습니다.",
+    "loading": "튜터링 안내 불러오는 중…",
+    "add": "날짜 추가",
+    "date": "날짜",
+    "reason": "사유",
+    "actions": "작업",
+    "edit": "안내 편집",
+    "remove": "안내 삭제",
+    "removeTitle": "튜터링 안내 삭제",
+    "removeHelp": "이 안내를 삭제합니다. 출석 및 수업일 규칙은 변경되지 않습니다.",
+    "empty": "튜터링 안내가 없습니다.",
+    "save": "안내 저장",
+    "saving": "저장 중…",
+    "saved": "안내가 저장되었습니다.",
+    "saveFailed": "안내를 저장하지 못했습니다.",
+    "refreshFailed": "안내는 저장되었으나 최신 목록을 불러오지 못했습니다. 다시 저장하지 말고 새로 고침하여 동기화하세요.",
+    "details": "세부 정보 보기"
+  },
+  "roomOrder": {
+    "title": "교실 표시 순서",
+    "help": "교실 옆 화살표로 순서 초안을 만든 뒤 아래에서 전체 순서를 저장하거나 변경을 요청하세요. 점검 팀의 순회 순서는 별도로 관리됩니다.",
+    "catalogChanged": "교실 목록이 변경되었습니다. 초안은 유지됩니다. 순서를 더 변경하기 전에 다시 불러오세요.",
+    "room": "교실",
+    "actions": "작업",
+    "up": "위로",
+    "down": "아래로",
+    "moveUpName": "{name} 위로 이동",
+    "moveDownName": "{name} 아래로 이동",
+    "save": "순서 저장",
+    "saving": "저장 중…",
+    "saved": "교실 순서가 저장되었습니다.",
+    "reload": "순서 다시 불러오기",
+    "refresh": "새로 고침",
+    "loadFailed": "최신 교실 순서를 불러오지 못했습니다. 초안은 유지되었습니다.",
+    "refreshFailed": "순서는 저장되었으나 동기화에 실패했습니다. 새로 고침은 다시 제출하지 않고 저장된 순서를 읽습니다.",
+    "request": "교실 순서 변경 요청",
+    "open": "교실 순서 변경"
+  },
+  "roomSchedule": {
+    "rooms": "표시할 교실",
+    "allRooms": "모든 교실",
+    "clearRooms": "선택 해제",
+    "allDetails": "시간표 세부 정보",
+    "occupied": "사용 중",
+    "noSlot": "—",
+    "legend": "회색 = 사용 중 · × = 사용 불가 · 사용 가능 = 공개된 시간대에 배정 없음.",
+    "combined": "통합 시간표",
+    "individual": "교실별 시간표",
+    "noSelection": "선택한 교실이 없습니다. 교실 또는 모든 교실을 선택하세요.",
+    "time": "시간",
+    "detailFilters": "시간표 세부 정보 필터",
+    "day": "요일",
+    "allDays": "모든 요일",
+    "allSlots": "모든 시간대",
+    "room": "교실",
+    "emptyDetails": "이 필터와 일치하는 기록이 없습니다.",
+    "noRoom": "배정된 교실 없음",
+    "unconfirmed": "시간표 확인 대기",
+    "outsideCatalog": "현재 시간대 목록에 없음",
+    "allTimes": "모든 시간"
+  },
+  "nameFields": {
+    "title": "이름 필드 요구 사항",
+    "help": "계정 유형별로 가입 및 프로필 필드를 설정합니다. 기존 계정에는 현재 역할의 규칙이 적용됩니다. 숨겨진 이름은 표시 이름에 포함되지 않지만 권한이 있는 담당자는 보관된 값을 확인하고 편집할 수 있습니다. 표시할 이름이 없으면 사용자 이름을 사용합니다.",
+    "accountType": "계정 유형",
+    "summary": "요구 사항",
+    "actions": "작업",
+    "requiredCount": "필수 {count}개",
+    "hiddenCount": "숨김 {count}개",
+    "configure": "설정",
+    "loading": "이름 요구 사항 불러오는 중…",
+    "loadFailed": "이름 요구 사항을 불러오지 못했습니다. 초안은 유지되었습니다.",
+    "refresh": "새로 고침",
+    "reload": "초안 다시 불러오기",
+    "save": "요구 사항 저장",
+    "saving": "저장 중…",
+    "saved": "이름 요구 사항이 저장되었습니다.",
+    "refreshFailed": "요구 사항은 저장되었으나 동기화에 실패했습니다. 새로 고침은 다시 저장하지 않고 저장된 규칙을 읽습니다.",
+    "hiddenProfileHelp": "여기서는 사용자 이름을 표시합니다. 저장된 이름은 보존되며 권한이 있는 직원이 확인할 수 있습니다."
+  },
+  "participantNames": {
+    "unnamed": "이름이 제공되지 않음"
   }
 }

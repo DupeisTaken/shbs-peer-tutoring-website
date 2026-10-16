@@ -1,19 +1,31 @@
 "use client";
+import {
+  useSessionViewState,
+  useSessionPageScroll,
+} from "~/app/_components/session-view-state";
+import { reportViewParser, type ReportView } from "~/lib/management-view-state";
+import { viewAccessDenied } from "~/lib/session-view-state";
 
 import {
   Children,
   cloneElement,
   isValidElement,
+  useEffect,
   useMemo,
   useState,
   type ReactElement,
   type ReactNode,
 } from "react";
 import { useFormatter, useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
 
 import { api } from "~/trpc/react";
 import { useBranding } from "~/app/_components/branding-provider";
 import { useReadOnly } from "~/app/_components/read-only";
+import { Button } from "~/app/_components/ui/button";
+import { StatePanel } from "~/app/_components/ui/patterns";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { toCsv, type CsvCell as Cell } from "~/lib/csv";
 import {
   SummaryTable,
@@ -48,18 +60,46 @@ export default function ReportsPage() {
     });
   const t = useTranslations();
   const readOnly = useReadOnly(); // VIEWER — PII is always masked server-side
-  const periods = api.admin.periods.useQuery();
-  const features = api.program.features.useQuery().data;
+  const queryClient = useQueryClient();
+  const [denied, setDenied] = useState(false);
+  const periods = api.admin.periods.useQuery(undefined, { enabled: !denied });
+  const featureQuery = api.program.features.useQuery();
+  const features = featureQuery.data;
 
   const years = useMemo(() => {
     const set = new Set((periods.data ?? []).map((p) => p.schoolYear));
     return [...set].sort((a, b) => b.localeCompare(a));
   }, [periods.data]);
 
-  const [schoolYear, setSchoolYear] = useState<string>("");
-  const [scope, setScope] = useState<Scope>("year");
-  const [depth, setDepth] = useState<Depth>("summary");
-  const [maskPii, setMaskPii] = useState(false);
+  const [view, setView] = useSessionViewState<ReportView>({
+    id: "report-controls-v1",
+    scope: readOnly ? "observer" : "manager",
+    initialState: {
+      schoolYear: "",
+      scope: "year",
+      depth: "summary",
+      maskPii: readOnly,
+    },
+    parse: reportViewParser(
+      years,
+      features?.QUARTER_SYSTEM !== false,
+      readOnly,
+    ),
+    restoreReady: periods.data !== undefined && features !== undefined,
+    enabled:
+      !denied &&
+      !viewAccessDenied(periods.error) &&
+      !viewAccessDenied(featureQuery.error),
+  });
+  const { schoolYear, scope, depth, maskPii } = view;
+  const setSchoolYear = (schoolYear: string) =>
+    setView((previous) => ({ ...previous, schoolYear }));
+  const setScope = (scope: Scope) =>
+    setView((previous) => ({ ...previous, scope }));
+  const setDepth = (depth: Depth) =>
+    setView((previous) => ({ ...previous, depth }));
+  const setMaskPii = (maskPii: boolean) =>
+    setView((previous) => ({ ...previous, maskPii }));
   const activeYear = schoolYear !== "" ? schoolYear : (years[0] ?? "");
 
   const report = api.admin.periodReport.useQuery(
@@ -73,11 +113,97 @@ export default function ReportsPage() {
       depth,
       maskPii,
     },
-    { enabled: !!activeYear },
+    { enabled: !!activeYear && features !== undefined && !denied },
   );
 
-  const r = report.data;
+  // Query keys still own scope/depth/masking. A transient read retains that
+  // exact report; an authoritative denial conceals and evicts private reports.
+  const accessDenied = [periods.error, report.error, featureQuery.error].some(
+    (error) =>
+      error?.data?.code === "FORBIDDEN" || error?.data?.code === "UNAUTHORIZED",
+  );
+  useEffect(() => {
+    if (accessDenied) {
+      setDenied(true);
+      queryClient.removeQueries({
+        queryKey: getQueryKey(api.admin.periodReport, undefined, "query"),
+      });
+      if (
+        periods.error?.data?.code === "FORBIDDEN" ||
+        periods.error?.data?.code === "UNAUTHORIZED"
+      )
+        queryClient.removeQueries({
+          queryKey: getQueryKey(api.admin.periods, undefined, "query"),
+        });
+    } else if (
+      periods.isSuccess &&
+      !periods.isFetching &&
+      featureQuery.isSuccess &&
+      !featureQuery.isFetching &&
+      (!activeYear || (report.isSuccess && !report.isFetching))
+    ) {
+      setDenied(false);
+    }
+  }, [
+    accessDenied,
+    periods.error,
+    featureQuery.error,
+    featureQuery.isSuccess,
+    featureQuery.isFetching,
+    periods.isSuccess,
+    periods.isFetching,
+    report.isSuccess,
+    report.isFetching,
+    activeYear,
+    queryClient,
+  ]);
+  const section = t("admin.reports.title");
+  const retryAccess = async () => {
+    if (featureQuery.error || features === undefined)
+      void featureQuery.refetch();
+    if (periods.data === undefined) {
+      // Period denial evicts the implicit active year too. Restore that
+      // prerequisite first, then let the newly keyed report authorize itself.
+      // Its private cache was evicted and cannot be shown by this transition.
+      const recovered = await periods.refetch();
+      if (recovered.isSuccess) setDenied(false);
+    } else {
+      if (periods.error) void periods.refetch();
+      if (activeYear) void report.refetch();
+    }
+  };
+  useSessionPageScroll({
+    id: "reports-v1",
+    scope: JSON.stringify({ ...view, schoolYear: activeYear }),
+    ready:
+      report.data !== undefined &&
+      features !== undefined &&
+      !denied &&
+      !accessDenied,
+    enabled: !denied && !accessDenied && !viewAccessDenied(featureQuery.error),
+  });
+  const r = features !== undefined ? report.data : undefined;
   const slug = (r?.scope.label ?? activeYear).replace(/[^\w-]+/g, "_");
+
+  if (denied || accessDenied)
+    return (
+      <div className="space-y-6">
+        <h1 className="page-title">{section}</h1>
+        <StatePanel
+          kind="denied"
+          title={t("managementRecovery.denied", { section })}
+          action={
+            <Button
+              size="compact"
+              disabled={periods.isFetching || report.isFetching}
+              onClick={retryAccess}
+            >
+              {t("managementRecovery.retry", { section })}
+            </Button>
+          }
+        />
+      </div>
+    );
 
   return (
     <div className="space-y-6">
@@ -115,7 +241,7 @@ export default function ReportsPage() {
               <option value="S1">{t("admin.reports.s1")}</option>
               <option value="S2">{t("admin.reports.s2")}</option>
               {/* Quarter scopes hidden when the program runs on semesters. */}
-              {features?.QUARTER_SYSTEM !== false && (
+              {features !== undefined && features.QUARTER_SYSTEM !== false && (
                 <>
                   <option value="Q1">Q1</option>
                   <option value="Q2">Q2</option>
@@ -139,7 +265,7 @@ export default function ReportsPage() {
               <option value="full">{t("admin.reports.depthFull")}</option>
             </select>
           </label>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex min-h-11 items-center gap-2 text-sm lg:min-h-10">
             <input
               type="checkbox"
               checked={readOnly || maskPii}
@@ -162,9 +288,72 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {report.isLoading && (
-        <p className="muted">{t("admin.reports.loading")}</p>
-      )}
+      <div className="no-print space-y-3">
+        <QueryFeedback
+          hasData={periods.data !== undefined}
+          loading={periods.data === undefined && !periods.error}
+          error={!!periods.error}
+          retrying={periods.isFetching}
+          loadingTitle={t("managementRecovery.loading", {
+            section: t("admin.reports.schoolYear"),
+          })}
+          errorTitle={t(
+            periods.data === undefined
+              ? "managementRecovery.loadFailed"
+              : "managementRecovery.refreshFailed",
+            { section: t("admin.reports.schoolYear") },
+          )}
+          retryLabel={t("managementRecovery.retry", {
+            section: t("admin.reports.schoolYear"),
+          })}
+          onRetry={() => {
+            void periods.refetch();
+          }}
+        />
+        <QueryFeedback
+          hasData={features !== undefined}
+          loading={features === undefined && !featureQuery.error}
+          error={!!featureQuery.error}
+          retrying={featureQuery.isFetching}
+          loadingTitle={t("managementRecovery.loading", {
+            section: t("admin.program.features.heading"),
+          })}
+          errorTitle={t(
+            features === undefined
+              ? "managementRecovery.loadFailed"
+              : "managementRecovery.refreshFailed",
+            { section: t("admin.program.features.heading") },
+          )}
+          retryLabel={t("managementRecovery.retry", {
+            section: t("admin.program.features.heading"),
+          })}
+          onRetry={() => {
+            void featureQuery.refetch();
+          }}
+        />
+        {!!activeYear && features !== undefined && (
+          <QueryFeedback
+            hasData={report.data !== undefined}
+            loading={report.data === undefined && !report.error}
+            error={!!report.error}
+            retrying={report.isFetching}
+            loadingTitle={t("managementRecovery.loading", { section })}
+            errorTitle={t(
+              report.data === undefined
+                ? "managementRecovery.loadFailed"
+                : "managementRecovery.refreshFailed",
+              { section },
+            )}
+            retryLabel={t("managementRecovery.retry", { section })}
+            onRetry={() => {
+              void report.refetch();
+            }}
+          />
+        )}
+        {periods.data?.length === 0 && !periods.error && (
+          <p className="muted">{t("admin.reports.noData")}</p>
+        )}
+      </div>
 
       {r && (
         <div className="print-area space-y-6">

@@ -1,8 +1,19 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render as renderUI,
+  screen,
+} from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
 import { LegacyParticipation } from "./legacy-participation";
 const mocks = vi.hoisted(() => ({ query: vi.fn(), mutate: vi.fn() }));
+const render = (ui: ReactElement) =>
+  renderUI(
+    <QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>,
+  );
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -74,7 +85,11 @@ it("shows a pending request without another withdrawal button", () => {
 });
 
 it("explains manual withdrawal without assuming a tutor has been assigned", () => {
-  mocks.query.mockReturnValue({ data: [{ id: "owned", englishName: "Student", status: "PENDING", reviews: [] }] });
+  mocks.query.mockReturnValue({
+    data: [
+      { id: "owned", englishName: "Student", status: "PENDING", reviews: [] },
+    ],
+  });
   render(<LegacyParticipation />);
   expect(screen.getByText("legacyWithdrawalHelp")).toBeTruthy();
   expect(screen.queryByText("abortHelp")).toBeNull();

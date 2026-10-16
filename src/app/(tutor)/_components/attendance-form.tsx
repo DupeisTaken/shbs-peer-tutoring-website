@@ -5,7 +5,7 @@ import { useDialog } from "~/app/_components/confirm-dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useTranslations, useTimeZone } from "next-intl";
+import { useLocale, useTranslations, useTimeZone } from "next-intl";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 
@@ -13,6 +13,11 @@ import { api } from "~/trpc/react";
 import { hmToMin, minToHm } from "~/lib/time";
 import { useMerge } from "~/app/(tutor)/_components/merge-context";
 import { DisciplineSlots } from "~/app/_components/discipline-slots";
+import { FieldRequirement } from "~/app/_components/field-requirement";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 
 const TUTOR_STATUS_VALUES = [
   "PRESENT",
@@ -65,6 +70,7 @@ import { programDateKey, programDateTimeInput } from "~/lib/program-time";
 
 export function AttendanceForm() {
   const t = useTranslations();
+  const locale = useLocale();
   const timeZone = useTimeZone();
   const todayIso = () => programDateKey(new Date(), timeZone);
   const nowHm = () => programDateTimeInput(new Date(), timeZone).slice(11);
@@ -404,7 +410,8 @@ export function AttendanceForm() {
             </option>
             {pairings.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.subject} · {pairingScheduleText(p, t("scheduling.awaiting"))}
+                {p.subject} ·{" "}
+                {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
                 {p.room ? ` · ${p.room.name}` : ""}
               </option>
             ))}
@@ -612,7 +619,10 @@ export function AttendanceForm() {
                     className="grid gap-2 rounded-md border border-slate-100 bg-slate-50/60 p-2 sm:flex sm:flex-wrap sm:items-center sm:border-0 sm:bg-transparent sm:p-0"
                   >
                     <span className="min-w-0 truncate text-sm text-slate-700 sm:w-40">
-                      {t2.tutee.englishName}
+                      <ParticipantName
+                        name={t2.tutee.englishName}
+                        username={t2.tutee.user?.username}
+                      />
                     </span>
                     {/* Card standing at a glance — meter only, no reasons. */}
                     {standing && (
@@ -640,7 +650,7 @@ export function AttendanceForm() {
                       </span>
                     )}
                     <select
-                      aria-label={`${t2.tutee.englishName} ${t("tutor.attendance.tuteeAttendance")}`}
+                      aria-label={`${participantNameLabel(t2.tutee.englishName, t2.tutee.user?.username, t("participantNames.unnamed"))} ${t("tutor.attendance.tuteeAttendance")}`}
                       className="select sm:field-auto min-w-0 sm:min-w-40"
                       value={status}
                       onChange={(e) =>
@@ -675,19 +685,33 @@ export function AttendanceForm() {
         {/* Ratings (required when a session was held) — likert scales */}
         {held && (
           <fieldset className="space-y-3">
-            <legend className="label">{t("tutor.attendance.ratings")}</legend>
+            <legend className="label">
+              {t("tutor.attendance.ratings")}{" "}
+              <FieldRequirement state="required" />
+            </legend>
             {RATING_FIELDS.map((name) => (
               <div key={name}>
-                <p className="text-xs font-medium text-slate-600">
-                  {t(`tutor.attendance.rating.${name}`)}
-                </p>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <p className="text-xs font-medium text-slate-600">
+                    {t(`tutor.attendance.rating.${name}`)}
+                  </p>
+                  {/* All five meanings stay visible beside the criterion, while
+                      the numeric choices keep one compact row and touch targets. */}
+                  <p className="muted flex flex-wrap gap-x-2 text-xs">
+                    {LIKERT_VALUES.map((value) => (
+                      <span key={value} className="whitespace-nowrap">
+                        {value} · {t(`tutor.attendance.likert.${value}`)}
+                      </span>
+                    ))}
+                  </p>
+                </div>
                 <div className="mt-1 grid grid-cols-5 gap-1">
                   {/* The label provides the touch target; native radio artwork stays compact. */}
                   {LIKERT_VALUES.map((value) => (
                     <label
                       key={value}
                       title={t(`tutor.attendance.likert.${value}`)}
-                      className="has-[:checked]:border-accent-500 has-[:checked]:bg-accent-50 has-[:checked]:text-accent-700 flex min-h-11 cursor-pointer items-center justify-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-sm text-slate-600 lg:min-h-8"
+                      className="has-[:checked]:border-accent-500 has-[:checked]:bg-accent-50 has-[:checked]:text-accent-700 flex min-h-11 cursor-pointer flex-wrap items-center justify-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-sm text-slate-600 lg:min-h-8"
                     >
                       <input
                         type="radio"
@@ -700,10 +724,6 @@ export function AttendanceForm() {
                     </label>
                   ))}
                 </div>
-                <p className="muted mt-1 text-xs">
-                  1 · {t("tutor.attendance.likert.1")} — 5 ·{" "}
-                  {t("tutor.attendance.likert.5")}
-                </p>
               </div>
             ))}
           </fieldset>
@@ -743,10 +763,13 @@ export function AttendanceForm() {
                     className="grid gap-2 rounded-md border border-slate-100 bg-slate-50/60 p-2 sm:flex sm:flex-wrap sm:items-center sm:border-0 sm:bg-transparent sm:p-0"
                   >
                     <span className="min-w-0 truncate text-sm text-slate-700 sm:w-40">
-                      {t2.tutee.englishName}
+                      <ParticipantName
+                        name={t2.tutee.englishName}
+                        username={t2.tutee.user?.username}
+                      />
                     </span>
                     <select
-                      aria-label={`${t2.tutee.englishName} ${t("tutor.attendance.cardsTitle")}`}
+                      aria-label={`${participantNameLabel(t2.tutee.englishName, t2.tutee.user?.username, t("participantNames.unnamed"))} ${t("tutor.attendance.cardsTitle")}`}
                       className="select sm:field-auto min-w-0 sm:min-w-32"
                       value={color}
                       onChange={(e) =>

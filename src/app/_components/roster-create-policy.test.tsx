@@ -10,7 +10,7 @@ const mock = vi.hoisted(() => ({
   mutate: vi.fn(),
   error: undefined as undefined | { message: string },
 }));
-vi.mock("~/trpc/react", () => {
+vi.mock("~/trpc/react", async () => {
   const rows = { useQuery: () => ({ data: [] }) };
   const create = {
     useMutation: () => ({
@@ -21,15 +21,22 @@ vi.mock("~/trpc/react", () => {
   };
   return {
     api: {
-    account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
+      account: { me: { useQuery: () => ({ data: { role: "HEAD" } }) } },
       useUtils: () => ({
         admin: {
           tutors: { invalidate: vi.fn() },
           tutees: { invalidate: vi.fn() },
         },
       }),
-      tuteeHistory: {permissions: {useQuery: () => ({data: {canLink:true,isHead:true}})}},
+      tuteeHistory: {
+        permissions: {
+          useQuery: () => ({ data: { canLink: true, isHead: true } }),
+        },
+      },
       program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
         profilePolicy: {
           useQuery: () => ({
             data: {
@@ -93,11 +100,15 @@ it.each([
         }),
       );
       fireEvent.change(
-        screen.getByLabelText(messages.personName.firstName + " " + messages.signupFields.required),
+        screen.getByLabelText(
+          messages.personName.firstName + " " + messages.signupFields.required,
+        ),
         { target: { value: "Draft" } },
       );
       fireEvent.change(
-        screen.getByLabelText(messages.personName.lastName + " " + messages.signupFields.required),
+        screen.getByLabelText(
+          messages.personName.lastName + " " + messages.signupFields.optional,
+        ),
         { target: { value: "Name" } },
       );
     } else {
@@ -107,9 +118,14 @@ it.each([
           name: messages.admin.tutees.addTutee,
         }),
       );
-      fireEvent.change(screen.getByLabelText(messages.personName.firstName + " " + messages.signupFields.required), {
-        target: { value: "Draft Name" },
-      });
+      fireEvent.change(
+        screen.getByLabelText(
+          messages.personName.firstName + " " + messages.signupFields.required,
+        ),
+        {
+          target: { value: "Draft Name" },
+        },
+      );
     }
     fireEvent.submit(document.querySelector("form")!);
     expect(mock.mutate).toHaveBeenCalledOnce();

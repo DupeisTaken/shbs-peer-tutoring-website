@@ -29,6 +29,8 @@ export const subjectAvailabilityRouter = createTRPCRouter({
         select: {
           id: true,
           englishName: true,
+          // The authorized current handle supplies a UI fallback for optional names.
+          username: true,
           status: true,
           user: { select: { tutorAccessRevoked: true } },
         },

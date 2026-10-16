@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocale, useTranslations, useTimeZone } from "next-intl";
 import { api, type RouterInputs } from "~/trpc/react";
 import { humanizeOperation } from "~/lib/approval-policy";
@@ -11,7 +11,7 @@ import {
   programTimeZoneLabel,
 } from "~/lib/program-time-zone-label";
 export type AuditFilterInput = NonNullable<RouterInputs["admin"]["auditLog"]>;
-const empty = {
+export const emptyAuditView = {
   userId: "",
   kind: "",
   operation: "",
@@ -20,21 +20,28 @@ const empty = {
   from: "",
   until: "",
 };
+export type AuditView = typeof emptyAuditView;
 
 /** Apply the form as one filter set, so incomplete text/date edits never trigger a query. */
 export function AuditFilters({
   onApply,
+  appliedView,
 }: {
-  onApply: (input: AuditFilterInput) => void;
+  onApply: (input: AuditFilterInput, view: AuditView) => void;
+  appliedView?: AuditView;
 }) {
   const t = useTranslations("auditFilters");
   const timeZone = useTimeZone() ?? "Asia/Shanghai";
   const locale = useLocale();
   const [referenceTime] = useState(() => new Date());
   const [inputError, setInputError] = useState("");
-  const [draft, setDraft] = useState(empty);
+  const [draft, setDraft] = useState(appliedView ?? emptyAuditView);
+  const appliedKey = appliedView ? JSON.stringify(appliedView) : "";
+  useEffect(() => {
+    if (appliedKey) setDraft(JSON.parse(appliedKey) as AuditView);
+  }, [appliedKey]);
   const options = api.admin.auditFilterOptions.useQuery();
-  const set = (key: keyof typeof empty, value: string) =>
+  const set = (key: keyof AuditView, value: string) =>
     setDraft((old) => ({ ...old, [key]: value }));
   const selects = [
     {
@@ -101,7 +108,7 @@ export function AuditFilters({
             until: draft.until
               ? new Date(programDayEnd(draft.until, timeZone).getTime() + 1)
               : undefined,
-          });
+          }, draft);
         } catch (error) {
           setInputError(
             error instanceof Error ? error.message : "Invalid date",
@@ -117,12 +124,12 @@ export function AuditFilters({
             className="input mt-1 w-full min-w-0 whitespace-nowrap"
             title={
               select.values.find(
-                (value) => value.id === draft[select.key as keyof typeof empty],
+                (value) => value.id === draft[select.key as keyof AuditView],
               )?.label
             }
-            value={draft[select.key as keyof typeof empty]}
+            value={draft[select.key as keyof AuditView]}
             onChange={(e) =>
-              set(select.key as keyof typeof empty, e.target.value)
+              set(select.key as keyof AuditView, e.target.value)
             }
           >
             <option value="">{t(select.all)}</option>
@@ -169,8 +176,8 @@ export function AuditFilters({
           className="btn-secondary"
           type="button"
           onClick={() => {
-            setDraft(empty);
-            onApply({});
+            setDraft(emptyAuditView);
+            onApply({}, emptyAuditView);
           }}
         >
           {t("clear")}

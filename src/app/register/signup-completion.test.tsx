@@ -44,6 +44,7 @@ const state = vi.hoisted(() => {
       gradeLevel: 9,
       completed: false,
       existing: false,
+      acceptedIdentity: false,
       needsPassword: true,
       requiresSignIn: false,
       mfaRequired: false,
@@ -57,7 +58,7 @@ vi.mock("./actions", () => ({
   invitationSignIn: state.login,
   switchInvitationAccount: vi.fn(),
 }));
-vi.mock("~/trpc/react", () => {
+vi.mock("~/trpc/react", async () => {
   const mutation = (name: string, action: (...args: unknown[]) => unknown) => ({
     useMutation: (options: MutationCallbacks) => {
       state.callbacks[name] = options;
@@ -76,6 +77,9 @@ vi.mock("~/trpc/react", () => {
         accountInvitation: { inspect: { invalidate: state.refresh } },
       }),
       program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
         profilePolicy: {
           useQuery: () => ({ data: { offeredGrades: [1, 9, 12] } }),
         },
@@ -134,6 +138,7 @@ beforeEach(() => {
     academicConfirmationRequired: false,
     legacyName: null,
     existing: false,
+    acceptedIdentity: false,
     needsPassword: true,
     requiresSignIn: false,
     mfaRequired: false,
@@ -195,6 +200,29 @@ it("verifies recipient email/code once even when two submits happen in the same 
     email: "person@example.test",
     code: "ABC12",
   });
+});
+it("reviews an accepted source without collecting replacement names or blocking its previously accepted blank parts", async () => {
+  state.info.acceptedIdentity = true;
+  state.info.lastName = "";
+  const rendered = render(view());
+  await verified();
+  expect(screen.queryByLabelText(/^First Name/)).toBeNull();
+  expect(screen.queryByLabelText(/^Last Name/)).toBeNull();
+  fireEvent.change(screen.getByLabelText(/^Create password/), {
+    target: { value: "PersonalPassword!" },
+  });
+  fireEvent.change(screen.getByLabelText(/^Confirm password/), {
+    target: { value: "PersonalPassword!" },
+  });
+  fireEvent.click(screen.getByRole("checkbox"));
+  fireEvent.submit(rendered.container.querySelector("form")!);
+  expect(state.complete).toHaveBeenCalledWith(
+    expect.objectContaining({
+      firstName: "Person",
+      lastName: "",
+      reviewed: true,
+    }),
+  );
 });
 
 it("requires matching passwords and review, freezes pending fields, and preserves a failed draft", async () => {
@@ -318,7 +346,7 @@ it("navigating to a different invitation discards the prior proof, password and 
   expect(state.complete).not.toHaveBeenCalled();
 });
 
-it("an existing account with missing identity can fill its name without replacing canonical academics", async () => {
+it("an existing nameless account reviews access without soliciting discarded name edits", async () => {
   Object.assign(state.info, {
     existing: true,
     name: "",
@@ -329,8 +357,8 @@ it("an existing account with missing identity can fill its name without replacin
   render(view());
   await verified();
   expect(
-    screen.getByLabelText(new RegExp(`^${en.personName.firstName}`)),
-  ).toBeTruthy();
+    screen.queryByLabelText(new RegExp(`^${en.personName.firstName}`)),
+  ).toBeNull();
   expect(screen.queryByRole("combobox")).toBeNull();
 });
 

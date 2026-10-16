@@ -10,6 +10,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import TimeSlotsPage from "../(admin)/admin/time-slots/page";
 import PairingsPage from "../(admin)/admin/pairings/page";
@@ -215,12 +216,16 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 
+let queryClient: QueryClient;
 const wrapper = ({ children }: { children: ReactNode }) => (
-  <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-    {children}
-  </NextIntlClientProvider>
+  <QueryClientProvider client={queryClient}>
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      {children}
+    </NextIntlClientProvider>
+  </QueryClientProvider>
 );
 beforeEach(() => {
+  queryClient = new QueryClient();
   vi.clearAllMocks();
   mocks.readOnly = false;
   mocks.pending = false;
@@ -239,7 +244,10 @@ beforeEach(() => {
     },
   });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  queryClient.clear();
+});
 
 it.each([
   ["time slot", TimeSlotsPage, "Monday block", "slot-1"],
@@ -323,15 +331,29 @@ it("rejects invalid time ranges and cancels the slot draft without a write", () 
   expect(document.activeElement).toBe(trigger);
 });
 
-it("keeps time-slot detail access but removes edits for viewers", () => {
+it("shows complete time-slot rows and propagation help without editing actions for viewers", () => {
   mocks.readOnly = true;
   render(<TimeSlotsPage />, { wrapper });
   expect(screen.queryByRole("button", { name: /^Edit:/ })).toBeNull();
   expect(screen.queryByRole("checkbox")).toBeNull();
+  const table = screen.getByRole("table", { name: en.admin.timeslots.title });
+  const row = within(table).getByText("Monday block").closest("tr")!;
+  expect(within(row).getByText("Mon")).toBeTruthy();
+  expect(within(row).getByText("15:00–16:00")).toBeTruthy();
+  expect(within(row).getByText(en.courseCatalogue.active)).toBeTruthy();
+  expect(
+    within(table).queryByRole("columnheader", {
+      name: en.tablePatterns.actions,
+    }),
+  ).toBeNull();
+  expect(within(row).queryByRole("button")).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByText(en.admin.timeslots.propagationNote)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: en.approvals.dismiss }));
   fireEvent.click(
-    screen.getByRole("button", { name: "View details: Monday block" }),
+    screen.getByRole("button", { name: en.admin.timeslots.reopenHelp }),
   );
-  expect(screen.getByRole("dialog", { name: "Monday block" })).toBeTruthy();
+  expect(screen.getByText(en.admin.timeslots.propagationNote)).toBeTruthy();
   expect(mocks.updateSlot).not.toHaveBeenCalled();
 });
 

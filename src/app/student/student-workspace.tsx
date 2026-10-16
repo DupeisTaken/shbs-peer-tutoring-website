@@ -1,24 +1,117 @@
 "use client";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 import Link from "next/link";
-import { useState } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useEffect, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
-import { DAY_NAMES, minToHm } from "~/lib/time";
+import { formatWeekday, minToHm } from "~/lib/time";
+import { Button } from "~/app/_components/ui/button";
+import { StatePanel } from "~/app/_components/ui/patterns";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
+import { ParticipantName } from "~/app/_components/participant-name";
 
 type Request = RouterOutputs["studentWorkflow"]["mine"][number];
-export function StudentWorkspace() {
+export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
   const t = useTranslations("workflow");
-  const query = api.studentWorkflow.mine.useQuery();
-  const legacy = api.studentWorkflow.legacyParticipation.useQuery();
-  if (query.isLoading) return <p role="status">{t("loading")}</p>;
-  if (query.error)
+  const recovery = useTranslations("participantRecovery");
+  const queryClient = useQueryClient();
+  const [denied, setDenied] = useState(false);
+  const query = api.studentWorkflow.mine.useQuery(undefined, {
+    enabled: !denied,
+  });
+  const legacy = api.studentWorkflow.legacyParticipation.useQuery(undefined, {
+    enabled: !denied,
+  });
+  const requestDenied =
+    query.error?.data?.code === "FORBIDDEN" ||
+    query.error?.data?.code === "UNAUTHORIZED";
+  const legacyDenied =
+    legacy.error?.data?.code === "FORBIDDEN" ||
+    legacy.error?.data?.code === "UNAUTHORIZED";
+  useSessionPageScroll({
+    id: "student-requests-v1",
+    scope: viewScope,
+    ready: !!query.data && !!legacy.data,
+    enabled: !denied && !requestDenied && !legacyDenied,
+  });
+  useEffect(() => {
+    if (!requestDenied && !legacyDenied) return;
+    setDenied(true);
+    if (requestDenied)
+      queryClient.removeQueries({
+        queryKey: getQueryKey(api.studentWorkflow.mine, undefined, "query"),
+      });
+    if (legacyDenied)
+      queryClient.removeQueries({
+        queryKey: getQueryKey(
+          api.studentWorkflow.legacyParticipation,
+          undefined,
+          "query",
+        ),
+      });
+  }, [requestDenied, legacyDenied, queryClient]);
+  useEffect(() => {
+    if (
+      query.isSuccess &&
+      legacy.isSuccess &&
+      !query.isFetching &&
+      !legacy.isFetching
+    )
+      setDenied(false);
+  }, [query.isSuccess, legacy.isSuccess, query.isFetching, legacy.isFetching]);
+  const retry = () => {
+    void query.refetch();
+    void legacy.refetch();
+  };
+  const readBlocked =
+    !!query.error || !!legacy.error || !query.data || !legacy.data;
+  const readFeedback = (
+    <>
+      <QueryFeedback
+        hasData={!!query.data}
+        loading={!query.data && !query.error}
+        error={!!query.error}
+        retrying={query.isFetching}
+        loadingTitle={recovery("loading")}
+        errorTitle={recovery(query.data ? "refreshFailed" : "loadFailed")}
+        retryLabel={recovery("retry")}
+        onRetry={() => void query.refetch()}
+      />
+      <QueryFeedback
+        hasData={!!legacy.data}
+        loading={!legacy.data && !legacy.error}
+        error={!!legacy.error}
+        retrying={legacy.isFetching}
+        loadingTitle={recovery("loading")}
+        errorTitle={recovery(legacy.data ? "refreshFailed" : "loadFailed")}
+        retryLabel={recovery("retry")}
+        onRetry={() => void legacy.refetch()}
+      />
+    </>
+  );
+  if (denied || requestDenied || legacyDenied)
     return (
-      <p role="alert" className="text-red-700">
-        {query.error.message}
-      </p>
+      <StatePanel
+        kind="denied"
+        title={recovery("accessDenied")}
+        action={
+          <Button
+            size="compact"
+            disabled={query.isFetching || legacy.isFetching}
+            onClick={retry}
+          >
+            {recovery("retry")}
+          </Button>
+        }
+      >
+        {recovery("accessDeniedHelp")}
+      </StatePanel>
     );
+  if (!query.data) return <div className="space-y-4">{readFeedback}</div>;
   const active = query.data?.find((r) => r.state === "OPEN");
   const quarterBlocked =
     (query.data?.some((r) => r.state === "ABORTED") ?? false) ||
@@ -28,6 +121,7 @@ export function StudentWorkspace() {
       false);
   return (
     <div className="space-y-6">
+      {readFeedback}
       <nav
         aria-label={t("navigation")}
         className="flex flex-wrap gap-4 border-b border-slate-200 pb-3 text-sm"
@@ -42,8 +136,14 @@ export function StudentWorkspace() {
       <section id="current-request" className="space-y-4">
         <h2 className="section-title">{t("current")}</h2>
         {active ? (
-          <CurrentRequest key={active.id} row={active} />
-        ) : legacy.data?.some((row) => row.status !== "INACTIVE") ? null : (
+          <CurrentRequest
+            key={active.id}
+            row={active}
+            readBlocked={readBlocked}
+            readFeedback={readFeedback}
+          />
+        ) : readBlocked ||
+          legacy.data?.some((row) => row.status !== "INACTIVE") ? null : (
           <div className="card space-y-3 p-6">
             <p>{t(quarterBlocked ? "abortFinal" : "noActive")}</p>
             {!quarterBlocked && (
@@ -76,9 +176,19 @@ export function StudentWorkspace() {
     </div>
   );
 }
-function CurrentRequest({ row }: { row: Request }) {
+function CurrentRequest({
+  row,
+  readBlocked,
+  readFeedback,
+}: {
+  row: Request;
+  readBlocked: boolean;
+  readFeedback: ReactNode;
+}) {
   const format = useFormatter();
+  const locale = useLocale();
   const t = useTranslations("workflow");
+  const recovery = useTranslations("participantRecovery");
   const scheduling = useTranslations("scheduling");
   const utils = api.useUtils();
   const options = api.tutee.signupOptions.useQuery();
@@ -131,7 +241,12 @@ function CurrentRequest({ row }: { row: Request }) {
           {row.pairings.length ? (
             row.pairings.map((p) => (
               <p key={p.id} className="mt-2 text-sm">
-                {p.subject} · {p.tutor.englishName} · {pairingScheduleText(p, scheduling("awaiting"))}
+                {p.subject} ·{" "}
+                <ParticipantName
+                  name={p.tutor.englishName}
+                  username={p.tutor.user?.username}
+                />{" "}
+                · {pairingScheduleText(p, scheduling("awaiting"), locale)}
               </p>
             ))
           ) : (
@@ -155,12 +270,18 @@ function CurrentRequest({ row }: { row: Request }) {
         <p className="muted text-sm">{t("availabilityHelp")}</p>
         {editing ? (
           <div className="space-y-4">
-            {options.isLoading && <p role="status">{t("loading")}</p>}
-            {options.error && (
-              <p role="alert" className="text-red-700">
-                {options.error.message}
-              </p>
-            )}
+            <QueryFeedback
+              hasData={!!options.data}
+              loading={!options.data && !options.error}
+              error={!!options.error}
+              retrying={options.isFetching}
+              loadingTitle={recovery("loading")}
+              errorTitle={recovery(
+                options.data ? "refreshFailed" : "loadFailed",
+              )}
+              retryLabel={recovery("retry")}
+              onRetry={() => void options.refetch()}
+            />
             <div className="grid gap-2 sm:grid-cols-2">
               {options.data?.slots.map((slot) => (
                 <label
@@ -178,15 +299,30 @@ function CurrentRequest({ row }: { row: Request }) {
                       )
                     }
                   />
-                  {DAY_NAMES[slot.dayOfWeek]} {minToHm(slot.startMin)}–
-                  {minToHm(slot.endMin)}
+                  {formatWeekday(slot.dayOfWeek, locale)}{" "}
+                  {minToHm(slot.startMin)}–{minToHm(slot.endMin)}
                 </label>
               ))}
             </div>
             <button
               className="btn-primary"
-              disabled={!slots.length || edit.isPending || !options.data}
-              onClick={() => edit.mutate({ id: row.id, slotIds: slots })}
+              disabled={
+                readBlocked ||
+                !!options.error ||
+                !slots.length ||
+                edit.isPending ||
+                !options.data
+              }
+              onClick={() => {
+                if (
+                  !readBlocked &&
+                  !options.error &&
+                  options.data &&
+                  slots.length &&
+                  !edit.isPending
+                )
+                  edit.mutate({ id: row.id, slotIds: slots });
+              }}
             >
               {t("saveAvailability")}
             </button>
@@ -196,8 +332,8 @@ function CurrentRequest({ row }: { row: Request }) {
           <ul className="grid gap-2 text-sm sm:grid-cols-2">
             {row.slots.map((slot) => (
               <li key={slot.id}>
-                {DAY_NAMES[slot.dayOfWeek]} {minToHm(slot.startMin)}–
-                {minToHm(slot.endMin)}
+                {formatWeekday(slot.dayOfWeek, locale)} {minToHm(slot.startMin)}
+                –{minToHm(slot.endMin)}
               </li>
             ))}
           </ul>
@@ -215,6 +351,7 @@ function CurrentRequest({ row }: { row: Request }) {
         ) : (
           <button
             className="btn-danger btn-sm mt-4"
+            disabled={readBlocked}
             onClick={() => {
               setReason("");
               setAction(row.pairings.length ? "ABORT" : "RECALL");
@@ -234,14 +371,17 @@ function CurrentRequest({ row }: { row: Request }) {
           )}
           busy={recall.isPending || abort.isPending}
           error={recall.error?.message ?? abort.error?.message}
-          canConfirm={action !== "ABORT" || !!reason.trim()}
+          canConfirm={!readBlocked && (action !== "ABORT" || !!reason.trim())}
           onCancel={() => setAction(null)}
           onConfirm={(ticket) =>
-            action === "ABORT"
+            !readBlocked &&
+            (action === "ABORT"
               ? abort.mutate({ id: row.id, reason, ticket })
-              : recall.mutate({ id: row.id, ticket })
+              : recall.mutate({ id: row.id, ticket }))
           }
         >
+          {/* Read recovery must be reachable while the existing reason/ticket stays mounted. */}
+          {readFeedback}
           {action === "ABORT" && (
             <label className="block text-sm">
               {t("reason")}

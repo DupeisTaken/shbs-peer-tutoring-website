@@ -13,8 +13,10 @@ import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { CrewSignupForm } from "./crew-signup-form";
 import type * as SignupCaptcha from "~/app/_components/signup-captcha";
+import type { NameFieldStates } from "~/lib/name-field-policy";
 
 const state = vi.hoisted(() => ({
+  nameStates: undefined as NameFieldStates | undefined,
   apply: vi.fn(),
   request: vi.fn(),
   verify: vi.fn(),
@@ -24,9 +26,12 @@ const state = vi.hoisted(() => ({
   captchaEmail: "",
   captchaPending: false,
 }));
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(() => state.nameStates),
       profilePolicy: {
         useQuery: () => ({
           data: {
@@ -77,6 +82,25 @@ vi.mock("../register/invitation-receipt", () => ({
   ),
 }));
 const proof = "a".repeat(64);
+it.each(["hidden", "optional"] as const)(
+  "omits orphan Latin guidance when Crew intake only exposes an %s other-language field",
+  (alternativeNames) => {
+    state.nameStates = {
+      firstName: "hidden",
+      lastName: "hidden",
+      preferredName: "hidden",
+      alternativeNames,
+    };
+    const rendered = render(view());
+    expect(screen.queryByText(en.profilePolicy.nameHint)).toBeNull();
+    expect(
+      rendered.container.querySelector('input[name="firstName"]'),
+    ).toBeNull();
+    expect(rendered.container.querySelector("#crew-email")).toBeTruthy();
+    expect(rendered.container.querySelector("#crew-grade")).toBeTruthy();
+    expect(state.apply).not.toHaveBeenCalled();
+  },
+);
 const pending = { status: "PENDING", statusProof: proof };
 const available = {
   status: "ACCEPTED",
@@ -129,6 +153,7 @@ async function verified(result: unknown = pending) {
   );
 }
 beforeEach(() => {
+  state.nameStates = undefined;
   vi.resetAllMocks();
   state.captchaPending = false;
   state.apply.mockResolvedValue({ ok: true });

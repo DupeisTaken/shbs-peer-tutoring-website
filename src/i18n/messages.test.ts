@@ -24,8 +24,143 @@ const bundledMessages = {
   Locale,
   { common: { language: string }; landing: { nav: { menu: string } } }
 >;
+it("uses the same Program Settings label in navigation and page titles in every bundled locale", () => {
+  for (const messages of Object.values(bundledMessages)) {
+    expect(messages.admin.nav.links.program).toBe(messages.admin.program.title);
+    expect(messages.roomOrder.open.trim()).not.toBe("");
+    expect(messages.nameFields.hiddenProfileHelp.trim()).not.toBe("");
+    expect(messages.programCalendar.details.trim()).not.toBe("");
+  }
+});
+
+describe("UI recovery and persistent field labels", () => {
+  // Built-in locales do not inherit English. Every newly reachable recovery or
+  // label state needs its own message, including states reached only on failure.
+  const paths = [
+    "participantRecovery.loading",
+    "participantRecovery.loadFailed",
+    "participantRecovery.refreshFailed",
+    "participantRecovery.accessDenied",
+    "participantRecovery.accessDeniedHelp",
+    "participantRecovery.retry",
+    "managementRecovery.loading",
+    "managementRecovery.loadFailed",
+    "managementRecovery.refreshFailed",
+    "managementRecovery.retry",
+    "managementRecovery.denied",
+    "workflows.feedbackVisibilityLoading",
+    "workflows.feedbackVisibilityUnavailable",
+    "tablePatterns.noRooms",
+    "tablePatterns.noSlots",
+    "admin.policies.editor.titleLabel",
+    "admin.policies.editor.versionLabel",
+    "admin.policies.editor.bodyLabel",
+    "admin.policies.editor.unsaved",
+    "admin.policies.editor.refreshFailed",
+    "admin.policies.editor.retryRefresh",
+    "admin.users.appeals.review",
+    "admin.users.appeals.message",
+    "admin.users.appeals.refreshFailed",
+    "admin.submissions.monthLabel",
+    "admin.meetings.refreshFailed",
+    "admin.landing.translation.titleLabel",
+    "admin.landing.translation.bodyLabel",
+    "translationEditor.refreshFailed",
+    "admin.crew.originalApplication",
+    "admin.crew.originalRequest",
+    "actionReview.galleryRevokeScenario",
+    "actionReview.galleryRevoke",
+    "actionReview.galleryRevoked",
+    "actionReview.galleryRestore",
+    "admin.announcements.messageLabel",
+    "crew.patrol.statusLabel",
+    "crew.patrol.noteLabel",
+    "crew.patrol.optOut.reasonLabel",
+  ];
+  function messageAt(messages: unknown, path: string): unknown {
+    let value = messages;
+    for (const part of path.split(".")) {
+      if (!value || typeof value !== "object") return undefined;
+      value = (value as Record<string, unknown>)[part];
+    }
+    return value;
+  }
+
+  it.each(LOCALES)("provides complete recovery copy in %s", (locale) => {
+    for (const path of paths) {
+      const message = messageAt(bundledMessages[locale], path);
+      expect(message, `${locale}: ${path}`).toBeTypeOf("string");
+      expect(message, `${locale}: ${path}`).toMatch(/\S/);
+      if (path.startsWith("managementRecovery.")) {
+        expect(message, `${locale}: contextual section`).toContain("{section}");
+      }
+    }
+  });
+});
 
 describe("bundled header translations", () => {
+  it("provides scoped search, panel and save-boundary copy in all locales", () => {
+    for (const locale of LOCALES) {
+      const messages = bundledMessages[locale];
+      for (const copy of [
+        messages.rosterSearch.label,
+        messages.rosterSearch.placeholder,
+        messages.rosterSearch.clear,
+        messages.rosterSearch.noMatches,
+        messages.admin.pairings.searchTutees,
+        messages.admin.announcements.create,
+        messages.admin.adjustments.create,
+        messages.tutor.settings.profileSyncFailed,
+        ...Object.values(messages.admin.crew.panels),
+        ...Object.values(messages.admin.program.panels),
+        ...Object.values(messages.saveBoundary),
+      ]) {
+        expect(copy, `${locale}: required workflow copy`).toMatch(/\S/);
+      }
+      expect(messages.rosterSearch.results).toContain("{count}");
+      expect(messages.rosterSearch.results).toContain("{total}");
+      expect(messages.admin.pairings.selectedTutees).toContain("{count}");
+      expect(messages.admin.pairings.removeSelected).toContain("{name}");
+    }
+  });
+
+  it("names actionable work separately from dashboard destinations in every locale", () => {
+    for (const locale of LOCALES) {
+      const copy = bundledMessages[locale].tutor.tasks;
+      for (const key of [
+        "attention",
+        "navigation",
+        "emptyTasks",
+        "interviewSection",
+        "meetingSection",
+        "qualificationSection",
+      ] as const) {
+        expect(copy[key], `${locale}: ${key}`).toMatch(/\S/);
+      }
+      expect(copy.unconfirmedCount).toContain("{count}");
+      expect(copy.rosterCount).toContain("{count}");
+      expect(copy.attention).not.toBe(copy.navigation);
+    }
+  });
+
+  it("provides named pagination and current-page context in every locale", () => {
+    for (const locale of LOCALES) {
+      const copy = bundledMessages[locale].workflows;
+      expect(copy.pagination, `${locale} pagination name`).toMatch(/\S/);
+      expect(copy.page, `${locale} current-page argument`).toContain("{page}");
+    }
+  });
+
+  it("keeps contextual field and request guidance discoverable in every locale", () => {
+    for (const locale of LOCALES) {
+      expect(bundledMessages[locale].signupFields.requirementsHelp).toMatch(
+        /\S/,
+      );
+      expect(bundledMessages[locale].workflow.boardGuide).toMatch(/\S/);
+      expect(bundledMessages[locale].workflow.sourceGuide).toMatch(/\S/);
+    }
+  });
+
   it("provides qualification direct-review and recovery copy in every bundled locale", () => {
     for (const locale of LOCALES) {
       const copy = bundledMessages[locale].qualificationRequests;

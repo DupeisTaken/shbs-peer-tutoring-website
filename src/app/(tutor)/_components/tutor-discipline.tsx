@@ -1,10 +1,17 @@
 "use client";
 
 import { useFormatter, useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
 
 import { api } from "~/trpc/react";
 import { DisciplineSlots } from "~/app/_components/discipline-slots";
 import { NativeDisclosureIcon } from "~/app/_components/icons";
+import { Button } from "~/app/_components/ui/button";
+import { StatePanel } from "~/app/_components/ui/patterns";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
+import { ParticipantName } from "~/app/_components/participant-name";
 
 /**
  * Punishment history for the tutor's own tutees: each tutee's discipline meter plus a card
@@ -14,31 +21,90 @@ import { NativeDisclosureIcon } from "~/app/_components/icons";
 export function TutorDiscipline() {
   const programFormat = useFormatter();
   const t = useTranslations();
-  const discipline = api.tutor.myTuteeDiscipline.useQuery();
+  const recovery = useTranslations("participantRecovery");
+  const queryClient = useQueryClient();
+  const [denied, setDenied] = useState(false);
+  const discipline = api.tutor.myTuteeDiscipline.useQuery(undefined, {
+    enabled: !denied,
+  });
+  const authorizationDenied =
+    discipline.error?.data?.code === "FORBIDDEN" ||
+    discipline.error?.data?.code === "UNAUTHORIZED";
+  useEffect(() => {
+    if (!authorizationDenied) return;
+    setDenied(true);
+    queryClient.removeQueries({
+      queryKey: getQueryKey(api.tutor.myTuteeDiscipline, undefined, "query"),
+    });
+  }, [authorizationDenied, queryClient]);
+  useEffect(() => {
+    if (discipline.isSuccess && !discipline.isFetching) setDenied(false);
+  }, [discipline.isSuccess, discipline.isFetching]);
+  const retry = () => {
+    void discipline.refetch();
+  };
+  if (denied || authorizationDenied)
+    return (
+      <StatePanel
+        kind="denied"
+        title={recovery("accessDenied")}
+        action={
+          <Button
+            size="compact"
+            disabled={discipline.isFetching}
+            onClick={retry}
+          >
+            {recovery("retry")}
+          </Button>
+        }
+      >
+        {recovery("accessDeniedHelp")}
+      </StatePanel>
+    );
 
   const rows = (discipline.data ?? []).filter((d) => d.cards.length > 0);
-  if (rows.length === 0) return null;
+  // Only a completed, successful empty read may hide this optional section.
+  if (discipline.isSuccess && rows.length === 0) return null;
 
   const dot = (color: "YELLOW" | "RED") => (color === "RED" ? "🟥" : "🟨");
 
   return (
-    <section className="card p-5">
+    <section className="card p-4 sm:p-5">
       <h2 className="section-title">{t("tutor.discipline.title")}</h2>
       <p className="muted mt-1 mb-3 text-sm">{t("tutor.discipline.help")}</p>
+      <QueryFeedback
+        hasData={!!discipline.data}
+        loading={!discipline.data && !discipline.error}
+        error={!!discipline.error}
+        retrying={discipline.isFetching}
+        loadingTitle={recovery("loading")}
+        errorTitle={recovery(discipline.data ? "refreshFailed" : "loadFailed")}
+        retryLabel={recovery("retry")}
+        onRetry={retry}
+      />
 
       <div className="divide-y divide-slate-100">
         {rows.map((d) => (
           <details key={d.tuteeId} className="group py-2">
-            <summary className="flex cursor-pointer flex-wrap items-center gap-3 [&::-webkit-details-marker]:hidden">
+            {/* Mounted read details preserve the expanded timeline across background recovery. */}
+            <summary className="flex min-h-11 cursor-pointer flex-wrap items-center gap-3 lg:min-h-8 [&::-webkit-details-marker]:hidden">
               <NativeDisclosureIcon />
-              <span className="w-40 truncate font-medium text-slate-800 group-open:text-accent-700">
-                {d.englishName}
+              <span className="group-open:text-accent-700 min-w-0 basis-40 font-medium [overflow-wrap:anywhere] text-slate-800">
+                <ParticipantName name={d.englishName} username={d.username} />
               </span>
-              <DisciplineSlots validRed={d.validRed} validYellow={d.validYellow} size="sm" />
+              <DisciplineSlots
+                validRed={d.validRed}
+                validYellow={d.validYellow}
+                size="sm"
+              />
               {d.removalPending ? (
-                <span className="badge-red">{t("tutor.discipline.removalBadge")}</span>
+                <span className="badge-red">
+                  {t("tutor.discipline.removalBadge")}
+                </span>
               ) : d.effectiveReds >= 1 ? (
-                <span className="badge-amber">{t("tutor.discipline.onWarning")}</span>
+                <span className="badge-amber">
+                  {t("tutor.discipline.onWarning")}
+                </span>
               ) : (
                 <span className="badge-slate">{t("tutor.discipline.ok")}</span>
               )}
@@ -53,8 +119,11 @@ export function TutorDiscipline() {
                 <li key={c.id} className="text-xs text-slate-600">
                   {dot(c.color)}{" "}
                   <span className="text-slate-400">
-                    {programFormat.dateTime(new Date(c.date), { dateStyle: "medium", timeZone: "UTC" })} ·{" "}
-                    {t(`tutor.discipline.cardStatus.${c.reviewStatus}`)}
+                    {programFormat.dateTime(new Date(c.date), {
+                      dateStyle: "medium",
+                      timeZone: "UTC",
+                    })}{" "}
+                    · {t(`tutor.discipline.cardStatus.${c.reviewStatus}`)}
                   </span>
                 </li>
               ))}

@@ -80,9 +80,12 @@ function useFeatureMutation(
     },
   };
 }
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(),
       captchaPublic: {
         useQuery: () => ({
           data: mocks.settings,

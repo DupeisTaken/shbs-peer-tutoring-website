@@ -8,6 +8,49 @@ import { ApprovalReviewDetails } from "./approval-review-details";
 
 afterEach(cleanup);
 it.each(["en", "zh"])(
+  "localizes name-policy roles/requirements and preserves ordered room names (%s)",
+  (locale) => {
+    const copy = locale === "en" ? en : zh;
+    show(
+      "program.setNameFields",
+      {
+        accountType: "STUDENT",
+        states: {
+          firstName: "hidden",
+          lastName: "optional",
+          preferredName: "optional",
+          alternativeNames: "optional",
+        },
+        expectedVersion: 0,
+      },
+      { programSettings: null },
+      locale,
+    );
+    expect(screen.getByText(copy.admin.users.roles.STUDENT)).toBeTruthy();
+    expect(
+      screen.getAllByText(copy.personName.firstName).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText(copy.signupFields.hidden)).toBeTruthy();
+    expect(screen.queryByText("Expected Version")).toBeNull();
+    cleanup();
+    show(
+      "admin.reorderRooms",
+      { ids: ["b", "a"], expectedIds: ["a", "b"] },
+      {
+        roomOrder: [
+          { id: "a", name: "Original Alpha", programOrder: 0 },
+          { id: "b", name: "Original Beta", programOrder: 1 },
+        ],
+      },
+      locale,
+    );
+    expect(screen.getByText(copy.roomOrder.title)).toBeTruthy();
+    expect(screen.getAllByText("Original Alpha").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Original Beta").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Expected Ids")).toBeNull();
+  },
+);
+it.each(["en", "zh"])(
   "names invalid-flag proposals and hides their version evidence (%s)",
   (locale) => {
     show(

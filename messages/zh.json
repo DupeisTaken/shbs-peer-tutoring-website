@@ -2,7 +2,11 @@
   "requestInvalidity": {
     "badge": "无效条目",
     "filterLabel": "申请有效性",
-    "filter": { "all": "全部条目", "valid": "未标记", "invalid": "无效条目" },
+    "filter": {
+      "all": "全部记录",
+      "valid": "有效记录",
+      "invalid": "无效记录"
+    },
     "flag": "标记为无效",
     "review": "查看无效标记",
     "clear": "清除无效标记",
@@ -112,7 +116,10 @@
     "qualifiedOnly": "已获批的科目",
     "choiceHelp": "选择你目前愿意辅导的科目。",
     "scheduleSeparate": "时间安排需另行确认。",
-    "savesAutomatically": "更改自动保存"
+    "savesAutomatically": "更改自动保存",
+    "edit": "编辑详情",
+    "editTitle": "{tutor} · {subject}",
+    "refreshFailed": "更改已保存。请刷新科目记录后再进行下一次更改。"
   },
   "messaging": {
     "privacyTitle": "独立私信，接受管理监督",
@@ -176,7 +183,7 @@
       "UNRESTRICT": "已恢复权限"
     },
     "rolePermissions": "各角色的权限",
-    "permissionHelp": "所选组以并集生效。用户单独设置会替代角色规则；不选任何组表示禁止发送新消息。“所有可用账号”不包括本人、停用账号或私信受限账号。历史辅导关系来自保留的分配或出勤记录，无法还原未记录的旧分配。",
+    "permissionHelp": "所选组可以接收消息。用户单独设置会替代角色规则；不选任何组表示禁止发送新消息。“所有可用账号”不包括本人、停用账号或私信受限账号。历史辅导关系来自保留的分配或出勤记录，无法还原未记录的旧分配。",
     "userOverrides": "用户单独设置与私信权限",
     "findUser": "按姓名或用户名查找账号",
     "effectiveSource": "当前权限来源：{source}",
@@ -195,7 +202,8 @@
     "ownInbox": "我的收件箱",
     "replyContext": "正在回复 {name}",
     "cancelReply": "取消回复",
-    "replyDraftHelp": "回复期间会保留之前的草稿。取消后，本条回复草稿也会保留在此页面中。"
+    "replyDraftHelp": "回复期间会保留之前的草稿。取消后，本条回复草稿也会保留在此页面中。",
+    "permissionsDestination": "在项目设置中管理消息权限"
   },
   "common": {
     "cancel": "取消",
@@ -410,8 +418,9 @@
       "help": "为每个配对选择默认时间段（提交考勤时仍需填写实际辅导时间）。"
     },
     "availability": {
-      "title": "我的空闲时间",
-      "help": "勾选你可以辅导的时间段，方便协调员安排。"
+      "title": "我的可用时间",
+      "help": "勾选你可以辅导的时间段，方便协调员安排。",
+      "edit": "编辑我的可用时间"
     },
     "attendance": {
       "title": "提交考勤",
@@ -419,7 +428,7 @@
     },
     "schedule": {
       "title": "教室安排",
-      "help": "高亮的是你的配对；灰色格子为不可用的教室。"
+      "help": "高亮的是你的配对；教室状态请参见下方图例。"
     }
   },
   "admin": {
@@ -448,7 +457,10 @@
       "colRoom": "教室",
       "colTutees": "学习伙伴",
       "edit": "编辑",
-      "delete": "删除"
+      "delete": "删除",
+      "searchTutees": "搜索学习伙伴",
+      "selectedTutees": "已选择 {count} 人",
+      "removeSelected": "移除 {name}"
     },
     "tutors": {
       "title": "辅导伙伴",
@@ -529,7 +541,7 @@
     },
     "requests": {
       "title": "报名请求（学习伙伴）",
-      "help": "等待分配的公开学习伙伴报名，按最早优先处理。为每个科目志愿分配一位辅导伙伴——这会创建配对，随后由辅导伙伴选择时间段。",
+      "help": "审核新申请、匹配科目并跟进已分配学生。",
       "noTerm": "请先创建学期，才能分配请求。",
       "decline": "拒绝",
       "declineConfirm": "拒绝并删除 {name} 的请求？",
@@ -558,7 +570,9 @@
         "name": "姓名",
         "email": "邮箱",
         "phone": "电话"
-      }
+      },
+      "emailVerifiedShort": "已验证",
+      "emailUnverifiedShort": "未验证"
     },
     "readOnly": {
       "banner": "管理区域为只读：可查看允许浏览的项目概览，个人联系方式已隐藏。"
@@ -576,7 +590,7 @@
         "activity": "动态与申请",
         "history": "项目历史",
         "announcements": "公告",
-        "program": "项目与刷新",
+        "program": "项目设置",
         "tutorRoster": "辅导伙伴名册",
         "tutorApplications": "辅导伙伴申请",
         "tutorMeetings": "辅导伙伴会议",
@@ -766,8 +780,8 @@
       }
     },
     "program": {
-      "title": "项目与刷新",
-      "subtitle": "当前时段，以及让项目滚动到下一阶段的季度刷新。",
+      "title": "项目设置",
+      "subtitle": "管理招募、账号设置、部署配置和可选功能。",
       "loading": "加载中…",
       "noPeriod": "暂无活动的项目时段。请先创建或运行种子。",
       "currentPeriod": "当前时段",
@@ -831,6 +845,12 @@
           "VIEWER_SIGNUP": "访客注册",
           "EMAIL_2FA": "邮箱双重验证"
         }
+      },
+      "panels": {
+        "period": "招募与刷新",
+        "people": "账号设置",
+        "communication": "部署配置",
+        "access": "可选功能"
       }
     },
     "audit": {
@@ -905,7 +925,10 @@
       "appeals": {
         "heading": "恢复申诉",
         "approve": "批准",
-        "deny": "拒绝"
+        "deny": "拒绝",
+        "review": "审核申诉",
+        "message": "申诉原文",
+        "refreshFailed": "申诉处理结果已保存，但账户或申诉列表未能刷新。请重试刷新，无需再次提交处理结果。"
       }
     },
     "submissions": {
@@ -917,7 +940,13 @@
       "colStatus": "状态",
       "colTutees": "学习伙伴",
       "colSH": "服务时长",
-      "empty": "该筛选条件下暂无提交记录。"
+      "empty": "该筛选条件下暂无提交记录。",
+      "monthLabel": "月份",
+      "actualTime": "记录时间",
+      "duration": "{minutes} 分钟",
+      "hourFactor": "系数：{factor}",
+      "selfEvaluation": "自我评估",
+      "comments": "评语"
     },
     "meetings": {
       "title": "辅导伙伴会议",
@@ -947,7 +976,8 @@
         "tutor": "辅导伙伴",
         "empty": "暂无出勤记录。"
       },
-      "correctAttendance": "提交出席更正"
+      "correctAttendance": "提交出席更正",
+      "refreshFailed": "出勤记录已保存，但会议列表未能刷新。请重试刷新，无需再次提交出勤记录。"
     },
     "timeslots": {
       "title": "时间段",
@@ -1038,7 +1068,8 @@
       "addRoom": "添加教室",
       "empty": "暂无教室。",
       "deleteConsequence": "此操作将删除教室及其不可用时段。正在被配对使用的教室不能删除。",
-      "deleteRequestConsequence": "此操作将提交删除申请，交由管理人员审核。在批准前，教室及其分配保持不变。"
+      "deleteRequestConsequence": "此操作将提交删除申请，交由管理人员审核。在批准前，教室及其分配保持不变。",
+      "editDetails": "编辑详情"
     },
     "courses": {
       "title": "科目与级别",
@@ -1144,7 +1175,9 @@
           "GRADUATED": "已毕业",
           "ARCHIVED": "已归档"
         }
-      }
+      },
+      "messageLabel": "消息正文",
+      "create": "新建公告"
     },
     "policies": {
       "title": "政策文档",
@@ -1172,7 +1205,13 @@
         "editedBy": "编辑者 {who}",
         "saving": "保存中…",
         "save": "保存",
-        "saved": "已保存。"
+        "saved": "已保存。",
+        "titleLabel": "文档标题",
+        "versionLabel": "版本（选填）",
+        "bodyLabel": "政策正文（Markdown）",
+        "unsaved": "有未保存的更改",
+        "refreshFailed": "政策已保存，但政策或版本历史未能刷新。请先重试刷新，再继续编辑。",
+        "retryRefresh": "重试刷新"
       },
       "studentTitle": "学习伙伴政策",
       "tutorTitle": "辅导伙伴政策"
@@ -1203,7 +1242,8 @@
         "title": "删除服务时数调整？",
         "consequence": "此操作将永久删除该调整并更改辅导伙伴的服务时数总计。请先核对辅导伙伴、月份和时数。",
         "confirm": "删除调整"
-      }
+      },
+      "create": "新增服务时数调整"
     },
     "applications": {
       "title": "辅导伙伴申请",
@@ -1565,7 +1605,14 @@
       },
       "issuedHeading": "已签发的密钥",
       "issuedHint": "已发给通过申请者、等待注册的密钥。在“注册密钥”页撤销密钥会使其申请回到上方队列。",
-      "issuedExpires": "{date} 到期"
+      "issuedExpires": "{date} 到期",
+      "originalApplication": "申请原文",
+      "originalRequest": "请求原文",
+      "panels": {
+        "review": "审核",
+        "roster": "成员名单",
+        "patrol": "巡查设置"
+      }
     },
     "sessionFlags": {
       "title": "考勤标记",
@@ -1585,7 +1632,19 @@
         "WARNED": "已警告",
         "PENALIZED": "已扣减",
         "ESCALATED": "已升级"
-      }
+      },
+      "filterLabel": "出勤复核状态",
+      "states": {
+        "PENDING": "待处理",
+        "DISMISSED": "已撤销",
+        "WARNED": "已警告",
+        "PENALIZED": "已扣时",
+        "ESCALATED": "已升级处理",
+        "ALL": "全部状态"
+      },
+      "resolved": "复核人：{name} · {date}",
+      "queued": "处理决定已提交审批",
+      "refreshFailed": "处理决定已保存。请刷新记录以查看最新复核状态。"
     },
     "landing": {
       "title": "首页",
@@ -1681,7 +1740,9 @@
         "insertImage": "插入图片…",
         "preview": "预览",
         "edit": "编辑",
-        "previewEmpty": "暂无可预览内容。"
+        "previewEmpty": "暂无可预览内容。",
+        "titleLabel": "标题",
+        "bodyLabel": "内容（Markdown）"
       },
       "sections": {
         "new": {
@@ -1848,7 +1909,15 @@
       "confirmDecision": "为{name}记录{outcome}的决定？系统会核验面试投票和当前申请版本。如果需要批准，只会创建待审核提案，不会立即生效。",
       "completedInterview": "已完成面试 · {name}（{count}）",
       "savedRefreshError": "出勤已保存，但未能刷新时数。请勿重复提交此记录。",
-      "verificationDeadline": "验证截止时间：{date}"
+      "verificationDeadline": "验证截止时间：{date}",
+      "attention": "待处理事项",
+      "navigation": "工作区栏目",
+      "emptyTasks": "已加载的记录中没有待处理事项。",
+      "unconfirmedCount": "未确认时间安排（{count}）",
+      "rosterCount": "学生名单跟进（{count}）",
+      "interviewSection": "面试",
+      "meetingSection": "会议",
+      "qualificationSection": "资格申请"
     },
     "activate": {
       "title": "确认你的参与",
@@ -1861,7 +1930,7 @@
       "title": "近期会议",
       "help": "无法参加会议？最迟可在会议开始前 60 分钟请假。",
       "excuseBtn": "请假",
-      "submitExcuse": "提交",
+      "submitExcuse": "提交请假说明",
       "cancelExcuse": "取消请假",
       "reasonPlaceholder": "原因（选填）",
       "excused": "你已为此次缺席请假。",
@@ -1903,7 +1972,7 @@
         "UNEXCUSED_ABSENT": "无故缺席"
       },
       "reasonRequired": "原因（必填）",
-      "ratings": "评分 *",
+      "ratings": "自我评价",
       "rating": {
         "ratingPreparedness": "准备情况",
         "ratingParticipation": "参与度",
@@ -1959,7 +2028,8 @@
       "removalHelp": "学习伙伴要求退出？代为转达。有 7 天撤回期，你或管理员可撤回；之后自动生效。",
       "removalReasonPlaceholder": "原因（可选）",
       "removalSubmit": "转达退出",
-      "removalCancel": "取消"
+      "removalCancel": "取消",
+      "availabilityMissing": "尚未记录可用时间。"
     },
     "availability": {
       "loading": "正在加载时间段…",
@@ -2039,7 +2109,8 @@
       "reentryHelp": "想重新加入项目？提交重新加入申请，管理员将进行审核。",
       "reentryBtn": "申请重新加入",
       "recall": "撤回申请",
-      "statusNote": "您的辅导伙伴状态为「{status}」，仅供查看——如需变更请联系管理员。"
+      "statusNote": "您的辅导伙伴状态为「{status}」，仅供查看——如需变更请联系管理员。",
+      "profileSyncFailed": "个人资料已保存，但刷新失败。请重试刷新，无需再次提交。"
     },
     "dashboard": {
       "pending": {
@@ -2415,8 +2486,11 @@
         "reason": "退出原因（可选）",
         "submit": "提交退出申请",
         "pending": "已申请退出——等待管理员批准。",
-        "recall": "撤回申请"
-      }
+        "recall": "撤回申请",
+        "reasonLabel": "退出原因"
+      },
+      "statusLabel": "巡查成员状态",
+      "noteLabel": "巡查备注"
     }
   },
   "suspended": {
@@ -2527,7 +2601,8 @@
       "sectionId": "待翻译内容",
       "id": "待翻译内容",
       "other": "待翻译内容"
-    }
+    },
+    "refreshFailed": "您的更改已被接受，但更新后的内容未能刷新。请重试刷新，无需再次提交。"
   },
   "workflows": {
     "interviewsDisabledHistory": "面试功能已关闭。历史记录仍可查看，重新启用后可记录完成情况。",
@@ -2655,7 +2730,12 @@
     "unscheduled": "尚未安排",
     "panelRequired": "请先分配符合资格的评审组，再记录完成情况。",
     "invalidDate": "请输入有效的日期和时间。",
-    "searchInterviews": "搜索"
+    "searchInterviews": "搜索",
+    "feedbackVisibilityLoading": "正在确认哪些人可以查看反馈…",
+    "feedbackVisibilityUnavailable": "无法确认哪些人可以查看反馈。请重试以确认可见范围。",
+    "pagination": "分页",
+    "page": "第 {page} 页",
+    "calendarDestination": "在项目设置中管理学校日历"
   },
   "survey": {
     "intro": "报名开放后，请提交辅导报名问卷。较早提交的同学将获得优先安排。随后请查收邮件，确认申请并创建学习伙伴账户。",
@@ -2778,7 +2858,7 @@
     "assignTitle": "为{name}分配辅导伙伴",
     "assignConsequences": "如果这是首次分配，将开始七天的邮箱验证期限，并发送新的注册链接。重发邮件或更换辅导伙伴不会延长期限。若未在截止时间前验证，申请将永久取消资格并解除辅导伙伴安排。",
     "assignVerifiedConsequences": "将添加所选辅导伙伴安排。学习伙伴保留原申请的优先顺序，实际辅导时间由辅导伙伴和学习伙伴协商。",
-    "scheduleReject": "申请拒收：时间不匹配",
+    "scheduleReject": "因时间冲突申请拒绝",
     "scheduleConsequences": "请说明无法协商出合适时间的原因。管理员将审核此申请，批准前辅导伙伴安排保持有效。批准后仅解除此次辅导伙伴安排，并将该科目退回待匹配；学习伙伴保留原申请和优先顺序。",
     "needsReview": "等待管理员审核",
     "approve": "批准申请",
@@ -2810,7 +2890,11 @@
     },
     "selfServiceSource": "自主报名",
     "unknownSource": "早期报名",
-    "sourceHelp": "来源说明报名的录入方式，不会改变审批、优先顺序或参与规则。“早期报名”表示原始录入来源尚无法确认。"
+    "sourceHelp": "来源说明报名的录入方式，不会改变审批、优先顺序或参与规则。“早期报名”表示原始录入来源尚无法确认。",
+    "boardGuide": "申请如何分组",
+    "sourceGuide": "报名来源与归属",
+    "policyRefresh": "刷新",
+    "emailStatus": "邮箱：{status}"
   },
   "approvals": {
     "reviewPermissions": "管理员和负责人审批日常管理操作。重大设置、管理账户资料与权限、注册码授权申请及撤销操作由负责人审批。管理员和负责人可直接签发辅导伙伴及巡视员注册码。负责人可审批自己提交的请求；其他人员需要另一位有权限的审批人员。",
@@ -3215,7 +3299,11 @@
         "admin_setUserRole": "更改账号管理角色",
         "admin_revokeRegistrationCode": "撤销注册码",
         "messaging_moderate": "隐藏或恢复消息",
-        "messaging_restrict": "更改账号消息限制"
+        "messaging_restrict": "更改账号消息限制",
+        "program_setCalendarDay": "保存停课提示",
+        "program_removeCalendarDay": "移除停课提示",
+        "program_setNameFields": "修改姓名字段要求",
+        "admin_reorderRooms": "调整项目教室顺序"
       },
       "decisionRequestHelp": "“批准并执行”将执行申请的操作，包括申请中要求的拒绝决定。“拒绝并反馈”只拒绝此申请，不做任何更改。两种决定都需要说明。",
       "confirmPassword": "确认负责人账户密码"
@@ -3261,7 +3349,12 @@
     "accessDeniedHelp": "当前会话已无权访问这些详情。缓存的证据已隐藏。",
     "loadFailed": "无法加载事件详情",
     "refreshFailed": "无法刷新事件详情。仍显示上次加载的证据。",
-    "retry": "重试"
+    "retry": "重试",
+    "difference": {
+      "added": "新增",
+      "removed": "移除",
+      "changed": "更改"
+    }
   },
   "auditFilters": {
     "subtitle": "按用户追踪项目中的操作、提案和决定。",
@@ -3637,7 +3730,8 @@
       "grade": "课程成绩",
       "apScore": "AP成绩",
       "selfStudyNote": "自学详情"
-    }
+    },
+    "requirementsHelp": "字段要求与邮箱设置"
   },
   "courseGroups": {
     "title": "科目与级别",
@@ -3773,7 +3867,9 @@
     "slot": "时间段",
     "room": "教室",
     "select": "选择",
-    "selected": "已选"
+    "selected": "已选",
+    "noRooms": "暂无教室。",
+    "noSlots": "尚未发布时间段。"
   },
   "identityUsername": {
     "preferredLatinName": "拉丁字母拼写",
@@ -3795,7 +3891,7 @@
     "unknown": "未知",
     "graduated": "已毕业",
     "rosterUnknown": "年级未知",
-    "rosterNeedsConfirmation": "待核对并确认",
+    "rosterNeedsConfirmation": "需要复核",
     "notApplicable": "不适用",
     "reported": "学校年级（1–12 年级）",
     "original": "原始填报：{value}",
@@ -3863,7 +3959,8 @@
     "showAlternateNames": "显示其他语言姓名",
     "alternateDisplayHint": "如已填写，则在主要姓名旁显示其他语言姓名。",
     "latinRule": "名、姓和常用名须使用拉丁字母，可包含重音字母、空格、撇号和连字符。",
-    "displayPreview": "姓名显示预览"
+    "displayPreview": "姓名显示预览",
+    "nameFieldsRequired": "请填写当前必填的姓名字段。若要求已变更，请刷新表单。"
   },
   "recordTransfer": {
     "title": "项目记录",
@@ -3972,7 +4069,7 @@
     "emptyAll": "暂无可显示的学习伙伴记录。",
     "gradeClass": "年级与毕业届别",
     "classOf": "{year}届",
-    "reviewNeeded": "待确认",
+    "reviewNeeded": "需要复核",
     "linkSaved": "历史记录已关联。",
     "failed": "未能完成操作，请刷新后重试。",
     "HISTORY_ACCOUNT_NOT_READY": "请选择已完成设置并验证邮箱的账号。",
@@ -4129,7 +4226,8 @@
     "preferredNameHelp": "您希望我们代替名字使用的称呼。请使用拉丁字母。",
     "alternativeNamesHelp": "用其他语言或文字书写的姓名，例如张小明。",
     "legacyPreserved": "原记录姓名：{name}。保持拉丁字母姓名字段不变即可保留原姓名；如需更改，请填写名。",
-    "legacy": "原记录姓名：{name}。请分别填写名和姓以更新个人资料。"
+    "legacy": "原记录姓名：{name}。请分别填写名和姓以更新个人资料。",
+    "hiddenRetained": "此字段已从参与者表单及显示名称中隐藏，仍在此保留供授权管理人员使用。"
   },
   "registrationFlow": {
     "progressTitle": "注册进度",
@@ -4351,7 +4449,11 @@
     "translationHelp": "此操作将永久删除该语言版本，其他语言版本仍可使用。",
     "crewDeleteHelp": "此操作将永久删除仅巡查组账号及其巡查、申请记录。合并账号和保留的辅导伙伴历史不能在此删除。",
     "crewApplicationHelp": "此操作将记录申请决定。接受将发出注册邀请，拒绝将结束此次申请。既有审核规则仍然适用。",
-    "crewRequestHelp": "此操作将记录对具名参与申请的决定。批准将执行申请中的成员资格变更，拒绝将保持现有参与状态。"
+    "crewRequestHelp": "此操作将记录对具名参与申请的决定。批准将执行申请中的成员资格变更，拒绝将保持现有参与状态。",
+    "galleryRevokeScenario": "打开权限撤销示例",
+    "galleryRevoke": "模拟权限被撤销",
+    "galleryRevoked": "权限已被撤销，审核内容已隐藏。",
+    "galleryRestore": "恢复示例权限"
   },
   "accountInvitation": {
     "enterCode": "验证邮箱",
@@ -4458,5 +4560,120 @@
     "saveError": "暂时无法确认更新结果。您的选择已保留，请重试；重复退订不会造成额外影响。",
     "securityTitle": "必要邮件将继续发送",
     "securityHelp": "账户安全、验证和账户恢复邮件不受影响。已在发送中的邮件仍可能送达。"
+  },
+  "participantRecovery": {
+    "loading": "正在加载记录…",
+    "loadFailed": "无法加载这些记录",
+    "refreshFailed": "无法刷新这些记录。请重试后继续。",
+    "accessDenied": "暂时无法访问这些记录",
+    "accessDeniedHelp": "无法确认你的访问权限。请重试，或使用有权限的账号登录。",
+    "retry": "重试"
+  },
+  "managementRecovery": {
+    "loading": "正在加载{section}…",
+    "loadFailed": "无法加载{section}。",
+    "refreshFailed": "无法刷新{section}，仍显示上次加载的内容。",
+    "retry": "重试加载{section}",
+    "denied": "您已无权访问{section}。"
+  },
+  "rosterSearch": {
+    "label": "搜索人员",
+    "placeholder": "姓名、用户名或邮箱",
+    "clear": "清除搜索",
+    "noMatches": "没有匹配此搜索的人员。",
+    "results": "{total} 人中显示 {count} 人"
+  },
+  "saveBoundary": {
+    "blur": "离开此字段时保存更改。",
+    "form": "保存仅应用于此表单。",
+    "layout": "保存仅应用于此布局。"
+  },
+  "programCalendar": {
+    "title": "暂停辅导日期",
+    "informational": "项目日期与原因，仅供参考。这些通知不会限制考勤，也不会改变申诉所用的上课日日历。",
+    "refresh": "刷新",
+    "reload": "重新加载草稿",
+    "loadFailed": "无法加载辅导通知。",
+    "loading": "正在加载辅导通知…",
+    "add": "添加日期",
+    "date": "日期",
+    "reason": "原因",
+    "actions": "操作",
+    "edit": "编辑通知",
+    "remove": "移除通知",
+    "removeTitle": "移除辅导通知",
+    "removeHelp": "移除这条参考通知。考勤和上课日规则不受影响。",
+    "empty": "暂无辅导通知。",
+    "save": "保存通知",
+    "saving": "正在保存…",
+    "saved": "通知已保存。",
+    "saveFailed": "无法保存通知。",
+    "refreshFailed": "通知已保存，但无法加载最新列表。请刷新同步，无需再次保存。",
+    "details": "查看详情"
+  },
+  "roomOrder": {
+    "title": "教室显示顺序",
+    "help": "使用教室旁的箭头调整草稿，再在下方保存完整顺序或提交变更请求。巡查顺序单独管理。",
+    "catalogChanged": "教室列表已变更。请重新加载顺序后再调整；当前草稿已保留。",
+    "room": "教室",
+    "actions": "操作",
+    "up": "上移",
+    "down": "下移",
+    "moveUpName": "将 {name} 上移",
+    "moveDownName": "将 {name} 下移",
+    "save": "保存顺序",
+    "saving": "正在保存…",
+    "saved": "教室顺序已保存。",
+    "reload": "重新加载顺序",
+    "refresh": "刷新",
+    "loadFailed": "无法加载最新教室顺序，草稿已保留。",
+    "refreshFailed": "顺序已保存，但同步失败。刷新将读取已保存的顺序，不会再次提交。",
+    "request": "申请调整教室顺序",
+    "open": "调整教室顺序"
+  },
+  "roomSchedule": {
+    "rooms": "显示的教室",
+    "allRooms": "所有教室",
+    "clearRooms": "清空选择",
+    "allDetails": "课表详情",
+    "occupied": "已占用",
+    "noSlot": "—",
+    "legend": "灰色表示已占用 · × 表示不可用 · 可用表示已公布时段没有安排。",
+    "combined": "汇总课表",
+    "individual": "分教室课表",
+    "noSelection": "未选择教室。请选择教室或点击所有教室。",
+    "time": "时间",
+    "detailFilters": "课表详情筛选",
+    "day": "星期",
+    "allDays": "所有星期",
+    "allSlots": "所有时段",
+    "room": "教室",
+    "emptyDetails": "没有符合筛选条件的记录。",
+    "noRoom": "未安排教室",
+    "unconfirmed": "待确认时间安排",
+    "outsideCatalog": "不在当前时段目录内",
+    "allTimes": "所有时间"
+  },
+  "nameFields": {
+    "title": "姓名字段要求",
+    "help": "按账号类型配置注册与个人资料字段。现有账号遵循当前角色规则。隐藏姓名不参与显示名称，授权工作人员仍可查看和编辑保留值。没有可显示的姓名时，账号使用用户名。",
+    "accountType": "账号类型",
+    "summary": "字段要求",
+    "actions": "操作",
+    "requiredCount": "{count} 项必填",
+    "hiddenCount": "{count} 项隐藏",
+    "configure": "配置",
+    "loading": "正在加载姓名要求…",
+    "loadFailed": "无法加载姓名要求，草稿已保留。",
+    "refresh": "刷新",
+    "reload": "重新加载草稿",
+    "save": "保存要求",
+    "saving": "正在保存…",
+    "saved": "姓名要求已保存。",
+    "refreshFailed": "要求已保存，但同步失败。刷新将读取已保存的规则，不会再次提交。",
+    "hiddenProfileHelp": "项目在此使用你的用户名。已保存的姓名会保留，授权工作人员仍可查看。"
+  },
+  "participantNames": {
+    "unnamed": "未提供姓名"
   }
 }

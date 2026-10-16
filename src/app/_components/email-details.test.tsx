@@ -57,14 +57,36 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+it("lets an authorized issuer name open the existing contact reader without new email mutation privileges", () => {
+  show({ triggerLabel: "Staff Issuer", contactOnly: true });
+  const trigger = screen.getByRole("button", { name: "Staff Issuer" });
+  expect(screen.queryByText(address)).toBeNull();
+  trigger.focus();
+  fireEvent.click(trigger);
+  expect(screen.getByText(address)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /verification/i })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(document.activeElement).toBe(trigger);
+});
 it("moves the full academic record into User Details without needing an email or login", () => {
-  show({ email: null, showPolicyHistory: true, academic: {
-    status: "REPORTED", gradeLevel: 10, rawGrade: null, schoolYear: "26-27",
-    expectedGraduationYear: 2029, confirmedAt: null, needsConfirmation: true,
-  } });
+  show({
+    email: null,
+    showPolicyHistory: true,
+    academic: {
+      status: "REPORTED",
+      gradeLevel: 10,
+      rawGrade: null,
+      schoolYear: "26-27",
+      expectedGraduationYear: 2029,
+      confirmedAt: null,
+      needsConfirmation: true,
+    },
+  });
   expect(screen.queryByText("Grade 10")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "User details" }));
-  expect(screen.getByRole("heading", { name: "Academic Details" })).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { name: "Academic Details" }),
+  ).toBeTruthy();
   expect(screen.getByText("Grade 10")).toBeTruthy();
   expect(screen.getByText("School year 26-27")).toBeTruthy();
   expect(screen.getByText("Expected graduation: 2029")).toBeTruthy();

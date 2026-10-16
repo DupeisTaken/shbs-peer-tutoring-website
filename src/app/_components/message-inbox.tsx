@@ -7,6 +7,11 @@ import { Pager } from "./student-portal";
 import { Button } from "./ui/button";
 import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
 import { focusVisibleContext } from "./focus-visible-context";
+import {
+  useSessionPageScroll,
+  useSessionViewState,
+} from "./session-view-state";
+import { viewPage, viewSearch } from "~/lib/session-view-state";
 
 type Contact = {
   id: string;
@@ -15,14 +20,43 @@ type Contact = {
   role: string;
 };
 type MessageDraft = { selected: Contact[]; body: string; clientKey: string };
-export function MessageInbox() {
+type InboxView = { page: number; contactPage: number; search: string };
+function parseInboxView(value: unknown): InboxView | undefined {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !("page" in value) ||
+    !("contactPage" in value) ||
+    !("search" in value)
+  )
+    return;
+  const page = viewPage(value.page),
+    contactPage = viewPage(value.contactPage),
+    search = viewSearch(value.search);
+  return page === undefined || contactPage === undefined || search === undefined
+    ? undefined
+    : { page, contactPage, search };
+}
+export function MessageInbox({ viewScope = "" }: { viewScope?: string }) {
   const format = useFormatter();
   const t = useTranslations("workflows");
   const m = useTranslations("messaging");
   const roleLabel = useTranslations("admin.users.roles");
-  const [page, setPage] = useState(0);
-  const [contactPage, setContactPage] = useState(0);
-  const [search, setSearch] = useState("");
+  const [viewDenied, setViewDenied] = useState(false);
+  // Only the visible list/search choices persist; recipients, body, reply drafts
+  // and accepted-operation keys keep their existing private mounted lifetime.
+  const [view, setView] = useSessionViewState<InboxView>({
+    id: "message-lists-v1",
+    scope: viewScope,
+    initialState: { page: 0, contactPage: 0, search: "" },
+    parse: parseInboxView,
+    enabled: !viewDenied,
+  });
+  const { page, contactPage, search } = view;
+  const setPage = (page: number) =>
+    setView((current) => ({ ...current, page }));
+  const setContactPage = (contactPage: number) =>
+    setView((current) => ({ ...current, contactPage }));
   // Store selected identities independently of the current search/page result.
   const [selected, setSelected] = useState<Contact[]>([]);
   const [body, setBody] = useState("");
@@ -57,6 +91,21 @@ export function MessageInbox() {
     { page },
     { refetchInterval: 30000, refetchIntervalInBackground: false },
   );
+  const readDenied = [contacts, inbox].some(
+    (query) =>
+      query.error?.data?.code === "FORBIDDEN" ||
+      query.error?.data?.code === "UNAUTHORIZED",
+  );
+  useEffect(() => {
+    if (readDenied) setViewDenied(true);
+    else if (contacts.data && inbox.data) setViewDenied(false);
+  }, [readDenied, contacts.data, inbox.data]);
+  useSessionPageScroll({
+    id: "message-inbox-v1",
+    scope: `${viewScope}:${page}:${contactPage}:${search}`,
+    ready: !!contacts.data && !!inbox.data,
+    enabled: !viewDenied && !readDenied,
+  });
   const send = api.messaging.send.useMutation({
     onSuccess: async () => {
       if (replyTo) replyDrafts.current.delete(replyTo.id);
@@ -114,11 +163,11 @@ export function MessageInbox() {
   }
   return (
     <div className="space-y-5">
-      <aside className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-slate-800">
+      <InlineNotice>
         <p className="font-semibold">{m("privacyTitle")}</p>
         <p className="mt-1">{m("disclosure")}</p>
         <p className="mt-2 text-xs">{m("legacyHelp")}</p>
-      </aside>
+      </InlineNotice>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <form
           aria-label={t("send")}
@@ -193,8 +242,12 @@ export function MessageInbox() {
                 maxLength={100}
                 aria-describedby="allowed-contacts"
                 onChange={(e) => {
-                  setSearch(e.target.value);
-                  setContactPage(0);
+                  const search = e.target.value;
+                  setView((current) => ({
+                    ...current,
+                    search,
+                    contactPage: 0,
+                  }));
                 }}
               />
             </label>
@@ -213,7 +266,7 @@ export function MessageInbox() {
                   <li key={c.id}>
                     <button
                       type="button"
-                      className="control-compact rounded-full border border-blue-200 bg-blue-50 text-sm text-slate-900"
+                      className="control-compact border-accent-200 bg-accent-50 rounded-full border text-sm text-slate-900"
                       aria-label={m("remove", {
                         name: `${c.name ?? c.username ?? c.id} (@${c.username ?? c.id})`,
                       })}
@@ -286,25 +339,12 @@ export function MessageInbox() {
                 </Button>
               </div>
             )}
-            <div className="flex items-center justify-between gap-2">
-              <Button
-                size="compact"
-                disabled={contactPage === 0}
-                onClick={() => setContactPage((p) => p - 1)}
-              >
-                {m("previous")}
-              </Button>
-              <span className="muted text-xs">
-                {m("page", { page: contactPage + 1 })}
-              </span>
-              <Button
-                size="compact"
-                disabled={!contacts.data?.more}
-                onClick={() => setContactPage((p) => p + 1)}
-              >
-                {m("next")}
-              </Button>
-            </div>
+            <Pager
+              label={m("recipients")}
+              page={contactPage}
+              setPage={setContactPage}
+              more={!!contacts.data?.more}
+            />
           </fieldset>
           <div ref={composerContext} className="space-y-3">
             {replyTo && (
@@ -385,7 +425,7 @@ export function MessageInbox() {
           )}
           {inbox.data?.map((msg) => (
             <article
-              className={`card min-w-0 p-5 ${msg.incoming && !msg.readAt ? "border-l-4 border-l-blue-500" : ""}`}
+              className={`card min-w-0 p-5 ${msg.incoming && !msg.readAt ? "border-l-accent-500 border-l-4" : ""}`}
               key={msg.id}
             >
               <div className="flex flex-wrap justify-between gap-2">
@@ -443,6 +483,7 @@ export function MessageInbox() {
             </article>
           ))}
           <Pager
+            label={m("inbox")}
             page={page}
             setPage={setPage}
             more={inbox.data?.length === 30}

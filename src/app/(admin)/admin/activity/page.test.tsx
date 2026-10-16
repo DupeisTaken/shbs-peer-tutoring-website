@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
   featuresError: false,
   disabledFeatureError: false,
   pendingRequests: 0,
+  applicationStatus: "",
   invalidBacklog: false,
 }));
 
@@ -72,7 +73,17 @@ vi.mock("~/trpc/react", () => ({
         useQuery: () => ({
           data: state.invalidBacklog
             ? [{ id: "invalid-app", status: "INTERVIEW", isInvalid: true }]
-            : [],
+            : state.applicationStatus
+              ? [
+                  {
+                    id: "application",
+                    name: "Synthetic applicant",
+                    status: state.applicationStatus,
+                    votes: [],
+                    interviewers: [],
+                  },
+                ]
+              : [],
           isLoading: false,
           error: null,
         }),
@@ -153,8 +164,21 @@ afterEach(() => {
   state.featuresError = false;
   state.disabledFeatureError = false;
   state.pendingRequests = 0;
+  state.applicationStatus = "";
   state.invalidBacklog = false;
 });
+
+it.each(["PENDING", "INTERVIEW"])(
+  "translates the %s application summary without rendering a raw enum",
+  (status) => {
+    state.applicationStatus = status;
+    render(<ActivityPage />);
+    expect(
+      screen.getByText(`admin.applications.status.${status}`),
+    ).toBeTruthy();
+    expect(screen.queryByText(status.toLowerCase())).toBeNull();
+  },
+);
 
 it("does not claim all clear when the activity summary fails", () => {
   state.summaryError = true;

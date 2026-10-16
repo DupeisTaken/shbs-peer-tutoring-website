@@ -1,6 +1,9 @@
 "use client";
 import { InlineNotice } from "./ui/patterns";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSessionAccessDenied } from "./session-view-state";
+import { StatePanel } from "./ui/patterns";
+import { Button } from "./ui/button";
 import {
   useFormatter,
   useLocale,
@@ -16,6 +19,14 @@ import {
   programTimeZoneLabel,
 } from "~/lib/program-time-zone-label";
 type Patrol = RouterOutputs["corrections"]["patrols"][number];
+// The stored buckets stay immutable; readers and editors share the same numeric labels.
+const HEADCOUNT_LABELS = {
+  ZERO: "0",
+  ONE: "1",
+  TWO: "2",
+  THREE: "3",
+  FOUR_PLUS: "4+",
+};
 function PatrolEditor({ row }: { row: Patrol }) {
   const t = useTranslations("corrections");
   const approvals = useTranslations("approvals");
@@ -106,9 +117,9 @@ function PatrolEditor({ row }: { row: Patrol }) {
                   name={`count-${o.id}`}
                   defaultValue={o.headcount}
                 >
-                  {["ZERO", "ONE", "TWO", "THREE", "FOUR_PLUS"].map((s, i) => (
+                  {Object.entries(HEADCOUNT_LABELS).map(([s, label]) => (
                     <option key={s} value={s}>
-                      {i === 4 ? "4+" : i}
+                      {label}
                     </option>
                   ))}
                 </select>
@@ -163,7 +174,11 @@ function PatrolEditor({ row }: { row: Patrol }) {
           >
             {t("save")}
           </button>
-          {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+          {save.error?.data?.approvalId && (
+            <InlineNotice tone="warning" announcement="status">
+              {approvals("queuedBody")}
+            </InlineNotice>
+          )}
           {save.error && !save.error.data?.approvalId && (
             <p role="alert" className="text-sm text-red-600">
               {save.error.message}
@@ -175,12 +190,46 @@ function PatrolEditor({ row }: { row: Patrol }) {
   );
 }
 
-export function PatrolCorrections() {
+export type PatrolViewReadState = {
+  ready: boolean;
+  denied: boolean;
+  page: number;
+};
+export function PatrolCorrections({
+  onViewReadState,
+}: { onViewReadState?: (state: PatrolViewReadState) => void } = {}) {
   const programFormat = useFormatter();
   const t = useTranslations("corrections");
   const readOnly = useReadOnly();
+  const recovery = useTranslations("managementRecovery");
   const [cursors, setCursors] = useState<string[]>([]);
   const rows = api.corrections.patrols.useQuery({ cursor: cursors.at(-1) });
+  const denied = useSessionAccessDenied(rows);
+  const ready = rows.data !== undefined && !denied;
+  const page = cursors.length;
+  // The Crew page owns scroll. Report readiness and the numeric page only;
+  // opaque cursor IDs, patrol evidence and editor drafts remain in this owner.
+  useEffect(() => {
+    onViewReadState?.({ ready, denied, page });
+  }, [onViewReadState, ready, denied, page]);
+  if (denied)
+    return (
+      <section className="card space-y-4 p-5">
+        <h2 className="section-title">{t("patrolHistory")}</h2>
+        <StatePanel
+          kind="denied"
+          title={recovery("denied", { section: t("patrolHistory") })}
+          action={
+            <Button
+              disabled={rows.isFetching}
+              onClick={() => void rows.refetch()}
+            >
+              {recovery("retry", { section: t("patrolHistory") })}
+            </Button>
+          }
+        />
+      </section>
+    );
   return (
     <section className="card space-y-4 p-5">
       <h2 className="section-title">{t("patrolHistory")}</h2>
@@ -199,7 +248,7 @@ export function PatrolCorrections() {
           </p>
           <p className="muted">
             {row.observations
-              .map((o) => `${o.room.name}: ${o.headcount}`)
+              .map((o) => `${o.room.name}: ${HEADCOUNT_LABELS[o.headcount]}`)
               .join(" · ")}
           </p>
           {!readOnly && <PatrolEditor row={row} />}

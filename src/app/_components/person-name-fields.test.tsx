@@ -7,7 +7,97 @@ import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { PersonNameFields } from "./person-name-fields";
 import { nameDraft } from "~/lib/person-name";
+import { DEFAULT_NAME_FIELDS } from "~/lib/name-field-policy";
 afterEach(cleanup);
+
+it("uses configured native requirements and retains hidden values without mounting participant fields", () => {
+  const onChange = vi.fn();
+  const value = nameDraft({
+    firstName: "Retained",
+    lastName: "",
+    preferredName: "Alias",
+    alternativeNames: "原始值",
+  });
+  const states = {
+    ...DEFAULT_NAME_FIELDS,
+    firstName: "hidden" as const,
+    lastName: "required" as const,
+    preferredName: "hidden" as const,
+    alternativeNames: "optional" as const,
+  };
+  const view = render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <form>
+        <PersonNameFields value={value} onChange={onChange} states={states} />
+      </form>
+    </NextIntlClientProvider>,
+  );
+  expect(view.container.querySelector('input[name="firstName"]')).toBeNull();
+  expect(
+    view.container.querySelector('input[name="preferredName"]'),
+  ).toBeNull();
+  expect(
+    view.container.querySelector<HTMLInputElement>('input[name="lastName"]')!
+      .required,
+  ).toBe(true);
+  expect(view.container.querySelector("form")!.checkValidity()).toBe(false);
+  expect(onChange).not.toHaveBeenCalled();
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <PersonNameFields
+        value={value}
+        onChange={onChange}
+        states={states}
+        showHidden
+      />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    view.container.querySelector<HTMLInputElement>('input[name="firstName"]')!
+      .value,
+  ).toBe("Retained");
+  expect(
+    view.container.querySelector<HTMLInputElement>(
+      'input[name="preferredName"]',
+    )!.value,
+  ).toBe("Alias");
+  expect(screen.getAllByText(/Hidden from participant forms/)).toHaveLength(2);
+});
+
+it("does not exempt a newly required last or preferred name for an unchanged legacy identity", () => {
+  const states = {
+    ...DEFAULT_NAME_FIELDS,
+    lastName: "required" as const,
+    preferredName: "required" as const,
+  };
+  const view = render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <form>
+        <PersonNameFields
+          value={nameDraft()}
+          originalValue={nameDraft()}
+          legacyName="张小明"
+          onChange={vi.fn()}
+          states={states}
+        />
+      </form>
+    </NextIntlClientProvider>,
+  );
+  expect(
+    view.container.querySelector<HTMLInputElement>('input[name="firstName"]')!
+      .required,
+  ).toBe(false);
+  expect(
+    view.container.querySelector<HTMLInputElement>('input[name="lastName"]')!
+      .required,
+  ).toBe(true);
+  expect(
+    view.container.querySelector<HTMLInputElement>(
+      'input[name="preferredName"]',
+    )!.required,
+  ).toBe(true);
+  expect(view.container.querySelector("form")!.checkValidity()).toBe(false);
+});
 
 it.each([en, zh])(
   "permits native submission only while the legacy Latin identity is unchanged",

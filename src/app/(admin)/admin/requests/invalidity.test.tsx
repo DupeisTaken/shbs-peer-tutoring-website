@@ -10,6 +10,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
+import zh from "../../../../../messages/zh.json";
 import en from "../../../../../messages/en.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import { StudentRequestBoard } from "./student-request-board";
@@ -20,6 +21,10 @@ const mocks = vi.hoisted(() => ({
   invalid: true,
   source: "SELF_SERVICE",
   assigned: false,
+  verified: true,
+  unnamed: false,
+  username: null as string | null,
+  periodLoading: false,
   invalidateRequests: vi.fn(),
   invalidateTutees: vi.fn(),
   fetchRequests: vi.fn(),
@@ -64,11 +69,12 @@ vi.mock("~/trpc/react", () => ({
             ? [
                 {
                   id: "survey-1",
-                  name: "Public survey student",
+                  name: mocks.unnamed ? "" : "Public survey student",
+                  username: mocks.username,
                   email: "student@example.test",
                   contact: "Email",
                   state: "OPEN",
-                  confirmedAt: new Date("2026-10-01"),
+                  confirmedAt: mocks.verified ? new Date("2026-10-01") : null,
                   submittedAt: new Date("2026-10-01"),
                   editedAt: null,
                   verificationDueAt: null,
@@ -102,7 +108,12 @@ vi.mock("~/trpc/react", () => ({
     },
     admin: {
       tutors: { useQuery: () => ({ data: [] }) },
-      currentPeriod: { useQuery: () => ({ data: { termId: "term-1" } }) },
+      currentPeriod: {
+        useQuery: () => ({
+          data: mocks.periodLoading ? undefined : { termId: "term-1" },
+          isLoading: mocks.periodLoading,
+        }),
+      },
       pairings: {
         useQuery: () => ({
           data: mocks.assigned
@@ -125,7 +136,8 @@ vi.mock("~/trpc/react", () => ({
               id: "legacy-1",
               status: "PENDING",
               intakeTermId: "term-1",
-              englishName: "Legacy public student",
+              englishName: mocks.unnamed ? "" : "Legacy public student",
+              user: mocks.username ? { username: mocks.username } : null,
               signupSource: mocks.source,
               signupSubmittedAt: new Date("2026-10-01"),
               createdAt: new Date("2026-10-01"),
@@ -140,6 +152,7 @@ vi.mock("~/trpc/react", () => ({
               phone: null,
               preferredContact: null,
               signedRulebook: false,
+              unverified: !mocks.verified,
               signatureName: null,
               firstChoice: { id: "math", name: "Mathematics" },
               secondChoice: null,
@@ -157,21 +170,37 @@ vi.mock("~/trpc/react", () => ({
     },
   },
 }));
-const content = (legacy = false, viewer = false) => (
-  <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+const content = (
+  legacy = false,
+  viewer = false,
+  locale: "en" | "zh" = "en",
+) => (
+  <NextIntlClientProvider
+    locale={locale}
+    messages={locale === "zh" ? zh : en}
+    timeZone="Asia/Shanghai"
+  >
     <ReadOnlyProvider value={viewer}>
       {legacy ? <RequestsPage /> : <StudentRequestBoard />}
     </ReadOnlyProvider>
   </NextIntlClientProvider>
 );
-const show = (legacy = false, viewer = false) =>
-  render(content(legacy, viewer));
+const show = (legacy = false, viewer = false) => {
+  const view = render(content(legacy, viewer));
+  if (mocks.invalid)
+    fireEvent.click(screen.getByRole("button", { name: "Invalid entries" }));
+  return view;
+};
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.survey = true;
   mocks.invalid = true;
   mocks.source = "SELF_SERVICE";
   mocks.assigned = false;
+  mocks.verified = true;
+  mocks.unnamed = false;
+  mocks.username = null;
+  mocks.periodLoading = false;
   mocks.invalidateRequests.mockResolvedValue(undefined);
   mocks.invalidateTutees.mockResolvedValue(undefined);
   mocks.changeSurvey.mockResolvedValue({ ok: true });
@@ -191,6 +220,64 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("lets an observer choose the static invalidity filter while its period read loads", () => {
+  mocks.periodLoading = true;
+  render(content(true, true));
+  const invalid = screen.getByRole("button", {
+    name: en.requestInvalidity.filter.invalid,
+  });
+  fireEvent.click(invalid);
+  expect(invalid.getAttribute("aria-pressed")).toBe("true");
+  expect(screen.queryByText("Legacy public student")).toBeNull();
+  expect(mocks.changeSignup).not.toHaveBeenCalled();
+});
+
+it.each([false, true])(
+  "renders current unnamed requests with a handle or localized fallback (legacy=%s), preserving original labels when supplied",
+  (legacy) => {
+    mocks.survey = !legacy;
+    mocks.invalid = false;
+    mocks.unnamed = true;
+    mocks.username = "learner-handle";
+    const page = render(content(legacy));
+    expect(screen.getByText("learner-handle")).toBeTruthy();
+    mocks.username = null;
+    page.rerender(content(legacy));
+    expect(screen.getByText(en.participantNames.unnamed)).toBeTruthy();
+    page.rerender(content(legacy, false, "zh"));
+    expect(screen.getByText(zh.participantNames.unnamed)).toBeTruthy();
+    mocks.unnamed = false;
+    page.rerender(content(legacy));
+    expect(
+      screen.getByText(
+        legacy ? /Legacy public student/ : "Public survey student",
+      ),
+    ).toBeTruthy();
+    expect(mocks.changeSurvey).not.toHaveBeenCalled();
+    expect(mocks.changeSignup).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  [false, true],
+  [false, false],
+  [true, true],
+  [true, false],
+])(
+  "shows one compact email status for legacy=%s verified=%s",
+  (legacy, verified) => {
+    mocks.invalid = false;
+    mocks.verified = verified;
+    mocks.survey = !legacy;
+    render(content(legacy));
+    expect(
+      screen.getAllByText(`Email: ${verified ? "Verified" : "Unverified"}`),
+    ).toHaveLength(1);
+    expect(screen.queryByText("Email verified")).toBeNull();
+    expect(screen.queryByText("Email not verified")).toBeNull();
+  },
+);
+
 it("keeps a flagged public request visible in its original queue without assignment controls or inline private reason", () => {
   show();
   expect(screen.getByText("Public survey student")).toBeTruthy();
@@ -200,7 +287,7 @@ it("keeps a flagged public request visible in its original queue without assignm
   ).toBeTruthy();
   expect(screen.queryByRole("combobox")).toBeNull();
   expect(screen.queryByText("Private staff reason")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Not flagged" }));
+  fireEvent.click(screen.getByRole("button", { name: "Active entries" }));
   expect(screen.queryByText("Public survey student")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Invalid entries" }));
   expect(screen.getByText("Public survey student")).toBeTruthy();
@@ -268,7 +355,7 @@ it.each([
     const name = legacy ? "Legacy public student" : "Public survey student";
     const mutation = legacy ? mocks.changeSignup : mocks.changeSurvey;
     const view = show(legacy);
-    fireEvent.click(screen.getByRole("button", { name: "Not flagged" }));
+    fireEvent.click(screen.getByRole("button", { name: "Active entries" }));
     fireEvent.click(screen.getByRole("button", { name: "Flag invalid" }));
     fireEvent.change(within(screen.getByRole("dialog")).getByRole("textbox"), {
       target: { value: "My pending signup review" },
@@ -322,7 +409,7 @@ it.each([
     const view = show(legacy);
     fireEvent.click(
       screen.getByRole("button", {
-        name: clearing ? "Invalid entries" : "Not flagged",
+        name: clearing ? "Invalid entries" : "Active entries",
       }),
     );
     fireEvent.click(
@@ -387,3 +474,59 @@ it.each([
     });
   },
 );
+
+it.each(["en", "zh"] as const)(
+  "keeps the %s legacy disclosure explicit and independent from invalidity",
+  (locale) => {
+    render(content(true, true, locale));
+    const messages = locale === "zh" ? zh : en;
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.requestInvalidity.filter.invalid,
+      }),
+    );
+    const control = screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.admin.requests.collapse,
+    });
+    control.focus();
+    expect(control.type).toBe("button");
+    expect(control.getAttribute("aria-expanded")).toBe("true");
+    expect(control.className).toContain("control-compact");
+    const ids = control.getAttribute("aria-controls")!.split(" ");
+    expect(ids).toHaveLength(2);
+    expect(ids.every((id) => !!document.getElementById(id))).toBe(true);
+    fireEvent.click(control);
+    expect(control.getAttribute("aria-expanded")).toBe("false");
+    expect(control.getAttribute("aria-label")).toBe(
+      messages.admin.requests.expand,
+    );
+    expect(document.activeElement).toBe(control);
+    expect(screen.getByText("Legacy public student")).toBeTruthy();
+    expect(screen.queryByText("Private staff reason")).toBeNull();
+    fireEvent.click(control);
+    expect(control.getAttribute("aria-expanded")).toBe("true");
+    expect(control.getAttribute("aria-label")).toBe(
+      messages.admin.requests.collapse,
+    );
+    expect(mocks.changeSignup).not.toHaveBeenCalled();
+  },
+);
+it("starts fulfilled legacy requests collapsed and auto-collapses after fulfillment", () => {
+  mocks.invalid = false;
+  const view = render(content(true, true));
+  const control = screen.getByRole("button", {
+    name: en.admin.requests.collapse,
+  });
+  mocks.assigned = true;
+  view.rerender(content(true, true));
+  expect(control.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(control);
+  expect(control.getAttribute("aria-expanded")).toBe("true");
+  cleanup();
+  render(content(true, true));
+  expect(
+    screen
+      .getByRole("button", { name: en.admin.requests.expand })
+      .getAttribute("aria-expanded"),
+  ).toBe("false");
+});

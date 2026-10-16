@@ -24,8 +24,10 @@ const mocks = vi.hoisted(() => ({
   rosterError: null as { message: string } | null,
   rosterRefetch: vi.fn(),
   searchRows: null as Record<string, unknown>[] | null,
+  pairingFixture: false,
+  scheduleConfirmed: true,
 }));
-vi.mock("~/trpc/react", () => {
+vi.mock("~/trpc/react", async () => {
   const empty = { useQuery: () => ({ data: [] }) };
   return {
     api: {
@@ -43,6 +45,9 @@ vi.mock("~/trpc/react", () => {
         };
       },
       program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
         profilePolicy: {
           useQuery: () => ({
             data: { offeredGrades: [9, 12], currentSchoolYear: "26-27" },
@@ -63,8 +68,38 @@ vi.mock("~/trpc/react", () => {
             ],
           }),
         },
-        tutors: empty,
-        pairings: empty,
+        tutors: {
+          useQuery: () => ({
+            data: mocks.pairingFixture
+              ? [
+                  {
+                    id: "tutor",
+                    englishName: "Synthetic tutor",
+                    status: "ACTIVE",
+                  },
+                ]
+              : [],
+          }),
+        },
+        pairings: {
+          useQuery: () => ({
+            data: mocks.pairingFixture
+              ? [
+                  {
+                    id: "pairing",
+                    tutorId: "tutor",
+                    subject: "Synthetic subject",
+                    scheduleConfirmed: mocks.scheduleConfirmed,
+                    dayOfWeek: 1,
+                    startMin: 900,
+                    endMin: 960,
+                    tutees: [],
+                    timeSlot: null,
+                  },
+                ]
+              : [],
+          }),
+        },
         tuteeStats: { useQuery: () => ({ data: {} }) },
         tutees: {
           useQuery: () => ({
@@ -148,6 +183,8 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   mocks.moreHistory = false;
+  mocks.pairingFixture = false;
+  mocks.scheduleConfirmed = true;
   mocks.pending = false;
   mocks.error = null;
   mocks.rosterPending = false;
@@ -167,6 +204,46 @@ function mount(chinese = false, readOnly = false) {
     </NextIntlClientProvider>,
   );
 }
+
+it.each([
+  [false, "Mon"],
+  [true, "周一"],
+] as const)(
+  "localizes the tutor-view pairing summary and reader (Chinese=%s)",
+  (chinese, weekday) => {
+    mocks.pairingFixture = true;
+    mount(chinese, true);
+    fireEvent.click(
+      screen.getByRole("tab", {
+        name: (chinese ? zh : en).admin.tutees.viewTutors,
+      }),
+    );
+    expect(
+      screen.getByRole("cell", { name: `${weekday} 15:00–16:00` }),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Synthetic tutor · Synthetic subject/,
+      }),
+    );
+    expect(screen.getByRole("dialog").textContent).toContain(
+      `${weekday} 15:00–16:00`,
+    );
+  },
+);
+
+it("keeps unconfirmed tutor-view schedule placeholders private in Chinese", () => {
+  mocks.pairingFixture = true;
+  mocks.scheduleConfirmed = false;
+  mount(true, true);
+  fireEvent.click(
+    screen.getByRole("tab", { name: zh.admin.tutees.viewTutors }),
+  );
+  expect(
+    screen.getByRole("cell", { name: zh.scheduling.awaiting }),
+  ).toBeTruthy();
+  expect(screen.queryByText(/15:00/)).toBeNull();
+});
 
 it.each([false, true])(
   "distinguishes loading and failed reads from an empty roster (Chinese=%s)",
@@ -307,7 +384,7 @@ it.each([false, true])(
       name: messages.admin.tutees.deleteBtn,
     });
     expect(edit.classList.contains("table-action-link")).toBe(true);
-    expect(remove.classList.contains("text-red-600")).toBe(true);
+    expect(remove.classList.contains("table-action-danger")).toBe(true);
     fireEvent.click(edit);
     expect(screen.getByRole("dialog").textContent).toBe("Editing tutee-1");
     fireEvent.click(remove);
@@ -379,7 +456,7 @@ it("reveals historical and unverified records independently without setup or cur
   );
   expect(screen.getByText("Unverified Learner")).toBeTruthy();
   fireEvent.change(
-    screen.getByRole("textbox", { name: "Search tutee records" }),
+    screen.getByRole("searchbox", { name: "Search tutee records" }),
     { target: { value: "archive" } },
   );
   expect(screen.getByText("Archive Learner")).toBeTruthy();
@@ -461,7 +538,7 @@ it.each([false, true])(
     const messages = chinese ? zh : en;
     mount(chinese);
     expect(
-      screen.getByRole("textbox", {
+      screen.getByRole("searchbox", {
         name: messages.tuteeHistory.searchRecords,
       }),
     ).toBeTruthy();
@@ -640,7 +717,7 @@ it.each([
       "陈晓明",
     ]) {
       fireEvent.change(
-        screen.getByRole("textbox", { name: en.tuteeHistory.searchRecords }),
+        screen.getByRole("searchbox", { name: en.tuteeHistory.searchRecords }),
         { target: { value: query } },
       );
       expect(screen.getByText(display)).toBeTruthy();
@@ -659,7 +736,7 @@ it.each([false, true])(
         }),
       );
       fireEvent.change(
-        screen.getByRole("textbox", {
+        screen.getByRole("searchbox", {
           name: messages.tuteeHistory.searchRecords,
         }),
         { target: { value: "No such person" } },

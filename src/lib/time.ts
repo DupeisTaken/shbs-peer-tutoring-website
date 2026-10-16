@@ -13,6 +13,17 @@ export function hmToMin(hhmm: string): number {
 
 export const DAY_NAMES = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+/** Display a stored ISO weekday without interpreting it as an appointment date.
+ * The fixed Monday/UTC reference prevents locale or time-zone changes from
+ * shifting the numeric day; program-zone clocks and scheduling stay untouched. */
+export function formatWeekday(dayOfWeek: number, locale: string): string {
+  if (!Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) return "";
+  return new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(2024, 0, dayOfWeek)));
+}
+
 /** Current month as "YYYY-MM". */
 export function currentMonth(): string {
   const d = new Date();

@@ -17,6 +17,8 @@ import { HistoricalCorrectionReview } from "./historical-correction-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { InlineNotice } from "./ui/patterns";
+import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "./session-view-state";
+import { viewEnum, viewPage, viewSearch } from "~/lib/session-view-state";
 
 type AcademicRow =
   RouterOutputs["historicalAcademics"]["list"]["records"][number];
@@ -34,14 +36,20 @@ export function HistoricalAcademicCorrections({
 }) {
   const t = useTranslations("historicalAcademics");
   const utils = api.useUtils();
-  const [kind, setKind] = useState<"TUTEE" | "TUTOR">("TUTEE");
+  const [accessDenied, setAccessDenied] = useState(false);
+  const scope = initialSearch ? `participant:${initialSearch}` : "all";
+  const [kind, setKind] = useSessionViewState({ id: "academic-corrections.kind.v1", initialState: "TUTEE", parse: viewEnum(["TUTEE", "TUTOR"]), scope, enabled: !accessDenied });
   const [search, setSearch] = useState(initialSearch);
-  const [submittedSearch, setSubmittedSearch] = useState(initialSearch);
-  const [page, setPage] = useState(0);
+  const [rememberedSearch, setSubmittedSearch] = useSessionViewState({ id: "academic-corrections.search.v1", initialState: initialSearch, parse: viewSearch, scope, enabled: !accessDenied && !initialSearch });
+  // An explicit participant link wins over a previously applied list search.
+  const submittedSearch = initialSearch || rememberedSearch;
+  useEffect(() => setSearch(submittedSearch), [submittedSearch]);
+  const [page, setPage] = useSessionViewState({ id: "academic-corrections.page.v1", initialState: 0, parse: viewPage, scope, enabled: !accessDenied });
   const [drafts, setDrafts] = useState<
     Record<string, { row: HistoricalCorrectionRow; record: AcademicRow }>
   >({});
   const [csv, setCsv] = useState<HistoricalCorrectionRow[] | null>(null);
+  const [filename, setFilename] = useState("");
   const [reading, setReading] = useState(false);
   const [reviewInput, setReviewInput] =
     useState<HistoricalCorrectionInput | null>(null);
@@ -68,6 +76,9 @@ export function HistoricalAcademicCorrections({
     search: submittedSearch,
     page,
   });
+  const denied = useSessionAccessDenied(list);
+  useEffect(() => setAccessDenied(denied), [denied]);
+  useSessionPageScroll({ id: "academic-corrections", scope: JSON.stringify([scope, kind, submittedSearch, page]), ready: !!list.data, enabled: !denied });
   const preview = api.historicalAcademics.preview.useMutation();
   const save = api.historicalAcademics.correctBatch.useMutation();
   const busy =
@@ -117,9 +128,13 @@ export function HistoricalAcademicCorrections({
   }
   async function openPreview(input: HistoricalCorrectionInput) {
     if (
-      busy || applyingRef.current || refreshingRef.current ||
-      previewingRef.current || review
-    ) return;
+      busy ||
+      applyingRef.current ||
+      refreshingRef.current ||
+      previewingRef.current ||
+      review
+    )
+      return;
     previewingRef.current = true;
     // The preview request disables its opener before the dialog mounts. Preserve
     // that control now rather than relying on focus captured after the request.
@@ -173,9 +188,13 @@ export function HistoricalAcademicCorrections({
   }
   async function apply() {
     if (
-      !review || !reviewInput || !acknowledged ||
-      applyingRef.current || consumedReview.current
-    ) return;
+      !review ||
+      !reviewInput ||
+      !acknowledged ||
+      applyingRef.current ||
+      consumedReview.current
+    )
+      return;
     // Own both the write and its synchronization, including the same render frame.
     applyingRef.current = true;
     setApplying(true);
@@ -192,6 +211,7 @@ export function HistoricalAcademicCorrections({
       // website draft (or vice versa); its original fingerprint still guards replay.
       if (reviewInput.method === "CSV") {
         setCsv(null);
+        setFilename("");
         if (fileInput.current) fileInput.current.value = "";
       } else {
         setDrafts((previous) => {
@@ -222,6 +242,7 @@ export function HistoricalAcademicCorrections({
   }
   async function readFile(file: File | undefined) {
     if (!file) return;
+    setFilename(file.name);
     const version = ++generation.current;
     setReading(true);
     setError(null);
@@ -255,6 +276,7 @@ export function HistoricalAcademicCorrections({
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  if (denied) return <p role="alert">{list.error?.message ?? t("failed")}</p>;
   return (
     <div className="max-w-6xl space-y-6">
       <header>
@@ -303,17 +325,38 @@ export function HistoricalAcademicCorrections({
           >
             {t("download")}
           </button>
-          <label className="min-w-0 flex-1">
-            <span className="label">{t("upload")}</span>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            {/* Keep the native picker, with a named keyboard action and wrapping filename. */}
             <input
               ref={fileInput}
               type="file"
               accept=".csv,text/csv"
               disabled={busy}
-              className="mt-1 block min-h-11 w-full min-w-0 text-sm file:mr-2 file:min-h-11 lg:min-h-10 lg:file:min-h-10"
-              onChange={(event) => void readFile(event.target.files?.[0])}
+              tabIndex={-1}
+              className="hidden"
+              aria-label={t("upload")}
+              onChange={(event) => {
+                void readFile(event.target.files?.[0]);
+                event.target.value = "";
+              }}
             />
-          </label>
+            <button
+              type="button"
+              className="link inline-flex min-h-11 items-center lg:min-h-10"
+              disabled={busy}
+              onClick={() => fileInput.current?.click()}
+            >
+              {t("upload")}
+            </button>
+            {filename && (
+              <span
+                role="status"
+                className="min-w-0 text-sm [overflow-wrap:anywhere]"
+              >
+                {filename}
+              </span>
+            )}
+          </div>
           <button
             className="btn-primary min-h-11 lg:min-h-10"
             disabled={busy || !csv}
@@ -579,6 +622,7 @@ export function HistoricalAcademicCorrections({
                 setDrafts({});
                 setCsv(null);
                 setClearOpen(false);
+                setFilename("");
                 if (fileInput.current) fileInput.current.value = "";
               }}
             >
@@ -618,7 +662,13 @@ export function HistoricalAcademicCorrections({
             disabled={!acknowledged || save.isPending || applying}
             onClick={() => void apply()}
           >
-            {t(save.isPending || applying ? "working" : coordinator ? "propose" : "apply")}
+            {t(
+              save.isPending || applying
+                ? "working"
+                : coordinator
+                  ? "propose"
+                  : "apply",
+            )}
           </button>
         </ProfileDialog>
       )}

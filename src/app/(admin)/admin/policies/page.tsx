@@ -1,8 +1,27 @@
 "use client";
 
-import { InlineNotice } from "~/app/_components/ui/patterns";
+import {
+  FormActions,
+  InlineNotice,
+  StatePanel,
+} from "~/app/_components/ui/patterns";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
+import { ProfileDialog } from "~/app/_components/profile-dialog";
+import { Button } from "~/app/_components/ui/button";
 import { useFormatter, useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
+import { useQueryClient } from "@tanstack/react-query";
+import { useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
+import { getQueryKey } from "@trpc/react-query";
 
 import { api } from "~/trpc/react";
 import { Markdown } from "~/app/_components/markdown";
@@ -40,126 +59,249 @@ function PolicyVersionEditor({
   doc,
   readOnly,
   onSaved,
+  onBusyChange,
 }: {
   slug: string;
   locale: string;
   doc: PolicyDoc | undefined;
   readOnly: boolean;
-  onSaved: () => void;
+  onSaved: () => Promise<unknown>;
+  onBusyChange: (locale: string, pending: boolean) => void;
 }) {
   const programFormat = useFormatter();
   const t = useTranslations();
   const [title, setTitle] = useState(doc?.title ?? "");
   const [version, setVersion] = useState(doc?.version ?? "");
   const [body, setBody] = useState(doc?.body ?? "");
+  // The original baseline belongs to this locale. Unrelated refetches cannot
+  // change what its unsaved draft is compared against.
+  const [baseline, setBaseline] = useState(() => ({
+    title: doc?.title ?? "",
+    version: doc?.version ?? "",
+    body: doc?.body ?? "",
+  }));
+  const fieldId = useId();
+  const admitted = useRef(false);
+  const refreshInFlight = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
   const identity = api.account.me.useQuery();
-  const upsert = api.admin.upsertPolicy.useMutation({ onSuccess: onSaved });
+  const refreshSaved = async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    try {
+      await onSaved();
+      setRefreshFailed(false);
+      admitted.current = false;
+    } catch {
+      // This write already succeeded. Recovery reads only; never offer Save again
+      // while the matching policy/archive views still need synchronization.
+      setRefreshFailed(true);
+    } finally {
+      refreshInFlight.current = false;
+      setRefreshing(false);
+    }
+  };
+  const upsert = api.admin.upsertPolicy.useMutation({
+    onSuccess: async (_result, input) => {
+      const saved = {
+        title: input.title,
+        version: input.version ?? "",
+        body: input.body,
+      };
+      setTitle(saved.title);
+      setVersion(saved.version);
+      setBody(saved.body);
+      setBaseline(saved);
+      await refreshSaved();
+    },
+    onError: () => {
+      admitted.current = false;
+    },
+  });
+  const pending = upsert.isPending || refreshing;
+  useEffect(() => {
+    onBusyChange(locale, pending);
+    return () => onBusyChange(locale, false);
+  }, [locale, pending, onBusyChange]);
 
   const dirty =
-    title !== (doc?.title ?? "") ||
-    version !== (doc?.version ?? "") ||
-    body !== (doc?.body ?? "");
+    title !== baseline.title ||
+    version !== baseline.version ||
+    body !== baseline.body;
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <input
-          className="input max-w-md text-lg font-semibold"
-          value={title}
-          readOnly={readOnly}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder={t("admin.policies.editor.titlePlaceholder")}
-        />
-        <input
-          className="input field-auto min-w-40"
-          value={version}
-          readOnly={readOnly}
-          onChange={(e) => setVersion(e.target.value)}
-          placeholder={t("admin.policies.editor.versionPlaceholder")}
-        />
-      </div>
-      <p className="muted text-xs">
-        {t("admin.policies.editor.slugLabel")} <code>{slug}</code> · <code>{locale}</code>
-        {doc ? (
-          <>
-            {" "}
-            {t("admin.policies.editor.lastEdited", {
-              date: programFormat.dateTime(new Date(doc.updatedAt), { dateStyle: "medium", timeStyle: "short" }),
-            })}
-            {doc.updatedBy
-              ? " " +
-                t("admin.policies.editor.editedBy", {
-                  who: doc.updatedBy.name ?? doc.updatedBy.email,
-                })
-              : ""}
-          </>
-        ) : (
-          <> · {t("admin.policies.editor.notTranslated")}</>
+      <fieldset
+        disabled={readOnly || pending || refreshFailed}
+        aria-busy={pending}
+        className="min-w-0 space-y-3"
+      >
+        <div className="flex flex-wrap items-end gap-3">
+          <label
+            className="min-w-0 flex-1 basis-64"
+            htmlFor={`${fieldId}-title`}
+          >
+            <span className="label">
+              {t("admin.policies.editor.titleLabel")}
+            </span>
+            <input
+              id={`${fieldId}-title`}
+              className="input w-full text-lg font-semibold"
+              value={title}
+              readOnly={readOnly}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={t("admin.policies.editor.titlePlaceholder")}
+            />
+          </label>
+          <label className="max-w-full min-w-0" htmlFor={`${fieldId}-version`}>
+            <span className="label">
+              {t("admin.policies.editor.versionLabel")}
+            </span>
+            <input
+              id={`${fieldId}-version`}
+              className="input field-auto-bounded [--field-min-width:10rem]"
+              value={version}
+              readOnly={readOnly}
+              onChange={(e) => setVersion(e.target.value)}
+              placeholder={t("admin.policies.editor.versionPlaceholder")}
+            />
+          </label>
+        </div>
+        <p className="muted text-xs">
+          {t("admin.policies.editor.slugLabel")} <code>{slug}</code> ·{" "}
+          <code>{locale}</code>
+          {doc ? (
+            <>
+              {" "}
+              {t("admin.policies.editor.lastEdited", {
+                date: programFormat.dateTime(new Date(doc.updatedAt), {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                }),
+              })}
+              {doc.updatedBy
+                ? " " +
+                  t("admin.policies.editor.editedBy", {
+                    who: doc.updatedBy.name ?? doc.updatedBy.email,
+                  })
+                : ""}
+            </>
+          ) : (
+            <> · {t("admin.policies.editor.notTranslated")}</>
+          )}
+        </p>
+        <label className="block" htmlFor={`${fieldId}-body`}>
+          <span className="label">{t("admin.policies.editor.bodyLabel")}</span>
+          <textarea
+            id={`${fieldId}-body`}
+            className="textarea w-full font-mono text-xs"
+            rows={18}
+            value={body}
+            readOnly={readOnly}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder={t("admin.policies.editor.bodyPlaceholder")}
+          />
+        </label>
+        {!readOnly && (
+          <FormActions>
+            <button
+              className="btn-primary btn-sm"
+              disabled={
+                !dirty ||
+                !title.trim() ||
+                !body.trim() ||
+                pending ||
+                refreshFailed
+              }
+              onClick={() => {
+                if (
+                  admitted.current ||
+                  readOnly ||
+                  !dirty ||
+                  !title.trim() ||
+                  !body.trim()
+                )
+                  return;
+                admitted.current = true;
+                upsert.mutate({
+                  slug,
+                  locale,
+                  title: title.trim(),
+                  version: version.trim() || null,
+                  body,
+                });
+              }}
+            >
+              {upsert.isPending
+                ? t("admin.policies.editor.saving")
+                : identity.data?.role === "ADMIN"
+                  ? t("approvals.requestHead")
+                  : t("admin.policies.editor.save")}
+            </button>
+            {dirty && (
+              <span className="muted text-sm">
+                {t("admin.policies.editor.unsaved")}
+              </span>
+            )}
+            {upsert.isSuccess && !dirty && (
+              <span className="text-sm text-green-600">
+                {t("admin.policies.editor.saved")}
+              </span>
+            )}
+            {upsert.error?.data?.approvalId && (
+              <InlineNotice tone="warning" announcement="status">
+                {t("approvals.queuedBody")}
+              </InlineNotice>
+            )}
+            {upsert.error && !upsert.error.data?.approvalId && (
+              <span className="text-sm text-red-600">
+                {upsert.error.message}
+              </span>
+            )}
+          </FormActions>
         )}
-      </p>
-      <textarea
-        className="textarea w-full font-mono text-xs"
-        rows={18}
-        value={body}
-        readOnly={readOnly}
-        onChange={(e) => setBody(e.target.value)}
-        placeholder={t("admin.policies.editor.bodyPlaceholder")}
-      />
-      {!readOnly && (
-      <div className="flex items-center gap-3">
-        <button
-          className="btn-primary btn-sm"
-          disabled={!dirty || !title.trim() || !body.trim() || upsert.isPending}
-          onClick={() =>
-            upsert.mutate({
-              slug,
-              locale,
-              title: title.trim(),
-              version: version.trim() || null,
-              body,
-            })
+      </fieldset>
+      {refreshFailed && (
+        <InlineNotice
+          tone="warning"
+          announcement="alert"
+          action={
+            <Button disabled={refreshing} onClick={() => void refreshSaved()}>
+              {t("admin.policies.editor.retryRefresh")}
+            </Button>
           }
         >
-          {upsert.isPending ? t("admin.policies.editor.saving") : identity.data?.role === "ADMIN" ? t("approvals.requestHead") : t("admin.policies.editor.save")}
-        </button>
-        {upsert.isSuccess && !dirty && (
-          <span className="text-sm text-green-600">{t("admin.policies.editor.saved")}</span>
-        )}
-        {upsert.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
-        {upsert.error && !upsert.error.data?.approvalId && <span className="text-sm text-red-600">{upsert.error.message}</span>}
-      </div>
+          {t("admin.policies.editor.refreshFailed")}
+        </InlineNotice>
       )}
     </div>
   );
 }
 
 /** A read-only modal rendering an archived version's body. */
-function ArchiveModal({ doc, onClose }: { doc: ArchiveDoc; onClose: () => void }) {
+function ArchiveModal({
+  doc,
+  onClose,
+}: {
+  doc: ArchiveDoc;
+  onClose: () => void;
+}) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
+    <ProfileDialog
+      title={`${doc.title}${doc.version ? ` · ${doc.version}` : ""}`}
+      onClose={onClose}
     >
+      {/* Read the explicitly selected archive, even when its locale differs
+            from the interface. CurrentPolicyDialog's fallback does not apply. */}
       <div
-        className="card flex max-h-[85vh] w-full max-w-2xl flex-col"
-        onClick={(e) => e.stopPropagation()}
+        lang={doc.locale}
+        className="text-sm leading-relaxed [overflow-wrap:anywhere] text-slate-700"
       >
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-          <h2 className="section-title">
-            {doc.title}
-            {doc.version ? ` · ${doc.version}` : ""}
-          </h2>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700">
-            ✕
-          </button>
-        </div>
-        <div className="overflow-y-auto px-5 py-4 text-sm leading-relaxed text-slate-700">
-          <Markdown>{doc.body}</Markdown>
-        </div>
+        <Markdown>{doc.body}</Markdown>
       </div>
-    </div>
+    </ProfileDialog>
   );
 }
 
@@ -174,6 +316,7 @@ function VersionHistory({ archives }: { archives: ArchiveDoc[] }) {
     <div className="border-t border-slate-100 pt-3">
       <button
         type="button"
+        aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 text-sm font-medium text-slate-600"
       >
@@ -182,24 +325,40 @@ function VersionHistory({ archives }: { archives: ArchiveDoc[] }) {
       </button>
       {open &&
         (archives.length === 0 ? (
-          <p className="muted mt-2 text-sm">{t("admin.policies.historyEmpty")}</p>
+          <p className="muted mt-2 text-sm">
+            {t("admin.policies.historyEmpty")}
+          </p>
         ) : (
           <ul className="mt-2 divide-y divide-slate-100">
             {archives.map((a) => (
-              <li key={a.id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
+              <li
+                key={a.id}
+                className="flex items-center justify-between gap-3 py-1.5 text-sm"
+              >
                 <span className="muted">
-                  {t("admin.policies.archivedOn", { date: programFormat.dateTime(new Date(a.archivedAt), { dateStyle: "medium", timeStyle: "short" }) })}
+                  {t("admin.policies.archivedOn", {
+                    date: programFormat.dateTime(new Date(a.archivedAt), {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }),
+                  })}
                   {a.version ? ` · ${a.version}` : ""}
                   {a.archivedByName ? ` · ${a.archivedByName}` : ""}
                 </span>
-                <button type="button" className="link text-xs" onClick={() => setViewing(a)}>
+                <button
+                  type="button"
+                  className="link text-xs"
+                  onClick={() => setViewing(a)}
+                >
                   {t("admin.policies.viewArchived")}
                 </button>
               </li>
             ))}
           </ul>
         ))}
-      {viewing && <ArchiveModal doc={viewing} onClose={() => setViewing(null)} />}
+      {viewing && (
+        <ArchiveModal doc={viewing} onClose={() => setViewing(null)} />
+      )}
     </div>
   );
 }
@@ -215,41 +374,104 @@ const DEFAULT_LOCALE = "en";
  * Languages follow the order set on /localization (admins reorder there). The default language
  * can't be removed — it's the fallback for untranslated languages.
  */
-function PolicyCard({ slug, byLocale, archivesByLocale, languages, readOnly, onSaved }: {
+function PolicyCard({
+  slug,
+  byLocale,
+  archivesByLocale,
+  languages,
+  readOnly,
+  onSaved,
+  archivesReady,
+  rememberedLocale,
+  onRememberLocale,
+}: {
   slug: string;
   byLocale: Map<string, PolicyDoc>;
   archivesByLocale: Map<string, ArchiveDoc[]>;
   languages: LangInfo[];
   readOnly: boolean;
-  onSaved: () => void;
+  onSaved: () => Promise<unknown>;
+  archivesReady: boolean;
+  rememberedLocale?: string;
+  onRememberLocale: (locale: string) => void;
 }) {
   const t = useTranslations();
   const { confirm, dialog } = useDialog();
-  const del = api.admin.deletePolicyLocale.useMutation({ onSuccess: onSaved });
+  const [deleteRefreshFailed, setDeleteRefreshFailed] = useState(false);
+  const [deleteRefreshing, setDeleteRefreshing] = useState(false);
+  const refreshDeleted = async () => {
+    setDeleteRefreshing(true);
+    try {
+      await onSaved();
+      setDeleteRefreshFailed(false);
+    } catch {
+      // Removing a locale is also an accepted write; retry its reads, not Delete.
+      setDeleteRefreshFailed(true);
+    } finally {
+      setDeleteRefreshing(false);
+    }
+  };
+  const del = api.admin.deletePolicyLocale.useMutation({
+    onSuccess: refreshDeleted,
+  });
 
   const codes = languages.map((l) => l.code);
-  const labelFor = (code: string) => languages.find((l) => l.code === code)?.label ?? code;
+  const labelFor = (code: string) =>
+    languages.find((l) => l.code === code)?.label ?? code;
 
   // Languages this policy already has, in the configured order; any stranded ones (a doc for a
   // language no longer listed) are kept at the end so they stay editable.
   const existing = [
     DEFAULT_LOCALE,
     ...codes.filter((c) => c !== DEFAULT_LOCALE && byLocale.has(c)),
-    ...[...byLocale.keys()].filter((c) => c !== DEFAULT_LOCALE && !codes.includes(c)),
+    ...[...byLocale.keys()].filter(
+      (c) => c !== DEFAULT_LOCALE && !codes.includes(c),
+    ),
   ];
   // Languages the editor has opened a blank draft for (not yet saved).
   const [drafts, setDrafts] = useState<string[]>([]);
-  const available = [...existing, ...drafts.filter((d) => !existing.includes(d))];
+  const available = [
+    ...existing,
+    ...drafts.filter((d) => !existing.includes(d)),
+  ];
   const notAdded = codes.filter((c) => !available.includes(c));
 
   const [active, setActive] = useState<string>(() =>
-    byLocale.has(DEFAULT_LOCALE) ? DEFAULT_LOCALE
-      : (existing.find((locale) => byLocale.has(locale)) ?? DEFAULT_LOCALE),
+    rememberedLocale ?? (byLocale.has(DEFAULT_LOCALE)
+      ? DEFAULT_LOCALE
+      : (existing.find((locale) => byLocale.has(locale)) ?? DEFAULT_LOCALE)),
   );
+  useEffect(() => {
+    if (rememberedLocale) setActive(rememberedLocale);
+  }, [rememberedLocale]);
+  const [visited, setVisited] = useState<string[]>([]);
+  const [busyLocales, setBusyLocales] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const onBusyChange = useCallback((locale: string, pending: boolean) => {
+    setBusyLocales((previous) => {
+      if (previous.has(locale) === pending) return previous;
+      const next = new Set(previous);
+      if (pending) next.add(locale);
+      else next.delete(locale);
+      return next;
+    });
+  }, []);
+  const changeLocale = (locale: string) => {
+    setVisited((previous) => [...new Set([...previous, active, locale])]);
+    setActive(locale);
+    // A newly added language owns an unsaved form; do not reopen it on return.
+    if (existing.includes(locale)) onRememberLocale(locale);
+  };
   // English title is the friendliest label for the group header.
-  const heading = byLocale.get(DEFAULT_LOCALE)?.title ?? byLocale.values().next().value?.title
-    ?? (slug === "tutee-policy" ? t("admin.policies.studentTitle")
-      : slug === "tutor-policy" ? t("admin.policies.tutorTitle") : slug);
+  const heading =
+    byLocale.get(DEFAULT_LOCALE)?.title ??
+    byLocale.values().next().value?.title ??
+    (slug === "tutee-policy"
+      ? t("admin.policies.studentTitle")
+      : slug === "tutor-policy"
+        ? t("admin.policies.tutorTitle")
+        : slug);
 
   const isDraft = !byLocale.has(active);
 
@@ -262,13 +484,15 @@ function PolicyCard({ slug, byLocale, archivesByLocale, languages, readOnly, onS
             <span className="muted">{t("admin.policies.languageLabel")}</span>
             <select
               value={active}
-              onChange={(e) => setActive(e.target.value)}
+              onChange={(e) => changeLocale(e.target.value)}
               className="select field-auto min-w-32"
             >
               {available.map((l) => (
                 <option key={l} value={l}>
                   {labelFor(l)}
-                  {l === DEFAULT_LOCALE ? ` (${t("admin.policies.defaultBadge")})` : ""}
+                  {l === DEFAULT_LOCALE
+                    ? ` (${t("admin.policies.defaultBadge")})`
+                    : ""}
                 </option>
               ))}
             </select>
@@ -276,11 +500,12 @@ function PolicyCard({ slug, byLocale, archivesByLocale, languages, readOnly, onS
           {!readOnly && notAdded.length > 0 && (
             <select
               value=""
+              aria-label={t("admin.policies.addLanguage")}
               onChange={(e) => {
                 const l = e.target.value;
                 if (!l) return;
                 setDrafts((d) => [...d, l]);
-                setActive(l);
+                changeLocale(l);
               }}
               className="select field-auto min-w-40"
             >
@@ -294,21 +519,38 @@ function PolicyCard({ slug, byLocale, archivesByLocale, languages, readOnly, onS
           )}
         </div>
       </div>
-      <PolicyVersionEditor
-        key={active}
-        slug={slug}
-        locale={active}
-        doc={byLocale.get(active)}
-        readOnly={readOnly}
-        onSaved={onSaved}
-      />
+      {/* Keep opened locale owners mounted, including mutation callbacks. Hidden
+          drafts remain independent; an explicit discard/removal releases them. */}
+      {available
+        .filter((locale) => locale === active || visited.includes(locale))
+        .map((locale) => (
+          <div key={locale} hidden={locale !== active}>
+            <PolicyVersionEditor
+              slug={slug}
+              locale={locale}
+              doc={byLocale.get(locale)}
+              readOnly={
+                readOnly ||
+                deleteRefreshFailed ||
+                deleteRefreshing ||
+                del.isPending
+              }
+              onSaved={onSaved}
+              onBusyChange={onBusyChange}
+            />
+          </div>
+        ))}
       {!readOnly && active !== DEFAULT_LOCALE && (
         <div>
           {isDraft ? (
             <button
               className="link text-xs"
+              disabled={busyLocales.has(active)}
               onClick={() => {
                 setDrafts((d) => d.filter((x) => x !== active));
+                setVisited((previous) =>
+                  previous.filter((locale) => locale !== active),
+                );
                 setActive(DEFAULT_LOCALE);
               }}
             >
@@ -317,17 +559,42 @@ function PolicyCard({ slug, byLocale, archivesByLocale, languages, readOnly, onS
           ) : (
             <button
               className="link-danger text-xs"
-              disabled={del.isPending}
+              disabled={
+                del.isPending ||
+                deleteRefreshing ||
+                deleteRefreshFailed ||
+                busyLocales.has(active)
+              }
               onClick={async () => {
+                const locale = active;
+                if (
+                  busyLocales.has(locale) ||
+                  del.isPending ||
+                  deleteRefreshing ||
+                  deleteRefreshFailed
+                )
+                  return;
                 if (
                   await confirm({
-                    title: t("admin.policies.confirmRemoveLanguage", { lang: labelFor(active) }),
+                    title: t("admin.policies.confirmRemoveLanguage", {
+                      lang: labelFor(active),
+                    }),
                     confirmLabel: t("common.delete"),
                     cancelLabel: t("common.cancel"),
                     danger: true,
                   })
                 )
-                  del.mutate({ slug, locale: active }, { onSuccess: () => setActive(DEFAULT_LOCALE) });
+                  del.mutate(
+                    { slug, locale },
+                    {
+                      onSuccess: () => {
+                        setVisited((previous) =>
+                          previous.filter((entry) => entry !== locale),
+                        );
+                        setActive(DEFAULT_LOCALE);
+                      },
+                    },
+                  );
               }}
             >
               {t("admin.policies.removeLanguage")}
@@ -335,8 +602,30 @@ function PolicyCard({ slug, byLocale, archivesByLocale, languages, readOnly, onS
           )}
         </div>
       )}
-      <VersionHistory archives={archivesByLocale.get(active) ?? []} />
-      {del.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+      {archivesReady && (
+        <VersionHistory archives={archivesByLocale.get(active) ?? []} />
+      )}
+      {deleteRefreshFailed && (
+        <InlineNotice
+          tone="warning"
+          announcement="alert"
+          action={
+            <Button
+              disabled={deleteRefreshing}
+              onClick={() => void refreshDeleted()}
+            >
+              {t("admin.policies.editor.retryRefresh")}
+            </Button>
+          }
+        >
+          {t("managementRecovery.refreshFailed", { section: heading })}
+        </InlineNotice>
+      )}
+      {del.error?.data?.approvalId && (
+        <InlineNotice tone="warning" announcement="status">
+          {t("approvals.queuedBody")}
+        </InlineNotice>
+      )}
       {dialog}
     </section>
   );
@@ -346,20 +635,87 @@ export default function PoliciesPage() {
   const t = useTranslations();
   const viewerReadOnly = useReadOnly();
   const identity = api.account.me.useQuery();
-  const readOnly = viewerReadOnly || !!identity.error || !["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
+  const readOnly =
+    viewerReadOnly ||
+    !!identity.error ||
+    !["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
+  // A temporary identity read failure disables editing without deleting already
+  // opened seed-free form owners. A definitive access denial still hides them.
+  const canSeedPolicies =
+    !viewerReadOnly && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
+  const queryClient = useQueryClient();
+  const [denied, setDenied] = useState({ policies: false, archives: false });
   const utils = api.useUtils();
-  const policies = api.admin.policies.useQuery();
-  const archives = api.admin.policyArchives.useQuery();
+  const policies = api.admin.policies.useQuery(undefined, {
+    enabled: !denied.policies,
+  });
+  const archives = api.admin.policyArchives.useQuery(undefined, {
+    enabled: !denied.archives,
+  });
   const languages = api.i18n.languages.useQuery();
   const invalidate = () =>
-    Promise.all([utils.admin.policies.invalidate(), utils.admin.policyArchives.invalidate()]);
+    settleRefreshes([
+      () => invalidateAndReport(utils.admin.policies),
+      () => invalidateAndReport(utils.admin.policyArchives),
+    ]);
+  const identityAccessDenied =
+    identity.error?.data?.code === "FORBIDDEN" ||
+    identity.error?.data?.code === "UNAUTHORIZED";
+  const policyAccessDenied =
+    identityAccessDenied ||
+    policies.error?.data?.code === "FORBIDDEN" ||
+    policies.error?.data?.code === "UNAUTHORIZED";
+  const archiveAccessDenied =
+    identityAccessDenied ||
+    archives.error?.data?.code === "FORBIDDEN" ||
+    archives.error?.data?.code === "UNAUTHORIZED";
+  const policyDenied = policyAccessDenied || denied.policies;
+  const archiveDenied = archiveAccessDenied || denied.archives;
+  useEffect(() => {
+    if (policyAccessDenied) {
+      setDenied((previous) => ({ ...previous, policies: true }));
+      queryClient.removeQueries({
+        queryKey: getQueryKey(api.admin.policies, undefined, "query"),
+        exact: true,
+      });
+    } else if (policies.isSuccess && !policies.isFetching && !identity.error) {
+      setDenied((previous) =>
+        previous.policies ? { ...previous, policies: false } : previous,
+      );
+    }
+  }, [
+    policyAccessDenied,
+    policies.isSuccess,
+    policies.isFetching,
+    identity.error,
+    queryClient,
+  ]);
+  useEffect(() => {
+    if (archiveAccessDenied) {
+      setDenied((previous) => ({ ...previous, archives: true }));
+      queryClient.removeQueries({
+        queryKey: getQueryKey(api.admin.policyArchives, undefined, "query"),
+        exact: true,
+      });
+    } else if (archives.isSuccess && !archives.isFetching && !identity.error) {
+      setDenied((previous) =>
+        previous.archives ? { ...previous, archives: false } : previous,
+      );
+    }
+  }, [
+    archiveAccessDenied,
+    archives.isSuccess,
+    archives.isFetching,
+    identity.error,
+    queryClient,
+  ]);
 
   // A seed-free installation still needs editors for both required policies. Wait for
   // the query before mounting them so a blank draft cannot hide subsequently loaded text.
   const groups = useMemo(() => {
     const m = new Map<string, Map<string, PolicyDoc>>();
-    if (!policies.data) return m;
-    if (!readOnly) {
+    if (!policies.data || policyDenied) return m;
+    if (canSeedPolicies) {
       m.set("tutee-policy", new Map());
       m.set("tutor-policy", new Map());
     }
@@ -369,7 +725,7 @@ export default function PoliciesPage() {
       m.set(doc.slug, inner);
     }
     return m;
-  }, [policies.data, readOnly]);
+  }, [policies.data, canSeedPolicies, policyDenied]);
 
   // Group archives into slug -> (locale -> [archives newest-first]).
   const archiveGroups = useMemo(() => {
@@ -384,6 +740,24 @@ export default function PoliciesPage() {
     return m;
   }, [archives.data]);
 
+  const [rememberedLocales, setRememberedLocales] = useSessionViewState<Record<string, string>>({
+    id: "policies.locales.v1", initialState: {}, enabled: !policyDenied,
+    restoreReady: policies.data !== undefined && languages.data !== undefined,
+    parse: (value) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return;
+      const result: Record<string, string> = {};
+      for (const [slug, candidate] of Object.entries(value).slice(-20)) {
+        const locale: unknown = candidate;
+        const policy = groups.get(slug);
+        if (policy && typeof locale === "string" && (locale === DEFAULT_LOCALE || policy.has(locale))) result[slug] = locale;
+      }
+      return result;
+    },
+  });
+  useSessionPageScroll({ id: "policies", scope: JSON.stringify(rememberedLocales),
+    ready: policies.data !== undefined && archives.data !== undefined && languages.data !== undefined,
+    enabled: !policyDenied && !archiveDenied });
+
   return (
     <div className="space-y-6">
       <div>
@@ -391,7 +765,105 @@ export default function PoliciesPage() {
         <p className="muted mt-1">{t("admin.policies.subtitle")}</p>
       </div>
 
-      {policies.isLoading && <p className="muted">{t("admin.policies.loading")}</p>}
+      {policyDenied ? (
+        <StatePanel
+          kind="denied"
+          title={t("managementRecovery.denied", {
+            section: t("admin.policies.title"),
+          })}
+          action={
+            <Button
+              disabled={policies.isFetching}
+              onClick={() => void policies.refetch()}
+            >
+              {t("managementRecovery.retry", {
+                section: t("admin.policies.title"),
+              })}
+            </Button>
+          }
+        />
+      ) : (
+        <QueryFeedback
+          hasData={policies.data !== undefined}
+          loading={policies.data === undefined}
+          error={!!policies.error}
+          retrying={policies.isFetching}
+          loadingTitle={t("managementRecovery.loading", {
+            section: t("admin.policies.title"),
+          })}
+          errorTitle={t(
+            policies.data === undefined
+              ? "managementRecovery.loadFailed"
+              : "managementRecovery.refreshFailed",
+            { section: t("admin.policies.title") },
+          )}
+          retryLabel={t("managementRecovery.retry", {
+            section: t("admin.policies.title"),
+          })}
+          onRetry={() => void policies.refetch()}
+        />
+      )}
+      {!policyDenied && groups.size > 0 && (
+        <>
+          {archiveDenied ? (
+            <StatePanel
+              kind="denied"
+              title={t("managementRecovery.denied", {
+                section: t("admin.policies.history"),
+              })}
+              action={
+                <Button
+                  disabled={archives.isFetching}
+                  onClick={() => void archives.refetch()}
+                >
+                  {t("managementRecovery.retry", {
+                    section: t("admin.policies.history"),
+                  })}
+                </Button>
+              }
+            />
+          ) : (
+            <QueryFeedback
+              hasData={archives.data !== undefined}
+              loading={archives.data === undefined}
+              error={!!archives.error}
+              retrying={archives.isFetching}
+              loadingTitle={t("managementRecovery.loading", {
+                section: t("admin.policies.history"),
+              })}
+              errorTitle={t(
+                archives.data === undefined
+                  ? "managementRecovery.loadFailed"
+                  : "managementRecovery.refreshFailed",
+                { section: t("admin.policies.history") },
+              )}
+              retryLabel={t("managementRecovery.retry", {
+                section: t("admin.policies.history"),
+              })}
+              onRetry={() => void archives.refetch()}
+            />
+          )}
+          <QueryFeedback
+            hasData={languages.data !== undefined}
+            loading={languages.data === undefined}
+            error={!!languages.error}
+            retrying={languages.isFetching}
+            loadingTitle={t("managementRecovery.loading", {
+              section: t("localization.languagesHeading"),
+            })}
+            errorTitle={t(
+              languages.data === undefined
+                ? "managementRecovery.loadFailed"
+                : "managementRecovery.refreshFailed",
+              { section: t("localization.languagesHeading") },
+            )}
+            retryLabel={t("managementRecovery.retry", {
+              section: t("localization.languagesHeading"),
+            })}
+            onRetry={() => void languages.refetch()}
+          />
+        </>
+      )}
       {[...groups.entries()].map(([slug, byLocale]) => (
         <PolicyCard
           key={slug}
@@ -401,11 +873,15 @@ export default function PoliciesPage() {
           languages={languages.data ?? []}
           readOnly={readOnly}
           onSaved={invalidate}
+          archivesReady={archives.data !== undefined && !archiveDenied}
+          rememberedLocale={rememberedLocales[slug]}
+          onRememberLocale={(locale) => setRememberedLocales((previous) => ({ ...previous, [slug]: locale }))}
         />
       ))}
-      {groups.size === 0 && !policies.isLoading && (
-        <p className="muted">{t("admin.policies.empty")}</p>
-      )}
+      {groups.size === 0 &&
+        policies.data !== undefined &&
+        !policies.error &&
+        !policyDenied && <p className="muted">{t("admin.policies.empty")}</p>}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { participantNameLabel } from "./participant-name";
 
 import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -10,6 +11,7 @@ import { FormActions } from "./ui/patterns";
 export type PanelTutor = {
   id: string;
   englishName: string;
+  username?: string | null;
   status: string;
   user: { tutorAccessRevoked: boolean; suspendedAt: Date | null } | null;
 };
@@ -38,6 +40,7 @@ export function InterviewPanelEditor({
 }) {
   const t = useTranslations("admin.applications");
   const workflow = useTranslations("workflows");
+  const participantNames = useTranslations("participantNames");
   const helpId = useId();
   const grants = api.admin.subjectEligibility.useQuery();
   const assign = api.admin.assignInterviewers.useMutation({
@@ -83,9 +86,12 @@ export function InterviewPanelEditor({
         ),
       )
       .map((subject) => subject.label);
-    return names.length
-      ? `${tutor.englishName} — ${names.join(", ")}`
-      : tutor.englishName;
+    const name = participantNameLabel(
+      tutor.englishName,
+      tutor.username,
+      participantNames("unnamed"),
+    );
+    return names.length ? `${name} — ${names.join(", ")}` : name;
   };
   return (
     <div className="mt-3 space-y-3">
@@ -135,6 +141,13 @@ export function InterviewPanelEditor({
               ? (tutors.find((tutor) => tutor.id === pick) ??
                 interviewers.find((person) => person.tutor.id === pick)?.tutor)
               : undefined;
+          const retainedName = retained
+            ? participantNameLabel(
+                retained.englishName,
+                tutors.find((tutor) => tutor.id === retained.id)?.username,
+                participantNames("unnamed"),
+              )
+            : undefined;
           return (
             <div key={index}>
               <div className="flex flex-wrap items-end gap-3">
@@ -161,7 +174,7 @@ export function InterviewPanelEditor({
                     {retained && (
                       <option value={retained.id} disabled>
                         {t("picker.unavailable", {
-                          name: retained.englishName,
+                          name: retainedName!,
                         })}
                       </option>
                     )}
@@ -199,7 +212,7 @@ export function InterviewPanelEditor({
                 <p className="muted mt-1 text-xs break-words lg:hidden">
                   {selectedTutor
                     ? labelFor(selectedTutor)
-                    : t("picker.unavailable", { name: retained!.englishName })}
+                    : t("picker.unavailable", { name: retainedName! })}
                 </p>
               )}
             </div>

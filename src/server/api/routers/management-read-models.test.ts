@@ -522,6 +522,49 @@ it("rejects object/array payloads in scalar fields without disclosing validation
   }
 });
 
+it.each(["PENDING", "DISMISSED", "WARNED", "PENALIZED", "ESCALATED"])(
+  "retains the %s flag summary state while redacting private decision fields",
+  (state) => {
+    const projected = projectManagementRead("admin.sessionFlags", [
+      {
+        id: "flag",
+        state,
+        tutor: "Tutor One",
+        subject: "Math",
+        expected: 2,
+        observed: 1,
+        date,
+        startMin: 900,
+        endMin: 960,
+        createdAt: date,
+        room: "Library",
+        decisionNote: PRIVATE,
+        resolvedByName: PRIVATE,
+        resolvedById: PRIVATE,
+        futurePrivateEvidence: { note: PRIVATE },
+      },
+    ]);
+    expect(projected).toEqual([
+      {
+        id: "flag",
+        state,
+        tutor: "Tutor One",
+        subject: "Math",
+        expected: 2,
+        observed: 1,
+        date,
+        startMin: 900,
+        endMin: 960,
+        createdAt: date,
+        room: "Library",
+        decisionNote: null,
+        resolvedByName: null,
+      },
+    ]);
+    expect(JSON.stringify(projected)).not.toContain(PRIVATE);
+  },
+);
+
 it("preserves explicit Viewer oversight of published policies and announcements", () => {
   const publicPost = {
     id: "public",
@@ -563,4 +606,54 @@ it("preserves explicit Viewer oversight of published policies and announcements"
   ).toMatchObject([
     { body: "Published policy", updatedBy: { name: "Staff", email: null } },
   ]);
+});
+it("projects current crew name sources and handles without changing legacy labels or exposing private fields", () => {
+  const source = {
+    id: "crew",
+    name: "  ",
+    canonicalName: "  ",
+    username: "crew.handle",
+    tutor: null,
+    crewOnly: true,
+    status: "ACTIVE",
+    patrols: 0,
+    hours: 0,
+    passwordHash: PRIVATE,
+  };
+  expect(projectManagementRead("admin.crewRoster", [source])).toEqual([
+    {
+      id: "crew",
+      name: "  ",
+      canonicalName: "  ",
+      username: "crew.handle",
+      tutor: null,
+      crewOnly: true,
+      status: "ACTIVE",
+      patrols: 0,
+      hours: 0,
+    },
+  ]);
+  expect(
+    projectManagementRead("admin.crewRequests", [
+      {
+        id: "request",
+        kind: "OPT_OUT",
+        member: "—",
+        canonicalName: null,
+        username: null,
+        reason: PRIVATE,
+        privateEvidence: PRIVATE,
+      },
+    ]),
+  ).toEqual([
+    {
+      id: "request",
+      kind: "OPT_OUT",
+      member: "—",
+      canonicalName: null,
+      username: null,
+      reason: null,
+    },
+  ]);
+  expect(source.name).toBe("  ");
 });

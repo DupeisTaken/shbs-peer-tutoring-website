@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
   scheduleConfirmed: true,
+  locale: "en",
   mergeScheduleConfirmed: false,
   mergeIds: [] as string[],
   pending: false,
@@ -28,6 +29,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mocks.refresh }),
 }));
 vi.mock("next-intl", () => ({
+  useLocale: () => mocks.locale,
   useTimeZone: () => "Asia/Shanghai",
   useFormatter: () => ({
     dateTime: (date: Date, options: Intl.DateTimeFormatOptions) =>
@@ -118,6 +120,7 @@ afterEach(() => {
   mocks.invalidateSessions.mockClear();
   mocks.submitOnSuccess = undefined;
   mocks.scheduleConfirmed = true;
+  mocks.locale = "en";
   mocks.mergeScheduleConfirmed = false;
   mocks.mergeIds = [];
   mocks.pending = false;
@@ -126,6 +129,26 @@ afterEach(() => {
   mocks.reset.mockClear();
   mocks.setAttendanceLocked.mockClear();
 });
+
+it.each([
+  ["en", "Mon"],
+  ["zh", "周一"],
+])(
+  "localizes the %s pairing selector while leaving unconfirmed placeholders hidden",
+  (locale, weekday) => {
+    mocks.locale = locale;
+    render(<AttendanceForm />);
+    expect(
+      screen.getByRole("option", {
+        name: `Mathematics · ${weekday} 15:00–16:00 · A101`,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("option", { name: "Mathematics · scheduling.awaiting" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("option", { name: /15:30/ })).toBeNull();
+  },
+);
 
 it("keeps a failed attendance draft and freezes pending/successful snapshots until a new entry", () => {
   const view = render(<AttendanceForm />);
@@ -183,7 +206,7 @@ it("keeps the saved receipt when refreshing totals fails", async () => {
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
-it("keeps all five rating descriptions accessible in the compact matrix", () => {
+it("keeps all five meanings visible beside each criterion and accessible on its compact radio row", () => {
   render(<AttendanceForm />);
   expect(screen.getAllByRole("radio")).toHaveLength(25);
   expect(
@@ -191,6 +214,14 @@ it("keeps all five rating descriptions accessible in the compact matrix", () => 
       name: "tutor.attendance.rating.ratingPreparedness: 3 · tutor.attendance.likert.3",
     }),
   ).toBeTruthy();
+  for (const value of [1, 2, 3, 4, 5]) {
+    expect(
+      screen.getAllByText(`${value} · tutor.attendance.likert.${value}`),
+    ).toHaveLength(5);
+  }
+  expect(
+    screen.getAllByRole("radio")[0]?.parentElement?.parentElement?.className,
+  ).toContain("grid-cols-5");
 });
 
 it("does not replace an attendance draft when a background query changes its schedule", () => {

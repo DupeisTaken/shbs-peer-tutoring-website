@@ -188,7 +188,213 @@ The Users & Roles page composes existing table actions, `ProfileDialog`, `TableD
 
 Focused regressions live in `src/app/(admin)/admin/users`, `src/lib/user-filters.test.ts`, `src/lib/account-membership.test.ts` and `src/server/account-directory.test.ts`. Include `src/server/tutor-details.test.ts` for the preserved-academics boundary. Browser verification must use the actual Users & Roles page and native nested dialogs in both languages, then measure badge contrast and control bounds; screenshots and HTML evidence belong in ignored `outputs/`.
 
+### Management review summaries
+
+Management summaries keep participant identity, wrapped metadata and source/status
+badges on one content edge. Announcement badges and assignment companions align
+with the actual input/select row; labels and described guidance occupy separate
+grid rows. Subject-group actions align with the complete summary, including its
+offered-subject badges. Leading subject-selection checkboxes preserve the existing
+visible-only batch submission and hidden-selection count; detail entries remain
+in the trailing Actions column. Offered subjects retain `courseChoices` ordering,
+shared with signup forms, rather than introducing a second display comparator.
+
+Action typography follows the record's context: application and signup header
+actions share the compact Button treatment (including invalidity and decline),
+while brief meeting detail/delete entries share TableAction typography and target
+height. The destructive variant changes color and border without changing size.
+
+Tutor Applications and Signup Requests default to **Active entries**, meaning
+only that the record is not flagged invalid. Workflow status, intake priority and
+processing permissions remain independent. Observers may use the same validity
+filter on their authorized signup summary without acquiring private flag actions
+or reasons. Uncertain current academics use one **Review Needed** indicator;
+historical enrollment originals, correction overlays and reference years retain
+their existing precedence and detail evidence.
+
+Both signup sources show verification once in a compact **Email: Verified** or
+**Email: Unverified** contact line. The contextual short labels do not replace
+full-sentence verification messages elsewhere, and contact access stays with the
+existing email reader.
+
+Subject Availability shows each subject with its level and qualification summary.
+Qualified subjects also show willingness, including an explicit **Not recorded**
+state. Display order is qualified/willing, qualified/unwilling,
+qualified/not-recorded, then unqualified, retaining catalog order within each
+group. The editor retains separate immediate qualification and willingness writes,
+stored inheritance provenance and inactive-source restrictions. Its owner stays
+above filtered rows, and accepted-write synchronization failures expose read-only
+refresh recovery. Qualification edits still use the existing management operation;
+missing willingness never becomes a negative answer.
+
+Subject Offerings retains the server's level-first signup catalogue order. The
+parent page does not alphabetize the incoming rows; local filters preserve that
+order and selected IDs remain independent of the visible subset.
+
+Tutor Meetings uses P/EA/UA headings with a visible full legend, and opens complete
+self-excuse reasons through details. Participant rows reserve the same desktop and
+touch control area for choices and badge-only attendance. Attendance submission
+details read the recorded start/end/duration, tutor and tutee absence reasons, five
+self-evaluation values, full comments and service-hour factor/count. Null evaluations
+remain unrecorded; merged sibling zero hours remain zero. These readers do not
+infer past evidence from a pairing's current configuration.
+
+Attendance flags filter the existing `viewerProcedure` read by recorded decision
+state, defaulting to Pending. Resolved records remain readable and cannot be
+decided again; the existing locked, pending-only mutation and approval rules stay
+authoritative. Decision notes and reviewer names are masked for management
+observers. Feature-owned note/penalty drafts survive dialog close and filters.
+Admission guards block same-turn duplicates, pending writes prevent dismissal,
+and accepted/queued decisions cannot replay through failed synchronization.
+
+Audit difference markers compare only stored JSON values and presence. They
+support both root before/after snapshots and canonical `changes[n].before/after`
+pairs while keeping entity/write/count context and complete raw evidence.
+Type changes, additions and removals receive text as well as color; arrays compare
+recorded positions without guessed identity. Empty, null, missing, false and zero
+remain distinct. The reader never reconstructs evidence from current records and
+continues to exclude executable `undoData` recursively. Denial eviction and
+read-only refresh remain owned by the audit feature.
+
+Consequential boxed buttons keep their outlined boundary with red labels at rest.
+Destructive text actions and table entries are red and unboxed at rest and on
+hover. Shared table actions use a thick, offset keyboard-focus underline instead
+of a surrounding ring; standalone text actions retain their existing focus treatment.
+Ordinary links precede boxed decisions
+in a record action group, and Delete remains last in DOM and keyboard order.
+Native button/link semantics, confirmation/ticket rules and responsive targets
+remain intact; styling is assigned explicitly rather than inferred from labels.
+The synthetic management summary recipe in `/ui-gallery` demonstrates control-row
+alignment, leading selection and consequential review/focus return. Focused
+regressions cover the corresponding feature components and real-page compositions;
+browser measurements and role/language evidence still require the running pages.
+
 ### Shared UI patterns
+
+The [session view API](../src/app/_components/session-view-state.tsx) stores explicit
+tabs, filters and pages in `sessionStorage`, partitioned by the existing session
+identity (account/role/tutor link), pathname, feature/schema ID and feature-supplied
+period/query scope. The provider consumes the existing identity verification and
+privacy curtain; it adds no identity requests. Every returned choice passes its
+current feature allowlist. Denied/removed features clear their remembered choices.
+Dynamic catalogs use the separate `restoreReady` gate so empty loading options
+cannot erase saved room/period IDs before the authorized choices arrive.
+Named `viewFields` parsers normalize the stored representation as well as the
+rendered value. `useSessionAccessDenied` holds an authoritative query denial through
+later transport failures until fresh successful reads, while the feature hides its
+cached denied content. Both are presentation helpers; procedure permissions remain
+authoritative.
+The bounded [storage helpers](../src/lib/session-view-state.ts) reject nested record
+payloads and long bodies, retain at most 100 presentation entries, and degrade
+gracefully when storage is blocked. These structural limits supplement explicit
+feature allowlists; they do not authorize storing private draft fields.
+Live search parsers preserve the feature's original input limits independently of
+those storage limits. A valid longer search remains in memory across ordinary
+rerenders and filter changes; a rejected/failed storage write removes only its
+previous saved entry so remount cannot revive older criteria. ID/URL parsers retain
+their own bounds and dynamic catalog checks. The 4 KiB UTF-8 budget includes the
+encoded route/scope key plus value; oversized contexts disable only persistence,
+with a cheap character check before encoding. No generic parser bypass is used for
+denial, scope changes or removed choices.
+
+`useSessionPageScroll` restores only the page owner: fixed desktop management
+`#admin-content`, otherwise the document, switching at the 1024 px breakpoint.
+It waits for the feature's usable reads, observes delayed content growth for at
+most five seconds, and cancels recovery for user gestures or hash destinations.
+The window remains active after first fit to repair late Next programmatic resets;
+only a measured mismatch schedules correction, so its own scroll events do not loop.
+Route exit writes the last valid position and cancels frames, timer and observers.
+The last measured scroll position is retained on route exit even before the next
+animation frame. It does not alter Next history state, global scroll restoration,
+table/dialog/sidebar position, form drafts or server permissions. Explicit tutee
+URL views remain authoritative; a verified bare workspace return may recall the
+previous view. Gallery filters and participant/inbox adapters reuse the same API.
+Management adapters cover application/interview read criteria, request panels and
+invalidity, discrepancy state, subject-availability filters, course-catalogue filters,
+applied audit criteria, approval URL criteria, signup-form panels, landing/policy
+languages, supervision visibility/page and applied academic-correction criteria.
+Creation fields, bulk selections, review notes, private message searches, tokens and
+opened editor sets are excluded. Lazy landing panels report selected-query readiness;
+policy locale restoration includes existing translations only. The dashboard and
+record-transfer shell register position after their authorized server reads; Activity
+uses its feature-dependent required queries, and account position waits for its
+mounted identity, email, departure and policy sections. This coverage describes these
+owners, not a generic layout restoration rule. Actual Next navigation evidence
+is required to verify framework scrolling.
+
+The remaining management adapters persist attendance month/tutor/visibility,
+report year/scope/depth/masking, service-hour month, directory filters/search/sort,
+meeting summary/visibility and Crew panel selection. The
+[management view parsers](../src/lib/management-view-state.ts) explicitly allowlist
+these flat fields. Directory filters now use session storage instead of the former
+localStorage preference, with no migration; hidden tutor-status selections retain
+the existing normalization rule. Removed tutor/year IDs normalize to All/current
+year after their real catalogs load. Disabled quarter choices normalize to Year,
+and observer report masking remains mandatory on the server and in the controls.
+Crew keeps independent section recovery: a denied remembered panel falls back,
+while an explicit visit can still reach its read-only Retry state without saving
+that denied selection. Meeting creation fields, attendance editor choices, appeal
+reviews, patrol order drafts and issued codes are excluded.
+
+Hour Adjustments, Announcements, Registration Codes, Discipline and tutor/tutee
+status requests remember page position only. Each actual page owner registers one
+scroll hook after its authorized reads. Tutee Requests receives only readiness and
+denial booleans from staff-only withdrawal feeds; the child adds no scroll hook,
+and the observer-safe parent never borrows access to those private reads. Crew's
+patrol history reports the same read gates plus its numeric page index, so the page
+waits for the selected patrol feed without persisting its opaque cursor chain. Access
+denial clears remembered choices and conceals cached content until read recovery;
+attendance evicts every cached month because clearing filters can change its query
+key. No adapter stores result rows, immutable evidence or write payloads.
+Current modern and manual request cards render an empty canonical name using an
+authorized linked username or the localized unnamed-participant label. The modern
+read DTO adds only current username metadata; intake `name`, payload, review
+assignment names and immutable history remain unchanged. Search still uses raw
+domain values rather than presentation fallback labels.
+Behavioral coverage is in `session-view-state.test.tsx`, the pure storage tests and
+the existing identity-cache/privacy tests; actual page screenshots remain separate
+from these mocked layout checks.
+
+Viewport recovery belongs to the mounted feature and its original pathname.
+During a Next navigation, the outgoing listener must ignore destination scroll
+events, queued persistence and recovery callbacks once the browser URL leaves
+that pathname. Cleanup flushes only its last valid source-page measurement.
+A retained outgoing feature cannot adopt a newly verified destination pathname;
+a different feature ID or a new mount establishes the next owner. Genuine
+same-route scrolling to zero, explicit hashes and user gestures retain precedence.
+Unit coverage must model URL change before React teardown, and actual Next
+out/back verification remains the acceptance gate for this ordering.
+
+Long editors and readers use `ProfileDialog` with a sticky header and a body
+stacking context below that header. This contains nested summary-table sticky
+action cells: their local layering cannot obscure Close when a long evidence
+table scrolls under the header. Native dialog focus, pending-write registration,
+feature drafts and version ownership retain their existing boundaries. The gallery
+includes a long reader with real sticky table actions; structural/lifecycle tests
+and actual desktop/mobile English/Chinese deep-scroll captures verify the correction.
+
+Recruitment settings position each audience's fieldset to contain its absolutely
+positioned screen-reader legend and date labels. Without a local containing block,
+those clipped one-pixel boxes can extend the document beyond the desktop management
+pane and let focus or `scrollIntoView` move the header. The correction retains all
+accessible labels, audience drafts, version evidence and edit/proposal authority;
+it does not alter the shared document overflow or scroll-restoration owner.
+
+Local panel composition leaves authority in existing owners. Program keeps its
+already-mounted settings forms and their independent versions; Crew and Support
+retain draft, review and pagination state when panels change. Review controllers
+and accepted-write recovery remain outside hidden panels. Creation dialogs own
+visibility while the feature keeps its draft; Pairings stores creation and editing
+drafts separately and submits the existing assignment-confirmation payload.
+
+Roster search runs over the already-authorized response before sorting, using
+the existing person-name matcher. The pairing candidate filter never rewrites
+selected IDs. Neither composition adds an endpoint, searches hidden records or
+changes record eligibility. `WorkflowShell` retains its 1024 px outer frame while
+using the shared header/identity and return-link conventions. Tutor dashboard
+attention counts use existing records and exclude paused interviews. The attention
+card retains task-specific links and today's schedule; its duplicated permanent
+section-link strip is removed. The actual workspace navigation remains available.
 
 Management editors distinguish `canEdit` (permission to prepare a proposal) from `canApply`
 (direct authority). Admin-sensitive editors retain drafts and show the approval link after
@@ -208,7 +414,27 @@ identifies these consumers and the stronger domain reviews that remain separate.
 
 [UI components](../src/app/_components/ui) provide behavior and composition without owning domain mutations. `Button` exposes action emphasis separately from context size; `ChoiceButton` uses pressed state for a selection; `Switch` exposes checked state. `SectionTabs` uses manual keyboard activation so arrow-key exploration does not switch an editor and discard its draft. `FormSection` groups one save scope and disables its fields/actions while busy. `StatePanel` keeps loading, empty, error and denied states distinct.
 
+[QueryFeedback](../src/app/_components/ui/query-feedback.tsx) uses `StatePanel` when
+an initial read is pending or failed, and `InlineNotice` when a failed refresh has
+cached data. Its `hasData` flag describes response presence, not collection length;
+an empty array is a successful read, while an enabled query with undefined data is
+still unknown. Error feedback remains visible during Retry. The component receives
+translated titles, optional detail and a read callback; it does not fetch, mount
+feature children, infer empty results, grant access or own mutation/draft state.
+Callers keep cached content beside transient recovery and disable only dependent
+writes. Authoritative access denial must hide private content and invalidate the
+affected private cache; a later transport failure cannot restore that access.
+Feature tests must cover these ownership rules in addition to the shared display
+tests and gallery example.
+
 `NativeDialog` supplies native modality, portal event ownership, radio-aware keyboard focus and exact trigger restoration. `Modal`, the wide/sticky `ProfileDialog`, and `CurrentPolicyDialog` share this behavior while retaining their own layout and scrolling. A nested review owns its Escape event. Independent forms call `useDialogPending(ownPending)` to prevent dismissal during any registered write; its return value disables sibling controls. Register only the form's own pending state, never the returned aggregate, so the guard releases when writes settle. Callers retain validation, versions, permissions, approval policy and action tickets.
+
+Users & Roles account deletion uses a feature-owned password form inside `Modal`.
+The feature captures the account and guards same-turn admission; the shared dialog
+owns native modality, pending dismissal and trigger focus. Its mutation remains
+the existing `userId` / `confirmPassword` contract with live server eligibility.
+Do not infer authorization, add confirmation tickets or replay a deletion from a
+failed list refresh when changing its presentation.
 
 `TimedActionDialog` retains its separate ticket/countdown and mandatory-policy
 contract. Like `NativeDialog`, it disables native close requests and suppresses
@@ -237,6 +463,19 @@ Historical or corrected tutee contact saves and historical or preserved tutor pr
 `SummaryTable` provides a named keyboard-scrollable region around a semantic table. Keep names, counts and statuses brief. When a row has detail/editor actions, place them in the trailing `TableActions` cell; only explicit action cells stick at the right edge. Read-only history tables need no invented action column. `TableAction` preserves button semantics with compact accent text links (24 px desktop minimum, 44 px below `lg`, no extra vertical gap). Wrapped or enlarged labels can grow beyond the minimum. `TableDetails` mounts a native modal only when opened. Roster course details keep their original read access; contact, account and history disclosures retain separate authorization and lazy queries. History exports and printed reports preserve full detail.
 
 `FilterToolbar`, `SettingRow`, `ChangeReview` and `InlineNotice` are presentation compositions with caller-owned state. A filter uses pressed choices; only actual content views use tabs. Immediate switches, explicit unknown/yes/no willingness and staged checkbox settings preserve their distinct save behavior. Change review accepts domain-owned immutable evidence such as `ApprovalReviewDetails`; it never generates authorization or confirmation tickets. Announce new failures or completions explicitly and avoid wrapping existing alerts in another alert.
+
+`TableDetails` can opt into `longReader`, composing `ProfileDialog` for a persistent
+header Close and an internally scrolling body. The room grid, original Crew
+application/request readers and gallery exercise this option. Children still mount
+only after opening; nested focus, Escape and pending child writes use the existing
+native-dialog contract. This adds no detail query or authorization behavior.
+
+The participant `Pager` wraps compact previous/next controls in a named navigation
+region and reports the current page. Its optional translated `label` distinguishes
+multiple lists on one page, including message recipients and inbox results. Each
+feature retains its own `page`, setter, `more` calculation and filter reset rules;
+the component does not fetch data or infer a total number of pages. Controls wrap
+for long labels and keep the existing desktop/touch size hierarchy.
 
 Discipline review, the Service Hours month filter and Session Flags use compact
 actions beside native fields with explicit desktop padding/min-height overrides.
@@ -278,6 +517,141 @@ root font size: text can paint beyond a correctly sized paragraph, so inspect
 text rectangles and page scroll width as well as element bounds. Capture enlarged
 failures before restoring the font size; CSS-contract tests alone do not establish
 browser layout acceptance.
+
+### UI extension boundaries
+
+Page composition is caller-owned within the existing shell. The
+[role-based composition guide](contributing.md#compose-a-page-by-its-purpose)
+defines frame, padding, typography and copy choices; it does not introduce a new
+`PageHeader`, layout registry or token API. The management frame includes its
+sidebar and remains 1280 px maximum, while participant workspaces remain 1152 px.
+Reader and compact public frames serve different tasks and may stay narrower.
+Embedded account/form sections inherit the host heading and alignment rather than
+creating another page shell. Keep shared control and header behavior governed by
+[AGENTS.md](../AGENTS.md#control-height-hierarchy).
+
+Choose hierarchy around existing data and actions. A task summary may link to an
+existing schedule, request or attendance destination; it must not infer new
+eligibility, deadlines or “next session” calculations in a presentation component.
+Label optional future helpers and layout variants as proposals until real callers,
+their contracts and tests exist. A composition migration preserves feature/query
+ownership even when fields move between a page, retained panel and dialog.
+
+The default extension path is a small feature adapter composed from existing
+components, described in [Add an action or feature](contributing.md#add-an-action-or-feature).
+There is no general action registry, schema-driven form engine or shared component
+that derives permission from a visual state. `ReviewedAction` in
+[action-review.tsx](../src/app/_components/ui/action-review.tsx) is the existing
+contract for one named consequential review; it is not the domain operation model.
+
+| Owner | Responsibilities | Existing entry points |
+| --- | --- | --- |
+| Server feature | Validate input and live authority; enforce ownership, versions/tickets, transactions, approval replay and immutable evidence | [Procedure middleware](../src/server/api/trpc.ts), [approval classification](../src/lib/approval-policy.ts), the owning router and domain helpers |
+| Feature controller | Own drafts, selected record, expected version, localized consequence, mutation, proposal/error adapters, affected refreshes and the lifetime of review/recovery | [Announcements](../src/app/(admin)/admin/announcements/page.tsx), [crew](../src/app/(admin)/admin/crew/page.tsx), [profile editor](../src/app/_components/account-profile-editor.tsx) |
+| Shared interaction | Render controls and native dialogs, focus/pending behavior, review admission and accepted-result recovery without inventing domain permissions | [Action review](../src/app/_components/ui/action-review.tsx), [NativeDialog](../src/app/_components/ui/modal.tsx), [form/state compositions](../src/app/_components/ui/patterns.tsx) |
+| Presentation | Express hierarchy, labels, density and record summaries consistently without changing writes or query access | [Button](../src/app/_components/ui/button.tsx), [SummaryTable](../src/app/_components/ui/summary-table.tsx), [gallery recipes](../src/app/ui-gallery/recipes.tsx) |
+
+An action has two independent classifications. Its interaction may navigate, select,
+save a draft, apply an immediate setting or review a consequence. Its server effect
+determines whether the current actor can apply, propose or only read. Changing an
+interaction style does not change `classifyApproval`, reviewer eligibility or ticket
+requirements. A new reviewed server operation also needs authored immutable review
+vocabulary and tests; follow [Approval transactions](#approval-transactions).
+
+For `useActionReview`, `commit` contains only the feature mutation. `approvalId`
+recognizes the existing queued-proposal outcome; `renderError` maps only known
+feature errors. A rejected write permits a deliberate retry. An accepted write or
+queued proposal blocks replay of that review key. An applied write then runs its
+separate `refresh`: failure is synchronization recovery, not mutation failure.
+`invalidateAndReport` detects new read failures after all matching variants settle;
+`settleRefreshes` does the same waiting across refresh families. Recovery never calls
+`commit` again. `repeatAfterRefresh` allows a fresh deliberate review only for a
+domain action that becomes meaningful again. Keep the controller mounted above the
+row or tab that an accepted action can remove.
+
+If an authoritative query denial revokes access to the evidence in an open review,
+the feature hides that review immediately and calls `revoke()` to release its stored
+action. This does not cancel an admitted server write. Pending generations remain
+blocked until they settle; accepted and queued keys remain protected against replay.
+Callbacks from a revoked generation cannot restore evidence, close a newer review
+or release an accepted key. A transport failure alone must not revoke a review.
+
+Draft forms have a different lifetime. Retain one draft and version per independently
+saved section, freeze that section during admitted work, and distinguish background
+Retry from an explicit successful Reload that adopts a new snapshot. Use the current
+profile completion contract for repeat edits instead of using action-review replay
+as a save mechanism. `FormSection` provides layout and disabling; it does not perform
+validation, fetch versions or decide when a draft is safe to replace.
+
+Prefer a feature adapter over copying an entire dialog: shared focus, admission and
+recovery fixes then reach every consumer. Keep stronger domain reviews separate when
+they need tickets, countdowns, password proof, assignment previews or multiple version
+snapshots; forcing these into the smaller contract hides important differences.
+Extract another shared helper only after real callers share the same lifetime and
+failure semantics, with explicit inputs and tests for each caller. A future starter
+generator or lint rule would be new tooling, not an existing API; first demonstrate
+which repeated omission it prevents without inferring authorization or deleting a
+feature's deliberate exception.
+
+### Review-batch extension contracts
+
+The following contracts were agreed before the next UI implementation batch. They
+describe its boundaries; individual feature sections remain authoritative for
+what is currently implemented until their migrations and verification are complete.
+
+- **Informational tutoring dates:** no-tutoring dates carry a program-local date
+  and reason independently of the school-day calendar used by appeals. Displaying
+  a date must not prohibit attendance, change an appeal deadline, cancel a pairing
+  or infer a next session. Preserve the existing settings approval and audit model.
+- **Name requirements:** per-account-type Required, Optional and Hidden states
+  apply to signup and later profile editing. All fields may be optional or hidden;
+  an account without a displayable name uses its username. Signup uses the intake
+  type being registered; a shared profile follows the account's current role,
+  rather than combining every membership's requirements. Hidden fields do not
+  contribute to active display names or participant forms, but their saved values
+  remain visible in authorized admin management fields. Hiding a field never
+  erases an existing name or rewrites historical evidence. Resolve fallback
+  username allocation and legacy unsplit-name compatibility in the server validator
+  as well as the UI. A presentation-only
+  `required` change is insufficient. Policy reads and saves retain explicit
+  versions, approval boundaries and conflict recovery.
+- **Room order and schedules:** display order is a program-owned setting separate
+  from patrol order. Room selectors default to all rooms for management and paired
+  rooms for a tutor. Combined and individual-room grids are two views of the same
+  authorized recurring data. Individual grids use time rows and weekday columns;
+  occupied gray cells and unavailable crosses need accessible status text and a
+  legend. Detail filtering by day, slot and room does not create assignments.
+  Participant availability headings, accessible group names and schedule-review
+  summaries use the active locale through `formatWeekday`. Its fixed UTC/ISO
+  reference localizes presentation without changing weekday indices, slot IDs,
+  minute values, availability saves or confirmation-ticket request targets.
+  Active availability weekday labels must use readable slate text on the white
+  editor surface; they are grouping labels, not disabled metadata. The tutor
+  qualification Request and Cancel controls share the standard action size
+  (40 px desktop minimum, 44 px touch minimum), while their colors express
+  emphasis. Browser verification measures the painted weekday leaf and both
+  action rectangles; locale, slot IDs, drafts and mutation ownership are unchanged.
+- **Flag history:** state filters must query the authorized server dataset; a
+  client-only filter cannot reconstruct resolved entries from a pending-only read.
+  Preserve pending-only decision guards, immutable resolution evidence and the
+  existing review/penalty operations when adding read history.
+- **Evidence differences:** highlight changes between recorded Before and After
+  values without replacing the original values. Preserve missing versus null,
+  array order and full raw evidence access. Never compare an audit event against
+  today's mutable record or fetch additional private data solely to decorate it.
+- **Navigation restoration:** session storage may hold validated view preferences
+  and scroll offsets, not domain drafts, record evidence or authority. Clear or
+  ignore state across identity/access changes. Restoration waits for the relevant
+  content layout and respects explicit navigation and the user's own scrolling.
+  Static Requests panel/filter enums remain interactive while content loads;
+  dynamic catalog parsers retain their readiness gate. An accepted early live
+  choice has transient provenance for its exact identity/path/scope key and wins
+  an older saved/default view after verification. Key changes, denial or catalog
+  invalidation discard that provenance; storage writes still require verification.
+
+These are feature contracts, not a general form engine or permission registry.
+Add shared layout helpers only where real callers have the same alignment and
+lifetime requirements, with gallery examples and meaningful behavior coverage.
 
 ## Identity and authorization
 
@@ -425,8 +799,12 @@ Audit events identify actors by stable account ID and current role. The default 
 `admin.auditLogDetail` is an on-demand, live-staff-authorized projection of one
 stored event. It selects recorded metadata, evidence and undo status/time, excluding
 executable `undoData`; it never joins current actors or targets to reconstruct
-history. The audit page mounts `AuditEventDetails` inside `TableDetails` only for
-staff, refreshing on each opening. Observers keep the existing projected summary
+history. The audit page mounts `AuditEventDetails` inside `TableDetails longReader`
+only for staff, refreshing on each opening. Full evidence can extend beyond the
+viewport; the shared reader keeps its Close header reachable while scrolling the
+recorded comparison or expanded stored JSON. Close and Escape restore the selected
+row's opener without altering evidence or invoking Undo. Observers keep the compact,
+existing projected summary
 and cannot call the detail endpoint. The feature renders stored before/after and
 nested evidence with exact field names, an explicit no-evidence state, precise
 local/UTC times and read-only retry. It changes neither writer coverage nor old
@@ -568,7 +946,7 @@ Database triggers enqueue `EmailDelivery` in the event transaction for account c
 
 Every [email sender](../src/server/email/sender.ts) call declares SECURITY or PROGRAM purpose; configuration selects a complete sender account per purpose. Student signup confirmation uses PROGRAM, while viewer verification and history invitations use SECURITY. The notification outbox retains the event's internal destination; shared link validation and sign-in callbacks preserve it through password/2FA and session recovery, with current permissions checked at the destination. Shared HTML/plain-text rendering uses runtime branding and program-zone notification timestamps. See [sender setup](deployment.md#email--aliyun-direct-mail-邮件推送) for fallback and delivery checks.
 
-The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program & Refresh email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. No schema changes are needed; direct authentication/signup delivery history is not persisted by these diagnostics.
+The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. No schema changes are needed; direct authentication/signup delivery history is not persisted by these diagnostics.
 
 The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only failed or previously attempted pending rows without an active lease qualify, and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Existing SMTP at-least-once limitations still apply across lease expiry and crashes.
 
@@ -667,6 +1045,20 @@ available. External delivery follows commit and cannot turn a committed program 
 a reported failed write. Credential verification retains its own attempt/consumption boundaries.
 
 ## Username allocation and bounded student backfill
+
+Management summaries and current selection/review labels reuse `ParticipantName`
+and `participantNameLabel`: preserve a nonblank canonical name, otherwise use an
+already authorized projected username, otherwise show translated **Name not
+provided**. This is presentation only. Raw search/sort values, selected IDs,
+mutation names, profile drafts, exports and original evidence are unchanged.
+Completed interviews/flag decisions, historical profile names and recorded actors
+retain their original text. Current Crew summaries expose `canonicalName` and
+`username` alongside the unchanged legacy label/sort field; Subject Availability
+projects the current tutor handle only through its existing staff-only read.
+The Crew DTO's `canonicalName` references the materialized current `User.name`,
+which may be a reserved username fallback. Original identity fields remain
+`firstName`, `lastName`, `preferredName`, `alternativeNames` and `legacyName`;
+reads preserve those fields and the already materialized label without writes.
 
 `src/lib/username.ts` owns the editor/generation character and length rules. All runtime handle
 writers use the transaction-scoped PostgreSQL advisory lock `identity:username-namespace` before

@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "~/app/_components/ui/button";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
 import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
@@ -14,7 +15,7 @@ import {
   type InvalidityFilterValue,
 } from "~/app/_components/request-invalidity";
 import { useState, type ReactNode } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import {
   bySignupPriority,
   signupRequestGroup,
@@ -22,10 +23,16 @@ import {
 } from "~/lib/signup-request-groups";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
-import { DAY_NAMES, minToHm } from "~/lib/time";
+import { formatWeekday, minToHm } from "~/lib/time";
+
+import { SectionTabs } from "~/app/_components/ui/section-tabs";
+import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
+import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
+import { viewEnum } from "~/lib/session-view-state";
+import { ParticipantName, participantNameLabel } from "~/app/_components/participant-name";
 
 type Row = RouterOutputs["studentWorkflow"]["adminRequests"][number];
-type Tutor = { id: string; englishName: string };
+type Tutor = { id: string; englishName: string; user?: { username: string | null } | null };
 export type AdditionalRequestEntry = {
   id: string;
   submittedAt: Date;
@@ -36,11 +43,16 @@ export type AdditionalRequestEntry = {
 export function StudentRequestBoard({
   additionalEntries = [],
   additionalLoading = false,
+  viewScope = "",
+  viewDenied = false,
 }: {
   additionalEntries?: AdditionalRequestEntry[];
   additionalLoading?: boolean;
+  viewScope?: string;
+  viewDenied?: boolean;
 }) {
   const t = useTranslations("workflow");
+  const ui = useTranslations("uiPatterns");
   const rows = api.studentWorkflow.adminRequests.useQuery(undefined, {
     refetchInterval: 60_000,
   });
@@ -49,10 +61,16 @@ export function StudentRequestBoard({
   const legacyProcessed = (legacyReviews.data ?? []).filter(
     (r) => r.state !== "PENDING",
   );
-  const [tab, setTab] = useState<
-    "matching" | "assigned" | "reviews" | "processed"
-  >("matching");
-  const [invalidity, setInvalidity] = useState<InvalidityFilterValue>("all");
+  const queryDenied = useSessionAccessDenied(rows, tutors, legacyReviews);
+  const denied = viewDenied || queryDenied;
+  const [tab, setTab] = useSessionViewState({ id: "requests.tab.v1", initialState: "matching",
+    parse: viewEnum(["matching", "assigned", "reviews", "processed"]), scope: viewScope,
+    // A static panel choice is usable before its queue reads finish; only scroll waits for content.
+    enabled: !denied });
+  const [invalidity, setInvalidity] = useSessionViewState<InvalidityFilterValue>({ id: "requests.invalidity.v1", initialState: "valid",
+    parse: viewEnum(["valid", "invalid", "all"]), scope: viewScope, enabled: !denied });
+  useSessionPageScroll({ id: "requests", scope: JSON.stringify([viewScope, tab, invalidity]),
+    ready: !additionalLoading && !!rows.data && !!tutors.data && !!legacyReviews.data, enabled: !denied });
   const matchingValidity = (invalid: boolean) =>
     invalidity === "all" || invalid === (invalidity === "invalid");
   const visibleRows = (rows.data ?? []).filter((row) =>
@@ -90,45 +108,13 @@ export function StudentRequestBoard({
     ],
     processed: visibleRows.filter((r) => r.state !== "OPEN"),
   };
+  if (denied) return <p role="alert">{rows.error?.message ?? legacyReviews.error?.message ?? tutors.error?.message ?? ui("loadFailed")}</p>;
   return (
     <RequestInvalidityHost>
       <section className="space-y-4">
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-          <h2 className="text-lg font-semibold">{t("boardTitle")}</h2>
-          <p className="muted mt-2 max-w-3xl text-sm">{t("boardHelp")}</p>
-        </div>
-        <div
-          role="tablist"
-          aria-label={t("navigation")}
-          className="flex flex-wrap gap-2"
-        >
-          {(["matching", "assigned", "reviews", "processed"] as const).map(
-            (key) => (
-              <button
-                key={key}
-                role="tab"
-                id={`tab-${key}`}
-                aria-controls="student-workflow-panel"
-                aria-selected={tab === key}
-                className={tab === key ? "btn-primary" : "btn-secondary"}
-                onClick={() => setTab(key)}
-              >
-                {t(key)}{" "}
-                <span className="ml-2 rounded-full bg-black/10 px-2 text-xs">
-                  {groups[key].length +
-                    visibleAdditional.filter((entry) => entry.group === key)
-                      .length +
-                    (key === "processed" && invalidity !== "invalid"
-                      ? legacyProcessed.length
-                      : 0)}
-                </span>
-              </button>
-            ),
-          )}
-        </div>
-        {tab !== "reviews" && (
-          <InvalidityFilter value={invalidity} onChange={setInvalidity} />
-        )}
+        <DisclosureSection title={t("boardGuide")} lifetime="lazy">
+          <p className="muted max-w-3xl text-sm">{t("boardHelp")}</p>
+        </DisclosureSection>
         {rows.error && (
           <p role="alert" className="text-red-700">
             {rows.error.message}
@@ -139,72 +125,87 @@ export function StudentRequestBoard({
             {legacyReviews.error.message}
           </p>
         )}
-        <div
-          role="tabpanel"
-          id="student-workflow-panel"
-          aria-labelledby={`tab-${tab}`}
-          className="space-y-3"
+        {/* Counts and priority remain feature-owned; shared tabs supply manual keyboard activation. */}
+        <SectionTabs
+          label={t("navigation")}
+          items={(
+            ["matching", "assigned", "reviews", "processed"] as const
+          ).map((value) => ({
+            value,
+            label: `${t(value)} ${groups[value].length + visibleAdditional.filter((entry) => entry.group === value).length + (value === "processed" && invalidity !== "invalid" ? legacyProcessed.length : 0)}`,
+          }))}
+          value={tab}
+          onChange={setTab}
         >
-          {rows.isLoading || additionalLoading ? (
-            <p>{t("loading")}</p>
-          ) : tab === "reviews" ? (
-            groups.reviews.map(({ row, review }) => (
-              <ReviewCard key={review.id} row={row} review={review} />
-            ))
-          ) : (
-            bySignupPriority([
-              ...groups[tab].map((row) => ({
-                id: row.id,
-                submittedAt: row.submittedAt,
-                content: (
-                  <RequestCard
-                    row={row}
-                    tutors={(tutors.data ?? []).filter(isAssignableTutor)}
-                  />
-                ),
-              })),
-              ...visibleAdditional.filter((entry) => entry.group === tab),
-            ]).map((entry) => <div key={entry.id}>{entry.content}</div>)
+          {tab !== "reviews" && (
+            <InvalidityFilter value={invalidity} onChange={setInvalidity} />
           )}
-          {tab === "processed" &&
-            invalidity !== "invalid" &&
-            legacyProcessed.map((r) => (
-              <article key={r.id} className="card space-y-2 p-5">
-                <h3 className="font-semibold">
-                  {r.name} ·{" "}
-                  {t(
-                    r.kind === "STUDENT_ABORT"
-                      ? "applyAbort"
-                      : "scheduleReject",
-                  )}
-                </h3>
-                <span className="badge-slate">
-                  {t(`reviewState.${r.state}`)}
-                </span>
-                <p className="muted text-sm">{r.reason}</p>
-              </article>
-            ))}
-          {!rows.isLoading &&
-            !additionalLoading &&
-            !visibleAdditional.some((entry) => entry.group === tab) &&
-            !groups[tab].length &&
-            !(
-              tab === "processed" &&
-              invalidity !== "invalid" &&
-              legacyProcessed.length
-            ) && (
-              <p className="muted rounded-xl border border-dashed border-slate-200 p-8 text-center">
-                {t("emptySection")}
-              </p>
+          <div className="space-y-3">
+            {rows.isLoading || additionalLoading ? (
+              <p>{t("loading")}</p>
+            ) : tab === "reviews" ? (
+              groups.reviews.map(({ row, review }) => (
+                <ReviewCard key={review.id} row={row} review={review} />
+              ))
+            ) : (
+              bySignupPriority([
+                ...groups[tab].map((row) => ({
+                  id: row.id,
+                  submittedAt: row.submittedAt,
+                  content: (
+                    <RequestCard
+                      row={row}
+                      tutors={(tutors.data ?? []).filter(isAssignableTutor)}
+                    />
+                  ),
+                })),
+                ...visibleAdditional.filter((entry) => entry.group === tab),
+              ]).map((entry) => <div key={entry.id}>{entry.content}</div>)
             )}
-        </div>
+            {tab === "processed" &&
+              invalidity !== "invalid" &&
+              legacyProcessed.map((r) => (
+                <article key={r.id} className="card space-y-2 p-5">
+                  <h3 className="font-semibold">
+                    {r.name} ·{" "}
+                    {t(
+                      r.kind === "STUDENT_ABORT"
+                        ? "applyAbort"
+                        : "scheduleReject",
+                    )}
+                  </h3>
+                  <span className="badge-slate">
+                    {t(`reviewState.${r.state}`)}
+                  </span>
+                  <p className="muted text-sm">{r.reason}</p>
+                </article>
+              ))}
+            {!rows.isLoading &&
+              !additionalLoading &&
+              !visibleAdditional.some((entry) => entry.group === tab) &&
+              !groups[tab].length &&
+              !(
+                tab === "processed" &&
+                invalidity !== "invalid" &&
+                legacyProcessed.length
+              ) && (
+                <p className="muted rounded-xl border border-dashed border-slate-200 p-8 text-center">
+                  {t("emptySection")}
+                </p>
+              )}
+          </div>
+        </SectionTabs>
       </section>
     </RequestInvalidityHost>
   );
 }
 function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
   const format = useFormatter();
+  const locale = useLocale();
   const t = useTranslations("workflow");
+  const requests = useTranslations("admin.requests");
+  const names = useTranslations("participantNames");
+  const displayName = participantNameLabel(row.name, row.username, names("unnamed"));
   const utils = api.useUtils();
   const readOnly = useReadOnly();
   const account = api.account.me.useQuery().data;
@@ -215,27 +216,13 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
     <article className="card space-y-4 p-5">
       <header className="flex flex-wrap justify-between gap-3">
         <div className="min-w-0 space-y-2">
-          <h3 className="font-semibold break-words">{row.name}</h3>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold break-words"><ParticipantName name={row.name} username={row.username} /></h3>
             <SignupSourceBadge source="SELF_SERVICE" />
             {row.isInvalid && <InvalidityBadge />}
-            <span
-              className={
-                row.state !== "OPEN"
-                  ? "badge-slate"
-                  : row.confirmedAt
-                    ? "badge-green"
-                    : "badge-amber"
-              }
-            >
-              {t(
-                row.state !== "OPEN"
-                  ? `state.${row.state}`
-                  : row.confirmedAt
-                    ? "verified"
-                    : "unverified",
-              )}
-            </span>
+            {row.state !== "OPEN" && (
+              <span className="badge-slate">{t(`state.${row.state}`)}</span>
+            )}
             {row.editedAt && <span className="badge-amber">{t("edited")}</span>}
           </div>
           <p className="muted text-xs">
@@ -246,24 +233,39 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
               }),
             })}
           </p>
+          {/* Verification belongs once in the contact summary, not a second
+           * identity badge. Contextual labels avoid "Email: Email verified". */}
+          <div className="flex flex-wrap items-center gap-x-2 text-sm">
+            <span>
+              {t("emailStatus", {
+                status: requests(
+                  row.confirmedAt
+                    ? "emailVerifiedShort"
+                    : "emailUnverifiedShort",
+                ),
+              })}
+            </span>
+            <EmailDetails contactOnly email={row.email} name={displayName} />
+          </div>
         </div>
         <div className="flex flex-wrap items-start gap-2">
           {!readOnly && (
             <StudentRequestInvalidityControls
               record={row}
-              name={row.name}
+              name={displayName}
               canFlag={row.state === "OPEN" || row.isInvalid}
               coordinator={account?.role === "COORDINATOR"}
             />
           )}
           {!readOnly && row.state === "OPEN" && !row.confirmedAt && (
-            <button
-              className="btn-secondary btn-sm self-start"
+            <Button
+              size="compact"
+              className="self-start"
               disabled={resend.isPending || row.isInvalid}
               onClick={() => resend.mutate({ id: row.id })}
             >
               {t("resend")}
-            </button>
+            </Button>
           )}
         </div>
       </header>
@@ -290,8 +292,6 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
       )}
       <div className="grid gap-4 border-t border-slate-100 pt-4 text-sm sm:grid-cols-2">
         <div>
-          <p className="font-medium">{t("contact")}</p>
-          <EmailDetails contactOnly email={row.email} name={row.name} />
           <p className="muted break-words">{row.contact}</p>
         </div>
         <div>
@@ -300,7 +300,7 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
             {row.slots
               .map(
                 (s) =>
-                  `${DAY_NAMES[s.dayOfWeek]} ${minToHm(s.startMin)}–${minToHm(s.endMin)}`,
+                  `${formatWeekday(s.dayOfWeek, locale)} ${minToHm(s.startMin)}–${minToHm(s.endMin)}`,
               )
               .join(", ")}
           </p>
@@ -357,6 +357,7 @@ function Assignment({
   tutors: Tutor[];
 }) {
   const t = useTranslations("workflow");
+  const names = useTranslations("participantNames");
   const utils = api.useUtils();
   const [tutorId, setTutorId] = useState("");
   const [open, setOpen] = useState(false);
@@ -378,14 +379,30 @@ function Assignment({
   const pairing = row.pairings.find((p) => p.subject === subject.name);
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <span className="min-w-36 text-sm font-medium">{subject.name}</span>
+      {(pairing !== undefined || readOnly || row.isInvalid) && (
+        <span className="min-w-0 text-sm font-medium">{subject.name}</span>
+      )}
       {pairing ? (
-        <span className="badge-green">{pairing.tutor.englishName}</span>
+        <span className="badge-green"><ParticipantName name={pairing.tutor.englishName} username={pairing.tutor.user?.username} /></span>
       ) : !readOnly && !row.isInvalid ? (
         <>
           <QualifiedTutorSelect
+            leading={<span className="font-medium">{subject.name}</span>}
+            actions={
+              <button
+                className="btn-primary min-h-11 lg:min-h-10"
+                disabled={!tutorId}
+                onClick={() => setOpen(true)}
+              >
+                {t("assign")}
+              </button>
+            }
             label={t("chooseTutor", { subject: subject.name })}
             tutors={tutors}
+            optionLabel={(id) => {
+              const tutor = tutors.find((candidate) => candidate.id === id);
+              return participantNameLabel(tutor?.englishName, tutor?.user?.username, names("unnamed"));
+            }}
             subjectId={subject.id}
             value={tutorId}
             onChange={(value) => {
@@ -394,13 +411,6 @@ function Assignment({
               setTutorId(value);
             }}
           />
-          <button
-            className="btn-primary min-h-11 self-end lg:min-h-10"
-            disabled={!tutorId}
-            onClick={() => setOpen(true)}
-          >
-            {t("assign")}
-          </button>
         </>
       ) : null}
       {assign.isSuccess && !assign.data.emailSent && (
@@ -436,8 +446,8 @@ function Assignment({
           key={`${row.id}:${subject.id}:${tutorId}`}
           action="ASSIGN"
           target={row.id}
-          title={t("assignTitle", { name: row.name })}
-          message={`${subject.name} → ${tutors.find((tu) => tu.id === tutorId)?.englishName ?? ""}\n\n${t(row.confirmedAt ? "assignVerifiedConsequences" : "assignConsequences")}`}
+          title={t("assignTitle", { name: participantNameLabel(row.name, row.username, names("unnamed")) })}
+          message={`${subject.name} → ${participantNameLabel(tutors.find((tu) => tu.id === tutorId)?.englishName, tutors.find((tu) => tu.id === tutorId)?.user?.username, names("unnamed"))}\n\n${t(row.confirmedAt ? "assignVerifiedConsequences" : "assignConsequences")}`}
           busy={assign.isPending}
           error={assign.error?.message}
           onCancel={() => setOpen(false)}

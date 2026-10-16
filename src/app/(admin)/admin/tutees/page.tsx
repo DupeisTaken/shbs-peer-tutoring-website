@@ -1,5 +1,16 @@
 "use client";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+  useSessionViewState,
+} from "~/app/_components/session-view-state";
+import { useRosterSort } from "~/app/_components/roster-view-state";
+import { viewEnum, viewSearch } from "~/lib/session-view-state";
+import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { nameDraft, fullPersonName } from "~/lib/person-name";
 import { matchesPersonSearch } from "~/lib/person-search";
@@ -11,7 +22,7 @@ import { pairingScheduleText } from "~/lib/pairing-schedule";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import {
   useProfilePolicy,
@@ -21,7 +32,7 @@ import {
 } from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
-import { SortHeader, useSort, compare } from "~/app/_components/sortable";
+import { SortHeader, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
 import { Button, ChoiceButton } from "~/app/_components/ui/button";
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
@@ -101,11 +112,9 @@ function StatsCells({
 
 export default function TuteesPage() {
   const t = useTranslations();
+  const locale = useLocale();
   const h = useTranslations("tuteeHistory");
-  const [historyView, setHistoryView] = useState<TuteeHistoryView>("current");
   const [detailsId, setDetailsId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [showUnverified, setShowUnverified] = useState(false);
   const permissions = api.tuteeHistory.permissions.useQuery();
   const policy = useProfilePolicy();
   const readOnly = useReadOnly();
@@ -125,11 +134,67 @@ export default function TuteesPage() {
     staleTime: REFERENCE_STALE_TIME,
   });
   const tutors = api.admin.tutors.useQuery();
-  const [showPast, setShowPast] = useState(false);
   const pairings = api.admin.pairings.useQuery();
   const stats = api.admin.tuteeStats.useQuery();
-  const [view, setView] = useState<"tutees" | "tutors">("tutees");
-  const sort = useSort("name");
+  const denied = useSessionAccessDenied(
+    identity,
+    tutees,
+    tutors,
+    pairings,
+    stats,
+    permissions,
+    courses,
+  );
+  const [historyView, setHistoryView] = useSessionViewState<TuteeHistoryView>({
+    id: "tutees-history-v1",
+    initialState: "current",
+    parse: viewEnum(["current", "historical", "all"]),
+    enabled: !denied,
+  });
+  const [search, setSearch] = useSessionViewState({
+    id: "tutees-search-v1",
+    initialState: "",
+    parse: viewSearch,
+    enabled: !denied,
+  });
+  const [showUnverified, setShowUnverified] = useSessionViewState({
+    id: "tutees-unverified-v1",
+    initialState: false,
+    parse: (value) => (typeof value === "boolean" ? value : undefined),
+    enabled: !denied,
+  });
+  const [showPast, setShowPast] = useSessionViewState({
+    id: "tutees-past-tutors-v1",
+    initialState: false,
+    parse: (value) => (typeof value === "boolean" ? value : undefined),
+    enabled: !denied,
+  });
+  const [view, setView] = useSessionViewState<"tutees" | "tutors">({
+    id: "tutees-panel-v1",
+    initialState: "tutees",
+    parse: viewEnum(["tutees", "tutors"]),
+    enabled: !denied,
+  });
+  const sort = useRosterSort(
+    "tutees-sort-v1",
+    ["name", "grade", "sessions", "discipline", "status"],
+    "name",
+    !denied,
+  );
+  useSessionPageScroll({
+    id: "tutees-v1",
+    scope: JSON.stringify([
+      view,
+      historyView,
+      search,
+      showUnverified,
+      showPast,
+      sort.key,
+      sort.dir,
+    ]),
+    ready: !!tutees.data && !!tutors.data && !!pairings.data && !!stats.data,
+    enabled: !denied,
+  });
 
   const invalidate = () => invalidateTuteeViews(utils);
   const create = api.admin.createTutee.useMutation({ onSuccess: invalidate });
@@ -146,6 +211,7 @@ export default function TuteesPage() {
   }, [creationOpen, create.isPending]);
 
   const [names, setNames] = useState(() => nameDraft());
+  const [namePolicyReady, setNamePolicyReady] = useState(false);
   const name = fullPersonName(names);
   const [gradeLevel, setGradeLevel] = useState("");
   const [firstChoiceId, setFirstChoiceId] = useState("");
@@ -227,6 +293,15 @@ export default function TuteesPage() {
     pairingsByTutor.set(p.tutorId, arr);
   }
 
+  if (denied)
+    return (
+      <StatePanel
+        kind="denied"
+        title={t("managementRecovery.denied", {
+          section: t("admin.tutees.title"),
+        })}
+      />
+    );
   return (
     <div className="space-y-8">
       {!readOnly && review.dialog}
@@ -308,8 +383,8 @@ export default function TuteesPage() {
             onSubmit={(e) => {
               e.preventDefault();
               if (
-                !name.trim() ||
                 create.isPending ||
+                !namePolicyReady ||
                 creationSubmitting.current
               )
                 return;
@@ -350,7 +425,13 @@ export default function TuteesPage() {
               disabled={create.isPending}
               className="grid max-w-2xl min-w-0 gap-4 [&_.input:disabled]:bg-slate-50 [&_.select:disabled]:bg-slate-50"
             >
-              <PersonNameFields value={names} onChange={setNames} />
+              <PersonNameFields
+                onPolicyAvailabilityChange={setNamePolicyReady}
+                accountType="STUDENT"
+                management
+                value={names}
+                onChange={setNames}
+              />
               {/* Keep choices in their own aligned row; wrapping the whole name
                   block beside Grade made the final name row look misaligned. */}
               <div className="grid min-w-0 items-end gap-3 sm:grid-cols-3">
@@ -408,7 +489,7 @@ export default function TuteesPage() {
               <div className="flex flex-wrap gap-3">
                 <button
                   className="btn-primary min-h-11 lg:min-h-10"
-                  disabled={!name.trim() || create.isPending}
+                  disabled={create.isPending || !namePolicyReady}
                 >
                   {t("admin.tutees.addTuteeBtn")}
                 </button>
@@ -552,7 +633,11 @@ export default function TuteesPage() {
                         </span>
                       </td>
                       <td className="text-slate-600">
-                        {pairingScheduleText(p, t("scheduling.awaiting"))}
+                        {pairingScheduleText(
+                          p,
+                          t("scheduling.awaiting"),
+                          locale,
+                        )}
                       </td>
                       <td className="text-slate-600">
                         <span className="block max-w-40 truncate">
@@ -580,6 +665,7 @@ export default function TuteesPage() {
                                 {pairingScheduleText(
                                   p,
                                   t("scheduling.awaiting"),
+                                  locale,
                                 )}
                               </dd>
                             </div>
@@ -600,7 +686,9 @@ export default function TuteesPage() {
                                   <ul className="list-disc pl-5">
                                     {p.tutees.map(({ tutee }) => (
                                       <li key={tutee.id}>
-                                        {tutee.englishName}
+                                        <ParticipantName
+                                          name={tutee.englishName}
+                                        />
                                       </li>
                                     ))}
                                   </ul>
@@ -643,14 +731,20 @@ export default function TuteesPage() {
             <p className="muted text-sm">{h("historyHelp")}</p>
             <div className="flex flex-wrap items-center gap-3">
               <label className="flex-1">
-                <span className="sr-only">{h("searchRecords")}</span>
+                <span className="label">{h("searchRecords")}</span>
                 <input
                   className="input min-h-11 w-full lg:min-h-10"
+                  type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={h("searchRecords")}
                 />
               </label>
+              {search && (
+                <Button size="compact" onClick={() => setSearch("")}>
+                  {t("rosterSearch.clear")}
+                </Button>
+              )}
               <label className="flex min-h-11 items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -722,7 +816,7 @@ export default function TuteesPage() {
                   <tr key={t2.id}>
                     <td className="max-w-52 min-w-40">
                       <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
-                        {t2.englishName}
+                        <ParticipantName name={t2.englishName} />
                       </p>
                       {/* The display name already applies the program's additional-name setting. */}
                       {(t2.owner ?? t2.user)?.username && (
@@ -752,7 +846,7 @@ export default function TuteesPage() {
                     <TableActions>
                       {/* One reader owns the presentation; private sections retain their own access boundary. */}
                       <TableAction
-                        aria-label={`${t("tablePatterns.details")}: ${t2.englishName}`}
+                        aria-label={`${t("tablePatterns.details")}: ${participantNameLabel(t2.englishName, null, t("participantNames.unnamed"))}`}
                         aria-haspopup="dialog"
                         onClick={() => setDetailsId(t2.id)}
                       >
@@ -774,13 +868,17 @@ export default function TuteesPage() {
                       )}
                       {!readOnly && (
                         <TableAction
-                          className="text-red-600"
+                          variant="danger"
                           disabled={review.blocked(t2.id)}
                           onClick={() =>
                             review.open({
                               key: t2.id,
                               title: t("actionReview.tuteeTitle", {
-                                name: t2.englishName,
+                                name: participantNameLabel(
+                                  t2.englishName,
+                                  null,
+                                  t("participantNames.unnamed"),
+                                ),
                               }),
                               description: t("actionReview.tuteeHelp"),
                               confirmLabel: t("admin.tutees.deleteBtn"),

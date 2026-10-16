@@ -1,11 +1,38 @@
 "use client";
+import {
+  useSessionViewState,
+  useSessionPageScroll,
+  useSessionAccessDenied,
+} from "~/app/_components/session-view-state";
+import { useRosterSort } from "~/app/_components/roster-view-state";
+import {
+  userDirectoryView,
+  userDirectoryViewParser,
+  userDirectoryFilters,
+  type UserDirectoryView,
+} from "~/lib/management-view-state";
+import { participantNameLabel } from "~/app/_components/participant-name";
 
+import { matchesPersonSearch } from "~/lib/person-search";
 import { accountMembership } from "~/lib/account-membership";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
 
-import { Button } from "~/app/_components/ui/button";
-import { StatePanel } from "~/app/_components/ui/patterns";
+import { Button, ChoiceButton } from "~/app/_components/ui/button";
+import {
+  FormActions,
+  FilterToolbar,
+  InlineNotice,
+  StatePanel,
+} from "~/app/_components/ui/patterns";
+import { Modal } from "~/app/_components/ui/modal";
+import { ProfileDialog } from "~/app/_components/profile-dialog";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
+import { useReadOnly } from "~/app/_components/read-only";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 import { UserDetails } from "./user-details";
 import { LoginSetup, MembershipBadges } from "./presentation";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
@@ -19,11 +46,10 @@ import {
   isTutorStatusApplicable,
   matchesUserFilters,
   normalizeUserFilters,
-  parseUserFilters,
   type UserFilters,
 } from "~/lib/user-filters";
 import { api } from "~/trpc/react";
-import { SortHeader, useSort, compare } from "~/app/_components/sortable";
+import { SortHeader, compare } from "~/app/_components/sortable";
 import { useDialog } from "~/app/_components/confirm-dialog";
 import {
   SummaryTable,
@@ -50,12 +76,7 @@ const TUTOR_STATUSES = [
 ] as const;
 const ACCOUNT_STATES = ["registered", "setup", "invited", "none"] as const;
 
-/**
- * Step-up identity check for dangerous actions (role change, leadership transfer, account
- * deletion). The admin re-enters their own password; the value is passed to the action's
- * `run` callback (which calls the mutation with `confirmPassword`). Mounted fresh per action,
- * so the password field always starts empty.
- */
+/** Deletion keeps its target and ephemeral password in the feature; Modal owns focus and dismissal. */
 function ConfirmIdentityDialog({
   title,
   body,
@@ -75,64 +96,69 @@ function ConfirmIdentityDialog({
 }) {
   const t = useTranslations();
   const [password, setPassword] = useState("");
+  const formId = useId();
+  const passwordId = useId();
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      <form
-        className="card w-full max-w-sm space-y-4 p-5"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (password) onConfirm(password);
-        }}
-      >
-        <div className="space-y-1">
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-          <p className="muted text-sm">{body}</p>
-        </div>
-        <div>
-          <label className="label">
-            {t("admin.users.confirm.passwordLabel")}
-          </label>
-          <input
-            type="password"
-            autoFocus
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={t("admin.users.confirm.passwordPlaceholder")}
-            className="input w-full"
-          />
-        </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            className="btn-secondary btn-sm"
-            onClick={onCancel}
-            disabled={pending}
-          >
-            {t("admin.users.confirm.cancel")}
-          </button>
-          <button
+    <Modal
+      title={title}
+      description={body}
+      busy={pending}
+      onClose={onCancel}
+      footer={
+        <>
+          <Button onClick={onCancel}>{t("admin.users.confirm.cancel")}</Button>
+          <Button
+            variant="danger"
             type="submit"
-            className="btn-primary btn-sm"
+            form={formId}
             disabled={pending || !password}
           >
             {pending ? t("admin.users.confirm.working") : confirmLabel}
-          </button>
-        </div>
+          </Button>
+        </>
+      }
+    >
+      <form
+        id={formId}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!pending && password) onConfirm(password);
+        }}
+      >
+        <fieldset disabled={pending} className="min-w-0 space-y-3">
+          <label className="label" htmlFor={passwordId}>
+            {t("admin.users.confirm.passwordLabel")}
+          </label>
+          <input
+            id={passwordId}
+            type="password"
+            required
+            data-dialog-autofocus
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder={t("admin.users.confirm.passwordPlaceholder")}
+            className="input w-full"
+          />
+          {error && (
+            <p role="alert" className="text-sm text-red-600">
+              {error}
+            </p>
+          )}
+        </fieldset>
       </form>
-    </div>
+    </Modal>
   );
 }
 
 export default function UsersPage() {
   const t = useTranslations();
+  const nameFor = (name: string | null | undefined, username?: string | null) =>
+    participantNameLabel(name, username, t("participantNames.unnamed"));
+  const readOnly = useReadOnly();
   const utils = api.useUtils();
   const accounts = api.admin.accounts.useQuery();
+  const directoryDenied = useSessionAccessDenied(accounts);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [editingTutorId, setEditingTutorId] = useState<string | null>(null);
   // Fetch the full roster record only when staff open an unlinked profile.
@@ -155,7 +181,9 @@ export default function UsersPage() {
     },
   });
 
-  // Dangerous actions run behind an identity-confirmation dialog (see ConfirmIdentityDialog).
+  // Only account deletion uses this captured target; read recovery never replays the write.
+  const deletionAdmission = useRef(false);
+  const [deletionAdmitted, setDeletionAdmitted] = useState(false);
   const [confirm, setConfirm] = useState<{
     title: string;
     body: string;
@@ -164,19 +192,87 @@ export default function UsersPage() {
   } | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const closeConfirm = () => {
+    if (deletionAdmission.current) return;
     setConfirm(null);
     setConfirmError(null);
   };
   const guardedMutation = {
     onSuccess: () => {
+      deletionAdmission.current = false;
+      setDeletionAdmitted(false);
       void invalidate();
       closeConfirm();
     },
     onError: (e: { message: string }) => setConfirmError(e.message),
+    onSettled: () => {
+      deletionAdmission.current = false;
+      setDeletionAdmitted(false);
+    },
   };
 
   const deleteUser = api.admin.deleteUser.useMutation(guardedMutation);
-  const appeals = api.admin.appeals.useQuery();
+  const queryClient = useQueryClient();
+  const [appealDenial, setAppealDenial] = useState(false);
+  const canReadAppeals =
+    !readOnly &&
+    !directoryDenied &&
+    ["HEAD", "ADMIN"].includes(accounts.data?.caller.role ?? "");
+  const appeals = api.admin.appeals.useQuery(undefined, {
+    enabled: canReadAppeals && !appealDenial,
+  });
+  const appealAccessDenied = [
+    appeals.error?.data?.code,
+    accounts.error?.data?.code,
+  ].some((code) => code === "FORBIDDEN" || code === "UNAUTHORIZED");
+  const appealDenied = appealAccessDenied || appealDenial;
+  useEffect(() => {
+    if (appealAccessDenied) {
+      setAppealDenial(true);
+      queryClient.removeQueries({
+        queryKey: getQueryKey(api.admin.appeals, undefined, "query"),
+        exact: true,
+      });
+    } else if (appeals.isSuccess && !appeals.isFetching && !accounts.error) {
+      setAppealDenial(false);
+    }
+  }, [
+    appealAccessDenied,
+    appeals.isSuccess,
+    appeals.isFetching,
+    accounts.error,
+    queryClient,
+  ]);
+  const [appealReview, setAppealReview] = useState<
+    NonNullable<typeof appeals.data>[number] | null
+  >(null);
+  const [acceptedAppeals, setAcceptedAppeals] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [appealRefreshing, setAppealRefreshing] = useState(false);
+  const [appealRefreshFailed, setAppealRefreshFailed] = useState(false);
+  const appealAdmission = useRef(false);
+  const appealRefreshInFlight = useRef(false);
+  const refreshAppeals = async () => {
+    if (appealRefreshInFlight.current) return;
+    appealRefreshInFlight.current = true;
+    setAppealRefreshing(true);
+    try {
+      await settleRefreshes([
+        () => invalidateAndReport(utils.admin.accounts),
+        () => invalidateAndReport(utils.admin.appeals),
+      ]);
+      setAppealRefreshFailed(false);
+      setAppealReview(null);
+    } catch {
+      setAppealRefreshFailed(true);
+    } finally {
+      appealRefreshInFlight.current = false;
+      setAppealRefreshing(false);
+    }
+  };
+  useEffect(() => {
+    if (!canReadAppeals || appealDenied) setAppealReview(null);
+  }, [canReadAppeals, appealDenied]);
   const refreshUsers = () =>
     Promise.all([invalidate(), utils.admin.appeals.invalidate()]);
   const suspendUser = api.admin.suspendUser.useMutation({
@@ -186,7 +282,14 @@ export default function UsersPage() {
     onSuccess: refreshUsers,
   });
   const decideAppeal = api.admin.decideAppeal.useMutation({
-    onSuccess: refreshUsers,
+    onSuccess: async (_result, input) => {
+      // Keep accepted decisions blocked even if stale rows survive a failed read.
+      setAcceptedAppeals((previous) => new Set(previous).add(input.appealId));
+      await refreshAppeals();
+    },
+    onSettled: () => {
+      appealAdmission.current = false;
+    },
   });
   const sendSetup = api.admin.sendTutorSetup.useMutation({
     onSuccess: (data, variables) =>
@@ -203,59 +306,51 @@ export default function UsersPage() {
   const callerRole = accounts.data?.caller.role;
   const isHead = callerRole === "HEAD";
   const isAdminTier = isHead || callerRole === "ADMIN";
-  const confirmPending = deleteUser.isPending;
-  const sort = useSort("name");
-
-  // Persist by account only after loading that account's preference; never overwrite on hydration.
-  const [filterState, setFilterState] = useState<{
-    userId: string;
-    filters: UserFilters;
-  } | null>(null);
-  const viewerId = accounts.data?.caller.id;
-  useEffect(() => {
-    if (!viewerId) return;
-    let raw: string | null = null;
-    try {
-      raw = localStorage.getItem(`shbs:user-filters:${viewerId}:v1`);
-    } catch {
-      /* Private browsing may disable storage. */
-    }
-    const restored = parseUserFilters(raw);
-    setFilterState({ userId: viewerId, filters: restored });
-    // Repair this account's saved preference after reading it, including stale hidden status.
-    try {
-      if (raw !== null)
-        localStorage.setItem(
-          `shbs:user-filters:${viewerId}:v1`,
-          JSON.stringify(restored),
-        );
-    } catch {
-      /* Storage restrictions must not prevent the normalized in-memory result. */
-    }
-  }, [viewerId]);
-  const filters = useMemo(
-    () =>
-      filterState?.userId === viewerId
-        ? (filterState?.filters ?? emptyUserFilters())
-        : emptyUserFilters(),
-    [filterState, viewerId],
+  const confirmPending = deletionAdmitted || deleteUser.isPending;
+  const sort = useRosterSort(
+    "users-sort-v1",
+    ["name", "account", "role"],
+    "name",
+    !directoryDenied,
   );
-  const updateFilters = (next: UserFilters) => {
-    if (!viewerId) return;
-    const normalized = normalizeUserFilters(next);
-    setFilterState({ userId: viewerId, filters: normalized });
-    try {
-      localStorage.setItem(
-        `shbs:user-filters:${viewerId}:v1`,
-        JSON.stringify(normalized),
-      );
-    } catch {
-      /* Keep in-memory filtering usable. */
-    }
-  };
+
+  // Replace cross-session localStorage without migration. Editors, passwords,
+  // appeal reviews and selected targets never enter the flat view allowlist.
+  const [view, setView] = useSessionViewState<UserDirectoryView>({
+    id: "user-directory-v1",
+    initialState: userDirectoryView(),
+    parse: userDirectoryViewParser,
+    enabled: !directoryDenied,
+    restoreReady: accounts.data !== undefined,
+  });
+  const filters = useMemo(() => userDirectoryFilters(view), [view]);
+  const search = view.search;
+  const setSearch = (search: string) =>
+    setView((previous) => ({ ...previous, search }));
+  const updateFilters = (next: UserFilters) =>
+    setView((previous) =>
+      userDirectoryView(normalizeUserFilters(next), previous.search),
+    );
+  useSessionPageScroll({
+    id: "users-v1",
+    scope: JSON.stringify({ ...view, sort: [sort.key, sort.dir] }),
+    ready: accounts.data !== undefined && !directoryDenied,
+    enabled: !directoryDenied,
+  });
+  const scopedRows = (accounts.data?.rows ?? []).filter((row) =>
+    matchesUserFilters(row, filters),
+  );
   const rows = useMemo(() => {
     const data = accounts.data?.rows ?? [];
-    const filtered = data.filter((u) => matchesUserFilters(u, filters));
+    const filtered = data.filter(
+      (u) =>
+        matchesUserFilters(u, filters) &&
+        matchesPersonSearch({ ...u, legacyName: u.name }, search, [
+          u.username,
+          u.email,
+          u.tutor?.username,
+        ]),
+    );
     const dir = sort.dir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       switch (sort.key) {
@@ -268,8 +363,28 @@ export default function UsersPage() {
           return compare(a.name, b.name) * dir;
       }
     });
-  }, [accounts.data, sort.key, sort.dir, filters]);
+  }, [accounts.data, sort.key, sort.dir, filters, search]);
 
+  if (directoryDenied)
+    return (
+      <div className="space-y-6">
+        <h1 className="page-title">{t("admin.users.title")}</h1>
+        <StatePanel
+          kind="denied"
+          title={t("managementRecovery.denied", {
+            section: t("admin.users.title"),
+          })}
+          action={
+            <Button
+              disabled={accounts.isFetching}
+              onClick={() => void accounts.refetch()}
+            >
+              {t("uiPatterns.retry")}
+            </Button>
+          }
+        />
+      </div>
+    );
   return (
     <div className="space-y-6">
       {isAdminTier && editingTutor && !editingTutor.user && (
@@ -287,25 +402,27 @@ export default function UsersPage() {
       {editingTutorId && tutorProfiles.error && (
         <p role="alert">{tutorProfiles.error.message}</p>
       )}
-      {isAdminTier && editingProfile?.userId && editingProfile.profileVersion !== null && (
-        <AccountProfileEditor
-          profile={{
-            userId: editingProfile.userId,
-            username: editingProfile.username,
-            name: editingProfile.name,
-            firstName: editingProfile.firstName,
-            lastName: editingProfile.lastName,
-            preferredName: editingProfile.preferredName,
-            legacyName: editingProfile.legacyName,
-            alternativeNames: editingProfile.alternativeNames,
-            profileVersion: editingProfile.profileVersion,
-          }}
-          membership={accountMembership(editingProfile)}
-          canRequestHead={callerRole === "ADMIN"}
-          isHead={isHead}
-          onClose={() => setEditingProfileId(null)}
-        />
-      )}
+      {isAdminTier &&
+        editingProfile?.userId &&
+        editingProfile.profileVersion !== null && (
+          <AccountProfileEditor
+            profile={{
+              userId: editingProfile.userId,
+              username: editingProfile.username,
+              name: editingProfile.name,
+              firstName: editingProfile.firstName,
+              lastName: editingProfile.lastName,
+              preferredName: editingProfile.preferredName,
+              legacyName: editingProfile.legacyName,
+              alternativeNames: editingProfile.alternativeNames,
+              profileVersion: editingProfile.profileVersion,
+            }}
+            membership={accountMembership(editingProfile)}
+            canRequestHead={callerRole === "ADMIN"}
+            isHead={isHead}
+            onClose={() => setEditingProfileId(null)}
+          />
+        )}
       <div>
         <h1 className="page-title">{t("admin.users.title")}</h1>
         <p className="muted mt-1">
@@ -316,9 +433,9 @@ export default function UsersPage() {
       </div>
 
       <section className="card space-y-3 p-4 text-sm">
-        <p>{t("usersDirectory.intro")}</p>
         <DisclosureSection title={t("usersDirectory.pathways")} lifetime="lazy">
           <div className="space-y-3 pt-3 text-slate-700">
+            <p>{t("usersDirectory.intro")}</p>
             <p>
               {t("usersDirectory.pathwaysTutee")}{" "}
               <Link href="/admin/tutees" className="link">
@@ -338,6 +455,34 @@ export default function UsersPage() {
       </section>
       {isHead && <CombineAccounts />}
       <section className="card space-y-3 p-4">
+        <FilterToolbar
+          label={t("rosterSearch.label")}
+          summary={t("rosterSearch.results", {
+            count: rows.length,
+            total: scopedRows.length,
+          })}
+        >
+          <label className="min-w-0 flex-1">
+            <span className="label">{t("rosterSearch.label")}</span>
+            <input
+              type="search"
+              className="input w-full"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t("rosterSearch.placeholder")}
+            />
+          </label>
+          {search && (
+            <Button size="compact" onClick={() => setSearch("")}>
+              {t("rosterSearch.clear")}
+            </Button>
+          )}
+        </FilterToolbar>
+        {search.trim() && rows.length === 0 && scopedRows.length > 0 && (
+          <p role="status" className="muted">
+            {t("rosterSearch.noMatches")}
+          </p>
+        )}
         <p className="muted text-sm">{t("userMultiFilters.hint")}</p>
         <p className="muted text-sm">{t("usersDirectory.visibility")}</p>
         <div
@@ -390,11 +535,9 @@ export default function UsersPage() {
               hidden: (accounts.data?.rows.length ?? 0) - rows.length,
             })}
           </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="btn-secondary btn-sm min-h-11 lg:min-h-8"
-              aria-pressed={filters.showUnverified}
+          <FilterToolbar label={t("usersDirectory.visibility")}>
+            <ChoiceButton
+              selected={filters.showUnverified}
               onClick={() =>
                 updateFilters({
                   ...filters,
@@ -407,11 +550,9 @@ export default function UsersPage() {
                   ? "tuteeHistory.hideUnverified"
                   : "tuteeHistory.showUnverified",
               )}
-            </button>
-            <button
-              type="button"
-              className="btn-secondary btn-sm min-h-11 lg:min-h-8"
-              aria-pressed={filters.showPastTutors}
+            </ChoiceButton>
+            <ChoiceButton
+              selected={filters.showPastTutors}
               onClick={() =>
                 updateFilters({
                   ...filters,
@@ -424,7 +565,7 @@ export default function UsersPage() {
                   ? "tuteeHistory.hideHistorical"
                   : "tuteeHistory.showHistorical",
               )}
-            </button>
+            </ChoiceButton>
             <button
               type="button"
               className="btn-secondary btn-sm min-h-11 lg:min-h-8"
@@ -432,7 +573,7 @@ export default function UsersPage() {
             >
               {t("userMultiFilters.clear")}
             </button>
-          </div>
+          </FilterToolbar>
         </div>
       </section>
 
@@ -452,7 +593,49 @@ export default function UsersPage() {
       )}
 
       {/* Pending reinstatement appeals from suspended viewers. */}
-      {(appeals.data ?? []).length > 0 && (
+      {canReadAppeals &&
+        (appealDenied ? (
+          <StatePanel
+            kind="denied"
+            title={t("managementRecovery.denied", {
+              section: t("admin.users.appeals.heading"),
+            })}
+            action={
+              <Button
+                disabled={appeals.isFetching || accounts.isFetching}
+                onClick={() => {
+                  void accounts.refetch();
+                  void appeals.refetch();
+                }}
+              >
+                {t("managementRecovery.retry", {
+                  section: t("admin.users.appeals.heading"),
+                })}
+              </Button>
+            }
+          />
+        ) : (
+          <QueryFeedback
+            hasData={appeals.data !== undefined}
+            loading={appeals.data === undefined}
+            error={!!appeals.error}
+            retrying={appeals.isFetching}
+            loadingTitle={t("managementRecovery.loading", {
+              section: t("admin.users.appeals.heading"),
+            })}
+            errorTitle={t(
+              appeals.data === undefined
+                ? "managementRecovery.loadFailed"
+                : "managementRecovery.refreshFailed",
+              { section: t("admin.users.appeals.heading") },
+            )}
+            retryLabel={t("managementRecovery.retry", {
+              section: t("admin.users.appeals.heading"),
+            })}
+            onRetry={() => void appeals.refetch()}
+          />
+        ))}
+      {canReadAppeals && !appealDenied && (appeals.data ?? []).length > 0 && (
         <section className="card overflow-hidden">
           <div className="px-5 py-3">
             <h2 className="section-title">
@@ -465,38 +648,128 @@ export default function UsersPage() {
                 key={a.id}
                 className="flex flex-wrap items-center gap-3 py-3 text-sm"
               >
-                <span className="font-medium text-slate-800">{a.name}</span>
+                <span className="font-medium text-slate-800">
+                  {nameFor(a.name)}
+                </span>
                 {a.affiliation && (
                   <span className="muted text-xs">{a.affiliation}</span>
                 )}
-                <span className="muted min-w-0 flex-1 truncate text-xs italic">
-                  “{a.message}”
-                </span>
-                <span className="flex gap-2">
-                  <button
-                    className="btn-primary btn-sm"
-                    disabled={decideAppeal.isPending}
-                    onClick={() =>
-                      decideAppeal.mutate({ appealId: a.id, action: "APPROVE" })
-                    }
-                  >
-                    {t("admin.users.appeals.approve")}
-                  </button>
-                  <button
-                    className="btn-secondary btn-sm"
-                    disabled={decideAppeal.isPending}
-                    onClick={() =>
-                      decideAppeal.mutate({ appealId: a.id, action: "DENY" })
-                    }
-                  >
-                    {t("admin.users.appeals.deny")}
-                  </button>
-                </span>
+                <button
+                  className="table-action-link ml-auto"
+                  disabled={decideAppeal.isPending || appealRefreshing}
+                  onClick={() => {
+                    decideAppeal.reset();
+                    setAppealReview(a);
+                  }}
+                >
+                  {t("admin.users.appeals.review")}
+                </button>
               </div>
             ))}
           </div>
         </section>
       )}
+      {canReadAppeals && !appealDenied && appealReview && (
+        <ProfileDialog
+          title={`${t("admin.users.appeals.review")} · ${nameFor(appealReview.name)}`}
+          pending={decideAppeal.isPending || appealRefreshing}
+          onClose={() => setAppealReview(null)}
+        >
+          <div className="space-y-4">
+            {appealReview.affiliation && (
+              <p className="muted">{appealReview.affiliation}</p>
+            )}
+            <section aria-label={t("admin.users.appeals.message")}>
+              <h3 className="font-semibold">
+                {t("admin.users.appeals.message")}
+              </h3>
+              <p className="mt-2 [overflow-wrap:anywhere] whitespace-pre-wrap">
+                {appealReview.message}
+              </p>
+            </section>
+            {/* Decisions stay beside complete original evidence, within the
+                existing server-authorized mutation and its pending lifetime. */}
+            <FormActions>
+              {(["APPROVE", "DENY"] as const).map((action) => (
+                <Button
+                  key={action}
+                  variant={action === "APPROVE" ? "primary" : "secondary"}
+                  disabled={
+                    decideAppeal.isPending ||
+                    appealRefreshing ||
+                    appealRefreshFailed ||
+                    acceptedAppeals.has(appealReview.id) ||
+                    !!appeals.error ||
+                    !!accounts.error
+                  }
+                  onClick={() => {
+                    if (
+                      appealAdmission.current ||
+                      acceptedAppeals.has(appealReview.id) ||
+                      appealRefreshFailed ||
+                      appeals.error ||
+                      accounts.error
+                    )
+                      return;
+                    appealAdmission.current = true;
+                    decideAppeal.mutate({ appealId: appealReview.id, action });
+                  }}
+                >
+                  {t(
+                    action === "APPROVE"
+                      ? "admin.users.appeals.approve"
+                      : "admin.users.appeals.deny",
+                  )}
+                </Button>
+              ))}
+            </FormActions>
+            {decideAppeal.error && (
+              <p role="alert" className="text-sm text-red-700">
+                {decideAppeal.error.message}
+              </p>
+            )}
+            {appealRefreshFailed && (
+              <InlineNotice
+                tone="warning"
+                announcement="alert"
+                action={
+                  <Button
+                    disabled={appealRefreshing}
+                    onClick={() => void refreshAppeals()}
+                  >
+                    {t("managementRecovery.retry", {
+                      section: t("admin.users.appeals.heading"),
+                    })}
+                  </Button>
+                }
+              >
+                {t("admin.users.appeals.refreshFailed")}
+              </InlineNotice>
+            )}
+          </div>
+        </ProfileDialog>
+      )}
+      {canReadAppeals &&
+        !appealDenied &&
+        !appealReview &&
+        appealRefreshFailed && (
+          <InlineNotice
+            tone="warning"
+            announcement="alert"
+            action={
+              <Button
+                disabled={appealRefreshing}
+                onClick={() => void refreshAppeals()}
+              >
+                {t("managementRecovery.retry", {
+                  section: t("admin.users.appeals.heading"),
+                })}
+              </Button>
+            }
+          >
+            {t("admin.users.appeals.refreshFailed")}
+          </InlineNotice>
+        )}
 
       {assignUsername.error && (
         <p role="alert" className="text-sm text-red-600">
@@ -556,7 +829,9 @@ export default function UsersPage() {
                   {/* Identity contains names and the handle; all row actions live in the last column. */}
                   <td>
                     <div className="leading-tight">
-                      <p className="font-medium text-slate-900">{u.name}</p>
+                      <p className="font-medium text-slate-900">
+                        {nameFor(u.name, u.username)}
+                      </p>
                       {(u.username ?? u.tutor?.username) ? (
                         <p className="muted text-xs">
                           @{u.username ?? u.tutor?.username}
@@ -573,10 +848,12 @@ export default function UsersPage() {
                     </div>
                   </td>
 
-                  <td className="max-w-56">
+                  <td className="max-w-56 min-w-32">
                     <LoginSetup account={u.account} suspended={u.suspended} />
                   </td>
-                  <td className="max-w-56">
+                  {/* Measured 68px mobile columns fragmented Chinese role labels.
+                      Keep readable columns inside the existing local scroll region. */}
+                  <td className="max-w-56 min-w-40">
                     <MembershipBadges membership={accountMembership(u)} />
                   </td>
 
@@ -612,11 +889,13 @@ export default function UsersPage() {
                             reinstateUser.mutate({ userId: u.userId })
                           }
                         >
-                          {isHead ? t("admin.users.reinstate") : t("approvals.requestHead")}
+                          {isHead
+                            ? t("admin.users.reinstate")
+                            : t("approvals.requestHead")}
                         </TableAction>
                       ) : (
                         <TableAction
-                          className="text-red-600"
+                          variant="danger"
                           disabled={suspendUser.isPending}
                           onClick={async () => {
                             const reason = await promptText({
@@ -660,7 +939,7 @@ export default function UsersPage() {
                             if (
                               await confirmUsername({
                                 title: t("identityUsername.assignTitle", {
-                                  name: u.name,
+                                  name: nameFor(u.name, u.username),
                                 }),
                                 message: t("identityUsername.assignHelp"),
                                 confirmLabel: t("identityUsername.assign"),
@@ -675,7 +954,7 @@ export default function UsersPage() {
                       )}
                     {isHead && u.userId && !u.isSelf && u.role !== "HEAD" ? (
                       <TableAction
-                        className="text-red-600"
+                        variant="danger"
                         onClick={() => {
                           const userId = u.userId;
                           if (!userId) return;
@@ -683,7 +962,7 @@ export default function UsersPage() {
                           setConfirm({
                             title: t("admin.users.confirm.deleteTitle"),
                             body: t("admin.users.confirm.deleteBody", {
-                              name: u.name,
+                              name: nameFor(u.name, u.username),
                             }),
                             confirmLabel: t("admin.users.delete"),
                             run: (pwd) =>
@@ -725,6 +1004,9 @@ export default function UsersPage() {
           error={confirmError}
           onCancel={closeConfirm}
           onConfirm={(pwd) => {
+            if (deletionAdmission.current || deleteUser.isPending) return;
+            deletionAdmission.current = true;
+            setDeletionAdmitted(true);
             setConfirmError(null);
             confirm.run(pwd);
           }}

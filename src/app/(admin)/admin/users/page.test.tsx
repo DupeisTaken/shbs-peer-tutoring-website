@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -9,19 +10,54 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import messages from "../../../../../messages/en.json";
 import { emptyUserFilters, type UserFilters } from "~/lib/user-filters";
 import UsersPage from "./page";
+import { SessionViewProvider } from "~/app/_components/session-view-state";
+import { viewStateKey, writeViewState } from "~/lib/session-view-state";
+import {
+  userDirectoryView,
+  userDirectoryFilters,
+  type UserDirectoryView,
+} from "~/lib/management-view-state";
 vi.mock("~/app/_components/combine-accounts", () => ({
   CombineAccounts: () => <div>Head combine controls</div>,
 }));
 
+type DeleteCallbacks = {
+  onSuccess: () => void;
+  onError: (error: { message: string }) => void;
+  onSettled: () => void;
+};
 const fixture = vi.hoisted(() => ({
   viewerId: "synthetic-head",
   role: "HEAD",
+  targetSelf: false,
+  targetRole: "ADMIN",
+  accountsError: null as { message: string; data?: { code?: string } } | null,
+  accountsRefetch: vi.fn<() => Promise<void>>(),
+  delete: vi.fn<(input: { userId: string; confirmPassword: string }) => void>(),
+  deleteCallbacks: undefined as DeleteCallbacks | undefined,
   assign: vi.fn(),
   confirm: vi.fn().mockResolvedValue(true),
+  appeals: [] as {
+    id: string;
+    name: string;
+    message: string;
+    affiliation: string | null;
+    createdAt: Date;
+    userId: string;
+  }[],
+  appealError: null as null | { message: string; data?: { code?: string } },
+  decisionError: null as null | { message: string },
+  decisionPending: false,
+  decision: vi.fn(),
+  refresh: vi.fn<() => Promise<void>>(),
+  refetch: vi.fn(),
+  completion: undefined as undefined | (() => Promise<void>),
 }));
+vi.mock("@trpc/react-query", () => ({ getQueryKey: () => ["appeal-test"] }));
 vi.mock("~/trpc/react", () => {
   const mutation = {
     useMutation: () => ({ mutate: vi.fn(), isPending: false }),
@@ -31,8 +67,8 @@ vi.mock("~/trpc/react", () => {
       useUtils: () => ({
         account: { me: { invalidate: vi.fn() } },
         admin: {
-          accounts: { invalidate: vi.fn() },
-          appeals: { invalidate: vi.fn() },
+          accounts: { invalidate: fixture.refresh },
+          appeals: { invalidate: fixture.refresh },
         },
       }),
       admin: {
@@ -43,6 +79,10 @@ vi.mock("~/trpc/react", () => {
         },
         accounts: {
           useQuery: () => ({
+            error: fixture.accountsError,
+            isSuccess: !fixture.accountsError,
+            refetch: fixture.accountsRefetch,
+            isFetching: false,
             data: {
               caller: { id: fixture.viewerId, role: fixture.role },
               rows: [
@@ -80,7 +120,8 @@ vi.mock("~/trpc/react", () => {
                 {
                   userId: "synthetic-management",
                   name: "Management account",
-                  role: "ADMIN",
+                  isSelf: fixture.targetSelf,
+                  role: fixture.targetRole,
                   tutorId: null,
                   tutorStatus: null,
                   tuteeMember: false,
@@ -121,14 +162,46 @@ vi.mock("~/trpc/react", () => {
             },
           }),
         },
-        appeals: { useQuery: () => ({ data: [] }) },
+        appeals: {
+          useQuery: () => ({
+            data: fixture.appeals,
+            error: fixture.appealError,
+            isSuccess: !fixture.appealError,
+            isFetching: false,
+            refetch: fixture.refetch,
+          }),
+        },
         backfillStudentUsernames: {
           useMutation: () => ({ mutate: fixture.assign, isPending: false }),
         },
-        deleteUser: mutation,
+        deleteUser: {
+          useMutation: (options: DeleteCallbacks) => {
+            fixture.deleteCallbacks = options;
+            return { mutate: fixture.delete, isPending: false };
+          },
+        },
         suspendUser: mutation,
         reinstateUser: mutation,
-        decideAppeal: mutation,
+        decideAppeal: {
+          useMutation: (options: {
+            onSuccess: (
+              result: unknown,
+              input: { appealId: string; action: string },
+            ) => Promise<void>;
+            onSettled: () => void;
+          }) => ({
+            mutate: (input: { appealId: string; action: string }) => {
+              fixture.decision(input);
+              fixture.completion = async () => {
+                await options.onSuccess({}, input);
+                options.onSettled();
+              };
+            },
+            isPending: fixture.decisionPending,
+            error: fixture.decisionError,
+            reset: vi.fn(),
+          }),
+        },
         sendTutorSetup: mutation,
       },
     },
@@ -155,13 +228,38 @@ vi.mock("~/app/_components/confirm-dialog", () => ({
   }),
 }));
 
-const storageKey = "shbs:user-filters:synthetic-head:v1";
-const mount = () =>
-  render(
-    <NextIntlClientProvider locale="en" messages={messages}>
-      <UsersPage />
-    </NextIntlClientProvider>,
+const oldStorageKey = "shbs:user-filters:synthetic-head:v1";
+const storageKey = viewStateKey(
+  "synthetic-head:HEAD",
+  "/admin/users",
+  "user-directory-v1",
+  "",
+);
+const seedFilters = (saved: UserFilters) =>
+  writeViewState(sessionStorage, storageKey, {
+    ...userDirectoryView(saved),
+    statusInclude: saved.status.include,
+    statusExclude: saved.status.exclude,
+  });
+const storedFilters = () =>
+  userDirectoryFilters(
+    JSON.parse(sessionStorage.getItem(storageKey)!) as UserDirectoryView,
   );
+let queryClient: QueryClient;
+const wrapper = ({ children }: { children: React.ReactNode }) => (
+  <QueryClientProvider client={queryClient}>
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <SessionViewProvider
+        identity={`${fixture.viewerId}:${fixture.role}`}
+        pathname="/admin/users"
+        verified
+      >
+        {children}
+      </SessionViewProvider>
+    </NextIntlClientProvider>
+  </QueryClientProvider>
+);
+const mount = () => render(<UsersPage />, { wrapper });
 const statusControl = () =>
   screen.queryByText(messages.admin.users.filters.status, {
     selector: "summary",
@@ -173,15 +271,150 @@ const openRole = () =>
     }),
   );
 beforeEach(() => {
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   localStorage.clear();
+  sessionStorage.clear();
   fixture.viewerId = "synthetic-head";
   fixture.role = "HEAD";
+  fixture.accountsError = null;
+  fixture.accountsRefetch.mockReset().mockResolvedValue(undefined);
+  fixture.targetSelf = false;
+  fixture.targetRole = "ADMIN";
+  fixture.delete.mockClear();
+  fixture.deleteCallbacks = undefined;
   fixture.assign.mockClear();
   fixture.confirm.mockClear();
+  fixture.appeals = [];
+  fixture.appealError = null;
+  fixture.decisionError = null;
+  fixture.decisionPending = false;
+  fixture.decision.mockClear();
+  fixture.refresh.mockReset().mockResolvedValue(undefined);
+  fixture.refetch.mockReset();
+  fixture.completion = undefined;
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = true;
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = false;
+    },
+  });
 });
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+});
+
+const fullAppeal =
+  "Original appeal first paragraph.\n\n" +
+  "Supporting explanation with the complete original circumstances. ".repeat(
+    12,
+  );
+const seedAppeal = () => {
+  fixture.appeals = [
+    {
+      id: "appeal",
+      name: "Appealing student",
+      message: fullAppeal,
+      affiliation: "Grade 10",
+      createdAt: new Date(),
+      userId: "student",
+    },
+  ];
+};
+
+it("reads the complete appeal before offering decisions and restores its opener on Escape", () => {
+  seedAppeal();
+  mount();
+  expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+  const opener = screen.getByRole("button", { name: "Review appeal" });
+  opener.focus();
+  fireEvent.click(opener);
+  const dialog = screen.getByRole("dialog", {
+    name: "Review appeal · Appealing student",
+  });
+  expect(
+    within(dialog).getByText(/Original appeal first paragraph/).textContent,
+  ).toBe(fullAppeal);
+  expect(fixture.decision).not.toHaveBeenCalled();
+  fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(opener);
+});
+
+it("blocks dismissal and repeated decisions while the appeal write is pending", () => {
+  seedAppeal();
+  const view = mount();
+  fireEvent.click(screen.getByRole("button", { name: "Review appeal" }));
+  const approve = screen.getByRole("button", { name: "Approve" });
+  fireEvent.click(approve);
+  fireEvent.click(approve);
+  expect(fixture.decision).toHaveBeenCalledExactlyOnceWith({
+    appealId: "appeal",
+    action: "APPROVE",
+  });
+  fixture.decisionPending = true;
+  view.rerender(<UsersPage />);
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Close" }).disabled,
+  ).toBe(true);
+  expect(approve.matches(":disabled")).toBe(true);
+  const dialog = screen.getByRole("dialog");
+  fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  expect(screen.getByRole("dialog")).toBe(dialog);
+});
+
+it("retains a failed decision and recovers an accepted decision with reads only", async () => {
+  seedAppeal();
+  const view = mount();
+  fireEvent.click(screen.getByRole("button", { name: "Review appeal" }));
+  fixture.decisionError = { message: "Synthetic decision failure" };
+  view.rerender(<UsersPage />);
+  expect(screen.getByText("Synthetic decision failure")).toBeTruthy();
+  expect(screen.getByText(/Original appeal first paragraph/).textContent).toBe(
+    fullAppeal,
+  );
+  fixture.decisionError = null;
+  fixture.refresh.mockRejectedValue(new Error("Synthetic refresh failure"));
+  view.rerender(<UsersPage />);
+  fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+  await act(async () => {
+    await fixture.completion?.();
+  });
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Approve" }).disabled,
+  ).toBe(true);
+  expect(screen.getByRole("alert").textContent).toContain("decision was saved");
+  fixture.refresh.mockResolvedValue(undefined);
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /Retry.*appeals/i }));
+  });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(fixture.decision).toHaveBeenCalledOnce();
+});
+
+it("evicts denied appeals and does not reveal stale evidence after a network failure", () => {
+  seedAppeal();
+  queryClient.setQueryData(["appeal-test"], fixture.appeals);
+  const view = mount();
+  fireEvent.click(screen.getByRole("button", { name: "Review appeal" }));
+  fixture.appealError = { message: "Denied", data: { code: "FORBIDDEN" } };
+  view.rerender(<UsersPage />);
+  expect(screen.queryByText(/Original appeal first paragraph/)).toBeNull();
+  expect(queryClient.getQueryData(["appeal-test"])).toBeUndefined();
+  fixture.appealError = { message: "Network failure" };
+  view.rerender(<UsersPage />);
+  expect(screen.queryByRole("button", { name: "Review appeal" })).toBeNull();
+  fixture.appealError = null;
+  view.rerender(<UsersPage />);
+  expect(screen.getByRole("button", { name: "Review appeal" })).toBeTruthy();
 });
 
 it("keeps full academic details out of the compact account table", () => {
@@ -214,14 +447,14 @@ it("keeps full academic details out of the compact account table", () => {
 it("reveals past tutors, preserves account filters, persists and clears back to the default", () => {
   const saved = emptyUserFilters();
   saved.account.include = ["none"];
-  localStorage.setItem(storageKey, JSON.stringify(saved));
+  seedFilters(saved);
   mount();
   expect(screen.queryByText("@pasttutor")).toBeNull();
   fireEvent.click(
     screen.getByRole("button", { name: messages.tuteeHistory.showHistorical }),
   );
   expect(screen.getByText("@pasttutor")).toBeTruthy();
-  const stored = JSON.parse(localStorage.getItem(storageKey)!) as UserFilters;
+  const stored = storedFilters();
   expect(stored.account.include).toEqual(["none"]);
   expect(stored.showPastTutors).toBe(true);
   cleanup();
@@ -261,9 +494,7 @@ it("shows status for Tutor-only, then clears it on mixed selection and Tutor exc
   fireEvent.click(screen.getByRole("checkbox", { name: "Include Admin" }));
   expect(statusControl()).toBeNull();
   expect(screen.queryByText("Management account")).not.toBeNull();
-  expect(
-    (JSON.parse(localStorage.getItem(storageKey)!) as UserFilters).status,
-  ).toEqual({ include: [], exclude: [] });
+  expect(storedFilters().status).toEqual({ include: [], exclude: [] });
   fireEvent.click(screen.getByRole("checkbox", { name: "Include Admin" }));
   fireEvent.click(statusControl()!);
   expect(
@@ -273,29 +504,25 @@ it("shows status for Tutor-only, then clears it on mixed selection and Tutor exc
   fireEvent.click(screen.getByRole("checkbox", { name: "Include Active" }));
   fireEvent.click(screen.getByRole("checkbox", { name: "Exclude Tutor" }));
   expect(statusControl()).toBeNull();
-  expect(
-    (JSON.parse(localStorage.getItem(storageKey)!) as UserFilters).status,
-  ).toEqual({ include: [], exclude: [] });
+  expect(storedFilters().status).toEqual({ include: [], exclude: [] });
 });
 
 it("repairs stale saved status before it can remove unrestricted results", () => {
   const saved = emptyUserFilters();
   saved.status.include = ["PENDING"];
-  localStorage.setItem(storageKey, JSON.stringify(saved));
+  seedFilters(saved);
   mount();
   expect(statusControl()).toBeNull();
   expect(screen.queryByText("Combined account")).not.toBeNull();
   expect(screen.queryByText("Management account")).not.toBeNull();
-  expect(
-    (JSON.parse(localStorage.getItem(storageKey)!) as UserFilters).status,
-  ).toEqual({ include: [], exclude: [] });
+  expect(storedFilters().status).toEqual({ include: [], exclude: [] });
 });
 
 it("restores applicable status and resets visibility when all filters are cleared", () => {
   const saved = emptyUserFilters();
   saved.role.include = ["TUTOR"];
   saved.status.include = ["ACTIVE"];
-  localStorage.setItem(storageKey, JSON.stringify(saved));
+  seedFilters(saved);
   mount();
   expect(statusControl()).not.toBeNull();
   expect(screen.queryByText("Combined account")).not.toBeNull();
@@ -353,7 +580,7 @@ it("shares compact text styling across details, edit, username assignment and de
   for (const action of actions)
     expect(action.classList.contains("table-action-link")).toBe(true);
   expect(actions[2]!.textContent).toBe(messages.identityUsername.assign);
-  expect(actions[3]!.classList.contains("text-red-600")).toBe(true);
+  expect(actions[3]!.classList.contains("table-action-danger")).toBe(true);
 });
 
 it("reveals unverified accounts explicitly and resets the saved choice", () => {
@@ -363,10 +590,7 @@ it("reveals unverified accounts explicitly and resets the saved choice", () => {
     screen.getByRole("button", { name: messages.tuteeHistory.showUnverified }),
   );
   expect(screen.getByText("Unverified student")).toBeTruthy();
-  expect(
-    (JSON.parse(localStorage.getItem(storageKey)!) as UserFilters)
-      .showUnverified,
-  ).toBe(true);
+  expect(storedFilters().showUnverified).toBe(true);
   fireEvent.click(
     screen.getByRole("button", { name: messages.userMultiFilters.clear }),
   );
@@ -377,5 +601,274 @@ it("keeps account profiles and ranks out of Coordinator edit actions", () => {
   fixture.role = "COORDINATOR";
   mount();
   const management = screen.getByText("Management account").closest("tr")!;
-  expect(within(management).queryByRole("button", { name: messages.accountProfile.editProfile })).toBeNull();
+  expect(
+    within(management).queryByRole("button", {
+      name: messages.accountProfile.editProfile,
+    }),
+  ).toBeNull();
+});
+
+it("composes saved identity search with existing roster scope and restores it on clear", () => {
+  mount();
+  const search = screen.getByRole("searchbox", {
+    name: messages.rosterSearch.label,
+  });
+  fireEvent.change(search, { target: { value: "pasttutor" } });
+  expect(screen.getByText(messages.rosterSearch.noMatches)).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.tuteeHistory.showHistorical }),
+  );
+  expect(screen.getByRole("table").textContent).toContain("Past tutor");
+  expect(screen.getByRole("table").textContent).not.toContain(
+    "Combined account",
+  );
+  fireEvent.change(search, { target: { value: "missing synthetic identity" } });
+  expect(screen.getByText(messages.rosterSearch.noMatches)).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.rosterSearch.clear }),
+  );
+  expect(screen.getByRole("table").textContent).toContain("Combined account");
+});
+
+const openDeletion = () => {
+  const row = screen.getByText("Management account").closest("tr")!;
+  const opener = within(row).getByRole<HTMLButtonElement>("button", {
+    name: messages.admin.users.delete,
+  });
+  opener.focus();
+  fireEvent.click(opener);
+  return opener;
+};
+it("names the deletion dialog and binds a fresh password; idle Escape restores its opener", async () => {
+  mount();
+  const opener = openDeletion();
+  const dialog = screen.getByRole("dialog", {
+    name: messages.admin.users.confirm.deleteTitle,
+  });
+  expect(dialog.getAttribute("aria-describedby")).toBeTruthy();
+  expect(dialog.textContent).toContain("Management account");
+  const password = screen.getByLabelText<HTMLInputElement>(
+    messages.admin.users.confirm.passwordLabel,
+  );
+  expect(password.value).toBe("");
+  expect(document.activeElement).toBe(password);
+  expect(
+    within(dialog).getByRole<HTMLButtonElement>("button", {
+      name: messages.admin.users.delete,
+    }).disabled,
+  ).toBe(true);
+  fireEvent.submit(password.closest("form")!);
+  expect(fixture.delete).not.toHaveBeenCalled();
+  fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  await waitFor(() => expect(document.activeElement).toBe(opener));
+  openDeletion();
+  expect(
+    screen.getByLabelText<HTMLInputElement>(
+      messages.admin.users.confirm.passwordLabel,
+    ).value,
+  ).toBe("");
+});
+it("admits a native deletion submission once and preserves rejection correction", () => {
+  mount();
+  openDeletion();
+  const password = screen.getByLabelText<HTMLInputElement>(
+    messages.admin.users.confirm.passwordLabel,
+  );
+  fireEvent.change(password, { target: { value: "synthetic password" } });
+  const form = password.closest("form")!;
+  act(() => {
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+  });
+  expect(fixture.delete).toHaveBeenCalledExactlyOnceWith({
+    userId: "synthetic-management",
+    confirmPassword: "synthetic password",
+  });
+  expect(password.matches(":disabled")).toBe(true);
+  const dialog = screen.getByRole("dialog");
+  fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  expect(screen.getByRole("dialog")).toBe(dialog);
+  act(() => {
+    fixture.deleteCallbacks!.onError({ message: "Password rejected" });
+    fixture.deleteCallbacks!.onSettled();
+  });
+  expect(password.matches(":disabled")).toBe(false);
+  expect(password.value).toBe("synthetic password");
+  expect(screen.getByRole("alert").textContent).toBe("Password rejected");
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: messages.admin.users.confirm.cancel,
+    }),
+  );
+  openDeletion();
+  expect(
+    screen.getByLabelText<HTMLInputElement>(
+      messages.admin.users.confirm.passwordLabel,
+    ).value,
+  ).toBe("");
+});
+it("closes accepted deletion and refreshes once without replaying the write", () => {
+  mount();
+  openDeletion();
+  const password = screen.getByLabelText<HTMLInputElement>(
+    messages.admin.users.confirm.passwordLabel,
+  );
+  fireEvent.change(password, { target: { value: "synthetic password" } });
+  fireEvent.submit(password.closest("form")!);
+  act(() => {
+    fixture.deleteCallbacks!.onSuccess();
+    fixture.deleteCallbacks!.onSettled();
+  });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(fixture.refresh).toHaveBeenCalledTimes(1);
+  expect(fixture.delete).toHaveBeenCalledTimes(1);
+});
+it.each(["ADMIN", "COORDINATOR", "VIEWER"])(
+  "offers no account deletion to %s",
+  (role) => {
+    fixture.role = role;
+    mount();
+    expect(
+      screen.queryByRole("button", { name: messages.admin.users.delete }),
+    ).toBeNull();
+  },
+);
+it.each(["self", "head"])(
+  "withholds account deletion for a %s target",
+  (kind) => {
+    fixture.targetSelf = kind === "self";
+    fixture.targetRole = kind === "head" ? "HEAD" : "ADMIN";
+    mount();
+    expect(
+      within(screen.getByText("Management account").closest("tr")!).queryByRole(
+        "button",
+        { name: messages.admin.users.delete },
+      ),
+    ).toBeNull();
+  },
+);
+
+it("recovers only account reads after accepted deletion followed by refresh failure", () => {
+  const view = mount();
+  openDeletion();
+  const password = screen.getByLabelText<HTMLInputElement>(
+    messages.admin.users.confirm.passwordLabel,
+  );
+  fireEvent.change(password, { target: { value: "synthetic password" } });
+  // Query invalidation resolves normally while its retained query reports a failed refetch.
+  fixture.refresh.mockImplementation(async () => {
+    fixture.accountsError = { message: "Synthetic account refresh failure" };
+  });
+  fireEvent.submit(password.closest("form")!);
+  act(() => {
+    fixture.deleteCallbacks!.onSuccess();
+    fixture.deleteCallbacks!.onSettled();
+  });
+  view.rerender(<UsersPage />);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByText(messages.uiPatterns.loadFailed)).toBeTruthy();
+  expect(fixture.delete).toHaveBeenCalledTimes(1);
+  expect(fixture.refresh).toHaveBeenCalledTimes(1);
+  fixture.accountsRefetch.mockImplementation(async () => {
+    fixture.accountsError = null;
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.uiPatterns.retry }),
+  );
+  view.rerender(<UsersPage />);
+  expect(fixture.accountsRefetch).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText(messages.uiPatterns.loadFailed)).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(fixture.delete).toHaveBeenCalledTimes(1);
+  expect(fixture.refresh).toHaveBeenCalledTimes(1);
+});
+
+it("ignores former cross-session preferences and never migrates them", () => {
+  const old = {
+    ...emptyUserFilters(),
+    showPastTutors: true,
+    showUnverified: true,
+  };
+  localStorage.setItem(oldStorageKey, JSON.stringify(old));
+  mount();
+  expect(screen.queryByText("@pasttutor")).toBeNull();
+  expect(screen.queryByText("Unverified student")).toBeNull();
+  expect(localStorage.getItem(oldStorageKey)).toBe(JSON.stringify(old));
+});
+it("restores current search and sort without retaining deletion passwords or open dialogs", () => {
+  const view = mount();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.users.columns.user }),
+  );
+  openDeletion();
+  fireEvent.change(
+    screen.getByLabelText(messages.admin.users.confirm.passwordLabel),
+    { target: { value: "unsaved-secret" } },
+  );
+  view.unmount();
+  mount();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  const sortKey = viewStateKey(
+    "synthetic-head:HEAD",
+    "/admin/users",
+    "users-sort-v1",
+    "",
+  );
+  expect(JSON.parse(sessionStorage.getItem(sortKey)!)).toEqual({
+    key: "name",
+    dir: "desc",
+  });
+  fireEvent.change(screen.getByRole("searchbox"), {
+    target: { value: "Combined" },
+  });
+  cleanup();
+  mount();
+  expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe(
+    "Combined",
+  );
+  expect(screen.getByRole("table").textContent).toContain("Combined account");
+  expect(screen.getByRole("table").textContent).not.toContain(
+    "Management account",
+  );
+  expect(JSON.stringify(sessionStorage)).not.toContain("unsaved-secret");
+  expect(fixture.delete).not.toHaveBeenCalled();
+});
+it("keeps the original unbounded directory input through other filters and drops stale persisted criteria", () => {
+  const view = mount();
+  const input = screen.getByRole<HTMLInputElement>("searchbox");
+  expect(input.hasAttribute("maxlength")).toBe(false);
+  fireEvent.change(input, { target: { value: "Combined" } });
+  const long = "synthetic directory query ".repeat(200);
+  fireEvent.change(input, { target: { value: long } });
+  fireEvent.click(screen.getByRole("button", { name: messages.tuteeHistory.showHistorical }));
+  expect(input.value).toBe(long);
+  expect(sessionStorage.getItem(storageKey)).toBeNull();
+  expect(Object.keys(sessionStorage).some((key) => key.includes(long))).toBe(false);
+  view.unmount();
+  mount();
+  expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe("");
+  expect(fixture.delete).not.toHaveBeenCalled();
+});
+it("clears remembered directory criteria on denial and waits for a successful read", () => {
+  const view = mount();
+  fireEvent.change(screen.getByRole("searchbox"), {
+    target: { value: "Combined" },
+  });
+  fixture.accountsError = { message: "Denied", data: { code: "FORBIDDEN" } };
+  view.rerender(<UsersPage />);
+  expect(screen.queryByRole("table")).toBeNull();
+  expect(sessionStorage.getItem(storageKey)).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.uiPatterns.retry }),
+  );
+  expect(fixture.accountsRefetch).toHaveBeenCalledOnce();
+  fixture.accountsError = { message: "Network failure" };
+  view.rerender(<UsersPage />);
+  expect(screen.queryByRole("table")).toBeNull();
+  fixture.accountsError = null;
+  view.rerender(<UsersPage />);
+  expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe("");
+  expect(fixture.delete).not.toHaveBeenCalled();
+  expect(fixture.decision).not.toHaveBeenCalled();
 });

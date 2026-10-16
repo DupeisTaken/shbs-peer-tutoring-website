@@ -6,6 +6,11 @@ import { getQueryKey } from "@trpc/react-query";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
+import {
+  evidenceChildPath,
+  recordedEvidenceDiff,
+  type RecordedEvidenceChange,
+} from "~/lib/recorded-evidence-diff";
 import { Button } from "./ui/button";
 import { DisclosureSection } from "./ui/disclosure-section";
 import { InlineNotice, StatePanel } from "./ui/patterns";
@@ -26,12 +31,62 @@ function StoredEvidenceJson({ value }: { value: unknown }) {
 
 /** Display only recorded evidence. Unknown keys remain verbatim, so a legacy
  * payload cannot be mistaken for a reconstructed current record or a new diff. */
+/** Difference markers decorate the original reader; they never replace stored values. */
 function EvidenceValue({
   value,
   depth = 0,
+  path = "",
+  changes,
 }: {
   value: unknown;
   depth?: number;
+  path?: string;
+  changes?: ReadonlyMap<string, RecordedEvidenceChange>;
+}) {
+  const t = useTranslations("auditEventDetails");
+  const change =
+    changes?.get(path) ??
+    (depth >= 4 &&
+    changes &&
+    [...changes.keys()].some((key) => key.startsWith(`${path}/`))
+      ? "changed"
+      : undefined);
+  const colors = {
+    added: "border-emerald-300 bg-emerald-50",
+    removed: "border-red-300 bg-red-50",
+    changed: "border-amber-300 bg-amber-50",
+  };
+  return (
+    <div
+      className={
+        change ? "min-w-0 rounded-md border p-2 " + colors[change] : "min-w-0"
+      }
+    >
+      {change && (
+        <p className="mb-1 text-xs font-semibold text-slate-800">
+          {t("difference." + change)}
+        </p>
+      )}
+      <EvidenceContent
+        value={value}
+        depth={depth}
+        path={path}
+        changes={changes}
+      />
+    </div>
+  );
+}
+
+function EvidenceContent({
+  value,
+  depth = 0,
+  path = "",
+  changes,
+}: {
+  value: unknown;
+  depth?: number;
+  path?: string;
+  changes?: ReadonlyMap<string, RecordedEvidenceChange>;
 }) {
   const t = useTranslations("auditEventDetails");
   if (value === undefined)
@@ -69,11 +124,35 @@ function EvidenceValue({
       <ol className="list-decimal space-y-3 pl-5">
         {value.map((item: unknown, index) => (
           <li key={index} className="min-w-0 pl-1">
-            <EvidenceValue value={item} depth={depth + 1} />
+            <EvidenceValue
+              value={item}
+              depth={depth + 1}
+              path={evidenceChildPath(path, String(index))}
+              changes={changes}
+            />
           </li>
         ))}
       </ol>
     );
+  }
+  // Canonical audit batches record changes[n].before/after beside entity/write
+  // context. Discover each recorded pair locally, rather than assuming one root
+  // snapshot or reconstructing a record from current application data.
+  const pair = value as Record<string, unknown>;
+  let nestedChanges = changes;
+  if (Object.hasOwn(pair, "before") || Object.hasOwn(pair, "after")) {
+    const comparison = recordedEvidenceDiff(
+      pair.before,
+      pair.after,
+      Object.hasOwn(pair, "before"),
+      Object.hasOwn(pair, "after"),
+    );
+    const combined = new Map(changes);
+    for (const [child, change] of comparison) {
+      for (const side of ["before", "after"] as const)
+        combined.set(`${evidenceChildPath(path, side)}${child}`, change);
+    }
+    nestedChanges = combined;
   }
   return (
     <dl className="space-y-3">
@@ -83,7 +162,12 @@ function EvidenceValue({
             {key === "before" || key === "after" ? t(key) : key}
           </dt>
           <dd className="min-w-0">
-            <EvidenceValue value={item} depth={depth + 1} />
+            <EvidenceValue
+              value={item}
+              depth={depth + 1}
+              path={evidenceChildPath(path, key)}
+              changes={nestedChanges}
+            />
           </dd>
         </div>
       ))}
@@ -184,6 +268,14 @@ export function AuditEventDetails({ id }: { id: string }) {
   const hasComparison =
     evidence !== null &&
     (Object.hasOwn(evidence, "before") || Object.hasOwn(evidence, "after"));
+  const differences = hasComparison
+    ? recordedEvidenceDiff(
+        evidence.before,
+        evidence.after,
+        Object.hasOwn(evidence, "before"),
+        Object.hasOwn(evidence, "after"),
+      )
+    : undefined;
   const context = hasComparison
     ? Object.fromEntries(
         Object.entries(evidence).filter(
@@ -261,7 +353,10 @@ export function AuditEventDetails({ id }: { id: string }) {
                     {t(side)}
                   </h4>
                   <div className="whitespace-pre-wrap">
-                    <EvidenceValue value={evidence[side]} />
+                    <EvidenceValue
+                      value={evidence[side]}
+                      changes={differences}
+                    />
                   </div>
                 </section>
               ))}

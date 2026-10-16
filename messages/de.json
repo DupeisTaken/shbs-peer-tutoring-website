@@ -29,7 +29,9 @@
     "slot": "Zeitfenster",
     "room": "Raum",
     "select": "Auswählen",
-    "selected": "Ausgewählt"
+    "selected": "Ausgewählt",
+    "noRooms": "Noch keine Räume.",
+    "noSlots": "Noch keine Zeitfenster veröffentlicht."
   },
   "scheduling": {
     "awaiting": "Termin noch offen",
@@ -114,7 +116,10 @@
     "qualifiedOnly": "Your qualified subjects",
     "choiceHelp": "Choose what you would like to tutor right now.",
     "scheduleSeparate": "Your timetable is arranged separately.",
-    "savesAutomatically": "Changes save automatically"
+    "savesAutomatically": "Changes save automatically",
+    "edit": "Details bearbeiten",
+    "editTitle": "{tutor} · {subject}",
+    "refreshFailed": "Die Änderung wurde gespeichert. Aktualisieren Sie die Facheinträge, bevor Sie weitere Änderungen vornehmen."
   },
   "messaging": {
     "privacyTitle": "Private Deliveries, with Staff Oversight",
@@ -178,7 +183,7 @@
       "UNRESTRICT": "Access restored"
     },
     "rolePermissions": "Permissions by Role",
-    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "permissionHelp": "Ausgewählte Gruppen können Nachrichten erhalten. Eine Benutzer-Ausnahme ersetzt die Rollenrichtlinie; ohne Gruppen sind keine neuen Nachrichten möglich. Alle verfügbaren Konten schließt das eigene Konto, gesperrte Konten und Konten mit Nachrichteneinschränkungen aus. Frühere Betreuungsverhältnisse basieren auf gespeicherten Zuordnungen oder Anwesenheiten; nicht erfasste alte Zuordnungen lassen sich nicht rekonstruieren.",
     "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
@@ -197,7 +202,8 @@
     "ownInbox": "Your inbox",
     "replyContext": "Antwort an {name}",
     "cancelReply": "Antwort Abbrechen",
-    "replyDraftHelp": "Ihr vorheriger Entwurf bleibt erhalten. Beim Abbrechen bleibt auch dieser Antwortentwurf auf dieser Seite."
+    "replyDraftHelp": "Ihr vorheriger Entwurf bleibt erhalten. Beim Abbrechen bleibt auch dieser Antwortentwurf auf dieser Seite.",
+    "permissionsDestination": "Nachrichtenberechtigungen in den Programmeinstellungen"
   },
   "common": {
     "cancel": "Abbrechen",
@@ -412,8 +418,9 @@
       "help": "Standardzeit für jede Zuordnung festlegen (die tatsächlichen Sitzungszeiten werden beim Einreichen der Anwesenheit angegeben)."
     },
     "availability": {
-      "title": "Meine Verfügbarkeit",
-      "help": "Zeitfenster markieren, in denen Sie unterrichten können. Das hilft Koordinatoren bei der Planung."
+      "title": "Meine verfügbaren Zeiten",
+      "help": "Zeitfenster markieren, in denen Sie unterrichten können. Das hilft Koordinatoren bei der Planung.",
+      "edit": "Meine verfügbaren Zeiten bearbeiten"
     },
     "attendance": {
       "title": "Anwesenheit einreichen",
@@ -450,7 +457,10 @@
       "colRoom": "Raum",
       "colTutees": "Lernende",
       "edit": "Bearbeiten",
-      "delete": "Löschen"
+      "delete": "Löschen",
+      "searchTutees": "Lernende suchen",
+      "selectedTutees": "{count} ausgewählt",
+      "removeSelected": "{name} entfernen"
     },
     "tutors": {
       "title": "Tutoren",
@@ -539,7 +549,7 @@
     },
     "requests": {
       "title": "Anmeldeanträge (Lernende)",
-      "help": "Öffentliche Anmeldungen von Lernenden, die auf Zuweisung warten, nach Einreichungsdatum sortiert. Jedes Fachwunsch einem Tutor zuweisen – dadurch wird die Zuordnung erstellt, und der Tutor wählt anschließend das Zeitfenster.",
+      "help": "Prüfen Sie neue Anfragen, ordnen Sie Fächer zu und verfolgen Sie zugewiesene Schüler.",
       "noTerm": "Zuerst ein Semester anlegen, bevor Anträge zugewiesen werden können.",
       "decline": "Ablehnen",
       "declineConfirm": "Antrag von {name} ablehnen und löschen?",
@@ -568,7 +578,9 @@
         "name": "Name",
         "email": "E-Mail",
         "phone": "Telefon"
-      }
+      },
+      "emailVerifiedShort": "Bestätigt",
+      "emailUnverifiedShort": "Nicht bestätigt"
     },
     "readOnly": {
       "banner": "Schreibgeschützter Verwaltungszugang: Sie können freigegebene Übersichten einsehen; persönliche Kontaktdaten sind ausgeblendet."
@@ -586,7 +598,7 @@
         "activity": "Aktivität & Anfragen",
         "history": "Programmgeschichte",
         "announcements": "Ankündigungen",
-        "program": "Programm & Aktualisierung",
+        "program": "Programmeinstellungen",
         "tutorRoster": "Tutor-Liste",
         "tutorApplications": "Tutor-Bewerbungen",
         "tutorRequests": "Tutor-Statusanträge",
@@ -776,8 +788,8 @@
       }
     },
     "program": {
-      "title": "Programm & Aktualisierung",
-      "subtitle": "Der aktuelle Zeitraum und die quartalsweise Aktualisierung, die das Programm fortschreibt.",
+      "title": "Programmeinstellungen",
+      "subtitle": "Anmeldungen, Kontoeinstellungen, Bereitstellung und optionale Funktionen.",
       "loading": "Wird geladen…",
       "noPeriod": "Kein aktiver Programmzeitraum. Zuerst einen anlegen oder Seed ausführen.",
       "currentPeriod": "Aktueller Zeitraum",
@@ -841,6 +853,12 @@
           "VIEWER_SIGNUP": "Beobachter-Anmeldung",
           "EMAIL_2FA": "E-Mail-2FA"
         }
+      },
+      "panels": {
+        "period": "Anwerbung und Quartalswechsel",
+        "people": "Kontoeinstellungen",
+        "communication": "Bereitstellungskonfiguration",
+        "access": "Optionale Funktionen"
       }
     },
     "audit": {
@@ -915,7 +933,10 @@
       "appeals": {
         "heading": "Entsperrungs-Widersprüche",
         "approve": "Genehmigen",
-        "deny": "Ablehnen"
+        "deny": "Ablehnen",
+        "review": "Einspruch prüfen",
+        "message": "Ursprünglicher Einspruch",
+        "refreshFailed": "Die Entscheidung wurde gespeichert, aber das Konto oder die Einspruchsliste konnte nicht aktualisiert werden. Versuche die Aktualisierung erneut, ohne die Entscheidung nochmals abzusenden."
       }
     },
     "registrationCodes": {
@@ -997,7 +1018,13 @@
       "colStatus": "Status",
       "colTutees": "Lernende",
       "colSH": "SH",
-      "empty": "Keine Einträge für diesen Filter."
+      "empty": "Keine Einträge für diesen Filter.",
+      "monthLabel": "Monat",
+      "actualTime": "Erfasste Zeit",
+      "duration": "{minutes} Minuten",
+      "hourFactor": "Faktor: {factor}",
+      "selfEvaluation": "Selbsteinschätzung",
+      "comments": "Kommentare"
     },
     "meetings": {
       "title": "Tutor-Treffen",
@@ -1027,7 +1054,8 @@
         "tutor": "Tutor",
         "empty": "Noch keine Anwesenheit erfasst."
       },
-      "correctAttendance": "Submit attendance correction"
+      "correctAttendance": "Submit attendance correction",
+      "refreshFailed": "Die Anwesenheit wurde gespeichert, aber die Besprechungsliste konnte nicht aktualisiert werden. Versuche die Aktualisierung erneut, ohne die Anwesenheit nochmals abzusenden."
     },
     "timeslots": {
       "title": "Zeitfenster",
@@ -1118,7 +1146,8 @@
       "addRoom": "Raum hinzufügen",
       "empty": "Noch keine Räume.",
       "deleteConsequence": "This removes the room and its blocked periods. Rooms currently used by pairings cannot be deleted.",
-      "deleteRequestConsequence": "This submits a deletion request for management review. The room and its assignments remain unchanged until approval."
+      "deleteRequestConsequence": "This submits a deletion request for management review. The room and its assignments remain unchanged until approval.",
+      "editDetails": "Details bearbeiten"
     },
     "courses": {
       "title": "Fächer & Niveaus",
@@ -1224,7 +1253,9 @@
           "GRADUATED": "Graduated",
           "ARCHIVED": "Archived"
         }
-      }
+      },
+      "messageLabel": "Nachricht",
+      "create": "Neue Ankündigung"
     },
     "policies": {
       "title": "Richtliniendokumente",
@@ -1252,7 +1283,13 @@
         "editedBy": "von {who}",
         "saving": "Wird gespeichert…",
         "save": "Speichern",
-        "saved": "Gespeichert."
+        "saved": "Gespeichert.",
+        "titleLabel": "Dokumenttitel",
+        "versionLabel": "Version (optional)",
+        "bodyLabel": "Richtlinientext (Markdown)",
+        "unsaved": "Nicht gespeicherte Änderungen",
+        "refreshFailed": "Die Richtlinie wurde gespeichert, aber die Richtlinie oder der Versionsverlauf konnte nicht aktualisiert werden. Versuche die Aktualisierung erneut, bevor du weiterbearbeitest.",
+        "retryRefresh": "Aktualisierung erneut versuchen"
       },
       "studentTitle": "Richtlinie für Lernende",
       "tutorTitle": "Richtlinie für Tutoren"
@@ -1283,7 +1320,8 @@
         "title": "Delete hour adjustment?",
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
-      }
+      },
+      "create": "Neue Stundenkorrektur"
     },
     "applications": {
       "title": "Tutor-Bewerbungen",
@@ -1567,7 +1605,14 @@
       },
       "issuedHeading": "Ausgestellte Codes",
       "issuedHint": "Codes für angenommene Bewerber, die auf Registrierung warten. Das Widerrufen eines Codes unter Registrierungscodes bringt seine Bewerbung zurück in die Warteschlange.",
-      "issuedExpires": "Läuft ab am {date}"
+      "issuedExpires": "Läuft ab am {date}",
+      "originalApplication": "Ursprüngliche Bewerbung",
+      "originalRequest": "Ursprüngliche Anfrage",
+      "panels": {
+        "review": "Prüfung",
+        "roster": "Mitgliederliste",
+        "patrol": "Aufsichtseinstellungen"
+      }
     },
     "sessionFlags": {
       "title": "Anwesenheitsmarkierungen",
@@ -1587,7 +1632,19 @@
         "WARNED": "Verwarnt",
         "PENALIZED": "Abzug",
         "ESCALATED": "Eskaliert"
-      }
+      },
+      "filterLabel": "Prüfstatus der Anwesenheit",
+      "states": {
+        "PENDING": "Ausstehend",
+        "DISMISSED": "Verworfen",
+        "WARNED": "Verwarnt",
+        "PENALIZED": "Stunden abgezogen",
+        "ESCALATED": "Eskaliert",
+        "ALL": "Alle Status"
+      },
+      "resolved": "Geprüft von {name} · {date}",
+      "queued": "Entscheidung zur Genehmigung eingereicht",
+      "refreshFailed": "Die Entscheidung wurde gespeichert. Aktualisieren Sie die Einträge, um den aktuellen Prüfstatus zu sehen."
     },
     "landing": {
       "title": "Startseite",
@@ -1683,7 +1740,9 @@
         "insertImage": "Bild einfügen…",
         "preview": "Vorschau",
         "edit": "Bearbeiten",
-        "previewEmpty": "Noch nichts zur Vorschau."
+        "previewEmpty": "Noch nichts zur Vorschau.",
+        "titleLabel": "Titel",
+        "bodyLabel": "Inhalt (Markdown)"
       },
       "sections": {
         "new": {
@@ -1850,7 +1909,15 @@
       "confirmDecision": "Record {outcome} for {name}? The panel vote and current application version will be checked. If approval is required, this creates a pending proposal and does not apply the decision.",
       "completedInterview": "Completed interview · {name} ({count})",
       "savedRefreshError": "Attendance was saved, but the refreshed totals could not be loaded. Do not resubmit this entry.",
-      "verificationDeadline": "Verification due: {date}"
+      "verificationDeadline": "Verification due: {date}",
+      "attention": "Handlungsbedarf",
+      "navigation": "Dashboard-Bereiche",
+      "emptyTasks": "Keine offenen Aufgaben in den geladenen Datensätzen.",
+      "unconfirmedCount": "Unbestätigte Zeitpläne ({count})",
+      "rosterCount": "Offene Punkte zur Teilnahmeliste ({count})",
+      "interviewSection": "Interviews",
+      "meetingSection": "Besprechungen",
+      "qualificationSection": "Qualifikationen"
     },
     "activate": {
       "title": "Bestätige deine Verfügbarkeit",
@@ -1863,7 +1930,7 @@
       "title": "Anstehende Sitzungen",
       "help": "Sie können nicht teilnehmen? Entschuldigen Sie Ihre Abwesenheit bis 30 Minuten vor Beginn.",
       "excuseBtn": "Abwesenheit entschuldigen",
-      "submitExcuse": "Senden",
+      "submitExcuse": "Abwesenheitsentschuldigung einreichen",
       "cancelExcuse": "Entschuldigung zurücknehmen",
       "reasonPlaceholder": "Grund (optional)",
       "excused": "Sie haben diese Abwesenheit entschuldigt.",
@@ -1913,7 +1980,7 @@
         "UNEXCUSED_ABSENT": "Unentschuldigt abwesend"
       },
       "reasonRequired": "Grund (erforderlich)",
-      "ratings": "Bewertungen *",
+      "ratings": "Selbsteinschätzung",
       "rating": {
         "ratingPreparedness": "Vorbereitung",
         "ratingParticipation": "Mitarbeit",
@@ -1969,7 +2036,8 @@
       "removalHelp": "Möchte der Tutee aufhören? Übermitteln Sie die Abmeldung. 7 Tage lang können Sie (oder ein Admin) sie widerrufen; danach erfolgt sie automatisch.",
       "removalReasonPlaceholder": "Grund (optional)",
       "removalSubmit": "Übermitteln",
-      "removalCancel": "Abbrechen"
+      "removalCancel": "Abbrechen",
+      "availabilityMissing": "Es wurden noch keine verfügbaren Zeiten erfasst."
     },
     "availability": {
       "loading": "Zeitfenster werden geladen…",
@@ -2049,7 +2117,8 @@
       "reentryHelp": "Möchten Sie dem Programm wieder beitreten? Wiedereintritt beantragen, ein Administrator prüft den Antrag.",
       "reentryBtn": "Wiedereintritt beantragen",
       "recall": "Antrag zurückziehen",
-      "statusNote": "Ihr Tutor-Status ist {status}. Dies ist nur Lesezugriff — für Änderungen einen Administrator kontaktieren."
+      "statusNote": "Ihr Tutor-Status ist {status}. Dies ist nur Lesezugriff — für Änderungen einen Administrator kontaktieren.",
+      "profileSyncFailed": "Dein Profil wurde gespeichert, konnte aber nicht neu geladen werden. Lade es erneut, ohne die Änderung nochmals abzusenden."
     },
     "dashboard": {
       "pending": {
@@ -2417,8 +2486,11 @@
         "reason": "Warum gehen Sie? (optional)",
         "submit": "Austrittsantrag senden",
         "pending": "Austritt beantragt — wartet auf Admin-Freigabe.",
-        "recall": "Antrag zurückziehen"
-      }
+        "recall": "Antrag zurückziehen",
+        "reasonLabel": "Austrittsgrund"
+      },
+      "statusLabel": "Teamstatus",
+      "noteLabel": "Rundgangsnotiz"
     }
   },
   "suspended": {
@@ -2529,7 +2601,8 @@
       "sectionId": "Content to Translate",
       "id": "Content to Translate",
       "other": "Content to Translate"
-    }
+    },
+    "refreshFailed": "Deine Änderung wurde angenommen, aber der aktualisierte Text konnte nicht geladen werden. Versuche die Aktualisierung erneut, ohne die Änderung nochmals abzusenden."
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -2657,7 +2730,12 @@
     "unscheduled": "Not scheduled",
     "panelRequired": "Assign a qualified panel before recording completion.",
     "invalidDate": "Enter a valid date and time.",
-    "searchInterviews": "Search"
+    "searchInterviews": "Search",
+    "feedbackVisibilityLoading": "Es wird geprüft, wer Feedback lesen kann…",
+    "feedbackVisibilityUnavailable": "Es konnte nicht bestätigt werden, wer Feedback lesen kann. Versuche es erneut, um die Sichtbarkeit zu prüfen.",
+    "pagination": "Seitennavigation",
+    "page": "Seite {page}",
+    "calendarDestination": "Schulkalender in den Programmeinstellungen"
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -2780,7 +2858,7 @@
     "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
-    "scheduleReject": "Apply to reject: schedule conflict",
+    "scheduleReject": "Ablehnung wegen eines Terminkonflikts beantragen",
     "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
@@ -2812,7 +2890,11 @@
     },
     "selfServiceSource": "Selbst angemeldet",
     "unknownSource": "Frühere Anmeldung",
-    "sourceHelp": "Die Quelle beschreibt die Erfassung der Anmeldung. Sie ändert weder Genehmigung, Priorität noch Teilnahmeregeln. Bei früheren Anmeldungen ist die ursprüngliche Quelle unbestätigt."
+    "sourceHelp": "Die Quelle beschreibt die Erfassung der Anmeldung. Sie ändert weder Genehmigung, Priorität noch Teilnahmeregeln. Bei früheren Anmeldungen ist die ursprüngliche Quelle unbestätigt.",
+    "boardGuide": "Gruppierung der Anfragen",
+    "sourceGuide": "Anmeldequellen und Zuordnung",
+    "policyRefresh": "Aktualisieren",
+    "emailStatus": "E-Mail: {status}"
   },
   "approvals": {
     "reviewPermissions": "Admin und Head prüfen allgemeine Verwaltungsanträge. Nur Head prüft Rollen- und Abzeichenänderungen. Head darf eigene Anträge prüfen; alle anderen benötigen eine andere berechtigte Person.",
@@ -3217,7 +3299,11 @@
         "messaging_restrict": "Change an account messaging restriction",
         "admin_setApplicationInvalidity": "Ungültigkeitsmarkierung einer Tutor-Bewerbung ändern",
         "studentWorkflow_setRequestInvalidity": "Ungültigkeitsmarkierung der Anmeldung eines Lernenden ändern",
-        "admin_setSignupInvalidity": "Ungültigkeitsmarkierung einer älteren öffentlichen Anmeldung ändern"
+        "admin_setSignupInvalidity": "Ungültigkeitsmarkierung einer älteren öffentlichen Anmeldung ändern",
+        "program_setCalendarDay": "Hinweis auf einen nachhilfefreien Tag speichern",
+        "program_removeCalendarDay": "Hinweis auf einen nachhilfefreien Tag entfernen",
+        "program_setNameFields": "Anforderungen an Namensfelder ändern",
+        "admin_reorderRooms": "Reihenfolge der Programmräume ändern"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -3263,7 +3349,12 @@
     "accessDeniedHelp": "Ihre Sitzung hat keinen Zugriff mehr auf diese Details. Zwischengespeicherte Nachweise werden ausgeblendet.",
     "loadFailed": "Ereignisdetails konnten nicht geladen werden",
     "refreshFailed": "Ereignisdetails konnten nicht aktualisiert werden. Die zuletzt geladenen Nachweise bleiben sichtbar.",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "difference": {
+      "added": "Hinzugefügt",
+      "removed": "Entfernt",
+      "changed": "Geändert"
+    }
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
@@ -3639,7 +3730,8 @@
       "grade": "Kursnote",
       "apScore": "AP-Ergebnis",
       "selfStudyNote": "Details zum Selbststudium"
-    }
+    },
+    "requirementsHelp": "Feldanforderungen und E-Mail-Einstellungen"
   },
   "courseGroups": {
     "title": "Subjects & Levels",
@@ -3765,7 +3857,7 @@
     "unknown": "Unbekannt",
     "graduated": "Abgeschlossen",
     "rosterUnknown": "Klassenstufe unbekannt",
-    "rosterNeedsConfirmation": "Prüfung und Bestätigung erforderlich",
+    "rosterNeedsConfirmation": "Prüfung erforderlich",
     "notApplicable": "Not Applicable",
     "reported": "School Grade (1–12)",
     "original": "Original report: {value}",
@@ -3833,7 +3925,8 @@
     "showAlternateNames": "Namen in anderen Sprachen anzeigen",
     "alternateDisplayHint": "Den zusätzlichen Namen neben dem Hauptnamen anzeigen, wenn er angegeben wurde.",
     "latinRule": "Vor-, Nach- und bevorzugte Namen verwenden lateinische Buchstaben. Akzente, Leerzeichen, Apostrophe und Bindestriche sind erlaubt.",
-    "displayPreview": "Namensvorschau"
+    "displayPreview": "Namensvorschau",
+    "nameFieldsRequired": "Füllen Sie die aktuell erforderlichen Namensfelder aus. Aktualisieren Sie das Formular, falls sich die Anforderungen geändert haben."
   },
   "recordTransfer": {
     "title": "Programmdaten",
@@ -3942,7 +4035,7 @@
     "emptyAll": "Keine Lernenden-Datensätze anzuzeigen.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
-    "reviewNeeded": "Review needed",
+    "reviewNeeded": "Prüfung erforderlich",
     "linkSaved": "Historical records linked.",
     "failed": "Could not complete this request. Refresh and try again.",
     "HISTORY_ACCOUNT_NOT_READY": "Choose an account with completed setup and a verified email.",
@@ -4099,7 +4192,8 @@
     "preferredNameHelp": "Der Name, den wir statt Ihres Vornamens verwenden sollen. Bitte lateinische Buchstaben verwenden.",
     "alternativeNamesHelp": "Ihr Name in einer anderen Sprache oder Schrift, zum Beispiel 张小明.",
     "legacyPreserved": "Bisheriger Name: {name}. Lassen Sie die lateinischen Namensfelder unverändert, um ihn zu behalten. Geben Sie einen Vornamen ein, um ihn zu ersetzen.",
-    "legacy": "Bisheriger Name: {name}. Geben Sie Vor- und Nachnamen getrennt ein, um das Profil zu aktualisieren."
+    "legacy": "Bisheriger Name: {name}. Geben Sie Vor- und Nachnamen getrennt ein, um das Profil zu aktualisieren.",
+    "hiddenRetained": "In Teilnehmerformularen und Anzeigenamen ausgeblendet; hier für die berechtigte Verwaltung beibehalten."
   },
   "registrationFlow": {
     "progressTitle": "Registrierungsfortschritt",
@@ -4321,7 +4415,11 @@
     "translationHelp": "This permanently removes this saved language version. Other language versions remain available.",
     "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
     "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
-    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
+    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged.",
+    "galleryRevokeScenario": "Beispiel für entzogenen Zugriff öffnen",
+    "galleryRevoke": "Zugriffsentzug simulieren",
+    "galleryRevoked": "Der Zugriff wurde entzogen. Die Prüfunterlagen sind ausgeblendet.",
+    "galleryRestore": "Beispielzugriff wiederherstellen"
   },
   "accountInvitation": {
     "enterCode": "Einladung aus Ihrer E-Mail eingeben",
@@ -4429,12 +4527,27 @@
     "securityTitle": "Wichtige E-Mails Bleiben Aktiv",
     "securityHelp": "Sicherheits-, Bestätigungs- und Wiederherstellungs-E-Mails sind nicht betroffen. Bereits versendete E-Mails können noch eintreffen."
   },
+  "participantRecovery": {
+    "loading": "Einträge werden geladen…",
+    "loadFailed": "Diese Einträge konnten nicht geladen werden",
+    "refreshFailed": "Diese Einträge konnten nicht aktualisiert werden. Versuche es erneut, um fortzufahren.",
+    "accessDenied": "Der Zugriff auf diese Einträge ist nicht verfügbar",
+    "accessDeniedHelp": "Deine Zugriffsberechtigung konnte nicht bestätigt werden. Versuche es erneut oder melde dich mit einem berechtigten Konto an.",
+    "retry": "Erneut versuchen"
+  },
+  "managementRecovery": {
+    "loading": "{section} wird geladen…",
+    "loadFailed": "{section} konnte nicht geladen werden.",
+    "refreshFailed": "{section} konnte nicht aktualisiert werden. Die zuvor geladenen Inhalte werden weiterhin angezeigt.",
+    "retry": "{section} erneut laden",
+    "denied": "Du hast keinen Zugriff mehr auf {section}."
+  },
   "requestInvalidity": {
     "badge": "Ungültiger Eintrag",
     "filterLabel": "Gültigkeit der Anfragen",
     "filter": {
       "all": "Alle Einträge",
-      "valid": "Nicht markiert",
+      "valid": "Aktive Einträge",
       "invalid": "Ungültige Einträge"
     },
     "flag": "Als ungültig markieren",
@@ -4462,5 +4575,105 @@
     "retryRefresh": "Aktualisierung erneut versuchen",
     "reload": "Anfrage neu laden",
     "reloadHelp": "Ihre Begründung und die ursprüngliche Version bleiben erhalten. Laden Sie die Anfrage ausdrücklich neu, um diesen Entwurf durch die neueste Version zu ersetzen."
+  },
+  "rosterSearch": {
+    "label": "Personen suchen",
+    "placeholder": "Name, Benutzername oder E-Mail",
+    "clear": "Suche löschen",
+    "noMatches": "Keine Personen entsprechen dieser Suche.",
+    "results": "{count} von {total} Personen"
+  },
+  "saveBoundary": {
+    "blur": "Änderungen werden beim Verlassen dieses Feldes gespeichert.",
+    "form": "Speichern gilt nur für dieses Formular.",
+    "layout": "Speichern gilt nur für dieses Layout."
+  },
+  "programCalendar": {
+    "title": "Tage ohne Nachhilfe",
+    "informational": "Hinweise zu Programmdaten und Gründen. Diese Hinweise schränken die Anwesenheitserfassung nicht ein und ändern nicht den Schultagskalender für Einsprüche.",
+    "refresh": "Aktualisieren",
+    "reload": "Entwurf neu laden",
+    "loadFailed": "Nachhilfehinweise konnten nicht geladen werden.",
+    "loading": "Nachhilfehinweise werden geladen…",
+    "add": "Datum hinzufügen",
+    "date": "Datum",
+    "reason": "Grund",
+    "actions": "Aktionen",
+    "edit": "Hinweis bearbeiten",
+    "remove": "Hinweis entfernen",
+    "removeTitle": "Nachhilfehinweis entfernen",
+    "removeHelp": "Diesen Hinweis entfernen. Anwesenheits- und Schultagsregeln bleiben unverändert.",
+    "empty": "Keine Nachhilfehinweise.",
+    "save": "Hinweis speichern",
+    "saving": "Wird gespeichert…",
+    "saved": "Hinweis gespeichert.",
+    "saveFailed": "Hinweis konnte nicht gespeichert werden.",
+    "refreshFailed": "Der Hinweis wurde gespeichert, aber die aktuelle Liste konnte nicht geladen werden. Aktualisieren Sie sie, ohne erneut zu speichern.",
+    "details": "Details anzeigen"
+  },
+  "roomOrder": {
+    "title": "Anzeigereihenfolge der Räume",
+    "help": "Ordnen Sie den Entwurf mit den Raumpfeilen und speichern oder beantragen Sie unten die vollständige Reihenfolge. Die Kontrollrundgänge haben eine eigene Reihenfolge.",
+    "catalogChanged": "Die Raumliste hat sich geändert. Laden Sie die Reihenfolge vor weiteren Änderungen neu; Ihr Entwurf bleibt erhalten.",
+    "room": "Raum",
+    "actions": "Aktionen",
+    "up": "Nach oben",
+    "down": "Nach unten",
+    "moveUpName": "{name} nach oben verschieben",
+    "moveDownName": "{name} nach unten verschieben",
+    "save": "Reihenfolge speichern",
+    "saving": "Wird gespeichert…",
+    "saved": "Raumreihenfolge gespeichert.",
+    "reload": "Reihenfolge neu laden",
+    "refresh": "Aktualisieren",
+    "loadFailed": "Die aktuelle Raumreihenfolge konnte nicht geladen werden. Ihr Entwurf wurde beibehalten.",
+    "refreshFailed": "Die Reihenfolge wurde gespeichert, aber die Synchronisierung ist fehlgeschlagen. Aktualisieren liest die gespeicherte Reihenfolge, ohne sie erneut zu senden.",
+    "request": "Änderung der Raumreihenfolge beantragen",
+    "open": "Räume neu ordnen"
+  },
+  "roomSchedule": {
+    "rooms": "Anzuzeigende Räume",
+    "allRooms": "Alle Räume",
+    "clearRooms": "Auswahl aufheben",
+    "allDetails": "Stundenplandetails",
+    "occupied": "Belegt",
+    "noSlot": "—",
+    "legend": "Grau = belegt · × = nicht verfügbar · Verfügbar = keine Zuordnung in einem veröffentlichten Zeitfenster.",
+    "combined": "Gemeinsame Übersicht",
+    "individual": "Einzelne Raumpläne",
+    "noSelection": "Keine Räume ausgewählt. Wählen Sie Räume oder Alle Räume.",
+    "time": "Zeit",
+    "detailFilters": "Filter für Stundenplandetails",
+    "day": "Wochentag",
+    "allDays": "Alle Tage",
+    "allSlots": "Alle Zeitfenster",
+    "room": "Raum",
+    "emptyDetails": "Keine Einträge entsprechen diesen Filtern.",
+    "noRoom": "Kein Raum zugewiesen",
+    "unconfirmed": "Zeitplanbestätigung ausstehend",
+    "outsideCatalog": "Außerhalb des aktiven Zeitfensterkatalogs",
+    "allTimes": "Alle Zeiten"
+  },
+  "nameFields": {
+    "title": "Pflichtangaben zum Namen",
+    "help": "Konfigurieren Sie Registrierungs- und Profilfelder nach Kontotyp. Bestehende Konten folgen ihrer aktuellen Rolle. Ausgeblendete Namen werden nicht im Anzeigenamen verwendet; berechtigte Mitarbeitende können gespeicherte Werte weiterhin prüfen und bearbeiten. Wenn kein Name angezeigt werden kann, wird der Benutzername verwendet.",
+    "accountType": "Kontotyp",
+    "summary": "Anforderungen",
+    "actions": "Aktionen",
+    "requiredCount": "{count} erforderlich",
+    "hiddenCount": "{count} ausgeblendet",
+    "configure": "Konfigurieren",
+    "loading": "Namensanforderungen werden geladen…",
+    "loadFailed": "Namensanforderungen konnten nicht geladen werden. Ihr Entwurf wurde beibehalten.",
+    "refresh": "Aktualisieren",
+    "reload": "Entwurf neu laden",
+    "save": "Anforderungen speichern",
+    "saving": "Wird gespeichert…",
+    "saved": "Namensanforderungen gespeichert.",
+    "refreshFailed": "Die Anforderungen wurden gespeichert, aber die Synchronisierung ist fehlgeschlagen. Aktualisieren liest die gespeicherten Regeln, ohne sie erneut zu speichern.",
+    "hiddenProfileHelp": "Hier wird dein Benutzername angezeigt. Gespeicherte Namen bleiben erhalten und können von berechtigten Mitarbeitenden eingesehen werden."
+  },
+  "participantNames": {
+    "unnamed": "Kein Name angegeben"
   }
 }

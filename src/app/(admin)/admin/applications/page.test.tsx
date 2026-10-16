@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   decide: vi.fn(),
   minimized: false,
   invalid: false,
+  name: "Candidate One",
   changeInvalidity: vi.fn(),
   fetchApplications: vi.fn(),
   success: undefined as undefined | (() => Promise<void>),
@@ -105,7 +106,7 @@ vi.mock("~/trpc/react", () => ({
                     ? "New subject evidence"
                     : null,
                   qualificationSnapshot: null,
-                  name: "Candidate One",
+                  name: mocks.name,
                   email: "candidate@example.test",
                   preferredContact: null,
                   status: mocks.additional ? "PENDING" : "ACCEPTED",
@@ -188,8 +189,20 @@ beforeEach(() => {
   mocks.role = "HEAD";
   mocks.minimized = false;
   mocks.invalid = false;
+  mocks.name = "Candidate One";
 });
 afterEach(cleanup);
+it("presents an accountless blank-name application without treating its label as searchable intake data", () => {
+  mocks.name = "  ";
+  render(content());
+  expect(screen.getByText(en.participantNames.unnamed)).toBeTruthy();
+  fireEvent.change(screen.getByRole("searchbox", { name: "Name or email" }), {
+    target: { value: en.participantNames.unnamed },
+  });
+  expect(screen.queryByText(en.participantNames.unnamed)).toBeNull();
+  expect(mocks.name).toBe("  ");
+  expect(mocks.changeInvalidity).not.toHaveBeenCalled();
+});
 const content = (viewer = false) => (
   <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
     <ReadOnlyProvider value={viewer}>
@@ -197,11 +210,35 @@ const content = (viewer = false) => (
     </ReadOnlyProvider>
   </NextIntlClientProvider>
 );
-const show = (viewer = false) => render(content(viewer));
+const show = (viewer = false) => {
+  const view = render(content(viewer));
+  if (mocks.invalid)
+    fireEvent.click(screen.getByRole("button", { name: "Invalid entries" }));
+  return view;
+};
+
+it("puts account navigation before boxed decisions and Delete last in keyboard order", () => {
+  show();
+  const setup = screen.getByRole("link", {
+    name: en.admin.applications.setupAccount,
+  });
+  const actions = setup.parentElement!;
+  // Native DOM order also drives keyboard traversal when the same row wraps.
+  expect(
+    [...actions.querySelectorAll("a, button")].map((action) =>
+      action.textContent?.trim(),
+    ),
+  ).toEqual([
+    en.admin.applications.setupAccount,
+    en.requestInvalidity.flag,
+    en.admin.applications.delete,
+  ]);
+  expect(setup.getAttribute("href")).toBe("/admin/users");
+});
 
 it("retains an open invalidity draft and its version when a background flag removes the application from its filter", async () => {
   const view = show();
-  fireEvent.click(screen.getByRole("button", { name: "Not flagged" }));
+  fireEvent.click(screen.getByRole("button", { name: "Active entries" }));
   fireEvent.click(screen.getByRole("button", { name: "Flag invalid" }));
   fireEvent.change(within(screen.getByRole("dialog")).getByRole("textbox"), {
     target: { value: "My pending application review" },
@@ -240,7 +277,7 @@ it.each([false, true])(
     const view = show();
     fireEvent.click(
       screen.getByRole("button", {
-        name: clearing ? "Invalid entries" : "Not flagged",
+        name: clearing ? "Invalid entries" : "Active entries",
       }),
     );
     fireEvent.click(

@@ -96,7 +96,7 @@ The website supports intake, matching, attendance, hours, interviews, support an
 | Crew                                   | Patrol                               | Active crew participation; the crew module must be enabled                                                        |
 | Coordinator                            | Management area / Management Actions | Daily operations wait for ADMIN/HEAD review; eligible reversals wait for HEAD; significant settings and account edits are read only                                                                   |
 | Administrator                          | Management area                      | Operational management; HEAD-only powers remain restricted                                                        |
-| HEAD                                   | Program & Refresh / Users & Roles    | One program leader; controls leadership and elevated configuration                                                |
+| HEAD                                   | Program Settings / Users & Roles    | One program leader; controls leadership and elevated configuration                                                |
 | Viewer                                 | Read-only management area            | Permitted summaries with personal contact details masked                                                          |
 | Assigned translator                    | Translations                         | Edit interface or website text and follow draft review in one editor; assignment is separate from management rank |
 
@@ -189,9 +189,15 @@ The tutee page uses the same top bar, account menu, theme and card layout as the
 | Messages             | Read and send messages within the tutee workspace                                                                                  |
 | Account              | Manage your shared account within the tutee workspace                                                                              |
 
-**Request a Tutor** is available in every section and opens the existing request form. A program period is labeled **Quarter** when quarters are enabled and **Semester** when semester mode is applied; request and withdrawal wording follows that setting. A staged mode change does not change the current display.
+While eligible to participate, **Request a Tutor** appears once in the page header of every section and opens the existing request form. A program period is labeled **Quarter** when quarters are enabled and **Semester** when semester mode is applied; request and withdrawal wording follows that setting. A staged mode change does not change the current display.
 
 Current schedules include only active-period assignments on explicitly owned, non-inactive profiles. A new tutor assignment displays **Awaiting schedule** until a tutor or manager chooses a time slot; the assigned tutor remains visible. The dashboard counts only subjects with confirmed schedules. Multiple profiles on the same assignment produce one schedule entry. A matching name or email does not grant access to another person’s records. Historical attendance remains available after a refresh.
+
+The dashboard previews up to three existing recurring schedules and links to the
+complete schedule and request lists. Confirm individual meeting dates with your
+tutor. An unavailable count is shown as unknown with a Retry action. Paginated
+participant and message lists show the current page and available Previous/Next
+actions. Each list keeps its own page and navigation state.
 
 ### Manage a request
 
@@ -212,6 +218,19 @@ Open **Requests → Participation → Request withdrawal…**. The button names 
 
 Use **My Tutors & Schedule** for current assignments, **Attendance** for recorded sessions and feedback, and **Support** for disciplinary cards and appeals. Records remain linked to your account across new intakes and verified email changes.
 
+On tutee Requests, Attendance and Support, a failed background refresh keeps your
+feedback, availability choices, withdrawal reason or appeal draft while the page
+remains open. Use **Try again** to reload the records; this does not submit the
+form again. Actions that need unavailable records stay disabled until recovery.
+These drafts are not autosaved and may be lost when you reload or leave the page.
+
+Feedback visibility can show that it is being checked or could not be verified.
+Use its retry action to confirm who can read feedback; an old sharing setting is
+not presented as current after a failed refresh. An appeal keeps its reason after
+a failed read or submission. While it is sending, editing and dismissal are
+disabled. If sending succeeds but refreshing fails, retry the read rather than
+submitting the same appeal again.
+
 For imported or earlier enrollments, open **My Tutoring History** in the account menu, then **View History**. This includes retained tutor evidence already owned by your account, even when participation access is revoked. If records are missing, ask staff to review the exact record. Accountless alumni can use a staff-reviewed historical tutee invitation: **Create history-only account → verify email code → invitation popup → shared account review at `/register-account` → Link My History**. The popup supports copying the code, optional email delivery and a prefilled continuation link. No current tutoring request, grade or participation agreement is required to read owned history. Existing logins use sign-in/password recovery; unavailable old email requires staff identity review and a replacement invitation. Head handles ownership conflicts and genuine duplicate accounts. See [historical record access](historical-participant-transition.md#invite-an-alumnus-without-a-login).
 
 - Submit feedback for one of your recorded sessions. The portal explains whether management has enabled sharing with that session’s tutor. Feedback is management-only by default; a later visibility change also affects earlier feedback.
@@ -224,8 +243,12 @@ See the [tutee policy draft](../prisma/policies/tutee-policy.en.md) or [中文�
 
 ## Tutors
 
-The dashboard starts with **Your Next Steps**. Its links move keyboard focus to
-attendance, pairings, unresolved interviews, meetings and pending qualifications.
+The dashboard distinguishes **Needs attention** from **Dashboard sections**.
+Attention links summarize loaded records that need follow-up: unconfirmed
+schedules, roster changes, active interviews, meetings and pending qualifications.
+A paused invalid interview is not counted as actionable work. Section links remain
+available even when there are no follow-ups; unavailable reads are not reported as
+zero tasks. Links move keyboard focus to the corresponding section.
 Today's regular schedule uses the program time zone and confirmed weekly times;
 check announcements for holidays or one-off changes. Attendance comes before
 optional editors. Pending participation, policy and request notices remain visible.
@@ -241,6 +264,15 @@ Cancel leaves live records unchanged. A relayed opt-out stays pending during its
 seven-day recall window, then processes automatically unless recalled or cancelled.
 An inactive tutor can still recall their pending relay. A queued management proposal
 requires staff approval; neither pending result is an applied change.
+
+In **My Pairings**, each assigned tutee has a **Details** entry. Open it to read
+their recorded availability, verification deadline and pending review status, and
+use the existing schedule-conflict request or eligible relay/recall controls.
+Missing availability means no times have been recorded; it does not establish a
+schedule conflict. Schedule-conflict and eligible relay reason drafts remain
+separate when Details is closed and reopened on the same page. They are not saved across navigation. A
+pending write blocks dismissal; Cancel and Close do not submit it. The pairing's
+default time selector remains before the tutee list.
 
 Meeting-excuse, qualification and interview drafts remain available after a failed
 save. Correct the problem and retry. Attendance keeps its successful receipt and
@@ -367,6 +399,9 @@ A settings request leaves the effective switch, schedule and policy version unch
 
 Open **Management → Signup Forms** and choose Tutor signup or Tutee signup. Head and Admin can open **Configure** beside an existing field and choose Required, Optional, or Hidden. Head applies directly; Admin uses **Request Head Approval**, preserving the draft and live settings until approval. Coordinators can review settings but cannot submit them. Applied changes affect new submissions, including a form opened before the change; reload that form if validation reports changed requirements. Existing submissions and their original answers remain unchanged.
 
+Open **Field requirements and email settings** for the shared rules. Keyboard
+arrow keys move focus between signup tabs; Enter or Space selects the focused tab.
+
 Name, sign-in email, the first subject and policy acceptance are locked as visible and required. Additional subject choices can be configured independently, without reordering or adding fields. Required qualification questions ask for an explicit Yes or No, not a positive qualification. Grade, AP score and self-study details are required only when their visible parent answer is Yes; AP questions apply only to AP-scored subjects. Hidden questions and their dependent details cannot block submission.
 
 Visible fields show translated **Required** or **Optional** text beside the label. On the tutee form, hover, focus or tap the email label to read its guidance; Escape or an outside interaction closes it.
@@ -377,13 +412,30 @@ Program secondary-email binding settings do not disable the required sign-in ema
 
 Profiles and signup forms have **First Name**, **Last Name**, **Preferred Name** and **Name in Another Language**. First, last and preferred names use Latin letters, including accents; spaces, apostrophes and hyphens are accepted. Name in Another Language accepts other writing systems. Required/Optional markers show each form's requirements. Existing unsplit names remain visible until the person or staff supplies explicit fields; the system never guesses a split.
 
-In **Program → Names and Grades**, Head can apply **Use preferred names** and **Show names in another language** independently; Admin can draft each choice and request Head approval. The first setting uses Preferred Name instead of First Name, retaining Last Name; when blank, it falls back to First Name. The second appends the additional name when supplied. A live example previews the result. Turning either setting off retains the saved text. Coordinators can view these settings. Display changes apply to current profiles and rosters; historical submissions, signatures and audit snapshots retain their original names. Usernames do not change. If Head applies another change while a settings draft is open, explicitly reload and review before resubmitting. The same section controls offered grades (at least one of Grades 1–12).
+In **Program Settings → Account Settings → Names and Grades**, Head can apply **Use preferred names** and **Show names in another language** independently; Admin can draft each choice and request Head approval. The first setting uses Preferred Name instead of First Name, retaining Last Name; when blank, it falls back to First Name. The second appends the additional name when supplied. A live example previews the result. Turning either setting off retains the saved text. Coordinators can view these settings. Display changes apply to current profiles and rosters; historical submissions, signatures and audit snapshots retain their original names. Usernames do not change. If Head applies another change while a settings draft is open, explicitly reload and review before resubmitting. The same section controls offered grades (at least one of Grades 1–12).
 
 **Use preferred names** is on by default, while **Show names in another language** defaults off. Upgrades enable preferred names when no administrator has saved the name-display settings, and preserve administrator choices recorded in the audit history. Head can apply the setting here; Admin can request Head approval. An empty preferred name uses the saved First Name and Last Name as the fallback.
 
 ### Find records and confirm saves
 
 Tables show brief information for scanning. Use the text links in the rightmost **Actions** column to open full details or an editor. On a narrow screen, that column stays reachable while the other columns scroll sideways. Closing a detail dialog returns you to its link. Detailed report exports and printed history retain their full content.
+
+Roster search combines with the selected role, account and participation filters.
+Clearing the search keeps those filters. Pairing participant search does not clear
+selected students when they disappear from the matching results; review the
+selected summary and remove a person deliberately when needed.
+
+Pairings, Announcements, Time Slots and Hour Adjustments start with their records
+and one creation action. Closing and reopening a creation editor keeps its draft
+during the current visit. Editing a pairing preserves a separate unfinished
+creation draft. A pending save blocks dismissal; leaving or refreshing the page
+does not preserve these local drafts.
+
+Long room-grid and original Crew-message readers keep Close at the top while the
+body scrolls. Time Slots keeps its complete summary in the row; authorized staff
+use **Edit** to change it, and the propagation guidance remains available through
+Help for readers too. Crew totals display a recorded zero as **0** patrols and
+**0.0 h**. Inactive or historical rows retain readable text and their status labels.
 
 Profile sections save independently. While any section inside an editor is saving, its fields and the editor's dismissal controls are temporarily unavailable. A failed save keeps your draft for correction or retry. After a successful profile or Head username save, that section automatically refreshes and becomes editable again. Other sections keep their unsaved drafts and errors; they are saved only when you choose their own Save. You can make another change without closing the editor or choosing a restart action. If refreshing fails after the save was accepted, the section stays read-only and shows a separate warning. Choose **Retry refresh** to reload the accepted values without submitting the change again. Choose **Close** when you are ready. Closing a nested review returns to the profile rather than closing both. In **Names and Grades**, retrying a failed background refresh keeps unsaved choices; **Reload** after a version conflict replaces them only when the new settings load successfully.
 
@@ -408,6 +460,13 @@ In **Users & Roles**, combine Role and Account filters. **Tutor Status** appears
 Use **Edit profile** to edit the independent Tutor, Tutee, Translator and Crew badges and exact management rank, or transfer leadership with **Make Head**. Only Head applies badge and management-rank changes; Admin can submit proposals and Coordinators cannot submit them. Participants with no management rank can request their own participation badges from Account settings; those requests cannot grant a management rank. Staff use Users & Roles for permitted changes. Viewer is exclusive of every other badge. Removing participation and assigning sole Viewer preserves historical identity links while revoking participant access. Tutor membership suppresses the redundant Tutee badge without discarding consent. Use **Edit profile** to update linked current names and **Show email** to inspect/copy the contact and its verification state. Opening the dialog sends no email. Verification/setup requires an explicit action; sending a link does not itself verify an account. **Account setup required** identifies contacts without a linked login. Verified account email changes use the account holder's verification flow.
 
 Account setup links are sent privately to the account holder by email. Management cannot copy the password-setting link from the website. If mail delivery is unavailable, ask the deployment administrator to configure it before retrying.
+
+For an eligible account, Head can open **Delete** in the row's Actions column.
+The confirmation identifies the account and asks for the Head's own password.
+Cancel or Escape before submission returns to the same row without deleting it.
+While deletion is pending, the confirmation stays open and its fields are disabled.
+A failed attempt keeps the password available for correction; canceling and opening
+a new confirmation starts with a blank password.
 
 ### Combine duplicate accounts (Head only)
 
@@ -462,8 +521,35 @@ In **Subjects & Levels**, use the **Offered Course Catalogue** above the subject
 
 ### Run the program
 
-- In **Meetings**, open a meeting to edit attendance, choose statuses, then use the attendance save action. On a narrow screen, individual records show labels and keep their actions visible. The multi-meeting comparison remains a table; scroll its own region horizontally to compare columns. Deletion opens a confirmation that names the affected meeting; cancel returns to the same record.
-- In **Landing Editor**, use the section tabs to move between layout, fixed content, sections, news, pages and images. With a keyboard, arrow keys move between tab labels; Enter or Space opens the focused tab. If your role lacks editing access, the page explains this and offers a return to management. A failed load shows an error and retry action instead of an indefinite loading state. Editor access follows the same permission rule as landing preview.
+**Program** groups its existing controls into **Period & recruitment**, **People &
+signup**, **Communication**, and **Access & modules**. The current period stays
+visible. Each form keeps its own Save or approval process; changing panels does
+not save or discard its draft. Both tutor and tutee recruitment windows remain in
+the period panel. Refreshing the period still requires its deliberate confirmation.
+
+**Crew** separates review work, the roster and patrol settings. Staff **Support**
+separates feedback, appeals and calendar controls; other users see only their
+permitted content. Switching panels preserves the existing draft, filters and
+pagination. An open review and its refresh recovery keep their own controls.
+
+- In **Meetings**, open a meeting to edit attendance, choose statuses, then use the attendance save action. Collapsing it or opening another meeting retains each attendance draft during the current visit. A successful save followed by a failed refresh offers read-only Retry; it does not record attendance again. On a narrow screen, individual records show labels and keep their actions visible. The multi-meeting comparison remains a table; scroll its own region horizontally to compare columns. Deletion opens a confirmation that names the affected meeting; cancel returns to the same record.
+- In **Landing Editor**, use the section tabs to move between layout, fixed content, sections, news, pages and images. With a keyboard, arrow keys move between tab labels; Enter or Space opens the focused tab. Switching an opened tab or language preserves its independent unsaved draft during this visit; switching does not save it. If your role lacks editing access, the page explains this and offers a return to management. A failed load shows an error and retry action instead of an indefinite loading state. Editor access follows the same permission rule as landing preview.
+
+Invitation and hour-adjustment field labels stay visible after typing. In invitation
+codes, service hours, time slots and pairings, a failed read offers Retry without
+claiming the list is empty. Previously loaded permitted records and open drafts stay
+available during a transient failure. Actions needing unavailable data wait for a
+successful read; Retry never repeats an invitation, edit, revocation or assignment.
+An explicit access denial removes the protected content until access is successfully
+checked again. These local drafts do not persist after leaving or reloading the page.
+
+The same distinction applies to Discipline, Tutor Requests and Tutee Requests:
+an unavailable queue does not mean there are no pending records. An open review
+keeps its note during a transient read failure, while confirmation waits for the
+required records to recover. A normal Retry preserves the review's original
+version; explicit conflict Reload replaces it only after a successful read.
+In Reports, Retry recovers the selected report and any unavailable prerequisite;
+existing scope, masking, export and print rules still apply.
 
 In **Tutors**, choose **Add Tutor** beside the page title to open the creation dialog. The roster stays visible underneath. First Name and Last Name are required; Email and Grade are optional. An omitted email keeps the new roster record accountless until a separate setup step. On wide screens the contact controls sit beside the name fields; on narrower screens they follow them. **Close** or Escape keeps the draft until you leave or reload the page. A successful save clears the draft, closes the dialog and returns focus to **Add Tutor**. The dialog stays open while saving, and failed saves keep your entries with the error shown inside the dialog.
 
@@ -486,6 +572,17 @@ In **Subject Availability**, expand a tutor to reveal **Qualified**, **Pending R
 - Correct historical attendance or patrols with a reason. Review hours, discipline and related effects after the correction; HEAD receives an in-system notification.
 - Use **Policies** to publish revised documents following the [publication steps](policies/README.md#publish-a-revision). On a fresh site, start with the blank **Tutee Policy** and **Tutor Policy** editors and save the reviewed English text before adding translations. Updating repository files alone does not change an already running site.
 - Use **Audit Log** to filter by actor, event, operation, record or UTC date. A proposal and its applied action are distinct events. Actor filters use stable account identities: matching names stay separate, and removed users appear as Former account.
+
+In **Policies**, switching the document's editing language retains each opened
+language's unsaved draft during that page visit. Save each language explicitly;
+reload or navigation away is not draft storage. **Version History → View** opens
+the exact archived document in its recorded language, with Close available while
+reading. If a save succeeds but the document or history cannot refresh, use the
+read-only refresh action before editing again.
+
+In **Users & Roles**, choose **Review appeal** to read the complete account appeal
+before approving or denying it. A saved decision whose list refresh fails offers
+refresh recovery; it must not be submitted a second time.
 
 In **Audit Log → Actions → Details**, Head, Admin and Coordinator can inspect the
 recorded actor and account ID, event and target IDs, operation, exact timestamp
@@ -518,6 +615,10 @@ retry; after a successful save, **Retry refresh** reloads the records without
 submitting the same change again.
 
 Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history.
+
+Use **How requests are grouped** and **Signup sources and ownership** for the
+contextual explanations. The tabs retain their counts and manual keyboard
+activation; moving focus alone does not select another queue.
 
 Course-aware tutor selectors in Signup Requests and Pairings list tutors with approved, recorded subject grants first, followed by a separate unqualified group. Inherited grants remain valid after level reordering. Choose the subject first in Pairings. Assigning an unqualified tutor opens a warning naming the tutor and subject; confirmation becomes available after three full seconds. Cancel or change the selection to discard that acknowledgement. Coordinators still submit proposals, and the reviewer must confirm any remaining qualification mismatch independently. This override does not waive active-tutor, request, permission, or scheduling checks.
 
@@ -560,7 +661,7 @@ Admin/Coordinator redemption requires email verification. A new account receives
 
 Use **Program records** in the management navigation to import historical CSV records or export a ZIP of program CSVs. Both actions, including previews and templates, require HEAD. Start with the downloadable templates, include related files together, review the preview, and confirm the import. Existing records are never overwritten. See [formats, coverage and examples](program-reference.md#import-and-export-program-records). Report-table CSV download buttons also require HEAD.
 
-HEAD has administrator abilities plus the program’s restricted leadership and configuration controls. Use **Users & Roles** for permitted appointments and leadership transfer, and **Program & Refresh** for module and program settings. Confirm consequential actions carefully; switching modules or periods affects what participants can do.
+HEAD has administrator abilities plus the program’s restricted leadership and configuration controls. Use **Users & Roles** for permitted appointments and leadership transfer, and **Program Settings** for module and program settings. Confirm consequential actions carefully; switching modules or periods affects what participants can do.
 
 Before opening intake, confirm email delivery, the current policies, subjects, slots, rooms, qualifications, intake timing, school calendar and feedback visibility. Coordinate host, backup and recovery readiness with the technical operator using the [launch runbook](deployment.md).
 
@@ -608,6 +709,12 @@ If you need a different role or access to your own participation record, request
 
 Translator access requires an explicit HEAD-approved assignment, even for management accounts. **Translations** opens the integrated editor: **Interface text**, **Website text**, and **Draft review**. Management without Translator assignment can review drafts. ADMIN/HEAD also have a **Languages** tab to show/hide languages in the public selector, move them up/down, and remove custom languages. These controls do not require Translator assignment; English remains enabled as the fallback. Assigned translators use the same tab to add languages, which start hidden until Head enables them. Head applies language visibility, ordering and deletion; Admin requests Head review. Choose the correct language and destination, preserve meaning, and submit for review. Interface text submits when focus leaves a changed field; website text has an explicit submission button.
 
+Within the open editor, changing the website content type, language or destination
+keeps separate text drafts. Interface-text drafts and their pending/error states
+survive search, group collapse and language changes. A successful submission followed
+by failed synchronization offers read-only Retry; it does not submit the text again.
+Leaving or reloading the editor ends these local draft lifetimes.
+
 Translator and Coordinator edits create private drafts, including all five text destinations. Only ADMIN/HEAD can approve and publish or reject a draft. Coordinators can **Request Admin/Head approval**, which leaves the draft pending. ADMIN/HEAD with an explicit Translator assignment may also publish their own direct edits; the editor identifies these as live changes. Filter draft review by pending, published, rejected or all drafts. Historical drafts remain available, and old review bookmarks open this editor. If the destination changes before approval, submit a fresh draft against the current text. Translator assignment does not permit structural page deletion, account administration or unilateral policy publication. Policy translations require the separate [policy review process](policies/README.md).
 
 ## Account settings and private support
@@ -632,6 +739,13 @@ For period-specific history, management uses **Academic Corrections** to edit se
 
 The profile section places **Save profile** and **Cancel** after the name fields. Save applies all name fields together; Cancel restores their last loaded values. Saving disables this section while it is pending, and a failed save keeps the draft visible for correction or retry. Password, email and membership controls have their own actions and are not submitted by Save profile.
 
+Tutor Settings follows these same independent sections. A failed identity refresh
+retains the permitted draft and offers Retry while its save waits for trustworthy
+data. After an accepted profile save, a failed refresh offers **Retry refresh**;
+it does not send the profile again. A conflict **Reload** replaces a draft only
+after a successful fresh read. Security and membership controls distinguish an
+unavailable setting or request from a known disabled or empty state.
+
 Changing or resetting your password signs out every existing session, including the browser making the change. Account Settings and tutor Settings return you to Sign In; use your new password. Other browsers require sign-in on their next request. Your account, permissions and tutoring history remain. This update also requires one fresh sign-in for sessions created before session revocation was introduced. Existing email two-factor requirements remain in effect.
 
 Signed-in password confirmations share a limit of ten checks per account within fifteen minutes, including successful checks. This covers password and two-factor settings, email-address changes and privileged confirmations. Switching pages or signing in again does not provide more attempts. If you see **Too many password confirmations**, wait fifteen minutes before retrying; blocked retries do not extend the wait. Other accounts have their own allowance. Sign-in and email verification codes retain their separate limits, and email changes may reach a stricter action limit first.
@@ -648,11 +762,11 @@ Use **Messages** to send separate private deliveries to allowed contacts. Search
 
 **Reply** opens a composer with the sender’s name and username, then moves keyboard focus to its message field. Your general message and other reply drafts remain separate while the page stays open. **Cancel reply** restores the general draft and returns focus to the Reply button. Sending a reply also restores the general draft. Pending sending prevents recipient changes; permission errors offer Retry and keep your text. Drafts are not stored after leaving or refreshing the page.
 
-On the Tutee page, **Messages** and **Account** open inside the same navigation and header. Account settings use your shared profile, verified email changes, password changes and two-factor settings. HEAD, ADMIN and COORDINATOR open Messages inside the management shell at `/admin/messages`. HEAD/ADMIN also have **Message Supervision** for audited review, reversible hiding, messaging restrictions and role/user contact permissions; coordinators cannot supervise other conversations.
+On the Tutee page, **Messages** and **Account** open inside the same navigation and header. Account settings use your shared profile, verified email changes, password changes and two-factor settings. HEAD, ADMIN and COORDINATOR open Messages inside the management shell at `/admin/messages`. HEAD/ADMIN also have **Message Supervision** for audited review, reversible hiding, and messaging restrictions; coordinators cannot supervise other conversations. Head/Admin configure role and user contact permissions in **Program Settings → Account Settings**.
 
 ### Associated email addresses
 
-**Account Settings** and tutor **Settings** share the **Associated Emails** controls. Only the primary email is required for signup, account setup and normal site use; secondary addresses are optional. An account may have up to five secondary addresses, counting pending requests. Head can disable **Secondary-Email Binding** in **Program & Refresh**; Admin requests Head review. While disabled, adding, resending and confirming secondary addresses is blocked in settings and on the server; existing verified addresses remain usable and removable, and pending requests can be cancelled. Primary-email changes remain available and preserve the previous verified primary. Enter your current password to add an address, resend its code, promote a verified address or remove a secondary. Codes last ten minutes, allow five attempts and have a one-minute resend interval. Expired requests remain visible for resend or cancellation. Pending requests do not reserve an address or prevent its actual owner from registering; ownership is checked again when you verify.
+**Account Settings** and tutor **Settings** share the **Associated Emails** controls. Only the primary email is required for signup, account setup and normal site use; secondary addresses are optional. An account may have up to five secondary addresses, counting pending requests. Head can disable **Secondary-Email Binding** in **Program Settings → Deployment Configurations**; Admin requests Head review. While disabled, adding, resending and confirming secondary addresses is blocked in settings and on the server; existing verified addresses remain usable and removable, and pending requests can be cancelled. Primary-email changes remain available and preserve the previous verified primary. Enter your current password to add an address, resend its code, promote a verified address or remove a secondary. Codes last ten minutes, allow five attempts and have a one-minute resend interval. Expired requests remain visible for resend or cancellation. Pending requests do not reserve an address or prevent its actual owner from registering; ownership is checked again when you verify.
 
 Any verified address can sign in or recover the same account. Recovery requested with a secondary address goes to that address; recovery by username goes to the primary. Login 2FA and password-change codes still go to the primary, so aliases do not bypass 2FA. Changing primary retains the previous verified primary as a secondary and updates only explicitly linked current tutor/tutee contact rows. Account identity, roles, history and signed agreements remain unchanged. Removing an address revokes its outstanding grants; adding it again does not revive them. Select another verified primary before removing the current one.
 
@@ -660,9 +774,9 @@ Any verified address can sign in or recover the same account. Recovery requested
 
 Email notices include a clear action button and a copyable link, with a plain-text version for mail readers that do not show HTML. Program notices open the relevant workflow; message notices open your role's inbox; account/security notices open account settings. If sign-in or a verification code is needed, you return to the linked page afterward. Older queued program notices may open the home page. Your current permissions still apply, so a removed record or changed role may limit what you can open.
 
-When Head enables **Email Notifications** in **Program & Refresh** directly or approves an Admin request, **Account → Email Preferences** offers private-message notices and information/program updates (both default off). Each category may be enabled or disabled independently. Security alerts for password, two-factor and associated-email changes are essential and cannot be disabled. Private-message notices omit the message contents. By default notices go only to a verified primary; you can also include verified secondary addresses. A primary change additionally notifies the previous verified primary regardless of notification preferences, even if that address is subsequently removed.
+When Head enables **Email Notifications** in **Program Settings → Deployment Configurations** directly or approves an Admin request, **Account → Email Preferences** offers private-message notices and information/program updates (both default off). Each category may be enabled or disabled independently. Security alerts for password, two-factor and associated-email changes are essential and cannot be disabled. Private-message notices omit the message contents. By default notices go only to a verified primary; you can also include verified secondary addresses. A primary change additionally notifies the previous verified primary regardless of notification preferences, even if that address is subsequently removed.
 
-On **Program & Refresh**, **Email delivery status** warns when security or program SMTP is not configured or its connection/authentication check fails. It also shows notification emails waiting to retry after a failure and those whose retries are exhausted. **Refresh status** updates this information without sending email or changing program settings; transport checks may reuse a result for up to one minute. Ask the deployment operator to investigate a warning. A successful SMTP check confirms the connection and login only, not that a message reached an inbox. Local development logging is explicitly identified and sends no external email.
+On **Program Settings → Deployment Configurations**, **Email delivery status** warns when security or program SMTP is not configured or its connection/authentication check fails. It also shows notification emails waiting to retry after a failure and those whose retries are exhausted. **Refresh status** updates this information without sending email or changing program settings; transport checks may reuse a result for up to one minute. Ask the deployment operator to investigate a warning. A successful SMTP check confirms the connection and login only, not that a message reached an inbox. Local development logging is explicitly identified and sends no external email.
 
 After the email service is repaired, ADMIN/HEAD can select **Resend stuck emails** to queue up to 100 eligible failed or retrying notifications. The result confirms queuing; delivery happens through the normal worker and still follows current email preferences and recipient ownership. Emails already being processed or completed are excluded, and optional emails remain excluded while notifications are disabled. If more eligible messages remain, refresh status before queuing another batch. If queuing succeeds but the status read fails, use **Refresh status** to recover without submitting the same action again.
 

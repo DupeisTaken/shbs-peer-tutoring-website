@@ -89,6 +89,31 @@ vi.mock("~/trpc/react", () => ({
 
 import AdjustmentsPage from "./page";
 
+it.each(["en", "zh"])(
+  "keeps persistent visible %s labels on all five creation fields",
+  (locale) => {
+    renderPage(locale);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: (locale === "zh" ? zh : en).admin.adjustments.create,
+      }),
+    );
+    const labels = (locale === "zh" ? zh : en).admin.adjustments.table;
+    for (const name of [
+      labels.tutor,
+      labels.month,
+      labels.type,
+      labels.amount,
+      labels.reason,
+    ]) {
+      const field = screen.getByLabelText(name, { selector: "input,select" });
+      expect(field.closest("label")?.querySelector(".label")?.textContent).toBe(
+        name,
+      );
+    }
+  },
+);
+
 function renderPage(locale = "en", readOnly = false) {
   return render(
     <NextIntlClientProvider
@@ -126,6 +151,9 @@ afterEach(cleanup);
 
 it("reveals past choices and retains a selected past tutor after hiding the others", () => {
   renderPage();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.adjustments.create }),
+  );
   expect(
     screen.queryByRole("option", { name: "Past Archived Tutor" }),
   ).toBeNull();
@@ -180,6 +208,9 @@ it.each(["en", "zh"])(
 
 it("submits the selected month, half-hour amount and trimmed reason unchanged", () => {
   renderPage();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.adjustments.create }),
+  );
   fireEvent.change(screen.getByRole("combobox", { name: "Tutor" }), {
     target: { value: "synthetic-tutor" },
   });

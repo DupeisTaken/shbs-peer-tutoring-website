@@ -1,4 +1,5 @@
 "use client";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import {
   REGISTRATION_KINDS,
   isManagementCode,
@@ -7,21 +8,24 @@ import {
 } from "~/lib/registration-kind";
 import { EmailDetails } from "~/app/_components/email-details";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { ShareCard } from "./share-card";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
-import { InlineNotice } from "~/app/_components/ui/patterns";
+import { InlineNotice, StatePanel } from "~/app/_components/ui/patterns";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { Button } from "~/app/_components/ui/button";
 import { useActionReview } from "~/app/_components/ui/action-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { queuedApprovalId } from "~/lib/approval-outcome";
 
 /**
- * Registration codes: issue single-use 6-digit security keys for new tutors and track their
+ * Registration codes: issue single-use five-character security keys for new tutors and track their
  * status. Active codes remain re-viewable from their expandable cards until they expire, are used,
  * or are revoked.
  * Head issues directly; Admin also issues Tutor/Crew codes directly. Other eligible
@@ -32,20 +36,88 @@ export default function RegistrationCodesPage() {
   const t = useTranslations();
   const readOnly = useReadOnly();
   const utils = api.useUtils();
-  const codes = api.admin.registrationCodes.useQuery();
-  const identity = api.account.me.useQuery();
+  const fieldId = useId();
+  const queryClient = useQueryClient();
+  const [denied, setDenied] = useState(false);
+  const codes = api.admin.registrationCodes.useQuery(undefined, {
+    enabled: !denied,
+  });
+  const identity = api.account.me.useQuery(undefined, { enabled: !denied });
+  const codesDenied =
+    codes.error?.data?.code === "FORBIDDEN" ||
+    codes.error?.data?.code === "UNAUTHORIZED";
+  const identityDenied =
+    identity.error?.data?.code === "FORBIDDEN" ||
+    identity.error?.data?.code === "UNAUTHORIZED";
+  useEffect(() => {
+    if (codesDenied || identityDenied) {
+      setDenied(true);
+      if (codesDenied)
+        queryClient.removeQueries({
+          queryKey: getQueryKey(
+            api.admin.registrationCodes,
+            undefined,
+            "query",
+          ),
+        });
+      if (identityDenied)
+        queryClient.removeQueries({
+          queryKey: getQueryKey(api.account.me, undefined, "query"),
+        });
+    } else if (
+      codes.isSuccess &&
+      identity.isSuccess &&
+      !codes.isFetching &&
+      !identity.isFetching
+    )
+      setDenied(false);
+  }, [
+    codesDenied,
+    identityDenied,
+    codes.isSuccess,
+    identity.isSuccess,
+    codes.isFetching,
+    identity.isFetching,
+    queryClient,
+  ]);
+  const readBlocked =
+    codes.data === undefined ||
+    !identity.data ||
+    !!codes.error ||
+    !!identity.error;
+  const section = t(
+    codes.error || codes.data === undefined
+      ? "admin.registrationCodes.title"
+      : "account.title",
+  );
+  const retry = () => {
+    if (codes.error || codes.data === undefined || denied) void codes.refetch();
+    if (identity.error || !identity.data || denied) void identity.refetch();
+  };
   const role = identity.data?.role;
+  useSessionPageScroll({
+    id: "registration-codes-v1",
+    ready:
+      codes.data !== undefined &&
+      !!identity.data &&
+      !denied &&
+      !codesDenied &&
+      !identityDenied,
+    enabled: !denied && !codesDenied && !identityDenied,
+  });
   const isHead = role === "HEAD";
   const canSubmitManagement = isHead || role === "ADMIN";
-  const kinds = REGISTRATION_KINDS.filter((value) =>
-    canSubmitManagement || (value !== "ADMIN" && value !== "COORDINATOR"),
+  const kinds = REGISTRATION_KINDS.filter(
+    (value) =>
+      canSubmitManagement || (value !== "ADMIN" && value !== "COORDINATOR"),
   );
 
   const [email, setEmail] = useState("");
   const [label, setLabel] = useState("");
   const [kind, setKind] = useState<RegistrationKind>("TUTOR");
   // Match issuance authority for the selected kind without broadening revocation.
-  const canIssueDirectly = isHead || (role === "ADMIN" && !isManagementCode(kind));
+  const canIssueDirectly =
+    isHead || (role === "ADMIN" && !isManagementCode(kind));
   const [issued, setIssued] = useState<{
     code: string;
     label: string | null;
@@ -83,6 +155,25 @@ export default function RegistrationCodesPage() {
     },
   });
   const review = useActionReview();
+  if (denied || codesDenied || identityDenied)
+    return (
+      <div className="space-y-6">
+        <h1 className="page-title">{t("admin.registrationCodes.title")}</h1>
+        <StatePanel
+          kind="denied"
+          title={t("managementRecovery.denied", { section })}
+          action={
+            <Button
+              size="compact"
+              disabled={codes.isFetching || identity.isFetching}
+              onClick={retry}
+            >
+              {t("managementRecovery.retry", { section })}
+            </Button>
+          }
+        />
+      </div>
+    );
 
   const statusBadge = (status: string) =>
     status === "active"
@@ -102,12 +193,34 @@ export default function RegistrationCodesPage() {
         </p>
       </div>
 
+      <QueryFeedback
+        hasData={codes.data !== undefined && !!identity.data}
+        loading={codes.data === undefined || !identity.data}
+        error={!!codes.error || !!identity.error}
+        retrying={codes.isFetching || identity.isFetching}
+        loadingTitle={t("managementRecovery.loading", { section })}
+        errorTitle={t(
+          codes.data !== undefined && identity.data
+            ? "managementRecovery.refreshFailed"
+            : "managementRecovery.loadFailed",
+          { section },
+        )}
+        retryLabel={t("managementRecovery.retry", { section })}
+        onRetry={retry}
+      />
+
       {!readOnly && (
         <form
           className="flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (identity.error || !role || issue.isPending || !kinds.includes(kind)) return;
+            if (
+              readBlocked ||
+              !role ||
+              issue.isPending ||
+              !kinds.includes(kind)
+            )
+              return;
             issue.mutate({
               email: email.trim() || undefined,
               label: label.trim() || undefined,
@@ -118,11 +231,11 @@ export default function RegistrationCodesPage() {
           {/* Bound each flex item as well as its content-sized control; otherwise
               a long draft gives the wrapper an overflowing intrinsic width. */}
           <div className="max-w-full min-w-0">
-            <label className="label" htmlFor="invite-kind">
+            <label className="label" htmlFor={`${fieldId}-kind`}>
               {t("admin.registrationCodes.kindField")}
             </label>
             <select
-              id="invite-kind"
+              id={`${fieldId}-kind`}
               value={kind}
               onChange={(e) => setKind(e.target.value as RegistrationKind)}
               className="select field-auto-bounded min-h-11 [--field-min-width:8rem] lg:min-h-10"
@@ -135,10 +248,11 @@ export default function RegistrationCodesPage() {
             </select>
           </div>
           <div className="max-w-full min-w-0">
-            <label className="label">
+            <label className="label" htmlFor={`${fieldId}-label`}>
               {t("admin.registrationCodes.labelField")}
             </label>
             <input
+              id={`${fieldId}-label`}
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder={t("admin.registrationCodes.labelPlaceholder")}
@@ -146,10 +260,11 @@ export default function RegistrationCodesPage() {
             />
           </div>
           <div className="max-w-full min-w-0">
-            <label className="label">
+            <label className="label" htmlFor={`${fieldId}-email`}>
               {t("admin.registrationCodes.emailField")}
             </label>
             <input
+              id={`${fieldId}-email`}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
@@ -159,13 +274,21 @@ export default function RegistrationCodesPage() {
           </div>
           <button
             className="btn-primary min-h-11 lg:min-h-10"
-            disabled={issue.isPending || !role || !!identity.error || !kinds.includes(kind)}
+            disabled={
+              readBlocked || issue.isPending || !role || !kinds.includes(kind)
+            }
           >
-            {canIssueDirectly ? t("admin.registrationCodes.issue") : t("approvals.requestHead")}
+            {canIssueDirectly
+              ? t("admin.registrationCodes.issue")
+              : t("approvals.requestHead")}
           </button>
         </form>
       )}
-      {issue.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+      {issue.error?.data?.approvalId && (
+        <InlineNotice tone="warning" announcement="status">
+          {t("approvals.queuedBody")}
+        </InlineNotice>
+      )}
       {issue.error && !issue.error.data?.approvalId && (
         <p className="text-sm text-red-600">{issue.error.message}</p>
       )}
@@ -211,8 +334,10 @@ export default function RegistrationCodesPage() {
           return (
             <div key={c.id} className="rounded-lg border border-slate-200 p-4">
               {/* Both groups may shrink and wrap: long labels must never push record actions offscreen. */}
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex max-w-full min-w-0 items-start gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* Center the identity block on the chevron, then center badges
+                    on the name line. Inline baselines drift when the trigger is taller. */}
+                <div className="flex max-w-full min-w-0 items-center gap-2">
                   <Button
                     variant="ghost"
                     size="compact"
@@ -229,12 +354,14 @@ export default function RegistrationCodesPage() {
                     <DisclosureIcon open={open} />
                   </Button>
                   <div className="min-w-0">
-                    <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
-                      {c.label ?? c.tutorName ?? "—"}
-                      <span className={`${statusBadge(c.status)} ml-2`}>
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium [overflow-wrap:anywhere] text-slate-900">
+                      <span className="min-w-0">
+                        {c.label ?? c.tutorName ?? "—"}
+                      </span>
+                      <span className={statusBadge(c.status)}>
                         {t(`admin.registrationCodes.status.${c.status}`)}
                       </span>
-                      <span className="badge-slate ml-2">
+                      <span className="badge-slate">
                         {t(
                           `admin.registrationCodes.${registrationKindLabel[c.kind]}`,
                         )}
@@ -244,17 +371,17 @@ export default function RegistrationCodesPage() {
                 </div>
                 <div className="flex w-full min-w-0 flex-wrap items-center gap-3 lg:w-auto lg:justify-end">
                   {/* Issuer account + bound email, to the left of the expiry. */}
-                  <div className="min-w-0 text-xs leading-tight [overflow-wrap:anywhere] text-slate-500 lg:text-right">
-                    <p>
-                      {t("admin.registrationCodes.colIssuedBy")}:{" "}
-                      {c.issuedByName ?? "—"}
-                    </p>
-                    {c.issuedByEmail && (
+                  <div className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-slate-500">
+                    <span>{t("admin.registrationCodes.colIssuedBy")}:</span>
+                    {c.issuedByEmail ? (
                       <EmailDetails
                         contactOnly
+                        triggerLabel={c.issuedByName ?? "—"}
                         email={c.issuedByEmail}
                         name={c.issuedByName ?? "—"}
                       />
+                    ) : (
+                      <span>{c.issuedByName ?? "—"}</span>
                     )}
                   </div>
                   <p className="text-xs text-slate-500">
@@ -299,7 +426,7 @@ export default function RegistrationCodesPage() {
                           approvalId: queuedApprovalId,
                         })
                       }
-                      disabled={review.blocked(c.id)}
+                      disabled={readBlocked || review.blocked(c.id)}
                     >
                       {t("admin.registrationCodes.revoke")}
                     </button>
@@ -343,7 +470,7 @@ export default function RegistrationCodesPage() {
             </div>
           );
         })}
-        {(codes.data?.length ?? 0) === 0 && (
+        {!codes.error && codes.data?.length === 0 && (
           <p className="muted py-4 text-center">
             {t("admin.registrationCodes.empty")}
           </p>

@@ -135,7 +135,7 @@ it("uses the account profile for both explicit participation links without touch
   ).toMatchObject({
     englishName: "Lin",
     firstName: "Lin",
-    lastName: "",
+    lastName: null,
     alternativeNames: "林",
     username: "profileperson",
   });

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 import { Modal } from "./modal";
 import { Button } from "./button";
+import { ProfileDialog } from "../profile-dialog";
 
 /** Summary cells stay brief; the last column owns every detail/editor entry.
  * The local scroll region preserves column relationships and keeps actions reachable.
@@ -37,14 +38,15 @@ export function SummaryTable({
 
 /** Keep the same text-link treatment and touch area for all row actions. */
 export function TableAction({
+  variant = "standard",
   className = "",
   type = "button",
   ...props
-}: ComponentProps<"button">) {
+}: ComponentProps<"button"> & { variant?: "standard" | "danger" }) {
   return (
     <button
       type={type}
-      className={`table-action-link ${className}`}
+      className={`table-action-link ${variant === "danger" ? "table-action-danger" : ""} ${className}`}
       {...props}
     />
   );
@@ -63,14 +65,22 @@ export function TableDetails({
   label,
   title,
   children,
+  longReader = false,
 }: {
   label?: string;
   title: string;
   children: ReactNode;
+  /** Large read details reuse the reachable header Close; short dialogs stay compact. */
+  longReader?: boolean;
 }) {
   const t = useTranslations("tablePatterns");
   const [open, setOpen] = useState(false);
   const text = label ?? t("details");
+  const content = (
+    <div className="space-y-4 text-left text-sm [overflow-wrap:anywhere] whitespace-normal">
+      {children}
+    </div>
+  );
   return (
     <>
       <TableAction
@@ -81,23 +91,31 @@ export function TableDetails({
         {text}
       </TableAction>
       {open &&
-        createPortal(
-          <Modal
+        (longReader ? (
+          <ProfileDialog
             title={title}
-            wide
+            size="wide"
             onClose={() => setOpen(false)}
-            footer={
-              <Button data-dialog-autofocus onClick={() => setOpen(false)}>
-                {t("close")}
-              </Button>
-            }
           >
-            <div className="space-y-4 text-left text-sm [overflow-wrap:anywhere] whitespace-normal">
-              {children}
-            </div>
-          </Modal>,
-          document.body,
-        )}
+            {content}
+          </ProfileDialog>
+        ) : (
+          createPortal(
+            <Modal
+              title={title}
+              wide
+              onClose={() => setOpen(false)}
+              footer={
+                <Button data-dialog-autofocus onClick={() => setOpen(false)}>
+                  {t("close")}
+                </Button>
+              }
+            >
+              {content}
+            </Modal>,
+            document.body,
+          )
+        ))}
     </>
   );
 }

@@ -1,26 +1,96 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
+import { Button } from "~/app/_components/ui/button";
+import { StatePanel } from "~/app/_components/ui/patterns";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 
 type Enrollment =
   RouterOutputs["studentWorkflow"]["legacyParticipation"][number];
 /** Manual intake has no survey, but explicit account ownership still enables self service. */
 export function LegacyParticipation() {
-  const query = api.studentWorkflow.legacyParticipation.useQuery();
-  if (query.error) return <p role="alert">{query.error.message}</p>;
+  const recovery = useTranslations("participantRecovery");
+  const queryClient = useQueryClient();
+  const [denied, setDenied] = useState(false);
+  const query = api.studentWorkflow.legacyParticipation.useQuery(undefined, {
+    enabled: !denied,
+  });
+  const authorizationDenied =
+    query.error?.data?.code === "FORBIDDEN" ||
+    query.error?.data?.code === "UNAUTHORIZED";
+  useEffect(() => {
+    if (!authorizationDenied) return;
+    // A transport failure preserves drafts; an authoritative denial revokes this private cache.
+    setDenied(true);
+    queryClient.removeQueries({
+      queryKey: getQueryKey(
+        api.studentWorkflow.legacyParticipation,
+        undefined,
+        "query",
+      ),
+    });
+  }, [authorizationDenied, queryClient]);
+  useEffect(() => {
+    if (query.isSuccess && !query.isFetching) setDenied(false);
+  }, [query.isSuccess, query.isFetching]);
+  const retry = () => {
+    void query.refetch();
+  };
+  const readFeedback = (
+    <QueryFeedback
+      hasData={!!query.data}
+      loading={!query.data && !query.error}
+      error={!!query.error}
+      retrying={query.isFetching}
+      loadingTitle={recovery("loading")}
+      errorTitle={recovery(query.data ? "refreshFailed" : "loadFailed")}
+      retryLabel={recovery("retry")}
+      onRetry={retry}
+    />
+  );
+  if (denied || authorizationDenied)
+    return (
+      <StatePanel
+        kind="denied"
+        title={recovery("accessDenied")}
+        action={
+          <Button size="compact" disabled={query.isFetching} onClick={retry}>
+            {recovery("retry")}
+          </Button>
+        }
+      >
+        {recovery("accessDeniedHelp")}
+      </StatePanel>
+    );
   return (
     <>
+      {readFeedback}
       {query.data
         ?.filter((row) => row.status !== "INACTIVE" || row.reviews.length > 0)
         .map((row) => (
-          <Participation key={row.id} row={row} />
+          <Participation
+            key={row.id}
+            row={row}
+            readBlocked={!!query.error}
+            readFeedback={readFeedback}
+          />
         ))}
     </>
   );
 }
-function Participation({ row }: { row: Enrollment }) {
+function Participation({
+  row,
+  readBlocked,
+  readFeedback,
+}: {
+  row: Enrollment;
+  readBlocked: boolean;
+  readFeedback: ReactNode;
+}) {
   const t = useTranslations("workflow");
   const utils = api.useUtils();
   const [open, setOpen] = useState(false);
@@ -45,6 +115,7 @@ function Participation({ row }: { row: Enrollment }) {
       ) : row.status !== "INACTIVE" ? (
         <button
           className="btn-danger btn-sm"
+          disabled={readBlocked}
           onClick={() => {
             setReason("");
             setOpen(true);
@@ -70,12 +141,13 @@ function Participation({ row }: { row: Enrollment }) {
           message={t("abortConsequences")}
           busy={mutation.isPending}
           error={mutation.error?.message}
-          canConfirm={!!reason.trim()}
+          canConfirm={!readBlocked && !!reason.trim()}
           onCancel={() => setOpen(false)}
           onConfirm={(ticket) =>
-            mutation.mutate({ tuteeId: row.id, reason, ticket })
+            !readBlocked && mutation.mutate({ tuteeId: row.id, reason, ticket })
           }
         >
+          {readFeedback}
           <label className="block text-sm">
             {t("reason")}
             <textarea

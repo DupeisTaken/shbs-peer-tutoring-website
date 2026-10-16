@@ -10,7 +10,10 @@ import {
   type TransactionDb,
 } from "~/server/transactions";
 import { defaultUsername, usernameCandidates } from "~/lib/username";
-import { isSerializationFailure, UsernameSnapshotConflict } from "./username-snapshot";
+import {
+  isSerializationFailure,
+  UsernameSnapshotConflict,
+} from "./username-snapshot";
 export { defaultUsername } from "~/lib/username";
 
 /** Acquire BEFORE account/profile/row writes and hold through persistence. No process-local lock. */
@@ -23,7 +26,8 @@ export async function lockUsernameNamespace(tx: TransactionDb): Promise<void> {
     await tx.$executeRaw`INSERT INTO "UsernameNamespaceGuard" (id, revision) VALUES (1, 1)
       ON CONFLICT (id) DO UPDATE SET revision = "UsernameNamespaceGuard".revision + 1`;
   } catch (error) {
-    if (isSerializationFailure(error)) throw new UsernameSnapshotConflict(error);
+    if (isSerializationFailure(error))
+      throw new UsernameSnapshotConflict(error);
     throw error;
   }
 }
@@ -80,7 +84,8 @@ export async function ensureUniqueUsername(
   tx: TransactionDb,
 ): Promise<string> {
   // Recent Prisma transactions support nested $transaction, but never root $connect.
-  if ("$connect" in tx) throw new Error("Username allocation requires an active transaction.");
+  if ("$connect" in tx)
+    throw new Error("Username allocation requires an active transaction.");
   await lockUsernameNamespace(tx);
   for (const candidate of usernameCandidates(base)) {
     if (!(await usernameTaken(tx, candidate, opts))) return candidate;
@@ -98,7 +103,9 @@ export async function canonicalUsername(
   },
 ): Promise<string> {
   await lockUsernameNamespace(tx);
-  const established = [owner.userUsername, owner.tutorUsername].find((value) => value != null && value.length > 0);
+  const established = [owner.userUsername, owner.tutorUsername].find(
+    (value) => value != null && value.length > 0,
+  );
   if (!established) return ensureUniqueUsername(base, owner, tx);
   if (await usernameTaken(tx, established, owner))
     throw new TRPCError({
@@ -117,6 +124,8 @@ export async function ensureUserUsername(
     verifiedStudent?: boolean;
     preferredLatinName?: string;
     graduationYear?: number | null;
+    /** Explicit identity writes may need a neutral handle when every display field is absent. */
+    namelessIdentity?: boolean;
   } = {},
 ): Promise<string> {
   return inTransaction(client, async (tx) => {
@@ -139,6 +148,7 @@ export async function ensureUserUsername(
     });
     if (!user) return "";
     if (
+      !options.namelessIdentity &&
       !user.tutor &&
       (user.role === "VIEWER" ||
         (user.role === "STUDENT" &&
@@ -148,11 +158,15 @@ export async function ensureUserUsername(
     // Canonical academic evidence wins over creation hints, including after a rejected intake
     // correction. Unknown legacy reports never acquire an invented graduation suffix.
     const graduationYear = user.academicProfile
-      ? user.academicProfile.confirmedAt ? academicSummary(user.academicProfile).expectedGraduationYear : null
+      ? user.academicProfile.confirmedAt
+        ? academicSummary(user.academicProfile).expectedGraduationYear
+        : null
       : options.graduationYear;
-    const names = user.firstName
-      ? { firstName: user.firstName, lastName: user.lastName ?? "" }
-      : splitDisplayName(user.legacyName ?? user.name ?? "");
+    const names = options.namelessIdentity
+      ? { firstName: "", lastName: "" }
+      : user.firstName
+        ? { firstName: user.firstName, lastName: user.lastName ?? "" }
+        : splitDisplayName(user.legacyName ?? user.name ?? "");
     const username = await canonicalUsername(
       tx,
       defaultUsername(
