@@ -1067,6 +1067,11 @@ Workload confirmation shares `AssignmentConfirmation` with qualification review;
 qualified assignments wait for a fresh advisory read before automatically proceeding
 or showing Continue/Cancel above the preference. Failed advisory reads keep existing
 assignment permissions. The independent preference editor lives in My Availability.
+A prepared assignment admits one automatic or manual write attempt. If that write
+fails, a later advisory refetch (including a cleared workload warning) cannot
+silently submit it again. Explicit Review again prepares a fresh attempt; the
+parent draft remains mounted, and the returned write promise owns nested-dialog
+pending protection until it settles.
 A separate default-only migration sets new tutors to 1 without backfilling unset
 values; the existing inactive trigger still wins with zero. All native tutor
 selectors and Pairings summaries consume the same count. Proposed edits remove
