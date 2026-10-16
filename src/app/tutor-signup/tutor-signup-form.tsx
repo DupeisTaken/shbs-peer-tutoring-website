@@ -5,7 +5,10 @@ import {
   FormActions,
   InlineNotice,
 } from "~/app/_components/ui/patterns";
-import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
+import {
+  ConfiguredPersonNameFields as PersonNameFields,
+  useNameFieldPresentation,
+} from "~/app/_components/person-name-fields";
 import { nameDraft, fullPersonName } from "~/lib/person-name";
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
@@ -64,7 +67,11 @@ export function TutorSignupForm() {
   const submit = api.application.submit.useMutation();
 
   const [names, setNames] = useState(() => nameDraft());
-  const [namePolicyReady, setNamePolicyReady] = useState(false);
+  const {
+    ready: namePolicyReady,
+    hasLatinFields,
+    observe: observeNamePolicy,
+  } = useNameFieldPresentation();
   const name = fullPersonName(names);
   const [email, setEmail] = useState("");
   const [preferredContact, setPreferredContact] = useState("");
@@ -244,7 +251,7 @@ export function TutorSignupForm() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <PersonNameFields
-                  onPolicyAvailabilityChange={setNamePolicyReady}
+                  onPolicyAvailabilityChange={observeNamePolicy}
                   accountType="TUTOR"
                   value={names}
                   onChange={setNames}
@@ -266,7 +273,7 @@ export function TutorSignupForm() {
               </label>
             </div>
 
-            <ProfilePolicyHint />
+            {hasLatinFields && <ProfilePolicyHint />}
 
             {fields.preferredContact !== "hidden" && (
               <label className="space-y-1">

@@ -6,7 +6,7 @@ import { isAssignmentOperation } from "~/lib/assignment-qualification";
 import { AssignmentConfirmation } from "./assignment-confirmation";
 import { Suspense, useEffect, useState } from "react";
 import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState, useSessionViewVerified } from "./session-view-state";
-import { viewEnum, viewFields, viewPage, viewSearch } from "~/lib/session-view-state";
+import { viewEnum, viewFields, viewPage, viewIdentifier } from "~/lib/session-view-state";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import SuperJSON from "superjson";
@@ -301,11 +301,11 @@ function ApprovalQueue({
     scope: reviewer ? "reviewer" : "own", enabled: !accessDenied,
     parse: viewFields({ state: viewEnum(["", "PENDING", "APPROVED", "REJECTED", "CANCELLED"]), page: viewPage,
       // Shape-check while loading; validate against the full current requester catalogue after success.
-      requesterId: (value) => !reviewer ? value === "" ? "" : undefined : requesters === null ? viewSearch(value) : viewEnum(["", ...requesters])(value),
+      requesterId: (value) => !reviewer ? value === "" ? "" : undefined : requesters === null ? viewIdentifier(value) : viewEnum(["", ...requesters])(value),
     }),
   });
   const rawRequester = reviewer ? (params.get("requester") ?? "") : "";
-  const urlRequester = requesters !== null && !requesters.includes(rawRequester) ? "" : (viewSearch(rawRequester) ?? "");
+  const urlRequester = requesters !== null && !requesters.includes(rawRequester) ? "" : (viewIdentifier(rawRequester) ?? "");
   const [pendingUrlView, setPendingUrlView] = useState<{ query: string; value: typeof remembered } | null>(null);
   // Keep a control's immediate response while Next commits router.replace. A
   // different URL (including a banner link) always starts with its explicit values.

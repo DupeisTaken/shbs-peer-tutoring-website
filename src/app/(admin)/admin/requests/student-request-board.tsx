@@ -65,7 +65,8 @@ export function StudentRequestBoard({
   const denied = viewDenied || queryDenied;
   const [tab, setTab] = useSessionViewState({ id: "requests.tab.v1", initialState: "matching",
     parse: viewEnum(["matching", "assigned", "reviews", "processed"]), scope: viewScope,
-    enabled: !denied, restoreReady: !additionalLoading && !!rows.data && !!legacyReviews.data });
+    // A static panel choice is usable before its queue reads finish; only scroll waits for content.
+    enabled: !denied });
   const [invalidity, setInvalidity] = useSessionViewState<InvalidityFilterValue>({ id: "requests.invalidity.v1", initialState: "valid",
     parse: viewEnum(["valid", "invalid", "all"]), scope: viewScope, enabled: !denied });
   useSessionPageScroll({ id: "requests", scope: JSON.stringify([viewScope, tab, invalidity]),

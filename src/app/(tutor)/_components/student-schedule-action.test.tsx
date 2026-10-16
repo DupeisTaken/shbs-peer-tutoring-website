@@ -10,6 +10,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import type { ComponentProps } from "react";
 import messages from "../../../../messages/en.json";
+import zh from "../../../../messages/zh.json";
 import { StudentScheduleAction } from "./student-schedule-action";
 
 const state = vi.hoisted(() => ({
@@ -56,13 +57,17 @@ const row: ComponentProps<typeof StudentScheduleAction>["row"] = {
   verificationDueAt: new Date("2026-10-09T00:00:00Z"),
   slots: [],
 };
-const element = (active = true) => (
+const element = (active = true, locale = "en", schedule = row) => (
   <NextIntlClientProvider
-    locale="en"
+    locale={locale}
     timeZone="Asia/Shanghai"
-    messages={messages}
+    messages={locale === "zh" ? zh : messages}
   >
-    <StudentScheduleAction row={row} active={active} name="Sample Learner" />
+    <StudentScheduleAction
+      row={schedule}
+      active={active}
+      name="Sample Learner"
+    />
   </NextIntlClientProvider>
 );
 afterEach(() => {
@@ -140,3 +145,99 @@ it("shows the verification deadline without offering inactive tutors a new reque
   expect(screen.getByText(/^Verification due:/)).toBeTruthy();
   expect(screen.queryByRole("button")).toBeNull();
 });
+
+it.each(["read-failure", "pending-review"] as const)(
+  "retains an open reason but blocks the ready ticket after %s until eligibility returns",
+  async (transition) => {
+    state.prepare.mockResolvedValue({
+      id: "ready-ticket",
+      readyAt: new Date(0),
+      serverNow: new Date(),
+      expiresAt: new Date(Date.now() + 30 * 60_000),
+    });
+    const view = render(element());
+    fireEvent.click(screen.getByRole("button", {
+      name: messages.workflow.scheduleReject,
+    }));
+    await act(async () => undefined);
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Retained schedule reason" },
+    });
+    const changed = transition === "pending-review"
+      ? { ...row, pending: true }
+      : row;
+    view.rerender(element(transition !== "read-failure", "en", changed));
+    const confirm = screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.workflow.confirm,
+    });
+    expect(confirm.disabled).toBe(true);
+    fireEvent.click(confirm);
+    expect(state.mutate).not.toHaveBeenCalled();
+    expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe(
+      "Retained schedule reason",
+    );
+    view.rerender(element());
+    expect(confirm.disabled).toBe(false);
+    fireEvent.click(confirm);
+    expect(state.mutate).toHaveBeenCalledExactlyOnceWith({
+      pairingId: "pairing",
+      tuteeId: "tutee",
+      reason: "Retained schedule reason",
+      ticket: "ready-ticket",
+    });
+  },
+);
+
+it.each([
+  { locale: "en", catalog: messages, weekday: "Sun" },
+  { locale: "zh", catalog: zh, weekday: "周日" },
+])(
+  "localizes $locale schedule evidence and preserves the confirmation payload",
+  ({ locale, catalog, weekday }) => {
+    const schedule = {
+      ...row,
+      slots: [
+        {
+          id: "weekend-slot",
+          label: "Weekend",
+          dayOfWeek: 7,
+          startMin: 900,
+          endMin: 960,
+          active: true,
+          createdAt: new Date("2026-01-01T00:00:00Z"),
+        },
+      ],
+    };
+    render(element(true, locale, schedule));
+    expect(
+      screen.getByText(
+        `${catalog.workflow.availability}: ${weekday} 15:00–16:00`,
+      ),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: catalog.workflow.scheduleReject }),
+    );
+    expect(state.prepare).toHaveBeenCalledExactlyOnceWith({
+      action: "SCHEDULE",
+      target: "pairing:tutee",
+    });
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Schedule conflict draft" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: catalog.workflow.confirm }),
+    );
+    expect(state.mutate).toHaveBeenCalledExactlyOnceWith({
+      pairingId: "pairing",
+      tuteeId: "tutee",
+      reason: "Schedule conflict draft",
+      ticket: "issued-server-ticket",
+    });
+    expect(schedule.slots[0]).toMatchObject({
+      id: "weekend-slot",
+      dayOfWeek: 7,
+      startMin: 900,
+      endMin: 960,
+    });
+  },
+);

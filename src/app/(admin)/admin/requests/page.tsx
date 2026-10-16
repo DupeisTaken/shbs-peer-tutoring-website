@@ -454,7 +454,7 @@ export default function RequestsPage() {
   const viewScope = currentPeriod.data?.termId ?? "no-active-period";
   const [observerInvalidity, setObserverInvalidity] = useSessionViewState<InvalidityFilterValue>({
     id: "requests.observer-invalidity.v1", initialState: "valid", parse: viewEnum(["valid", "invalid", "all"]),
-    enabled: readOnly && !denied, restoreReady: !currentPeriod.isLoading, scope: viewScope,
+    enabled: readOnly && !denied, scope: viewScope,
   });
   useSessionPageScroll({ id: "requests-observer", scope: JSON.stringify([viewScope, observerInvalidity]),
     ready: !!tutees.data && !!tutors.data && !!pairings.data && !currentPeriod.isLoading, enabled: readOnly && !denied });

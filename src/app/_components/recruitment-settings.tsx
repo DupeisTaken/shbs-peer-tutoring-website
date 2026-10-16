@@ -22,7 +22,11 @@ export function RecruitmentSettings(props: {
   const common = useTranslations("profilePolicy");
   const utils = api.useUtils();
   const [saved, setSaved] = useState(false);
-  const [snapshot, setSnapshot] = useState(() => ({ termId: props.termId, window: props.window, timeZone: zone }));
+  const [snapshot, setSnapshot] = useState(() => ({
+    termId: props.termId,
+    window: props.window,
+    timeZone: zone,
+  }));
   const [generation, setGeneration] = useState(0);
   const [reloading, setReloading] = useState(false);
   const [reloadError, setReloadError] = useState<string | null>(null);
@@ -40,17 +44,29 @@ export function RecruitmentSettings(props: {
           try {
             const current = await utils.admin.currentPeriod.fetch();
             if (!current) throw new Error(common("loadFailed"));
-            setSnapshot({ termId: current.termId, window: current.recruitment[props.audience], timeZone: zone });
+            setSnapshot({
+              termId: current.termId,
+              window: current.recruitment[props.audience],
+              timeZone: zone,
+            });
             setGeneration((value) => value + 1);
             setSaved(false);
           } catch (error) {
-            setReloadError(error instanceof Error ? error.message : common("loadFailed"));
-          } finally { setReloading(false); }
+            setReloadError(
+              error instanceof Error ? error.message : common("loadFailed"),
+            );
+          } finally {
+            setReloading(false);
+          }
         }}
         onSaved={() => setSaved(true)}
         onDirty={() => setSaved(false)}
       />
-      {reloadError && <InlineNotice tone="error" announcement="alert">{reloadError}</InlineNotice>}
+      {reloadError && (
+        <InlineNotice tone="error" announcement="alert">
+          {reloadError}
+        </InlineNotice>
+      )}
       {saved && (
         <p role="status" className="mt-2 text-sm text-green-700">
           {t("saved")}
@@ -63,8 +79,9 @@ function Editor({
   termId,
   audience,
   window,
-  canEdit = true,
-  canApply = true,
+  // Observer/public projections may omit authority: missing flags never grant editing.
+  canEdit = false,
+  canApply = false,
   onSaved,
   onDirty,
   timeZone,
@@ -151,91 +168,110 @@ function Editor({
         }}
       >
         <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
-        <fieldset disabled={!canEdit || save.isPending || reloading} className="min-w-0 space-y-4">
-        <legend className="sr-only">{t(audience)}</legend>
-        <label className="flex min-h-11 items-center gap-3 font-medium">
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => setEnabled(e.target.checked)}
-          />
-          {t("enabled")}
-        </label>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {(
-            [
-              {
-                key: "start",
-                checked: startEnabled,
-                toggle: setStartEnabled,
-                value: start,
-                set: setStart,
-              },
-              {
-                key: "end",
-                checked: endEnabled,
-                toggle: setEndEnabled,
-                value: end,
-                set: setEnd,
-              },
-            ] as const
-          ).map((item) => (
-            <div key={item.key} className="space-y-2">
-              <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
-                <input
-                  type="checkbox"
-                  checked={item.checked}
-                  onChange={(e) => item.toggle(e.target.checked)}
-                />
-                {t(item.key)}
-              </label>
-              {item.checked && (
-                <label className="block space-y-1">
-                  <span className="sr-only">{t(item.key)}</span>
-                  <input
-                    type="datetime-local"
-                    className="input min-h-11 min-w-0 lg:min-h-10"
-                    required
-                    value={item.value}
-                    onChange={(e) => item.set(e.target.value)}
-                  />
-                  <span className="muted block text-xs">
-                    {programTimeZoneInputLabel(item.value, timeZone, locale)}
-                  </span>
-                </label>
-              )}
-              {!item.checked && (
-                <p className="muted text-sm">
-                  {t(item.key === "start" ? "noStart" : "noEnd")}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-        <label className="block space-y-1">
-          <span className="label">{t("previewLink")}</span>
-          <input
-            type="url"
-            className="input min-h-11 lg:min-h-10"
-            value={previewUrl}
-            onChange={(e) => setPreviewUrl(e.target.value)}
-            placeholder="https://…"
-          />
-          <span className="muted block text-xs">{t("previewHelp")}</span>
-        </label>
-        {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
-        {(error || (save.error && !save.error.data?.approvalId)) && (
-          <p role="alert" className="text-sm text-red-700">
-            {error || save.error?.message}
-          </p>
-        )}
-        <button
-          className="btn-primary min-h-11 lg:min-h-10"
-          disabled={save.isPending}
+        <fieldset
+          disabled={!canEdit || save.isPending || reloading}
+          // Hidden absolute labels need a local containing block inside the pane;
+          // otherwise their static positions can enlarge the root scroll range.
+          className="relative min-w-0 space-y-4"
         >
-          {save.isPending ? t("saving") : canApply ? t("save") : approvals("requestHead")}
-        </button>
-        <button type="button" className="btn-secondary min-h-11 lg:min-h-10" onClick={() => void onReload()}>{common("reload")}</button>
+          <legend className="sr-only">{t(audience)}</legend>
+          <label className="flex min-h-11 items-center gap-3 font-medium">
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(e) => setEnabled(e.target.checked)}
+            />
+            {t("enabled")}
+          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {(
+              [
+                {
+                  key: "start",
+                  checked: startEnabled,
+                  toggle: setStartEnabled,
+                  value: start,
+                  set: setStart,
+                },
+                {
+                  key: "end",
+                  checked: endEnabled,
+                  toggle: setEndEnabled,
+                  value: end,
+                  set: setEnd,
+                },
+              ] as const
+            ).map((item) => (
+              <div key={item.key} className="space-y-2">
+                <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
+                  <input
+                    type="checkbox"
+                    checked={item.checked}
+                    onChange={(e) => item.toggle(e.target.checked)}
+                  />
+                  {t(item.key)}
+                </label>
+                {item.checked && (
+                  <label className="block space-y-1">
+                    <span className="sr-only">{t(item.key)}</span>
+                    <input
+                      type="datetime-local"
+                      className="input min-h-11 min-w-0 lg:min-h-10"
+                      required
+                      value={item.value}
+                      onChange={(e) => item.set(e.target.value)}
+                    />
+                    <span className="muted block text-xs">
+                      {programTimeZoneInputLabel(item.value, timeZone, locale)}
+                    </span>
+                  </label>
+                )}
+                {!item.checked && (
+                  <p className="muted text-sm">
+                    {t(item.key === "start" ? "noStart" : "noEnd")}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+          <label className="block space-y-1">
+            <span className="label">{t("previewLink")}</span>
+            <input
+              type="url"
+              className="input min-h-11 lg:min-h-10"
+              value={previewUrl}
+              onChange={(e) => setPreviewUrl(e.target.value)}
+              placeholder="https://…"
+            />
+            <span className="muted block text-xs">{t("previewHelp")}</span>
+          </label>
+          {save.error?.data?.approvalId && (
+            <InlineNotice tone="warning" announcement="status">
+              {approvals("queuedBody")}
+            </InlineNotice>
+          )}
+          {(error || (save.error && !save.error.data?.approvalId)) && (
+            <p role="alert" className="text-sm text-red-700">
+              {error || save.error?.message}
+            </p>
+          )}
+          <button
+            className="btn-primary min-h-11 lg:min-h-10"
+            disabled={save.isPending}
+          >
+            {save.isPending
+              ? t("saving")
+              : canApply
+                ? t("save")
+                : approvals("requestHead")}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary min-h-11 lg:min-h-10"
+            onClick={() => void onReload()}
+          >
+            {common("reload")}
+          </button>
         </fieldset>
         <a
           className="link ml-4 inline-flex min-h-11 items-center"

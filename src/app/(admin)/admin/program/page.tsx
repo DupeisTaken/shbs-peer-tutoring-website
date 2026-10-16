@@ -24,6 +24,7 @@ import { api } from "~/trpc/react";
 import { InlineNotice, StatePanel } from "~/app/_components/ui/patterns";
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import { Switch } from "~/app/_components/ui/button";
+import { useReadOnly } from "~/app/_components/read-only";
 
 type RefreshResult = {
   name: string;
@@ -89,6 +90,12 @@ function ProgramSettingsPage() {
     ready: !!current.data && !!account.data,
     enabled: !denied,
   });
+  const readOnly = useReadOnly();
+  // Public/observer period reads do not confer access to private settings children.
+  const canReadSettings =
+    !readOnly &&
+    !account.error &&
+    ["HEAD", "ADMIN", "COORDINATOR"].includes(account.data?.role ?? "");
 
   const [confirm, setConfirm] = useState("");
   const [done, setDone] = useState<RefreshResult | null>(null);
@@ -102,7 +109,37 @@ function ProgramSettingsPage() {
   });
 
   const period = current.data;
+  const canEditPeriod = canReadSettings && !current.error && !!period?.canEdit;
+  const canApplyPeriod =
+    canEditPeriod && account.data?.role === "HEAD" && !!period?.canApply;
   const confirmOk = confirm.trim().toUpperCase() === "REFRESH";
+  // The panel owns feedback; denied/unknown identities never mount private query children.
+  const privatePanelState = (key: "people" | "communication" | "access") => {
+    const section = t(`admin.program.panels.${key}`);
+    return (
+      <StatePanel
+        kind={account.error ? "error" : account.data ? "denied" : "loading"}
+        title={t(
+          account.error
+            ? "managementRecovery.loadFailed"
+            : account.data
+              ? "managementRecovery.denied"
+              : "managementRecovery.loading",
+          { section },
+        )}
+        action={
+          account.error && (
+            <button
+              className="btn-secondary min-h-11 lg:min-h-8"
+              onClick={() => void account.refetch()}
+            >
+              {t("managementRecovery.retry", { section })}
+            </button>
+          )
+        }
+      />
+    );
+  };
 
   if (denied)
     return (
@@ -149,9 +186,13 @@ function ProgramSettingsPage() {
       >
         {/* Hidden panels retain independent settings drafts and refresh confirmation. */}
         <div hidden={panel !== "period"} className="space-y-6">
-          <ProgramTimeZoneSettings />
-          <ProgramCalendarSettings />
-          <SchoolCalendar />
+          {canReadSettings && (
+            <>
+              <ProgramTimeZoneSettings />
+              <ProgramCalendarSettings />
+              <SchoolCalendar />
+            </>
+          )}
           {period && (
             <>
               {(["tutee", "tutor"] as const).map((audience) => (
@@ -160,8 +201,8 @@ function ProgramSettingsPage() {
                   termId={period.termId}
                   audience={audience}
                   window={period.recruitment[audience]}
-                  canEdit={period.canEdit}
-                  canApply={period.canApply}
+                  canEdit={canEditPeriod}
+                  canApply={canApplyPeriod}
                 />
               ))}
 
@@ -202,7 +243,7 @@ function ProgramSettingsPage() {
                     <input
                       id={confirmationId}
                       value={confirm}
-                      disabled={!period.canEdit || refresh.isPending}
+                      disabled={!canEditPeriod || refresh.isPending}
                       onChange={(e) => setConfirm(e.target.value)}
                       placeholder={t("admin.program.confirmPlaceholder")}
                       className="input field-auto min-w-44"
@@ -210,10 +251,10 @@ function ProgramSettingsPage() {
                     <button
                       className="btn-danger"
                       disabled={
-                        !period.canEdit || !confirmOk || refresh.isPending
+                        !canEditPeriod || !confirmOk || refresh.isPending
                       }
                       onClick={() => {
-                        if (!period.canEdit || refresh.isPending) return;
+                        if (!canEditPeriod || refresh.isPending) return;
                         setDone(null);
                         refresh.mutate({
                           confirm,
@@ -223,7 +264,7 @@ function ProgramSettingsPage() {
                     >
                       {refresh.isPending
                         ? t("admin.program.refreshing")
-                        : period.canApply === false
+                        : !canApplyPeriod
                           ? t("approvals.requestHead")
                           : t("admin.program.refreshButton", {
                               name: period.next.name,
@@ -258,19 +299,30 @@ function ProgramSettingsPage() {
           )}
         </div>
         <div hidden={panel !== "people"} className="space-y-6">
-          <ProgramProfileSettings />
-          <ProgramNameSettings />
-          {!account.error &&
+          {!canReadSettings && privatePanelState("people")}
+          {canReadSettings && (
+            <>
+              <ProgramProfileSettings />
+              <ProgramNameSettings />
+            </>
+          )}
+          {canReadSettings &&
             ["HEAD", "ADMIN"].includes(account.data?.role ?? "") && (
               <MessagePermissions />
             )}
         </div>
         <div hidden={panel !== "communication"} className="space-y-6">
-          <ProgramEmailSettings />
-          <ProgramCaptchaSettings />
+          {!canReadSettings && privatePanelState("communication")}
+          {canReadSettings && (
+            <>
+              <ProgramEmailSettings />
+              <ProgramCaptchaSettings />
+            </>
+          )}
         </div>
         <div hidden={panel !== "access"} className="space-y-6">
-          {period && <FeatureToggles />}
+          {!canReadSettings && privatePanelState("access")}
+          {period && canReadSettings && <FeatureToggles />}
         </div>
       </SectionTabs>
     </div>
@@ -297,7 +349,6 @@ function FeatureToggles() {
     <section className="card p-5">
       <h2 className="section-title">{t("admin.program.features.heading")}</h2>
       <p className="muted mt-1 text-sm">{t("admin.program.features.help")}</p>
-      <p className="muted mt-2 text-sm">{t("approvals.sensitiveHelp")}</p>
       <ul className="mt-3 divide-y divide-slate-100">
         {data.features.map((f) => {
           // `target` = the desired state (staged value if any, else the current effective value).

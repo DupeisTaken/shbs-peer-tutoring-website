@@ -834,6 +834,22 @@ it("restores current search and sort without retaining deletion passwords or ope
   expect(JSON.stringify(sessionStorage)).not.toContain("unsaved-secret");
   expect(fixture.delete).not.toHaveBeenCalled();
 });
+it("keeps the original unbounded directory input through other filters and drops stale persisted criteria", () => {
+  const view = mount();
+  const input = screen.getByRole<HTMLInputElement>("searchbox");
+  expect(input.hasAttribute("maxlength")).toBe(false);
+  fireEvent.change(input, { target: { value: "Combined" } });
+  const long = "synthetic directory query ".repeat(200);
+  fireEvent.change(input, { target: { value: long } });
+  fireEvent.click(screen.getByRole("button", { name: messages.tuteeHistory.showHistorical }));
+  expect(input.value).toBe(long);
+  expect(sessionStorage.getItem(storageKey)).toBeNull();
+  expect(Object.keys(sessionStorage).some((key) => key.includes(long))).toBe(false);
+  view.unmount();
+  mount();
+  expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe("");
+  expect(fixture.delete).not.toHaveBeenCalled();
+});
 it("clears remembered directory criteria on denial and waits for a successful read", () => {
   const view = mount();
   fireEvent.change(screen.getByRole("searchbox"), {

@@ -104,9 +104,11 @@ describe("management presentation allowlists", () => {
         userDirectoryFilters(restored),
       ),
     ).toBe(false);
-    expect(
-      userDirectoryViewParser({ ...restored, search: "a".repeat(161) }),
-    ).toBeUndefined();
+    const long = "a".repeat(5000);
+    expect(userDirectoryViewParser({ ...restored, search: long })).toEqual({
+      ...restored,
+      search: long,
+    });
     expect(
       userDirectoryViewParser({ ...restored, roleExclude: [42] }),
     ).toBeUndefined();

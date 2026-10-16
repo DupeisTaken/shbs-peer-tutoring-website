@@ -183,7 +183,7 @@
       "UNRESTRICT": "已恢复权限"
     },
     "rolePermissions": "各角色的权限",
-    "permissionHelp": "所选组以并集生效。用户单独设置会替代角色规则；不选任何组表示禁止发送新消息。“所有可用账号”不包括本人、停用账号或私信受限账号。历史辅导关系来自保留的分配或出勤记录，无法还原未记录的旧分配。",
+    "permissionHelp": "所选组可以接收消息。用户单独设置会替代角色规则；不选任何组表示禁止发送新消息。“所有可用账号”不包括本人、停用账号或私信受限账号。历史辅导关系来自保留的分配或出勤记录，无法还原未记录的旧分配。",
     "userOverrides": "用户单独设置与私信权限",
     "findUser": "按姓名或用户名查找账号",
     "effectiveSource": "当前权限来源：{source}",
@@ -428,7 +428,7 @@
     },
     "schedule": {
       "title": "教室安排",
-      "help": "高亮的是你的配对；灰色格子为不可用的教室。"
+      "help": "高亮的是你的配对；教室状态请参见下方图例。"
     }
   },
   "admin": {
@@ -590,7 +590,7 @@
         "activity": "动态与申请",
         "history": "项目历史",
         "announcements": "公告",
-        "program": "项目与刷新",
+        "program": "项目设置",
         "tutorRoster": "辅导伙伴名册",
         "tutorApplications": "辅导伙伴申请",
         "tutorMeetings": "辅导伙伴会议",
@@ -781,7 +781,7 @@
     },
     "program": {
       "title": "项目设置",
-      "subtitle": "当前时段，以及让项目滚动到下一阶段的季度刷新。",
+      "subtitle": "管理招募、账号设置、部署配置和可选功能。",
       "loading": "加载中…",
       "noPeriod": "暂无活动的项目时段。请先创建或运行种子。",
       "currentPeriod": "当前时段",
@@ -1930,7 +1930,7 @@
       "title": "近期会议",
       "help": "无法参加会议？最迟可在会议开始前 60 分钟请假。",
       "excuseBtn": "请假",
-      "submitExcuse": "提交",
+      "submitExcuse": "提交请假说明",
       "cancelExcuse": "取消请假",
       "reasonPlaceholder": "原因（选填）",
       "excused": "你已为此次缺席请假。",
@@ -2028,7 +2028,8 @@
       "removalHelp": "学习伙伴要求退出？代为转达。有 7 天撤回期，你或管理员可撤回；之后自动生效。",
       "removalReasonPlaceholder": "原因（可选）",
       "removalSubmit": "转达退出",
-      "removalCancel": "取消"
+      "removalCancel": "取消",
+      "availabilityMissing": "尚未记录可用时间。"
     },
     "availability": {
       "loading": "正在加载时间段…",
@@ -4610,11 +4611,13 @@
     "saving": "正在保存…",
     "saved": "通知已保存。",
     "saveFailed": "无法保存通知。",
-    "refreshFailed": "通知已保存，但无法加载最新列表。请刷新同步，无需再次保存。"
+    "refreshFailed": "通知已保存，但无法加载最新列表。请刷新同步，无需再次保存。",
+    "details": "查看详情"
   },
   "roomOrder": {
     "title": "教室显示顺序",
-    "help": "调整项目教室列表与课表顺序。巡查顺序单独管理。",
+    "help": "使用教室旁的箭头调整草稿，再在下方保存完整顺序或提交变更请求。巡查顺序单独管理。",
+    "catalogChanged": "教室列表已变更。请重新加载顺序后再调整；当前草稿已保留。",
     "room": "教室",
     "actions": "操作",
     "up": "上移",
@@ -4628,7 +4631,8 @@
     "refresh": "刷新",
     "loadFailed": "无法加载最新教室顺序，草稿已保留。",
     "refreshFailed": "顺序已保存，但同步失败。刷新将读取已保存的顺序，不会再次提交。",
-    "request": "申请调整教室顺序"
+    "request": "申请调整教室顺序",
+    "open": "调整教室顺序"
   },
   "roomSchedule": {
     "rooms": "显示的教室",
@@ -4637,7 +4641,7 @@
     "allDetails": "课表详情",
     "occupied": "已占用",
     "noSlot": "—",
-    "legend": "灰色表示已占用 · × 表示不可用 · 可用表示已公布时段没有安排。详情包含所有获准查看的记录。",
+    "legend": "灰色表示已占用 · × 表示不可用 · 可用表示已公布时段没有安排。",
     "combined": "汇总课表",
     "individual": "分教室课表",
     "noSelection": "未选择教室。请选择教室或点击所有教室。",
@@ -4669,7 +4673,8 @@
     "save": "保存要求",
     "saving": "正在保存…",
     "saved": "姓名要求已保存。",
-    "refreshFailed": "要求已保存，但同步失败。刷新将读取已保存的规则，不会再次提交。"
+    "refreshFailed": "要求已保存，但同步失败。刷新将读取已保存的规则，不会再次提交。",
+    "hiddenProfileHelp": "项目在此使用你的用户名。已保存的姓名会保留，授权工作人员仍可查看。"
   },
   "participantNames": {
     "unnamed": "未提供姓名"

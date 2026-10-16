@@ -286,6 +286,15 @@ seven-day recall window, then processes automatically unless recalled or cancell
 An inactive tutor can still recall their pending relay. A queued management proposal
 requires staff approval; neither pending result is an applied change.
 
+In **My Pairings**, each assigned tutee has a **Details** entry. Open it to read
+their recorded availability, verification deadline and pending review status, and
+use the existing schedule-conflict request or eligible relay/recall controls.
+Missing availability means no times have been recorded; it does not establish a
+schedule conflict. Schedule-conflict and eligible relay reason drafts remain
+separate when Details is closed and reopened on the same page. They are not saved across navigation. A
+pending write blocks dismissal; Cancel and Close do not submit it. The pairing's
+default time selector remains before the tutee list.
+
 Meeting-excuse, qualification and interview drafts remain available after a failed
 save. Correct the problem and retry. Attendance keeps its successful receipt and
 locks that entry; choose **Submit Another** to start a fresh record. If a saved

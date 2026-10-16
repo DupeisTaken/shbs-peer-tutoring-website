@@ -183,7 +183,7 @@
       "UNRESTRICT": "Access restored"
     },
     "rolePermissions": "Permissions by Role",
-    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "permissionHelp": "선택한 그룹은 메시지를 받을 수 있습니다. 사용자별 설정은 역할 정책을 대체하며, 그룹을 선택하지 않으면 새 메시지를 보낼 수 없습니다. 모든 사용 가능한 계정에서 본인, 정지된 계정 및 메시지가 제한된 계정은 제외됩니다. 과거 튜터 관계는 보존된 배정 또는 출석 기록을 기반으로 하며, 기록이 없는 과거 배정은 복원할 수 없습니다.",
     "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
@@ -428,7 +428,7 @@
     },
     "schedule": {
       "title": "강의실 일정",
-      "help": "내 매칭이 강조 표시됩니다. 색칠된 칸은 사용 불가 강의실입니다."
+      "help": "내 매칭이 강조 표시됩니다. 강의실 이용 상태는 아래 범례를 확인하세요."
     }
   },
   "admin": {
@@ -598,7 +598,7 @@
         "activity": "활동 및 요청",
         "history": "프로그램 이력",
         "announcements": "공지사항",
-        "program": "프로그램 및 갱신",
+        "program": "프로그램 설정",
         "tutorRoster": "튜터 명단",
         "tutorApplications": "튜터 지원",
         "tutorRequests": "튜터 상태 요청",
@@ -789,7 +789,7 @@
     },
     "program": {
       "title": "프로그램 설정",
-      "subtitle": "현재 기간과 프로그램을 전환하는 분기별 갱신입니다.",
+      "subtitle": "모집, 계정 설정, 배포 설정 및 선택 기능을 관리합니다.",
       "loading": "불러오는 중…",
       "noPeriod": "활성 프로그램 기간이 없습니다. 먼저 시드 또는 생성하세요.",
       "currentPeriod": "현재 기간",
@@ -1930,7 +1930,7 @@
       "title": "예정된 회의",
       "help": "회의에 참석할 수 없나요? 시작 30분 전까지 결석을 신청할 수 있습니다.",
       "excuseBtn": "결석 신청",
-      "submitExcuse": "제출",
+      "submitExcuse": "결석 사유 제출",
       "cancelExcuse": "신청 취소",
       "reasonPlaceholder": "사유 (선택)",
       "excused": "이 결석을 신청했습니다.",
@@ -2036,7 +2036,8 @@
       "removalHelp": "학생이 탈퇴를 원하나요? 대신 전달하세요. 7일 동안 본인(또는 관리자)이 철회할 수 있고, 이후에는 자동 처리됩니다.",
       "removalReasonPlaceholder": "사유(선택)",
       "removalSubmit": "탈퇴 전달",
-      "removalCancel": "취소"
+      "removalCancel": "취소",
+      "availabilityMissing": "아직 가능한 시간이 등록되지 않았습니다."
     },
     "availability": {
       "loading": "시간대 불러오는 중…",
@@ -4610,11 +4611,13 @@
     "saving": "저장 중…",
     "saved": "안내가 저장되었습니다.",
     "saveFailed": "안내를 저장하지 못했습니다.",
-    "refreshFailed": "안내는 저장되었으나 최신 목록을 불러오지 못했습니다. 다시 저장하지 말고 새로 고침하여 동기화하세요."
+    "refreshFailed": "안내는 저장되었으나 최신 목록을 불러오지 못했습니다. 다시 저장하지 말고 새로 고침하여 동기화하세요.",
+    "details": "세부 정보 보기"
   },
   "roomOrder": {
     "title": "교실 표시 순서",
-    "help": "프로그램의 교실 목록과 시간표를 정렬합니다. 점검 팀의 순회 순서는 별도로 관리됩니다.",
+    "help": "교실 옆 화살표로 순서 초안을 만든 뒤 아래에서 전체 순서를 저장하거나 변경을 요청하세요. 점검 팀의 순회 순서는 별도로 관리됩니다.",
+    "catalogChanged": "교실 목록이 변경되었습니다. 초안은 유지됩니다. 순서를 더 변경하기 전에 다시 불러오세요.",
     "room": "교실",
     "actions": "작업",
     "up": "위로",
@@ -4628,7 +4631,8 @@
     "refresh": "새로 고침",
     "loadFailed": "최신 교실 순서를 불러오지 못했습니다. 초안은 유지되었습니다.",
     "refreshFailed": "순서는 저장되었으나 동기화에 실패했습니다. 새로 고침은 다시 제출하지 않고 저장된 순서를 읽습니다.",
-    "request": "교실 순서 변경 요청"
+    "request": "교실 순서 변경 요청",
+    "open": "교실 순서 변경"
   },
   "roomSchedule": {
     "rooms": "표시할 교실",
@@ -4637,7 +4641,7 @@
     "allDetails": "시간표 세부 정보",
     "occupied": "사용 중",
     "noSlot": "—",
-    "legend": "회색 = 사용 중 · × = 사용 불가 · 사용 가능 = 공개된 시간대에 배정 없음. 세부 정보에는 열람 권한이 있는 모든 기록이 포함됩니다.",
+    "legend": "회색 = 사용 중 · × = 사용 불가 · 사용 가능 = 공개된 시간대에 배정 없음.",
     "combined": "통합 시간표",
     "individual": "교실별 시간표",
     "noSelection": "선택한 교실이 없습니다. 교실 또는 모든 교실을 선택하세요.",
@@ -4669,7 +4673,8 @@
     "save": "요구 사항 저장",
     "saving": "저장 중…",
     "saved": "이름 요구 사항이 저장되었습니다.",
-    "refreshFailed": "요구 사항은 저장되었으나 동기화에 실패했습니다. 새로 고침은 다시 저장하지 않고 저장된 규칙을 읽습니다."
+    "refreshFailed": "요구 사항은 저장되었으나 동기화에 실패했습니다. 새로 고침은 다시 저장하지 않고 저장된 규칙을 읽습니다.",
+    "hiddenProfileHelp": "여기서는 사용자 이름을 표시합니다. 저장된 이름은 보존되며 권한이 있는 직원이 확인할 수 있습니다."
   },
   "participantNames": {
     "unnamed": "이름이 제공되지 않음"

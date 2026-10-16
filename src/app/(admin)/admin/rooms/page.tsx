@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { hmToMin, minToHm } from "~/lib/time";
@@ -73,6 +73,7 @@ function RoomCard({
   onChanged,
   onDeleted,
   review,
+  orderControls,
 }: {
   room: Room;
   readOnly: boolean;
@@ -80,6 +81,7 @@ function RoomCard({
   onChanged: () => Promise<unknown>;
   onDeleted: () => Promise<unknown>;
   review: ReturnType<typeof useActionReview>;
+  orderControls?: ReactNode;
 }) {
   const t = useTranslations("admin.rooms");
   const format = useFormatter();
@@ -154,20 +156,23 @@ function RoomCard({
               : t("noBlocks")}
           </p>
         </div>
-        <button
-          type="button"
-          className={`btn-secondary gap-2 ${control}`}
-          aria-expanded={open}
-          aria-controls={regionId}
-          onClick={() => setOpen(!open)}
-        >
-          <DisclosureIcon open={open} />
-          {open
-            ? t("hidePeriods")
-            : readOnly
-              ? t("viewPeriods")
-              : t("editDetails")}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {orderControls}
+          <button
+            type="button"
+            className={`btn-secondary gap-2 ${control}`}
+            aria-expanded={open}
+            aria-controls={regionId}
+            onClick={() => setOpen(!open)}
+          >
+            <DisclosureIcon open={open} />
+            {open
+              ? t("hidePeriods")
+              : readOnly
+                ? t("viewPeriods")
+                : t("editDetails")}
+          </button>
+        </div>
       </div>
       {open && (
         <div
@@ -523,6 +528,18 @@ export default function RoomsPage() {
         title={recovery("denied", { section: t("title") })}
       />
     );
+  const renderRoom = (room: Room, orderControls?: ReactNode) => (
+    <RoomCard
+      key={room.id}
+      room={room}
+      readOnly={readOnly}
+      coordinator={coordinator}
+      review={review}
+      orderControls={orderControls}
+      onChanged={invalidate}
+      onDeleted={() => invalidateAndReport(utils.admin.rooms)}
+    />
+  );
   return (
     <div className="space-y-6">
       {!readOnly && review.dialog}
@@ -566,23 +583,6 @@ export default function RoomsPage() {
         </form>
       )}
       <Notice feedback={feedback} />
-      {rooms.data && !readOnly && (
-        <RoomOrderEditor
-          rooms={rooms.data}
-          canEdit={!rooms.error && !me.error}
-          canApply={!coordinator}
-          onRefresh={async () => {
-            const result = await rooms.refetch();
-            if (!result.isSuccess)
-              throw new Error(result.error?.message ?? t("loading"));
-            await settleRefreshes([
-              () => invalidateAndReport(utils.tutor.rooms),
-              () => invalidateAndReport(utils.tutor.schedule),
-            ]);
-            return result.data;
-          }}
-        />
-      )}
       {(rooms.isLoading || me.isLoading) && (
         <p role="status" className="muted">
           {t("loading")}
@@ -604,17 +604,29 @@ export default function RoomsPage() {
         </div>
       )}
       <div className="space-y-4">
-        {rooms.data?.map((room) => (
-          <RoomCard
-            key={room.id}
-            room={room}
-            readOnly={readOnly}
-            coordinator={coordinator}
-            review={review}
-            onChanged={invalidate}
-            onDeleted={() => invalidateAndReport(utils.admin.rooms)}
-          />
-        ))}
+        {rooms.data &&
+        !readOnly &&
+        ["HEAD", "ADMIN"].includes(me.data?.role ?? "") ? (
+          <RoomOrderEditor
+            rooms={rooms.data}
+            canEdit={!rooms.error && !me.error}
+            canApply={me.data?.role === "HEAD"}
+            onRefresh={async () => {
+              const result = await rooms.refetch();
+              if (!result.isSuccess)
+                throw new Error(result.error?.message ?? t("loading"));
+              await settleRefreshes([
+                () => invalidateAndReport(utils.tutor.rooms),
+                () => invalidateAndReport(utils.tutor.schedule),
+              ]);
+              return result.data;
+            }}
+          >
+            {renderRoom}
+          </RoomOrderEditor>
+        ) : (
+          rooms.data?.map((room) => renderRoom(room))
+        )}
       </div>
       {rooms.data?.length === 0 && (
         <p className="card p-6 text-sm text-slate-500">{t("empty")}</p>

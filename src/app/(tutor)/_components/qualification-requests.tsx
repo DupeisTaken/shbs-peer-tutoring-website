@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { ChoiceButton } from "~/app/_components/ui/button";
+import { Button, ChoiceButton } from "~/app/_components/ui/button";
 import { FilterToolbar } from "~/app/_components/ui/patterns";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
@@ -170,15 +170,18 @@ export function QualificationRequests({
                     disabled={submit.isPending}
                     onChange={(event) => setReason(event.target.value)}
                   />
-                  <button
-                    className="btn-primary min-h-11 max-w-full whitespace-normal lg:min-h-10"
+                  {/* Both actions use the same context size; color owns emphasis. */}
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    className="max-w-full whitespace-normal"
                     disabled={submit.isPending || !subjectId || !reason.trim()}
                   >
                     {submit.isPending ? t("saving") : t("submit")}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="btn-secondary ml-2"
+                    className="ml-2 max-w-full whitespace-normal"
                     disabled={submit.isPending}
                     onClick={() => {
                       setSubjectId("");
@@ -187,7 +190,7 @@ export function QualificationRequests({
                     }}
                   >
                     {t("cancelDraft")}
-                  </button>
+                  </Button>
                   {submit.error && (
                     <p role="alert" className="text-sm text-red-700">
                       {submit.error.message}

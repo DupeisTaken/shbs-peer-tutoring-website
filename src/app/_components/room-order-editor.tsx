@@ -1,27 +1,35 @@
 "use client";
-import { useRef, useState } from "react";
+import {
+  Fragment,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { Button } from "./ui/button";
 import { FormActions, InlineNotice } from "./ui/patterns";
-import { SummaryTable, TableAction, TableActions } from "./ui/summary-table";
 import { queuedApprovalId } from "~/lib/approval-outcome";
+
 type RoomIdentity = { id: string; name: string };
-/** A staged complete order creates one auditable write; hidden room detail drafts stay keyed by ID. */
-export function RoomOrderEditor({
+
+/** Own one complete-order draft while the caller renders its existing ID-keyed room editors. */
+export function RoomOrderEditor<Room extends RoomIdentity>({
   rooms,
   canEdit,
-  canApply = true,
+  canApply = false,
   onRefresh,
+  children,
 }: {
-  rooms: RoomIdentity[];
+  rooms: Room[];
   canEdit: boolean;
   canApply?: boolean;
   onRefresh: () => Promise<RoomIdentity[]>;
+  children: (room: Room, controls: ReactNode) => ReactNode;
 }) {
   const t = useTranslations("roomOrder");
   const approvals = useTranslations("approvals");
-  const [original, setOriginal] = useState(rooms);
   const [ids, setIds] = useState(() => rooms.map((room) => room.id));
   const [expectedIds, setExpectedIds] = useState(ids);
   const [readPending, setReadPending] = useState(false);
@@ -32,14 +40,34 @@ export function RoomOrderEditor({
   const [accepted, setAccepted] = useState(false);
   const admitted = useRef(false);
   const queued = useRef(false);
+  const movedControl = useRef<HTMLButtonElement | null>(null);
   const save = api.admin.reorderRooms.useMutation();
   const busy = save.isPending || readPending;
+  const currentIds = new Set(rooms.map((room) => room.id));
+  const catalogChanged =
+    currentIds.size !== expectedIds.length ||
+    expectedIds.some((id) => !currentIds.has(id));
+  // Current room data appears once, including new rooms, without adopting a new version.
+  const orderedRooms = [
+    ...ids.flatMap((id) => rooms.find((room) => room.id === id) ?? []),
+    ...rooms.filter((room) => !ids.includes(room.id)),
+  ];
+  useLayoutEffect(() => {
+    // Keep the exact arrow when usable; at an endpoint use its enabled sibling.
+    const control = movedControl.current;
+    const target = control?.disabled
+      ? control.parentElement?.querySelector<HTMLButtonElement>(
+          "button:not(:disabled)",
+        )
+      : control;
+    target?.focus({ preventScroll: true });
+    movedControl.current = null;
+  }, [ids]);
   const sync = async () => {
     setReadPending(true);
     setReloadError(false);
     try {
       const latest = await onRefresh();
-      setOriginal(latest);
       setIds(latest.map((room) => room.id));
       setExpectedIds(latest.map((room) => room.id));
       setReadFailed(false);
@@ -53,8 +81,17 @@ export function RoomOrderEditor({
       setReadPending(false);
     }
   };
-  const move = (index: number, offset: number) => {
-    if (!canEdit || busy || committed.current) return;
+  const move = (index: number, offset: number, control: HTMLButtonElement) => {
+    if (
+      !canEdit ||
+      busy ||
+      committed.current ||
+      catalogChanged ||
+      index + offset < 0 ||
+      index + offset >= ids.length
+    )
+      return;
+    movedControl.current = control;
     setIds((before) => {
       const next = [...before];
       [next[index], next[index + offset]] = [
@@ -66,46 +103,42 @@ export function RoomOrderEditor({
     setSaved(false);
   };
   return (
-    <section className="card space-y-4 p-5">
-      <h2 className="section-title">{t("title")}</h2>
-      <p className="muted text-sm">{t("help")}</p>
-      <SummaryTable label={t("title")}>
-        <thead>
-          <tr>
-            <th>{t("room")}</th>
-            <th className="table-actions-heading">{t("actions")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {ids.map((id, index) => (
-            <tr key={id}>
-              <td>{original.find((room) => room.id === id)?.name ?? id}</td>
-              <TableActions>
-                <TableAction
-                  disabled={!canEdit || busy || accepted || index === 0}
-                  onClick={() => move(index, -1)}
-                  aria-label={t("moveUpName", {
-                    name: original.find((room) => room.id === id)?.name ?? id,
-                  })}
-                >
-                  {t("up")}
-                </TableAction>
-                <TableAction
-                  disabled={
-                    !canEdit || busy || accepted || index === ids.length - 1
-                  }
-                  onClick={() => move(index, 1)}
-                  aria-label={t("moveDownName", {
-                    name: original.find((room) => room.id === id)?.name ?? id,
-                  })}
-                >
-                  {t("down")}
-                </TableAction>
-              </TableActions>
-            </tr>
-          ))}
-        </tbody>
-      </SummaryTable>
+    <section className="space-y-4" aria-label={t("title")}>
+      <p className="muted">{t("help")}</p>
+      {catalogChanged && (
+        <InlineNotice tone="warning">{t("catalogChanged")}</InlineNotice>
+      )}
+      {orderedRooms.map((room, index) => (
+        <Fragment key={room.id}>
+          {children(
+            room,
+            <>
+              <Button
+                aria-label={t("moveUpName", { name: room.name })}
+                disabled={
+                  !canEdit || busy || accepted || catalogChanged || index === 0
+                }
+                onClick={(event) => move(index, -1, event.currentTarget)}
+              >
+                ↑
+              </Button>
+              <Button
+                aria-label={t("moveDownName", { name: room.name })}
+                disabled={
+                  !canEdit ||
+                  busy ||
+                  accepted ||
+                  catalogChanged ||
+                  index === orderedRooms.length - 1
+                }
+                onClick={(event) => move(index, 1, event.currentTarget)}
+              >
+                ↓
+              </Button>
+            </>,
+          )}
+        </Fragment>
+      ))}
       <FormActions>
         <Button
           variant="primary"
@@ -113,10 +146,17 @@ export function RoomOrderEditor({
             !canEdit ||
             busy ||
             accepted ||
+            catalogChanged ||
             JSON.stringify(ids) === JSON.stringify(expectedIds)
           }
           onClick={async () => {
-            if (!canEdit || busy || admitted.current || committed.current)
+            if (
+              !canEdit ||
+              busy ||
+              admitted.current ||
+              committed.current ||
+              catalogChanged
+            )
               return;
             admitted.current = true;
             try {

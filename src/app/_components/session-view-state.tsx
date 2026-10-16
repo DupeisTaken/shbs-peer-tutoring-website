@@ -28,13 +28,17 @@ export const useSessionViewVerified = () => !!useContext(Context)?.verified;
 
 /** Preserve an access failure across later transport errors. Only fresh successful
  * reads release it; callers also hide cached content while this is true. */
-export function useSessionAccessDenied(...queries: {
-  error?: { data?: { code?: string } | null } | null;
-  isSuccess?: boolean;
-  isFetching?: boolean;
-}[]) {
+export function useSessionAccessDenied(
+  ...queries: {
+    error?: { data?: { code?: string } | null } | null;
+    isSuccess?: boolean;
+    isFetching?: boolean;
+  }[]
+) {
   const denied = queries.some((query) => viewAccessDenied(query.error));
-  const recovered = queries.every((query) => query.isSuccess && !query.isFetching);
+  const recovered = queries.every(
+    (query) => query.isSuccess && !query.isFetching,
+  );
   const [latched, setLatched] = useState(false);
   useEffect(() => {
     if (denied) setLatched(true);
@@ -98,16 +102,38 @@ export function useSessionViewState<T extends ViewState>(
   const active = !!context?.verified && context.identity !== "anonymous";
   const latest = useRef(options);
   // Events/effects use the latest committed parser; rendering uses options directly.
-  useLayoutEffect(() => { latest.current = options; });
-  const [stored, setStored] = useState({ key, value: options.initialState });
+  useLayoutEffect(() => {
+    latest.current = options;
+  });
+  const [stored, setStored] = useState({
+    key,
+    value: options.initialState,
+    explicit: false,
+  });
+  // An early deliberate choice belongs only to this exact identity/path/scope.
+  // Drop its provenance even when the next key is not verified yet.
+  useLayoutEffect(() => {
+    setStored((previous) =>
+      previous.key === key
+        ? previous
+        : {
+            key,
+            value: latest.current.initialState,
+            explicit: false,
+          },
+    );
+  }, [key]);
   // Cached choices must satisfy today's allowlist, including removed modules/rooms.
   const parsed =
     restoreReady && stored.key === key
       ? options.parse(stored.value)
       : undefined;
   const invalid = restoreReady && stored.key === key && parsed === undefined;
-  const normalized = parsed !== undefined && JSON.stringify(parsed) !== JSON.stringify(stored.value)
-    ? JSON.stringify(parsed) : "";
+  const normalized =
+    parsed !== undefined &&
+    JSON.stringify(parsed) !== JSON.stringify(stored.value)
+      ? JSON.stringify(parsed)
+      : "";
   const value = enabled && parsed !== undefined ? parsed : options.initialState;
   useEffect(() => {
     if (!invalid || !key) return;
@@ -116,7 +142,7 @@ export function useSessionViewState<T extends ViewState>(
     } catch {
       /* Optional storage. */
     }
-    setStored({ key, value: latest.current.initialState });
+    setStored({ key, value: latest.current.initialState, explicit: false });
   }, [invalid, key]);
   useEffect(() => {
     if (!normalized || !enabled || !key) return;
@@ -124,26 +150,51 @@ export function useSessionViewState<T extends ViewState>(
     // Parsers may drop removed catalogue IDs or unknown fields. Replace their
     // stored representation too, so a later catalogue cannot revive them.
     if (active) {
-      try { writeViewState(window.sessionStorage, key, value); } catch { /* Optional storage. */ }
+      try {
+        writeViewState(window.sessionStorage, key, value);
+      } catch {
+        /* Optional storage. */
+      }
     }
-    setStored({ key, value });
+    setStored((previous) => ({
+      key,
+      value,
+      explicit: previous.key === key && previous.explicit,
+    }));
   }, [normalized, enabled, active, key]);
   useEffect(() => {
-    if (!key || !active) return;
+    if (enabled) return;
     try {
-      if (!enabled) {
-        removeViewState(window.sessionStorage, key);
-        return;
-      }
-      if (!restoreReady) return;
-      const restored = latest.current.parse(
-        readViewState(window.sessionStorage, key),
-      );
-      if (restored !== undefined) writeViewState(window.sessionStorage, key, restored);
-      setStored({ key, value: restored ?? latest.current.initialState });
+      if (key) removeViewState(window.sessionStorage, key);
     } catch {
-      /* State still works without browser storage. */
+      /* Optional storage. */
     }
+    setStored({ key, value: latest.current.initialState, explicit: false });
+  }, [key, enabled]);
+  useEffect(() => {
+    if (!key || !active || !enabled || !restoreReady) return;
+    setStored((previous) => {
+      // Verification may finish after a user clicked. Prefer a still-allowed
+      // same-key choice, while never transferring it to another identity/query.
+      const deliberate =
+        previous.key === key && previous.explicit
+          ? latest.current.parse(previous.value)
+          : undefined;
+      try {
+        const restored =
+          deliberate ??
+          latest.current.parse(readViewState(window.sessionStorage, key));
+        if (restored !== undefined)
+          writeViewState(window.sessionStorage, key, restored);
+        return {
+          key,
+          value: restored ?? latest.current.initialState,
+          explicit: deliberate !== undefined,
+        };
+      } catch {
+        return previous;
+      }
+    });
   }, [key, active, enabled, restoreReady]);
   const setValue = useCallback<Dispatch<SetStateAction<T>>>(
     (next) => {
@@ -161,7 +212,7 @@ export function useSessionViewState<T extends ViewState>(
             /* Optional storage. */
           }
         }
-        return { key, value: parsed };
+        return { key, value: parsed, explicit: true };
       });
     },
     [key, active, enabled, restoreReady],
@@ -195,6 +246,18 @@ export function useSessionPageScroll({
   const identity = context?.identity ?? "anonymous";
   const pathname = context?.pathname ?? "";
   const active = !!context?.verified && identity !== "anonymous";
+  // A retained outgoing feature must not adopt a newly verified destination
+  // pathname. A new mount or explicit feature ID establishes the next owner.
+  const [routeOwner, setRouteOwner] = useState(() => ({ id, pathname: "" }));
+  useLayoutEffect(() => {
+    setRouteOwner((previous) => {
+      if (previous.id === id && previous.pathname) return previous;
+      if (!pathname || window.location.pathname !== pathname)
+        return previous.id === id ? previous : { id, pathname: "" };
+      return { id, pathname };
+    });
+  }, [id, pathname]);
+  const ownsRoute = routeOwner.id === id && routeOwner.pathname === pathname;
   const [desktop, setDesktop] = useState<boolean | null>(null);
   useEffect(() => {
     const resize = () => setDesktop(window.innerWidth >= 1024);
@@ -203,7 +266,15 @@ export function useSessionPageScroll({
     return () => window.removeEventListener("resize", resize);
   }, []);
   useEffect(() => {
-    if (!active || !ready || !enabled || desktop === null) return;
+    if (
+      !active ||
+      !ready ||
+      !enabled ||
+      !ownsRoute ||
+      desktop === null ||
+      window.location.pathname !== pathname
+    )
+      return;
     const pane = desktop ? document.getElementById("admin-content") : null;
     const owner = pane ?? document.scrollingElement ?? document.documentElement;
     const key = viewStateKey(
@@ -228,8 +299,11 @@ export function useSessionPageScroll({
     let observer: ResizeObserver | undefined;
     let mutations: MutationObserver | undefined;
     let lastPosition: number | null = null;
+    const ownsLocation = () => window.location.pathname === pathname;
     const persist = () => {
-      if (restoring) return;
+      // Next can reset the destination viewport before passive effect teardown,
+      // including before an already queued source-page persistence frame runs.
+      if (!ownsLocation() || restoring) return;
       lastPosition = Math.max(0, owner.scrollTop);
       try {
         writeViewState(
@@ -249,6 +323,10 @@ export function useSessionPageScroll({
       if (timeout) clearTimeout(timeout);
     };
     const attempt = () => {
+      if (!ownsLocation()) {
+        stop();
+        return;
+      }
       if (!restoring || target === null) return;
       const height = pane ? pane.clientHeight : window.innerHeight;
       const maximum = Math.max(0, owner.scrollHeight - height);
@@ -262,9 +340,16 @@ export function useSessionPageScroll({
       stop();
     };
     const onScroll = () => {
+      if (!ownsLocation()) {
+        stop();
+        return;
+      }
       if (restoring && target !== null) {
         const height = pane ? pane.clientHeight : window.innerHeight;
-        const desired = Math.min(target, Math.max(0, owner.scrollHeight - height));
+        const desired = Math.min(
+          target,
+          Math.max(0, owner.scrollHeight - height),
+        );
         // Next may scroll after the target first fits. Keep the same bounded
         // recovery window and never persist that framework reset over the target.
         if (Math.abs(owner.scrollTop - desired) > 1) {
@@ -334,9 +419,19 @@ export function useSessionPageScroll({
       ] as const)
         window.removeEventListener(name, gesture);
     };
-  }, [identity, pathname, active, id, scope, ready, enabled, desktop]);
+  }, [
+    identity,
+    pathname,
+    active,
+    id,
+    scope,
+    ready,
+    enabled,
+    desktop,
+    ownsRoute,
+  ]);
   useEffect(() => {
-    if (enabled || !context) return;
+    if (enabled || !context || !ownsRoute) return;
     for (const size of [":desktop", ":mobile"]) {
       try {
         removeViewState(
@@ -347,5 +442,5 @@ export function useSessionPageScroll({
         /* Optional storage. */
       }
     }
-  }, [enabled, identity, pathname, id, scope, context]);
+  }, [enabled, identity, pathname, id, scope, context, ownsRoute]);
 }

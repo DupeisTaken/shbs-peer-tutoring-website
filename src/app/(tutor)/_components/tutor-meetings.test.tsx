@@ -9,6 +9,7 @@ import {
 import { afterEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../../messages/en.json";
+import zh from "../../../../messages/zh.json";
 import { TutorMeetings } from "./tutor-meetings";
 const state = vi.hoisted(() => ({
   mutate: vi.fn(),
@@ -69,11 +70,11 @@ afterEach(() => {
   state.cancelError = "";
   state.canExcuse = true;
 });
-const element = () => (
+const element = (locale = "en") => (
   <NextIntlClientProvider
-    locale="en"
+    locale={locale}
     timeZone="Asia/Shanghai"
-    messages={messages}
+    messages={locale === "zh" ? zh : messages}
   >
     <TutorMeetings />
   </NextIntlClientProvider>
@@ -159,3 +160,25 @@ it("does not announce an earlier success beside a failed cancellation", () => {
   expect(screen.getByRole("alert").textContent).toBe("Cancellation failed");
   expect(screen.queryByRole("status")).toBeNull();
 });
+
+it.each([
+  { locale: "en", catalog: messages, action: "Submit absence excuse" },
+  { locale: "zh", catalog: zh, action: "提交请假说明" },
+])(
+  "names the $locale inline absence action and keeps the original request",
+  ({ locale, catalog, action }) => {
+    render(element(locale));
+    fireEvent.click(
+      screen.getByRole("button", { name: catalog.tutor.meetings.excuseBtn }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "  Exam conflict draft  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: action }));
+    expect(state.mutate).toHaveBeenCalledExactlyOnceWith({
+      meetingId: "meeting",
+      reason: "Exam conflict draft",
+    });
+  },
+);

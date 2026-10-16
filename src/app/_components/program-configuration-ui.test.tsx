@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import {
   act,
   cleanup,
@@ -18,7 +18,7 @@ import {
 } from "~/lib/name-field-policy";
 import { ProgramCalendarSettings } from "./program-calendar";
 import { ProgramNameSettings } from "./program-name-settings";
-import { RoomOrderEditor } from "./room-order-editor";
+import { RoomOrderEditor as InlineRoomOrderEditor } from "./room-order-editor";
 
 const mocks = vi.hoisted(() => ({
   save: vi.fn<(value: unknown) => Promise<unknown>>(),
@@ -29,6 +29,8 @@ const mocks = vi.hoisted(() => ({
   error: null as Error | null,
   version: 7,
   canApply: true,
+  canEdit: true,
+  reason: "Original notice",
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mocks.refresh }),
@@ -67,12 +69,12 @@ vi.mock("~/trpc/react", () => {
         days: [
           {
             date: "2026-10-12",
-            reason: "Original notice",
+            reason: mocks.reason,
             active: true,
             version: 4,
           },
         ],
-        canEdit: true,
+        canEdit: mocks.canEdit,
         canApply: mocks.canApply,
       },
       error: mocks.error,
@@ -111,6 +113,8 @@ beforeEach(() => {
   mocks.error = null;
   mocks.version = 7;
   mocks.canApply = true;
+  mocks.canEdit = true;
+  mocks.reason = "Original notice";
   mocks.save.mockResolvedValue({});
   mocks.invalidate.mockResolvedValue(undefined);
   mocks.fetch.mockResolvedValue({
@@ -136,6 +140,21 @@ function deferred() {
     resolve = finish;
   });
   return { promise, resolve };
+}
+function RoomOrderEditor(
+  props: Omit<ComponentProps<typeof InlineRoomOrderEditor>, "children">,
+) {
+  return (
+    <InlineRoomOrderEditor {...props}>
+      {(room, controls) => (
+        <article aria-label={room.name}>
+          <h2>{room.name}</h2>
+          <div>{controls}</div>
+          <input aria-label={`${room.name} room draft`} defaultValue="" />
+        </article>
+      )}
+    </InlineRoomOrderEditor>
+  );
 }
 function calendarEdit() {
   fireEvent.click(
@@ -298,7 +317,7 @@ it("keeps reordered room drafts on write failures and recovers accepted order th
   mocks.save
     .mockRejectedValueOnce(new Error("Write unavailable"))
     .mockResolvedValue({});
-  show(<RoomOrderEditor rooms={rooms} canEdit onRefresh={refresh} />);
+  show(<RoomOrderEditor rooms={rooms} canEdit canApply onRefresh={refresh} />);
   fireEvent.click(
     screen.getByRole("button", {
       name: en.roomOrder.moveDownName.replace("{name}", "Alpha"),
@@ -318,4 +337,217 @@ it("keeps reordered room drafts on write failures and recovers accepted order th
   );
   expect(mocks.save).toHaveBeenCalledTimes(2);
   expect(refresh).toHaveBeenCalledTimes(2);
+});
+it("reorders the existing keyed rooms without a dialog, retains detail drafts, and excludes duplicate pending writes", async () => {
+  const rooms = [
+    { id: "a", name: "Alpha" },
+    { id: "b", name: "Beta" },
+  ];
+  const pending = deferred();
+  mocks.save.mockReturnValueOnce(pending.promise);
+  show(
+    <RoomOrderEditor
+      rooms={rooms}
+      canEdit
+      canApply
+      onRefresh={async () => rooms}
+    />,
+  );
+  expect(screen.queryByRole("table")).toBeNull();
+  expect(screen.queryByRole("button", { name: en.roomOrder.open })).toBeNull();
+  const detailDraft = screen.getByRole<HTMLInputElement>("textbox", {
+    name: "Alpha room draft",
+  });
+  fireEvent.change(detailDraft, {
+    target: { value: "Unrelated unsaved detail" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: en.roomOrder.moveDownName.replace("{name}", "Alpha"),
+    }),
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(
+    screen
+      .getAllByRole("article")
+      .map((node) => node.getAttribute("aria-label")),
+  ).toEqual(["Beta", "Alpha"]);
+  expect(screen.getByRole("textbox", { name: "Alpha room draft" })).toBe(
+    detailDraft,
+  );
+  expect(detailDraft.value).toBe("Unrelated unsaved detail");
+  expect(document.activeElement).toBe(
+    screen.getByRole("button", {
+      name: en.roomOrder.moveUpName.replace("{name}", "Alpha"),
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: en.roomOrder.save }));
+  fireEvent.click(screen.getByRole("button", { name: en.roomOrder.saving }));
+  expect(mocks.save).toHaveBeenCalledWith({
+    ids: ["b", "a"],
+    expectedIds: ["a", "b"],
+  });
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.roomOrder.reload,
+    }).disabled,
+  ).toBe(true);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await act(async () => pending.resolve({}));
+  await waitFor(() =>
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: en.roomOrder.reload,
+      }).disabled,
+    ).toBe(false),
+  );
+  expect(mocks.save).toHaveBeenCalledTimes(1);
+});
+it("keeps room order non-editable for observers and labels Admin edits as proposals", () => {
+  const rooms = [
+    { id: "a", name: "Alpha" },
+    { id: "b", name: "Beta" },
+  ];
+  const view = show(
+    <RoomOrderEditor
+      rooms={rooms}
+      canEdit={false}
+      onRefresh={async () => rooms}
+    />,
+  );
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.roomOrder.moveDownName.replace("{name}", "Alpha"),
+    }).disabled,
+  ).toBe(true);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <RoomOrderEditor
+        rooms={rooms}
+        canEdit
+        canApply={false}
+        onRefresh={async () => rooms}
+      />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    screen.getByRole("button", { name: en.roomOrder.request }),
+  ).toBeTruthy();
+  expect(screen.queryByRole("button", { name: en.roomOrder.save })).toBeNull();
+});
+it("shows a changed current catalog once and adopts its order only after an explicit successful Reload", async () => {
+  const rooms = [
+    { id: "a", name: "Alpha" },
+    { id: "b", name: "Beta" },
+  ];
+  const latest = [...rooms, { id: "c", name: "Gamma" }];
+  const refresh = vi
+    .fn<() => Promise<typeof rooms>>()
+    .mockRejectedValueOnce(new Error("Read unavailable"))
+    .mockResolvedValue(latest);
+  const view = show(
+    <RoomOrderEditor rooms={rooms} canEdit canApply onRefresh={refresh} />,
+  );
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: en.roomOrder.moveDownName.replace("{name}", "Alpha"),
+    }),
+  );
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <RoomOrderEditor rooms={latest} canEdit canApply onRefresh={refresh} />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    screen
+      .getAllByRole("article")
+      .map((node) => node.getAttribute("aria-label")),
+  ).toEqual(["Beta", "Alpha", "Gamma"]);
+  expect(screen.getByText(en.roomOrder.catalogChanged)).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: en.roomOrder.save })
+      .disabled,
+  ).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: en.roomOrder.reload }));
+  await screen.findByText(en.roomOrder.loadFailed);
+  expect(screen.getAllByRole("article")[0]?.getAttribute("aria-label")).toBe(
+    "Beta",
+  );
+  fireEvent.click(screen.getByRole("button", { name: en.roomOrder.reload }));
+  await waitFor(() =>
+    expect(screen.queryByText(en.roomOrder.catalogChanged)).toBeNull(),
+  );
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: en.roomOrder.moveDownName.replace("{name}", "Alpha"),
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: en.roomOrder.save }));
+  await waitFor(() =>
+    expect(mocks.save).toHaveBeenCalledWith({
+      ids: ["b", "a", "c"],
+      expectedIds: ["a", "b", "c"],
+    }),
+  );
+});
+it("keeps an accepted Admin order proposal read-only through refresh without repeating the request", async () => {
+  const rooms = [
+    { id: "a", name: "Alpha" },
+    { id: "b", name: "Beta" },
+  ];
+  mocks.save.mockRejectedValueOnce(
+    Object.assign(new Error("Queued"), {
+      data: { approvalId: "order-request" },
+    }),
+  );
+  const refresh = vi.fn(async () => rooms);
+  show(
+    <RoomOrderEditor
+      rooms={rooms}
+      canEdit
+      canApply={false}
+      onRefresh={refresh}
+    />,
+  );
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: en.roomOrder.moveDownName.replace("{name}", "Alpha"),
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: en.roomOrder.request }));
+  await screen.findByText(en.approvals.queuedBody);
+  fireEvent.click(screen.getByRole("button", { name: en.roomOrder.request }));
+  fireEvent.click(screen.getByRole("button", { name: en.roomOrder.reload }));
+  await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.roomOrder.request,
+    }).disabled,
+  ).toBe(true);
+  expect(mocks.save).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+it("keeps long calendar reasons in a full readonly Details reader without granting edits", () => {
+  mocks.canEdit = false;
+  mocks.reason = "完整的原始通知理由。".repeat(30);
+  show(<ProgramCalendarSettings />);
+  expect(screen.queryByText(mocks.reason)).toBeNull();
+  expect(
+    screen
+      .getByText(mocks.reason.slice(0, 80) + "…")
+      .classList.contains("line-clamp-2"),
+  ).toBe(true);
+  expect(
+    screen.queryByRole("button", { name: en.programCalendar.edit }),
+  ).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: new RegExp(en.programCalendar.details),
+    }),
+  );
+  expect(
+    within(screen.getByRole("dialog")).getByText(mocks.reason),
+  ).toBeTruthy();
+  expect(mocks.save).not.toHaveBeenCalled();
 });
