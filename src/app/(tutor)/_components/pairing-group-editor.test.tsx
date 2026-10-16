@@ -120,8 +120,8 @@ afterEach(() => {
   cleanup();
   client.clear();
 });
-function show(active = true) {
-  render(
+function element(active = true) {
+  return (
     <QueryClientProvider client={client}>
       <NextIntlClientProvider
         locale="en"
@@ -142,8 +142,11 @@ function show(active = true) {
           active={active}
         />
       </NextIntlClientProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+}
+function show(active = true) {
+  return render(element(active));
 }
 function open() {
   fireEvent.click(
@@ -164,6 +167,49 @@ it("hides group writes from an inactive tutor", () => {
   show(false);
   expect(screen.queryByRole("button")).toBeNull();
 });
+
+it.each(["edit", "review"] as const)(
+  "keeps the retained %s draft but blocks new admission after active status is lost",
+  async (phase) => {
+    const view = show();
+    open();
+    compose();
+    if (phase === "review") {
+      fireEvent.click(screen.getByRole("button", {
+        name: messages.pairingGroups.review,
+      }));
+    }
+    view.rerender(element(false));
+    const action = screen.getByRole<HTMLButtonElement>("button", {
+      name: phase === "review"
+        ? messages.pairingGroups.save
+        : messages.pairingGroups.review,
+    });
+    expect(action.disabled).toBe(true);
+    fireEvent.click(action);
+    expect(state.writes).toHaveLength(0);
+    view.rerender(element());
+    expect(action.disabled).toBe(false);
+    if (phase === "edit") {
+      expect(screen.getByRole<HTMLInputElement>("checkbox", {
+        name: "Mathematics",
+      }).checked).toBe(true);
+      expect(screen.getByRole<HTMLSelectElement>("combobox", {
+        name: messages.pairingGroups.schedule,
+      }).value).toBe("slot");
+      fireEvent.click(action);
+    }
+    fireEvent.click(screen.getByRole("button", {
+      name: messages.pairingGroups.save,
+    }));
+    await waitFor(() => expect(state.writes).toHaveLength(1));
+    expect(state.writes[0]!.input).toEqual({
+      snapshot: "0".repeat(64),
+      groups: [{ pairingIds: ["a", "b"], slotId: "slot" }],
+    });
+    await act(async () => state.writes[0]!.resolve({ ok: true }));
+  },
+);
 
 it("waits for a fresh opening read before exposing a cached preview", () => {
   state.fetching = true;
@@ -308,7 +354,7 @@ it("uses explicit Reload to replace a failed snapshot; background reads do not r
 });
 it("keeps the saved receipt when refresh fails; refresh Retry never repeats the write", async () => {
   state.refresh.mockRejectedValue(new Error("Read unavailable"));
-  show();
+  const view = show();
   open();
   compose();
   fireEvent.click(
@@ -327,6 +373,8 @@ it("keeps the saved receipt when refresh fails; refresh Retry never repeats the 
   expect(
     screen.getAllByRole("button", { name: messages.pairingGroups.retry }),
   ).toHaveLength(1);
+  // Losing eligibility blocks a new write, not synchronization of this receipt.
+  view.rerender(element(false));
   state.refresh.mockResolvedValue(undefined);
   fireEvent.click(
     screen.getByRole("button", { name: messages.pairingGroups.retry }),

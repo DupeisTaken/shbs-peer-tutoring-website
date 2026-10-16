@@ -58,6 +58,7 @@ export function PairingGroupEditor({
           <GroupDraft
             pairings={pairings}
             slots={slots}
+            active={active}
             onClose={() => setOpen(false)}
           />
         </ProfileDialog>
@@ -69,6 +70,7 @@ export function PairingGroupEditor({
 function GroupDraft({
   pairings,
   slots,
+  active,
   onClose,
 }: {
   pairings: Pairing[];
@@ -79,6 +81,7 @@ function GroupDraft({
     startMin: number;
     endMin: number;
   }[];
+  active: boolean;
   onClose: () => void;
 }) {
   const t = useTranslations("pairingGroups");
@@ -267,9 +270,13 @@ function GroupDraft({
                   </Button>
                   <Button
                     variant="primary"
-                    disabled={busy || !!query.error}
+                    disabled={!active || busy || !!query.error}
                     onClick={() => {
-                      if (admitted.current) return;
+                      // The retained dialog must use current participation, not
+                      // eligibility from the earlier Manage click. Recovery of
+                      // an accepted save remains read-only and independent.
+                      if (!active || busy || query.error || admitted.current)
+                        return;
                       admitted.current = true;
                       save.mutate({ snapshot: snapshot.snapshot, groups });
                     }}
@@ -289,8 +296,11 @@ function GroupDraft({
                   <Button onClick={onClose}>{common("cancel")}</Button>
                   <Button
                     variant="primary"
-                    disabled={invalid || !!query.error}
-                    onClick={() => setPhase("review")}
+                    disabled={!active || invalid || !!query.error}
+                    onClick={() => {
+                      if (!active || invalid || query.error) return;
+                      setPhase("review");
+                    }}
                   >
                     {t("review")}
                   </Button>
