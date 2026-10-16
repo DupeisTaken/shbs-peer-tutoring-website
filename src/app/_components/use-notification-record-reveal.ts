@@ -11,11 +11,13 @@ export type NotificationRecordArrival = {
 /** Feature adapters own authorization, lookup and committed filters. This waiter
  * owns only the incoming record's scroll/focus, never a remembered position or a
  * draft. DOM changes wake delayed mounts; no timer repeatedly pulls the viewport.
- * A gesture relinquishes an unfinished arrival even while its read is pending. */
+ * A gesture relinquishes an unfinished arrival even while its read is pending.
+ * Cancellation identifies its own arrival: an old location listener must never
+ * erase the replacement queued by a feature's listener for the same hash event. */
 export function useNotificationRecordReveal(
   arrival: NotificationRecordArrival | null,
   ready: boolean,
-  onCancel: () => void,
+  onCancel: (arrival: NotificationRecordArrival) => void,
 ) {
   const completed = useRef<NotificationRecordArrival | null>(null);
   const cancel = useRef(onCancel);
@@ -37,7 +39,7 @@ export function useNotificationRecordReveal(
       if (stopped) return;
       stop();
       completed.current = arrival;
-      cancel.current();
+      cancel.current(arrival);
     };
     const attempt = () => {
       if (stopped || !ready) return;

@@ -577,7 +577,10 @@ export default function ApplicationsPage() {
       Object.entries(emptyApplicationFilters).every(
         ([key, value]) => filters[key as keyof typeof filters] === value,
       ),
-    () => setArrival(null),
+    (cancelled) =>
+      setArrival((current) =>
+        current?.sequence === cancelled.sequence ? null : current,
+      ),
   );
   const list = denied ? [] : (apps.data ?? []);
   const filtered = list.filter(
