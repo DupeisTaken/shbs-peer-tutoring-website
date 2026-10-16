@@ -2,6 +2,7 @@ import { requireSchoolParticipation } from "./school-departure";
 import { lockAccountProfile } from "~/server/account-profile";
 import { requireAcademicConfirmation } from "~/server/academics";
 import { TRPCError } from "@trpc/server";
+import { notificationEvent } from "~/lib/notification-events";
 import {
   inTransaction,
   lockEntity,
@@ -64,7 +65,11 @@ export async function requestMembership(
     const eligibleAt =
       kind === "OPT_OUT" ? new Date(Date.now() + COOLDOWN_MS) : null;
     const trimmedReason = reason?.trim() ?? "";
-    const data = { kind, eligibleAt, reason: trimmedReason.length > 0 ? trimmedReason : null };
+    const data = {
+      kind,
+      eligibleAt,
+      reason: trimmedReason.length > 0 ? trimmedReason : null,
+    };
     const request =
       member.kind === "tutor"
         ? await tx.tutorStatusRequest.create({
@@ -76,6 +81,15 @@ export async function requestMembership(
     await notifyAdmins(
       {
         title: `${member.kind === "tutor" ? "Tutor" : "Crew"} ${kind === "OPT_OUT" ? "opt-out" : "reentry"} request`,
+        ...notificationEvent(
+          member.kind === "tutor"
+            ? kind === "OPT_OUT"
+              ? "tutor_optout_requested"
+              : "tutor_reentry_requested"
+            : kind === "OPT_OUT"
+              ? "crew_optout_requested"
+              : "crew_reentry_requested",
+        ),
         body: `${current.name} asked ${kind === "OPT_OUT" ? "to opt out (review after the cooldown)" : "to rejoin"}.`,
         link: member.kind === "tutor" ? "/admin/tutor-requests" : "/admin/crew",
       },
@@ -159,7 +173,15 @@ export async function decideMembership(
     };
     // Reentry checks and the membership transition share rollover/account lock ordering.
     await lockEntity(tx, "program:period");
-    const ownerId = member.kind === "crew" ? member.id : (await tx.user.findUnique({ where: { tutorId: member.id }, select: { id: true } }))?.id;
+    const ownerId =
+      member.kind === "crew"
+        ? member.id
+        : (
+            await tx.user.findUnique({
+              where: { tutorId: member.id },
+              select: { id: true },
+            })
+          )?.id;
     if (ownerId) await lockAccountProfile(tx, ownerId);
     const current = await lockMember(tx, member);
     const request =
@@ -220,7 +242,15 @@ export async function decideMembership(
       });
     if (approve) {
       if (request.kind === "REENTRY") {
-        const owner = kind === "crew" ? member.id : (await tx.user.findUnique({ where: { tutorId: member.id }, select: { id: true } }))?.id;
+        const owner =
+          kind === "crew"
+            ? member.id
+            : (
+                await tx.user.findUnique({
+                  where: { tutorId: member.id },
+                  select: { id: true },
+                })
+              )?.id;
         if (owner) {
           if (kind === "tutor") await requireSchoolParticipation(tx, owner);
           await requireAcademicConfirmation(tx, owner);
@@ -253,6 +283,13 @@ export async function decideMembership(
               ? "Opt-out approved"
               : "Reentry approved"
             : "Request declined",
+          ...notificationEvent(
+            approve
+              ? request.kind === "OPT_OUT"
+                ? "membership_optout_approved"
+                : "membership_reentry_approved"
+              : "membership_declined",
+          ),
           body: approve
             ? request.kind === "OPT_OUT"
               ? "Your opt-out was approved."

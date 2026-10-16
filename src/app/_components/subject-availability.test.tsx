@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import { SubjectAvailability } from "./subject-availability";
 const mocks = vi.hoisted(() => ({
@@ -16,6 +17,10 @@ const mocks = vi.hoisted(() => ({
   willing: vi.fn(),
   invalidate: vi.fn(),
 }));
+vi.mock("@trpc/react-query", () => ({
+  getQueryKey: () => ["subject-options"],
+}));
+let client: QueryClient;
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
@@ -32,6 +37,7 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 beforeEach(() => {
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   vi.clearAllMocks();
   mocks.options.mockReturnValue({
     data: {
@@ -56,28 +62,41 @@ beforeEach(() => {
     },
   });
 });
-afterEach(cleanup);
-const show = () =>
-  render(
+afterEach(() => {
+  cleanup();
+  client.clear();
+});
+const content = () => (
+  <QueryClientProvider client={client}>
     <NextIntlClientProvider locale="en" messages={en}>
       <SubjectAvailability />
-    </NextIntlClientProvider>,
-  );
+    </NextIntlClientProvider>
+  </QueryClientProvider>
+);
+const show = () => render(content());
 it("shows separate willingness, qualification and recorded inheritance and mutates only intent", () => {
   show();
   fireEvent.click(
     screen.getByRole("button", { name: /Tutor One 2 qualified · 1 willing/ }),
   );
-  const inherited = within(screen.getByRole("article", { name: "Math" }));
+  const inheritedRow = within(screen.getByRole("article", { name: "Math" }));
+  expect(inheritedRow.queryByRole("combobox")).toBeNull();
+  expect(
+    inheritedRow.queryByText("Recorded inheritance from: AP Math"),
+  ).toBeNull();
+  expect(inheritedRow.getByText("Not recorded")).toBeTruthy();
+  const biology = within(screen.getByRole("article", { name: "Biology" }));
+  expect(biology.getByText("Not qualified")).toBeTruthy();
+  const trigger = inheritedRow.getByRole("button", { name: "Edit details" });
+  trigger.focus();
+  fireEvent.click(trigger);
+  const inherited = within(screen.getByRole("dialog"));
   expect(
     inherited.getByText("Recorded inheritance from: AP Math"),
   ).toBeTruthy();
   expect(inherited.getByRole<HTMLSelectElement>("combobox").value).toBe(
     "UNKNOWN",
   );
-  const biology = within(screen.getByRole("article", { name: "Biology" }));
-  expect(biology.getByText("Not qualified")).toBeTruthy();
-  expect(biology.getByRole<HTMLSelectElement>("combobox").value).toBe("YES");
   fireEvent.change(inherited.getByRole("combobox"), {
     target: { value: "YES" },
   });
@@ -97,6 +116,31 @@ it("filters the qualified-and-willing intersection rather than either state alon
     screen.getByText("No tutors or subjects match these filters."),
   ).toBeTruthy();
 });
+it("keeps the on-demand editor open across filtering and restores its exact opener when still present", () => {
+  show();
+  fireEvent.click(screen.getByRole("button", { name: /Tutor One/ }));
+  const trigger = within(
+    screen.getByRole("article", { name: "Math" }),
+  ).getByRole("button", { name: "Edit details" });
+  trigger.focus();
+  fireEvent.click(trigger);
+  fireEvent.click(screen.getByRole("button", { name: "Qualified" }));
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }),
+  );
+  expect(document.activeElement).toBe(trigger);
+  fireEvent.click(trigger);
+  fireEvent.change(screen.getByRole("combobox", { name: "Show subjects" }), {
+    target: { value: "AVAILABLE" },
+  });
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  expect(
+    within(screen.getByRole("dialog")).getByRole<HTMLSelectElement>("combobox")
+      .value,
+  ).toBe("UNKNOWN");
+  expect(mocks.willing).not.toHaveBeenCalled();
+});
 it("surfaces loading and query errors", () => {
   mocks.options.mockReturnValue({});
   const view = show();
@@ -105,6 +149,43 @@ it("surfaces loading and query errors", () => {
   mocks.options.mockReturnValue({ error: { message: "Access denied" } });
   show();
   expect(screen.getByRole("alert").textContent).toBe("Access denied");
+});
+it("retains cached content for transport recovery but latches denial until a successful read", () => {
+  const result = mocks.options() as { data: unknown };
+  const refetch = vi.fn();
+  mocks.options.mockReturnValue({
+    ...result,
+    error: { message: "Transport failure" },
+    refetch,
+  });
+  const view = show();
+  expect(screen.getByRole("button", { name: /Tutor One/ })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
+  expect(refetch).toHaveBeenCalledOnce();
+  client.setQueryData(["subject-options"], result.data);
+  mocks.options.mockReturnValue({
+    ...result,
+    error: { message: "Revoked", data: { code: "FORBIDDEN" } },
+    refetch,
+  });
+  view.rerender(content());
+  expect(screen.queryByRole("button", { name: /Tutor One/ })).toBeNull();
+  expect(client.getQueryData(["subject-options"])).toBeUndefined();
+  mocks.options.mockReturnValue({
+    ...result,
+    error: { message: "Offline" },
+    refetch,
+  });
+  view.rerender(content());
+  expect(screen.queryByRole("button", { name: /Tutor One/ })).toBeNull();
+  mocks.options.mockReturnValue({
+    ...result,
+    isSuccess: true,
+    isFetching: false,
+    refetch,
+  });
+  view.rerender(content());
+  expect(screen.getByRole("button", { name: /Tutor One/ })).toBeTruthy();
 });
 
 it("mounts exactly three mutually exclusive filters only while expanded and clears on a second click", () => {

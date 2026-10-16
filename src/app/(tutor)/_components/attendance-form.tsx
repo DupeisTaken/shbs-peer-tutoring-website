@@ -1,18 +1,25 @@
 "use client";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
+import { pairingEntries } from "~/lib/pairing-groups";
 import { useDialog } from "~/app/_components/confirm-dialog";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useTranslations, useTimeZone } from "next-intl";
+import { useLocale, useTranslations, useTimeZone } from "next-intl";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 
 import { api } from "~/trpc/react";
+import type { RouterOutputs } from "~/trpc/react";
 import { hmToMin, minToHm } from "~/lib/time";
 import { useMerge } from "~/app/(tutor)/_components/merge-context";
 import { DisciplineSlots } from "~/app/_components/discipline-slots";
+import { FieldRequirement } from "~/app/_components/field-requirement";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 
 const TUTOR_STATUS_VALUES = [
   "PRESENT",
@@ -65,6 +72,7 @@ import { programDateKey, programDateTimeInput } from "~/lib/program-time";
 
 export function AttendanceForm() {
   const t = useTranslations();
+  const locale = useLocale();
   const timeZone = useTimeZone();
   const todayIso = () => programDateKey(new Date(), timeZone);
   const nowHm = () => programDateTimeInput(new Date(), timeZone).slice(11);
@@ -116,8 +124,13 @@ export function AttendanceForm() {
   const [online, setOnline] = useState(false);
   const [actualRoomId, setActualRoomId] = useState<string>("");
   // Which other pairings are merged into this block is chosen under "My pairings" (shared state).
-  const { setPrimaryPairingId, mergeIds, setMergeIds, setAttendanceLocked } =
-    useMerge();
+  const {
+    setPrimaryPairingId,
+    mergeIds,
+    setMergeIds,
+    setAttendanceLocked,
+    attendanceSelection,
+  } = useMerge();
   useEffect(() => {
     // The merge checkboxes live in another card but belong to this same save.
     setAttendanceLocked(submit.isPending || submit.isSuccess);
@@ -149,7 +162,7 @@ export function AttendanceForm() {
     defaultValues: { date: todayIso(), tutorStatus: "PRESENT", comments: "" },
   });
 
-  const selectedPairingId = watch("pairingId");
+  const selectionKey = watch("pairingId");
   const tutorStatus = watch("tutorStatus") as TutorStatus;
   const comments = watch("comments");
   // The always-required fields — gray the submit until they're filled (the rest is
@@ -157,13 +170,37 @@ export function AttendanceForm() {
   const startTime = watch("startTime");
   const endTime = watch("endTime");
   const incomplete =
-    !selectedPairingId || !comments?.trim() || !startTime || !endTime;
+    !selectionKey || !comments?.trim() || !startTime || !endTime;
   const pairings = pairingsQuery.data ?? [];
-  const selectedPairing = pairings.find((p) => p.id === selectedPairingId);
+  const entries = pairingEntries(pairings);
+  const selectedEntry = entries.find(
+    (entry) =>
+      selectionKey === (entry.groupId ? `group:${entry.groupId}` : entry.id),
+  );
+  const selectedPairingId = selectedEntry?.primary.id ?? selectionKey;
+  type Pairing = RouterOutputs["tutor"]["myPairings"][number];
+  // A draft keeps its assignment/roster snapshot if a saved group changes in another editor.
+  const [draftSelection, setDraftSelection] = useState<{
+    key: string;
+    primary: Pairing;
+    members: Pairing[];
+  }>();
+  const retainedSelection =
+    draftSelection?.key === selectionKey ? draftSelection : undefined;
+  const selectedPairing =
+    retainedSelection?.primary ??
+    pairings.find((p) => p.id === selectedPairingId);
   // Tutee attendance is tracked for any held session (present / rescheduled / extra).
   const held = tutorStatus !== "TUTOR_ABSENT";
 
-  const mergedPairings = pairings.filter(
+  const availableDraftPairings = retainedSelection
+    ? [
+        ...new Map(
+          [...pairings, ...retainedSelection.members].map((p) => [p.id, p]),
+        ).values(),
+      ]
+    : pairings;
+  const mergedPairings = availableDraftPairings.filter(
     (p) => mergeIds.includes(p.id) && p.id !== selectedPairingId,
   );
   // The block's combined roster — the primary plus every merged course, de-duplicated.
@@ -184,6 +221,14 @@ export function AttendanceForm() {
 
   // When the primary pairing changes, default the time fields and clear merge/per-tutee state.
   useEffect(() => {
+    if (attendanceSelection && !submit.isPending && !submit.isSuccess) {
+      initializedPairing.current = null;
+      setValue("pairingId", attendanceSelection.value);
+    }
+    // Only an explicit catalogue action replaces a draft; background group refreshes do not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attendanceSelection]);
+  useEffect(() => {
     // Tell "My pairings" which pairing is primary so it can offer eligible merges.
     setPrimaryPairingId(selectedPairingId ?? "");
     if (!selectedPairing) {
@@ -192,8 +237,10 @@ export function AttendanceForm() {
     }
     // A cache refresh can change schedule metadata while a tutor writes notes.
     // Only choosing a different pairing initializes its attendance draft.
-    if (initializedPairing.current === selectedPairing.id) return;
-    initializedPairing.current = selectedPairing.id;
+    if (initializedPairing.current === selectionKey) return;
+    initializedPairing.current = selectionKey;
+    const members = selectedEntry?.pairings ?? [selectedPairing];
+    setDraftSelection({ key: selectionKey, primary: selectedPairing, members });
     setValue(
       "startTime",
       selectedPairing.scheduleConfirmed
@@ -206,7 +253,9 @@ export function AttendanceForm() {
     );
     setOnline(false);
     setActualRoomId(selectedPairing.room?.id ?? "");
-    setMergeIds([]);
+    setMergeIds(
+      members.filter((p) => p.id !== selectedPairing.id).map((p) => p.id),
+    );
     setTuteeState(
       Object.fromEntries(
         selectedPairing.tutees.map((t) => [
@@ -219,7 +268,8 @@ export function AttendanceForm() {
     setFormError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    selectedPairingId,
+    selectionKey,
+    attendanceSelection?.sequence,
     selectedPairing?.scheduleConfirmed,
     selectedPairing?.startMin,
     selectedPairing?.endMin,
@@ -323,7 +373,7 @@ export function AttendanceForm() {
 
     submissionState.current = "pending";
     submit.mutate({
-      pairingId: values.pairingId,
+      pairingId: selectedPairing.id,
       mergePairingIds: mergeIds.length > 0 ? mergeIds : undefined,
       date: new Date(values.date),
       tutorStatus: status,
@@ -402,12 +452,43 @@ export function AttendanceForm() {
             <option value="" disabled>
               {t("tutor.attendance.selectPairing")}
             </option>
-            {pairings.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.subject} · {pairingScheduleText(p, t("scheduling.awaiting"))}
-                {p.room ? ` · ${p.room.name}` : ""}
+            {entries.map((entry) => (
+              <option
+                key={entry.id}
+                value={entry.groupId ? `group:${entry.groupId}` : entry.id}
+              >
+                {entry.pairings.map((p) => p.subject).join(" + ")} ·{" "}
+                {pairingScheduleText(
+                  entry.primary,
+                  t("scheduling.awaiting"),
+                  locale,
+                )}
+                {entry.primary.room ? ` · ${entry.primary.room.name}` : ""}
               </option>
             ))}
+            {entries.some((entry) => entry.groupId) && (
+              <optgroup label={t("pairingGroups.individualAttendance")}>
+                {entries
+                  .filter((entry) => entry.groupId)
+                  .flatMap((entry) => entry.pairings)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.subject}
+                    </option>
+                  ))}
+              </optgroup>
+            )}
+            {selectionKey &&
+              !entries.some(
+                (entry) =>
+                  selectionKey ===
+                  (entry.groupId ? `group:${entry.groupId}` : entry.id),
+              ) &&
+              draftSelection?.key === selectionKey && (
+                <option value={selectionKey}>
+                  {draftSelection.members.map((p) => p.subject).join(" + ")}
+                </option>
+              )}
           </select>
           {errors.pairingId && (
             <p className="text-sm text-red-600">{errors.pairingId.message}</p>
@@ -612,7 +693,10 @@ export function AttendanceForm() {
                     className="grid gap-2 rounded-md border border-slate-100 bg-slate-50/60 p-2 sm:flex sm:flex-wrap sm:items-center sm:border-0 sm:bg-transparent sm:p-0"
                   >
                     <span className="min-w-0 truncate text-sm text-slate-700 sm:w-40">
-                      {t2.tutee.englishName}
+                      <ParticipantName
+                        name={t2.tutee.englishName}
+                        username={t2.tutee.user?.username}
+                      />
                     </span>
                     {/* Card standing at a glance — meter only, no reasons. */}
                     {standing && (
@@ -640,7 +724,7 @@ export function AttendanceForm() {
                       </span>
                     )}
                     <select
-                      aria-label={`${t2.tutee.englishName} ${t("tutor.attendance.tuteeAttendance")}`}
+                      aria-label={`${participantNameLabel(t2.tutee.englishName, t2.tutee.user?.username, t("participantNames.unnamed"))} ${t("tutor.attendance.tuteeAttendance")}`}
                       className="select sm:field-auto min-w-0 sm:min-w-40"
                       value={status}
                       onChange={(e) =>
@@ -675,19 +759,33 @@ export function AttendanceForm() {
         {/* Ratings (required when a session was held) — likert scales */}
         {held && (
           <fieldset className="space-y-3">
-            <legend className="label">{t("tutor.attendance.ratings")}</legend>
+            <legend className="label">
+              {t("tutor.attendance.ratings")}{" "}
+              <FieldRequirement state="required" />
+            </legend>
             {RATING_FIELDS.map((name) => (
               <div key={name}>
-                <p className="text-xs font-medium text-slate-600">
-                  {t(`tutor.attendance.rating.${name}`)}
-                </p>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <p className="text-xs font-medium text-slate-600">
+                    {t(`tutor.attendance.rating.${name}`)}
+                  </p>
+                  {/* All five meanings stay visible beside the criterion, while
+                      the numeric choices keep one compact row and touch targets. */}
+                  <p className="muted flex flex-wrap gap-x-2 text-xs">
+                    {LIKERT_VALUES.map((value) => (
+                      <span key={value} className="whitespace-nowrap">
+                        {value} · {t(`tutor.attendance.likert.${value}`)}
+                      </span>
+                    ))}
+                  </p>
+                </div>
                 <div className="mt-1 grid grid-cols-5 gap-1">
                   {/* The label provides the touch target; native radio artwork stays compact. */}
                   {LIKERT_VALUES.map((value) => (
                     <label
                       key={value}
                       title={t(`tutor.attendance.likert.${value}`)}
-                      className="has-[:checked]:border-accent-500 has-[:checked]:bg-accent-50 has-[:checked]:text-accent-700 flex min-h-11 cursor-pointer items-center justify-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-sm text-slate-600 lg:min-h-8"
+                      className="has-[:checked]:border-accent-500 has-[:checked]:bg-accent-50 has-[:checked]:text-accent-700 flex min-h-11 cursor-pointer flex-wrap items-center justify-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-sm text-slate-600 lg:min-h-8"
                     >
                       <input
                         type="radio"
@@ -700,10 +798,6 @@ export function AttendanceForm() {
                     </label>
                   ))}
                 </div>
-                <p className="muted mt-1 text-xs">
-                  1 · {t("tutor.attendance.likert.1")} — 5 ·{" "}
-                  {t("tutor.attendance.likert.5")}
-                </p>
               </div>
             ))}
           </fieldset>
@@ -743,10 +837,13 @@ export function AttendanceForm() {
                     className="grid gap-2 rounded-md border border-slate-100 bg-slate-50/60 p-2 sm:flex sm:flex-wrap sm:items-center sm:border-0 sm:bg-transparent sm:p-0"
                   >
                     <span className="min-w-0 truncate text-sm text-slate-700 sm:w-40">
-                      {t2.tutee.englishName}
+                      <ParticipantName
+                        name={t2.tutee.englishName}
+                        username={t2.tutee.user?.username}
+                      />
                     </span>
                     <select
-                      aria-label={`${t2.tutee.englishName} ${t("tutor.attendance.cardsTitle")}`}
+                      aria-label={`${participantNameLabel(t2.tutee.englishName, t2.tutee.user?.username, t("participantNames.unnamed"))} ${t("tutor.attendance.cardsTitle")}`}
                       className="select sm:field-auto min-w-0 sm:min-w-32"
                       value={color}
                       onChange={(e) =>
@@ -824,6 +921,7 @@ export function AttendanceForm() {
             setTuteeState({});
             setCards({});
             setMergeIds([]);
+            setDraftSelection(undefined);
             setFormError(null);
             submit.reset();
             setRefreshFailed(false);

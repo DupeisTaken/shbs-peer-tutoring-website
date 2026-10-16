@@ -1,9 +1,23 @@
 "use client";
+import {
+  useSessionViewState,
+  useSessionPageScroll,
+  useSessionAccessDenied,
+} from "~/app/_components/session-view-state";
+import {
+  meetingViewParser,
+  type MeetingView,
+} from "~/lib/management-view-state";
+import {
+  ParticipantName,
+  participantNameLabel,
+} from "~/app/_components/participant-name";
 
 import { Button, ChoiceButton } from "~/app/_components/ui/button";
 import { FormActions, StatePanel } from "~/app/_components/ui/patterns";
 import { useDialog } from "~/app/_components/confirm-dialog";
-import { useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { useFormatter, useTranslations, useTimeZone } from "next-intl";
 
 import { parseProgramDateTime, programDateKey } from "~/lib/program-time";
@@ -13,6 +27,7 @@ import { useReadOnly } from "~/app/_components/read-only";
 import {
   SummaryTable,
   TableActions,
+  TableAction,
   TableDetails,
 } from "~/app/_components/ui/summary-table";
 import { visibleTutors } from "~/lib/tutor-visibility";
@@ -40,7 +55,27 @@ export default function MeetingsPage() {
   const { confirm, dialog } = useDialog();
   const meetings = api.admin.meetings.useQuery();
   const tutors = api.admin.tutors.useQuery();
-  const [showPast, setShowPast] = useState(false);
+  const denied = useSessionAccessDenied(meetings, tutors);
+  const [view, setView] = useSessionViewState<MeetingView>({
+    id: "meeting-panels-v1",
+    initialState: { showPast: false, showSummary: false },
+    parse: meetingViewParser,
+    enabled: !denied,
+  });
+  const { showPast, showSummary } = view;
+  const setShowPast = (showPast: boolean) =>
+    setView((previous) => ({ ...previous, showPast }));
+  const setShowSummary = (change: (previous: boolean) => boolean) =>
+    setView((previous) => ({
+      ...previous,
+      showSummary: change(previous.showSummary),
+    }));
+  useSessionPageScroll({
+    id: "meetings-v1",
+    scope: JSON.stringify(view),
+    ready: meetings.data !== undefined && tutors.data !== undefined && !denied,
+    enabled: !denied,
+  });
   const invalidate = () => utils.admin.meetings.invalidate();
   const create = api.admin.createMeeting.useMutation({
     onSuccess: async () => {
@@ -54,16 +89,54 @@ export default function MeetingsPage() {
   const [date, setDate] = useState(() => programDateKey(new Date(), timeZone));
   const [time, setTime] = useState("12:00");
   const [selected, setSelected] = useState<string | null>(null);
-  const [showSummary, setShowSummary] = useState(false);
+  const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set());
+  const [busyMeetings, setBusyMeetings] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const fieldId = useId();
+  const onEditorBusy = useCallback((id: string, pending: boolean) => {
+    setBusyMeetings((previous) => {
+      if (previous.has(id) === pending) return previous;
+      const next = new Set(previous);
+      if (pending) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
 
   // Meeting attendance only concerns ACTIVE tutors; the rest show as exempt (X).
   const tutorOpts = (tutors.data ?? []).map((tu) => ({
     id: tu.id,
     englishName: tu.englishName,
+    username: tu.username,
     active: tu.status === "ACTIVE",
     status: tu.status,
   }));
 
+  // Revoked reads conceal cached records; Retry cannot replay an attendance write.
+  if (denied)
+    return (
+      <div className="space-y-6">
+        <h1 className="page-title">{t("admin.meetings.title")}</h1>
+        <StatePanel
+          kind="denied"
+          title={t("managementRecovery.denied", {
+            section: t("admin.meetings.title"),
+          })}
+          action={
+            <Button
+              disabled={meetings.isFetching || tutors.isFetching}
+              onClick={() => {
+                void meetings.refetch();
+                void tutors.refetch();
+              }}
+            >
+              {t("uiPatterns.retry")}
+            </Button>
+          }
+        />
+      </div>
+    );
   return (
     <div className="space-y-6">
       {dialog}
@@ -123,27 +196,41 @@ export default function MeetingsPage() {
         >
           {/* Preferred widths shrink to the form width at enlarged text sizes;
               fixed rem minimums would override the controls' max-width. */}
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder={t("admin.meetings.titlePlaceholder")}
-            aria-label={t("admin.meetings.titlePlaceholder")}
-            className="input field-auto-bounded [--field-min-width:12rem]"
-          />
-          <input
-            aria-label={t("uiPatterns.meetingDate")}
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="input field-auto-bounded [--field-min-width:9rem]"
-          />
-          <input
-            type="time"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            aria-label={t("admin.meetings.timeLabel")}
-            className="input field-auto-bounded [--field-min-width:7rem]"
-          />
+          <label htmlFor={`${fieldId}-title`}>
+            <span className="label">
+              {t("admin.meetings.titlePlaceholder")}
+            </span>
+            <input
+              id={`${fieldId}-title`}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={t("admin.meetings.titlePlaceholder")}
+              aria-label={t("admin.meetings.titlePlaceholder")}
+              className="input field-auto-bounded [--field-min-width:12rem]"
+            />
+          </label>
+          <label htmlFor={`${fieldId}-date`}>
+            <span className="label">{t("uiPatterns.meetingDate")}</span>
+            <input
+              id={`${fieldId}-date`}
+              aria-label={t("uiPatterns.meetingDate")}
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="input field-auto-bounded [--field-min-width:9rem]"
+            />
+          </label>
+          <label htmlFor={`${fieldId}-time`}>
+            <span className="label">{t("admin.meetings.timeLabel")}</span>
+            <input
+              id={`${fieldId}-time`}
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              aria-label={t("admin.meetings.timeLabel")}
+              className="input field-auto-bounded [--field-min-width:7rem]"
+            />
+          </label>
           <button
             className="btn-primary"
             disabled={!title.trim() || create.isPending}
@@ -170,7 +257,10 @@ export default function MeetingsPage() {
               <li key={m.id} className="px-4 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <button
-                    onClick={() => setSelected(selected === m.id ? null : m.id)}
+                    onClick={() => {
+                      setOpened((previous) => new Set(previous).add(m.id));
+                      setSelected(selected === m.id ? null : m.id);
+                    }}
                     aria-expanded={selected === m.id}
                     className="hover:text-accent-600 min-h-11 min-w-0 flex-1 text-left font-medium break-words text-slate-900 lg:min-h-8"
                   >
@@ -180,9 +270,47 @@ export default function MeetingsPage() {
                       timeStyle: "short",
                     })}
                   </button>
+                  <TableDetails title={m.title} longReader>
+                    <p>
+                      {programFormat.dateTime(new Date(m.date), {
+                        dateStyle: "full",
+                        timeStyle: "short",
+                      })}
+                    </p>
+                    <h3 className="font-semibold">
+                      {t("admin.meetings.selfExcused", {
+                        count: m.attendances.filter(
+                          (entry) => entry.excusedAt != null,
+                        ).length,
+                      })}
+                    </h3>
+                    <ul className="space-y-3">
+                      {m.attendances
+                        .filter((entry) => entry.excusedAt != null)
+                        .map((entry) => (
+                          <li key={entry.tutorId}>
+                            <p className="font-medium">
+                              <ParticipantName
+                                name={entry.tutor.englishName}
+                                username={
+                                  tutorOpts.find(
+                                    (tutor) => tutor.id === entry.tutorId,
+                                  )?.username
+                                }
+                              />
+                            </p>
+                            <p className="whitespace-pre-wrap">
+                              {entry.reason ??
+                                t("auditEventDetails.notRecorded")}
+                            </p>
+                          </li>
+                        ))}
+                    </ul>
+                  </TableDetails>
                   {!readOnly && (
-                    <button
-                      disabled={del.isPending}
+                    <TableAction
+                      variant="danger"
+                      disabled={del.isPending || busyMeetings.has(m.id)}
                       onClick={async () => {
                         if (
                           await confirm({
@@ -197,34 +325,18 @@ export default function MeetingsPage() {
                         )
                           del.mutate({ id: m.id });
                       }}
-                      className="link-danger"
                     >
                       {t("admin.meetings.delete")}
-                    </button>
+                    </TableAction>
                   )}
                 </div>
-                {/* Tutor-submitted excuses surface here automatically. */}
-                {(() => {
-                  const ex = m.attendances.filter((a) => a.excusedAt != null);
-                  if (ex.length === 0) return null;
-                  return (
-                    <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
-                      <p className="text-xs font-semibold text-amber-800">
-                        {t("admin.meetings.selfExcused", { count: ex.length })}
-                      </p>
-                      <ul className="mt-1 space-y-0.5 text-sm text-amber-900">
-                        {ex.map((a) => (
-                          <li key={a.tutorId}>
-                            {a.tutor.englishName}
-                            {a.reason ? ` — ${a.reason}` : ""}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                })()}
-                {selected === m.id && (
-                  <div className="mt-3 min-w-0 space-y-3">
+                {/* Opened forms retain their own draft and pending callbacks while
+                    another meeting is selected or this disclosure is collapsed. */}
+                {opened.has(m.id) && (
+                  <div
+                    hidden={selected !== m.id}
+                    className="mt-3 min-w-0 space-y-3"
+                  >
                     <PastTutorsToggle
                       showPast={showPast}
                       onChange={setShowPast}
@@ -233,6 +345,7 @@ export default function MeetingsPage() {
                         attendance stays visible and the mounted editor keeps its draft. */}
                     <AttendanceEditor
                       meetingId={m.id}
+                      onBusyChange={onEditorBusy}
                       readOnly={readOnly}
                       tutors={visibleTutors(
                         tutorOpts,
@@ -269,7 +382,12 @@ function TutorMeetingStats({
   tutors,
 }: {
   meetings: MeetingRecord[];
-  tutors: { id: string; englishName: string; active: boolean }[];
+  tutors: {
+    id: string;
+    englishName: string;
+    username?: string | null;
+    active: boolean;
+  }[];
 }) {
   const t = useTranslations();
   const tally = new Map<
@@ -307,6 +425,11 @@ function TutorMeetingStats({
       <div className="border-b border-slate-100 px-4 py-3">
         <h2 className="section-title">{t("admin.meetings.stats.title")}</h2>
         <p className="muted mt-0.5 text-xs">{t("admin.meetings.stats.help")}</p>
+        <p className="mt-2 text-xs text-slate-600">
+          P: {t("admin.meetings.status.present")} · EA:{" "}
+          {t("admin.meetings.status.excusedAbsent")} · UA:{" "}
+          {t("admin.meetings.status.unexcusedAbsent")}
+        </p>
       </div>
       {rows.length === 0 ? (
         <p className="muted px-4 py-3 text-sm">
@@ -318,13 +441,15 @@ function TutorMeetingStats({
             <tr>
               <th>{t("admin.meetings.stats.tutor")}</th>
               <th className="text-right">
-                {t("admin.meetings.status.present")}
+                <abbr title={t("admin.meetings.status.present")}>P</abbr>
               </th>
               <th className="text-right">
-                {t("admin.meetings.status.excusedAbsent")}
+                <abbr title={t("admin.meetings.status.excusedAbsent")}>EA</abbr>
               </th>
               <th className="text-right">
-                {t("admin.meetings.status.unexcusedAbsent")}
+                <abbr title={t("admin.meetings.status.unexcusedAbsent")}>
+                  UA
+                </abbr>
               </th>
               <th className="table-actions-heading">
                 {t("tablePatterns.actions")}
@@ -335,7 +460,7 @@ function TutorMeetingStats({
             {rows.map((r) => (
               <tr key={r.id} className={r.active ? "" : "text-slate-400"}>
                 <td className="font-medium whitespace-nowrap text-slate-700">
-                  {r.englishName}
+                  <ParticipantName name={r.englishName} username={r.username} />
                 </td>
                 <td className="text-right text-green-600">{r.present}</td>
                 <td
@@ -351,7 +476,13 @@ function TutorMeetingStats({
                   {r.unexcused}
                 </td>
                 <TableActions>
-                  <TableDetails title={r.englishName}>
+                  <TableDetails
+                    title={participantNameLabel(
+                      r.englishName,
+                      r.username,
+                      t("participantNames.unnamed"),
+                    )}
+                  >
                     <MeetingRecordDetails
                       meetings={meetings}
                       tutorId={r.id}
@@ -375,7 +506,12 @@ function MeetingSummary({
   tutors,
 }: {
   meetings: MeetingRecord[];
-  tutors: { id: string; englishName: string; active: boolean }[];
+  tutors: {
+    id: string;
+    englishName: string;
+    username?: string | null;
+    active: boolean;
+  }[];
 }) {
   const programFormat = useFormatter();
   const t = useTranslations();
@@ -448,7 +584,7 @@ function MeetingSummary({
                 scope="row"
                 className="sticky left-0 z-10 bg-white text-left font-medium whitespace-nowrap text-slate-700"
               >
-                {tu.englishName}
+                <ParticipantName name={tu.englishName} username={tu.username} />
               </th>
               {meetings.map((m) => {
                 const c = cell(byMeeting.get(m.id)?.get(tu.id), tu.active);
@@ -463,7 +599,13 @@ function MeetingSummary({
                 );
               })}
               <TableActions>
-                <TableDetails title={tu.englishName}>
+                <TableDetails
+                  title={participantNameLabel(
+                    tu.englishName,
+                    tu.username,
+                    t("participantNames.unnamed"),
+                  )}
+                >
                   <MeetingRecordDetails
                     meetings={meetings}
                     tutorId={tu.id}
@@ -551,21 +693,57 @@ function AttendanceEditor({
   readOnly,
   tutors,
   current,
+  onBusyChange,
 }: {
   meetingId: string;
   readOnly: boolean;
-  tutors: { id: string; englishName: string; active: boolean }[];
+  tutors: {
+    id: string;
+    englishName: string;
+    username?: string | null;
+    active: boolean;
+  }[];
   current: Record<string, string>;
+  onBusyChange: (id: string, pending: boolean) => void;
 }) {
   const t = useTranslations();
   const utils = api.useUtils();
   const [draft, setDraft] = useState<Record<string, MeetingStatus>>(
     () => current as Record<string, MeetingStatus>,
   );
-  const correctsRecordedAttendance = Object.entries(current).some(([id, status]) => draft[id] && draft[id] !== status);
+  const correctsRecordedAttendance = Object.entries(current).some(
+    ([id, status]) => draft[id] && draft[id] !== status,
+  );
+  const admitted = useRef(false);
+  const refreshInFlight = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const refreshSaved = async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    setRefreshing(true);
+    try {
+      await invalidateAndReport(utils.admin.meetings);
+      setRefreshFailed(false);
+      admitted.current = false;
+    } catch {
+      setRefreshFailed(true);
+    } finally {
+      setRefreshing(false);
+      refreshInFlight.current = false;
+    }
+  };
   const save = api.admin.recordMeetingAttendance.useMutation({
-    onSuccess: () => utils.admin.meetings.invalidate(),
+    onSuccess: refreshSaved,
+    onError: () => {
+      admitted.current = false;
+    },
   });
+  const pending = save.isPending || refreshing;
+  useEffect(() => {
+    onBusyChange(meetingId, pending);
+    return () => onBusyChange(meetingId, false);
+  }, [meetingId, pending, onBusyChange]);
 
   return (
     <div className="mt-3 min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -578,14 +756,19 @@ function AttendanceEditor({
             return (
               <div
                 key={tu.id}
-                className="flex min-w-0 flex-col items-start justify-between gap-2 text-sm text-slate-400 sm:flex-row sm:items-center"
+                className="flex min-h-11 min-w-0 flex-col items-start justify-between gap-2 text-sm text-slate-400 sm:flex-row sm:items-center lg:min-h-8"
               >
                 <span className="min-w-0 [overflow-wrap:anywhere]">
-                  {tu.englishName}
+                  <ParticipantName
+                    name={tu.englishName}
+                    username={tu.username}
+                  />
                 </span>
-                <span className="badge-slate">
-                  {t("admin.meetings.exempt")}
-                </span>
+                <div className="flex min-h-11 items-center lg:min-h-8">
+                  <span className="badge-slate">
+                    {t("admin.meetings.exempt")}
+                  </span>
+                </div>
               </div>
             );
           }
@@ -595,38 +778,47 @@ function AttendanceEditor({
             return (
               <div
                 key={tu.id}
-                className="flex min-w-0 flex-col items-start justify-between gap-2 text-sm sm:flex-row sm:items-center"
+                className="flex min-h-11 min-w-0 flex-col items-start justify-between gap-2 text-sm sm:flex-row sm:items-center lg:min-h-8"
               >
                 <span className="min-w-0 [overflow-wrap:anywhere] text-slate-700">
-                  {tu.englishName}
+                  <ParticipantName
+                    name={tu.englishName}
+                    username={tu.username}
+                  />
                 </span>
-                <span className="badge-amber">
-                  {t("admin.meetings.status.excusedAbsent")}
-                </span>
+                <div className="flex min-h-11 items-center lg:min-h-8">
+                  <span className="badge-amber">
+                    {t("admin.meetings.status.excusedAbsent")}
+                  </span>
+                </div>
               </div>
             );
           }
           return (
             <div
               key={tu.id}
-              className="flex min-w-0 flex-col items-start justify-between gap-2 text-sm sm:flex-row sm:items-center"
+              className="flex min-h-11 min-w-0 flex-col items-start justify-between gap-2 text-sm sm:flex-row sm:items-center lg:min-h-8"
             >
               <span className="min-w-0 [overflow-wrap:anywhere] text-slate-700">
-                {tu.englishName}
+                <ParticipantName name={tu.englishName} username={tu.username} />
               </span>
               <div
                 role="group"
                 aria-label={t("uiPatterns.attendanceFor", {
-                  name: tu.englishName,
+                  name: participantNameLabel(
+                    tu.englishName,
+                    tu.username,
+                    t("participantNames.unnamed"),
+                  ),
                 })}
-                className="flex max-w-full flex-wrap gap-1 sm:justify-end"
+                className="flex min-h-11 max-w-full flex-wrap items-center gap-1 sm:justify-end lg:min-h-8"
               >
                 {ATTENDANCE_OPTIONS.map((opt) => (
                   <ChoiceButton
                     key={opt.value}
                     selected={value === opt.value}
                     className="max-w-full [overflow-wrap:anywhere]"
-                    disabled={readOnly || save.isPending}
+                    disabled={readOnly || pending || refreshFailed}
                     onClick={() => {
                       setDraft((d) => ({ ...d, [tu.id]: opt.value }));
                       save.reset();
@@ -640,26 +832,35 @@ function AttendanceEditor({
           );
         })}
       </div>
-      {correctsRecordedAttendance && <p className="muted mt-3 text-sm">{t("approvals.reversalHelp")}</p>}
+      {correctsRecordedAttendance && (
+        <p className="muted mt-3 text-sm">{t("approvals.reversalHelp")}</p>
+      )}
       {!readOnly && (
         <FormActions>
           <Button
             type="button"
             variant="primary"
             onClick={() => {
+              if (admitted.current || pending || refreshFailed || readOnly)
+                return;
               const entries = tutors
                 .filter((tu) => tu.active && draft[tu.id])
                 .map((tu) => ({ tutorId: tu.id, status: draft[tu.id]! }));
+              admitted.current = true;
               save.mutate({ meetingId, entries });
             }}
-            disabled={save.isPending}
+            disabled={pending || refreshFailed}
           >
             {save.isPending
               ? t("admin.meetings.saving")
-              : t(correctsRecordedAttendance ? "admin.meetings.correctAttendance" : "admin.meetings.saveAttendance")}
+              : t(
+                  correctsRecordedAttendance
+                    ? "admin.meetings.correctAttendance"
+                    : "admin.meetings.saveAttendance",
+                )}
           </Button>
           <Button
-            disabled={save.isPending}
+            disabled={pending || refreshFailed}
             onClick={() => {
               setDraft(current as Record<string, MeetingStatus>);
               save.reset();
@@ -669,12 +870,29 @@ function AttendanceEditor({
           </Button>
         </FormActions>
       )}
+      {refreshFailed && (
+        <InlineNotice
+          tone="warning"
+          announcement="alert"
+          action={
+            <Button disabled={refreshing} onClick={() => void refreshSaved()}>
+              {t("uiPatterns.retry")}
+            </Button>
+          }
+        >
+          {t("admin.meetings.refreshFailed")}
+        </InlineNotice>
+      )}
       {save.isSuccess && (
         <span role="status" className="ml-2 text-sm text-green-700">
           {t("admin.meetings.saved")}
         </span>
       )}
-      {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+      {save.error?.data?.approvalId && (
+        <InlineNotice tone="warning" announcement="status">
+          {t("approvals.queuedBody")}
+        </InlineNotice>
+      )}
       {save.error && !save.error.data?.approvalId && (
         <span role="alert" className="ml-2 text-sm text-red-700">
           {save.error.message}

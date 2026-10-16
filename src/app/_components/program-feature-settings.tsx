@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import { InlineNotice, StatePanel } from "./ui/patterns";
+import { useSessionAccessDenied } from "./session-view-state";
 import { Button, Switch } from "./ui/button";
 import type { FeatureKey } from "~/server/program/features";
 
@@ -17,6 +18,7 @@ export function FeatureToggles() {
   const t = useTranslations();
   const settings = api.program.featureSettings.useQuery();
   const setPending = api.program.setFeaturePending.useMutation();
+  const denied = useSessionAccessDenied(settings);
   const admitted = useRef(false);
   const [busy, setBusy] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
@@ -42,7 +44,9 @@ export function FeatureToggles() {
       busy ||
       setPending.isPending ||
       refreshFailed ||
-      !settings.data?.canEdit
+      !!settings.error ||
+      denied ||
+      settings.data?.canEdit !== true
     )
       return;
     admitted.current = true;
@@ -62,6 +66,20 @@ export function FeatureToggles() {
   }
 
   const data = settings.data;
+  if (denied)
+    return (
+      <StatePanel
+        kind="denied"
+        title={t("managementRecovery.denied", {
+          section: t("admin.program.features.heading"),
+        })}
+        action={
+          <Button disabled={busy} onClick={() => void reload()}>
+            {t("uiPatterns.retry")}
+          </Button>
+        }
+      />
+    );
   if (!data)
     return (
       <StatePanel
@@ -141,7 +159,7 @@ export function FeatureToggles() {
                 // Keep the staged-setting behavior while giving each compact switch a named touch target.
                 <Switch
                   label={
-                    data.canApply === false
+                    data.canApply !== true
                       ? t("approvals.requestChange", {
                           setting: t(`admin.program.features.name.${f.key}`),
                         })

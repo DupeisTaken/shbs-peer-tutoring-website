@@ -1,9 +1,23 @@
 "use client";
+import { participantNameLabel } from "~/app/_components/participant-name";
 import { EmailDetails } from "~/app/_components/email-details";
+import { Button } from "~/app/_components/ui/button";
 import { QualificationReview } from "~/app/_components/qualification-review";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useNotificationRecordReveal,
+  type NotificationRecordArrival,
+} from "~/app/_components/use-notification-record-reveal";
+import { InlineNotice } from "~/app/_components/ui/patterns";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+  useSessionViewState,
+  useSessionViewVerified,
+} from "~/app/_components/session-view-state";
+import { viewEnum, viewFields, viewSearch } from "~/lib/session-view-state";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -98,6 +112,12 @@ function ApplicationCard({
 }) {
   const programFormat = useFormatter();
   const t = useTranslations();
+  // Only current labels use a fallback. Intake/search/mutation records stay unchanged.
+  const displayName = participantNameLabel(
+    app.name,
+    tutors.find((tutor) => tutor.id === app.requestedTutorId)?.username,
+    t("participantNames.unnamed"),
+  );
   const readOnly = useReadOnly();
   const account = api.account.me.useQuery().data;
   const additional = app.type !== "INITIAL";
@@ -122,9 +142,6 @@ function ApplicationCard({
     const reveal = () => {
       if (window.location.hash === `#application-${app.id}`) {
         setDisclosure("open");
-        document
-          .getElementById(`application-${app.id}`)
-          ?.scrollIntoView({ block: "start" });
       }
     };
     reveal();
@@ -169,48 +186,45 @@ function ApplicationCard({
           translated labels never compete for the same narrow flex space. */}
       <div className="flex flex-wrap items-center gap-3">
         <button
-          className="flex min-h-11 w-full min-w-0 flex-wrap items-center gap-2 text-left lg:min-h-8 lg:w-auto lg:flex-1"
+          className="grid min-h-11 w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 text-left lg:min-h-8 lg:w-auto lg:flex-1"
           aria-expanded={open}
           aria-controls={`application-panel-${app.id}`}
           onClick={() => setDisclosure(open ? "closed" : "open")}
         >
           <DisclosureIcon open={open} />
-          <span className="min-w-0 font-medium break-words text-slate-900">
-            {app.name}
-          </span>
-          <StatusBadge status={app.status} />
-          {app.isInvalid && <InvalidityBadge />}
-          <span className="badge-slate">
-            {t(`qualificationRequests.${app.type}`)}
-          </span>
-          <span className="muted hidden truncate text-xs sm:inline">
-            {courseNames}
-            {(features?.INTERVIEWS === true || hasInterviewHistory) && (
-              <>
-                {" · "}
-                {t("admin.applications.panelSummary", {
-                  n: app.interviewers.length,
-                  total: PANEL_SIZE,
-                })}
-                {app.votes.length > 0
-                  ? ` · ${t("admin.applications.votesSummary", {
-                      accepts,
-                      total: app.votes.length,
-                    })}`
-                  : ""}
-              </>
-            )}
+          {/* Wrapped metadata shares the name edge, independent of the disclosure artwork. */}
+          <span className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="min-w-0 font-semibold break-words text-slate-900">
+              {displayName}
+            </span>
+            <StatusBadge status={app.status} />
+            {app.isInvalid && <InvalidityBadge />}
+            <span className="badge-slate">
+              {t(`qualificationRequests.${app.type}`)}
+            </span>
+            <span className="muted block w-full text-xs [overflow-wrap:anywhere]">
+              {courseNames}
+              {(features?.INTERVIEWS === true || hasInterviewHistory) && (
+                <>
+                  {" · "}
+                  {t("admin.applications.panelSummary", {
+                    n: app.interviewers.length,
+                    total: PANEL_SIZE,
+                  })}
+                  {app.votes.length > 0
+                    ? ` · ${t("admin.applications.votesSummary", {
+                        accepts,
+                        total: app.votes.length,
+                      })}`
+                    : ""}
+                </>
+              )}
+            </span>
           </span>
         </button>
+        {/* Put navigation before boxed decisions in DOM/keyboard order, with Delete
+         * last. Wrapping preserves that order and each owner's existing guards. */}
         <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto">
-          {!readOnly && !additional && (
-            <ApplicationInvalidityControls
-              record={app}
-              name={app.name}
-              canFlag
-              coordinator={account?.role === "COORDINATOR"}
-            />
-          )}
           {!additional && !app.isInvalid && app.status === "ACCEPTED" && (
             <Link
               href="/admin/users"
@@ -219,9 +233,17 @@ function ApplicationCard({
               {t("admin.applications.setupAccount")}
             </Link>
           )}
+          {!readOnly && !additional && (
+            <ApplicationInvalidityControls
+              record={app}
+              name={displayName}
+              canFlag
+              coordinator={account?.role === "COORDINATOR"}
+            />
+          )}
           {canDirectAccept && (
-            <button
-              className="btn-secondary btn-sm"
+            <Button
+              size="compact"
               onClick={() =>
                 setStatus.mutate({
                   id: app.id,
@@ -231,11 +253,11 @@ function ApplicationCard({
               }
             >
               {t("admin.applications.accept")}
-            </button>
+            </Button>
           )}
           {canScreenReject && (
-            <button
-              className="btn-secondary btn-sm"
+            <Button
+              size="compact"
               onClick={() =>
                 setStatus.mutate({
                   id: app.id,
@@ -245,16 +267,17 @@ function ApplicationCard({
               }
             >
               {t("admin.applications.reject")}
-            </button>
+            </Button>
           )}
           {!readOnly && !additional && !app.isInvalid && (
-            <button
-              className="btn-danger btn-sm"
+            <Button
+              size="compact"
+              variant="danger"
               onClick={async () => {
                 if (
                   await confirm({
                     title: t("admin.applications.confirmDelete", {
-                      name: app.name,
+                      name: displayName,
                     }),
                     confirmLabel: t("common.delete"),
                     cancelLabel: t("common.cancel"),
@@ -265,7 +288,7 @@ function ApplicationCard({
               }}
             >
               {t("admin.applications.delete")}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -280,7 +303,7 @@ function ApplicationCard({
           id={`application-panel-${app.id}`}
           className="mt-3 border-t border-slate-100 pt-3"
         >
-          <EmailDetails contactOnly email={app.email} name={app.name} />
+          <EmailDetails contactOnly email={app.email} name={displayName} />
           {app.preferredContact && (
             <p className="muted text-xs">
               {t("admin.applications.reach", { contact: app.preferredContact })}
@@ -289,7 +312,11 @@ function ApplicationCard({
 
           {/* Course intents */}
           {additional && (
-            <QualificationReview app={app} onChanged={onChanged} />
+            <QualificationReview
+              app={app}
+              displayName={displayName}
+              onChanged={onChanged}
+            />
           )}
           <ul className="mt-3 flex flex-wrap gap-2">
             {app.subjectIntents.map((ci, i) => {
@@ -432,11 +459,31 @@ function ApplicationCard({
 
 export default function ApplicationsPage() {
   const t = useTranslations();
+  const [noticeTargetMissing, setNoticeTargetMissing] = useState(false);
+  const arrivalSequence = useRef(0);
+  const [arrival, setArrival] = useState<
+    (NotificationRecordArrival & { selected?: boolean }) | null
+  >(null);
   const utils = api.useUtils();
   const apps = api.admin.tutorApplications.useQuery();
   const tutors = api.admin.tutors.useQuery();
   const features = api.program.features.useQuery();
   const readOnly = useReadOnly();
+  const [interviewScene, setInterviewScene] = useState({
+    ready: false,
+    scope: "",
+    denied: false,
+  });
+  const onInterviewView = useCallback(
+    (ready: boolean, scope: string, denied: boolean) => {
+      setInterviewScene((old) =>
+        old.ready === ready && old.scope === scope && old.denied === denied
+          ? old
+          : { ready, scope, denied },
+      );
+    },
+    [],
+  );
   // Qualification decisions distinguish a committed write from failed cache
   // synchronization. Other callers retain their existing refresh behavior.
   const invalidate = (reportErrors = false) =>
@@ -447,21 +494,95 @@ export default function ApplicationsPage() {
       ),
     );
 
-  const [filters, setFilters] = useState(emptyApplicationFilters);
-  const [invalidity, setInvalidity] = useState<InvalidityFilterValue>("all");
+  const denied = useSessionAccessDenied(apps, tutors, features);
+  const verified = useSessionViewVerified();
+  const [filters, setFilters] = useSessionViewState({
+    id: "applications.filters.v1",
+    initialState: emptyApplicationFilters,
+    enabled: !denied,
+    restoreReady: !!apps.data,
+    parse: viewFields({
+      search: viewSearch,
+      status: viewEnum([
+        "",
+        "PENDING",
+        "INTERVIEW",
+        "ACCEPTED",
+        "REJECTED",
+        "RECALLED",
+      ]),
+      type: viewEnum(["", "INITIAL", "ADDITIONAL_SUBJECT", "HIGHER_LEVEL"]),
+      subjectId: viewEnum([
+        "",
+        ...(apps.data ?? []).flatMap((app) =>
+          app.subjectIntents.map((intent) => intent.subjectId),
+        ),
+      ]),
+    }),
+  });
+  const [invalidity, setInvalidity] =
+    useSessionViewState<InvalidityFilterValue>({
+      id: "applications.invalidity.v1",
+      initialState: "valid",
+      enabled: !denied,
+      parse: viewEnum(["valid", "invalid", "all"]),
+    });
+  useSessionPageScroll({
+    id: "applications",
+    scope: JSON.stringify([filters, invalidity, interviewScene.scope]),
+    ready:
+      !!apps.data &&
+      !!tutors.data &&
+      !!features.data &&
+      (readOnly || interviewScene.ready),
+    enabled: !denied && !interviewScene.denied,
+  });
   // History links reveal their destination even when a previous filter hid it.
   // Ordinary filtering does not otherwise change the selected criteria.
   useEffect(() => {
     const reveal = () => {
-      if (window.location.hash.startsWith("#application-")) {
-        setFilters(emptyApplicationFilters);
-        setInvalidity("all");
-      }
+      const hash = window.location.hash;
+      const target = /^#application-([a-zA-Z0-9_-]{1,128})$/.exec(hash);
+      setNoticeTargetMissing(false);
+      setArrival(
+        verified && !denied && target
+          ? {
+              hash,
+              pathname: window.location.pathname,
+              sequence: ++arrivalSequence.current,
+            }
+          : null,
+      );
     };
+    reveal();
     window.addEventListener("hashchange", reveal);
     return () => window.removeEventListener("hashchange", reveal);
-  }, []);
-  const list = apps.data ?? [];
+  }, [verified, denied]);
+  useEffect(() => {
+    if (arrival && !arrival.selected && !apps.isFetching && apps.data) {
+      setFilters(emptyApplicationFilters);
+      setInvalidity("all");
+      const exists = apps.data.some(
+        (app) => `#application-${app.id}` === arrival.hash,
+      );
+      setNoticeTargetMissing(!exists);
+      setArrival(exists ? { ...arrival, selected: true } : null);
+    }
+  }, [arrival, apps.data, apps.isFetching, setFilters, setInvalidity]);
+  useNotificationRecordReveal(
+    arrival,
+    !denied &&
+      !!arrival?.selected &&
+      invalidity === "all" &&
+      Object.entries(emptyApplicationFilters).every(
+        ([key, value]) => filters[key as keyof typeof filters] === value,
+      ),
+    (cancelled) =>
+      setArrival((current) =>
+        current?.sequence === cancelled.sequence ? null : current,
+      ),
+  );
+  const list = denied ? [] : (apps.data ?? []);
   const filtered = list.filter(
     (app) =>
       matchesApplicationFilters(app, filters) &&
@@ -487,8 +608,22 @@ export default function ApplicationsPage() {
     ).values(),
   ).sort((a, b) => a.label.localeCompare(b.label));
 
+  if (denied)
+    return (
+      <p role="alert">
+        {apps.error?.message ??
+          tutors.error?.message ??
+          features.error?.message ??
+          t("uiPatterns.loadFailed")}
+      </p>
+    );
   return (
     <RequestInvalidityHost>
+      {noticeTargetMissing && (
+        <InlineNotice tone="info">
+          {t("workflow.noticeTargetMissing")}
+        </InlineNotice>
+      )}
       <div className="space-y-6 max-lg:[&_button]:min-h-11 max-lg:[&_select]:min-h-11">
         <div>
           <h1 className="page-title">{t("admin.applications.title")}</h1>
@@ -540,6 +675,7 @@ export default function ApplicationsPage() {
             className="scroll-mt-6 border-t border-slate-200 pt-6"
           >
             <InterviewManagement
+              onViewReadyChange={onInterviewView}
               enabled={features.data.INTERVIEWS}
               onManageApplicant={() => {
                 setFilters(emptyApplicationFilters);

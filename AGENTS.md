@@ -120,6 +120,9 @@ weight, not an arbitrary height difference.
 - Put every row's detail/editor entry in the **rightmost Actions column**, using
   text links visually (semantic buttons when opening a dialog). Follow Users & Roles.
   Do not place boxed detail buttons below names or reveal controls in other cells.
+- Bulk-selection checkboxes are a deliberate exception: use a leading selection
+  column, while detail/editor entries remain at the right. Preserve selected IDs
+  through filtering and follow the signup catalog's default subject order.
 - Compose `SummaryTable`, `TableActions`, `TableAction` and `TableDetails` from
   `src/app/_components/ui/summary-table.tsx`. Existing domain dialogs may use the same
   text-action class; their authorization and confirmation rules remain authoritative.

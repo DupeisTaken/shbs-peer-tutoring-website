@@ -23,7 +23,8 @@ const state = vi.hoisted(() => ({
       },
     ],
   },
-  error: null as null | { message: string },
+  error: null as null | { message: string; data?: { code: string } },
+  loading: false,
   mutationError: null as null | {
     message: string;
     data?: { approvalId?: string };
@@ -36,8 +37,9 @@ vi.mock("~/trpc/react", () => ({
     program: {
       featureSettings: {
         useQuery: () => ({
-          data: state.data,
+          data: state.loading ? undefined : state.data,
           error: state.error,
+          isSuccess: !state.loading && !state.error,
           refetch: state.refetch,
         }),
       },
@@ -62,6 +64,7 @@ beforeEach(() => {
     features: [{ key: "AUTO_ASSIGN_ROOMS", enabled: true, pending: null }],
   };
   state.error = null;
+  state.loading = false;
   state.mutationError = null;
   state.mutateAsync.mockReset().mockResolvedValue({});
   state.refetch.mockReset().mockResolvedValue({ isSuccess: true });
@@ -153,4 +156,41 @@ it("keeps the setting visible without exposing a switch to read-only roles", () 
   render(<FeatureToggles />, { wrapper });
   expect(screen.queryByRole("switch")).toBeNull();
   expect(screen.getByText(messages.admin.program.features.on)).toBeTruthy();
+});
+
+it("hides cached switches and values after authorization loss until a successful authorized read", async () => {
+  const view = render(<FeatureToggles />, { wrapper });
+  expect(screen.getByRole("switch")).toBeTruthy();
+  state.error = { message: "Denied", data: { code: "FORBIDDEN" } };
+  view.rerender(<FeatureToggles />);
+  expect(screen.queryByRole("switch")).toBeNull();
+  expect(screen.queryByText(messages.admin.program.features.on)).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.uiPatterns.retry }),
+  );
+  expect(state.refetch).toHaveBeenCalledOnce();
+  expect(state.mutateAsync).not.toHaveBeenCalled();
+  state.error = null;
+  view.rerender(<FeatureToggles />);
+  await waitFor(() => expect(screen.getByRole("switch")).toBeTruthy());
+});
+it("keeps a transient failed read visible but excludes writes until recovered", () => {
+  const view = render(<FeatureToggles />, { wrapper });
+  state.error = { message: "Temporary read failure" };
+  view.rerender(<FeatureToggles />);
+  const toggle = screen.getByRole<HTMLButtonElement>("switch");
+  expect(toggle.disabled).toBe(true);
+  fireEvent.click(toggle);
+  expect(state.mutateAsync).not.toHaveBeenCalled();
+  expect(screen.getByText(messages.admin.program.features.on)).toBeTruthy();
+  state.error = null;
+  state.data.canEdit = false;
+  view.rerender(<FeatureToggles />);
+  expect(screen.queryByRole("switch")).toBeNull();
+});
+it("does not render a feature state while the initial authorized query is loading", () => {
+  state.loading = true;
+  render(<FeatureToggles />, { wrapper });
+  expect(screen.queryByRole("switch")).toBeNull();
+  expect(screen.getByText(messages.admin.program.loading)).toBeTruthy();
 });

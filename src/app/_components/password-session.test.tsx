@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
@@ -28,26 +29,39 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("./school-departure", () => ({ SchoolDeparturePanel: () => null }));
 vi.mock("./membership-editor", () => ({ MembershipEditor: () => null }));
 vi.mock("./academic-profile", () => ({ AcademicPanel: () => null }));
+// Password/profile flows retain their own fixtures; the independent advisory
+// editor has ownership, stale-save and recovery coverage in its component suite.
+vi.mock("./tutor-workload-preference", () => ({
+  TutorWorkloadPreference: () => null,
+}));
 vi.mock("./account-emails", () => ({
   AccountEmails: () => null,
   EmailPreferences: () => null,
 }));
 vi.mock("./two-factor-settings", () => ({ TwoFactorSettings: () => null }));
-vi.mock("~/trpc/react", () => {
+vi.mock("~/trpc/react", async () => {
   const inert = { useMutation: () => ({ mutate: vi.fn(), isPending: false }) };
   const code = {
     useMutation: (options: {
       onSuccess: (data: { email: string }) => void;
+      onSettled?: () => void;
     }) => ({
-      mutate: () => options.onSuccess({ email: "s***@example.test" }),
+      mutate: () => {
+        options.onSuccess({ email: "s***@example.test" });
+        options.onSettled?.();
+      },
       isPending: false,
     }),
   };
   const change = {
-    useMutation: (options: { onSuccess: () => void }) => ({
+    useMutation: (options: {
+      onSuccess: () => void;
+      onSettled?: () => void;
+    }) => ({
       mutate: (input: unknown) => {
         mocks.change(input);
         if (mocks.succeed) options.onSuccess();
+        options.onSettled?.();
       },
       isPending: false,
     }),
@@ -57,6 +71,9 @@ vi.mock("~/trpc/react", () => {
     api: {
       useUtils: () => ({}),
       program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
         profilePolicy: {
           useQuery: () => ({
             data: {
@@ -115,9 +132,15 @@ it("preserves an unsaved name draft and its original version when academic chang
     profileVersion: 3,
   };
   const ui = () => (
-    <NextIntlClientProvider locale="en" messages={en}>
-      <AccountSettings />
-    </NextIntlClientProvider>
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <NextIntlClientProvider locale="en" messages={en}>
+        <AccountSettings />
+      </NextIntlClientProvider>
+    </QueryClientProvider>
   );
   const view = render(ui());
   fireEvent.change(screen.getByDisplayValue("Original"), {
@@ -147,9 +170,15 @@ it.each([AccountSettings, TutorSettings])(
   "returns to sign-in after a successful password change (%s)",
   (Component) => {
     render(
-      <NextIntlClientProvider locale="en" messages={en}>
-        <Component />
-      </NextIntlClientProvider>,
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <NextIntlClientProvider locale="en" messages={en}>
+          <Component />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
     );
     fireEvent.change(screen.getByLabelText(en.tutor.settings.currentPassword), {
       target: { value: "CurrentPassword123!" },

@@ -11,7 +11,8 @@ export const latinName = z
   );
 /** New profile fields are explicit. Never guess given/family boundaries from a display string. */
 export const personNameFields = {
-  firstName: latinName.refine((value) => !!value, "Enter your first name."),
+  // Script/length parsing is separate from role-configured requiredness.
+  firstName: latinName,
   lastName: latinName,
   preferredName: latinName
     .nullable()
@@ -23,9 +24,11 @@ export const personNameSchema = z.object(personNameFields);
 // Older clients and historical intake payloads carry only a full name. Preserve that
 // compatibility without guessing its parts; all current forms send the explicit fields.
 export const optionalPersonNameFields = {
-  firstName: personNameFields.firstName.optional(),
-  lastName: personNameFields.lastName.optional(),
-  preferredName: personNameFields.preferredName,
+  // Transport validates shape only: the locked domain policy decides visibility,
+  // requiredness and which intentional replacements need script validation.
+  firstName: z.string().trim().max(100).optional(),
+  lastName: z.string().trim().max(100).optional(),
+  preferredName: z.string().trim().max(100).nullable().optional(),
   alternativeNames: personNameFields.alternativeNames,
 };
 export type PersonNameInput = z.infer<typeof personNameSchema>;
@@ -57,6 +60,33 @@ export function fullPersonName(person: {
   return [person.firstName.trim(), person.lastName?.trim()]
     .filter(Boolean)
     .join(" ");
+}
+
+/** Only an actually unsplit record receives the original First Name exception.
+ * Empty structured parts and preferred-only identities are still structured. */
+export function unsplitLegacyName(
+  person?: {
+    firstName?: string | null;
+    lastName?: string | null;
+    preferredName?: string | null;
+    legacyName?: string | null;
+    username?: string | null;
+    name?: string | null;
+    englishName?: string | null;
+  } | null,
+) {
+  if (
+    !person ||
+    (["firstName", "lastName", "preferredName"] as const).some(
+      (key) => person[key] != null,
+    )
+  )
+    return null;
+  // An explicit null means no original was stored. Active username fallbacks
+  // must never become legacy evidence or exempt a newly required First Name.
+  if (person.legacyName !== undefined) return person.legacyName;
+  const label = person.name ?? person.englishName ?? null;
+  return label && label !== person.username ? label : null;
 }
 
 /** An existing unsplit identity may be kept, but never inferred from a display label.

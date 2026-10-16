@@ -3,8 +3,12 @@ import { useProfileReloadFocus } from "./use-profile-reload-focus";
 import { ProfileEditSection } from "./profile-edit-section";
 import { InlineNotice } from "./ui/patterns";
 import { Button } from "./ui/button";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
-import { nameDraft, personNameEdit } from "~/lib/person-name";
+import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
+import {
+  nameDraft,
+  personNameEdit,
+  unsplitLegacyName,
+} from "~/lib/person-name";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 
@@ -76,10 +80,9 @@ function AccountProfileForm({
   const [reloadError, setReloadError] = useState<string | null>(null);
   const reloadPending = useRef(false);
   const [names, setNames] = useState(() => nameDraft(profile));
+  const [namePolicyReady, setNamePolicyReady] = useState(false);
   const [originalNames, setOriginalNames] = useState(() => nameDraft(profile));
-  const [legacyName, setLegacyName] = useState(
-    profile.legacyName ?? profile.name,
-  );
+  const [legacyName, setLegacyName] = useState(unsplitLegacyName(profile));
   const identity = personNameEdit(names, originalNames, legacyName);
   const name = identity.name;
   const [expectedProfileVersion, setExpectedProfileVersion] = useState(
@@ -124,7 +127,7 @@ function AccountProfileForm({
       // Adopt only a complete, matching read; failed reads never replace the draft.
       setNames(nameDraft(latest));
       setOriginalNames(nameDraft(latest));
-      setLegacyName(latest.legacyName ?? latest.name);
+      setLegacyName(unsplitLegacyName(latest));
       setExpectedProfileVersion(latest.profileVersion);
       setRefreshFailed(false);
       setNeedsRefresh(false);
@@ -152,6 +155,7 @@ function AccountProfileForm({
         onSubmit={(event) => {
           event.preventDefault();
           if (
+            !namePolicyReady ||
             busy ||
             submitting.current ||
             reloadPending.current ||
@@ -187,7 +191,7 @@ function AccountProfileForm({
             <Button
               type="submit"
               variant="primary"
-              disabled={save.isPending || !name.trim()}
+              disabled={save.isPending || !namePolicyReady}
             >
               {canRequestHead && !isHead ? approvals("requestHead") : t("save")}
             </Button>
@@ -195,12 +199,19 @@ function AccountProfileForm({
         >
           <p className="muted text-sm">{t("canonicalHelp")}</p>
           <PersonNameFields
+            onPolicyAvailabilityChange={setNamePolicyReady}
+            profileTarget={{ userId: profile.userId }}
+            management
             value={names}
             onChange={setNames}
             legacyName={legacyName}
             originalValue={originalNames}
           />
-          {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+          {save.error?.data?.approvalId && (
+            <InlineNotice tone="warning" announcement="status">
+              {approvals("queuedBody")}
+            </InlineNotice>
+          )}
           {save.error && !save.error.data?.approvalId && (
             <p role="alert" className="text-sm text-red-600">
               <ProfilePolicyError message={save.error.message} />
@@ -236,7 +247,10 @@ function AccountProfileForm({
         </ProfileEditSection>
       </form>
       <div className="mt-5">
-        <AcademicPanel userId={profile.userId} canApply={!canRequestHead || !!isHead} />
+        <AcademicPanel
+          userId={profile.userId}
+          canApply={!canRequestHead || !!isHead}
+        />
       </div>
       {(isHead === true || canRequestHead) && (
         <AccountUsernameEditor

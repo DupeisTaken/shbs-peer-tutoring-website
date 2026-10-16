@@ -1,6 +1,10 @@
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
 import type { EmailMessage } from "~/server/email/sender";
-import { stageCrewVerification, verifyCrewApplication } from "~/server/crew/signup";
+import { createHash } from "node:crypto";
+import {
+  stageCrewVerification,
+  verifyCrewApplication,
+} from "~/server/crew/signup";
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 const delivery = vi.hoisted(() => ({
@@ -452,9 +456,15 @@ async function tutorInput(name: string, email = "applicant@example.test") {
     subjects: [{ subjectId: "policy-math" }],
   };
 }
-async function verifiedCrew(input: { name: string; email: string; gradeLevel?: number }) {
+async function verifiedCrew(input: {
+  name: string;
+  email: string;
+  gradeLevel?: number;
+}) {
   await stageCrewVerification(db, input.email, input);
-  const code = (delivery.send.mock.calls.at(-1)?.[0] as EmailMessage | undefined)?.presentation?.code;
+  const code = (
+    delivery.send.mock.calls.at(-1)?.[0] as EmailMessage | undefined
+  )?.presentation?.code;
   if (!code) throw Error("Expected crew mailbox challenge");
   return verifyCrewApplication(db, { email: input.email, code }, new Headers());
 }
@@ -653,31 +663,38 @@ function lastStudentToken() {
   if (!token) throw Error("Missing student verification link");
   return token;
 }
-it("checks a new student survey and rechecks pre-policy submissions when creating an account", async () => {
+it("checks new student intake and preserves accepted pre-policy identity at redemption", async () => {
   await expect(
     submitSurvey(db, await studentInput("王小明")),
   ).rejects.toMatchObject(policyError);
   expect(await db.studentSurvey.count()).toBe(0);
-  await setRequired(false);
-  const historicalPayload = await studentInput("Xiaoming Wang");
-  await submitSurvey(db, historicalPayload);
-  await db.studentSurvey.updateMany({
-    data: { payload: { ...historicalPayload, englishName: "王小明" } },
+  const historicalPayload = await studentInput("王小明");
+  const policy = await currentPolicy(db, "tutee-policy");
+  const token = "7".repeat(64);
+  // Model an actual pre-policy source at creation. Current intake must reject it,
+  // and immutable original evidence must never be fabricated by a later UPDATE.
+  await db.studentSurvey.create({
+    data: {
+      email: historicalPayload.email,
+      intakeTermId: "policy-term",
+      payload: historicalPayload,
+      policyRevision: policy.revision,
+      policySnapshot: policy.documents,
+      tokenHash: createHash("sha256").update(token).digest("hex"),
+      expiresAt: new Date(Date.now() + 86400000),
+    },
   });
-  const token = lastStudentToken();
-  await setRequired(true);
-  await expect(confirmSurvey(db, token, password)).rejects.toMatchObject(
-    policyError,
-  );
-  expect(await db.user.count()).toBe(0);
-  expect(await db.studentSurvey.findFirst()).toMatchObject({
-    confirmedAt: null,
-    tuteeId: null,
-  });
-  await db.studentSurvey.updateMany({ data: { payload: historicalPayload } });
+  // Stored intake remains grandfathered, without weakening today's new-name rule.
   await expect(confirmSurvey(db, token, password)).resolves.toEqual({
     ok: true,
   });
+  expect(await db.user.findFirst()).toMatchObject({
+    name: "王小明",
+    legacyName: "王小明",
+  });
+  const redeemedSurvey = await db.studentSurvey.findFirstOrThrow();
+  expect(redeemedSurvey.confirmedAt).toBeInstanceOf(Date);
+  expect(typeof redeemedSurvey.tuteeId).toBe("string");
 });
 
 it("enrolls an existing non-Latin account without replacing its canonical name or handle", async () => {
@@ -823,7 +840,7 @@ it("uses the canonical identity after waiting on a concurrent profile edit", asy
   });
 });
 
-it("preserves an invited roster until Latin fields are supplied for its first login", async () => {
+it("preserves an accepted invited roster identity through first login without adopting posted replacements", async () => {
   const email = "roster-invitation@example.test";
   const roster = await db.tutor.create({
     data: { email, englishName: "王小明", username: "rosterhandle" },
@@ -838,28 +855,27 @@ it("preserves an invited roster until Latin fields are supplied for its first lo
     password,
     completionProof: invitation.completionProof,
   };
-  await expect(
-    completeRegistration(row, { ...profile, firstName: "李小明" }),
-  ).rejects.toMatchObject(policyError);
-  expect(await db.user.count({ where: { email } })).toBe(0);
-  expect(await db.tutor.findUnique({ where: { id: roster.id } })).toMatchObject(
-    { englishName: "王小明", username: "rosterhandle" },
-  );
-  expect(
-    await db.registrationCode.findUnique({ where: { id: row.id } }),
-  ).toMatchObject({ usedAt: null });
   expect(
     await completeRegistration(row, {
       ...profile,
-      firstName: "Xiaoming",
-      lastName: "Wang",
-      alternativeNames: "王小明",
+      firstName: "李小明",
+      alternativeNames: "Posted replacement",
     }),
   ).toMatchObject({ ok: true, username: "rosterhandle" });
   expect(await db.user.findUnique({ where: { email } })).toMatchObject({
-    name: "Xiaoming Wang",
+    name: "王小明",
+    legacyName: "王小明",
+    firstName: null,
+    lastName: null,
     username: "rosterhandle",
     tutorId: roster.id,
-    alternativeNames: "王小明",
+    alternativeNames: null,
   });
+  expect(await db.tutor.findUnique({ where: { id: roster.id } })).toMatchObject(
+    { englishName: "王小明", legacyName: "王小明", username: "rosterhandle" },
+  );
+  expect(
+    (await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } }))
+      .usedAt,
+  ).toBeInstanceOf(Date);
 });

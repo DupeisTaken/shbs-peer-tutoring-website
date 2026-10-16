@@ -18,19 +18,26 @@ import { resolveBranding } from "~/lib/branding-config";
 import { signupSettings } from "~/lib/signup-fields";
 import { SignupForm } from "./signup-form";
 const mocks = vi.hoisted(() => ({
+  locale: "en",
   options: vi.fn(),
   policy: vi.fn(),
   retry: vi.fn(),
   mutate: vi.fn(),
+  receipt: vi.fn(),
+  captchaRun: vi.fn(),
+  captchaPending: false,
 }));
 vi.mock("next-intl", () => ({
-  useLocale: () => "en",
+  useLocale: () => mocks.locale,
   useTimeZone: () => "Asia/Shanghai",
   useTranslations: () => (key: string) => key,
 }));
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(),
       profilePolicy: {
         useQuery: () => ({
           data: {
@@ -43,6 +50,7 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     tutee: {
+      signupReceipt: { useMutation: () => ({ mutateAsync: mocks.receipt }) },
       signupOptions: { useQuery: mocks.options },
       surveyPolicy: { useQuery: mocks.policy },
       submitSurvey: {
@@ -74,9 +82,31 @@ vi.mock("~/app/_components/policy-agreement", () => ({
   ),
 }));
 vi.mock("./signin-access", () => ({ SigninAccess: () => null }));
+vi.mock("./survey-verification", () => ({
+  SurveyVerification: ({
+    email,
+    intentId,
+  }: {
+    email: string;
+    intentId?: string;
+  }) => (
+    <p data-testid="verification-source">
+      {email} / {intentId}
+    </p>
+  ),
+}));
 vi.mock("./survey-resend", () => ({ SurveyResend: () => null }));
 beforeEach(() => {
+  mocks.locale = "en";
   vi.clearAllMocks();
+  mocks.mutate.mockResolvedValue({
+    ok: true,
+    emailSent: true,
+    intentId: "saved-intent",
+  });
+  mocks.receipt.mockResolvedValue(null);
+  mocks.captchaPending = false;
+  mocks.captchaRun.mockImplementation((work: () => Promise<unknown>) => work());
   mocks.options.mockReturnValue({
     isFetchedAfterMount: true,
     data: {
@@ -94,11 +124,187 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
 });
+
+/** Minimal configured intake makes retry/receipt behavior independent of unrelated fields. */
+function completeMinimalSubmission() {
+  mocks.options.mockReturnValue({
+    isFetchedAfterMount: true,
+    data: {
+      subjects: [{ id: "math", name: "Math" }],
+      slots: [],
+      fields: signupSettings({
+        tutee: {
+          preferredContact: "hidden",
+          availability: "hidden",
+          signatureName: "hidden",
+          phone: "hidden",
+          secondSubject: "hidden",
+        },
+      }).tutee,
+    },
+    refetch: mocks.retry,
+  });
+  const mounted = render(<SignupForm />);
+  fireEvent.change(screen.getByLabelText("firstName signupFields.required"), {
+    target: { value: "Student" },
+  });
+  fireEvent.change(screen.getByLabelText(/survey.emailLabel/), {
+    target: { value: "student@example.test" },
+  });
+  fireEvent.change(
+    screen.getByRole("combobox", {
+      name: "public.signup.fields.firstChoice signupFields.required",
+    }),
+    { target: { value: "math" } },
+  );
+  fireEvent.click(screen.getByLabelText("Accept policy"));
+  return mounted;
+}
+it("recovers a lost committed response through POST receipt without another submit, preserving the captured answers", async () => {
+  mocks.mutate.mockRejectedValueOnce(new Error("Response lost"));
+  completeMinimalSubmission();
+  fireEvent.click(screen.getByRole("button", { name: "public.signup.submit" }));
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("button", { name: "recoverSubmission" })
+        .hasAttribute("disabled"),
+    ).toBe(false),
+  );
+  const posted = mocks.mutate.mock.calls[0]?.[0] as Record<string, unknown>;
+  expect(screen.getByDisplayValue("Student").matches(":disabled")).toBe(true);
+  mocks.receipt.mockResolvedValueOnce({
+    ok: true,
+    emailSent: true,
+    intentId: "recovered-intent",
+  });
+  fireEvent.click(screen.getByRole("button", { name: "recoverSubmission" }));
+  await screen.findByTestId("verification-source");
+  expect(mocks.mutate).toHaveBeenCalledTimes(1);
+  expect(mocks.receipt).toHaveBeenCalledWith({
+    clientKey: posted.clientKey,
+    answers: expect.objectContaining({
+      email: "student@example.test",
+      englishName: "Student",
+    }) as unknown,
+  });
+  expect(screen.getByTestId("verification-source").textContent).toContain(
+    "recovered-intent",
+  );
+});
+it("retries an unsaved submission using exactly the same intent and snapshot, with one same-tick admission", async () => {
+  let reject!: (error: Error) => void;
+  mocks.mutate.mockReturnValueOnce(
+    new Promise((_resolve, fail) => {
+      reject = fail;
+    }),
+  );
+  const mounted = completeMinimalSubmission();
+  fireEvent.submit(mounted.container.querySelector("form")!);
+  fireEvent.submit(mounted.container.querySelector("form")!);
+  expect(mocks.mutate).toHaveBeenCalledTimes(1);
+  const first = mocks.mutate.mock.calls[0]?.[0] as Record<string, unknown>;
+  await act(async () => reject(new Error("Offline")));
+  mocks.receipt.mockResolvedValueOnce(null);
+  fireEvent.click(screen.getByRole("button", { name: "recoverSubmission" }));
+  await waitFor(() => expect(mocks.mutate).toHaveBeenCalledTimes(2));
+  expect(mocks.mutate.mock.calls[1]?.[0]).toEqual(first);
+});
+it("a definitive policy rejection can recover an absent receipt and return to the retained draft with a fresh corrected intent", async () => {
+  mocks.mutate.mockRejectedValueOnce(
+    Object.assign(new Error("Policy changed"), { data: { code: "CONFLICT" } }),
+  );
+  completeMinimalSubmission();
+  fireEvent.click(screen.getByRole("button", { name: "public.signup.submit" }));
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("button", { name: "returnToEditing" })
+        .hasAttribute("disabled"),
+    ).toBe(false),
+  );
+  const first = mocks.mutate.mock.calls[0]?.[0] as Record<string, unknown>;
+  fireEvent.click(screen.getByRole("button", { name: "returnToEditing" }));
+  await waitFor(() =>
+    expect(screen.getByDisplayValue("Student").matches(":disabled")).toBe(
+      false,
+    ),
+  );
+  fireEvent.change(screen.getByLabelText("firstName signupFields.required"), {
+    target: { value: "Corrected" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "public.signup.submit" }));
+  await waitFor(() => expect(mocks.mutate).toHaveBeenCalledTimes(2));
+  expect(mocks.mutate.mock.calls[1]?.[0]).toMatchObject({
+    englishName: "Corrected",
+  });
+  const second = mocks.mutate.mock.calls[1]?.[0] as Record<string, unknown>;
+  expect(second.clientKey).not.toBe(first.clientKey);
+});
+it("a cancelled initial CAPTCHA reopens editing immediately without a receipt read or clearing the form", async () => {
+  mocks.captchaRun.mockImplementationOnce(async () => {
+    mocks.captchaPending = true;
+  });
+  const mounted = completeMinimalSubmission();
+  fireEvent.click(screen.getByRole("button", { name: "public.signup.submit" }));
+  await act(() => Promise.resolve());
+  expect(mocks.mutate).not.toHaveBeenCalled();
+  expect(
+    screen
+      .getByRole("button", { name: "returnToEditing" })
+      .hasAttribute("disabled"),
+  ).toBe(true);
+  mocks.captchaPending = false;
+  mounted.rerender(<SignupForm />);
+  await waitFor(() =>
+    expect(screen.getByDisplayValue("Student").matches(":disabled")).toBe(
+      false,
+    ),
+  );
+  expect(screen.getByDisplayValue("student@example.test")).toBeTruthy();
+  expect(mocks.receipt).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "returnToEditing" })).toBeNull();
+});
+it("cancelling a retry challenge never abandons an earlier ambiguous dispatched intent", async () => {
+  mocks.mutate.mockRejectedValueOnce(new Error("Response lost"));
+  const mounted = completeMinimalSubmission();
+  fireEvent.click(screen.getByRole("button", { name: "public.signup.submit" }));
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("button", { name: "recoverSubmission" })
+        .hasAttribute("disabled"),
+    ).toBe(false),
+  );
+  const first: unknown = mocks.mutate.mock.calls[0]?.[0];
+  mocks.captchaRun.mockImplementationOnce(async () => {
+    mocks.captchaPending = true;
+  });
+  fireEvent.click(screen.getByRole("button", { name: "recoverSubmission" }));
+  await act(() => Promise.resolve());
+  mocks.captchaPending = false;
+  mounted.rerender(<SignupForm />);
+  expect(screen.getByDisplayValue("Student").matches(":disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "recoverSubmission" }));
+  await waitFor(() => expect(mocks.mutate).toHaveBeenCalledTimes(2));
+  expect(mocks.mutate.mock.calls[1]?.[0]).toEqual(first);
+});
 it("keeps a loading request from pretending no time slots exist", () => {
   mocks.options.mockReturnValue({ isLoading: true });
   render(<SignupForm />);
   expect(screen.getByRole("status").textContent).toContain("loading");
   expect(screen.queryByRole("textbox")).toBeNull();
+});
+it("formats availability weekdays in the active locale while retaining numeric slot selection", () => {
+  mocks.locale = "zh";
+  render(<SignupForm />);
+  expect(screen.getByText("周一")).toBeTruthy();
+  const slot = screen.getByRole<HTMLInputElement>("checkbox", {
+    name: /15:00–16:00/,
+  });
+  fireEvent.click(slot);
+  expect(slot.checked).toBe(true);
+  expect(mocks.mutate).not.toHaveBeenCalled();
 });
 it("offers retry when prerequisites fail", () => {
   mocks.policy.mockReturnValue({ isError: true, refetch: mocks.retry });
@@ -292,9 +498,9 @@ it("labels fixed and configurable requirements consistently", () => {
 
 vi.mock("~/app/_components/signup-captcha", () => ({
   useSignupCaptcha: () => ({
-    run: (work: (grant?: string) => Promise<unknown>) => work(),
+    run: mocks.captchaRun,
     panel: null,
-    pending: false,
+    pending: mocks.captchaPending,
   }),
   CaptchaError: ({ error }: { error: { message: string } }) => (
     <>{error.message}</>

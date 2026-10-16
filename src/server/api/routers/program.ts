@@ -1,5 +1,9 @@
 import { captchaAction } from "~/lib/captcha";
-import { captchaStatus, publicCaptcha, verifySignupCaptcha } from "~/server/captcha";
+import {
+  captchaStatus,
+  publicCaptcha,
+  verifySignupCaptcha,
+} from "~/server/captcha";
 import { aliyunProvider } from "~/server/captcha/aliyun";
 import { withSignupAdmission } from "~/server/signup-admission";
 import { TRPCError } from "@trpc/server";
@@ -8,6 +12,7 @@ import { z } from "zod";
 import {
   createTRPCRouter,
   publicProcedure,
+  protectedProcedure,
   adminProcedure,
   adminOnlyProcedure,
   headProcedure,
@@ -36,6 +41,23 @@ import { getSignupSettings } from "~/server/program/signup-fields";
 import { profilePolicySchema } from "~/lib/profile-policy";
 import { getProfilePolicy } from "~/server/program/profile-policy";
 import { lockUsernameNamespace } from "~/server/auth/username";
+import {
+  programCalendarWrite,
+  programCalendarRemove,
+} from "~/lib/program-calendar";
+import {
+  saveProgramCalendar,
+  removeProgramCalendar,
+} from "~/server/program/calendar";
+import {
+  nameAccountTypeSchema,
+  nameFieldStatesSchema,
+} from "~/lib/name-field-policy";
+import {
+  getNameFieldPolicy,
+  saveNameFieldPolicy,
+  allocateNameFallbacks,
+} from "~/server/program/name-fields";
 
 const featureKey = z.enum([
   "CREW",
@@ -63,6 +85,88 @@ const httpUrl = z
  * can hide a disabled module); staging changes is HEAD-only and takes effect at the next refresh.
  */
 export const programRouter = createTRPCRouter({
+  nameFieldPolicy: publicProcedure.query(({ ctx }) =>
+    getNameFieldPolicy(ctx.db),
+  ),
+  nameFieldSettings: adminProcedure.query(async ({ ctx }) => ({
+    ...(await getNameFieldPolicy(ctx.db)),
+    canEdit: ["HEAD", "ADMIN"].includes(ctx.session.role),
+    canApply: ctx.session.role === "HEAD",
+  })),
+  nameFieldsForProfile: protectedProcedure
+    .input(
+      z
+        .object({
+          userId: z.string().min(1).optional(),
+          tutorId: z.string().min(1).optional(),
+          tuteeId: z.string().min(1).optional(),
+        })
+        .strict()
+        .refine(
+          (value) =>
+            [value.userId, value.tutorId, value.tuteeId].filter(
+              (id) => id !== undefined,
+            ).length <= 1,
+        ),
+    )
+    .query(async ({ ctx, input }) => {
+      const targeted = input.userId ?? input.tutorId ?? input.tuteeId;
+      if (
+        targeted &&
+        input.userId !== ctx.session.user.id &&
+        !["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role)
+      )
+        throw new TRPCError({ code: "FORBIDDEN" });
+      const user = await ctx.db.user.findFirst({
+        where: input.userId
+          ? { id: input.userId }
+          : input.tutorId
+            ? { tutorId: input.tutorId }
+            : input.tuteeId
+              ? { studentId: input.tuteeId }
+              : { id: ctx.session.user.id },
+        select: { role: true },
+      });
+      const accountType = user?.role ?? (input.tuteeId ? "STUDENT" : "TUTOR");
+      const policy = await getNameFieldPolicy(ctx.db);
+      return {
+        accountType,
+        states: policy.policies[accountType],
+        version: policy.version,
+      };
+    }),
+  setNameFields: adminOnlyProcedure
+    .input(
+      z
+        .object({
+          accountType: nameAccountTypeSchema,
+          states: nameFieldStatesSchema,
+          expectedVersion: z.number().int().nonnegative(),
+        })
+        .strict(),
+    )
+    .mutation(({ ctx, input }) => saveNameFieldPolicy(ctx.db, input)),
+  // Informational context is readable by signed-in schedule users; it grants no write or attendance authority.
+  calendar: protectedProcedure.query(({ ctx }) =>
+    ctx.db.programCalendarDay.findMany({
+      where: { active: true },
+      orderBy: { date: "asc" },
+      select: { date: true, reason: true },
+    }),
+  ),
+  calendarSettings: adminProcedure.query(async ({ ctx }) => ({
+    days: await ctx.db.programCalendarDay.findMany({
+      orderBy: { date: "asc" },
+    }),
+    canEdit: ["HEAD", "ADMIN"].includes(ctx.session.role),
+    canApply: ctx.session.role === "HEAD",
+  })),
+  setCalendarDay: adminOnlyProcedure
+    .input(programCalendarWrite)
+    .mutation(({ ctx, input }) => saveProgramCalendar(ctx.db, input)),
+  removeCalendarDay: adminOnlyProcedure
+    .input(programCalendarRemove)
+    .mutation(({ ctx, input }) => removeProgramCalendar(ctx.db, input)),
   captchaPublic: publicProcedure.query(({ ctx }) =>
     withSignupAdmission(ctx.db, ctx.headers, "read", undefined, () =>
       publicCaptcha(ctx.db),
@@ -137,7 +241,13 @@ export const programRouter = createTRPCRouter({
     ),
   profilePolicy: publicProcedure.query(async ({ ctx }) => ({
     ...(await getProfilePolicy(ctx.db)),
-    currentSchoolYear: (await ctx.db.term.findFirst({ where: { active: true }, select: { schoolYear: true } }))?.schoolYear ?? null,
+    currentSchoolYear:
+      (
+        await ctx.db.term.findFirst({
+          where: { active: true },
+          select: { schoolYear: true },
+        })
+      )?.schoolYear ?? null,
   })),
   profilePolicySettings: adminProcedure.query(async ({ ctx }) => ({
     ...(await getProfilePolicy(ctx.db)),
@@ -169,6 +279,11 @@ export const programRouter = createTRPCRouter({
         // EXCLUSIVE also fences SELECT FOR UPDATE profile locks. Registration holds the
         // namespace lock before touching Tutor/User, matching this order.
         await tx.$executeRaw`LOCK TABLE "User", "Tutor", "Tutee" IN EXCLUSIVE MODE`;
+        await allocateNameFallbacks(
+          tx,
+          (await getNameFieldPolicy(tx)).policies,
+          after,
+        );
         await tx.programSettings.upsert({
           where: { id: "program" },
           create: { id: "program", ...after },
@@ -299,7 +414,10 @@ export const programRouter = createTRPCRouter({
         // Drop only optional backlog on disable; mandatory security alerts must still be delivered.
         if (!input.enabled)
           await tx.emailDelivery.updateMany({
-            where: { status: "PENDING", category: { not: "security" } },
+            where: {
+              status: "PENDING",
+              category: { notIn: ["security", "request_service"] },
+            },
             data: { status: "SKIPPED", completedAt: new Date() },
           });
         return { ok: true };

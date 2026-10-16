@@ -26,6 +26,7 @@ const current = {
 };
 type Booking = {
   id: string;
+  groupId?: string | null;
   roomId: string;
   tutorId: string;
   dayOfWeek: number;
@@ -76,6 +77,7 @@ function fixture(
     pairing: {
       findMany: vi.fn().mockResolvedValue(bookings),
       findFirst: vi.fn().mockResolvedValue(null),
+      findUnique: vi.fn().mockResolvedValue(null),
     },
     roomUnavailability: {
       findMany: vi
@@ -96,6 +98,14 @@ function fixture(
 }
 
 describe("automatic room ranking", () => {
+  it("counts an explicit combined reservation once for usage instead of once per subject", async () => {
+    const { db } = fixture([
+      { ...booking("group-a", "a"), groupId: "one-explicit-group" },
+      { ...booking("group-b", "a"), groupId: "one-explicit-group" },
+      booking("independent", "b", "other", [], 90),
+    ]);
+    expect((await allocateRoom(db, schedule, {}, current)).roomId).toBe("a");
+  });
   it("ranks participant count ahead of tutor preference and occupied minutes", () => {
     expect(
       rankRoomCandidates([

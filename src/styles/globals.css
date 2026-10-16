@@ -179,7 +179,7 @@
     @apply btn bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900;
   }
   .btn-danger {
-    @apply btn bg-white text-red-600 hover:bg-red-50;
+    @apply btn border border-slate-300 bg-white text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-700 focus-visible:border-red-400 focus-visible:bg-red-50 focus-visible:text-red-700 active:border-red-500 active:bg-red-100 active:text-red-800;
   }
   /* Size modifier — declared after variants so it overrides their padding. */
   .btn-sm {
@@ -215,7 +215,9 @@
     @apply text-accent-600 hover:text-accent-700 font-medium hover:underline;
   }
   .link-danger {
-    @apply font-medium text-red-600 hover:text-red-700 hover:underline;
+    /* Destructive text actions stay visibly red and unboxed, including on hover.
+       A focus ring is a keyboard affordance, not a persistent button boundary. */
+    @apply inline-flex min-h-6 items-center rounded-sm px-2 py-1 font-medium text-red-700 hover:text-red-800 hover:underline focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:outline-none active:text-red-900 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   /* Account actions share a quiet, right-aligned stack. No inter-action gap: the
@@ -325,7 +327,13 @@
     @apply flex min-w-24 flex-col items-end gap-0;
   }
   .table-action-link {
-    @apply text-accent-700 focus-visible:ring-accent-500 inline-flex min-h-11 min-w-11 items-center justify-end rounded px-1 text-right text-xs font-medium hover:underline focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-6;
+    /* Keyboard focus emphasizes the text itself: a ring looks like a boxed
+       action even when the element has no border or background. */
+    @apply text-accent-700 inline-flex min-h-11 min-w-11 items-center justify-end rounded px-1 text-right text-xs font-medium hover:underline focus-visible:underline focus-visible:decoration-[3px] focus-visible:underline-offset-4 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-6;
+  }
+  /* Destructive entries share the same unboxed focus indicator as other table links. */
+  .table-action-danger {
+    @apply text-red-700 hover:text-red-800 active:text-red-900;
   }
   @media print {
     .summary-table-scroll {
@@ -576,7 +584,8 @@
  * Unlayered so it outranks the @layer components definition of the danger classes.
  * ------------------------------------------------------------------------- */
 [data-readonly] .btn-danger,
-[data-readonly] .link-danger {
+[data-readonly] .link-danger,
+[data-readonly] .table-action-danger {
   display: none;
 }
 

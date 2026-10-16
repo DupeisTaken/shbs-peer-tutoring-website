@@ -15,6 +15,7 @@ These guides describe the current application. Choose the task you need to compl
 | Use the website as a tutee, tutor, crew member, coordinator, administrator, HEAD, viewer or translator | [User guide](user-guide.md) |
 | Understand the four name fields and display settings | [Name fields](design/name-fields.md) |
 | Configure modules, periods, schedules, timezones, recipients or public content | [Program reference](program-reference.md) |
+| Check notification events, recipients, English/Chinese copy and destinations | [Notification event inventory](notification-events.md) |
 | Adapt the English/Chinese policy drafts and publish school-approved revisions | [Policy drafts and publication](policies/README.md) |
 | Import pre-site history and link accountless tutees | [Historical participant transition](historical-participant-transition.md) |
 | Report a bug, enhancement, feature or documentation request | [Issue guide](issues.md) |

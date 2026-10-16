@@ -1,3 +1,4 @@
+import { notificationEvent } from "~/lib/notification-events";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { programDateKey } from "~/lib/program-time";
 import { notifyUsers } from "~/server/notifications/create";
@@ -10,16 +11,16 @@ import {
   viewerProcedure,
 } from "~/server/api/trpc";
 import { computeSessionHours } from "~/lib/service-hours";
-import {
-  inTransaction,
-  lockEntity,
-} from "~/server/transactions";
+import { inTransaction, lockEntity } from "~/server/transactions";
 import { reconsiderSessionFlag } from "~/server/crew/flags";
 import { lockAttendanceSchedule } from "~/server/attendance-schedule";
 import { syncPunishmentRemoval } from "~/server/discipline/removal";
 import { getFeatures } from "~/server/program/features";
 import { assertObservedTimes } from "~/server/crew/observation-time";
-import { lockPatrolCreditOwner, reservePatrolEvidence } from "~/server/crew/patrol-credit";
+import {
+  lockPatrolCreditOwner,
+  reservePatrolEvidence,
+} from "~/server/crew/patrol-credit";
 
 const reason = z.string().trim().min(1, "Explain the correction.").max(1000);
 const rating = z.number().int().min(1).max(5).nullable();
@@ -125,7 +126,13 @@ export const correctionsRouter = createTRPCRouter({
         const primary = before.find((s) => s.id === primaryId)!;
         // Corrections share the tutor/day locks used by attendance submission. Lock dates in
         // order so two corrections moving between days cannot introduce duplicate credit.
-        const dateKeys = [...new Set([primary.date, input.date].map((date) => date.toISOString().slice(0, 10)))].sort();
+        const dateKeys = [
+          ...new Set(
+            [primary.date, input.date].map((date) =>
+              date.toISOString().slice(0, 10),
+            ),
+          ),
+        ].sort();
         for (const dateKey of dateKeys)
           await lockEntity(tx, `attendance-day:${primary.tutorId}:${dateKey}`);
         if (primary.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
@@ -171,24 +178,35 @@ export const correctionsRouter = createTRPCRouter({
               ),
             ),
           );
-        const timeChanged = primary.date.getTime() !== input.date.getTime() ||
-          primary.startMin !== input.startMin || primary.endMin !== input.endMin;
+        const timeChanged =
+          primary.date.getTime() !== input.date.getTime() ||
+          primary.startMin !== input.startMin ||
+          primary.endMin !== input.endMin;
         // Preserve the ability to correct old overlapping data without moving its window;
         // new overlaps need the existing block corrected rather than another credit.
         if (timeChanged) {
-          const dayStart = new Date(`${input.date.toISOString().slice(0, 10)}T00:00:00Z`);
+          const dayStart = new Date(
+            `${input.date.toISOString().slice(0, 10)}T00:00:00Z`,
+          );
           const overlap = await tx.session.findFirst({
             where: {
               tutorId: primary.tutorId,
               id: { notIn: before.map((session) => session.id) },
-              date: { gte: dayStart, lt: new Date(dayStart.getTime() + 24 * 60 * 60 * 1000) },
+              date: {
+                gte: dayStart,
+                lt: new Date(dayStart.getTime() + 24 * 60 * 60 * 1000),
+              },
               startMin: { lt: input.endMin },
               endMin: { gt: input.startMin },
             },
             select: { id: true },
           });
           if (overlap)
-            throw new TRPCError({ code: "CONFLICT", message: "This correction overlaps another saved attendance block for the tutor." });
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "This correction overlaps another saved attendance block for the tutor.",
+            });
         }
         for (const s of before) {
           await tx.session.update({
@@ -279,6 +297,7 @@ export const correctionsRouter = createTRPCRouter({
         await notifyUsers(
           heads.map((h) => h.id),
           {
+            ...notificationEvent("record_corrected"),
             title: "Management corrected a record",
             body: `${ctx.session.user.name ?? "Management"}: ${input.reason}`,
             link: "/admin/audit",
@@ -327,7 +346,10 @@ export const correctionsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         await lockAttendanceSchedule(tx);
-        const author = await tx.patrol.findUniqueOrThrow({ where: { id: input.id }, select: { crewUserId: true } });
+        const author = await tx.patrol.findUniqueOrThrow({
+          where: { id: input.id },
+          select: { crewUserId: true },
+        });
         await lockPatrolCreditOwner(tx, author.crewUserId, true);
         await lockEntity(tx, `patrol:${input.id}`);
         assertObservedTimes(input.observations);
@@ -367,7 +389,9 @@ export const correctionsRouter = createTRPCRouter({
           where: {
             OR: evidence.map((o) => ({
               actualRoomId: o.roomId,
-              date: new Date(`${programDateKey(o.observedAt, timeZone)}T00:00:00Z`),
+              date: new Date(
+                `${programDateKey(o.observedAt, timeZone)}T00:00:00Z`,
+              ),
             })),
           },
           include: { flags: true },
@@ -403,6 +427,7 @@ export const correctionsRouter = createTRPCRouter({
         await notifyUsers(
           heads.map((h) => h.id),
           {
+            ...notificationEvent("record_corrected"),
             title: "Management corrected a record",
             body: `${ctx.session.user.name ?? "Management"}: ${input.reason}`,
             link: "/admin/audit",

@@ -9,6 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import messages from "../../../messages/en.json";
 import { SortHeader, useSort } from "./sortable";
 import { NavSidebarClient } from "./nav-sidebar-client";
@@ -47,7 +48,11 @@ const state = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/admin/rooms" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/admin/rooms",
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ replace: vi.fn() }),
+}));
 vi.mock("~/app/_components/program-email-settings", () => ({
   ProgramEmailSettings: () => null,
 }));
@@ -64,6 +69,18 @@ vi.mock("~/app/_components/program-time-zone-settings", () => ({
 }));
 vi.mock("~/app/_components/recruitment-settings", () => ({
   RecruitmentSettings: () => null,
+}));
+vi.mock("~/app/_components/program-calendar", () => ({
+  ProgramCalendarSettings: () => null,
+}));
+vi.mock("~/app/_components/school-calendar", () => ({
+  SchoolCalendar: () => null,
+}));
+vi.mock("~/app/_components/program-name-settings", () => ({
+  ProgramNameSettings: () => null,
+}));
+vi.mock("~/app/_components/message-admin", () => ({
+  MessagePermissions: () => null,
 }));
 vi.mock("~/app/_components/read-only", () => ({
   useReadOnly: () => state.readOnly,
@@ -112,10 +129,17 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     crew: {
-      myStatus: { useQuery: () => ({ data: { status: state.crewStatus } }) },
+      // Query-key metadata mirrors the tRPC proxy used by patrol cache recovery.
+      myStatus: {
+        _def: () => ({ path: ["crew", "myStatus"] }),
+        useQuery: () => ({ data: { status: state.crewStatus } }),
+      },
       patrolConfig: {
+        _def: () => ({ path: ["crew", "patrolConfig"] }),
         useQuery: () => ({
           data: {
+            myHours: 0,
+            myPatrols: 0,
             rooms: [
               { id: "room-a", name: "Room A" },
               { id: "room-b", name: "Room B" },
@@ -123,7 +147,10 @@ vi.mock("~/trpc/react", () => ({
           },
         }),
       },
-      myPatrols: { useQuery: () => ({ data: [] }) },
+      myPatrols: {
+        _def: () => ({ path: ["crew", "myPatrols"] }),
+        useQuery: () => ({ data: [] }),
+      },
       requestOptOut: { useMutation: () => ({}) },
       recallOptOut: { useMutation: () => ({}) },
       requestReentry: { useMutation: () => ({}) },
@@ -205,17 +232,21 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 
+let queryClient: QueryClient;
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <NextIntlClientProvider
-    locale="en"
-    messages={messages}
-    timeZone="Asia/Shanghai"
-  >
-    {children}
-  </NextIntlClientProvider>
+  <QueryClientProvider client={queryClient}>
+    <NextIntlClientProvider
+      locale="en"
+      messages={messages}
+      timeZone="Asia/Shanghai"
+    >
+      {children}
+    </NextIntlClientProvider>
+  </QueryClientProvider>
 );
 
 beforeEach(() => {
+  queryClient = new QueryClient();
   state.pending = false;
   state.canEdit = true;
   state.readOnly = false;
@@ -230,6 +261,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  queryClient.clear();
   vi.clearAllMocks();
 });
 
@@ -570,6 +602,9 @@ describe("patrol headcount choices", () => {
 describe("program feature switches", () => {
   it("names a switch and derives the next request from its staged state", () => {
     render(<ProgramPage />, { wrapper });
+    fireEvent.click(
+      screen.getByRole("tab", { name: messages.admin.program.panels.access }),
+    );
     const toggle = screen.getByRole("switch", {
       name: messages.admin.program.features.name.QUARTER_SYSTEM,
     });
@@ -585,6 +620,9 @@ describe("program feature switches", () => {
     state.hasStagedFeature = false;
     state.pending = true;
     render(<ProgramPage />, { wrapper });
+    fireEvent.click(
+      screen.getByRole("tab", { name: messages.admin.program.panels.access }),
+    );
     const toggle = screen.getByRole<HTMLButtonElement>("switch");
     expect(toggle.getAttribute("aria-checked")).toBe("true");
     expect(toggle.disabled).toBe(true);
@@ -595,6 +633,9 @@ describe("program feature switches", () => {
   it("keeps switch actions hidden for viewers", () => {
     state.canEdit = false;
     render(<ProgramPage />, { wrapper });
+    fireEvent.click(
+      screen.getByRole("tab", { name: messages.admin.program.panels.access }),
+    );
     expect(screen.queryByRole("switch")).toBeNull();
   });
 });

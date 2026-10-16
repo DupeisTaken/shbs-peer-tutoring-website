@@ -1,4 +1,5 @@
 import { settleRefreshes } from "./settle-refreshes";
+import { invalidateWorkloads } from "./workload-cache";
 import {
   invalidateAndReport,
   type InvalidationTarget,
@@ -15,14 +16,16 @@ export function invalidateTuteeViews(
       tuteeStats: Invalidator;
       pairings: Invalidator;
       accounts: Invalidator;
+      assignmentWorkloads?: Invalidator;
     };
+    tutor?: { workloadPreference?: Invalidator };
     tuteeHistory: Invalidator;
   },
   options?: RefreshOptions,
 ) {
   // Optional reporting preserves React Query's wait for every matching read.
-  return settleRefreshes(
-    [
+  return settleRefreshes([
+    ...[
       utils.admin.tutees,
       utils.admin.tuteeStats,
       utils.admin.pairings,
@@ -32,5 +35,8 @@ export function invalidateTuteeViews(
       (view) => () =>
         options?.reportErrors ? invalidateAndReport(view) : view.invalidate(),
     ),
-  );
+    ...(utils.admin.assignmentWorkloads || utils.tutor?.workloadPreference
+      ? [() => invalidateWorkloads(utils, options?.reportErrors)]
+      : []),
+  ]);
 }

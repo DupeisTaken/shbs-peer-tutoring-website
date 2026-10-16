@@ -17,14 +17,15 @@ const state = vi.hoisted(() => ({
   remove: vi.fn(),
   recall: vi.fn(),
   error: "",
-  queryError: false,
   pending: false,
   removalPending: false,
-  refresh: vi.fn(async () => undefined),
-  callbacks: null as null | {
-    onSuccess: (result: { roomOutcome: string }) => Promise<void>;
-    onError: () => void;
-  },
+  confirmed: true,
+  name: "Sample Learner",
+  username: null as string | null,
+  rosterFailure: "",
+  availabilityFailure: "",
+  availabilityRefetch: vi.fn(),
+  refetch: vi.fn(),
 }));
 vi.mock("~/app/_components/confirm-dialog", () => ({
   useDialog: () => ({ confirm: state.confirm, dialog: null }),
@@ -34,29 +35,50 @@ vi.mock("~/trpc/react", () => ({
     useUtils: () => ({
       student: { me: { invalidate: vi.fn() } },
       studentWorkflow: { mine: { invalidate: vi.fn() } },
+      pairingGroups: { mine: { invalidate: vi.fn() } },
       notification: {
         list: { invalidate: vi.fn() },
         unreadCount: { invalidate: vi.fn() },
       },
       tutor: {
-        myPairings: { invalidate: state.refresh },
+        myPairings: { invalidate: vi.fn() },
         schedule: { invalidate: vi.fn() },
         myTuteeRemovalRequests: { invalidate: vi.fn() },
       },
     }),
-    studentWorkflow: { tutorRoster: { useQuery: () => ({ data: [] }) } },
+    studentWorkflow: {
+      tutorRoster: {
+        useQuery: () => ({
+          data: [],
+          isSuccess: !state.rosterFailure,
+          error: state.rosterFailure
+            ? {
+                message: "Read failed",
+                data: {
+                  code:
+                    state.rosterFailure === "denied"
+                      ? "FORBIDDEN"
+                      : "INTERNAL_SERVER_ERROR",
+                },
+              }
+            : null,
+          refetch: state.refetch,
+        }),
+      },
+    },
     tutor: {
       myPairings: {
         useQuery: () => ({
-          error: state.queryError ? new Error("Read outage") : null,
+          isSuccess: true,
+          refetch: state.refetch,
           data: [
             {
               id: "pairing",
-              subject: "Maths",
-              scheduleConfirmed: true,
-              roomMode: "AUTO",
+              roomMode: "FIXED",
               roomNeedsAssignment: false,
-              roomVersion: 3,
+              roomVersion: 2,
+              subject: "Maths",
+              scheduleConfirmed: state.confirmed,
               dayOfWeek: 1,
               startMin: 900,
               endMin: 960,
@@ -64,16 +86,22 @@ vi.mock("~/trpc/react", () => ({
               timeSlotId: "one",
               timeSlot: null,
               tutees: [
-                { tuteeId: "tutee", tutee: { englishName: "Sample Learner" } },
+                {
+                  tuteeId: "tutee",
+                  tutee: {
+                    englishName: state.name,
+                    user: { username: state.username },
+                  },
+                },
               ],
             },
             {
               id: "merge-pairing",
-              subject: "Maths",
-              scheduleConfirmed: true,
               roomMode: "AUTO",
               roomNeedsAssignment: false,
-              roomVersion: 3,
+              roomVersion: 0,
+              subject: "Maths",
+              scheduleConfirmed: true,
               dayOfWeek: 2,
               startMin: 900,
               endMin: 960,
@@ -87,6 +115,19 @@ vi.mock("~/trpc/react", () => ({
       },
       myAvailability: {
         useQuery: () => ({
+          isSuccess: !state.availabilityFailure,
+          error: state.availabilityFailure
+            ? {
+                message: "Availability read failed",
+                data: {
+                  code:
+                    state.availabilityFailure === "denied"
+                      ? "FORBIDDEN"
+                      : "INTERNAL_SERVER_ERROR",
+                },
+              }
+            : null,
+          refetch: state.availabilityRefetch,
           data: {
             slots: [
               {
@@ -102,6 +143,8 @@ vi.mock("~/trpc/react", () => ({
       },
       myTuteeRemovalRequests: {
         useQuery: () => ({
+          isSuccess: true,
+          refetch: state.refetch,
           data: state.removalPending
             ? [
                 {
@@ -114,12 +157,7 @@ vi.mock("~/trpc/react", () => ({
             : [],
         }),
       },
-      setPairingSlot: {
-        useMutation: (callbacks: typeof state.callbacks) => {
-          state.callbacks = callbacks;
-          return { mutate: state.setSlot };
-        },
-      },
+      setPairingSlot: { useMutation: () => ({ mutate: state.setSlot }) },
       requestTuteeRemoval: {
         useMutation: () => ({
           mutate: state.remove,
@@ -136,14 +174,18 @@ afterEach(() => {
   vi.clearAllMocks();
   state.confirm.mockResolvedValue(false);
   state.error = "";
-  state.queryError = false;
   state.pending = false;
   state.removalPending = false;
-  state.refresh.mockResolvedValue(undefined);
+  state.confirmed = true;
+  state.name = "Sample Learner";
+  state.username = null;
+  state.rosterFailure = "";
+  state.availabilityFailure = "";
+  state.availabilityRefetch.mockResolvedValue({ isSuccess: true });
 });
-const element = (active = true) => (
+const element = (active = true, locale = "en") => (
   <NextIntlClientProvider
-    locale="en"
+    locale={locale}
     timeZone="Asia/Shanghai"
     messages={messages}
   >
@@ -152,11 +194,61 @@ const element = (active = true) => (
     </MergeProvider>
   </NextIntlClientProvider>
 );
+it("places the default slot before tutee availability and preserves a named participant", () => {
+  render(element());
+  const select = screen.getAllByRole("combobox")[0]!;
+  const participant = screen.getByText("Sample Learner");
+  expect(
+    select.compareDocumentPosition(participant) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});
+it.each(["learner", null])(
+  "uses current account identity or localized unnamed fallback without changing saved names (%s)",
+  (username) => {
+    state.name = "";
+    state.username = username;
+    render(element(false));
+    expect(
+      screen.getByText(username ?? messages.participantNames.unnamed),
+    ).toBeTruthy();
+    expect(state.setSlot).not.toHaveBeenCalled();
+    expect(state.remove).not.toHaveBeenCalled();
+  },
+);
+it.each([
+  ["en", "Mon"],
+  ["zh", "周一"],
+])("localizes %s tutor pairing schedule evidence", (locale, weekday) => {
+  render(element(false, locale));
+  expect(screen.getByText(`· ${weekday} 15:00–16:00`)).toBeTruthy();
+});
+
+it("never exposes an unconfirmed placeholder schedule in Chinese", () => {
+  state.confirmed = false;
+  render(element(false, "zh"));
+  expect(screen.getByText(`· ${messages.scheduling.awaiting}`)).toBeTruthy();
+  expect(screen.queryByText("周一 15:00–16:00")).toBeNull();
+});
 it("inactive tutors keep pairing evidence without schedule/removal/merge writes", () => {
   render(element(false));
   expect(screen.getByText("Sample Learner")).toBeTruthy();
   expect(screen.queryByRole("combobox")).toBeNull();
-  expect(screen.queryByRole("button")).toBeNull();
+  expect(
+    screen.getByRole("button", {
+      name: `${messages.tablePatterns.details}: Sample Learner`,
+    }),
+  ).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `${messages.tablePatterns.details}: Sample Learner`,
+    }),
+  );
+  expect(
+    screen.queryByRole("button", {
+      name: messages.tutor.pairings.requestRemoval,
+    }),
+  ).toBeNull();
   expect(screen.queryByRole("checkbox")).toBeNull();
 });
 it("names the changed schedule and cancel performs no write", async () => {
@@ -175,12 +267,17 @@ it("names the changed schedule and cancel performs no write", async () => {
     expect(state.setSlot).toHaveBeenCalledWith({
       pairingId: "pairing",
       slotId: null,
-      expectedRoomVersion: 3,
+      expectedRoomVersion: 2,
     }),
   );
 });
 it("canceling removal writes nothing, while a failed confirmed request retains the reason", async () => {
   const view = render(element());
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `${messages.tablePatterns.details}: Sample Learner`,
+    }),
+  );
   fireEvent.click(
     screen.getByRole("button", {
       name: messages.tutor.pairings.requestRemoval,
@@ -219,6 +316,12 @@ it("keeps the learner present during the recall window and permits an inactive t
   state.removalPending = true;
   render(element(false));
   expect(screen.getByText("Sample Learner")).toBeTruthy();
+  expect(screen.queryByText(messages.tutor.pairings.removalPending)).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `${messages.tablePatterns.details}: Sample Learner`,
+    }),
+  );
   expect(screen.getByText(messages.tutor.pairings.removalPending)).toBeTruthy();
   expect(screen.getByText(/^Recall window ends:/)).toBeTruthy();
   fireEvent.click(
@@ -274,93 +377,107 @@ it("locks merge choices with the attendance save and releases them for a new ent
   expect(merge.disabled).toBe(false);
 });
 
-it("accepted allocation survives failed refresh and Retry performs reads only", async () => {
-  state.confirm.mockResolvedValue(true);
-  state.refresh.mockRejectedValueOnce(new Error("Offline"));
-  state.setSlot.mockImplementationOnce(() => {
-    void state.callbacks?.onSuccess({ roomOutcome: "MOVED" });
-  });
-  render(element());
-  fireEvent.change(screen.getAllByRole("combobox")[0]!, {
-    target: { value: "" },
-  });
-  await waitFor(() =>
-    expect(
-      screen.getByText(messages.roomAllocation.savedRefreshFailed),
-    ).toBeTruthy(),
+it("conceals cached Details and forgets its drafts after authoritative denial until fresh recovery", () => {
+  const view = render(element());
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `${messages.tablePatterns.details}: Sample Learner`,
+    }),
   );
-  expect(screen.getByText(messages.roomAllocation.outcome.MOVED)).toBeTruthy();
-  expect(screen.getAllByRole<HTMLSelectElement>("combobox")[0]!.disabled).toBe(
-    true,
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.tutor.pairings.requestRemoval,
+    }),
   );
+  fireEvent.change(screen.getByRole("textbox"), {
+    target: { value: "Private transient reason" },
+  });
+  state.rosterFailure = "denied";
+  view.rerender(element());
+  expect(screen.queryByText("Sample Learner")).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.tutor.tasks.retry }),
+  );
+  expect(state.refetch).toHaveBeenCalledTimes(3);
+  state.rosterFailure = "transport";
+  view.rerender(element());
+  expect(screen.queryByText("Sample Learner")).toBeNull();
+  state.rosterFailure = "";
+  view.rerender(element());
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `${messages.tablePatterns.details}: Sample Learner`,
+    }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.tutor.pairings.requestRemoval,
+    }),
+  );
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe("");
+  expect(state.remove).not.toHaveBeenCalled();
+});
+
+it.each(["denied", "transport"])(
+  "recovers a lone availability %s failure using read-only Retry",
+  async (failure) => {
+    const view = render(element());
+    state.availabilityFailure = failure;
+    view.rerender(element());
+    const retryName =
+      failure === "denied"
+        ? messages.tutor.tasks.retry
+        : messages.roomAllocation.retryRefresh;
+    if (failure === "denied")
+      expect(screen.queryByText("Sample Learner")).toBeNull();
+    else {
+      expect(screen.getByText(messages.roomAllocation.readFailed)).toBeTruthy();
+      expect(
+        screen.getAllByRole<HTMLSelectElement>("combobox")[0]!.disabled,
+      ).toBe(true);
+    }
+    fireEvent.click(screen.getByRole("button", { name: retryName }));
+    expect(state.availabilityRefetch).toHaveBeenCalledOnce();
+    state.availabilityFailure = "";
+    view.rerender(element());
+    await waitFor(() =>
+      expect(screen.getByText("Sample Learner")).toBeTruthy(),
+    );
+    expect(state.setSlot).not.toHaveBeenCalled();
+  },
+);
+
+it("does not claim an allocation was saved when ordinary availability recovery also fails", async () => {
+  state.availabilityFailure = "transport";
+  state.availabilityRefetch.mockRejectedValueOnce(new Error("Still offline"));
+  const view = render(element());
   fireEvent.click(
     screen.getByRole("button", { name: messages.roomAllocation.retryRefresh }),
   );
+  await waitFor(() => expect(state.availabilityRefetch).toHaveBeenCalledOnce());
   await waitFor(() =>
     expect(
-      screen.queryByText(messages.roomAllocation.savedRefreshFailed),
-    ).toBeNull(),
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: messages.roomAllocation.retryRefresh,
+      }).disabled,
+    ).toBe(false),
   );
-  expect(state.setSlot).toHaveBeenCalledTimes(1);
-  expect(screen.getAllByRole<HTMLSelectElement>("combobox")[0]!.disabled).toBe(
-    false,
-  );
-});
-it("guards two same-tick confirmations", async () => {
-  state.confirm.mockResolvedValue(true);
-  render(element());
-  const selector = screen.getAllByRole("combobox")[0]!;
-  fireEvent.change(selector, { target: { value: "" } });
-  fireEvent.change(selector, { target: { value: "" } });
-  await waitFor(() => expect(state.setSlot).toHaveBeenCalledTimes(1));
-});
-
-it("failed slot writes retain the attempted slot and captured version for explicit retry", async () => {
-  state.confirm.mockResolvedValue(true);
-  state.setSlot.mockImplementationOnce(() => state.callbacks?.onError());
-  render(element());
-  fireEvent.change(screen.getAllByRole("combobox")[0]!, {
-    target: { value: "" },
-  });
-  await waitFor(() =>
-    expect(
-      screen.getByRole("button", { name: messages.common.save }),
-    ).toBeTruthy(),
-  );
-  expect(screen.getAllByRole<HTMLSelectElement>("combobox")[0]!.value).toBe("");
-  fireEvent.click(
-    screen.getByRole("button", { name: messages.common.save }),
-  );
-  await waitFor(() => expect(state.setSlot).toHaveBeenCalledTimes(2));
-  expect(state.setSlot).toHaveBeenLastCalledWith({
-    pairingId: "pairing",
-    slotId: null,
-    expectedRoomVersion: 3,
-  });
-});
-
-it("read-only recovery does not discard a draft from a rejected write", async () => {
-  state.confirm.mockResolvedValue(true);
-  state.setSlot.mockImplementationOnce(() => state.callbacks?.onError());
-  const view = render(element());
-  fireEvent.change(screen.getAllByRole("combobox")[0]!, {
-    target: { value: "" },
-  });
-  await waitFor(() =>
-    expect(
-      screen.getByRole("button", { name: messages.common.save }),
-    ).toBeTruthy(),
-  );
-  state.queryError = true;
+  expect(screen.getByText(messages.roomAllocation.readFailed)).toBeTruthy();
+  expect(
+    screen.queryByText(messages.roomAllocation.savedRefreshFailed),
+  ).toBeNull();
+  expect(state.setSlot).not.toHaveBeenCalled();
+  state.availabilityFailure = "";
   view.rerender(element());
   fireEvent.click(
     screen.getByRole("button", { name: messages.roomAllocation.retryRefresh }),
   );
   await waitFor(() =>
-    expect(
-      screen.getByRole("button", { name: messages.common.save }),
-    ).toBeTruthy(),
+    expect(state.availabilityRefetch).toHaveBeenCalledTimes(2),
   );
-  expect(screen.getAllByRole<HTMLSelectElement>("combobox")[0]!.value).toBe("");
-  expect(state.setSlot).toHaveBeenCalledTimes(1);
+  await waitFor(() =>
+    expect(screen.queryByText(messages.roomAllocation.readFailed)).toBeNull(),
+  );
+  expect(state.setSlot).not.toHaveBeenCalled();
 });

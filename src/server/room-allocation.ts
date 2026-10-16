@@ -11,9 +11,12 @@ import {
   lockPlannedRoomSchedule,
 } from "~/server/room-bookings";
 import type { TransactionDb } from "~/server/transactions";
+import type { Prisma } from "../../generated/prisma";
 
 export type AllocationSchedule = {
   id?: string;
+  /** Only an explicit teaching group shares a reservation; coincident schedules never do. */
+  excludePairingIds?: string[];
   termId: string;
   tutorId: string;
   tuteeIds: string[];
@@ -199,10 +202,13 @@ export async function allocateRoom(
         termId: schedule.termId,
         scheduleConfirmed: true,
         roomId: { not: null },
-        ...(schedule.id ? { id: { not: schedule.id } } : {}),
+        ...(schedule.excludePairingIds?.length
+          ? { id: { notIn: schedule.excludePairingIds } }
+          : schedule.id ? { id: { not: schedule.id } } : {}),
       },
       select: {
         id: true,
+        groupId: true,
         roomId: true,
         tutorId: true,
         dayOfWeek: true,
@@ -259,10 +265,11 @@ export async function allocateRoom(
         Number(familiar.has(tutorKey)) +
         [...tuteeKeys].filter((key) => familiar.has(key)).length,
       familiarTutor: familiar.has(tutorKey),
-      occupiedMinutes: evidence.reduce(
-        (total, booking) => total + booking.endMin - booking.startMin,
-        0,
-      ),
+      // A combined group's repeated subject rows are one weekly booking, not extra usage.
+      occupiedMinutes: [...new Map(evidence.map((booking) => [
+        booking.groupId ? `group:${booking.groupId}` : `pairing:${booking.id}`,
+        booking.endMin - booking.startMin,
+      ])).values()].reduce((total, minutes) => total + minutes, 0),
     };
   });
   const selected = rankRoomCandidates(candidates)[0]!.id;
@@ -282,6 +289,82 @@ export function allocationData(allocation: AllocationResult) {
     roomNeedsAssignment: allocation.roomNeedsAssignment,
     roomShortageKey: allocation.roomShortageKey,
   };
+}
+
+export const roomUnitInclude = {
+  tutees: { select: { tuteeId: true } },
+  term: { select: { active: true } },
+  group: { select: { primaryPairingId: true } },
+} satisfies Prisma.PairingInclude;
+export type RoomUnitMember = Prisma.PairingGetPayload<{ include: typeof roomUnitInclude }>;
+
+/** Caller holds the schedule fence; primary identity is authoritative for shared intent. */
+export async function roomUnitMembers(db: TransactionDb, pairing: RoomUnitMember) {
+  const members = pairing.groupId
+    ? await db.pairing.findMany({
+        where: { groupId: pairing.groupId, tutorId: pairing.tutorId, termId: pairing.termId },
+        include: roomUnitInclude, orderBy: { id: "asc" },
+      })
+    : [pairing];
+  const primaryId = pairing.group?.primaryPairingId ?? pairing.id;
+  return members.sort((a, b) => Number(b.id === primaryId) - Number(a.id === primaryId) || (a.id < b.id ? -1 : 1));
+}
+
+export function roomUnitSchedule(members: RoomUnitMember[]) {
+  const primary = members[0]!;
+  return {
+    ...primary,
+    excludePairingIds: members.map(member => member.id),
+    tuteeIds: [...new Set(members.flatMap(member => member.tutees.map(row => row.tuteeId)))],
+  };
+}
+
+/** Detach while copying a complete unit, then restore its explicit group atomically.
+ * The existing ownership trigger intentionally detaches independent management edits. */
+export async function persistRoomUnit(
+  db: TransactionDb,
+  members: RoomUnitMember[],
+  allocation: AllocationResult,
+  schedule: { timeSlotId: string | null; dayOfWeek: number; startMin: number; endMin: number; scheduleConfirmed: boolean } = members[0]!,
+) {
+  const ids = members.map(member => member.id);
+  if (members[0]!.groupId)
+    await db.pairing.updateMany({
+      where: { id: { in: ids } },
+      data: { groupId: null, scheduleConfirmed: false, roomNeedsAssignment: false, roomShortageKey: null },
+    });
+  for (const member of members) {
+    await db.pairing.update({
+      where: { id: member.id },
+      data: {
+        ...allocationData(allocation),
+        timeSlotId: schedule.timeSlotId, dayOfWeek: schedule.dayOfWeek,
+        startMin: schedule.startMin, endMin: schedule.endMin,
+        scheduleConfirmed: schedule.scheduleConfirmed,
+        groupId: member.groupId,
+        roomVersion: { increment: 1 },
+      },
+    });
+  }
+}
+
+/** Shared room-only and tutor scheduling entry point: a stale member cannot move siblings. */
+export async function allocateAndPersistRoomUnit(
+  db: TransactionDb,
+  selected: RoomUnitMember,
+  intent: RoomIntent,
+  schedule?: { timeSlotId: string; dayOfWeek: number; startMin: number; endMin: number; scheduleConfirmed: boolean },
+) {
+  await lockPlannedRoomSchedule(db);
+  assertRoomVersion(selected, intent.expectedRoomVersion);
+  const members = await roomUnitMembers(db, selected);
+  const primary = members[0]!;
+  const allocation = await allocateRoom(db,
+    { ...roomUnitSchedule(members), ...schedule },
+    { ...intent, expectedRoomVersion: undefined }, primary);
+  await persistRoomUnit(db, members, allocation, schedule);
+  await notifyRoomShortage(db, primary.id, allocation, primary.roomShortageKey);
+  return { ...await db.pairing.findUniqueOrThrow({ where: { id: selected.id } }), roomOutcome: allocation.roomOutcome };
 }
 
 /** In-app rows become visible only when the scheduling transaction commits. */
@@ -308,151 +391,75 @@ export async function notifyRoomShortage(
   );
 }
 
-/** Final-state cohort plan: clearing AUTO reservations inside the transaction permits safe swaps. */
+/** Plan complete explicit units; clear only movable reservations before safe swaps. */
 export async function allocateSlotCohort(
   db: TransactionDb,
   slot: { id: string; dayOfWeek: number; startMin: number; endMin: number },
 ) {
   await lockPlannedRoomSchedule(db);
   const linked = await db.pairing.findMany({
-    where: { timeSlotId: slot.id },
-    include: {
-      tutees: { select: { tuteeId: true } },
-      term: { select: { active: true } },
-    },
-    orderBy: { id: "asc" },
+    where: { timeSlotId: slot.id }, include: roomUnitInclude, orderBy: { id: "asc" },
   });
-  const enabled = (await getFeatures(db)).AUTO_ASSIGN_ROOMS;
-  const movable = linked.filter(
-    (pairing) => enabled && pairing.term.active && pairing.roomMode === "AUTO",
-  );
-  if (movable.length)
-    await db.pairing.updateMany({
-      where: { id: { in: movable.map((pairing) => pairing.id) } },
-      data: { roomId: null },
-    });
-  // Fixed and retained legacy/history reservations constrain automatic choices first.
-  const fixed = linked.filter(
-    (pairing) => !movable.some((row) => row.id === pairing.id),
-  );
-  for (const pairing of fixed) {
-    await assertPlannedRoomAvailable(db, {
-      ...slot,
-      roomId: pairing.roomId,
-      termId: pairing.termId,
-      excludePairingIds: fixed.map((row) => row.id),
-    });
+  const units: RoomUnitMember[][] = [];
+  const seen = new Set<string>();
+  for (const member of linked) {
+    if (seen.has(member.id)) continue;
+    const unit = await roomUnitMembers(db, member);
+    unit.forEach(row => seen.add(row.id));
+    units.push(unit);
   }
+  const enabled = (await getFeatures(db)).AUTO_ASSIGN_ROOMS;
+  const movable = units.filter(unit => enabled && unit[0]!.term.active && unit[0]!.roomMode === "AUTO");
+  const fixed = units.filter(unit => !movable.includes(unit));
+  const movableIds = movable.flatMap(unit => unit.map(row => row.id));
+  if (movableIds.length)
+    await db.pairing.updateMany({
+      where: { id: { in: movableIds } }, data: { groupId: null, roomId: null },
+    });
+  const fixedIds = fixed.flatMap(unit => unit.map(row => row.id));
   const occupied = new Set<string>();
-  for (const pairing of fixed) {
-    if (pairing.roomId) {
-      const key = `${pairing.termId}:${pairing.roomId}`;
-      if (occupied.has(key))
-        throw new TRPCError({
-          code: "CONFLICT",
-          message:
-            "That slot would double-book a fixed room in one program period.",
-        });
+  for (const unit of fixed) {
+    const primary = unit[0]!;
+    await assertPlannedRoomAvailable(db, {
+      ...slot, roomId: primary.roomId, termId: primary.termId, excludePairingIds: fixedIds,
+    });
+    if (primary.roomId) {
+      const key = primary.termId + ":" + primary.roomId;
+      if (occupied.has(key)) throw new TRPCError({ code: "CONFLICT", message: "That slot would double-book a fixed room in one program period." });
       occupied.add(key);
     }
   }
-  for (const pairing of fixed) {
-    // Disabling allocation preserves shortages as well as reservations. Keep
-    // their material-change evidence aligned with the copied catalog interval;
-    // historical rows never generate new operational shortage notifications.
-    const roomShortageKey = pairing.roomNeedsAssignment
-      ? shortageSignature({
-          ...pairing,
-          ...slot,
-          tuteeIds: pairing.tutees.map((row) => row.tuteeId),
-        })
-      : null;
-    await db.pairing.update({
-      where: { id: pairing.id },
-      data: {
-        roomId: pairing.roomId,
-        scheduleConfirmed: true,
-        dayOfWeek: slot.dayOfWeek,
-        startMin: slot.startMin,
-        endMin: slot.endMin,
-        roomVersion: { increment: 1 },
-        roomShortageKey,
-      },
-    });
-    if (pairing.term.active && pairing.roomNeedsAssignment) {
-      await notifyRoomShortage(
-        db,
-        pairing.id,
-        { ...pairing, roomShortageKey, roomOutcome: "UNAVAILABLE" },
-        pairing.roomShortageKey,
-      );
-    }
+  for (const unit of fixed) {
+    const primary = unit[0]!;
+    const roomShortageKey = primary.roomNeedsAssignment
+      ? shortageSignature({ ...roomUnitSchedule(unit), ...slot }) : null;
+    const allocation: AllocationResult = { ...primary, roomShortageKey, roomOutcome: primary.roomNeedsAssignment ? "UNAVAILABLE" : "RETAINED" };
+    await persistRoomUnit(db, unit, allocation, { ...slot, timeSlotId: slot.id, scheduleConfirmed: true });
+    if (primary.term.active) await notifyRoomShortage(db, primary.id, allocation, primary.roomShortageKey);
   }
-  // Reserve every still-eligible existing automatic room before ranking a displaced pairing.
-  // Otherwise a low-ID displaced pairing could steal a later pairing's continuity reservation.
-  const remaining: typeof movable = [];
-  for (const pairing of movable) {
-    if (!pairing.roomId) {
-      remaining.push(pairing);
-      continue;
-    }
+  // Reserve every eligible old automatic room first so a displaced earlier unit
+  // cannot steal another unit's continuity reservation.
+  const remaining: RoomUnitMember[][] = [];
+  for (const unit of movable) {
+    const primary = unit[0]!;
+    if (!primary.roomId) { remaining.push(unit); continue; }
     try {
       await assertPlannedRoomAvailable(db, {
-        ...slot,
-        roomId: pairing.roomId,
-        termId: pairing.termId,
-        excludePairingId: pairing.id,
-      });
-      await db.pairing.update({
-        where: { id: pairing.id },
-        data: {
-          roomId: pairing.roomId,
-          scheduleConfirmed: true,
-          dayOfWeek: slot.dayOfWeek,
-          startMin: slot.startMin,
-          endMin: slot.endMin,
-          roomNeedsAssignment: false,
-          roomShortageKey: null,
-          roomVersion: { increment: 1 },
-        },
+        ...slot, roomId: primary.roomId, termId: primary.termId, excludePairingIds: unit.map(row => row.id),
       });
     } catch (error) {
-      if (!(error instanceof TRPCError) || error.code !== "CONFLICT")
-        throw error;
-      remaining.push(pairing);
+      if (!(error instanceof TRPCError) || error.code !== "CONFLICT") throw error;
+      remaining.push(unit);
+      continue;
     }
+    await persistRoomUnit(db, unit, { ...primary, roomNeedsAssignment: false, roomShortageKey: null, roomOutcome: "RETAINED" }, { ...slot, timeSlotId: slot.id, scheduleConfirmed: true });
   }
-  for (const pairing of remaining) {
-    const allocation = await allocateRoom(
-      db,
-      {
-        ...pairing,
-        ...slot,
-        id: pairing.id,
-        scheduleConfirmed: true,
-        tuteeIds: pairing.tutees.map((row) => row.tuteeId),
-      },
-      {},
-      pairing,
-      { preserveLegacy: true },
-    );
-    await db.pairing.update({
-      where: { id: pairing.id },
-      data: {
-        ...allocationData(allocation),
-        scheduleConfirmed: true,
-        dayOfWeek: slot.dayOfWeek,
-        startMin: slot.startMin,
-        endMin: slot.endMin,
-        roomVersion: { increment: 1 },
-      },
-    });
-    await notifyRoomShortage(
-      db,
-      pairing.id,
-      allocation,
-      pairing.roomShortageKey,
-    );
+  for (const unit of remaining) {
+    const primary = unit[0]!;
+    const allocation = await allocateRoom(db,
+      { ...roomUnitSchedule(unit), ...slot, scheduleConfirmed: true }, {}, primary, { preserveLegacy: true });
+    await persistRoomUnit(db, unit, allocation, { ...slot, timeSlotId: slot.id, scheduleConfirmed: true });
+    await notifyRoomShortage(db, primary.id, allocation, primary.roomShortageKey);
   }
   return linked.length;
 }

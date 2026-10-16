@@ -10,6 +10,8 @@ import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import en from "../../../../../messages/en.json";
 import ApplicationsPage from "./page";
+import { SessionViewProvider } from "~/app/_components/session-view-state";
+import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 
 const mocks = vi.hoisted(() => ({ query: vi.fn() }));
 vi.mock("~/app/_components/confirm-dialog", () => ({
@@ -103,18 +105,106 @@ const applications = [
 }));
 const show = () =>
   render(
-    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-      <ApplicationsPage />
-    </NextIntlClientProvider>,
+    <SessionViewProvider
+      identity="head"
+      pathname="/admin/applications"
+      verified
+    >
+      <NextIntlClientProvider
+        locale="en"
+        messages={en}
+        timeZone="Asia/Shanghai"
+      >
+        <ApplicationsPage />
+      </NextIntlClientProvider>
+    </SessionViewProvider>,
   );
 const change = (label: string, value: string) =>
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 beforeEach(() => {
+  window.sessionStorage.clear();
   mocks.query.mockReturnValue({ data: applications });
   window.history.replaceState(null, "", "/");
   Element.prototype.scrollIntoView = vi.fn();
 });
 afterEach(cleanup);
+
+it("focuses the revealed application after filters commit rather than consuming a pre-commit frame", () => {
+  window.history.replaceState(null, "", "/admin/applications");
+  const frames: FrameRequestCallback[] = [];
+  vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+    frames.push(callback);
+    return frames.length;
+  });
+  vi.spyOn(Element.prototype, "getClientRects").mockReturnValue({
+    length: 1,
+  } as DOMRectList);
+  const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+  const page = show();
+  change("Name or email", "Bea");
+  expect(screen.queryByText("Alex Chen")).toBeNull();
+  act(() => {
+    window.history.replaceState(null, "", "/admin/applications#application-a");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    for (const frame of frames.splice(0)) frame(0);
+  });
+  const target = document.getElementById("application-a");
+  expect(target).not.toBeNull();
+  expect(document.activeElement).toBe(target);
+  expect(scroll).toHaveBeenCalledWith({ block: "center" });
+  page.unmount();
+  vi.restoreAllMocks();
+});
+
+it("restores the authorized queue filters after slow choices, lets an application hash reveal its target, and clears denial", () => {
+  const key = viewStateKey(
+    "head",
+    "/admin/applications",
+    "applications.filters.v1",
+    "",
+  );
+  writeViewState(window.sessionStorage, key, {
+    search: "Bea",
+    status: "ACCEPTED",
+    type: "ADDITIONAL_SUBJECT",
+    subjectId: "math",
+  });
+  const tree = () => (
+    <SessionViewProvider
+      identity="head"
+      pathname="/admin/applications"
+      verified
+    >
+      <NextIntlClientProvider
+        locale="en"
+        messages={en}
+        timeZone="Asia/Shanghai"
+      >
+        <ApplicationsPage />
+      </NextIntlClientProvider>
+    </SessionViewProvider>
+  );
+  mocks.query.mockReturnValue({ data: undefined, isLoading: true });
+  const page = render(tree());
+  expect(window.sessionStorage.getItem(key)).toContain("Bea");
+  mocks.query.mockReturnValue({ data: applications });
+  page.rerender(tree());
+  expect(screen.getByText("Bea Lin")).toBeTruthy();
+  expect(screen.queryByText("Alex Chen")).toBeNull();
+  act(() => {
+    window.history.replaceState(null, "", "/#application-a");
+    window.dispatchEvent(new Event("hashchange"));
+  });
+  expect(screen.getByText("Alex Chen")).toBeTruthy();
+  expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe("");
+  mocks.query.mockReturnValue({
+    data: applications,
+    error: { message: "Denied", data: { code: "FORBIDDEN" } },
+  });
+  page.rerender(tree());
+  expect(screen.queryByText("Alex Chen")).toBeNull();
+  expect(window.sessionStorage.getItem(key)).toBeNull();
+});
 
 it("combines search, status, type and subjects and resets the full list", () => {
   show();
@@ -136,6 +226,24 @@ it("combines search, status, type and subjects and resets the full list", () => 
   expect(screen.getByText("3 of 3 applications")).toBeTruthy();
   expect(screen.getByRole("button", { name: /Cai Wu/ })).toBeTruthy();
 });
+it("defaults to active validity while retaining ordinary accepted and rejected workflow states", () => {
+  mocks.query.mockReturnValue({
+    data: applications.map((app) => ({
+      ...app,
+      isInvalid: app.id === "a",
+      status: app.id === "c" ? "REJECTED" : app.status,
+    })),
+  });
+  show();
+  expect(
+    screen.getByRole("button", { name: "Active entries", pressed: true }),
+  ).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Alex Chen/ })).toBeNull();
+  expect(screen.getByRole("button", { name: /Bea Lin/ })).toBeTruthy();
+  expect(screen.getByRole("button", { name: /Cai Wu/ })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "All entries" }));
+  expect(screen.getByRole("button", { name: /Alex Chen/ })).toBeTruthy();
+});
 it("filters invalid entries independently of the original application status", () => {
   mocks.query.mockReturnValue({
     data: applications.map((app) => ({ ...app, isInvalid: app.id === "a" })),
@@ -151,7 +259,7 @@ it("filters invalid entries independently of the original application status", (
   expect(
     screen.getByText(en.admin.applications.filters.noMatches),
   ).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Not flagged" }));
+  fireEvent.click(screen.getByRole("button", { name: "Active entries" }));
   expect(screen.getByRole("button", { name: /Bea Lin/ })).toBeTruthy();
 });
 it("reveals the direct application link after a filter hid the destination", () => {
@@ -180,6 +288,17 @@ it("resets filters when the history link repeats the current hash", () => {
       .getAttribute("aria-expanded"),
   ).toBe("true");
   expect(screen.getByText("3 of 3 applications")).toBeTruthy();
+});
+it("reveals the same notification fragment again after later filtering", async () => {
+  window.history.replaceState(null, "", "/#application-a");
+  show();
+  change("Name or email", "Cai");
+  await act(() => window.dispatchEvent(new HashChangeEvent("hashchange")));
+  expect(screen.getByRole("button", { name: /Alex Chen/ })).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLInputElement>("searchbox", { name: "Name or email" })
+      .value,
+  ).toBe("");
 });
 it("distinguishes an empty queue from filtered results, loading and query errors", () => {
   mocks.query.mockReturnValue({ data: [], isLoading: false });

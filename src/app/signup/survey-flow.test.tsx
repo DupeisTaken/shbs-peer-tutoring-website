@@ -9,6 +9,7 @@ import {
 import { afterEach, it, expect, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 import { SigninAccess } from "./signin-access";
 import { StudentRegistration } from "./student-registration";
 vi.mock("~/app/_actions/auth", () => ({ switchToStudentSignin: vi.fn() }));
@@ -81,6 +82,15 @@ afterEach(() => {
   mocks.error = null;
   mocks.readError = null;
   mocks.period = { kind: "quarter", label: "2026–27 Q3" };
+});
+it("localizes reviewed survey weekdays without changing the original times or recorded label", () => {
+  render(
+    <NextIntlClientProvider locale="zh" messages={zh} timeZone="Asia/Shanghai">
+      <StudentRegistration token={"a".repeat(64)} />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getByText("周一 · 16:00–17:00 · After School")).toBeTruthy();
+  expect(mocks.confirm).not.toHaveBeenCalled();
 });
 it("keeps the semester label during review", () => {
   mocks.period = { kind: "semester", label: "2026–27 S2" };

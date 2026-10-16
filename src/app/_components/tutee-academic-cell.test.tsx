@@ -47,7 +47,11 @@ it("uses the preserved original period and graduation choice after roster mirror
     gradeLevel: "12",
     academicallyGraduated: true,
     enrollmentPeriod: { schoolYear: "26-27", quarter: "Q1" },
-    enrollmentOriginal: { rawGrade: "9", schoolYear: "24-25", academicallyGraduated: false },
+    enrollmentOriginal: {
+      rawGrade: "9",
+      schoolYear: "24-25",
+      academicallyGraduated: false,
+    },
   });
   expect(screen.getByText("Grade 9")).toBeTruthy();
   expect(screen.getByText("Class of 2028")).toBeTruthy();
@@ -56,15 +60,25 @@ it("uses the preserved original period and graduation choice after roster mirror
   expect(screen.queryByText("Graduated")).toBeNull();
 });
 it("retains unknown original values instead of falling back to newer roster fields", () => {
-  mount({ enrollmentOriginal: { rawGrade: null, schoolYear: null, academicallyGraduated: false } });
+  mount({
+    enrollmentOriginal: {
+      rawGrade: null,
+      schoolYear: null,
+      academicallyGraduated: false,
+    },
+  });
   expect(screen.queryByText("Grade 9")).toBeNull();
   expect(screen.queryByText(/Class of/)).toBeNull();
   expect(screen.queryByText(/24-25/)).toBeNull();
-  expect(screen.queryByText("Review needed")).toBeNull();
+  expect(screen.queryByText(en.tuteeHistory.reviewNeeded)).toBeNull();
 });
 it("gives an explicit correction precedence over the preserved original", () => {
   mount({
-    enrollmentOriginal: { rawGrade: "9", schoolYear: "24-25", academicallyGraduated: true },
+    enrollmentOriginal: {
+      rawGrade: "9",
+      schoolYear: "24-25",
+      academicallyGraduated: true,
+    },
     enrollmentCorrection: { rawGrade: "8", schoolYear: "23-24" },
   });
   expect(screen.getByText("Grade 8")).toBeTruthy();
@@ -74,7 +88,11 @@ it("gives an explicit correction precedence over the preserved original", () => 
 it("keeps linked current participants on their current report when an original is preserved", () => {
   mount({
     historical: false,
-    enrollmentOriginal: { rawGrade: "9", schoolYear: "24-25", academicallyGraduated: false },
+    enrollmentOriginal: {
+      rawGrade: "9",
+      schoolYear: "24-25",
+      academicallyGraduated: false,
+    },
   });
   expect(screen.getByText("Grade 11")).toBeTruthy();
   expect(screen.getByText("26-27")).toBeTruthy();
@@ -100,7 +118,7 @@ it("shows deliberate historical corrections without replacing unknown values or 
   mount({ enrollmentCorrection: { rawGrade: null, schoolYear: null } });
   expect(screen.queryByText("Grade 9")).toBeNull();
   expect(screen.queryByText("24-25 · Q1")).toBeNull();
-  expect(screen.queryByText("Review needed")).toBeNull();
+  expect(screen.queryByText(en.tuteeHistory.reviewNeeded)).toBeNull();
   expect(screen.queryByText(/Class of/)).toBeNull();
 });
 it("requires review instead of presenting stale academics as current", () => {
@@ -113,7 +131,7 @@ it("requires review instead of presenting stale academics as current", () => {
       needsConfirmation: true,
     },
   });
-  expect(screen.getByText("Review needed")).toBeTruthy();
+  expect(screen.getByText(en.tuteeHistory.reviewNeeded)).toBeTruthy();
   expect(screen.queryByText(/Class of/)).toBeNull();
   expect(screen.queryByText("Grade 11")).toBeNull();
 });
@@ -129,6 +147,6 @@ it("does not promote an unconfirmed raw grade in an unknown account profile", ()
       needsConfirmation: false,
     },
   });
-  expect(screen.getByText("Unknown Grade Level")).toBeTruthy();
-  expect(screen.getByText("Review needed")).toBeTruthy();
+  expect(screen.queryByText("Unknown Grade Level")).toBeNull();
+  expect(screen.getByText(en.tuteeHistory.reviewNeeded)).toBeTruthy();
 });

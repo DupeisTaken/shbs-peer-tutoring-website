@@ -1,4 +1,5 @@
 import { returnDestination } from "~/lib/return-destination";
+import { isNotificationEvent } from "~/lib/notification-events";
 
 /** Mail must never depend on a request Host header or silently point production at localhost. */
 export function emailOrigin(): string {
@@ -42,7 +43,17 @@ export function notificationDestination(
   role: string,
 ): string {
   if (category === "messages") return "/messages";
-  if (event !== "program_update") return "/my-account";
+  if (
+    [
+      "primary_changed",
+      "secondary_added",
+      "secondary_removed",
+      "security_changed",
+      "information_changed",
+    ].includes(event)
+  )
+    return "/my-account";
+  if (!isNotificationEvent(event)) return "/my-account";
   const path = returnDestination(destination);
   if (
     path.startsWith("/admin") &&

@@ -44,6 +44,7 @@ const state = vi.hoisted(() => {
       gradeLevel: 9,
       completed: false,
       existing: false,
+      acceptedIdentity: false,
       needsPassword: true,
       requiresSignIn: false,
       mfaRequired: false,
@@ -57,7 +58,7 @@ vi.mock("./actions", () => ({
   invitationSignIn: state.login,
   switchInvitationAccount: vi.fn(),
 }));
-vi.mock("~/trpc/react", () => {
+vi.mock("~/trpc/react", async () => {
   const mutation = (name: string, action: (...args: unknown[]) => unknown) => ({
     useMutation: (options: MutationCallbacks) => {
       state.callbacks[name] = options;
@@ -76,6 +77,9 @@ vi.mock("~/trpc/react", () => {
         accountInvitation: { inspect: { invalidate: state.refresh } },
       }),
       program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
         profilePolicy: {
           useQuery: () => ({ data: { offeredGrades: [1, 9, 12] } }),
         },
@@ -85,14 +89,7 @@ vi.mock("~/trpc/react", () => {
         sendVerification: mutation("sendDisplayed", state.sendDisplayed),
         verify: mutation("verify", state.verify),
         complete: mutation("complete", state.complete),
-        inspect: {
-          useQuery: (_input: unknown, options: { enabled: boolean }) => ({
-            data: options.enabled ? state.info : undefined,
-            isLoading: false,
-            error: state.readError,
-            refetch: state.refresh,
-          }),
-        },
+        review: { useMutation: () => ({ mutateAsync: state.refresh }) },
       },
       registration: {
         check: mutation("check", vi.fn()),
@@ -134,6 +131,7 @@ beforeEach(() => {
     academicConfirmationRequired: false,
     legacyName: null,
     existing: false,
+    acceptedIdentity: false,
     needsPassword: true,
     requiresSignIn: false,
     mfaRequired: false,
@@ -145,7 +143,10 @@ beforeEach(() => {
     gradeLevel: 9,
   });
   state.login.mockResolvedValue({ signedIn: true, mfaRequired: false });
-  state.refresh.mockResolvedValue(undefined);
+  state.refresh.mockImplementation(async () => {
+    if (state.readError) throw new Error(state.readError.message);
+    return { ...state.info };
+  });
   vi.spyOn(window, "scrollBy").mockImplementation(() => undefined);
 });
 afterEach(() => {
@@ -195,6 +196,29 @@ it("verifies recipient email/code once even when two submits happen in the same 
     email: "person@example.test",
     code: "ABC12",
   });
+});
+it("reviews an accepted source without collecting replacement names or blocking its previously accepted blank parts", async () => {
+  state.info.acceptedIdentity = true;
+  state.info.lastName = "";
+  const rendered = render(view());
+  await verified();
+  expect(screen.queryByLabelText(/^First Name/)).toBeNull();
+  expect(screen.queryByLabelText(/^Last Name/)).toBeNull();
+  fireEvent.change(screen.getByLabelText(/^Create password/), {
+    target: { value: "PersonalPassword!" },
+  });
+  fireEvent.change(screen.getByLabelText(/^Confirm password/), {
+    target: { value: "PersonalPassword!" },
+  });
+  fireEvent.click(screen.getByRole("checkbox"));
+  fireEvent.submit(rendered.container.querySelector("form")!);
+  expect(state.complete).toHaveBeenCalledWith(
+    expect.objectContaining({
+      firstName: "Person",
+      lastName: "",
+      reviewed: true,
+    }),
+  );
 });
 
 it("requires matching passwords and review, freezes pending fields, and preserves a failed draft", async () => {
@@ -280,7 +304,7 @@ it("existing accounts review access without password/name editors", async () => 
   expect(state.complete.mock.calls[0]![0]).not.toHaveProperty("password");
 });
 
-it("a recovered saved receipt retains the required academic next step", () => {
+it("a recovered saved receipt retains the required academic next step", async () => {
   Object.assign(state.info, {
     completed: true,
     existing: true,
@@ -288,7 +312,9 @@ it("a recovered saved receipt retains the required academic next step", () => {
     academicConfirmationRequired: true,
   });
   render(view("en", false, true));
-  expect(screen.getByText(en.academics.confirmationRequired)).toBeTruthy();
+  expect(
+    await screen.findByText(en.academics.confirmationRequired),
+  ).toBeTruthy();
   expect(
     screen
       .getByRole("link", { name: en.academics.review })
@@ -318,7 +344,7 @@ it("navigating to a different invitation discards the prior proof, password and 
   expect(state.complete).not.toHaveBeenCalled();
 });
 
-it("an existing account with missing identity can fill its name without replacing canonical academics", async () => {
+it("an existing nameless account reviews access without soliciting discarded name edits", async () => {
   Object.assign(state.info, {
     existing: true,
     name: "",
@@ -329,8 +355,8 @@ it("an existing account with missing identity can fill its name without replacin
   render(view());
   await verified();
   expect(
-    screen.getByLabelText(new RegExp(`^${en.personName.firstName}`)),
-  ).toBeTruthy();
+    screen.queryByLabelText(new RegExp(`^${en.personName.firstName}`)),
+  ).toBeNull();
   expect(screen.queryByRole("combobox")).toBeNull();
 });
 
@@ -377,13 +403,16 @@ it("an existing Viewer-request recipient continues after code sign-in without an
 it.each([false, true])(
   "retains the draft read-only when preview recovery fails (signed-in resume=%s)",
   async (signedIn) => {
-    const { container, rerender } = render(view("en", false, signedIn));
+    const { container } = render(view("en", false, signedIn));
     if (!signedIn) await verified();
+    await screen.findByLabelText(/^Create password/);
     fireEvent.change(screen.getByLabelText(/^Create password/), {
       target: { value: "RetainedPassword!" },
     });
     state.readError = { message: "INVITATION_ACCOUNT_CHANGED" };
-    rerender(view("en", false, signedIn));
+    // Repeating mailbox/session synchronization rereads over POST. Changing a
+    // mock variable alone is no longer an automatic background GET request.
+    await verified();
     expect(container.querySelector("fieldset")!.disabled).toBe(true);
     expect(
       screen.getByLabelText<HTMLInputElement>(/^Create password/).value,
@@ -394,6 +423,17 @@ it.each([false, true])(
       screen.getByRole("button", { name: en.accountInvitation.retry }),
     );
     expect(state.refresh).toHaveBeenCalled();
+    state.readError = null;
+    fireEvent.click(
+      screen.getByRole("button", { name: en.accountInvitation.retry }),
+    );
+    await waitFor(() =>
+      expect(container.querySelector("fieldset")!.disabled).toBe(false),
+    );
+    expect(
+      screen.getByLabelText<HTMLInputElement>(/^Create password/).value,
+    ).toBe("RetainedPassword!");
+    expect(state.complete).not.toHaveBeenCalled();
   },
 );
 
@@ -476,7 +516,7 @@ it("keeps the invitation return destination while enforced MFA is completed", as
   );
 });
 
-it("offers an explicit account switch for a different signed-in account with enforced MFA", () => {
+it("offers an explicit account switch for a different signed-in account with enforced MFA", async () => {
   Object.assign(state.info, {
     existing: true,
     needsPassword: false,
@@ -485,7 +525,9 @@ it("offers an explicit account switch for a different signed-in account with enf
   });
   render(view("en", false, true));
   expect(
-    screen.getByRole("button", { name: en.accountInvitation.switchAccount }),
+    await screen.findByRole("button", {
+      name: en.accountInvitation.switchAccount,
+    }),
   ).toBeTruthy();
   expect(
     screen.queryByRole("button", { name: en.accountInvitation.accept }),

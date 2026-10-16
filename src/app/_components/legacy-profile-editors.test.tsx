@@ -15,7 +15,7 @@ vi.mock("./profile-dialog", () => ({
   ),
 }));
 const state = vi.hoisted(() => ({ mutate: vi.fn() }));
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     // Archived profiles also mount the history permission query. Keep this test
     // focused on preserving unsplit names without opening a separate link form.
@@ -33,6 +33,9 @@ vi.mock("~/trpc/react", () => ({
       timeSlots: { useQuery: () => ({ data: [] }) },
     },
     program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(),
       profilePolicy: { useQuery: () => ({ data: { offeredGrades: [10] } }) },
     },
   },

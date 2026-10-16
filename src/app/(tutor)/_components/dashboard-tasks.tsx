@@ -1,11 +1,25 @@
 "use client";
 
 import { useFormatter, useTimeZone, useTranslations } from "next-intl";
+import { useCallback, useEffect, useRef } from "react";
 import { api } from "~/trpc/react";
 import { programDateKey } from "~/lib/program-time";
 import { minToHm } from "~/lib/time";
+import { pairingEntries } from "~/lib/pairing-groups";
 import { InlineNotice } from "~/app/_components/ui/patterns";
 import { Button } from "~/app/_components/ui/button";
+import { focusVisibleContext } from "~/app/_components/focus-visible-context";
+
+const taskTargets = new Set([
+  "tutor-activation",
+  "attendance",
+  "tutor-pairings",
+  "tutor-interviews",
+  "tutor-meetings",
+  "qualification-requests",
+  "tutor-preferences",
+  "room-schedule",
+]);
 
 /** Summary queries share the feature components' cache. Unknown/failed reads must
  * never look like an empty task list, and inactive accounts get no write shortcuts. */
@@ -24,6 +38,28 @@ export function DashboardTasks({
   const pairingsText = useTranslations("dashboard.pairings");
   const format = useFormatter();
   const timeZone = useTimeZone();
+  const revealFrame = useRef<number | null>(null);
+  const revealTask = useCallback((id: string) => {
+    if (!taskTargets.has(id)) return;
+    if (revealFrame.current !== null) cancelAnimationFrame(revealFrame.current);
+    // Keep the anchor's native URL/history behavior; reveal after its default
+    // scroll so the measured, possibly wrapped header cannot cover the heading.
+    revealFrame.current = requestAnimationFrame(() => {
+      revealFrame.current = null;
+      if (window.location.hash === `#${id}`)
+        focusVisibleContext(document.getElementById(id));
+    });
+  }, []);
+  useEffect(() => {
+    const revealHash = () => revealTask(window.location.hash.slice(1));
+    revealHash();
+    window.addEventListener("hashchange", revealHash);
+    return () => {
+      window.removeEventListener("hashchange", revealHash);
+      if (revealFrame.current !== null)
+        cancelAnimationFrame(revealFrame.current);
+    };
+  }, [revealTask]);
   const active = status === "ACTIVE";
   const pairings = api.tutor.myPairings.useQuery();
   const roster = api.studentWorkflow.tutorRoster.useQuery();
@@ -47,8 +83,9 @@ export function DashboardTasks({
   ];
   const date = programDateKey(now, timeZone);
   const weekday = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
-  const today = (pairings.data ?? []).filter(
-    (pairing) => pairing.scheduleConfirmed && pairing.dayOfWeek === weekday,
+  const today = pairingEntries(pairings.data ?? []).filter(
+    (entry) =>
+      entry.primary.scheduleConfirmed && entry.primary.dayOfWeek === weekday,
   );
   const unscheduled = (pairings.data ?? []).filter(
     (p) => !p.scheduleConfirmed,
@@ -61,32 +98,27 @@ export function DashboardTasks({
   ).length;
   const pendingInterviews = (interviews.data ?? []).filter(
     (interview) =>
-      interview.status === "PENDING" || interview.status === "INTERVIEW",
+      !interview.isInvalid &&
+      (interview.status === "PENDING" || interview.status === "INTERVIEW"),
   ).length;
   const links = [
     ...(status === "PENDING"
       ? [{ id: "tutor-activation", label: t("activation") }]
       : []),
-    ...(active ? [{ id: "attendance", label: t("attendance") }] : []),
-    {
-      id: "tutor-pairings",
-      label: pairings.data
-        ? t("pairings", { count: pairings.data.length })
-        : pairingsText("title"),
-    },
-    ...(unscheduled || reviews
+    ...(unscheduled || reviews || removals.data?.length
       ? [
           {
             id: "tutor-pairings",
-            label: t("scheduleReview", { count: unscheduled + reviews }),
-          },
-        ]
-      : []),
-    ...(removals.data?.length
-      ? [
-          {
-            id: "tutor-pairings",
-            label: t("pendingOptOuts", { count: removals.data.length }),
+            label: pairingsText("title"),
+            detail: [
+              ...(pairings.data
+                ? [t("unconfirmedCount", { count: unscheduled })]
+                : []),
+              ...(roster.data ? [t("rosterCount", { count: reviews })] : []),
+              ...(removals.data?.length
+                ? [t("pendingOptOuts", { count: removals.data.length })]
+                : []),
+            ].join(" · "),
           },
         ]
       : []),
@@ -114,9 +146,29 @@ export function DashboardTasks({
           },
         ]
       : []),
-    { id: "tutor-preferences", label: t("preferences") },
-    { id: "room-schedule", label: t("roomSchedule") },
   ];
+  // Native anchors keep history/modifier behavior; actionable tasks retain measured-header reveal.
+  const anchor = (id: string, label: string) => (
+    <a
+      className="link inline-flex min-h-11 items-center lg:min-h-8"
+      href={`#${id}`}
+      onClick={(event) => {
+        if (
+          event.defaultPrevented ||
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        )
+          return;
+        document.getElementById(id)?.focus({ preventScroll: true });
+        revealTask(id);
+      }}
+    >
+      {label}
+    </a>
+  );
 
   return (
     <section
@@ -124,12 +176,12 @@ export function DashboardTasks({
       className="card space-y-3 p-4 sm:p-5"
     >
       <h2 id="tutor-tasks-heading" className="section-title">
-        {t("title")}
+        {t("attention")}
       </h2>
       <p className="muted text-sm">
         {t(active ? "activeHelp" : "readonlyHelp")}
       </p>
-      {queries.some((query) => query.isLoading) && (
+      {queries.some((query) => query.data === undefined && !query.error) && (
         <InlineNotice announcement="status">{t("loading")}</InlineNotice>
       )}
       {queries.some((query) => query.error) && (
@@ -151,26 +203,27 @@ export function DashboardTasks({
           {t("loadError")}
         </InlineNotice>
       )}
-      <nav aria-label={t("title")} className="flex flex-wrap gap-2">
+      <nav aria-label={t("attention")}>
         {membership.data && (
           <a className="btn-secondary btn-sm" href="/settings">
             {t("membershipPending")}
           </a>
         )}
-        {links.map(({ id, label }, index) => (
-          <a
-            key={`${id}-${index}`}
-            className="btn-secondary btn-sm"
-            href={`#${id}`}
-            onClick={() => {
-              // Native hash navigation scrolls; explicit focus gives keyboard users
-              // the section's next control instead of returning to the summary.
-              document.getElementById(id)?.focus({ preventScroll: true });
-            }}
-          >
-            {label}
-          </a>
-        ))}
+        <ul className="divide-y divide-slate-100">
+          {links.map((entry) => (
+            <li key={entry.id} className="py-1">
+              {anchor(entry.id, entry.label)}
+              {"detail" in entry && (
+                <p className="muted text-sm">{entry.detail}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+        {!membership.data &&
+          !links.length &&
+          queries.every(
+            (query) => query.data !== undefined && !query.error,
+          ) && <p className="muted text-sm">{t("emptyTasks")}</p>}
       </nav>
       {active && (
         <div className="border-t border-slate-100 pt-3">
@@ -180,19 +233,20 @@ export function DashboardTasks({
             })}
           </h3>
           <p className="muted mt-1 text-sm">{t("scheduleHelp")}</p>
+          {anchor("attendance", t("attendance"))}
           {pairings.data && !today.length && (
             <p className="mt-2 text-sm">{t("noSessions")}</p>
           )}
           <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-            {today.map((pairing) => (
-              <li
-                key={pairing.id}
-                className="rounded-lg bg-slate-50 p-3 text-sm"
-              >
-                <p className="font-semibold">{pairing.subject}</p>
+            {today.map((entry) => (
+              <li key={entry.id} className="rounded-lg bg-slate-50 p-3 text-sm">
+                <p className="font-semibold">
+                  {entry.pairings.map((p) => p.subject).join(" + ")}
+                </p>
                 <p>
-                  {minToHm(pairing.startMin)}–{minToHm(pairing.endMin)} ·{" "}
-                  {pairing.room?.name ?? t("noRoom")}
+                  {minToHm(entry.primary.startMin)}–
+                  {minToHm(entry.primary.endMin)} ·{" "}
+                  {entry.primary.room?.name ?? t("noRoom")}
                 </p>
               </li>
             ))}

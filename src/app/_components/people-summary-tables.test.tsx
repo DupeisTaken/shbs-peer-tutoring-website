@@ -9,6 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import UsersPage from "../(admin)/admin/users/page";
 import TutorsPage from "../(admin)/admin/tutors/page";
@@ -138,7 +139,7 @@ vi.mock("~/app/_components/patrol-corrections", () => ({
 vi.mock("~/app/_components/acceptance-records", () => ({
   AcceptanceRecords: () => null,
 }));
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     account: { me: { useQuery: () => ({ data: { role: state.callerRole } }) } },
     useUtils: () => ({
@@ -149,6 +150,9 @@ vi.mock("~/trpc/react", () => ({
       tuteeHistory: { invalidate: async () => undefined },
     }),
     program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(),
       profilePolicy: {
         useQuery: () => ({
           data: { offeredGrades: [10, 11, 12], currentSchoolYear: "26-27" },
@@ -172,6 +176,25 @@ vi.mock("~/trpc/react", () => ({
       combine: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
     },
     admin: {
+      previewDeleteUser: {
+        useQuery: ({ userId }: { userId: string }) => ({
+          data: {
+            target: {
+              id: userId,
+              name: "Synthetic Viewer",
+              email: "viewer@example.test",
+              username: "viewer",
+            },
+            fingerprint: "delete-fingerprint",
+            blockers: [],
+            removed: { emails: 1 },
+            retained: {},
+          },
+          isFetching: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
       accountDetails: { useQuery: state.accountDetails },
       accounts: {
         useQuery: () => ({
@@ -283,12 +306,18 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 
+let queryClient: QueryClient;
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-    <ReadOnlyProvider value={state.readOnly}>{children}</ReadOnlyProvider>
-  </NextIntlClientProvider>
+  <QueryClientProvider client={queryClient}>
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <ReadOnlyProvider value={state.readOnly}>{children}</ReadOnlyProvider>
+    </NextIntlClientProvider>
+  </QueryClientProvider>
 );
 beforeEach(() => {
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   state.readOnly = false;
   state.pending = false;
   state.callerRole = "HEAD";
@@ -441,6 +470,7 @@ describe("people summary tables", () => {
     fireEvent.submit(dialog.querySelector("form")!);
     expect(state.deleteUser).toHaveBeenCalledWith({
       userId: "viewer",
+      fingerprint: "delete-fingerprint",
       confirmPassword: "synthetic-password",
     });
     fireEvent.click(
@@ -622,6 +652,9 @@ describe("people summary tables", () => {
 
   it("keeps Crew summary concise and confirms its named membership action", async () => {
     const { rerender } = render(<CrewPage />, { wrapper });
+    fireEvent.click(
+      screen.getByRole("tab", { name: en.admin.crew.panels.roster }),
+    );
     const table = screen.getByRole("table", {
       name: en.admin.crew.rosterHeading,
     });

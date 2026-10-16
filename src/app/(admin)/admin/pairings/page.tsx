@@ -1,22 +1,34 @@
 "use client";
+import {
+  useNotificationRecordReveal,
+  type NotificationRecordArrival,
+} from "~/app/_components/use-notification-record-reveal";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
+import { participantNameLabel } from "~/app/_components/participant-name";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
+import {
+  WorkloadAssignmentConfirmation,
+  AssignmentWorkloadFeedback,
+  useAssignmentWorkloads,
+} from "~/app/_components/assignment-workload";
+import type { WorkloadProposal } from "~/lib/tutor-workload";
+import { invalidateWorkloads } from "~/lib/workload-cache";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 
-import { useRef, useState } from "react";
 import Link from "next/link";
 import { RoomAllocationStatus } from "~/app/_components/room-allocation-status";
-import {
-  FilterToolbar,
-  InlineNotice,
-  StatePanel,
-} from "~/app/_components/ui/patterns";
-import { settleRefreshes } from "~/lib/settle-refreshes";
+import { FilterToolbar, InlineNotice } from "~/app/_components/ui/patterns";
+
+import { useEffect, useRef, useState, type SetStateAction } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
+
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
-import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
-import { DAY_NAMES, minToHm } from "~/lib/time";
+import { formatWeekday, minToHm } from "~/lib/time";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { RoomGrid } from "~/app/_components/room-grid";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -28,6 +40,11 @@ import {
 } from "~/app/_components/ui/summary-table";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { ChoiceButton, Button } from "~/app/_components/ui/button";
+import { CreationRiskDialog } from "~/app/_components/creation-risk-dialog";
+import { matchesPersonSearch } from "~/lib/person-search";
+import { StatePanel } from "~/app/_components/ui/patterns";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
+
 import { useActionReview } from "~/app/_components/ui/action-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { queuedApprovalId } from "~/lib/approval-outcome";
@@ -56,34 +73,213 @@ const EMPTY: PairingForm = {
   subject: "",
   tuteeIds: [],
 };
+const accessDenied = (error: { data?: { code?: string } | null } | null) =>
+  error?.data?.code === "FORBIDDEN" || error?.data?.code === "UNAUTHORIZED";
 
 export default function PairingsPage() {
   const t = useTranslations();
   const a = useTranslations("roomAllocation");
+  // Presentation reads already projected handles; selected IDs, raw search and writes remain authoritative.
+  const personName = (
+    person:
+      | {
+          englishName: string;
+          username?: string | null;
+          user?: { username?: string | null } | null;
+          owner?: { username?: string | null } | null;
+        }
+      | undefined,
+    missingId?: string,
+  ) =>
+    person
+      ? participantNameLabel(
+          person.englishName,
+          person.owner?.username ?? person.user?.username ?? person.username,
+          t("participantNames.unnamed"),
+        )
+      : (missingId ?? t("participantNames.unnamed"));
+  const locale = useLocale();
+
   const readOnly = useReadOnly();
+  const workloadText = useTranslations("tutorWorkload");
+  const workloads = useAssignmentWorkloads(!readOnly);
   const utils = api.useUtils();
-  const pairings = api.admin.pairings.useQuery();
-  const tutors = api.admin.tutors.useQuery();
-  const subjects = api.admin.subjects.useQuery();
-  const tutees = api.admin.tutees.useQuery();
+  const queryClient = useQueryClient();
+  const [denied, setDenied] = useState(false);
+  const pairings = api.admin.pairings.useQuery(undefined, { enabled: !denied });
+  const tutors = api.admin.tutors.useQuery(undefined, { enabled: !denied });
+  const subjects = api.admin.subjects.useQuery(undefined, { enabled: !denied });
+  const tutees = api.admin.tutees.useQuery(undefined, { enabled: !denied });
   const rooms = api.admin.rooms.useQuery(undefined, {
     staleTime: REFERENCE_STALE_TIME,
+    enabled: !denied,
   });
   const timeSlots = api.admin.timeSlots.useQuery(undefined, {
     staleTime: REFERENCE_STALE_TIME,
+    enabled: !denied,
   });
+  const reads = [
+    { query: pairings, section: t("admin.pairings.title") },
+    { query: tutors, section: t("admin.tutors.title") },
+    { query: subjects, section: t("admin.courses.title") },
+    { query: tutees, section: t("admin.tutees.title") },
+    { query: rooms, section: t("admin.rooms.title") },
+    { query: timeSlots, section: t("admin.timeslots.title") },
+  ];
+  const authorizationDenied = reads.some(({ query }) =>
+    accessDenied(query.error),
+  );
+  const readsSucceeded = reads.every(
+    ({ query }) => query.isSuccess && !query.isFetching,
+  );
+  useEffect(() => {
+    if (authorizationDenied) {
+      setDenied(true);
+      // Conceal this feature on revoked authority, evicting only denied query families.
+      if (accessDenied(pairings.error))
+        queryClient.removeQueries({
+          queryKey: getQueryKey(api.admin.pairings, undefined, "query"),
+        });
+      if (accessDenied(tutors.error))
+        queryClient.removeQueries({
+          queryKey: getQueryKey(api.admin.tutors, undefined, "query"),
+        });
+      if (accessDenied(subjects.error))
+        queryClient.removeQueries({
+          queryKey: getQueryKey(api.admin.subjects, undefined, "query"),
+        });
+      if (accessDenied(tutees.error))
+        queryClient.removeQueries({
+          queryKey: getQueryKey(api.admin.tutees, undefined, "query"),
+        });
+      if (accessDenied(rooms.error))
+        queryClient.removeQueries({
+          queryKey: getQueryKey(api.admin.rooms, undefined, "query"),
+        });
+      if (accessDenied(timeSlots.error))
+        queryClient.removeQueries({
+          queryKey: getQueryKey(api.admin.timeSlots, undefined, "query"),
+        });
+    } else if (readsSucceeded) setDenied(false);
+  }, [
+    authorizationDenied,
+    readsSucceeded,
+    pairings.error,
+    tutors.error,
+    subjects.error,
+    tutees.error,
+    rooms.error,
+    timeSlots.error,
+    queryClient,
+  ]);
+  const hasData = reads.every(({ query }) => query.data !== undefined);
+  const readErrors = reads.filter(({ query }) => query.error);
+  const readBlocked = !hasData || readErrors.length > 0;
+  useSessionPageScroll({
+    id: "pairings-v1",
+    ready: hasData,
+    enabled: !denied && !authorizationDenied,
+  });
+  const section =
+    (readErrors.length
+      ? readErrors
+      : reads.filter(({ query }) => query.data === undefined)
+    )
+      .map(({ section }) => section)
+      .join(", ") || t("admin.pairings.title");
+  const retry = () => {
+    for (const { query } of reads)
+      if (query.error || query.data === undefined || denied)
+        void query.refetch();
+  };
+  const readFeedback = (
+    <QueryFeedback
+      hasData={hasData}
+      loading={!hasData}
+      error={readErrors.length > 0}
+      retrying={reads.some(({ query }) => query.isFetching)}
+      loadingTitle={t("managementRecovery.loading", { section })}
+      errorTitle={t(
+        hasData
+          ? "managementRecovery.refreshFailed"
+          : "managementRecovery.loadFailed",
+        { section },
+      )}
+      retryLabel={t("managementRecovery.retry", { section })}
+      onRetry={retry}
+    />
+  );
 
   const create = api.admin.createPairing.useMutation();
   const update = api.admin.updatePairing.useMutation();
   const retryRoom = api.admin.retryRoomAllocation.useMutation();
   const setRoom = api.admin.setPairingRoom.useMutation();
+
   const del = api.admin.deletePairing.useMutation();
   const review = useActionReview();
 
-  const [form, setForm] = useState<PairingForm>(EMPTY);
+  // Creation and row editing have independent owners: opening an edit cannot overwrite a draft.
+  const [createDraft, setCreateDraft] = useState<PairingForm>(EMPTY);
+  const [editDraft, setEditDraft] = useState<PairingForm | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creationRiskOpen, setCreationRiskOpen] = useState(false);
+  const [tuteeSearch, setTuteeSearch] = useState("");
+  const form = editDraft ?? createDraft;
+  const setForm = (next: SetStateAction<PairingForm>) => {
+    if (editDraft)
+      setEditDraft((current) =>
+        typeof next === "function" ? next(current!) : next,
+      );
+    else setCreateDraft(next);
+  };
   const [confirming, setConfirming] = useState(false);
   const [needsRoomOnly, setNeedsRoomOnly] = useState(false);
+  const arrivalSequence = useRef(0);
+  const [arrival, setArrival] = useState<NotificationRecordArrival | null>(
+    null,
+  );
+  // Queue the validated location before reads settle so a user gesture can cancel
+  // an unfinished arrival. Only the authorized matching row may reveal after commit.
+  useEffect(() => {
+    const resolve = () => {
+      const hash = window.location.hash;
+      setArrival(
+        /^#[a-zA-Z0-9_-]{1,128}$/.test(hash)
+          ? {
+              hash,
+              pathname: window.location.pathname,
+              sequence: ++arrivalSequence.current,
+            }
+          : null,
+      );
+    };
+    resolve();
+    window.addEventListener("hashchange", resolve);
+    return () => window.removeEventListener("hashchange", resolve);
+  }, []);
+  const arrivalKnown =
+    !!arrival &&
+    (pairings.data ?? []).some((row) => "#" + row.id === arrival.hash);
+  useEffect(() => {
+    if (denied || authorizationDenied) setArrival(null);
+    else if (arrivalKnown) setNeedsRoomOnly(false);
+  }, [denied, authorizationDenied, arrivalKnown]);
+  useNotificationRecordReveal(
+    arrival,
+    hasData &&
+      !readBlocked &&
+      !denied &&
+      !authorizationDenied &&
+      arrivalKnown &&
+      !needsRoomOnly,
+    (cancelled) =>
+      setArrival((current) =>
+        current?.sequence === cancelled.sequence ? null : current,
+      ),
+  );
+
   const [working, setWorking] = useState(false);
+  const [writing, setWriting] = useState(false);
   const [completed, setCompleted] = useState<{
     outcome?: string;
     queued?: string;
@@ -110,6 +306,8 @@ export default function PairingsPage() {
         () => invalidateAndReport(utils.tutor.schedule),
         () => invalidateAndReport(utils.student.me),
         () => invalidateAndReport(utils.studentWorkflow.mine),
+        () => invalidateAndReport(utils.pairingGroups.mine),
+        () => invalidateWorkloads(utils, true),
       ]);
       return true;
     } catch {
@@ -120,6 +318,7 @@ export default function PairingsPage() {
     }
   };
   const locked =
+    readBlocked ||
     working ||
     !!completed ||
     refreshFailed ||
@@ -135,6 +334,14 @@ export default function PairingsPage() {
       value.timeSlotId,
       [...value.tuteeIds].sort(),
     ]);
+  // Room operations on one explicit member affect its complete reservation unit.
+  const groupSubjects = (p: NonNullable<typeof pairings.data>[number]) =>
+    p.groupId
+      ? (pairings.data ?? [])
+          .filter((member) => member.groupId === p.groupId)
+          .map((member) => member.subject)
+          .join(" + ")
+      : undefined;
   const roomOnly = !!form.id && form.originalAssignment === assignmentKey(form);
   const loadForm = (
     p: NonNullable<typeof pairings.data>[number],
@@ -171,13 +378,18 @@ export default function PairingsPage() {
   };
   const resetEditor = () => {
     setConfirming(false);
-    setForm(EMPTY);
-    setCreateKey(crypto.randomUUID());
+    if (editDraft) setEditDraft(null);
+    else {
+      setCreateDraft(EMPTY);
+      setCreateOpen(false);
+      setCreateKey(crypto.randomUUID());
+    }
     setCompleted(null);
     setWriteError(undefined);
     admitted.current = false;
   };
-  const editing = form.id !== null;
+  const editing = editDraft !== null;
+
   const set = <K extends keyof PairingForm>(k: K, v: PairingForm[K]) => {
     setConfirming(false);
     setForm((f) => ({ ...f, [k]: v }));
@@ -200,6 +412,33 @@ export default function PairingsPage() {
   const selectedSubject = subjects.data?.find(
     (subject) => subject.name === form.subject,
   );
+  const selectedSlot = timeSlots.data?.find(
+    (slot) => slot.id === form.timeSlotId,
+  );
+  const hasCurrentRoster = form.tuteeIds.some((id) => {
+    const row =
+      (tutees.data ?? []).find((person) => person.id === id) ??
+      originalPairing?.tutees.find((entry) => entry.tuteeId === id)?.tutee;
+    return !!row && row.status !== "INACTIVE";
+  });
+  const proposals: WorkloadProposal[] = [
+    {
+      replacingPairingId: form.id ?? undefined,
+      block:
+        selectedSlot &&
+        hasCurrentRoster &&
+        (originalPairing?.termId ?? workloads.data?.termId)
+          ? {
+              id: form.id ?? "proposed-pairing",
+              termId: originalPairing?.termId ?? workloads.data!.termId!,
+              scheduleConfirmed: true,
+              dayOfWeek: selectedSlot.dayOfWeek,
+              startMin: selectedSlot.startMin,
+              endMin: selectedSlot.endMin,
+            }
+          : undefined,
+    },
+  ];
   const base = {
     ...(form.id ? {} : { clientKey: createKey }),
     tutorId: form.tutorId,
@@ -225,9 +464,10 @@ export default function PairingsPage() {
       }
     : base;
   const submit = async (overrideTicket?: string) => {
-    if (admitted.current || locked) return;
+    if (readOnly || admitted.current || locked) return;
     admitted.current = true;
     setWorking(true);
+    setWriting(true);
     setWriteError(undefined);
     try {
       const result =
@@ -265,11 +505,18 @@ export default function PairingsPage() {
       } else {
         setWriteError(error instanceof Error ? error.message : String(error));
         admitted.current = false;
+        throw error; // Timed review may retry the same failed write; accepted outcomes never replay.
       }
     } finally {
+      setWriting(false);
       setWorking(false);
     }
   };
+  const needsRoomReservations = new Set(
+    (pairings.data ?? [])
+      .filter((p) => p.roomNeedsAssignment)
+      .map((p) => (p.groupId ? "group:" + p.groupId : "pairing:" + p.id)),
+  ).size;
   const error = writeError;
   const rows = (pairings.data ?? []).filter(
     (p) => !needsRoomOnly || p.roomNeedsAssignment,
@@ -284,7 +531,13 @@ export default function PairingsPage() {
       {!editing && (
         <h2 className="section-title">{t("admin.pairings.newPairing")}</h2>
       )}
+
       <p className="muted mt-1">{t("admin.pairings.slotHelp")}</p>
+      {originalPairing && groupSubjects(originalPairing) && (
+        <InlineNotice>
+          {a("groupScope", { subjects: groupSubjects(originalPairing)! })}
+        </InlineNotice>
+      )}
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Select
           label={t("admin.pairings.subject")}
@@ -359,7 +612,7 @@ export default function PairingsPage() {
             },
             ...activeSlots.map((s) => ({
               value: s.id,
-              label: `${s.label} · ${DAY_NAMES[s.dayOfWeek]} ${minToHm(s.startMin)}–${minToHm(s.endMin)}`,
+              label: `${s.label} · ${formatWeekday(s.dayOfWeek, locale)} ${minToHm(s.startMin)}–${minToHm(s.endMin)}`,
             })),
           ]}
         />
@@ -381,37 +634,78 @@ export default function PairingsPage() {
       )}
       <fieldset className="mt-3">
         <legend className="label">{t("admin.pairings.tutees")}</legend>
-        <div className="mt-1 grid grid-cols-2 gap-1 sm:grid-cols-3">
-          {(tutees.data ?? []).map((t) => (
-            <label
-              key={t.id}
-              className="flex min-h-11 items-center gap-2 text-sm lg:min-h-6"
-            >
-              <input
-                type="checkbox"
-                checked={form.tuteeIds.includes(t.id)}
-                onChange={(e) =>
+        <label className="mt-2 block">
+          <span className="label">{t("admin.pairings.searchTutees")}</span>
+          <input
+            type="search"
+            className="input w-full"
+            value={tuteeSearch}
+            onChange={(event) => setTuteeSearch(event.target.value)}
+          />
+        </label>
+        <p className="muted mt-2 text-sm" role="status">
+          {t("admin.pairings.selectedTutees", { count: form.tuteeIds.length })}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {form.tuteeIds.map((id) => {
+            const person =
+              (tutees.data ?? []).find((row) => row.id === id) ??
+              originalPairing?.tutees.find((row) => row.tuteeId === id)?.tutee;
+            return (
+              <Button
+                key={id}
+                size="compact"
+                aria-label={t("admin.pairings.removeSelected", {
+                  name: personName(person, id),
+                })}
+                onClick={() =>
                   set(
                     "tuteeIds",
-                    e.target.checked
-                      ? [...form.tuteeIds, t.id]
-                      : form.tuteeIds.filter((id) => id !== t.id),
+                    form.tuteeIds.filter((selected) => selected !== id),
                   )
                 }
-              />
-              {t.englishName}
-            </label>
-          ))}
+              >
+                {personName(person, id)} ×
+              </Button>
+            );
+          })}
+        </div>
+        {/* Filtering changes visibility, never selection. Keep long names readable in a bounded list. */}
+        <div className="mt-2 max-h-72 overflow-y-auto rounded-lg border border-slate-200 p-2">
+          {(tutees.data ?? [])
+            .filter((person) => matchesPersonSearch(person, tuteeSearch))
+            .map((t) => (
+              <label
+                key={t.id}
+                className="flex min-h-11 items-center gap-3 rounded px-2 py-2 text-sm [overflow-wrap:anywhere]"
+              >
+                <input
+                  type="checkbox"
+                  checked={form.tuteeIds.includes(t.id)}
+                  onChange={(e) =>
+                    set(
+                      "tuteeIds",
+                      e.target.checked
+                        ? [...form.tuteeIds, t.id]
+                        : form.tuteeIds.filter((id) => id !== t.id),
+                    )
+                  }
+                />
+                {personName(t)}
+              </label>
+            ))}
         </div>
       </fieldset>
 
       <div className="mt-4 flex items-center gap-3">
         <button
           onClick={() => {
-            if (roomOnly && form.roomMode !== "LEGACY") void submit();
+            if (roomOnly && form.roomMode !== "LEGACY")
+              void submit().catch(() => undefined);
             else setConfirming(true);
           }}
           disabled={
+            readBlocked ||
             !form.tutorId ||
             (!retainsAssignment &&
               (!selectedSubject?.active ||
@@ -490,14 +784,70 @@ export default function PairingsPage() {
     </div>
   );
 
+  if (denied || authorizationDenied)
+    return (
+      <div className="space-y-6">
+        <h1 className="page-title">{t("admin.pairings.title")}</h1>
+        <StatePanel
+          kind="denied"
+          title={t("managementRecovery.denied", {
+            section: t("admin.pairings.title"),
+          })}
+          action={
+            <Button
+              size="compact"
+              disabled={reads.some(({ query }) => query.isFetching)}
+              onClick={retry}
+            >
+              {t("managementRecovery.retry", {
+                section: t("admin.pairings.title"),
+              })}
+            </Button>
+          }
+        />
+      </div>
+    );
+
   return (
     <div className="space-y-6">
-      <h1 className="page-title">{t("admin.pairings.title")}</h1>
-      {!editing && saveNotices}
-      {completed && !editing && (
-        <Button disabled={working || refreshFailed} onClick={resetEditor}>
-          {t("admin.pairings.newPairing")}
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="page-title">{t("admin.pairings.title")}</h1>
+        {!readOnly && hasData && (
+          <Button
+            variant="primary"
+            aria-haspopup="dialog"
+            disabled={working || refreshFailed || readBlocked}
+            onClick={() => {
+              if (working || refreshFailed || readBlocked) return;
+              if (completed) resetEditor();
+              setCreationRiskOpen(true);
+            }}
+          >
+            {t("admin.pairings.newPairing")}
+          </Button>
+        )}
+      </div>
+      {readFeedback}
+      {!editing && !createOpen && saveNotices}
+      {!readOnly && (
+        <>
+          <p className="muted text-sm">{workloadText("staffHelp")}</p>
+          <AssignmentWorkloadFeedback />
+        </>
+      )}
+
+      {/* Entry consent never replaces the assignment review or its server ticket. */}
+      {!readOnly && hasData && creationRiskOpen && (
+        <CreationRiskDialog
+          kind="pairing"
+          continueDisabled={locked}
+          onCancel={() => setCreationRiskOpen(false)}
+          onContinue={() => {
+            if (locked) return false;
+            setCreationRiskOpen(false);
+            setCreateOpen(true);
+          }}
+        />
       )}
 
       {/* Slot × room schedule grid */}
@@ -505,74 +855,70 @@ export default function PairingsPage() {
         <h2 className="section-title mb-2">
           {t("admin.pairings.roomSchedule")}
         </h2>
-        {pairings.data && rooms.data && timeSlots.data ? (
-          <RoomGrid
-            rooms={(rooms.data ?? []).map((r) => ({ id: r.id, name: r.name }))}
-            slots={(timeSlots.data ?? []).filter((s) => s.active)}
-            pairings={pairings.data ?? []}
-            blocks={(rooms.data ?? []).flatMap((r) => r.unavailabilities)}
-          />
-        ) : (
-          <StatePanel
-            kind={
-              (pairings.error ?? rooms.error ?? timeSlots.error)
-                ? "error"
-                : "loading"
-            }
-            title={a(
-              (pairings.error ?? rooms.error ?? timeSlots.error)
-                ? "readFailed"
-                : "loading",
-            )}
-          />
-        )}
+        {rooms.data !== undefined &&
+          timeSlots.data !== undefined &&
+          pairings.data !== undefined && (
+            <RoomGrid
+              catalogReady={hasData}
+              viewEnabled={!denied && !authorizationDenied}
+              viewScope={[
+                ...new Set(
+                  (pairings.data ?? []).map((pairing) => pairing.termId),
+                ),
+              ]
+                .sort()
+                .join(",")}
+              rooms={(rooms.data ?? []).map((r) => ({
+                id: r.id,
+                name: r.name,
+              }))}
+              slots={(timeSlots.data ?? []).filter((s) => s.active)}
+              pairings={pairings.data ?? []}
+              blocks={(rooms.data ?? []).flatMap((r) => r.unavailabilities)}
+            />
+          )}
       </section>
 
-      {/* Create / edit form */}
-      {!readOnly &&
-        (editing ? (
-          <ProfileDialog
-            title={t("admin.pairings.editPairing")}
-            pending={working}
-            onClose={() => {
-              if (!refreshFailed) resetEditor();
-              else setForm(EMPTY);
-            }}
-          >
-            {saveNotices}
-            {editor}
-            {error && !completed && (
-              <div className="mt-3 space-y-2">
-                <p className="muted">{a("reloadHelp")}</p>
-                <Button disabled={working} onClick={() => void reloadDraft()}>
-                  {a("reload")}
-                </Button>
-              </div>
-            )}
-            <div className="mt-5 flex justify-end border-t border-slate-100 pt-4">
-              <Button
-                disabled={working}
-                onClick={() => {
-                  if (!refreshFailed) resetEditor();
-                  else setForm(EMPTY);
-                }}
-              >
-                {t("admin.pairings.cancel")}
-              </Button>
-            </div>
-          </ProfileDialog>
-        ) : (
-          editor
-        ))}
+      {!readOnly && hasData && (editing || createOpen) && (
+        <ProfileDialog
+          title={t(
+            editing
+              ? "admin.pairings.editPairing"
+              : "admin.pairings.newPairing",
+          )}
+          size="wide"
+          pending={writing}
+          onClose={() => {
+            if (writing || confirming) return;
+            if (completed && !refreshFailed) {
+              resetEditor();
+              return;
+            }
+            if (editing) setEditDraft(null);
+            else setCreateOpen(false);
+          }}
+        >
+          {readFeedback}
+          {saveNotices}
+          {editor}
+          {error && !completed && editing && (
+            <Button disabled={working} onClick={() => void reloadDraft()}>
+              {a("reload")}
+            </Button>
+          )}
+        </ProfileDialog>
+      )}
 
       {confirming && (
-        <AssignmentConfirmation
+        <WorkloadAssignmentConfirmation
           operation={editing ? "admin.updatePairing" : "admin.createPairing"}
           payload={payload}
           onConfirm={submit}
           onCancel={() => setConfirming(false)}
           busy={working}
           error={error}
+          tutorId={form.tutorId}
+          proposals={proposals}
         />
       )}
       <FilterToolbar
@@ -597,8 +943,7 @@ export default function PairingsPage() {
           selected={needsRoomOnly}
           onClick={() => setNeedsRoomOnly(true)}
         >
-          {a("needsRoom")} (
-          {pairings.data?.filter((p) => p.roomNeedsAssignment).length ?? "—"})
+          {a("needsRoomReservations", { count: needsRoomReservations })}
         </ChoiceButton>
       </FilterToolbar>
       {pairings.data && rows.length === 0 && (
@@ -614,6 +959,12 @@ export default function PairingsPage() {
               <th>{t("admin.pairings.colWhen")}</th>
               <th>{t("admin.pairings.colRoom")}</th>
               <th>{t("admin.pairings.colTutees")}</th>
+              {!readOnly && (
+                <>
+                  <th>{workloadText("countHeading")}</th>
+                  <th>{workloadText("preferenceHeading")}</th>
+                </>
+              )}
               <th className="table-actions-heading">
                 {t("tablePatterns.actions")}
               </th>
@@ -626,20 +977,63 @@ export default function PairingsPage() {
                 id={p.id}
                 className="scroll-mt-24 target:bg-amber-50 target:outline-2 target:outline-amber-600"
               >
-                <td>{p.tutor.englishName}</td>
+                <td>{personName(p.tutor)}</td>
                 <td>{p.subject}</td>
-                <td>{pairingScheduleText(p, t("scheduling.awaiting"))}</td>
+                <td>
+                  {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
+                </td>
                 <td>
                   <RoomAllocationStatus pairing={p} />
                 </td>
+
                 <td>{p.tutees.length}</td>
+                {!readOnly && (
+                  <>
+                    <td>
+                      {(() => {
+                        const workload = workloads.data?.tutors?.find(
+                          (row) => row.id === p.tutorId,
+                        );
+                        return workload &&
+                          !workloads.error &&
+                          !workloads.isFetching
+                          ? workload.count
+                          : workloadText(
+                              workloads.error || workloads.unavailable
+                                ? "unavailable"
+                                : "checking",
+                            );
+                      })()}
+                    </td>
+                    <td>
+                      {(() => {
+                        const workload = workloads.data?.tutors?.find(
+                          (row) => row.id === p.tutorId,
+                        );
+                        return workload &&
+                          !workloads.error &&
+                          !workloads.isFetching
+                          ? (workload.preferredMaximum ?? workloadText("unset"))
+                          : workloadText(
+                              workloads.error || workloads.unavailable
+                                ? "unavailable"
+                                : "checking",
+                            );
+                      })()}
+                    </td>
+                  </>
+                )}
                 <TableActions>
-                  <TableDetails title={`${p.tutor.englishName} · ${p.subject}`}>
+                  <TableDetails title={`${personName(p.tutor)} · ${p.subject}`}>
                     <dl className="space-y-3">
                       <div>
                         <dt className="label">{t("admin.pairings.colWhen")}</dt>
                         <dd>
-                          {pairingScheduleText(p, t("scheduling.awaiting"))}
+                          {pairingScheduleText(
+                            p,
+                            t("scheduling.awaiting"),
+                            locale,
+                          )}
                         </dd>
                       </div>
                       <div>
@@ -658,18 +1052,18 @@ export default function PairingsPage() {
                     </h3>
                     <ul className="list-inside list-disc">
                       {p.tutees.map((entry) => (
-                        <li key={entry.tuteeId}>{entry.tutee.englishName}</li>
+                        <li key={entry.tuteeId}>{personName(entry.tutee)}</li>
                       ))}
                     </ul>
                   </TableDetails>
                   {!readOnly && (
                     <>
                       <TableAction
-                        aria-label={`${t("admin.pairings.edit")}: ${p.tutor.englishName} · ${p.subject}`}
-                        disabled={working || refreshFailed}
+                        aria-label={`${t("admin.pairings.edit")}: ${personName(p.tutor)} · ${p.subject}`}
+                        disabled={locked}
                         onClick={() => {
-                          resetEditor();
-                          setForm(loadForm(p));
+                          setConfirming(false);
+                          setEditDraft(loadForm(p));
                         }}
                       >
                         {t("admin.pairings.edit")}
@@ -677,6 +1071,7 @@ export default function PairingsPage() {
                       {p.roomNeedsAssignment && (
                         <TableAction
                           disabled={
+                            readBlocked ||
                             working ||
                             refreshFailed ||
                             review.blocked("room:" + p.id)
@@ -689,7 +1084,14 @@ export default function PairingsPage() {
                               confirmLabel: a("retryAllocation"),
                               details: (
                                 <p>
-                                  {p.tutor.englishName} · {p.subject}
+                                  {personName(p.tutor)} · {p.subject}
+                                  {groupSubjects(p) && (
+                                    <span className="mt-2 block">
+                                      {a("groupScope", {
+                                        subjects: groupSubjects(p)!,
+                                      })}
+                                    </span>
+                                  )}
                                 </p>
                               ),
                               commit: () =>
@@ -712,7 +1114,10 @@ export default function PairingsPage() {
                       <TableAction
                         className="text-red-700"
                         disabled={
-                          review.blocked(p.id) || working || refreshFailed
+                          readBlocked ||
+                          review.blocked(p.id) ||
+                          working ||
+                          refreshFailed
                         }
                         onClick={() =>
                           review.open({
@@ -722,10 +1127,10 @@ export default function PairingsPage() {
                             confirmLabel: t("admin.pairings.delete"),
                             details: (
                               <p>
-                                {p.tutor.englishName} · {p.subject}
+                                {personName(p.tutor)} · {p.subject}
                                 <br />
                                 {p.tutees
-                                  .map((entry) => entry.tutee.englishName)
+                                  .map((entry) => personName(entry.tutee))
                                   .join(", ")}
                               </p>
                             ),

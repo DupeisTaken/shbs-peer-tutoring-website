@@ -1,6 +1,14 @@
 "use client";
+import {
+  useSessionPageScroll,
+  useSessionAccessDenied,
+} from "~/app/_components/session-view-state";
+import { StatePanel } from "~/app/_components/ui/patterns";
+import { ParticipantName } from "~/app/_components/participant-name";
 
 import { useTranslations } from "next-intl";
+import { ProfileDialog } from "~/app/_components/profile-dialog";
+import { Button } from "~/app/_components/ui/button";
 import { useState } from "react";
 
 import { api } from "~/trpc/react";
@@ -26,6 +34,12 @@ export default function AdjustmentsPage() {
   const tutors = api.admin.tutors.useQuery();
   const [showPast, setShowPast] = useState(false);
   const list = api.admin.adjustments.useQuery({});
+  const denied = useSessionAccessDenied(list, tutors);
+  useSessionPageScroll({
+    id: "hour-adjustments-v1",
+    ready: list.data !== undefined && tutors.data !== undefined && !denied,
+    enabled: !denied,
+  });
   const invalidate = () => utils.admin.adjustments.invalidate();
   const create = api.admin.createAdjustment.useMutation({
     onSuccess: invalidate,
@@ -33,103 +47,172 @@ export default function AdjustmentsPage() {
   const del = api.admin.deleteAdjustment.useMutation();
   const review = useActionReview();
 
+  const [createOpen, setCreateOpen] = useState(false);
   const [tutorId, setTutorId] = useState("");
   const [month, setMonth] = useState(currentMonth());
   const [type, setType] = useState<"PUNISHMENT" | "EXTRA">("EXTRA");
   const [amount, setAmount] = useState("1");
   const [reason, setReason] = useState("");
 
+  // A stale cached adjustment cannot supply an authorized page position.
+  if (denied)
+    return (
+      <div className="space-y-6">
+        <h1 className="page-title">{t("admin.adjustments.title")}</h1>
+        <StatePanel
+          kind="denied"
+          title={t("managementRecovery.denied", {
+            section: t("admin.adjustments.title"),
+          })}
+          action={
+            <Button
+              disabled={list.isFetching || tutors.isFetching}
+              onClick={() => {
+                void list.refetch();
+                void tutors.refetch();
+              }}
+            >
+              {t("uiPatterns.retry")}
+            </Button>
+          }
+        />
+      </div>
+    );
   return (
     <div className={`space-y-6 ${styles.page}`}>
       {!readOnly && review.dialog}
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title">{t("admin.adjustments.title")}</h1>
+        {!readOnly && (
+          <Button
+            variant="primary"
+            disabled={create.isPending}
+            onClick={() => setCreateOpen(true)}
+          >
+            {t("admin.adjustments.create")}
+          </Button>
+        )}
         <p className="muted mt-1 text-sm">{t("admin.adjustments.subtitle")}</p>
       </div>
 
-      {!readOnly && (
-        <PastTutorsToggle showPast={showPast} onChange={setShowPast} />
-      )}
-      {!readOnly && (
-        <form
-          className={styles.form}
-          onSubmit={(e) => {
-            e.preventDefault();
-            const amt = Number(amount);
-            if (tutorId && amt > 0)
-              create.mutate({
-                tutorId,
-                month,
-                type,
-                amount: amt,
-                reason: reason.trim() || undefined,
-              });
-          }}
+      {!readOnly && createOpen && (
+        <ProfileDialog
+          title={t("admin.adjustments.create")}
+          pending={create.isPending}
+          onClose={() => setCreateOpen(false)}
         >
-          <select
-            value={tutorId}
-            aria-label={t("admin.adjustments.table.tutor")}
-            onChange={(e) => setTutorId(e.target.value)}
-            className="select"
+          <PastTutorsToggle showPast={showPast} onChange={setShowPast} />
+          <form
+            className={styles.form}
+            onSubmit={(e) => {
+              e.preventDefault();
+              const amt = Number(amount);
+              if (tutorId && amt > 0)
+                create.mutate({
+                  tutorId,
+                  month,
+                  type,
+                  amount: amt,
+                  reason: reason.trim() || undefined,
+                });
+            }}
           >
-            <option value="">
-              {t("admin.adjustments.form.tutorPlaceholder")}
-            </option>
-            {visibleTutors(tutors.data ?? [], showPast, [tutorId]).map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.englishName}
-              </option>
-            ))}
-          </select>
-          <input
-            type="month"
-            aria-label={t("admin.adjustments.table.month")}
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            className="input"
-          />
-          <select
-            value={type}
-            aria-label={t("admin.adjustments.table.type")}
-            onChange={(e) => setType(e.target.value as "PUNISHMENT" | "EXTRA")}
-            className="select"
-          >
-            <option value="EXTRA">
-              {t("admin.adjustments.form.typeExtra")}
-            </option>
-            <option value="PUNISHMENT">
-              {t("admin.adjustments.form.typePunishment")}
-            </option>
-          </select>
-          <input
-            type="number"
-            aria-label={t("admin.adjustments.table.amount")}
-            step="0.5"
-            min="0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="input"
-          />
-          <input
-            value={reason}
-            aria-label={t("admin.adjustments.table.reason")}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder={t("admin.adjustments.form.reasonPlaceholder")}
-            className={`input ${styles.reasonInput}`}
-          />
-          <button
-            className={`btn-primary ${styles.add}`}
-            disabled={!tutorId || !(Number(amount) > 0) || create.isPending}
-          >
-            {t("admin.adjustments.form.add")}
-          </button>
-        </form>
+            <label>
+              <span className="label">
+                {t("admin.adjustments.table.tutor")}
+              </span>
+              <select
+                value={tutorId}
+                aria-label={t("admin.adjustments.table.tutor")}
+                onChange={(e) => setTutorId(e.target.value)}
+                className="select"
+              >
+                <option value="">
+                  {t("admin.adjustments.form.tutorPlaceholder")}
+                </option>
+                {visibleTutors(tutors.data ?? [], showPast, [tutorId]).map(
+                  (t) => (
+                    <option key={t.id} value={t.id}>
+                      <ParticipantName
+                        name={t.englishName}
+                        username={t.username}
+                      />
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+            <label>
+              <span className="label">
+                {t("admin.adjustments.table.month")}
+              </span>
+              <input
+                type="month"
+                aria-label={t("admin.adjustments.table.month")}
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                className="input"
+              />
+            </label>
+            <label>
+              <span className="label">{t("admin.adjustments.table.type")}</span>
+              <select
+                value={type}
+                aria-label={t("admin.adjustments.table.type")}
+                onChange={(e) =>
+                  setType(e.target.value as "PUNISHMENT" | "EXTRA")
+                }
+                className="select"
+              >
+                <option value="EXTRA">
+                  {t("admin.adjustments.form.typeExtra")}
+                </option>
+                <option value="PUNISHMENT">
+                  {t("admin.adjustments.form.typePunishment")}
+                </option>
+              </select>
+            </label>
+            <label>
+              <span className="label">
+                {t("admin.adjustments.table.amount")}
+              </span>
+              <input
+                type="number"
+                aria-label={t("admin.adjustments.table.amount")}
+                step="0.5"
+                min="0"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="input"
+              />
+            </label>
+            <label className={styles.reasonInput}>
+              <span className="label">
+                {t("admin.adjustments.table.reason")}
+              </span>
+              <input
+                value={reason}
+                aria-label={t("admin.adjustments.table.reason")}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder={t("admin.adjustments.form.reasonPlaceholder")}
+                className="input"
+              />
+            </label>
+            <button
+              className={`btn-primary ${styles.add}`}
+              disabled={!tutorId || !(Number(amount) > 0) || create.isPending}
+            >
+              {t("admin.adjustments.form.add")}
+            </button>
+          </form>
+          {create.error && (
+            <p role="alert" className="text-red-700">
+              {create.error.message}
+            </p>
+          )}
+        </ProfileDialog>
       )}
-      {!readOnly && create.error && (
-        <p role="alert" className="text-sm text-red-600">
-          {create.error.message}
-        </p>
-      )}
+
       {list.isLoading && <p role="status">{t("common.loading")}</p>}
       {list.error && (
         <p role="alert" className="text-sm text-red-600">

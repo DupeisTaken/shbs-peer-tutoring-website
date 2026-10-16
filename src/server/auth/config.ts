@@ -74,6 +74,8 @@ export const authConfig = {
         "/reset-password",
         // Signed email links let recipients opt out without an active session.
         "/unsubscribe",
+        // Purpose-separated capability grants only this request appeal, never an account.
+        "/request-appeal",
         "/register",
         "/register-account",
         "/tutee",

@@ -199,6 +199,7 @@ export async function changeSchoolDeparture(
       data: {
         userId: user.id,
         title: "School departure updated / 离校状态已更新",
+        ...notificationEvent("school_departure_updated"),
         body: input.action,
         link:
           user.tutorId && !user.tutorAccessRevoked
@@ -209,3 +210,4 @@ export async function changeSchoolDeparture(
     return { ok: true, revision };
   });
 }
+import { notificationEvent } from "~/lib/notification-events";

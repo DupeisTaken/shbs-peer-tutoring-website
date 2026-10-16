@@ -51,7 +51,11 @@ export function ProfileDialog({
               {t("close")}
             </button>
           </div>
-          <div className={size === "wide" ? "p-4 sm:p-6" : "p-5"}>
+          {/* Contain sticky table/action layers below the header. Equal z-indices
+              otherwise let later body descendants paint over Close at deep scroll. */}
+          <div
+            className={`relative z-0 ${size === "wide" ? "p-4 sm:p-6" : "p-5"}`}
+          >
             {children}
           </div>
         </>

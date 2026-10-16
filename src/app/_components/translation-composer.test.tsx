@@ -109,6 +109,46 @@ it("clears the destination and text when changing language", () => {
   ).toBe(true);
   expect(state.reset).toHaveBeenCalled();
 });
+it("restores independent drafts after locale and content-type round trips", () => {
+  render(<TranslationComposer />);
+  fireEvent.change(screen.getByLabelText("target"), {
+    target: { value: "tagline" },
+  });
+  fireEvent.change(screen.getByLabelText("translation"), {
+    target: { value: "English draft" },
+  });
+  fireEvent.change(screen.getByLabelText("locale"), {
+    target: { value: "zh" },
+  });
+  fireEvent.change(screen.getByLabelText("target"), {
+    target: { value: "tagline" },
+  });
+  fireEvent.change(screen.getByLabelText("translation"), {
+    target: { value: "中文草稿" },
+  });
+  fireEvent.change(screen.getByLabelText("locale"), {
+    target: { value: "en" },
+  });
+  expect(screen.getByLabelText<HTMLTextAreaElement>("translation").value).toBe(
+    "English draft",
+  );
+  fireEvent.change(screen.getByLabelText("contentType"), {
+    target: { value: "news" },
+  });
+  fireEvent.change(screen.getByLabelText("contentType"), {
+    target: { value: "content" },
+  });
+  expect(screen.getByLabelText<HTMLTextAreaElement>("translation").value).toBe(
+    "English draft",
+  );
+  fireEvent.change(screen.getByLabelText("locale"), {
+    target: { value: "zh" },
+  });
+  expect(screen.getByLabelText<HTMLTextAreaElement>("translation").value).toBe(
+    "中文草稿",
+  );
+  expect(state.mutate).not.toHaveBeenCalled();
+});
 it("labels direct Admin edits as publication and displays server failures", () => {
   state.role = "ADMIN";
   state.error = { message: "Destination changed" };

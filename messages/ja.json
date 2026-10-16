@@ -29,7 +29,9 @@
     "slot": "時間枠",
     "room": "教室",
     "select": "選択",
-    "selected": "選択済み"
+    "selected": "選択済み",
+    "noRooms": "教室はまだありません。",
+    "noSlots": "時間帯はまだ公開されていません。"
   },
   "scheduling": {
     "awaiting": "日程調整待ち",
@@ -114,7 +116,10 @@
     "qualifiedOnly": "Your qualified subjects",
     "choiceHelp": "Choose what you would like to tutor right now.",
     "scheduleSeparate": "Your timetable is arranged separately.",
-    "savesAutomatically": "Changes save automatically"
+    "savesAutomatically": "Changes save automatically",
+    "edit": "詳細を編集",
+    "editTitle": "{tutor} · {subject}",
+    "refreshFailed": "変更を保存しました。次の変更を行う前に科目の記録を更新してください。"
   },
   "messaging": {
     "privacyTitle": "Private Deliveries, with Staff Oversight",
@@ -178,7 +183,7 @@
       "UNRESTRICT": "Access restored"
     },
     "rolePermissions": "Permissions by Role",
-    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "permissionHelp": "選択したグループはメッセージを受信できます。ユーザー個別設定は役割の方針を置き換えます。グループ未選択では新規送信できません。すべての利用可能なアカウントには、自分、停止中、メッセージ制限中のアカウントは含まれません。過去の指導関係は保存済みの割り当てや出席記録に基づき、記録のない割り当ては復元できません。",
     "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
@@ -197,7 +202,8 @@
     "ownInbox": "Your inbox",
     "replyContext": "{name} に返信中",
     "cancelReply": "返信をキャンセル",
-    "replyDraftHelp": "以前の下書きは保持されます。キャンセルしても、この返信の下書きはこのページに保持されます。"
+    "replyDraftHelp": "以前の下書きは保持されます。キャンセルしても、この返信の下書きはこのページに保持されます。",
+    "permissionsDestination": "プログラム設定のメッセージ権限"
   },
   "common": {
     "cancel": "キャンセル",
@@ -412,8 +418,9 @@
       "help": "各ペアリングのデフォルトタイムスロットを選択してください（実際のセッション時間は出席提出時に入力します）。"
     },
     "availability": {
-      "title": "マイ空き時間",
-      "help": "指導可能なタイムスロットをマークしてください。コーディネーターがスケジュール調整に使用します。"
+      "title": "指導可能な時間",
+      "help": "指導可能なタイムスロットをマークしてください。コーディネーターがスケジュール調整に使用します。",
+      "edit": "指導可能な時間を編集"
     },
     "attendance": {
       "title": "出席を提出",
@@ -425,6 +432,38 @@
     }
   },
   "admin": {
+    "creationRisk": {
+      "warning": "手動作成にはリスクがあり、問題を引き起こす可能性があります。通常の手順で対応できない場合に限り、最後の手段として使用してください。",
+      "acknowledgement": "リスクを理解し、これが最後の手段であることを確認しました。",
+      "opensOnly": "続行すると作成フォームだけが開きます。記録は作成・保存されません。",
+      "cancel": "キャンセル",
+      "continue": "フォームへ進む",
+      "tutor": {
+        "title": "チューターを手動作成する前に",
+        "normal": "可能な限り、チューターの申込みと通常の資格審査・参加手続きを利用してください。",
+        "risk": "手動作成では、参加者本人が提供する情報や通常の参加手順が抜け落ちたり、チューター記録が重複・不整合になったりする可能性があります。誤ったプロフィールは、アカウントの関連付けやログインの問題につながることもあります。チューターのプロフィール作成だけではログイン用アカウントは作成されません。アカウントの関連付けや設定は別の手順です。"
+      },
+      "tutee": {
+        "title": "受講生を手動作成する前に",
+        "normal": "可能な限り、生徒本人に指導を申し込んでもらい、通常の確認手続きを完了してもらってください。",
+        "risk": "手動作成では、生徒本人の情報や規約同意の証拠が不足したり、受講生記録が重複・不整合になったりする可能性があります。誤ったプロフィールは、アカウントの関連付けやログインの問題につながることもあります。受講生のプロフィール作成だけではログイン用アカウントは作成されません。アカウントの関連付けや設定は別の手順です。"
+      },
+      "pairing": {
+        "title": "ペアリングを手動作成する前に",
+        "normal": "可能な限り、生徒の指導申込みからチューターを割り当ててください。",
+        "risk": "手動作成では、申込みとペアリングの記録の不整合、割り当ての重複、資格や日程の問題が生じる可能性があります。"
+      },
+      "galleryTitle": "最後の手段としての作成確認",
+      "galleryHelp": "作成の種類を選び、リスクを確認してサンプルの編集画面を開きます。閉じてもローカルの下書きは保持され、開くたびに確認が必要です。",
+      "galleryKind": "作成の種類",
+      "galleryOpen": "作成サンプルを開く",
+      "galleryEditor": "作成編集画面のサンプル",
+      "galleryDraft": "保持される作成下書き",
+      "galleryClose": "編集画面を閉じる",
+      "galleryTutor": "チューター",
+      "galleryTutee": "受講生",
+      "galleryPairing": "ペアリング"
+    },
     "pairings": {
       "title": "ペアリング",
       "roomSchedule": "部屋のスケジュール",
@@ -450,7 +489,10 @@
       "colRoom": "部屋",
       "colTutees": "生徒",
       "edit": "編集",
-      "delete": "削除"
+      "delete": "削除",
+      "searchTutees": "受講者を検索",
+      "selectedTutees": "{count}人を選択中",
+      "removeSelected": "{name}を選択から外す"
     },
     "tutors": {
       "title": "チューター",
@@ -539,7 +581,7 @@
     },
     "requests": {
       "title": "申請一覧（生徒）",
-      "help": "割り当て待ちの公開生徒申請です。申請が古い順に処理します。各科目の希望をチューターに割り当てると、ペアリングが作成され、チューターがタイムスロットを選択します。",
+      "help": "新しい申請を確認し、科目をマッチングして割り当て済みの生徒を確認します。",
       "noTerm": "申請を割り当てるには、最初に学期を作成してください。",
       "decline": "却下",
       "declineConfirm": "{name}の申請を却下・削除しますか？",
@@ -568,7 +610,9 @@
         "name": "氏名",
         "email": "メール",
         "phone": "電話"
-      }
+      },
+      "emailVerifiedShort": "確認済み",
+      "emailUnverifiedShort": "未確認"
     },
     "readOnly": {
       "banner": "管理エリアは閲覧専用です。許可された概要を閲覧できます。個人の連絡先情報は非表示です。"
@@ -586,7 +630,7 @@
         "activity": "活動と申請",
         "history": "プログラム履歴",
         "announcements": "お知らせ",
-        "program": "プログラムとリフレッシュ",
+        "program": "プログラム設定",
         "tutorRoster": "チューター名簿",
         "tutorApplications": "チューター応募",
         "tutorRequests": "チューター状態申請",
@@ -776,8 +820,8 @@
       }
     },
     "program": {
-      "title": "プログラムとリフレッシュ",
-      "subtitle": "現在の期間と、プログラムを次の四半期に進める定期リフレッシュ。",
+      "title": "プログラム設定",
+      "subtitle": "募集、アカウント設定、デプロイ設定、任意機能を管理します。",
       "loading": "読み込み中…",
       "noPeriod": "有効なプログラム期間がありません。まずシードを実行するか、新規作成してください。",
       "currentPeriod": "現在の期間",
@@ -846,6 +890,12 @@
         "retryRefresh": "Retry refresh",
         "savedRefreshFailed": "The setting was saved, but the latest effective and pending states could not be loaded. Retry refresh without submitting again.",
         "readFailed": "Settings could not be refreshed. Previously loaded values remain visible."
+      },
+      "panels": {
+        "period": "募集と期間更新",
+        "people": "アカウント設定",
+        "communication": "デプロイ設定",
+        "access": "オプション機能"
       }
     },
     "audit": {
@@ -920,7 +970,10 @@
       "appeals": {
         "heading": "復帰の異議",
         "approve": "承認",
-        "deny": "却下"
+        "deny": "却下",
+        "review": "異議申し立てを審査",
+        "message": "異議申し立ての原文",
+        "refreshFailed": "審査結果は保存されましたが、アカウントまたは異議申し立て一覧を更新できませんでした。結果を再送信せず、更新を再試行してください。"
       }
     },
     "registrationCodes": {
@@ -1002,7 +1055,13 @@
       "colStatus": "ステータス",
       "colTutees": "生徒",
       "colSH": "奉仕時間",
-      "empty": "このフィルターに一致する提出はありません。"
+      "empty": "このフィルターに一致する提出はありません。",
+      "monthLabel": "月",
+      "actualTime": "記録された時間",
+      "duration": "{minutes} 分",
+      "hourFactor": "係数：{factor}",
+      "selfEvaluation": "自己評価",
+      "comments": "コメント"
     },
     "meetings": {
       "title": "チューターミーティング",
@@ -1032,7 +1091,8 @@
         "tutor": "チューター",
         "empty": "出席記録はまだありません。"
       },
-      "correctAttendance": "Submit attendance correction"
+      "correctAttendance": "Submit attendance correction",
+      "refreshFailed": "出欠記録は保存されましたが、会議一覧を更新できませんでした。出欠記録を再送信せず、更新を再試行してください。"
     },
     "timeslots": {
       "title": "タイムスロット",
@@ -1123,7 +1183,8 @@
       "addRoom": "部屋を追加",
       "empty": "部屋はまだありません。",
       "deleteConsequence": "This removes the room and its blocked periods. Rooms currently used by pairings cannot be deleted.",
-      "deleteRequestConsequence": "This submits a deletion request for management review. The room and its assignments remain unchanged until approval."
+      "deleteRequestConsequence": "This submits a deletion request for management review. The room and its assignments remain unchanged until approval.",
+      "editDetails": "詳細を編集"
     },
     "courses": {
       "title": "科目とレベル",
@@ -1229,7 +1290,9 @@
           "GRADUATED": "Graduated",
           "ARCHIVED": "Archived"
         }
-      }
+      },
+      "messageLabel": "メッセージ",
+      "create": "新しいお知らせ"
     },
     "policies": {
       "title": "ポリシー文書",
@@ -1257,7 +1320,13 @@
         "editedBy": "{who}による編集",
         "saving": "保存中…",
         "save": "保存",
-        "saved": "保存しました。"
+        "saved": "保存しました。",
+        "titleLabel": "文書のタイトル",
+        "versionLabel": "バージョン（任意）",
+        "bodyLabel": "ポリシー本文（Markdown）",
+        "unsaved": "未保存の変更",
+        "refreshFailed": "ポリシーは保存されましたが、ポリシーまたはバージョン履歴を更新できませんでした。編集を続ける前に更新を再試行してください。",
+        "retryRefresh": "更新を再試行"
       },
       "studentTitle": "生徒向けポリシー",
       "tutorTitle": "チューター向けポリシー"
@@ -1288,7 +1357,8 @@
         "title": "Delete hour adjustment?",
         "consequence": "This permanently removes the adjustment and changes the tutor’s service-hour total. Review the tutor, month and amount before continuing.",
         "confirm": "Delete adjustment"
-      }
+      },
+      "create": "活動時間の調整を追加"
     },
     "applications": {
       "title": "チューター応募",
@@ -1572,7 +1642,14 @@
       },
       "issuedHeading": "発行済みコード",
       "issuedHint": "承認された申請者に渡した、登録待ちのコードです。登録コード画面でコードを取り消すと、その申請は上のキューに戻ります。",
-      "issuedExpires": "{date} に期限切れ"
+      "issuedExpires": "{date} に期限切れ",
+      "originalApplication": "応募の原文",
+      "originalRequest": "リクエストの原文",
+      "panels": {
+        "review": "審査",
+        "roster": "メンバー一覧",
+        "patrol": "巡回設定"
+      }
     },
     "sessionFlags": {
       "title": "出席フラグ",
@@ -1592,7 +1669,19 @@
         "WARNED": "警告済み",
         "PENALIZED": "減算済み",
         "ESCALATED": "エスカレーション"
-      }
+      },
+      "filterLabel": "出欠の審査状況",
+      "states": {
+        "PENDING": "審査待ち",
+        "DISMISSED": "却下済み",
+        "WARNED": "警告済み",
+        "PENALIZED": "時間控除済み",
+        "ESCALATED": "上位審査へ移行済み",
+        "ALL": "すべての状態"
+      },
+      "resolved": "確認者：{name} · {date}",
+      "queued": "決定を承認申請しました",
+      "refreshFailed": "決定を保存しました。記録を更新して最新の審査状況を確認してください。"
     },
     "landing": {
       "title": "トップページ",
@@ -1688,7 +1777,9 @@
         "insertImage": "画像を挿入…",
         "preview": "プレビュー",
         "edit": "編集",
-        "previewEmpty": "プレビューする内容がありません。"
+        "previewEmpty": "プレビューする内容がありません。",
+        "titleLabel": "タイトル",
+        "bodyLabel": "内容（Markdown）"
       },
       "sections": {
         "new": {
@@ -1855,7 +1946,15 @@
       "confirmDecision": "Record {outcome} for {name}? The panel vote and current application version will be checked. If approval is required, this creates a pending proposal and does not apply the decision.",
       "completedInterview": "Completed interview · {name} ({count})",
       "savedRefreshError": "Attendance was saved, but the refreshed totals could not be loaded. Do not resubmit this entry.",
-      "verificationDeadline": "Verification due: {date}"
+      "verificationDeadline": "Verification due: {date}",
+      "attention": "対応が必要な項目",
+      "navigation": "ダッシュボードの項目",
+      "emptyTasks": "読み込んだ記録に対応が必要な項目はありません。",
+      "unconfirmedCount": "未確定の時間割（{count}）",
+      "rosterCount": "受講者名簿の確認事項（{count}）",
+      "interviewSection": "面接",
+      "meetingSection": "ミーティング",
+      "qualificationSection": "資格"
     },
     "activate": {
       "title": "参加状況の確認",
@@ -1868,7 +1967,7 @@
       "title": "今後の会議",
       "help": "会議に出られませんか？開始 60 分前まで欠席を申告できます。",
       "excuseBtn": "欠席を申告",
-      "submitExcuse": "送信",
+      "submitExcuse": "欠席理由を送信",
       "cancelExcuse": "申告を取り消す",
       "reasonPlaceholder": "理由（任意）",
       "excused": "この欠席を申告しました。",
@@ -1918,7 +2017,7 @@
         "UNEXCUSED_ABSENT": "無断欠席"
       },
       "reasonRequired": "理由（必須）",
-      "ratings": "評価 *",
+      "ratings": "自己評価",
       "rating": {
         "ratingPreparedness": "準備",
         "ratingParticipation": "参加",
@@ -1963,10 +2062,10 @@
       "noRoom": " · 部屋未割り当て",
       "defaultSlotLabel": "デフォルトタイムスロット：",
       "notSet": "— 未設定 —",
-      "mergeTitle": "セッションを統合",
-      "mergeHelp": "1つのブロックでまとめて行いますか？出席フォームで選択したセッションに同時に行うセッションをチェックしてください。各セッションは個別に記録されますが、ブロックの奉仕時間は1回のみカウントされます。",
+      "mergeTitle": "Combine This Attendance Only",
+      "mergeHelp": "Tick additional subjects for this actual attendance block only. To save a reusable group, use Combine / split pairings.",
       "mergeSelectPrimary": "出席フォームでセッションを選択して、他のセッションを統合してください。",
-      "mergeNone": "選択したセッションと生徒または科目を共有する他のセッションはありません。",
+      "mergeNone": "There are no other pairings to add.",
       "roomOnly": "教室 {room}",
       "removalPending": "離脱保留中",
       "removalRecall": "撤回",
@@ -1974,7 +2073,8 @@
       "removalHelp": "生徒が離脱を希望？代理で提出します。7日間はあなた（または管理者）が撤回でき、その後は自動です。",
       "removalReasonPlaceholder": "理由（任意）",
       "removalSubmit": "離脱を提出",
-      "removalCancel": "キャンセル"
+      "removalCancel": "キャンセル",
+      "availabilityMissing": "対応可能な時間はまだ登録されていません。"
     },
     "availability": {
       "loading": "タイムスロットを読み込み中…",
@@ -2054,7 +2154,8 @@
       "reentryHelp": "プログラムに再参加したいですか？復帰申請を提出すると管理者が審査します。",
       "reentryBtn": "復帰を申請",
       "recall": "申請を取り消す",
-      "statusNote": "チューターのステータスは {status} です。読み取り専用アクセスです — 変更は管理者にお問い合わせください。"
+      "statusNote": "チューターのステータスは {status} です。読み取り専用アクセスです — 変更は管理者にお問い合わせください。",
+      "profileSyncFailed": "プロフィールは保存されましたが、再読み込みに失敗しました。再送信せずに、もう一度読み込んでください。"
     },
     "dashboard": {
       "pending": {
@@ -2422,8 +2523,11 @@
         "reason": "退会の理由（任意）",
         "submit": "退会申請を送信",
         "pending": "退会を申請しました — 管理者の承認待ちです。",
-        "recall": "申請を取り消す"
-      }
+        "recall": "申請を取り消す",
+        "reasonLabel": "退出理由"
+      },
+      "statusLabel": "クルーの状態",
+      "noteLabel": "巡回メモ"
     }
   },
   "suspended": {
@@ -2534,7 +2638,8 @@
       "sectionId": "Content to Translate",
       "id": "Content to Translate",
       "other": "Content to Translate"
-    }
+    },
+    "refreshFailed": "変更は受け付けられましたが、更新後のテキストを再読み込みできませんでした。再送信せず、更新を再試行してください。"
   },
   "workflows": {
     "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
@@ -2662,7 +2767,12 @@
     "unscheduled": "Not scheduled",
     "panelRequired": "Assign a qualified panel before recording completion.",
     "invalidDate": "Enter a valid date and time.",
-    "searchInterviews": "Search"
+    "searchInterviews": "Search",
+    "feedbackVisibilityLoading": "フィードバックの閲覧者を確認中…",
+    "feedbackVisibilityUnavailable": "フィードバックを閲覧できる人を確認できませんでした。公開範囲を確認するには再試行してください。",
+    "pagination": "ページ送り",
+    "page": "{page} ページ",
+    "calendarDestination": "プログラム設定の学校カレンダー"
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -2785,7 +2895,7 @@
     "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
-    "scheduleReject": "Apply to reject: schedule conflict",
+    "scheduleReject": "時間の都合が合わないため辞退を申請",
     "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
@@ -2817,7 +2927,13 @@
     },
     "selfServiceSource": "本人による申込",
     "unknownSource": "以前の申込",
-    "sourceHelp": "申込元は入力方法を示し、承認・優先順位・参加規則は変わりません。「以前の申込」は元の入力方法を確認できない記録です。"
+    "sourceHelp": "申込元は入力方法を示し、承認・優先順位・参加規則は変わりません。「以前の申込」は元の入力方法を確認できない記録です。",
+    "boardGuide": "申請の分類方法",
+    "sourceGuide": "登録元とアカウントの紐付け",
+    "policyRefresh": "更新",
+    "emailStatus": "メール：{status}",
+    "noticeTargetMissing": "This request is no longer in the current queue. Review the retained program records or contact management.",
+    "confirmationExpired": "This confirmation expired. Reopen or refresh it to review again."
   },
   "approvals": {
     "reviewPermissions": "通常の管理申請はAdminとHeadが審査します。役割・バッジの変更はHeadのみが審査できます。Headは自分の申請も審査できますが、他の人には別の権限を持つ審査担当者が必要です。",
@@ -3223,6 +3339,13 @@
         "admin_setApplicationInvalidity": "チューター応募の無効マークを変更",
         "studentWorkflow_setRequestInvalidity": "生徒の申込の無効マークを変更",
         "admin_setSignupInvalidity": "旧方式の公開申込の無効マークを変更",
+        "program_setCalendarDay": "指導休止日のお知らせを保存",
+        "program_removeCalendarDay": "指導休止日のお知らせを削除",
+        "program_setNameFields": "氏名欄の入力要件を変更",
+        "admin_reorderRooms": "プログラムの教室表示順を変更",
+        "studentWorkflow_headEditSignup": "生徒の申込内容を変更",
+        "studentWorkflow_headUnassign": "生徒の指導割当を解除",
+        "studentWorkflow_resolveSignupAppeal": "生徒の申込異議を審査",
         "admin_setPairingRoom": "Change a pairing’s room assignment",
         "admin_retryRoomAllocation": "Retry automatic room allocation for a pairing"
       },
@@ -3270,7 +3393,12 @@
     "accessDeniedHelp": "現在のセッションでは、この詳細にアクセスできなくなりました。キャッシュされた証拠は非表示になっています。",
     "loadFailed": "イベントの詳細を読み込めませんでした",
     "refreshFailed": "イベントの詳細を更新できませんでした。最後に読み込まれた証拠を引き続き表示しています。",
-    "retry": "再試行"
+    "retry": "再試行",
+    "difference": {
+      "added": "追加",
+      "removed": "削除",
+      "changed": "変更"
+    }
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
@@ -3533,14 +3661,16 @@
     "loading": "Loading qualifications…",
     "loadError": "Qualifications could not be loaded. Refresh to try again.",
     "warningTitle": "Assign a Tutor Without This Qualification?",
-    "warningHelp": "Review the mismatch below. Wait three seconds, then explicitly confirm or cancel. Normal assignment and scheduling rules still apply.",
+    "warningHelp": "Review the mismatch below. Wait two seconds, then explicitly confirm or cancel. Normal assignment and scheduling rules still apply.",
     "checking": "Checking assignment",
     "checkingHelp": "Checking this tutor’s recorded subject qualifications.",
     "mismatch": "{tutor} has no approved qualification for {subject}.",
     "cancel": "Cancel",
     "confirm": "Confirm unqualified assignment",
     "wait": "Confirm in {seconds}s",
-    "working": "Assigning…"
+    "working": "Assigning…",
+    "retry": "Review again",
+    "confirmationExpired": "This confirmation expired. Review again before confirming."
   },
   "qualificationRequests": {
     "completedCount": "({count} completed)",
@@ -3646,7 +3776,8 @@
       "grade": "授業の成績",
       "apScore": "APスコア",
       "selfStudyNote": "独学の詳細"
-    }
+    },
+    "requirementsHelp": "項目の必須設定とメール設定"
   },
   "courseGroups": {
     "title": "Subjects & Levels",
@@ -3772,7 +3903,7 @@
     "unknown": "不明",
     "graduated": "卒業済み",
     "rosterUnknown": "学年不明",
-    "rosterNeedsConfirmation": "見直しと確認が必要",
+    "rosterNeedsConfirmation": "要確認",
     "notApplicable": "Not Applicable",
     "reported": "School Grade (1–12)",
     "original": "Original report: {value}",
@@ -3840,7 +3971,8 @@
     "showAlternateNames": "別の言語での氏名を表示",
     "alternateDisplayHint": "入力されている場合は、主な氏名の横に追加の氏名を表示します。",
     "latinRule": "名・姓・希望する呼び名にはラテン文字を使用します。アクセント付き文字、空白、アポストロフィ、ハイフンも使用できます。",
-    "displayPreview": "名前の表示プレビュー"
+    "displayPreview": "名前の表示プレビュー",
+    "nameFieldsRequired": "現在必須となっている氏名フィールドを入力してください。要件が変わった場合はフォームを更新してください。"
   },
   "recordTransfer": {
     "title": "プログラム記録",
@@ -3932,7 +4064,10 @@
       "tuteeProfiles": "Tutee ownership links moved",
       "tutorProfiles": "Tutor history ownership links moved"
     },
-    "noCandidates": "統合できるアカウントはありません。"
+    "noCandidates": "No login accounts are displayed under the current filters and search.",
+    "filteredChoices": "Choices include only login accounts displayed in the filtered and searched list below. Accountless roster records cannot be combined.",
+    "readySurvivor": "Logins can be reviewed regardless of signup history. The login to keep must have completed password setup and email verification; an unfinished login may be retired, subject to the review’s blockers.",
+    "savedRefreshFailed": "The accounts were combined, but the lists could not refresh. Retry the read; do not combine again."
   },
   "tuteeDetails": {
     "title": "生徒の詳細",
@@ -3949,7 +4084,7 @@
     "emptyAll": "表示できる学習パートナーの記録はありません。",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
-    "reviewNeeded": "Review needed",
+    "reviewNeeded": "要確認",
     "linkSaved": "Historical records linked.",
     "failed": "Could not complete this request. Refresh and try again.",
     "HISTORY_ACCOUNT_NOT_READY": "Choose an account with completed setup and a verified email.",
@@ -4106,7 +4241,8 @@
     "preferredNameHelp": "名の代わりに使用してほしい呼び名をラテン文字で入力してください。",
     "alternativeNamesHelp": "別の言語や文字で書いた氏名（例：张小明）。",
     "legacyPreserved": "以前の登録名：{name}。ラテン文字の氏名欄を変更しなければ、元の名前を保持します。変更する場合は名を入力してください。",
-    "legacy": "現在の記録：{name}。プロフィールを更新するには、名と姓を分けて入力してください。"
+    "legacy": "現在の記録：{name}。プロフィールを更新するには、名と姓を分けて入力してください。",
+    "hiddenRetained": "参加者のフォームと表示名では非表示です。権限のある管理者向けにここで保持されています。"
   },
   "registrationFlow": {
     "progressTitle": "登録の進捗",
@@ -4328,7 +4464,11 @@
     "translationHelp": "This permanently removes this saved language version. Other language versions remain available.",
     "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
     "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
-    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
+    "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged.",
+    "galleryRevokeScenario": "アクセス権取り消しの例を開く",
+    "galleryRevoke": "アクセス権の取り消しを再現",
+    "galleryRevoked": "アクセス権が取り消されました。確認内容は非表示です。",
+    "galleryRestore": "例のアクセス権を復元"
   },
   "accountInvitation": {
     "enterCode": "メールで届いた招待コードを入力",
@@ -4436,13 +4576,28 @@
     "securityTitle": "重要なメールは引き続き届きます",
     "securityHelp": "セキュリティ、認証、アカウント復旧メールには影響しません。すでに送信中のメールは届く場合があります。"
   },
+  "participantRecovery": {
+    "loading": "記録を読み込み中…",
+    "loadFailed": "記録を読み込めませんでした",
+    "refreshFailed": "記録を更新できませんでした。続行するには再試行してください。",
+    "accessDenied": "この記録にはアクセスできません",
+    "accessDeniedHelp": "アクセス権を確認できませんでした。再試行するか、権限のあるアカウントでログインしてください。",
+    "retry": "再試行"
+  },
+  "managementRecovery": {
+    "loading": "{section}を読み込み中…",
+    "loadFailed": "{section}を読み込めませんでした。",
+    "refreshFailed": "{section}を更新できませんでした。前回読み込んだ内容を表示しています。",
+    "retry": "{section}を再読み込み",
+    "denied": "{section}へのアクセス権がなくなりました。"
+  },
   "requestInvalidity": {
     "badge": "無効な申請",
     "filterLabel": "申請の有効性",
     "filter": {
-      "all": "すべての申請",
-      "valid": "無効マークなし",
-      "invalid": "無効な申請"
+      "all": "すべての記録",
+      "valid": "有効な記録",
+      "invalid": "無効な記録"
     },
     "flag": "無効としてマーク",
     "review": "無効マークを確認",
@@ -4470,6 +4625,687 @@
     "reload": "申請を再読み込み",
     "reloadHelp": "入力した理由と元のバージョンは保持されています。この下書きを最新の申請に置き換えるには、明示的に再読み込みしてください。"
   },
+  "rosterSearch": {
+    "label": "利用者を検索",
+    "placeholder": "氏名、ユーザー名、メールアドレス",
+    "clear": "検索をクリア",
+    "noMatches": "検索条件に一致する利用者はいません。",
+    "results": "{total}人中{count}人"
+  },
+  "saveBoundary": {
+    "blur": "この欄から移動すると変更が保存されます。",
+    "form": "保存はこのフォームにのみ適用されます。",
+    "layout": "保存はこのレイアウトにのみ適用されます。"
+  },
+  "programCalendar": {
+    "title": "チュータリング休止日",
+    "informational": "プログラムの日付と理由を知らせる案内です。出欠の記録を制限したり、異議申立てに使う登校日カレンダーを変更したりするものではありません。",
+    "refresh": "更新",
+    "reload": "下書きを再読み込み",
+    "loadFailed": "チュータリングのお知らせを読み込めませんでした。",
+    "loading": "チュータリングのお知らせを読み込み中…",
+    "add": "日付を追加",
+    "date": "日付",
+    "reason": "理由",
+    "actions": "操作",
+    "edit": "お知らせを編集",
+    "remove": "お知らせを削除",
+    "removeTitle": "チュータリングのお知らせを削除",
+    "removeHelp": "この案内を削除します。出欠と登校日のルールは変わりません。",
+    "empty": "チュータリングのお知らせはありません。",
+    "save": "お知らせを保存",
+    "saving": "保存中…",
+    "saved": "お知らせを保存しました。",
+    "saveFailed": "お知らせを保存できませんでした。",
+    "refreshFailed": "お知らせを保存しましたが、最新の一覧を読み込めませんでした。再保存せずに更新して同期してください。",
+    "details": "詳細を見る"
+  },
+  "roomOrder": {
+    "title": "教室の表示順",
+    "help": "教室の矢印で順序の下書きを作成し、下で順序全体を保存または申請してください。見回りの順序は別に管理されます。",
+    "catalogChanged": "教室一覧が変更されました。下書きは保持されています。さらに順序を変更する前に再読み込みしてください。",
+    "room": "教室",
+    "actions": "操作",
+    "up": "上へ",
+    "down": "下へ",
+    "moveUpName": "{name}を上へ移動",
+    "moveDownName": "{name}を下へ移動",
+    "save": "順序を保存",
+    "saving": "保存中…",
+    "saved": "教室の順序を保存しました。",
+    "reload": "順序を再読み込み",
+    "refresh": "更新",
+    "loadFailed": "最新の教室順序を読み込めませんでした。下書きは保持されています。",
+    "refreshFailed": "順序を保存しましたが、同期できませんでした。更新すると再送信せずに保存済みの順序を読み込みます。",
+    "request": "教室の表示順変更を申請",
+    "open": "教室の順序を変更"
+  },
+  "roomSchedule": {
+    "rooms": "表示する教室",
+    "allRooms": "すべての教室",
+    "clearRooms": "選択を解除",
+    "allDetails": "時間割の詳細",
+    "occupied": "使用中",
+    "noSlot": "—",
+    "legend": "灰色 = 使用中 · × = 使用不可 · 利用可能 = 公開済みの時間枠に割り当てなし。",
+    "combined": "統合表示",
+    "individual": "教室別の時間割",
+    "noSelection": "教室が選択されていません。教室を選ぶか、すべての教室を選択してください。",
+    "time": "時間",
+    "detailFilters": "時間割詳細の絞り込み",
+    "day": "曜日",
+    "allDays": "すべての曜日",
+    "allSlots": "すべての時間帯",
+    "room": "教室",
+    "emptyDetails": "条件に一致する記録がありません。",
+    "noRoom": "教室未割り当て",
+    "unconfirmed": "時間割の確認待ち",
+    "outsideCatalog": "有効な時間帯一覧の対象外",
+    "allTimes": "すべての時間"
+  },
+  "nameFields": {
+    "title": "氏名フィールドの要件",
+    "help": "アカウント種別ごとに登録とプロフィールのフィールドを設定します。既存アカウントには現在の役割のルールが適用されます。非表示の氏名は表示名に含まれませんが、権限のある担当者は保存済みの値を確認・編集できます。表示できる氏名がない場合はユーザー名を使用します。",
+    "accountType": "アカウント種別",
+    "summary": "要件",
+    "actions": "操作",
+    "requiredCount": "必須 {count} 項目",
+    "hiddenCount": "非表示 {count} 項目",
+    "configure": "設定",
+    "loading": "氏名の要件を読み込み中…",
+    "loadFailed": "氏名の要件を読み込めませんでした。下書きは保持されています。",
+    "refresh": "更新",
+    "reload": "下書きを再読み込み",
+    "save": "要件を保存",
+    "saving": "保存中…",
+    "saved": "氏名の要件を保存しました。",
+    "refreshFailed": "要件を保存しましたが、同期できませんでした。更新すると再保存せずに保存済みのルールを読み込みます。",
+    "hiddenProfileHelp": "ここではユーザー名を表示します。保存済みの氏名は保持され、権限のあるスタッフが確認できます。"
+  },
+  "participantNames": {
+    "unnamed": "氏名未入力"
+  },
+  "signupEditing": {
+    "title": "申込内容を編集",
+    "edit": "申込内容を編集",
+    "requestLocal": "この内容は今回の指導申込に属します。編集しても最初の申込順位は維持され、アカウントのプロフィールや認証情報は変わりません。",
+    "emailFixed": "ログイン用メールはアカウント設定で変更してください。この申込には最初に確認したメールアドレスが残ります。",
+    "evidenceFixed": "最初の署名と同意した規約は提出記録として保持されます。",
+    "policyRevision": "最初の規約版",
+    "notProvided": "未入力",
+    "assignedLocked": "この科目は割当済みです。変更または解除できるのは責任者のみです。",
+    "assignmentUnknown": "割当済み科目を特定できません。責任者が解決するまで科目選択は固定されますが、他の回答は保存できます。",
+    "availabilityHelp": "申込内容の編集で空き時間を更新してください。予定済みの指導は担当者と調整してください。空き時間の変更では割当は解除されません。",
+    "loading": "申込内容を読み込み中…",
+    "loadFailed": "申込内容または現在のフォーム設定を読み込めませんでした。下書きは保持されています。",
+    "retry": "再読み込み",
+    "denied": "この申込にアクセスする権限がありません。",
+    "readOnly": "この申込は終了済み、または終了した期間のものです。提出記録は閲覧のみ可能です。",
+    "changed": "編集を開いた後に申込が変更されました。下書きは保持されています。最新の保存内容を読み込んでから再試行してください。",
+    "save": "申込内容を保存",
+    "saving": "保存中…",
+    "saveFailed": "回答を保存できませんでした。下書きは保持されています。",
+    "saved": "保存しました。続けて編集できます。",
+    "savedRefresh": "回答は保存済みですが、最新の表示を取得できませんでした。再更新してください。",
+    "refreshFailed": "保存済みの申込を再取得できませんでした。再更新しても保存操作は繰り返されません。",
+    "retryRefresh": "再更新",
+    "reload": "保存内容を再読み込み",
+    "reloadHelp": "最新の申込とフォーム設定の読み込みが成功した場合のみ、下書きが置き換わります。",
+    "reloadFailed": "最新の回答を読み込めませんでした。下書きとその版は保持されています。",
+    "submissionHeld": "送信状況を確認中です。保存済みの可能性がある申込を復旧する間は、この回答を保持してください。再試行は同じ送信として扱われます。",
+    "recoverSubmission": "送信を復旧・再試行",
+    "intentVerification": "申込に使ったメールアドレスと、そのメールに届いたコードを入力してください。申込の詳細はメール確認後に表示されます。",
+    "headEdit": "申込変更を確認",
+    "headConsequences": "新しい回答を確認してください。割当済み科目を外すと、その科目の現在の割当のみ解除されます。過去の指導記録と最初の提出証拠は保持されます。",
+    "queued": "変更案は責任者の承認待ちです。",
+    "returnToEditing": "受付状況を確認して編集",
+    "savedMailbox": "{email} に確認メールを送りました。今回の送信を確認して続行してください。",
+    "savedNoMail": "{email} の申込は保存済みですが、確認メールを届けられませんでした。配信可能になったら再送してください。",
+    "replacementHelp": "メール確認とアカウントの確認後、最新の送信内容が現在の申込回答を置き換えます。最初の申込順位と現在の割当は維持されます。割当済み科目を変更できるのは責任者のみです。",
+    "replacementReview": "提出した指導申込を確認",
+    "originalPriority": "最初の申込順位を維持：{date}",
+    "submittedName": "提出した表示名",
+    "submittedFirstName": "提出した名",
+    "submittedLastName": "提出した姓",
+    "submittedPreferredName": "提出した呼び名",
+    "submittedAlternativeNames": "提出した別名",
+    "submittedLatinName": "提出したラテン文字の氏名",
+    "submittedConsent": "提出した同意記録と署名"
+  },
+  "signupAppeal": {
+    "title": "確認対象の申込を再審査",
+    "help": "正当な申込の場合、受付対象として維持すべき理由を説明してください。異議申立ての審査中は割当が停止されます。",
+    "reason": "この申込を受け付けるべき理由",
+    "submit": "異議申立てを送信",
+    "submitting": "送信中…",
+    "loading": "審査情報を読み込み中…",
+    "loadFailed": "審査情報を読み込めませんでした。",
+    "retry": "再読み込み",
+    "invalid": "この審査リンクは無効または期限切れです。ログインするか運営チームにお問い合わせください。",
+    "closed": "この申込または申込期間の異議申立て受付は終了しています。",
+    "pending": "異議申立ては審査待ちです。割当は引き続き停止中です。",
+    "accepted": "異議申立てが認められました。",
+    "rejected": "異議申立ては却下されました。申込は終了し、待機順位は失われます。新たに申し込むことはできます。",
+    "submitted": "異議申立てを送信しました。審査中は割当が停止されます。",
+    "saveFailed": "異議申立てを送信できませんでした。理由は保持されています。",
+    "staffTitle": "申込の異議申立て",
+    "approve": "異議申立てを承認",
+    "reject": "異議申立てを却下して終了",
+    "approveConsequences": "異議申立てを承認し、無効フラグを解除します。割当を再開できます。",
+    "rejectConsequences": "異議申立てを却下し、申込を終了して有効な待機順位を削除します。提出記録と履歴は保持します。",
+    "unassign": "割当を解除",
+    "unassignConsequences": "選択した現在の割当から生徒を解除します。過去の指導と出席記録は変更されません。",
+    "proposeUnassign": "割当解除を提案",
+    "changed": "入力中に審査情報が変更されました。理由は保持されています。再読み込み後に再試行してください。",
+    "reload": "審査を再読み込み",
+    "rejectedTitle": "無効な申込は終了しました"
+  },
+  "accountDeletion": {
+    "intro": "Permanently delete the login for {name}? Review the account and its records before confirming your password.",
+    "loading": "Loading deletion review…",
+    "readFailed": "Could not refresh the deletion review. The displayed records have not been confirmed again.",
+    "reload": "Reload deletion review",
+    "consequences": "The login, sessions and recovery access are removed. Direct tutor and tutee roster records and their session history remain; original messages, policy signatures and audit actors remain. Login-local records listed below are removed. Authored content is detached, and outstanding account-bound invitation proofs become invalid.",
+    "removed": "Records removed",
+    "retained": "Records retained",
+    "noRecords": "No records in this group.",
+    "fullCounts": "View all record counts",
+    "blocked": "Resolve these blockers first",
+    "changed": "The account or its records changed. Reload and review the current consequences before confirming.",
+    "saved": "The login for {name} was deleted.",
+    "savedRefreshFailed": "The deletion was saved, but the account list could not refresh. Retry the read; do not delete again.",
+    "retryList": "Retry account list refresh",
+    "blockers": {
+      "self": "You cannot delete your own login.",
+      "head": "Transfer leadership before deleting the Head login.",
+      "combined": "Combined identities and their ownership must remain. Update the surviving account instead.",
+      "tutorHistory": "This login owns retained tutor history. Review historical ownership before deleting it.",
+      "studentHistory": "This login owns retained tutee records. Review historical ownership before deletion, or use Combine accounts instead to retire a duplicate while retaining access.",
+      "intake": "Complete or withdraw this login’s unconfirmed tutee intake first."
+    },
+    "counts": {
+      "emails": "Login email addresses",
+      "credentials": "Recovery, verification and action grants",
+      "notifications": "Notifications",
+      "deliveries": "Email delivery records",
+      "crewRequests": "Crew requests",
+      "appeals": "Account appeals",
+      "acknowledgements": "Announcement acknowledgements",
+      "academicProfiles": "Current academic profile",
+      "academics": "Academic confirmations",
+      "currentDepartures": "Current school departure",
+      "departures": "Departure events",
+      "patrols": "Patrol records",
+      "observations": "Patrol observations",
+      "creditWindows": "Patrol credit windows",
+      "tutors": "Tutor profiles",
+      "students": "Tutee profiles",
+      "messages": "Original messages",
+      "policies": "Policy acceptance records",
+      "audits": "Original actor audits",
+      "approvals": "Approval decisions and requests",
+      "studentRequests": "Tutee review requests",
+      "quarterBlocks": "Period withdrawal blocks"
+    }
+  },
+  "notificationEvents": {
+    "primary_changed": {
+      "title": "Primary Email Changed",
+      "body": "Your primary account email changed. Review your account and contact private support if you do not recognize this activity.",
+      "action": "Review your account"
+    },
+    "secondary_added": {
+      "title": "Secondary Email Verified",
+      "body": "A secondary email was verified on your account. Review your email addresses.",
+      "action": "Review your account"
+    },
+    "secondary_removed": {
+      "title": "Secondary Email Removed",
+      "body": "A secondary email was removed from your account. Review your email addresses.",
+      "action": "Review your account"
+    },
+    "security_changed": {
+      "title": "Account Security Changed",
+      "body": "Your password or two-step verification settings changed. Contact private support if you do not recognize this activity.",
+      "action": "Review your account"
+    },
+    "information_changed": {
+      "title": "Account Information Updated",
+      "body": "Your account information or access changed. Sign in to review your current account.",
+      "action": "Review your account"
+    },
+    "message_received": {
+      "title": "New Private Message",
+      "body": "You have a new private message. Open your inbox to read it and reply.",
+      "action": "Open your inbox"
+    },
+    "program_update": {
+      "title": "Program Update",
+      "body": "You have a program update. Sign in to review the notice and any next steps.",
+      "action": "View program update"
+    },
+    "tutor_application_pending": {
+      "title": "New Pending Tutor Request",
+      "body": "You have a new pending tutor application. Review the application before arranging an interview or making a decision.",
+      "action": "Review tutor applications"
+    },
+    "qualification_requested": {
+      "title": "Additional Qualification Request",
+      "body": "A tutor requested an additional subject or qualification level. Review the request through the qualification workflow.",
+      "action": "Review qualification request"
+    },
+    "qualification_approved": {
+      "title": "Qualification Request Approved",
+      "body": "Your additional qualification request was approved. Review the updated qualifications on your dashboard.",
+      "action": "View qualifications"
+    },
+    "qualification_rejected": {
+      "title": "Qualification Request Declined",
+      "body": "Your additional qualification request was declined. Review the decision in your request history.",
+      "action": "Review qualification decision"
+    },
+    "crew_application_pending": {
+      "title": "New Crew Application Awaiting Head Review",
+      "body": "A new crew application is awaiting the program Head's review. Open the crew workflow to review it.",
+      "action": "Review crew applications"
+    },
+    "viewer_registered": {
+      "title": "New Viewer Account",
+      "body": "A new viewer account was registered. Review its read-only access in Users & Roles.",
+      "action": "Review users and roles"
+    },
+    "tutor_setup_needed": {
+      "title": "Tutor Account Setup Needed",
+      "body": "A tutor was added without a login account. Review the account setup workflow and send the authorized setup invitation.",
+      "action": "Review account setup"
+    },
+    "interview_panel_assigned": {
+      "title": "Interview Panel Assignment",
+      "body": "You were assigned to an interview panel. Review the application and panel duties on your dashboard; a panel assignment alone does not schedule an interview.",
+      "action": "View interview panel"
+    },
+    "interview_scheduled": {
+      "title": "New Interview Scheduled",
+      "body": "You have a new interview scheduled. Review the recorded time and interview details on your dashboard. If no time is shown here, check the dashboard.",
+      "action": "View scheduled interview"
+    },
+    "management_review_pending": {
+      "title": "Management Change Awaiting Review",
+      "body": "A management change proposal is awaiting approval. Review its recorded evidence before applying or declining it; the proposed change has not been applied.",
+      "action": "Review management change"
+    },
+    "management_head_review_pending": {
+      "title": "Management Change Awaiting Head Review",
+      "body": "A management change proposal requires the program Head's approval. Review its recorded evidence; the proposed change has not been applied.",
+      "action": "Review management change"
+    },
+    "management_approved": {
+      "title": "Management Change Approved",
+      "body": "Your management change proposal was approved and applied. Review the recorded decision and resulting state.",
+      "action": "Review decision"
+    },
+    "management_rejected": {
+      "title": "Management Change Declined",
+      "body": "Your management change proposal was declined. The proposed change was not applied; review the recorded decision.",
+      "action": "Review decision"
+    },
+    "translation_review_pending": {
+      "title": "Translation Awaiting Review",
+      "body": "A translation draft is awaiting review. Open localization review to inspect the draft and decide whether to publish it.",
+      "action": "Review translation"
+    },
+    "announcement_published": {
+      "title": "New Program Announcement",
+      "body": "A program announcement was published for you. Open the announcement to read it and acknowledge it where required.",
+      "action": "Read announcement"
+    },
+    "tutor_optout_requested": {
+      "title": "Tutor Opt-Out Request Awaiting Review",
+      "body": "A tutor requested to opt out. Review the request after the required cooldown; the request alone does not change participation.",
+      "action": "Review tutor requests"
+    },
+    "tutor_reentry_requested": {
+      "title": "Tutor Reentry Request Awaiting Review",
+      "body": "A tutor requested to rejoin. Review the request before restoring active participation.",
+      "action": "Review tutor requests"
+    },
+    "crew_optout_requested": {
+      "title": "Crew Opt-Out Request Awaiting Head Review",
+      "body": "A crew member requested to opt out. The program Head can review the request after the required cooldown.",
+      "action": "Review crew request"
+    },
+    "crew_reentry_requested": {
+      "title": "Crew Reentry Request Awaiting Head Review",
+      "body": "A crew member requested to rejoin. The program Head must review the request before participation is restored.",
+      "action": "Review crew request"
+    },
+    "membership_optout_approved": {
+      "title": "Opt-Out Approved",
+      "body": "Your opt-out request was approved. Review your current participation status and retained records.",
+      "action": "View participation"
+    },
+    "membership_reentry_approved": {
+      "title": "Reentry Approved",
+      "body": "Your reentry request was approved and your participation is active again. Review your workspace for current responsibilities.",
+      "action": "Open your workspace"
+    },
+    "membership_declined": {
+      "title": "Participation Request Declined",
+      "body": "Your participation change request was declined. Review the decision in your workspace.",
+      "action": "Review participation decision"
+    },
+    "tutee_optout_requested": {
+      "title": "Tutee Opt-Out Awaiting Review",
+      "body": "A tutor relayed a tutee opt-out request. Review it during the recorded cooldown; the workflow may apply it automatically when that period ends.",
+      "action": "Review tutee requests"
+    },
+    "tutee_optout_cancelled": {
+      "title": "Tutee Opt-Out Cancelled",
+      "body": "Management cancelled a tutee opt-out request. Review the current assignment and request state on your dashboard.",
+      "action": "Review assignment"
+    },
+    "tutee_removed": {
+      "title": "Tutee Removed from Current Roster",
+      "body": "A tutee was removed from the current roster. Review the current assignment and retained history in your workspace.",
+      "action": "Review roster update"
+    },
+    "attendance_cards_pending": {
+      "title": "Discipline Cards Awaiting Review",
+      "body": "An attendance survey submitted {count} discipline card request(s). Review each request before issuing a card.",
+      "action": "Review discipline cards",
+      "bodyWithoutCount": "An attendance survey submitted discipline card requests. Review each request before issuing a card."
+    },
+    "attendance_room_reported": {
+      "title": "Allocated-Room Attendance Reported",
+      "body": "Attendance was reported in an allocated room. Open attendance review to inspect the recorded submission.",
+      "action": "Review attendance"
+    },
+    "attendance_review_warning": {
+      "title": "Attendance Warning Recorded",
+      "body": "An attendance review recorded a warning. Review the recorded decision on your dashboard.",
+      "action": "Review attendance decision"
+    },
+    "attendance_review_penalty": {
+      "title": "Attendance Penalty Applied",
+      "body": "An attendance review applied a service-hour penalty. Review the recorded decision and updated service hours.",
+      "action": "Review attendance decision"
+    },
+    "attendance_review_escalated": {
+      "title": "Attendance Flag Escalated for Review",
+      "body": "An attendance flag was escalated for further review. Review the recorded state; this notice does not itself confirm a penalty.",
+      "action": "Review attendance decision"
+    },
+    "attendance_history_updated": {
+      "title": "Historical Attendance Updated",
+      "body": "A catalogue change updated {count} teaching block(s). Related attendance flags and deductions were reconsidered; review the audit evidence.",
+      "action": "Review audit evidence",
+      "bodyWithoutCount": "A catalogue change updated historical teaching blocks. Related attendance flags and deductions were reconsidered; review the audit evidence."
+    },
+    "account_suspended": {
+      "title": "Account Suspended",
+      "body": "Your account access was suspended pending review. Open the suspension page to review the available appeal steps.",
+      "action": "Review suspension"
+    },
+    "account_reinstated": {
+      "title": "Account Reinstated",
+      "body": "Your account access was restored. Sign in to review your current permissions and workspace.",
+      "action": "Open your workspace"
+    },
+    "account_appeal_requested": {
+      "title": "Account Appeal Awaiting Review",
+      "body": "A suspended account submitted an appeal. Authorized management can review the appeal in Users & Roles.",
+      "action": "Review account appeal"
+    },
+    "account_appeal_approved": {
+      "title": "Account Appeal Approved",
+      "body": "Your account appeal was approved and account access was restored. Sign in to review your current access.",
+      "action": "Open your workspace"
+    },
+    "account_appeal_declined": {
+      "title": "Account Appeal Declined",
+      "body": "Your account appeal was declined and the account remains suspended. Review the available support steps.",
+      "action": "Review appeal decision"
+    },
+    "record_corrected": {
+      "title": "Management Record Correction Applied",
+      "body": "Management applied a record correction. Review the original and corrected evidence in the audit log.",
+      "action": "Review audit evidence"
+    },
+    "tutee_feedback_received": {
+      "title": "New Tutee Feedback",
+      "body": "A tutee submitted session feedback. Authorized management can review the feedback in Student Support.",
+      "action": "Review feedback"
+    },
+    "tutee_card_appeal": {
+      "title": "Tutee Card Appeal Awaiting Review",
+      "body": "A tutee appealed a discipline card. Review the appeal and recorded card evidence in Student Support.",
+      "action": "Review card appeal"
+    },
+    "tutee_appeal_reviewed": {
+      "title": "Tutee Appeal Reviewed",
+      "body": "Your discipline card appeal was reviewed. Open your student workspace to see the decision and current standing.",
+      "action": "Review appeal decision"
+    },
+    "student_assignment_updated": {
+      "title": "Tutoring Assignment Updated",
+      "body": "A tutoring assignment was updated. Review the recurring weekly schedule and its confirmation state in your workspace; this notice does not create a dated session.",
+      "action": "Review tutoring assignment"
+    },
+    "student_availability_updated": {
+      "title": "Tutee Availability Updated",
+      "body": "A tutee updated their available time slots. Review the current availability before adjusting an assignment.",
+      "action": "Review availability"
+    },
+    "student_request_recalled": {
+      "title": "Signup Request Recalled",
+      "body": "A signup request was recalled and closed. Review its retained history; a new submission is required to request participation again.",
+      "action": "Review request history"
+    },
+    "student_request_expired": {
+      "title": "Signup Verification Overdue",
+      "body": "A signup request closed because verification was not completed by its deadline. A new request is required; review the retained request history.",
+      "action": "Review request history"
+    },
+    "student_withdrawal_pending": {
+      "title": "Quarter Withdrawal Awaiting Review",
+      "body": "A request to withdraw for the current quarter is awaiting review. Participation continues until the withdrawal is approved.",
+      "action": "Review withdrawal request"
+    },
+    "student_withdrawal_approved": {
+      "title": "Quarter Withdrawal Approved",
+      "body": "A quarter withdrawal was approved and the request closed. Review the retained history; the current quarter cannot be reactivated through this request.",
+      "action": "Review withdrawal decision"
+    },
+    "student_withdrawal_declined": {
+      "title": "Quarter Withdrawal Declined",
+      "body": "A quarter withdrawal request was declined. Current participation continues; review the recorded decision.",
+      "action": "Review withdrawal decision"
+    },
+    "student_schedule_review_pending": {
+      "title": "Tutor Schedule Conflict Awaiting Review",
+      "body": "A tutor reported a schedule conflict for an assignment. Review the request before changing the current assignment.",
+      "action": "Review schedule conflict"
+    },
+    "student_schedule_review_approved": {
+      "title": "Schedule Conflict Approved; Rematching Needed",
+      "body": "A schedule conflict request was approved and the affected assignment was removed. Review the request to arrange a new match.",
+      "action": "Review rematching request"
+    },
+    "student_schedule_review_declined": {
+      "title": "Schedule Conflict Declined",
+      "body": "A schedule conflict request was declined. The current assignment continues; review the recorded decision.",
+      "action": "Review schedule decision"
+    },
+    "tutor_reactivated": {
+      "title": "Tutor Participation Reactivated",
+      "body": "A tutor became available for the current term. Review the current participation and assignment state in the tutor roster.",
+      "action": "Review tutor roster"
+    },
+    "tutor_opted_out": {
+      "title": "Tutor Opted Out for This Term",
+      "body": "A tutor opted out for the current term. Review the current participation and assignment state in the tutor roster.",
+      "action": "Review tutor roster"
+    },
+    "meeting_absence_excused": {
+      "title": "Tutor Meeting Absence Excused",
+      "body": "A tutor recorded an excuse for an upcoming meeting absence. Review the meeting's attendance state; the excuse text is available only in the authorized workflow.",
+      "action": "Review meeting attendance"
+    },
+    "school_departure_updated": {
+      "title": "School Participation Status Updated",
+      "body": "Your school departure or return status was updated. Review the recorded state and any participation steps in your account workspace.",
+      "action": "Review school participation"
+    },
+    "request_invalidity_appeal_pending": {
+      "title": "Invalid Request Appeal Awaiting Review",
+      "body": "申請者が申請の無効フラグに異議を申し立てました。リンク先の申請を開いて審査してください。異議の提出だけではフラグは解除されません。",
+      "action": "Review invalid request appeal"
+    },
+    "student_signup_rejected": {
+      "title": "無効な申込は終了しました",
+      "body": "異議申立ては却下されました。申込は終了し、待機順位は失われます。新たに申し込むことはできます。",
+      "action": "Review request history"
+    }
+  },
+  "requestAppeal": {
+    "title": "Appeal an Invalid Request",
+    "description": "Explain why the request should be reviewed. Submitting an appeal does not clear its invalid flag or approve participation.",
+    "loading": "Checking the appeal link…",
+    "error": "The request could not be checked.",
+    "retry": "Retry status",
+    "invalid": "This appeal link is unavailable.",
+    "invalidHelp": "It may have expired or the flag may have changed. Contact the program through its verified contact details.",
+    "tutor": "Tutor application",
+    "tutee": "Tutee signup request",
+    "submittedTime": "Submitted: {time}",
+    "unknownTime": "Original submission time unavailable",
+    "body": "Your appeal",
+    "bodyHelp": "Use 10–2,000 characters. Include only information needed to review this request; avoid unnecessary private information about yourself or others.",
+    "submit": "Submit appeal",
+    "pending": "Submitting appeal…",
+    "failed": "The appeal could not be submitted. Your text is still here; retry this same appeal.",
+    "submitted": "Appeal submitted",
+    "submittedHelp": "Management will review the appeal. The request remains flagged invalid until an authorized clear decision is applied.",
+    "readFailed": "The appeal was accepted, but its current status could not be refreshed. Retry status only; do not submit again.",
+    "existing": "An appeal has already been recorded for this flag. Its original text cannot be replaced.",
+    "statusPending": "Awaiting management review",
+    "statusDeclined": "Appeal declined; the invalid flag remains",
+    "statusCleared": "Invalid flag cleared",
+    "contact": "Contact the program",
+    "contactHelp": "Use the verified program contact details for questions or an unavailable link."
+  },
+  "requestEmail": {
+    "title": "Submitter Email Delivery",
+    "none": "No delivery receipt exists for this request. A pending proposal does not send email.",
+    "PENDING": "Queued for delivery",
+    "retrying": "Delivery failed; waiting to retry",
+    "FAILED": "Delivery failed; retry limit reached",
+    "SENT": "Accepted by the email transport",
+    "BLOCKED": "Unavailable: submitted email is missing or invalid",
+    "SUPERSEDED": "Replaced by a newer request status",
+    "SKIPPED": "Skipped",
+    "CANCELLED": "Cancelled",
+    "SENDING": "Email being sent",
+    "unknown": "Current email status is unavailable.",
+    "retryRead": "Refresh email status",
+    "retrySend": "Retry email delivery",
+    "queued": "Email queued for retry. This does not confirm delivery.",
+    "queuedReadFailed": "Retry was queued, but status refresh failed. Refresh status before attempting another retry.",
+    "retryUnchanged": "No email was requeued. Review the refreshed delivery status.",
+    "staleAppealDraft": "This decision draft belongs to an earlier appeal or review version. Your reason is retained. Reload the current appeal explicitly before making a new decision.",
+    "reloadAppeal": "Reload current appeal",
+    "failed": "The email retry could not be queued.",
+    "sendLimit": "The mail service accepting an email does not guarantee inbox delivery. Email already being sent cannot be recalled. A retry after an interrupted send can occasionally produce a duplicate.",
+    "denied": "You do not have access to this delivery or appeal evidence.",
+    "appeal": "Submitter appeal",
+    "appealPending": "Awaiting review. Clearing the invalid flag approves this appeal; a declined appeal keeps the flag.",
+    "appealDeclined": "Appeal declined",
+    "appealCleared": "Resolved by clearing the invalid flag",
+    "decisionReason": "Reason for declining the appeal",
+    "decline": "Decline appeal",
+    "declined": "Appeal declined. The invalid flag remains.",
+    "declineFailed": "The appeal decision could not be saved. Your reason is retained.",
+    "reviewReadFailed": "The decision was saved, but status refresh failed. Refresh status without repeating the decision.",
+    "reasonDisclosure": "This is a reason for the submitter. Keep it respectful and avoid unnecessary private information. The full reason is emailed only when request-specific mailbox verification exists; other recipients receive a masked notice.",
+    "historicalSurveyAppeal": "過去の異議申立て（読み取り専用）。現在の申立ては申込審査で確認します。"
+  },
+  "pairingGroups": {
+    "manage": "Combine / split pairings",
+    "title": "Your Pairing Groups",
+    "help": "Group two to six of your assignments. Choose one shared recurring time slot; all members use the primary assignment’s room. Review the change before saving.",
+    "loading": "Loading your pairing groups…",
+    "loadError": "Your pairing groups could not be loaded.",
+    "retry": "Retry",
+    "saved": "Pairing groups saved. Your previous attendance is unchanged.",
+    "refreshFailed": "Your groups were saved, but the updated catalogue could not be loaded. Retry loading without saving again.",
+    "review": "Review group changes",
+    "save": "Save pairing groups",
+    "back": "Back to editing",
+    "reload": "Reload saved groups",
+    "add": "Add a group",
+    "split": "Split this group",
+    "groupNumber": "Group {number}",
+    "members": "Assignments (2–6)",
+    "primary": "Primary assignment / room",
+    "choosePrimary": "Choose a primary assignment",
+    "schedule": "Shared recurring time slot",
+    "chooseSlot": "Choose a time slot",
+    "sharedRoom": "Shared room: {room}",
+    "noRoom": "No room assigned",
+    "unnamed": "Unnamed participant",
+    "released": "These assignments will return to Awaiting schedule: {subjects}.",
+    "consequences": "Saving updates the future schedule and room for every selected member together. It does not submit or rewrite attendance. Split assignments need a separate schedule.",
+    "noGroups": "All assignments will be listed separately.",
+    "splitHelp": "Remove members by unticking them, or split the whole group. Keep at least two members in each remaining group. Assignments that leave a group return to Awaiting schedule.",
+    "catalogueHelp": "Saved groups share a recurring schedule and remain flexible after attendance.",
+    "combined": "Combined pairing",
+    "combinedRoster": "Combined student roster",
+    "memberDetails": "Subject assignments and student actions",
+    "record": "Record group attendance",
+    "individualAttendance": "Record one subject separately",
+    "accessDenied": "Your tutoring access changed. Reload to verify access before editing groups."
+  },
+  "tutorWorkload": {
+    "title": "Assigned Session Blocks",
+    "help": "Approximate workload for the current quarter if your assigned tutees work out. Shared confirmed times count once; assignments awaiting a schedule count separately. Your preference is advisory and does not change existing assignments.",
+    "editPreference": "Preferred Sessions",
+    "preference": "Preferred Sessions",
+    "unset": "No preference",
+    "value": "{count}",
+    "current": "{count, plural, one {# assigned block} other {# assigned blocks}}",
+    "savedPreference": "Preferred sessions: {count}",
+    "zeroHelp": "Choose 0–4 sessions. New tutors start at 1. Zero means no sessions preferred; Clear preference leaves it unset.",
+    "save": "Save preference",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "clear": "Clear preference",
+    "saved": "Preference saved.",
+    "reload": "Reload saved preference",
+    "retry": "Retry refresh",
+    "checking": "Checking…",
+    "loading": "Loading assigned-block workload…",
+    "unavailable": "Workload unavailable",
+    "loadFailed": "Could not refresh workload. Assignment remains available under the existing rules.",
+    "denied": "You no longer have access to this workload preference.",
+    "stale": "Last known: {count, plural, one {# assigned block} other {# assigned blocks}}; refresh needed",
+    "rechecking": "{count, plural, one {# assigned block} other {# assigned blocks}}; rechecking…",
+    "inactive": "Inactive tutors have a locked preferred maximum of 0. It stays at 0 on reactivation until you change it.",
+    "readOnly": "This account currently has read-only access to its assignment preference.",
+    "reached": "Preferred maximum reached ({count}/{maximum}). Staff may still assign under the existing rules.",
+    "over": "Current workload ({count}) exceeds the preferred maximum ({maximum}). Existing assignments remain in place.",
+    "proposedOver": "This assignment would result in {proposed} sessions, above the tutor’s preference of {maximum}. Continue with the assignment?",
+    "conflict": "The saved preference or participation state changed. Your draft is retained. Reload the saved preference before saving a new version.",
+    "saveFailed": "Could not save the preference. Your draft is retained; try Save again.",
+    "refreshFailed": "Preference saved, but synchronization failed. Retry refresh reads the saved value without saving again.",
+    "reloadFailed": "Could not reload the preference. Your draft and original version are retained.",
+    "countHeading": "Assigned Blocks",
+    "preferenceHeading": "Preferred Maximum",
+    "staffHelp": "Approximate current-quarter workload; shared confirmed times count once and awaiting-schedule assignments count separately.",
+    "confirmTitle": "Assign Above Preferred Sessions?",
+    "continue": "Continue",
+    "reviewAssignment": "Try assigning a session",
+    "compactHelp": "Numbers in parentheses show assigned sessions / preferred sessions. One number means no preference; ? means workload is unavailable or being refreshed."
+  },
   "roomAllocation": {
     "modeLabel": "Room assignment",
     "mode": {
@@ -4486,7 +5322,7 @@
     "all": "All pairings",
     "filter": "Room allocation filter",
     "retryAllocation": "Retry room allocation",
-    "retryHelp": "Retry this pairing only. Other reservations stay in place.",
+    "retryHelp": "Retry automatic allocation for this reservation. Members of an explicit combined group share the change; independent pairings are not moved.",
     "retryRefresh": "Retry refresh",
     "readFailed": "The latest schedule could not be loaded. Retained information may be out of date.",
     "savedRefreshFailed": "Saved. The room allocation is complete, but some information could not refresh. Retry refresh reads the result without saving again.",
@@ -4511,6 +5347,8 @@
     "loading": "Loading room assignments…",
     "refresh": "Refresh",
     "room": "Room",
-    "versionConflict": "The saved room assignment changed. Reload the pairing before saving again."
+    "versionConflict": "The saved room assignment changed. Reload the pairing before saving again.",
+    "groupScope": "Room-only changes affect the combined group: {subjects}.",
+    "needsRoomReservations": "Needs room ({count} reservations)"
   }
 }

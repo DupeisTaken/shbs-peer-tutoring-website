@@ -1,6 +1,7 @@
 // The imported sender is replaced with a stateless vi.fn in this suite.
 /* eslint-disable @typescript-eslint/unbound-method */
 import { afterAll, afterEach, beforeEach, expect, it, vi } from "vitest";
+import { randomUUID } from "node:crypto";
 import type { Session } from "next-auth";
 const sdk = vi.hoisted(() => ({ verify: vi.fn(), configs: vi.fn() }));
 vi.mock("@alicloud/captcha20230305", () => ({
@@ -203,6 +204,7 @@ it("enforces a newly enabled setting for old forms at every signup mutation, inc
     () => caller().tutee.resendSurvey({ email: viewer.email }),
     () =>
       caller().tutee.submitSurvey({
+        clientKey: randomUUID(),
         englishName: "Student",
         email: viewer.email,
         firstChoiceId: "math",
@@ -211,6 +213,7 @@ it("enforces a newly enabled setting for old forms at every signup mutation, inc
       }),
     () =>
       caller().tutee.requestSignup({
+        clientKey: randomUUID(),
         englishName: "Student",
         email: viewer.email,
         firstChoiceId: "math",

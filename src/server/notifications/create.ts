@@ -3,6 +3,24 @@
  */
 import { db } from "~/server/db";
 import type { TransactionDb } from "~/server/transactions";
+import {
+  notificationEvent,
+  type NotificationEvent,
+  type NotificationContext,
+} from "~/lib/notification-events";
+import enMessages from "../../../messages/en.json";
+
+/** Retain a readable English text snapshot for older readers without inferring event
+ * identity from free text. Current UI and mail localize the explicit event. */
+export function notificationData(
+  event: NotificationEvent,
+  context?: NotificationContext,
+) {
+  return {
+    title: enMessages.notificationEvents[event].title,
+    ...notificationEvent(event, context),
+  };
+}
 
 export interface NotificationInput {
   title: string;
@@ -10,6 +28,8 @@ export interface NotificationInput {
   link?: string;
   /** Explicitly suppress optional email copies for a workflow with an in-app-only contract. */
   inAppOnly?: boolean;
+  event?: NotificationEvent;
+  context?: NotificationContext;
 }
 
 /** Create the same notification for each of the given user ids (de-duplicated, skips empty). */
@@ -27,6 +47,7 @@ export async function notifyUsers(
       body: data.body ?? null,
       link: data.link ?? null,
       ...(data.inAppOnly ? { inAppOnly: true } : {}),
+      ...(data.event ? notificationEvent(data.event, data.context) : {}),
     })),
   });
 }

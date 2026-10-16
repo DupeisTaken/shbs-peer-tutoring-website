@@ -5,7 +5,9 @@ import { BrandingProvider } from "~/app/_components/branding-provider";
 import { resolveBranding } from "~/lib/branding-config";
 import { signupSettings } from "~/lib/signup-fields";
 import { TutorSignupForm } from "./tutor-signup-form";
+import type { NameFieldStates } from "~/lib/name-field-policy";
 const mocks = vi.hoisted(() => ({
+  nameStates: undefined as NameFieldStates | undefined,
   options: vi.fn(),
   policy: vi.fn(),
   submit: vi.fn(),
@@ -18,9 +20,12 @@ vi.mock("next-intl", () => ({
   useTimeZone: () => "Asia/Shanghai",
   useTranslations: () => (key: string) => key,
 }));
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(() => mocks.nameStates),
       profilePolicy: {
         useQuery: () => ({
           data: {
@@ -59,6 +64,7 @@ vi.mock("~/app/_components/policy-agreement", () => ({
   ),
 }));
 beforeEach(() => {
+  mocks.nameStates = undefined;
   vi.clearAllMocks();
   mocks.options.mockReturnValue({
     data: { subjects: [{ id: "math", name: "Math" }] },
@@ -81,6 +87,26 @@ it("shows a loading state instead of an empty subject picker", () => {
   expect(screen.getByRole("status").textContent).toContain("loading");
   expect(screen.queryByRole("combobox")).toBeNull();
 });
+it.each(["hidden", "optional"] as const)(
+  "omits orphan Latin guidance when only the other-language field is %s",
+  (alternativeNames) => {
+    mocks.nameStates = {
+      firstName: "hidden",
+      lastName: "hidden",
+      preferredName: "hidden",
+      alternativeNames,
+    };
+    const view = render(<TutorSignupForm />);
+    expect(screen.queryByText("nameHint")).toBeNull();
+    expect(view.container.querySelector('input[name="firstName"]')).toBeNull();
+    expect(
+      screen.getByLabelText(
+        "public.tutorSignup.fields.email signupFields.required",
+      ),
+    ).toBeTruthy();
+    expect(mocks.mutate).not.toHaveBeenCalled();
+  },
+);
 it("retries both prerequisite reads without submitting an application", () => {
   mocks.options.mockReturnValue({ isError: true, refetch: mocks.retryOptions });
   render(<TutorSignupForm />);

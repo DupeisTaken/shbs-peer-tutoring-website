@@ -39,6 +39,8 @@ export function StudentPolicyGate() {
     "/reset-password",
     // Email preferences must remain reachable without participation consent.
     "/unsubscribe",
+    // A narrow request appeal must not require account participation consent.
+    "/request-appeal",
     "/suspended",
     "/tutor-signup",
     "/crew-signup",
@@ -239,10 +241,28 @@ function PolicyReview({
       canConfirm={canAccept}
       busy={accept.isPending}
       error={accept.error?.message}
+      footerActions={
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={accept.isPending}
+          onClick={() => {
+            // Refresh preserves the original recovery semantics: renew the ticket,
+            // reset read/consent evidence, and reread the published revision.
+            accept.reset();
+            setAgreed(false);
+            setHasRead(false);
+            setAttempt((value) => value + 1);
+            void utils.studentWorkflow.policyStatus.invalidate();
+          }}
+        >
+          {t("policyRefresh")}
+        </button>
+      }
       onCancel={onDismiss}
       onConfirm={(ticket) => {
         if (!canAccept) return;
-        accept.mutate({
+        return accept.mutateAsync({
           slug,
           revision,
           ticket,
@@ -289,20 +309,6 @@ function PolicyReview({
           {t("policyAgree")}
         </span>
       </label>
-      <button
-        className="btn-secondary btn-sm"
-        disabled={accept.isPending}
-        onClick={() => {
-          // Retry renews even expired/preparation-failed tickets and rereads publication.
-          accept.reset();
-          setAgreed(false);
-          setHasRead(false);
-          setAttempt((value) => value + 1);
-          void utils.studentWorkflow.policyStatus.invalidate();
-        }}
-      >
-        {t("retry")}
-      </button>
     </TimedActionDialog>
   );
 }

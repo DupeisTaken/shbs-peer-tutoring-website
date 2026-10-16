@@ -1,5 +1,15 @@
+import { notificationEvent } from "~/lib/notification-events";
 import { optionalPersonNameFields } from "~/lib/person-name";
-import { assertRequestProcessable, lockApplicationReview } from "~/server/request-invalidity";
+import {
+  saveWorkloadPreference,
+  tutorWorkloads,
+  workloadPreferenceInput,
+} from "~/server/tutor-workload";
+import { programRoomOrder } from "~/server/room-order";
+import {
+  assertRequestProcessable,
+  lockApplicationReview,
+} from "~/server/request-invalidity";
 import { lockUsernameNamespace } from "~/server/auth/username";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { requireAcademicConfirmation } from "~/server/academics";
@@ -17,6 +27,8 @@ import { TRPCError } from "@trpc/server";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { programDateKey } from "~/lib/program-time";
 import { z } from "zod";
+import { roomReference } from "~/lib/room-reference";
+import { requireExistingRooms } from "~/server/room-references";
 import { announcementVisibility } from "~/lib/announcement-recipients";
 import { createHash } from "node:crypto";
 import { inTransaction, lockEntity } from "~/server/transactions";
@@ -48,7 +60,7 @@ import { standingFromCounts } from "~/lib/discipline";
 import { syncSessionFlag } from "~/server/crew/flags";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 import { lockPlannedRoomSchedule } from "~/server/room-bookings";
-import { allocateRoom, allocationData, assertRoomVersion, notifyRoomShortage } from "~/server/room-allocation";
+import { allocateAndPersistRoomUnit, assertRoomVersion, roomUnitInclude, roomUnitMembers } from "~/server/room-allocation";
 
 const TUTOR_STATUS = [
   "PRESENT",
@@ -75,6 +87,26 @@ const monthInput = z
   .optional();
 
 export const tutorRouter = createTRPCRouter({
+  workloadPreference: tutorProcedure.query(async ({ ctx }) => {
+    const workload = await tutorWorkloads(ctx.db, ctx.session.tutorId);
+    const own = workload.tutors[0];
+    return own
+      ? {
+          ...own,
+          canEdit: own.status === "ACTIVE" && ctx.portalAccess.canParticipate,
+        }
+      : null;
+  }),
+  setWorkloadPreference: activeTutorProcedure
+    .input(workloadPreferenceInput)
+    .mutation(({ ctx, input }) =>
+      saveWorkloadPreference(
+        ctx.db,
+        ctx.session.user.id,
+        ctx.session.tutorId,
+        input,
+      ),
+    ),
   /** The signed-in tutor's *current* pairings (active program period), with tutees/room/term. */
   myPairings: tutorProcedure.query(async ({ ctx }) => {
     return ctx.db.pairing.findMany({
@@ -84,10 +116,19 @@ export const tutorRouter = createTRPCRouter({
         room: true,
         term: true,
         timeSlot: true,
+        group: { select: { primaryPairingId: true } },
         // Removed (INACTIVE) tutees drop off the roster immediately — only show current ones.
         tutees: {
           where: { tutee: { status: { not: "INACTIVE" } } },
-          include: { tutee: { select: { id: true, englishName: true } } },
+          include: {
+            tutee: {
+              select: {
+                id: true,
+                englishName: true,
+                user: { select: { username: true } },
+              },
+            },
+          },
         },
       },
     });
@@ -104,13 +145,26 @@ export const tutorRouter = createTRPCRouter({
       where: { tutorId: ctx.session.tutorId, term: { active: true } },
       select: {
         tutees: {
-          select: { tuteeId: true, tutee: { select: { englishName: true } } },
+          select: {
+            tuteeId: true,
+            tutee: {
+              select: {
+                englishName: true,
+                user: { select: { username: true } },
+              },
+            },
+          },
         },
       },
     });
-    const names = new Map<string, string>();
+    // Current roster identity only; immutable session/audit name evidence stays raw.
+    const names = new Map<string, { name: string; username: string | null }>();
     for (const p of pairings) {
-      for (const x of p.tutees) names.set(x.tuteeId, x.tutee.englishName);
+      for (const x of p.tutees)
+        names.set(x.tuteeId, {
+          name: x.tutee.englishName,
+          username: x.tutee.user?.username ?? null,
+        });
     }
     const tuteeIds = [...names.keys()];
     if (tuteeIds.length === 0) return [];
@@ -160,7 +214,8 @@ export const tutorRouter = createTRPCRouter({
         const standing = standingFromCounts(counts);
         return {
           tuteeId: id,
-          englishName: names.get(id) ?? "",
+          englishName: names.get(id)?.name ?? "",
+          username: names.get(id)?.username ?? null,
           validYellow: standing.validYellow,
           validRed: standing.validRed,
           pendingCount: counts.pendingYellow + counts.pendingRed,
@@ -184,7 +239,7 @@ export const tutorRouter = createTRPCRouter({
   /** Rooms catalogue (id + name) — for the "room used" picker on the attendance form. */
   rooms: tutorProcedure.query(({ ctx }) =>
     ctx.db.room.findMany({
-      orderBy: { name: "asc" },
+      orderBy: [...programRoomOrder],
       select: { id: true, name: true },
     }),
   ),
@@ -197,7 +252,11 @@ export const tutorRouter = createTRPCRouter({
     });
     if (!me?.crewStatus) return { isCrew: false, patrols: 0, hours: 0 };
     const agg = await ctx.db.patrol.aggregate({
-      where: { crewUserId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) } },
+      where: {
+        crewUserId: {
+          in: await accountHistoryIds(ctx.db, ctx.session.user.id),
+        },
+      },
       _sum: { hours: true },
       _count: { _all: true },
     });
@@ -308,7 +367,7 @@ export const tutorRouter = createTRPCRouter({
           endMin: z.number().int().min(1).max(1440).optional(),
           // Where the session actually ran — the room used (defaults to the pairing's room) or
           // online. Used to match crew patrol observations to this session.
-          actualRoomId: z.string().cuid().nullable().optional(),
+          actualRoomId: roomReference.nullable().optional(),
           online: z.boolean().optional(),
           ratingPreparedness: rating,
           ratingParticipation: rating,
@@ -470,9 +529,15 @@ export const tutorRouter = createTRPCRouter({
       }
 
       // Placeholder assignment times are never evidence of when a session actually ran.
-      if (found.some((pairing) => !pairing.scheduleConfirmed) &&
-          (input.startMin === undefined || input.endMin === undefined)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter actual start and end times for an assignment awaiting scheduling." });
+      if (
+        found.some((pairing) => !pairing.scheduleConfirmed) &&
+        (input.startMin === undefined || input.endMin === undefined)
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Enter actual start and end times for an assignment awaiting scheduling.",
+        });
       }
       const startMin = input.startMin ?? primary.startMin;
       const endMin = input.endMin ?? primary.endMin;
@@ -518,10 +583,17 @@ export const tutorRouter = createTRPCRouter({
             where: { id: primary.id },
             select: { startMin: true, endMin: true, timeSlotId: true },
           });
-          if (currentPairing?.timeSlotId !== primary.timeSlotId ||
-            (input.startMin === undefined && currentPairing.startMin !== startMin) ||
-            (input.endMin === undefined && currentPairing.endMin !== endMin))
-            throw new TRPCError({ code: "CONFLICT", message: "The pairing schedule changed. Reload before recording attendance." });
+          if (
+            currentPairing?.timeSlotId !== primary.timeSlotId ||
+            (input.startMin === undefined &&
+              currentPairing.startMin !== startMin) ||
+            (input.endMin === undefined && currentPairing.endMin !== endMin)
+          )
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "The pairing schedule changed. Reload before recording attendance.",
+            });
           await lockEntity(tx, "policy:tutor-policy");
           await requirePolicy(tx, ctx.session.user.id, "tutor-policy");
           // Pairing subsets and slightly changed times must not buy a second credit for the
@@ -567,6 +639,7 @@ export const tutorRouter = createTRPCRouter({
               shCount: previous.shCount,
             };
           }
+          await requireExistingRooms(tx, actualRoomId ? [actualRoomId] : []);
           const dayStart = new Date(`${dateKey}T00:00:00Z`);
           const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
           const overlapping = await tx.session.findFirst({
@@ -581,7 +654,8 @@ export const tutorRouter = createTRPCRouter({
           if (overlapping)
             throw new TRPCError({
               code: "CONFLICT",
-              message: "Attendance already covers part of this time. Ask management to correct the saved block, including any combined subjects.",
+              message:
+                "Attendance already covers part of this time. Ask management to correct the saved block, including any combined subjects.",
             });
           const sessionIds: string[] = [];
           let primaryId = "";
@@ -694,6 +768,9 @@ export const tutorRouter = createTRPCRouter({
           if (features.DISCIPLINE && cardRequests.length > 0) {
             await notifyAdmins(
               {
+                ...notificationEvent("attendance_cards_pending", {
+                  count: cardRequests.length,
+                }),
                 title: "Discipline cards to review",
                 body: `${cardRequests.length} card(s) submitted with an attendance survey.`,
                 link: "/admin/discipline",
@@ -758,6 +835,7 @@ export const tutorRouter = createTRPCRouter({
               });
               await notifyAdmins(
                 {
+                  ...notificationEvent("attendance_room_reported"),
                   title: "Attendance reported in an allocated room",
                   link: "/admin/attendance",
                 },
@@ -919,12 +997,24 @@ export const tutorRouter = createTRPCRouter({
           : null;
       }
       if (input.gradeLevel !== undefined) {
-        const current = await ctx.db.tutor.findUniqueOrThrow({ where: { id: ctx.session.tutorId }, select: { gradeLevel: true } });
+        const current = await ctx.db.tutor.findUniqueOrThrow({
+          where: { id: ctx.session.tutorId },
+          select: { gradeLevel: true },
+        });
         if (input.gradeLevel !== current.gradeLevel)
-          throw new TRPCError({ code: "BAD_REQUEST", message: "ACADEMIC_SHARED_EDITOR_REQUIRED" });
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "ACADEMIC_SHARED_EDITOR_REQUIRED",
+          });
       }
-      if (Object.keys(tutorData).length > 0 || input.firstName !== undefined || input.lastName !== undefined || input.preferredName !== undefined) {
+      if (
+        Object.keys(tutorData).length > 0 ||
+        input.firstName !== undefined ||
+        input.lastName !== undefined ||
+        input.preferredName !== undefined
+      ) {
         await inTransaction(ctx.db, async (tx) => {
+          await lockUsernameNamespace(tx);
           await lockAccountProfile(tx, ctx.session.user.id);
           await tx.tutor.update({
             where: { id: ctx.session.tutorId },
@@ -954,7 +1044,11 @@ export const tutorRouter = createTRPCRouter({
         select: { passwordHash: true },
       });
       if (
-        !verifyPasswordConfirmation(ctx.session.user.id, input.currentPassword, user.passwordHash)
+        !verifyPasswordConfirmation(
+          ctx.session.user.id,
+          input.currentPassword,
+          user.passwordHash,
+        )
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -1000,7 +1094,11 @@ export const tutorRouter = createTRPCRouter({
         select: { passwordHash: true },
       });
       if (
-        !verifyPasswordConfirmation(ctx.session.user.id, input.currentPassword, user.passwordHash)
+        !verifyPasswordConfirmation(
+          ctx.session.user.id,
+          input.currentPassword,
+          user.passwordHash,
+        )
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -1040,7 +1138,12 @@ export const tutorRouter = createTRPCRouter({
           throw new TRPCError({ code: "BAD_REQUEST", message });
         }
       }
-      await changeVerifiedPassword(ctx.db, ctx.session.user.id, user.passwordHash, input.newPassword);
+      await changeVerifiedPassword(
+        ctx.db,
+        ctx.session.user.id,
+        user.passwordHash,
+        input.newPassword,
+      );
       return { ok: true };
     }),
 
@@ -1122,62 +1225,37 @@ export const tutorRouter = createTRPCRouter({
         // A refresh or membership change must not turn this write into an edit of history.
         await lockEntity(tx, "program:period");
         await tx.$queryRaw`SELECT id FROM "Tutor" WHERE id = ${ctx.session.tutorId} FOR UPDATE`;
-        const tutor = await tx.tutor.findUniqueOrThrow({ where: { id: ctx.session.tutorId } });
+        const tutor = await tx.tutor.findUniqueOrThrow({
+          where: { id: ctx.session.tutorId },
+        });
         if (tutor.status !== "ACTIVE")
-          throw new TRPCError({ code: "FORBIDDEN", message: "This action requires an active tutor account." });
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "This action requires an active tutor account.",
+          });
         // Lock before reading the room so a concurrent management room change
         // cannot combine with this slot change into an unvalidated final tuple.
         await lockPlannedRoomSchedule(tx);
         const pairing = await tx.pairing.findFirst({
           where: { id: input.pairingId, tutorId: ctx.session.tutorId, term: { active: true } },
-          include: { tutees: { select: { tuteeId: true } } },
+          include: roomUnitInclude,
         });
-        if (!pairing) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Current pairing not found for this tutor.",
-          });
-        }
-
+        if (!pairing) throw new TRPCError({ code: "NOT_FOUND", message: "Current pairing not found for this tutor." });
         assertRoomVersion(pairing, input.expectedRoomVersion);
         if (input.slotId === null) {
-          const saved = await tx.pairing.update({
-            where: { id: pairing.id },
-            data: { timeSlotId: null, roomVersion: { increment: 1 } },
-          });
-          return { ...saved, roomOutcome: pairing.roomId ? "RETAINED" as const : pairing.roomNeedsAssignment ? "UNAVAILABLE" as const : pairing.roomMode === "NONE" ? "NONE" as const : "UNASSIGNED" as const };
+          const members = await roomUnitMembers(tx, pairing);
+          // Detaching only the catalog link retains the confirmed shared reservation.
+          await tx.pairing.updateMany({ where: { id: { in: members.map(member => member.id) } },
+            data: { timeSlotId: null, roomVersion: { increment: 1 } } });
+          const saved = await tx.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
+          const roomOutcome = saved.roomId ? "RETAINED" as const : saved.roomNeedsAssignment ? "UNAVAILABLE" as const : saved.roomMode === "NONE" ? "NONE" as const : "UNASSIGNED" as const;
+          return { ...saved, roomOutcome };
         }
-
-        const slot = await tx.timeSlot.findFirst({
-          where: { id: input.slotId, active: true },
-          select: { dayOfWeek: true, startMin: true, endMin: true },
-        });
-        if (!slot) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Time slot not found.",
-          });
-        }
-        const allocation = await allocateRoom(tx, {
-          ...pairing, tuteeIds: pairing.tutees.map((row) => row.tuteeId), scheduleConfirmed: true,
-          dayOfWeek: slot.dayOfWeek,
-          startMin: slot.startMin,
-          endMin: slot.endMin,
-        }, {}, pairing);
-        const saved = await tx.pairing.update({
-          where: { id: pairing.id },
-          data: {
-            scheduleConfirmed: true,
-            ...allocationData(allocation),
-            roomVersion: { increment: 1 },
-            timeSlotId: input.slotId,
-            dayOfWeek: slot.dayOfWeek,
-            startMin: slot.startMin,
-            endMin: slot.endMin,
-          },
-        });
-        await notifyRoomShortage(tx, pairing.id, allocation, pairing.roomShortageKey);
-        return { ...saved, roomOutcome: allocation.roomOutcome };
+        const slot = await tx.timeSlot.findFirst({ where: { id: input.slotId, active: true },
+          select: { dayOfWeek: true, startMin: true, endMin: true } });
+        if (!slot) throw new TRPCError({ code: "BAD_REQUEST", message: "Time slot not found." });
+        return allocateAndPersistRoomUnit(tx, pairing, { expectedRoomVersion: input.expectedRoomVersion },
+          { ...slot, timeSlotId: input.slotId, scheduleConfirmed: true });
       });
     }),
 
@@ -1189,7 +1267,7 @@ export const tutorRouter = createTRPCRouter({
   schedule: tutorProcedure.query(async ({ ctx }) => {
     const [rooms, slots, pairings, blocks] = await Promise.all([
       ctx.db.room.findMany({
-        orderBy: { name: "asc" },
+        orderBy: [...programRoomOrder],
         select: { id: true, name: true },
       }),
       ctx.db.timeSlot.findMany({
@@ -1207,6 +1285,8 @@ export const tutorRouter = createTRPCRouter({
         where: { term: { active: true }, scheduleConfirmed: true },
         select: {
           id: true,
+          groupId: true,
+          termId: true,
           subject: true,
           scheduleConfirmed: true,
           dayOfWeek: true,
@@ -1215,7 +1295,13 @@ export const tutorRouter = createTRPCRouter({
           tutorId: true,
           roomId: true,
           timeSlotId: true,
-          tutor: { select: { englishName: true } },
+          tutor: {
+            select: {
+              englishName: true,
+              username: true,
+              user: { select: { username: true } },
+            },
+          },
         },
       }),
       ctx.db.roomUnavailability.findMany({
@@ -1335,11 +1421,15 @@ export const tutorRouter = createTRPCRouter({
           });
         }
         const application = await tx.tutorApplication.findUniqueOrThrow({
-          where: { id: input.applicationId }, select: { status: true, invalidatedAt: true },
+          where: { id: input.applicationId },
+          select: { status: true, invalidatedAt: true },
         });
         assertRequestProcessable(application);
         if (application.status === "RECALLED")
-          throw new TRPCError({ code: "CONFLICT", message: "This qualification request was recalled." });
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This qualification request was recalled.",
+          });
         const updated = await tx.tutorApplication.update({
           where: { id: input.applicationId },
           data: { interviewAt: input.interviewAt },
@@ -1356,6 +1446,10 @@ export const tutorRouter = createTRPCRouter({
           await notifyTutors(
             panel.map((p) => p.tutorId),
             {
+              ...notificationEvent("interview_scheduled", {
+                startsAt: input.interviewAt.toISOString(),
+                timeZone: await getProgramTimeZone(tx),
+              }),
               title: "Interview scheduled",
               body: `An interview was scheduled for ${new Intl.DateTimeFormat("en", { timeZone: await getProgramTimeZone(tx), dateStyle: "medium", timeStyle: "short" }).format(input.interviewAt)}.`,
               link: "/dashboard",
@@ -1617,76 +1711,83 @@ export const tutorRouter = createTRPCRouter({
         reason: z.string().trim().max(1000).optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
-      // Bind the relay to live participation, and serialize duplicate requests and refresh.
-      await lockEntity(tx, "program:period");
-      await lockEntity(tx, `tutee:${input.tuteeId}`);
-      const link = await tx.pairingTutee.findFirst({
-        where: {
-          tuteeId: input.tuteeId,
-          pairingId: input.pairingId,
-          pairing: { tutorId: ctx.session.tutorId, term: { active: true } },
-          tutee: { status: "ACTIVE" },
-        },
-        select: { tuteeId: true },
-      });
-      if (!link) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "That tutee isn't on one of your pairings.",
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // Bind the relay to live participation, and serialize duplicate requests and refresh.
+        await lockEntity(tx, "program:period");
+        await lockEntity(tx, `tutee:${input.tuteeId}`);
+        const link = await tx.pairingTutee.findFirst({
+          where: {
+            tuteeId: input.tuteeId,
+            pairingId: input.pairingId,
+            pairing: { tutorId: ctx.session.tutorId, term: { active: true } },
+            tutee: { status: "ACTIVE" },
+          },
+          select: { tuteeId: true },
         });
-      }
-      if (
-        await tx.studentSurvey.findUnique({
-          where: { tuteeId: input.tuteeId },
-        })
-      )
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message:
-            "Tutees apply to leave the quarter from their own account. Use schedule rejection for scheduling problems.",
+        if (!link) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "That tutee isn't on one of your pairings.",
+          });
+        }
+        if (
+          await tx.studentSurvey.findUnique({
+            where: { tuteeId: input.tuteeId },
+          })
+        )
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "Tutees apply to leave the quarter from their own account. Use schedule rejection for scheduling problems.",
+          });
+        const open = await tx.tuteeRemovalRequest.findFirst({
+          where: { tuteeId: input.tuteeId, state: "PENDING" },
+          select: { id: true },
         });
-      const open = await tx.tuteeRemovalRequest.findFirst({
-        where: { tuteeId: input.tuteeId, state: "PENDING" },
-        select: { id: true },
-      });
-      if (open) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "An opt-out for this tutee is already pending.",
+        if (open) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "An opt-out for this tutee is already pending.",
+          });
+        }
+        const [tutee, tutor] = await Promise.all([
+          tx.tutee.findUnique({
+            where: { id: input.tuteeId },
+            select: { englishName: true },
+          }),
+          tx.tutor.findUnique({
+            where: { id: ctx.session.tutorId },
+            select: { englishName: true },
+          }),
+        ]);
+        const eligibleAt = new Date(
+          Date.now() + TUTEE_OPT_OUT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000,
+        );
+        const req = await tx.tuteeRemovalRequest.create({
+          data: {
+            tuteeId: input.tuteeId,
+            kind: "VOLUNTARY",
+            pairingId: input.pairingId,
+            requestedByTutorId: ctx.session.tutorId,
+            reason: input.reason?.trim() ? input.reason.trim() : null,
+            eligibleAt,
+          },
+          select: { id: true },
         });
-      }
-      const [tutee, tutor] = await Promise.all([
-        tx.tutee.findUnique({
-          where: { id: input.tuteeId },
-          select: { englishName: true },
-        }),
-        tx.tutor.findUnique({
-          where: { id: ctx.session.tutorId },
-          select: { englishName: true },
-        }),
-      ]);
-      const eligibleAt = new Date(
-        Date.now() + TUTEE_OPT_OUT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000,
-      );
-      const req = await tx.tuteeRemovalRequest.create({
-        data: {
-          tuteeId: input.tuteeId,
-          kind: "VOLUNTARY",
-          pairingId: input.pairingId,
-          requestedByTutorId: ctx.session.tutorId,
-          reason: input.reason?.trim() ? input.reason.trim() : null,
-          eligibleAt,
-        },
-        select: { id: true },
-      });
-      await notifyAdmins({
-        title: "Tutee opt-out",
-        body: `${tutor?.englishName ?? "A tutor"} relayed an opt-out for ${tutee?.englishName ?? "a tutee"} (auto-approves in ${TUTEE_OPT_OUT_COOLDOWN_DAYS} days).`,
-        link: "/admin/tutee-requests",
-      }, undefined, tx);
-      return { ok: true, id: req.id, eligibleAt };
-    })),
+        await notifyAdmins(
+          {
+            ...notificationEvent("tutee_optout_requested"),
+            title: "Tutee opt-out",
+            body: `${tutor?.englishName ?? "A tutor"} relayed an opt-out for ${tutee?.englishName ?? "a tutee"} (auto-approves in ${TUTEE_OPT_OUT_COOLDOWN_DAYS} days).`,
+            link: "/admin/tutee-requests",
+          },
+          undefined,
+          tx,
+        );
+        return { ok: true, id: req.id, eligibleAt };
+      }),
+    ),
 
   /** Recall (cancel) the caller's own pending opt-out while it's still in the recall window. */
   recallTuteeRemoval: tutorProcedure
@@ -1731,7 +1832,10 @@ export const tutorRouter = createTRPCRouter({
           select: { status: true, englishName: true },
         });
         if (tutor.status !== "PENDING") {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Your account isn't awaiting activation." });
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Your account isn't awaiting activation.",
+          });
         }
         await requireSchoolParticipation(tx, ctx.session.user.id);
         if (input.available)
@@ -1747,6 +1851,9 @@ export const tutorRouter = createTRPCRouter({
       });
       await notifyAdmins({
         title: input.available ? "Tutor reactivated" : "Tutor opted out",
+        ...notificationEvent(
+          input.available ? "tutor_reactivated" : "tutor_opted_out",
+        ),
         body: `${tutor.englishName} ${input.available ? "is available" : "opted out"} this term.`,
         link: "/admin/tutors",
       });
@@ -1847,6 +1954,7 @@ export const tutorRouter = createTRPCRouter({
         select: { englishName: true },
       });
       await notifyAdmins({
+        ...notificationEvent("meeting_absence_excused"),
         title: "Meeting absence excused",
         body: `${tutor?.englishName ?? "A tutor"} will miss "${meeting.title}".`,
         link: "/admin/meetings",

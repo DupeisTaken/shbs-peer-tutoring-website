@@ -16,9 +16,15 @@ import AttendancePage from "../(admin)/admin/attendance/page";
 import DisciplinePage from "../(admin)/admin/discipline/page";
 import ServiceHoursPage from "../(admin)/admin/service-hours/page";
 import HistoryPage from "../(admin)/admin/history/page";
+import { SessionViewProvider } from "./session-view-state";
+import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 
 const state = vi.hoisted(() => {
   const permissions: { accountRole: string | null } = { accountRole: "HEAD" };
+  const inputs: { reportInput: unknown; summaryInput: unknown } = {
+    reportInput: undefined,
+    summaryInput: undefined,
+  };
   const date = new Date("2026-09-15T08:00:00Z");
   const tutor = {
     tutorId: "tutor-1",
@@ -32,6 +38,9 @@ const state = vi.hoisted(() => {
   };
   return {
     readOnly: false,
+    periodsLoaded: true,
+    quarterSystem: true,
+    ...inputs,
     ...permissions,
     undo: vi.fn(),
     review: vi.fn(),
@@ -222,7 +231,12 @@ vi.mock("./read-only", () => ({ useReadOnly: () => state.readOnly }));
 vi.mock("./branding-provider", () => ({
   useBranding: () => ({ TEAM_TITLE: "Tutoring" }),
 }));
-vi.mock("./audit-filters", () => ({ AuditFilters: () => null }));
+vi.mock("./audit-filters", async (importOriginal) => ({
+  // The page shares pure filter defaults with the real editor. Only skip the
+  // editor UI here; retain its exports so summary/authority checks use real data.
+  ...(await importOriginal<typeof import("./audit-filters")>()),
+  AuditFilters: () => null,
+}));
 vi.mock("./attendance-correction", () => ({
   AttendanceCorrection: ({ id }: { id: string }) => {
     state.correction(id);
@@ -243,7 +257,11 @@ vi.mock("~/trpc/react", () => ({
         disciplinaryCards: { invalidate: vi.fn() },
       },
     }),
-    program: { features: { useQuery: () => ({ data: {} }) } },
+    program: {
+      features: {
+        useQuery: () => ({ data: { QUARTER_SYSTEM: state.quarterSystem } }),
+      },
+    },
     account: {
       me: {
         useQuery: () => ({
@@ -255,6 +273,13 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     admin: {
+      auditFilterOptions: {
+        useQuery: () => ({
+          data: { users: [], operations: [], entities: [] },
+          isSuccess: true,
+          isFetching: false,
+        }),
+      },
       auditLog: { useQuery: () => ({ data: state.audit }) },
       auditLogDetail: {
         _def: () => ({ path: ["admin", "auditLogDetail"] }),
@@ -274,12 +299,24 @@ vi.mock("~/trpc/react", () => ({
         useMutation: () => ({ mutate: state.review, isPending: false }),
       },
       periodSummary: {
+        useQuery: (input: unknown) => {
+          state.summaryInput = input;
+          return {
+            data: { scope: { label: "Current semester" }, rows: [state.tutor] },
+          };
+        },
+      },
+      periods: {
         useQuery: () => ({
-          data: { scope: { label: "Current semester" }, rows: [state.tutor] },
+          data: state.periodsLoaded ? [{ schoolYear: "2026–2027" }] : undefined,
         }),
       },
-      periods: { useQuery: () => ({ data: [{ schoolYear: "2026–2027" }] }) },
-      periodReport: { useQuery: () => ({ data: state.report }) },
+      periodReport: {
+        useQuery: (input: unknown) => {
+          state.reportInput = input;
+          return { data: state.report };
+        },
+      },
     },
   },
 }));
@@ -300,6 +337,9 @@ beforeEach(() => {
   queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  sessionStorage.clear();
+  state.periodsLoaded = true;
+  state.quarterSystem = true;
   vi.clearAllMocks();
   state.readOnly = false;
   state.accountRole = "HEAD";
@@ -617,13 +657,15 @@ it.each(["en", "zh"] as const)(
     state.readOnly = true;
     const copy = locale === "en" ? messages : zh;
     render(
-      <NextIntlClientProvider
-        locale={locale}
-        messages={copy}
-        timeZone="Asia/Shanghai"
-      >
-        <AttendancePage />
-      </NextIntlClientProvider>,
+      <QueryClientProvider client={queryClient}>
+        <NextIntlClientProvider
+          locale={locale}
+          messages={copy}
+          timeZone="Asia/Shanghai"
+        >
+          <AttendancePage />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
     );
     expect(screen.getByRole("table").textContent).toContain(
       copy.tutor.attendance.tutorStatusOpt.PRESENT,
@@ -641,3 +683,91 @@ it.each(["en", "zh"] as const)(
     expect(state.correction).not.toHaveBeenCalled();
   },
 );
+
+it("restores service-hour month criteria across navigation and keeps clear-month active-period semantics", () => {
+  const show = () => (
+    <SessionViewProvider
+      identity="head"
+      pathname="/admin/service-hours"
+      verified
+    >
+      <ServiceHoursPage />
+    </SessionViewProvider>
+  );
+  const view = render(show(), { wrapper });
+  fireEvent.change(
+    screen.getByLabelText(messages.admin.summary.monthLabel, {
+      selector: "input",
+    }),
+    {
+      target: { value: "2026-08" },
+    },
+  );
+  expect(state.summaryInput).toEqual({ month: "2026-08" });
+  view.unmount();
+  render(show(), { wrapper });
+  expect(
+    screen.getByLabelText<HTMLInputElement>(messages.admin.summary.monthLabel, {
+      selector: "input",
+    }).value,
+  ).toBe("2026-08");
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.admin.summary.clearMonth }),
+  );
+  expect(state.summaryInput).toBeUndefined();
+  expect(
+    sessionStorage.getItem(
+      viewStateKey(
+        "head",
+        "/admin/service-hours",
+        "service-hours-month-v1",
+        "",
+      ),
+    ),
+  ).toBe('""');
+});
+it("holds report criteria during catalog loading, then normalizes removed years/quarters and viewer masking", () => {
+  const key = viewStateKey(
+    "viewer",
+    "/admin/history",
+    "report-controls-v1",
+    "observer",
+  );
+  const saved = {
+    schoolYear: "old-year",
+    scope: "Q2",
+    depth: "full",
+    maskPii: false,
+  };
+  writeViewState(sessionStorage, key, saved);
+  state.periodsLoaded = false;
+  state.quarterSystem = false;
+  state.readOnly = true;
+  const show = () => (
+    <SessionViewProvider identity="viewer" pathname="/admin/history" verified>
+      <HistoryPage />
+    </SessionViewProvider>
+  );
+  const view = render(show(), { wrapper });
+  expect(JSON.parse(sessionStorage.getItem(key)!)).toEqual(saved);
+  state.periodsLoaded = true;
+  view.rerender(show());
+  expect(state.reportInput).toEqual({
+    schoolYear: "2026–2027",
+    depth: "full",
+    maskPii: true,
+  });
+  expect(JSON.parse(sessionStorage.getItem(key)!)).toEqual({
+    schoolYear: "",
+    scope: "year",
+    depth: "full",
+    maskPii: true,
+  });
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", {
+      name: messages.admin.reports.maskPii,
+    }).disabled,
+  ).toBe(true);
+  expect(state.review).not.toHaveBeenCalled();
+  expect(state.undo).not.toHaveBeenCalled();
+});

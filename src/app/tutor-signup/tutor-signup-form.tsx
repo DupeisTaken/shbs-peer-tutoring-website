@@ -5,7 +5,10 @@ import {
   FormActions,
   InlineNotice,
 } from "~/app/_components/ui/patterns";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
+import {
+  ConfiguredPersonNameFields as PersonNameFields,
+  useNameFieldPresentation,
+} from "~/app/_components/person-name-fields";
 import { nameDraft, fullPersonName } from "~/lib/person-name";
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
@@ -64,6 +67,11 @@ export function TutorSignupForm() {
   const submit = api.application.submit.useMutation();
 
   const [names, setNames] = useState(() => nameDraft());
+  const {
+    ready: namePolicyReady,
+    hasLatinFields,
+    observe: observeNamePolicy,
+  } = useNameFieldPresentation();
   const name = fullPersonName(names);
   const [email, setEmail] = useState("");
   const [preferredContact, setPreferredContact] = useState("");
@@ -107,10 +115,10 @@ export function TutorSignupForm() {
   ];
   const readOnly = status !== "open" || missing.length > 0;
   const canSubmit =
+    namePolicyReady &&
     !readOnly &&
     !options.isError &&
     !policy.isError &&
-    name.trim() &&
     email.trim() &&
     !fieldMissing(fields, "preferredContact", preferredContact) &&
     requiredSubjectsComplete &&
@@ -242,7 +250,12 @@ export function TutorSignupForm() {
           <FormSection title={t("signupSections.identityTitle")}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <PersonNameFields value={names} onChange={setNames} />
+                <PersonNameFields
+                  onPolicyAvailabilityChange={observeNamePolicy}
+                  accountType="TUTOR"
+                  value={names}
+                  onChange={setNames}
+                />
               </div>
               <label className="space-y-1">
                 <span className="label">
@@ -260,7 +273,7 @@ export function TutorSignupForm() {
               </label>
             </div>
 
-            <ProfilePolicyHint />
+            {hasLatinFields && <ProfilePolicyHint />}
 
             {fields.preferredContact !== "hidden" && (
               <label className="space-y-1">

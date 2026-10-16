@@ -10,6 +10,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import TimeSlotsPage from "../(admin)/admin/time-slots/page";
 import PairingsPage from "../(admin)/admin/pairings/page";
@@ -20,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   readOnly: false,
   pending: false,
   updateSlot: vi.fn(),
-  updatePairing: vi.fn(async () => ({ roomOutcome: "RETAINED" })),
+  updatePairing: vi.fn().mockResolvedValue({ roomOutcome: "ASSIGNED" }),
   remove: vi.fn(),
   reset: vi.fn(),
   slots: [
@@ -44,7 +45,6 @@ const mocks = vi.hoisted(() => ({
       roomMode: "FIXED",
       roomNeedsAssignment: false,
       roomVersion: 0,
-      scheduleConfirmed: true,
       room: { name: "204" },
       timeSlotId: "slot-1",
       dayOfWeek: 1,
@@ -159,24 +159,31 @@ vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
       admin: {
+        rooms: { invalidate: vi.fn() },
         timeSlots: { invalidate: vi.fn() },
         pairings: { invalidate: vi.fn() },
-        rooms: { invalidate: vi.fn() },
         meetings: { invalidate: vi.fn() },
+      },
+      student: { me: { invalidate: vi.fn() } },
+      studentWorkflow: { mine: { invalidate: vi.fn() } },
+      pairingGroups: { mine: { invalidate: vi.fn() } },
+      notification: {
+        list: { invalidate: vi.fn() },
+        unreadCount: { invalidate: vi.fn() },
       },
       tutor: {
         myPairings: { invalidate: vi.fn() },
         schedule: { invalidate: vi.fn() },
       },
-      notification: {
-        list: { invalidate: vi.fn() },
-        unreadCount: { invalidate: vi.fn() },
-      },
-      student: { me: { invalidate: vi.fn() } },
-      studentWorkflow: { mine: { invalidate: vi.fn() } },
     }),
     admin: {
       timeSlots: { useQuery: () => ({ data: mocks.slots }) },
+      assignmentWorkloads: {
+        useQuery: () => ({
+          data: { termId: "term", tutors: [] },
+          refetch: vi.fn(),
+        }),
+      },
       tutors: { useQuery: () => ({ data: mocks.tutors }) },
       tutees: {
         useQuery: () => ({
@@ -209,20 +216,20 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
       deleteTimeSlot: { useMutation: () => ({ mutateAsync: mocks.remove }) },
+      // Assignment confirmation awaits mutation completion so retries remain guarded.
       createPairing: {
-        useMutation: () => ({ mutate: vi.fn(), mutateAsync: vi.fn() }),
-      },
-      retryRoomAllocation: { useMutation: () => ({ mutateAsync: vi.fn() }) },
-      setPairingRoom: {
-        useMutation: () => ({ mutateAsync: mocks.updatePairing }),
+        useMutation: () => ({
+          mutateAsync: vi.fn().mockResolvedValue(undefined),
+        }),
       },
       updatePairing: {
         useMutation: () => ({
-          mutate: mocks.updatePairing,
           mutateAsync: mocks.updatePairing,
           isPending: mocks.pending,
         }),
       },
+      setPairingRoom: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      retryRoomAllocation: { useMutation: () => ({ mutateAsync: vi.fn() }) },
       deletePairing: { useMutation: () => ({ mutateAsync: mocks.remove }) },
       createMeeting: { useMutation: () => ({ mutate: vi.fn() }) },
       deleteMeeting: { useMutation: () => ({ mutate: mocks.remove }) },
@@ -233,12 +240,16 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 
+let queryClient: QueryClient;
 const wrapper = ({ children }: { children: ReactNode }) => (
-  <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-    {children}
-  </NextIntlClientProvider>
+  <QueryClientProvider client={queryClient}>
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      {children}
+    </NextIntlClientProvider>
+  </QueryClientProvider>
 );
 beforeEach(() => {
+  queryClient = new QueryClient();
   vi.clearAllMocks();
   mocks.readOnly = false;
   mocks.pending = false;
@@ -257,7 +268,10 @@ beforeEach(() => {
     },
   });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  queryClient.clear();
+});
 
 it.each([
   ["time slot", TimeSlotsPage, "Monday block", "slot-1"],
@@ -341,15 +355,29 @@ it("rejects invalid time ranges and cancels the slot draft without a write", () 
   expect(document.activeElement).toBe(trigger);
 });
 
-it("keeps time-slot detail access but removes edits for viewers", () => {
+it("shows complete time-slot rows and propagation help without editing actions for viewers", () => {
   mocks.readOnly = true;
   render(<TimeSlotsPage />, { wrapper });
   expect(screen.queryByRole("button", { name: /^Edit:/ })).toBeNull();
   expect(screen.queryByRole("checkbox")).toBeNull();
+  const table = screen.getByRole("table", { name: en.admin.timeslots.title });
+  const row = within(table).getByText("Monday block").closest("tr")!;
+  expect(within(row).getByText("Mon")).toBeTruthy();
+  expect(within(row).getByText("15:00–16:00")).toBeTruthy();
+  expect(within(row).getByText(en.courseCatalogue.active)).toBeTruthy();
+  expect(
+    within(table).queryByRole("columnheader", {
+      name: en.tablePatterns.actions,
+    }),
+  ).toBeNull();
+  expect(within(row).queryByRole("button")).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByText(en.admin.timeslots.propagationNote)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: en.approvals.dismiss }));
   fireEvent.click(
-    screen.getByRole("button", { name: "View details: Monday block" }),
+    screen.getByRole("button", { name: en.admin.timeslots.reopenHelp }),
   );
-  expect(screen.getByRole("dialog", { name: "Monday block" })).toBeTruthy();
+  expect(screen.getByText(en.admin.timeslots.propagationNote)).toBeTruthy();
   expect(mocks.updateSlot).not.toHaveBeenCalled();
 });
 
@@ -379,7 +407,8 @@ it("retains assignment confirmation and its ticket in the pairing editor dialog"
   const dialog = screen.getByRole("dialog", {
     name: en.admin.pairings.editPairing,
   });
-  // A roster change still requires assignment review; room-only saves now have their own path.
+  // An actual roster change uses assignment confirmation; unchanged room intent
+  // deliberately follows the separate versioned room-only path.
   fireEvent.click(
     within(dialog).getByRole("checkbox", { name: "Casey Student" }),
   );
@@ -389,15 +418,20 @@ it("retains assignment confirmation and its ticket in the pairing editor dialog"
   expect(mocks.updatePairing).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
   await waitFor(() =>
-    expect(mocks.updatePairing).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "pair-1",
-        tutorId: "tutor-1",
-        subjectId: "subject-1",
-        tuteeIds: ["student-1"],
-        overrideTicket: "confirmed-ticket",
-      }),
-    ),
+    expect(
+      within(dialog).getByRole<HTMLButtonElement>("button", {
+        name: en.common.close,
+      }).disabled,
+    ).toBe(false),
+  );
+  expect(mocks.updatePairing).toHaveBeenCalledWith(
+    expect.objectContaining({
+      id: "pair-1",
+      tutorId: "tutor-1",
+      subjectId: "subject-1",
+      tuteeIds: ["student-1"],
+      overrideTicket: "confirmed-ticket",
+    }),
   );
 });
 

@@ -1,34 +1,64 @@
 "use client";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
+import { pairingScheduleText } from "~/lib/pairing-schedule";
+import { useSessionPageScroll } from "~/app/_components/session-view-state";
+import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
 
 /** Overview reads the same owned records as the detailed panels; it never creates an enrollment. */
-export function TuteeOverview({ departed = false }: { departed?: boolean }) {
+export function TuteeOverview({ viewScope = "" }: { viewScope?: string }) {
   const t = useTranslations("tuteePortal");
+  const locale = useLocale();
+  const scheduling = useTranslations("scheduling");
+  const recovery = useTranslations("participantRecovery");
   const personal = api.student.me.useQuery({ page: 0 });
   const requests = api.studentWorkflow.mine.useQuery();
+  useSessionPageScroll({
+    id: "student-dashboard-v1",
+    scope: viewScope,
+    ready: !!personal.data && !!requests.data,
+    enabled: ![personal, requests].some(
+      (query) =>
+        query.error?.data?.code === "FORBIDDEN" ||
+        query.error?.data?.code === "UNAUTHORIZED",
+    ),
+  });
   const open = requests.data?.filter((row) => row.state === "OPEN");
   return (
     <div className="space-y-6">
-      <section className="border-accent-100 bg-accent-50/45 rounded-xl border p-5 sm:p-6">
-        <h2 className="text-xl font-semibold">
-          {t("welcome", { name: personal.data?.user.name ?? "" })}
-        </h2>
-        <p className="muted mt-2 max-w-2xl">{t("intro")}</p>
-        <div className="mt-5 flex flex-wrap gap-3">
-          {!departed && <Link href="/tutee" className="btn-primary" prefetch={false}>
-            {t("requestTutor")}
-          </Link>}
-          <Link href="/student?view=requests" className="btn-secondary">
-            {t("manageRequests")}
-          </Link>
-        </div>
-        <p className="muted mt-3 text-sm">{t("formHelp")}</p>
-      </section>
-      {(personal.error ?? requests.error) && (
-        <p role="alert">{personal.error?.message ?? requests.error?.message}</p>
-      )}
+      {/* The route header owns intake; these summaries describe only known records. */}
+      <QueryFeedback
+        hasData={!!personal.data || !!requests.data}
+        loading={!personal.data || !requests.data}
+        error={!!personal.error || !!requests.error}
+        retrying={personal.isFetching || requests.isFetching}
+        loadingTitle={recovery("loading")}
+        errorTitle={recovery(
+          personal.data || requests.data ? "refreshFailed" : "loadFailed",
+        )}
+        errorDetail={
+          <ul>
+            {personal.error && (
+              <li>
+                {t("schedule")}: {personal.error.message}
+              </li>
+            )}
+            {requests.error && (
+              <li>
+                {t("requests")}: {requests.error.message}
+              </li>
+            )}
+          </ul>
+        }
+        retryLabel={recovery("retry")}
+        onRetry={() => {
+          // Retry only failed reads; successful sibling summaries remain independent.
+          if (personal.error) void personal.refetch();
+          if (requests.error) void requests.refetch();
+        }}
+      />
       <div className="grid gap-4 sm:grid-cols-2">
         <Link
           href="/student?view=schedule"
@@ -36,11 +66,30 @@ export function TuteeOverview({ departed = false }: { departed?: boolean }) {
         >
           <h2 className="section-title">{t("schedule")}</h2>
           <p className="mt-3 text-3xl font-bold">
-            {personal.isLoading || personal.error
+            {!personal.data || personal.error
               ? "—"
-              : (personal.data?.schedule.filter((pairing) => pairing.scheduleConfirmed).length ?? 0)}
+              : personal.data.schedule.filter(
+                  (pairing) => pairing.scheduleConfirmed,
+                ).length}
           </p>
           <p className="muted mt-1 text-sm">{t("scheduledSubjects")}</p>
+          {/* A short recurring preview uses agreed weekly times, never a next-session date. */}
+          {!personal.error && personal.data && (
+            <ul className="mt-3 space-y-2 text-sm">
+              {personal.data.schedule.slice(0, 3).map((pairing) => (
+                <li key={pairing.id} className="[overflow-wrap:anywhere]">
+                  <span className="font-medium">{pairing.subject}</span>
+                  <span className="muted block">
+                    {pairingScheduleText(
+                      pairing,
+                      scheduling("awaiting"),
+                      locale,
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </Link>
         <Link
           href="/student?view=requests"
@@ -48,7 +97,7 @@ export function TuteeOverview({ departed = false }: { departed?: boolean }) {
         >
           <h2 className="section-title">{t("requests")}</h2>
           <p className="mt-3 text-3xl font-bold">
-            {requests.isLoading || requests.error ? "—" : (open?.length ?? 0)}
+            {!requests.data || requests.error ? "—" : open?.length}
           </p>
           <p className="muted mt-1 text-sm">{t("openRequests")}</p>
         </Link>
@@ -69,6 +118,7 @@ export function TuteeOverview({ departed = false }: { departed?: boolean }) {
           </Link>
         ))}
       </div>
+      <ProgramCalendarNotice />
     </div>
   );
 }

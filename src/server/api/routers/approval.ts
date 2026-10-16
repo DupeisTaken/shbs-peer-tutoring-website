@@ -19,7 +19,13 @@ import {
   proposalAuthority,
   canRequestProposal,
 } from "~/server/approvals";
-import { APPROVAL_OPERATIONS, classifyApproval, humanizeOperation, proposalConfirmation, type ApprovalAuthority } from "~/lib/approval-policy";
+import {
+  APPROVAL_OPERATIONS,
+  classifyApproval,
+  humanizeOperation,
+  proposalConfirmation,
+  type ApprovalAuthority,
+} from "~/lib/approval-policy";
 import { requesterLabels } from "~/lib/requester-labels";
 import {
   isAttendanceApproval,
@@ -42,11 +48,24 @@ async function reviewRequesterOptions(database: typeof db) {
 
 /** Review permissions reflect immutable requested effects, including conditional restores.
  * Unknown historical operations remain readable but cannot acquire replay authority. */
-function requestAuthority(request: { operation: string; payload: unknown; targets: unknown }) {
+function requestAuthority(request: {
+  operation: string;
+  payload: unknown;
+  targets: unknown;
+}) {
   if (!Object.hasOwn(APPROVAL_OPERATIONS, request.operation)) return null;
-  const targets = request.targets as { reviewAuthority?: ApprovalAuthority } | null;
-  return targets?.reviewAuthority ?? classifyApproval(request.operation,
-    superjson.deserialize(request.payload as Parameters<typeof superjson.deserialize>[0]));
+  const targets = request.targets as {
+    reviewAuthority?: ApprovalAuthority;
+  } | null;
+  return (
+    targets?.reviewAuthority ??
+    classifyApproval(
+      request.operation,
+      superjson.deserialize(
+        request.payload as Parameters<typeof superjson.deserialize>[0],
+      ),
+    )
+  );
 }
 
 /** Approval is a single atomic transition: revalidation, live change, decision, audit,
@@ -96,9 +115,17 @@ export const approvalRouter = createTRPCRouter({
       return {
         rows: rows.map((request) => {
           const authority = requestAuthority(request);
-          return { ...request, reviewerRoles: authority?.reviewerRoles ?? [],
-            canDecide: !!authority && authority.reviewerRoles.includes(ctx.session.role as "HEAD" | "ADMIN") &&
-              (request.requesterId !== ctx.session.user.id || ctx.session.role === "HEAD") };
+          return {
+            ...request,
+            reviewerRoles: authority?.reviewerRoles ?? [],
+            canDecide:
+              !!authority &&
+              authority.reviewerRoles.includes(
+                ctx.session.role as "HEAD" | "ADMIN",
+              ) &&
+              (request.requesterId !== ctx.session.user.id ||
+                ctx.session.role === "HEAD"),
+          };
         }),
         total,
         canReview,
@@ -127,194 +154,320 @@ export const approvalRouter = createTRPCRouter({
             select: { operation: true, requesterId: true },
           })
         : null;
-      const attendanceApproval = initial && isAttendanceApproval(initial.operation);
+      const attendanceApproval =
+        initial && isAttendanceApproval(initial.operation);
       // Fence identity-capable replays before profile locks or mutation callbacks. A stale
       // Serializable snapshot may retry here; no callback/email has executed at that point.
-      const identityApproval = !!initial && ["admin.createTutor", "admin.updateTutor", "admin.setUserCanTutor",
-        "admin.setMemberships", "admin.setApplicationStatus", "tutor.decideInterview",
-        "historicalAcademics.correctBatch", "admin.updateAccountProfile", "admin.updateAccountUsername",
-        "admin.updateAccountAcademics", "admin.updateTutee", "admin.setUserRole",
-        "program.setProfilePolicy"].includes(initial.operation);
-      const runDecision = () => ctx.db.$transaction(
-        async (tx) =>
-          databaseScope.run(tx, () =>
-            approvalScope.run(input.id, async () => {
-              if (identityApproval) await lockUsernameNamespace(tx);
-              if (attendanceApproval)
-                await lockAttendanceApproval(tx, initial.operation, [
-                  ctx.session.user.id,
-                  initial.requesterId,
-                ]);
-              await lockEntity(tx, `approval:${input.id}`);
-              const currentReviewer = await tx.user.findUnique({
-                where: { id: ctx.session.user.id },
-                select: { role: true, suspendedAt: true, mergedIntoId: true },
-              });
-              if (
-                !currentReviewer ||
-                currentReviewer.suspendedAt || currentReviewer.mergedIntoId ||
-                !["HEAD", "ADMIN"].includes(currentReviewer.role)
-              )
-                throw new TRPCError({
-                  code: "FORBIDDEN",
-                  message: "Administrator access required.",
-                });
-              const request = await tx.approvalRequest.findUniqueOrThrow({
-                where: { id: input.id },
-              });
-              if (initial?.operation && (request.operation !== initial.operation || request.requesterId !== initial.requesterId))
-                throw new TRPCError({ code: "CONFLICT", message: "The approval request changed. Reload before reviewing it." });
-              const authority = requestAuthority(request);
-              if (!authority?.reviewerRoles.includes(currentReviewer.role as "HEAD" | "ADMIN"))
-                throw new TRPCError({ code: "FORBIDDEN", message: "Your current role cannot review this management change." });
-              if (request.state !== "PENDING")
-                throw new TRPCError({
-                  code: "CONFLICT",
-                  message: "This request has already been decided.",
-                });
-              // Only the current active Head may review their own pending proposal.
-              if (request.requesterId === ctx.session.user.id && currentReviewer.role !== "HEAD")
-                throw new TRPCError({
-                  code: "FORBIDDEN",
-                  message:
-                    "A different administrator must review your request.",
-                });
-              if (input.approve) {
-                const requester = await tx.user.findUnique({
-                  where: { id: request.requesterId },
+      const identityApproval =
+        !!initial &&
+        [
+          "admin.createTutor",
+          "admin.updateTutor",
+          "admin.setUserCanTutor",
+          "admin.setMemberships",
+          "admin.setApplicationStatus",
+          "tutor.decideInterview",
+          "historicalAcademics.correctBatch",
+          "admin.updateAccountProfile",
+          "admin.updateAccountUsername",
+          "admin.updateAccountAcademics",
+          "admin.updateTutee",
+          "admin.setUserRole",
+          "program.setProfilePolicy",
+          "program.setNameFields",
+        ].includes(initial.operation);
+      const runDecision = () =>
+        ctx.db.$transaction(
+          async (tx) =>
+            databaseScope.run(tx, () =>
+              approvalScope.run(input.id, async () => {
+                if (identityApproval) await lockUsernameNamespace(tx);
+                if (attendanceApproval)
+                  await lockAttendanceApproval(tx, initial.operation, [
+                    ctx.session.user.id,
+                    initial.requesterId,
+                  ]);
+                await lockEntity(tx, `approval:${input.id}`);
+                const currentReviewer = await tx.user.findUnique({
+                  where: { id: ctx.session.user.id },
                   select: { role: true, suspendedAt: true, mergedIntoId: true },
                 });
                 if (
-                  !requester ||
-                  requester.suspendedAt || requester.mergedIntoId
+                  !currentReviewer ||
+                  currentReviewer.suspendedAt ||
+                  currentReviewer.mergedIntoId ||
+                  !["HEAD", "ADMIN"].includes(currentReviewer.role)
+                )
+                  throw new TRPCError({
+                    code: "FORBIDDEN",
+                    message: "Administrator access required.",
+                  });
+                const request = await tx.approvalRequest.findUniqueOrThrow({
+                  where: { id: input.id },
+                });
+                if (
+                  initial?.operation &&
+                  (request.operation !== initial.operation ||
+                    request.requesterId !== initial.requesterId)
                 )
                   throw new TRPCError({
                     code: "CONFLICT",
                     message:
-                      "The requester no longer has active management access. Reject this request.",
+                      "The approval request changed. Reload before reviewing it.",
                   });
-                const value: unknown = superjson.deserialize(
-                  request.payload as unknown as Parameters<
-                    typeof superjson.deserialize
-                  >[0],
-                );
-                await parseProposal(request.operation, value);
-                const liveAuthority = await proposalAuthority(tx, request.operation, value);
-                const evidence = request.targets as Record<string, unknown>;
-                // Legacy self-service evidence is accepted only for the same owner and a
-                // non-management rank; a stored request never grants current role authority.
-                const participantSelfService = evidence.participantSelfService === true || !Object.hasOwn(evidence, "authorityContext");
-                if (!liveAuthority || !canRequestProposal(liveAuthority, requester.role, request.requesterId, request.operation, value, participantSelfService))
-                  throw new TRPCError({ code: "CONFLICT", message: "The requester can no longer submit this change. Reject it and request a fresh proposal." });
-                if (!liveAuthority.reviewerRoles.includes(currentReviewer.role as "HEAD" | "ADMIN"))
-                  throw new TRPCError({ code: "FORBIDDEN", message: "Only Head may apply this management change." });
-                if (attendanceApproval)
-                  await lockAttendanceApprovalTarget(tx, request.operation, value);
-                const targets = await proposalTargets(
-                  tx,
-                  request.operation,
-                  request.payload,
-                  // Preserve legacy fingerprints: only recompute optional room
-                  // context when the immutable request originally captured it.
-                  Object.hasOwn(request.targets as object, "roomBlockContext"),
-                  Object.hasOwn(request.targets as object, "authorityContext"),
-                );
-                if (targets && typeof targets === "object" && !Array.isArray(targets)) {
-                  if (request.targets && typeof request.targets === "object" && !Array.isArray(request.targets) && request.targets.reviewAuthority)
-                    targets.reviewAuthority = request.targets.reviewAuthority;
-                  if (evidence.participantSelfService) targets.participantSelfService = true;
-                }
-                if (fingerprint(targets) !== request.fingerprint)
+                const authority = requestAuthority(request);
+                if (
+                  !authority?.reviewerRoles.includes(
+                    currentReviewer.role as "HEAD" | "ADMIN",
+                  )
+                )
+                  throw new TRPCError({
+                    code: "FORBIDDEN",
+                    message:
+                      "Your current role cannot review this management change.",
+                  });
+                if (request.state !== "PENDING")
                   throw new TRPCError({
                     code: "CONFLICT",
-                    message:
-                      "The affected records changed. Reject this request and ask for a fresh proposal.",
+                    message: "This request has already been decided.",
                   });
-                const { createCaller } = await import("../root");
-                // The allowlist and original input parser above precede this dynamic dispatch.
-                const caller = createCaller({
-                  ...ctx,
-                  db,
-                }) as unknown as Record<
-                  string,
-                  Record<string, (value: unknown) => Promise<unknown>>
-                >;
-                const [router, method] = request.operation.split(".");
-                // A coordinator's consumed/expired confirmation is evidence of their proposal,
-                // not authority for the reviewer. The original handler consumes the fresh ticket.
-                const confirmation = proposalConfirmation(
-                  request.operation,
-                  value,
-                );
-                if (confirmation && !input.ticket)
+                // Only the current active Head may review their own pending proposal.
+                if (
+                  request.requesterId === ctx.session.user.id &&
+                  currentReviewer.role !== "HEAD"
+                )
                   throw new TRPCError({
-                    code: "PRECONDITION_FAILED",
+                    code: "FORBIDDEN",
                     message:
-                      "Open the consequence dialog before applying this change.",
+                      "A different administrator must review your request.",
                   });
-                const replayValue = request.operation === "admin.setUserRole"
-                  ? { ...(value as object), confirmPassword: input.confirmPassword }
-                  : confirmation ? { ...(value as object), ticket: input.ticket } : value;
-                // Each reviewer acknowledges current eligibility with their own one-use evidence.
-                await caller[router!]![method!]!(isAssignmentOperation(request.operation)
-                  ? { ...(replayValue as object), overrideTicket: input.overrideTicket }
-                  : replayValue);
-              }
-              const reviewer = await tx.user.findUniqueOrThrow({
-                where: { id: ctx.session.user.id },
-                select: { name: true, username: true },
-              });
-              const reviewerName =
-                reviewer.name ?? reviewer.username ?? ctx.session.user.id;
-              const state = input.approve ? "APPROVED" : "REJECTED";
-              const result = await tx.approvalRequest.update({
-                where: { id: request.id },
-                data: {
-                  state,
-                  reviewerId: ctx.session.user.id,
-                  reviewerName,
-                  reviewNote: input.note,
-                  reviewedAt: new Date(),
-                },
-              });
-              await tx.auditLog.create({
-                data: {
-                  userId: ctx.session.user.id,
-                  userName: reviewerName,
-                  action: `${input.approve ? "Approved and applied" : "Rejected"}: ${humanizeOperation(request.operation)}`,
-                  entity: "ApprovalRequest",
-                  entityId: request.id,
-                  approvalId: request.id,
-                  operation: request.operation,
-                  kind: "DECISION",
-                  details: {
-                    outcome: state,
-                    note: input.note,
-                    requesterId: request.requesterId,
-                    requesterName: request.requesterName,
-                    requesterRole: (await tx.user.findUnique({ where: { id: request.requesterId }, select: { role: true } }))?.role ?? "UNAVAILABLE",
-                    reviewerRole: currentReviewer.role,
-                    category: authority.category,
-                  },
-                },
-              });
-              if (await tx.user.count({ where: { id: request.requesterId } }))
-                await tx.notification.create({
+                if (input.approve) {
+                  const requester = await tx.user.findUnique({
+                    where: { id: request.requesterId },
+                    select: {
+                      role: true,
+                      suspendedAt: true,
+                      mergedIntoId: true,
+                    },
+                  });
+                  if (
+                    !requester ||
+                    requester.suspendedAt ||
+                    requester.mergedIntoId
+                  )
+                    throw new TRPCError({
+                      code: "CONFLICT",
+                      message:
+                        "The requester no longer has active management access. Reject this request.",
+                    });
+                  const value: unknown = superjson.deserialize(
+                    request.payload as unknown as Parameters<
+                      typeof superjson.deserialize
+                    >[0],
+                  );
+                  await parseProposal(request.operation, value);
+                  const liveAuthority = await proposalAuthority(
+                    tx,
+                    request.operation,
+                    value,
+                  );
+                  const evidence = request.targets as Record<string, unknown>;
+                  // Legacy self-service evidence is accepted only for the same owner and a
+                  // non-management rank; a stored request never grants current role authority.
+                  const participantSelfService =
+                    evidence.participantSelfService === true ||
+                    !Object.hasOwn(evidence, "authorityContext");
+                  if (
+                    !liveAuthority ||
+                    !canRequestProposal(
+                      liveAuthority,
+                      requester.role,
+                      request.requesterId,
+                      request.operation,
+                      value,
+                      participantSelfService,
+                    )
+                  )
+                    throw new TRPCError({
+                      code: "CONFLICT",
+                      message:
+                        "The requester can no longer submit this change. Reject it and request a fresh proposal.",
+                    });
+                  if (
+                    !liveAuthority.reviewerRoles.includes(
+                      currentReviewer.role as "HEAD" | "ADMIN",
+                    )
+                  )
+                    throw new TRPCError({
+                      code: "FORBIDDEN",
+                      message: "Only Head may apply this management change.",
+                    });
+                  if (attendanceApproval)
+                    await lockAttendanceApprovalTarget(
+                      tx,
+                      request.operation,
+                      value,
+                    );
+                  const targets = await proposalTargets(
+                    tx,
+                    request.operation,
+                    request.payload,
+                    // Preserve legacy fingerprints: only recompute optional room
+                    // context when the immutable request originally captured it.
+                    Object.hasOwn(
+                      request.targets as object,
+                      "roomBlockContext",
+                    ),
+                    Object.hasOwn(
+                      request.targets as object,
+                      "authorityContext",
+                    ),
+                  );
+                  if (
+                    targets &&
+                    typeof targets === "object" &&
+                    !Array.isArray(targets)
+                  ) {
+                    if (
+                      request.targets &&
+                      typeof request.targets === "object" &&
+                      !Array.isArray(request.targets) &&
+                      request.targets.reviewAuthority
+                    )
+                      targets.reviewAuthority = request.targets.reviewAuthority;
+                    if (evidence.participantSelfService)
+                      targets.participantSelfService = true;
+                  }
+                  if (fingerprint(targets) !== request.fingerprint)
+                    throw new TRPCError({
+                      code: "CONFLICT",
+                      message:
+                        "The affected records changed. Reject this request and ask for a fresh proposal.",
+                    });
+                  const { createCaller } = await import("../root");
+                  // The allowlist and original input parser above precede this dynamic dispatch.
+                  const caller = createCaller({
+                    ...ctx,
+                    db,
+                  }) as unknown as Record<
+                    string,
+                    Record<string, (value: unknown) => Promise<unknown>>
+                  >;
+                  const [router, method] = request.operation.split(".");
+                  // A coordinator's consumed/expired confirmation is evidence of their proposal,
+                  // not authority for the reviewer. The original handler consumes the fresh ticket.
+                  const confirmation = proposalConfirmation(
+                    request.operation,
+                    value,
+                  );
+                  if (confirmation && !input.ticket)
+                    throw new TRPCError({
+                      code: "PRECONDITION_FAILED",
+                      message:
+                        "Open the consequence dialog before applying this change.",
+                    });
+                  const replayValue =
+                    request.operation === "admin.setUserRole"
+                      ? {
+                          ...(value as object),
+                          confirmPassword: input.confirmPassword,
+                        }
+                      : confirmation
+                        ? {
+                            ...(value as object),
+                            ...([
+                              "studentWorkflow.headEditSignup",
+                              "studentWorkflow.headUnassign",
+                              "studentWorkflow.resolveSignupAppeal",
+                            ].includes(request.operation)
+                              ? { signedTicket: input.ticket }
+                              : { ticket: input.ticket }),
+                          }
+                        : value;
+                  // Each reviewer acknowledges current eligibility with their own one-use evidence.
+                  await caller[router!]![method!]!(
+                    isAssignmentOperation(request.operation)
+                      ? {
+                          ...(replayValue as object),
+                          overrideTicket: input.overrideTicket,
+                        }
+                      : replayValue,
+                  );
+                }
+                const reviewer = await tx.user.findUniqueOrThrow({
+                  where: { id: ctx.session.user.id },
+                  select: { name: true, username: true },
+                });
+                const reviewerName =
+                  reviewer.name ?? reviewer.username ?? ctx.session.user.id;
+                const state = input.approve ? "APPROVED" : "REJECTED";
+                const result = await tx.approvalRequest.update({
+                  where: { id: request.id },
                   data: {
-                    userId: request.requesterId,
-                    title: `Change ${input.approve ? "approved" : "rejected"}`,
-                    body: `${reviewerName}: ${input.note}`,
-                    link: request.operation === "departure.setState"
-                      ? "/student?view=account"
-                      : `/admin/approvals?request=${request.id}`,
+                    state,
+                    reviewerId: ctx.session.user.id,
+                    reviewerName,
+                    reviewNote: input.note,
+                    reviewedAt: new Date(),
                   },
                 });
-              return result;
-            }),
-          ),
-        { isolationLevel: attendanceApproval ? "ReadCommitted" : "Serializable", timeout: 20000 },
-      );
-      const result = identityApproval ? await retryUsernameSnapshot(runDecision) : await runDecision();
+                await tx.auditLog.create({
+                  data: {
+                    userId: ctx.session.user.id,
+                    userName: reviewerName,
+                    action: `${input.approve ? "Approved and applied" : "Rejected"}: ${humanizeOperation(request.operation)}`,
+                    entity: "ApprovalRequest",
+                    entityId: request.id,
+                    approvalId: request.id,
+                    operation: request.operation,
+                    kind: "DECISION",
+                    details: {
+                      outcome: state,
+                      note: input.note,
+                      requesterId: request.requesterId,
+                      requesterName: request.requesterName,
+                      requesterRole:
+                        (
+                          await tx.user.findUnique({
+                            where: { id: request.requesterId },
+                            select: { role: true },
+                          })
+                        )?.role ?? "UNAVAILABLE",
+                      reviewerRole: currentReviewer.role,
+                      category: authority.category,
+                    },
+                  },
+                });
+                if (await tx.user.count({ where: { id: request.requesterId } }))
+                  await tx.notification.create({
+                    data: {
+                      userId: request.requesterId,
+                      title: `Change ${input.approve ? "approved" : "rejected"}`,
+                      ...notificationEvent(
+                        input.approve
+                          ? "management_approved"
+                          : "management_rejected",
+                      ),
+                      body: `${reviewerName}: ${input.note}`,
+                      link:
+                        request.operation === "departure.setState"
+                          ? "/student?view=account"
+                          : `/admin/approvals?request=${request.id}`,
+                    },
+                  });
+                return result;
+              }),
+            ),
+          {
+            isolationLevel: attendanceApproval
+              ? "ReadCommitted"
+              : "Serializable",
+            timeout: 20000,
+          },
+        );
+      const result = identityApproval
+        ? await retryUsernameSnapshot(runDecision)
+        : await runDecision();
       // SMTP happens only after the durable decision commits. A failed send is explicitly retryable.
       let emailSent: boolean | null = null;
       if (input.approve && result.operation === "studentWorkflow.assign") {
@@ -377,3 +530,4 @@ export const approvalRouter = createTRPCRouter({
     ),
 });
 import { accountHistoryIds } from "~/server/account-history";
+import { notificationEvent } from "~/lib/notification-events";

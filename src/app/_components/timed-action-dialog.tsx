@@ -3,14 +3,18 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import type { StudentAction } from "~/server/student-workflow";
+import { type AnchoredConfirmation } from "~/lib/confirmation-timing";
+import { useConfirmationClock } from "./use-confirmation-clock";
+import { useConfirmationSubmission } from "./use-confirmation-submission";
 
 /** Native modal supplies focus trapping/inert background; the one-use server ticket enforces delay. */
-export function TimedActionDialog({
+function TimedActionInstance({
   action,
   target,
   title,
   message,
   children,
+  footerActions,
   onConfirm,
   onCancel,
   busy = false,
@@ -23,7 +27,10 @@ export function TimedActionDialog({
   title: string;
   message: string;
   children?: React.ReactNode;
-  onConfirm: (ticket: string) => void;
+  /** Feature-owned read/recovery actions beside the unchanged timed confirmation. */
+  footerActions?: React.ReactNode;
+  /** Return the feature mutation promise for retry admission; void supports review handoff. */
+  onConfirm: (ticket: string) => unknown;
   onCancel: () => void;
   busy?: boolean;
   error?: string;
@@ -34,12 +41,43 @@ export function TimedActionDialog({
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
+  const statusId = useId();
   const prepare = api.studentWorkflow.prepareAction.useMutation();
-  const { mutate } = prepare;
-  const [now, setNow] = useState(Date.now);
+  const cancel = api.studentWorkflow.cancelAction.useMutation();
+  const { mutateAsync } = prepare;
+  const cancelTicket = cancel.mutate;
+  const [anchor, setAnchor] = useState<AnchoredConfirmation | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const clock = useConfirmationClock(anchor);
+  const submission = useConfirmationSubmission(busy, error);
+  const ticketRef = useRef<string | null>(null);
+  const { submitted } = submission;
   useEffect(() => {
-    mutate({ action, target });
-  }, [action, target, mutate]);
+    let live = true;
+    // Strict Mode's throwaway effect creates no competing proof. Each mounted
+    // action/target owns its response, including any late response after cancellation.
+    void Promise.resolve()
+      .then(async () => {
+        if (!live) return;
+        const requestStartedAt = performance.now();
+        const ticket = await mutateAsync({ action, target });
+        if (!live) {
+          cancelTicket({ ticket: ticket.id });
+          return;
+        }
+        ticketRef.current = ticket.id;
+        setAnchor({ ticket, requestStartedAt, receivedAt: performance.now() });
+      })
+      .catch(() => {
+        /* The preparation error remains visible for recovery. */
+      });
+    return () => {
+      live = false;
+      // Submitted proof may be handed to a qualification warning before the write.
+      if (ticketRef.current && !submitted.current)
+        cancelTicket({ ticket: ticketRef.current });
+    };
+  }, [action, target, mutateAsync, cancelTicket, submitted, attempt]);
   useEffect(() => {
     // The proposal consumed this ticket. Close its modal so the queued-review notice is reachable.
     const queued = () => {
@@ -53,9 +91,7 @@ export function TimedActionDialog({
     const parent = previous?.closest<HTMLDialogElement>("dialog");
     const dialog = ref.current;
     dialog?.showModal();
-    const timer = setInterval(() => setNow(Date.now()), 250);
     return () => {
-      clearInterval(timer);
       // Release native inertness before restoring focus. This also makes the
       // Strict Mode setup/cleanup rehearsal capture the real opener again.
       dialog?.close();
@@ -70,10 +106,18 @@ export function TimedActionDialog({
       target?.focus();
     };
   }, []);
-  const remaining = prepare.data
-    ? Math.max(0, Math.ceil((+new Date(prepare.data.readyAt) - now) / 1000))
-    : null;
-  const blocked = remaining !== 0 || busy || !canConfirm;
+  const { remaining, expired } = clock;
+  const pending = busy || submission.admitted;
+  const blocked = !clock.eligible || pending || !canConfirm;
+  const status = pending
+    ? t("working")
+    : expired
+      ? t("confirmationExpired")
+      : remaining === null
+        ? t("preparing")
+        : remaining
+          ? t("wait", { seconds: remaining })
+          : t("confirm");
   return (
     <dialog
       ref={ref}
@@ -82,10 +126,10 @@ export function TimedActionDialog({
       // Match NativeDialog's close-watcher guard. Repeated Escape can bypass a
       // cancelled native close request; mandatory policy review also blocks it
       // while idle, without treating the policy's Sign out action as pending.
-      closedby={busy || mandatory ? "none" : "closerequest"}
+      closedby={pending || mandatory ? "none" : "closerequest"}
       onKeyDown={(event) => {
         if (
-          (busy || mandatory) &&
+          (pending || mandatory) &&
           event.key === "Escape" &&
           event.target instanceof Element &&
           event.target.closest("dialog") === event.currentTarget
@@ -94,7 +138,7 @@ export function TimedActionDialog({
       }}
       onCancel={(e) => {
         e.preventDefault();
-        if (!mandatory && !busy) onCancel();
+        if (!mandatory && !pending) onCancel();
       }}
       className="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-2xl backdrop:bg-slate-950/60"
     >
@@ -111,16 +155,45 @@ export function TimedActionDialog({
         {message}
       </p>
       <div className="my-5 space-y-4">{children}</div>
+      <p
+        id={statusId}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {status}
+      </p>
+      {expired && (
+        <p className="my-3 text-sm text-amber-800">
+          {t("confirmationExpired")}
+        </p>
+      )}
       {(error ?? prepare.error?.message) && (
         <p role="alert" className="my-3 text-sm text-red-700">
           {error ?? prepare.error?.message}
         </p>
       )}
-      <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4">
+      <footer className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-4">
+        {footerActions}
+        {(expired || prepare.error) && !footerActions && (
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={pending}
+            onClick={() => {
+              prepare.reset();
+              setAnchor(null);
+              setAttempt((value) => value + 1);
+            }}
+          >
+            {t("retry")}
+          </button>
+        )}
         <button
           type="button"
           className="btn-secondary"
-          disabled={busy}
+          disabled={pending}
           onClick={onCancel}
         >
           {t(mandatory ? "signOut" : "cancel")}
@@ -133,19 +206,34 @@ export function TimedActionDialog({
               : "btn-primary"
           }
           disabled={blocked}
+          aria-describedby={statusId}
           onClick={() => {
-            if (!blocked && prepare.data) onConfirm(prepare.data.id);
+            // Recheck elapsed time/expiry at admission, even after suspended timers.
+            if (busy || !canConfirm || !anchor || !clock.read().eligible)
+              return;
+            submission.run(() => onConfirm(anchor.ticket.id));
           }}
         >
-          {busy
+          {pending
             ? t("working")
-            : remaining === null
-              ? t("preparing")
-              : remaining
-                ? t("wait", { seconds: remaining })
-                : t("confirm")}
+            : expired
+              ? t("confirm")
+              : remaining === null
+                ? t("preparing")
+                : remaining
+                  ? t("wait", { seconds: remaining })
+                  : t("confirm")}
         </button>
-      </div>
+      </footer>
     </dialog>
+  );
+}
+
+/** A changed action/target cannot inherit a prepared ticket or a duplicate-write lock. */
+export function TimedActionDialog(
+  props: Parameters<typeof TimedActionInstance>[0],
+) {
+  return (
+    <TimedActionInstance key={`${props.action}:${props.target}`} {...props} />
   );
 }

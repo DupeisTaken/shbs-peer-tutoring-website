@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   refetch: vi.fn(),
   accept: vi.fn(),
   prepare: vi.fn(),
+  cancelTicket: vi.fn(),
   invalidate: vi.fn(),
   reset: vi.fn(),
   path: "/student",
@@ -46,16 +47,18 @@ vi.mock("~/trpc/react", () => ({
           mocks.onSuccess = options.onSuccess;
           return {
             mutate: mocks.accept,
+            mutateAsync: mocks.accept,
             error: mocks.error,
             reset: mocks.reset,
             isPending: false,
           };
         },
       },
+      cancelAction: { useMutation: () => ({ mutate: mocks.cancelTicket }) },
       prepareAction: {
         useMutation: () => ({
-          mutate: mocks.prepare,
-          data: { id: "ticket", readyAt: new Date("2030-01-01T00:00:10Z") },
+          mutateAsync: mocks.prepare,
+          reset: vi.fn(),
         }),
       },
     },
@@ -80,6 +83,12 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2030-01-01T00:00:00Z"));
+  mocks.prepare.mockImplementation(async () => ({
+    id: "ticket",
+    serverNow: new Date(),
+    readyAt: new Date(Date.now() + 5000),
+    expiresAt: new Date(Date.now() + 30 * 60_000),
+  }));
   mocks.focusVersion = 0;
   mocks.path = "/student";
   mocks.search = "";
@@ -120,7 +129,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-it.each(["/privacy", "/unsubscribe"])(
+it.each(["/privacy", "/unsubscribe", "/request-appeal"])(
   "leaves %s usable despite outstanding agreements or errors",
   async (path) => {
     mocks.path = path;
@@ -170,7 +179,8 @@ it.each(["tutor-policy", "tutee-policy"])(
     fireEvent.scroll(screen.getByRole("dialog"), {
       target: { scrollTop: 1200 },
     });
-    await act(() => vi.advanceTimersByTime(10000));
+    await act(async () => undefined);
+  await act(() => vi.advanceTimersByTime(5000));
     fireEvent.click(screen.getByRole("button", { name: "confirm" }));
     expect(mocks.accept).not.toHaveBeenCalled();
     fireEvent.scroll(region, { target: { scrollTop: 790 } });
@@ -238,7 +248,7 @@ it.each(["slug", "revision", "locale", "body"])(
   },
 );
 
-it("preserves a review on unchanged refetch, but resets it on retry and dismissal", async () => {
+it("preserves a review on unchanged refetch, but resets read evidence and consent on footer Refresh or dismissal", async () => {
   documentHeight = 1200;
   const view = render(<StudentPolicyGate />);
   fireEvent.scroll(screen.getByRole("region"), { target: { scrollTop: 800 } });
@@ -246,7 +256,9 @@ it("preserves a review on unchanged refetch, but resets it on retry and dismissa
   mocks.status.mockReturnValue({ data: policy(), refetch: mocks.refetch });
   view.rerender(<StudentPolicyGate />);
   expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "retry" }));
+  const refresh = screen.getByRole("button", { name: "policyRefresh" });
+  expect(refresh.closest("footer")).toBeTruthy();
+  fireEvent.click(refresh);
   expect(screen.getByRole<HTMLInputElement>("checkbox").disabled).toBe(true);
   expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
   fireEvent.scroll(screen.getByRole("region"), { target: { scrollTop: 800 } });
@@ -254,7 +266,8 @@ it("preserves a review on unchanged refetch, but resets it on retry and dismissa
   fireEvent.click(screen.getByRole("button", { name: "cancel" }));
   fireEvent.click(screen.getByRole("button", { name: "policyTitle" }));
   expect(screen.getByRole<HTMLInputElement>("checkbox").disabled).toBe(true);
-  await act(() => vi.advanceTimersByTime(10000));
+  await act(async () => undefined);
+  await act(() => vi.advanceTimersByTime(5000));
   fireEvent.click(screen.getByRole("button", { name: "confirm" }));
   expect(mocks.accept).not.toHaveBeenCalled();
 });
@@ -274,7 +287,8 @@ it.each(["/", "/student", "/messages", "/my-account", "/settings"])(
 it("requires explicit agreement and the full wait, retries failures and refreshes successful consent", async () => {
   const view = render(<StudentPolicyGate />);
   await act(async () => undefined);
-  await act(() => vi.advanceTimersByTime(10000));
+  await act(async () => undefined);
+  await act(() => vi.advanceTimersByTime(5000));
   expect(
     screen.getByRole<HTMLButtonElement>("button", { name: "confirm" }).disabled,
   ).toBe(true);
@@ -289,8 +303,9 @@ it("requires explicit agreement and the full wait, retries failures and refreshe
   mocks.error = { message: "Temporary failure" };
   view.rerender(<StudentPolicyGate />);
   expect(screen.getByRole("alert").textContent).toBe("Temporary failure");
-  fireEvent.click(screen.getByRole("button", { name: "retry" }));
+  fireEvent.click(screen.getByRole("button", { name: "policyRefresh" }));
   expect(mocks.reset).toHaveBeenCalled();
+  await act(async () => undefined);
   expect(mocks.prepare).toHaveBeenCalledTimes(2);
   expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
   await act(async () => mocks.onSuccess?.());
@@ -342,9 +357,20 @@ it("uses chosen policy locale, falls back to English and skips accepted/public p
 });
 it.each([
   "/privacy",
-  "/register", "/register-account", "/tutee", "/tutee/account",
-  "/tutee-signup", "/tutee-signup/account", "/tutor", "/tutor-signup",
-  "/viewer", "/viewer-signup", "/crew", "/crew-signup", "/signup", "/signup/account",
+  "/register",
+  "/register-account",
+  "/tutee",
+  "/tutee/account",
+  "/tutee-signup",
+  "/tutee-signup/account",
+  "/tutor",
+  "/tutor-signup",
+  "/viewer",
+  "/viewer-signup",
+  "/crew",
+  "/crew-signup",
+  "/signup",
+  "/signup/account",
   "/onboarding/email",
   "/forgot-password",
   "/reset-password",
@@ -402,6 +428,7 @@ it("does not carry dismissal across different policies with identical revision t
     refetch: mocks.refetch,
   });
   view.rerender(<StudentPolicyGate />);
+  await act(async () => undefined);
   expect(screen.getByRole("dialog")).toBeTruthy();
   expect(mocks.prepare).toHaveBeenLastCalledWith({
     action: "POLICY",

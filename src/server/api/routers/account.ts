@@ -1,3 +1,4 @@
+import { notificationEvent } from "~/lib/notification-events";
 import { optionalPersonNameFields } from "~/lib/person-name";
 import { accountHistoryIds } from "~/server/account-history";
 import { currentAcademicInput, academicSummary } from "~/lib/academics";
@@ -34,18 +35,46 @@ import {
  * Kept separate from the tutor router so an account without a linked tutor can use it.
  */
 export const accountRouter = createTRPCRouter({
-  updateAcademics: protectedProcedure.input(currentAcademicInput).mutation(({ ctx, input }) =>
-    confirmCurrentAccountAcademics(ctx.db, ctx.session.user.id, input, { actorId: ctx.session.user.id, source: "SELF_SERVICE" })),
-  academicHistory: protectedProcedure.query(async ({ ctx }) => ctx.db.academicConfirmation.findMany({
-    where: { userId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) } }, orderBy: { confirmedAt: "desc" }, take: 50,
-    select: { id: true, status: true, gradeLevel: true, rawGrade: true, schoolYear: true, confirmedAt: true, source: true, reason: true },
-  })),
+  updateAcademics: protectedProcedure
+    .input(currentAcademicInput)
+    .mutation(({ ctx, input }) =>
+      confirmCurrentAccountAcademics(ctx.db, ctx.session.user.id, input, {
+        actorId: ctx.session.user.id,
+        source: "SELF_SERVICE",
+      }),
+    ),
+  academicHistory: protectedProcedure.query(async ({ ctx }) =>
+    ctx.db.academicConfirmation.findMany({
+      where: {
+        userId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) },
+      },
+      orderBy: { confirmedAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        status: true,
+        gradeLevel: true,
+        rawGrade: true,
+        schoolYear: true,
+        confirmedAt: true,
+        source: true,
+        reason: true,
+      },
+    }),
+  ),
   // Self-service participation requests never grant management rank. The trusted origin is
   // server-owned so a direct management mutation cannot impersonate this narrower workflow.
-  requestMemberships: protectedProcedure.input(membershipSchema).mutation(async ({ ctx, input }) => {
-    const request = await queueProposal(ctx.session, "admin.setMemberships", { userId: ctx.session.user.id, membership: input }, { participantSelfService: true });
-    return { id: request.id, state: request.state };
-  }),
+  requestMemberships: protectedProcedure
+    .input(membershipSchema)
+    .mutation(async ({ ctx, input }) => {
+      const request = await queueProposal(
+        ctx.session,
+        "admin.setMemberships",
+        { userId: ctx.session.user.id, membership: input },
+        { participantSelfService: true },
+      );
+      return { id: request.id, state: request.state };
+    }),
   emailSettings: protectedProcedure.query(async ({ ctx }) => {
     const [user, program, emails] = await Promise.all([
       ctx.db.user.findUniqueOrThrow({
@@ -217,9 +246,16 @@ export const accountRouter = createTRPCRouter({
         tutor: { select: { id: true, status: true } },
       },
     });
-    const term = await ctx.db.term.findFirst({ where: { active: true }, select: { schoolYear: true } });
+    const term = await ctx.db.term.findFirst({
+      where: { active: true },
+      select: { schoolYear: true },
+    });
     const { academicProfile, ...identity } = user;
-    return { ...identity, academic: academicSummary(academicProfile, term?.schoolYear), currentSchoolYear: term?.schoolYear ?? null };
+    return {
+      ...identity,
+      academic: academicSummary(academicProfile, term?.schoolYear),
+      currentSchoolYear: term?.schoolYear ?? null,
+    };
   }),
 
   /** The caller's suspension state + their latest appeal — drives the /suspended screen. */
@@ -270,6 +306,7 @@ export const accountRouter = createTRPCRouter({
         data: { userId: ctx.session.user.id, message: input.message },
       });
       await notifyAdmins({
+        ...notificationEvent("account_appeal_requested"),
         title: "Account appeal",
         body: `${user.name ?? "A suspended user"} submitted an appeal.`,
         link: "/admin/users",
@@ -282,7 +319,7 @@ export const accountRouter = createTRPCRouter({
     .input(
       z.object({
         ...optionalPersonNameFields,
-        name: z.string().trim().min(1, "Enter a name.").max(200),
+        name: z.string().trim().max(200),
         alternativeNames: z.string().trim().max(200).nullable().optional(),
         expectedProfileVersion: z.number().int().nonnegative().optional(),
       }),
@@ -300,7 +337,10 @@ export const accountRouter = createTRPCRouter({
    */
   setTwoFactorEnabled: protectedProcedure
     .input(
-      z.object({ enabled: z.boolean(), currentPassword: z.string().min(1).max(1024) }),
+      z.object({
+        enabled: z.boolean(),
+        currentPassword: z.string().min(1).max(1024),
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.db.user.findUniqueOrThrow({
@@ -308,7 +348,11 @@ export const accountRouter = createTRPCRouter({
         select: { passwordHash: true },
       });
       if (
-        !verifyPasswordConfirmation(ctx.session.user.id, input.currentPassword, user.passwordHash)
+        !verifyPasswordConfirmation(
+          ctx.session.user.id,
+          input.currentPassword,
+          user.passwordHash,
+        )
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -353,7 +397,11 @@ export const accountRouter = createTRPCRouter({
         select: { passwordHash: true },
       });
       if (
-        !verifyPasswordConfirmation(ctx.session.user.id, input.currentPassword, user.passwordHash)
+        !verifyPasswordConfirmation(
+          ctx.session.user.id,
+          input.currentPassword,
+          user.passwordHash,
+        )
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -399,7 +447,11 @@ export const accountRouter = createTRPCRouter({
         select: { passwordHash: true },
       });
       if (
-        !verifyPasswordConfirmation(ctx.session.user.id, input.currentPassword, user.passwordHash)
+        !verifyPasswordConfirmation(
+          ctx.session.user.id,
+          input.currentPassword,
+          user.passwordHash,
+        )
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -439,7 +491,12 @@ export const accountRouter = createTRPCRouter({
           throw new TRPCError({ code: "BAD_REQUEST", message });
         }
       }
-      await changeVerifiedPassword(ctx.db, ctx.session.user.id, user.passwordHash, input.newPassword);
+      await changeVerifiedPassword(
+        ctx.db,
+        ctx.session.user.id,
+        user.passwordHash,
+        input.newPassword,
+      );
       return { ok: true };
     }),
 });

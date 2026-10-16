@@ -19,8 +19,8 @@ import { assertIsolatedTestDatabase } from "~/test/database-guard";
 // These fixtures reset a dedicated, local integration database before each case.
 // Guard during module evaluation so even teardown cannot reach another database.
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
-if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test")
-  throw new Error("Room allocation integration requires shbs_shipping_test.");
+// The shared guard permits only explicit loopback *_test namespaces, including
+// this review's exclusively created database; never inherit the synthetic demo.
 
 let termId: string;
 let tutorId: string;
@@ -227,6 +227,127 @@ beforeEach(async () => {
 });
 
 afterAll(() => db.$disconnect());
+
+async function combineRoomUnit(ids: string[], selectedSlot = slotId) {
+  const state = await actor("TUTOR").pairingGroups.mine();
+  return actor("TUTOR").pairingGroups.save({ snapshot: state.snapshot,
+    groups: [{ id: state.groups[0]?.id, pairingIds: ids, slotId: selectedSlot }] });
+}
+const unitRows = (ids: string[]) => db.pairing.findMany({ where: { id: { in: ids } }, orderBy: { id: "asc" } });
+
+it("explicitly combines one reservation, atomically changes its slot, and keeps unrelated entries separate", async () => {
+  const first = await create({ tuteeIds: learners });
+  const second = await create({ tuteeIds: [learners[0]!] });
+  await combineRoomUnit([first.id, second.id]);
+  const rows = await unitRows([first.id, second.id]);
+  expect(new Set(rows.map(row => row.groupId)).size).toBe(1);
+  expect(rows.every(row => row.roomMode === "AUTO" && row.roomId === first.roomId)).toBe(true);
+  const independent = await create({ tutorId: otherTutorId });
+  expect(independent.roomId).not.toBe(first.roomId);
+  const current = rows.find(row => row.id === second.id)!;
+  await actor("TUTOR").tutor.setPairingSlot({ pairingId: second.id, slotId: otherSlotId, expectedRoomVersion: current.roomVersion });
+  expect((await unitRows([first.id, second.id])).every(row => row.timeSlotId === otherSlotId && row.roomId === first.roomId && row.groupId === current.groupId)).toBe(true);
+  await actor("HEAD").admin.updateTimeSlot({ id: otherSlotId, label: "Shared Monday", dayOfWeek: 1, startMin: 720, endMin: 780, active: true });
+  expect((await unitRows([first.id, second.id])).every(row => row.startMin === 720 && row.groupId === current.groupId && row.roomId === first.roomId)).toBe(true);
+  await actor("TUTOR").tutor.setPairingSlot({ pairingId: first.id, slotId: null });
+  expect((await unitRows([first.id, second.id])).every(row => row.timeSlotId === null && row.scheduleConfirmed && row.roomId === first.roomId)).toBe(true);
+  expect(await db.session.count()).toBe(0);
+});
+
+it("shares fixed and intentional no-room choices from any member and accepts an existing opaque room ID", async () => {
+  const first = await create({ tuteeIds: learners, roomMode: "FIXED", roomId: rooms[0] });
+  const second = await create({ tuteeIds: learners });
+  await combineRoomUnit([first.id, second.id]);
+  let current = await db.pairing.findUniqueOrThrow({ where: { id: second.id } });
+  await actor().admin.setPairingRoom({ id: second.id, roomMode: "NONE", expectedRoomVersion: current.roomVersion });
+  expect((await unitRows([first.id, second.id])).every(row => row.roomMode === "NONE" && row.roomId === null && !!row.groupId)).toBe(true);
+  await actor("TUTOR").tutor.setPairingSlot({ pairingId: first.id, slotId: otherSlotId });
+  expect((await unitRows([first.id, second.id])).every(row => row.roomMode === "NONE" && row.roomId === null)).toBe(true);
+  await db.room.create({ data: { id: "legacy-room-uuid", name: "Existing imported room" } });
+  current = await db.pairing.findUniqueOrThrow({ where: { id: second.id } });
+  await actor().admin.setPairingRoom({ id: second.id, roomMode: "FIXED", roomId: "legacy-room-uuid", expectedRoomVersion: current.roomVersion });
+  expect((await unitRows([first.id, second.id])).every(row => row.roomMode === "FIXED" && row.roomId === "legacy-room-uuid")).toBe(true);
+  const before = await unitRows([first.id, second.id]);
+  await db.roomUnavailability.create({ data: { roomId: "legacy-room-uuid", dayOfWeek: 7, startMin: 600, endMin: 660 } });
+  await expect(actor("TUTOR").tutor.setPairingSlot({ pairingId: first.id, slotId })).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await unitRows([first.id, second.id])).toEqual(before);
+});
+
+it("deduplicates group shortage effects and explicitly retries the complete unit", async () => {
+  await blockAll();
+  const first = await create({ tuteeIds: [learners[0]!] });
+  const second = await create({ tuteeIds: [learners[1]!] });
+  const initialNotices = await shortages();
+  await combineRoomUnit([first.id, second.id]);
+  let rows = await unitRows([first.id, second.id]);
+  expect(rows.every(row => row.roomNeedsAssignment && row.roomMode === "AUTO" && row.roomId === null)).toBe(true);
+  expect(new Set(rows.map(row => row.roomShortageKey)).size).toBe(1);
+  expect(await shortages()).toHaveLength(initialNotices.length + 2); // One per Head/Admin, not per subject.
+  let current = rows.find(row => row.id === second.id)!;
+  await actor().admin.retryRoomAllocation({ id: second.id, expectedRoomVersion: current.roomVersion });
+  expect(await shortages()).toHaveLength(initialNotices.length + 2);
+  await db.roomUnavailability.deleteMany({ where: { roomId: rooms[0] } });
+  current = await db.pairing.findUniqueOrThrow({ where: { id: second.id } });
+  await actor().admin.retryRoomAllocation({ id: second.id, expectedRoomVersion: current.roomVersion });
+  rows = await unitRows([first.id, second.id]);
+  expect(rows.every(row => row.roomId === rooms[0] && !row.roomNeedsAssignment && row.roomShortageKey === null && !!row.groupId)).toBe(true);
+});
+
+it("invalidates sibling room editors on roster, membership and member deletion", async () => {
+  const first = await create({ tuteeIds: learners });
+  const second = await create({ tuteeIds: learners });
+  await combineRoomUnit([first.id, second.id]);
+  const current = await db.pairing.findUniqueOrThrow({ where: { id: first.id } });
+  await db.pairingTutee.delete({ where: { pairingId_tuteeId: { pairingId: second.id, tuteeId: learners[0]! } } });
+  await expect(actor().admin.setPairingRoom({ id: first.id, roomMode: "NONE", expectedRoomVersion: current.roomVersion })).rejects.toMatchObject({ code: "CONFLICT" });
+  const beforeDetach = await db.pairing.findUniqueOrThrow({ where: { id: first.id } });
+  // Independent detachment must release the shared reservation, not create a
+  // second standalone booking in its siblings' occupied room.
+  await db.pairing.update({ where: { id: second.id }, data: { groupId: null, roomMode: "NONE", roomId: null } });
+  expect((await db.pairing.findUniqueOrThrow({ where: { id: first.id } })).roomVersion).toBeGreaterThan(beforeDetach.roomVersion);
+  await combineRoomUnit([first.id, second.id]);
+  const beforeDelete = await db.pairing.findUniqueOrThrow({ where: { id: first.id } });
+  await db.pairing.delete({ where: { id: second.id } });
+  expect((await db.pairing.findUniqueOrThrow({ where: { id: first.id } })).roomVersion).toBeGreaterThan(beforeDelete.roomVersion);
+});
+
+it("preserves shared manual reservations while automation is off and splits without shortage constraint failures", async () => {
+  const first = await create({ tuteeIds: learners });
+  const second = await create({ tuteeIds: learners });
+  await db.programFeature.create({ data: { key: "AUTO_ASSIGN_ROOMS", enabled: false } });
+  const grouped = await combineRoomUnit([first.id, second.id]);
+  expect((await unitRows([first.id, second.id])).every(row => row.roomId === first.roomId && row.roomMode === "AUTO")).toBe(true);
+  await actor("TUTOR").pairingGroups.save({ snapshot: grouped.snapshot, groups: [] });
+  expect((await unitRows([first.id, second.id])).every(row => !row.scheduleConfirmed && !row.roomNeedsAssignment && row.groupId === null)).toBe(true);
+  await db.pairing.updateMany({ where: { id: { in: [first.id, second.id] } }, data: { roomId: null } });
+  await db.programFeature.update({ where: { key: "AUTO_ASSIGN_ROOMS" }, data: { enabled: true } });
+  await blockAll();
+  const shortage = await combineRoomUnit([first.id, second.id]);
+  await actor("TUTOR").pairingGroups.save({ snapshot: shortage.snapshot, groups: [] });
+  expect((await unitRows([first.id, second.id])).every(row => !row.scheduleConfirmed && !row.roomNeedsAssignment && row.roomShortageKey === null)).toBe(true);
+});
+
+it("serializes competing member room saves and retains a subject edit in its group", async () => {
+  const first = await create({ tuteeIds: learners });
+  const second = await create({ tuteeIds: learners });
+  await combineRoomUnit([first.id, second.id]);
+  let current = await db.pairing.findUniqueOrThrow({ where: { id: first.id } });
+  await update(first.id, { tuteeIds: learners, expectedRoomVersion: current.roomVersion, roomMode: "AUTO" });
+  const before = await unitRows([first.id, second.id]);
+  expect(new Set(before.map(row => row.groupId)).size).toBe(1);
+  expect(before.every(row => !!row.groupId && row.roomId === first.roomId)).toBe(true);
+  current = before.find(row => row.id === first.id)!;
+  const sibling = before.find(row => row.id === second.id)!;
+  const results = await Promise.allSettled([
+    actor().admin.setPairingRoom({ id: first.id, roomMode: "NONE", expectedRoomVersion: current.roomVersion }),
+    actor().admin.setPairingRoom({ id: second.id, roomMode: "FIXED", roomId: rooms[2], expectedRoomVersion: sibling.roomVersion }),
+  ]);
+  expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
+  expect(results.filter(result => result.status === "rejected")).toHaveLength(1);
+  const after = await unitRows([first.id, second.id]);
+  expect(new Set(after.map(row => row.roomId)).size).toBe(1);
+  expect(new Set(after.map(row => row.roomMode)).size).toBe(1);
+});
 
 it("defaults a missing setting to automatic assignment and deterministic room identity", async () => {
   expect(
@@ -1013,11 +1134,19 @@ it("keeps shortage delivery in-app even for opted-in email recipients, without d
     },
   });
   expect(await db.emailDelivery.count()).toBe(1);
+  await db.notification.create({ data: {
+    userId: "allocation-ADMIN", title: "Typed attendance notification",
+    event: "attendance_cards_pending", context: { count: 3, reason: "must not enter transport" },
+    link: "/admin/attendance",
+  } });
+  expect(await db.emailDelivery.findFirst({ where: { event: "attendance_cards_pending" } })).toMatchObject({
+    context: { count: 3 }, destination: "/admin/attendance",
+  });
   await blockAll();
   await create();
   expect(await shortages()).toHaveLength(2);
   expect((await shortages()).every((row) => row.inAppOnly)).toBe(true);
-  expect(await db.emailDelivery.count()).toBe(1);
+  expect(await db.emailDelivery.count()).toBe(2);
   expect(
     await db.programSettings.findUniqueOrThrow({ where: { id: "program" } }),
   ).toMatchObject({ emailNotificationsEnabled: true });

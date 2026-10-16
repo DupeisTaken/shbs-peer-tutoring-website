@@ -49,6 +49,33 @@ afterEach(() => {
 });
 
 it.each(["en", "zh"] as const)(
+  "opens the lazy long table reader with header Close and restores its %s trigger",
+  (locale) => {
+    render(<RecipeGallery locale={locale} state="normal" />);
+    const trigger = screen.getByRole("button", {
+      name:
+        locale === "en"
+          ? "Open long room schedule: Room schedule details"
+          : "打开长教室安排: 教室安排详情",
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getAllByRole("heading", { level: 3 })).toHaveLength(
+      24,
+    );
+    const close = within(dialog).getByRole("button", {
+      name: locale === "en" ? "Close" : zh.accountProfile.close,
+    });
+    expect(close.parentElement?.className).toContain("sticky top-0");
+    fireEvent.click(close);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  },
+);
+
+it.each(["en", "zh"] as const)(
   "shows named review and read-only recovery in the %s gallery",
   async (locale) => {
     const messages = locale === "zh" ? zh : en;
@@ -312,9 +339,9 @@ it("demonstrates unknown willingness and retains draft text after a background r
   );
   fireEvent.click(screen.getByRole("button", { name: "Retry refresh" }));
   expect(draft.value).toBe("Still editing");
-  expect(screen.getByRole("status").textContent).toContain(
-    "draft is unchanged",
-  );
+  expect(
+    within(draft.closest("section")!).getByRole("status").textContent,
+  ).toContain("draft is unchanged");
 });
 
 it("translates the recipe compositions and keeps policy reading separate from consent", () => {
@@ -325,7 +352,12 @@ it("translates the recipe compositions and keeps policy reading separate from co
     "overflow-y-auto",
   );
   expect(within(reader).queryByRole("checkbox")).toBeNull();
-  expect(within(reader).getAllByRole("button")).toHaveLength(1);
+  expect(within(reader).getAllByRole("button")).toHaveLength(2);
+  expect(
+    within(reader)
+      .getByRole("button", { name: zh.workflow.policyRefresh })
+      .closest("footer"),
+  ).toBeTruthy();
 });
 
 it("uses links for destinations and focuses a wizard heading after a deliberate step", () => {

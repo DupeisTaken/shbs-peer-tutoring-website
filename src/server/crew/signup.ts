@@ -1,8 +1,13 @@
+import { notificationEvent } from "~/lib/notification-events";
 import { timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { Prisma, type CrewSignupVerification } from "../../../generated/prisma";
-import { optionalPersonNameFields } from "~/lib/person-name";
+import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
+import {
+  configuredNewNames,
+  configuredLegacyIntakeName,
+} from "~/server/program/name-fields";
 import { recordAudit } from "~/server/audit/log";
 import { deliverAccountInvitation } from "~/server/auth/account-invitations";
 import { generateRegistrationCode } from "~/server/auth/code";
@@ -34,7 +39,7 @@ const invalid = () =>
 
 export const crewApplicationInput = z.object({
   ...optionalPersonNameFields,
-  name: z.string().trim().min(1).max(200),
+  name: z.string().trim().max(200),
   email: z.string().trim().email().max(254),
   gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
   preferredContact: z.string().trim().max(200).optional(),
@@ -97,7 +102,7 @@ export async function stageCrewVerification(
     const prior = await tx.crewSignupVerification.findUnique({
       where: { email },
     });
-    const stagedDraft =
+    let stagedDraft =
       draft ??
       (resend && prior?.draft
         ? crewApplicationInput.parse(prior.draft)
@@ -119,6 +124,25 @@ export async function stageCrewVerification(
             select: { id: true },
           });
     if (stagedDraft && !application) {
+      if (
+        !resend &&
+        (stagedDraft.firstName !== undefined ||
+          stagedDraft.lastName !== undefined ||
+          stagedDraft.preferredName !== undefined)
+      ) {
+        const names = await configuredNewNames(tx, stagedDraft, "CREW");
+        stagedDraft = {
+          ...stagedDraft,
+          ...names,
+          preferredName: names.preferredName ?? undefined,
+          alternativeNames: names.alternativeNames ?? undefined,
+          name: fullPersonName(names),
+        };
+      } else if (!resend)
+        stagedDraft = {
+          ...stagedDraft,
+          name: await configuredLegacyIntakeName(tx, stagedDraft.name, "CREW"),
+        };
       await assertPrimaryName(tx, stagedDraft.name);
       await assertOfferedGrade(tx, stagedDraft.gradeLevel);
     }
@@ -226,6 +250,7 @@ export async function verifyCrewApplication(
           );
           await notifyAdmins(
             {
+              ...notificationEvent("crew_application_pending"),
               title: "New crew application awaiting Head review",
               body: `${draft.name} applied to join the crew.`,
               link: "/admin/crew",

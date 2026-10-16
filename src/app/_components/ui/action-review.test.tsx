@@ -9,6 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { useEffect } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../messages/en.json";
 import zh from "../../../../messages/zh.json";
@@ -17,8 +18,12 @@ import { queuedApprovalId } from "~/lib/approval-outcome";
 
 const commit = vi.fn<() => Promise<unknown>>();
 const refresh = vi.fn<() => Promise<unknown>>();
+let revokeCurrent: () => void;
 function Example({ repeat = false }: { repeat?: boolean }) {
   const review = useActionReview();
+  useEffect(() => {
+    revokeCurrent = review.revoke;
+  }, [review.revoke]);
   return (
     <>
       <button
@@ -38,6 +43,22 @@ function Example({ repeat = false }: { repeat?: boolean }) {
         }
       >
         Review record
+      </button>
+      <button
+        disabled={review.blocked("record-2")}
+        onClick={() =>
+          review.open({
+            key: "record-2",
+            title: "Second review",
+            description: "Another authorized record",
+            confirmLabel: "Apply second",
+            details: <p>Second record evidence</p>,
+            commit,
+            refresh,
+          })
+        }
+      >
+        Review second record
       </button>
       {review.dialog}
     </>
@@ -77,6 +98,109 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+
+it("revokes unsubmitted evidence and allows a fresh authorized review without a write", () => {
+  show();
+  open();
+  act(() => revokeCurrent());
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByText("Exact record name")).toBeNull();
+  expect(commit).not.toHaveBeenCalled();
+  open();
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  expect(commit).not.toHaveBeenCalled();
+});
+
+it("conceals an admitted write but keeps every new review blocked until it settles", async () => {
+  let settle!: () => void;
+  commit.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        settle = resolve;
+      }),
+  );
+  show("en", true);
+  open();
+  fireEvent.click(screen.getByRole("button", { name: "Delete record" }));
+  act(() => revokeCurrent());
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: "Review second record",
+    }).disabled,
+  ).toBe(true);
+  await act(async () => {
+    settle();
+  });
+  expect(commit).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  // The revoked generation's successful refresh must not release a reversible key.
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Review record" })
+      .disabled,
+  ).toBe(true);
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: "Review second record",
+    }).disabled,
+  ).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Review second record" }));
+  expect(screen.getByRole("dialog").textContent).toContain(
+    "Second record evidence",
+  );
+});
+
+it("keeps an accepted key blocked when authority is revoked after failed refresh", async () => {
+  refresh.mockRejectedValueOnce(new Error("Read failed"));
+  show("en", true);
+  open();
+  fireEvent.click(screen.getByRole("button", { name: "Delete record" }));
+  await screen.findByText(en.actionReview.refreshFailed);
+  act(() => revokeCurrent());
+  expect(screen.queryByText("Exact record name")).toBeNull();
+  expect(screen.queryByText(en.actionReview.refreshFailed)).toBeNull();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Review record" })
+      .disabled,
+  ).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Review second record" }));
+  expect(screen.getByRole("dialog").textContent).toContain(
+    "Second record evidence",
+  );
+  expect(commit).toHaveBeenCalledOnce();
+});
+
+it("does not let a revoked pending refresh release its accepted key or restore old evidence", async () => {
+  let settle!: () => void;
+  refresh.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        settle = resolve;
+      }),
+  );
+  show("en", true);
+  open();
+  fireEvent.click(screen.getByRole("button", { name: "Delete record" }));
+  await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+  act(() => revokeCurrent());
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: "Review second record",
+    }).disabled,
+  ).toBe(true);
+  await act(async () => {
+    settle();
+  });
+  expect(screen.queryByText("Exact record name")).toBeNull();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Review record" })
+      .disabled,
+  ).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Review second record" }));
+  expect(screen.getByRole("dialog").textContent).toContain(
+    "Second record evidence",
+  );
+});
 
 it.each(["en", "zh"])(
   "reviews exact consequences and cancels without writes in %s",
@@ -228,4 +352,24 @@ it("opens a fresh reversible review after closing and recovering an accepted wri
   fireEvent.click(screen.getByRole("button", { name: "Delete record" }));
   await waitFor(() => expect(commit).toHaveBeenCalledTimes(2));
   await screen.findByText(en.actionReview.applied);
+});
+
+it("preserves a queued approval key when access is revoked and later restored", async () => {
+  commit.mockRejectedValue(
+    Object.assign(new Error("Queued"), { data: { approvalId: "request-1" } }),
+  );
+  show();
+  open();
+  fireEvent.click(screen.getByRole("button", { name: "Delete record" }));
+  await screen.findByRole("status");
+  act(() => revokeCurrent());
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Review record" })
+      .disabled,
+  ).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Review second record" }));
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  expect(commit).toHaveBeenCalledOnce();
+  expect(refresh).not.toHaveBeenCalled();
 });

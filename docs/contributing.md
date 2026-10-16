@@ -2,6 +2,9 @@
 
 Start with [local setup](local-development.md), then use the [technical guide's code map](technical-report.md#architecture) to find the implementation you need. Keep changes focused on current behavior and document the core ideas in code comments.
 
+For a new UI entry point, follow [Add an action or feature](#add-an-action-or-feature)
+for the default implementation recipe and an existing typed review adapter.
+
 ## Required checks
 
 Run commands from the repository root:
@@ -59,12 +62,33 @@ root; the override references it with `$fast-glob`. Keep the adapter's Docker
 Review the development-only [UI gallery](local-development.md#ui-pattern-gallery) before building a new interaction. Its examples use the same [shared components](../src/app/_components/ui) as the application. Keep the existing slate surfaces, white cards and accent themes. The [agent entry point](../AGENTS.md#start-with-the-shared-patterns) maps interactions to components and owns the control-height, table-action and responsive-header conventions.
 
 - Use links for navigation, `SectionTabs` for in-page panels and `ChoiceButton` for persistent selections. A selected value is not a submitted action.
+- Use the shared `Pager` from `student-portal.tsx` for participant and message lists. Give separate lists distinct translated labels, preserve their own page/filter state and use their existing `more` signal. Show the known current page; do not invent a total from a full batch or another list's count.
 - Put related fields in `FormSection` and place its Save/Cancel actions after all fields they affect. Keep mutation state, validation and permission checks in the feature that owns the operation.
 - Use `Modal` for review and confirmation, with a specific action label and consequence. Existing action tickets, countdowns and approval rules still apply; the component does not authorize a write.
-- Use `StatePanel` to distinguish loading, empty results, errors and denied access. Failed queries need recovery, and denied access must not appear as an indefinite loader.
+- For a `useActionReview` containing private evidence, the feature must conceal it when authoritative access is revoked and call `revoke()` to release the stored review. Preserve accepted keys and pending writes; ordinary read failures should retain the review and its recovery.
+- Use `StatePanel` to distinguish loading, empty results, errors and denied access. For a query with cached content, [QueryFeedback](../src/app/_components/ui/query-feedback.tsx) composes the initial panel and background `InlineNotice`; supply task-specific translated text and a read-only Retry. `hasData` means a completed response exists, including an empty array. The feature retains its content and drafts, controls dependent writes, and owns denial/cache handling. Failed queries need recovery, and denied access must not appear as an indefinite loader.
 - Use `SummaryTable` for tables: only brief names, dates, counts and statuses in columns. Put existing details and editors behind compact text links in the rightmost `TableActions` cell. Read-only history tables can omit actions; only explicit action cells become sticky. `TableDetails` opens an on-demand dialog. Related contact, account, course and history sections may share a feature-owned reader, as in Tutee details, while retaining their separate authorization. Never mount private query or mutation children for observers.
 - Compose new screens from the gallery's long-dialog, participant-form, filter, disclosure, settings, change-review and inline-notice examples. Reuse existing domain components. Set disclosure lifetime deliberately so collapsing a form never discards its draft.
 - Register each dialog form's own pending write with `useDialogPending`; do not feed its aggregate return value back into registration. Keep independent forms and their version snapshots separate. Preserve cached drafts on refresh failure. Clear or replace them through the feature's confirmed save/synchronization path, an explicit successful reload or cancellation; a background refetch alone must not discard edits.
+
+For potentially long table details, opt into `TableDetails longReader` as the room
+grid and Crew original-text readers do. This composes the existing `ProfileDialog`
+with a reachable header Close while preserving on-demand mounting. Keep brief
+reviews compact; the feature still owns any pending writes and access checks.
+
+`ProfileDialog` keeps its body in a stacking context below the sticky Close header.
+Nested summary-table action cells retain their own horizontal stickiness, but must
+not paint over the title or Close during vertical scrolling. Verify the long-reader
+gallery with a sticky-action table and the actual staff Audit evidence reader at deep scroll
+in English and Chinese on desktop and mobile. Component tests check the stacking
+boundary and keyboard lifecycle; saved browser images establish actual paint order.
+
+Keep absolutely positioned screen-reader labels inside a positioned form boundary
+when the form sits in a bounded scroll pane. Recruitment fieldsets provide that
+containing block for their hidden legends and date labels. A clipped one-pixel
+label can otherwise enlarge the document scroll range even when visible content
+is correctly clipped. Preserve its accessible name; verify desktop pane scrolling
+and mobile document scrolling instead of applying a global overflow clamp.
 
 Start by identifying the save boundary, query lifetime and authorized audience, then select a composition. Use an existing feature integration as well as a gallery example: long editors, immediate settings and staged forms intentionally have different save behavior. Keep new domain logic in the owning feature; a generic component must not infer permissions or expected versions from its visual state.
 
@@ -87,6 +111,262 @@ controls the participant example; other recipes expose their own state transitio
 For a recipe migration, link its feature issue and the corresponding running-page
 and gallery screenshots in the local verification report. Record language, viewport,
 role and state for each capture; keep the images and report in ignored `outputs/`.
+
+### Compose a page by its purpose
+
+Choose a frame for the task before adjusting individual cards. These are composition
+roles using existing utilities, not new CSS tokens or a requirement to resize every
+page. Preserve the slate background, white `.card` surfaces, existing font family
+and accent themes. Use semantic warning/error/success treatments for outcomes;
+changing the user's accent must not change what an outcome means.
+
+| Role | Frame and current reference | Composition rule |
+| --- | --- | --- |
+| Management workspace | `max-w-7xl` (1280 px), [admin layout](../src/app/(admin)/layout.tsx) | This outer frame includes navigation and its gap; it is not a 1280 px editor. Keep the shared content edge and local table scrolling. |
+| Participant workspace | `max-w-6xl` (1152 px), [student layout](../src/app/student/layout.tsx) and [tutor dashboard](../src/app/(tutor)/dashboard/page.tsx) | Allow schedule, roster and overview content to use the workspace. Do not shrink it to a reading column. |
+| Standalone workflow | `max-w-5xl` (1024 px), [WorkflowShell](../src/app/_components/workflow-shell.tsx) | Use for a broad task outside the main workspace; keep explicit return context and the existing header contract. |
+| Reader or long form | `max-w-3xl` (768 px), [handbook](../src/app/(tutor)/handbook/page.tsx) and wide [PublicFormPage](../src/app/_components/public-form-page.tsx) | Favor readable lines and one clear save scope. A feature may use a narrower frame when its fields warrant it. |
+| Compact public form | `max-w-lg` (512 px), default `PublicFormPage` | Center the outer frame and its short introduction; keep fields and labels left-aligned through `PublicFormCard`. |
+
+Pixel values describe maximum widths at the default root font size, not fixed
+viewport widths. Keep responsive gutters and let enlarged text grow. Center an
+outer reader/form frame when useful; align its fields, notices and actions to one
+content edge. Do not center table data or form labels merely to make unlike pages
+look identical. Embedded sections inherit the host's width and heading hierarchy.
+
+Use a small spacing vocabulary: 4–8 px between a label and its helper, 12–16 px
+between related controls, and 24–32 px between independent page sections. Prefer
+16 px narrow / 20 px wider padding (`p-4 sm:p-5`) for compact workspace cards;
+independent settings forms may use 20/24 px (`p-5 sm:p-6`). Match adjacent cards
+with the same purpose before changing unrelated surfaces. The existing
+`PublicFormCard` deliberately uses a roomier 24/32 px (`p-6 sm:p-8`) composition.
+A proposed denser 20/24 px public long-form variant needs an explicit shared
+contract and real-page verification; it is not an existing prop or a reason for
+per-caller padding overrides. Follow the [control-height hierarchy](../AGENTS.md#control-height-hierarchy)
+and [table-summary rules](../AGENTS.md#table-summaries-and-detail-submenus) for
+interactive spacing rather than deriving target sizes from these content gaps.
+
+Keep one page H1. Use the existing `.page-title` (24 px) and `.section-title`
+(18 px) for workspace hierarchy; body/form text is normally 14–16 px and secondary
+metadata 12–14 px. Public entry pages intentionally use a larger 30 px title.
+Preserve semantic heading order independently of font size. Do not add a heading
+to every wrapper or repeat the active tab name as an otherwise empty section title.
+Essential evidence and instructions must remain readable; do not fade an entire
+historical record or truncate the text needed to make a decision.
+
+Start a page with its task title and only the context needed to act, followed by
+local navigation/filters and the working content. Use specific section names such
+as “Availability” or “Email addresses” instead of generic “Management” or “Details”
+headings that convey no context. Keep descriptions only when they explain a
+consequence, eligibility, save boundary or recovery step. Place field guidance by
+its labelled control and decision evidence beside its action. Preserve permission,
+consent and historical-ownership explanations even when they require more text.
+Use existing schedule/request data when prioritizing work; layout changes alone
+must not introduce a new computed next-session feature or domain rule.
+
+Render recurring weekday labels with `formatWeekday(dayOfWeek, locale)` using the
+active `next-intl` locale, including availability group names exposed to assistive
+technology. Keep stored ISO weekday numbers, group order, slot IDs and minute
+values unchanged. A translated label must not change an availability Save or
+schedule-review request payload.
+Use a feature-specific final action label in the meeting absence-reason editor
+(“Submit absence excuse”), while preserving its cutoff, reason and request rules.
+
+Keep static tab/filter choices usable while their content queries load. Use
+`restoreReady` for a parser that needs a dynamic catalog, not a fixed enum such
+as the Requests panels or invalidity filter. Query readiness still gates page
+scroll restoration; authoritative denial still clears preferences and hides
+content. Preferences remain scoped to the current identity and program period.
+An accepted explicit choice made before live session verification has transient
+provenance for that exact identity/path/scope key. Once verified, that choice wins
+the older saved/default view; only then may storage be written. Key changes,
+denial and catalog invalidation discard the provenance. This does not persist
+drafts or authorize any content.
+
+### Align controls to their visual row
+
+Choose the alignment reference before choosing flex or grid alignment. A labelled
+field contains three different regions: label, interactive control and optional
+guidance. A sibling badge, checkbox or action belongs at the vertical center of
+the **control box**, not the center or bottom of all three regions. Put guidance
+in its own grid row and associate it with the field using `aria-describedby`.
+Announcement badges align with the title input; assignment labels and actions
+align with the tutor selector; report checkboxes align with the adjacent selects.
+Do not use ad hoc top margins that depend on English labels being one line.
+
+A summary card has a different reference: center its action group against the
+whole summary, including its secondary line. Within a participant heading,
+center badges on the name line. Wrapped metadata starts at the name's content
+edge, after the reserved disclosure space. Keep action typography consistent even
+when one action navigates and another opens a dialog. Use a shared minimum row
+height for lists containing both buttons and non-interactive badges; badges need
+not grow to fill the row. Translated or enlarged text may grow beyond that minimum.
+
+### Keep summaries compact and editing explicit
+
+Show each subject as a brief row with its name, level badge, qualification and
+willingness. Do not repeat a Qualification heading beside a Qualified badge.
+Order qualified and willing subjects first, qualified and unwilling next, then
+qualified subjects whose willingness is not recorded, then unqualified subjects.
+Keep the current catalog order within a group. Unknown willingness is a distinct
+state, not an inferred No. Put editing behind a rightmost Edit action and retain
+the feature's independent mutation, approval and failed-save recovery rules.
+
+Bulk selection is a deliberate exception to the trailing-action rule: a checkbox
+column goes at the far left, with a named select-all control. Details and editors
+remain in the rightmost Actions column. Selection remains stable while filtering;
+subject catalogs use the same default order as signup forms.
+
+Use one compact warning for an academic value needing review rather than an
+unknown-value sentence followed by the same review instruction. Put full reasons,
+self-excused absences, comments, evaluations and recorded service hours in named
+detail readers. Attendance abbreviations such as P, EA and UA require a visible
+legend and accessible expanded column names. Keep all columns and trailing actions
+reachable on narrow screens; avoid side-by-side tables that compress either table
+below its useful width.
+
+In a record action group, put ordinary text links on the left, boxed decision
+buttons next, and Delete last. For example, Set Up Account precedes Flag invalid
+and the other decision buttons. Keep this DOM order and keyboard order consistent
+when the group wraps on a narrow screen; do not reorder unrelated form actions.
+
+Delete and Decline labels are red at rest, including when their control is boxed.
+Assign destructive styling explicitly in the owning component rather than matching
+translated label text. All in-table link actions, including destructive actions
+and semantic buttons that open details, remain unboxed at rest and on hover: no
+border or filled hover surface. Preserve their readable text, underline affordance,
+visible keyboard focus, disabled behavior and existing desktop/touch target sizes.
+Shared table text actions use a 3 px underline with a 4 px offset for keyboard
+focus, rather than a surrounding ring that looks like a boxed action. Keep this
+indicator distinct from the ordinary hover underline; mouse focus adds no box.
+Boxed consequential buttons keep their boundary and interaction treatment; the red
+label must not depend on hover. Confirmation, approval, authorization, action
+tickets and pending-dismissal rules remain owned by the existing feature.
+
+### Follow-up room and participant review composition
+
+Put room Move up and Move down controls in the existing room rows, beside the
+other row actions. Do not introduce a separate ordering menu or duplicate room
+list. Preserve the existing complete-order review/save boundary, expected version,
+permissions and the distinction between room display order, patrol order and
+booking conflicts. Disabled endpoint and pending states retain their current
+meaning; moving a row must not save unrelated room-detail drafts.
+
+For each tutee, put existing availability and existing Reject/relay actions inside
+that participant's Details. Keep their current access rules, conditions, payloads,
+confirmation and refresh behavior. The outer list stays concise, while Details
+provides the existing information and actions together. Mutual-time ranking and
+interview scheduling are separate future issues, not new behavior in this
+presentation follow-up.
+
+### Keep settings and navigation predictable
+
+The Program Settings information architecture groups independent controls into
+Recruitment and Refresh; Account Settings; Deployment Configurations; and Optional
+Features. Calendar dates belong with the program period, messaging permissions with
+account policy, and mail delivery/CAPTCHA with deployment. Moving controls does not
+combine their save operations or broaden their authorized audience.
+
+An invalid-record filter defaults to Active entries, followed by Invalid entries
+and All entries. Here Active means not marked invalid, not a particular approval
+or membership status. Preserve the underlying statuses and permission checks.
+
+For repeated blur-save fields, put one clear save-boundary explanation at the top
+of the group and associate it with the relevant controls. Use compact file-picker
+actions with the selected filename beside them. Keep required descriptions and
+native file selection accessible without redundant headers.
+
+Temporary navigation may restore the current tab, filters, pagination and scroll
+within the same browser session. Restore the correct scroll owner: management may
+scroll an inner content region while participant pages scroll the document. Scope
+state to the signed-in identity and route, validate restored values, and let an
+explicit destination/hash or access change take precedence. Store no form drafts,
+passwords, private record text or authorization results in navigation storage.
+
+Use `useSessionViewState({ id, initialState, parse, scope, enabled })` from
+`src/app/_components/session-view-state.tsx` for explicit presentation choices.
+It returns the usual state/setter pair. Give each feature/schema a stable `id`,
+include its period and validated query context in `scope`, and supply a parser
+that allowlists the currently available choices. `viewEnum`, `viewPage` and
+`viewSearch` are small helpers; record parsers must select only named filter
+fields. `viewFields` composes those named field parsers and drops unknown fields.
+Restored values are checked against the current parser on every render, and a
+normalized result replaces the stored representation so removed IDs cannot return
+when a catalog changes again.
+Parsers validate live feature values as well as restored values; they must not add
+input limits that the feature did not have. `viewSearch` checks text shape, while
+`viewIdentifier` retains a 160-character bound for IDs and URL choices before their
+catalog arrives. The separate storage writer keeps its 160-character scalar and
+4 KiB UTF-8 entry limits, including the encoded key and JSON value. Oversized query
+contexts cannot enter storage through a scroll key. A valid longer search stays
+usable in memory, including later
+filter updates, but removes its older saved entry instead of restoring stale
+criteria on return. Storage rejection or quota failure affects only that entry;
+shortening the search makes it eligible for recall again.
+Set `enabled: false` for authoritative denial or module removal, not ordinary
+loading. Explicit URL choices override the remembered state. The tutee navigation
+only recalls a previous view on a bare workspace return after identity verification.
+For dynamic catalogs, use `restoreReady: query.data !== undefined` until choices
+arrive, then allowlist current IDs. This exposes the initial presentation while
+loading and leaves the saved choice intact; `enabled: false` still clears denial.
+`useSessionAccessDenied(...ownedQueries)` provides a presentation-only denial latch:
+an authoritative access error remains denied through later transport failures until
+the owned reads succeed again. Hide cached denied content in the same owner; this
+helper never grants permission or replaces server checks.
+
+Apply-only filters save their committed read criteria, not the unfinished input.
+Audit reconstructs timezone-aware query dates from date-control strings; its form
+receives the applied values so controls match the restored query. Approval list URLs
+remain authoritative, with local feedback while `router.replace` commits. Full-message
+searches and conversation selections in supervision stay private and transient;
+pagination within those private searches also stays transient. Landing's selected
+lazy editor reports its own query readiness; image-library success alone is insufficient.
+
+Register `useSessionPageScroll({ id, scope, ready, enabled })` once in an authorized
+page, including its selected panel/filters in `scope`. Set `ready` when its owned
+reads have usable content; `SessionPagePosition` is the equivalent adapter for a
+server-rendered shell. At 1024 px and above management restores `#admin-content`;
+other layouts and narrow management pages restore the document. Breakpoint changes
+switch owners. Dialog, table and sidebar scroll are excluded. Hash destinations and
+user gestures take precedence; delayed content recovery stops after five seconds.
+That bounded window remains active after the first successful position, correcting
+late framework resets only when the measured position differs. A user gesture or
+hash immediately ends recovery, and unmount removes its frames, timer and observers.
+Storage failures fall back to normal navigation. The session-only, bounded store
+reuses the existing identity privacy check and never enables route DOM/draft caching.
+The gallery filter toolbar demonstrates the same hook without creating another
+identity provider or copying any example form fields into storage.
+
+### Retain local work while changing panels
+
+For a long settings workspace, group existing owners with `SectionTabs` rather
+than introducing a combined Save. Program settings and Crew illustrate separate
+settings, records and review panels. Choose initial mounting deliberately: keep
+already-mounted form owners, or mount on first access when the feature permits it.
+Retain the owner while its panel is hidden. Hidden controls must leave the keyboard and
+accessibility trees. Keep an active review, its accepted-operation keys and its
+refresh recovery outside a panel that can be hidden. A tab change must neither
+discard a draft nor replay an accepted write; permission revocation still removes
+protected content.
+
+Put creation behind one title-row action when an always-open form delays the
+primary records. Compose the existing `ProfileDialog`, with draft state above its
+visibility toggle. Give creation and row editing independent drafts, even when
+they share field markup. Verify close/reopen, failed saves, nested confirmation,
+pending dismissal and exact opener focus before migrating another caller.
+
+Search only the records already authorized for the current roster scope. Reuse
+`matchesPersonSearch` for four-part, preferred, alternative and legacy names, and
+match identifiers only when the query already supplies them. Apply search before
+sorting; clearing it must preserve the other filters. In an explicit-ID participant
+picker, filtering hides candidates without changing selection. Keep a selected
+summary and deliberate removal so a long list never conceals the submitted IDs.
+
+Explain the existing save boundary beside the relevant fields: a blur save, one
+form Save and publication are different operations. Additional actions at the end
+of a long editor must reuse the same admission guard, pending state and payload as
+its top actions. Do not introduce autosave, a global action registry or draft
+storage merely to make controls look consistent.
 
 ### Profile editor completion
 
@@ -139,6 +419,24 @@ For a new reusable pattern, add an interactive example and behavior tests after 
 File new proposals using the [issue conventions](issues.md), with the affected workflow, expected behavior, validation and behavior to preserve. The completed shared-pattern migration is recorded in [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219). For subsequent changes, inspect the current page and domain tests rather than treating an old migration checklist as outstanding work.
 
 In a UI PR, state the trigger and resulting behavior, identify the shared patterns and affected page families, and link the issues it addresses. Record the tested commit and distinguish a full-suite run from later focused reruns. Cite measured control heights and the tested languages/viewports; palette fit alone is not a contrast result. Keep generated HTML reports, browser session files and local logs out of the commit. Close specific delivered issues through the PR, while referencing broader migration trackers that still have remaining scope.
+
+For a phased UI migration, establish the composition and ownership contract first,
+then address lost work, inaccessible interactions and misleading states before
+pattern alignment and broader journey changes. Give each scoped fix a linked issue
+and each wave a separate PR. Distinguish reproduced defects, source risks awaiting
+a scenario and design opportunities; old audit entries are not proof that current
+code is still broken. Shared component changes require checks of their actual
+callers, while feature-only changes should not trigger an unrelated visual rewrite.
+
+Keep one local HTML rollout report with a collapsed log for each phase: linked
+issues/PR, scope, tested revision, before/after screenshots, behavior cases,
+measurements, results and remaining limits. Finish the affected cases and required
+checks before advancing; record full-suite results separately from focused reruns.
+The final pass revisits every affected route and nested tab, including read-only,
+empty/error, long-content and translated states. Keep durable guidance here and in
+the technical/development guides; the local report is evidence, not a second set
+of component rules. New features follow the same [extension recipe](#add-an-action-or-feature)
+and [page-composition roles](#compose-a-page-by-its-purpose) from their first caller.
 
 ## Pull request size labels
 
@@ -201,12 +499,17 @@ An approval ID means a queued proposal, never a successful application.
 | Tutor activation/opt-out, pairing schedule, legacy removal request/recall, interview final decision | Named consequence confirmation; preserve current version, panel vote, role and server permission checks |
 | Student schedule conflict, policy acceptance, withdrawal and assignment | Existing domain dialog, server confirmation ticket, review delay, policy revision and immutable evidence remain authoritative |
 | Tutors/Tutees/Users membership, school departure, account combination and deletion | Existing named domain confirmation/review; retain password checks, role restrictions, versions, proposals and before/after evidence |
+| Users & Roles account deletion | The list-owned `AccountDeletion` composes the existing password `Modal` with a fresh server consequence/fingerprint review. Bind the label/form, preserve the captured target and rejected password draft, admit one pending write, and restore the opener after idle dismissal. A stale review needs explicit Reload; accepted deletion uses read-only recovery and removes its cached row. Keep Head eligibility and live password checks; no countdown or ordinary generic review replaces this step-up |
 | Room, time-slot, pairing, tutee, hour-adjustment and subject-level deletion; invitation revocation | `useActionReview` composes the shared modal around the exact record and consequence. Features supply the original authorized mutation, optional proposal recognition and read-only refresh. Failed writes retain the review; accepted writes never run again when refresh fails. Cancel and Escape before submission perform no write |
 | Crew application/request decisions, activation/inactivation and account deletion; public announcement, news, image, section, page and saved-translation deletion | Name the affected person/content in `useActionReview`. The route or list owns review lifetime so card removal/tab changes cannot discard pending work or read recovery. Reversible crew status changes and re-creatable translations explicitly permit another review after a successful refresh; one accepted review never replays its mutation |
 | Service Hours breakdown comparison, room timetables and attendance history | Read-only comparison matrices in named keyboard-scroll regions; no artificial action column. The compact Service Hours summary retains its real Details action |
 
 Keep pending requirements outside completed-history disclosures. Use retained
 child lifetimes for collapsible editors so collapsing is not an implicit Cancel.
+Size a disclosure's interactive target independently of its arrow artwork. Reuse
+the compact control contract, expose its expanded state, and measure the actual
+target and painted glyph on the affected page. A larger parent or darker parent
+text does not fix a small button or an icon with its own color override.
 Test applied versus queued outcomes, cancellation without writes, failed drafts,
 permission changes and keyboard focus in addition to visual layout.
 
@@ -219,6 +522,97 @@ failed-refresh review leaves an inline read-only retry; another deletion cannot
 replace that recovery until it succeeds. This shared composition does not replace
 timed confirmation tickets, password confirmation, profile versions or assignment
 review. The gallery demonstrates rejected write, accepted write and read recovery.
+
+### Add an action or feature
+
+Start here for a new entry point, then use the inventory above and the
+[extension boundaries](technical-report.md#ui-extension-boundaries). Reuse a
+current caller with the same consequence and lifetime; an old issue's unchecked
+list is not proof that its implementation is still missing. The shared foundation
+and navigation/form recipes shipped through
+[PR #257](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/257),
+which deliberately retained domain ownership and recorded unfinished live acceptance
+separately from its passing CI. For example,
+[issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219)
+was completed by [PR #275](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/275).
+Later [PR #285](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/285)
+added repeat profile saves, [PR #292](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/292)
+set the current 24/44 px table-action sizes, and
+[PR #293](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/293)
+consolidated tutee details. Inspect those current components before extending them.
+
+1. **Define the operation in the feature.** Record the actor, affected record,
+   intent, direct/request-only/read-only audiences, version or ticket requirements,
+   save boundary, and queries that become stale. Describe the user-visible result
+   for applied, queued, rejected and accepted-but-refresh-failed outcomes. Classify
+   management writes in the existing approval policy; UI visibility is not authorization.
+2. **Choose the interaction by effect.** A destination is a link; a local panel is
+   `SectionTabs`; a filter is `ChoiceButton` in `FilterToolbar`. A reversible
+   immediate setting uses `SettingRow` with feature-owned pending/error state.
+   Related draft fields use `FormSection`/`FormActions`. A named consequential
+   action can use `useActionReview`; ticketed, password, assignment and profile
+   workflows keep their stronger existing domain reviews.
+3. **Keep the owner alive.** Put a review controller above removable rows and
+   replaceable panels, render its `dialog` once, and pass it to entries. Keep each
+   independent draft and captured version with its feature. Choose disclosure/tab
+   lifetime deliberately; authorization revocation must still unmount private
+   children. Mount private reads and mutation observers only for authorized users.
+4. **Adapt the existing contract.** Supply translated record/consequence text,
+   the exact authorized mutation, read-only refresh and the feature's proposal/error
+   adapters. Keep mutation acceptance separate from synchronization. Prefer a
+   feature-owned adapter over new global runtime machinery; extract shared behavior
+   when real callers share its contract. Keep feature permissions out of buttons.
+5. **Verify the integration, then document it.** Start with the acceptance cases
+   below and the real page in the [UI verification matrix](local-development.md#ui-verification-matrix).
+   Update this inventory when introducing another action family. Add a gallery
+   example and behavior tests only when introducing or extending a reusable contract;
+   a feature-only composition still needs its own behavior and permission tests.
+
+For a named deletion, this adapter follows the existing
+[Announcements integration](../src/app/(admin)/admin/announcements/page.tsx).
+Here `review` is created once by the authorized list owner; `a`, `del`, `utils`
+and the root `useTranslations()` function `t` belong to the feature. Its entry is
+hidden from read-only users and uses
+`review.blocked(a.id)` for its disabled state. `ReviewedAction` is an existing
+export, not a new application-wide action schema.
+
+```tsx
+import type { ReviewedAction } from "~/app/_components/ui/action-review";
+import { queuedApprovalId } from "~/lib/approval-outcome";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+
+const action = {
+  key: a.id,
+  title: t("admin.announcements.card.confirmDelete"),
+  description: t("actionReview.announcementHelp"),
+  confirmLabel: t("common.delete"),
+  details: <p>{a.title}</p>,
+  // Commit owns only the write. Refresh failure must not make it retryable.
+  commit: () => del.mutateAsync({ id: a.id }),
+  refresh: () => invalidateAndReport(utils.admin.announcements),
+  approvalId: queuedApprovalId,
+} satisfies ReviewedAction;
+
+review.open(action); // Only from the authorized entry's deliberate activation.
+```
+
+Use a stable key for the operation and record; include the operation kind when one
+controller handles multiple actions on the same record. The default prevents an
+accepted action from being replayed while stale rows remain. Set `repeatAfterRefresh`
+only when the domain permits a new deliberate action after successful refresh,
+as with reversible crew status changes. Use `renderError` only for the feature's
+known server error vocabulary. The owner must keep `{review.dialog}` mounted,
+including its inline recovery after Close. For several refresh families, follow
+`settleRefreshes` so one rejection cannot release controls before sibling reads settle.
+
+The minimum behavior cases follow the operation, not the button's appearance:
+Cancel/Escape before commit writes nothing; same-turn double activation admits one
+write; rejected writes preserve drafts; queued proposals say queued; accepted writes
+with failed synchronization offer reads only, including after Close; successful
+recovery permits only the domain's intended next action. Also check conflict Reload,
+removal of the original row, permission changes, nested-dialog focus and pending
+dismissal where applicable. Pair focused component/domain tests with EN/ZH and
+desktop/mobile screenshots; do not count a mocked response as a database write.
 
 ## Chinese peer-tutoring wording
 

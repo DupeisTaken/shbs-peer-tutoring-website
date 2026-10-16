@@ -103,9 +103,20 @@ it("combines filters by stable user ID and clears them without sending incomplet
       from: new Date("2026-09-08T16:00:00Z"),
       until: new Date("2026-09-09T16:00:00Z"),
     }),
+    {
+      userId: "user-alex-2",
+      kind: "DECISION",
+      operation: "",
+      entity: "",
+      search: "review",
+      from: "2026-09-09",
+      until: "2026-09-09",
+    },
   );
   fireEvent.click(screen.getByRole("button", { name: "Clear Filters" }));
-  expect(onApply).toHaveBeenLastCalledWith({});
+  expect(onApply).toHaveBeenLastCalledWith({}, {
+    userId: "", kind: "", operation: "", entity: "", search: "", from: "", until: "",
+  });
   expect(
     screen.getByRole<HTMLSelectElement>("combobox", { name: "User" }).value,
   ).toBe("");

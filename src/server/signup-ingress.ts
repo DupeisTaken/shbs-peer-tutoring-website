@@ -23,6 +23,10 @@ export function signupLane(path: string): SignupLane | null {
     [
       "tutee.confirmSurvey",
       "tutee.inspectSurvey",
+      "tutee.signupReceipt",
+      "studentWorkflow.inspectSignupAppeal",
+      "studentWorkflow.appealSignup",
+      "accountInvitation.review",
       "viewer.verify",
       "viewer.complete",
       "crew.verifyApplication",
@@ -35,6 +39,7 @@ export function signupLane(path: string): SignupLane | null {
       "tutee.surveyPolicy",
       "tutee.policy",
       "program.profilePolicy",
+      "program.nameFieldPolicy",
       "program.features",
       "program.captchaPublic",
       "crew.applicationStatus",

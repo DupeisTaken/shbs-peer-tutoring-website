@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { courseName } from "~/lib/course-catalogue";
@@ -31,6 +32,7 @@ function GroupEditor({
   invalidate: () => Promise<unknown>;
 }) {
   const t = useTranslations("courseGroups");
+  const saveText = useTranslations("saveBoundary");
   const [name, setName] = useState(group?.name ?? "");
   const [offers, setOffers] = useState<
     Record<string, { baseName: string; subjectId?: string }>
@@ -179,6 +181,7 @@ function GroupEditor({
           {save.error.message}
         </p>
       )}
+      <p className="muted text-sm">{saveText("form")}</p>
       <div className="flex flex-wrap gap-2">
         <button
           className="btn-primary min-h-11 lg:min-h-9"
@@ -200,11 +203,14 @@ function GroupEditor({
 
 export default function SubjectsPage() {
   const t = useTranslations("courseGroups");
+  const saveText = useTranslations("saveBoundary");
   const readOnly = useReadOnly();
   const utils = api.useUtils();
   const groups = api.admin.courseGroups.useQuery();
   const levels = api.admin.subjectLevels.useQuery();
   const variants = api.admin.subjects.useQuery();
+  const denied = useSessionAccessDenied(groups, levels, variants);
+  const viewReady = !!groups.data && !!levels.data && !!variants.data;
   const [editing, setEditing] = useState<string | null>(null);
   const [newLevel, setNewLevel] = useState("");
   const [importMessage, setImportMessage] = useState("");
@@ -271,6 +277,7 @@ export default function SubjectsPage() {
   ].filter(Boolean);
   const importFailure =
     importError ?? importSubjects.error?.message ?? importGroups.error?.message;
+  if (denied) return <p role="alert">{groups.error?.message ?? levels.error?.message ?? variants.error?.message ?? t("loading")}</p>;
   return (
     <div className="space-y-6">
       {!readOnly && review.dialog}
@@ -296,6 +303,9 @@ export default function SubjectsPage() {
           </h2>
           <p className="text-accent-700 mt-1 font-medium">{t("direction")}</p>
           <p className="muted mt-1 text-sm">{t("snapshotHelp")}</p>
+          <p id="subject-level-save-help" className="muted mt-1 text-xs">
+            {saveText("blur")}
+          </p>
         </div>
         <ol className="space-y-3">
           {(levels.data ?? []).map((level, index) => (
@@ -311,6 +321,7 @@ export default function SubjectsPage() {
                 <input
                   aria-label={t("levelLabel", { name: level.name })}
                   className="input min-h-11 w-full lg:min-h-9"
+                  aria-describedby="subject-level-save-help"
                   defaultValue={level.name}
                   readOnly={readOnly}
                   onBlur={(e) => {
@@ -330,6 +341,7 @@ export default function SubjectsPage() {
                 <input
                   aria-label={t("prefixLabel", { name: level.name })}
                   className="input min-h-11 w-full lg:min-h-9"
+                  aria-describedby="subject-level-save-help"
                   defaultValue={level.prefix}
                   readOnly={readOnly}
                   onBlur={(e) => {
@@ -435,10 +447,12 @@ export default function SubjectsPage() {
           </form>
         )}
       </section>
+      {/* The server owns the level-first signup order; filters retain it. */}
       <CourseCatalogueTable
-        subjects={[...(variants.data ?? [])].sort((a, b) =>
-          a.name.localeCompare(b.name),
-        )}
+        viewReady={viewReady}
+        viewEnabled={!denied}
+        ownsPageScroll
+        subjects={variants.data ?? []}
         levels={levels.data ?? []}
         readOnly={readOnly}
         pending={batchUpdate.isPending}
@@ -470,8 +484,20 @@ export default function SubjectsPage() {
         )}
         {(groups.data ?? []).map((group, index) => (
           <article className="card space-y-3 p-4 sm:p-5" key={group.id}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="font-semibold">{group.name}</h3>
+            <div className="grid items-center gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="min-w-0 space-y-3">
+                <h3 className="font-semibold">{group.name}</h3>
+                {editing !== group.id && (
+                  <ul className="flex flex-wrap gap-2">
+                    {group.subjects.map((subject) => (
+                      <li className="badge-slate" key={subject.id}>
+                        {subject.name}
+                        {!subject.active && ` · ${t("inactive")}`}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               {!readOnly && (
                 <div className="flex gap-2">
                   <button
@@ -510,21 +536,7 @@ export default function SubjectsPage() {
                 done={() => setEditing(null)}
                 invalidate={invalidate}
               />
-            ) : (
-              <ul className="flex flex-wrap gap-2">
-                {group.subjects.map((subject) => (
-                  <li
-                    className={
-                      subject.active ? "badge-slate" : "badge-slate opacity-60"
-                    }
-                    key={subject.id}
-                  >
-                    {subject.name}
-                    {!subject.active && ` · ${t("inactive")}`}
-                  </li>
-                ))}
-              </ul>
-            )}
+            ) : null}
           </article>
         ))}
         {groups.data?.length === 0 && (

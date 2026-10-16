@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SessionPagePosition } from "~/app/_components/session-view-state";
 import { getFormatter, getTranslations } from "next-intl/server";
 
 import { db } from "~/server/db";
@@ -63,6 +64,8 @@ export default async function AdminHome() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
+      {/* All authorized server reads above have completed before this owner mounts. */}
+      <SessionPagePosition id="admin-home" ready scope={JSON.stringify([summary.scope.schoolYear, summary.scope.quarters])} />
       <h1 className="page-title text-center sm:text-left">
         {t("admin.dashboard.title")}
       </h1>

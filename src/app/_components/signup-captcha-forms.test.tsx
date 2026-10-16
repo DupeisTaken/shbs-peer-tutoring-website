@@ -18,6 +18,7 @@ import { ViewerSignupFlow } from "../viewer-signup/viewer-signup-flow";
 const mocks = vi.hoisted(() => ({
   verifyCaptcha: vi.fn(),
   survey: vi.fn(),
+  receipt: vi.fn(),
   start: vi.fn(),
   verifyEmail: vi.fn(),
   complete: vi.fn(),
@@ -80,9 +81,12 @@ function useFeatureMutation(
     },
   };
 }
-vi.mock("~/trpc/react", () => ({
+vi.mock("~/trpc/react", async () => ({
   api: {
     program: {
+      ...(
+        await import("~/test/name-field-policy-fixtures")
+      ).nameFieldPolicyQueries(),
       captchaPublic: {
         useQuery: () => ({
           data: mocks.settings,
@@ -104,6 +108,9 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     tutee: {
+      signupReceipt: {
+        useMutation: () => ({ mutateAsync: mocks.receipt, isPending: false }),
+      },
       signupOptions: {
         useQuery: () => ({
           isFetchedAfterMount: true,
@@ -179,6 +186,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.spyOn(window, "scrollBy").mockImplementation(() => undefined);
   mocks.verifyCaptcha.mockReset().mockResolvedValue({ grant: "a".repeat(64) });
+  mocks.receipt.mockReset().mockResolvedValue(null);
   for (const mutation of [
     mocks.survey,
     mocks.start,
@@ -489,13 +497,23 @@ it.each([false, true])(
     const widget = await stage(submit, "en");
     await finish(widget.verify);
     expect(name.value).toBe("Retained");
-    expect(name.matches(":disabled")).toBe(false);
+    expect(name.matches(":disabled")).toBe(!viewer);
     expect(
       screen
         .getAllByRole("alert")
         .some((alert) => alert.textContent === "Local submission failed"),
     ).toBe(true);
     await click(screen.getByRole("button", { name: en.captcha.retry }));
+    if (!viewer) {
+      // An actual feature write may have committed even when its reply failed.
+      // Explicit receipt-confirmed absence reopens the retained draft safely.
+      await click(
+        screen.getByRole("button", { name: en.signupEditing.returnToEditing }),
+      );
+      expect(mocks.receipt).toHaveBeenCalledOnce();
+      expect(name.value).toBe("Retained");
+      expect(name.matches(":disabled")).toBe(false);
+    }
     await finish((await stage(submit, "en")).verify);
     expect(viewer ? mocks.start : mocks.survey).toHaveBeenCalledTimes(2);
   },

@@ -10,7 +10,10 @@ import {
   InlineNotice,
 } from "~/app/_components/ui/patterns";
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
+import {
+  ConfiguredPersonNameFields as PersonNameFields,
+  useNameFieldPresentation,
+} from "~/app/_components/person-name-fields";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { RegistrationProgress } from "~/app/_components/registration-progress";
 import {
@@ -44,6 +47,11 @@ export function CrewSignupForm() {
   const [mode, setMode] = useState<Mode>("new");
   const [step, setStep] = useState<Step>("details");
   const [names, setNames] = useState(() => nameDraft());
+  const {
+    ready: namePolicyReady,
+    hasLatinFields,
+    observe: observeNamePolicy,
+  } = useNameFieldPresentation();
   const [applicationEmail, setApplicationEmail] = useState("");
   const [lookupEmail, setLookupEmail] = useState("");
   const [grade, setGrade] = useState("");
@@ -70,10 +78,11 @@ export function CrewSignupForm() {
   const name = fullPersonName(names);
   const validEmail = /^[^@\s]+@[^@\s]+$/.test(email.trim());
   const valid =
+    (mode === "existing" || namePolicyReady) &&
     validEmail &&
     (mode === "existing" ||
-      ((!grade || policy.offeredGrades.includes(Number(grade))) &&
-        name.trim().length > 0));
+      !grade ||
+      policy.offeredGrades.includes(Number(grade)));
 
   function failed(failure: unknown) {
     const next =
@@ -226,8 +235,13 @@ export function CrewSignupForm() {
               >
                 {mode === "new" && (
                   <>
-                    <PersonNameFields value={names} onChange={setNames} />
-                    <ProfilePolicyHint />
+                    <PersonNameFields
+                      onPolicyAvailabilityChange={observeNamePolicy}
+                      accountType="CREW"
+                      value={names}
+                      onChange={setNames}
+                    />
+                    {hasLatinFields && <ProfilePolicyHint />}
                   </>
                 )}
                 <div>

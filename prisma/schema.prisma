@@ -321,6 +321,9 @@ model Notification {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String
   body      String?
+  /// Structured event identity and explicitly allowlisted context; legacy text remains intact.
+  event     String?
+  context   Json?
   /// Optional in-app link the notification points to (e.g. "/dashboard").
   link      String?
   /// Some workflow notices deliberately stay in-app even when optional email copies are on.
@@ -433,6 +436,7 @@ model Term {
   signupPreviewUrl String?
   active     Boolean        @default(false)
   pairings   Pairing[]
+  pairingGroups PairingGroup[]
   meetings   TutorMeeting[]
   patrols    Patrol[]
   createdAt  DateTime       @default(now())
@@ -464,6 +468,10 @@ model Tutor {
   /// Lifecycle state (see TutorStatus). ACTIVE = eligible for pairings/attendance; the rest are
   /// inactive (read-only). Replaces the former `active` boolean.
   status      TutorStatus @default(ACTIVE)
+  /// Advisory preference defaults to one for new tutors; explicit unset is preserved. Inactive transitions reset it to zero.
+  preferredAssignedBlocks Int? @default(1)
+  /// Independent snapshot: profile edits never adopt or overwrite this draft's version.
+  workloadPreferenceVersion Int @default(0)
   /// Compatibility grade mirror for linked accounts; provisional grade for roster-only tutors.
   /// Reported grades never advance automatically. G12 graduation requires its confirmed reference
   /// year; academic estimates use that reference rather than the currently active term.
@@ -478,6 +486,7 @@ model Tutor {
 
   user                 User?
   pairings             Pairing[]
+  pairingGroups        PairingGroup[]
   sessions             Session[]
   adjustments          ServiceHourAdjustment[]
   meetingAttendances   MeetingAttendance[]
@@ -823,6 +832,8 @@ model TuteeAvailability {
 model Room {
   id        String    @id @default(cuid())
   name      String    @unique
+  /// Program display order is independent of the crew's patrol sequence.
+  programOrder Int @default(0)
   /// The crew's patrol sequence — rooms are visited in ascending `patrolOrder` on /patrol.
   /// Admin-customizable; null sorts last. Default 0 so new rooms group at the front until ordered.
   patrolOrder Int     @default(0)
@@ -875,6 +886,9 @@ model Pairing {
   /// Independent scheduling snapshot; background refresh must not silently adopt this version.
   roomVersion Int @default(0)
   roomShortageKey String?
+  // Reusable teaching groups affect future plans only; Session mergeGroupId is immutable evidence.
+  groupId String?
+  group PairingGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
   // Legacy rows retain copied schedules; new assignments await an explicit slot choice.
   scheduleConfirmed Boolean @default(false)
   id        String   @id @default(cuid())
@@ -900,6 +914,22 @@ model Pairing {
 
   @@index([tutorId])
   @@index([termId])
+  @@index([groupId])
+}
+
+/// Tutor-owned current-period groups. Schedule/room values are copied atomically to every member.
+model PairingGroup {
+  id String @id @default(cuid())
+  tutorId String
+  tutor Tutor @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  termId String
+  term Term @relation(fields: [termId], references: [id], onDelete: Cascade)
+  // Kept as an opaque member ID: reads fall back safely if an assignment is removed.
+  primaryPairingId String
+  pairings Pairing[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([tutorId, termId])
 }
 
 /// Join table: the tutees rostered on a pairing.
@@ -1729,6 +1759,9 @@ model StudentSurvey {
   email String
   intakeTermId String
   payload Json
+  /// Current request answers are separate from the original signed submission.
+  currentPayload Json?
+  currentVersion Int @default(0)
   policyRevision String
   policySnapshot Json
   submittedAt DateTime @default(now())
@@ -1745,8 +1778,63 @@ model StudentSurvey {
   resolvedAt DateTime?
   lastLinkSentAt DateTime?
   reviews StudentRequestReview[]
+  signupRevisions StudentSignupRevision[]
+  signupIntents StudentSignupIntent[]
+  signupAppeals StudentSignupAppeal[]
+  signupNotices StudentSignupNotice[]
   @@index([email, intakeTermId, submittedAt])
   @@index([state, confirmedAt, verificationDueAt])
+}
+
+/// An accepted answer change also acts as its retry receipt; authorship survives account changes.
+/// Policy fields describe only a separately supplied explicit consent, never inferred acceptance.
+model StudentSignupRevision {
+  id String @id @default(cuid())
+  surveyId String
+  expectedVersion Int
+  version Int
+  actorUserId String
+  actorUserName String?
+  // Archive imports mint a fresh operational key; the private retry capability is not exported.
+  clientKey String @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  inputHash String
+  answers Json
+  policyRevision String?
+  policySnapshot Json?
+  signatureName String?
+  policyAcceptedAt DateTime?
+  createdAt DateTime @default(now())
+  survey StudentSurvey @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([surveyId, version])
+  @@unique([surveyId, actorUserId, clientKey])
+  @@index([actorUserId, createdAt])
+}
+
+/// Public answers are staged under an independent exact mailbox challenge. An email match
+/// identifies a candidate account/request but never authorizes replacing its current answers.
+model StudentSignupIntent {
+  id String @id @default(cuid())
+  keyHash String @unique
+  inputHash String
+  email String
+  submittedByUserId String?
+  accountId String?
+  sessionVersion Int?
+  surveyId String
+  expectedVersion Int
+  payload Json
+  policySnapshot Json
+  tokenHash String @unique
+  attempts Int @default(0)
+  expiresAt DateTime
+  receivedAt DateTime @default(now())
+  emailSentAt DateTime?
+  verifiedAt DateTime?
+  completedAt DateTime?
+  completedUserId String?
+  resultVersion Int?
+  survey StudentSurvey @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@index([email, receivedAt])
 }
 
 enum StudentSurveyState {
@@ -1754,6 +1842,54 @@ enum StudentSurveyState {
   RECALLED
   DISQUALIFIED
   ABORTED
+  INVALID_REJECTED
+}
+
+enum StudentSignupAppealState {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+/// Appeal reasons and decisions retain their exact request/flag version and original actor.
+model StudentSignupAppeal {
+  id String @id @default(cuid())
+  surveyId String
+  invalidityVersion Int
+  actorUserId String?
+  reason String
+  clientKey String @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  inputHash String
+  state StudentSignupAppealState @default(PENDING)
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+  resolvedByUserId String?
+  decisionKey String? @db.Uuid
+  decisionHash String?
+  survey StudentSurvey @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([surveyId, invalidityVersion])
+  @@index([state, createdAt])
+}
+
+/// Durable generic invalidity/decision mail, including accountless requests. Proofs are
+/// recipient/version-bound and re-derived for send-only retry; staff notes never enter mail.
+model StudentSignupNotice {
+  id String @id @default(cuid())
+  surveyId String
+  invalidityVersion Int
+  kind String
+  recipientEmail String?
+  accountId String?
+  sessionVersion Int?
+  tokenHash String? @unique
+  state String @default("PENDING")
+  attempts Int @default(0)
+  createdAt DateTime @default(now())
+  lastAttemptAt DateTime?
+  sentAt DateTime?
+  survey StudentSurvey @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([surveyId, invalidityVersion, kind])
+  @@index([state, createdAt])
 }
 
 /// Older public tutee requests predate StudentSurvey. Keep their staff-only review
@@ -2007,12 +2143,25 @@ model SchoolCalendarDay {
   note String?
 }
 
+/// Informational dates only; attendance and school-day appeal rules never consume these rows.
+model ProgramCalendarDay {
+  date      String   @id
+  reason    String
+  /// Retain the version after removal so an old editor cannot overwrite a recreated date.
+  active    Boolean  @default(true)
+  version   Int      @default(1)
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
 /// Singleton configuration; changing the zone never rewrites stored instants or weekly slot times.
 model ProgramSettings {
   captchaEnabled Boolean @default(false)
   captchaVersion Int @default(0)
   /// Head-only configuration for existing signup fields; missing keys use original defaults.
   signupFields Json @default("{}")
+  /// One current-role policy governs both intake and profile fields; saved names are never erased.
+  nameFields Json @default("{}")
+  nameFieldsVersion Int @default(0)
   requireLatinNames Boolean @default(false)
   /// Independent legal-name script rule; alternativeNames retains its storage key.
   requireLatinLegalNames       Boolean  @default(false)
@@ -2042,10 +2191,21 @@ model AccountEmail {
 /// A transactionally recorded notification, with one row per event/recipient and bounded retries.
 model EmailDelivery {
   id String @id @default(cuid())
-  userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String?
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
   category String
   event String
+  /// Safe event context copied atomically by the notification trigger, never Notification.body.
+  context Json?
+  /// Essential public-request notices retain source-bound evidence without inventing an account.
+  requestKind String?
+  requestId String?
+  requestVersion Int?
+  requestInvalid Boolean?
+  requestReason String?
+  requestSubmittedAt DateTime?
+  requestTimeZone String?
+  requestAppeal RequestInvalidityAppeal?
   /// Internal notification destination, retained without copying private message contents.
   destination String?
   recipient String
@@ -2055,10 +2215,29 @@ model EmailDelivery {
   attempts Int @default(0)
   availableAt DateTime @default(now())
   leaseUntil DateTime?
+  /// Request transport admission has a unique fence so expired workers cannot finish newer attempts.
+  attemptId String?
+  attemptStartedAt DateTime?
   completedAt DateTime?
   status String @default("PENDING")
   lastError String?
   @@index([status, availableAt])
+  @@unique([requestKind, requestId, requestVersion])
+}
+
+/// Append-only participant evidence for one applied invalidity revision. A later
+/// clear/reflag retains earlier text and review decisions rather than rewriting them.
+model RequestInvalidityAppeal {
+  id String @id @default(cuid())
+  noticeId String @unique
+  notice EmailDelivery @relation(fields: [noticeId], references: [id], onDelete: Restrict)
+  body String
+  submittedAt DateTime @default(now())
+  status String @default("PENDING")
+  reviewVersion Int @default(0)
+  resolvedAt DateTime?
+  reviewedById String?
+  decisionReason String?
 }
 
 /// Expiring, hashed counters for accepted public applications across server replicas.

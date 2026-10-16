@@ -13,7 +13,7 @@ separately. Staff-visible `RegistrationCode` keys never authenticate an existing
 | Source | Authorization and email proof | Redemption writes | Preserved boundary |
 | --- | --- | --- | --- |
 | Tutor/Crew/management key | Existing staff authorization plus separate recipient-delivered mailbox code | Original registration transaction adds authorized access with canonical-account preservation | Management rank becomes the higher of the existing rank and invitation rank; no Head grant or demotion. |
-| Tutee request | Full submitted application and policy evidence precede mailbox-code verification; the legacy survey link remains valid | Receipt popup hands off to the original confirmation transaction, retained ownership and policy snapshot | Original request priority, intake/deadline rules and assignment stay separate. |
+| Tutee request | Full submitted application and policy evidence precede exact-submission mailbox verification; staged replacements leave the live survey proof usable | Recipient review confirms new demand or applies the independently staged answers to its owned current OPEN request | One email owner/account, original priority, fixed deadline, source consent and recorded assignments/sessions remain separate. |
 | Viewer request | Initial mailbox verification issues a distinct invitation and verified-browser proof | Receipt popup hands off to new Viewer credentials, or sign-in-only for an existing account | Viewer exclusivity and the public signup feature gate remain authoritative. |
 | Public Crew application | Mailbox verification creates a pending application; staff approval and fresh mailbox verification authorize invitation retrieval | The approved staff source issues the shared receipt for explicit new-account or additive Crew review | No Crew access before staff approval and account review; revocation and the Crew feature gate remain authoritative. |
 | Historical tutee invitation | Exact staff-reviewed record, source revision and mailbox proof | Receipt popup hands off to neutral history-only credentials and an envelope receipt | The signed-in owner must separately claim the original historical record. |
@@ -44,6 +44,9 @@ existing account ownership/generation checks. Expired mailbox proofs, login exch
 unfinished invitations remain invalid.
 Tutee submission and final redemption both resolve verified aliases and recheck quarter withdrawal
 and current-request ownership; late alias linking cannot bypass either participation restriction.
+An existing tutor can request help through the same tutee form without another account or
+credential change. Email normalization or a matching address never authorizes record access,
+account combination or replacement. Tutee replacement is independent of tutor recruitment.
 
 First successful Viewer/history verification starts a fixed 15-minute review window; retries retain its original timestamp. Envelope expiry is capped by source and authorization deadlines, and email states the exact expiry. Sending replacements never extends staff authorization or Tutee verification deadlines.
 
@@ -54,6 +57,15 @@ combination invalidate stale evidence. The login exchange is single-use independ
 membership write. The source write and completion receipt commit in one transaction, permitting
 lost-response retries without duplicating accounts, resetting passwords or replaying participation.
 An explicit receipt is distinguishable from failed session synchronization in the public form.
+
+`accountInvitation.inspect` is an ID-only read query. Verified-browser proof is
+accepted by the POST `accountInvitation.review` mutation, not by query input;
+proofs therefore do not enter query URLs, referrers or browser history. Recipient
+authority and source checks are shared by both readers. A pending tutee-intent
+review returns its exact staged answers, named subjects/time slots, stage-time
+policy/signature evidence and retained original priority separately from canonical
+account identity. That summary describes the proposed request being accepted,
+not an account-profile edit or an inferred policy acceptance.
 
 The three public entrypoints stay separate: `/register` has one centered invitation code field
 and full-width Continue action; `/viewer-signup` collects Viewer details; `/signup` collects the
@@ -188,7 +200,213 @@ The Users & Roles page composes existing table actions, `ProfileDialog`, `TableD
 
 Focused regressions live in `src/app/(admin)/admin/users`, `src/lib/user-filters.test.ts`, `src/lib/account-membership.test.ts` and `src/server/account-directory.test.ts`. Include `src/server/tutor-details.test.ts` for the preserved-academics boundary. Browser verification must use the actual Users & Roles page and native nested dialogs in both languages, then measure badge contrast and control bounds; screenshots and HTML evidence belong in ignored `outputs/`.
 
+### Management review summaries
+
+Management summaries keep participant identity, wrapped metadata and source/status
+badges on one content edge. Announcement badges and assignment companions align
+with the actual input/select row; labels and described guidance occupy separate
+grid rows. Subject-group actions align with the complete summary, including its
+offered-subject badges. Leading subject-selection checkboxes preserve the existing
+visible-only batch submission and hidden-selection count; detail entries remain
+in the trailing Actions column. Offered subjects retain `courseChoices` ordering,
+shared with signup forms, rather than introducing a second display comparator.
+
+Action typography follows the record's context: application and signup header
+actions share the compact Button treatment (including invalidity and decline),
+while brief meeting detail/delete entries share TableAction typography and target
+height. The destructive variant changes color and border without changing size.
+
+Tutor Applications and Signup Requests default to **Active entries**, meaning
+only that the record is not flagged invalid. Workflow status, intake priority and
+processing permissions remain independent. Observers may use the same validity
+filter on their authorized signup summary without acquiring private flag actions
+or reasons. Uncertain current academics use one **Review Needed** indicator;
+historical enrollment originals, correction overlays and reference years retain
+their existing precedence and detail evidence.
+
+Both signup sources show verification once in a compact **Email: Verified** or
+**Email: Unverified** contact line. The contextual short labels do not replace
+full-sentence verification messages elsewhere, and contact access stays with the
+existing email reader.
+
+Subject Availability shows each subject with its level and qualification summary.
+Qualified subjects also show willingness, including an explicit **Not recorded**
+state. Display order is qualified/willing, qualified/unwilling,
+qualified/not-recorded, then unqualified, retaining catalog order within each
+group. The editor retains separate immediate qualification and willingness writes,
+stored inheritance provenance and inactive-source restrictions. Its owner stays
+above filtered rows, and accepted-write synchronization failures expose read-only
+refresh recovery. Qualification edits still use the existing management operation;
+missing willingness never becomes a negative answer.
+
+Subject Offerings retains the server's level-first signup catalogue order. The
+parent page does not alphabetize the incoming rows; local filters preserve that
+order and selected IDs remain independent of the visible subset.
+
+Tutor Meetings uses P/EA/UA headings with a visible full legend, and opens complete
+self-excuse reasons through details. Participant rows reserve the same desktop and
+touch control area for choices and badge-only attendance. Attendance submission
+details read the recorded start/end/duration, tutor and tutee absence reasons, five
+self-evaluation values, full comments and service-hour factor/count. Null evaluations
+remain unrecorded; merged sibling zero hours remain zero. These readers do not
+infer past evidence from a pairing's current configuration.
+
+Attendance flags filter the existing `viewerProcedure` read by recorded decision
+state, defaulting to Pending. Resolved records remain readable and cannot be
+decided again; the existing locked, pending-only mutation and approval rules stay
+authoritative. Decision notes and reviewer names are masked for management
+observers. Feature-owned note/penalty drafts survive dialog close and filters.
+Admission guards block same-turn duplicates, pending writes prevent dismissal,
+and accepted/queued decisions cannot replay through failed synchronization.
+
+Audit difference markers compare only stored JSON values and presence. They
+support both root before/after snapshots and canonical `changes[n].before/after`
+pairs while keeping entity/write/count context and complete raw evidence.
+Type changes, additions and removals receive text as well as color; arrays compare
+recorded positions without guessed identity. Empty, null, missing, false and zero
+remain distinct. The reader never reconstructs evidence from current records and
+continues to exclude executable `undoData` recursively. Denial eviction and
+read-only refresh remain owned by the audit feature.
+
+Consequential boxed buttons keep their outlined boundary with red labels at rest.
+Destructive text actions and table entries are red and unboxed at rest and on
+hover. Shared table actions use a thick, offset keyboard-focus underline instead
+of a surrounding ring; standalone text actions retain their existing focus treatment.
+Ordinary links precede boxed decisions
+in a record action group, and Delete remains last in DOM and keyboard order.
+Native button/link semantics, confirmation/ticket rules and responsive targets
+remain intact; styling is assigned explicitly rather than inferred from labels.
+The synthetic management summary recipe in `/ui-gallery` demonstrates control-row
+alignment, leading selection and consequential review/focus return. Focused
+regressions cover the corresponding feature components and real-page compositions;
+browser measurements and role/language evidence still require the running pages.
+
 ### Shared UI patterns
+
+The [session view API](../src/app/_components/session-view-state.tsx) stores explicit
+tabs, filters and pages in `sessionStorage`, partitioned by the existing session
+identity (account/role/tutor link), pathname, feature/schema ID and feature-supplied
+period/query scope. The provider consumes the existing identity verification and
+privacy curtain; it adds no identity requests. Every returned choice passes its
+current feature allowlist. Denied/removed features clear their remembered choices.
+Dynamic catalogs use the separate `restoreReady` gate so empty loading options
+cannot erase saved room/period IDs before the authorized choices arrive.
+Named `viewFields` parsers normalize the stored representation as well as the
+rendered value. `useSessionAccessDenied` holds an authoritative query denial through
+later transport failures until fresh successful reads, while the feature hides its
+cached denied content. Both are presentation helpers; procedure permissions remain
+authoritative.
+The bounded [storage helpers](../src/lib/session-view-state.ts) reject nested record
+payloads and long bodies, retain at most 100 presentation entries, and degrade
+gracefully when storage is blocked. These structural limits supplement explicit
+feature allowlists; they do not authorize storing private draft fields.
+Live search parsers preserve the feature's original input limits independently of
+those storage limits. A valid longer search remains in memory across ordinary
+rerenders and filter changes; a rejected/failed storage write removes only its
+previous saved entry so remount cannot revive older criteria. ID/URL parsers retain
+their own bounds and dynamic catalog checks. The 4 KiB UTF-8 budget includes the
+encoded route/scope key plus value; oversized contexts disable only persistence,
+with a cheap character check before encoding. No generic parser bypass is used for
+denial, scope changes or removed choices.
+
+`useSessionPageScroll` restores only the page owner: fixed desktop management
+`#admin-content`, otherwise the document, switching at the 1024 px breakpoint.
+It waits for the feature's usable reads, observes delayed content growth for at
+most five seconds, and cancels recovery for user gestures or hash destinations.
+The window remains active after first fit to repair late Next programmatic resets;
+only a measured mismatch schedules correction, so its own scroll events do not loop.
+Route exit writes the last valid position and cancels frames, timer and observers.
+The last measured scroll position is retained on route exit even before the next
+animation frame. It does not alter Next history state, global scroll restoration,
+table/dialog/sidebar position, form drafts or server permissions. Explicit tutee
+URL views remain authoritative; a verified bare workspace return may recall the
+previous view. Gallery filters and participant/inbox adapters reuse the same API.
+Management adapters cover application/interview read criteria, request panels and
+invalidity, discrepancy state, subject-availability filters, course-catalogue filters,
+applied audit criteria, approval URL criteria, signup-form panels, landing/policy
+languages, supervision visibility/page and applied academic-correction criteria.
+Creation fields, bulk selections, review notes, private message searches, tokens and
+opened editor sets are excluded. Lazy landing panels report selected-query readiness;
+policy locale restoration includes existing translations only. The dashboard and
+record-transfer shell register position after their authorized server reads; Activity
+uses its feature-dependent required queries, and account position waits for its
+mounted identity, email, departure and policy sections. This coverage describes these
+owners, not a generic layout restoration rule. Actual Next navigation evidence
+is required to verify framework scrolling.
+
+The remaining management adapters persist attendance month/tutor/visibility,
+report year/scope/depth/masking, service-hour month, directory filters/search/sort,
+meeting summary/visibility and Crew panel selection. The
+[management view parsers](../src/lib/management-view-state.ts) explicitly allowlist
+these flat fields. Directory filters now use session storage instead of the former
+localStorage preference, with no migration; hidden tutor-status selections retain
+the existing normalization rule. Removed tutor/year IDs normalize to All/current
+year after their real catalogs load. Disabled quarter choices normalize to Year,
+and observer report masking remains mandatory on the server and in the controls.
+Crew keeps independent section recovery: a denied remembered panel falls back,
+while an explicit visit can still reach its read-only Retry state without saving
+that denied selection. Meeting creation fields, attendance editor choices, appeal
+reviews, patrol order drafts and issued codes are excluded.
+
+Hour Adjustments, Announcements, Registration Codes, Discipline and tutor/tutee
+status requests remember page position only. Each actual page owner registers one
+scroll hook after its authorized reads. Tutee Requests receives only readiness and
+denial booleans from staff-only withdrawal feeds; the child adds no scroll hook,
+and the observer-safe parent never borrows access to those private reads. Crew's
+patrol history reports the same read gates plus its numeric page index, so the page
+waits for the selected patrol feed without persisting its opaque cursor chain. Access
+denial clears remembered choices and conceals cached content until read recovery;
+attendance evicts every cached month because clearing filters can change its query
+key. No adapter stores result rows, immutable evidence or write payloads.
+Current modern and manual request cards render an empty canonical name using an
+authorized linked username or the localized unnamed-participant label. The modern
+read DTO adds only current username metadata; intake `name`, payload, review
+assignment names and immutable history remain unchanged. Search still uses raw
+domain values rather than presentation fallback labels.
+Behavioral coverage is in `session-view-state.test.tsx`, the pure storage tests and
+the existing identity-cache/privacy tests; actual page screenshots remain separate
+from these mocked layout checks.
+
+Viewport recovery belongs to the mounted feature and its original pathname.
+During a Next navigation, the outgoing listener must ignore destination scroll
+events, queued persistence and recovery callbacks once the browser URL leaves
+that pathname. Cleanup flushes only its last valid source-page measurement.
+A retained outgoing feature cannot adopt a newly verified destination pathname;
+a different feature ID or a new mount establishes the next owner. Genuine
+same-route scrolling to zero, explicit hashes and user gestures retain precedence.
+Unit coverage must model URL change before React teardown, and actual Next
+out/back verification remains the acceptance gate for this ordering.
+
+Long editors and readers use `ProfileDialog` with a sticky header and a body
+stacking context below that header. This contains nested summary-table sticky
+action cells: their local layering cannot obscure Close when a long evidence
+table scrolls under the header. Native dialog focus, pending-write registration,
+feature drafts and version ownership retain their existing boundaries. The gallery
+includes a long reader with real sticky table actions; structural/lifecycle tests
+and actual desktop/mobile English/Chinese deep-scroll captures verify the correction.
+
+Recruitment settings position each audience's fieldset to contain its absolutely
+positioned screen-reader legend and date labels. Without a local containing block,
+those clipped one-pixel boxes can extend the document beyond the desktop management
+pane and let focus or `scrollIntoView` move the header. The correction retains all
+accessible labels, audience drafts, version evidence and edit/proposal authority;
+it does not alter the shared document overflow or scroll-restoration owner.
+
+Local panel composition leaves authority in existing owners. Program keeps its
+already-mounted settings forms and their independent versions; Crew and Support
+retain draft, review and pagination state when panels change. Review controllers
+and accepted-write recovery remain outside hidden panels. Creation dialogs own
+visibility while the feature keeps its draft; Pairings stores creation and editing
+drafts separately and submits the existing assignment-confirmation payload.
+
+Roster search runs over the already-authorized response before sorting, using
+the existing person-name matcher. The pairing candidate filter never rewrites
+selected IDs. Neither composition adds an endpoint, searches hidden records or
+changes record eligibility. `WorkflowShell` retains its 1024 px outer frame while
+using the shared header/identity and return-link conventions. Tutor dashboard
+attention counts use existing records and exclude paused interviews. The attention
+card retains task-specific links and today's schedule; its duplicated permanent
+section-link strip is removed. The actual workspace navigation remains available.
 
 Management editors distinguish `canEdit` (permission to prepare a proposal) from `canApply`
 (direct authority). Admin-sensitive editors retain drafts and show the approval link after
@@ -208,7 +426,52 @@ identifies these consumers and the stronger domain reviews that remain separate.
 
 [UI components](../src/app/_components/ui) provide behavior and composition without owning domain mutations. `Button` exposes action emphasis separately from context size; `ChoiceButton` uses pressed state for a selection; `Switch` exposes checked state. `SectionTabs` uses manual keyboard activation so arrow-key exploration does not switch an editor and discard its draft. `FormSection` groups one save scope and disables its fields/actions while busy. `StatePanel` keeps loading, empty, error and denied states distinct.
 
+[QueryFeedback](../src/app/_components/ui/query-feedback.tsx) uses `StatePanel` when
+an initial read is pending or failed, and `InlineNotice` when a failed refresh has
+cached data. Its `hasData` flag describes response presence, not collection length;
+an empty array is a successful read, while an enabled query with undefined data is
+still unknown. Error feedback remains visible during Retry. The component receives
+translated titles, optional detail and a read callback; it does not fetch, mount
+feature children, infer empty results, grant access or own mutation/draft state.
+Callers keep cached content beside transient recovery and disable only dependent
+writes. Authoritative access denial must hide private content and invalidate the
+affected private cache; a later transport failure cannot restore that access.
+Feature tests must cover these ownership rules in addition to the shared display
+tests and gallery example.
+
 `NativeDialog` supplies native modality, portal event ownership, radio-aware keyboard focus and exact trigger restoration. `Modal`, the wide/sticky `ProfileDialog`, and `CurrentPolicyDialog` share this behavior while retaining their own layout and scrolling. A nested review owns its Escape event. Independent forms call `useDialogPending(ownPending)` to prevent dismissal during any registered write; its return value disables sibling controls. Register only the form's own pending state, never the returned aggregate, so the guard releases when writes settle. Callers retain validation, versions, permissions, approval policy and action tickets.
+
+Management pairing, tutee and tutor creation first presents a shared risk dialog
+with a fresh unchecked acknowledgement, Cancel and Continue. Continue only admits
+the feature's existing creation fields; it performs no mutation or proposal and
+does not replace server permissions, action tickets or approvals. Each feature
+owns its opening transition and retained creation draft, so closing and reopening
+requires acknowledgement again without clearing unfinished fields. The warning
+describes these manual workflows as a last resort outside normal intake/matching.
+
+Users & Roles account deletion uses a feature-owned password form inside `Modal`.
+The list-owned [AccountDeletion](../src/app/_components/account-deletion.tsx)
+captures an authoritative `admin.previewDeleteUser` snapshot and its fingerprint,
+retains a rejected password draft, and guards same-turn admission. The shared dialog
+owns native modality, pending dismissal and trigger focus; a delayed initial read
+focuses the password only before the user begins exploring. Explicit Reload replaces
+a stale snapshot only after a successful read. Denied evidence remains concealed
+through later transport failure. Accepted deletion and failed list synchronization
+have separate states; retained read recovery cannot replay the mutation or offer a
+known-deleted row again.
+
+[Deletion](../src/server/delete-account.ts) receives `userId`, the reviewed
+`fingerprint` and `confirmPassword`. Namespace, leadership, sorted account advisory
+locks, dependency-table fences and User row locks serialize the live password,
+authority and consequence check with signup/profile/ownership changes. Audit commits
+with deletion in the existing request scope or the helper-owned transaction. The
+preview separates current academic/departure singletons from their evidence counts,
+and deduplicates direct/retained profile IDs. Existing cascade and nullable-reference
+semantics remain explicit, while combined families, retained Tutor/Tutee owners and
+unconfirmed email-bound intake receive specific blockers. Scalar Student ownership
+has no foreign key, so its blocker prevents a dangling inaccessible archive. Login
+deletion removes expiring action grants too; sessions and invitation proofs fail
+their live account/generation checks. No countdown or new confirmation ticket is added.
 
 `TimedActionDialog` retains its separate ticket/countdown and mandatory-policy
 contract. Like `NativeDialog`, it disables native close requests and suppresses
@@ -237,6 +500,19 @@ Historical or corrected tutee contact saves and historical or preserved tutor pr
 `SummaryTable` provides a named keyboard-scrollable region around a semantic table. Keep names, counts and statuses brief. When a row has detail/editor actions, place them in the trailing `TableActions` cell; only explicit action cells stick at the right edge. Read-only history tables need no invented action column. `TableAction` preserves button semantics with compact accent text links (24 px desktop minimum, 44 px below `lg`, no extra vertical gap). Wrapped or enlarged labels can grow beyond the minimum. `TableDetails` mounts a native modal only when opened. Roster course details keep their original read access; contact, account and history disclosures retain separate authorization and lazy queries. History exports and printed reports preserve full detail.
 
 `FilterToolbar`, `SettingRow`, `ChangeReview` and `InlineNotice` are presentation compositions with caller-owned state. A filter uses pressed choices; only actual content views use tabs. Immediate switches, explicit unknown/yes/no willingness and staged checkbox settings preserve their distinct save behavior. Change review accepts domain-owned immutable evidence such as `ApprovalReviewDetails`; it never generates authorization or confirmation tickets. Announce new failures or completions explicitly and avoid wrapping existing alerts in another alert.
+
+`TableDetails` can opt into `longReader`, composing `ProfileDialog` for a persistent
+header Close and an internally scrolling body. The room grid, original Crew
+application/request readers and gallery exercise this option. Children still mount
+only after opening; nested focus, Escape and pending child writes use the existing
+native-dialog contract. This adds no detail query or authorization behavior.
+
+The participant `Pager` wraps compact previous/next controls in a named navigation
+region and reports the current page. Its optional translated `label` distinguishes
+multiple lists on one page, including message recipients and inbox results. Each
+feature retains its own `page`, setter, `more` calculation and filter reset rules;
+the component does not fetch data or infer a total number of pages. Controls wrap
+for long labels and keep the existing desktop/touch size hierarchy.
 
 Discipline review, the Service Hours month filter and Session Flags use compact
 actions beside native fields with explicit desktop padding/min-height overrides.
@@ -278,6 +554,184 @@ root font size: text can paint beyond a correctly sized paragraph, so inspect
 text rectangles and page scroll width as well as element bounds. Capture enlarged
 failures before restoring the font size; CSS-contract tests alone do not establish
 browser layout acceptance.
+
+### UI extension boundaries
+
+Page composition is caller-owned within the existing shell. The
+[role-based composition guide](contributing.md#compose-a-page-by-its-purpose)
+defines frame, padding, typography and copy choices; it does not introduce a new
+`PageHeader`, layout registry or token API. The management frame includes its
+sidebar and remains 1280 px maximum, while participant workspaces remain 1152 px.
+Reader and compact public frames serve different tasks and may stay narrower.
+Embedded account/form sections inherit the host heading and alignment rather than
+creating another page shell. Keep shared control and header behavior governed by
+[AGENTS.md](../AGENTS.md#control-height-hierarchy).
+
+Choose hierarchy around existing data and actions. A task summary may link to an
+existing schedule, request or attendance destination; it must not infer new
+eligibility, deadlines or “next session” calculations in a presentation component.
+Label optional future helpers and layout variants as proposals until real callers,
+their contracts and tests exist. A composition migration preserves feature/query
+ownership even when fields move between a page, retained panel and dialog.
+
+The default extension path is a small feature adapter composed from existing
+components, described in [Add an action or feature](contributing.md#add-an-action-or-feature).
+There is no general action registry, schema-driven form engine or shared component
+that derives permission from a visual state. `ReviewedAction` in
+[action-review.tsx](../src/app/_components/ui/action-review.tsx) is the existing
+contract for one named consequential review; it is not the domain operation model.
+
+| Owner | Responsibilities | Existing entry points |
+| --- | --- | --- |
+| Server feature | Validate input and live authority; enforce ownership, versions/tickets, transactions, approval replay and immutable evidence | [Procedure middleware](../src/server/api/trpc.ts), [approval classification](../src/lib/approval-policy.ts), the owning router and domain helpers |
+| Feature controller | Own drafts, selected record, expected version, localized consequence, mutation, proposal/error adapters, affected refreshes and the lifetime of review/recovery | [Announcements](../src/app/(admin)/admin/announcements/page.tsx), [crew](../src/app/(admin)/admin/crew/page.tsx), [profile editor](../src/app/_components/account-profile-editor.tsx) |
+| Shared interaction | Render controls and native dialogs, focus/pending behavior, review admission and accepted-result recovery without inventing domain permissions | [Action review](../src/app/_components/ui/action-review.tsx), [NativeDialog](../src/app/_components/ui/modal.tsx), [form/state compositions](../src/app/_components/ui/patterns.tsx) |
+| Presentation | Express hierarchy, labels, density and record summaries consistently without changing writes or query access | [Button](../src/app/_components/ui/button.tsx), [SummaryTable](../src/app/_components/ui/summary-table.tsx), [gallery recipes](../src/app/ui-gallery/recipes.tsx) |
+
+An action has two independent classifications. Its interaction may navigate, select,
+save a draft, apply an immediate setting or review a consequence. Its server effect
+determines whether the current actor can apply, propose or only read. Changing an
+interaction style does not change `classifyApproval`, reviewer eligibility or ticket
+requirements. A new reviewed server operation also needs authored immutable review
+vocabulary and tests; follow [Approval transactions](#approval-transactions).
+
+For `useActionReview`, `commit` contains only the feature mutation. `approvalId`
+recognizes the existing queued-proposal outcome; `renderError` maps only known
+feature errors. A rejected write permits a deliberate retry. An accepted write or
+queued proposal blocks replay of that review key. An applied write then runs its
+separate `refresh`: failure is synchronization recovery, not mutation failure.
+`invalidateAndReport` detects new read failures after all matching variants settle;
+`settleRefreshes` does the same waiting across refresh families. Recovery never calls
+`commit` again. `repeatAfterRefresh` allows a fresh deliberate review only for a
+domain action that becomes meaningful again. Keep the controller mounted above the
+row or tab that an accepted action can remove.
+
+If an authoritative query denial revokes access to the evidence in an open review,
+the feature hides that review immediately and calls `revoke()` to release its stored
+action. This does not cancel an admitted server write. Pending generations remain
+blocked until they settle; accepted and queued keys remain protected against replay.
+Callbacks from a revoked generation cannot restore evidence, close a newer review
+or release an accepted key. A transport failure alone must not revoke a review.
+
+Draft forms have a different lifetime. Retain one draft and version per independently
+saved section, freeze that section during admitted work, and distinguish background
+Retry from an explicit successful Reload that adopts a new snapshot. Use the current
+profile completion contract for repeat edits instead of using action-review replay
+as a save mechanism. `FormSection` provides layout and disabling; it does not perform
+validation, fetch versions or decide when a draft is safe to replace.
+
+Prefer a feature adapter over copying an entire dialog: shared focus, admission and
+recovery fixes then reach every consumer. Keep stronger domain reviews separate when
+they need tickets, countdowns, password proof, assignment previews or multiple version
+snapshots; forcing these into the smaller contract hides important differences.
+Extract another shared helper only after real callers share the same lifetime and
+failure semantics, with explicit inputs and tests for each caller. A future starter
+generator or lint rule would be new tooling, not an existing API; first demonstrate
+which repeated omission it prevents without inferring authorization or deleting a
+feature's deliberate exception.
+
+### Review-batch extension contracts
+
+The following contracts were agreed before the next UI implementation batch. They
+describe its boundaries; individual feature sections remain authoritative for
+what is currently implemented until their migrations and verification are complete.
+
+- **Informational tutoring dates:** no-tutoring dates carry a program-local date
+  and reason independently of the school-day calendar used by appeals. Displaying
+  a date must not prohibit attendance, change an appeal deadline, cancel a pairing
+  or infer a next session. Preserve the existing settings approval and audit model.
+- **Name requirements:** per-account-type Required, Optional and Hidden states
+  apply to signup and later profile editing. All fields may be optional or hidden;
+  an account without a displayable name uses its username. Signup uses the intake
+  type being registered; a shared profile follows the account's current role,
+  rather than combining every membership's requirements. Hidden fields do not
+  contribute to active display names or participant forms, but their saved values
+  remain visible in authorized admin management fields. Hiding a field never
+  erases an existing name or rewrites historical evidence. Resolve fallback
+  username allocation and legacy unsplit-name compatibility in the server validator
+  as well as the UI. A presentation-only
+  `required` change is insufficient. Policy reads and saves retain explicit
+  versions, approval boundaries and conflict recovery.
+- **Room order and schedules:** display order is a program-owned setting separate
+  from patrol order. Room selectors default to all rooms for management and paired
+  rooms for a tutor. Combined and individual-room grids are two views of the same
+  authorized recurring data. Individual grids use time rows and weekday columns;
+  occupied gray cells and unavailable crosses need accessible status text and a
+  legend. Detail filtering by day, slot and room does not create assignments.
+  Participant availability headings, accessible group names and schedule-review
+  summaries use the active locale through `formatWeekday`. Its fixed UTC/ISO
+  reference localizes presentation without changing weekday indices, slot IDs,
+  minute values, availability saves or confirmation-ticket request targets.
+  Active availability weekday labels must use readable slate text on the white
+  editor surface; they are grouping labels, not disabled metadata. The tutor
+  qualification Request and Cancel controls share the standard action size
+  (40 px desktop minimum, 44 px touch minimum), while their colors express
+  emphasis. Browser verification measures the painted weekday leaf and both
+  action rectangles; locale, slot IDs, drafts and mutation ownership are unchanged.
+- **Flag history:** state filters must query the authorized server dataset; a
+  client-only filter cannot reconstruct resolved entries from a pending-only read.
+  Preserve pending-only decision guards, immutable resolution evidence and the
+  existing review/penalty operations when adding read history.
+- **Evidence differences:** highlight changes between recorded Before and After
+  values without replacing the original values. Preserve missing versus null,
+  array order and full raw evidence access. Never compare an audit event against
+  today's mutable record or fetch additional private data solely to decorate it.
+- **Navigation restoration:** session storage may hold validated view preferences
+  and scroll offsets, not domain drafts, record evidence or authority. Clear or
+  ignore state across identity/access changes. Restoration waits for the relevant
+  content layout and respects explicit navigation and the user's own scrolling.
+  Static Requests panel/filter enums remain interactive while content loads;
+  dynamic catalog parsers retain their readiness gate. An accepted early live
+  choice has transient provenance for its exact identity/path/scope key and wins
+  an older saved/default view after verification. Key changes, denial or catalog
+  invalidation discard that provenance; storage writes still require verification.
+
+These are feature contracts, not a general form engine or permission registry.
+Add shared layout helpers only where real callers have the same alignment and
+lifetime requirements, with gallery examples and meaningful behavior coverage.
+
+### Confirmation timing contract
+
+[`confirmationDelayMs`](../src/lib/confirmation-timing.ts) is the source for server
+confirmation delays. These shorter action-specific waits replace the previous
+uniform five-second action delay, ten-second policy delay and three-second
+qualification override delay:
+
+| Ticket action         | Previous | Current | Reason                                                                                                |
+| --------------------- | -------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| `RECALL`              | 5 s      | 2 s     | Brief single-request consequence; permanent closure and new queue priority stay explicit              |
+| `ABORT`               | 5 s      | 3 s     | Quarter withdrawal warrants a longer consequence review                                               |
+| `SCHEDULE`            | 5 s      | 2 s     | Proposal with an explicit reason; approval still owns assignment removal                              |
+| `APPROVE`             | 5 s      | 3 s     | Participation-ending or assignment-releasing decision                                                 |
+| `DENY`                | 5 s      | 2 s     | Close the application while preserving the current request/assignment                                 |
+| `ASSIGN`              | 5 s      | 2 s     | Review the learner, subject and tutor before the assignment or proposal                               |
+| `ASSIGNMENT_OVERRIDE` | 3 s      | 2 s     | Named qualification mismatch, independently acknowledged by proposer and reviewer                     |
+| `POLICY`              | 10 s     | 5 s     | Retain more reading time alongside unchanged document-bottom, agreement and immutable evidence checks |
+
+`prepareStudentAction` and `prepareAssignmentOverride` return `readyAt`,
+`expiresAt` and a `serverNow` snapshot taken after ticket creation. Both dialogs
+anchor that snapshot to `performance.now()` at response receipt. Readiness ignores
+client wall-clock skew; expiry conservatively subtracts the observed request
+round trip, an upper bound on response transit. Boundary callbacks and
+focus/visibility recovery update the label/status, while a live click-time check
+uses the same calculation before admission. No callback submits an action at zero.
+
+Changing the action/target or assignment identity remounts its preparation
+generation. Late responses cannot expose old proof, and cancellation removes only
+the actor's unused ticket. Submitted proof survives a dialog handoff to the
+qualification step. A ref blocks same-turn duplicate admission until its returned
+mutation promise rejects (even if the pending render is batched away), or a legacy
+callback exposes a rejection; an already-visible error cannot release that guard.
+Failed qualified writes offer explicit rechecking instead of an automatic retry loop.
+Expired reviews offer renewal; policy Refresh remains in its existing footer and
+resets read/agreement evidence through the policy feature's own recovery.
+
+The server remains authoritative: `readyAt <= now`, `expiresAt > now`, matching
+actor/action/target and unused proof are required atomically with the operation.
+Permissions, password step-up, proposal approval and policy revision ownership
+remain feature-owned. Ticket lifetimes stay at 30 minutes for student actions and
+5 minutes for qualification overrides. Verification expiry, resend cooldowns,
+rate limits, signup opening clocks and session timeouts are outside this contract.
 
 ## Identity and authorization
 
@@ -346,6 +800,15 @@ Account names synchronize only to explicitly linked current profiles. Shared pro
 
 Head-only [account combination](../src/server/combine-accounts.ts) requires a preview, identity acknowledgement and the Head's password. `User.mergedIntoId` retains the duplicate as historical identity while live authorization and database guards retire its credentials and reserve its identifiers. Ownership-aware reads include retained history without rewriting original actors. Departure history and incompatible account state block this generic workflow; see [identity retention and migration limits](deployment.md#combined-account-identity-retention) and the [operator procedure](user-guide.md#combine-duplicate-accounts-head-only).
 
+The combine component intersects its server candidates with actual login IDs in
+the displayed Users & Roles table. Existing filters and search remain authoritative
+for this presentation, including default unverified/history visibility. It adds no
+signup classification. Hidden selections invalidate the local review generation,
+so a late preview response cannot restore private evidence or an old pair. Once
+submitted, the captured pair keeps its pending/result owner; page filters are
+disabled until settlement. Both zero-signup and signup-bearing logins retain the
+same server conflict, survivor-readiness and retirement safeguards.
+
 [Historical tutor linking](../src/server/tutor-history.ts) records a separate
 `TutorProfileOwnership` read grant rather than replacing `User.tutorId`. Admin/Head
 review an exact historical profile and verified account; correcting a retained owner
@@ -393,6 +856,23 @@ automatic-allocation policy; an explicitly assigned existing handle remains vali
 
 In **Users & Roles → Edit profile**, Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admins may submit username changes for Head review; Coordinators cannot submit them. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op; stale profile versions require explicit **Reload**. After a successful save, the section automatically reads its current username and profile version, then allows another explicit Save in the same dialog. Other sections retain their drafts and version snapshots.
 
+Notification record navigation composes the existing bell and authorized request/
+application cards. Validated record links opt out of Next's default scroll so it
+cannot overwrite an intentional incoming fragment. Destination filters commit
+before a mounted target is revealed and focused; delayed mounting waits on DOM
+changes rather than a timer. The page's session scroll owner already skips incoming
+fragments. After a successful reveal, or a user gesture, location change or access
+loss, the record adapter relinquishes scroll ownership. This changes presentation
+only: no query permissions, review state, editor drafts or mutation authority move
+into the navigation helper.
+
+Desktop record reveal writes only the existing scrollable `#admin-content` pane's
+position from live target/pane rectangles; native clamping keeps the target in that
+pane. An all-ancestor `scrollIntoView` would also center the outer document and can
+move the header offscreen when descendant overflow gives it an incidental range.
+The mobile branch retains document-native reveal. No global overflow clamp or
+layout/position reset is part of this navigation correction.
+
 ## Approval transactions
 
 Additional tutor qualifications use `qualificationApplication` and explicit `ADDITIONAL_SUBJECT` / `HIGHER_LEVEL` application types linked to an existing tutor and stable subject ID. Submission is self-only for active, non-revoked tutors; an open-request unique index plus transaction locks prevents duplicate pending/interview requests. Only Admin/Head may choose a panel or decide, and an interviewed request retains the existing votes/majority/chair checks. Initial-signup reconciliation is bypassed: no roles, membership, registration codes, willingness or existing grants change. Approval uses `approveQualification` in the decision transaction and copies its concrete grants into immutable request evidence; later catalogue reordering never recalculates this evidence. SQL guards preserve request identity and final decisions. Legacy status, delete and interview-decision entry points reject additional applications before proposal middleware.
@@ -425,8 +905,12 @@ Audit events identify actors by stable account ID and current role. The default 
 `admin.auditLogDetail` is an on-demand, live-staff-authorized projection of one
 stored event. It selects recorded metadata, evidence and undo status/time, excluding
 executable `undoData`; it never joins current actors or targets to reconstruct
-history. The audit page mounts `AuditEventDetails` inside `TableDetails` only for
-staff, refreshing on each opening. Observers keep the existing projected summary
+history. The audit page mounts `AuditEventDetails` inside `TableDetails longReader`
+only for staff, refreshing on each opening. Full evidence can extend beyond the
+viewport; the shared reader keeps its Close header reachable while scrolling the
+recorded comparison or expanded stored JSON. Close and Escape restore the selected
+row's opener without altering evidence or invoking Undo. Observers keep the compact,
+existing projected summary
 and cannot call the detail endpoint. The feature renders stored before/after and
 nested evidence with exact field names, an explicit no-evidence state, precise
 local/UTC times and read-only retry. It changes neither writer coverage nor old
@@ -447,8 +931,11 @@ fences concurrent flag/clear writes and stale approval replay. Ordinary daily-wo
 approval rules apply: Admin/Head apply and Coordinators propose. The flag does not
 rewrite submission priority, consent, verification, grants or participation.
 Processing guards must run on the server, including assignment and interview
-aliases. Internal reasons and actor details are omitted from participant reads
-and masked management views. See [issue #294](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/294).
+aliases. Review reasons and actor details are omitted from participant request APIs
+and masked management views. Essential request-email notices may include the
+participant-facing reason only after request-specific mailbox proof; see
+[notice and appeal boundaries](#public-request-invalidity-notices-and-appeals).
+See [issue #294](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/294).
 
 `TutorApplication` and `StudentSurvey` store their review fields directly. Older
 public tutees without a survey use `TuteeRequestInvalidity`, keyed by `tuteeId`,
@@ -458,7 +945,26 @@ unknown-source records are not reclassified as public requests. Shared processin
 locks serialize flagging with assignments and invitation redemption; existing
 memberships and completed invitation receipts remain intact. Participant reads
 receive no internal explanation, and authorized observer summaries receive only
-the invalid badge. Current flags also leave actionable activity counts.
+the invalid badge. Current flags also leave actionable activity counts. Tutee owners
+receive a notification and a separate reasoned appeal entry point until active-period
+rollover. The request remains invalid and processing-blocked during appeal review.
+Admin/Head acceptance clears the flag without changing priority; final rejection
+closes the active request and ends its priority while retaining source and decision
+evidence. A later eligible submission gets fresh priority. No deadline is inferred
+from public signup closing, and an appeal cannot extend an existing verification deadline.
+
+`student-signup-appeals.ts` records `StudentSignupAppeal` against the exact invalidity
+version and uses `StudentSignupNotice` as the committed delivery outbox. Notices
+resolve retained ownership and a current verified recipient rather than treating
+the immutable submitted email as today's owner. The mailbox appeal capability is
+bound to that recipient/account generation and invalidity version; its link does
+not reveal internal screening reasons. `studentWorkflow.inspectSignupAppeal` and
+`appealSignup` serve that exact emailed capability, while `appealOwnedSignup`
+requires signed-in ownership. `resolveSignupAppeal` rechecks Admin/Head authority,
+the current flag version and a purpose-bound consequence ticket. Acceptance and
+final `INVALID_REJECTED` closure commit with decision/audit evidence and notification
+enqueueing; SMTP delivery happens after commit. Failed notice delivery is separate
+from an accepted flag/decision, so resending a notice does not repeat the write.
 
 Invalidity reviews belong to a stable host above the request cards. Filtering,
 polling and movement between assignment groups cannot unmount an open draft or
@@ -471,16 +977,79 @@ The original survey submission determines queue priority. Mailbox-code verificat
 
 | Action                          | Invariant                                                                                   |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
-| Submit or repeat an open survey | Preserve the first payload, timestamp and exact accepted policy snapshot                    |
+| Submit fresh eligible demand | Reserve priority at acceptance, before account setup; preserve the original payload and signed policy evidence |
+| Stage same-email tutee replacement | Store an independent intent/challenge; leave the live request, priority and original proof untouched |
+| Complete a deliberately new intent | Require exact mailbox proof and existing account authentication/MFA; replace current answers and append that intent's consent revision, even for identical answers |
+| Recover an exact network retry | Return only its bound acknowledgement or saved result; no duplicate version, CAPTCHA consumption, email or notification |
 | Verify mailbox code or confirm the email link | Issue an invitation after explicit proof; opening a link alone does not confirm participation |
 | Resend a link                   | Failed delivery preserves the usable link; successful delivery replaces it                  |
-| Edit availability               | Preserve subjects, priority and assignments                                                 |
+| Edit an owned OPEN signup       | Recheck active period, ownership, field/catalog rules and version; allow edits after intake closes; preserve assigned subjects, original evidence and canonical identity |
+| Head edits assigned choices     | Review and release affected assignments with the answer change; preserve sessions and attendance |
+| Read terminal or historical signup | Keep original answers and accepted revisions read only |
 | Recall an unassigned request    | Close it permanently; a later application receives a new request and priority               |
 | Approve withdrawal              | Release all assignments and block another signup for that account/email in the period       |
 | Approve a schedule rejection    | Remove only the affected pairing and return the request for matching                        |
 | Expire an unverified assignment | Permanently disqualify it and release assignments; a fresh eligible application is separate |
 
 `StudentProfileOwnership` retains explicit links across intakes and verified email changes. Attendance, feedback and appeals use all owned profiles. Staff-entered enrollment withdrawal also requires explicit ownership and current-term evidence; it never relies on a matching email. Signup-source labels describe recorded provenance and do not change permissions or priority.
+
+`student-signup-intents.ts` stages `StudentSignupIntent` records separately from
+`StudentSurvey`. The client retry key is hashed and bound to the exact parsed
+submission and, for signed-in submissions, its submitting account. Public
+`tutee.submitSurvey`/`requestSignup` and `signupReceipt` recover accepted exact
+intents through completion admission before fresh CAPTCHA/mail admission. The
+public submission APIs require an explicit client key for independent intent/retry
+behavior; missing keys fail input validation rather than entering an older
+duplicate-submission path. Existing survey-token completion remains supported.
+A receipt grants no
+mailbox proof or private record access. Resend rotates only the staged challenge
+after successful delivery and retains its capped expiry.
+
+A per-key pre-stage admission lease covers the gap before the intent exists. Receipt
+recovery reports a retryable wait while that lease is live, rather than a definitive
+missing result that could prompt another deliberate submission. After acceptance,
+its exact acknowledgement is recoverable before fresh CAPTCHA and mail admission.
+
+`accountInvitation.verifySurvey` with an intent ID verifies the exact source mailbox
+challenge before issuing the shared `tutee-intent` envelope. Source version, owner,
+verified-alias status, credential generation, active period and eligibility are
+rechecked under the existing program, username, catalogue, account and request
+locks at redemption. Concurrent independent intents share the request's expected
+version: only the first valid completion can apply; another stale review must
+reload/resubmit rather than overwrite it. Suspension, school departure and
+quarter blocks remain authoritative. A source token's ordinary expiry can be
+superseded only by its fresh verified intent proof, never beyond the request's
+fixed `verificationDueAt`.
+
+`student-signup-editor.ts` exposes complete normalized local-answer snapshots for
+owned current OPEN requests. `studentWorkflow.signup`/`editSignup` omit email,
+login identity and original consent from the editable schema. It keeps inactive
+assigned catalogue choices in the accepted projection and fails closed when a
+legacy assignment cannot be resolved for a subject change. Hidden field settings
+cannot erase an assigned subject. Changes to names, grade, phone, contact,
+availability and unassigned choices remain request-local; they do not rewrite
+canonical User identity or academics. A stable expected version and exact retry
+key distinguish conflicts from already accepted writes. Drafts survive rejection
+and background failure; successful-write synchronization recovery performs reads.
+
+Management reads use `studentWorkflow.managedSignup`. `headEditSignup` and
+`headUnassign` independently require current Head authority and a purpose-bound
+consequence ticket; the broad management procedure wrapper does not grant Admin or
+Coordinator the Head write. Dropped assigned choices and their affected current
+`PairingTutee` links change in one transaction. Historical `Session` and
+`SessionTutee` rows survive; releasing an assignment is separate from deleting
+recorded attendance.
+
+`StudentSurvey.payload`, its original policy snapshot/revision, signature and
+`submittedAt` remain source evidence. `currentPayload`/`currentVersion` supply the
+current answer projection, while append-only `StudentSignupRevision` records each
+accepted answer snapshot and its actor/version. Ordinary signed-in edits do not
+invent fresh consent. A deliberately new public intent records its stage-time
+signature, policy snapshot/revision and acceptance timestamp. Publication after
+staging does not fabricate a newer acceptance: existing current-policy participation
+gates require that revision separately. SQL migration
+`20261014010000_student_signup_revisions` protects immutable source/revision fields
+and binds operational retry receipts to these transactions.
 
 [Historical linking and invitations](historical-participant-transition.md) add retained ownership after staff review or an explicit claim by the invited verified account. They preserve original enrollment academics, current membership and recorded attendance. Accountless tutees remain roster records; personal `/history` reads require ownership, while general observer access never grants private history. See the guide's [technical map](historical-participant-transition.md#technical-map) for endpoints and shared cache invalidation.
 
@@ -496,21 +1065,85 @@ These requests differ from non-survey tutee opt-outs relayed by a tutor: [remova
 
 Application locks protect supported API writes. Do not import directly into request tables assuming a unique pending-request index exists. Validate membership and pending-request invariants when designing import tooling, and preserve decision history.
 
+### Assigned-block workload and advisory preference
+
+[The workload reader](../src/server/tutor-workload.ts) uses one Repeatable Read
+snapshot for the active quarter, tutor eligibility, preference and assignment
+identities. Only pairings with at least one non-INACTIVE tutee count; PENDING
+tutees already assigned reserve effort. Empty/inactive-only rosters, inactive or
+revoked tutors and ended quarters contribute no blocks. Confirmed rows share the
+`termId/dayOfWeek/startMin/endMin` identity, independent of subjects, roster size,
+room and catalog-slot IDs; unconfirmed rows use their pairing ID so placeholder
+times never merge. Attendance history is not queried. Inactive slots retain the
+copied confirmed schedule's workload. The count estimates effort if assignments
+work out; it is neither an attendance total nor a weekly/program cap.
+
+`admin.assignmentWorkloads` is staff-only assignment context. Native options use
+`(count/preference)` or `(count)` when unset, and `(?)` when unavailable or refreshing.
+Workload confirmation shares `AssignmentConfirmation` with qualification review;
+qualified assignments wait for a fresh advisory read before automatically proceeding
+or showing Continue/Cancel above the preference. Failed advisory reads keep existing
+assignment permissions. The independent preference editor lives in My Availability.
+A prepared assignment admits one automatic or manual write attempt. If that write
+fails, a later advisory refetch (including a cleared workload warning) cannot
+silently submit it again. Explicit Review again prepares a fresh attempt; the
+parent draft remains mounted, and the returned write promise owns nested-dialog
+pending protection until it settles.
+A separate default-only migration sets new tutors to 1 without backfilling unset
+values; the existing inactive trigger still wins with zero. All native tutor
+selectors and Pairings summaries consume the same count. Proposed edits remove
+only the original pairing's membership, retain shared siblings and add the new
+distinct identity only for a current roster. Projections use the same current-quarter
+and authoritative tutor eligibility
+decision as saved counts, including retained inactive or revoked assignments.
+Cached reads remain visibly stale during refresh/failure; unavailable reads never
+become zero. Mutations invalidate
+this context alongside current pairings and rosters. Advisory read recovery creates
+no new assignment permission or approval requirement.
+
+Pairing-group saves include workload invalidation in their awaited read refresh,
+including the accepted-save Retry path. This updates a mounted My Availability
+count after combine/split while its independent preference draft/version remains
+owned by the tutor. Group IDs do not replace the confirmed-time workload identity.
+Assignment confirmation composes the shared Modal/NativeDialog pending, Escape and
+focus behavior while retaining its qualification ticket and countdown lifecycle.
+When a child write removes or disables its opener, focus returns to the still-open
+parent dialog.
+
+The tutor-only `workloadPreference`/`setWorkloadPreference` procedures scope to the
+live account link. The strict server input accepts null or an integer 0–4 and a
+required independent version. Save rechecks ownership/participation after the
+account lock, then locks Tutor and conditionally updates the preference/version.
+It deliberately preserves Tutor.updatedAt and User.profileVersion; explicit safe
+audit evidence commits in the same transaction. Proposal Tutor snapshots exclude
+these two advisory columns unconditionally, retaining pre-migration evidence
+shape and allowing queued assignments to survive a preference change. Existing
+qualification tickets, consent, review and assignment invariants remain authoritative.
+
+The [migration](../prisma/migrations/20261014010000_tutor_workload_preference/migration.sql)
+adds range/version checks and resets existing inactive tutors to zero. Its trigger
+covers every lifecycle and import path, resetting to zero and advancing the
+independent version on inactive transitions. Reactivation retains zero. This
+invalidates old active drafts without restoring a former preference. The independent
+editor retains failed/dirty drafts, adopts new versions only through its successful
+save/read or explicit Reload, and distinguishes accepted-write synchronization
+failure from rejected-save recovery. Lowering a preference never changes pairings.
+
 ### Assignment qualification confirmations
 
-`src/server/assignment-qualification.ts` checks stored grants from approved qualification sources under the catalogue lock. Assignment entry points and coordinator proposal creation share this guard. An unqualified assignment requires a one-use `StudentActionConfirmation` with action `ASSIGNMENT_OVERRIDE`, a three-second server deadline, and a hash of the operation and complete parsed assignment payload. The actor, course, tutor, request version, roster and schedule are bound; confirmation tokens themselves are excluded. New warning preparation invalidates older unused override tickets, cancellation deletes the current unused ticket, and approval replay requires the reviewer's fresh evidence. Existing student consequence confirmation remains a separate requirement. Active unlinked roster tutors remain eligible for assignment; a linked account with explicitly revoked tutoring membership is excluded and assignment never restores account access. No additional schema is needed beyond the course grant migration.
+`src/server/assignment-qualification.ts` checks stored grants from approved qualification sources under the catalogue lock. Assignment entry points and coordinator proposal creation share this guard. An unqualified assignment requires a one-use `StudentActionConfirmation` with action `ASSIGNMENT_OVERRIDE`, a two-second server deadline, and a hash of the operation and complete parsed assignment payload. The actor, course, tutor, request version, roster and schedule are bound; confirmation tokens themselves are excluded. New warning preparation invalidates older unused override tickets, cancellation deletes the current unused ticket, and approval replay requires the reviewer's fresh evidence. Existing student consequence confirmation remains a separate requirement. Active unlinked roster tutors remain eligible for assignment; a linked account with explicitly revoked tutoring membership is excluded and assignment never restores account access. No additional schema is needed beyond the course grant migration.
 
 ## Scheduling, hours and discipline
 
 ### Automatic room allocation contract
 
-The requester approved these mechanisms for [issue #389](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/389) on 16 October 2026 (Asia/Shanghai), before implementation. One Pairings entry is one reservation; attendance merging and future combined teaching groups do not combine reservations. A confirmed schedule may save without an available automatic room, but must visibly report **Needs room**. Awaiting schedule, intentional no physical room, shortage, and failed reads remain distinct states.
+The requester approved these mechanisms for [issue #389](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/389) on 16 October 2026 (Asia/Shanghai), before implementation. The integration decision confirmed on 16 October 2026 amends the earlier per-entry wording: an explicitly combined `PairingGroup` shares one room reservation, using its primary assignment’s room and schedule; independent Pairing entries remain separate reservations. Matching times, shared students and one-off attendance merging never imply a group. Group allocation deduplicates stable participants and counts one occupied interval, while preserving fixed/no-physical-room intent and the existing group snapshot/version authority. Room status, utilization and shortage feedback describe that shared reservation rather than treating its members as competing bookings. A confirmed schedule may save without an available automatic room, but must visibly report **Needs room**. Awaiting schedule, intentional no physical room, shortage, and failed reads remain distinct states.
 
 Staff-selected rooms are fixed and automation cannot displace them. A conflicting schedule change is rejected with an actionable error. Authorized staff may explicitly release a fixed room to automatic allocation; an intentional no-physical-room choice remains sticky. Existing assigned records migrate conservatively to fixed allocations. Deployment, unchanged feature settings, new rooms and removed blackouts do not backfill or rebalance bookings; staff explicitly retry shortages.
 
 Allocation runs inside the scheduling transaction under the shared planned-room lock. It uses the authoritative program period and confirmed copied interval, including schedules whose catalog link was cleared. An eligible existing automatic room is retained. Otherwise, eligible rooms rank by the number of familiar participants, then tutor familiarity, then fewer planned weekly occupied minutes, then stable room ID. Familiarity comes from confirmed planned bookings in the current program period. Canonical verified identity links join retained profiles to their stable participant identities; names and email matches are never identity evidence. The tutor counts once and each distinct tutee counts once per candidate, regardless of repeated bookings or duplicate roster evidence. Continuity outranks usage balancing.
 
-Only the changed pairing or the cohort affected by one catalog edit may be reassigned. Catalog propagation validates the complete prospective schedule and commits atomically, preserving unrelated bookings and actual attendance evidence. Fixed reservations, recurring blackouts, period boundaries, strict interval overlap and adjacency remain hard constraints. Clearing only a catalog link retains a confirmed reservation; actual unscheduling and record removal have their own lifecycle behavior.
+Only the changed independent pairing, its explicit shared group, or the cohort affected by one catalog edit may be reassigned. Catalog propagation validates the complete prospective schedule and commits atomically, preserving unrelated bookings and actual attendance evidence. Fixed reservations, recurring blackouts, period boundaries, strict interval overlap and adjacency remain hard constraints. Clearing only a catalog link retains a confirmed reservation; actual unscheduling and record removal have their own lifecycle behavior.
 
 Room deletion takes the planned-room lock and locks the target Room row before checking planned and actual references. PostgreSQL's foreign-key key-share locks serialize concurrent attendance submissions and corrections with that check, so a newly committed actual room cannot be silently cleared by deletion. Existing foreign keys remain unchanged.
 
@@ -540,11 +1173,19 @@ Room block create/edit/remove operations use `adminProcedure` and the approval a
 
 Room-block review summaries use immutable payload/target evidence, not current room lookups. New proposals capture `roomBlockContext` for readable room identity. Review recomputes this context only when it was originally recorded, preserving the fingerprint shape of legacy requests. Missing legacy details are explicitly unavailable; raw proposal values remain in the evidence disclosure.
 
+Attendance and crew patrol treat room IDs as opaque nonempty strings, including legacy/imported keys; a CUID generation default is not a restriction on stored IDs. The shared [room-reference check](../src/server/room-references.ts) verifies effective physical rooms inside the write transaction and holds key-share row locks through commit. Unknown/deleted rooms return a room-specific error before attendance, observations or credits are written. Online attendance needs no room, while omitted/null physical-room overrides retain the pairing default. Accepted submission retries return their existing receipt before this check, preserving replay after catalogue changes. No ID migration or frontend change is required.
+
 The [hour calculator](../src/lib/service-hours.ts) owns session rounding; use the [policy examples](../prisma/policies/tutor-policy.en.md#iii-service-hours-accrual) rather than ordinary nearest-half-hour rounding. Completed interviews credit actual duration. Meeting deductions use the semester allowance in [meeting-hours.ts](../src/server/meeting-hours.ts); corrections recompute system credits while preserving manual adjustments.
 
 [Disciplinary standing](../src/lib/discipline.ts) counts valid cards: three yellows contribute one effective red. With discipline enabled, an unexcused tutee absence produces a valid red; tutor-requested cards await review. At two effective reds, [removal synchronization](../src/server/discipline/removal.ts) immediately inactivates an active tutee and detaches current-term pairings without another approval. Pending appeals do not invalidate cards. Appeals close at the end of the fifth subsequent school day using the program timezone and calendar overrides. Invalidating a card recalculates standing; restoration requires the removal's status snapshot to remain current and eligible pairings to remain valid.
 
 [Catalog-slot attendance propagation](../src/server/attendance-schedule.ts) holds an exclusive transaction advisory barrier before discovering affected history. Attendance and patrol submissions/corrections acquire shared access before their other locks, so normal independent writes can still proceed concurrently. Clock changes move each complete merged block atomically, retain its slot identities and single-credit factors, reject final tutor/date overlaps, reconcile flags and linked deductions, and preserve prior evidence in the audit log. Slot, pairing, session, hours, flags, audit and HEAD notification updates share one transaction. Weekday-only edits preserve actual history. Submissions that read stale catalog defaults must reload; this application coordination does not claim to prevent arbitrary direct SQL attendance writes.
+
+Reusable tutor pairing groups are implemented by [pairing-groups](../src/server/pairing-groups.ts) and the self-scoped [router](../src/server/api/routers/pairing-groups.ts). `PairingGroup` owns a tutor, period and preferred primary assignment; nullable `Pairing.groupId` retains each original subject and roster. The additive migration backfills no group and never changes Session evidence. A complete group draft carries a SHA-256 fingerprint of current assignments, memberships, active-student roster identity, room labels, schedules and active catalog slots. Saving holds the program-period, tutor and planned-room locks, row-locks the tutor's current assignments, revalidates the snapshot and all memberships, then atomically replaces the requested groups and copied schedules. Only active tutors with participation access can write their own current populated assignments; each assignment belongs to at most one group, with two to six members. No subject-name/shared-student rule is inferred.
+
+Every group uses its primary member's room and one active catalog slot. Affected bookings are temporarily unconfirmed inside the transaction before complete room validation and final member writes; any failure rolls everything back. Members leaving a group become unscheduled without deleting assignments or changing actual attendance. A database owner guard clears membership on reassignment and independent schedule/room edits, while retaining catalog propagation through the same slot. The room trigger allows same-tutor/same-period group members to share a booking and continues rejecting unrelated bookings and blackouts. Existing self-service slot changes expand to all members, and catalog preflight recognizes one grouped room booking. Read projections only combine members with a coherent schedule/room tuple, falling back to independent assignments if an old primary disappears or a group becomes a singleton. Group tables are included before Pairing in historical export/import dependency order.
+
+The [group editor](../src/app/(tutor)/_components/pairing-group-editor.tsx) composes ProfileDialog, FormSection, ChangeReview and QueryFeedback. Its draft/version survives failed writes and background reads; explicit Reload replaces it only after a successful read. Same-tick admission and owned dialog pending state block duplicate writes and dismissal. The retained editor must also honor current participation eligibility after opening: loss of active status blocks new Review/Save admission without discarding the draft. This write guard must not block read-only synchronization Retry for a save already accepted. Accepted saves retain their receipt through read-only synchronization recovery. Attendance group selection copies a distinct-student snapshot into its separate draft; changing saved groups does not rewrite a pending/saved attendance form. One-off combined attendance and individual-subject attendance remain available. English/Chinese copy is authored; the other six catalogs use English for these new group strings pending translation.
 
 [Patrol credit](../src/server/crew/patrol-credit.ts) uses a rolling server-time cooldown of 20 minutes per crew member, across explicitly combined identities. `Patrol.creditAwardedAt` is set only when the server awards 0.5 hours; clients cannot choose it. All observations must be within the preceding 20 minutes (plus the existing one-minute future clock allowance) for automatic credit. Historical and cooldown submissions remain evidence with zero hours. UTC epoch-aligned 20-minute evidence windows (`:00`, `:20`, `:40`) are immutable `PatrolCreditWindow` claims, independent of notes, headcounts, room order or request UUID. A sweep can earn only 0.5 hours and must find all its evidence windows unclaimed; it then reserves all of them. The rolling cooldown prevents adjacent fixed-window boundaries from granting rapid extra awards, including omitted client timestamps. This limits credit; self-reported observations alone cannot prove a physical visit.
 
@@ -580,15 +1221,91 @@ Announcements freeze tutor IDs at publication, or at approval for a coordinator 
 
 Secondary-email requests and confirmations first acquire the `secondary-email-binding-setting` transaction lock, shared with the Head-applied availability mutation (Admin submits changes for Head review), and reject when `ProgramSettings.secondaryEmailBindingEnabled` is false. This independent flag defaults true for compatibility. Existing addresses, pending state, primary-email changes and authentication remain intact. Verification rechecks availability and claims the address atomically. An address lock serializes competing confirmations; the unique registry key also arbitrates races with primary-account writers. Verified aliases resolve the same account. Recovery grants bind to their exact destination and recheck ownership on redemption; address removal and password rotation revoke grants. Never infer participant ownership from an alias or change the account's ID/history when promoting it.
 
-Database triggers enqueue `EmailDelivery` in the event transaction for account changes and in-app notifications. No-op writes and rollbacks produce no notices. The [delivery worker](../src/server/email/notification-delivery.ts) rechecks program enablement and category preference for optional messages/information, and current recipient ownership for all mail. Security enqueue and dispatch bypass optional gates, including legacy `emailSecurity=false` values. That stored field is preserved but is no longer an editable preference. Disabling program notifications only skips non-security pending rows; previous-primary security notices have the documented ownership exception. Notices contain fixed event descriptions, not profile values, secrets or message bodies. See [operations and retry limits](deployment.md#optional-notification-delivery).
+Database triggers enqueue `EmailDelivery` in the event transaction for account changes and in-app notifications. The [delivery worker](../src/server/email/notification-delivery.ts) rechecks program enablement and category preference for optional messages/information, and current recipient ownership for account mail. Security enqueue and dispatch bypass optional gates, including legacy `emailSecurity=false` values. That stored field is preserved but is no longer an editable preference. Disabling program notifications skips only optional pending rows; security and essential request-service notices remain eligible. Previous-primary security notices have the documented ownership exception. Account notices contain fixed event descriptions, not profile values, secrets or message bodies. See [operations and retry limits](deployment.md#optional-notification-delivery).
+
+`Notification.event` and its allowlisted `context` identify the committed action;
+the trigger copies only that safe context into account email receipts, never arbitrary
+titles or bodies. [The shared formatter](../src/lib/notification-events.ts) drives
+localized in-app copy and bilingual English/Chinese email because recipient language
+is not persisted. Old in-app rows retain their original readable title/body; unknown
+email events use the generic program-update description. Count context is limited to
+discipline-card requests and changed historical teaching blocks. Scheduled interviews
+carry a validated ISO instant and IANA timezone. Recurring assignment updates carry
+no invented date; there is no dated tutoring-session notification emitter. The
+[event inventory](notification-events.md) maps every supported event to its actual
+emitter, audience, maintained copy and destination, including email-only account events.
 
 Every [email sender](../src/server/email/sender.ts) call declares SECURITY or PROGRAM purpose; configuration selects a complete sender account per purpose. Student signup confirmation uses PROGRAM, while viewer verification and history invitations use SECURITY. The notification outbox retains the event's internal destination; shared link validation and sign-in callbacks preserve it through password/2FA and session recovery, with current permissions checked at the destination. Shared HTML/plain-text rendering uses runtime branding and program-zone notification timestamps. See [sender setup](deployment.md#email--aliyun-direct-mail-邮件推送) for fallback and delivery checks.
 
-The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program & Refresh email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. No schema changes are needed; direct authentication/signup delivery history is not persisted by these diagnostics.
+The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. Direct authentication/signup delivery history is not persisted by these diagnostics; the additive event/request outbox migrations remain required before running this version.
 
 The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only failed or previously attempted pending rows without an active lease qualify, and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Existing SMTP at-least-once limitations still apply across lease expiry and crashes.
 
 Optional notification delivery adds a signed, 90-day unsubscribe link to HTML and plain text. The public `/unsubscribe` page only reads on GET; an explicit confirmation disables either the originating category or all optional email categories, account-wide across primary and included secondary destinations. The capability cannot enable preferences or suppress essential security/authentication mail. The shared template accepts an optional `unsubscribeUrl`, rejects non-HTTP(S) and credential-bearing URLs, escapes the link, and places an underlined 44 px target after the existing logo, brand and privacy copy. Sender purpose does not imply eligibility: direct student signup confirmation uses PROGRAM but remains essential and has no unsubscribe link.
+
+### Public-request invalidity notices and appeals
+
+[Request-invalidity writes](../src/server/request-invalidity.ts) enqueue an essential
+`request_service` receipt in the same transaction as each applied flag, clear or later
+reflag and its audit. A pending or rejected management proposal never sends an
+invalidity notice to the submitter. Required reasons, actors, times and revision history
+are retained without rewriting original intake, priority, answers or lifecycle state.
+The unique `(requestKind, requestId, requestVersion)` receipt has nullable `userId`;
+ordinary account mail still requires an account. Source kinds distinguish initial tutor
+applications, student surveys and explicit legacy self-service tutees. Staff-entered
+records are not reclassified as public requests.
+
+[Request notices](../src/server/email/request-notice.ts) use PROGRAM transport while
+bypassing optional program/personal preferences and secondary-recipient expansion.
+Delivery uses the exact submitted address recorded on the source, with no account
+address fallback, and rechecks its exact source/revision.
+The [bilingual copy](../src/server/email/request-notice-copy.ts) masks unverified
+recipients to request kind and original submission date/time/timezone, plus the
+limited appeal action; no names, original answers or reason appear. Missing historical
+timestamps remain unavailable rather than borrowing row creation time. A reason is
+included only with source-specific mailbox proof: verified registration-code evidence
+bound to that initial application and address, or the survey's own confirmation.
+A matching account/alias or staff `contactVerified` value is insufficient. Legacy
+self-service tutees without source-specific proof remain masked. Reasons must be
+suitable for the participant to read after verification.
+
+Receipt reads never send. Missing/invalid addresses are `BLOCKED`; queued work is
+`PENDING`, an admitted transport attempt is `SENDING`, accepted SMTP is `SENT`, and
+exhausted work is `FAILED`. Clear/reflag marks obsolete queued/failed/blocked receipts
+`SUPERSEDED`. Optional account cancellation/skipping uses `CANCELLED`/`SKIPPED`.
+An ADMIN/HEAD retry resets only an eligible failed/retrying receipt's budget, preserving
+its ID, immutable payload and appeal expiry; it does not replay the flag operation.
+
+Batch leasing is candidate selection, not transport admission. Admission acquires
+source locks, then the request-notice advisory lock, then the outbox row lock. It checks
+the captured acquisition lease, prior attempt fence and current source before committing
+`SENDING` with a unique attempt ID and consuming one of five attempts. Only after that
+transaction commits does SMTP run. Completion is fenced by the admitted ID: acceptance
+remains recorded after a concurrent clear, and obsolete failure cannot requeue. Expired
+attempts are recovered under the same source checks and bounded budget. Clear/reflag
+cancels attempts that have not been admitted; already admitted transport can finish.
+SMTP acceptance followed by a crash or completion failure remains uncertain and can
+produce a duplicate retry despite a stable Message-ID. This is not exactly-once delivery
+and `SENT` does not prove inbox arrival.
+
+The [purpose-bound HMAC appeal token](../src/server/email/request-appeal-token.ts)
+names one notice and expires 90 days after receipt creation. `/request-appeal` requires
+no account and grants only a narrow status/appeal capability, never credentials,
+participation or original request access. GET reads only safe request kind/time and
+review state; it cannot consume or submit the capability. POST requires canonical
+origin and JSON, bounds streamed body bytes, token length and appeal text, and admits
+valid-token bursts through process-local limits. One immutable appeal per notice is
+the durable cross-replica submission limit. Token possession is the limited capability,
+not general source ownership proof, so forwarding permits another holder to appeal.
+
+[Appeal submission/review](../src/server/email/request-appeal.ts) shares source/notice
+locks with clear/reflag. Submission retains the original text and notifies active
+Admin/Head with a safe event and the existing request-review destination; it never
+clears the flag. Admin/Head may decline with required reason and version checks.
+Clearing uses the existing authorized invalidity operation, including Coordinator
+proposals, and resolves pending appeals while retaining submitted and reviewed
+evidence. Clear/reflag makes old capabilities ineligible. Public reads never reveal
+reason, answers, contact information, participant/staff identities or appeal body.
 
 ### Management registration codes
 
@@ -683,6 +1400,20 @@ available. External delivery follows commit and cannot turn a committed program 
 a reported failed write. Credential verification retains its own attempt/consumption boundaries.
 
 ## Username allocation and bounded student backfill
+
+Management summaries and current selection/review labels reuse `ParticipantName`
+and `participantNameLabel`: preserve a nonblank canonical name, otherwise use an
+already authorized projected username, otherwise show translated **Name not
+provided**. This is presentation only. Raw search/sort values, selected IDs,
+mutation names, profile drafts, exports and original evidence are unchanged.
+Completed interviews/flag decisions, historical profile names and recorded actors
+retain their original text. Current Crew summaries expose `canonicalName` and
+`username` alongside the unchanged legacy label/sort field; Subject Availability
+projects the current tutor handle only through its existing staff-only read.
+The Crew DTO's `canonicalName` references the materialized current `User.name`,
+which may be a reserved username fallback. Original identity fields remain
+`firstName`, `lastName`, `preferredName`, `alternativeNames` and `legacyName`;
+reads preserve those fields and the already materialized label without writes.
 
 `src/lib/username.ts` owns the editor/generation character and length rules. All runtime handle
 writers use the transaction-scoped PostgreSQL advisory lock `identity:username-namespace` before
@@ -828,6 +1559,14 @@ The archive allowlist includes original HistoricalAcademicRecord evidence, with 
 
 `src/server/record-transfer.ts` declares the domain-table allowlist in dependency order. PostgreSQL metadata supplies column types, nullability, defaults, enums and primary keys. Only allowlisted tables and validated column names enter SQL identifiers; cell values use bound JSON parameters through `jsonb_populate_record`. New columns require security review: User remains restricted to ID/name/email, and survey token hashes remain excluded. `User.csv` validates existing accounts without writing them. Scalar ownership and other live references receive explicit checks in addition to database foreign keys; historical actor snapshots can survive account deletion.
 
+Signup archives preserve the original `StudentSurvey` evidence, its current answer
+projection, immutable `StudentSignupRevision` answer/consent evidence and
+`StudentSignupAppeal` review evidence. Private client/decision retry capabilities,
+notice delivery capabilities and executable `StudentSignupIntent` challenges are
+not exported. Import mints fresh operational receipt keys and randomized
+survey proofs; archival restoration cannot reactivate an old retry or mailbox
+capability. Original answers are compared separately from the current projection.
+
 Preview runs the same validation/insertion code and deliberately rolls back the transaction. This exercises actual unique and referential constraints without retained writes, notifications or emails. A 15-minute HMAC ticket binds the exact uploaded files to the actor. Import verifies the ticket and revalidates against the current database. Exact primary-key matches are skipped only when all supplied values match; conflicting rows abort the transaction. The import audit entry commits with the data. These three operations bypass the generic post-mutation audit hook because export/import already write transactional evidence and preview must remain a dry run. Imported survey tokens are random hashes with no issued plaintext link.
 
 `src/lib/record-transfer.ts` defines strict CSV parsing and reversible, formula-safe encoding; `record-transfer-archive.ts` checks ZIP names and expanded sizes before extraction. `src/app/_components/record-transfer.tsx` loads ZIP support only on demand and clears preview/confirmation state when files change. The server page and navigation both restrict the feature to HEAD; existing Reports CSV controls use the refreshed account role. Limits are 5 MiB and 5,000 rows across a transfer. This feature is additive history ingestion, not a replacement for database backup/restore or account provisioning.
@@ -839,3 +1578,41 @@ Regression coverage is in the three `record-transfer.test` files under `src/lib`
 Edit the existing guide for the reader's task. Keep each procedure in one place and link to it from related guides. [Documentation ownership](contributing.md#documentation-and-repository-hygiene) explains where content belongs.
 
 Run `npm run docs:check` to validate Markdown links, heading anchors, guide discoverability, role sections and issue forms. Read the guides directly in GitHub or a Markdown viewer; no compilation step is required.
+
+
+### Integrated survey appeal authority and delivery
+
+The owner selected #385’s newer survey lifecycle when integrating #384: appeals end with the active signup period, and final rejection closes the request and ends its active priority. Modern survey flags create one `EmailDelivery` request-service receipt; `StudentSignupNotice` retains only the matching invalidity-version/account-bound appeal capability for that flag. Its flag kind is routed through the shared worker, not independently mailed. At transport admission the modern link must match the immutable receipt request version and the capability’s current ownership; transport retry never grants a later-version capability. Generic survey tokens are explicitly retired instead of retroactively acquiring modern authority. Existing generic survey appeals remain immutable, staff-readable and non-decidable; old signup-specific tokens retain their original version/account checks and current-period eligibility. Tutor/legacy generic appeal behavior remains separate.
+
+The first admitted modern appeal also preserves #384's typed staff-review event:
+`request_invalidity_appeal_pending` goes to the existing active Head/Admin audience,
+with the shared record-specific survey destination. Appeal, notifications and audit
+commit in one transaction. An exact immutable receipt replay returns before fan-out;
+failed or rolled-back submissions create no staff event. The event contains no appeal
+reason, mailbox capability or retry key. This restores the notification contract
+without changing current-period eligibility, terminal rejection or delivery authority.
+
+Signup decision controls return failed mutation promises to the shared timed admission guard. Accepted or queued writes stay accepted and recover through reads only; identical failed writes can be deliberately retried with the retained draft/ticket. Combined regressions cover one flag receipt/send, stale-version links, period rollover, rejection priority, historical appeal read-only projection and retry authority.
+
+Reviewed same-owner credential recovery rotates its appeal capability only in the
+same transaction that successfully queues the matching delivery receipt. A
+`SENDING` attempt or active lease leaves the captured capability unchanged. After
+that attempt settles, another explicit retry may queue and rotate atomically;
+neither a refused retry nor a background read can invalidate an in-flight link.
+For pre-existing sent generic survey receipts without a modern capability, an
+explicit staff recovery can requeue that same receipt and create its matching
+modern capability atomically. Refused admission creates no capability; a prior
+generic SMTP attempt cannot mark a newly unsent modern link as delivered.
+
+The shared receipt's original verified alias is checked again by authoritative
+token inspection and appeal submission, under the same username namespace used
+by address removal. Removing or transferring that alias revokes a captured link
+even if the primary address and session version are unchanged. Primary-exact and
+older native notices retain their existing binding. A modern capability-backed
+flag receipt is superseded before transport when its signup has become terminal;
+the separate appeal outcome notice remains the correct final-state message.
+
+The three signup-specific actions (`SIGNUP_EDIT`, `SIGNUP_UNASSIGN`,
+`SIGNUP_APPEAL`) retain their existing five-second review delay when joining the
+action-specific confirmation map. Their ticket expiry and version/target binding
+are unchanged; no missing map entry may produce an invalid confirmation instant.

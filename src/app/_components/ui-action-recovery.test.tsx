@@ -1,7 +1,15 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import SessionFlagsPage from "../(admin)/admin/session-flags/page";
@@ -18,7 +26,14 @@ const state = vi.hoisted(() => ({
   retry: vi.fn(),
   decide: vi.fn(),
   summary: vi.fn(),
+  failed: undefined as
+    | undefined
+    | ((
+        error: { data?: { approvalId?: string } },
+        input: { flagId: string },
+      ) => void),
 }));
+vi.mock("@trpc/react-query", () => ({ getQueryKey: () => ["flags"] }));
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({ admin: { sessionFlags: { invalidate: vi.fn() } } }),
@@ -46,24 +61,52 @@ vi.mock("~/trpc/react", () => ({
                     date: new Date("2026-10-01T00:00:00Z"),
                     startMin: 900,
                     endMin: 960,
+                    state: "PENDING",
+                    decisionNote: null,
+                    resolvedAt: null,
+                    resolvedByName: null,
                   },
                 ],
           isLoading: state.loading,
+          isSuccess: state.loaded && !state.readError,
+          isFetching: state.loading,
           error: state.readError,
           refetch: state.retry,
         }),
       },
       decideSessionFlag: {
-        useMutation: () => ({
-          mutate: state.decide,
-          isPending: state.pending,
-          error: state.writeError,
-        }),
+        useMutation: (options: { onError: typeof state.failed }) => {
+          state.failed = options.onError;
+          return {
+            mutate: state.decide,
+            isPending: state.pending,
+            error: state.writeError,
+            reset: () => {
+              state.writeError = null;
+            },
+          };
+        },
       },
     },
   },
 }));
+let client: QueryClient;
 beforeEach(() => {
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: {
+      configurable: true,
+      value: function (this: HTMLDialogElement) {
+        this.open = true;
+      },
+    },
+    close: {
+      configurable: true,
+      value: function (this: HTMLDialogElement) {
+        this.open = false;
+      },
+    },
+  });
   state.loaded = true;
   state.loading = false;
   state.empty = false;
@@ -72,14 +115,19 @@ beforeEach(() => {
   state.writeError = null;
   vi.clearAllMocks();
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  client.clear();
+});
 
 const flags = (readOnly = false) => (
-  <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
-    <ReadOnlyProvider value={readOnly}>
-      <SessionFlagsPage />
-    </ReadOnlyProvider>
-  </NextIntlClientProvider>
+  <QueryClientProvider client={client}>
+    <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+      <ReadOnlyProvider value={readOnly}>
+        <SessionFlagsPage />
+      </ReadOnlyProvider>
+    </NextIntlClientProvider>
+  </QueryClientProvider>
 );
 
 it("separates unknown, failed, denied and successfully empty flag reads", () => {
@@ -115,6 +163,10 @@ it("separates unknown, failed, denied and successfully empty flag reads", () => 
 
 it("retains review inputs through pending writes and read/write failures, then retries the same decision", () => {
   const view = render(flags());
+  // Drafts now belong to the on-demand decision dialog; opening is read-only.
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.sessionFlags.penalize }),
+  );
   const note = screen.getByRole<HTMLInputElement>("textbox", {
     name: en.admin.sessionFlags.notePlaceholder,
   });
@@ -124,7 +176,9 @@ it("retains review inputs through pending writes and read/write failures, then r
   fireEvent.change(note, { target: { value: "Synthetic review note" } });
   fireEvent.change(hours, { target: { value: "1.25" } });
   fireEvent.click(
-    screen.getByRole("button", { name: en.admin.sessionFlags.penalize }),
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: en.admin.sessionFlags.penalize,
+    }),
   );
   expect(state.decide).toHaveBeenCalledExactlyOnceWith({
     flagId: "flag",
@@ -138,6 +192,7 @@ it("retains review inputs through pending writes and read/write failures, then r
   expect(hours.matches(":disabled")).toBe(true);
   state.pending = false;
   state.writeError = { message: "Synthetic rejected write" };
+  act(() => state.failed?.(state.writeError!, { flagId: "flag" }));
   state.readError = { message: "Synthetic failed refresh" };
   view.rerender(flags());
   expect(note.value).toBe("Synthetic review note");
@@ -148,7 +203,9 @@ it("retains review inputs through pending writes and read/write failures, then r
   view.rerender(flags());
   expect(note.matches(":disabled")).toBe(false);
   fireEvent.click(
-    screen.getByRole("button", { name: en.admin.sessionFlags.penalize }),
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: en.admin.sessionFlags.penalize,
+    }),
   );
   expect(state.decide).toHaveBeenCalledTimes(2);
   expect(state.decide.mock.calls[1]).toEqual(state.decide.mock.calls[0]);
@@ -156,14 +213,20 @@ it("retains review inputs through pending writes and read/write failures, then r
 
 it("reports a queued proposal without calling it an applied decision or discarding its note", () => {
   const view = render(flags());
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.sessionFlags.warn }),
+  );
   const note = screen.getByRole<HTMLInputElement>("textbox");
   fireEvent.change(note, { target: { value: "Retained proposal note" } });
   state.writeError = {
     message: "Transport error",
     data: { approvalId: "proposal" },
   };
+  act(() => state.failed?.(state.writeError!, { flagId: "flag" }));
   view.rerender(flags());
-  expect(screen.getByRole("status").textContent).toBe(en.approvals.queuedBody);
+  expect(screen.getByRole("status").textContent).toBe(
+    en.admin.sessionFlags.queued,
+  );
   expect(screen.queryByRole("alert")).toBeNull();
   expect(note.value).toBe("Retained proposal note");
 });
@@ -172,7 +235,10 @@ it("keeps viewer records readable without review inputs or mutation actions", ()
   render(flags(true));
   expect(screen.getByText(/Synthetic Tutor/)).toBeTruthy();
   expect(screen.queryByRole("textbox")).toBeNull();
-  expect(screen.queryByRole("button")).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: en.admin.sessionFlags.penalize }),
+  ).toBeNull();
+  expect(screen.getByRole("button", { name: "Pending" })).toBeTruthy();
   expect(state.decide).not.toHaveBeenCalled();
 });
 
@@ -181,13 +247,15 @@ it.each(["en", "zh"] as const)(
   (locale) => {
     const messages = locale === "en" ? en : zh;
     render(
-      <NextIntlClientProvider
-        locale={locale}
-        timeZone="Asia/Shanghai"
-        messages={messages}
-      >
-        <ServiceHoursPage />
-      </NextIntlClientProvider>,
+      <QueryClientProvider client={new QueryClient()}>
+        <NextIntlClientProvider
+          locale={locale}
+          timeZone="Asia/Shanghai"
+          messages={messages}
+        >
+          <ServiceHoursPage />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
     );
     const month = screen.getByLabelText<HTMLInputElement>(
       messages.admin.summary.monthLabel,
@@ -201,7 +269,8 @@ it.each(["en", "zh"] as const)(
     expect(state.summary).toHaveBeenLastCalledWith(undefined);
     expect(month.value).toBe("");
     expect(
-      screen.getByRole("link", { name: messages.admin.summary.viewHistory })
+      screen
+        .getByRole("link", { name: messages.admin.summary.viewHistory })
         .getAttribute("href"),
     ).toBe("/admin/history");
   },

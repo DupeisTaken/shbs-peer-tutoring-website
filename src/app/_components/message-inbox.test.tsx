@@ -5,12 +5,14 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { MessageInbox } from "./message-inbox";
+import { SessionViewProvider } from "./session-view-state";
 
 const mocks = vi.hoisted(() => ({
   send: vi.fn(),
@@ -21,10 +23,10 @@ const mocks = vi.hoisted(() => ({
   more: false,
   permission: "ready",
   replies: false,
+  unread: false,
   sending: false,
   onSent: undefined as undefined | (() => Promise<void>),
 }));
-vi.mock("./student-portal", () => ({ Pager: () => null }));
 vi.mock("~/trpc/react", () => ({
   api: {
     messaging: {
@@ -92,7 +94,7 @@ vi.mock("~/trpc/react", () => ({
                 createdAt: new Date("2026-09-01T03:00:00Z"),
                 incoming: true,
                 canReply: true,
-                readAt: new Date(),
+                readAt: mocks.unread ? null : new Date(),
                 body: `Incoming message ${id}`,
               }))
             : [],
@@ -114,12 +116,14 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 beforeEach(() => {
+  window.sessionStorage.clear();
   vi.clearAllMocks();
   mocks.error = false;
   mocks.loading = false;
   mocks.more = false;
   mocks.permission = "ready";
   mocks.replies = false;
+  mocks.unread = false;
   mocks.sending = false;
   vi.spyOn(window, "scrollBy").mockImplementation(() => undefined);
 });
@@ -141,6 +145,44 @@ function ui(locale: "en" | "zh" = "en") {
 function show(locale: "en" | "zh" = "en") {
   return render(ui(locale));
 }
+it("remembers only list filters across a route remount and discards private composer drafts", () => {
+  const wrapped = () => (
+    <SessionViewProvider
+      identity="synthetic-tutee"
+      pathname="/student"
+      verified
+    >
+      {ui()}
+    </SessionViewProvider>
+  );
+  const first = render(wrapped());
+  fireEvent.click(screen.getByRole("checkbox", { name: /Alex @alex-one/ }));
+  fireEvent.change(screen.getByRole("textbox", { name: en.workflows.body }), {
+    target: { value: "Private unsent message" },
+  });
+  fireEvent.change(screen.getByRole("textbox", { name: en.workflows.search }), {
+    target: { value: "Pat" },
+  });
+  const persisted = JSON.stringify(window.sessionStorage);
+  expect(persisted).toContain("Pat");
+  expect(persisted).not.toContain("Private unsent message");
+  expect(persisted).not.toContain("clientKey");
+  expect(persisted).not.toContain("selected");
+  first.unmount();
+  render(wrapped());
+  expect(
+    screen.getByRole<HTMLInputElement>("textbox", { name: en.workflows.search })
+      .value,
+  ).toBe("Pat");
+  expect(
+    screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: en.workflows.body,
+    }).value,
+  ).toBe("");
+  expect(
+    screen.queryByRole("button", { name: "Remove Alex (@alex-one)" }),
+  ).toBeNull();
+});
 it.each([
   { locale: "en" as const, messages: en },
   { locale: "zh" as const, messages: zh },
@@ -233,7 +275,12 @@ it("paginates recipients while retaining selections and resets paging for a new 
   mocks.more = true;
   show();
   fireEvent.click(screen.getByRole("checkbox", { name: /Pat @pat/ }));
-  fireEvent.click(screen.getByRole("button", { name: en.messaging.next }));
+  const recipients = screen.getByRole("navigation", {
+    name: en.messaging.recipients,
+  });
+  fireEvent.click(
+    within(recipients).getByRole("button", { name: en.workflows.next }),
+  );
   expect(screen.getByRole("checkbox", { name: /Second Page/ })).toBeTruthy();
   expect(
     screen.getByRole("button", { name: "Remove Pat (@pat)" }),
@@ -242,6 +289,24 @@ it("paginates recipients while retaining selections and resets paging for a new 
     target: { value: "Alex" },
   });
   expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+  expect(within(recipients).getByRole("status").textContent).toContain("1");
+});
+
+it("uses the selected accent for recipients and a neutral supervision notice", () => {
+  mocks.replies = true;
+  mocks.unread = true;
+  show();
+  fireEvent.click(screen.getByRole("checkbox", { name: /Pat @pat/ }));
+  expect(
+    screen.getByRole("button", { name: "Remove Pat (@pat)" }).className,
+  ).toContain("bg-accent-50");
+  expect(
+    screen.getByText(en.messaging.disclosure).closest(".bg-blue-50"),
+  ).toBeNull();
+  expect(screen.getAllByRole("navigation")).toHaveLength(2);
+  expect(
+    screen.getByText("Incoming message 1").closest("article")?.className,
+  ).toContain("border-l-accent-500");
 });
 it("provides explicit loading, error retry and no-match states", () => {
   mocks.loading = true;

@@ -8,6 +8,7 @@ import en from "../../messages/en.json";
 import zh from "../../messages/zh.json";
 import { BUNDLED_POLICIES } from "../../prisma/policies";
 import { getHomeOverrides } from "~/server/home/content";
+import { formatNotificationEvent } from "~/lib/notification-events";
 
 describe("Chinese peer roles", () => {
   it("uses the chosen glossary across the catalog and retains genuine school references", () => {
@@ -68,11 +69,24 @@ describe("Chinese peer roles", () => {
   });
 
   it("uses the same glossary in newly generated Chinese workflow notifications", () => {
-    for (const file of [
-      "student-workflow",
-      "legacy-student-withdrawal",
-      "student-survey",
-    ]) {
+    // Typed workflow emitters no longer embed Chinese text in server source.
+    // Verify the actual shared formatter that supplies current UI/email copy.
+    const translate = createTranslator({
+      locale: "zh",
+      messages: zh,
+      namespace: "notificationEvents",
+    });
+    const copy = formatNotificationEvent(
+      "student_schedule_review_pending",
+      {},
+      "zh",
+      translate,
+    )!;
+    expect(`${copy.title} ${copy.body}`).toContain("辅导伙伴");
+    expect(JSON.stringify(zh.notificationEvents)).not.toMatch(
+      /导师|辅导员|学员|学生/,
+    );
+    for (const file of ["student-survey"]) {
       const source = readFileSync(
         new URL(`../server/${file}.ts`, import.meta.url),
         "utf8",
@@ -151,8 +165,8 @@ describe("peer introduction publication boundaries", () => {
       (block) => block.id === "about-cta",
     )!.buttons!;
     expect(buttons.map((button) => [button.href, button.label.zh])).toEqual([
-    ["/tutee", "申请同伴辅导"],
-    ["/tutor", "成为辅导伙伴"],
+      ["/tutee", "申请同伴辅导"],
+      ["/tutor", "成为辅导伙伴"],
     ]);
   });
 });

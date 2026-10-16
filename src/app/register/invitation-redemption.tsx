@@ -1,11 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
-import { useTranslations } from "next-intl";
-import { api } from "~/trpc/react";
-import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { api, type RouterOutputs } from "~/trpc/react";
+import {
+  localizedSnapshot,
+  policySnapshotDocuments,
+} from "~/lib/policy-evidence";
+import { formatWeekday, minToHm } from "~/lib/time";
+import { ConfiguredPersonNameFields as PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft } from "~/lib/person-name";
+import { participantNameLabel } from "~/app/_components/participant-name";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { RegistrationProgress } from "~/app/_components/registration-progress";
 import { Button } from "~/app/_components/ui/button";
@@ -18,6 +24,120 @@ import {
   useProfilePolicy,
 } from "~/app/_components/profile-policy";
 import { invitationSignIn, switchInvitationAccount } from "./actions";
+
+/** A proof-bound review shows the posted request separately from canonical account
+ * identity. Consent uses the saved snapshot, never a newly edited policy document. */
+export function InvitationSignupReview({
+  request,
+}: {
+  request: NonNullable<
+    RouterOutputs["accountInvitation"]["review"]["signupRequest"]
+  >;
+}) {
+  const t = useTranslations("signupEditing");
+  const labels = useTranslations();
+  const locale = useLocale();
+  const format = useFormatter();
+  const answers = request.answers;
+  const document = localizedSnapshot(
+    policySnapshotDocuments(request.policySnapshot),
+    locale,
+  );
+  const subject = (id: string | undefined) =>
+    request.subjects.find((value) => value.id === id)?.name ??
+    id ??
+    t("notProvided");
+  const fields = [
+    [t("submittedName"), answers.englishName],
+    [t("submittedFirstName"), answers.firstName],
+    [t("submittedLastName"), answers.lastName],
+    [t("submittedPreferredName"), answers.preferredName],
+    [t("submittedAlternativeNames"), answers.alternativeNames],
+    [t("submittedLatinName"), answers.preferredLatinName],
+    [labels("survey.emailLabel"), answers.email],
+    [labels("public.signup.fields.gradeLevel"), answers.gradeLevel],
+    [labels("public.signup.fields.phone"), answers.phone],
+    [labels("signupFields.labels.preferredContact"), answers.preferredContact],
+    [
+      labels("public.signup.fields.firstChoice"),
+      subject(answers.firstChoiceId),
+    ],
+    [
+      labels("public.signup.fields.secondChoice"),
+      subject(answers.secondChoiceId),
+    ],
+  ];
+  return (
+    <section
+      aria-label={t("replacementReview")}
+      className="space-y-4 rounded-lg border border-indigo-200 bg-indigo-50/40 p-4"
+    >
+      <div>
+        <h2 className="font-semibold">{t("replacementReview")}</h2>
+        <p className="muted mt-1 text-sm">{t("replacementHelp")}</p>
+      </div>
+      <p className="text-sm">
+        {t("originalPriority", {
+          date: format.dateTime(new Date(request.originalPriority), {
+            dateStyle: "medium",
+            timeStyle: "short",
+          }),
+        })}
+      </p>
+      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        {fields.map(([label, value]) => (
+          <div key={label} className="min-w-0">
+            <dt className="font-medium">{label}</dt>
+            <dd className="break-words whitespace-pre-wrap">
+              {value?.trim().length ? value : t("notProvided")}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <div>
+        <h3 className="text-sm font-medium">
+          {labels("signupFields.labels.availability")}
+        </h3>
+        <ul className="mt-1 space-y-1 text-sm">
+          {answers.slotIds.map((id) => {
+            const slot = request.slots.find((value) => value.id === id);
+            return (
+              <li key={id}>
+                {slot
+                  ? `${formatWeekday(slot.dayOfWeek, locale)} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}${slot.label ? ` · ${slot.label}` : ""}`
+                  : id}
+              </li>
+            );
+          })}
+        </ul>
+        {!answers.slotIds.length && (
+          <p className="text-sm">{t("notProvided")}</p>
+        )}
+      </div>
+      <div className="border-t border-indigo-200 pt-3">
+        <h3 className="text-sm font-medium">{t("submittedConsent")}</h3>
+        <p className="mt-1 text-sm break-words">
+          {answers.signatureName ? answers.signatureName : t("notProvided")}
+        </p>
+        <p className="muted mt-1 text-xs break-all">
+          {t("policyRevision")}: {answers.policyRevision}
+        </p>
+        {document ? (
+          <details className="mt-2">
+            <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium lg:min-h-8">
+              {document.title}
+            </summary>
+            <p className="mt-2 text-sm break-words whitespace-pre-wrap">
+              {document.body}
+            </p>
+          </details>
+        ) : (
+          <p className="muted mt-2 text-sm">{t("notProvided")}</p>
+        )}
+      </div>
+    </section>
+  );
+}
 
 /** One credential editor for every invited account. Proof/password drafts stay in memory;
  * a committed write remains locked while session synchronization is recovered separately. */
@@ -42,12 +162,13 @@ function InvitationRedemptionFlow({
   onBack,
 }: InvitationRedemptionProps) {
   const t = useTranslations("accountInvitation");
+  const participantText = useTranslations("participantNames");
   const policy = useProfilePolicy();
-  const utils = api.useUtils();
   const [email, setEmail] = useState(initialEmail);
   const [code, setCode] = useState("");
   const [proof, setProof] = useState(initialProof);
   const [names, setNames] = useState(() => nameDraft());
+  const [namePolicyReady, setNamePolicyReady] = useState(false);
   const [grade, setGrade] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -58,15 +179,59 @@ function InvitationRedemptionFlow({
   const [sessionPending, startSession] = useTransition();
   const admitted = useRef(false);
   const verifying = useRef(false);
-  const details = api.accountInvitation.inspect.useQuery(
-    { invitationId, ...(proof ? { proof } : {}) },
-    {
-      enabled: Boolean(proof || signedIn),
-      retry: false,
-      refetchOnWindowFocus: false,
+  const { mutateAsync: readReview } =
+    api.accountInvitation.review.useMutation();
+  const [reviewData, setReviewData] = useState<
+    RouterOutputs["accountInvitation"]["review"] | undefined
+  >();
+  const [reviewError, setReviewError] = useState<Error | null>(null);
+  const [reading, setReading] = useState(false);
+  const readSequence = useRef(0);
+  const loadReview = useCallback(
+    async (recipientProof: string) => {
+      const sequence = ++readSequence.current;
+      setReading(true);
+      try {
+        const fresh = await readReview({
+          invitationId,
+          ...(recipientProof ? { proof: recipientProof } : {}),
+        });
+        if (sequence === readSequence.current) {
+          setReviewData(fresh);
+          setReviewError(null);
+        }
+      } catch (error) {
+        if (sequence === readSequence.current) {
+          const code =
+            typeof error === "object" && error !== null && "data" in error
+              ? (error.data as { code?: string } | null)?.code
+              : undefined;
+          // An authoritative denial removes private preview data. Transport errors
+          // retain the draft but block dependent writes until a successful read.
+          if (
+            code &&
+            ["BAD_REQUEST", "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND"].includes(
+              code,
+            )
+          )
+            setReviewData(undefined);
+          setReviewError(
+            error instanceof Error ? error : new Error("Review failed"),
+          );
+        }
+      } finally {
+        if (sequence === readSequence.current) setReading(false);
+      }
     },
+    [readReview, invitationId],
   );
-  const info = details.data;
+  useEffect(() => {
+    if (proof || signedIn) void loadReview(proof);
+    return () => {
+      readSequence.current++;
+    };
+  }, [proof, signedIn, loadReview]);
+  const info = reviewData;
   // Adopt the initial identity once. Background recovery never replaces a local draft.
   if (info && !seeded) {
     setNames(nameDraft(info));
@@ -83,7 +248,7 @@ function InvitationRedemptionFlow({
         });
         setLoginFailed(!result.signedIn);
         setCompletedLogin(Boolean(result.completedLogin));
-        await utils.accountInvitation.inspect.invalidate();
+        await loadReview(recipientProof);
       } catch {
         setLoginFailed(true);
       }
@@ -130,21 +295,18 @@ function InvitationRedemptionFlow({
   const saved =
     complete.isSuccess || info?.completed === true || completedLogin;
   const busy =
-    verify.isPending ||
-    complete.isPending ||
-    sessionPending ||
-    (Boolean(proof) && details.isLoading);
+    verify.isPending || complete.isPending || sessionPending || reading;
   const step = saved ? 2 : info ? 1 : 0;
   const titles = [t("enterCode"), t("reviewTitle"), t("doneTitle")];
   const signInUrl = `/signin?callbackUrl=${encodeURIComponent(`/register?invitation=${invitationId}`)}`;
-  const error =
-    complete.error ?? verify.error ?? (proof || info ? details.error : null);
+  const error = complete.error ?? verify.error ?? reviewError;
   const editableIdentity = Boolean(
     info &&
-    (!info.existing || !info.name.trim()) &&
+    !info.acceptedIdentity &&
+    !info.existing &&
     ["TUTOR", "CREW", "ADMIN", "COORDINATOR"].includes(info.kind),
   );
-  const previewFailed = Boolean(info && details.error);
+  const previewFailed = Boolean(info && reviewError);
   return (
     <div className="space-y-5">
       <RegistrationProgress
@@ -197,6 +359,7 @@ function InvitationRedemptionFlow({
               previewFailed ||
               admitted.current ||
               !reviewed ||
+              (editableIdentity && !namePolicyReady) ||
               (editableIdentity && (policy.isLoading || policy.error)) ||
               (info.needsPassword && password !== confirm)
             )
@@ -230,12 +393,21 @@ function InvitationRedemptionFlow({
           >
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 break-words">
               <p className="font-semibold">{t(`kind.${info.kind}`)}</p>
-              <p>{info.name || `${info.firstName} ${info.lastName}`.trim()}</p>
+              <p>
+                {participantNameLabel(
+                  info.name || `${info.firstName} ${info.lastName}`.trim(),
+                  null,
+                  participantText("unnamed"),
+                )}
+              </p>
               <p className="text-sm">{info.email}</p>
               <p className="muted mt-2 text-sm">
                 {t(info.existing ? "preserveIdentity" : "newAccount")}
               </p>
             </div>
+            {info.signupRequest && (
+              <InvitationSignupReview request={info.signupRequest} />
+            )}
             {info.requiresSignIn && info.existing && !info.needsPassword ? (
               <div className="space-y-3 rounded-lg bg-amber-50 p-4">
                 <p>{t(info.mfaRequired ? "mfaRequired" : "signInRequired")}</p>
@@ -263,6 +435,16 @@ function InvitationRedemptionFlow({
                       onRetry={() => void policy.refetch()}
                     />
                     <PersonNameFields
+                      onPolicyAvailabilityChange={setNamePolicyReady}
+                      accountType={
+                        info.kind === "CREW"
+                          ? "CREW"
+                          : info.kind === "ADMIN"
+                            ? "ADMIN"
+                            : info.kind === "COORDINATOR"
+                              ? "COORDINATOR"
+                              : "TUTOR"
+                      }
                       value={names}
                       onChange={setNames}
                       legacyName={info.legacyName}
@@ -342,6 +524,7 @@ function InvitationRedemptionFlow({
                         type="submit"
                         disabled={
                           !reviewed ||
+                          (editableIdentity && !namePolicyReady) ||
                           Boolean(
                             editableIdentity &&
                             (policy.isLoading || policy.error),
@@ -439,8 +622,8 @@ function InvitationRedemptionFlow({
         <div role="alert" className="space-y-2 text-sm text-red-700">
           <SignupError error={error} />
           <p>{t("recovery")}</p>
-          {details.error && (proof || info) && (
-            <Button variant="secondary" onClick={() => void details.refetch()}>
+          {reviewError && (proof || signedIn) && (
+            <Button variant="secondary" onClick={() => void loadReview(proof)}>
               {t("retry")}
             </Button>
           )}

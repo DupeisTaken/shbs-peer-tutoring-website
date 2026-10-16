@@ -1,5 +1,13 @@
+import { notificationEvent } from "~/lib/notification-events";
 import { timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
+import { currentStudentSignupPayload } from "~/server/student-signup-answers";
+import {
+  validStudentSignupIntent,
+  completeStudentSignupIntent,
+} from "~/server/student-signup-intents";
+import { lockCatalogue } from "~/server/qualifications";
+import { lockStudentRequestReview } from "~/server/request-invalidity";
 import { z } from "zod";
 import type {
   AccountInvitation,
@@ -60,6 +68,11 @@ const sourceSchema = z.discriminatedUnion("type", [
     verifiedAt: z.string(),
   }),
   z.object({ type: z.literal("tutee"), tokenHash: z.string() }),
+  z.object({
+    type: z.literal("tutee-intent"),
+    id: z.string(),
+    challenge: z.string(),
+  }),
   z.object({
     type: z.literal("history"),
     tokenHash: z.string(),
@@ -297,6 +310,7 @@ async function sourceState(
   staff?: RegistrationCode;
   viewer?: ViewerSignup;
   survey?: StudentSurvey;
+  signupIntent?: Awaited<ReturnType<typeof validStudentSignupIntent>>;
   history?: Awaited<ReturnType<typeof setupInvitation>>;
 }> {
   const source = sourceSchema.parse(row.source);
@@ -304,7 +318,8 @@ async function sourceState(
     // Take the interview barrier before the grant row: panel replacement owns
     // that same barrier when expiring outstanding registration codes.
     const binding = await tx.registrationCode.findUnique({
-      where: { id: source.id }, select: { applicationId: true },
+      where: { id: source.id },
+      select: { applicationId: true },
     });
     if (binding) await assertTutorRegistrationSource(tx, binding);
     await tx.$queryRaw`SELECT id FROM "RegistrationCode" WHERE id = ${source.id} FOR UPDATE`;
@@ -342,16 +357,32 @@ async function sourceState(
     return { source, viewer };
   }
   if (source.type === "tutee") {
+    await lockCatalogue(tx);
     // Flags and confirmation acquire this advisory lock before touching the
     // survey row. Match that order so in-flight redemption cannot deadlock them.
     const binding = await tx.studentSurvey.findUnique({
-      where: { tokenHash: source.tokenHash }, select: { email: true },
+      where: { tokenHash: source.tokenHash },
+      select: { email: true },
     });
     if (binding) await lockEntity(tx, `student-survey:${binding.email}`);
     await tx.$queryRaw`SELECT id FROM "StudentSurvey" WHERE "tokenHash" = ${source.tokenHash} FOR UPDATE`;
     const survey = await validSurvey(tx, source.tokenHash, true);
     if (survey.email !== row.email) throw invalid();
     return { source, survey };
+  }
+  if (source.type === "tutee-intent") {
+    await lockCatalogue(tx);
+    await lockEntity(tx, `student-signup-intent-id:${source.id}`);
+    const binding = await validStudentSignupIntent(tx, source.id);
+    await lockStudentRequestReview(tx, binding.row);
+    const signupIntent = await validStudentSignupIntent(tx, source.id);
+    if (
+      !signupIntent.intent.verifiedAt ||
+      signupIntent.intent.email !== row.email ||
+      signupIntent.intent.tokenHash !== source.challenge
+    )
+      throw invalid();
+    return { source, signupIntent };
   }
   const history = await setupInvitation(tx, source.tokenHash, row.email, true);
   if (
@@ -479,14 +510,16 @@ export async function deliverAccountInvitation(
               +state.history.invite.expiresAt,
               +state.history.invite.setupCodeExpiresAt!,
             )
-          : state.survey
-            ? Math.min(
-                +state.survey.expiresAt,
-                state.survey.verificationDueAt
-                  ? +state.survey.verificationDueAt
-                  : Infinity,
-              )
-            : +row.expiresAt;
+          : state.signupIntent
+            ? +state.signupIntent.intent.expiresAt
+            : state.survey
+              ? Math.min(
+                  +state.survey.expiresAt,
+                  state.survey.verificationDueAt
+                    ? +state.survey.verificationDueAt
+                    : Infinity,
+                )
+              : +row.expiresAt;
     const expiresAt = new Date(Math.min(+row.expiresAt, sourceExpiry));
     const issued = await tx.accountInvitation.update({
       where: { id: row.id },
@@ -757,8 +790,10 @@ export async function inspectAccountInvitation(
         email: row.email,
         completed: true,
         academicConfirmationRequired: receiptAcademicConfirmation(row),
+        signupRequest: null,
         needsPassword: false,
         existing: true,
+        acceptedIdentity: true,
         name: owner?.name ?? "",
         legacyName: null as string | null,
         firstName: "",
@@ -791,15 +826,17 @@ export async function inspectAccountInvitation(
               alternativeNames: state.viewer.alternativeNames ?? "",
               gradeLevel: null,
             }
-          : state.survey
-            ? surveyInput.parse(state.survey.payload)
-            : {
-                firstName: "",
-                lastName: "",
-                preferredName: "",
-                alternativeNames: "",
-                gradeLevel: null,
-              };
+          : state.signupIntent
+            ? surveyInput.parse(state.signupIntent.intent.payload)
+            : state.survey
+              ? surveyInput.parse(currentStudentSignupPayload(state.survey))
+              : {
+                  firstName: "",
+                  lastName: "",
+                  preferredName: "",
+                  alternativeNames: "",
+                  gradeLevel: null,
+                };
     const mfaRequired = Boolean(
       owner?.twoFactorEnabled && (await getFeatures(tx)).EMAIL_2FA,
     );
@@ -809,7 +846,61 @@ export async function inspectAccountInvitation(
       email: row.email,
       completed: false,
       academicConfirmationRequired: false,
+      signupRequest: state.signupIntent
+        ? {
+            id: state.signupIntent.row.id,
+            expectedVersion: state.signupIntent.intent.expectedVersion,
+            originalPriority: state.signupIntent.row.submittedAt,
+            answers: surveyInput.parse(state.signupIntent.intent.payload),
+            policySnapshot: state.signupIntent.intent.policySnapshot,
+            subjects: await tx.subject.findMany({
+              where: {
+                id: {
+                  in: [
+                    surveyInput.parse(state.signupIntent.intent.payload)
+                      .firstChoiceId,
+                    ...(surveyInput.parse(state.signupIntent.intent.payload)
+                      .secondChoiceId
+                      ? [
+                          surveyInput.parse(state.signupIntent.intent.payload)
+                            .secondChoiceId!,
+                        ]
+                      : []),
+                  ],
+                },
+              },
+              select: { id: true, name: true },
+            }),
+            slots: await tx.timeSlot.findMany({
+              where: {
+                id: {
+                  in: surveyInput.parse(state.signupIntent.intent.payload)
+                    .slotIds,
+                },
+              },
+              select: {
+                id: true,
+                label: true,
+                dayOfWeek: true,
+                startMin: true,
+                endMin: true,
+              },
+            }),
+          }
+        : null,
       existing: Boolean(owner),
+      // Only a fresh staff invitation has identity intake left to collect. An
+      // accepted roster/application is reviewed as source evidence, not edited
+      // under requirements that may have tightened since its submission.
+      acceptedIdentity: Boolean(
+        Boolean(owner) ||
+        !state.staff ||
+        Boolean(
+          state.staff.tutorId ??
+          state.staff.applicationId ??
+          state.staff.crewApplicationId,
+        ),
+      ),
       name:
         owner?.name ??
         state.viewer?.name ??
@@ -1023,7 +1114,9 @@ export async function redeemAccountInvitation(
       });
     // Complete genuinely missing credentials only. Existing passwords and forced-change
     // flags are not reset by accepting participation; deliberate recovery remains separate.
-    if (owner && !owner.passwordHash)
+    // The staged source checks the credential generation captured at issuance. Complete
+    // it before our own authorized missing-password write increments that generation.
+    if (owner && !owner.passwordHash && !state.signupIntent)
       await tx.user.update({
         where: { id: owner.id },
         data: {
@@ -1081,6 +1174,7 @@ export async function redeemAccountInvitation(
         if (!result.ok) throw conflict();
         await notifyAdmins(
           {
+            ...notificationEvent("viewer_registered"),
             title: "New viewer account",
             body: "A new read-only viewer registered to follow the program.",
             link: "/admin/users",
@@ -1089,6 +1183,33 @@ export async function redeemAccountInvitation(
           tx,
         );
       }
+    } else if (state.signupIntent) {
+      await completeStudentSignupIntent(
+        tx,
+        state.signupIntent.intent.id,
+        owner?.id,
+        input.password,
+      );
+      if (
+        owner &&
+        !owner.passwordHash &&
+        !(
+          await tx.user.findUniqueOrThrow({
+            where: { id: owner.id },
+            select: { passwordHash: true },
+          })
+        ).passwordHash
+      )
+        await tx.user.update({
+          where: { id: owner.id },
+          data: {
+            passwordHash: hashPassword(input.password!),
+            mustChangePassword: false,
+            ...(row.email === owner.email
+              ? { emailVerifiedAt: new Date() }
+              : {}),
+          },
+        });
     } else if (state.survey) {
       await confirmSurvey(tx, state.survey.tokenHash, input.password, {
         tokenIsDigest: true,

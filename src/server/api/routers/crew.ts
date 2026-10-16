@@ -7,6 +7,8 @@ import { inTransaction, lockEntity } from "~/server/transactions";
 import { lockAttendanceSchedule } from "~/server/attendance-schedule";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { roomReference } from "~/lib/room-reference";
+import { requireExistingRooms } from "~/server/room-references";
 
 import {
   createTRPCRouter,
@@ -107,7 +109,7 @@ export const crewRouter = createTRPCRouter({
         observations: z
           .array(
             z.object({
-              roomId: z.string().cuid(),
+              roomId: roomReference,
               headcount: z.enum(HEADCOUNTS),
               // Client stamps the time each room was checked; defaults to now if omitted.
               observedAt: z.coerce.date().optional(),
@@ -154,6 +156,7 @@ export const crewRouter = createTRPCRouter({
             code: "BAD_REQUEST",
             message: "Record each room once per patrol.",
           });
+        await requireExistingRooms(tx, input.observations.map((o) => o.roomId));
         const active = await getActivePeriodOrNull(tx);
         const now = new Date();
         assertObservedTimes(input.observations, now);

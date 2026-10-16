@@ -8,6 +8,7 @@ import { getFeatures } from "~/server/program/features";
 import { api } from "~/trpc/server";
 import { AnnouncementsBanner } from "~/app/(tutor)/_components/announcements-banner";
 import { AttendanceForm } from "~/app/(tutor)/_components/attendance-form";
+import { TutorWorkloadPreference } from "~/app/_components/tutor-workload-preference";
 import { AvailabilityEditor } from "~/app/(tutor)/_components/availability-editor";
 import { TutorPairings } from "~/app/(tutor)/_components/tutor-pairings";
 import { MergeProvider } from "~/app/(tutor)/_components/merge-context";
@@ -20,8 +21,10 @@ import { SubjectWillingness } from "~/app/(tutor)/_components/subject-willingnes
 import { getTranslations } from "next-intl/server";
 import { DashboardTasks } from "~/app/(tutor)/_components/dashboard-tasks";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
+import { SessionPagePosition } from "~/app/_components/session-view-state";
 
 import { TutorRoomSchedule } from "~/app/(tutor)/_components/tutor-room-schedule";
+import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
 
 export default async function TutorDashboard() {
   const session = await auth();
@@ -49,6 +52,11 @@ export default async function TutorDashboard() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-7 px-4 py-5 sm:space-y-8 sm:py-8">
+      <SessionPagePosition
+        id="tutor-dashboard-v1"
+        scope={`${me.status}:${total.periodLabel ?? ""}`}
+        ready
+      />
       {/* Header + monthly service-hour earnings */}
       <section className="border-accent-100 bg-accent-50/45 rounded-xl border px-4 py-5 sm:px-6 sm:py-6">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
@@ -97,12 +105,6 @@ export default async function TutorDashboard() {
         </div>
       </section>
 
-      <DashboardTasks
-        status={me.status}
-        interviewsEnabled={features.INTERVIEWS}
-        meetingsEnabled={features.MEETINGS}
-        now={new Date()}
-      />
       {/* Team announcements — shown on every login until acknowledged. */}
       <AnnouncementsBanner />
       <PolicyConsent slug="tutor-policy" />
@@ -129,6 +131,13 @@ export default async function TutorDashboard() {
           )}
         </div>
       )}
+
+      <DashboardTasks
+        status={me.status}
+        interviewsEnabled={features.INTERVIEWS}
+        meetingsEnabled={features.MEETINGS}
+        now={new Date()}
+      />
 
       <MergeProvider>
         <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-5 lg:gap-6">
@@ -170,22 +179,31 @@ export default async function TutorDashboard() {
           evidence use disclosures, which retain mounted drafts when collapsed. */}
       {!inactive && features.INTERVIEWS && <MyInterviews />}
       {!inactive && features.MEETINGS && <TutorMeetings />}
-      <QualificationRequests active={!inactive} />
+      <QualificationRequests
+        active={!inactive}
+        viewScope={total.periodLabel ?? ""}
+      />
       <section
         id="tutor-preferences"
         tabIndex={-1}
         className="scroll-mt-6 space-y-4"
       >
         <SubjectWillingness />
-        {!inactive && (
-          <DisclosureSection
-            title={t("dashboard.availability.title")}
-            lifetime="retained"
-          >
-            <p className="muted mb-3">{t("dashboard.availability.help")}</p>
-            <AvailabilityEditor />
-          </DisclosureSection>
-        )}
+        <section className="card p-4 sm:p-5">
+          <h2 className="section-title">{t("dashboard.availability.title")}</h2>
+          <p className="muted mt-1 mb-4 text-sm">
+            {t("dashboard.availability.help")}
+          </p>
+          <TutorWorkloadPreference />
+          {!inactive && (
+            <DisclosureSection
+              title={t("dashboard.availability.edit")}
+              lifetime="retained"
+            >
+              <AvailabilityEditor />
+            </DisclosureSection>
+          )}
+        </section>
       </section>
 
       {/* Punishment history for the tutor's tutees (reason-free; self-hides when none). */}
@@ -201,6 +219,7 @@ export default async function TutorDashboard() {
           <h2 className="section-title">{t("dashboard.schedule.title")}</h2>
           <p className="muted">{t("dashboard.schedule.help")}</p>
         </div>
+        <ProgramCalendarNotice />
         <TutorRoomSchedule initialData={schedule} />
       </section>
     </div>

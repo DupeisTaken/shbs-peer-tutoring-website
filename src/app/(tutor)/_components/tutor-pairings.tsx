@@ -1,19 +1,25 @@
 "use client";
+import { invalidateWorkloads } from "~/lib/workload-cache";
+import { participantNameLabel } from "~/app/_components/participant-name";
+import { pairingEntries } from "~/lib/pairing-groups";
+import { PairingGroupEditor } from "./pairing-group-editor";
+import { Button } from "~/app/_components/ui/button";
+import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 
-import { StudentScheduleAction } from "./student-schedule-action";
-import { useRef, useState } from "react";
+import { PairingTuteeDetails } from "./pairing-tutee-details";
+import { useLayoutEffect, useRef, useState } from "react";
 import { InlineNotice } from "~/app/_components/ui/patterns";
-import { Button } from "~/app/_components/ui/button";
 import { RoomAllocationStatus } from "~/app/_components/room-allocation-status";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
-import { useFormatter, useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
-import { DAY_NAMES, minToHm } from "~/lib/time";
+import { formatWeekday, minToHm } from "~/lib/time";
 import { useMerge } from "~/app/(tutor)/_components/merge-context";
 import { useDialog } from "~/app/_components/confirm-dialog";
+import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 
 /**
  * The tutor's pairings, each with a control to pick the default reference time slot and to
@@ -22,14 +28,31 @@ import { useDialog } from "~/app/_components/confirm-dialog";
  */
 export function TutorPairings({ active = true }: { active?: boolean }) {
   const t = useTranslations();
+  const locale = useLocale();
   const a = useTranslations("roomAllocation");
-  const format = useFormatter();
   const { confirm, dialog } = useDialog();
   const utils = api.useUtils();
   const pairings = api.tutor.myPairings.useQuery();
   const workflowRoster = api.studentWorkflow.tutorRoster.useQuery();
   const availability = api.tutor.myAvailability.useQuery();
   const removalRequests = api.tutor.myTuteeRemovalRequests.useQuery();
+  const denied = useSessionAccessDenied(
+    pairings,
+    workflowRoster,
+    availability,
+    removalRequests,
+  );
+  const slotEligibility = useRef({ active, blocked: true });
+  useLayoutEffect(() => {
+    slotEligibility.current = {
+      active,
+      blocked:
+        denied ||
+        !!pairings.error ||
+        !!availability.error ||
+        !availability.data,
+    };
+  }, [active, denied, pairings.error, availability.error, availability.data]);
   const slotAdmitted = useRef(false);
   const slotAccepted = useRef(false);
   const slotTarget = useRef<string | undefined>(undefined);
@@ -52,8 +75,15 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
       await settleRefreshes([
         () => invalidateAndReport(utils.tutor.myPairings),
         () => invalidateAndReport(utils.tutor.schedule),
+        () =>
+          availability.refetch({ throwOnError: true }).then((result) => {
+            if (!result.isSuccess)
+              throw new Error("Availability refresh failed");
+          }),
         () => invalidateAndReport(utils.student.me),
         () => invalidateAndReport(utils.studentWorkflow.mine),
+        () => invalidateAndReport(utils.pairingGroups.mine),
+        () => invalidateWorkloads(utils, true),
         () => invalidateAndReport(utils.notification.list),
         () => invalidateAndReport(utils.notification.unreadCount),
       ]);
@@ -85,7 +115,13 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
     p: NonNullable<typeof pairings.data>[number],
     slotId: string | null,
   ) => {
-    if (slotAdmitted.current || pairings.error || slotRefreshFailed) return;
+    if (
+      slotAdmitted.current ||
+      !slotEligibility.current.active ||
+      slotEligibility.current.blocked ||
+      slotRefreshFailed
+    )
+      return;
     const draft = {
       slotId,
       version: slotDrafts[p.id]?.version ?? p.roomVersion,
@@ -95,9 +131,9 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
       !(await confirm({
         title: t("tutor.tasks.changeSchedule"),
         message: t("tutor.tasks.confirmSchedule", {
-          subject: p.subject,
+          subject: scheduleSubjects(p.id) ?? p.subject,
           slot: slot
-            ? `${slot.label} · ${DAY_NAMES[slot.dayOfWeek]} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}`
+            ? `${slot.label} · ${formatWeekday(slot.dayOfWeek, locale)} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}`
             : t("scheduling.noLinkedSlot"),
         }),
         confirmLabel: t("common.save"),
@@ -105,7 +141,12 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
       }))
     )
       return;
-    if (slotAdmitted.current) return;
+    if (
+      slotAdmitted.current ||
+      !slotEligibility.current.active ||
+      slotEligibility.current.blocked
+    )
+      return;
     // Keep the attempted slot and its original concurrency version until a save
     // has synchronized, or an explicit successful Reload discards this draft.
     setSlotDrafts((current) => ({ ...current, [p.id]: draft }));
@@ -134,36 +175,16 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
     }
   };
 
-  const refreshRemoval = () => utils.tutor.myTuteeRemovalRequests.invalidate();
-  const requestRemoval = api.tutor.requestTuteeRemoval.useMutation({
-    onSuccess: refreshRemoval,
-  });
-  const recallRemoval = api.tutor.recallTuteeRemoval.useMutation({
-    onSuccess: refreshRemoval,
-  });
+  const [lastAction, setLastAction] = useState<"slot" | null>(null);
+  const feedback = lastAction === "slot" ? setSlot : null;
 
-  // Which (pairing,tutee) the tutor is composing a removal reason for.
-  const [removing, setRemoving] = useState<{
-    pairingId: string;
-    tuteeId: string;
-  } | null>(null);
-  const [reason, setReason] = useState("");
-  // Feedback belongs to the latest attempted action, not any earlier mutation
-  // that still has a success/error result in React Query's separate caches.
-  const [lastAction, setLastAction] = useState<
-    "slot" | "request" | "recall" | null
-  >(null);
-  const feedback =
-    lastAction === "slot"
-      ? setSlot
-      : lastAction === "request"
-        ? requestRemoval
-        : lastAction === "recall"
-          ? recallRemoval
-          : null;
-
-  const { primaryPairingId, mergeIds, setMergeIds, attendanceLocked } =
-    useMerge();
+  const {
+    primaryPairingId,
+    mergeIds,
+    setMergeIds,
+    attendanceLocked,
+    selectAttendance,
+  } = useMerge();
 
   const slots = availability.data?.slots ?? [];
   // Pending removal requests keyed by `${pairingId}:${tuteeId}` for quick lookup.
@@ -173,24 +194,164 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
 
   if (pairings.isLoading)
     return <p className="muted">{t("tutor.pairings.loading")}</p>;
+  // An authoritative access failure must unmount cached assignment readers and drafts.
+  if (denied)
+    return (
+      <div role="alert" className="text-sm text-red-700">
+        <p>{t("tutor.tasks.loadError")}</p>
+        <button
+          type="button"
+          className="btn-secondary btn-sm"
+          onClick={() => {
+            void pairings.refetch();
+            void workflowRoster.refetch();
+            void availability.refetch();
+            void removalRequests.refetch();
+          }}
+        >
+          {t("tutor.tasks.retry")}
+        </button>
+      </div>
+    );
   const list = pairings.data ?? [];
   if (list.length === 0 && !pairings.error) {
     return <p className="muted">{t("tutor.pairings.empty")}</p>;
   }
 
-  // Merge eligibility: the attendance form sets the primary pairing; another pairing can be
-  // merged into the same block only when it shares a tutee with the primary OR is the same
-  // subject (we don't merge unrelated sessions).
   const primary = list.find((p) => p.id === primaryPairingId);
-  const primaryTuteeIds = new Set(primary?.tutees.map((x) => x.tuteeId) ?? []);
   const mergeCandidates = primary
-    ? list.filter(
-        (p) =>
-          p.id !== primary.id &&
-          (p.subject === primary.subject ||
-            p.tutees.some((x) => primaryTuteeIds.has(x.tuteeId))),
-      )
+    ? list.filter((p) => p.id !== primary.id)
     : [];
+
+  const entries = pairingEntries(list);
+  // A member's legacy slot control changes the whole group; the confirmation
+  // names every affected subject so it describes the server's actual write.
+  const scheduleSubjects = (pairingId: string) =>
+    entries
+      .find((entry) => entry.pairings.some((p) => p.id === pairingId))
+      ?.pairings.map((p) => p.subject)
+      .join(" + ");
+  const renderAssignment = (p: (typeof list)[number]) => (
+    <li key={p.id} className="py-3">
+      <p className="font-medium text-wrap text-slate-900">
+        {p.subject}
+        <span className="muted font-normal">
+          {" · "}
+          {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
+        </span>
+      </p>
+      <RoomAllocationStatus pairing={p} />
+
+      {/* Default scheduling belongs before the roster/availability actions. */}
+      {active && (
+        <div className="mt-2 grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <span className="text-xs font-medium text-slate-500">
+            {t("tutor.pairings.defaultSlotLabel")}
+          </span>
+          <select
+            value={
+              slotDrafts[p.id]?.slotId ??
+              (slotDrafts[p.id] ? "" : p.timeSlotId) ??
+              ""
+            }
+            aria-label={`${p.subject}: ${t("tutor.pairings.defaultSlotLabel")}`}
+            disabled={
+              setSlot.isPending ||
+              slotWorking ||
+              slotRefreshFailed ||
+              !!pairings.error ||
+              !!availability.error
+            }
+            onChange={(e) => void changeSlot(p, e.target.value || null)}
+            className="select min-w-0 sm:w-auto"
+          >
+            <option value="">{t("scheduling.noLinkedSlot")}</option>
+            {slots.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label} · {formatWeekday(s.dayOfWeek, locale)}{" "}
+                {minToHm(s.startMin)}–{minToHm(s.endMin)}
+              </option>
+            ))}
+          </select>
+          {slotDrafts[p.id] && !slotWorking && !slotRefreshFailed && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="compact"
+                disabled={!!pairings.error || !!availability.error}
+                onClick={() => void changeSlot(p, slotDrafts[p.id]!.slotId)}
+              >
+                {t("common.save")}
+              </Button>
+              <Button size="compact" onClick={() => void reloadSlot(p.id)}>
+                {a("reload")}
+              </Button>
+            </div>
+          )}
+          {p.timeSlot && (
+            <span className="muted">
+              ({formatWeekday(p.timeSlot.dayOfWeek, locale)}{" "}
+              {minToHm(p.timeSlot.startMin)}–{minToHm(p.timeSlot.endMin)})
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Keep the roster brief; each Details owner retains its own request drafts. */}
+      <div className="mt-2">
+        {p.tutees.length === 0 ? (
+          <p className="muted text-sm">{t("tutor.pairings.noTuteesYet")}</p>
+        ) : (
+          <ul className="space-y-1">
+            {p.tutees.map((x) => {
+              const name = participantNameLabel(
+                x.tutee.englishName,
+                x.tutee.user?.username,
+                t("participantNames.unnamed"),
+              );
+              const workflowRow = workflowRoster.data?.find(
+                (r) => r.tuteeId === x.tuteeId && r.pairingId === p.id,
+              );
+              const key = `${p.id}:${x.tuteeId}`;
+              const pendingRequest = pendingByKey.get(key);
+              return (
+                <li
+                  key={x.tuteeId}
+                  className="flex items-center justify-between gap-3 text-sm"
+                >
+                  <span className="min-w-0 break-words text-slate-700">
+                    {name}
+                  </span>
+                  <PairingTuteeDetails
+                    pairingId={p.id}
+                    tuteeId={x.tuteeId}
+                    name={name}
+                    subject={p.subject}
+                    active={active}
+                    row={workflowRow}
+                    pendingRequest={pendingRequest}
+                    ready={!!workflowRoster.data && !!removalRequests.data}
+                    failed={
+                      !!pairings.error ||
+                      !!workflowRoster.error ||
+                      !!removalRequests.error
+                    }
+                    onRetry={() => {
+                      void pairings.refetch();
+                      void workflowRoster.refetch();
+                      void removalRequests.refetch();
+                    }}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+      {p.scheduleConfirmed && !p.timeSlotId && (
+        <p className="muted mt-1 text-sm">{t("scheduling.retained")}</p>
+      )}
+    </li>
+  );
 
   return (
     <>
@@ -216,252 +377,87 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
           </button>
         </div>
       )}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="muted text-sm">{t("pairingGroups.catalogueHelp")}</p>
+        <PairingGroupEditor
+          pairings={list}
+          slots={slots}
+          active={
+            active && !slotWorking && !pairings.error && !availability.error
+          }
+        />
+      </div>
       <ul className="divide-y divide-slate-100">
-        {list.map((p) => (
-          <li key={p.id} className="py-3">
-            <p className="font-medium text-wrap text-slate-900">
-              {p.subject}
-              <span className="muted font-normal">
-                {" · "}
-                {pairingScheduleText(p, t("scheduling.awaiting"))}
-              </span>
-            </p>
-            <RoomAllocationStatus pairing={p} />
-
-            {/* Tutees on this pairing, each with a "left the program" removal request control. */}
-            <div className="mt-2">
-              {p.tutees.length === 0 ? (
-                <p className="muted text-sm">
-                  {t("tutor.pairings.noTuteesYet")}
-                </p>
-              ) : (
-                <ul className="space-y-1">
-                  {p.tutees.map((x) => {
-                    const workflowRow = workflowRoster.data?.find(
-                      (r) => r.tuteeId === x.tuteeId && r.pairingId === p.id,
-                    );
-                    const key = `${p.id}:${x.tuteeId}`;
-                    const pendingRequest = pendingByKey.get(key);
-                    const pendingId = pendingRequest?.id;
-                    const composing =
-                      removing?.pairingId === p.id &&
-                      removing?.tuteeId === x.tuteeId;
-                    return (
-                      <li key={x.tuteeId} className="text-sm">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="min-w-0 text-slate-700">
-                            {x.tutee.englishName}
-                          </span>
-                          {workflowRow && !workflowRow.managed && (
-                            <StudentScheduleAction
-                              row={workflowRow}
-                              active={active}
-                              name={x.tutee.englishName}
-                            />
-                          )}
-                          {workflowRow?.managed ? (
-                            <StudentScheduleAction
-                              row={workflowRow}
-                              active={active}
-                              name={x.tutee.englishName}
-                            />
-                          ) : pendingId ? (
-                            <>
-                              <span className="badge-amber">
-                                {t("tutor.pairings.removalPending")}
-                              </span>
-                              {pendingRequest?.eligibleAt && (
-                                <span className="text-xs text-amber-800">
-                                  {t("tutor.tasks.recallDeadline", {
-                                    date: format.dateTime(
-                                      pendingRequest.eligibleAt,
-                                      {
-                                        dateStyle: "medium",
-                                        timeStyle: "short",
-                                      },
-                                    ),
-                                  })}
-                                </span>
-                              )}
-                              {/* Recalling a pending relay remains permitted while inactive. */}
-                              <button
-                                className="link-danger inline-flex min-h-11 items-center text-xs lg:min-h-7"
-                                disabled={recallRemoval.isPending}
-                                onClick={async () => {
-                                  if (
-                                    await confirm({
-                                      title: t("tutor.pairings.removalRecall"),
-                                      message: t("tutor.tasks.recallRemoval", {
-                                        name: x.tutee.englishName,
-                                        subject: p.subject,
-                                      }),
-                                      confirmLabel: t(
-                                        "tutor.pairings.removalRecall",
-                                      ),
-                                      cancelLabel: t("common.cancel"),
-                                    })
-                                  ) {
-                                    setLastAction("recall");
-                                    recallRemoval.mutate({
-                                      requestId: pendingId,
-                                    });
-                                  }
-                                }}
-                              >
-                                {t("tutor.pairings.removalRecall")}
-                              </button>
-                            </>
-                          ) : composing ||
-                            !active ||
-                            !workflowRoster.data ||
-                            !removalRequests.data ? null : (
-                            <button
-                              className="link inline-flex min-h-11 items-center text-xs lg:min-h-7"
-                              disabled={requestRemoval.isPending}
-                              onClick={() => {
-                                setRemoving({
-                                  pairingId: p.id,
-                                  tuteeId: x.tuteeId,
-                                });
-                                setReason("");
-                                setLastAction(null);
-                              }}
-                            >
-                              {t("tutor.pairings.requestRemoval")}
-                            </button>
-                          )}
-                        </div>
-                        {composing && (
-                          <div className="mt-1 space-y-2 rounded-md border border-slate-200 bg-slate-50 p-2">
-                            <p className="muted text-xs">
-                              {t("tutor.pairings.removalHelp")}
-                            </p>
-                            <textarea
-                              value={reason}
-                              onChange={(e) => setReason(e.target.value)}
-                              placeholder={t(
-                                "tutor.pairings.removalReasonPlaceholder",
-                              )}
-                              className="textarea w-full text-sm"
-                              aria-label={t(
-                                "tutor.pairings.removalReasonPlaceholder",
-                              )}
-                              disabled={requestRemoval.isPending}
-                              rows={2}
-                            />
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                className="btn-secondary btn-sm"
-                                disabled={requestRemoval.isPending}
-                                onClick={async () => {
-                                  if (
-                                    !(await confirm({
-                                      title: t("tutor.pairings.requestRemoval"),
-                                      message: t("tutor.tasks.confirmRemoval", {
-                                        name: x.tutee.englishName,
-                                        subject: p.subject,
-                                      }),
-                                      confirmLabel: t(
-                                        "tutor.pairings.removalSubmit",
-                                      ),
-                                      cancelLabel: t("common.cancel"),
-                                    }))
-                                  )
-                                    return;
-                                  setLastAction("request");
-                                  requestRemoval.mutate(
-                                    {
-                                      pairingId: p.id,
-                                      tuteeId: x.tuteeId,
-                                      reason: reason.trim() || undefined,
-                                    },
-                                    {
-                                      onSuccess: () => {
-                                        setRemoving(null);
-                                        setReason("");
-                                      },
-                                    },
-                                  );
-                                }}
-                              >
-                                {t("tutor.pairings.removalSubmit")}
-                              </button>
-                              <button
-                                className="btn-secondary btn-sm"
-                                disabled={requestRemoval.isPending}
-                                onClick={() => setRemoving(null)}
-                              >
-                                {t("tutor.pairings.removalCancel")}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-            {active && (
-              <div className="mt-2 grid gap-2 sm:flex sm:flex-wrap sm:items-center">
-                <span className="text-xs font-medium text-slate-500">
-                  {t("tutor.pairings.defaultSlotLabel")}
-                </span>
-                <select
-                  value={
-                    slotDrafts[p.id]?.slotId ??
-                    (slotDrafts[p.id] ? "" : p.timeSlotId) ??
-                    ""
-                  }
-                  aria-label={`${p.subject}: ${t("tutor.pairings.defaultSlotLabel")}`}
-                  disabled={
-                    setSlot.isPending ||
-                    slotWorking ||
-                    slotRefreshFailed ||
-                    !!pairings.error
-                  }
-                  onChange={(e) => void changeSlot(p, e.target.value || null)}
-                  className="select min-w-0 sm:w-auto"
+        {entries.map((entry) =>
+          entry.groupId ? (
+            <li key={entry.id} className="space-y-3 py-4">
+              <p className="badge">{t("pairingGroups.combined")}</p>
+              <h3 className="font-semibold text-wrap">
+                {entry.pairings.map((p) => p.subject).join(" + ")}
+              </h3>
+              <p className="muted text-sm">
+                {pairingScheduleText(
+                  entry.primary,
+                  t("scheduling.awaiting"),
+                  locale,
+                )}{" "}
+              </p>
+              <RoomAllocationStatus pairing={entry.primary} />
+              <ul
+                className="space-y-2"
+                aria-label={t("pairingGroups.combinedRoster")}
+              >
+                {[
+                  ...new Map(
+                    entry.pairings
+                      .flatMap((p) => p.tutees)
+                      .map((x) => [x.tuteeId, x]),
+                  ).values(),
+                ].map((student) => (
+                  <li key={student.tuteeId} className="text-sm">
+                    <p>
+                      {participantNameLabel(
+                        student.tutee.englishName,
+                        student.tutee.user?.username,
+                        t("participantNames.unnamed"),
+                      )}
+                    </p>
+                    <p className="muted text-xs">
+                      {entry.pairings
+                        .filter((p) =>
+                          p.tutees.some((x) => x.tuteeId === student.tuteeId),
+                        )
+                        .map((p) => p.subject)
+                        .join(", ")}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              {active && (
+                <Button
+                  size="compact"
+                  disabled={attendanceLocked}
+                  onClick={() => {
+                    selectAttendance("group:" + entry.groupId);
+                    document
+                      .getElementById("attendance")
+                      ?.scrollIntoView({ block: "start" });
+                  }}
                 >
-                  <option value="">{t("scheduling.noLinkedSlot")}</option>
-                  {slots.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.label} · {DAY_NAMES[s.dayOfWeek]} {minToHm(s.startMin)}
-                      –{minToHm(s.endMin)}
-                    </option>
-                  ))}
-                </select>
-                {slotDrafts[p.id] && !slotWorking && !slotRefreshFailed && (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="compact"
-                      onClick={() =>
-                        void changeSlot(p, slotDrafts[p.id]!.slotId)
-                      }
-                    >
-                      {t("common.save")}
-                    </Button>
-                    <Button
-                      size="compact"
-                      onClick={() => void reloadSlot(p.id)}
-                    >
-                      {a("reload")}
-                    </Button>
-                  </div>
-                )}
-                {p.timeSlot && (
-                  <span className="muted">
-                    ({DAY_NAMES[p.timeSlot.dayOfWeek]}{" "}
-                    {minToHm(p.timeSlot.startMin)}–{minToHm(p.timeSlot.endMin)})
-                  </span>
-                )}
-              </div>
-            )}
-            {p.scheduleConfirmed && !p.timeSlotId && (
-              <p className="muted mt-1 text-sm">{t("scheduling.retained")}</p>
-            )}
-          </li>
-        ))}
+                  {t("pairingGroups.record")}
+                </Button>
+              )}
+              <DisclosureSection
+                title={t("pairingGroups.memberDetails")}
+                lifetime="retained"
+              >
+                <ul>{entry.pairings.map(renderAssignment)}</ul>
+              </DisclosureSection>
+            </li>
+          ) : (
+            renderAssignment(entry.primary)
+          ),
+        )}
       </ul>
       {slotOutcome && (
         <InlineNotice
@@ -481,10 +477,10 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
             </Button>
           }
         >
-          {a("savedRefreshFailed")}
+          {a(slotOutcome !== undefined ? "savedRefreshFailed" : "readFailed")}
         </InlineNotice>
       )}
-      {pairings.error && !slotRefreshFailed && (
+      {(pairings.error || availability.error) && !slotRefreshFailed && (
         <InlineNotice
           tone="error"
           announcement="alert"
@@ -504,11 +500,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
       )}
       {feedback?.isSuccess && lastAction !== "slot" && (
         <p role="status" className="text-sm text-green-700">
-          {t(
-            lastAction === "request"
-              ? "tutor.tasks.removalSubmitted"
-              : "workflows.saved",
-          )}
+          {t("workflows.saved")}
         </p>
       )}
 
@@ -537,7 +529,10 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                   >
                     <input
                       type="checkbox"
-                      disabled={attendanceLocked}
+                      disabled={
+                        attendanceLocked ||
+                        (!mergeIds.includes(p.id) && mergeIds.length >= 5)
+                      }
                       checked={mergeIds.includes(p.id)}
                       onChange={(e) =>
                         setMergeIds((ids) =>
@@ -549,7 +544,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                     />
                     <span className="truncate">
                       {p.subject} ·{" "}
-                      {pairingScheduleText(p, t("scheduling.awaiting"))}
+                      {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
                     </span>
                   </label>
                 ))}
