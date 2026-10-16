@@ -21,6 +21,7 @@ const safeFields = new Set([
   "revokedAt", "resolvedById", "reviewedById", "requestedById", "userId", "tutorId", "tuteeId",
   "pairingId", "termId", "surveyId", "subjectId", "levelId", "applicationId", "removedPeriodKey",
   "schoolYear", "quarter", "dayOfWeek", "startMin", "endMin", "scheduleConfirmed",
+  "roomMode", "roomNeedsAssignment", "roomVersion",
   "tutorSignupOpen", "tuteeSignupOpen", "tutorSignupAccepting", "tuteeSignupAccepting",
   "tutorSignupOpensAt", "tutorSignupClosesAt", "tuteeSignupOpensAt", "tuteeSignupClosesAt",
   "signupEnabled", "signupOpensAt", "signupClosesAt", "tutorSignupEnabled", "pendingEnabled", "feature",

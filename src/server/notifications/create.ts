@@ -8,6 +8,8 @@ export interface NotificationInput {
   title: string;
   body?: string;
   link?: string;
+  /** Explicitly suppress optional email copies for a workflow with an in-app-only contract. */
+  inAppOnly?: boolean;
 }
 
 /** Create the same notification for each of the given user ids (de-duplicated, skips empty). */
@@ -24,6 +26,7 @@ export async function notifyUsers(
       title: data.title,
       body: data.body ?? null,
       link: data.link ?? null,
+      ...(data.inAppOnly ? { inAppOnly: true } : {}),
     })),
   });
 }

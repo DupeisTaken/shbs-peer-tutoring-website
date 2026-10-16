@@ -2,7 +2,15 @@
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import Link from "next/link";
+import { RoomAllocationStatus } from "~/app/_components/room-allocation-status";
+import {
+  FilterToolbar,
+  InlineNotice,
+  StatePanel,
+} from "~/app/_components/ui/patterns";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
 import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
 import { useTranslations } from "next-intl";
@@ -18,8 +26,8 @@ import {
   TableAction,
   TableDetails,
 } from "~/app/_components/ui/summary-table";
-import { Modal } from "~/app/_components/ui/modal";
-import { Button } from "~/app/_components/ui/button";
+import { ProfileDialog } from "~/app/_components/profile-dialog";
+import { ChoiceButton, Button } from "~/app/_components/ui/button";
 import { useActionReview } from "~/app/_components/ui/action-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { queuedApprovalId } from "~/lib/approval-outcome";
@@ -28,6 +36,11 @@ type PairingForm = {
   id: string | null;
   tutorId: string;
   roomId: string;
+  roomMode: "AUTO" | "FIXED" | "NONE" | "LEGACY";
+  expectedRoomVersion?: number;
+  originalRoomMode?: string;
+  releaseRoomToAuto: boolean;
+  originalAssignment?: string;
   timeSlotId: string;
   subject: string;
   tuteeIds: string[];
@@ -37,6 +50,8 @@ const EMPTY: PairingForm = {
   id: null,
   tutorId: "",
   roomId: "",
+  roomMode: "AUTO",
+  releaseRoomToAuto: false,
   timeSlotId: "",
   subject: "",
   tuteeIds: [],
@@ -44,6 +59,7 @@ const EMPTY: PairingForm = {
 
 export default function PairingsPage() {
   const t = useTranslations();
+  const a = useTranslations("roomAllocation");
   const readOnly = useReadOnly();
   const utils = api.useUtils();
   const pairings = api.admin.pairings.useQuery();
@@ -57,14 +73,110 @@ export default function PairingsPage() {
     staleTime: REFERENCE_STALE_TIME,
   });
 
-  const invalidate = () => utils.admin.pairings.invalidate();
-  const create = api.admin.createPairing.useMutation({ onSuccess: invalidate });
-  const update = api.admin.updatePairing.useMutation({ onSuccess: invalidate });
+  const create = api.admin.createPairing.useMutation();
+  const update = api.admin.updatePairing.useMutation();
+  const retryRoom = api.admin.retryRoomAllocation.useMutation();
+  const setRoom = api.admin.setPairingRoom.useMutation();
   const del = api.admin.deletePairing.useMutation();
   const review = useActionReview();
 
   const [form, setForm] = useState<PairingForm>(EMPTY);
   const [confirming, setConfirming] = useState(false);
+  const [needsRoomOnly, setNeedsRoomOnly] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [completed, setCompleted] = useState<{
+    outcome?: string;
+    queued?: string;
+  } | null>(null);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const [writeError, setWriteError] = useState<string>();
+  const admitted = useRef(false);
+  // A transport failure may hide a committed create; retain its receipt key
+  // until an explicit new draft so retry cannot create a second pairing.
+  const [createKey, setCreateKey] = useState(() => crypto.randomUUID());
+  // The complete authorized read group settles before unlocking. Recovery never
+  // invokes a scheduling mutation or silently adopts a new draft version.
+  const refresh = async () => {
+    setWorking(true);
+    setRefreshFailed(false);
+    try {
+      await settleRefreshes([
+        () => invalidateAndReport(utils.admin.pairings),
+        () => invalidateAndReport(utils.admin.rooms),
+        () => invalidateAndReport(utils.admin.timeSlots),
+        () => invalidateAndReport(utils.notification.list),
+        () => invalidateAndReport(utils.notification.unreadCount),
+        () => invalidateAndReport(utils.tutor.myPairings),
+        () => invalidateAndReport(utils.tutor.schedule),
+        () => invalidateAndReport(utils.student.me),
+        () => invalidateAndReport(utils.studentWorkflow.mine),
+      ]);
+      return true;
+    } catch {
+      setRefreshFailed(true);
+      return false;
+    } finally {
+      setWorking(false);
+    }
+  };
+  const locked =
+    working ||
+    !!completed ||
+    refreshFailed ||
+    !!pairings.error ||
+    !!rooms.error ||
+    !!timeSlots.error;
+  const assignmentKey = (
+    value: Pick<PairingForm, "tutorId" | "subject" | "timeSlotId" | "tuteeIds">,
+  ) =>
+    JSON.stringify([
+      value.tutorId,
+      value.subject,
+      value.timeSlotId,
+      [...value.tuteeIds].sort(),
+    ]);
+  const roomOnly = !!form.id && form.originalAssignment === assignmentKey(form);
+  const loadForm = (
+    p: NonNullable<typeof pairings.data>[number],
+  ): PairingForm => {
+    const value = {
+      id: p.id,
+      tutorId: p.tutorId,
+      roomId: p.roomId ?? "",
+      roomMode: p.roomMode,
+      originalRoomMode: p.roomMode,
+      expectedRoomVersion: p.roomVersion,
+      releaseRoomToAuto: false,
+      timeSlotId: p.timeSlotId ?? "",
+      subject: p.subject,
+      tuteeIds: p.tutees.map((entry) => entry.tuteeId),
+    };
+    return { ...value, originalAssignment: assignmentKey(value) };
+  };
+  const reloadDraft = async () => {
+    if (working || !form.id) return;
+    setWorking(true);
+    try {
+      const result = await pairings.refetch({ throwOnError: true });
+      const row = result.data?.find((p) => p.id === form.id);
+      if (!row) throw new Error(a("readFailed"));
+      setForm(loadForm(row));
+      setWriteError(undefined);
+      admitted.current = false;
+    } catch (error) {
+      setWriteError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setWorking(false);
+    }
+  };
+  const resetEditor = () => {
+    setConfirming(false);
+    setForm(EMPTY);
+    setCreateKey(crypto.randomUUID());
+    setCompleted(null);
+    setWriteError(undefined);
+    admitted.current = false;
+  };
   const editing = form.id !== null;
   const set = <K extends keyof PairingForm>(k: K, v: PairingForm[K]) => {
     setConfirming(false);
@@ -89,42 +201,89 @@ export default function PairingsPage() {
     (subject) => subject.name === form.subject,
   );
   const base = {
+    ...(form.id ? {} : { clientKey: createKey }),
     tutorId: form.tutorId,
-    roomId: form.roomId || undefined,
+    roomId: form.roomMode === "FIXED" ? form.roomId || undefined : undefined,
+    roomMode: form.roomMode === "LEGACY" ? undefined : form.roomMode,
+    releaseRoomToAuto: form.releaseRoomToAuto,
     timeSlotId: form.timeSlotId,
     subject: form.subject,
     subjectId: selectedSubject?.id,
     tuteeIds: form.tuteeIds,
   };
   const payload = form.id
-    ? { ...base, id: form.id, roomId: form.roomId || null }
+    ? {
+        ...base,
+        id: form.id,
+        expectedRoomVersion: form.expectedRoomVersion,
+        roomId:
+          form.roomMode === "LEGACY"
+            ? undefined
+            : form.roomMode === "FIXED"
+              ? form.roomId || null
+              : null,
+      }
     : base;
-  const submit = (overrideTicket?: string) => {
-    const onSuccess = () => {
+  const submit = async (overrideTicket?: string) => {
+    if (admitted.current || locked) return;
+    admitted.current = true;
+    setWorking(true);
+    setWriteError(undefined);
+    try {
+      const result =
+        roomOnly && form.id && form.roomMode !== "LEGACY"
+          ? await setRoom.mutateAsync({
+              id: form.id,
+              roomMode: form.roomMode,
+              roomId: form.roomMode === "FIXED" ? form.roomId : null,
+              expectedRoomVersion: form.expectedRoomVersion!,
+              releaseRoomToAuto: form.releaseRoomToAuto,
+            })
+          : form.id
+            ? await update.mutateAsync({
+                ...base,
+                id: form.id,
+                expectedRoomVersion: form.expectedRoomVersion,
+                roomId:
+                  form.roomMode === "LEGACY"
+                    ? undefined
+                    : form.roomMode === "FIXED"
+                      ? form.roomId || null
+                      : null,
+                overrideTicket,
+              })
+            : await create.mutateAsync({ ...base, overrideTicket });
+      setCompleted({ outcome: result.roomOutcome });
       setConfirming(false);
-      setForm(EMPTY);
-    };
-    if (form.id)
-      update.mutate(
-        { ...base, id: form.id, roomId: form.roomId || null, overrideTicket },
-        { onSuccess },
-      );
-    else create.mutate({ ...base, overrideTicket }, { onSuccess });
+      await refresh();
+    } catch (error) {
+      const queued = queuedApprovalId(error);
+      if (queued) {
+        setCompleted({ queued });
+        setConfirming(false);
+        await refresh();
+      } else {
+        setWriteError(error instanceof Error ? error.message : String(error));
+        admitted.current = false;
+      }
+    } finally {
+      setWorking(false);
+    }
   };
-
-  const error = create.error ?? update.error;
+  const error = writeError;
+  const rows = (pairings.data ?? []).filter(
+    (p) => !needsRoomOnly || p.roomNeedsAssignment,
+  );
 
   // Creation and row editing share the same fields, validation and confirmation ticket flow.
   const editor = (
     <fieldset
-      disabled={create.isPending || update.isPending}
+      disabled={locked}
       className={editing ? "min-w-0 space-y-3" : "card min-w-0 p-5"}
     >
-      <h2 className="section-title">
-        {editing
-          ? t("admin.pairings.editPairing")
-          : t("admin.pairings.newPairing")}
-      </h2>
+      {!editing && (
+        <h2 className="section-title">{t("admin.pairings.newPairing")}</h2>
+      )}
       <p className="muted mt-1">{t("admin.pairings.slotHelp")}</p>
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Select
@@ -157,23 +316,47 @@ export default function PairingsPage() {
           retainedTutor={originalPairing?.tutor}
         />
         <Select
-          label={t("admin.pairings.roomOptional")}
-          value={form.roomId}
-          onChange={(v) => set("roomId", v)}
+          label={a("modeLabel")}
+          value={form.roomMode}
+          onChange={(v) => {
+            set("roomMode", v as PairingForm["roomMode"]);
+            set("releaseRoomToAuto", false);
+          }}
           options={[
-            { value: "", label: t("admin.pairings.none") },
-            ...(rooms.data ?? []).map((r) => ({
-              value: r.id,
-              label: r.name,
+            ...(form.roomMode === "LEGACY"
+              ? [{ value: "LEGACY", label: a("mode.LEGACY") }]
+              : []),
+            ...["AUTO", "FIXED", "NONE"].map((value) => ({
+              value,
+              label: a(`mode.${value}`),
             })),
           ]}
         />
+        {form.roomMode === "FIXED" && (
+          <Select
+            label={a("room")}
+            value={form.roomId}
+            onChange={(v) => set("roomId", v)}
+            options={[
+              { value: "", label: "—" },
+              ...(rooms.data ?? []).map((r) => ({
+                value: r.id,
+                label: r.name,
+              })),
+            ]}
+          />
+        )}
         <Select
           label={t("admin.pairings.timeSlot")}
           value={form.timeSlotId}
           onChange={(v) => set("timeSlotId", v)}
           options={[
-            { value: "", label: t("admin.pairings.selectSlot") },
+            {
+              value: "",
+              label: editing
+                ? t("scheduling.noLinkedSlot")
+                : t("admin.pairings.selectSlot"),
+            },
             ...activeSlots.map((s) => ({
               value: s.id,
               label: `${s.label} · ${DAY_NAMES[s.dayOfWeek]} ${minToHm(s.startMin)}–${minToHm(s.endMin)}`,
@@ -182,11 +365,28 @@ export default function PairingsPage() {
         />
       </div>
 
+      <p className="muted mt-3">{a("modeHelp")}</p>
+      {form.originalRoomMode === "FIXED" && form.roomMode === "AUTO" && (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+          <p>{a("releaseHelp")}</p>
+          <label className="mt-2 flex min-h-11 items-center gap-2">
+            <input
+              type="checkbox"
+              checked={form.releaseRoomToAuto}
+              onChange={(e) => set("releaseRoomToAuto", e.target.checked)}
+            />
+            {a("release")}
+          </label>
+        </div>
+      )}
       <fieldset className="mt-3">
         <legend className="label">{t("admin.pairings.tutees")}</legend>
         <div className="mt-1 grid grid-cols-2 gap-1 sm:grid-cols-3">
           {(tutees.data ?? []).map((t) => (
-            <label key={t.id} className="flex items-center gap-2 text-sm">
+            <label
+              key={t.id}
+              className="flex min-h-11 items-center gap-2 text-sm lg:min-h-6"
+            >
               <input
                 type="checkbox"
                 checked={form.tuteeIds.includes(t.id)}
@@ -207,15 +407,21 @@ export default function PairingsPage() {
 
       <div className="mt-4 flex items-center gap-3">
         <button
-          onClick={() => setConfirming(true)}
+          onClick={() => {
+            if (roomOnly && form.roomMode !== "LEGACY") void submit();
+            else setConfirming(true);
+          }}
           disabled={
             !form.tutorId ||
             (!retainsAssignment &&
               (!selectedSubject?.active ||
                 selectedSubject.level?.active === false)) ||
-            !form.timeSlotId ||
-            create.isPending ||
-            update.isPending
+            ((!roomOnly || form.roomMode === "LEGACY") && !form.timeSlotId) ||
+            (form.roomMode === "FIXED" && !form.roomId) ||
+            (form.originalRoomMode === "FIXED" &&
+              form.roomMode === "AUTO" &&
+              !form.releaseRoomToAuto) ||
+            locked
           }
           className="btn-primary min-h-11 lg:min-h-10"
         >
@@ -224,54 +430,137 @@ export default function PairingsPage() {
             : t("admin.pairings.createPairing")}
         </button>
 
-        {error && <span className="text-sm text-red-600">{error.message}</span>}
+        {error && <span className="text-sm text-red-600">{error}</span>}
       </div>
     </fieldset>
+  );
+
+  const saveNotices = (
+    <div className="space-y-3">
+      {completed && (
+        <InlineNotice
+          tone={
+            completed.queued || completed.outcome === "UNAVAILABLE"
+              ? "warning"
+              : "success"
+          }
+          announcement="status"
+        >
+          {completed.queued ? (
+            <>
+              {a("queued")}{" "}
+              <Link
+                className="link"
+                href={`/admin/approvals?request=${encodeURIComponent(completed.queued)}`}
+              >
+                {a("review")}
+              </Link>
+            </>
+          ) : (
+            a(`outcome.${completed.outcome ?? "UNASSIGNED"}`)
+          )}
+        </InlineNotice>
+      )}
+      {refreshFailed && (
+        <InlineNotice
+          tone="error"
+          announcement="alert"
+          action={
+            <Button disabled={working} onClick={() => void refresh()}>
+              {a("retryRefresh")}
+            </Button>
+          }
+        >
+          {completed ? a("savedRefreshFailed") : a("readFailed")}
+        </InlineNotice>
+      )}
+      {(pairings.error ?? rooms.error ?? timeSlots.error) && !refreshFailed && (
+        <InlineNotice
+          tone="error"
+          announcement="alert"
+          action={
+            <Button disabled={working} onClick={() => void refresh()}>
+              {a("retryRefresh")}
+            </Button>
+          }
+        >
+          {a("readFailed")}
+        </InlineNotice>
+      )}
+    </div>
   );
 
   return (
     <div className="space-y-6">
       <h1 className="page-title">{t("admin.pairings.title")}</h1>
+      {!editing && saveNotices}
+      {completed && !editing && (
+        <Button disabled={working || refreshFailed} onClick={resetEditor}>
+          {t("admin.pairings.newPairing")}
+        </Button>
+      )}
 
       {/* Slot × room schedule grid */}
       <section>
         <h2 className="section-title mb-2">
           {t("admin.pairings.roomSchedule")}
         </h2>
-        <RoomGrid
-          rooms={(rooms.data ?? []).map((r) => ({ id: r.id, name: r.name }))}
-          slots={(timeSlots.data ?? []).filter((s) => s.active)}
-          pairings={pairings.data ?? []}
-          blocks={(rooms.data ?? []).flatMap((r) => r.unavailabilities)}
-        />
+        {pairings.data && rooms.data && timeSlots.data ? (
+          <RoomGrid
+            rooms={(rooms.data ?? []).map((r) => ({ id: r.id, name: r.name }))}
+            slots={(timeSlots.data ?? []).filter((s) => s.active)}
+            pairings={pairings.data ?? []}
+            blocks={(rooms.data ?? []).flatMap((r) => r.unavailabilities)}
+          />
+        ) : (
+          <StatePanel
+            kind={
+              (pairings.error ?? rooms.error ?? timeSlots.error)
+                ? "error"
+                : "loading"
+            }
+            title={a(
+              (pairings.error ?? rooms.error ?? timeSlots.error)
+                ? "readFailed"
+                : "loading",
+            )}
+          />
+        )}
       </section>
 
       {/* Create / edit form */}
       {!readOnly &&
         (editing ? (
-          <Modal
+          <ProfileDialog
             title={t("admin.pairings.editPairing")}
-            wide
-            busy={update.isPending}
+            pending={working}
             onClose={() => {
-              setConfirming(false);
-              setForm(EMPTY);
+              if (!refreshFailed) resetEditor();
+              else setForm(EMPTY);
             }}
-            footer={
+          >
+            {saveNotices}
+            {editor}
+            {error && !completed && (
+              <div className="mt-3 space-y-2">
+                <p className="muted">{a("reloadHelp")}</p>
+                <Button disabled={working} onClick={() => void reloadDraft()}>
+                  {a("reload")}
+                </Button>
+              </div>
+            )}
+            <div className="mt-5 flex justify-end border-t border-slate-100 pt-4">
               <Button
-                data-dialog-autofocus
-                disabled={update.isPending}
+                disabled={working}
                 onClick={() => {
-                  setConfirming(false);
-                  setForm(EMPTY);
+                  if (!refreshFailed) resetEditor();
+                  else setForm(EMPTY);
                 }}
               >
                 {t("admin.pairings.cancel")}
               </Button>
-            }
-          >
-            {editor}
-          </Modal>
+            </div>
+          </ProfileDialog>
         ) : (
           editor
         ))}
@@ -282,9 +571,38 @@ export default function PairingsPage() {
           payload={payload}
           onConfirm={submit}
           onCancel={() => setConfirming(false)}
-          busy={create.isPending || update.isPending}
-          error={error?.message}
+          busy={working}
+          error={error}
         />
+      )}
+      <FilterToolbar
+        label={a("filter")}
+        actions={
+          <Button
+            size="compact"
+            disabled={working}
+            onClick={() => void refresh()}
+          >
+            {a("refresh")}
+          </Button>
+        }
+      >
+        <ChoiceButton
+          selected={!needsRoomOnly}
+          onClick={() => setNeedsRoomOnly(false)}
+        >
+          {a("all")}
+        </ChoiceButton>
+        <ChoiceButton
+          selected={needsRoomOnly}
+          onClick={() => setNeedsRoomOnly(true)}
+        >
+          {a("needsRoom")} (
+          {pairings.data?.filter((p) => p.roomNeedsAssignment).length ?? "—"})
+        </ChoiceButton>
+      </FilterToolbar>
+      {pairings.data && rows.length === 0 && (
+        <StatePanel kind="empty" title={a("empty")} />
       )}
       {/* Table */}
       <div className="card overflow-hidden">
@@ -302,12 +620,18 @@ export default function PairingsPage() {
             </tr>
           </thead>
           <tbody>
-            {(pairings.data ?? []).map((p) => (
-              <tr key={p.id}>
+            {rows.map((p) => (
+              <tr
+                key={p.id}
+                id={p.id}
+                className="scroll-mt-24 target:bg-amber-50 target:outline-2 target:outline-amber-600"
+              >
                 <td>{p.tutor.englishName}</td>
                 <td>{p.subject}</td>
                 <td>{pairingScheduleText(p, t("scheduling.awaiting"))}</td>
-                <td>{p.room?.name ?? "—"}</td>
+                <td>
+                  <RoomAllocationStatus pairing={p} />
+                </td>
                 <td>{p.tutees.length}</td>
                 <TableActions>
                   <TableDetails title={`${p.tutor.englishName} · ${p.subject}`}>
@@ -324,7 +648,9 @@ export default function PairingsPage() {
                       </div>
                       <div>
                         <dt className="label">{t("admin.pairings.colRoom")}</dt>
-                        <dd>{p.room?.name ?? "—"}</dd>
+                        <dd>
+                          <RoomAllocationStatus pairing={p} />
+                        </dd>
                       </div>
                     </dl>
                     <h3 className="font-semibold">
@@ -340,24 +666,54 @@ export default function PairingsPage() {
                     <>
                       <TableAction
                         aria-label={`${t("admin.pairings.edit")}: ${p.tutor.englishName} · ${p.subject}`}
-                        disabled={create.isPending || update.isPending}
+                        disabled={working || refreshFailed}
                         onClick={() => {
-                          setConfirming(false);
-                          setForm({
-                            id: p.id,
-                            tutorId: p.tutorId,
-                            roomId: p.roomId ?? "",
-                            timeSlotId: p.timeSlotId ?? "",
-                            subject: p.subject,
-                            tuteeIds: p.tutees.map((entry) => entry.tuteeId),
-                          });
+                          resetEditor();
+                          setForm(loadForm(p));
                         }}
                       >
                         {t("admin.pairings.edit")}
                       </TableAction>
+                      {p.roomNeedsAssignment && (
+                        <TableAction
+                          disabled={
+                            working ||
+                            refreshFailed ||
+                            review.blocked("room:" + p.id)
+                          }
+                          onClick={() =>
+                            review.open({
+                              key: "room:" + p.id,
+                              title: a("retryAllocation"),
+                              description: a("retryHelp"),
+                              confirmLabel: a("retryAllocation"),
+                              details: (
+                                <p>
+                                  {p.tutor.englishName} · {p.subject}
+                                </p>
+                              ),
+                              commit: () =>
+                                retryRoom.mutateAsync({
+                                  id: p.id,
+                                  expectedRoomVersion: p.roomVersion,
+                                }),
+                              refresh: async () => {
+                                if (!(await refresh()))
+                                  throw new Error(a("readFailed"));
+                              },
+                              approvalId: queuedApprovalId,
+                              repeatAfterRefresh: true,
+                            })
+                          }
+                        >
+                          {a("retryAllocation")}
+                        </TableAction>
+                      )}
                       <TableAction
                         className="text-red-700"
-                        disabled={review.blocked(p.id) || update.isPending}
+                        disabled={
+                          review.blocked(p.id) || working || refreshFailed
+                        }
                         onClick={() =>
                           review.open({
                             key: p.id,
@@ -374,8 +730,10 @@ export default function PairingsPage() {
                               </p>
                             ),
                             commit: () => del.mutateAsync({ id: p.id }),
-                            refresh: () =>
-                              invalidateAndReport(utils.admin.pairings),
+                            refresh: async () => {
+                              if (!(await refresh()))
+                                throw new Error(a("readFailed"));
+                            },
                             approvalId: queuedApprovalId,
                           })
                         }

@@ -201,6 +201,9 @@ export async function proposalTargets(
     payload as Parameters<typeof superjson.deserialize>[0],
   );
   const fields = z.record(z.unknown()).parse(input);
+  // An automatic proposal approves the scheduling intent, not a previewed candidate room.
+  // The slot itself and the edited pairing remain immutable review evidence.
+  const automaticRoomIntent = ["admin.createPairing", "admin.updatePairing", "admin.setPairingRoom"].includes(operation) && fields.roomMode === "AUTO";
   if (operation === "admin.updateTimeSlot" && includeAuthorityContext) {
     const { lockAttendanceSchedule } = await import("./attendance-schedule");
     await lockAttendanceSchedule(client, true);
@@ -248,6 +251,7 @@ export async function proposalTargets(
       Object.entries(value).forEach(([k, v]) => collect(v, k));
   };
   collect(input);
+  if (automaticRoomIntent) ids.delete("Room");
   if (operation === "admin.updateTimeSlot" && includeAuthorityContext) {
     const sessions = await slotAttendance(client, z.string().parse(fields.id));
     if (sessions.length) {
@@ -431,6 +435,9 @@ export async function proposalTargets(
           ? "to_jsonb(t) - ARRAY['body','clientKey']::text[]"
           : table === "RegistrationCode"
             ? "jsonb_build_object('id', t.id, 'kind', t.kind, 'tutorId', t.\"tutorId\", 'applicationId', t.\"applicationId\", 'crewApplicationId', t.\"crewApplicationId\", 'label', t.label, 'issuedById', t.\"issuedById\", 'issuedByName', t.\"issuedByName\", 'expiresAt', t.\"expiresAt\", 'usedAt', t.\"usedAt\", 'usedByUserId', t.\"usedByUserId\", 'emailVerifiedAt', t.\"emailVerifiedAt\", 'createdAt', t.\"createdAt\")"
+          : table === "Pairing"
+            // Unchanged migrated bookings preserve pre-deployment approval fingerprints.
+            ? "to_jsonb(t) - CASE WHEN t.\"roomVersion\" = 0 AND t.\"roomMode\" IN ('LEGACY','FIXED') AND NOT t.\"roomNeedsAssignment\" AND t.\"roomShortageKey\" IS NULL THEN ARRAY['roomMode','roomVersion','roomNeedsAssignment','roomShortageKey']::text[] ELSE ARRAY[]::text[] END"
           : ["TutorApplication", "StudentSurvey"].includes(table)
             // Untouched additive columns must not invalidate pre-migration proposals.
             // A first flag or later clear leaves a positive revision in every future snapshot.
@@ -475,11 +482,15 @@ export async function proposalTargets(
     ["NewsPost", "NewsTranslation", "postId"],
     ["LandingSection", "LandingSectionTranslation", "sectionId"],
   ] as const) {
+    if (automaticRoomIntent && parent === "TimeSlot" && child === "Pairing") continue;
     if (!includeAuthorityContext && (child === "ServiceHourAdjustment" || child === "TuteeRemovalRequest" || child === "DisciplinaryCard" || child === "SessionFlag")) continue;
     const values = ids.get(parent);
     if (values?.size) {
+      const childFields = child === "Pairing"
+        ? "to_jsonb(t) - CASE WHEN t.\"roomVersion\" = 0 AND t.\"roomMode\" IN ('LEGACY','FIXED') AND NOT t.\"roomNeedsAssignment\" AND t.\"roomShortageKey\" IS NULL THEN ARRAY['roomMode','roomVersion','roomNeedsAssignment','roomShortageKey']::text[] ELSE ARRAY[]::text[] END"
+        : "to_jsonb(t)";
       const rows = await client.$queryRaw<unknown[]>(
-        Prisma.sql`SELECT to_jsonb(t) AS record FROM ${Prisma.raw('"' + child + '"')} t WHERE ${Prisma.raw('"' + field + '"')} IN (${Prisma.join([...values])}) ORDER BY to_jsonb(t)::text`,
+        Prisma.sql`SELECT ${Prisma.raw(childFields)} AS record FROM ${Prisma.raw('"' + child + '"')} t WHERE ${Prisma.raw('"' + field + '"')} IN (${Prisma.join([...values])}) ORDER BY to_jsonb(t)::text`,
       );
       if (child !== "TuteeRequestInvalidity" || rows.length)
         targets[`${parent}.${child}`] = rows;

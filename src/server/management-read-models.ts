@@ -92,8 +92,10 @@ const tutee = summary(
   },
   "email phone preferredContact notes signatureName bannedMatch",
 );
+// Observers need persisted room intent/shortage to read the timetable honestly. Draft
+// versions and the internal shortage deduplication signature remain staff-only fields.
 const pairing = summary(
-  "id subject dayOfWeek startMin endMin createdAt tutorId termId roomId timeSlotId scheduleConfirmed",
+  "id subject dayOfWeek startMin endMin createdAt tutorId termId roomId timeSlotId scheduleConfirmed roomMode roomNeedsAssignment",
   {
     tutor,
     room: room.nullish(),

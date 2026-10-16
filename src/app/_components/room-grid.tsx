@@ -18,6 +18,10 @@ type GridPairing = {
   tutorId: string;
   roomId: string | null;
   timeSlotId: string | null;
+  scheduleConfirmed: boolean;
+  dayOfWeek: number;
+  startMin: number;
+  endMin: number;
   tutor: { englishName: string };
 };
 type GridBlock = {
@@ -49,15 +53,19 @@ export function RoomGrid({
   highlightTutorId?: string | null;
 }) {
   const t = useTranslations("tablePatterns");
+  const a = useTranslations("roomAllocation");
   if (rooms.length === 0 || slots.length === 0) {
     return (
       <p className="muted">
-        {rooms.length === 0 ? "No rooms yet." : "No time slots published yet."}
+        {a(rooms.length === 0 ? "noRooms" : "noSlots")}
       </p>
     );
   }
 
-  const overlaps = (block: GridBlock, slot: GridSlot) =>
+  const overlaps = (
+    block: Pick<GridBlock, "dayOfWeek" | "startMin" | "endMin">,
+    slot: GridSlot,
+  ) =>
     block.dayOfWeek === slot.dayOfWeek &&
     block.startMin < slot.endMin &&
     block.endMin > slot.startMin;
@@ -95,7 +103,12 @@ export function RoomGrid({
                   (b) => b.roomId === room.id && overlaps(b, slot),
                 );
                 const cellPairings = pairings.filter(
-                  (p) => p.roomId === room.id && p.timeSlotId === slot.id,
+                  // Copied confirmed intervals reserve rooms even after the catalog
+                  // link is removed, or when another published slot overlaps them.
+                  (p) =>
+                    p.roomId === room.id &&
+                    p.scheduleConfirmed &&
+                    overlaps(p, slot),
                 );
                 return (
                   <td
@@ -134,7 +147,10 @@ export function RoomGrid({
                       (b) => b.roomId === room.id && overlaps(b, slot),
                     );
                     const occupants = pairings.filter(
-                      (p) => p.roomId === room.id && p.timeSlotId === slot.id,
+                      (p) =>
+                        p.roomId === room.id &&
+                        p.scheduleConfirmed &&
+                        overlaps(p, slot),
                     );
                     return (
                       <section

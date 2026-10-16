@@ -76,7 +76,13 @@ vi.mock("~/app/_components/email-details", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    account: { me: { useQuery: () => ({ data: { role: state.readOnly ? "VIEWER" : "HEAD" } }) } },
+    account: {
+      me: {
+        useQuery: () => ({
+          data: { role: state.readOnly ? "VIEWER" : "HEAD" },
+        }),
+      },
+    },
     useUtils: () => ({
       admin: { registrationCodes: { invalidate: async () => undefined } },
     }),
@@ -176,6 +182,7 @@ vi.mock("~/trpc/react", () => ({
     program: {
       featureSettings: {
         useQuery: () => ({
+          refetch: async () => ({ isSuccess: true }),
           data: {
             canEdit: state.canEdit,
             features: [
@@ -190,7 +197,7 @@ vi.mock("~/trpc/react", () => ({
       },
       setFeaturePending: {
         useMutation: () => ({
-          mutate: state.setFeature,
+          mutateAsync: state.setFeature,
           isPending: state.pending,
         }),
       },

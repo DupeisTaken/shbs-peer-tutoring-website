@@ -2,7 +2,12 @@
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 
 import { StudentScheduleAction } from "./student-schedule-action";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { InlineNotice } from "~/app/_components/ui/patterns";
+import { Button } from "~/app/_components/ui/button";
+import { RoomAllocationStatus } from "~/app/_components/room-allocation-status";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -17,6 +22,7 @@ import { useDialog } from "~/app/_components/confirm-dialog";
  */
 export function TutorPairings({ active = true }: { active?: boolean }) {
   const t = useTranslations();
+  const a = useTranslations("roomAllocation");
   const format = useFormatter();
   const { confirm, dialog } = useDialog();
   const utils = api.useUtils();
@@ -24,14 +30,109 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
   const workflowRoster = api.studentWorkflow.tutorRoster.useQuery();
   const availability = api.tutor.myAvailability.useQuery();
   const removalRequests = api.tutor.myTuteeRemovalRequests.useQuery();
-  const setSlot = api.tutor.setPairingSlot.useMutation({
-    onSuccess: async () => {
-      await Promise.all([
-        utils.tutor.myPairings.invalidate(),
-        utils.tutor.schedule.invalidate(),
+  const slotAdmitted = useRef(false);
+  const slotAccepted = useRef(false);
+  const slotTarget = useRef<string | undefined>(undefined);
+  const [slotDrafts, setSlotDrafts] = useState<
+    Record<string, { slotId: string | null; version: number }>
+  >({});
+  const clearSlotDraft = (id: string) =>
+    setSlotDrafts((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  const [slotWorking, setSlotWorking] = useState(false);
+  const [slotOutcome, setSlotOutcome] = useState<string>();
+  const [slotRefreshFailed, setSlotRefreshFailed] = useState(false);
+  const refreshSlot = async () => {
+    setSlotWorking(true);
+    setSlotRefreshFailed(false);
+    try {
+      await settleRefreshes([
+        () => invalidateAndReport(utils.tutor.myPairings),
+        () => invalidateAndReport(utils.tutor.schedule),
+        () => invalidateAndReport(utils.student.me),
+        () => invalidateAndReport(utils.studentWorkflow.mine),
+        () => invalidateAndReport(utils.notification.list),
+        () => invalidateAndReport(utils.notification.unreadCount),
       ]);
+      slotAdmitted.current = false;
+      if (slotAccepted.current && slotTarget.current)
+        clearSlotDraft(slotTarget.current);
+    } catch {
+      setSlotRefreshFailed(true);
+    } finally {
+      setSlotWorking(false);
+    }
+  };
+  const setSlot = api.tutor.setPairingSlot.useMutation({
+    // Completion and synchronization are separate: failed reads leave a read-only
+    // retry and cannot replay the accepted allocation.
+    onSuccess: async (result) => {
+      slotAccepted.current = true;
+      setSlotOutcome(result.roomOutcome);
+      await refreshSlot();
+    },
+    onError: () => {
+      slotAdmitted.current = false;
+      slotAccepted.current = false;
+      setSlotWorking(false);
     },
   });
+
+  const changeSlot = async (
+    p: NonNullable<typeof pairings.data>[number],
+    slotId: string | null,
+  ) => {
+    if (slotAdmitted.current || pairings.error || slotRefreshFailed) return;
+    const draft = {
+      slotId,
+      version: slotDrafts[p.id]?.version ?? p.roomVersion,
+    };
+    const slot = availability.data?.slots.find((s) => s.id === slotId);
+    if (
+      !(await confirm({
+        title: t("tutor.tasks.changeSchedule"),
+        message: t("tutor.tasks.confirmSchedule", {
+          subject: p.subject,
+          slot: slot
+            ? `${slot.label} · ${DAY_NAMES[slot.dayOfWeek]} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}`
+            : t("scheduling.noLinkedSlot"),
+        }),
+        confirmLabel: t("common.save"),
+        cancelLabel: t("common.cancel"),
+      }))
+    )
+      return;
+    if (slotAdmitted.current) return;
+    // Keep the attempted slot and its original concurrency version until a save
+    // has synchronized, or an explicit successful Reload discards this draft.
+    setSlotDrafts((current) => ({ ...current, [p.id]: draft }));
+    slotTarget.current = p.id;
+    slotAccepted.current = false;
+    slotAdmitted.current = true;
+    setSlotWorking(true);
+    setSlotOutcome(undefined);
+    setLastAction("slot");
+    setSlot.mutate({
+      pairingId: p.id,
+      slotId: draft.slotId,
+      expectedRoomVersion: draft.version,
+    });
+  };
+  const reloadSlot = async (id: string) => {
+    if (slotWorking) return;
+    setSlotWorking(true);
+    try {
+      const result = await pairings.refetch({ throwOnError: true });
+      if (result.data?.some((p) => p.id === id)) clearSlotDraft(id);
+    } catch {
+      /* Retain the original draft; the query owns its recovery message. */
+    } finally {
+      setSlotWorking(false);
+    }
+  };
 
   const refreshRemoval = () => utils.tutor.myTuteeRemovalRequests.invalidate();
   const requestRemoval = api.tutor.requestTuteeRemoval.useMutation({
@@ -125,11 +226,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                 {pairingScheduleText(p, t("scheduling.awaiting"))}
               </span>
             </p>
-            <p className="muted">
-              {p.room
-                ? t("tutor.pairings.roomOnly", { room: p.room.name })
-                : t("tutor.pairings.noRoom")}
-            </p>
+            <RoomAllocationStatus pairing={p} />
 
             {/* Tutees on this pairing, each with a "left the program" removal request control. */}
             <div className="mt-2">
@@ -311,32 +408,19 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                   {t("tutor.pairings.defaultSlotLabel")}
                 </span>
                 <select
-                  value={p.timeSlotId ?? ""}
+                  value={
+                    slotDrafts[p.id]?.slotId ??
+                    (slotDrafts[p.id] ? "" : p.timeSlotId) ??
+                    ""
+                  }
                   aria-label={`${p.subject}: ${t("tutor.pairings.defaultSlotLabel")}`}
-                  disabled={setSlot.isPending}
-                  onChange={async (e) => {
-                    const slotId = e.target.value || null;
-                    const slot = slots.find((s) => s.id === slotId);
-                    if (
-                      !(await confirm({
-                        title: t("tutor.tasks.changeSchedule"),
-                        message: t("tutor.tasks.confirmSchedule", {
-                          subject: p.subject,
-                          slot: slot
-                            ? `${slot.label} · ${DAY_NAMES[slot.dayOfWeek]} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}`
-                            : t("scheduling.noLinkedSlot"),
-                        }),
-                        confirmLabel: t("common.save"),
-                        cancelLabel: t("common.cancel"),
-                      }))
-                    )
-                      return;
-                    setLastAction("slot");
-                    setSlot.mutate({
-                      pairingId: p.id,
-                      slotId,
-                    });
-                  }}
+                  disabled={
+                    setSlot.isPending ||
+                    slotWorking ||
+                    slotRefreshFailed ||
+                    !!pairings.error
+                  }
+                  onChange={(e) => void changeSlot(p, e.target.value || null)}
                   className="select min-w-0 sm:w-auto"
                 >
                   <option value="">{t("scheduling.noLinkedSlot")}</option>
@@ -347,6 +431,24 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                     </option>
                   ))}
                 </select>
+                {slotDrafts[p.id] && !slotWorking && !slotRefreshFailed && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="compact"
+                      onClick={() =>
+                        void changeSlot(p, slotDrafts[p.id]!.slotId)
+                      }
+                    >
+                      {t("common.save")}
+                    </Button>
+                    <Button
+                      size="compact"
+                      onClick={() => void reloadSlot(p.id)}
+                    >
+                      {a("reload")}
+                    </Button>
+                  </div>
+                )}
                 {p.timeSlot && (
                   <span className="muted">
                     ({DAY_NAMES[p.timeSlot.dayOfWeek]}{" "}
@@ -361,12 +463,46 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
           </li>
         ))}
       </ul>
+      {slotOutcome && (
+        <InlineNotice
+          tone={slotOutcome === "UNAVAILABLE" ? "warning" : "success"}
+          announcement="status"
+        >
+          {a(`outcome.${slotOutcome}`)}
+        </InlineNotice>
+      )}
+      {slotRefreshFailed && (
+        <InlineNotice
+          tone="error"
+          announcement="alert"
+          action={
+            <Button disabled={slotWorking} onClick={() => void refreshSlot()}>
+              {a("retryRefresh")}
+            </Button>
+          }
+        >
+          {a("savedRefreshFailed")}
+        </InlineNotice>
+      )}
+      {pairings.error && !slotRefreshFailed && (
+        <InlineNotice
+          tone="error"
+          announcement="alert"
+          action={
+            <Button disabled={slotWorking} onClick={() => void refreshSlot()}>
+              {a("retryRefresh")}
+            </Button>
+          }
+        >
+          {a("readFailed")}
+        </InlineNotice>
+      )}
       {feedback?.error && (
         <p role="alert" className="text-sm text-red-700">
           {feedback.error.message}
         </p>
       )}
-      {feedback?.isSuccess && (
+      {feedback?.isSuccess && lastAction !== "slot" && (
         <p role="status" className="text-sm text-green-700">
           {t(
             lastAction === "request"

@@ -103,10 +103,21 @@ HEAD stages these switches in **Program & Refresh**. They take effect at the **n
 | Quarter system (`QUARTER_SYSTEM`) | On | On uses Q1–Q4; Off uses S1/S2. Applied mode controls intake and withdrawal wording |
 | Viewer signup (`VIEWER_SIGNUP`) | On | Allows public observer account registration; does not expand viewer permissions |
 | Email 2FA (`EMAIL_2FA`) | On | Makes email two-factor functionality available; users opt into sign-in 2FA in Settings. Configure and test SMTP for production email flows |
+| Auto-assign rooms (`AUTO_ASSIGN_ROOMS`) | On immediately at deployment | Allocates available rooms when schedules are confirmed or changed; disabling only stops automatic allocation |
 
 Switches control available pages and operations; they do not erase historical data. Turning off service-hour views does not stop attendance from recording calculated hours. See [feature implementation](../src/server/program/features.ts) and [refresh behavior](#refresh-the-program).
 
 When Email 2FA is on, password changes also require an emailed verification code, even if the user has not opted into sign-in 2FA. Configure working email delivery before relying on this flow in production.
+
+Auto-assign rooms is effective immediately when first deployed, even before a
+feature setting has been saved. Turning it off or enabling it again is staged
+until the next program refresh. The current On/Off badge remains authoritative;
+the pending badge describes the next refresh. Switch back to the current value
+to cancel a pending change. Admin changes require Head approval before staging.
+Neither deployment nor changing the switch reallocates existing bookings.
+When off, existing/manual reservations, conflict protection and room displays
+continue to operate. If saving succeeds but reloading settings fails, use
+**Retry refresh**; this only reads the saved states.
 
 ## Other configurable behavior
 
@@ -138,6 +149,38 @@ ADMIN/HEAD can use **Resend stuck emails** to queue up to 100 eligible failed or
 ## Schedule rooms and periods
 
 Use **Time Slots**, **Rooms** and **Pairings** to plan recurring sessions. A room cannot host overlapping pairings in one program period or a pairing during a recurring blackout; back-to-back sessions are allowed. Availability helps participants agree on a slot and does not prevent staff from assigning a tutor before that agreement. New assignments display **Awaiting schedule** until a tutor or manager selects a catalog slot. These assignments do not reserve rooms or count as scheduled subjects; the assigned tutor remains visible to the tutee.
+
+Each Pairings row reserves at most one room. **Automatic** selects an eligible
+room; **Fixed** preserves a room explicitly chosen by staff; **No physical room**
+is an intentional choice that stays in effect until staff changes it. Existing
+assigned rooms are fixed at rollout, and existing roomless records are not
+silently backfilled. An authorized explicit release to Automatic permits the
+next save to choose a room. A time change that conflicts with a fixed room is
+rejected rather than moving that reservation.
+
+An eligible room already assigned automatically stays in place. Otherwise the
+allocator favors the greatest number of familiar participants, then familiarity
+to the tutor, then fewer planned occupied minutes, then a stable room identifier.
+Familiarity uses confirmed planned bookings in the current program period and
+verified stable participant identities; the tutor and each distinct tutee count
+once per candidate room. Repeated bookings do not create extra votes. Room names,
+display order and patrol order do not imply capacity or suitability.
+
+If no eligible room exists, the schedule is saved as **Needs room**, with no
+physical reservation. Head/Admin receive an in-app notice when the shortage
+starts or materially changes. Use the Pairings shortage filter and explicit
+retry after resolving capacity; unchanged retries do not repeat the notice.
+Room or blackout edits do not silently redistribute unrelated pairings.
+Catalog-slot changes consider all affected pairings together and preserve
+unaffected reservations. A Coordinator's proposal approves automatic-allocation
+intent; the available room is chosen only when an authorized reviewer applies
+the proposal. A queued proposal is not a live assignment.
+
+The timetable uses actual confirmed weekday/time overlap, including a confirmed
+schedule whose catalog link was cleared. Clearing that link does not unschedule
+the pairing. Actual attendance location remains independent historical evidence.
+After a successful save, failed reads are recovered through **Retry refresh**,
+without replaying allocation or losing unrelated drafts.
 
 In **Rooms**, each room shows its blocked-period count. Open **Manage blocked periods** to add a weekly block or edit its day, start/end times and optional reason. Use the program time zone and 24-hour times; an end of `24:00` means midnight. Split overnight blocks across two days. **Remove Period** opens a confirmation before releasing the time. No blocked periods means no recurring restrictions, not that the room has no bookings.
 

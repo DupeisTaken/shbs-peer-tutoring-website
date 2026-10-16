@@ -502,6 +502,24 @@ Application locks protect supported API writes. Do not import directly into requ
 
 ## Scheduling, hours and discipline
 
+### Automatic room allocation contract
+
+The requester approved these mechanisms for [issue #389](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/389) on 16 October 2026 (Asia/Shanghai), before implementation. One Pairings entry is one reservation; attendance merging and future combined teaching groups do not combine reservations. A confirmed schedule may save without an available automatic room, but must visibly report **Needs room**. Awaiting schedule, intentional no physical room, shortage, and failed reads remain distinct states.
+
+Staff-selected rooms are fixed and automation cannot displace them. A conflicting schedule change is rejected with an actionable error. Authorized staff may explicitly release a fixed room to automatic allocation; an intentional no-physical-room choice remains sticky. Existing assigned records migrate conservatively to fixed allocations. Deployment, unchanged feature settings, new rooms and removed blackouts do not backfill or rebalance bookings; staff explicitly retry shortages.
+
+Allocation runs inside the scheduling transaction under the shared planned-room lock. It uses the authoritative program period and confirmed copied interval, including schedules whose catalog link was cleared. An eligible existing automatic room is retained. Otherwise, eligible rooms rank by the number of familiar participants, then tutor familiarity, then fewer planned weekly occupied minutes, then stable room ID. Familiarity comes from confirmed planned bookings in the current program period. Canonical verified identity links join retained profiles to their stable participant identities; names and email matches are never identity evidence. The tutor counts once and each distinct tutee counts once per candidate, regardless of repeated bookings or duplicate roster evidence. Continuity outranks usage balancing.
+
+Only the changed pairing or the cohort affected by one catalog edit may be reassigned. Catalog propagation validates the complete prospective schedule and commits atomically, preserving unrelated bookings and actual attendance evidence. Fixed reservations, recurring blackouts, period boundaries, strict interval overlap and adjacency remain hard constraints. Clearing only a catalog link retains a confirmed reservation; actual unscheduling and record removal have their own lifecycle behavior.
+
+Room deletion takes the planned-room lock and locks the target Room row before checking planned and actual references. PostgreSQL's foreign-key key-share locks serialize concurrent attendance submissions and corrections with that check, so a newly committed actual room cannot be silently cleared by deletion. Existing foreign keys remain unchanged.
+
+Coordinator review approves automatic-allocation intent; the room is chosen from current eligible data atomically when approval applies. A queued proposal is not a reservation. Entering a shortage, or a material shortage change, creates in-app notifications for Head and Admin after committed state; unchanged saves and retries do not repeat notices. Accepted writes followed by read failure expose read-only refresh recovery without replaying allocation.
+
+The browser's creation draft carries a UUID through edits and failed requests until an explicit new draft/reset. A committed creation stores a requester-scoped receipt: the same semantic payload returns its existing pairing without repeating allocation or shortage notices. A changed committed payload or a retry after deletion conflicts rather than creating another record. Approval replay retains the original requester's identity when matching this receipt. Receipt rows retain deletion tombstones independently of Pairing foreign keys. Older clients and proposals without a key remain compatible but do not gain response-loss replay protection. Existing pairing edits use room-version snapshots; roster changes also invalidate them.
+
+**Auto-assign rooms** defaults ON immediately when no setting exists. OFF and later re-enablement are staged until program refresh, and a pending change can be cancelled. Disabling automation retains existing reservations, manual scheduling, conflict validation and schedule readers. Feature changes never implicitly reassign existing pairings. Implementation and verification status are recorded separately from this approved contract.
+
 The tutor dashboard's task summary reuses the same tRPC query keys as its feature
 sections, including explicit unknown/error states. It uses the program-zone date
 and only confirmed weekly pairing times; this is a regular timetable, not a

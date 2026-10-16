@@ -47,10 +47,8 @@ import {
 import { standingFromCounts } from "~/lib/discipline";
 import { syncSessionFlag } from "~/server/crew/flags";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
-import {
-  assertPlannedRoomAvailable,
-  lockPlannedRoomSchedule,
-} from "~/server/room-bookings";
+import { lockPlannedRoomSchedule } from "~/server/room-bookings";
+import { allocateRoom, allocationData, assertRoomVersion, notifyRoomShortage } from "~/server/room-allocation";
 
 const TUTOR_STATUS = [
   "PRESENT",
@@ -1116,6 +1114,7 @@ export const tutorRouter = createTRPCRouter({
       z.object({
         pairingId: z.string().min(1),
         slotId: z.string().min(1).nullable(),
+        expectedRoomVersion: z.number().int().nonnegative().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -1131,7 +1130,7 @@ export const tutorRouter = createTRPCRouter({
         await lockPlannedRoomSchedule(tx);
         const pairing = await tx.pairing.findFirst({
           where: { id: input.pairingId, tutorId: ctx.session.tutorId, term: { active: true } },
-          select: { id: true, roomId: true, termId: true },
+          include: { tutees: { select: { tuteeId: true } } },
         });
         if (!pairing) {
           throw new TRPCError({
@@ -1140,11 +1139,13 @@ export const tutorRouter = createTRPCRouter({
           });
         }
 
+        assertRoomVersion(pairing, input.expectedRoomVersion);
         if (input.slotId === null) {
-          return tx.pairing.update({
+          const saved = await tx.pairing.update({
             where: { id: pairing.id },
-            data: { timeSlotId: null },
+            data: { timeSlotId: null, roomVersion: { increment: 1 } },
           });
+          return { ...saved, roomOutcome: pairing.roomId ? "RETAINED" as const : pairing.roomNeedsAssignment ? "UNAVAILABLE" as const : pairing.roomMode === "NONE" ? "NONE" as const : "UNASSIGNED" as const };
         }
 
         const slot = await tx.timeSlot.findFirst({
@@ -1157,24 +1158,26 @@ export const tutorRouter = createTRPCRouter({
             message: "Time slot not found.",
           });
         }
-        await assertPlannedRoomAvailable(tx, {
-          roomId: pairing.roomId,
-          termId: pairing.termId,
+        const allocation = await allocateRoom(tx, {
+          ...pairing, tuteeIds: pairing.tutees.map((row) => row.tuteeId), scheduleConfirmed: true,
           dayOfWeek: slot.dayOfWeek,
           startMin: slot.startMin,
           endMin: slot.endMin,
-          excludePairingId: pairing.id,
-        });
-        return tx.pairing.update({
+        }, {}, pairing);
+        const saved = await tx.pairing.update({
           where: { id: pairing.id },
           data: {
             scheduleConfirmed: true,
+            ...allocationData(allocation),
+            roomVersion: { increment: 1 },
             timeSlotId: input.slotId,
             dayOfWeek: slot.dayOfWeek,
             startMin: slot.startMin,
             endMin: slot.endMin,
           },
         });
+        await notifyRoomShortage(tx, pairing.id, allocation, pairing.roomShortageKey);
+        return { ...saved, roomOutcome: allocation.roomOutcome };
       });
     }),
 
@@ -1205,6 +1208,7 @@ export const tutorRouter = createTRPCRouter({
         select: {
           id: true,
           subject: true,
+          scheduleConfirmed: true,
           dayOfWeek: true,
           startMin: true,
           endMin: true,

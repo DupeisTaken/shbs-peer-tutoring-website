@@ -521,6 +521,39 @@ Signup Requests includes self-service and **Staff-entered** requests in the same
 
 Course-aware tutor selectors in Signup Requests and Pairings list tutors with approved, recorded subject grants first, followed by a separate unqualified group. Inherited grants remain valid after level reordering. Choose the subject first in Pairings. Assigning an unqualified tutor opens a warning naming the tutor and subject; confirmation becomes available after three full seconds. Cancel or change the selection to discard that acknowledgement. Coordinators still submit proposals, and the reviewer must confirm any remaining qualification mismatch independently. This override does not waive active-tutor, request, permission, or scheduling checks.
 
+### Planned rooms
+
+In **Pairings**, choose Automatic room allocation, a fixed staff-selected room,
+or an intentional No physical room. Staff can explicitly release a fixed room
+to Automatic before saving. Fixed rooms are never displaced by automation:
+choose another time or deliberately change the room if that reservation conflicts.
+Tutor slot selection can assign or retain a room automatically, but does not give
+tutors manual room-selection authority.
+
+**Needs room** means the schedule was saved without a physical room reservation.
+Management can filter Pairings for these shortages and retry allocation explicitly
+after capacity becomes available. Head/Admin receive in-app shortage notices;
+unchanged retries do not create duplicate notices. **Awaiting schedule** and
+**No physical room** are different states, not room shortages.
+
+Coordinator requests take effect only after approval. For Automatic, approval
+chooses an eligible room at that time, so a proposal does not reserve a room.
+After a completed save, **Retry refresh** recovers updated displays without
+submitting the scheduling change again. A failed save retains the draft.
+
+New Pairing keeps the same creation-attempt key while its draft is open. If a
+response is lost, retrying that unchanged draft returns the pairing already
+saved. If that attempt already succeeded and you subsequently change its draft,
+reload the saved record or explicitly start **New Pairing**; the retry will not
+silently create another reservation. Deleting the original pairing does not
+make an old retry create it again.
+
+Auto-assign rooms is initially On in **Program & Refresh → Optional Features**.
+Turning it off or back on takes effect at the next program refresh; switching
+back to the effective value cancels the pending change. Existing bookings are
+retained. Read the [room and period rules](program-reference.md#schedule-rooms-and-periods)
+for allocation priorities and the distinction between planned and actual rooms.
+
 ### Review withdrawals and membership
 
 Staff use **Withdrawal Requests & Removals** to review self-submitted requests and their decision history. Tutee requests show their source, scope, submission time and approval-dependent effective date. Tutor-relayed withdrawals remain in a separate section with their existing seven-day recall window and exact scheduled effective time. Tutor relays remain available; staff can cancel them before they take effect.

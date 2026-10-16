@@ -5,6 +5,9 @@ import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { useDialog } from "./confirm-dialog";
+import { RoomAllocationStatus } from "./room-allocation-status";
+import { InlineNotice } from "./ui/patterns";
+import { Button } from "./ui/button";
 
 /** Pending and valid cards may be appealed once while their school-day window is open. */
 export function canSubmitCardAppeal({
@@ -31,6 +34,7 @@ export function StudentPortal({
   const portal = useTranslations("tuteePortal");
   const attendance = useTranslations("tutor.attendance.tuteeStatusOpt");
   const scheduling = useTranslations("scheduling");
+  const room = useTranslations("roomAllocation");
   const [page, setPage] = useState(0);
   const data = api.student.me.useQuery({ page });
   const shared = api.student.feedbackSettings.useQuery(undefined, {
@@ -40,15 +44,51 @@ export function StudentPortal({
   const appeal = api.student.appeal.useMutation({
     onSuccess: () => data.refetch(),
   });
-  if (data.error) return <p role="alert">{data.error.message}</p>;
-  if (!data.data) return <p role="status">{t("loading")}</p>;
+  if (!data.data)
+    return data.error ? (
+      <InlineNotice
+        tone="error"
+        announcement="alert"
+        action={
+          <Button onClick={() => void data.refetch()}>
+            {room("retryRefresh")}
+          </Button>
+        }
+      >
+        {room("readFailed")}
+      </InlineNotice>
+    ) : (
+      <p role="status">{t("loading")}</p>
+    );
   const { schedule, sessions, cards, appeals } = data.data;
   return (
     <div className="space-y-6">
       {dialog}
+      {data.error && (
+        <InlineNotice
+          tone="error"
+          announcement="alert"
+          action={
+            <Button onClick={() => void data.refetch()}>
+              {room("retryRefresh")}
+            </Button>
+          }
+        >
+          {room("readFailed")}
+        </InlineNotice>
+      )}
       {(view === "all" || view === "schedule") && (
         <section className="card p-6">
-          <h2 className="section-title">{t("schedule")}</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="section-title">{t("schedule")}</h2>
+            <Button
+              size="compact"
+              disabled={data.isFetching}
+              onClick={() => void data.refetch()}
+            >
+              {room("refresh")}
+            </Button>
+          </div>
           {!schedule.length && (
             <p className="muted mt-3">{portal("scheduleEmpty")}</p>
           )}
@@ -59,8 +99,8 @@ export function StudentPortal({
               </p>
               <p className="muted">
                 {pairingScheduleText(p, scheduling("awaiting"))}
-                {p.scheduleConfirmed && p.room ? ` · ${p.room.name}` : ""}
               </p>
+              <RoomAllocationStatus pairing={p} />
             </div>
           ))}
         </section>

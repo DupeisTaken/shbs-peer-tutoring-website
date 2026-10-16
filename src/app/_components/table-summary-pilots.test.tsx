@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => ({
   readOnly: false,
   pending: false,
   updateSlot: vi.fn(),
-  updatePairing: vi.fn(),
+  updatePairing: vi.fn(async () => ({ roomOutcome: "RETAINED" })),
   remove: vi.fn(),
   reset: vi.fn(),
   slots: [
@@ -41,6 +41,10 @@ const mocks = vi.hoisted(() => ({
       tutor: { id: "tutor-1", englishName: "Alex Tutor", status: "ACTIVE" },
       subject: "Algebra",
       roomId: "room-1",
+      roomMode: "FIXED",
+      roomNeedsAssignment: false,
+      roomVersion: 0,
+      scheduleConfirmed: true,
       room: { name: "204" },
       timeSlotId: "slot-1",
       dayOfWeek: 1,
@@ -157,12 +161,19 @@ vi.mock("~/trpc/react", () => ({
       admin: {
         timeSlots: { invalidate: vi.fn() },
         pairings: { invalidate: vi.fn() },
+        rooms: { invalidate: vi.fn() },
         meetings: { invalidate: vi.fn() },
       },
       tutor: {
         myPairings: { invalidate: vi.fn() },
         schedule: { invalidate: vi.fn() },
       },
+      notification: {
+        list: { invalidate: vi.fn() },
+        unreadCount: { invalidate: vi.fn() },
+      },
+      student: { me: { invalidate: vi.fn() } },
+      studentWorkflow: { mine: { invalidate: vi.fn() } },
     }),
     admin: {
       timeSlots: { useQuery: () => ({ data: mocks.slots }) },
@@ -198,10 +209,17 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
       deleteTimeSlot: { useMutation: () => ({ mutateAsync: mocks.remove }) },
-      createPairing: { useMutation: () => ({ mutate: vi.fn() }) },
+      createPairing: {
+        useMutation: () => ({ mutate: vi.fn(), mutateAsync: vi.fn() }),
+      },
+      retryRoomAllocation: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      setPairingRoom: {
+        useMutation: () => ({ mutateAsync: mocks.updatePairing }),
+      },
       updatePairing: {
         useMutation: () => ({
           mutate: mocks.updatePairing,
+          mutateAsync: mocks.updatePairing,
           isPending: mocks.pending,
         }),
       },
@@ -353,7 +371,7 @@ it("replaces pairing rosters with a count and opens the full list through the fi
   expect(screen.queryByRole("button", { name: /^Edit:/ })).toBeNull();
 });
 
-it("retains assignment confirmation and its ticket in the pairing editor dialog", () => {
+it("retains assignment confirmation and its ticket in the pairing editor dialog", async () => {
   render(<PairingsPage />, { wrapper });
   fireEvent.click(
     screen.getByRole("button", { name: "Edit: Alex Tutor · Algebra" }),
@@ -361,20 +379,25 @@ it("retains assignment confirmation and its ticket in the pairing editor dialog"
   const dialog = screen.getByRole("dialog", {
     name: en.admin.pairings.editPairing,
   });
+  // A roster change still requires assignment review; room-only saves now have their own path.
+  fireEvent.click(
+    within(dialog).getByRole("checkbox", { name: "Casey Student" }),
+  );
   fireEvent.click(
     within(dialog).getByRole("button", { name: en.admin.pairings.saveChanges }),
   );
   expect(mocks.updatePairing).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
-  expect(mocks.updatePairing).toHaveBeenCalledWith(
-    expect.objectContaining({
-      id: "pair-1",
-      tutorId: "tutor-1",
-      subjectId: "subject-1",
-      tuteeIds: ["student-1", "student-2"],
-      overrideTicket: "confirmed-ticket",
-    }),
-    expect.anything(),
+  await waitFor(() =>
+    expect(mocks.updatePairing).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "pair-1",
+        tutorId: "tutor-1",
+        subjectId: "subject-1",
+        tuteeIds: ["student-1"],
+        overrideTicket: "confirmed-ticket",
+      }),
+    ),
   );
 });
 

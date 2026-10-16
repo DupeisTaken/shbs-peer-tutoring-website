@@ -2,7 +2,11 @@
   "requestInvalidity": {
     "badge": "无效条目",
     "filterLabel": "申请有效性",
-    "filter": { "all": "全部条目", "valid": "未标记", "invalid": "无效条目" },
+    "filter": {
+      "all": "全部条目",
+      "valid": "未标记",
+      "invalid": "无效条目"
+    },
     "flag": "标记为无效",
     "review": "查看无效标记",
     "clear": "清除无效标记",
@@ -829,8 +833,13 @@
           "SERVICE_HOURS": "服务小时",
           "QUARTER_SYSTEM": "季度制",
           "VIEWER_SIGNUP": "访客注册",
-          "EMAIL_2FA": "邮箱双重验证"
-        }
+          "EMAIL_2FA": "邮箱双重验证",
+          "AUTO_ASSIGN_ROOMS": "自动分配教室"
+        },
+        "autoRoomsNote": "部署后立即启用。更改在下次项目刷新时生效，现有预订保持不变。切换回当前状态可取消待生效更改。",
+        "retryRefresh": "重试刷新",
+        "savedRefreshFailed": "设置已保存，但无法加载最新的当前和待生效状态。请重试刷新，无需再次提交。",
+        "readFailed": "无法刷新设置，仍显示上次加载的值。"
       }
     },
     "audit": {
@@ -3215,7 +3224,9 @@
         "admin_setUserRole": "更改账号管理角色",
         "admin_revokeRegistrationCode": "撤销注册码",
         "messaging_moderate": "隐藏或恢复消息",
-        "messaging_restrict": "更改账号消息限制"
+        "messaging_restrict": "更改账号消息限制",
+        "admin_setPairingRoom": "更改配对的教室分配方式",
+        "admin_retryRoomAllocation": "重试配对的教室自动分配"
       },
       "decisionRequestHelp": "“批准并执行”将执行申请的操作，包括申请中要求的拒绝决定。“拒绝并反馈”只拒绝此申请，不做任何更改。两种决定都需要说明。",
       "confirmPassword": "确认负责人账户密码"
@@ -4458,5 +4469,48 @@
     "saveError": "暂时无法确认更新结果。您的选择已保留，请重试；重复退订不会造成额外影响。",
     "securityTitle": "必要邮件将继续发送",
     "securityHelp": "账户安全、验证和账户恢复邮件不受影响。已在发送中的邮件仍可能送达。"
+  },
+  "roomAllocation": {
+    "modeLabel": "教室分配方式",
+    "mode": {
+      "AUTO": "自动分配",
+      "FIXED": "工作人员固定",
+      "NONE": "无需实体教室",
+      "LEGACY": "尚未分配"
+    },
+    "modeHelp": "自动分配会保留可用的现有教室，否则选择空闲教室。固定教室不会自动更换。“无需实体教室”的选择会一直保留。",
+    "release": "解除固定教室，改为自动分配",
+    "releaseHelp": "保存后将解除工作人员的固定安排。此配对可能改用其他教室；若无空闲教室，将显示“待分配教室”。",
+    "needsRoom": "待分配教室",
+    "awaiting": "等待排课",
+    "all": "全部配对",
+    "filter": "教室分配筛选",
+    "retryAllocation": "重试教室分配",
+    "retryHelp": "仅为此配对重试，其他安排保持不变。",
+    "retryRefresh": "重试刷新",
+    "readFailed": "无法加载最新安排。保留的信息可能已过时。",
+    "savedRefreshFailed": "已保存，教室分配已完成，但部分信息未能刷新。重试刷新只会读取结果，不会再次保存。",
+    "saved": "课表和教室分配已保存。",
+    "queued": "已提交审核，教室分配尚未生效。",
+    "review": "查看审核队列",
+    "reload": "重新加载已保存的配对",
+    "reloadHelp": "重新加载会用最新保存的配对替换当前草稿。",
+    "outcome": {
+      "ASSIGNED": "已分配教室。",
+      "RETAINED": "已保留现有教室。",
+      "MOVED": "教室安排已变更。",
+      "UNAVAILABLE": "课表已保存，待分配教室。尚未预留实体教室。",
+      "NONE": "已保存为无需实体教室。",
+      "DISABLED": "课表已保存，自动教室分配目前已关闭。",
+      "AWAITING": "等待排课，尚未预留教室。",
+      "UNASSIGNED": "尚未分配教室。"
+    },
+    "noRooms": "暂无教室。",
+    "noSlots": "暂无已发布的时间段。",
+    "empty": "没有符合筛选条件的配对。",
+    "loading": "正在加载教室安排…",
+    "refresh": "刷新",
+    "room": "教室",
+    "versionConflict": "教室安排已变更。请重新加载配对后再保存。"
   }
 }

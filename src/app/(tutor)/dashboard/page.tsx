@@ -21,7 +21,7 @@ import { getTranslations } from "next-intl/server";
 import { DashboardTasks } from "~/app/(tutor)/_components/dashboard-tasks";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 
-import { RoomGrid } from "~/app/_components/room-grid";
+import { TutorRoomSchedule } from "~/app/(tutor)/_components/tutor-room-schedule";
 
 export default async function TutorDashboard() {
   const session = await auth();
@@ -201,13 +201,7 @@ export default async function TutorDashboard() {
           <h2 className="section-title">{t("dashboard.schedule.title")}</h2>
           <p className="muted">{t("dashboard.schedule.help")}</p>
         </div>
-        <RoomGrid
-          rooms={schedule.rooms}
-          slots={schedule.slots}
-          pairings={schedule.pairings}
-          blocks={schedule.blocks}
-          highlightTutorId={schedule.myTutorId}
-        />
+        <TutorRoomSchedule initialData={schedule} />
       </section>
     </div>
   );

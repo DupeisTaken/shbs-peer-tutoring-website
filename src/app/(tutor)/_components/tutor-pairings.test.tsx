@@ -17,8 +17,14 @@ const state = vi.hoisted(() => ({
   remove: vi.fn(),
   recall: vi.fn(),
   error: "",
+  queryError: false,
   pending: false,
   removalPending: false,
+  refresh: vi.fn(async () => undefined),
+  callbacks: null as null | {
+    onSuccess: (result: { roomOutcome: string }) => Promise<void>;
+    onError: () => void;
+  },
 }));
 vi.mock("~/app/_components/confirm-dialog", () => ({
   useDialog: () => ({ confirm: state.confirm, dialog: null }),
@@ -26,8 +32,14 @@ vi.mock("~/app/_components/confirm-dialog", () => ({
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
+      student: { me: { invalidate: vi.fn() } },
+      studentWorkflow: { mine: { invalidate: vi.fn() } },
+      notification: {
+        list: { invalidate: vi.fn() },
+        unreadCount: { invalidate: vi.fn() },
+      },
       tutor: {
-        myPairings: { invalidate: vi.fn() },
+        myPairings: { invalidate: state.refresh },
         schedule: { invalidate: vi.fn() },
         myTuteeRemovalRequests: { invalidate: vi.fn() },
       },
@@ -36,11 +48,15 @@ vi.mock("~/trpc/react", () => ({
     tutor: {
       myPairings: {
         useQuery: () => ({
+          error: state.queryError ? new Error("Read outage") : null,
           data: [
             {
               id: "pairing",
               subject: "Maths",
               scheduleConfirmed: true,
+              roomMode: "AUTO",
+              roomNeedsAssignment: false,
+              roomVersion: 3,
               dayOfWeek: 1,
               startMin: 900,
               endMin: 960,
@@ -55,6 +71,9 @@ vi.mock("~/trpc/react", () => ({
               id: "merge-pairing",
               subject: "Maths",
               scheduleConfirmed: true,
+              roomMode: "AUTO",
+              roomNeedsAssignment: false,
+              roomVersion: 3,
               dayOfWeek: 2,
               startMin: 900,
               endMin: 960,
@@ -95,7 +114,12 @@ vi.mock("~/trpc/react", () => ({
             : [],
         }),
       },
-      setPairingSlot: { useMutation: () => ({ mutate: state.setSlot }) },
+      setPairingSlot: {
+        useMutation: (callbacks: typeof state.callbacks) => {
+          state.callbacks = callbacks;
+          return { mutate: state.setSlot };
+        },
+      },
       requestTuteeRemoval: {
         useMutation: () => ({
           mutate: state.remove,
@@ -112,8 +136,10 @@ afterEach(() => {
   vi.clearAllMocks();
   state.confirm.mockResolvedValue(false);
   state.error = "";
+  state.queryError = false;
   state.pending = false;
   state.removalPending = false;
+  state.refresh.mockResolvedValue(undefined);
 });
 const element = (active = true) => (
   <NextIntlClientProvider
@@ -149,6 +175,7 @@ it("names the changed schedule and cancel performs no write", async () => {
     expect(state.setSlot).toHaveBeenCalledWith({
       pairingId: "pairing",
       slotId: null,
+      expectedRoomVersion: 3,
     }),
   );
 });
@@ -245,4 +272,95 @@ it("locks merge choices with the attendance save and releases them for a new ent
     screen.getByRole("button", { name: "Begin another attendance" }),
   );
   expect(merge.disabled).toBe(false);
+});
+
+it("accepted allocation survives failed refresh and Retry performs reads only", async () => {
+  state.confirm.mockResolvedValue(true);
+  state.refresh.mockRejectedValueOnce(new Error("Offline"));
+  state.setSlot.mockImplementationOnce(() => {
+    void state.callbacks?.onSuccess({ roomOutcome: "MOVED" });
+  });
+  render(element());
+  fireEvent.change(screen.getAllByRole("combobox")[0]!, {
+    target: { value: "" },
+  });
+  await waitFor(() =>
+    expect(
+      screen.getByText(messages.roomAllocation.savedRefreshFailed),
+    ).toBeTruthy(),
+  );
+  expect(screen.getByText(messages.roomAllocation.outcome.MOVED)).toBeTruthy();
+  expect(screen.getAllByRole<HTMLSelectElement>("combobox")[0]!.disabled).toBe(
+    true,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.roomAllocation.retryRefresh }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.queryByText(messages.roomAllocation.savedRefreshFailed),
+    ).toBeNull(),
+  );
+  expect(state.setSlot).toHaveBeenCalledTimes(1);
+  expect(screen.getAllByRole<HTMLSelectElement>("combobox")[0]!.disabled).toBe(
+    false,
+  );
+});
+it("guards two same-tick confirmations", async () => {
+  state.confirm.mockResolvedValue(true);
+  render(element());
+  const selector = screen.getAllByRole("combobox")[0]!;
+  fireEvent.change(selector, { target: { value: "" } });
+  fireEvent.change(selector, { target: { value: "" } });
+  await waitFor(() => expect(state.setSlot).toHaveBeenCalledTimes(1));
+});
+
+it("failed slot writes retain the attempted slot and captured version for explicit retry", async () => {
+  state.confirm.mockResolvedValue(true);
+  state.setSlot.mockImplementationOnce(() => state.callbacks?.onError());
+  render(element());
+  fireEvent.change(screen.getAllByRole("combobox")[0]!, {
+    target: { value: "" },
+  });
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: messages.common.save }),
+    ).toBeTruthy(),
+  );
+  expect(screen.getAllByRole<HTMLSelectElement>("combobox")[0]!.value).toBe("");
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.common.save }),
+  );
+  await waitFor(() => expect(state.setSlot).toHaveBeenCalledTimes(2));
+  expect(state.setSlot).toHaveBeenLastCalledWith({
+    pairingId: "pairing",
+    slotId: null,
+    expectedRoomVersion: 3,
+  });
+});
+
+it("read-only recovery does not discard a draft from a rejected write", async () => {
+  state.confirm.mockResolvedValue(true);
+  state.setSlot.mockImplementationOnce(() => state.callbacks?.onError());
+  const view = render(element());
+  fireEvent.change(screen.getAllByRole("combobox")[0]!, {
+    target: { value: "" },
+  });
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: messages.common.save }),
+    ).toBeTruthy(),
+  );
+  state.queryError = true;
+  view.rerender(element());
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.roomAllocation.retryRefresh }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: messages.common.save }),
+    ).toBeTruthy(),
+  );
+  expect(screen.getAllByRole<HTMLSelectElement>("combobox")[0]!.value).toBe("");
+  expect(state.setSlot).toHaveBeenCalledTimes(1);
 });

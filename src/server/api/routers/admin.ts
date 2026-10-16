@@ -141,9 +141,9 @@ import {
 } from "~/server/program/features";
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
+import { allocateRoom, allocationData, allocateSlotCohort, assertRoomVersion, notifyRoomShortage } from "~/server/room-allocation";
+import { pairingCreationReceipt } from "~/server/pairing-creation";
 import {
-  assertLinkedSlotScheduleAvailable,
-  assertPlannedRoomAvailable,
   assertRoomBlackoutAvailable,
   lockPlannedRoomSchedule,
   roomBlockForWrite,
@@ -868,8 +868,10 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({
         overrideTicket: z.string().optional(),
+        clientKey: z.string().uuid().optional(),
         tutorId: cuid,
         roomId: cuid.optional(),
+        roomMode: z.enum(["AUTO", "FIXED", "NONE"]).optional(),
         // Pairings are scheduled by picking a published time slot — the slot is the single
         // source of truth for day/start/end (no free-form time entry).
         timeSlotId: cuid,
@@ -883,6 +885,9 @@ export const adminRouter = createTRPCRouter({
       // Confirmation evidence and catalogue identity are never spread into Pairing columns.
       const data = { tutorId, roomId, timeSlotId, subject };
       return inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        const receipt = await pairingCreationReceipt(tx, ctx.session.user.id, input);
+        if (receipt?.replay) return receipt.replay;
         await enforceAssignmentQualification(
           tx,
           ctx.session.user.id,
@@ -896,19 +901,20 @@ export const adminRouter = createTRPCRouter({
           resolveSlot(tx, input.timeSlotId),
           getActivePeriod(tx),
         ]);
-        await assertPlannedRoomAvailable(tx, {
-          roomId: input.roomId,
+        const allocation = await allocateRoom(tx, {
           termId: period.termId,
+          tutorId, tuteeIds, scheduleConfirmed: true,
           dayOfWeek: slot.dayOfWeek,
           startMin: slot.startMin,
           endMin: slot.endMin,
-        });
+        }, input);
         // Generic roster tools share the same request lock and first-assignment clock.
         for (const tuteeId of [...tuteeIds].sort())
           await assertStudentRequestAssignable(tx, tuteeId);
         const pairing = await tx.pairing.create({
           data: {
             ...data,
+            ...allocationData(allocation),
             termId: period.termId,
             scheduleConfirmed: true,
             dayOfWeek: slot.dayOfWeek,
@@ -919,7 +925,12 @@ export const adminRouter = createTRPCRouter({
         });
         for (const tuteeId of tuteeIds)
           await stampStudentAssignment(tx, tuteeId);
-        return pairing;
+        await notifyRoomShortage(tx, pairing.id, allocation);
+        if (receipt) await tx.pairingCreationRequest.create({ data: {
+          actorId: receipt.actorId, clientKey: receipt.clientKey, payloadHash: receipt.payloadHash, pairingId: pairing.id,
+        } });
+        // Nested roster writes advance the independent schedule snapshot in the database.
+        return { ...await tx.pairing.findUniqueOrThrow({ where: { id: pairing.id } }), roomOutcome: allocation.roomOutcome };
       });
     }),
 
@@ -930,6 +941,9 @@ export const adminRouter = createTRPCRouter({
         id: cuid,
         tutorId: cuid,
         roomId: cuid.nullable().optional(),
+        roomMode: z.enum(["AUTO", "FIXED", "NONE"]).optional(),
+        releaseRoomToAuto: z.boolean().optional(),
+        expectedRoomVersion: z.number().int().nonnegative().optional(),
         timeSlotId: cuid,
         subject: z.string().min(1),
         subjectId: cuid.optional(),
@@ -937,10 +951,11 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { id, tuteeIds, roomId, tutorId, timeSlotId, subject } = input;
+      const { id, tuteeIds, tutorId, timeSlotId, subject } = input;
       const data = { tutorId, timeSlotId, subject };
       // Replace roster atomically; day/start/end follow the chosen slot.
       return inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
         await enforceAssignmentQualification(
           tx,
           ctx.session.user.id,
@@ -956,19 +971,20 @@ export const adminRouter = createTRPCRouter({
               termId: true,
               tutorId: true,
               subject: true,
+              roomId: true, roomMode: true, roomNeedsAssignment: true,
+              roomShortageKey: true, roomVersion: true,
               tutees: { select: { tuteeId: true } },
             },
           }),
         ]);
 
-        await assertPlannedRoomAvailable(tx, {
-          roomId,
+        const allocation = await allocateRoom(tx, {
+          id, tutorId, tuteeIds, scheduleConfirmed: true,
           termId: current.termId,
           dayOfWeek: slot.dayOfWeek,
           startMin: slot.startMin,
           endMin: slot.endMin,
-          excludePairingId: id,
-        });
+        }, input, current);
         for (const tuteeId of [...tuteeIds].sort())
           await assertStudentRequestAssignable(tx, tuteeId);
         await tx.pairingTutee.deleteMany({ where: { pairingId: id } });
@@ -976,7 +992,8 @@ export const adminRouter = createTRPCRouter({
           where: { id },
           data: {
             ...data,
-            roomId: roomId ?? null,
+            ...allocationData(allocation),
+            roomVersion: { increment: 1 },
             scheduleConfirmed: true,
             dayOfWeek: slot.dayOfWeek,
             startMin: slot.startMin,
@@ -986,9 +1003,41 @@ export const adminRouter = createTRPCRouter({
         });
         for (const tuteeId of tuteeIds)
           await stampStudentAssignment(tx, tuteeId);
-        return pairing;
+        await notifyRoomShortage(tx, pairing.id, allocation, current.roomShortageKey);
+        return { ...await tx.pairing.findUniqueOrThrow({ where: { id: pairing.id } }), roomOutcome: allocation.roomOutcome };
       });
     }),
+
+  /** Room intent is its own save scope: never replace a roster or consume an assignment ticket. */
+  setPairingRoom: adminProcedure
+    .input(z.object({ id: cuid, expectedRoomVersion: z.number().int().nonnegative(), roomMode: z.enum(["AUTO", "FIXED", "NONE"]), roomId: cuid.nullable().optional(), releaseRoomToAuto: z.boolean().optional() }))
+    .mutation(({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
+      await lockEntity(tx, "program:period");
+      await lockPlannedRoomSchedule(tx);
+      const pairing = await tx.pairing.findFirst({ where: { id: input.id, term: { active: true } }, include: { tutees: { select: { tuteeId: true } } } });
+      if (!pairing) throw new TRPCError({ code: "NOT_FOUND", message: "Current pairing not found." });
+      const allocation = await allocateRoom(tx, { ...pairing, tuteeIds: pairing.tutees.map((row) => row.tuteeId) }, input, pairing);
+      const saved = await tx.pairing.update({ where: { id: pairing.id }, data: { ...allocationData(allocation), roomVersion: { increment: 1 } } });
+      await notifyRoomShortage(tx, pairing.id, allocation, pairing.roomShortageKey);
+      return { ...saved, roomOutcome: allocation.roomOutcome };
+    })),
+
+  /** Room-only recovery deliberately leaves roster and qualification/ticket evidence alone. */
+  retryRoomAllocation: adminProcedure
+    .input(z.object({ id: cuid, expectedRoomVersion: z.number().int().nonnegative() }))
+    .mutation(({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
+      await lockEntity(tx, "program:period");
+      await lockPlannedRoomSchedule(tx);
+      const pairing = await tx.pairing.findFirst({ where: { id: input.id, term: { active: true } }, include: { tutees: { select: { tuteeId: true } } } });
+      if (!pairing) throw new TRPCError({ code: "NOT_FOUND", message: "Current pairing not found." });
+      assertRoomVersion(pairing, input.expectedRoomVersion);
+      if (pairing.roomMode !== "AUTO" || !pairing.roomNeedsAssignment)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Only an automatic room shortage can be retried." });
+      const allocation = await allocateRoom(tx, { ...pairing, tuteeIds: pairing.tutees.map((row) => row.tuteeId) }, {}, pairing);
+      const saved = await tx.pairing.update({ where: { id: pairing.id }, data: { ...allocationData(allocation), roomVersion: { increment: 1 } } });
+      await notifyRoomShortage(tx, pairing.id, allocation, pairing.roomShortageKey);
+      return { ...saved, roomOutcome: allocation.roomOutcome };
+    })),
 
   deletePairing: adminProcedure
     .input(z.object({ id: cuid }))
@@ -3005,6 +3054,7 @@ export const adminRouter = createTRPCRouter({
       // derived service-hour totals from ever exposing a partially updated timetable.
       return inTransaction(ctx.db, async (tx) => {
         await lockAttendanceSchedule(tx, true);
+        await lockEntity(tx, "program:period");
         await lockPlannedRoomSchedule(tx);
         const current = await tx.timeSlot.findUniqueOrThrow({
           where: { id },
@@ -3017,29 +3067,12 @@ export const adminRouter = createTRPCRouter({
         const timeChanged =
           current.startMin !== data.startMin || current.endMin !== data.endMin;
 
-        if (scheduleChanged) {
-          await assertLinkedSlotScheduleAvailable(tx, {
-            id,
-            dayOfWeek: data.dayOfWeek,
-            startMin: data.startMin,
-            endMin: data.endMin,
-          });
-        }
-
         const slot = await tx.timeSlot.update({ where: { id }, data });
         if (!scheduleChanged) {
           return { ...slot, updatedPairings: 0, updatedSessions: 0 };
         }
 
-        const pairings = await tx.pairing.updateMany({
-          where: { timeSlotId: id },
-          data: {
-            scheduleConfirmed: true,
-            dayOfWeek: data.dayOfWeek,
-            startMin: data.startMin,
-            endMin: data.endMin,
-          },
-        });
+        const pairingCount = await allocateSlotCohort(tx, { id, ...data });
 
         // A weekday-only change does not alter a submitted session's actual calendar date. Clock
         // edits do flow to every session stamped with this slot, including sessions from pairings
@@ -3047,7 +3080,7 @@ export const adminRouter = createTRPCRouter({
         if (!timeChanged) {
           return {
             ...slot,
-            updatedPairings: pairings.count,
+            updatedPairings: pairingCount,
             updatedSessions: 0,
           };
         }
@@ -3061,7 +3094,7 @@ export const adminRouter = createTRPCRouter({
 
         return {
           ...slot,
-          updatedPairings: pairings.count,
+          updatedPairings: pairingCount,
           updatedSessions,
         };
       });
@@ -3098,16 +3131,25 @@ export const adminRouter = createTRPCRouter({
 
   deleteRoom: adminProcedure
     .input(z.object({ id: cuid }))
-    .mutation(async ({ ctx, input }) => {
-      const used = await ctx.db.pairing.count({ where: { roomId: input.id } });
-      if (used > 0) {
+    .mutation(({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
+      // Do not race an allocator or erase retained actual attendance location evidence.
+      await lockPlannedRoomSchedule(tx);
+      // Attendance writers acquire this row's FK key-share lock without the
+      // planned-room advisory lock. Wait for them before counting references;
+      // otherwise ON DELETE SET NULL could erase a concurrently committed room.
+      await tx.$queryRaw`SELECT id FROM "Room" WHERE id = ${input.id} FOR UPDATE`;
+      const [used, actual] = await Promise.all([
+        tx.pairing.count({ where: { roomId: input.id } }),
+        tx.session.count({ where: { actualRoomId: input.id } }),
+      ]);
+      if (used > 0 || actual > 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Room is in use by a pairing.",
+          message: "Room is in use by a pairing or retained attendance record.",
         });
       }
-      return ctx.db.room.delete({ where: { id: input.id } });
-    }),
+      return tx.room.delete({ where: { id: input.id } });
+    })),
 
   // --------------------------------------------------------------------------
   // Room unavailability (recurring weekly blackout periods, shown on the grid)

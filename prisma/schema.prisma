@@ -187,7 +187,8 @@ model MessageOverride {
 
 /// Optional program modules a HEAD can switch off to fit a different program (extend usability).
 /// QUARTER_SYSTEM is a *mode*, not a disable: enabled = quarters (Q1–Q4), disabled = semesters
-/// (S1/S2) at the same refresh machinery. Everything else is a soft hide+block when disabled.
+/// (S1/S2) at the same refresh machinery. AUTO_ASSIGN_ROOMS only gates allocation, preserving
+/// room readers and validation; other modules are soft hide+block when disabled.
 enum ProgramFeatureKey {
   CREW
   DISCIPLINE
@@ -200,6 +201,8 @@ enum ProgramFeatureKey {
   /// Email-based two-factor: the sign-in second factor + the emailed code required
   /// on a password change. Off lets a program with no email configured still change passwords.
   EMAIL_2FA
+  /// Assign planned rooms on explicit scheduling; changes stage until program refresh.
+  AUTO_ASSIGN_ROOMS
 }
 
 /// One row per optional module. `enabled` is the effective value; `pendingEnabled` is a staged
@@ -320,6 +323,8 @@ model Notification {
   body      String?
   /// Optional in-app link the notification points to (e.g. "/dashboard").
   link      String?
+  /// Some workflow notices deliberately stay in-app even when optional email copies are on.
+  inAppOnly Boolean @default(false)
   readAt    DateTime?
   createdAt DateTime  @default(now())
 
@@ -844,7 +849,32 @@ model RoomUnavailability {
   @@index([roomId])
 }
 
+enum PairingRoomMode {
+  AUTO
+  FIXED
+  NONE
+  LEGACY
+}
+
+/// Durable creation receipt survives pairing deletion, so a lost-response retry cannot
+/// recreate a deliberately deleted reservation. Actor and key are not public identity data.
+model PairingCreationRequest {
+  actorId String
+  clientKey String
+  payloadHash String
+  pairingId String
+  createdAt DateTime @default(now())
+
+  @@id([actorId, clientKey])
+}
+
 model Pairing {
+  /// LEGACY preserves unclassified roomless bookings until an explicit scheduling choice.
+  roomMode PairingRoomMode @default(LEGACY)
+  roomNeedsAssignment Boolean @default(false)
+  /// Independent scheduling snapshot; background refresh must not silently adopt this version.
+  roomVersion Int @default(0)
+  roomShortageKey String?
   // Legacy rows retain copied schedules; new assignments await an explicit slot choice.
   scheduleConfirmed Boolean @default(false)
   id        String   @id @default(cuid())

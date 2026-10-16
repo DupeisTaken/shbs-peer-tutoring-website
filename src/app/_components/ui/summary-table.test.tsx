@@ -166,6 +166,10 @@ it("retains room comparisons but moves pairing names and block reasons into the 
           tutorId: "tutor",
           roomId: "open",
           timeSlotId: "slot",
+          scheduleConfirmed: true,
+          dayOfWeek: 1,
+          startMin: 900,
+          endMin: 960,
           tutor: { englishName: "Alex Tutor" },
         },
       ]}

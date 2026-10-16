@@ -831,8 +831,13 @@
           "SERVICE_HOURS": "Horas de servicio",
           "QUARTER_SYSTEM": "Sistema de trimestres",
           "VIEWER_SIGNUP": "Registro de Observadores",
-          "EMAIL_2FA": "2FA por correo"
-        }
+          "EMAIL_2FA": "2FA por correo",
+          "AUTO_ASSIGN_ROOMS": "Auto-assign rooms"
+        },
+        "autoRoomsNote": "On immediately when deployed. Changes apply at the next program refresh; existing bookings are retained. Switch back to the current state to cancel a pending change.",
+        "retryRefresh": "Retry refresh",
+        "savedRefreshFailed": "The setting was saved, but the latest effective and pending states could not be loaded. Retry refresh without submitting again.",
+        "readFailed": "Settings could not be refreshed. Previously loaded values remain visible."
       }
     },
     "audit": {
@@ -3217,7 +3222,9 @@
         "messaging_restrict": "Change an account messaging restriction",
         "admin_setApplicationInvalidity": "Cambiar la marca de invalidez de una solicitud de tutor",
         "studentWorkflow_setRequestInvalidity": "Cambiar la marca de invalidez del registro de un estudiante",
-        "admin_setSignupInvalidity": "Cambiar la marca de invalidez de un registro público anterior"
+        "admin_setSignupInvalidity": "Cambiar la marca de invalidez de un registro público anterior",
+        "admin_setPairingRoom": "Change a pairing’s room assignment",
+        "admin_retryRoomAllocation": "Retry automatic room allocation for a pairing"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -4462,5 +4469,48 @@
     "retryRefresh": "Reintentar actualización",
     "reload": "Recargar solicitud",
     "reloadHelp": "Se conservan tu motivo y la versión original. Recarga la solicitud expresamente para sustituir este borrador por la versión más reciente."
+  },
+  "roomAllocation": {
+    "modeLabel": "Room assignment",
+    "mode": {
+      "AUTO": "Automatic",
+      "FIXED": "Fixed by staff",
+      "NONE": "No physical room",
+      "LEGACY": "Not allocated"
+    },
+    "modeHelp": "Automatic allocation preserves an eligible room and otherwise chooses a free room. Fixed rooms cannot move automatically. No physical room remains your explicit choice.",
+    "release": "Release the fixed room to automatic allocation",
+    "releaseHelp": "Saving releases the staff reservation. This pairing may move to another room or show Needs room if none is free.",
+    "needsRoom": "Needs room",
+    "awaiting": "Awaiting schedule",
+    "all": "All pairings",
+    "filter": "Room allocation filter",
+    "retryAllocation": "Retry room allocation",
+    "retryHelp": "Retry this pairing only. Other reservations stay in place.",
+    "retryRefresh": "Retry refresh",
+    "readFailed": "The latest schedule could not be loaded. Retained information may be out of date.",
+    "savedRefreshFailed": "Saved. The room allocation is complete, but some information could not refresh. Retry refresh reads the result without saving again.",
+    "saved": "Schedule and room assignment saved.",
+    "queued": "Submitted for review. No room assignment has been applied.",
+    "review": "View approval queue",
+    "reload": "Reload saved pairing",
+    "reloadHelp": "Reload replaces this draft with the latest saved pairing.",
+    "outcome": {
+      "ASSIGNED": "A room was assigned.",
+      "RETAINED": "The existing room was retained.",
+      "MOVED": "The room assignment changed.",
+      "UNAVAILABLE": "Schedule saved — needs room. No physical room is reserved.",
+      "NONE": "Saved with no physical room.",
+      "DISABLED": "Schedule saved. Automatic room assignment is currently off.",
+      "AWAITING": "Awaiting schedule — no room reservation.",
+      "UNASSIGNED": "No room has been allocated."
+    },
+    "noRooms": "No rooms yet.",
+    "noSlots": "No time slots published yet.",
+    "empty": "No pairings match this filter.",
+    "loading": "Loading room assignments…",
+    "refresh": "Refresh",
+    "room": "Room",
+    "versionConflict": "The saved room assignment changed. Reload the pairing before saving again."
   }
 }

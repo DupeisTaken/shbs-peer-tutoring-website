@@ -1,7 +1,8 @@
 "use client";
 
 import { DismissibleNotice } from "~/app/_components/dismissible-notice";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -20,6 +21,7 @@ import { useActionReview } from "~/app/_components/ui/action-review";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { queuedApprovalId } from "~/lib/approval-outcome";
+import { InlineNotice } from "~/app/_components/ui/patterns";
 
 const EMPTY = { label: "", dayOfWeek: 1, startTime: "15:30", endTime: "16:30" };
 
@@ -34,28 +36,56 @@ export default function TimeSlotsPage() {
   });
   const [form, setForm] = useState(EMPTY);
   const [editing, setEditing] = useState<SlotDraft | null>(null);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const [synchronizing, setSynchronizing] = useState(false);
+  const admitted = useRef(false);
 
   const invalidate = () =>
-    Promise.all([
-      utils.admin.timeSlots.invalidate(),
-      utils.admin.pairings.invalidate(),
-      utils.tutor.myPairings.invalidate(),
-      utils.tutor.schedule.invalidate(),
+    settleRefreshes([
+      () => invalidateAndReport(utils.admin.timeSlots),
+      () => invalidateAndReport(utils.admin.pairings),
+      () => invalidateAndReport(utils.tutor.myPairings),
+      () => invalidateAndReport(utils.tutor.schedule),
+      () => invalidateAndReport(utils.student.me),
+      () => invalidateAndReport(utils.notification.list),
+      () => invalidateAndReport(utils.notification.unreadCount),
     ]);
+  // Catalogue edits can allocate several rooms. An accepted write must never
+  // be retried merely because one of its authorized schedule readers failed.
+  const recover = async () => {
+    setSynchronizing(true);
+    try {
+      await invalidate();
+      setRefreshFailed(false);
+    } catch {
+      setRefreshFailed(true);
+    } finally {
+      setSynchronizing(false);
+    }
+  };
   const create = api.admin.createTimeSlot.useMutation({
     onSuccess: async () => {
       setForm(EMPTY);
-      await invalidate();
+      await recover();
+    },
+    onSettled: () => {
+      admitted.current = false;
     },
   });
   const update = api.admin.updateTimeSlot.useMutation({
     onSuccess: async () => {
       setEditing(null);
-      await invalidate();
+      await recover();
+    },
+    onSettled: () => {
+      admitted.current = false;
     },
   });
   const del = api.admin.deleteTimeSlot.useMutation();
   const review = useActionReview();
+  const blocked =
+    synchronizing || refreshFailed || create.isPending || update.isPending;
+  const proposalId = queuedApprovalId(create.error ?? update.error);
   const editingIsValid =
     editing !== null &&
     editing.label.trim().length > 0 &&
@@ -68,6 +98,30 @@ export default function TimeSlotsPage() {
         <h1 className="page-title">{t("admin.timeslots.title")}</h1>
         <p className="muted mt-1">{t("admin.timeslots.description")}</p>
       </div>
+      {refreshFailed && (
+        <InlineNotice
+          tone="warning"
+          announcement="status"
+          action={
+            <Button disabled={synchronizing} onClick={() => void recover()}>
+              {t("roomAllocation.retryRefresh")}
+            </Button>
+          }
+        >
+          {t("roomAllocation.savedRefreshFailed")}
+        </InlineNotice>
+      )}
+      {proposalId && (
+        <InlineNotice tone="warning" announcement="status">
+          {t("approvals.queuedBody")}{" "}
+          <Link
+            className="link"
+            href={`/admin/approvals?request=${encodeURIComponent(proposalId)}`}
+          >
+            {t("approvals.viewRequest")}
+          </Link>
+        </InlineNotice>
+      )}
 
       {!readOnly && (
         <DismissibleNotice
@@ -87,7 +141,8 @@ export default function TimeSlotsPage() {
           className="card flex flex-wrap items-end gap-3 p-4"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!form.label.trim()) return;
+            if (!form.label.trim() || blocked || admitted.current) return;
+            admitted.current = true;
             create.mutate({
               label: form.label.trim(),
               dayOfWeek: form.dayOfWeek,
@@ -96,64 +151,66 @@ export default function TimeSlotsPage() {
             });
           }}
         >
-          <label className="space-y-1">
-            <span className="label">{t("admin.timeslots.label")}</span>
-            <input
-              value={form.label}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, label: e.target.value }))
-              }
-              placeholder={t("admin.timeslots.labelPlaceholder")}
-              className="input field-auto min-w-44"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="label">{t("admin.timeslots.day")}</span>
-            <select
-              value={form.dayOfWeek}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, dayOfWeek: Number(e.target.value) }))
-              }
-              className="select field-auto min-w-32"
+          <fieldset disabled={blocked} className="contents">
+            <label className="space-y-1">
+              <span className="label">{t("admin.timeslots.label")}</span>
+              <input
+                value={form.label}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, label: e.target.value }))
+                }
+                placeholder={t("admin.timeslots.labelPlaceholder")}
+                className="input field-auto min-w-44"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="label">{t("admin.timeslots.day")}</span>
+              <select
+                value={form.dayOfWeek}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, dayOfWeek: Number(e.target.value) }))
+                }
+                className="select field-auto min-w-32"
+              >
+                {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                  <option key={d} value={d}>
+                    {DAY_NAMES[d]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="label">{t("admin.timeslots.start")}</span>
+              <input
+                type="time"
+                value={form.startTime}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, startTime: e.target.value }))
+                }
+                className="input field-auto min-w-28"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="label">{t("admin.timeslots.end")}</span>
+              <input
+                type="time"
+                value={form.endTime}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, endTime: e.target.value }))
+                }
+                className="input field-auto min-w-28"
+              />
+            </label>
+            <button
+              className="btn-primary"
+              disabled={!form.label.trim() || blocked}
             >
-              {[1, 2, 3, 4, 5, 6, 7].map((d) => (
-                <option key={d} value={d}>
-                  {DAY_NAMES[d]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="label">{t("admin.timeslots.start")}</span>
-            <input
-              type="time"
-              value={form.startTime}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, startTime: e.target.value }))
-              }
-              className="input field-auto min-w-28"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="label">{t("admin.timeslots.end")}</span>
-            <input
-              type="time"
-              value={form.endTime}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, endTime: e.target.value }))
-              }
-              className="input field-auto min-w-28"
-            />
-          </label>
-          <button
-            className="btn-primary"
-            disabled={!form.label.trim() || create.isPending}
-          >
-            {t("admin.timeslots.addSlot")}
-          </button>
+              {t("admin.timeslots.addSlot")}
+            </button>
+          </fieldset>
         </form>
       )}
-      {!readOnly && (create.error ?? update.error) && (
+      {!readOnly && !proposalId && (create.error ?? update.error) && (
         <p className="text-sm text-red-600">
           {(create.error ?? update.error)?.message}
         </p>
@@ -222,7 +279,7 @@ export default function TimeSlotsPage() {
                   {!readOnly && (
                     <>
                       <TableAction
-                        disabled={update.isPending}
+                        disabled={blocked}
                         aria-label={`${t("admin.timeslots.edit")}: ${s.label}`}
                         onClick={() => {
                           update.reset();
@@ -240,7 +297,7 @@ export default function TimeSlotsPage() {
                       </TableAction>
                       <TableAction
                         className="text-red-700"
-                        disabled={review.blocked(s.id) || update.isPending}
+                        disabled={review.blocked(s.id) || blocked}
                         onClick={() =>
                           review.open({
                             key: s.id,
@@ -256,15 +313,7 @@ export default function TimeSlotsPage() {
                               </p>
                             ),
                             commit: () => del.mutateAsync({ id: s.id }),
-                            refresh: () =>
-                              settleRefreshes([
-                                () =>
-                                  invalidateAndReport(utils.admin.timeSlots),
-                                () => invalidateAndReport(utils.admin.pairings),
-                                () =>
-                                  invalidateAndReport(utils.tutor.myPairings),
-                                () => invalidateAndReport(utils.tutor.schedule),
-                              ]),
+                            refresh: invalidate,
                             approvalId: queuedApprovalId,
                           })
                         }
@@ -310,9 +359,10 @@ export default function TimeSlotsPage() {
               </Button>
               <Button
                 variant="primary"
-                disabled={!editingIsValid || update.isPending}
+                disabled={!editingIsValid || blocked}
                 onClick={() => {
-                  if (!editingIsValid) return;
+                  if (!editingIsValid || blocked || admitted.current) return;
+                  admitted.current = true;
                   update.mutate({
                     id: editing.id,
                     label: editing.label.trim(),
@@ -400,7 +450,18 @@ export default function TimeSlotsPage() {
               {t("admin.timeslots.colActive")}
             </label>
           </fieldset>
-          {update.error && (
+          {proposalId && (
+            <InlineNotice tone="warning" announcement="status">
+              {t("approvals.queuedBody")}{" "}
+              <Link
+                className="link"
+                href={`/admin/approvals?request=${encodeURIComponent(proposalId)}`}
+              >
+                {t("approvals.viewRequest")}
+              </Link>
+            </InlineNotice>
+          )}
+          {update.error && !proposalId && (
             <p role="alert" className="mt-3 text-sm text-red-700">
               {update.error.message}
             </p>
