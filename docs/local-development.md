@@ -33,7 +33,7 @@ retain failed full-run receipts when investigating timing failures.
 
 - **Node 22 (CI baseline)** and **npm**
 - A **PostgreSQL** database (one of the options below)
-- *(Optional)* **Docker** — only for the full Compose smoke test at the end
+- _(Optional)_ **Docker** — only for the full Compose smoke test at the end
 
 ## 1. Install and configure
 
@@ -128,23 +128,23 @@ Seeding creates synthetic fixtures and refreshes some values. It preserves immut
 
 All example accounts use `Password123!`. The identifiers below work at `/signin`.
 
-| Account | Role / example | Start |
-| --- | --- | --- |
-| `admin` | HEAD; collective oversight, decisions and configuration | `/admin/activity` |
-| `manager@example.test` | ADMIN; management review without a tutor identity | `/admin` |
-| `carol@example.edu` | COORDINATOR and tutor; interview chair and approval proposals | `/dashboard`, `/admin` |
-| `alice@example.edu` | Active tutor; attendance, assignments, hours, panel voting | `/dashboard` |
-| `crew@example.edu` | Crew-only member; room patrol and membership | `/patrol` |
-| `iris@example.edu` | Tutor with crew membership | `/patrol` |
-| `emma@example.test` | Assigned student; sessions, feedback and messages | `/student` |
-| `frank@example.test` | Assigned student; pending card appeal and withdrawal review | `/student` |
-| `grace@example.test` | Assigned student; tutor schedule-conflict review | `/student` |
-| `kate@example.test` | Verified student still waiting for assignment | `/student` |
-| `recalled@example.test` | Recalled request retained as history | `/student` |
-| `withdrawn@example.test` | Approved quarter withdrawal and resubmission block | `/student` |
-| `translator@example.test` | Explicit Translator, without Viewer access; pending draft | `/localization` |
-| `parent@example.edu` | Ordinary viewer | `/` |
-| `viewer2@example.edu` | Suspended viewer with account appeal | `/` |
+| Account                   | Role / example                                                | Start                  |
+| ------------------------- | ------------------------------------------------------------- | ---------------------- |
+| `admin`                   | HEAD; collective oversight, decisions and configuration       | `/admin/activity`      |
+| `manager@example.test`    | ADMIN; management review without a tutor identity             | `/admin`               |
+| `carol@example.edu`       | COORDINATOR and tutor; interview chair and approval proposals | `/dashboard`, `/admin` |
+| `alice@example.edu`       | Active tutor; attendance, assignments, hours, panel voting    | `/dashboard`           |
+| `crew@example.edu`        | Crew-only member; room patrol and membership                  | `/patrol`              |
+| `iris@example.edu`        | Tutor with crew membership                                    | `/patrol`              |
+| `emma@example.test`       | Assigned student; sessions, feedback and messages             | `/student`             |
+| `frank@example.test`      | Assigned student; pending card appeal and withdrawal review   | `/student`             |
+| `grace@example.test`      | Assigned student; tutor schedule-conflict review              | `/student`             |
+| `kate@example.test`       | Verified student still waiting for assignment                 | `/student`             |
+| `recalled@example.test`   | Recalled request retained as history                          | `/student`             |
+| `withdrawn@example.test`  | Approved quarter withdrawal and resubmission block            | `/student`             |
+| `translator@example.test` | Explicit Translator, without Viewer access; pending draft     | `/localization`        |
+| `parent@example.edu`      | Ordinary viewer                                               | `/`                    |
+| `viewer2@example.edu`     | Suspended viewer with account appeal                          | `/`                    |
 
 The database also includes unverified survey demand before account creation, disqualification history, exact policy acceptance snapshots, school-calendar overrides, active/inactive membership, pending and resolved removals, future meetings, valid qualified interview panels, notifications, private messages, registration codes, custom pages and historical service-hour reports. The Fiona panel has a coordinator chair and a completed interview; Hana demonstrates a tied vote resolved by that chair. Bundled policy text still needs school review before publication.
 
@@ -216,8 +216,9 @@ does not establish authorization, native browser focus or persisted behavior.
 | Surface | Check in the running application |
 | --- | --- |
 | Tables | Brief cells; authorized text actions at the right edge before/after local scrolling; named region reachable by keyboard; populated, empty, error and read-only states |
+| Combine login accounts | Choices match displayed Users & Roles login rows after filters/search; default visibility and explicit reveal, accountless exclusion, zero+zero/zero+signup in both directions, unfinished duplicate/ready survivor, pending filters and delayed preview invalidation. Include server/component combine tests and the Users page. Check EN/ZH at 1440/390 px, actual control bounds and matched desktop-English before/after separately. |
 | Forms and dialogs | Save scope; pending fields/dismissal; failed-save draft retention; nested Escape/Tab and focus return; successful child write with pending refetch; actual long-content scrolling |
-| Account deletion step-up | Users & Roles: named native dialog, bound password label, autofocus and exact opener restoration; Cancel/Escape performs no write. Check Head eligibility, blank and pending controls, repeated submission and failure retention in tests. Use synthetic accounts for browser evidence; opening and canceling the dialog is sufficient for visual/focus verification |
+| Account deletion step-up | Users & Roles: fresh consequence/fingerprint review, precise current singleton/history counts, retained ownership/intake/Head blockers and explicit stale-review Reload. Check delayed password focus, named native dialog, label/opener restoration, same-turn admission, pending dismissal, rejected draft and accepted-write/read recovery. Include `delete-account.test.ts`, the deletion component, Users page and auth/ownership regressions. Use synthetic EN/ZH desktop/mobile records; opening and canceling proves layout/focus, while database tests prove deletion, concurrency and rollback |
 | Request disclosure | Measure the sole Expand/Collapse target at desktop and mobile widths and the actual arrow leaf's contrast. Verify Enter/Space, focus, expanded state, retained selections, fulfilled auto-collapse and visible invalid-record review controls; include long labels and enlarged text without document overflow |
 | Repeat profile edits | Account, tutor, tutee and Head username: Save → automatic refresh → Save without closing or a restart action; forced fresh version read; Retry refresh without a POST; automatic completion leaves sibling focus alone; retained academic/history drafts and original versions |
 | Tutee detail reader | Actual Tutees roster: one trailing View details action; ordered subject choices, email copy and paginated history in one wide dialog; current versus historical academics; missing email and retained-owner setup restrictions. Check EN/ZH, long names/subjects/email, desktop/mobile scrolling, sticky Close, Escape/focus return and pending verification dismissal. History mounts on opening, refreshes on reopening, and retains cached content with Retry after failure. Viewers and departure observers must retain summary/subject access without contact or history queries |
@@ -233,6 +234,7 @@ does not establish authorization, native browser focus or persisted behavior.
 | Filters and settings | Pressed selections versus content tabs; filter/page reset rules; consistent control heights, including the tutor qualification Request/Cancel action pair at 40 px desktop and at least 44 px mobile; immediate switches, unknown/yes/no choices and staged saves keep their own semantics |
 | Roster search and pairing selection | Search within the authorized role/participation scope using four-part and legacy names plus permitted identifiers. Clearing search preserves other filters. Select → search away → clear retains exact IDs; removing one leaves others intact. Use long names and at least 50 candidates on mobile without document overflow |
 | Creation and grouped workspaces | Pairings, Announcements, Time Slots and Hour Adjustments: one creation entry, close/reopen draft retention, independent create/edit drafts, rejected saves, pending dismissal and nested review. Program, Crew and Support: inventory every existing control, retained panel drafts/filters/pagination, review and accepted-write recovery outside hidden panels, keyboard tabs and unchanged roles |
+| Last-resort creation warning              | Management New Pairing, Add a Tutee and Add Tutor: warning before fields on every opening; fresh unchecked acknowledgement and disabled Continue; Cancel/Escape restores the opener without opening fields or writing; acknowledged Continue opens fields without a mutation/proposal. Close/reopen requires acknowledgement while preserving unfinished drafts. Check EN/ZH desktop/mobile, long warning text, keyboard focus, pending-save dismissal, role restrictions and existing save tickets/approvals in the actual pages as well as the gallery                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Save scope and tutor orientation | Blur guidance describes only existing immediate fields; focus without changes writes nothing. Top/footer layout Save share one pending state and admission guard. Tutor attention counts exclude paused interviews and distinguish unavailable from empty reads; task-specific attention links and today's schedule remain, while the duplicated permanent section-link strip is removed. Actual workspace navigation stays reachable. WorkflowShell keeps one shared utility set and correct role/return context at 1024 px and narrow widths |
 | Long table readers and pagination | Room-grid and original Crew text: header Close remains reachable after scrolling; lazy mounting, nested Escape/focus return and pending child writes. Participant/support/message lists: distinct navigation names, first/middle/final/empty states, independent page resets and 44 px narrow controls with enlarged text |
 | Readable historical states | Measure actual foreground/background contrast for undone audit entries, inactive announcements and fulfilled request metadata/actions. Inspect the painted text or glyph leaf: a parent color does not establish a child icon's contrast when the child overrides it. Keep status meaning without fading whole records; verify selected recipients and unread messages under all six accent themes. A passing body-text ratio does not establish metadata, action or focus contrast |
@@ -255,6 +257,17 @@ failure/pending scenarios. Wait for the specific recovery notice to clear before
 claiming Retry succeeded; another query may have its own error banner. Keep full
 mobile forms reviewable across multiple captures. Inspect the screenshots, record
 test limitations, and stop owned browser/server/database processes after checking.
+
+For confirmation timing changes, use the [action matrix](technical-report.md#confirmation-timing-contract).
+Capture real countdown states before and after using the same synthetic record,
+role, locale and viewport; record the rendered label as well as the nominal server
+delay. Check exact readiness/expiry boundaries, client clock jumps, throttled
+background callbacks and focus/visibility resume, cancelled/reopened or changed
+targets, late preparation, same-turn duplicates and repeated identical write
+rejections. Verify policy read/agreement evidence and the assignment-to-qualification
+ticket handoff. The dedicated timing, dialog and submission tests cover these
+boundaries; the survey and assignment router suites verify actual stored ticket
+consumption, cancellation scope and unchanged lifetimes against the isolated DB.
 
 For each rollout phase, capture the before and after state using the same synthetic
 record, role, language, viewport and interaction. Compare the affected content

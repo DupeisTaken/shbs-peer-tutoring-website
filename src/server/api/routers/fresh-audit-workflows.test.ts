@@ -9,7 +9,8 @@ import { finalizeDueOptOuts } from "~/server/discipline/removal";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { currentPolicy } from "~/server/policy-acceptance";
 import { hashPassword } from "~/server/auth/password";
-import * as reauthentication from "~/server/auth/reauth";
+import { lockUsernameNamespace } from "~/server/auth/username";
+import { lockEntity } from "~/server/transactions";
 
 // These destructive fixtures run only against the operator-selected disposable test database.
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -163,7 +164,10 @@ it("audit: active tutor cannot edit historical schedules or another tutor's pair
 });
 
 it("audit: active tutor can set a current slot and clearing it preserves copied times", async () => {
-  await db.pairing.update({ where: { id: pairingId }, data: { scheduleConfirmed: false } });
+  await db.pairing.update({
+    where: { id: pairingId },
+    data: { scheduleConfirmed: false },
+  });
   await tutor().tutor.setPairingSlot({ pairingId, slotId });
   expect(
     await db.pairing.findUniqueOrThrow({ where: { id: pairingId } }),
@@ -524,17 +528,24 @@ it("audit: only Head can delete an eligible account and linked tutor history sur
   await passwordForHead();
   await expect(
     tutor().admin.deleteUser({
+      fingerprint: "a".repeat(64),
       userId: headId,
       confirmPassword: deletionPassword,
     }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
   await expect(
     head().admin.deleteUser({
+      fingerprint: "a".repeat(64),
       userId: headId,
       confirmPassword: deletionPassword,
     }),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  await head().admin.deleteUser({ userId, confirmPassword: deletionPassword });
+  const preview = await head().admin.previewDeleteUser({ userId });
+  await head().admin.deleteUser({
+    userId,
+    fingerprint: preview.fingerprint,
+    confirmPassword: deletionPassword,
+  });
   expect(await db.user.findUnique({ where: { id: userId } })).toBeNull();
   expect(await db.tutor.findUnique({ where: { id: tutorId } })).not.toBeNull();
   expect(await db.pairing.count({ where: { tutorId } })).toBe(2);
@@ -546,44 +557,58 @@ it("audit: a deletion already in flight loses authority after leadership transfe
   const successor = await db.user.create({
     data: { name: "Next Head", email: "next-head@example.test", role: "ADMIN" },
   });
+  const preview = await head().admin.previewDeleteUser({ userId });
   let entered!: () => void;
   let resume!: () => void;
-  const atPassword = new Promise<void>((resolve) => {
+  const atNamespace = new Promise<void>((resolve) => {
     entered = resolve;
   });
   const release = new Promise<void>((resolve) => {
     resume = resolve;
   });
-  const verify = reauthentication.assertCallerPassword;
-  let first = true;
-  vi.spyOn(reauthentication, "assertCallerPassword").mockImplementation(
-    async (...args) => {
-      await verify(...args);
-      if (first) {
-        first = false;
-        entered();
-        await release;
-      }
+  // Hold the transfer's namespace boundary, then admit deletion with its earlier
+  // role claim. The locked live check must reject once leadership commits.
+  const transferring = db.$transaction(
+    async (tx) => {
+      await lockUsernameNamespace(tx);
+      await lockEntity(tx, "program:leadership");
+      entered();
+      await release;
+      await tx.user.update({ where: { id: headId }, data: { role: "ADMIN" } });
+      await tx.user.update({
+        where: { id: successor.id },
+        data: { role: "HEAD" },
+      });
     },
+    { timeout: 10000 },
   );
-  // Pause deletion after its initial role gate, then let another valid request transfer power.
+  await atNamespace;
   const deleting = head().admin.deleteUser({
     userId,
+    fingerprint: preview.fingerprint,
     confirmPassword: deletionPassword,
   });
   const result = deleting.then(
     () => null,
     (error: unknown) => error,
   );
-  await atPassword;
+  let observed = false;
   try {
-    await head().admin.transferHead({
-      userId: successor.id,
-      confirmPassword: deletionPassword,
-    });
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const rows = await db.$queryRaw<
+        { waiting: boolean }[]
+      >`SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted) AS waiting`;
+      if (rows[0]?.waiting) {
+        observed = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
   } finally {
     resume();
   }
+  await transferring;
+  expect(observed).toBe(true);
   expect(await result).toMatchObject({ code: "FORBIDDEN" });
   expect(await db.user.findUnique({ where: { id: userId } })).not.toBeNull();
   expect(
@@ -615,24 +640,58 @@ it("audit: notification list, unread counts and read updates stay within the cal
   ).toMatchObject({ readAt: null });
 });
 
-
 it("an unscheduled primary or merged assignment requires explicit actual times", async () => {
   const { input, otherPairingId } = await attendanceFixture();
-  await db.pairing.updateMany({ where: { id: { in: [pairingId, otherPairingId] } }, data: { scheduleConfirmed: false } });
+  await db.pairing.updateMany({
+    where: { id: { in: [pairingId, otherPairingId] } },
+    data: { scheduleConfirmed: false },
+  });
   const withoutTimes = { ...input, startMin: undefined, endMin: undefined };
-  for (const partial of [withoutTimes, { ...withoutTimes, startMin: 900 }, { ...withoutTimes, endMin: 960 }]) {
-    await expect(tutor().tutor.submitAttendance(partial)).rejects.toThrow("Enter actual start and end times");
+  for (const partial of [
+    withoutTimes,
+    { ...withoutTimes, startMin: 900 },
+    { ...withoutTimes, endMin: 960 },
+  ]) {
+    await expect(tutor().tutor.submitAttendance(partial)).rejects.toThrow(
+      "Enter actual start and end times",
+    );
   }
   expect(await db.session.count()).toBe(0);
-  await db.pairing.update({ where: { id: pairingId }, data: { scheduleConfirmed: true } });
-  await expect(tutor().tutor.submitAttendance({ ...withoutTimes, mergePairingIds: [otherPairingId] })).rejects.toThrow("Enter actual start and end times");
-  await tutor().tutor.submitAttendance({ ...input, pairingId: otherPairingId, startMin: 800, endMin: 840 });
-  expect(await db.session.findFirstOrThrow()).toMatchObject({ startMin: 800, endMin: 840, durationMin: 40 });
-  expect(await db.pairing.findUniqueOrThrow({ where: { id: otherPairingId } })).toMatchObject({ scheduleConfirmed: false });
+  await db.pairing.update({
+    where: { id: pairingId },
+    data: { scheduleConfirmed: true },
+  });
+  await expect(
+    tutor().tutor.submitAttendance({
+      ...withoutTimes,
+      mergePairingIds: [otherPairingId],
+    }),
+  ).rejects.toThrow("Enter actual start and end times");
+  await tutor().tutor.submitAttendance({
+    ...input,
+    pairingId: otherPairingId,
+    startMin: 800,
+    endMin: 840,
+  });
+  expect(await db.session.findFirstOrThrow()).toMatchObject({
+    startMin: 800,
+    endMin: 840,
+    durationMin: 40,
+  });
+  expect(
+    await db.pairing.findUniqueOrThrow({ where: { id: otherPairingId } }),
+  ).toMatchObject({ scheduleConfirmed: false });
 });
 it("clearing an unscheduled assignment never confirms placeholder times", async () => {
-  await db.pairing.update({ where: { id: pairingId }, data: { scheduleConfirmed: false } });
+  await db.pairing.update({
+    where: { id: pairingId },
+    data: { scheduleConfirmed: false },
+  });
   await tutor().tutor.setPairingSlot({ pairingId, slotId: null });
-  expect(await db.pairing.findUniqueOrThrow({ where: { id: pairingId } })).toMatchObject({ scheduleConfirmed: false, timeSlotId: null });
-  expect((await tutor().tutor.schedule()).pairings.map((p) => p.id)).not.toContain(pairingId);
+  expect(
+    await db.pairing.findUniqueOrThrow({ where: { id: pairingId } }),
+  ).toMatchObject({ scheduleConfirmed: false, timeSlotId: null });
+  expect(
+    (await tutor().tutor.schedule()).pairings.map((p) => p.id),
+  ).not.toContain(pairingId);
 });

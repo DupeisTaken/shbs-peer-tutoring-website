@@ -30,6 +30,7 @@ import {
   TableDetails,
 } from "~/app/_components/ui/summary-table";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
+import { CreationRiskDialog } from "~/app/_components/creation-risk-dialog";
 import { matchesPersonSearch } from "~/lib/person-search";
 import { Button } from "~/app/_components/ui/button";
 import { StatePanel } from "~/app/_components/ui/patterns";
@@ -205,6 +206,7 @@ export default function PairingsPage() {
   const [createDraft, setCreateDraft] = useState<PairingForm>(EMPTY);
   const [editDraft, setEditDraft] = useState<PairingForm | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [creationRiskOpen, setCreationRiskOpen] = useState(false);
   const [tuteeSearch, setTuteeSearch] = useState("");
   const form = editDraft ?? createDraft;
   const setForm = (next: SetStateAction<PairingForm>) => {
@@ -286,11 +288,11 @@ export default function PairingsPage() {
       }
     };
     if (form.id)
-      update.mutate(
+      return update.mutateAsync(
         { ...base, id: form.id, roomId: form.roomId || null, overrideTicket },
         { onSuccess },
       );
-    else create.mutate({ ...base, overrideTicket }, { onSuccess });
+    else return create.mutateAsync({ ...base, overrideTicket }, { onSuccess });
   };
 
   const error = create.error ?? update.error;
@@ -481,8 +483,12 @@ export default function PairingsPage() {
         {!readOnly && hasData && (
           <Button
             variant="primary"
+            aria-haspopup="dialog"
             disabled={create.isPending || update.isPending}
-            onClick={() => setCreateOpen(true)}
+            onClick={() => {
+              if (create.isPending || update.isPending) return;
+              setCreationRiskOpen(true);
+            }}
           >
             {t("admin.pairings.newPairing")}
           </Button>
@@ -494,6 +500,21 @@ export default function PairingsPage() {
           <p className="muted text-sm">{workloadText("staffHelp")}</p>
           <AssignmentWorkloadFeedback />
         </>
+      )}
+
+      {/* Entry consent never replaces the assignment review or its server ticket. */}
+      {!readOnly && hasData && creationRiskOpen && (
+        <CreationRiskDialog
+          kind="pairing"
+          continueDisabled={readBlocked || create.isPending || update.isPending}
+          onCancel={() => setCreationRiskOpen(false)}
+          onContinue={() => {
+            if (readBlocked || create.isPending || update.isPending)
+              return false;
+            setCreationRiskOpen(false);
+            setCreateOpen(true);
+          }}
+        />
       )}
 
       {/* Slot × room schedule grid */}

@@ -1,6 +1,8 @@
 /** Explicit management authority inventory. Unknown coordinator writes fail closed.
  * Participant self-service remains owned by its separate account/tutor/student procedures. */
 // program.resendStuckEmails remains immediate ADMIN/HEAD authority: it retries existing delivery evidence.
+// notification.retryRequestEmail and notification.declineRequestAppeal are immediate
+// ADMIN/HEAD authority. They retain receipt IDs and never bypass an invalidity proposal.
 // recordTransfer.* requires HEAD directly. Imports/exports cannot be proposed or replayed.
 // tuteeHistory.invite/link/cancelInvitation require ADMIN/HEAD directly. Conflict correction
 // additionally reauthenticates Head; public history account setup grants no membership.
@@ -9,6 +11,8 @@
  * qualificationApplication.decide deliberately uses adminOnlyProcedure instead: subject grants
  * do not change account badges and coordinators cannot submit/replay these decisions. */
 export const HEAD_APPROVAL_OPERATIONS = new Set([
+  "studentWorkflow.headEditSignup",
+  "studentWorkflow.headUnassign",
   "program.setCaptcha",
   "program.setCalendarDay",
   "program.setNameFields",
@@ -55,6 +59,9 @@ export const HEAD_APPROVAL_OPERATIONS = new Set([
   "tutor.decideInterview",
 ]);
 export const APPROVAL_OPERATIONS: Record<string, string> = {
+  "studentWorkflow.headEditSignup": "StudentSurvey",
+  "studentWorkflow.headUnassign": "StudentSurvey",
+  "studentWorkflow.resolveSignupAppeal": "StudentSignupAppeal",
   "program.setCalendarDay": "ProgramCalendarDay",
   "program.setNameFields": "ProgramSettings",
   "program.removeCalendarDay": "ProgramCalendarDay",
@@ -181,6 +188,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
 };
 
 export const COORDINATOR_DIRECT_OPERATIONS = new Set([
+  "studentWorkflow.resendSignupNotice",
   // Read-only preview uses POST so academic CSV contents never enter a query URL.
   "historicalAcademics.preview",
   "assignment.prepare",
@@ -265,6 +273,7 @@ export function classifyApproval(
     changesRecordedSlotAttendance?: boolean;
     currentRegistrationKind?: string;
     restoresArchivedRecord?: boolean;
+    discretionarySignupChange?: boolean;
   } = {},
 ): ApprovalAuthority | null {
   if (!Object.hasOwn(APPROVAL_OPERATIONS, operation)) return null;
@@ -272,6 +281,18 @@ export function classifyApproval(
     input && typeof input === "object"
       ? (input as Record<string, unknown>)
       : {};
+  if (
+    context.discretionarySignupChange ||
+    ["studentWorkflow.headEditSignup", "studentWorkflow.headUnassign"].includes(
+      operation,
+    )
+  )
+    return {
+      category: "REVERSAL",
+      directRoles: ["HEAD"],
+      requesterRoles: ["ADMIN", "COORDINATOR", "HEAD"],
+      reviewerRoles: ["HEAD"],
+    };
   if (significantSettings.has(operation))
     return {
       category: "SIGNIFICANT_SETTING",
@@ -395,6 +416,26 @@ export function proposalConfirmation(operation: string, value: unknown) {
     typeof value.id !== "string"
   )
     return null;
+  if (operation === "studentWorkflow.headEditSignup")
+    return { action: "SIGNUP_EDIT" as const, target: value.id };
+  if (
+    operation === "studentWorkflow.headUnassign" &&
+    "pairingId" in value &&
+    typeof value.pairingId === "string"
+  )
+    return {
+      action: "SIGNUP_UNASSIGN" as const,
+      target: `${value.id}:${value.pairingId}`,
+    };
+  if (
+    operation === "studentWorkflow.resolveSignupAppeal" &&
+    "approve" in value &&
+    typeof value.approve === "boolean"
+  )
+    return {
+      action: "SIGNUP_APPEAL" as const,
+      target: `${value.id}:${value.approve}`,
+    };
   if (operation === "studentWorkflow.assign")
     return { action: "ASSIGN" as const, target: value.id };
   if (

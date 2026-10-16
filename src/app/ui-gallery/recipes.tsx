@@ -4,6 +4,7 @@ import { AdminSummaryRecipe } from "./admin-summary-recipe";
 import { WorkloadPreferenceRecipe } from "./workload-preference-recipe";
 import { NavigationRecipes } from "./navigation-recipes";
 import { ActionReviewRecipe } from "./action-review-recipe";
+import { CreationRiskRecipe } from "./creation-risk-recipe";
 import { useEffect, useState, type ReactNode } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import enMessages from "../../../messages/en.json";
@@ -403,6 +404,7 @@ export function RecipeGallery({
     >
       <div className="grid items-start gap-6 lg:grid-cols-2">
         <ActionReviewRecipe />
+        <CreationRiskRecipe />
         <Recipe
           title={t.long}
           help={t.longHelp}

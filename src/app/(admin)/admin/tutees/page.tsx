@@ -1,4 +1,5 @@
 "use client";
+import { CreationRiskDialog } from "~/app/_components/creation-risk-dialog";
 import {
   useSessionAccessDenied,
   useSessionPageScroll,
@@ -124,6 +125,9 @@ export default function TuteesPage() {
     !identity.error &&
     ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
   const [creationOpen, setCreationOpen] = useState(false);
+  const [creationRiskOpen, setCreationRiskOpen] = useState(false);
+  const creationPanel = useRef<HTMLElement>(null);
+  const focusCreation = useRef(false);
   const addTrigger = useRef<HTMLButtonElement>(null);
   const restoreAddFocus = useRef(false);
   const creationSubmitting = useRef(false);
@@ -209,6 +213,14 @@ export default function TuteesPage() {
       addTrigger.current?.focus();
     }
   }, [creationOpen, create.isPending]);
+  useEffect(() => {
+    if (creationOpen && focusCreation.current) {
+      focusCreation.current = false;
+      creationPanel.current
+        ?.querySelector<HTMLInputElement>("input:not(:disabled)")
+        ?.focus();
+    }
+  }, [creationOpen]);
 
   const [names, setNames] = useState(() => nameDraft());
   const [namePolicyReady, setNamePolicyReady] = useState(false);
@@ -314,14 +326,14 @@ export default function TuteesPage() {
               type="button"
               className="btn-primary min-h-11 lg:min-h-10"
               aria-expanded={creationOpen}
+              aria-haspopup={creationOpen ? undefined : "dialog"}
               aria-controls="add-tutee-form"
               disabled={create.isPending}
               onClick={() => {
                 if (create.isPending || creationSubmitting.current) return;
-                // A completed save belongs to that draft only. Preserve failed
-                // drafts and their errors when hiding/reopening the form.
-                if (!creationOpen && create.isSuccess) create.reset();
-                setCreationOpen((open) => !open);
+                // Hiding retains the draft; opening always requires fresh consent.
+                if (creationOpen) setCreationOpen(false);
+                else setCreationRiskOpen(true);
               }}
             >
               {t(
@@ -353,6 +365,20 @@ export default function TuteesPage() {
           onClose={() => setDetailsId(null)}
         />
       )}
+      {!readOnly && creationRiskOpen && (
+        <CreationRiskDialog
+          kind="tutee"
+          continueDisabled={create.isPending}
+          onCancel={() => setCreationRiskOpen(false)}
+          onContinue={() => {
+            if (create.isPending || creationSubmitting.current) return false;
+            if (create.isSuccess) create.reset();
+            setCreationRiskOpen(false);
+            focusCreation.current = true;
+            setCreationOpen(true);
+          }}
+        />
+      )}
       {/* Manual add */}
       {canEditProfiles && editing && (
         <TuteeEditor
@@ -368,6 +394,7 @@ export default function TuteesPage() {
         // intact until a successful save or navigation away from this page.
         <section
           id="add-tutee-form"
+          ref={creationPanel}
           hidden={!creationOpen}
           aria-labelledby="add-tutee-title"
           className="card p-5"

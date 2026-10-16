@@ -131,6 +131,13 @@ interval. Tutee resends preserve your original submission time and place. A fail
 email does not mean you need to submit a new survey. Contact the team if delivery
 continues to fail. Existing emailed verification links remain independently usable.
 
+Retrying the same accepted tutee submission recovers its acknowledgement without
+sending another verification email or requiring another CAPTCHA. Changing the
+answers is a deliberate new submission: it has its own verification challenge and
+policy signature. A retry with changed answers is refused. Failed saves retain
+your draft; if the request saved but refreshing failed, use the read-only recovery
+action instead of submitting it again.
+
 ### Switch workspaces
 
 Management headers and account menus show **Enter Tutor Page**, then **Enter Tutee Page** together when eligible. The tutor shortcut requires a linked, non-archived profile with tutoring access. Tutee workspace access preserves personal records, while new participation follows the onboarding and departure rules above. Management accounts without tutor eligibility can still open the tutee workspace and return to management.
@@ -163,11 +170,37 @@ still apply. Independently assigned management, crew and translator permissions 
 
 1. Open **Request a Tutor** on the home page or any section of the tutee page when intake is open. You can start with the form before creating an account.
 2. Enter your name, email, preferred contact method, subject choices and available times. Read the displayed tutee policy and sign the agreement.
-3. Choose **Submit Request**. Your original survey submission sets your priority. Repeating the same open request does not buy an earlier place.
+3. Choose **Submit Request**. Your first eligible submission sets your priority. Using the same email for a later request does not buy an earlier place.
 4. Enter the verification code sent to your email, or open the existing account-confirmation link and explicitly confirm the email. The invitation popup shows a code, optional email delivery and a prefilled link to `/register`. Review the request there and create missing credentials if needed. Existing accounts retain credentials and other access; an exclusive Viewer leaves Viewer when accepting tutee participation.
 5. Continue to **Enter Tutee Page**, then **Requests**, to check your confirmed request and available times. If verification or review is interrupted, use its resend/recovery action or reopen the invitation rather than submitting another application.
 
-An account link lasts 24 hours. Request a new link if it expires; a successful resend replaces the previous link. Staff may assign a tutor before you confirm. That first assignment starts a fixed seven-day verification deadline. Reassignment and link resends do not extend it. An unverified request closes when its deadline passes and its assignments are released; you must submit a new request with a new priority timestamp.
+Use your existing account email or a verified secondary address if you already have
+an account, including an account used for tutoring others. The website keeps one
+account for that email. A matching email alone cannot reveal or change a request:
+verify the code for this exact submission, complete the existing sign-in and any
+required two-factor check, then explicitly review it. The accepted submission
+replaces your current open request's answers while retaining its original priority,
+assignments, attendance and original signed agreement. Each deliberate submission
+also records its own signed consent, even if the answers are identical. This
+replacement behavior applies to tutee requests; tutor recruitment keeps its
+existing application and interview process.
+
+Before accepting, review this exact submission's answers, subject choices,
+available times, signature and signed policy. They appear separately from your
+existing account details and show the original queue priority being retained.
+Correcting request details does not replace your login identity.
+
+A staged replacement has its own challenge. It does not change the live request or
+invalidate that request's existing email proof while awaiting review. Account links
+and staged challenges last up to 24 hours. A successful resend replaces only the
+proof being resent; a failed delivery preserves its usable proof. Staff may assign
+a tutor before you confirm. That first assignment starts a fixed seven-day
+verification deadline. Reassignment, replacement submissions and resends do not
+extend it. An expired original link can be followed by a fresh proven submission
+while this deadline still permits verification. An unverified request closes when
+the deadline passes and its assignments are released; a later eligible request
+receives a new priority timestamp. Signup closing creates no extra verification
+deadline.
 
 The configured tutee signup opening and closing times apply to new requests even
 when you are already signed in. Returning to the form checks the current intake
@@ -183,7 +216,7 @@ The tutee page uses the same top bar, account menu, theme and card layout as the
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | Dashboard            | See current scheduled sessions and verified open requests, then follow a link to the task you need                                 |
 | My Tutors & Schedule | See current tutoring sessions, tutors, times and rooms across your explicitly linked profiles                                      |
-| Requests             | Review confirmed requests, change availability and manage participation; completed requests remain in the current period’s history |
+| Requests             | Review and edit owned open requests, manage participation and appeal an invalid request; completed requests remain in history |
 | Attendance           | Review recorded sessions across intakes and submit feedback                                                                        |
 | Support              | Review your disciplinary cards and appeals or open a private conversation                                                          |
 | Messages             | Read and send messages within the tutee workspace                                                                                  |
@@ -203,12 +236,52 @@ actions. Each list keeps its own page and navigation state.
 
 | What you need                | Action                                    | What happens                                                                                                             |
 | ---------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Change your available times  | **Edit availability**                     | Subjects, priority and current assignments stay the same; coordinate the actual meeting with your tutor                  |
+| Correct request details      | Open the current request's signup editor | Change names, grade, phone, preferred contact, availability and unassigned subject choices; original priority and signed evidence remain |
+| Change an assigned subject   | Ask Head to review the assignment        | Owners cannot drop assigned choices; Head reviews assignment release and request edits together, retaining recorded sessions |
 | Cancel an unassigned request | Recall it and confirm the consequences    | That request closes permanently; applying again creates a new timestamp                                                  |
 | Leave after assignment       | **Request withdrawal…** and give a reason | Assignment continues during review; approval ends participation and blocks another request in the current program period |
 | See the result               | **Current Request** and **Processed**     | Review state and assignment are shown separately                                                                         |
 
 Important actions display consequences and a countdown before confirmation. A pending request is not an approved change. If a tutor reports a schedule conflict, an approved rejection removes only that tutor’s assignment and returns your request for matching at its original priority.
+
+You can edit an owned **OPEN** request during its active program period even after
+public signup closes. Historical and terminal requests are read only. The editor
+changes this request's answers; shared login identity, credentials and canonical
+account academics remain separate. Current required fields, offered grades,
+subjects and time slots still apply, with assigned subject choices retained. If
+another edit changed the request, your draft remains available, but explicitly
+reload its current version before deciding what to save. A later policy publication
+does not rewrite a submission's signature or accept the new policy for you; the
+workspace's separate current-policy requirement still applies.
+
+An invalid request shows a notice and sends an email notification. Give a reason
+to appeal before the active program period rolls over. The request stays invalid
+and blocked from processing during review. Admin or Head can accept the appeal or
+finally reject it. Acceptance clears the flag and retains the original priority;
+final rejection closes the active request and ends that priority, while preserving
+its history and decision evidence. A later eligible submission starts a new request
+with a new priority. Appeals do not extend a fixed verification deadline.
+
+Confirmation waits depend on the action:
+
+| Action                                    | Wait      | What you review                                                              |
+| ----------------------------------------- | --------- | ---------------------------------------------------------------------------- |
+| Recall an unmatched request               | 2 seconds | Permanent closure and loss of the original queue priority if you apply again |
+| Request withdrawal for the quarter        | 3 seconds | A reviewed request to end participation; assignments continue until approval |
+| Propose a tutor schedule conflict         | 2 seconds | A reason for management review; the assignment remains active                |
+| Approve a withdrawal or schedule conflict | 3 seconds | The participation or assignment consequences named in the dialog             |
+| Decline a withdrawal or conflict          | 2 seconds | Closing the application while keeping the current participation/assignment   |
+| Assign a tutor                            | 2 seconds | The selected learner, subject, tutor and verification consequences           |
+| Confirm an unqualified assignment         | 2 seconds | The named tutor's missing qualification for the selected subject             |
+| Accept participation policy               | 5 seconds | The current published document and your explicit agreement                   |
+
+The wait enables the confirmation choice; it never submits automatically. Cancel
+or changing the reviewed action/record starts a fresh review. If the confirmation
+expires, reopen it or use its refresh action. Failed writes allow deliberate retry
+without duplicate submission; pending writes prevent duplicate confirmation and
+dismissal.
+Email verification, resend limits, signup windows and session timeouts have their
+own unchanged timing rules.
 
 ### Withdrawal requests
 
@@ -490,17 +563,39 @@ Use **Edit profile** to edit the independent Tutor, Tutee, Translator and Crew b
 Account setup links are sent privately to the account holder by email. Management cannot copy the password-setting link from the website. If mail delivery is unavailable, ask the deployment administrator to configure it before retrying.
 
 For an eligible account, Head can open **Delete** in the row's Actions column.
-The confirmation identifies the account and asks for the Head's own password.
+The confirmation freshly loads the account, counts the records removed and retained,
+and explains any blocker before asking for the Head's own password. A login needs
+no signup and may have unfinished setup. Accountless roster records have no login
+to delete. Direct tutor/tutee roster records and session history remain; login-local
+email addresses, recovery/verification grants, notices, delivery records, appeals,
+Crew requests, acknowledgements, academic profiles/confirmations, school-departure
+records/events and patrol evidence are removed. Original messages, policy signatures,
+audit actors, approval decisions and tutee review requests remain. Authored content loses its login attachment.
+Sessions and account-bound invitation proofs become invalid.
 Cancel or Escape before submission returns to the same row without deleting it.
 While deletion is pending, the confirmation stays open and its fields are disabled.
 A failed attempt keeps the password available for correction; canceling and opening
 a new confirmation starts with a blank password.
+Changed accounts or dependencies require **Reload deletion review** and another
+review; Reload performs no deletion. Combined identities and retained Tutor/Tutee
+ownership cannot be deleted through this action. Review historical ownership first,
+or use Combine accounts instead to retire a genuine duplicate while retaining access.
+Complete or withdraw unconfirmed tutee intake before deleting its login. If deletion
+succeeds but the list fails to refresh, retry the read; the saved deletion cannot run again.
 
 ### Combine duplicate accounts (Head only)
 
 In **Users & Roles → Combine accounts**, select the **Login to keep** and the
 **Duplicate login to retire**. Use this only after independently confirming they
 belong to the same person. Matching names or addresses never combine accounts.
+The selection boxes contain only actual logins displayed by the table's current
+filters and search. Existing visibility defaults remain unchanged: reveal unverified
+or historical accounts through their existing filters when needed. Roster records
+without a login are excluded. A login can be reviewed regardless of signup history;
+the survivor must have completed password setup and email verification, while an
+unfinished login can be retired subject to the other blockers. Hiding a selected
+login clears both selections and their review. Filters stay fixed during a submitted
+combine; a saved combine with failed synchronization offers a read-only retry.
 Choose **Preview combine** to review the retained email/username, membership,
 linked profiles, counts of retained history, and blocking conflicts. Confirm the
 review checkbox and enter your own Head password to perform the combine.
@@ -579,7 +674,17 @@ version; explicit conflict Reload replaces it only after a successful read.
 In Reports, Retry recovers the selected report and any unavailable prerequisite;
 existing scope, masking, export and print rules still apply.
 
-In **Tutors**, choose **Add Tutor** beside the page title to open the creation dialog. The roster stays visible underneath. First Name and Last Name are required; Email and Grade are optional. An omitted email keeps the new roster record accountless until a separate setup step. On wide screens the contact controls sit beside the name fields; on narrower screens they follow them. **Close** or Escape keeps the draft until you leave or reload the page. A successful save clears the draft, closes the dialog and returns focus to **Add Tutor**. The dialog stays open while saving, and failed saves keep your entries with the error shown inside the dialog.
+Management **New Pairing**, **Add a Tutee** and **Add Tutor** are last-resort
+creation workflows. Every opening first shows a risk warning: manual creation
+can bypass the normal participant intake and matching process, so review the
+warning and prefer the normal workflow when it can meet the need. The
+acknowledgement starts unchecked each time. **Cancel** or Escape returns without
+opening the fields; check the acknowledgement to enable **Continue**. Continuing
+only opens the fields and does not create a record. Closing and reopening an
+unfinished form requires a fresh acknowledgement and restores its retained draft.
+Existing permissions, save confirmations and approval requirements still apply.
+
+In **Tutors**, choose **Add Tutor** beside the page title and acknowledge the warning to open the creation dialog. The roster stays visible underneath. First Name and Last Name are required; Email and Grade are optional. An omitted email keeps the new roster record accountless until a separate setup step. On wide screens the contact controls sit beside the name fields; on narrower screens they follow them. **Close** or Escape keeps the draft until you leave or reload the page. A successful save clears the draft, closes the dialog and returns focus to **Add Tutor**. The dialog stays open while saving, and failed saves keep your entries with the error shown inside the dialog.
 
 In **Tutees**, use **Current**, **History** or **All Records**, then **View details** in the rightmost Actions column. One large reader shows the enrollment summary, first and second subject choices, email/account information and tutoring history. Staff can copy the email, inspect attendance and compare original enrollment academics with current account academics without opening separate dialogs. **Previous** and **Next** page through history; **Retry** reloads a failed history read while the other sections remain available. **Close** stays reachable while scrolling. Read-only observers see the enrollment summary and subjects; private contact and history remain restricted.
 
@@ -587,7 +692,7 @@ Accountless tutees remain in this roster, even though they have no Users & Roles
 
 Older profiles may retain a full name without separate first and last names. Leave those Latin name fields unchanged to save notes, contact details or a name in another language without replacing the original identity. This also applies to tutor and account editors, including account settings. Changing First Name, Last Name or Preferred Name requires a valid Latin First Name; enter the person's actual name rather than guessing how an old full name should be split.
 
-The roster and search appear first, with a loading message until records arrive. Choose **Add a Tutee** beside the title to open the entry form. Names, grade/subject choices and actions appear in separate groups. **Hide form** preserves names and choices while you stay on this page; reopening restores the draft. Latin name fields reject other writing systems before submission; **Name in Another Language** accepts them. While saving, the fields and hide actions are disabled. A failed save keeps the draft and error available for correction and retry. Coordinator proposals show an approval status and retain the editable draft. Successful creation clears and hides the form and returns focus to the add action; reopening clears that save's confirmation. Required/optional markers and validation still apply. Historical linking remains inside **Edit Profile**.
+The roster and search appear first, with a loading message until records arrive. Choose **Add a Tutee** beside the title and acknowledge the warning to open the entry form. Names, grade/subject choices and actions appear in separate groups. **Hide form** preserves names and choices while you stay on this page; reopening restores the draft after a fresh acknowledgement. Latin name fields reject other writing systems before submission; **Name in Another Language** accepts them. While saving, the fields and hide actions are disabled. A failed save keeps the draft and error available for correction and retry. Coordinator proposals show an approval status and retain the editable draft. Successful creation clears and hides the form and returns focus to the add action; reopening clears that save's confirmation. Required/optional markers and validation still apply. Historical linking remains inside **Edit Profile**.
 
 In **Subject Availability**, expand a tutor to reveal **Qualified**, **Pending Review** and **Willing to tutor** filters. One filter can be active per tutor; click it again to clear it. These combine with the page search/filter. Pending Review includes pending qualifications and open additional-subject/higher-level requests.
 
@@ -638,9 +743,55 @@ the correction. Clearing the flag preserves the original submission priority,
 verification and application state; it does not recreate expired requests or
 restore membership. Existing verification deadlines continue while flagged.
 These flags do not delete records or impose discipline.
-Reasons are internal management information. Failed saves retain the reason for
+Write the required reason so it is suitable for the submitter to read: a notice
+may include it after request-specific mailbox verification. Observer summaries
+still omit the explanation and staff identity. Failed saves retain the reason for
 retry; after a successful save, **Retry refresh** reloads the records without
 submitting the same change again.
+
+For tutee requests, the owner receives an invalidity notice and can submit a
+reasoned appeal until active-period rollover. The flag remains effective throughout
+review. Admin/Head review the appeal; accepting it clears the flag, while final
+rejection closes the active request and removes its priority without erasing the
+original submission, revisions, assignments' historical records or audit evidence.
+A later eligible request receives a new timestamp. The existing tutor-application
+review process is separate.
+
+Head can review current signup answers and change assigned choices only with an
+explicit review of affected assignment releases. Owners may change only their
+unassigned choices. Neither action rewrites shared login identity, original policy
+signatures, sessions or attendance. Current/historical request readers keep the
+original submission and accepted answer revisions distinct.
+
+Each applied flag, clear or later reflag queues an essential request-status email
+to the address recorded on that request, even when optional email notifications
+are disabled. An unapplied or rejected Coordinator proposal sends no invalidity
+email to the submitter. An unverified recipient sees only the request kind and
+original submission date, time and timezone, with no names, answers or reason.
+Missing historical submission times are shown as unavailable. Request-specific
+verification permits the recorded reason; a matching account email or a staff
+contact-verification checkbox alone does not prove ownership of this request.
+
+The invalidity dialog shows email delivery state and the latest appeal. A missing
+or invalid email address is **Blocked**. **Refresh status** only reads. Admin/Head
+can retry an eligible failed delivery using the same receipt, without flagging
+again or changing the original request. **Sending** means transport was admitted
+and is in progress; clearing cancels queued obsolete notices, but cannot recall
+an admitted attempt. **Sent** confirms transport acceptance, not inbox arrival.
+After five admitted attempts, a failed notice needs a deliberate retry. A crash
+after acceptance can leave delivery uncertain and cause a duplicate retry.
+
+For tutor applications and legacy staff-entered requests, an invalidity email includes **Appeal this decision / 对此决定提出申诉**. The link
+opens a request-specific appeal without sign-in and expires 90 days after the
+notice was created; retrying delivery does not extend it. Treat the link as private:
+anyone holding it can submit the limited appeal. It grants no account access or
+participation. Opening it only reads safe status information. Submit one explanation
+for that flag; repeated submission cannot replace it. Admin/Head review the appeal
+in the request's invalidity dialog and may decline it with a required reason.
+Clearing uses the existing authorized **Clear invalid flag** action, including
+Coordinator approval proposals. Submitting or reviewing an appeal never clears the
+flag automatically. A clear or later reflag retires the old appeal link and retains
+the original request, appeal and review history.
 
 Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history.
 
@@ -648,7 +799,7 @@ Use **How requests are grouped** and **Signup sources and ownership** for the
 contextual explanations. The tabs retain their counts and manual keyboard
 activation; moving focus alone does not select another queue.
 
-Course-aware tutor selectors in Signup Requests and Pairings list tutors with approved, recorded subject grants first, followed by a separate unqualified group. Inherited grants remain valid after level reordering. Choose the subject first in Pairings. Assigning an unqualified tutor opens a warning naming the tutor and subject; confirmation becomes available after three full seconds. Cancel or change the selection to discard that acknowledgement. Coordinators still submit proposals, and the reviewer must confirm any remaining qualification mismatch independently. This override does not waive active-tutor, request, permission, or scheduling checks.
+Course-aware tutor selectors in Signup Requests and Pairings list tutors with approved, recorded subject grants first, followed by a separate unqualified group. Inherited grants remain valid after level reordering. Choose the subject first in Pairings. Assigning an unqualified tutor opens a warning naming the tutor and subject; confirmation becomes available when the two-second countdown completes. Cancel or change the selection to discard that acknowledgement. Coordinators still submit proposals, and the reviewer must confirm any remaining qualification mismatch independently. This override does not waive active-tutor, request, permission, or scheduling checks.
 
 The same selectors and the **Pairings** list show each tutor's approximate assigned
 session-block workload for the **current quarter**, including zero. This estimates
@@ -797,7 +948,12 @@ Legacy accounts that need email verification or a new password receive a setup l
 
 Use password recovery when you cannot sign in. Personal email two-factor authentication requires both the program switch and your account preference, plus working email delivery. If suspended, sign in with your normal password and complete two-factor authentication if enabled; you will be directed to the suspension page to submit or review an account appeal. Suspension continues to block ordinary program access, and a pending appeal does not restore it. This is separate from appealing a student's disciplinary card.
 
-The notification menu shows your own recent notices and unread count. Follow a notice to its related task, mark it read, or mark all as read. Private message bodies and recipient lists are excluded from notifications.
+The notification menu shows your own recent notices and unread count. Follow a notice to its related task, mark it read, or mark all as read. New notices explain the recorded event in the selected interface language; English and Chinese email copy is sent together because no recipient email-language preference is stored. Older in-app notices keep their original readable text. Their email fallback stays generic and never copies arbitrary saved titles or bodies. Private message bodies and recipient lists are excluded from notifications. See the [event inventory](notification-events.md) for current recipients, wording and destinations.
+
+An interview-scheduling notice can include its recorded date, time and timezone.
+A tutoring-assignment notice describes a recurring weekly arrangement and its
+confirmation state. It does not announce a newly dated tutoring session; use the
+workspace schedule and confirm individual dates with the tutor.
 
 Use **Messages** to send separate private deliveries to allowed contacts. Search by name or username, select up to 20 people, and keep selections while searching or paging. New messages deliver immediately and may be reviewed or hidden by HEAD/ADMIN; reviews and moderation are recorded. Recipients cannot see other recipients or their replies. Historical messages sent under the old participant-only notice remain participant-only. Notifications omit message bodies. Replies follow current permissions; history remains readable after contact eligibility changes. If any selected recipient becomes ineligible before a send, nothing is delivered: review your selections and retry. Retrying the same send does not duplicate deliveries. A messaging restriction prevents new sending and incoming eligibility while retaining history; account suspension instead leads to the appeal page. For a suspended account, use the appeal option on the suspension page. See [contact permissions and supervision](program-reference.md#message-permissions-and-supervision) for management configuration.
 
@@ -819,14 +975,14 @@ When Head enables **Email Notifications** in **Program Settings → Deployment C
 
 On **Program Settings → Deployment Configurations**, **Email delivery status** warns when security or program SMTP is not configured or its connection/authentication check fails. It also shows notification emails waiting to retry after a failure and those whose retries are exhausted. **Refresh status** updates this information without sending email or changing program settings; transport checks may reuse a result for up to one minute. Ask the deployment operator to investigate a warning. A successful SMTP check confirms the connection and login only, not that a message reached an inbox. Local development logging is explicitly identified and sends no external email.
 
-After the email service is repaired, ADMIN/HEAD can select **Resend stuck emails** to queue up to 100 eligible failed or retrying notifications. The result confirms queuing; delivery happens through the normal worker and still follows current email preferences and recipient ownership. Emails already being processed or completed are excluded, and optional emails remain excluded while notifications are disabled. If more eligible messages remain, refresh status before queuing another batch. If queuing succeeds but the status read fails, use **Refresh status** to recover without submitting the same action again.
+After the email service is repaired, ADMIN/HEAD can select **Resend stuck emails** to queue up to 100 eligible failed or retrying notifications. The result confirms queuing; delivery happens through the normal worker. Account notifications follow current email preferences and recipient ownership; essential request notices recheck the exact request source and revision and bypass optional preferences. Emails already being processed or completed are excluded, and optional emails remain excluded while notifications are disabled. If more eligible messages remain, refresh status before queuing another batch. If queuing succeeds but the status read fails, use **Refresh status** to recover without submitting the same action again.
 
 
 Optional notification emails also include **Unsubscribe** below the footer. The link opens a page without requiring sign-in; opening it alone changes nothing. Choose to stop that notification category or all optional notification emails, then confirm. This changes the account's preferences for both primary and included secondary addresses, not just the inbox that received the link. In-app notifications, account security alerts, verification, password recovery and signup confirmation remain available. You can turn optional categories back on in **Account → Email Preferences** when program notifications are enabled.
 
 Unsubscribe links expire after 90 days. Use a newer notification or sign in to manage preferences if a link is expired or unavailable. Treat these links as private: anyone with a valid link can turn off the optional categories it offers. Emails already accepted for delivery cannot be recalled.
 
-Disabling notifications at program level preserves preferences and cancels queued optional notices; re-enabling does not send the old backlog. While program notifications are disabled, account settings cannot enable or edit notification preferences; a valid unsubscribe link can still turn optional categories off. Verification, recovery, login/step-up mail and security alerts remain independent of both optional switches and personal notification preferences. Already accepted mail cannot be recalled.
+Disabling notifications at program level preserves preferences and cancels queued optional notices; re-enabling does not send the old backlog. While program notifications are disabled, account settings cannot enable or edit notification preferences; a valid unsubscribe link can still turn optional categories off. Verification, recovery, login/step-up mail, security alerts and essential public-request status notices remain independent of both optional switches and personal notification preferences. Request-status notices go only to the request's recorded address and have no unsubscribe action. Already admitted or accepted mail cannot be recalled.
 
 ## Renewed policy acceptance
 
@@ -834,7 +990,7 @@ On the tutor dashboard, select **current policy** in the accepted-policy message
 
 For both tutor and tutee policies, scroll to the bottom inside the policy text box before checking the agreement. The checkbox is disabled and its label stays gray until you reach the end; it never checks itself. You can scroll using a mouse, touch, or the keyboard after focusing the policy box. A short policy that is fully visible unlocks immediately. Scrolling back up keeps agreement available during that review. Retry, reopening the popup, or switching to another policy revision or translation starts a fresh review.
 
-When a published policy applicable to your linked student or tutor profile changes, a popup opens on your next visit or window focus. Accounts with both profiles review each applicable policy. Read the text in your selected language (or English when unavailable), check the agreement and complete the ten-second confirmation. Use **Retry** if loading or acceptance fails. You may cancel the popup to access messages, account details, personal history, feedback and appeals; new participation still requires current acceptance on the server. The reminder lets you reopen the popup. Already accepted revisions and unpublished proposals do not require renewed consent. Policy editing and publication remain under **Policy Documents**.
+When a published policy applicable to your linked student or tutor profile changes, a popup opens on your next visit or window focus. Accounts with both profiles review each applicable policy. Read the text in your selected language (or English when unavailable), check the agreement and complete the five-second confirmation. Use **Refresh** if loading or acceptance fails. You may cancel the popup to access messages, account details, personal history, feedback and appeals; new participation still requires current acceptance on the server. The reminder lets you reopen the popup. Already accepted revisions and unpublished proposals do not require renewed consent. Policy editing and publication remain under **Policy Documents**.
 
 Email confirmation and password recovery pages remain available without a policy reminder; current acceptance is still required before participating.
 
@@ -861,3 +1017,8 @@ For a private account, disciplinary or attendance matter, contact management thr
 Use synthetic examples and remove tutee names, contact details, private messages, account links and codes from public reports. [Creating issues](issues.md) explains what information is useful.
 
 [Documentation home](README.md) · [Technical report](technical-report.md) · [Policy drafts](policies/README.md)
+
+
+### Current signup appeal compatibility
+
+Current survey signups use the active-period appeal and final-rejection rules above. Their flag email uses one shared request-delivery receipt and opens the version-bound signup appeal. Staff retry that receipt rather than send a second notice. Older generic survey appeal links are retired; their original text and decisions remain visible to authorized staff as read-only history. Existing signup-specific links retain their original account/version binding and still require a current eligible period. Tutor and legacy-request generic appeals retain their separate 90-day link and non-terminal review rules.

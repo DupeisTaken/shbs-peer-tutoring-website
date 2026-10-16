@@ -171,7 +171,10 @@ function RequestCard({
   const activeTutors = tutors.filter((tu) => tu.active);
 
   return (
-    <div className={`card p-5 ${fulfilled ? "bg-slate-50" : ""}`}>
+    <div
+      id={`request-signup-${tutee.id}`}
+      className={`card scroll-mt-6 p-5 ${fulfilled ? "bg-slate-50" : ""}`}
+    >
       {assignmentPayload && !tutee.isInvalid && (
         <WorkloadAssignmentConfirmation
           operation="admin.assignSignup"
@@ -181,7 +184,7 @@ function RequestCard({
           tutorId={picks[confirmCourse!.name] ?? ""}
           error={assign.error?.message}
           onConfirm={(overrideTicket) =>
-            assign.mutate({ ...assignmentPayload, overrideTicket })
+            assign.mutateAsync({ ...assignmentPayload, overrideTicket })
           }
         />
       )}
@@ -596,6 +599,7 @@ export default function RequestsPage() {
             hasPeriod
               ? display.map((t2, i) => ({
                   id: `manual-${t2.id}`,
+                  sourceId: t2.id,
                   submittedAt: t2.signupSubmittedAt ?? t2.createdAt,
                   invalid: t2.isInvalid,
                   group: signupRequestGroup(

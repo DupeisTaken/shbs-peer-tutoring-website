@@ -176,6 +176,25 @@ vi.mock("~/trpc/react", async () => ({
       combine: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
     },
     admin: {
+      previewDeleteUser: {
+        useQuery: ({ userId }: { userId: string }) => ({
+          data: {
+            target: {
+              id: userId,
+              name: "Synthetic Viewer",
+              email: "viewer@example.test",
+              username: "viewer",
+            },
+            fingerprint: "delete-fingerprint",
+            blockers: [],
+            removed: { emails: 1 },
+            retained: {},
+          },
+          isFetching: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
       accountDetails: { useQuery: state.accountDetails },
       accounts: {
         useQuery: () => ({
@@ -451,6 +470,7 @@ describe("people summary tables", () => {
     fireEvent.submit(dialog.querySelector("form")!);
     expect(state.deleteUser).toHaveBeenCalledWith({
       userId: "viewer",
+      fingerprint: "delete-fingerprint",
       confirmPassword: "synthetic-password",
     });
     fireEvent.click(

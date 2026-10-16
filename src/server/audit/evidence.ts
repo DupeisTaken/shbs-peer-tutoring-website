@@ -25,6 +25,7 @@ const safeFields = new Set([
   "preferredAssignedBlocks",
   "workloadPreferenceVersion",
   "version",
+  "currentVersion",
   "nameFieldsVersion",
   "invalidatedAt",
   "invalidatedById",

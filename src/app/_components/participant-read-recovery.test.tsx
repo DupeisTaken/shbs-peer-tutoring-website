@@ -18,6 +18,7 @@ import { StudentPortal } from "./student-portal";
 import { StudentWorkspace } from "../student/student-workspace";
 import { LegacyParticipation } from "../student/legacy-participation";
 import { TutorDiscipline } from "../(tutor)/_components/tutor-discipline";
+import { DEFAULT_NAME_FIELDS } from "~/lib/name-field-policy";
 
 const remote = vi.hoisted(() => ({
   me: vi.fn(),
@@ -30,6 +31,10 @@ const remote = vi.hoisted(() => ({
   edit: vi.fn(),
   withdraw: vi.fn(),
   discipline: vi.fn(),
+  signup: vi.fn(),
+  profile: vi.fn(),
+  names: vi.fn(),
+  headEdit: vi.fn(),
 }));
 vi.mock("~/trpc/react", async () => {
   const { useQuery, useMutation } = await import("@tanstack/react-query");
@@ -52,7 +57,12 @@ vi.mock("~/trpc/react", async () => {
   });
   return {
     api: {
-      program: { calendar: { useQuery: () => ({ data: [] }) } },
+      program: {
+        calendar: { useQuery: () => ({ data: [] }) },
+        profilePolicy: read(["program", "profilePolicy"], remote.profile),
+        nameFieldPolicy: read(["program", "nameFieldPolicy"], remote.names),
+        nameFieldsForProfile: read(["program", "nameFieldsForProfile"], remote.names),
+      },
       tutor: {
         myTuteeDiscipline: read(
           ["tutor", "myTuteeDiscipline"],
@@ -61,9 +71,11 @@ vi.mock("~/trpc/react", async () => {
       },
       useUtils: () => ({
         studentWorkflow: {
-          mine: { invalidate: vi.fn() },
+          mine: { invalidate: () => client.invalidateQueries({ queryKey: [["studentWorkflow", "mine"]] }) },
           legacyParticipation: { invalidate: vi.fn() },
+          adminRequests: { invalidate: vi.fn() },
         },
+        admin: { tutees: { invalidate: vi.fn() }, pairings: { invalidate: vi.fn() } },
       }),
       student: {
         me: read(["student", "me"], remote.me),
@@ -80,7 +92,10 @@ vi.mock("~/trpc/react", async () => {
           ["studentWorkflow", "legacyParticipation"],
           remote.legacy,
         ),
-        editAvailability: write(remote.edit),
+        signup: read(["studentWorkflow", "signup"], remote.signup),
+        managedSignup: read(["studentWorkflow", "managedSignup"], remote.signup),
+        editSignup: write(remote.edit),
+        headEditSignup: write(remote.headEdit),
         recall: write(remote.withdraw),
         applyAbort: write(remote.withdraw),
         applyLegacyWithdrawal: write(remote.withdraw),
@@ -133,6 +148,18 @@ const request = {
   ],
   reviews: [],
 };
+const signup = (version = 0) => ({
+  id: request.id, version, editable: true, email: "owner@example.test", state: "OPEN",
+  submittedAt: request.submittedAt,
+  answers: {
+    firstName: "Original", lastName: "Name", englishName: "Original Name",
+    preferredContact: "Original contact", firstChoiceId: "math", slotIds: ["mon"],
+  },
+  originalSignature: "Original Signature", originalPolicyRevision: "original-policy",
+  assignedSubjectIds: ["math"], assignmentsUnresolved: false, subjectEditingBlocked: false,
+  persistedSubjects: [], persistedSlots: [], isInvalid: false, invalidityVersion: 0,
+  canAppeal: false, appeal: null,
+});
 const legacy = [
   {
     id: "legacy",
@@ -210,8 +237,14 @@ beforeEach(() => {
   remote.mine.mockResolvedValue([request]);
   remote.legacy.mockResolvedValue([]);
   remote.options.mockResolvedValue({
+    subjects: [{ id: "math", name: "Math" }, { id: "science", name: "Science" }],
     slots: [slot, { ...slot, id: "tue", dayOfWeek: 2 }],
   });
+  remote.signup.mockResolvedValue(signup());
+  remote.profile.mockResolvedValue({ offeredGrades: [9, 10, 11, 12] });
+  remote.names.mockResolvedValue({ policies: { STUDENT: DEFAULT_NAME_FIELDS }, states: DEFAULT_NAME_FIELDS });
+  remote.edit.mockResolvedValue({ ok: true, version: 1 });
+  remote.headEdit.mockResolvedValue({ ok: true, version: 1 });
   remote.appeal.mockResolvedValue({});
   remote.feedback.mockResolvedValue({});
   remote.discipline.mockResolvedValue([]);
@@ -403,34 +436,66 @@ it("retains the appeal draft and read retry in its modal, and blocks pending dis
 it("retains selected availability on background failure and localizes the stored weekday", async () => {
   mount(<StudentWorkspace />, "zh");
   fireEvent.click(
-    await screen.findByRole("button", { name: zh.workflow.editAvailability }),
+    await screen.findByRole("button", { name: zh.signupEditing.edit }),
   );
-  const choices = await screen.findAllByRole("checkbox");
+  const dialog = screen.getByRole("dialog");
+  const choices = await within(dialog).findAllByRole("checkbox");
   fireEvent.click(choices[1]!);
   expect(document.body.textContent).toContain("周一 15:30–16:30");
-  remote.mine.mockRejectedValue(new Error("Offline"));
-  await refresh(["studentWorkflow", "mine"]);
-  await screen.findByText(zh.participantRecovery.refreshFailed);
+  // The full editor owns the exact source query independently of its parent list.
+  remote.signup.mockRejectedValue(new Error("Offline"));
+  await refresh(["studentWorkflow", "signup"]);
+  await within(dialog).findByText(zh.signupEditing.loadFailed);
   expect((choices[1] as HTMLInputElement).checked).toBe(true);
   expect(choices[1]!.isConnected).toBe(true);
   expect(
-    screen.getByRole<HTMLButtonElement>("button", {
-      name: zh.workflow.saveAvailability,
+    within(dialog).getByRole<HTMLButtonElement>("button", {
+      name: zh.signupEditing.save,
     }).disabled,
   ).toBe(true);
-  remote.mine.mockResolvedValue([request]);
+  fireEvent.submit(choices[1]!.closest("form")!);
+  expect(remote.edit).not.toHaveBeenCalled();
+  remote.signup.mockResolvedValue(signup());
   fireEvent.click(
-    screen.getByRole("button", { name: zh.participantRecovery.retry }),
+    within(dialog).getByRole("button", { name: zh.signupEditing.retry }),
   );
   await waitFor(() =>
     expect(
-      screen.getByRole<HTMLButtonElement>("button", {
-        name: zh.workflow.saveAvailability,
+      within(dialog).getByRole<HTMLButtonElement>("button", {
+        name: zh.signupEditing.save,
       }).disabled,
     ).toBe(false),
   );
   expect((choices[1] as HTMLInputElement).checked).toBe(true);
   expect(remote.edit).not.toHaveBeenCalled();
+});
+
+it("keeps a saved signup draft read-only through refresh failure and recovers without duplicating the accepted write", async () => {
+  mount(<StudentWorkspace />);
+  fireEvent.click(await screen.findByRole("button", { name: en.signupEditing.edit }));
+  const dialog = screen.getByRole("dialog");
+  const choices = await within(dialog).findAllByRole("checkbox");
+  fireEvent.click(choices[1]!);
+  await waitFor(() => expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: en.signupEditing.save }).disabled).toBe(false));
+  let finish!: (value: { ok: boolean; version: number }) => void;
+  remote.edit.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+  const form = choices[1]!.closest("form")!;
+  fireEvent.submit(form);
+  fireEvent.submit(form);
+  await waitFor(() => expect(remote.edit).toHaveBeenCalledTimes(1));
+  expect(remote.edit.mock.calls[0]?.[0]).toMatchObject({ id: request.id, expectedVersion: 0, answers: { slotIds: ["mon", "tue"] } });
+  remote.signup.mockRejectedValue(new Error("Read failed after the write was accepted"));
+  await act(async () => finish({ ok: true, version: 1 }));
+  await within(dialog).findByText(en.signupEditing.savedRefresh);
+  expect((choices[1] as HTMLInputElement).checked).toBe(true);
+  expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: en.signupEditing.save }).disabled).toBe(true);
+  fireEvent.submit(form);
+  expect(remote.edit).toHaveBeenCalledTimes(1);
+  remote.signup.mockResolvedValue({ ...signup(1), answers: { ...signup(1).answers, slotIds: ["mon", "tue"] } });
+  fireEvent.click(within(dialog).getByRole("button", { name: en.signupEditing.retryRefresh }));
+  await within(dialog).findByText(en.signupEditing.saved);
+  expect((choices[1] as HTMLInputElement).checked).toBe(true);
+  expect(remote.edit).toHaveBeenCalledTimes(1);
 });
 it("does not offer a new request while legacy eligibility is unknown", async () => {
   remote.mine.mockResolvedValue([]);

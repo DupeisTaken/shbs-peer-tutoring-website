@@ -98,7 +98,7 @@ it.each([false, true])(
     ).toBe(true);
     for (const [message] of mail.send.mock.calls) {
       expect(message.presentation?.unsubscribeUrl).toBeDefined();
-      expect(message.text).toContain("Unsubscribe:");
+      expect(message.text).toContain("Unsubscribe / 取消订阅:");
     }
     // SMTP failures belong to the durable worker retry, not the audit effect failure receipt.
     expect(queue.onFailure).not.toHaveBeenCalled();
@@ -139,13 +139,15 @@ it("persists distinct notification destinations for all verified recipients and 
           verifyUnsubscribeToken(unsubscribe.searchParams.get("token")!),
       ),
     ).toBe(true);
-    expect(message.text).toContain(`Unsubscribe: ${unsubscribe.href}`);
+    expect(message.text).toContain(
+      `Unsubscribe / 取消订阅: ${unsubscribe.href}`,
+    );
     expect(message.text).toContain("Asia/Shanghai");
     expect(message.text).not.toContain("do not recognize");
     const html = renderEmail({ brand: "School", ...message });
     expect(html).not.toContain("PRIVATE SENTINEL");
     expect(html).not.toContain("PRIVATE BODY");
-    expect(html).toContain("View program update");
+    expect(html).toContain("View program update / 查看项目通知");
   }
   expect(
     await db.emailDelivery.count({ where: { userId: uid, status: "SENT" } }),
@@ -171,9 +173,7 @@ it("uses safe home fallback for legacy rows, external links and staff role loss"
   await deliverNotifications(20);
   const messages = mail.send.mock.calls
     .map(([message]) => message)
-    .filter(
-      (message) => message.subject === "You have a new program notification",
-    );
+    .filter((message) => message.subject === "Program Update / 项目通知");
   expect(messages).toHaveLength(6);
   for (const message of messages)
     expect(

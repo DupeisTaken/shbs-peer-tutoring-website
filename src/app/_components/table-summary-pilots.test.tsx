@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   readOnly: false,
   pending: false,
   updateSlot: vi.fn(),
-  updatePairing: vi.fn(),
+  updatePairing: vi.fn().mockResolvedValue(undefined),
   remove: vi.fn(),
   reset: vi.fn(),
   slots: [
@@ -205,10 +205,15 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
       deleteTimeSlot: { useMutation: () => ({ mutateAsync: mocks.remove }) },
-      createPairing: { useMutation: () => ({ mutate: vi.fn() }) },
+      // Assignment confirmation awaits mutation completion so retries remain guarded.
+      createPairing: {
+        useMutation: () => ({
+          mutateAsync: vi.fn().mockResolvedValue(undefined),
+        }),
+      },
       updatePairing: {
         useMutation: () => ({
-          mutate: mocks.updatePairing,
+          mutateAsync: mocks.updatePairing,
           isPending: mocks.pending,
         }),
       },

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -7,7 +8,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import type { ComponentProps } from "react";
 import en from "../../../../messages/en.json";
@@ -19,6 +20,7 @@ const state = vi.hoisted(() => ({
   recall: vi.fn(),
   reject: vi.fn(),
   prepare: vi.fn(),
+  cancelTicket: vi.fn(),
   retry: vi.fn(),
   relayPending: false,
   schedulePending: false,
@@ -46,14 +48,18 @@ vi.mock("~/trpc/react", () => ({
       rejectSchedule: {
         useMutation: () => ({
           mutate: state.reject,
+          mutateAsync: state.reject,
           isPending: state.schedulePending,
         }),
       },
       prepareAction: {
         useMutation: () => ({
-          mutate: state.prepare,
-          data: { id: "server-ticket", readyAt: new Date(0) },
+          mutateAsync: state.prepare,
+          reset: vi.fn(),
         }),
+      },
+      cancelAction: {
+        useMutation: () => ({ mutate: state.cancelTicket }),
       },
     },
   },
@@ -118,12 +124,13 @@ const open = (name = "Learner One", details = en.tablePatterns.details) => {
 
 it.each(["read failure", "inactive", "pending review"] as const)(
   "rechecks an open schedule confirmation after %s and retains its reason through recovery",
-  (transition) => {
+  async (transition) => {
     const view = render(element());
     open();
     fireEvent.click(
       screen.getByRole("button", { name: en.workflow.scheduleReject }),
     );
+    await act(async () => undefined);
     fireEvent.change(screen.getByRole("textbox"), {
       target: { value: "Retained conflict reason" },
     });
@@ -224,6 +231,14 @@ it("does not recall a stale relay after a failed read during confirmation", asyn
     }).disabled,
   ).toBe(false);
 });
+beforeEach(() => {
+  state.prepare.mockResolvedValue({
+    id: "server-ticket",
+    readyAt: new Date(0),
+    serverNow: new Date(),
+    expiresAt: new Date(Date.now() + 30 * 60_000),
+  });
+});
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -255,7 +270,7 @@ it.each([
   },
 );
 
-it("retains separate relay and schedule drafts across Close, nested Cancel and other tutees", () => {
+it("retains separate relay and schedule drafts across Close, nested Cancel and other tutees", async () => {
   render(element({}, "en", true));
   const trigger = open();
   fireEvent.click(
@@ -267,6 +282,7 @@ it("retains separate relay and schedule drafts across Close, nested Cancel and o
   fireEvent.click(
     screen.getByRole("button", { name: en.workflow.scheduleReject }),
   );
+  await act(async () => undefined);
   const review = screen.getByRole("dialog", {
     name: /schedule conflict.*Learner One/,
   });
@@ -297,6 +313,7 @@ it("retains separate relay and schedule drafts across Close, nested Cancel and o
   });
   scheduleTrigger.focus();
   fireEvent.click(scheduleTrigger);
+  await act(async () => undefined);
   const resumed = screen.getByRole("dialog", {
     name: /schedule conflict.*Learner One/,
   });
@@ -312,12 +329,13 @@ it("retains separate relay and schedule drafts across Close, nested Cancel and o
   expect(state.reject).not.toHaveBeenCalled();
 });
 
-it("preserves the nested schedule ticket payload and blocks parent dismissal/sibling writes only while pending", () => {
+it("preserves the nested schedule ticket payload and blocks parent dismissal/sibling writes only while pending", async () => {
   const view = render(element());
   open();
   fireEvent.click(
     screen.getByRole("button", { name: en.workflow.scheduleReject }),
   );
+  await act(async () => undefined);
   expect(state.prepare).toHaveBeenCalledExactlyOnceWith({
     action: "SCHEDULE",
     target: "pairing:tutee",

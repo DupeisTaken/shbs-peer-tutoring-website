@@ -7,7 +7,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { StrictMode, useState } from "react";
+import { StrictMode, useState, type ComponentProps } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
@@ -51,13 +51,20 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     assignment: {
-      prepare: { useMutation: () => ({ mutateAsync: mocks.prepare }) },
+      prepare: {
+        useMutation: () => ({ mutateAsync: mocks.prepare, reset: vi.fn() }),
+      },
       cancel: { useMutation: () => ({ mutate: mocks.cancel }) },
     },
   },
 }));
 const result = (id = "ticket") => ({
-  ticket: { id, readyAt: new Date(Date.now() + 3000) },
+  ticket: {
+    id,
+    serverNow: new Date(),
+    readyAt: new Date(Date.now() + 2000),
+    expiresAt: new Date(Date.now() + 5 * 60_000),
+  },
   mismatches: [
     { tutorId: "a", tutorName: "Ada", subjectId: "math", subjectName: "Math" },
   ],
@@ -84,14 +91,19 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
-const dialog = (tutorId = "a") => (
+const dialog = (
+  tutorId = "a",
+  extra: Partial<ComponentProps<typeof AssignmentConfirmation>> = {},
+) => (
   <NextIntlClientProvider locale="en" messages={en}>
     <AssignmentConfirmation
       operation="admin.createPairing"
       payload={{ tutorId, subjectId: "math" }}
       onConfirm={mocks.confirm}
       onCancel={mocks.close}
+      {...extra}
     />
   </NextIntlClientProvider>
 );
@@ -100,13 +112,13 @@ const flush = () =>
     await Promise.resolve();
   });
 
-it("shows the mismatch and enables explicit confirmation at exactly 3000ms", async () => {
+it("shows the mismatch and enables explicit confirmation at exactly 2000ms", async () => {
   render(dialog());
   await flush();
   expect(
     screen.getByText("Ada has no approved qualification for Math."),
   ).toBeTruthy();
-  await act(() => vi.advanceTimersByTime(2999));
+  await act(() => vi.advanceTimersByTime(1999));
   const waiting = screen.getByRole("button", { name: "Confirm in 1s" });
   expect(waiting.hasAttribute("disabled")).toBe(true);
   fireEvent.click(waiting);
@@ -120,7 +132,7 @@ it("shows the mismatch and enables explicit confirmation at exactly 3000ms", asy
 it("cancels through Escape, discards the ticket, and restarts on reopening", async () => {
   const view = render(dialog());
   await flush();
-  await act(() => vi.advanceTimersByTime(3000));
+  await act(() => vi.advanceTimersByTime(2000));
   fireEvent(
     screen.getByRole("dialog"),
     new Event("cancel", { cancelable: true }),
@@ -132,20 +144,20 @@ it("cancels through Escape, discards the ticket, and restarts on reopening", asy
   await flush();
   expect(
     screen
-      .getByRole("button", { name: "Confirm in 3s" })
+      .getByRole("button", { name: "Confirm in 2s" })
       .hasAttribute("disabled"),
   ).toBe(true);
 });
 it("changing the tutor resets the entire acknowledgement and timer", async () => {
   const view = render(dialog());
   await flush();
-  await act(() => vi.advanceTimersByTime(3000));
+  await act(() => vi.advanceTimersByTime(2000));
   view.rerender(dialog("b"));
   await flush();
   expect(mocks.cancel).toHaveBeenCalledWith({ ticket: "ticket" });
   expect(
     screen
-      .getByRole("button", { name: "Confirm in 3s" })
+      .getByRole("button", { name: "Confirm in 2s" })
       .hasAttribute("disabled"),
   ).toBe(true);
   expect(mocks.confirm).not.toHaveBeenCalled();
@@ -177,6 +189,74 @@ it("qualified assignments continue without an override warning", async () => {
   expect(
     screen.queryByText("Assign a tutor without this qualification?"),
   ).toBeNull();
+});
+it("guards duplicates, freezes Escape and retries after the same write rejection", async () => {
+  const view = render(dialog("a", { error: "Earlier rejection" }));
+  await flush();
+  await act(() => vi.advanceTimersByTime(2000));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Confirm unqualified assignment" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Assigning…" }));
+  expect(mocks.confirm).toHaveBeenCalledTimes(1);
+  const modal = screen.getByRole("dialog");
+  expect(modal.getAttribute("closedby")).toBe("none");
+  expect(fireEvent.keyDown(modal, { key: "Escape" })).toBe(false);
+  view.rerender(dialog("a", { busy: true, error: "Earlier rejection" }));
+  view.rerender(dialog("a", { error: "Earlier rejection" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Confirm unqualified assignment" }),
+  );
+  expect(mocks.confirm).toHaveBeenCalledTimes(2);
+});
+it("offers explicit rechecking after a qualified write fails without an automatic retry loop", async () => {
+  mocks.prepare.mockResolvedValue({ ticket: null, mismatches: [] });
+  const view = render(dialog());
+  await flush();
+  expect(mocks.confirm).toHaveBeenCalledTimes(1);
+  view.rerender(dialog("a", { busy: true }));
+  view.rerender(dialog("a", { error: "Write rejected" }));
+  expect(mocks.confirm).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "Review again" }));
+  await flush();
+  expect(mocks.prepare).toHaveBeenCalledTimes(2);
+  expect(mocks.confirm).toHaveBeenCalledTimes(2);
+});
+it("allows another explicit attempt after identical immediate promise rejections", async () => {
+  const confirm = vi.fn(() => Promise.reject(new Error("Same rejection")));
+  render(dialog("a", { error: "Same rejection", onConfirm: confirm }));
+  await flush();
+  await act(() => vi.advanceTimersByTime(2000));
+  const button = screen.getByRole("button", {
+    name: "Confirm unqualified assignment",
+  });
+  fireEvent.click(button);
+  fireEvent.click(button);
+  expect(confirm).toHaveBeenCalledTimes(1);
+  await flush();
+  fireEvent.click(button);
+  expect(confirm).toHaveBeenCalledTimes(2);
+  await flush();
+});
+it("uses live expiry after a suspended background timer and announces renewal", async () => {
+  render(dialog());
+  await flush();
+  await act(() => vi.advanceTimersByTime(2000));
+  const confirm = screen.getByRole("button", {
+    name: "Confirm unqualified assignment",
+  });
+  vi.spyOn(performance, "now").mockReturnValue(5 * 60_000);
+  fireEvent.click(confirm);
+  expect(mocks.confirm).not.toHaveBeenCalled();
+  fireEvent(document, new Event("visibilitychange"));
+  expect(confirm.hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("status").textContent).toBe(
+    en.assignmentQualification.confirmationExpired,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Review again" }));
+  await flush();
+  expect(mocks.prepare).toHaveBeenCalledTimes(2);
+  expect(mocks.cancel).toHaveBeenCalledWith({ ticket: "ticket" });
 });
 it("uses named native groups, preserves selectable unqualified tutors, and updates by course", () => {
   const select = (subjectId: string) => (
@@ -225,15 +305,15 @@ it("prepares only one acknowledgement under Strict Mode effect replay", async ()
   expect(mocks.prepare).toHaveBeenCalledTimes(1);
   expect(mocks.cancel).not.toHaveBeenCalled();
 });
-it("discards unused evidence when cancelling after a failed submission", async () => {
+it("preserves submitted evidence for a pending write or dialog handoff", async () => {
   const view = render(dialog());
   await flush();
-  await act(() => vi.advanceTimersByTime(3000));
+  await act(() => vi.advanceTimersByTime(2000));
   fireEvent.click(
     screen.getByRole("button", { name: "Confirm unqualified assignment" }),
   );
   view.unmount();
-  expect(mocks.cancel).toHaveBeenCalledWith({ ticket: "ticket" });
+  expect(mocks.cancel).not.toHaveBeenCalled();
 });
 
 it.each(["loading", "failed", "missing", "archived"])(
@@ -279,7 +359,7 @@ it("keeps Tab and Shift+Tab within the explicit dialog choices", async () => {
   cancel.focus();
   fireEvent.keyDown(cancel, { key: "Tab" });
   expect(document.activeElement).toBe(cancel);
-  await act(() => vi.advanceTimersByTime(3000));
+  await act(() => vi.advanceTimersByTime(2000));
   const confirm = screen.getByRole("button", {
     name: "Confirm unqualified assignment",
   });
@@ -394,7 +474,14 @@ it.each(["enabled", "disabled", "removed"] as const)(
   },
 );
 
-it("blocks repeated Escape in both review and parent while an assignment is pending", async () => {
+it("blocks repeated Escape in both dialogs until a pending assignment's rejected promise settles", async () => {
+  let rejectWrite!: (failure: Error) => void;
+  mocks.confirm.mockImplementationOnce(
+    () =>
+      new Promise((_resolve, reject) => {
+        rejectWrite = reject;
+      }),
+  );
   const view = render(<NestedAssignment />);
   const opener = screen.getByRole("button", { name: "Assign tutor" });
   opener.focus();
@@ -424,11 +511,53 @@ it("blocks repeated Escape in both review and parent while an assignment is pend
   expect(mocks.cancel).not.toHaveBeenCalled();
 
   view.rerender(<NestedAssignment />);
+  // Busy props can settle before the returned write does. Keep both dialogs
+  // protected until that actual promise rejects, then permit deliberate cancel.
+  expect(review.getAttribute("closedby")).toBe("none");
+  expect(parent.getAttribute("closedby")).toBe("none");
+  await act(async () => rejectWrite(new Error("Assignment failed")));
   expect(review.getAttribute("closedby")).toBe("closerequest");
   expect(parent.getAttribute("closedby")).toBe("closerequest");
   fireEvent(review, new Event("cancel", { cancelable: true }));
   expect(screen.getAllByRole("dialog")).toHaveLength(1);
   expect(mocks.close).not.toHaveBeenCalled();
+});
+
+it("does not silently repeat a failed qualified fast path when workload reads refresh", async () => {
+  mocks.prepare.mockResolvedValue({ ticket: null, mismatches: [] });
+  mocks.confirm.mockRejectedValueOnce(new Error("Assignment failed"));
+  const view = render(
+    dialog("a", {
+      workloadReview: { pending: true, warning: null },
+    }),
+  );
+  await flush();
+  expect(mocks.confirm).not.toHaveBeenCalled();
+  view.rerender(
+    dialog("a", {
+      workloadReview: { pending: false, warning: null },
+    }),
+  );
+  await flush();
+  expect(mocks.confirm).toHaveBeenCalledOnce();
+  view.rerender(
+    dialog("a", {
+      error: "Assignment failed",
+      workloadReview: { pending: true, warning: null },
+    }),
+  );
+  view.rerender(
+    dialog("a", {
+      error: "Assignment failed",
+      workloadReview: { pending: false, warning: null },
+    }),
+  );
+  await flush();
+  expect(mocks.confirm).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole("button", { name: "Review again" }));
+  await flush();
+  expect(mocks.prepare).toHaveBeenCalledTimes(2);
+  expect(mocks.confirm).toHaveBeenCalledTimes(2);
 });
 
 it("releases review after an accepted approval handoff even while the mutation is settling", async () => {

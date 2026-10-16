@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import {
@@ -8,6 +8,9 @@ import {
 } from "~/lib/assignment-qualification";
 import { Button } from "./ui/button";
 import { Modal } from "./ui/modal";
+import { type AnchoredConfirmation } from "~/lib/confirmation-timing";
+import { useConfirmationClock } from "./use-confirmation-clock";
+import { useConfirmationSubmission } from "./use-confirmation-submission";
 
 /** Remount on any selection change: late preparation responses cannot unlock a new selection. */
 export function AssignmentConfirmation(props: {
@@ -15,7 +18,7 @@ export function AssignmentConfirmation(props: {
   payload: unknown;
   busy?: boolean;
   error?: string;
-  onConfirm: (overrideTicket?: string) => void;
+  onConfirm: (overrideTicket?: string) => unknown;
   onCancel: () => void;
   advisory?: ReactNode;
   /** Optional workload review shares this dialog without changing qualification tickets. */
@@ -41,19 +44,23 @@ function ConfirmationInstance({
 }: Parameters<typeof AssignmentConfirmation>[0]) {
   const t = useTranslations("assignmentQualification");
   const workloadText = useTranslations("tutorWorkload");
+  const statusId = useId();
   const prepare = api.assignment.prepare.useMutation();
   const cancel = api.assignment.cancel.useMutation();
   const [result, setResult] = useState<Awaited<
     ReturnType<typeof prepare.mutateAsync>
   > | null>(null);
-  const [remaining, setRemaining] = useState(3);
-  const [acknowledged, setAcknowledged] = useState(false);
-  const callbacks = useRef({ onConfirm, onCancel });
+  const [anchor, setAnchor] = useState<AnchoredConfirmation | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const clock = useConfirmationClock(anchor);
+  const submission = useConfirmationSubmission(busy, error);
+  const callbacks = useRef({ onConfirm, onCancel, run: submission.run });
   useEffect(() => {
-    callbacks.current = { onConfirm, onCancel };
-  }, [onConfirm, onCancel]);
+    callbacks.current = { onConfirm, onCancel, run: submission.run };
+  }, [onConfirm, onCancel, submission.run]);
+  const automaticAttempt = useRef(false);
   const ticketRef = useRef<string | null>(null);
-  const submitted = useRef(false);
+  const { submitted } = submission;
   const { mutateAsync } = prepare;
   const cancelTicket = cancel.mutate;
   useEffect(() => {
@@ -63,12 +70,23 @@ function ConfirmationInstance({
     void Promise.resolve()
       .then(async () => {
         if (!live) return;
+        const requestStartedAt = performance.now();
         const data = await mutateAsync({ operation, payload });
         if (!live) {
           if (data.ticket) cancelTicket({ ticket: data.ticket.id });
           return;
         }
         ticketRef.current = data.ticket?.id ?? null;
+        automaticAttempt.current = false;
+        setAnchor(
+          data.ticket
+            ? {
+                ticket: data.ticket,
+                requestStartedAt,
+                receivedAt: performance.now(),
+              }
+            : null,
+        );
         setResult(data);
       })
       .catch(() => {
@@ -76,11 +94,12 @@ function ConfirmationInstance({
       });
     return () => {
       live = false;
-      if (ticketRef.current) cancelTicket({ ticket: ticketRef.current });
+      if (ticketRef.current && !submitted.current)
+        cancelTicket({ ticket: ticketRef.current });
     };
     // The keyed parent supplies an immutable selection for this instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mutateAsync, cancelTicket]);
+  }, [mutateAsync, cancelTicket, attempt]);
   useEffect(() => {
     // A fresh workload read must finish before the qualified fast path can submit.
     // A failed advisory read does not create a new permission or block assignment.
@@ -89,10 +108,13 @@ function ConfirmationInstance({
       !result.mismatches.length &&
       !workloadReview?.pending &&
       !workloadReview?.warning &&
+      !automaticAttempt.current &&
       !submitted.current
     ) {
-      submitted.current = true;
-      callbacks.current.onConfirm();
+      // A failed write needs deliberate Retry; a later advisory refresh must
+      // not silently repeat this qualified fast path with the same intent.
+      automaticAttempt.current = true;
+      callbacks.current.run(() => callbacks.current.onConfirm());
     }
   }, [result, workloadReview?.pending, workloadReview?.warning]);
   useEffect(() => {
@@ -104,23 +126,21 @@ function ConfirmationInstance({
       window.removeEventListener("approval-queued", queued);
     };
   }, []);
-  useEffect(() => {
-    if (!result?.ticket) return;
-    // Start when the mismatch actually appears, using monotonic time to avoid wall-clock jumps.
-    const opened = performance.now();
-    let timer: ReturnType<typeof setTimeout>;
-    const tick = () => {
-      const left = Math.max(0, 3000 - (performance.now() - opened));
-      setRemaining(Math.ceil(left / 1000));
-      if (left > 0) timer = setTimeout(tick, Math.min(left, 1000));
-    };
-    tick();
-    return () => clearTimeout(timer);
-  }, [result]);
+  const { remaining, expired } = clock;
+  const pending = busy || submission.admitted;
   const warning = !!result?.mismatches.length;
+  const status = pending
+    ? t("working")
+    : expired
+      ? t("confirmationExpired")
+      : !warning || remaining === null
+        ? t("checking")
+        : remaining
+          ? t("wait", { seconds: remaining })
+          : t("confirm");
   return (
     <Modal
-      busy={busy}
+      busy={pending}
       onClose={onCancel}
       title={
         warning
@@ -136,35 +156,47 @@ function ConfirmationInstance({
       }
       footer={
         <>
-          <Button data-dialog-autofocus onClick={onCancel}>
+          {(expired || !!prepare.error || (!warning && !!error)) && (
+            <Button
+              disabled={pending}
+              onClick={() => {
+                prepare.reset();
+                setResult(null);
+                setAnchor(null);
+                setAttempt((value) => value + 1);
+              }}
+            >
+              {t("retry")}
+            </Button>
+          )}
+          <Button data-dialog-autofocus disabled={pending} onClick={onCancel}>
             {t("cancel")}
           </Button>
           {(warning || Boolean(workloadReview?.warning)) && (
             <Button
               variant="primary"
               className="whitespace-normal"
+              aria-describedby={statusId}
               disabled={
-                (warning && remaining > 0) ||
+                (warning && !clock.eligible) ||
                 Boolean(workloadReview?.pending) ||
-                acknowledged ||
+                pending ||
                 !result
               }
               onClick={() => {
                 if (
-                  (!warning || remaining === 0) &&
+                  (!warning || clock.read().eligible) &&
                   !workloadReview?.pending &&
                   result &&
-                  !submitted.current
+                  !pending
                 ) {
-                  submitted.current = true;
-                  setAcknowledged(true);
-                  onConfirm(result.ticket?.id);
+                  submission.run(() => onConfirm(result.ticket?.id));
                 }
               }}
             >
-              {busy
+              {pending
                 ? t("working")
-                : warning && remaining
+                : warning && remaining !== null && remaining > 0
                   ? t("wait", { seconds: remaining })
                   : warning
                     ? t("confirm")
@@ -186,6 +218,20 @@ function ConfirmationInstance({
       {advisory}
       {warning && workloadReview?.warning && (
         <p className="my-4 text-sm leading-relaxed">{workloadReview.warning}</p>
+      )}
+      <p
+        id={statusId}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {status}
+      </p>
+      {expired && (
+        <p className="my-3 text-sm text-amber-800">
+          {t("confirmationExpired")}
+        </p>
       )}
       {(error ?? prepare.error?.message) && (
         <p role="alert" className="my-3 text-sm text-red-700">

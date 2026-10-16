@@ -5,8 +5,14 @@ import { Button } from "~/app/_components/ui/button";
 import { QualificationReview } from "~/app/_components/qualification-review";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState, useSessionViewVerified } from "~/app/_components/session-view-state";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { InlineNotice } from "~/app/_components/ui/patterns";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+  useSessionViewState,
+  useSessionViewVerified,
+} from "~/app/_components/session-view-state";
 import { viewEnum, viewFields, viewSearch } from "~/lib/session-view-state";
 import { useFormatter, useTranslations } from "next-intl";
 
@@ -452,15 +458,28 @@ function ApplicationCard({
 
 export default function ApplicationsPage() {
   const t = useTranslations();
+  const [noticeTargetMissing, setNoticeTargetMissing] = useState(false);
+  const lastDestination = useRef("");
   const utils = api.useUtils();
   const apps = api.admin.tutorApplications.useQuery();
   const tutors = api.admin.tutors.useQuery();
   const features = api.program.features.useQuery();
   const readOnly = useReadOnly();
-  const [interviewScene, setInterviewScene] = useState({ ready: false, scope: "", denied: false });
-  const onInterviewView = useCallback((ready: boolean, scope: string, denied: boolean) => {
-    setInterviewScene((old) => old.ready === ready && old.scope === scope && old.denied === denied ? old : { ready, scope, denied });
-  }, []);
+  const [interviewScene, setInterviewScene] = useState({
+    ready: false,
+    scope: "",
+    denied: false,
+  });
+  const onInterviewView = useCallback(
+    (ready: boolean, scope: string, denied: boolean) => {
+      setInterviewScene((old) =>
+        old.ready === ready && old.scope === scope && old.denied === denied
+          ? old
+          : { ready, scope, denied },
+      );
+    },
+    [],
+  );
   // Qualification decisions distinguish a committed write from failed cache
   // synchronization. Other callers retain their existing refresh behavior.
   const invalidate = (reportErrors = false) =>
@@ -474,34 +493,84 @@ export default function ApplicationsPage() {
   const denied = useSessionAccessDenied(apps, tutors, features);
   const verified = useSessionViewVerified();
   const [filters, setFilters] = useSessionViewState({
-    id: "applications.filters.v1", initialState: emptyApplicationFilters,
-    enabled: !denied, restoreReady: !!apps.data,
+    id: "applications.filters.v1",
+    initialState: emptyApplicationFilters,
+    enabled: !denied,
+    restoreReady: !!apps.data,
     parse: viewFields({
       search: viewSearch,
-      status: viewEnum(["", "PENDING", "INTERVIEW", "ACCEPTED", "REJECTED", "RECALLED"]),
+      status: viewEnum([
+        "",
+        "PENDING",
+        "INTERVIEW",
+        "ACCEPTED",
+        "REJECTED",
+        "RECALLED",
+      ]),
       type: viewEnum(["", "INITIAL", "ADDITIONAL_SUBJECT", "HIGHER_LEVEL"]),
-      subjectId: viewEnum(["", ...(apps.data ?? []).flatMap((app) => app.subjectIntents.map((intent) => intent.subjectId))]),
+      subjectId: viewEnum([
+        "",
+        ...(apps.data ?? []).flatMap((app) =>
+          app.subjectIntents.map((intent) => intent.subjectId),
+        ),
+      ]),
     }),
   });
-  const [invalidity, setInvalidity] = useSessionViewState<InvalidityFilterValue>({
-    id: "applications.invalidity.v1", initialState: "valid", enabled: !denied,
-    parse: viewEnum(["valid", "invalid", "all"]),
+  const [invalidity, setInvalidity] =
+    useSessionViewState<InvalidityFilterValue>({
+      id: "applications.invalidity.v1",
+      initialState: "valid",
+      enabled: !denied,
+      parse: viewEnum(["valid", "invalid", "all"]),
+    });
+  useSessionPageScroll({
+    id: "applications",
+    scope: JSON.stringify([filters, invalidity, interviewScene.scope]),
+    ready:
+      !!apps.data &&
+      !!tutors.data &&
+      !!features.data &&
+      (readOnly || interviewScene.ready),
+    enabled: !denied && !interviewScene.denied,
   });
-  useSessionPageScroll({ id: "applications", scope: JSON.stringify([filters, invalidity, interviewScene.scope]),
-    ready: !!apps.data && !!tutors.data && !!features.data && (readOnly || interviewScene.ready), enabled: !denied && !interviewScene.denied });
   // History links reveal their destination even when a previous filter hid it.
   // Ordinary filtering does not otherwise change the selected criteria.
   useEffect(() => {
     const reveal = () => {
-      if (window.location.hash.startsWith("#application-")) {
+      const hash = window.location.hash;
+      const target = /^#application-([a-zA-Z0-9_-]{1,128})$/.exec(hash);
+      if (!target) {
+        lastDestination.current = "";
+        setNoticeTargetMissing(false);
+        return;
+      }
+      if (
+        !verified ||
+        apps.isFetching ||
+        !apps.data ||
+        lastDestination.current === hash
+      )
+        return;
+      lastDestination.current = hash;
+      if (target) {
         setFilters(emptyApplicationFilters);
         setInvalidity("all");
+        setNoticeTargetMissing(!apps.data.some((app) => app.id === target[1]));
+        requestAnimationFrame(() =>
+          document
+            .getElementById(hash.slice(1))
+            ?.scrollIntoView({ block: "center" }),
+        );
       }
     };
     if (verified && apps.data) reveal();
-    window.addEventListener("hashchange", reveal);
-    return () => window.removeEventListener("hashchange", reveal);
-  }, [verified, !!apps.data, setFilters, setInvalidity]);
+    const navigate = () => {
+      lastDestination.current = "";
+      reveal();
+    };
+    window.addEventListener("hashchange", navigate);
+    return () => window.removeEventListener("hashchange", navigate);
+  }, [verified, apps.data, apps.isFetching, setFilters, setInvalidity]);
   const list = denied ? [] : (apps.data ?? []);
   const filtered = list.filter(
     (app) =>
@@ -528,9 +597,22 @@ export default function ApplicationsPage() {
     ).values(),
   ).sort((a, b) => a.label.localeCompare(b.label));
 
-  if (denied) return <p role="alert">{apps.error?.message ?? tutors.error?.message ?? features.error?.message ?? t("uiPatterns.loadFailed")}</p>;
+  if (denied)
+    return (
+      <p role="alert">
+        {apps.error?.message ??
+          tutors.error?.message ??
+          features.error?.message ??
+          t("uiPatterns.loadFailed")}
+      </p>
+    );
   return (
     <RequestInvalidityHost>
+      {noticeTargetMissing && (
+        <InlineNotice tone="info">
+          {t("workflow.noticeTargetMissing")}
+        </InlineNotice>
+      )}
       <div className="space-y-6 max-lg:[&_button]:min-h-11 max-lg:[&_select]:min-h-11">
         <div>
           <h1 className="page-title">{t("admin.applications.title")}</h1>

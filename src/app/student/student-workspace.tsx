@@ -13,10 +13,12 @@ import { StatePanel } from "~/app/_components/ui/patterns";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import { ParticipantName } from "~/app/_components/participant-name";
+import { StudentSignupEditor } from "~/app/_components/student-signup-editor";
 
 type Request = RouterOutputs["studentWorkflow"]["mine"][number];
 export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
   const t = useTranslations("workflow");
+  const appeal = useTranslations("signupAppeal");
   const recovery = useTranslations("participantRecovery");
   const queryClient = useQueryClient();
   const [denied, setDenied] = useState(false);
@@ -160,12 +162,18 @@ export function StudentWorkspace({ viewScope = "" }: { viewScope?: string }) {
           ?.filter((r) => r.state !== "OPEN")
           .map((row) => (
             <div key={row.id} className="card p-5">
-              <span className="badge-slate">{t(`state.${row.state}`)}</span>
+              <span className="badge-slate">
+                {row.state === "INVALID_REJECTED"
+                  ? appeal("rejectedTitle")
+                  : t(`state.${row.state}`)}
+              </span>
               <p className="mt-2 text-sm">
                 {row.subjects.map((s) => s.name).join(", ")}
               </p>
               <p className="muted mt-2 text-sm">
-                {t(row.state === "ABORTED" ? "abortFinal" : "closedFinal")}
+                {row.state === "INVALID_REJECTED"
+                  ? appeal("rejected")
+                  : t(row.state === "ABORTED" ? "abortFinal" : "closedFinal")}
               </p>
             </div>
           ))}
@@ -188,21 +196,14 @@ function CurrentRequest({
   const format = useFormatter();
   const locale = useLocale();
   const t = useTranslations("workflow");
-  const recovery = useTranslations("participantRecovery");
+  const signupEditing = useTranslations("signupEditing");
+  const appeals = useTranslations("signupAppeal");
   const scheduling = useTranslations("scheduling");
   const utils = api.useUtils();
-  const options = api.tutee.signupOptions.useQuery();
-  const [slots, setSlots] = useState(row.slots.map((s) => s.id));
   const [editing, setEditing] = useState(false);
   const [action, setAction] = useState<"RECALL" | "ABORT" | null>(null);
   const [reason, setReason] = useState("");
   const refresh = () => utils.studentWorkflow.mine.invalidate();
-  const edit = api.studentWorkflow.editAvailability.useMutation({
-    onSuccess: async () => {
-      setEditing(false);
-      await refresh();
-    },
-  });
   const recall = api.studentWorkflow.recall.useMutation({
     onSuccess: async () => {
       setAction(null);
@@ -236,6 +237,33 @@ function CurrentRequest({
             }),
           })}
         </p>
+        {(row.canAppeal || row.appeal) && (
+          <div
+            role="status"
+            className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm"
+          >
+            <p className="font-semibold">{appeals("title")}</p>
+            <p>
+              {row.appeal
+                ? appeals(
+                    row.appeal.state === "PENDING"
+                      ? "pending"
+                      : row.appeal.state === "ACCEPTED"
+                        ? "accepted"
+                        : "rejected",
+                  )
+                : appeals("help")}
+            </p>
+            <Button
+              variant="secondary"
+              size="compact"
+              disabled={readBlocked}
+              onClick={() => setEditing(true)}
+            >
+              {appeals("staffTitle")}
+            </Button>
+          </div>
+        )}
         <div className="border-t border-slate-100 pt-4">
           <h3 className="font-semibold">{t("assignments")}</h3>
           {row.pairings.length ? (
@@ -257,88 +285,31 @@ function CurrentRequest({
       <section className="card space-y-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="font-semibold">{t("availability")}</h3>
-          <button
-            className="btn-secondary btn-sm"
-            onClick={() => {
-              setSlots(row.slots.map((s) => s.id));
-              setEditing(!editing);
-            }}
+          <Button
+            variant="secondary"
+            size="compact"
+            disabled={readBlocked}
+            onClick={() => setEditing(true)}
           >
-            {t(editing ? "cancel" : "editAvailability")}
-          </button>
+            {signupEditing("edit")}
+          </Button>
         </div>
-        <p className="muted text-sm">{t("availabilityHelp")}</p>
-        {editing ? (
-          <div className="space-y-4">
-            <QueryFeedback
-              hasData={!!options.data}
-              loading={!options.data && !options.error}
-              error={!!options.error}
-              retrying={options.isFetching}
-              loadingTitle={recovery("loading")}
-              errorTitle={recovery(
-                options.data ? "refreshFailed" : "loadFailed",
-              )}
-              retryLabel={recovery("retry")}
-              onRetry={() => void options.refetch()}
-            />
-            <div className="grid gap-2 sm:grid-cols-2">
-              {options.data?.slots.map((slot) => (
-                <label
-                  key={slot.id}
-                  className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    checked={slots.includes(slot.id)}
-                    onChange={(e) =>
-                      setSlots((prev) =>
-                        e.target.checked
-                          ? [...prev, slot.id]
-                          : prev.filter((id) => id !== slot.id),
-                      )
-                    }
-                  />
-                  {formatWeekday(slot.dayOfWeek, locale)}{" "}
-                  {minToHm(slot.startMin)}–{minToHm(slot.endMin)}
-                </label>
-              ))}
-            </div>
-            <button
-              className="btn-primary"
-              disabled={
-                readBlocked ||
-                !!options.error ||
-                !slots.length ||
-                edit.isPending ||
-                !options.data
-              }
-              onClick={() => {
-                if (
-                  !readBlocked &&
-                  !options.error &&
-                  options.data &&
-                  slots.length &&
-                  !edit.isPending
-                )
-                  edit.mutate({ id: row.id, slotIds: slots });
-              }}
-            >
-              {t("saveAvailability")}
-            </button>
-            {edit.error && <p role="alert">{edit.error.message}</p>}
-          </div>
-        ) : (
-          <ul className="grid gap-2 text-sm sm:grid-cols-2">
-            {row.slots.map((slot) => (
-              <li key={slot.id}>
-                {formatWeekday(slot.dayOfWeek, locale)} {minToHm(slot.startMin)}
-                –{minToHm(slot.endMin)}
-              </li>
-            ))}
-          </ul>
-        )}
+        <p className="muted text-sm">{signupEditing("availabilityHelp")}</p>
+        <ul className="grid gap-2 text-sm sm:grid-cols-2">
+          {row.slots.map((slot) => (
+            <li key={slot.id}>
+              {formatWeekday(slot.dayOfWeek, locale)} {minToHm(slot.startMin)}–
+              {minToHm(slot.endMin)}
+            </li>
+          ))}
+        </ul>
       </section>
+      {editing && (
+        <StudentSignupEditor
+          requestId={row.id}
+          onClose={() => setEditing(false)}
+        />
+      )}
       <section className="rounded-xl border border-amber-200 bg-amber-50 p-6">
         <h3 className="font-semibold">{t("participation")}</h3>
         <p className="mt-2 text-sm text-slate-600">
@@ -376,8 +347,8 @@ function CurrentRequest({
           onConfirm={(ticket) =>
             !readBlocked &&
             (action === "ABORT"
-              ? abort.mutate({ id: row.id, reason, ticket })
-              : recall.mutate({ id: row.id, ticket }))
+              ? abort.mutateAsync({ id: row.id, reason, ticket })
+              : recall.mutateAsync({ id: row.id, ticket }))
           }
         >
           {/* Read recovery must be reachable while the existing reason/ticket stays mounted. */}

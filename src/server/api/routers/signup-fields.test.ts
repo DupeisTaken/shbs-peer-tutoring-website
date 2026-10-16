@@ -1,4 +1,5 @@
 import type { Session } from "next-auth";
+import { randomUUID } from "node:crypto";
 import { beforeEach, afterAll, expect, it, vi } from "vitest";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("~/server/email/sender", () => ({
@@ -56,6 +57,7 @@ const tutorInput = async () => ({
   subjects: [{ subjectId: "fields-math" }],
 });
 const tuteeInput = async () => ({
+  clientKey: randomUUID(),
   englishName: "Student",
   email: "student@example.test",
   preferredContact: "Email",
@@ -205,6 +207,7 @@ it("enforces current tutee requirements, strips hidden answers, and preserves ea
     caller().tutee.submitSurvey({
       ...input,
       email: "missing-phone@example.test",
+      clientKey: randomUUID(),
     }),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   await change("tutee", "phone", "hidden");
@@ -216,11 +219,13 @@ it("enforces current tutee requirements, strips hidden answers, and preserves ea
     caller().tutee.submitSurvey({
       ...input,
       email: "missing-subject@example.test",
+      clientKey: randomUUID(),
     }),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   await caller().tutee.submitSurvey({
     ...input,
     email: "new@example.test",
+    clientKey: randomUUID(),
     preferredContact: "discard",
     slotIds: ["invalid-hidden-slot"],
     phone: "discard",
@@ -254,6 +259,7 @@ it("enforces current tutee requirements, strips hidden answers, and preserves ea
       caller().tutee.submitSurvey({
         ...input,
         ...invalid,
+        clientKey: randomUUID(),
         email:
           "email" in invalid
             ? invalid.email

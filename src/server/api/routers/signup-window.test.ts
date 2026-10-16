@@ -1,4 +1,5 @@
 import type { Session } from "next-auth";
+import { randomUUID } from "node:crypto";
 import type * as SignupAdmission from "~/server/signup-admission";
 import type * as SignupCaptcha from "~/server/captcha";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -10,6 +11,7 @@ vi.mock("~/server/audit/log", () => ({ recordAudit: vi.fn() }));
 vi.mock("~/server/signup-admission", async (importOriginal) => ({
   ...(await importOriginal<typeof SignupAdmission>()),
   withSignupAdmission: (_db: unknown, _headers: Headers, _lane: unknown, _identity: unknown, work: () => Promise<unknown>) => work(),
+  withSignupLease: (_db: unknown, _lane: string, work: () => Promise<unknown>) => work(),
 }));
 // CAPTCHA has its own direct-API integration suite; keep this fixture focused on windows.
 vi.mock("~/server/captcha", async (importOriginal) => ({
@@ -46,6 +48,8 @@ function context(db: unknown, session: Session | null) {
   return {
     db: {
       $executeRaw: vi.fn(),
+      studentSignupIntent: { findUnique: vi.fn().mockResolvedValue(null) },
+      signupLease: { findFirst: vi.fn().mockResolvedValue(null) },
       ...(db as object),
       user: {
         findUnique: vi.fn().mockResolvedValue(
@@ -95,6 +99,7 @@ describe("tutee signup window procedures", () => {
 
     await expect(
       caller.requestSignup({
+        clientKey: randomUUID(),
         englishName: "Early Student",
         email: "early-student@example.test",
         policyRevision: "test-revision",
@@ -218,6 +223,7 @@ it.each(["paused", "scheduled", "ended", "no-period"])(
     ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
     await expect(
       createTuteeCaller(ctx).submitSurvey({
+        clientKey: randomUUID(),
         englishName: "Test Student",
         email: `closed-${state}@example.test`,
         agreed: true,
