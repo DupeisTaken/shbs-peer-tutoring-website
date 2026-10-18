@@ -59,7 +59,7 @@ type Tutor = {
 };
 type AssignmentEntry =
   | { kind: "assigned"; pairing: Row["pairings"][number] }
-  | { kind: "unassigned"; subject: Row["subjects"][number] };
+  | { kind: "subject"; subject: Row["subjects"][number]; assigned: boolean };
 /** Review captures the complete write when opened. Background list reads cannot
  * adopt a new expected version, and refresh recovery contains only queries. */
 function SignupReviewAction({
@@ -613,16 +613,18 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
   const resend = api.studentWorkflow.resend.useMutation({
     onSuccess: () => utils.studentWorkflow.adminRequests.invalidate(),
   });
-  // Pairing controllers share one keyed list even when edited choices regroup
-  // them. A background read must not discard an admitted review or recovery.
+  // Subject controllers survive assignment arrival; pairing controllers survive
+  // edited choices regrouping. Keep both in one flat keyed list so neither an
+  // admitted review nor an accepted write's delivery/recovery state is discarded.
   const assignmentEntries: AssignmentEntry[] =
     row.subjects.flatMap<AssignmentEntry>((subject) => {
       const pairings = row.pairings.filter(
         (pairing) => pairing.subject === subject.name,
       );
-      return pairings.length
-        ? pairings.map((pairing) => ({ kind: "assigned" as const, pairing }))
-        : [{ kind: "unassigned" as const, subject }];
+      return [
+        { kind: "subject", subject, assigned: pairings.length > 0 },
+        ...pairings.map((pairing) => ({ kind: "assigned" as const, pairing })),
+      ];
     });
   assignmentEntries.push(
     ...row.pairings
@@ -754,12 +756,13 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
       {row.state === "OPEN" ? (
         <div className="space-y-3 border-t border-slate-100 pt-4">
           {assignmentEntries.map((entry) =>
-            entry.kind === "unassigned" ? (
+            entry.kind === "subject" ? (
               <Assignment
                 key={`subject:${entry.subject.id}`}
                 row={row}
                 subject={entry.subject}
                 tutors={tutors}
+                assigned={entry.assigned}
               />
             ) : (
               <AssignedSubject
@@ -849,12 +852,15 @@ function Assignment({
   row,
   subject,
   tutors,
+  assigned,
 }: {
   row: Row;
   subject: { id: string; name: string };
   tutors: Tutor[];
+  assigned: boolean;
 }) {
   const t = useTranslations("workflow");
+  const editing = useTranslations("signupEditing");
   const names = useTranslations("participantNames");
   const utils = api.useUtils();
   const [tutorId, setTutorId] = useState("");
@@ -863,71 +869,173 @@ function Assignment({
     null,
   );
   const readOnly = useReadOnly();
-  const assign = api.studentWorkflow.assign.useMutation({
-    onSuccess: async () => {
+  const assign = api.studentWorkflow.assign.useMutation();
+  const canWrite = useRef(!readOnly && !row.isInvalid);
+  const activeTicket = useRef<string | null>(null);
+  const admitted = useRef(false);
+  const accepted = useRef(false);
+  const [working, setWorking] = useState(false);
+  const [emailFailed, setEmailFailed] = useState(false);
+  const [needsRefresh, setNeedsRefresh] = useState(false);
+  const [approvalId, setApprovalId] = useState<string | null>(null);
+  const refresh = () =>
+    settleRefreshes([
+      () => invalidateAndReport(utils.studentWorkflow.adminRequests),
+      () => invalidateAndReport(utils.admin.tutees),
+      () => invalidateAndReport(utils.admin.pairings),
+      () => invalidateWorkloads(utils, true),
+    ]);
+  useEffect(() => {
+    canWrite.current = !readOnly && !row.isInvalid;
+    if (readOnly || row.isInvalid) {
+      // Revocation conceals the review and discards only its unsubmitted proof.
+      // Restored access cannot resurrect it or replay a write already in flight.
       setOpen(false);
+      activeTicket.current = null;
       setConsequenceTicket(null);
-      await Promise.all([
-        utils.studentWorkflow.adminRequests.invalidate(),
-        utils.admin.tutees.invalidate(),
-        utils.admin.pairings.invalidate(),
-        invalidateWorkloads(utils),
-      ]);
-    },
-  });
+    }
+  }, [readOnly, row.isInvalid]);
+  const recover = async () => {
+    if (admitted.current) return;
+    admitted.current = true;
+    setWorking(true);
+    try {
+      await refresh();
+      setNeedsRefresh(false);
+    } catch {
+      setNeedsRefresh(true);
+    } finally {
+      admitted.current = false;
+      setWorking(false);
+    }
+  };
+  const commit = async (overrideTicket?: string) => {
+    if (
+      !canWrite.current ||
+      admitted.current ||
+      accepted.current ||
+      !consequenceTicket ||
+      activeTicket.current !== consequenceTicket
+    )
+      return;
+    admitted.current = true;
+    setWorking(true);
+    try {
+      try {
+        const result = await assign.mutateAsync({
+          id: row.id,
+          subjectId: subject.id,
+          tutorId,
+          ticket: consequenceTicket,
+          overrideTicket,
+        });
+        setEmailFailed(!result.emailSent);
+      } catch (failure) {
+        const queued = queuedApprovalId(failure);
+        if (!queued) throw failure;
+        setApprovalId(queued);
+      }
+      // Acceptance closes the write lifecycle before reads. A failed refresh
+      // offers only read recovery, never another submission of the saved intent.
+      accepted.current = true;
+      setOpen(false);
+      activeTicket.current = null;
+      setConsequenceTicket(null);
+      try {
+        await refresh();
+        setNeedsRefresh(false);
+      } catch {
+        setNeedsRefresh(true);
+      }
+    } finally {
+      admitted.current = false;
+      setWorking(false);
+    }
+  };
   return (
-    <div className="space-y-3">
-      <div
-        role="group"
-        aria-label={subject.name}
-        className="grid min-w-0 gap-x-3 gap-y-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"
-      >
-        {/* Share the field's four rows so the subject centers on the select,
-         * independently of wrapped labels and workload guidance. The select
-         * keeps its control height when a long subject makes that row taller. */}
-        <span
-          className={`max-w-full min-w-0 text-sm font-medium wrap-anywhere whitespace-normal lg:col-start-1 lg:self-center ${!readOnly && !row.isInvalid ? "lg:row-start-2" : ""}`}
+    <>
+      {!assigned && (
+        <div
+          role="group"
+          aria-label={subject.name}
+          className="grid min-w-0 gap-x-3 gap-y-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"
         >
-          {subject.name}
-        </span>
-        {!readOnly && !row.isInvalid && (
-          <QualifiedTutorSelect
-            className="lg:col-start-2 lg:row-span-4 lg:row-start-1 lg:grid-rows-subgrid lg:[&_select]:self-center"
-            actions={
-              <button
-                className="btn-primary min-h-11 lg:min-h-10"
-                disabled={!tutorId}
-                onClick={() => setOpen(true)}
-              >
-                {t("assign")}
-              </button>
-            }
-            label={t("chooseTutor", { subject: subject.name })}
-            tutors={tutors}
-            optionLabel={(id) => {
-              const tutor = tutors.find((candidate) => candidate.id === id);
-              return participantNameLabel(
-                tutor?.englishName,
-                tutor?.user?.username,
-                names("unnamed"),
-              );
-            }}
-            subjectId={subject.id}
-            value={tutorId}
-            onChange={(value) => {
-              setOpen(false);
-              setConsequenceTicket(null);
-              setTutorId(value);
-            }}
-          />
-        )}
-      </div>
-      {assign.isSuccess && !assign.data.emailSent && (
+          {/* Share the field's four rows so the subject centers on the select,
+           * independently of wrapped labels and workload guidance. The select
+           * keeps its control height when a long subject makes that row taller. */}
+          <span
+            className={`max-w-full min-w-0 text-sm font-medium wrap-anywhere whitespace-normal lg:col-start-1 lg:self-center ${!readOnly && !row.isInvalid ? "lg:row-start-2" : ""}`}
+          >
+            {subject.name}
+          </span>
+          {!readOnly && !row.isInvalid && (
+            <QualifiedTutorSelect
+              className="lg:col-start-2 lg:row-span-4 lg:row-start-1 lg:grid-rows-subgrid lg:[&_select]:self-center"
+              actions={
+                <button
+                  className="btn-primary min-h-11 lg:min-h-10"
+                  disabled={!tutorId || working || needsRefresh}
+                  onClick={() => {
+                    // A later explicit reassignment starts a new review only after
+                    // the previous write has synchronized; background reads cannot.
+                    accepted.current = false;
+                    setEmailFailed(false);
+                    setApprovalId(null);
+                    setOpen(true);
+                  }}
+                >
+                  {t("assign")}
+                </button>
+              }
+              label={t("chooseTutor", { subject: subject.name })}
+              tutors={tutors}
+              optionLabel={(id) => {
+                const tutor = tutors.find((candidate) => candidate.id === id);
+                return participantNameLabel(
+                  tutor?.englishName,
+                  tutor?.user?.username,
+                  names("unnamed"),
+                );
+              }}
+              subjectId={subject.id}
+              value={tutorId}
+              disabled={working || needsRefresh}
+              onChange={(value) => {
+                setOpen(false);
+                activeTicket.current = null;
+                setConsequenceTicket(null);
+                setTutorId(value);
+              }}
+            />
+          )}
+        </div>
+      )}
+      {emailFailed && (
         <p role="status" className="text-amber-800">
           {t("resendFailed")}
         </p>
       )}
-      {consequenceTicket && !row.isInvalid && (
+      {needsRefresh && (
+        <InlineNotice
+          tone="success"
+          action={
+            <Button disabled={working} onClick={() => void recover()}>
+              {editing("retryRefresh")}
+            </Button>
+          }
+        >
+          {editing("savedRefresh")}
+        </InlineNotice>
+      )}
+      {approvalId && (
+        <Link
+          className="link inline-flex min-h-11 items-center lg:min-h-8"
+          href={`/admin/approvals?request=${encodeURIComponent(approvalId)}`}
+        >
+          {editing("queued")}
+        </Link>
+      )}
+      {consequenceTicket && !readOnly && !row.isInvalid && (
         <WorkloadAssignmentConfirmation
           operation="studentWorkflow.assign"
           payload={{
@@ -936,22 +1044,17 @@ function Assignment({
             tutorId,
             ticket: consequenceTicket,
           }}
-          busy={assign.isPending}
+          busy={working}
           tutorId={tutorId}
           error={assign.error?.message}
-          onCancel={() => setConsequenceTicket(null)}
-          onConfirm={(overrideTicket) =>
-            assign.mutateAsync({
-              id: row.id,
-              subjectId: subject.id,
-              tutorId,
-              ticket: consequenceTicket,
-              overrideTicket,
-            })
-          }
+          onCancel={() => {
+            activeTicket.current = null;
+            setConsequenceTicket(null);
+          }}
+          onConfirm={commit}
         />
       )}
-      {open && !row.isInvalid && (
+      {open && !readOnly && !row.isInvalid && (
         <TimedActionDialog
           key={`${row.id}:${subject.id}:${tutorId}`}
           action="ASSIGN"
@@ -964,16 +1067,17 @@ function Assignment({
             ),
           })}
           message={`${subject.name} → ${participantNameLabel(tutors.find((tu) => tu.id === tutorId)?.englishName, tutors.find((tu) => tu.id === tutorId)?.user?.username, names("unnamed"))}\n\n${t(row.confirmedAt ? "assignVerifiedConsequences" : "assignConsequences")}`}
-          busy={assign.isPending}
+          busy={working}
           error={assign.error?.message}
           onCancel={() => setOpen(false)}
           onConfirm={(ticket) => {
             setOpen(false);
+            activeTicket.current = ticket;
             setConsequenceTicket(ticket);
           }}
         />
       )}
-    </div>
+    </>
   );
 }
 function ReviewCard({

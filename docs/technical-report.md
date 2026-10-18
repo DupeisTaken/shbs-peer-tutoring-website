@@ -295,6 +295,11 @@ accepts an optional root `className` so this feature can share the select's rows
 through CSS subgrid while retaining the other callers' default layout. Releases
 stay with each pairing, including duplicate-subject and retained extra-subject
 pairings; moving the controls does not change captured versions or review authority.
+Subject-keyed assignment controllers remain mounted when a pairing arrives, while
+pairing-keyed release controllers remain independent siblings. An idle paired
+subject adds no layout wrapper. Assignment delivery warnings and read-only refresh
+recovery outlive the selector; background reads retain an open review's proof,
+and explicit access revocation discards unsubmitted review state.
 
 The [session view API](../src/app/_components/session-view-state.tsx) stores explicit
 tabs, filters and pages in `sessionStorage`, partitioned by the existing session

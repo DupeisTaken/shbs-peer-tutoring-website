@@ -41,6 +41,9 @@ const mocks = vi.hoisted(() => ({
   invalidateTutees: vi.fn(),
   invalidatePairings: vi.fn(),
   unassign: vi.fn(),
+  assign: vi.fn(),
+  assignError: null as Error | null,
+  assignmentConfirm: null as ((overrideTicket?: string) => unknown) | null,
   fetchRequests: vi.fn(),
   fetchTutees: vi.fn(),
   changeSurvey: vi.fn(),
@@ -94,19 +97,73 @@ vi.mock("~/app/_components/qualified-tutor-select", () => ({
     label,
     leading,
     actions,
+    value,
+    onChange,
+    disabled,
   }: {
     label: string;
     leading?: ReactNode;
     actions?: ReactNode;
+    value: string;
+    onChange: (value: string) => void;
+    disabled?: boolean;
   }) => (
     <div>
       {leading}
-      <select aria-label={label}>
-        <option>Choose</option>
+      <select
+        aria-label={label}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">Choose</option>
+        <option value="chosen-tutor">Chosen Tutor</option>
       </select>
       {actions}
     </div>
   ),
+}));
+vi.mock("~/app/_components/assignment-workload", () => ({
+  // Exercise the feature-owned write lifecycle; native modality, qualification
+  // preparation and automatic admission are covered by their component suites.
+  WorkloadAssignmentConfirmation: ({
+    payload,
+    busy,
+    error,
+    onConfirm,
+    onCancel,
+  }: {
+    payload: unknown;
+    busy: boolean;
+    error?: string;
+    onConfirm: (overrideTicket?: string) => unknown;
+    onCancel: () => void;
+  }) => {
+    mocks.assignmentConfirm = onConfirm;
+    return (
+      <div
+        role="dialog"
+        aria-label="Assignment consequences"
+        aria-busy={busy}
+        data-payload={JSON.stringify(payload)}
+      >
+        {error && <p role="alert">{error}</p>}
+        <button
+          disabled={busy}
+          onClick={() =>
+            void Promise.resolve(onConfirm("qualification-ticket")).catch(
+              () => undefined,
+            )
+          }
+        >
+          Confirm assignment
+        </button>
+        <button disabled={busy} onClick={onCancel}>
+          Cancel assignment
+        </button>
+      </div>
+    );
+  },
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -186,13 +243,28 @@ vi.mock("~/trpc/react", () => ({
       },
       legacyReviews: { useQuery: () => ({ data: [] }) },
       resend: { useMutation: () => ({ mutate: vi.fn() }) },
-      assign: { useMutation: () => ({ mutate: vi.fn() }) },
+      assign: {
+        useMutation: () => ({
+          mutateAsync: mocks.assign,
+          error: mocks.assignError,
+        }),
+      },
       setRequestInvalidity: {
         useMutation: () => ({ mutateAsync: mocks.changeSurvey }),
       },
     },
     admin: {
-      tutors: { useQuery: () => ({ data: [] }) },
+      tutors: {
+        useQuery: () => ({
+          data: [
+            {
+              id: "chosen-tutor",
+              englishName: "Chosen Tutor",
+              status: "ACTIVE",
+            },
+          ],
+        }),
+      },
       currentPeriod: {
         useQuery: () => ({
           data: mocks.periodLoading ? undefined : { termId: "term-1" },
@@ -291,6 +363,9 @@ beforeEach(() => {
   mocks.currentVersion = 2;
   mocks.extraSubjects = [];
   mocks.pairings = null;
+  mocks.assignError = null;
+  mocks.assignmentConfirm = null;
+  mocks.assign.mockResolvedValue({ ok: true, emailSent: true });
   mocks.invalidateRequests.mockResolvedValue(undefined);
   mocks.invalidateTutees.mockResolvedValue(undefined);
   mocks.invalidatePairings.mockResolvedValue(undefined);
@@ -959,4 +1034,246 @@ it("retains accepted-release refresh recovery across subject regrouping without 
     expect(screen.queryByText(en.signupEditing.savedRefresh)).toBeNull(),
   );
   expect(mocks.unassign).toHaveBeenCalledOnce();
+});
+
+const assignedMath = {
+  id: "new-math-pairing",
+  subject: "Mathematics",
+  tutor: { englishName: "Chosen Tutor" },
+};
+
+function openSubjectAssignment(locale: "en" | "zh" = "en") {
+  const messages = locale === "zh" ? zh : en;
+  const row = screen.getByRole("group", { name: "Mathematics" });
+  fireEvent.change(within(row).getByRole("combobox"), {
+    target: { value: "chosen-tutor" },
+  });
+  fireEvent.click(
+    within(row).getByRole("button", { name: messages.workflow.assign }),
+  );
+  return screen.getByRole("dialog");
+}
+
+function reviewSubjectAssignment(locale: "en" | "zh" = "en") {
+  fireEvent.click(
+    within(openSubjectAssignment(locale)).getByRole("button", {
+      name: "Confirm release",
+    }),
+  );
+  return screen.getByRole("dialog", { name: "Assignment consequences" });
+}
+
+it.each(["en", "zh"] as const)(
+  "retains the accessible %s failed-email outcome after the first of two subjects becomes assigned",
+  async (locale) => {
+    mocks.invalid = false;
+    mocks.verified = false;
+    mocks.extraSubjects = [{ id: "physics", name: "Physics" }];
+    mocks.assign.mockResolvedValue({ ok: true, emailSent: false });
+    const page = render(content(false, false, locale));
+    mocks.invalidateRequests.mockImplementation(async () => {
+      mocks.pairings = [assignedMath];
+      page.rerender(content(false, false, locale));
+    });
+    fireEvent.click(
+      within(reviewSubjectAssignment(locale)).getByRole("button", {
+        name: "Confirm assignment",
+      }),
+    );
+    const messages = locale === "zh" ? zh : en;
+    const warning = await screen.findByText(messages.workflow.resendFailed);
+    expect(warning.getAttribute("role")).toBe("status");
+    expect(warning.closest("article")).toBe(
+      screen
+        .getByRole("heading", { name: "Public survey student" })
+        .closest("article"),
+    );
+    expect(screen.getAllByRole("group", { name: "Mathematics" })).toHaveLength(
+      1,
+    );
+    expect(
+      within(screen.getByRole("group", { name: "Mathematics" })).queryByRole(
+        "combobox",
+      ),
+    ).toBeNull();
+    expect(
+      within(screen.getByRole("group", { name: "Physics" })).getByRole(
+        "combobox",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(mocks.assign).toHaveBeenCalledExactlyOnceWith({
+      id: "survey-1",
+      subjectId: "math",
+      tutorId: "chosen-tutor",
+      ticket: "release-ticket",
+      overrideTicket: "qualification-ticket",
+    });
+  },
+);
+
+it("emits no duplicate subject row or empty layout wrapper for an idle paired controller", () => {
+  mocks.invalid = false;
+  mocks.extraSubjects = [{ id: "physics", name: "Physics" }];
+  mocks.pairings = [assignedMath];
+  render(content());
+  const math = screen.getByRole("group", { name: "Mathematics" });
+  const physics = screen.getByRole("group", { name: "Physics" });
+  expect(math.parentElement).toBe(physics.parentElement);
+  expect([...math.parentElement!.children]).toEqual([math, physics]);
+  expect(screen.queryByText(en.workflow.resendFailed)).toBeNull();
+});
+
+it("retains read-only accepted-assignment recovery when pairing arrival succeeds but another refresh fails", async () => {
+  mocks.invalid = false;
+  mocks.extraSubjects = [{ id: "physics", name: "Physics" }];
+  mocks.invalidateTutees.mockRejectedValue(
+    new Error("Offline after acceptance"),
+  );
+  const page = render(content());
+  mocks.invalidateRequests.mockImplementation(async () => {
+    mocks.pairings = [assignedMath];
+    page.rerender(content());
+  });
+  fireEvent.click(
+    within(reviewSubjectAssignment()).getByRole("button", {
+      name: "Confirm assignment",
+    }),
+  );
+  await screen.findByText(en.signupEditing.savedRefresh);
+  expect(screen.getByRole("group", { name: "Mathematics" })).toBeTruthy();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  // Even a stale retained callback cannot resubmit an accepted proof.
+  await act(async () => {
+    await mocks.assignmentConfirm?.("qualification-ticket");
+  });
+  mocks.invalidateTutees.mockResolvedValue(undefined);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.signupEditing.retryRefresh }),
+  );
+  await waitFor(() =>
+    expect(screen.queryByText(en.signupEditing.savedRefresh)).toBeNull(),
+  );
+  expect(mocks.assign).toHaveBeenCalledOnce();
+  expect(mocks.invalidateTutees).toHaveBeenCalledTimes(2);
+});
+
+it("preserves open and pending assignment reviews across external pairing refresh, guarding duplicate admission", async () => {
+  mocks.invalid = false;
+  mocks.extraSubjects = [{ id: "physics", name: "Physics" }];
+  const page = render(content());
+  const timed = openSubjectAssignment();
+  mocks.currentVersion = 9;
+  mocks.pairings = [assignedMath];
+  page.rerender(content());
+  expect(screen.getByRole("dialog")).toBe(timed);
+  expect(mocks.assign).not.toHaveBeenCalled();
+  fireEvent.click(
+    within(timed).getByRole("button", { name: "Confirm release" }),
+  );
+  const review = screen.getByRole("dialog", {
+    name: "Assignment consequences",
+  });
+  const captured = review.getAttribute("data-payload");
+  let rejectWrite!: (failure: Error) => void;
+  mocks.assign.mockImplementationOnce(
+    () =>
+      new Promise((_resolve, reject) => {
+        rejectWrite = reject;
+      }),
+  );
+  const confirm = mocks.assignmentConfirm!;
+  let first!: Promise<unknown>;
+  act(() => {
+    first = Promise.resolve(confirm("qualification-ticket"));
+    void first.catch(() => undefined);
+    void confirm("qualification-ticket");
+  });
+  expect(mocks.assign).toHaveBeenCalledOnce();
+  mocks.currentVersion = 10;
+  page.rerender(content());
+  expect(screen.getByRole("dialog")).toBe(review);
+  expect(review.getAttribute("aria-busy")).toBe("true");
+  expect(
+    within(review).getByRole<HTMLButtonElement>("button", {
+      name: "Cancel assignment",
+    }).disabled,
+  ).toBe(true);
+  const failure = new Error(
+    "This subject is already assigned. Refresh the page.",
+  );
+  mocks.assignError = failure;
+  await act(async () => {
+    rejectWrite(failure);
+    await first.catch(() => undefined);
+  });
+  expect(within(review).getByRole("alert").textContent).toBe(failure.message);
+  expect(review.getAttribute("data-payload")).toBe(captured);
+  expect(mocks.assign).toHaveBeenCalledOnce();
+  mocks.assign.mockRejectedValue(failure);
+  fireEvent.click(
+    within(review).getByRole("button", { name: "Confirm assignment" }),
+  );
+  await waitFor(() => expect(mocks.assign).toHaveBeenCalledTimes(2));
+  expect(mocks.assign.mock.calls[1]?.[0]).toEqual(
+    mocks.assign.mock.calls[0]?.[0],
+  );
+});
+
+it("does not resurrect an assignment confirmation after explicit read-only revocation and restored access", async () => {
+  mocks.invalid = false;
+  mocks.extraSubjects = [{ id: "physics", name: "Physics" }];
+  const page = render(content());
+  reviewSubjectAssignment();
+  const captured = mocks.assignmentConfirm!;
+  page.rerender(content(false, true));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await act(async () => {
+    await captured("qualification-ticket");
+  });
+  expect(mocks.assign).not.toHaveBeenCalled();
+  page.rerender(content());
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await act(async () => {
+    await captured("qualification-ticket");
+  });
+  expect(mocks.assign).not.toHaveBeenCalled();
+});
+
+it("treats a queued assignment proposal as accepted and retries only its failed reads", async () => {
+  mocks.invalid = false;
+  mocks.role = "ADMIN";
+  mocks.extraSubjects = [{ id: "physics", name: "Physics" }];
+  mocks.assign.mockRejectedValue({
+    data: { approvalId: "assignment-proposal" },
+  });
+  mocks.invalidateTutees.mockRejectedValue(new Error("Offline after queue"));
+  render(content());
+  fireEvent.click(
+    within(reviewSubjectAssignment()).getByRole("button", {
+      name: "Confirm assignment",
+    }),
+  );
+  await screen.findByText(en.signupEditing.savedRefresh);
+  expect(
+    screen
+      .getByRole("link", { name: en.signupEditing.queued })
+      .getAttribute("href"),
+  ).toBe("/admin/approvals?request=assignment-proposal");
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByText(en.workflow.resendFailed)).toBeNull();
+  expect(
+    within(
+      screen.getByRole("group", { name: "Mathematics" }),
+    ).getByRole<HTMLButtonElement>("button", { name: en.workflow.assign })
+      .disabled,
+  ).toBe(true);
+  mocks.invalidateTutees.mockResolvedValue(undefined);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.signupEditing.retryRefresh }),
+  );
+  await waitFor(() =>
+    expect(screen.queryByText(en.signupEditing.savedRefresh)).toBeNull(),
+  );
+  expect(mocks.assign).toHaveBeenCalledOnce();
 });
