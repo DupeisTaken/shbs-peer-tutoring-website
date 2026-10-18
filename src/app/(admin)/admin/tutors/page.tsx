@@ -14,7 +14,7 @@ import { matchesPersonSearch } from "~/lib/person-search";
 import { nameDraft } from "~/lib/person-name";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { EmailDetails } from "~/app/_components/email-details";
 import { AcademicDetails } from "~/app/_components/academic-profile";
@@ -43,6 +43,7 @@ import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
 
 export default function TutorsPage() {
   const t = useTranslations();
+  const locale = useLocale();
   const policy = useProfilePolicy();
   const readOnly = useReadOnly();
   const identity = api.account.me.useQuery();
@@ -122,35 +123,39 @@ export default function TutorsPage() {
     const data = visibleTutors(tutors.data ?? [], showPast).filter((row) =>
       matchesPersonSearch(row, search, [row.username, row.email]),
     );
+    if (sort.dir === "none") return data;
     const dir = sort.dir === "asc" ? 1 : -1;
+    const compareText = (a: string, b: string) => compare(a, b, locale);
     return [...data].sort((a, b) => {
       switch (sort.key) {
         case "firstName":
           return (
-            compare(
+            compareText(
               a.firstName ?? a.englishName,
               b.firstName ?? b.englishName,
             ) * dir
           );
         case "username":
-          return compare(a.username ?? "", b.username ?? "") * dir;
+          return compareText(a.username ?? "", b.username ?? "") * dir;
         case "email":
-          return compare(a.email ?? "", b.email ?? "") * dir;
+          return compareText(a.email ?? "", b.email ?? "") * dir;
         case "grade":
           return (
             ((a.academic.gradeLevel ?? 0) - (b.academic.gradeLevel ?? 0)) * dir
           );
         case "status":
-          return compare(a.status, b.status) * dir;
+          return compareText(a.status, b.status) * dir;
         case "lastName":
         default:
           return (
-            compare(a.lastName ?? a.englishName, b.lastName ?? b.englishName) *
-            dir
+            compareText(
+              a.lastName ?? a.englishName,
+              b.lastName ?? b.englishName,
+            ) * dir
           );
       }
     });
-  }, [tutors.data, sort.key, sort.dir, showPast, search]);
+  }, [locale, tutors.data, sort.key, sort.dir, showPast, search]);
 
   if (denied)
     return (

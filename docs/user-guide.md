@@ -1,5 +1,15 @@
 # User guide
 
+## Sorting information tables
+
+Click a data-column heading in Pairings, tutor/tutee rosters, Users & Roles and other
+information tables to sort ascending. Click it again for descending order, and a third
+time to restore the original order. Choosing another heading starts ascending. Arrows
+show the active direction; keyboard users can focus a heading and press Enter or Space.
+Sorting keeps the current filters and does not change records. Actions and selection
+checkboxes do not sort. Logs, submissions, historical reports and paginated history keep
+their existing order.
+
 ## Account invitations and sign-in
 
 All website account creation finishes through the shared invitation review at `/register-account`.
@@ -832,7 +842,7 @@ activation; moving focus alone does not select another queue.
 
 Course-aware tutor selectors in Signup Requests and Pairings list tutors with approved, recorded subject grants first, followed by a separate unqualified group. Inherited grants remain valid after level reordering. Choose the subject first in Pairings. Assigning an unqualified tutor opens a warning naming the tutor and subject; confirmation becomes available when the two-second countdown completes. Cancel or change the selection to discard that acknowledgement. Coordinators still submit proposals, and the reviewer must confirm any remaining qualification mismatch independently. This override does not waive active-tutor, request, permission, or scheduling checks.
 
-The same selectors and the **Pairings** list show each tutor's approximate assigned
+The same selectors and the **Pairings** assignment editor show each tutor's approximate assigned
 session-block workload for the **current quarter**, including zero. This estimates
 the load if the assigned tutees work out, rather than counting attendance already
 recorded. A confirmed time shared by subjects or multiple tutees counts once.
@@ -846,6 +856,30 @@ block would exceed it. Joining an existing shared block adds no block. These not
 create no hard cap or new approval requirement.
 
 ### Planned rooms
+
+The **Pairings** table shows Tutor, Subject, When, Room, Tutees and Actions.
+Room uses compact badges: **-** for Awaiting schedule or No physical room,
+**x** for a scheduled pairing without a room, and the room name when reserved.
+Both `x` and `-` use gray backgrounds; Needs room keeps amber text for staff
+attention. Automatic room badges are gray, staff-fixed rooms follow the selected
+app accent, and assigned legacy rooms use gray outlines. Open
+**View details** to distinguish Awaiting schedule, Needs room, No physical room,
+and legacy unallocated records, or to inspect automatic/fixed allocation.
+The **Needs room** filter includes actual shortages only; it does not include
+every row marked **x**. Workload counts and preferred maximums remain in the
+assignment editor and tutor selectors rather than repeating in each summary row.
+
+Use **Auto assign all unassigned sessions** above the table to review scheduled,
+roomless automatic and legacy records across all pairings, regardless of the
+current filter. Explicit combined groups count as one reservation and appear in
+one review item with their member subjects and shared schedule. Independent
+pairings each have their own review item, so the count matches the list. The action
+preserves existing rooms, fixed choices, awaiting schedules and intentional no-room
+choices, and requires automatic room assignment to be enabled. Review the list
+before confirming; Coordinators submit for approval. Changed records require a
+fresh review. The result reports assigned and still-unassigned reservations; lack
+of capacity can leave amber **x** badges. After a completed write, **Retry refresh**
+only reloads the result. The batch supports up to 500 pairing records.
 
 Explicitly combined pairing groups share one planned room and the primary
 assignment’s schedule. Independent assignments still reserve rooms separately;

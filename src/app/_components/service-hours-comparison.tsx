@@ -19,7 +19,7 @@ export function ServiceHoursComparison({
       lifetime="lazy"
     >
       <p className="muted mb-3 text-sm">{t("compareHelp")}</p>
-      <SummaryTable label={t("compareLabel")}>
+      <SummaryTable sortable label={t("compareLabel")}>
         <thead>
           <tr>
             <th scope="col">{t("columns.tutor")}</th>
@@ -43,7 +43,11 @@ export function ServiceHoursComparison({
         <tbody>
           {rows.map((row) => (
             <tr key={row.tutorId}>
-              <th scope="row" className="text-left font-medium">
+              <th
+                data-sort-value={row.englishName}
+                scope="row"
+                className="text-left font-medium"
+              >
                 {row.englishName}
                 {!row.active && ` ${t("inactive")}`}
               </th>

@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, type ComponentProps, type ReactNode } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 import { Modal } from "./modal";
 import { Button } from "./button";
 import { ProfileDialog } from "../profile-dialog";
+import { useSort } from "../sortable";
+import { sortTableChildren } from "./table-sorting";
 
 /** Summary cells stay brief; the last column owns every detail/editor entry.
  * The local scroll region preserves column relationships and keeps actions reachable.
@@ -14,11 +16,16 @@ export function SummaryTable({
   label,
   children,
   className = "",
+  sortable = false,
 }: {
   label: string;
   children: ReactNode;
   className?: string;
+  /** Information tables opt in; logs, paginated histories and manual rosters keep their owner. */
+  sortable?: boolean;
 }) {
+  const sort = useSort();
+  const locale = useLocale();
   return (
     <div
       className="summary-table-scroll"
@@ -30,7 +37,7 @@ export function SummaryTable({
         aria-label={label}
         className={`data-table summary-table ${className}`}
       >
-        {children}
+        {sortable ? sortTableChildren(children, sort, locale) : children}
       </table>
     </div>
   );

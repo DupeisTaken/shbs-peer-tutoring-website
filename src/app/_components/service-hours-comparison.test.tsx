@@ -56,5 +56,8 @@ it("keeps a named keyboard-scrollable comparison of the full breakdown without f
   expect(within(region).getAllByRole("rowheader")).toHaveLength(2);
   expect(within(region).getByText("2.5")).toBeTruthy();
   expect(within(region).getByText("0.5")).toBeTruthy();
-  expect(within(region).queryByRole("button")).toBeNull();
+  expect(within(region).getAllByRole("button")).toHaveLength(6);
+  expect(
+    within(region).queryByRole("button", { name: /details|edit/i }),
+  ).toBeNull();
 });

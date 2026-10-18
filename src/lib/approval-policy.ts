@@ -115,6 +115,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "admin.createPairing": "Pairing",
   "admin.updatePairing": "Pairing",
   "admin.retryRoomAllocation": "Pairing",
+  "admin.autoAssignUnassignedRooms": "Pairing",
   "admin.setPairingRoom": "Pairing",
   "admin.deletePairing": "Pairing",
   "admin.setUserCanTutor": "User",

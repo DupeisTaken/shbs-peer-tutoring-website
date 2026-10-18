@@ -130,7 +130,7 @@ export default function SummaryPage() {
       )}
       {!hidden && summary.data && (
         <div className="card">
-          <SummaryTable label={t("admin.summary.title")}>
+          <SummaryTable sortable label={t("admin.summary.title")}>
             <thead>
               <tr>
                 <th>{t("admin.summary.columns.tutor")}</th>
@@ -151,7 +151,7 @@ export default function SummaryPage() {
                   key={r.tutorId}
                   className={r.active ? "" : "text-slate-400"}
                 >
-                  <td>
+                  <td data-sort-value={r.englishName ?? ""}>
                     <ParticipantName name={r.englishName} />
                     {!r.active && ` ${t("admin.summary.inactive")}`}
                   </td>

@@ -1,7 +1,7 @@
 "use client";
 import { useSessionViewState } from "./session-view-state";
 import { viewEnum, viewFields } from "~/lib/session-view-state";
-import type { Sort } from "./sortable";
+import { nextSort, type Sort, type SortDir } from "./sortable";
 
 /** Only table presentation enters session storage; identity/editor drafts stay
  * with each roster's existing form owner and version snapshot. */
@@ -11,21 +11,17 @@ export function useRosterSort(
   defaultKey: string,
   enabled: boolean,
 ): Sort {
-  const [sort, setSort] = useSessionViewState<{ key: string; dir: "asc" | "desc" }>({
+  const [sort, setSort] = useSessionViewState<{ key: string; dir: SortDir }>({
     id,
-    initialState: { key: defaultKey, dir: "asc" },
-    parse: viewFields<{ key: string; dir: "asc" | "desc" }>({
+    initialState: { key: defaultKey, dir: "none" },
+    parse: viewFields<{ key: string; dir: SortDir }>({
       key: viewEnum(keys),
-      dir: viewEnum(["asc", "desc"]),
+      dir: viewEnum(["asc", "desc", "none"]),
     }),
     enabled,
   });
   return {
     ...sort,
-    toggle: (key) =>
-      setSort((before) => ({
-        key,
-        dir: before.key === key && before.dir === "asc" ? "desc" : "asc",
-      })),
+    toggle: (key) => setSort((before) => nextSort(before, key)),
   };
 }

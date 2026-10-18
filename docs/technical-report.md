@@ -301,6 +301,23 @@ subject adds no layout wrapper. Assignment delivery warnings and read-only refre
 recovery outlive the selector; background reads retain an open review's proof,
 and explicit access revocation discards unsubmitted review state.
 
+Information tables opt into sorting in [SummaryTable](../src/app/_components/ui/summary-table.tsx).
+The [sorting adapter](../src/app/_components/ui/table-sorting.tsx) reorders keyed React rows,
+without DOM manipulation, changing source arrays, mounting detail readers or issuing queries.
+A header cycles ascending, descending, then no sort; the last state uses the latest incoming
+order, including refreshed/filter results. Numeric-aware collation follows the active locale;
+signed decimal values sort numerically, equal values preserve incoming order and missing values
+stay last in either direction. Cells with component-rendered or domain-specific values supply
+`data-sort-value`; weekly schedules use confirmed weekday/start/end values, not translated labels.
+Room comparisons sort unavailable cells before free/occupied counts, with missing slots last.
+Native fragments expose already-created cells without executing components. Selection headers
+opt out and Actions headers retain their existing sticky treatment. Roster adapters retain
+their allowlisted session storage and explicitly bypass their comparator for `dir: "none"`.
+The rollout covers pairings, tutor/tutee/user/crew directories, profile records, discipline
+standing, time slots, courses, room/meeting matrices, service-hour summaries, calendar and name
+configuration information. Activity logs, submission/review queues, historical reports, import
+previews and paginated history retain their established order. Sorting is presentation only.
+
 The [session view API](../src/app/_components/session-view-state.tsx) stores explicit
 tabs, filters and pages in `sessionStorage`, partitioned by the existing session
 identity (account/role/tutor link), pathname, feature/schema ID and feature-supplied
@@ -1133,7 +1150,36 @@ parent draft remains mounted, and the returned write promise owns nested-dialog
 pending protection until it settles.
 A separate default-only migration sets new tutors to 1 without backfilling unset
 values; the existing inactive trigger still wins with zero. All native tutor
-selectors and Pairings summaries consume the same count. Proposed edits remove
+selectors and the Pairings assignment editor consume the same count. The Pairings
+summary keeps six pairing-level columns; workload counts and preferences remain
+at assignment decisions. Its Room cell renders a name only for a confirmed
+schedule with a room. Feature-owned `PairingRoomSummary` displays `-` for awaiting
+schedules or explicit NONE, and `x` for remaining roomless records. Automatic is
+slate and confirmed FIXED uses the selected app accent. Both `x` and `-` have
+slate backgrounds, with amber text for persisted shortages; assigned LEGACY rooms
+retain slate outlines. Each badge includes localized accessible status and a hover title,
+with a visible symbol legend. `RoomAllocationStatus` retains full intent in View details; the
+shortage filter still uses `roomNeedsAssignment`, never inferred null-room state.
+See [#401](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/401).
+
+Bulk room assignment ([#403](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/403))
+reviews explicit pairing IDs and expected room versions, independent of table
+filters. Its count and list share the same reservation grouping: one item per
+explicit group or independent pairing, with member subjects and the schedule.
+Authoritative read denial or read-only authority releases the captured review
+through `revoke()`; transient read recovery preserves it. The server validates
+current scheduled AUTO/LEGACY roomless targets and
+complete group membership before allocating each reservation unit sequentially
+in one transaction under the period and planned-room locks. Existing reservations,
+NONE and unconfirmed schedules are excluded; the feature must be enabled. The
+500-record limit bounds transaction work. Coordinator proposals retain immutable
+target evidence and normal approval replay. UI `useActionReview` guards pending
+and accepted writes, preserves read-only refresh recovery, and renders the
+feature's assigned/unassigned result. Its optional primary confirmation styling
+and result renderer preserve destructive defaults for other callers and are
+demonstrated in the gallery.
+
+Proposed edits remove
 only the original pairing's membership, retain shared siblings and add the new
 distinct identity only for a current roster. Projections use the same current-quarter
 and authoritative tutor eligibility

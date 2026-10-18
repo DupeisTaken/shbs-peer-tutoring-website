@@ -59,7 +59,7 @@ export function ProgramNameSettings() {
           {t("loadFailed")}
         </InlineNotice>
       )}
-      <SummaryTable label={t("title")}>
+      <SummaryTable sortable label={t("title")}>
         <thead>
           <tr>
             <th>{t("accountType")}</th>

@@ -6,6 +6,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -14,6 +15,8 @@ import zh from "../../../../../messages/zh.json";
 import PairingsPage from "./page";
 
 const state = vi.hoisted(() => ({
+  sorting: false,
+  sortMissing: false,
   confirmed: true,
   readOnly: true,
   mutate: vi.fn(),
@@ -54,16 +57,76 @@ vi.mock("~/trpc/react", () => ({
                         dayOfWeek: 1,
                         startMin: 930,
                         endMin: 990,
-                        room: null,
-                        tutees: [],
+                        room: null as { name: string } | null,
+                        tutees: [] as {
+                          tuteeId: string;
+                          tutee: { englishName: string };
+                        }[],
                       },
                     ]
-                : key === "tutees"
-                  ? [
-                      { id: "alice", englishName: "Alice Synthetic" },
-                      { id: "bob", englishName: "Bob Synthetic" },
-                    ]
-                  : [],
+                      .flatMap((p) =>
+                        state.sorting
+                          ? [
+                              {
+                                ...p,
+                                id: "z",
+                                tutorId: "z",
+                                tutor: { englishName: "Zoe Synthetic" },
+                                subject: "Physics",
+                                dayOfWeek: 5,
+                                room: { name: "Room 10" },
+                                tutees: [
+                                  {
+                                    tuteeId: "one",
+                                    tutee: { englishName: "One" },
+                                  },
+                                ],
+                              },
+                              {
+                                ...p,
+                                id: "a",
+                                tutorId: "a",
+                                tutor: { englishName: "Alex Synthetic" },
+                                subject: "Chemistry",
+                                dayOfWeek: 1,
+                                room: { name: "Room 2" },
+                                tutees: [],
+                              },
+                            ]
+                          : [p],
+                      )
+                      .flatMap((p, index) =>
+                        state.sortMissing && index === 0
+                          ? [
+                              p,
+                              {
+                                ...p,
+                                id: "roomless",
+                                dayOfWeek: 3,
+                                room: null,
+                              },
+                              {
+                                ...p,
+                                id: "awaiting",
+                                scheduleConfirmed: false,
+                                room: { name: "Room 1" },
+                              },
+                            ]
+                          : [p],
+                      )
+                : key === "assignmentWorkloads"
+                  ? {
+                      tutors: [
+                        { id: "z", count: 10, preferredMaximum: 12 },
+                        { id: "a", count: 2, preferredMaximum: 3 },
+                      ],
+                    }
+                  : key === "tutees"
+                    ? [
+                        { id: "alice", englishName: "Alice Synthetic" },
+                        { id: "bob", englishName: "Bob Synthetic" },
+                      ]
+                    : [],
           }),
         }),
       },
@@ -72,6 +135,8 @@ vi.mock("~/trpc/react", () => ({
 }));
 afterEach(() => {
   cleanup();
+  state.sorting = false;
+  state.sortMissing = false;
   state.confirmed = true;
   state.readOnly = true;
   state.mutate.mockClear();
@@ -386,3 +451,117 @@ it("does not resurrect a cancelled loading arrival or denied cached record", () 
   page.rerender(arrivalPage(client));
   expect(scroll).not.toHaveBeenCalled();
 });
+
+// Exercise the final six-column page: the five pairing facts sort, while Actions
+// and tutor-wide workload advice retain their own feature boundaries.
+it.each(["en", "zh"] as const)(
+  "cycles every information column without writes (%s)",
+  (locale) => {
+    state.sorting = true;
+    state.readOnly = false;
+    mount(locale);
+    const messages = locale === "en" ? en : zh;
+    const headings = [
+      messages.admin.pairings.colTutor,
+      messages.admin.pairings.colSubject,
+      messages.admin.pairings.colWhen,
+      messages.admin.pairings.colRoom,
+      messages.admin.pairings.colTutees,
+    ];
+    const ids = () =>
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.id);
+    expect(ids()).toEqual(["z", "a"]);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(6);
+    expect(
+      screen.queryByRole("button", { name: messages.tablePatterns.actions }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("columnheader", {
+        name: messages.tutorWorkload.countHeading,
+      }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("columnheader", {
+        name: messages.tutorWorkload.preferenceHeading,
+      }),
+    ).toBeNull();
+    for (const name of headings) {
+      const header = screen.getByRole("button", { name });
+      fireEvent.click(header);
+      expect(ids()).toEqual(["a", "z"]);
+      expect(header.closest("th")?.getAttribute("aria-sort")).toBe("ascending");
+      fireEvent.click(header);
+      expect(ids()).toEqual(["z", "a"]);
+      expect(header.closest("th")?.getAttribute("aria-sort")).toBe(
+        "descending",
+      );
+      fireEvent.click(header);
+      expect(ids()).toEqual(["z", "a"]);
+      expect(header.closest("th")?.hasAttribute("aria-sort")).toBe(false);
+    }
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  ["en", false],
+  ["zh", false],
+  ["en", true],
+  ["zh", true],
+] as const)(
+  "sorts room badges and schedules by their reserved values (%s, read-only: %s)",
+  (locale, readOnly) => {
+    state.sorting = true;
+    state.sortMissing = true;
+    state.readOnly = readOnly;
+    mount(locale);
+    const messages = locale === "en" ? en : zh;
+    const table = within(
+      screen.getByRole("table", { name: messages.admin.pairings.title }),
+    );
+    const ids = () =>
+      table
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.id);
+    const original = ["z", "roomless", "awaiting", "a"];
+    expect(ids()).toEqual(original);
+    const room = table.getByRole("button", {
+      name: messages.admin.pairings.colRoom,
+    });
+    fireEvent.click(room);
+    expect(ids()).toEqual(["a", "z", "roomless", "awaiting"]);
+    fireEvent.click(room);
+    expect(ids()).toEqual(["z", "a", "roomless", "awaiting"]);
+    fireEvent.click(room);
+    expect(ids()).toEqual(original);
+    const when = table.getByRole("button", {
+      name: messages.admin.pairings.colWhen,
+    });
+    fireEvent.click(when);
+    expect(ids()).toEqual(["a", "roomless", "z", "awaiting"]);
+    fireEvent.click(when);
+    expect(ids()).toEqual(["z", "roomless", "a", "awaiting"]);
+    fireEvent.click(when);
+    expect(ids()).toEqual(original);
+    // Row identity and its reader survive sorting; sorting grants no write access.
+    const first = within(table.getAllByRole("row")[1]!);
+    fireEvent.click(
+      first.getByRole("button", {
+        name: `${messages.tablePatterns.details}: Zoe Synthetic · Physics`,
+      }),
+    );
+    expect(screen.getByRole("dialog").textContent).toContain("Room 10");
+    expect(
+      Boolean(
+        first.queryByRole("button", {
+          name: `${messages.admin.pairings.edit}: Zoe Synthetic · Physics`,
+        }),
+      ),
+    ).toBe(!readOnly);
+    expect(state.mutate).not.toHaveBeenCalled();
+  },
+);

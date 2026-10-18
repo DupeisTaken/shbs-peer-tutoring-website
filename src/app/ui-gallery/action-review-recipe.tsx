@@ -10,6 +10,7 @@ import { FormActions, StatePanel } from "~/app/_components/ui/patterns";
  * issuing a mutation or granting any management permission. */
 export function ActionReviewRecipe() {
   const t = useTranslations("actionReview");
+  const room = useTranslations("roomAllocation");
   const review = useActionReview();
   const [sequence, setSequence] = useState(0);
   const [revoked, setRevoked] = useState(false);
@@ -21,6 +22,31 @@ export function ActionReviewRecipe() {
         useActionReview + Modal + InlineNotice
       </code>
       <FormActions>
+        <Button
+          disabled={revoked || review.blocked(`allocation-${sequence}`)}
+          onClick={() => {
+            setSequence((value) => value + 1);
+            review.open({
+              key: `allocation-${sequence}`,
+              title: room("autoAssignAll"),
+              description: room("autoAssignHelp"),
+              confirmLabel: room("autoAssignAll"),
+              confirmVariant: "primary",
+              details: <p>{room("autoAssignCount", { count: 3 })}</p>,
+              commit: async () =>
+                room("autoAssignResult", {
+                  total: 3,
+                  assigned: 2,
+                  unassigned: 1,
+                }),
+              renderResult: (result) =>
+                typeof result === "string" ? <p>{result}</p> : null,
+              refresh: async () => undefined,
+            });
+          }}
+        >
+          {room("autoAssignAll")}
+        </Button>
         <Button
           disabled={revoked || review.blocked(`example-${sequence}`)}
           onClick={() => {

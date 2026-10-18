@@ -3347,7 +3347,8 @@
         "studentWorkflow_headUnassign": "Liberar asignación del estudiante",
         "studentWorkflow_resolveSignupAppeal": "Resolver apelación de inscripción del estudiante",
         "admin_setPairingRoom": "Change a pairing’s room assignment",
-        "admin_retryRoomAllocation": "Retry automatic room allocation for a pairing"
+        "admin_retryRoomAllocation": "Retry automatic room allocation for a pairing",
+        "admin_autoAssignUnassignedRooms": "Asignar automáticamente aulas a todas las sesiones revisadas sin asignar"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -5307,6 +5308,12 @@
     "compactHelp": "Numbers in parentheses show assigned sessions / preferred sessions. One number means no preference; ? means workload is unavailable or being refreshed."
   },
   "roomAllocation": {
+    "summaryLegend": "- Pendiente de horario / no necesita aula · x Sin asignar",
+    "autoAssignAll": "Asignar aulas a todas las sesiones sin asignar",
+    "autoAssignHelp": "Asigna aulas a todas las sesiones programadas sin aula, incluidos los registros antiguos sin asignar. Se conservan las aulas existentes, las opciones fijas, las sesiones pendientes de horario y las opciones explícitas sin aula. Los grupos combinados comparten una reserva. Si los registros cambian, actualiza y revisa de nuevo. La asignación automática de aulas debe estar activada.",
+    "autoAssignCount": "Revisa {count} reservas sin asignar de todas las parejas, independientemente del filtro actual.",
+    "autoAssignResult": "Se comprobaron {total} reservas: {assigned} asignadas y {unassigned} aún necesitan aula.",
+    "autoAssignLimit": "Esta acción admite hasta 500 registros de parejas a la vez. Para listas mayores, usa los controles de aula de cada fila.",
     "modeLabel": "Room assignment",
     "mode": {
       "AUTO": "Automatic",

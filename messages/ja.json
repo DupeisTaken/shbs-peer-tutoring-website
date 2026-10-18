@@ -3347,7 +3347,8 @@
         "studentWorkflow_headUnassign": "生徒の指導割当を解除",
         "studentWorkflow_resolveSignupAppeal": "生徒の申込異議を審査",
         "admin_setPairingRoom": "Change a pairing’s room assignment",
-        "admin_retryRoomAllocation": "Retry automatic room allocation for a pairing"
+        "admin_retryRoomAllocation": "Retry automatic room allocation for a pairing",
+        "admin_autoAssignUnassignedRooms": "確認済みの未割り当てセッションすべてに教室を自動割り当て"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -5307,6 +5308,12 @@
     "compactHelp": "Numbers in parentheses show assigned sessions / preferred sessions. One number means no preference; ? means workload is unavailable or being refreshed."
   },
   "roomAllocation": {
+    "summaryLegend": "- 日程未定／教室不要 · x 未割り当て",
+    "autoAssignAll": "未割り当ての全セッションに教室を自動割り当て",
+    "autoAssignHelp": "以前の未割り当て記録を含め、日程が確定している教室未割り当ての全セッションに教室を割り当てます。既存の教室、固定の選択、日程未定のセッション、教室不要の明示的な選択は維持されます。結合グループは1つの予約を共有します。記録が変わった場合は更新して再確認してください。教室の自動割り当てが有効になっている必要があります。",
+    "autoAssignCount": "現在のフィルターに関係なく、すべてのペアリングから未割り当ての予約 {count} 件を確認します。",
+    "autoAssignResult": "予約 {total} 件を確認しました。{assigned} 件を割り当て、{unassigned} 件は引き続き教室が必要です。",
+    "autoAssignLimit": "この操作は一度に最大500件のペアリングに対応します。それ以上の場合は各行の教室操作を使用してください。",
     "modeLabel": "Room assignment",
     "mode": {
       "AUTO": "Automatic",

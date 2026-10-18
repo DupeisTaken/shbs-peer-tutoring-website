@@ -12,6 +12,10 @@ export type ReviewedAction = {
   title: string;
   description: string;
   confirmLabel: string;
+  /** Non-destructive reviews may use the primary accent; destructive stays default. */
+  confirmVariant?: "primary" | "danger";
+  /** Optional feature-owned summary of a completed write, separate from read recovery. */
+  renderResult?: (result: unknown) => ReactNode;
   details?: ReactNode;
   /** The feature supplies an authorized mutation with its original payload. */
   commit: () => Promise<unknown>;
@@ -116,6 +120,7 @@ function ActionReview({
   const t = useTranslations("actionReview");
   const [busy, setBusy] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  const [writeResult, setWriteResult] = useState<unknown>();
   const [approvalId, setApprovalId] = useState<string>();
   const [error, setError] = useState<string>();
   const [refreshFailed, setRefreshFailed] = useState(false);
@@ -152,7 +157,8 @@ function ActionReview({
     pending(true);
     setError(undefined);
     try {
-      await action.commit();
+      const result = await action.commit();
+      setWriteResult(result);
     } catch (failure) {
       const queued = action.approvalId?.(failure);
       if (queued) {
@@ -185,6 +191,7 @@ function ActionReview({
       <p>
         {t(approvalId ? "queued" : refreshFailed ? "refreshFailed" : "applied")}
       </p>
+      {!approvalId && action.renderResult?.(writeResult)}
       {approvalId && (
         <Link
           className="link inline-flex min-h-11 items-center lg:min-h-8"
@@ -217,7 +224,10 @@ function ActionReview({
             {t(accepted ? "close" : "cancel")}
           </Button>
           {!accepted && (
-            <Button variant="danger" onClick={() => void commit()}>
+            <Button
+              variant={action.confirmVariant ?? "danger"}
+              onClick={() => void commit()}
+            >
               {action.confirmLabel}
             </Button>
           )}

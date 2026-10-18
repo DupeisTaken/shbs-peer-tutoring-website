@@ -270,7 +270,7 @@ afterEach(() => {
 
 describe("sortable column controls", () => {
   function Table() {
-    const sort = useSort("name");
+    const sort = useSort("name", "asc");
     return (
       <table>
         <thead>

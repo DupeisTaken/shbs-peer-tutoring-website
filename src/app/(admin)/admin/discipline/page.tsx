@@ -374,7 +374,7 @@ export default function CardsPage() {
         <h2 className="section-title">{t("admin.cards.standingHeading")}</h2>
         <p className="muted mt-1 text-xs">{t("admin.cards.standingHelp")}</p>
         <div className="mt-3">
-          <SummaryTable label={t("admin.cards.standingHeading")}>
+          <SummaryTable sortable label={t("admin.cards.standingHeading")}>
             <thead>
               <tr>
                 <th>{t("admin.cards.table.tutee")}</th>
@@ -388,10 +388,13 @@ export default function CardsPage() {
             <tbody>
               {standings.map((s) => (
                 <tr key={s.id}>
-                  <td className="font-medium text-slate-800">
+                  <td
+                    data-sort-value={s.name ?? ""}
+                    className="font-medium text-slate-800"
+                  >
                     <ParticipantName name={s.name} />
                   </td>
-                  <td>
+                  <td data-sort-value={s.effectiveReds}>
                     <DisciplineSlots
                       validRed={s.validRed}
                       validYellow={s.validYellow}
