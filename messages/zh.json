@@ -3347,7 +3347,8 @@
         "studentWorkflow_headUnassign": "解除学生辅导分配",
         "studentWorkflow_resolveSignupAppeal": "处理学生申请申诉",
         "admin_setPairingRoom": "更改配对的教室分配方式",
-        "admin_retryRoomAllocation": "重试配对的教室自动分配"
+        "admin_retryRoomAllocation": "重试配对的教室自动分配",
+        "admin_autoAssignUnassignedRooms": "为所有已审核的未分配课程自动分配教室"
       },
       "decisionRequestHelp": "“批准并执行”将执行申请的操作，包括申请中要求的拒绝决定。“拒绝并反馈”只拒绝此申请，不做任何更改。两种决定都需要说明。",
       "confirmPassword": "确认负责人账户密码"
@@ -5307,6 +5308,12 @@
     "compactHelp": "括号中的数字表示已分配次数／期望次数。单个数字表示未设置偏好；? 表示工作量暂不可用或正在刷新。"
   },
   "roomAllocation": {
+    "summaryLegend": "- 等待排课／无需教室 · x 尚未分配",
+    "autoAssignAll": "为所有未分配教室的课程自动分配",
+    "autoAssignHelp": "为所有已排课但尚未分配教室的课程分配教室，包括历史未分配记录。保留现有教室、固定选择、等待排课及明确无需教室的选择。合并组共用一个预订。如记录发生变化，请刷新后重新审核。须启用自动分配教室功能。",
+    "autoAssignCount": "审核全部配对中的 {count} 个未分配预订，不受当前筛选条件限制。",
+    "autoAssignResult": "已检查 {total} 个预订：{assigned} 个已分配，{unassigned} 个仍需教室。",
+    "autoAssignLimit": "此操作一次最多支持 500 条配对记录。列表更大时，请使用各行的教室操作。",
     "modeLabel": "教室分配方式",
     "mode": {
       "AUTO": "自动分配",

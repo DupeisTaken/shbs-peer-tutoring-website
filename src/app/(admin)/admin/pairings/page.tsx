@@ -20,6 +20,7 @@ import { settleRefreshes } from "~/lib/settle-refreshes";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 
 import Link from "next/link";
+import { PairingRoomSummary } from "./room-summary";
 import { RoomAllocationStatus } from "~/app/_components/room-allocation-status";
 import { FilterToolbar, InlineNotice } from "~/app/_components/ui/patterns";
 
@@ -216,10 +217,17 @@ export default function PairingsPage() {
   const create = api.admin.createPairing.useMutation();
   const update = api.admin.updatePairing.useMutation();
   const retryRoom = api.admin.retryRoomAllocation.useMutation();
+  const autoAssignRooms = api.admin.autoAssignUnassignedRooms.useMutation();
   const setRoom = api.admin.setPairingRoom.useMutation();
 
   const del = api.admin.deletePairing.useMutation();
   const review = useActionReview();
+  const revokeReview = review.revoke;
+  // Concealing a denied page must also release its captured private evidence.
+  // The shared controller retains admitted writes and accepted replay guards.
+  useEffect(() => {
+    if (denied || authorizationDenied || readOnly) revokeReview();
+  }, [denied, authorizationDenied, readOnly, revokeReview]);
 
   // Creation and row editing have independent owners: opening an edit cannot overwrite a draft.
   const [createDraft, setCreateDraft] = useState<PairingForm>(EMPTY);
@@ -534,6 +542,26 @@ export default function PairingsPage() {
       .filter((p) => p.roomNeedsAssignment)
       .map((p) => (p.groupId ? "group:" + p.groupId : "pairing:" + p.id)),
   ).size;
+  // Review the complete eligible list, independent of the visible filter. The
+  // server validates versions and complete group membership before any write.
+  const unassignedRooms = (pairings.data ?? []).filter(
+    (p) =>
+      p.scheduleConfirmed &&
+      !p.room &&
+      !p.roomId &&
+      (p.roomMode === "AUTO" || p.roomMode === "LEGACY"),
+  );
+  // The count and the visible review use the same reservation units. Explicit
+  // groups list their subjects together; independent pairings stay separate.
+  const unassignedReservations = new Map<string, typeof unassignedRooms>();
+  for (const pairing of unassignedRooms) {
+    const key = pairing.groupId
+      ? "group:" + pairing.groupId
+      : "pairing:" + pairing.id;
+    const members = unassignedReservations.get(key) ?? [];
+    members.push(pairing);
+    unassignedReservations.set(key, members);
+  }
   const error = writeError;
   const rows = (pairings.data ?? []).filter(
     (p) => !needsRoomOnly || p.roomNeedsAssignment,
@@ -940,14 +968,81 @@ export default function PairingsPage() {
       )}
       <FilterToolbar
         label={a("filter")}
+        summary={a("summaryLegend")}
         actions={
-          <Button
-            size="compact"
-            disabled={working}
-            onClick={() => void refresh()}
-          >
-            {a("refresh")}
-          </Button>
+          <>
+            {!readOnly && (
+              <Button
+                size="compact"
+                disabled={
+                  readBlocked ||
+                  working ||
+                  refreshFailed ||
+                  review.blocked("room:all") ||
+                  !unassignedRooms.length ||
+                  unassignedRooms.length > 500
+                }
+                onClick={() =>
+                  review.open({
+                    key: "room:all",
+                    title: a("autoAssignAll"),
+                    description: a("autoAssignHelp"),
+                    confirmLabel: a("autoAssignAll"),
+                    confirmVariant: "primary",
+                    details: (
+                      <div className="space-y-3">
+                        <p>
+                          {a("autoAssignCount", {
+                            count: unassignedReservations.size,
+                          })}
+                        </p>
+                        <ul className="max-h-60 list-inside list-disc space-y-3 overflow-y-auto">
+                          {[...unassignedReservations].map(([key, members]) => (
+                            <li key={key}>
+                              {personName(members[0]!.tutor)} ·{" "}
+                              {members.map((p) => p.subject).join(" / ")}
+                              <span className="block text-sm text-slate-600">
+                                {pairingScheduleText(
+                                  members[0]!,
+                                  t("scheduling.awaiting"),
+                                  locale,
+                                )}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ),
+                    commit: async () => {
+                      const result = await autoAssignRooms.mutateAsync({
+                        targets: unassignedRooms.map((p) => ({
+                          id: p.id,
+                          expectedRoomVersion: p.roomVersion,
+                        })),
+                      });
+                      return a("autoAssignResult", result);
+                    },
+                    renderResult: (result) =>
+                      typeof result === "string" ? <p>{result}</p> : null,
+                    refresh: async () => {
+                      if (!(await refresh())) throw new Error(a("readFailed"));
+                    },
+                    approvalId: queuedApprovalId,
+                    repeatAfterRefresh: true,
+                  })
+                }
+              >
+                {a("autoAssignAll")}
+              </Button>
+            )}
+            <Button
+              size="compact"
+              disabled={working}
+              onClick={() => void refresh()}
+            >
+              {a("refresh")}
+            </Button>
+          </>
         }
       >
         <ChoiceButton
@@ -963,26 +1058,26 @@ export default function PairingsPage() {
           {a("needsRoomReservations", { count: needsRoomReservations })}
         </ChoiceButton>
       </FilterToolbar>
+      {!readOnly && unassignedRooms.length > 500 && (
+        <InlineNotice tone="warning">{a("autoAssignLimit")}</InlineNotice>
+      )}
       {pairings.data && rows.length === 0 && (
         <StatePanel kind="empty" title={a("empty")} />
       )}
-      {/* Table */}
+      {/* Pairing-level facts stay in the summary. Allocation intent belongs in
+          details; tutor-wide workload advice stays beside assignment decisions. */}
       <div className="card overflow-hidden">
         <SummaryTable sortable label={t("admin.pairings.title")}>
           <thead>
             <tr>
-              <th>{t("admin.pairings.colTutor")}</th>
-              <th>{t("admin.pairings.colSubject")}</th>
-              <th>{t("admin.pairings.colWhen")}</th>
-              <th>{t("admin.pairings.colRoom")}</th>
-              <th>{t("admin.pairings.colTutees")}</th>
-              {!readOnly && (
-                <>
-                  <th>{workloadText("countHeading")}</th>
-                  <th>{workloadText("preferenceHeading")}</th>
-                </>
-              )}
-              <th className="table-actions-heading">
+              <th scope="col">{t("admin.pairings.colTutor")}</th>
+              <th scope="col">{t("admin.pairings.colSubject")}</th>
+              <th scope="col">{t("admin.pairings.colWhen")}</th>
+              <th scope="col">{t("admin.pairings.colRoom")}</th>
+              <th scope="col" className="whitespace-nowrap">
+                {t("admin.pairings.colTutees")}
+              </th>
+              <th scope="col" className="table-actions-heading">
                 {t("tablePatterns.actions")}
               </th>
             </tr>
@@ -994,7 +1089,9 @@ export default function PairingsPage() {
                 id={p.id}
                 className="scroll-mt-24 target:bg-amber-50 target:outline-2 target:outline-amber-600"
               >
-                <td>{personName(p.tutor)}</td>
+                <td className="font-medium text-slate-900">
+                  {personName(p.tutor)}
+                </td>
                 <td>{p.subject}</td>
                 <td data-sort-value={pairingScheduleSortValue(p)}>
                   {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
@@ -1004,62 +1101,10 @@ export default function PairingsPage() {
                     p.scheduleConfirmed ? (p.room?.name ?? "") : ""
                   }
                 >
-                  <RoomAllocationStatus pairing={p} />
+                  <PairingRoomSummary pairing={p} />
                 </td>
 
                 <td>{p.tutees.length}</td>
-                {!readOnly && (
-                  <>
-                    <td
-                      data-sort-value={
-                        !workloads.error && !workloads.isFetching
-                          ? (workloads.data?.tutors?.find(
-                              (row) => row.id === p.tutorId,
-                            )?.count ?? "")
-                          : ""
-                      }
-                    >
-                      {(() => {
-                        const workload = workloads.data?.tutors?.find(
-                          (row) => row.id === p.tutorId,
-                        );
-                        return workload &&
-                          !workloads.error &&
-                          !workloads.isFetching
-                          ? workload.count
-                          : workloadText(
-                              workloads.error || workloads.unavailable
-                                ? "unavailable"
-                                : "checking",
-                            );
-                      })()}
-                    </td>
-                    <td
-                      data-sort-value={
-                        !workloads.error && !workloads.isFetching
-                          ? (workloads.data?.tutors?.find(
-                              (row) => row.id === p.tutorId,
-                            )?.preferredMaximum ?? "")
-                          : ""
-                      }
-                    >
-                      {(() => {
-                        const workload = workloads.data?.tutors?.find(
-                          (row) => row.id === p.tutorId,
-                        );
-                        return workload &&
-                          !workloads.error &&
-                          !workloads.isFetching
-                          ? (workload.preferredMaximum ?? workloadText("unset"))
-                          : workloadText(
-                              workloads.error || workloads.unavailable
-                                ? "unavailable"
-                                : "checking",
-                            );
-                      })()}
-                    </td>
-                  </>
-                )}
                 <TableActions>
                   <TableDetails title={`${personName(p.tutor)} · ${p.subject}`}>
                     <dl className="space-y-3">

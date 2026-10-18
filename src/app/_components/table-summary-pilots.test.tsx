@@ -230,6 +230,9 @@ vi.mock("~/trpc/react", () => ({
       },
       setPairingRoom: { useMutation: () => ({ mutateAsync: vi.fn() }) },
       retryRoomAllocation: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      autoAssignUnassignedRooms: {
+        useMutation: () => ({ mutateAsync: vi.fn() }),
+      },
       deletePairing: { useMutation: () => ({ mutateAsync: mocks.remove }) },
       createMeeting: { useMutation: () => ({ mutate: vi.fn() }) },
       deleteMeeting: { useMutation: () => ({ mutate: mocks.remove }) },

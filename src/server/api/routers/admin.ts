@@ -1,4 +1,5 @@
 import { allocateAndPersistRoomUnit, roomUnitInclude } from "~/server/room-allocation";
+import { autoAssignUnassignedRooms, bulkRoomAllocationInput } from "~/server/bulk-room-allocation";
 import { roomReference } from "~/lib/room-reference";
 import {
   deleteAccount,
@@ -1099,6 +1100,11 @@ export const adminRouter = createTRPCRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Only an automatic room shortage can be retried." });
       return allocateAndPersistRoomUnit(tx, pairing, { expectedRoomVersion: input.expectedRoomVersion });
     })),
+
+  /** One reviewed batch owns complete reservation units; never move assigned rooms. */
+  autoAssignUnassignedRooms: adminProcedure
+    .input(bulkRoomAllocationInput)
+    .mutation(({ ctx, input }) => autoAssignUnassignedRooms(ctx.db, input)),
 
   deletePairing: adminProcedure
     .input(z.object({ id: cuid }))

@@ -92,6 +92,7 @@ vi.mock("~/trpc/react", async () => {
         createPairing: write,
         updatePairing: write,
         retryRoomAllocation: write,
+        autoAssignUnassignedRooms: write,
         setPairingRoom: write,
         deletePairing: write,
         tutors: read(["admin", "tutors"], remote.tutors),
@@ -485,4 +486,108 @@ it("retains viewer summaries and read recovery without exposing write controls",
   await screen.findByText(message("refreshFailed", en.admin.pairings.title));
   expect(screen.getByText("Tutor A")).toBeTruthy();
   expect(remote.write).not.toHaveBeenCalled();
+});
+
+// Private review evidence has a shorter lifetime than cached read recovery.
+// A transport error retains it; authoritative denial releases it permanently.
+async function openBulkRoomReview() {
+  const trigger = await screen.findByRole<HTMLButtonElement>("button", {
+    name: en.roomAllocation.autoAssignAll,
+  });
+  await waitFor(() => expect(trigger.disabled).toBe(false));
+  fireEvent.click(trigger);
+  return screen.getByRole("dialog");
+}
+it.each(["FORBIDDEN", "UNAUTHORIZED"])(
+  "releases a bulk room review on %s without reviving it after read recovery",
+  async (denial) => {
+    remote.pairings.mockResolvedValue([
+      { ...pairing, room: null, roomId: null, roomMode: "AUTO" },
+    ]);
+    mount(<PairingsPage />);
+    const review = await openBulkRoomReview();
+    expect(review.textContent).toContain("Tutor A · Math");
+    remote.rooms.mockRejectedValue(new Error("Offline"));
+    await refresh("rooms");
+    await screen.findByText(message("refreshFailed", en.admin.rooms.title));
+    expect(screen.getByRole("dialog")).toBe(review);
+
+    remote.rooms.mockRejectedValue(
+      Object.assign(new Error("Denied"), { data: { code: denial } }),
+    );
+    await refresh("rooms");
+    await screen.findByText(message("denied", en.admin.pairings.title));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    remote.rooms.mockRejectedValue(new Error("Offline"));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: message("retry", en.admin.pairings.title),
+      }),
+    );
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    remote.rooms.mockResolvedValue([
+      { id: "room", name: "101", unavailabilities: [] },
+    ]);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: message("retry", en.admin.pairings.title),
+      }),
+    );
+    await screen.findByText("Tutor A");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(remote.write).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: en.roomAllocation.autoAssignAll }),
+    );
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  },
+);
+
+it("does not replay an admitted bulk write that settles after its evidence is revoked", async () => {
+  remote.pairings.mockResolvedValue([
+    { ...pairing, room: null, roomId: null, roomMode: "AUTO" },
+  ]);
+  let finish!: (result: {
+    assigned: number;
+    unassigned: number;
+    total: number;
+  }) => void;
+  remote.write.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  mount(<PairingsPage />);
+  await openBulkRoomReview();
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: en.roomAllocation.autoAssignAll,
+    }),
+  );
+  expect(remote.write).toHaveBeenCalledOnce();
+  remote.rooms.mockRejectedValue(
+    Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } }),
+  );
+  await refresh("rooms");
+  await screen.findByText(message("denied", en.admin.pairings.title));
+  await act(async () => finish({ assigned: 1, unassigned: 0, total: 1 }));
+  remote.rooms.mockResolvedValue([
+    { id: "room", name: "101", unavailabilities: [] },
+  ]);
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: message("retry", en.admin.pairings.title),
+    }),
+  );
+  await screen.findByText("Tutor A");
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByText(en.actionReview.applied)).toBeNull();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.roomAllocation.autoAssignAll,
+    }).disabled,
+  ).toBe(true);
+  expect(remote.write).toHaveBeenCalledOnce();
 });
