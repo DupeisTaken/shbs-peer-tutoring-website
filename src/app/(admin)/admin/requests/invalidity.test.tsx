@@ -413,23 +413,67 @@ it.each([false, true])(
   },
 );
 
-it.each([
-  [false, true],
-  [false, false],
-  [true, true],
-  [true, false],
-])(
-  "shows one compact email status for legacy=%s verified=%s",
-  (legacy, verified) => {
+it.each(
+  [false, true].flatMap((verified) =>
+    [false, true].flatMap((viewer) =>
+      (["en", "zh"] as const).map((locale) => ({
+        verified,
+        viewer,
+        locale,
+      })),
+    ),
+  ),
+)(
+  "shows the submission email badge for verified=$verified viewer=$viewer locale=$locale",
+  ({ verified, viewer, locale }) => {
     mocks.invalid = false;
     mocks.verified = verified;
-    mocks.survey = !legacy;
-    render(content(legacy));
+    const messages = locale === "zh" ? zh : en;
+    const view = render(content(false, viewer, locale));
+    const badge = screen.getByText(
+      messages.workflow[verified ? "verified" : "emailPending"],
+    );
     expect(
-      screen.getAllByText(`Email: ${verified ? "Verified" : "Unverified"}`),
-    ).toHaveLength(1);
-    expect(screen.queryByText("Email verified")).toBeNull();
-    expect(screen.queryByText("Email not verified")).toBeNull();
+      badge.classList.contains(verified ? "badge-green" : "badge-amber"),
+    ).toBe(true);
+    expect(badge.parentElement?.textContent).toContain("Public survey student");
+    expect(
+      screen.queryByText(
+        messages.workflow[verified ? "emailPending" : "verified"],
+      ),
+    ).toBeNull();
+
+    // A refreshed proof replaces the badge without leaving stale pending status.
+    mocks.verified = !verified;
+    view.rerender(content(false, viewer, locale));
+    expect(
+      screen.queryByText(
+        messages.workflow[verified ? "verified" : "emailPending"],
+      ),
+    ).toBeNull();
+    expect(
+      screen.getByText(
+        messages.workflow[verified ? "emailPending" : "verified"],
+      ),
+    ).toBeTruthy();
+  },
+);
+
+it.each([true, false])(
+  "preserves independent invalid and closed request badges (verified=%s)",
+  (verified) => {
+    mocks.verified = verified;
+    mocks.state = "INVALID_REJECTED";
+    show();
+    fireEvent.click(screen.getByRole("tab", { name: /Processed/ }));
+    expect(
+      screen.getByText(en.workflow[verified ? "verified" : "emailPending"]),
+    ).toBeTruthy();
+    expect(screen.getByText("Invalid entry")).toBeTruthy();
+    expect(screen.getByText(en.signupAppeal.rejectedTitle)).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: en.workflow.resend }),
+    ).toBeNull();
   },
 );
 

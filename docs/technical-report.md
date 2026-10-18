@@ -228,10 +228,12 @@ or reasons. Uncertain current academics use one **Review Needed** indicator;
 historical enrollment originals, correction overlays and reference years retain
 their existing precedence and detail evidence.
 
-Both signup sources show verification once in a compact **Email: Verified** or
-**Email: Unverified** contact line. The contextual short labels do not replace
-full-sentence verification messages elsewhere, and contact access stays with the
-existing email reader.
+Self-service survey request cards show a green **Email verified** or amber
+**Email pending** badge beside the signup source. The badge uses the submission's
+confirmation timestamp, independently of invalidity and workflow state; it must
+not infer verification from a legacy staff-created record's missing proof.
+Both signup sources retain the compact **Email: Verified** or **Email: Unverified**
+contact line and the existing private email reader below the identity.
 
 Subject Availability shows each subject with its level and qualification summary.
 Qualified subjects also show willingness, including an explicit **Not recorded**
