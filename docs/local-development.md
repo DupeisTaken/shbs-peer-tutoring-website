@@ -426,6 +426,13 @@ npm run docs:check  # documentation links, headings and maintenance regressions
 
 Email ownership and notification regressions live in `src/server/auth/account-emails.test.ts`, with migration compatibility in `account-email-migration.test.ts` and component interaction coverage in `src/app/_components/account-emails.test.tsx`. Include expiry, failed delivery, legitimate registration, simultaneous claims, removal/recovery, gating and retry scenarios. Use synthetic accounts and captured mail for browser rehearsal; follow [email operations](deployment.md#optional-notification-delivery) for real deployments.
 
+`src/server/student-delivery.test.ts` crosses the real audited assignment/resend and
+approval APIs with the real sender and synthetic Nodemailer outcomes. It verifies
+post-commit acceptance/failure, rollback without sending, previous-link preservation
+and overlapping resends against the isolated test database. Run it alongside
+`student-survey.test.ts`, `audit/evidence.test.ts` and the email sender/outbox suites
+when changing this delivery boundary. SMTP acceptance is not an inbox-delivery check.
+
 History-only credentials and cancellation use `src/server/history-account-setup.test.ts` alongside `src/server/api/routers/tutee-history.test.ts`. These suites require the isolated `shbs_shipping_test` database and check archive preservation, shared email ownership, retries, cancellation/expiry, access scoping and transaction rollback. Include the existing account-combination and school-departure regressions when changing this boundary.
 
 Historical tutor linking uses `src/server/tutor-history.test.ts` and

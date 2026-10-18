@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "../../../generated/prisma";
-import { databaseScope, deferUntilCommit, scopedDatabase } from "~/server/db-scope";
+import { afterCommitDatabase, databaseScope, deferUntilCommit, scopedDatabase } from "~/server/db-scope";
 import { inTransaction } from "~/server/transactions";
 import { runAuditedMutation, safeAuditSnapshot } from "./evidence";
 
@@ -53,6 +53,26 @@ function fixture(failAudit = false) {
 }
 
 describe("transactional mutation evidence", () => {
+  it("settles result receipts after commit through the owner's root client", async () => {
+    const f = fixture();
+    const receipt: { emailSent: boolean | null } = { emailSent: null };
+    const result = await runAuditedMutation(f.shared, actor, "studentWorkflow.resend", async tx => {
+      const deliveryDb = afterCommitDatabase(tx);
+      expect(deliveryDb).toBe(f.shared);
+      expect(deferUntilCommit(async () => {
+        expect(databaseScope.getStore()).toBeUndefined();
+        expect(f.state.status).toBe("INACTIVE");
+        receipt.emailSent = true;
+      })).toBe(true);
+      await tx.tutee.update({ where: { id: "student" }, data: { status: "INACTIVE" } });
+      expect(receipt.emailSent).toBeNull();
+      return { ok: true, data: receipt };
+    });
+    expect(result.data).toBe(receipt);
+    expect(result.data.emailSent).toBe(true);
+    expect(f.transactions()).toBe(1);
+  });
+
   it("rolls back domain writes when evidence cannot be persisted", async () => {
     const f = fixture(true);
     await expect(runAuditedMutation(f.shared, actor, "admin.reviewCard", async tx => {

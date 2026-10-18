@@ -28,7 +28,7 @@ import {
   resolveStudentReview,
   studentRequestRows,
 } from "~/server/student-workflow";
-import { resendSurvey, surveyLimit } from "~/server/student-survey";
+import { resendSurveyResult, surveyLimit } from "~/server/student-survey";
 import { expireStudentRequests } from "~/server/student-request-state";
 import { TRPCError } from "@trpc/server";
 import {
@@ -378,7 +378,7 @@ export const studentWorkflowRouter = createTRPCRouter({
           message:
             "Only current unverified requests can receive a signup link.",
         });
-      return { emailSent: await resendSurvey(ctx.db, row.email) };
+      return resendSurveyResult(ctx.db, row.email);
     }),
   resolveReview: adminProcedure
     .input(z.object({ id, approve: z.boolean(), ticket }))

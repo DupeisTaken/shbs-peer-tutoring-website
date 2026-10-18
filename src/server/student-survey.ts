@@ -49,6 +49,7 @@ import { expireStudentRequests } from "./student-request-state";
 import { rateLimit } from "~/server/rate-limit";
 import { getFeatures } from "~/server/program/features";
 import { getPeriodDisplay } from "~/lib/period";
+import { afterCommitDatabase, deferUntilCommit } from "~/server/db-scope";
 
 const digest = (token: string) =>
   createHash("sha256").update(token).digest("hex");
@@ -344,10 +345,49 @@ export async function submitSurvey(
   return { ok: true, emailSent };
 }
 
+/** Return this exact receipt from audited resolvers: the transaction owner settles it
+ * before serialization. Queue the whole workflow, since transport acceptance alone
+ * must never publish a replacement challenge inside an uncommitted transaction. */
+export async function resendSurveyResult(
+  db: DomainDb,
+  email: string,
+  enforceLimit = true,
+) {
+  if (enforceLimit) surveyLimit(email);
+  const result: { emailSent: boolean | null } = { emailSent: null };
+  const deliveryDb = afterCommitDatabase(db);
+  const send = async () => {
+    // A post-commit exception must leave an explicit retryable delivery outcome.
+    result.emailSent = false;
+    result.emailSent = await sendSurveyReplacement(deliveryDb, email, false, false);
+    if (!result.emailSent)
+      throw new Error("Signup link delivery failed or was superseded.");
+  };
+  if (!deferUntilCommit(send)) {
+    try {
+      await send();
+    } catch {
+      // The write/decision is already durable; never ask callers to replay it.
+    }
+  }
+  return result;
+}
+
 export async function resendSurvey(
   db: DomainDb,
   email: string,
   enforceLimit = true,
+) {
+  return sendSurveyReplacement(db, email, enforceLimit, true);
+}
+
+/** Public unknown-address success prevents enumeration; authenticated management
+ * receipts instead report whether a message was actually accepted and published. */
+async function sendSurveyReplacement(
+  db: DomainDb,
+  email: string,
+  enforceLimit: boolean,
+  missingIsSuccess: boolean,
 ) {
   if (enforceLimit) surveyLimit(email);
   await expireStudentRequests(db);
@@ -383,17 +423,22 @@ export async function resendSurvey(
     }
   }
   // Give the same public response for unknown addresses to avoid exposing accounts.
-  if (updated === "missing") return true;
+  if (updated === "missing") return missingIsSuccess;
   const sent = await deliver(email, token, origin, updated.verificationDueAt);
   if (sent) {
     // Publish only successfully delivered replacements. Failed/concurrent retries cannot
     // invalidate the previous link, and confirmation during delivery cannot resurrect it.
-    await db.studentSurvey.updateMany({
+    const published = await db.studentSurvey.updateMany({
       where: {
         id: updated.id,
+        tokenHash: updated.tokenHash,
         confirmedAt: null,
         state: "OPEN",
         invalidatedAt: null,
+        OR: [
+          { verificationDueAt: null },
+          { verificationDueAt: { gt: new Date() } },
+        ],
       },
       data: {
         lastLinkSentAt: new Date(),
@@ -402,6 +447,9 @@ export async function resendSurvey(
         expiresAt: new Date(Date.now() + 24 * 3600000),
       },
     });
+    // An accepted but superseded link is unusable. Never overwrite the winning
+    // challenge or claim that this request delivered a usable replacement.
+    return published.count === 1;
   }
   return sent;
 }

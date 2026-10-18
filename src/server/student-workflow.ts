@@ -29,7 +29,7 @@ import {
 import {
   materializeStudent,
   surveyInput,
-  resendSurvey,
+  resendSurveyResult,
 } from "./student-survey";
 import {
   closeStudentRequest,
@@ -310,12 +310,13 @@ export async function assignStudentRequest(
     return { email: row.email, needsVerification: !row.confirmedAt };
   });
   // The durable assignment/deadline survive SMTP failure. Management can retry explicitly.
-  const emailSent = result.needsVerification
-    ? approvalScope.getStore()
-      ? null
-      : await resendSurvey(db, result.email, false)
-    : true;
-  return { ok: true, emailSent };
+  if (result.needsVerification && !approvalScope.getStore()) {
+    const delivery = await resendSurveyResult(db, result.email, false);
+    // Keep the receipt identity: the outer audit owner settles it after commit.
+    return Object.assign(delivery, { ok: true });
+  }
+  // Approval's decision owner sends after its encompassing transaction commits.
+  return { ok: true, emailSent: result.needsVerification ? null : true };
 }
 
 export async function editStudentAvailability(
