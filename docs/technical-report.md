@@ -232,8 +232,15 @@ Self-service survey request cards show a green **Email verified** or amber
 **Email pending** badge beside the signup source. The badge uses the submission's
 confirmation timestamp, independently of invalidity and workflow state; it must
 not infer verification from a legacy staff-created record's missing proof.
-Both signup sources retain the compact **Email: Verified** or **Email: Unverified**
-contact line and the existing private email reader below the identity.
+Both signup sources retain the compact email contact line and existing private
+email reader below the identity. Legacy/manual cards label the displayed contact
+**Verified** only when it matches the current (or retained, when no current user
+exists) owner's primary address and has a confirmation timestamp. A matching
+owner address with an explicitly null timestamp is **Unverified**. Missing owner
+evidence or a different address is **Verification not recorded**, never inferred
+from an absent `unverified` flag. No address shows **No email**; observers retain
+the private-contact label without comparing masked addresses. This presentation
+does not change assignment eligibility, intake priority or account permissions.
 
 Subject Availability shows each subject with its level and qualification summary.
 Qualified subjects also show willingness, including an explicit **Not recorded**

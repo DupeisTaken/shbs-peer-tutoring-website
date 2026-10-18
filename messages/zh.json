@@ -604,7 +604,8 @@
         "phone": "电话"
       },
       "emailVerifiedShort": "已验证",
-      "emailUnverifiedShort": "未验证"
+      "emailUnverifiedShort": "未验证",
+      "emailUnknownShort": "未记录验证信息"
     },
     "readOnly": {
       "banner": "管理区域为只读：可查看允许浏览的项目概览，个人联系方式已隐藏。"
