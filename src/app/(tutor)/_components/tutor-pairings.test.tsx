@@ -20,12 +20,27 @@ const state = vi.hoisted(() => ({
   pending: false,
   removalPending: false,
   confirmed: true,
+  savedGroup: false,
+  memberTuteeIds: [] as string[],
   name: "Sample Learner",
   username: null as string | null,
   rosterFailure: "",
   availabilityFailure: "",
   availabilityRefetch: vi.fn(),
   refetch: vi.fn(),
+  selectedSlotIds: undefined as string[] | undefined,
+  slots: [] as {
+    id: string;
+    label: string;
+    dayOfWeek: number;
+    startMin: number;
+    endMin: number;
+  }[],
+  workflowRows: [] as {
+    pairingId: string;
+    tuteeId: string;
+    slots: { id: string }[];
+  }[],
 }));
 vi.mock("~/app/_components/confirm-dialog", () => ({
   useDialog: () => ({ confirm: state.confirm, dialog: null }),
@@ -49,7 +64,7 @@ vi.mock("~/trpc/react", () => ({
     studentWorkflow: {
       tutorRoster: {
         useQuery: () => ({
-          data: [],
+          data: state.workflowRows,
           isSuccess: !state.rosterFailure,
           error: state.rosterFailure
             ? {
@@ -74,6 +89,8 @@ vi.mock("~/trpc/react", () => ({
           data: [
             {
               id: "pairing",
+              groupId: state.savedGroup ? "saved-group" : null,
+              group: state.savedGroup ? { primaryPairingId: "pairing" } : null,
               roomMode: "FIXED",
               roomNeedsAssignment: false,
               roomVersion: 2,
@@ -83,6 +100,7 @@ vi.mock("~/trpc/react", () => ({
               startMin: 900,
               endMin: 960,
               room: { name: "A101" },
+              roomId: "room",
               timeSlotId: "one",
               timeSlot: null,
               tutees: [
@@ -97,18 +115,28 @@ vi.mock("~/trpc/react", () => ({
             },
             {
               id: "merge-pairing",
+              groupId: state.savedGroup ? "saved-group" : null,
+              group: state.savedGroup ? { primaryPairingId: "pairing" } : null,
               roomMode: "AUTO",
               roomNeedsAssignment: false,
               roomVersion: 0,
-              subject: "Maths",
+              subject: state.savedGroup ? "Physics" : "Maths",
               scheduleConfirmed: true,
-              dayOfWeek: 2,
+              dayOfWeek: state.savedGroup ? 1 : 2,
               startMin: 900,
               endMin: 960,
-              room: null,
+              room: state.savedGroup ? { name: "A101" } : null,
+              roomId: state.savedGroup ? "room" : null,
               timeSlotId: "one",
               timeSlot: null,
-              tutees: [],
+              tutees: state.memberTuteeIds.map((tuteeId) => ({
+                tuteeId,
+                tutee: {
+                  englishName:
+                    tuteeId === "tutee" ? state.name : `Learner ${tuteeId}`,
+                  user: { username: null },
+                },
+              })),
             },
           ],
         }),
@@ -129,15 +157,18 @@ vi.mock("~/trpc/react", () => ({
             : null,
           refetch: state.availabilityRefetch,
           data: {
-            slots: [
-              {
-                id: "one",
-                label: "Monday",
-                dayOfWeek: 1,
-                startMin: 900,
-                endMin: 960,
-              },
-            ],
+            selectedSlotIds: state.selectedSlotIds,
+            slots: state.slots.length
+              ? state.slots
+              : [
+                  {
+                    id: "one",
+                    label: "Monday",
+                    dayOfWeek: 1,
+                    startMin: 900,
+                    endMin: 960,
+                  },
+                ],
           },
         }),
       },
@@ -177,10 +208,15 @@ afterEach(() => {
   state.pending = false;
   state.removalPending = false;
   state.confirmed = true;
+  state.savedGroup = false;
+  state.memberTuteeIds = [];
   state.name = "Sample Learner";
   state.username = null;
   state.rosterFailure = "";
   state.availabilityFailure = "";
+  state.selectedSlotIds = undefined;
+  state.slots = [];
+  state.workflowRows = [];
   state.availabilityRefetch.mockResolvedValue({ isSuccess: true });
 });
 const element = (active = true, locale = "en") => (
@@ -202,6 +238,209 @@ it("places the default slot before tutee availability and preserves a named part
     select.compareDocumentPosition(participant) &
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
+});
+it("ranks exact mutual selections without changing the saved selection or reviewed mutation payload", async () => {
+  state.slots = [
+    { id: "one", label: "Original", dayOfWeek: 1, startMin: 900, endMin: 960 },
+    { id: "shared", label: "Shared", dayOfWeek: 5, startMin: 900, endMin: 960 },
+    {
+      id: "same-clock",
+      label: "Same clock",
+      dayOfWeek: 5,
+      startMin: 900,
+      endMin: 960,
+    },
+  ];
+  state.selectedSlotIds = ["shared"];
+  state.workflowRows = [
+    {
+      pairingId: "pairing",
+      tuteeId: "tutee",
+      slots: [{ id: "shared" }, { id: "same-clock" }],
+    },
+  ];
+  render(element());
+  const select = screen.getAllByRole<HTMLSelectElement>("combobox")[0]!;
+  expect([...select.options].map((option) => option.value)).toEqual([
+    "",
+    "shared",
+    "same-clock",
+    "one",
+  ]);
+  expect(select.value).toBe("one");
+  expect(select.options[1]?.textContent).toContain("Shared by everyone");
+  expect(select.options[2]?.textContent).toContain("not selected by you");
+  const wrappingStatus = screen.getByText(
+    "Choice availability: 0/1 tutees; not selected by you",
+  );
+  expect(wrappingStatus.closest("option")).toBeNull();
+  expect(
+    document
+      .getElementById(select.getAttribute("aria-describedby")!)
+      ?.contains(wrappingStatus),
+  ).toBe(true);
+  expect(state.setSlot).not.toHaveBeenCalled();
+  state.confirm.mockResolvedValue(true);
+  fireEvent.change(select, { target: { value: "shared" } });
+  await waitFor(() =>
+    expect(state.setSlot).toHaveBeenCalledExactlyOnceWith({
+      pairingId: "pairing",
+      slotId: "shared",
+      expectedRoomVersion: 2,
+    }),
+  );
+});
+it("keeps an inactive linked schedule visible and distinguishes missing availability from no common slot", () => {
+  state.slots = [
+    { id: "new", label: "Published", dayOfWeek: 1, startMin: 900, endMin: 960 },
+  ];
+  state.selectedSlotIds = ["new"];
+  state.workflowRows = [{ pairingId: "pairing", tuteeId: "tutee", slots: [] }];
+  const view = render(element());
+  const select = screen.getAllByRole<HTMLSelectElement>("combobox")[0]!;
+  expect(select.value).toBe("one");
+  expect(select.selectedOptions[0]?.textContent).toContain(
+    "Current linked slot (not published)",
+  );
+  expect(
+    screen
+      .getAllByText("Current linked slot (not published)")
+      .every((el) => !el.closest("option")),
+  ).toBe(true);
+  expect(screen.getByText(/Availability is incomplete/)).toBeTruthy();
+  expect(screen.queryByText(/No catalog slot is selected/)).toBeNull();
+  state.slots.push({
+    id: "other",
+    label: "Other",
+    dayOfWeek: 2,
+    startMin: 900,
+    endMin: 960,
+  });
+  state.workflowRows[0]!.slots = [{ id: "other" }];
+  view.rerender(element());
+  expect(screen.getByText(/No catalog slot is selected/)).toBeTruthy();
+  expect(state.setSlot).not.toHaveBeenCalled();
+});
+it("recomputes saved-group ranking from every distinct current member tutee when roster availability and assignments refresh, without writes", () => {
+  state.savedGroup = true;
+  // The same learner appears in both subjects, while a second learner belongs
+  // only to Physics. The group-wide denominator must count two people, not three.
+  state.memberTuteeIds = ["tutee", "second"];
+  state.slots = [
+    { id: "one", label: "Original", dayOfWeek: 1, startMin: 900, endMin: 960 },
+    {
+      id: "primary-only",
+      label: "Earlier option",
+      dayOfWeek: 2,
+      startMin: 900,
+      endMin: 960,
+    },
+    {
+      id: "full",
+      label: "Later option",
+      dayOfWeek: 5,
+      startMin: 900,
+      endMin: 960,
+    },
+  ];
+  state.selectedSlotIds = ["primary-only", "full"];
+  state.workflowRows = [
+    {
+      pairingId: "pairing",
+      tuteeId: "tutee",
+      slots: [{ id: "primary-only" }, { id: "full" }],
+    },
+    {
+      pairingId: "merge-pairing",
+      tuteeId: "tutee",
+      slots: [{ id: "primary-only" }, { id: "full" }],
+    },
+    { pairingId: "merge-pairing", tuteeId: "second", slots: [{ id: "full" }] },
+  ];
+  const view = render(element());
+  const details = screen
+    .getByText(messages.pairingGroups.memberDetails)
+    .closest("details")!;
+  details.open = true;
+  fireEvent(details, new Event("toggle"));
+  const selections = () => screen.getAllByRole<HTMLSelectElement>("combobox");
+  const optionOrder = () =>
+    selections().map((select) =>
+      [...select.options].map((option) => option.value),
+    );
+  const optionText = (slotId: string) =>
+    selections().map(
+      (select) =>
+        [...select.options].find((option) => option.value === slotId)!
+          .textContent,
+    );
+  expect(selections()).toHaveLength(2);
+  expect(optionOrder()).toEqual([
+    ["", "full", "primary-only", "one"],
+    ["", "full", "primary-only", "one"],
+  ]);
+  expect(
+    optionText("full").every((text) => text?.includes("Shared by everyone")),
+  ).toBe(true);
+  expect(
+    optionText("primary-only").every((text) =>
+      text?.includes("You + 1/2 tutees"),
+    ),
+  ).toBe(true);
+
+  // A read refresh changes only the second learner's saved availability. The
+  // group's controls must immediately agree on the newly mutual catalog ID.
+  state.workflowRows = state.workflowRows.map((row) =>
+    row.tuteeId === "second"
+      ? { ...row, slots: [{ id: "primary-only" }] }
+      : row,
+  );
+  view.rerender(element());
+  expect(optionOrder()).toEqual([
+    ["", "primary-only", "full", "one"],
+    ["", "primary-only", "full", "one"],
+  ]);
+  expect(
+    optionText("primary-only").every((text) =>
+      text?.includes("Shared by everyone"),
+    ),
+  ).toBe(true);
+  expect(
+    optionText("full").every((text) => text?.includes("You + 1/2 tutees")),
+  ).toBe(true);
+
+  // A newly assigned member removes unanimity; a stale workflow row must stop
+  // contributing once that learner drops out of the current active roster.
+  state.memberTuteeIds = ["tutee", "second", "new"];
+  state.workflowRows = [
+    ...state.workflowRows,
+    { pairingId: "merge-pairing", tuteeId: "new", slots: [{ id: "full" }] },
+  ];
+  view.rerender(element());
+  expect(
+    optionText("primary-only").every((text) =>
+      text?.includes("You + 2/3 tutees"),
+    ),
+  ).toBe(true);
+  expect(
+    optionText("full").every((text) => text?.includes("You + 2/3 tutees")),
+  ).toBe(true);
+  expect(screen.getAllByText(/No catalog slot is selected/)).toHaveLength(2);
+  state.memberTuteeIds = ["tutee", "new"];
+  view.rerender(element());
+  expect(
+    optionText("full").every((text) => text?.includes("Shared by everyone")),
+  ).toBe(true);
+  expect(
+    optionText("primary-only").every((text) =>
+      text?.includes("You + 1/2 tutees"),
+    ),
+  ).toBe(true);
+  expect(selections().every((select) => select.value === "one")).toBe(true);
+  expect(state.confirm).not.toHaveBeenCalled();
+  expect(state.setSlot).not.toHaveBeenCalled();
+  expect(state.remove).not.toHaveBeenCalled();
+  expect(state.recall).not.toHaveBeenCalled();
 });
 it.each(["learner", null])(
   "uses current account identity or localized unnamed fallback without changing saved names (%s)",

@@ -31,7 +31,9 @@ it.each(["en", "zh"] as const)(
         <WorkloadPreferenceRecipe />
       </NextIntlClientProvider>,
     );
-    const select = screen.getByRole<HTMLSelectElement>("combobox");
+    const choice = screen.getByRole("button", { name: "4" });
+    const availability = screen.getByRole("button", { name: "15:00–16:00" });
+    fireEvent.click(availability);
     expect(
       screen.getByText(
         locale === "en"
@@ -40,7 +42,7 @@ it.each(["en", "zh"] as const)(
       ),
     ).toBeTruthy();
     expect(screen.queryByRole("dialog")).toBeNull();
-    fireEvent.change(select, { target: { value: "4" } });
+    fireEvent.click(choice);
     fireEvent.click(
       screen.getByRole("button", {
         name: locale === "en" ? "Try assigning a session" : "尝试分配辅导",
@@ -63,6 +65,21 @@ it.each(["en", "zh"] as const)(
         name: locale === "en" ? "Save preference" : "保存偏好",
       }),
     );
+    expect(availability.getAttribute("aria-pressed")).toBe("true");
+    expect(choice.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: locale === "en" ? "Clear preference" : "清除偏好",
+      }),
+    );
+    expect(
+      [0, 1, 2, 3, 4].every(
+        (value) =>
+          screen
+            .getByRole("button", { name: String(value) })
+            .getAttribute("aria-pressed") === "false",
+      ),
+    ).toBe(true);
     expect(
       screen.queryByText(
         locale === "en" ? /This assignment would result/ : /此分配将使/,

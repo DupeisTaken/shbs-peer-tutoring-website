@@ -7,12 +7,18 @@ import { api, type RouterOutputs } from "~/trpc/react";
 import { Button } from "./ui/button";
 import { FormSection, InlineNotice, StatePanel } from "./ui/patterns";
 import { QueryFeedback } from "./ui/query-feedback";
-import { FieldRequirement } from "./field-requirement";
+import { WorkloadPreferenceChoices } from "./workload-preference-choices";
 
 type Snapshot = NonNullable<RouterOutputs["tutor"]["workloadPreference"]>;
 /** This form owns only its preference draft/version. Failed writes and background
  * reads never replace it; accepted saves recover reads without replaying a write. */
-export function TutorWorkloadPreference() {
+export function TutorWorkloadPreference({
+  embedded = false,
+  summaryOnly = false,
+}: {
+  embedded?: boolean;
+  summaryOnly?: boolean;
+}) {
   const t = useTranslations("tutorWorkload");
   const [denied, setDenied] = useState(false);
   const query = api.tutor.workloadPreference.useQuery(undefined, {
@@ -122,7 +128,9 @@ export function TutorWorkloadPreference() {
     mutation.isPending;
   if (denied || deniedNow)
     return (
-      <section className="card p-5">
+      <section
+        className={embedded ? "border-t border-slate-200 pt-5" : "card p-5"}
+      >
         <StatePanel
           kind="denied"
           title={t("denied")}
@@ -135,7 +143,11 @@ export function TutorWorkloadPreference() {
       </section>
     );
   return (
-    <section className="mb-5 space-y-3 border-b border-slate-200 pb-5">
+    <section
+      className={
+        embedded ? "mt-5 space-y-3 border-t border-slate-200 pt-5" : "space-y-3"
+      }
+    >
       <QueryFeedback
         hasData={!!snapshot}
         loading={!snapshot && !query.error}
@@ -166,89 +178,59 @@ export function TutorWorkloadPreference() {
               <InlineNotice tone="info">{t("readOnly")}</InlineNotice>
             )
           )}
-          <form
-            aria-label={t("preference")}
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (blocked || admission.current) return;
-              admission.current = true;
-              setSaved(false);
-              mutation.mutate({
-                preferredMaximum: draft,
-                expectedVersion: snapshot.version,
-              });
-            }}
-          >
-            <FormSection
-              title={t("preference")}
-              busy={mutation.isPending || refreshing}
-              disabled={blocked}
-              actions={
-                <>
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={blocked || !dirty}
-                  >
-                    {t(mutation.isPending ? "saving" : "save")}
-                  </Button>
-                  <Button
-                    disabled={blocked || !dirty}
-                    onClick={() => {
-                      setDraft(snapshot.preferredMaximum);
-                      setDirty(false);
-                      mutation.reset();
-                    }}
-                  >
-                    {t("cancel")}
-                  </Button>
-                </>
-              }
+          {!summaryOnly && (
+            <form
+              aria-label={t("preference")}
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (blocked || admission.current) return;
+                admission.current = true;
+                setSaved(false);
+                mutation.mutate({
+                  preferredMaximum: draft,
+                  expectedVersion: snapshot.version,
+                });
+              }}
             >
-              <label className="relative block text-sm">
-                <span className="sr-only">
-                  {t("preference")} <FieldRequirement state="optional" />
-                </span>
-                <select
+              <FormSection
+                title={t("preference")}
+                busy={mutation.isPending || refreshing}
+                disabled={blocked}
+                actions={
+                  <>
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      disabled={blocked || !dirty}
+                    >
+                      {t(mutation.isPending ? "saving" : "save")}
+                    </Button>
+                    <Button
+                      disabled={blocked || !dirty}
+                      onClick={() => {
+                        setDraft(snapshot.preferredMaximum);
+                        setDirty(false);
+                        mutation.reset();
+                      }}
+                    >
+                      {t("cancel")}
+                    </Button>
+                  </>
+                }
+              >
+                <WorkloadPreferenceChoices
+                  value={draft}
                   disabled={blocked}
-                  className="select min-h-11 w-full lg:min-h-10"
-                  value={draft ?? ""}
-                  onChange={(event) => {
-                    setDraft(
-                      event.target.value === ""
-                        ? null
-                        : Number(event.target.value),
-                    );
+                  onChange={(value) => {
+                    setDraft(value);
                     setDirty(true);
                     setSaved(false);
                     mutation.reset();
                   }}
-                  aria-describedby="workload-preference-help"
-                >
-                  <option value="">{t("unset")}</option>
-                  {[0, 1, 2, 3, 4].map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <p id="workload-preference-help" className="muted text-xs">
-                {t("zeroHelp")}
-              </p>
-              <Button
-                disabled={blocked || draft === null}
-                onClick={() => {
-                  setDraft(null);
-                  setDirty(true);
-                  setSaved(false);
-                  mutation.reset();
-                }}
-              >
-                {t("clear")}
-              </Button>
-            </FormSection>
-          </form>
+                />
+              </FormSection>
+            </form>
+          )}
           {saved && (
             <p role="status" className="text-sm text-green-700">
               {t("saved")}
