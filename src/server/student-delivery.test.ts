@@ -495,26 +495,43 @@ describe("overlapping real-sender retries", () => {
     async (state) => {
       const { survey, token } = await signup();
       const previous = await challenge(survey.id);
+      const transitionErrors: unknown[] = [];
+      let transportAccepted = false;
       transport(async (message) => {
-        if (state === "confirmed")
-          await confirmSurvey(db, token, "DeliveryStudentPassword42");
-        else
-          await db.studentSurvey.update({
-            where: { id: survey.id },
-            data:
-              state === "invalidated"
-                ? { invalidatedAt: new Date() }
-                : state === "closed"
-                  ? { state: "RECALLED" }
-                  : { verificationDueAt: new Date(0) },
-          });
+        try {
+          if (state === "confirmed")
+            await confirmSurvey(db, token, "DeliveryStudentPassword42");
+          else
+            await db.studentSurvey.update({
+              where: { id: survey.id },
+              data:
+                state === "invalidated"
+                  ? { invalidatedAt: new Date() }
+                  : state === "closed"
+                    ? { state: "RECALLED" }
+                    : { verificationDueAt: new Date(0) },
+            });
+        } catch (error) {
+          // Sender error sanitization must not hide a failed fixture transition
+          // and turn an unexercised publication race into a false-positive pass.
+          transitionErrors.push(error);
+          throw error;
+        }
+        transportAccepted = true;
         return accepted(message);
       });
       expect(await actor().studentWorkflow.resend({ id: survey.id })).toEqual({
         emailSent: false,
       });
+      expect(transitionErrors).toEqual([]);
+      expect(transportAccepted).toBe(true);
       expect(await challenge(survey.id)).toEqual(previous);
       expect(smtp.send).toHaveBeenCalledTimes(1);
+      const current = await row(survey.id);
+      if (state === "confirmed") expect(current.confirmedAt).not.toBeNull();
+      else if (state === "invalidated") expect(current.invalidatedAt).not.toBeNull();
+      else if (state === "closed") expect(current.state).toBe("RECALLED");
+      else expect(current.verificationDueAt).toEqual(new Date(0));
     },
   );
 
