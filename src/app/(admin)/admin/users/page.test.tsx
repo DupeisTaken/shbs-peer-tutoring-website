@@ -928,7 +928,7 @@ it("restores current search and sort without retaining deletion passwords or ope
   );
   expect(JSON.parse(sessionStorage.getItem(sortKey)!)).toEqual({
     key: "name",
-    dir: "desc",
+    dir: "asc",
   });
   fireEvent.change(screen.getByRole("searchbox"), {
     target: { value: "Combined" },

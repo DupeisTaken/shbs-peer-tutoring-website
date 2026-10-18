@@ -749,7 +749,7 @@ export default function CrewPage() {
             </div>
             {feedback("roster")}
             {!hidden("roster") && roster.data !== undefined && (
-              <SummaryTable label={t("admin.crew.rosterHeading")}>
+              <SummaryTable sortable label={t("admin.crew.rosterHeading")}>
                 <thead>
                   <tr>
                     <th>{t("admin.crew.col.member")}</th>
@@ -798,7 +798,9 @@ export default function CrewPage() {
                       </td>
                       {/* A completed roster response has known totals, including zero. */}
                       <td className="text-right">{u.patrols}</td>
-                      <td className="text-right">{u.hours.toFixed(1)} h</td>
+                      <td data-sort-value={u.hours} className="text-right">
+                        {u.hours.toFixed(1)} h
+                      </td>
                       <TableActions>
                         {/* Membership context and status changes share the trailing text-link entry point. */}
                         <TableDetails

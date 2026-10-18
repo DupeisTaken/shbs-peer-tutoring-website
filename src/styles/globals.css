@@ -310,6 +310,20 @@
   .summary-table-scroll {
     @apply focus-visible:ring-accent-500 relative max-w-full overflow-x-auto rounded-lg focus-visible:ring-2 focus-visible:outline-none;
   }
+  /* Header buttons inherit column alignment and the shared compact hit area. */
+  .table-sort-button {
+    text-align: inherit;
+    white-space: normal;
+    /* Keep short Chinese labels together; English phrases can still wrap at spaces. */
+    word-break: keep-all;
+  }
+  .data-table th.text-right .table-sort-button {
+    margin-left: auto;
+  }
+  .data-table th.text-center .table-sort-button {
+    margin-inline: auto;
+  }
+
   .summary-table {
     @apply w-full;
   }

@@ -5,7 +5,10 @@ import {
 } from "~/app/_components/use-notification-record-reveal";
 import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import { participantNameLabel } from "~/app/_components/participant-name";
-import { pairingScheduleText } from "~/lib/pairing-schedule";
+import {
+  pairingScheduleText,
+  pairingScheduleSortValue,
+} from "~/lib/pairing-schedule";
 import {
   WorkloadAssignmentConfirmation,
   AssignmentWorkloadFeedback,
@@ -965,7 +968,7 @@ export default function PairingsPage() {
       )}
       {/* Table */}
       <div className="card overflow-hidden">
-        <SummaryTable label={t("admin.pairings.title")}>
+        <SummaryTable sortable label={t("admin.pairings.title")}>
           <thead>
             <tr>
               <th>{t("admin.pairings.colTutor")}</th>
@@ -993,17 +996,29 @@ export default function PairingsPage() {
               >
                 <td>{personName(p.tutor)}</td>
                 <td>{p.subject}</td>
-                <td>
+                <td data-sort-value={pairingScheduleSortValue(p)}>
                   {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
                 </td>
-                <td>
+                <td
+                  data-sort-value={
+                    p.scheduleConfirmed ? (p.room?.name ?? "") : ""
+                  }
+                >
                   <RoomAllocationStatus pairing={p} />
                 </td>
 
                 <td>{p.tutees.length}</td>
                 {!readOnly && (
                   <>
-                    <td>
+                    <td
+                      data-sort-value={
+                        !workloads.error && !workloads.isFetching
+                          ? (workloads.data?.tutors?.find(
+                              (row) => row.id === p.tutorId,
+                            )?.count ?? "")
+                          : ""
+                      }
+                    >
                       {(() => {
                         const workload = workloads.data?.tutors?.find(
                           (row) => row.id === p.tutorId,
@@ -1019,7 +1034,15 @@ export default function PairingsPage() {
                             );
                       })()}
                     </td>
-                    <td>
+                    <td
+                      data-sort-value={
+                        !workloads.error && !workloads.isFetching
+                          ? (workloads.data?.tutors?.find(
+                              (row) => row.id === p.tutorId,
+                            )?.preferredMaximum ?? "")
+                          : ""
+                      }
+                    >
                       {(() => {
                         const workload = workloads.data?.tutors?.find(
                           (row) => row.id === p.tutorId,

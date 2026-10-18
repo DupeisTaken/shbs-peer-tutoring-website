@@ -240,7 +240,7 @@ function ProfileRecords({ profiles }: { profiles: Profile[] }) {
     return <p className="muted">{t("usersDirectory.noProfiles")}</p>;
   return (
     <>
-      <SummaryTable label={t("usersDirectory.profileRecords")}>
+      <SummaryTable sortable label={t("usersDirectory.profileRecords")}>
         <thead>
           <tr>
             <th>{t("admin.users.columns.user")}</th>
@@ -253,7 +253,7 @@ function ProfileRecords({ profiles }: { profiles: Profile[] }) {
         <tbody>
           {profiles.map((profile) => (
             <tr key={`${profile.kind}:${profile.id}`}>
-              <td>
+              <td data-sort-value={profileName(profile)}>
                 <p className="font-medium">{profileName(profile)}</p>
                 <p className="muted text-xs">
                   {t(

@@ -436,7 +436,7 @@ function TutorMeetingStats({
           {t("admin.meetings.stats.empty")}
         </p>
       ) : (
-        <SummaryTable label={t("admin.meetings.stats.title")}>
+        <SummaryTable sortable label={t("admin.meetings.stats.title")}>
           <thead>
             <tr>
               <th>{t("admin.meetings.stats.tutor")}</th>
@@ -459,7 +459,14 @@ function TutorMeetingStats({
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className={r.active ? "" : "text-slate-400"}>
-                <td className="font-medium whitespace-nowrap text-slate-700">
+                <td
+                  data-sort-value={participantNameLabel(
+                    r.englishName,
+                    r.username,
+                    "",
+                  )}
+                  className="font-medium whitespace-nowrap text-slate-700"
+                >
                   <ParticipantName name={r.englishName} username={r.username} />
                 </td>
                 <td className="text-right text-green-600">{r.present}</td>
@@ -555,7 +562,7 @@ function MeetingSummary({
 
   return (
     <div className="card overflow-hidden">
-      <SummaryTable label={t("admin.meetings.summary.show")}>
+      <SummaryTable sortable label={t("admin.meetings.summary.show")}>
         <thead>
           <tr>
             <th className="sticky left-0 z-10 bg-white">
@@ -581,6 +588,11 @@ function MeetingSummary({
           {tutors.map((tu) => (
             <tr key={tu.id} className={tu.active ? "" : "text-slate-400"}>
               <th
+                data-sort-value={participantNameLabel(
+                  tu.englishName,
+                  tu.username,
+                  "",
+                )}
                 scope="row"
                 className="sticky left-0 z-10 bg-white text-left font-medium whitespace-nowrap text-slate-700"
               >

@@ -163,7 +163,20 @@ it("previews every theme without persisting it and translates long example label
   });
   expect(screen.getByRole("main").getAttribute("lang")).toBe("zh-CN");
   expect(screen.getByRole("button", { name: "使用所选参加人员" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "辅导伙伴" })).toBeTruthy();
+  // The audience choice and sort heading intentionally share the translated role name.
+  const audience = screen.getByRole("group", { name: "会议参加人员" });
+  expect(
+    within(audience).getByRole("button", { name: "辅导伙伴", pressed: true }),
+  ).toBeTruthy();
+  const sorting = screen.getByRole("table", { name: "信息表格排序示例" });
+  const tutorHeading = within(sorting).getByRole("columnheader", {
+    name: "辅导伙伴",
+  });
+  fireEvent.click(within(tutorHeading).getByRole("button", { name: "辅导伙伴" }));
+  expect(tutorHeading.getAttribute("aria-sort")).toBe("ascending");
+  expect(
+    within(audience).getByRole("button", { name: "辅导伙伴", pressed: true }),
+  ).toBeTruthy();
   expect(
     screen.getByRole("region", { name: "示例教室可用时间" }).tabIndex,
   ).toBe(0);

@@ -19,7 +19,10 @@ import { matchesPersonSearch } from "~/lib/person-search";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { visibleTutors } from "~/lib/tutor-visibility";
 import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
-import { pairingScheduleText } from "~/lib/pairing-schedule";
+import {
+  pairingScheduleText,
+  pairingScheduleSortValue,
+} from "~/lib/pairing-schedule";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -181,7 +184,7 @@ export default function TuteesPage() {
   });
   const sort = useRosterSort(
     "tutees-sort-v1",
-    ["name", "grade", "sessions", "discipline", "status"],
+    ["name", "grade", "courses", "sessions", "discipline", "status"],
     "name",
     !denied,
   );
@@ -260,7 +263,9 @@ export default function TuteesPage() {
       const owner = row.owner ?? row.user;
       return matchesPersonSearch(row, search, [owner?.username, owner?.email]);
     });
+    if (sort.dir === "none") return rest;
     const dir = sort.dir === "asc" ? 1 : -1;
+    const compareText = (a: string, b: string) => compare(a, b, locale);
     return rest.sort((a, b) => {
       const sa = stats.data?.[a.id];
       const sb = stats.data?.[b.id];
@@ -284,18 +289,24 @@ export default function TuteesPage() {
             dir
           );
         }
+        case "courses":
+          return (
+            ([a.firstChoice, a.secondChoice].filter(Boolean).length -
+              [b.firstChoice, b.secondChoice].filter(Boolean).length) *
+            dir
+          );
         case "sessions":
           return ((sa?.sessions ?? 0) - (sb?.sessions ?? 0)) * dir;
         case "discipline":
           return ((sa?.effectiveReds ?? 0) - (sb?.effectiveReds ?? 0)) * dir;
         case "status":
-          return compare(a.status, b.status) * dir;
+          return compareText(a.status, b.status) * dir;
         case "name":
         default:
-          return compare(a.englishName, b.englishName) * dir;
+          return compareText(a.englishName, b.englishName) * dir;
       }
     });
-  }, [scopedRows, stats.data, sort.key, sort.dir, search]);
+  }, [locale, scopedRows, stats.data, sort.key, sort.dir, search]);
 
   // Group pairings by tutor for the tutor-centric view.
   const pairingsByTutor = new Map<string, typeof pairings.data>();
@@ -590,7 +601,7 @@ export default function TuteesPage() {
           )}
         {view === "tutors" && (
           <section className="card">
-            <SummaryTable label={t("admin.tutees.viewTutors")}>
+            <SummaryTable sortable label={t("admin.tutees.viewTutors")}>
               <thead>
                 <tr>
                   <th>{t("admin.tutees.colTutor")}</th>
@@ -640,26 +651,32 @@ export default function TuteesPage() {
                         <td className="font-medium text-slate-800">
                           {tutor.englishName}
                         </td>
-                        <td colSpan={4} className="text-slate-400">
+                        <td className="text-slate-400" data-sort-value="">
                           {t("admin.tutees.noPairings")}
                         </td>
+                        <td data-sort-value="">—</td>
+                        <td data-sort-value="">—</td>
+                        <td data-sort-value={0}>0</td>
                         <TableActions>
                           <span className="text-slate-400">—</span>
                         </TableActions>
                       </tr>,
                     ];
                   }
-                  return tps.map((p, i) => (
+                  return tps.map((p) => (
                     <tr key={p.id}>
                       <td className="font-medium text-slate-800">
-                        {i === 0 ? tutor.englishName : ""}
+                        {tutor.englishName}
                       </td>
                       <td>
                         <span className="block max-w-52 truncate">
                           {p.subject}
                         </span>
                       </td>
-                      <td className="text-slate-600">
+                      <td
+                        data-sort-value={pairingScheduleSortValue(p)}
+                        className="text-slate-600"
+                      >
                         {pairingScheduleText(
                           p,
                           t("scheduling.awaiting"),
@@ -823,7 +840,9 @@ export default function TuteesPage() {
                   <SortHeader sort={sort} sortKey="grade">
                     {h("gradeClass")}
                   </SortHeader>
-                  <th>{t("admin.tutees.colCourses")}</th>
+                  <SortHeader sort={sort} sortKey="courses">
+                    {t("admin.tutees.colCourses")}
+                  </SortHeader>
                   <SortHeader sort={sort} sortKey="sessions">
                     {t("admin.tutees.colSessions")}
                   </SortHeader>
