@@ -952,6 +952,14 @@ function Assignment({
       setWorking(false);
     }
   };
+  const approvalLink = approvalId ? (
+    <Link
+      className="link inline-flex min-h-11 items-center lg:min-h-8"
+      href={`/admin/approvals?request=${encodeURIComponent(approvalId)}`}
+    >
+      {editing("queued")}
+    </Link>
+  ) : null;
   return (
     <>
       {!assigned && (
@@ -1024,17 +1032,10 @@ function Assignment({
             </Button>
           }
         >
-          {editing("savedRefresh")}
+          {approvalLink ?? editing("savedRefresh")}
         </InlineNotice>
       )}
-      {approvalId && (
-        <Link
-          className="link inline-flex min-h-11 items-center lg:min-h-8"
-          href={`/admin/approvals?request=${encodeURIComponent(approvalId)}`}
-        >
-          {editing("queued")}
-        </Link>
-      )}
+      {!needsRefresh && approvalLink}
       {consequenceTicket && !readOnly && !row.isInvalid && (
         <WorkloadAssignmentConfirmation
           operation="studentWorkflow.assign"

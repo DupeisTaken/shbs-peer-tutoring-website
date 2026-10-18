@@ -1254,12 +1254,13 @@ it("treats a queued assignment proposal as accepted and retries only its failed 
       name: "Confirm assignment",
     }),
   );
-  await screen.findByText(en.signupEditing.savedRefresh);
+  await screen.findByRole("button", { name: en.signupEditing.retryRefresh });
   expect(
     screen
       .getByRole("link", { name: en.signupEditing.queued })
       .getAttribute("href"),
   ).toBe("/admin/approvals?request=assignment-proposal");
+  expect(screen.queryByText(en.signupEditing.savedRefresh)).toBeNull();
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByText(en.workflow.resendFailed)).toBeNull();
   expect(
@@ -1273,7 +1274,12 @@ it("treats a queued assignment proposal as accepted and retries only its failed 
     screen.getByRole("button", { name: en.signupEditing.retryRefresh }),
   );
   await waitFor(() =>
-    expect(screen.queryByText(en.signupEditing.savedRefresh)).toBeNull(),
+    expect(
+      screen.queryByRole("button", { name: en.signupEditing.retryRefresh }),
+    ).toBeNull(),
   );
+  expect(
+    screen.getAllByRole("link", { name: en.signupEditing.queued }),
+  ).toHaveLength(1);
   expect(mocks.assign).toHaveBeenCalledOnce();
 });
