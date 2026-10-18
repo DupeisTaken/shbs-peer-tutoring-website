@@ -19,7 +19,13 @@ import { queuedApprovalId } from "~/lib/approval-outcome";
 const commit = vi.fn<() => Promise<unknown>>();
 const refresh = vi.fn<() => Promise<unknown>>();
 let revokeCurrent: () => void;
-function Example({ repeat = false }: { repeat?: boolean }) {
+function Example({
+  repeat = false,
+  primary = false,
+}: {
+  repeat?: boolean;
+  primary?: boolean;
+}) {
   const review = useActionReview();
   useEffect(() => {
     revokeCurrent = review.revoke;
@@ -34,6 +40,11 @@ function Example({ repeat = false }: { repeat?: boolean }) {
             title: "Delete record?",
             description: "The record will be permanently removed.",
             confirmLabel: "Delete record",
+            confirmVariant: primary ? "primary" : undefined,
+            renderResult: primary
+              ? (result) =>
+                  typeof result === "string" ? <p>{result}</p> : null
+              : undefined,
             details: <p>Exact record name</p>,
             commit,
             refresh,
@@ -372,4 +383,29 @@ it("preserves a queued approval key when access is revoked and later restored", 
   expect(screen.getByRole("dialog")).toBeTruthy();
   expect(commit).toHaveBeenCalledOnce();
   expect(refresh).not.toHaveBeenCalled();
+});
+
+it("keeps a feature result through failed read recovery with a primary confirmation", async () => {
+  commit.mockResolvedValue("2 rooms assigned; 1 still needs attention");
+  refresh.mockRejectedValueOnce(new Error("Offline"));
+  render(
+    <NextIntlClientProvider locale="en" timeZone="UTC" messages={en}>
+      <Example primary />
+    </NextIntlClientProvider>,
+  );
+  open();
+  const confirm = screen.getByRole("button", { name: "Delete record" });
+  expect(confirm.className).toContain("btn-primary");
+  fireEvent.click(confirm);
+  await screen.findByText(en.actionReview.refreshFailed);
+  expect(
+    screen.getByText("2 rooms assigned; 1 still needs attention"),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: en.actionReview.retry }));
+  await screen.findByText(en.actionReview.applied);
+  expect(
+    screen.getByText("2 rooms assigned; 1 still needs attention"),
+  ).toBeTruthy();
+  expect(commit).toHaveBeenCalledOnce();
+  expect(refresh).toHaveBeenCalledTimes(2);
 });

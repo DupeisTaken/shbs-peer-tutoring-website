@@ -17,6 +17,7 @@ import { settleRefreshes } from "~/lib/settle-refreshes";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 
 import Link from "next/link";
+import { PairingRoomSummary } from "./room-summary";
 import { RoomAllocationStatus } from "~/app/_components/room-allocation-status";
 import { FilterToolbar, InlineNotice } from "~/app/_components/ui/patterns";
 
@@ -213,6 +214,7 @@ export default function PairingsPage() {
   const create = api.admin.createPairing.useMutation();
   const update = api.admin.updatePairing.useMutation();
   const retryRoom = api.admin.retryRoomAllocation.useMutation();
+  const autoAssignRooms = api.admin.autoAssignUnassignedRooms.useMutation();
   const setRoom = api.admin.setPairingRoom.useMutation();
 
   const del = api.admin.deletePairing.useMutation();
@@ -530,6 +532,20 @@ export default function PairingsPage() {
     (pairings.data ?? [])
       .filter((p) => p.roomNeedsAssignment)
       .map((p) => (p.groupId ? "group:" + p.groupId : "pairing:" + p.id)),
+  ).size;
+  // Review the complete eligible list, independent of the visible filter. The
+  // server validates versions and complete group membership before any write.
+  const unassignedRooms = (pairings.data ?? []).filter(
+    (p) =>
+      p.scheduleConfirmed &&
+      !p.room &&
+      !p.roomId &&
+      (p.roomMode === "AUTO" || p.roomMode === "LEGACY"),
+  );
+  const unassignedReservations = new Set(
+    unassignedRooms.map((p) =>
+      p.groupId ? "group:" + p.groupId : "pairing:" + p.id,
+    ),
   ).size;
   const error = writeError;
   const rows = (pairings.data ?? []).filter(
@@ -937,14 +953,73 @@ export default function PairingsPage() {
       )}
       <FilterToolbar
         label={a("filter")}
+        summary={a("summaryLegend")}
         actions={
-          <Button
-            size="compact"
-            disabled={working}
-            onClick={() => void refresh()}
-          >
-            {a("refresh")}
-          </Button>
+          <>
+            {!readOnly && (
+              <Button
+                size="compact"
+                disabled={
+                  readBlocked ||
+                  working ||
+                  refreshFailed ||
+                  review.blocked("room:all") ||
+                  !unassignedRooms.length ||
+                  unassignedRooms.length > 500
+                }
+                onClick={() =>
+                  review.open({
+                    key: "room:all",
+                    title: a("autoAssignAll"),
+                    description: a("autoAssignHelp"),
+                    confirmLabel: a("autoAssignAll"),
+                    confirmVariant: "primary",
+                    details: (
+                      <div className="space-y-3">
+                        <p>
+                          {a("autoAssignCount", {
+                            count: unassignedReservations,
+                          })}
+                        </p>
+                        <ul className="max-h-60 list-inside list-disc overflow-y-auto">
+                          {unassignedRooms.map((p) => (
+                            <li key={p.id}>
+                              {personName(p.tutor)} · {p.subject}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ),
+                    commit: async () => {
+                      const result = await autoAssignRooms.mutateAsync({
+                        targets: unassignedRooms.map((p) => ({
+                          id: p.id,
+                          expectedRoomVersion: p.roomVersion,
+                        })),
+                      });
+                      return a("autoAssignResult", result);
+                    },
+                    renderResult: (result) =>
+                      typeof result === "string" ? <p>{result}</p> : null,
+                    refresh: async () => {
+                      if (!(await refresh())) throw new Error(a("readFailed"));
+                    },
+                    approvalId: queuedApprovalId,
+                    repeatAfterRefresh: true,
+                  })
+                }
+              >
+                {a("autoAssignAll")}
+              </Button>
+            )}
+            <Button
+              size="compact"
+              disabled={working}
+              onClick={() => void refresh()}
+            >
+              {a("refresh")}
+            </Button>
+          </>
         }
       >
         <ChoiceButton
@@ -960,26 +1035,26 @@ export default function PairingsPage() {
           {a("needsRoomReservations", { count: needsRoomReservations })}
         </ChoiceButton>
       </FilterToolbar>
+      {!readOnly && unassignedRooms.length > 500 && (
+        <InlineNotice tone="warning">{a("autoAssignLimit")}</InlineNotice>
+      )}
       {pairings.data && rows.length === 0 && (
         <StatePanel kind="empty" title={a("empty")} />
       )}
-      {/* Table */}
+      {/* Pairing-level facts stay in the summary. Allocation intent belongs in
+          details; tutor-wide workload advice stays beside assignment decisions. */}
       <div className="card overflow-hidden">
         <SummaryTable label={t("admin.pairings.title")}>
           <thead>
             <tr>
-              <th>{t("admin.pairings.colTutor")}</th>
-              <th>{t("admin.pairings.colSubject")}</th>
-              <th>{t("admin.pairings.colWhen")}</th>
-              <th>{t("admin.pairings.colRoom")}</th>
-              <th>{t("admin.pairings.colTutees")}</th>
-              {!readOnly && (
-                <>
-                  <th>{workloadText("countHeading")}</th>
-                  <th>{workloadText("preferenceHeading")}</th>
-                </>
-              )}
-              <th className="table-actions-heading">
+              <th scope="col">{t("admin.pairings.colTutor")}</th>
+              <th scope="col">{t("admin.pairings.colSubject")}</th>
+              <th scope="col">{t("admin.pairings.colWhen")}</th>
+              <th scope="col">{t("admin.pairings.colRoom")}</th>
+              <th scope="col" className="whitespace-nowrap">
+                {t("admin.pairings.colTutees")}
+              </th>
+              <th scope="col" className="table-actions-heading">
                 {t("tablePatterns.actions")}
               </th>
             </tr>
@@ -991,52 +1066,18 @@ export default function PairingsPage() {
                 id={p.id}
                 className="scroll-mt-24 target:bg-amber-50 target:outline-2 target:outline-amber-600"
               >
-                <td>{personName(p.tutor)}</td>
+                <td className="font-medium text-slate-900">
+                  {personName(p.tutor)}
+                </td>
                 <td>{p.subject}</td>
                 <td>
                   {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
                 </td>
                 <td>
-                  <RoomAllocationStatus pairing={p} />
+                  <PairingRoomSummary pairing={p} />
                 </td>
 
                 <td>{p.tutees.length}</td>
-                {!readOnly && (
-                  <>
-                    <td>
-                      {(() => {
-                        const workload = workloads.data?.tutors?.find(
-                          (row) => row.id === p.tutorId,
-                        );
-                        return workload &&
-                          !workloads.error &&
-                          !workloads.isFetching
-                          ? workload.count
-                          : workloadText(
-                              workloads.error || workloads.unavailable
-                                ? "unavailable"
-                                : "checking",
-                            );
-                      })()}
-                    </td>
-                    <td>
-                      {(() => {
-                        const workload = workloads.data?.tutors?.find(
-                          (row) => row.id === p.tutorId,
-                        );
-                        return workload &&
-                          !workloads.error &&
-                          !workloads.isFetching
-                          ? (workload.preferredMaximum ?? workloadText("unset"))
-                          : workloadText(
-                              workloads.error || workloads.unavailable
-                                ? "unavailable"
-                                : "checking",
-                            );
-                      })()}
-                    </td>
-                  </>
-                )}
                 <TableActions>
                   <TableDetails title={`${personName(p.tutor)} · ${p.subject}`}>
                     <dl className="space-y-3">

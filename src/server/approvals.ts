@@ -485,6 +485,24 @@ export async function proposalTargets(
       ids.set("Pairing", pairingIds);
     }
   }
+  if (operation === "admin.autoAssignUnassignedRooms") {
+    const selected = await client.pairing.findMany({
+      where: { id: { in: [...(ids.get("Pairing") ?? [])] } },
+      select: { groupId: true },
+    });
+    const groupIds = [...new Set(selected.flatMap((row) => row.groupId ? [row.groupId] : []))];
+    if (groupIds.length) {
+      const members = await client.pairing.findMany({
+        where: { groupId: { in: groupIds } }, select: { id: true },
+      });
+      const pairingIds = ids.get("Pairing") ?? new Set<string>();
+      members.forEach((member) => pairingIds.add(member.id));
+      ids.set("Pairing", pairingIds);
+      // Group primary drives allocation intent; capture it as immutable review
+      // evidence even when no member's own room version changes.
+      ids.set("PairingGroup", new Set(groupIds));
+    }
+  }
   if (automaticRoomIntent) ids.delete("Room");
   if (operation === "admin.updateTimeSlot" && includeAuthorityContext) {
     const sessions = await slotAttendance(client, z.string().parse(fields.id));

@@ -1091,7 +1091,32 @@ parent draft remains mounted, and the returned write promise owns nested-dialog
 pending protection until it settles.
 A separate default-only migration sets new tutors to 1 without backfilling unset
 values; the existing inactive trigger still wins with zero. All native tutor
-selectors and Pairings summaries consume the same count. Proposed edits remove
+selectors and the Pairings assignment editor consume the same count. The Pairings
+summary keeps six pairing-level columns; workload counts and preferences remain
+at assignment decisions. Its Room cell renders a name only for a confirmed
+schedule with a room. Feature-owned `PairingRoomSummary` displays `-` for awaiting
+schedules or explicit NONE, and `x` for remaining roomless records. Automatic is
+slate and confirmed FIXED uses the selected app accent. Both `x` and `-` have
+slate backgrounds, with amber text for persisted shortages; assigned LEGACY rooms
+retain slate outlines. Each badge includes localized accessible status and a hover title,
+with a visible symbol legend. `RoomAllocationStatus` retains full intent in View details; the
+shortage filter still uses `roomNeedsAssignment`, never inferred null-room state.
+See [#401](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/401).
+
+Bulk room assignment ([#403](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/403))
+reviews explicit pairing IDs and expected room versions, independent of table
+filters. The server validates current scheduled AUTO/LEGACY roomless targets and
+complete group membership before allocating each reservation unit sequentially
+in one transaction under the period and planned-room locks. Existing reservations,
+NONE and unconfirmed schedules are excluded; the feature must be enabled. The
+500-record limit bounds transaction work. Coordinator proposals retain immutable
+target evidence and normal approval replay. UI `useActionReview` guards pending
+and accepted writes, preserves read-only refresh recovery, and renders the
+feature's assigned/unassigned result. Its optional primary confirmation styling
+and result renderer preserve destructive defaults for other callers and are
+demonstrated in the gallery.
+
+Proposed edits remove
 only the original pairing's membership, retain shared siblings and add the new
 distinct identity only for a current roster. Projections use the same current-quarter
 and authoritative tutor eligibility

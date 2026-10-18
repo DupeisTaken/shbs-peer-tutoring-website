@@ -9,6 +9,7 @@ import { db } from "~/server/db";
 import { databaseScope } from "~/server/db-scope";
 import { ApprovalQueued } from "~/server/approvals";
 import { applyPendingFeatures } from "~/server/program/features";
+import * as roomAllocationOperations from "~/server/room-allocation";
 import {
   allocateRoom,
   allocationData,
@@ -234,6 +235,162 @@ async function combineRoomUnit(ids: string[], selectedSlot = slotId) {
     groups: [{ id: state.groups[0]?.id, pairingIds: ids, slotId: selectedSlot }] });
 }
 const unitRows = (ids: string[]) => db.pairing.findMany({ where: { id: { in: ids } }, orderBy: { id: "asc" } });
+
+const bulkTargets = (rows: { id: string; roomVersion: number }[]) => ({
+  targets: rows.map((row) => ({ id: row.id, expectedRoomVersion: row.roomVersion })),
+});
+async function roomless(mode: "AUTO" | "LEGACY" = "AUTO") {
+  return db.pairing.create({ data: {
+    termId, tutorId, subject, timeSlotId: slotId, roomMode: mode,
+    scheduleConfirmed: true, dayOfWeek: 7, startMin: 600, endMin: 660,
+    tutees: { create: learners.map((tuteeId) => ({ tuteeId })) },
+  } });
+}
+
+it("bulk room allocation includes legacy and non-shortage automatic rows without moving reservations", async () => {
+  const reserved = await create({ roomMode: "FIXED", roomId: rooms[0] });
+  const reservedBefore = await db.pairing.findUniqueOrThrow({ where: { id: reserved.id } });
+  const automatic = await roomless();
+  const legacy = await roomless("LEGACY");
+  const beforeRoster = await db.pairingTutee.findMany({ orderBy: [{ pairingId: "asc" }, { tuteeId: "asc" }] });
+  expect(await actor().admin.autoAssignUnassignedRooms(bulkTargets([automatic, legacy])))
+    .toEqual({ assigned: 2, unassigned: 0, total: 2 });
+  const rows = await unitRows([automatic.id, legacy.id]);
+  expect(rows.every((row) => row.roomMode === "AUTO" && row.roomId && row.roomId !== rooms[0])).toBe(true);
+  expect(new Set(rows.map((row) => row.roomId)).size).toBe(2);
+  expect(await db.pairing.findUniqueOrThrow({ where: { id: reserved.id } })).toEqual(reservedBefore);
+  expect(await db.pairingTutee.findMany({ orderBy: [{ pairingId: "asc" }, { tuteeId: "asc" }] })).toEqual(beforeRoster);
+});
+
+it("bulk room allocation counts shared groups once and requires all reviewed siblings", async () => {
+  await blockAll();
+  const first = await create({ tuteeIds: learners });
+  const second = await create({ tuteeIds: learners });
+  await combineRoomUnit([first.id, second.id]);
+  const rows = await unitRows([first.id, second.id]);
+  await expect(actor().admin.autoAssignUnassignedRooms(bulkTargets([rows[0]!]))).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await unitRows([first.id, second.id])).toEqual(rows);
+  await db.roomUnavailability.deleteMany({ where: { roomId: rooms[0] } });
+  expect(await actor().admin.autoAssignUnassignedRooms(bulkTargets(rows)))
+    .toEqual({ assigned: 1, unassigned: 0, total: 1 });
+  expect((await unitRows([first.id, second.id])).every((row) => row.roomId === rooms[0] && row.groupId === rows[0]!.groupId)).toBe(true);
+});
+
+it("bulk room allocation validates every version before any reservation is written", async () => {
+  const first = await roomless();
+  const second = await roomless("LEGACY");
+  const before = await unitRows([first.id, second.id]);
+  await expect(actor().admin.autoAssignUnassignedRooms(bulkTargets([first, { ...second, roomVersion: second.roomVersion + 1 }]))).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await unitRows([first.id, second.id])).toEqual(before);
+  expect(await shortages()).toHaveLength(0);
+});
+
+it("bulk room allocation rolls back earlier reservations if a later allocation fails", async () => {
+  const first = await roomless();
+  const second = await roomless("LEGACY");
+  const before = await unitRows([first.id, second.id]);
+  const allocate = roomAllocationOperations.allocateAndPersistRoomUnit;
+  const spy = vi.spyOn(roomAllocationOperations, "allocateAndPersistRoomUnit")
+    .mockImplementationOnce(allocate)
+    .mockRejectedValueOnce(new Error("Injected later allocation failure"));
+  try {
+    await expect(actor().admin.autoAssignUnassignedRooms(bulkTargets(before)))
+      .rejects.toThrow("Injected later allocation failure");
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(await unitRows([first.id, second.id])).toEqual(before);
+    expect(await shortages()).toHaveLength(0);
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+it.each(["NONE", "AWAITING", "FIXED", "RESERVED", "HISTORICAL"])(
+  "bulk room allocation rejects reviewed %s records without changing eligible siblings",
+  async (kind) => {
+    const first = await roomless();
+    const excluded = await roomless();
+    if (kind === "HISTORICAL") {
+      const past = await db.term.create({ data: { name: "Previous", schoolYear: "25-26", quarter: "Q4", active: false } });
+      await db.pairing.update({ where: { id: excluded.id }, data: { termId: past.id } });
+    } else {
+      await db.pairing.update({ where: { id: excluded.id }, data:
+        kind === "NONE" ? { roomMode: "NONE" } :
+        kind === "AWAITING" ? { scheduleConfirmed: false } :
+        kind === "FIXED" ? { roomMode: "FIXED", roomId: rooms[0] } :
+        { roomId: rooms[0] },
+      });
+    }
+    const before = await unitRows([first.id, excluded.id]);
+    await expect(actor().admin.autoAssignUnassignedRooms(bulkTargets(before))).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(await unitRows([first.id, excluded.id])).toEqual(before);
+  },
+);
+
+it("bulk room allocation reports remaining shortages and suppresses duplicate notices", async () => {
+  await blockAll(rooms.slice(0, 1));
+  const first = await roomless();
+  const second = await roomless("LEGACY");
+  expect(await actor().admin.autoAssignUnassignedRooms(bulkTargets([first, second])))
+    .toEqual({ assigned: 1, unassigned: 1, total: 2 });
+  const shortage = await db.pairing.findFirstOrThrow({ where: { roomNeedsAssignment: true } });
+  expect(await shortages()).toHaveLength(2);
+  expect(await actor().admin.autoAssignUnassignedRooms(bulkTargets([shortage])))
+    .toEqual({ assigned: 0, unassigned: 1, total: 1 });
+  expect(await shortages()).toHaveLength(2);
+});
+
+it("bulk room allocation rejects disabled automation and unauthorized viewers without writes", async () => {
+  const row = await roomless("LEGACY");
+  await expect(actor("VIEWER").admin.autoAssignUnassignedRooms(bulkTargets([row]))).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await db.programFeature.create({ data: { key: "AUTO_ASSIGN_ROOMS", enabled: false } });
+  await expect(actor().admin.autoAssignUnassignedRooms(bulkTargets([row]))).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.pairing.findUniqueOrThrow({ where: { id: row.id } })).toEqual(row);
+});
+
+it("bulk room allocation queues one coordinator review and chooses rooms at approval time", async () => {
+  const first = await roomless();
+  const second = await roomless("LEGACY");
+  await expect(actor("COORDINATOR").admin.autoAssignUnassignedRooms(bulkTargets([first, second]))).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const request = await db.approvalRequest.findFirstOrThrow({ where: { operation: "admin.autoAssignUnassignedRooms" } });
+  expect(await db.approvalRequest.count()).toBe(1);
+  expect((await unitRows([first.id, second.id])).every((row) => row.roomId === null)).toBe(true);
+  await evidence(rooms[0]!, { dayOfWeek: 7 });
+  await actor().approval.decide({ id: request.id, approve: true, note: "Reviewed bulk automatic allocation" });
+  expect((await unitRows([first.id, second.id])).every((row) => row.roomId && row.roomId !== rooms[0])).toBe(true);
+});
+
+it("bulk room approval captures group primary and rejects primary drift", async () => {
+  await blockAll();
+  const first = await create({ tuteeIds: learners });
+  const second = await create({ tuteeIds: learners });
+  await combineRoomUnit([first.id, second.id]);
+  const rows = await unitRows([first.id, second.id]);
+  await expect(actor("COORDINATOR").admin.autoAssignUnassignedRooms(bulkTargets(rows))).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const request = await db.approvalRequest.findFirstOrThrow({ where: { operation: "admin.autoAssignUnassignedRooms" } });
+  expect(request.targets).toHaveProperty("PairingGroup");
+  const group = await db.pairingGroup.findUniqueOrThrow({ where: { id: rows[0]!.groupId! } });
+  await db.pairingGroup.update({ where: { id: group.id }, data: { primaryPairingId: rows.find((row) => row.id !== group.primaryPairingId)!.id } });
+  const before = await unitRows([first.id, second.id]);
+  await expect(actor().approval.decide({ id: request.id, approve: true, note: "Stale group primary" })).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await unitRows([first.id, second.id])).toEqual(before);
+});
+
+it("bulk room allocation rejects duplicate IDs and serializes simultaneous retries", async () => {
+  const row = await roomless();
+  await expect(actor().admin.autoAssignUnassignedRooms(bulkTargets([row, row]))).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(actor().admin.autoAssignUnassignedRooms({ targets: [] })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(actor().admin.autoAssignUnassignedRooms(bulkTargets(Array.from({ length: 501 }, (_, index) => ({ ...row, id: `bounded-${index}` }))))).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(actor().admin.autoAssignUnassignedRooms(bulkTargets([{ ...row, id: "x".repeat(129) }]))).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  const results = await Promise.allSettled([
+    actor().admin.autoAssignUnassignedRooms(bulkTargets([row])),
+    actor().admin.autoAssignUnassignedRooms(bulkTargets([row])),
+  ]);
+  expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+  expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+  // A caller that lost the accepted response cannot replay this reviewed batch.
+  await expect(actor().admin.autoAssignUnassignedRooms(bulkTargets([row]))).rejects.toMatchObject({ code: "CONFLICT" });
+  expect((await db.pairing.findUniqueOrThrow({ where: { id: row.id } })).roomVersion).toBe(row.roomVersion + 1);
+});
 
 it("explicitly combines one reservation, atomically changes its slot, and keeps unrelated entries separate", async () => {
   const first = await create({ tuteeIds: learners });
