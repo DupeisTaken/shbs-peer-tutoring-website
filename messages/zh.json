@@ -2859,6 +2859,7 @@
     "abortFinal": "你已退出本季度项目。在下一季度开始前不能再次申请。",
     "closedFinal": "此申请已永久关闭。如需再次申请，请重新提交，新申请将获得新的提交时间和优先顺序。",
     "verified": "邮箱已验证",
+    "emailPending": "邮箱待验证",
     "unverified": "待验证邮箱",
     "edited": "[已修改]",
     "priority": "原始提交时间：{time}",
