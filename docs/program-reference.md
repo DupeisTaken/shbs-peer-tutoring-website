@@ -178,7 +178,9 @@ reason, and missing historical times remain unavailable. Missing/invalid address
 are blocked rather than treated as delivered.
 
 The request's invalidity dialog includes receipt status and the latest appeal.
-Admin/Head may retry an eligible receipt or decline an appeal with a reason.
+Admin/Head may retry an eligible receipt. Current survey signup appeals use the
+active-period acceptance/final-rejection workflow; tutor and legacy-request appeals
+use the separate decline/clear workflow below.
 Status refresh is read-only, and retry preserves the receipt and original payload.
 Request mail has five admitted attempts per retry budget. Admission commits **Sending**
 before external SMTP starts; source locks and a unique attempt fence order admission
@@ -187,11 +189,21 @@ Clearing supersedes queued obsolete notices; an already admitted attempt may fin
 SMTP acceptance followed by a crash can still produce an uncertain result and duplicate
 retry, so receipt states do not promise exactly-once delivery or inbox arrival.
 
-**Appeal this decision** opens a public, request-specific capability valid for 90 days
-from receipt creation. It grants no login or participation and GET changes nothing.
-One immutable appeal is accepted per flag. Admin/Head review it; submission never
-clears the flag. Clearing remains the existing authorized action, including Coordinator
-proposals. Old links cease to work after clear/reflag while earlier evidence remains.
+For a current survey signup, the flag email opens its version-bound signup appeal.
+The owner can appeal only while the request remains eligible in its active period;
+the original verification deadline still applies. Admin/Head acceptance clears the
+flag and retains priority; final rejection closes the request and ends its priority.
+Staff use the same flag-email receipt for retries; no parallel legacy survey notice
+is created. Older generic survey links are retired and their appeal evidence is read-only. See the
+[signup lifecycle](#tutor-and-tutee-recruitment-windows) for editing and closure rules.
+
+For tutor applications and legacy self-service tutee requests, **Appeal this decision**
+opens a public, request-specific capability valid for 90 days from receipt creation.
+It grants no login or participation and opening it changes nothing. One immutable
+appeal is accepted per flag. Admin/Head may decline it with a reason; clearing uses
+the existing authorized action, including Coordinator proposals. Submission or
+decline does not clear the flag or close the request. Old links cease to work after
+clear/reflag while earlier evidence remains.
 
 ## Schedule rooms and periods
 

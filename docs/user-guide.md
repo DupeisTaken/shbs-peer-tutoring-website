@@ -226,6 +226,10 @@ While eligible to participate, **Request a Tutor** appears once in the page head
 
 Current schedules include only active-period assignments on explicitly owned, non-inactive profiles. A new tutor assignment displays **Awaiting schedule** until a tutor or manager chooses a time slot; the assigned tutor remains visible. The dashboard counts only subjects with confirmed schedules. Multiple profiles on the same assignment produce one schedule entry. A matching name or email does not grant access to another person’s records. Historical attendance remains available after a refresh.
 
+Schedule notices can show program no-tutoring dates and their reasons. They are
+informational: confirm individual plans with your tutor. These notices do not
+cancel assignments, block attendance or change the school-day appeal calendar.
+
 The dashboard previews up to three existing recurring schedules and links to the
 complete schedule and request lists. Confirm individual meeting dates with your
 tutor. An unavailable count is shown as unknown with a Retry action. Paginated
@@ -412,7 +416,7 @@ Active tutors can use **My Pairings → Combine / split pairings** to save reusa
 
 My Pairings displays one combined entry with each distinct student once and their subjects beneath their name. **Subject assignments and student actions** opens the existing per-subject schedule and student controls. Changing a member's default time slot changes the complete group. **Record group attendance** selects the group in the attendance form; the separate-subject options remain available when only one subject ran on a particular date. Check actual attendance time and location before submitting.
 
-Reopen **Combine / split pairings** to add or untick members, or choose **Split this group**. Each remaining group needs at least two members. Assignments leaving a group keep their subject, students and assigned room, but return to **Awaiting schedule** with no catalog slot until a separate schedule is chosen. A manager's independent schedule/room edit or reassignment releases that member from its old group; editing the shared catalog slot retains the group. Group changes remain available after attendance submission and affect future plans only. Previous session records, attendance, ratings, room and credited hours remain unchanged.
+Reopen **Combine / split pairings** to add or untick members, or choose **Split this group**. Each remaining group needs at least two members. Assignments leaving a group keep their subject, students and assigned room, but return to **Awaiting schedule** with no catalog slot until a separate schedule is chosen. Changing a member's tutor, schedule or room choice through the management assignment editor releases that member from its old group. The separate room-change and room-retry actions apply to the complete group's reservation; editing the shared catalog slot also retains the group. Group changes remain available after attendance submission and affect future plans only. Previous session records, attendance, ratings, room and credited hours remain unchanged.
 
 Opening or cancelling a group review writes nothing. Failed saves retain the draft; **Reload saved groups** explicitly replaces it after a successful read when plans or rosters changed. If saving succeeded but catalogue refresh failed, **Retry** only reloads the saved data. An attendance draft already in progress keeps its chosen block snapshot when a saved group changes in the background; choose a new block or start another entry to use the latest plan.
 
@@ -512,7 +516,15 @@ Program secondary-email binding settings do not disable the required sign-in ema
 
 ### Names and academic details
 
-Profiles and signup forms have **First Name**, **Last Name**, **Preferred Name** and **Name in Another Language**. First, last and preferred names use Latin letters, including accents; spaces, apostrophes and hyphens are accepted. Name in Another Language accepts other writing systems. Required/Optional markers show each form's requirements. Existing unsplit names remain visible until the person or staff supplies explicit fields; the system never guesses a split.
+Profiles and signup forms support **First Name**, **Last Name**, **Preferred Name** and **Name in Another Language**. First, last and preferred names use Latin letters, including accents; spaces, apostrophes and hyphens are accepted. Name in Another Language accepts other writing systems. Required/Optional markers show each form's requirements. Existing unsplit names are retained until the person or staff supplies explicit fields and follow the visibility rules below; the system never guesses a split.
+
+Head configures each name field as Required, Optional or Hidden for each account
+type. New applications use their intake type; later shared-profile edits follow
+the account's current role, including accounts with several participation types.
+Hidden fields have no participant input or requirement marker. Their saved originals
+remain available in authorized management editors, but current displayed names omit
+hidden components and use the username when no visible name remains. Historical
+submissions and signed evidence retain their original text.
 
 In **Program Settings → Account Settings → Names and Grades**, Head can apply **Use preferred names** and **Show names in another language** independently; Admin can draft each choice and request Head approval. The first setting uses Preferred Name instead of First Name, retaining Last Name; when blank, it falls back to First Name. The second appends the additional name when supplied. A live example previews the result. Turning either setting off retains the saved text. Coordinators can view these settings. Display changes apply to current profiles and rosters; historical submissions, signatures and audit snapshots retain their original names. Usernames do not change. If Head applies another change while a settings draft is open, explicitly reload and review before resubmitting. The same section controls offered grades (at least one of Grades 1–12).
 
@@ -645,14 +657,15 @@ In **Subjects & Levels**, use the **Offered Course Catalogue** above the subject
 
 ### Run the program
 
-**Program** groups its existing controls into **Period & recruitment**, **People &
-signup**, **Communication**, and **Access & modules**. The current period stays
+**Program Settings** groups its controls into **Recruitment and Refresh**, **Account
+Settings**, **Deployment Configurations**, and **Optional Features**. The current period stays
 visible. Each form keeps its own Save or approval process; changing panels does
 not save or discard its draft. Both tutor and tutee recruitment windows remain in
-the period panel. Refreshing the period still requires its deliberate confirmation.
+**Recruitment and Refresh**, alongside separate no-tutoring notices and school-day
+calendar controls. Refreshing the period still requires its deliberate confirmation.
 
-**Crew** separates review work, the roster and patrol settings. Staff **Support**
-separates feedback, appeals and calendar controls; other users see only their
+**Crew** separates review work, the roster and patrol settings. Staff **Tutee Support**
+separates feedback and appeals, with a link to the school calendar in Program Settings; other users see only their
 permitted content. Switching panels preserves the existing draft, filters and
 pagination. An open review and its refresh recovery keep their own controls.
 
@@ -700,7 +713,7 @@ In **Subject Availability**, expand a tutor to reveal **Qualified**, **Pending R
 - In **Tutor Roster**, choose **View user details** beside **Edit profile** in the right-hand row actions. Rows show grade and expected graduation; the reference school year remains available in full details and profile editors. HEAD, administrators and coordinators can inspect grouped subjects and named level variants, saved approval/inherited qualifications, and independent tutoring willingness. **Not recorded** means no willingness choice has been saved; qualification alone does not mean willing. Catalogue reordering does not change saved qualification grants. Only subjects with recorded qualification or willingness appear; unrelated catalogue entries are omitted. Archived subjects with recorded evidence remain visible. Tutor status, account access, schedules and capacity still constrain assignments.
 - The roster details also show linked-login status and the same account-scoped policy history described below, including tutee policy acceptance. Unlinked tutors have no account acceptance history. Revoked tutoring access keeps historical evidence but removes the Tutor badge; active Tutor membership suppresses a redundant Tutee badge. Opening details grants no role-edit permissions. Viewers cannot open these private details.
 - Maintain subjects, slots, rooms, rosters and assignments; check current intake and availability before matching. Use the [program configuration guide](program-reference.md) for schedules, timezones, announcements and contact permissions.
-- Use **Tutee Support** for feedback visibility, tutee appeals and school-calendar overrides. Staff see pending appeals first, can switch to resolved history, and each list has its own page navigation. Calendar overrides affect the five-school-day appeal window.
+- Use **Tutee Support** for feedback visibility and disciplinary-card appeals. Staff see pending appeals first, can switch to resolved history, and each list has its own page navigation. Follow its school-calendar link to **Program Settings**, then open **Recruitment and Refresh**; calendar overrides affect the five-school-day disciplinary appeal window. Signup-invalidity appeals use the request's invalidity review instead.
 - In **Users & Roles**, open a person's **User details** to read their policy acceptance status and history. Expand an acceptance to read its original title, version, signature, time and exact text in each recorded language. This works for linked accounts with missing email; unlinked contacts have no account acceptance history. Only HEAD, administrators and coordinators can access these records.
 - Assign interview panels with at least three active tutors, a management member, and staff-confirmed qualification in an applicant subject. The highest-ranking management member chairs the panel (HEAD, then ADMIN, then COORDINATOR); choose a chair among equal ranks. Use **Subject Availability**, immediately below Tutor Roster, to review subject groups and variants, direct approval status, recorded inherited qualifications and independent willingness to tutor. Missing willingness means not recorded; approving a subject never records willingness. Expand a tutor to approve a subject, remove an approval source or record willingness. Approving an advanced variant records the lower offered levels of its group at that time; later catalogue reordering does not change those grants. Removing one source does not remove qualifications granted by other sources. This screen remains available when interviews are disabled. Use **Tutor Applications** for panel assignment, votes, decisions, completion, duration and attendees. Applicant summaries show status, panel, chair, schedule and completion without expanding. Search applicants, panelists or subjects and switch between open, completed and all records. Expand an interview record and follow its panel link to the applicant editor on the same page. Interview history remains readable when interviews are disabled; completion and panel writes are disabled. Correcting an already completed interview replaces earlier automatic credits and requires Head application; eligible Admin/Coordinator corrections wait for Head review. Panel qualifications, voting and chair authority still apply.
 - Correct historical attendance or patrols with a reason. Review hours, discipline and related effects after the correction; HEAD receives an in-system notification.
@@ -782,7 +795,15 @@ an admitted attempt. **Sent** confirms transport acceptance, not inbox arrival.
 After five admitted attempts, a failed notice needs a deliberate retry. A crash
 after acceptance can leave delivery uncertain and cause a duplicate retry.
 
-For tutor applications and legacy staff-entered requests, an invalidity email includes **Appeal this decision / 对此决定提出申诉**. The link
+Current survey signups use the active-period appeal and final-rejection rules
+above. Their flag email uses one shared request-delivery receipt and opens the
+version-bound signup appeal. Staff use the same receipt for retries; no parallel
+legacy survey notice is created. Older generic survey appeal links are retired; their original text and
+decisions remain visible to authorized staff as read-only history. Existing
+signup-specific links retain their original account/version binding and still
+require a current eligible period.
+
+For tutor applications and legacy self-service tutee requests, an invalidity email includes **Appeal this decision / 对此决定提出申诉**. The link
 opens a request-specific appeal without sign-in and expires 90 days after the
 notice was created; retrying delivery does not extend it. Treat the link as private:
 anyone holding it can submit the limited appeal. It grants no account access or
@@ -953,7 +974,7 @@ Translator and Coordinator edits create private drafts, including all five text 
 
 ## Account settings and private support
 
-Use **Account Settings** to edit your First Name, Last Name, Preferred Name and Name in Another Language, change your password or request a verified email change. Program settings determine how saved names appear; see [name fields and display settings](#names-and-academic-details). Current explicitly linked tutor/tutee profiles share those names; signed agreements and submitted survey records retain their original text. Editing a contact field is not email verification. Keep account links and codes private. If email delivery is unavailable, contact management; a success message from another action does not prove an email arrived.
+Use **Account Settings** to edit the name fields available for your current role, change your password or request a verified email change. Program settings determine which fields are shown and how saved names appear; see [name fields and display settings](#names-and-academic-details). Current explicitly linked tutor/tutee profiles share those names; signed agreements and submitted survey records retain their original text. Editing a contact field is not email verification. Keep account links and codes private. If email delivery is unavailable, contact management; a success message from another action does not prove an email arrived.
 
 **Add access** appears in the account menu and Account Settings. It opens `/register` to accept an invitation for the signed-in account. Review the exact authorized access before accepting; entering or inspecting a code does not grant it. Existing credentials, identity, participant history and other access are preserved, subject to the exclusive Viewer transition. Management upgrades never lower an existing rank. Switching accounts and verifying email remain distinct requirements; participation grants also retain policy and school departure checks. School departure alone does not block an authorized management rank upgrade.
 
@@ -1059,8 +1080,3 @@ For a private account, disciplinary or attendance matter, contact management thr
 Use synthetic examples and remove tutee names, contact details, private messages, account links and codes from public reports. [Creating issues](issues.md) explains what information is useful.
 
 [Documentation home](README.md) · [Technical report](technical-report.md) · [Policy drafts](policies/README.md)
-
-
-### Current signup appeal compatibility
-
-Current survey signups use the active-period appeal and final-rejection rules above. Their flag email uses one shared request-delivery receipt and opens the version-bound signup appeal. Staff retry that receipt rather than send a second notice. Older generic survey appeal links are retired; their original text and decisions remain visible to authorized staff as read-only history. Existing signup-specific links retain their original account/version binding and still require a current eligible period. Tutor and legacy-request generic appeals retain their separate 90-day link and non-terminal review rules.

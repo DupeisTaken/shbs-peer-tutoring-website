@@ -92,6 +92,16 @@ and mobile document scrolling instead of applying a global overflow clamp.
 
 Start by identifying the save boundary, query lifetime and authorized audience, then select a composition. Use an existing feature integration as well as a gallery example: long editors, immediate settings and staged forms intentionally have different save behavior. Keep new domain logic in the owning feature; a generic component must not infer permissions or expected versions from its visual state.
 
+### Reuse configured identity fields
+
+Production intake and profile forms use [ConfiguredPersonNameFields](../src/app/_components/person-name-fields.tsx), which composes `PersonNameFields` with the live policy read. Pass `accountType` for the intake being registered; for an existing profile, pass its `profileTarget` and let `program.nameFieldsForProfile` resolve the account's current role. Do not union Tutor, Crew and Tutee memberships into a name policy. Use `management` only inside an already-authorized staff editor: it reveals retained Hidden originals, but grants no read or write permission.
+
+Keep the form's submission guard tied to `onPolicyAvailabilityChange`; absent or failed policy reads cannot authorize a save using default requirements. `useNameFieldPresentation` supports surrounding headings/help without making hidden fields visible. Cached configured fields and the draft stay mounted but disabled during read recovery. Hidden fields contribute neither requirement markers nor active display labels; participant edits preserve their stored originals. An all-hidden policy is valid, and an unsplit legacy label must not expose a hidden component. Server validation and username fallback remain in [the name-field helpers](../src/server/program/name-fields.ts), not the component.
+
+Use [configured-field tests](../src/app/_components/configured-person-name-fields.test.tsx) for policy readiness, recovery and retained management fields, [name-field policy tests](../src/lib/name-field-policy.test.ts) for hidden-label rules, and [program configuration tests](../src/server/program/program-configuration.test.ts) for current-role validation and fallback allocation. Keep labels separate from translated `FieldRequirement` text; [name-field behavior](design/name-fields.md) owns the complete wording and display examples.
+
+### Gallery compositions
+
 The [gallery compositions](../src/app/ui-gallery/recipes.tsx) have these
 production references and boundaries. Each example supports English and Chinese;
 verify it at real desktop and mobile viewports. The global form-state selector
@@ -107,6 +117,8 @@ controls the participant example; other recipes expose their own state transitio
 | Setting row: explain when a choice saves | [CAPTCHA](../src/app/_components/program-captcha-settings.tsx), [Names and Grades](../src/app/_components/program-profile-settings.tsx), [subject willingness](../src/app/_components/subject-availability.tsx) | Immediate switch, staged save, unknown/yes/no, unavailable provider, read-only and failed refresh ([#234](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/234)) | Does not turn unknown into No or merge independent mutation/version rules |
 | Change review: show the proposed consequence | [Approval evidence](../src/app/_components/approval-review-details.tsx), [departure review](../src/app/_components/school-departure.tsx) | Before/after, acknowledgement, changed input invalidating preview, pending commit | Does not generate confirmation tickets or replace immutable evidence |
 | Inline notice: recover alongside usable content | [Profile settings](../src/app/_components/program-profile-settings.tsx), [availability](../src/app/(tutor)/_components/availability-editor.tsx) | Initial versus background failure, retained draft, successful Retry, explicit conflict Reload ([#233](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/233), [#223](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/223)) | Does not silently replace a version snapshot or repeat an accepted write |
+
+Specialized gallery recipes also cover [named action review](../src/app/ui-gallery/action-review-recipe.tsx), [management summary alignment](../src/app/ui-gallery/admin-summary-recipe.tsx), [manual-creation risk acknowledgement](../src/app/ui-gallery/creation-risk-recipe.tsx) and [workload preference/review](../src/app/ui-gallery/workload-preference-recipe.tsx). Each has a colocated behavior test. These are synthetic compositions: use the owning feature and the [technical code map](technical-report.md#architecture) for permissions, persistence, receipt keys and accepted-write recovery.
 
 For a recipe migration, link its feature issue and the corresponding running-page
 and gallery screenshots in the local verification report. Record language, viewport,
@@ -337,6 +349,8 @@ reuses the existing identity privacy check and never enables route DOM/draft cac
 The gallery filter toolbar demonstrates the same hook without creating another
 identity provider or copying any example form fields into storage.
 
+Notification record arrivals use a separate, feature-owned adapter rather than a remembered scroll position. Follow the [record navigation contract](technical-report.md#notification-record-navigation): validate the destination, commit its authorized panel/filter choices, then pass its arrival and read readiness to `useNotificationRecordReveal`. A fragment is never authority to query hidden records or change a draft. Keep record IDs transient and let explicit arrival, cancellation and access loss take precedence over session restoration.
+
 ### Retain local work while changing panels
 
 For a long settings workspace, group existing owners with `SectionTabs` rather
@@ -503,6 +517,8 @@ An approval ID means a queued proposal, never a successful application.
 | Room, time-slot, pairing, tutee, hour-adjustment and subject-level deletion; invitation revocation | `useActionReview` composes the shared modal around the exact record and consequence. Features supply the original authorized mutation, optional proposal recognition and read-only refresh. Failed writes retain the review; accepted writes never run again when refresh fails. Cancel and Escape before submission perform no write |
 | Crew application/request decisions, activation/inactivation and account deletion; public announcement, news, image, section, page and saved-translation deletion | Name the affected person/content in `useActionReview`. The route or list owns review lifetime so card removal/tab changes cannot discard pending work or read recovery. Reversible crew status changes and re-creatable translations explicitly permit another review after a successful refresh; one accepted review never replays its mutation |
 | Service Hours breakdown comparison, room timetables and attendance history | Read-only comparison matrices in named keyboard-scroll regions; no artificial action column. The compact Service Hours summary retains its real Details action |
+
+Manual Tutor, Tutee and Pairing entry points first mount a fresh `CreationRiskDialog`; Continue opens the retained feature editor and performs no write. Recheck live admission before transitioning, and return `false` from `onContinue` if the editor cannot open so Cancel remains usable. The gate does not replace assignment qualification/consent review. Pairing creation also keeps its existing draft UUID through edits and failed requests; follow the [creation receipt contract](technical-report.md#automatic-room-allocation-contract) before changing reset or retry behavior.
 
 Keep pending requirements outside completed-history disclosures. Use retained
 child lifetimes for collapsible editors so collapsing is not an implicit Cancel.
