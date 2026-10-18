@@ -183,6 +183,10 @@ The application runs as a persistent Next.js 16 / React 19 Node server with tRPC
 | Change published content or translations | [Slug allocation](../src/server/home/slugs.ts), [translation destination checks](../src/server/translation-destination.ts) and [policy acceptance](../src/server/policy-acceptance.ts)           |
 | Change dates or intake labels            | [Program time](../src/lib/program-time.ts) and [period display](../src/lib/period.ts)                                                                                                            |
 | Change delivery or deadline processing   | [Email sender](../src/server/email/sender.ts), [instrumentation](../src/instrumentation.ts) and [deadline worker](../src/server/student-deadline-worker.ts)                                      |
+| Change name requirements or profile fields | [Configured identity fields](../src/app/_components/person-name-fields.tsx), [server validation/fallbacks](../src/server/program/name-fields.ts) and [field contract](#cross-feature-ui-contracts) |
+| Change planned rooms, scheduling or creation retry | [Room allocation](../src/server/room-allocation.ts), [booking locks](../src/server/room-bookings.ts), [creation receipts](../src/server/pairing-creation.ts) and [allocation contract](#automatic-room-allocation-contract) |
+| Change shared pairing groups or workload advice | [Group writer](../src/server/pairing-groups.ts), [workload reader](../src/server/tutor-workload.ts) and [workload contract](#assigned-block-workload-and-advisory-preference); room reservation groups and workload block identity are separate |
+| Add a notification or record destination | [Typed event inventory](notification-events.md), [notification creation](../src/server/notifications/create.ts), [request destinations](../src/lib/request-notification-destination.ts) and [record navigation](#notification-record-navigation) |
 
 ### Tutee details
 
@@ -630,11 +634,13 @@ generator or lint rule would be new tooling, not an existing API; first demonstr
 which repeated omission it prevents without inferring authorization or deleting a
 feature's deliberate exception.
 
-### Review-batch extension contracts
+### Cross-feature UI contracts
 
-The following contracts were agreed before the next UI implementation batch. They
-describe its boundaries; individual feature sections remain authoritative for
-what is currently implemented until their migrations and verification are complete.
+The following contracts are implemented by the current settings, identity,
+schedule, evidence and navigation features. Use their owning components and tests
+when extending them; they are not an outstanding implementation checklist.
+The [contributor recipe](contributing.md#add-an-action-or-feature) describes how
+to add a caller while preserving these boundaries.
 
 - **Informational tutoring dates:** no-tutoring dates carry a program-local date
   and reason independently of the school-day calendar used by appeals. Displaying
@@ -647,11 +653,15 @@ what is currently implemented until their migrations and verification are comple
   rather than combining every membership's requirements. Hidden fields do not
   contribute to active display names or participant forms, but their saved values
   remain visible in authorized admin management fields. Hiding a field never
-  erases an existing name or rewrites historical evidence. Resolve fallback
-  username allocation and legacy unsplit-name compatibility in the server validator
-  as well as the UI. A presentation-only
-  `required` change is insufficient. Policy reads and saves retain explicit
-  versions, approval boundaries and conflict recovery.
+  erases an existing name or rewrites historical evidence. The configured field
+  wrapper reads intake type or server-resolved current profile role, retains cached
+  fields through read recovery, and reports availability for the feature's save guard.
+  [Server helpers](../src/server/program/name-fields.ts) enforce required values,
+  preserve participant-hidden originals, and allocate fallback usernames only in
+  explicit identity/settings writes. Legacy unsplit text is omitted when it may
+  contain a hidden component. A presentation-only `required` change is insufficient.
+  Policy reads and saves retain explicit versions, approval boundaries and conflict
+  recovery; see [the caller recipe](contributing.md#reuse-configured-identity-fields).
 - **Room order and schedules:** display order is a program-owned setting separate
   from patrol order. Room selectors default to all rooms for management and paired
   rooms for a tutor. Combined and individual-room grids are two views of the same
@@ -856,6 +866,8 @@ automatic-allocation policy; an explicitly assigned existing handle remains vali
 
 In **Users & Roles → Edit profile**, Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admins may submit username changes for Head review; Coordinators cannot submit them. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op; stale profile versions require explicit **Reload**. After a successful save, the section automatically reads its current username and profile version, then allows another explicit Save in the same dialog. Other sections retain their drafts and version snapshots.
 
+### Notification record navigation
+
 Notification record navigation composes the existing bell and authorized request/
 application cards. Validated record links opt out of Next's default scroll so it
 cannot overwrite an intentional incoming fragment. Destination filters commit
@@ -872,6 +884,20 @@ pane. An all-ancestor `scrollIntoView` would also center the outer document and 
 move the header offscreen when descendant overflow gives it an incidental range.
 The mobile branch retains document-native reveal. No global overflow clamp or
 layout/position reset is part of this navigation correction.
+
+The [link helper](../src/lib/notification-navigation.ts) delegates only allowlisted
+relative record destinations to page-owned reveal. Same-document arrivals preserve
+the current Next history payload and dispatch `hashchange`, including deliberate
+repeat visits; cross-route links retain normal Next navigation with scroll delegated
+for those destinations. [useNotificationRecordReveal](../src/app/_components/use-notification-record-reveal.ts)
+waits for the exact pathname/hash arrival, authorized read and visible DOM target,
+then focuses with `preventScroll`. It owns neither filtering nor record lookup.
+Follow the existing Requests, Applications and Pairings page adapters rather than
+adding a generic hidden-record query. Coverage lives in [link tests](../src/lib/notification-navigation.test.ts),
+[reveal tests](../src/app/_components/use-notification-record-reveal.test.tsx),
+[request-board tests](../src/app/(admin)/admin/requests/student-request-board.test.tsx),
+[application tests](../src/app/(admin)/admin/applications/page.test.tsx) and
+[Pairings page tests](../src/app/(admin)/admin/pairings/page.test.tsx).
 
 ## Approval transactions
 
@@ -954,8 +980,10 @@ evidence. A later eligible submission gets fresh priority. No deadline is inferr
 from public signup closing, and an appeal cannot extend an existing verification deadline.
 
 `student-signup-appeals.ts` records `StudentSignupAppeal` against the exact invalidity
-version and uses `StudentSignupNotice` as the committed delivery outbox. Notices
-resolve retained ownership and a current verified recipient rather than treating
+version. For flags, `StudentSignupNotice` retains the version/account-bound appeal
+capability; the matching `EmailDelivery` request-service receipt owns delivery,
+leases and retries. Appeal-outcome notices retain their separate committed delivery
+path. Notices resolve retained ownership and a current verified recipient rather than treating
 the immutable submitted email as today's owner. The mailbox appeal capability is
 bound to that recipient/account generation and invalidity version; its link does
 not reveal internal screening reasons. `studentWorkflow.inspectSignupAppeal` and
@@ -1129,6 +1157,18 @@ editor retains failed/dirty drafts, adopts new versions only through its success
 save/read or explicit Reload, and distinguishes accepted-write synchronization
 failure from rejected-save recovery. Lowering a preference never changes pairings.
 
+Use [the pure block/projection helpers](../src/lib/tutor-workload.ts) for counts,
+[WorkloadAssignmentConfirmation](../src/app/_components/assignment-workload.tsx)
+for assignment advice, and [invalidateWorkloads](../src/lib/workload-cache.ts)
+for the read families affected by assignment, group, schedule or participation
+writes. The confirmation composes the existing qualification review rather than
+issuing a new ticket.
+See [pure tests](../src/lib/tutor-workload.test.ts),
+[router tests](../src/server/api/routers/tutor-workload.test.ts),
+[assignment integration tests](../src/server/api/routers/pairing-workload-integration.test.ts),
+[preference UI tests](../src/app/_components/tutor-workload-preference.test.tsx)
+and [group refresh tests](../src/app/(tutor)/_components/pairing-group-workload.test.tsx).
+
 ### Assignment qualification confirmations
 
 `src/server/assignment-qualification.ts` checks stored grants from approved qualification sources under the catalogue lock. Assignment entry points and coordinator proposal creation share this guard. An unqualified assignment requires a one-use `StudentActionConfirmation` with action `ASSIGNMENT_OVERRIDE`, a two-second server deadline, and a hash of the operation and complete parsed assignment payload. The actor, course, tutor, request version, roster and schedule are bound; confirmation tokens themselves are excluded. New warning preparation invalidates older unused override tickets, cancellation deletes the current unused ticket, and approval replay requires the reviewer's fresh evidence. Existing student consequence confirmation remains a separate requirement. Active unlinked roster tutors remain eligible for assignment; a linked account with explicitly revoked tutoring membership is excluded and assignment never restores account access. No additional schema is needed beyond the course grant migration.
@@ -1137,7 +1177,7 @@ failure from rejected-save recovery. Lowering a preference never changes pairing
 
 ### Automatic room allocation contract
 
-The requester approved these mechanisms for [issue #389](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/389) on 16 October 2026 (Asia/Shanghai), before implementation. The integration decision confirmed on 16 October 2026 amends the earlier per-entry wording: an explicitly combined `PairingGroup` shares one room reservation, using its primary assignment’s room and schedule; independent Pairing entries remain separate reservations. Matching times, shared students and one-off attendance merging never imply a group. Group allocation deduplicates stable participants and counts one occupied interval, while preserving fixed/no-physical-room intent and the existing group snapshot/version authority. Room status, utilization and shortage feedback describe that shared reservation rather than treating its members as competing bookings. A confirmed schedule may save without an available automatic room, but must visibly report **Needs room**. Awaiting schedule, intentional no physical room, shortage, and failed reads remain distinct states.
+The implemented allocator uses an explicitly combined `PairingGroup` as one room reservation, using its primary assignment’s room and schedule; independent Pairing entries remain separate reservations. Matching times, shared students and one-off attendance merging never imply a group. Group allocation deduplicates stable participants and counts one occupied interval, while preserving fixed/no-physical-room intent and the existing group snapshot/version authority. Room status, utilization and shortage feedback describe that shared reservation rather than treating its members as competing bookings. A confirmed schedule may save without an available automatic room, but must visibly report **Needs room**. Awaiting schedule, intentional no physical room, shortage, and failed reads remain distinct states.
 
 Staff-selected rooms are fixed and automation cannot displace them. A conflicting schedule change is rejected with an actionable error. Authorized staff may explicitly release a fixed room to automatic allocation; an intentional no-physical-room choice remains sticky. Existing assigned records migrate conservatively to fixed allocations. Deployment, unchanged feature settings, new rooms and removed blackouts do not backfill or rebalance bookings; staff explicitly retry shortages.
 
@@ -1151,7 +1191,20 @@ Coordinator review approves automatic-allocation intent; the room is chosen from
 
 The browser's creation draft carries a UUID through edits and failed requests until an explicit new draft/reset. A committed creation stores a requester-scoped receipt: the same semantic payload returns its existing pairing without repeating allocation or shortage notices. A changed committed payload or a retry after deletion conflicts rather than creating another record. Approval replay retains the original requester's identity when matching this receipt. Receipt rows retain deletion tombstones independently of Pairing foreign keys. Older clients and proposals without a key remain compatible but do not gain response-loss replay protection. Existing pairing edits use room-version snapshots; roster changes also invalidate them.
 
-**Auto-assign rooms** defaults ON immediately when no setting exists. OFF and later re-enablement are staged until program refresh, and a pending change can be cancelled. Disabling automation retains existing reservations, manual scheduling, conflict validation and schedule readers. Feature changes never implicitly reassign existing pairings. Implementation and verification status are recorded separately from this approved contract.
+**Auto-assign rooms** defaults ON immediately when no setting exists. OFF and later re-enablement are staged until program refresh, and a pending change can be cancelled. Disabling automation retains existing reservations, manual scheduling, conflict validation and schedule readers. Feature changes never implicitly reassign existing pairings.
+
+Extend [room-allocation.ts](../src/server/room-allocation.ts) for reservation-unit
+selection/persistence and catalog cohorts; reuse [pairing-creation.ts](../src/server/pairing-creation.ts)
+for requester-scoped semantic receipt identity. Its hash excludes renewed qualification
+tickets, deduplicates/sorts tutee IDs, and does not depend on mutable catalog labels.
+The [management page](../src/app/(admin)/admin/pairings/page.tsx) and
+[tutor schedule editor](../src/app/(tutor)/_components/tutor-pairings.tsx) own their
+separate drafts, version snapshots and read-only recovery; `RoomAllocationStatus`
+only renders the persisted outcome. Focused evidence is in [allocator tests](../src/server/room-allocation.test.ts),
+[router integration tests](../src/server/api/routers/room-allocation.test.ts),
+[migration tests](../src/server/room-allocation-migration.test.ts),
+[management allocation tests](../src/app/(admin)/admin/pairings/page.allocation.test.tsx)
+and [tutor allocation tests](../src/app/(tutor)/_components/tutor-pairings.allocation.test.tsx).
 
 The tutor dashboard's task summary reuses the same tRPC query keys as its feature
 sections, including explicit unknown/error states. It uses the program-zone date
@@ -1183,9 +1236,17 @@ The [hour calculator](../src/lib/service-hours.ts) owns session rounding; use th
 
 Reusable tutor pairing groups are implemented by [pairing-groups](../src/server/pairing-groups.ts) and the self-scoped [router](../src/server/api/routers/pairing-groups.ts). `PairingGroup` owns a tutor, period and preferred primary assignment; nullable `Pairing.groupId` retains each original subject and roster. The additive migration backfills no group and never changes Session evidence. A complete group draft carries a SHA-256 fingerprint of current assignments, memberships, active-student roster identity, room labels, schedules and active catalog slots. Saving holds the program-period, tutor and planned-room locks, row-locks the tutor's current assignments, revalidates the snapshot and all memberships, then atomically replaces the requested groups and copied schedules. Only active tutors with participation access can write their own current populated assignments; each assignment belongs to at most one group, with two to six members. No subject-name/shared-student rule is inferred.
 
-Every group uses its primary member's room and one active catalog slot. Affected bookings are temporarily unconfirmed inside the transaction before complete room validation and final member writes; any failure rolls everything back. Members leaving a group become unscheduled without deleting assignments or changing actual attendance. A database owner guard clears membership on reassignment and independent schedule/room edits, while retaining catalog propagation through the same slot. The room trigger allows same-tutor/same-period group members to share a booking and continues rejecting unrelated bookings and blackouts. Existing self-service slot changes expand to all members, and catalog preflight recognizes one grouped room booking. Read projections only combine members with a coherent schedule/room tuple, falling back to independent assignments if an old primary disappears or a group becomes a singleton. Group tables are included before Pairing in historical export/import dependency order.
+Every group uses its primary member's room and one active catalog slot. Affected bookings are temporarily unconfirmed inside the transaction before complete room validation and final member writes; any failure rolls everything back. Members leaving a group become unscheduled without deleting assignments or changing actual attendance. A database owner guard clears membership on reassignment and independent schedule/room edits, while retaining catalog propagation through the same slot. The assignment editor's `admin.updatePairing` detaches a member when tutor, slot or room intent changes; retained subject/roster edits preserve its group. Dedicated `admin.setPairingRoom` and `admin.retryRoomAllocation` instead operate on the complete reservation unit from any member, preserving the roster and qualification evidence. The room trigger allows same-tutor/same-period group members to share a booking and continues rejecting unrelated bookings and blackouts. Existing self-service slot changes expand to all members, and catalog preflight recognizes one grouped room booking. Read projections only combine members with a coherent schedule/room tuple, falling back to independent assignments if an old primary disappears or a group becomes a singleton. Group tables are included before Pairing in historical export/import dependency order.
 
 The [group editor](../src/app/(tutor)/_components/pairing-group-editor.tsx) composes ProfileDialog, FormSection, ChangeReview and QueryFeedback. Its draft/version survives failed writes and background reads; explicit Reload replaces it only after a successful read. Same-tick admission and owned dialog pending state block duplicate writes and dismissal. The retained editor must also honor current participation eligibility after opening: loss of active status blocks new Review/Save admission without discarding the draft. This write guard must not block read-only synchronization Retry for a save already accepted. Accepted saves retain their receipt through read-only synchronization recovery. Attendance group selection copies a distinct-student snapshot into its separate draft; changing saved groups does not rewrite a pending/saved attendance form. One-off combined attendance and individual-subject attendance remain available. English/Chinese copy is authored; the other six catalogs use English for these new group strings pending translation.
+
+Use [pairingEntries](../src/lib/pairing-groups.ts) for coherent grouped read
+projections, and keep `Session.mergeGroupId` as independent saved attendance evidence.
+Coverage pairs [projection tests](../src/lib/pairing-groups.test.ts),
+[group router tests](../src/server/api/routers/pairing-groups.test.ts),
+[editor tests](../src/app/(tutor)/_components/pairing-group-editor.test.tsx)
+and the [room integration tests](../src/server/api/routers/room-allocation.test.ts)
+for group-wide room saves, competing member versions and independent detach behavior.
 
 [Patrol credit](../src/server/crew/patrol-credit.ts) uses a rolling server-time cooldown of 20 minutes per crew member, across explicitly combined identities. `Patrol.creditAwardedAt` is set only when the server awards 0.5 hours; clients cannot choose it. All observations must be within the preceding 20 minutes (plus the existing one-minute future clock allowance) for automatic credit. Historical and cooldown submissions remain evidence with zero hours. UTC epoch-aligned 20-minute evidence windows (`:00`, `:20`, `:40`) are immutable `PatrolCreditWindow` claims, independent of notes, headcounts, room order or request UUID. A sweep can earn only 0.5 hours and must find all its evidence windows unclaimed; it then reserves all of them. The rolling cooldown prevents adjacent fixed-window boundaries from granting rapid extra awards, including omitted client timestamps. This limits credit; self-reported observations alone cannot prove a physical visit.
 
@@ -1288,8 +1349,12 @@ SMTP acceptance followed by a crash or completion failure remains uncertain and 
 produce a duplicate retry despite a stable Message-ID. This is not exactly-once delivery
 and `SENT` does not prove inbox arrival.
 
-The [purpose-bound HMAC appeal token](../src/server/email/request-appeal-token.ts)
-names one notice and expires 90 days after receipt creation. `/request-appeal` requires
+For initial tutor applications and explicit legacy self-service tutees without a
+survey, the [purpose-bound HMAC appeal token](../src/server/email/request-appeal-token.ts)
+names one notice and expires 90 days after receipt creation. Modern survey appeals
+instead use the [current-period, version/account-bound contract](#integrated-survey-appeal-authority-and-delivery);
+generic survey tokens are retired and their recorded appeals are read-only.
+`/request-appeal` requires
 no account and grants only a narrow status/appeal capability, never credentials,
 participation or original request access. GET reads only safe request kind/time and
 review state; it cannot consume or submit the capability. POST requires canonical

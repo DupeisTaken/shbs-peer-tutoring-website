@@ -2,9 +2,56 @@
 
 Run the app locally, seed synthetic data and verify changes. Run all commands from the repository root. For production, use the [deployment runbook](deployment.md).
 
+## Worktree and resource safety
+
+Before changing an existing checkout, inspect `git status --short`,
+`git branch --show-current` and `git rev-parse HEAD`. Confirm which checkout and
+source revision the task owns; preserve unrelated changes and running previews.
+
+- **Dependencies:** inspect whether `node_modules` is a real directory, symlink or
+  Windows junction (PowerShell: `Get-Item node_modules | Format-List FullName,LinkType,Target`).
+  `npm ci` replaces the dependency tree and runs `postinstall`; do not run it against
+  a shared dependency target while another checkout uses it. A standalone checkout
+  can follow the installation steps below. Coordinate shared dependency changes
+  with their owner instead of treating a junction as disposable cache.
+- **Prisma:** [the schema](../prisma/schema.prisma) generates into this checkout's
+  ignored `generated/prisma`, which is imported by [the database client](../src/server/db.ts).
+  Sharing `node_modules` does not supply that generated directory. Inspect both
+  `generated` and `generated/prisma` for links before generation: a linked parent
+  can redirect writes even when its child looks like a normal directory. Use an
+  owned client matching this checkout's schema; do not regenerate through a link
+  used by another preview. After dependency setup or schema changes, run
+  `npx prisma generate` from the intended checkout;
+  `npm ci` also does this through `postinstall`. `npm run db:generate` is instead
+  `prisma migrate dev`, for authoring migrations. Keep that separate from applying
+  committed migrations with `npm run db:migrate`.
+- **Database:** verify the resolved host, port and database name without exposing
+  credentials. `.env` is local and ignored, not proof of an isolated target. Use
+  different databases for demo/browser work and destructive integration fixtures;
+  do not migrate, seed or reset a database owned by another running preview.
+  See [test setup](#5-run-the-tests) for the complete suite's database name.
+- **Serial verification:** agree which task owns a shared database or runtime before
+  using it. Run one bounded check, build or server/browser session at a time on the
+  local machine. Vitest's serial files do not prevent a second test process from
+  resetting the same fixtures. Do not run `check`/build concurrently with dev in
+  the same checkout: they share generated Next output. `SHBS_BUILD_CPUS=1` limits
+  local build workers; `--maxWorkers=1` bounds Vitest workers.
+- **Cleanup and handoff:** record the processes, ports and temporary databases you
+  start. Stop only those owned resources after verification, or document an explicit
+  handoff for a retained preview. Never stop Codex/ChatGPT or unrelated browser/Node
+  processes. Inspect dependency links and database ownership before any cleanup;
+  prefer the cache bypass below to deleting shared or active artifacts. Keep local
+  logs/screenshots in ignored `outputs/` or `.validation/`, with secrets excluded.
+
+Documentation edits need no server, browser or database. Run `npm run docs:check`
+for Markdown links, anchors, guide discoverability and maintenance regressions;
+it does not verify application behavior or fetch external links. Also follow the
+[required static checks](contributing.md#required-checks) for the commit. These
+commands do not require an application build or integration-test database.
+
 ## Updating an existing checkout
 
-After pulling schema changes, run `npm run db:migrate` and `npx prisma generate`, then restart the app. Apply the complete migration chain; do not reset an existing database just to upgrade it. See the [technical guide](technical-report.md) for code responsibilities and the [program reference](program-reference.md) for configuration.
+After pulling schema changes, confirm the intended local database, run `npm run db:migrate` and `npx prisma generate`, then restart the app. Apply the complete migration chain; do not reset an existing database just to upgrade it. See the [technical guide](technical-report.md) for code responsibilities and the [program reference](program-reference.md) for configuration.
 
 On Windows, create disposable test/demo databases with UTF-8 encoding rather than
 inheriting a WIN1252 template. The application stores Chinese text and emoji. A new
@@ -18,7 +65,7 @@ need no override. The override also sets the standalone file-tracing root.
 
 If a local Turbopack build reports a stale cached module graph, set
 `SHBS_DISABLE_BUILD_CACHE=1` for that build to bypass the compiler cache without deleting it.
-Normal builds retain Next's default cache behavior. `SHBS_BUILD_CPUS=1` limits local build workers.
+Normal builds retain Next's default cache behavior.
 
 Keep local screenshots and verification logs in ignored `outputs/` or `.validation/`.
 
@@ -339,16 +386,23 @@ Application tests live under `src/**/*.test.{ts,tsx}`:
   (`fileParallelism: false`) and need a reachable `DATABASE_URL` with the schema applied.
 - **UI render tests** exercise interactive controls in jsdom without starting the website.
 
-`src/test/setup.ts` supplies `AUTH_SECRET` and a default `DATABASE_URL`, so the unit
-tests pass out of the box. For the integration tests, set `DATABASE_URL` to a database you've
-run `db:migrate` against first. For example:
+[`src/test/setup.ts`](../src/test/setup.ts) loads `.env` and supplies fallback
+`AUTH_SECRET`/`DATABASE_URL` values for tests that need no live database. It does
+not create a database or make that fallback safe for integration tests. Set an
+explicit isolated URL for both migration and test commands. For example, in Bash:
 
 ```bash
-DATABASE_URL="postgresql://postgres:password@localhost:5432/shbs_shipping_test" npm test -- --maxWorkers=1
+export DATABASE_URL="postgresql://postgres:password@localhost:5432/shbs_shipping_test"
+npm run db:migrate
+npm test -- --maxWorkers=1
 ```
 
+In PowerShell, set `$env:DATABASE_URL` to the isolated connection URL before running
+the same migration and test commands. Use credentials and a loopback port belonging
+to your test PostgreSQL instance, then restore the environment before demo work.
+
 Use a separate loopback database named `shbs_shipping_test` for the complete suite. The shared
-guard requires a local `_test` database, and individual integration suites apply narrower name
+[guard](../src/test/database-guard.ts) requires a local `_test` database, and individual integration suites apply narrower name
 allowlists; an arbitrary `_test` name does not satisfy every suite. Create the database, set
 `DATABASE_URL` for both `npm run db:migrate` and `npm test -- --maxWorkers=1`, and never point these
 destructive fixtures at a development site or production database.
