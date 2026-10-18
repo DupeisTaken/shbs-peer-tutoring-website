@@ -2859,6 +2859,7 @@
     "abortFinal": "You have left the program for this quarter. You cannot apply again until a new quarter.",
     "closedFinal": "This request is permanently closed. A fresh submission creates a new request with a new priority timestamp.",
     "verified": "Email verified",
+    "emailPending": "이메일 인증 대기 중",
     "unverified": "Awaiting verification",
     "edited": "[Edited]",
     "priority": "Original submission: {time}",
