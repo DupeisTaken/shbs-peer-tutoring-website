@@ -33,6 +33,7 @@ const mocks = vi.hoisted(() => ({
   success: undefined as undefined | (() => Promise<void>),
   invalidateApplications: vi.fn<InvalidationTarget["invalidate"]>(),
   invalidateOptions: vi.fn<InvalidationTarget["invalidate"]>(),
+  invalidateInterviews: vi.fn<InvalidationTarget["invalidate"]>(),
 }));
 vi.mock("~/app/_components/confirm-dialog", () => ({
   useDialog: () => ({ confirm: vi.fn(), dialog: null }),
@@ -69,6 +70,7 @@ vi.mock("~/trpc/react", () => ({
         tutors: { invalidate: mocks.invalidate },
       },
       interviewManagement: { options: { invalidate: mocks.invalidateOptions } },
+      tutor: { myInterviews: { invalidate: mocks.invalidateInterviews } },
       tutorDetails: { get: { invalidate: mocks.invalidate } },
       qualificationApplication: { mine: { invalidate: mocks.invalidate } },
       subjectAvailability: { options: { invalidate: mocks.invalidate } },
@@ -185,6 +187,7 @@ beforeEach(() => {
   mocks.invalidate.mockResolvedValue(undefined);
   mocks.invalidateApplications.mockResolvedValue(undefined);
   mocks.invalidateOptions.mockResolvedValue(undefined);
+  mocks.invalidateInterviews.mockResolvedValue(undefined);
   mocks.changeInvalidity.mockResolvedValue({ ok: true });
   mocks.fetchApplications.mockImplementation(async () => [
     {
@@ -319,6 +322,7 @@ it.each([false, true])(
     await waitFor(() =>
       expect(mocks.invalidateApplications).toHaveBeenCalledOnce(),
     );
+    expect(mocks.invalidateInterviews).toHaveBeenCalledOnce();
     expect(screen.queryByRole("button", { name: /Candidate One/ })).toBeNull();
     expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("true");
     await act(async () => {

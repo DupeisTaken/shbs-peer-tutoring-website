@@ -8,13 +8,14 @@ import {
 } from "~/lib/registration-kind";
 import { EmailDetails } from "~/app/_components/email-details";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { ShareCard } from "./share-card";
+import { focusVisibleContext } from "~/app/_components/focus-visible-context";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
 import { InlineNotice, StatePanel } from "~/app/_components/ui/patterns";
@@ -126,6 +127,35 @@ export default function RegistrationCodesPage() {
     kind: RegistrationKind;
   } | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const revealedCode = useRef("");
+  // Contextual interview links reveal only a record returned by this authorized read.
+  // Handle arrival after loading and same-page hash changes without reopening a
+  // card the user deliberately collapsed on a later background refresh.
+  useEffect(() => {
+    if (denied || codesDenied || identityDenied || readBlocked) return;
+    let frame: number | undefined;
+    const reveal = () => {
+      const hash = window.location.hash;
+      if (hash === revealedCode.current) return;
+      const code = codes.data?.find(
+        (row) => `#registration-code-${row.id}` === hash,
+      );
+      if (!code) return;
+      revealedCode.current = hash;
+      setExpandedId(code.id);
+      frame = requestAnimationFrame(() =>
+        focusVisibleContext(
+          document.getElementById(`registration-code-${code.id}`),
+        ),
+      );
+    };
+    reveal();
+    window.addEventListener("hashchange", reveal);
+    return () => {
+      window.removeEventListener("hashchange", reveal);
+      if (frame !== undefined) cancelAnimationFrame(frame);
+    };
+  }, [codes.data, denied, codesDenied, identityDenied, readBlocked]);
   // Site origin (client-only) for the full /register URL shown to tutors.
   const [origin, setOrigin] = useState("");
   useEffect(() => setOrigin(window.location.origin), []);
@@ -436,6 +466,7 @@ export default function RegistrationCodesPage() {
 
               <div
                 id={`registration-code-${c.id}`}
+                tabIndex={-1}
                 hidden={!open}
                 className="mt-3 space-y-3 border-t border-slate-100 pt-3"
               >

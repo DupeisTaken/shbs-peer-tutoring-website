@@ -28,6 +28,8 @@ export function ApplicationInvalidityControls(props: Props) {
         await settleRefreshes([
           () => invalidateAndReport(utils.admin.tutorApplications),
           () => invalidateAndReport(utils.interviewManagement.options),
+          // Invalid interview rows must leave the tutor's shared task/list cache.
+          () => invalidateAndReport(utils.tutor.myInterviews),
         ]);
         const rows = await utils.admin.tutorApplications.fetch(undefined, {
           staleTime: 0,

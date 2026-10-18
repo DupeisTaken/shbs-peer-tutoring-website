@@ -1,4 +1,8 @@
 import { notificationEvent } from "~/lib/notification-events";
+import {
+  INTERVIEW_HOURS_REASON,
+  interviewHoursId,
+} from "~/server/interview-hours";
 import { optionalPersonNameFields } from "~/lib/person-name";
 import {
   saveWorkloadPreference,
@@ -1342,6 +1346,8 @@ export const tutorRouter = createTRPCRouter({
             status: true,
             updatedAt: true,
             interviewAt: true,
+            interviewCompletedAt: true,
+            interviewDurationMin: true,
             decisionComment: true,
             decidedAt: true,
             decidedByTutor: { select: { englishName: true } },
@@ -1370,6 +1376,32 @@ export const tutorRouter = createTRPCRouter({
         },
       },
     });
+    const credits = await ctx.db.serviceHourAdjustment.findMany({
+      where: {
+        tutorId: myTutorId,
+        id: {
+          in: assignments.map((a) =>
+            interviewHoursId(a.application.id, myTutorId),
+          ),
+        },
+        type: "EXTRA",
+        reason: INTERVIEW_HOURS_REASON,
+      },
+      select: { id: true, amount: true },
+    });
+    const pendingDecisions = await ctx.db.approvalRequest.findMany({
+      where: {
+        state: "PENDING",
+        operation: "tutor.decideInterview",
+        OR: assignments.map((a) => ({
+          payload: {
+            path: ["json", "applicationId"],
+            equals: a.application.id,
+          },
+        })),
+      },
+      select: { payload: true },
+    });
     return assignments.map((a) => {
       const { invalidatedAt, ...application } = a.application;
       const myVote =
@@ -1380,6 +1412,20 @@ export const tutorRouter = createTRPCRouter({
         isHead: a.isHead,
         ...application,
         isInvalid: !!invalidatedAt,
+        myAwardedHours:
+          credits.find(
+            (row) => row.id === interviewHoursId(application.id, myTutorId),
+          )?.amount ?? 0,
+        pendingDecision: pendingDecisions.some(
+          ({ payload }) =>
+            payload &&
+            typeof payload === "object" &&
+            !Array.isArray(payload) &&
+            payload.json &&
+            typeof payload.json === "object" &&
+            !Array.isArray(payload.json) &&
+            payload.json.applicationId === application.id,
+        ),
         myVote: myVote
           ? { accept: myVote.accept, comment: myVote.comment }
           : null,

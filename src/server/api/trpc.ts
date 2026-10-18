@@ -356,6 +356,22 @@ export const protectedProcedure = t.procedure
       });
     }
     const run = async (auditedDb: typeof ctx.db) => {
+      if (type === "mutation" && path === "interviewManagement.complete") {
+        const raw = await getRawInput();
+        if (
+          raw &&
+          typeof raw === "object" &&
+          "applicationId" in raw &&
+          typeof raw.applicationId === "string"
+        ) {
+          // A receipt classification can authorize only a no-op. Hold the source
+          // lock through the authoritative recheck and resolver so a concurrent
+          // correction cannot turn a Coordinator retry into a new hours write.
+          const { lockApplicationReview } =
+            await import("~/server/request-invalidity");
+          await lockApplicationReview(auditedDb, raw.applicationId);
+        }
+      }
       if (type === "mutation" && path === "admin.updateTimeSlot") {
         // A slot correction must observe attendance committed while waiting for the
         // schedule barrier. READ COMMITTED plus the same role/slot locks as approval
@@ -458,6 +474,12 @@ export const adminProcedure = protectedProcedure.use(
           message: "This action requires an administrator.",
         });
       const raw = await getRawInput();
+      if (path === "interviewManagement.complete") {
+        const authority = await proposalAuthority(ctx.db, path, raw);
+        // protectedProcedure already rechecked this under the retained source
+        // lock; other Coordinator management mutations keep their normal queue.
+        if (authority?.directRoles.includes("COORDINATOR")) return next();
+      }
       if (
         path === "admin.setUserCanTutor" &&
         (!raw ||

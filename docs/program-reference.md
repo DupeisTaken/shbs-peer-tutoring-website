@@ -285,6 +285,24 @@ Staff manage recorded qualifications in **Subject Availability**; application de
 
 Unselecting or removing a subject archives it while retaining choices, assignments and qualifications. Levels with existing variants cannot be deleted, and a variant with recorded grants cannot be changed to a different level. Rename its base name or prefix without replacing its identity. Existing subject and qualification migration preserves all IDs, labels and exact approved eligibility. Ordinary management catalogue and qualification writes require Admin/Head authority; Coordinators submit proposals for review, and viewers cannot write. Removing an existing qualification reverses an applied grant and requires Head authority.
 
+Interview completion is a separate reviewed action in **Tutor Applications → Interview
+Records**. **Record completion & award hours** collects actual datetime, 1–480 minutes,
+explicit attendees and a reason. **Review credits** previews actual minutes ÷ 60 per
+attendee and the total before final confirmation. Admin/Head apply initial records;
+Coordinator submissions await Admin/Head review. **Correct completion & hours** replaces
+source-owned automatic credits, preserves unrelated adjustments and original period
+ownership, and requires Head application (including Admin/Coordinator proposals).
+Both INTERVIEWS and SERVICE_HOURS must be enabled for completion writes.
+
+The read-only review combines decision, completion/approval and registration/setup
+status. Only applied initial acceptance authorizes the existing registration workflow;
+completion timing does not delay or grant registration. Existing valid invitations are
+reused, used/expired codes remain distinguishable, and verified linked accounts retain
+setup access. Additional qualifications do not receive codes. Codes and account actions
+remain restricted to management. A saved award with a refresh failure offers read-only
+recovery. Tutor interview lists distinguish unresolved work from an initially closed
+Completed menu and retain drafts across collapse and deterministic reordering.
+
 ## Refresh the program
 
 Head runs refresh in **Program Settings → Recruitment and Refresh** after checking the displayed current period and typing `REFRESH`; Admin may request Head review. Coordinators can inspect it but cannot submit or execute it. Head-approved pending module settings take effect in this operation; the applied quarter/semester mode determines the next period.

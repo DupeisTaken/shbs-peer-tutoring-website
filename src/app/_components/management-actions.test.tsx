@@ -6,6 +6,7 @@ import {
   render,
   screen,
   within,
+  waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import SuperJSON from "superjson";
@@ -24,6 +25,10 @@ const mocks = vi.hoisted(() => ({
   requesters: vi.fn(),
   replace: vi.fn(),
   decisionState: {},
+  invalidateInterviews: vi.fn(),
+  invalidateOptions: vi.fn(),
+  invalidateApplications: vi.fn(),
+  invalidateCodes: vi.fn(),
 }));
 // Dialog internals have their own tests; these doubles verify that this panel
 // preserves the staged review flow and only forwards fresh reviewer tickets.
@@ -77,13 +82,24 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    useUtils: () => ({
+      tutor: { myInterviews: { invalidate: mocks.invalidateInterviews } },
+      interviewManagement: { options: { invalidate: mocks.invalidateOptions } },
+      admin: {
+        tutorApplications: { invalidate: mocks.invalidateApplications },
+        registrationCodes: { invalidate: mocks.invalidateCodes },
+      },
+    }),
     approval: {
       list: { useQuery: mocks.list },
       requesters: { useQuery: mocks.requesters },
       decide: {
         useMutation: (options: { onSuccess: () => void }) => ({
           ...mocks.decisionState,
-          mutateAsync: async (value: unknown) => { mocks.decide(value); options.onSuccess(); },
+          mutateAsync: async (value: unknown) => {
+            mocks.decide(value);
+            options.onSuccess();
+          },
           mutate: (value: unknown) => {
             mocks.decide(value);
             options.onSuccess();
@@ -160,6 +176,13 @@ beforeEach(() => {
   mocks.params = "";
   mocks.decisionState = {};
   mocks.refetch.mockResolvedValue({});
+  for (const invalidate of [
+    mocks.invalidateInterviews,
+    mocks.invalidateOptions,
+    mocks.invalidateApplications,
+    mocks.invalidateCodes,
+  ])
+    invalidate.mockResolvedValue(undefined);
   queue();
 });
 afterEach(cleanup);
@@ -747,3 +770,48 @@ it("requires a fresh Head password for legacy management role requests", () => {
     }),
   );
 });
+
+it.each([
+  "interviewManagement.complete",
+  "tutor.decideInterview",
+  "admin.assignInterviewers",
+])(
+  "refreshes shared tutor evidence and task counts after applied %s review",
+  async (operation) => {
+    queue(
+      [
+        {
+          ...row(),
+          operation,
+          canDecide: true,
+          payload: SuperJSON.serialize({
+            applicationId: "candidate",
+            durationMin: 45,
+            completedAt: new Date("2026-10-01"),
+            attendedTutorIds: ["panel"],
+            reason: "Verified",
+          }),
+        },
+      ],
+      true,
+      1,
+      true,
+    );
+    render(view(true));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Reviewed immutable interview evidence" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: en.approvals.approve }));
+    const confirm = screen.queryByRole("button", {
+      name: "Confirm consequences",
+    });
+    if (confirm) fireEvent.click(confirm);
+    await waitFor(() =>
+      expect(mocks.invalidateInterviews).toHaveBeenCalledOnce(),
+    );
+    expect(mocks.invalidateOptions).toHaveBeenCalledOnce();
+    expect(mocks.invalidateApplications).toHaveBeenCalledOnce();
+    expect(mocks.invalidateCodes).toHaveBeenCalledOnce();
+    expect(mocks.decide).toHaveBeenCalledTimes(1);
+  },
+);

@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useFormatter, useTranslations, useTimeZone } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { useDialog } from "~/app/_components/confirm-dialog";
-import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
+import { useSessionAccessDenied } from "~/app/_components/session-view-state";
+import { DisclosureIcon } from "~/app/_components/icons";
+import { Button } from "~/app/_components/ui/button";
+import { isOpenInterview, orderInterviews } from "~/lib/interview-order";
 import {
   InvalidityBadge,
   InvalidityNotice,
@@ -389,7 +392,44 @@ export function MyInterviews() {
   const programFormat = useFormatter();
   const t = useTranslations();
   const interviews = api.tutor.myInterviews.useQuery();
-  const list = interviews.data ?? [];
+  const accessDenied = useSessionAccessDenied(interviews);
+  const [expanded, setExpanded] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  // Destination focus is explicit navigation (including same-hash task links).
+  // Internal field focus never expands a manually collapsed section.
+  useEffect(() => {
+    const arrive = () => {
+      if (window.location.hash === "#tutor-interviews") setExpanded(true);
+    };
+    arrive();
+    window.addEventListener("hashchange", arrive);
+    return () => window.removeEventListener("hashchange", arrive);
+  }, []);
+  const list = orderInterviews(interviews.data ?? []);
+  const active = list.filter(isOpenInterview);
+  const history = list.filter((row) => !isOpenInterview(row));
+  const followups = history.filter(
+    (row) =>
+      !row.isInvalid && row.status !== "RECALLED" && !row.interviewCompletedAt,
+  ).length;
+
+  if (accessDenied)
+    return (
+      <section
+        id="tutor-interviews"
+        tabIndex={-1}
+        className="card space-y-3 p-5"
+      >
+        <h2 className="section-title">{t("dashboard.interviews.title")}</h2>
+        <p role="alert">{t("interviewReview.accessDenied")}</p>
+        <Button
+          disabled={interviews.isFetching}
+          onClick={() => void interviews.refetch()}
+        >
+          {t("tutor.tasks.retry")}
+        </Button>
+      </section>
+    );
 
   if (list.length === 0 && !interviews.error && !interviews.isLoading)
     return null;
@@ -397,10 +437,25 @@ export function MyInterviews() {
   return (
     <section
       id="tutor-interviews"
+      onFocus={(event) => {
+        if (event.target === event.currentTarget) setExpanded(true);
+      }}
       tabIndex={-1}
       className="card scroll-mt-6 p-5"
     >
-      <h2 className="section-title">{t("dashboard.interviews.title")}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="section-title">
+          {t("dashboard.interviews.title")} ({list.length})
+        </h2>
+        <Button
+          size="compact"
+          aria-expanded={expanded}
+          aria-controls="interview-section-content"
+          onClick={() => setExpanded(!expanded)}
+        >
+          {t(expanded ? "interviewReview.collapse" : "interviewReview.expand")}
+        </Button>
+      </div>
       <p className="muted mt-1 mb-3">{t("tutor.interviews.help")}</p>
       {interviews.isLoading && <p role="status">{t("tutor.tasks.loading")}</p>}
       {interviews.error && (
@@ -414,11 +469,61 @@ export function MyInterviews() {
           </button>
         </p>
       )}
-      <div className="space-y-3">
-        {list.map((a) => {
+      <div
+        id="interview-section-content"
+        hidden={!expanded}
+        className="space-y-3 max-lg:[&_button]:min-h-11"
+      >
+        <h3 className="font-semibold">
+          {t("interviewReview.active", { count: active.length })}
+        </h3>
+        {active.length === 0 && (
+          <p className="muted">{t("interviewReview.noActive")}</p>
+        )}
+        {/* One flat keyed sibling list retains drafts when current server state moves a row. */}
+        {[...active, null, ...history].map((a) => {
+          if (!a)
+            return (
+              <div key="completed-menu">
+                <Button
+                  aria-expanded={historyOpen}
+                  aria-describedby={
+                    followups ? "interview-completion-followups" : undefined
+                  }
+                  aria-controls={
+                    history
+                      .map((row) => `completed-interview-${row.id}`)
+                      .join(" ") || undefined
+                  }
+                  className="w-full justify-between"
+                  onClick={() => setHistoryOpen(!historyOpen)}
+                >
+                  <span>
+                    {t("interviewReview.completed", { count: history.length })}
+                  </span>
+                  <DisclosureIcon open={historyOpen} />
+                </Button>
+                {followups > 0 && (
+                  <p
+                    id="interview-completion-followups"
+                    className="muted mt-2 text-sm"
+                  >
+                    {t("interviewReview.historyFollowups", {
+                      count: followups,
+                    })}
+                  </p>
+                )}
+              </div>
+            );
           const votes = a.votes;
           const content = (
-            <div key={a.id} className="rounded-lg border border-slate-200 p-3">
+            <div
+              key={a.id}
+              id={`completed-interview-${a.id}`}
+              hidden={!isOpenInterview(a) && !historyOpen}
+              data-interview-id={a.id}
+              className="rounded-lg border border-slate-200 p-3"
+            >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-medium text-slate-900">
                   {a.name}
@@ -495,6 +600,32 @@ export function MyInterviews() {
                 </p>
               )}
 
+              <p className="mt-2 text-sm">
+                {a.interviewCompletedAt
+                  ? t("interviewReview.recorded", {
+                      minutes: a.interviewDurationMin ?? 0,
+                      date: programFormat.dateTime(a.interviewCompletedAt, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }),
+                    })
+                  : t("interviewReview.completionPending")}
+              </p>
+              {a.interviewCompletedAt && (
+                <p className="muted text-sm">
+                  {t("interviewReview.myCredit", {
+                    // Match completion review's locale-aware display; retain exact stored credit.
+                    hours: programFormat.number(a.myAwardedHours, {
+                      maximumFractionDigits: 4,
+                    }),
+                  })}
+                </p>
+              )}
+              {a.pendingDecision && (
+                <p className="mt-2 text-sm text-amber-800">
+                  {t("interviewReview.decisionPending")}
+                </p>
+              )}
               {/* Your vote */}
               <VoteForm
                 applicationId={a.id}
@@ -566,20 +697,7 @@ export function MyInterviews() {
                 )}
             </div>
           );
-          return a.status === "PENDING" || a.status === "INTERVIEW" ? (
-            content
-          ) : (
-            <DisclosureSection
-              key={a.id}
-              title={t("tutor.tasks.completedInterview", {
-                name: a.name,
-                count: 1,
-              })}
-              lifetime="retained"
-            >
-              {content}
-            </DisclosureSection>
-          );
+          return content;
         })}
       </div>
     </section>

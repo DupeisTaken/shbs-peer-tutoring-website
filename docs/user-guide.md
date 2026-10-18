@@ -340,8 +340,16 @@ zero tasks. Links move keyboard focus to the corresponding section.
 Today's regular schedule uses the program time zone and confirmed weekly times;
 check announcements for holidays or one-off changes. Attendance comes before
 optional editors. Pending participation, policy and request notices remain visible.
-Completed interview details and optional editors can be expanded without losing an
-in-progress draft when collapsed. Pending qualification requests remain visible
+**Interviews to Conduct** starts expanded, with a count and **Collapse interviews** /
+**Expand interviews** controls. Scheduled open work appears earliest first (including
+overdue interviews), then unscheduled and paused work. One initially closed
+**Completed interviews** menu holds terminal history, newest decision first.
+Completion/hours and application outcomes are separate: pending votes, chair decisions
+and approvals remain active even when hours are recorded; finalized decisions still
+show any missing completion follow-up. Recalled or invalid entries retain their actual
+status. Collapsing either section and background refresh/reordering retain scheduling,
+vote and decision drafts, errors and pending state. Read failures offer Retry without
+replacing loaded records. Optional editors also retain drafts when collapsed. Pending qualification requests remain visible
 even when completed history is collapsed or filtered.
 
 Pending tutors confirm whether to participate before tutoring actions appear.
@@ -406,7 +414,31 @@ When selecting interviewers, **Group panelists by subject** puts tutors with rec
 
 The application explains loading failures and offers a retry. Intake needs configured subjects and a published policy; contact management if it is unavailable. Repeating a tutor or crew application while that email's application is under review keeps the original submission and displays the same confirmation. It does not replace your answers or send the team another notification. Contact the program team to correct an application. If management also granted you tutor participation, use the account menu to switch between management and tutor areas. Active crew members and assigned translators retain their return links when using the tutee workspace.
 
-Management records actual interview completion through **Tutor Applications** in the Tutors navigation group. **Tutee Support** remains in the management layout and is reachable from the Tutees group. See the [full function and control reference](program-reference.md).
+Management records actual interview completion through **Tutor Applications → Interview Records**
+in the Tutors navigation group. Expand a record and select **Record completion & award hours**.
+Enter the actual completion time, duration, explicitly attending panelists and required
+reason, then **Review credits**. Review each recipient and the total before choosing
+**Confirm completion & award hours**; opening, reviewing or cancelling writes nothing.
+For example, 45 minutes gives each selected attendee 0.75 hours; three attendees total
+2.25 hours. Initial completion applies directly for Admin/Head; a Coordinator submits
+it for Admin/Head approval. A queued request has not awarded new hours.
+
+For an existing completion, **Correct completion & hours** previews each change,
+including removed attendees. It replaces that interview’s automatic credits while
+preserving unrelated manual adjustments and its original school year/quarter; Head
+applies corrections and Admin/Coordinator proposals await Head review. Failed saves
+retain the draft. **Reload current evidence (replace draft)** explicitly replaces a
+stale draft only after a successful read. If a successful award fails to refresh,
+**Refresh view** performs reads only and must not repeat the award. If permissions
+change, private review details are hidden; the same read-only recovery restores the
+list only after a successful fresh authorization check.
+
+The review also shows the applied application decision, pending approval and existing
+registration/setup status. Authorized staff follow the contextual Registration Codes
+or Users & Roles link. An accepted initial application reuses its existing valid code;
+a verified linked account uses its existing setup. Pending/rejected decisions and
+additional qualifications do not issue tutor credentials. Completion alone never
+accepts an applicant, creates an invitation, sends email or exposes codes to panelists. **Tutee Support** remains in the management layout and is reachable from the Tutees group. See the [full function and control reference](program-reference.md).
 
 ### Record a session
 

@@ -3,6 +3,7 @@
 import { useFormatter, useTimeZone, useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef } from "react";
 import { api } from "~/trpc/react";
+import { isOpenInterview } from "~/lib/interview-order";
 import { programDateKey } from "~/lib/program-time";
 import { minToHm } from "~/lib/time";
 import { pairingEntries } from "~/lib/pairing-groups";
@@ -97,9 +98,7 @@ export function DashboardTasks({
     (request) => request.status === "PENDING" || request.status === "INTERVIEW",
   ).length;
   const pendingInterviews = (interviews.data ?? []).filter(
-    (interview) =>
-      !interview.isInvalid &&
-      (interview.status === "PENDING" || interview.status === "INTERVIEW"),
+    (interview) => !interview.isInvalid && isOpenInterview(interview),
   ).length;
   const links = [
     ...(status === "PENDING"
