@@ -287,6 +287,20 @@ browser measurements and role/language evidence still require the running pages.
 
 ### Shared UI patterns
 
+The student request board owns the gap between its validity filters and results
+inside `SectionTabs`; shared tabs and filter toolbars do not add external margins.
+Its self-service cards use a one-third/two-thirds desktop grid for contact and
+availability, subject selection and assigned tutor rows. `QualifiedTutorSelect`
+accepts an optional root `className` so this feature can share the select's rows
+through CSS subgrid while retaining the other callers' default layout. Releases
+stay with each pairing, including duplicate-subject and retained extra-subject
+pairings; moving the controls does not change captured versions or review authority.
+Subject-keyed assignment controllers remain mounted when a pairing arrives, while
+pairing-keyed release controllers remain independent siblings. An idle paired
+subject adds no layout wrapper. Assignment delivery warnings and read-only refresh
+recovery outlive the selector; background reads retain an open review's proof,
+and explicit access revocation discards unsubmitted review state.
+
 Information tables opt into sorting in [SummaryTable](../src/app/_components/ui/summary-table.tsx).
 The [sorting adapter](../src/app/_components/ui/table-sorting.tsx) reorders keyed React rows,
 without DOM manipulation, changing source arrays, mounting detail readers or issuing queries.

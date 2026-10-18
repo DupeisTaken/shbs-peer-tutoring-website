@@ -827,6 +827,15 @@ the original request, appeal and review history.
 
 Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history.
 
+Self-service cards keep **Edit signup answers** last in the header action group,
+after the available invalidity and resend actions. Each **Release assignment**
+action sits beside its subject and tutor, including assignments retained after
+the requested subjects change. The button omits the repeated subject name; the
+confirmation dialog still identifies the subject. Long subject names wrap within
+their column. Admin and Coordinator actions retain their
+proposal wording and review requirements. On desktop, availability and tutor
+selection share the right two-thirds of the card; narrow screens stack the details.
+
 Use **How requests are grouped** and **Signup sources and ownership** for the
 contextual explanations. The tabs retain their counts and manual keyboard
 activation; moving focus alone does not select another queue.
