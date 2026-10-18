@@ -23,6 +23,29 @@ These guides describe the current application. Choose the task you need to compl
 | Configure optional Aliyun CAPTCHA and plan rollout | [CAPTCHA guide](captcha.md) |
 | Review dated production host and external network evidence | [Issue #242 evidence and remaining work](continuation/issue-242.md) |
 
+## First pass for a new contributor or agent
+
+1. Read [AGENTS.md](../AGENTS.md) for repository rules, then confirm the current
+   branch and working-tree changes. Dated evidence and earlier implementation
+   descriptions are context; inspect the checked-out source before relying on them.
+2. Read [contributor guidance](contributing.md) and the
+   [architecture map](technical-report.md#architecture). For a new UI action, use
+   [Add an action or feature](contributing.md#add-an-action-or-feature): it maps the
+   existing scaffold to a feature-owned adapter and its real callers. Consult
+   [UI extension boundaries](technical-report.md#ui-extension-boundaries) before
+   broadening a shared contract.
+3. Check [worktree and resource safety](local-development.md#worktree-and-resource-safety)
+   before installing, generating, migrating or running anything. Follow the affected
+   domain guide in the table above; proposals and historical verification do not
+   establish current behavior.
+4. Select [required checks](contributing.md#required-checks) for the change and
+   record what was verified. Documentation-only validation uses `npm run docs:check`
+   without starting the app or a database. UI work also needs the
+   [gallery and actual-page matrix](local-development.md#ui-verification-matrix).
+
+Keep setup procedures here in the existing linked guides; add implementation and
+tests beside the owning feature rather than creating a second policy or scaffold.
+
 ## Historical verification
 
 These records describe the revisions and scenarios tested at the time, not verification of the current application:

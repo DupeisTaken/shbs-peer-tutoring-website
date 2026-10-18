@@ -16,7 +16,7 @@ import { participantNameLabel } from "~/app/_components/participant-name";
 import { matchesPersonSearch } from "~/lib/person-search";
 import { accountMembership } from "~/lib/account-membership";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 
@@ -78,6 +78,7 @@ const ACCOUNT_STATES = ["registered", "setup", "invited", "none"] as const;
 
 export default function UsersPage() {
   const t = useTranslations();
+  const locale = useLocale();
   const nameFor = (name: string | null | undefined, username?: string | null) =>
     participantNameLabel(name, username, t("participantNames.unnamed"));
   const readOnly = useReadOnly();
@@ -261,19 +262,21 @@ export default function UsersPage() {
           u.tutor?.username,
         ]),
     );
+    if (sort.dir === "none") return filtered;
     const dir = sort.dir === "asc" ? 1 : -1;
+    const compareText = (a: string, b: string) => compare(a, b, locale);
     return [...filtered].sort((a, b) => {
       switch (sort.key) {
         case "account":
-          return compare(a.account, b.account) * dir;
+          return compareText(a.account, b.account) * dir;
         case "role":
-          return compare(a.role ?? "", b.role ?? "") * dir;
+          return compareText(a.role ?? "", b.role ?? "") * dir;
         case "name":
         default:
-          return compare(a.name, b.name) * dir;
+          return compareText(a.name, b.name) * dir;
       }
     });
-  }, [directoryRows, sort.key, sort.dir, filters, search]);
+  }, [locale, directoryRows, sort.key, sort.dir, filters, search]);
 
   if (directoryDenied)
     return (

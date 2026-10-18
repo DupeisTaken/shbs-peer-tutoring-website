@@ -1,3 +1,26 @@
+# Working in this repository
+
+Start with the [documentation hub](docs/README.md#first-pass-for-a-new-contributor-or-agent).
+Confirm the checkout, branch and working-tree changes before editing; use the current
+source and maintained guides rather than assuming a previous chat or dated evidence
+describes this revision.
+
+- Read [contributor guidance](docs/contributing.md) and the
+  [architecture map](docs/technical-report.md#architecture) for the affected feature.
+- Before setup or verification, follow
+  [worktree and resource safety](docs/local-development.md#worktree-and-resource-safety).
+  Dependency junctions, generated Prisma clients, databases and running processes have
+  different ownership; a clean Git status does not establish that they are disposable.
+- To extend the existing UI scaffold, use
+  [Add an action or feature](docs/contributing.md#add-an-action-or-feature) and
+  [shared UI boundaries](docs/technical-report.md#shared-ui-patterns), then inspect the
+  relevant real caller and gallery example. The scaffold is reusable components and
+  feature-owned adapters, not a generator or an authorization layer.
+- Choose checks from [Required checks](docs/contributing.md#required-checks).
+  For documentation-only work, start with `npm run docs:check`; it needs no running
+  application or database. Follow the affected-page verification matrix for UI work.
+  Record the source revision, checked cases and any unverified scope in the handoff.
+
 # Project UI guidelines
 
 ## Start with the shared patterns
@@ -12,7 +35,7 @@ the real components in the development-only `/ui-gallery`. Gallery examples live
 | --- | --- |
 | Navigation / alternate content panels / selected filters | Links / `SectionTabs` / `ChoiceButton` inside `FilterToolbar` |
 | One set of fields saved together | `FormSection`, `FormActions`, context-sized `Button` |
-| Participant identity and academics | `PersonNameFields`, `FieldRequirement` and existing academic/grade controls |
+| Participant identity and academics | `ConfiguredPersonNameFields` (built on `PersonNameFields`), `FieldRequirement` and existing academic/grade controls |
 | Short review / long editor / policy reader | `Modal` / `ProfileDialog` / `CurrentPolicyDialog`, all using `NativeDialog` |
 | Brief records with detail entries | `SummaryTable`, `TableActions`, `TableAction`, `TableDetails` |
 | Collapsible content | `DisclosureSection` with an explicit lifetime |

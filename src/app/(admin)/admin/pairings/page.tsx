@@ -5,7 +5,10 @@ import {
 } from "~/app/_components/use-notification-record-reveal";
 import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import { participantNameLabel } from "~/app/_components/participant-name";
-import { pairingScheduleText } from "~/lib/pairing-schedule";
+import {
+  pairingScheduleText,
+  pairingScheduleSortValue,
+} from "~/lib/pairing-schedule";
 import {
   WorkloadAssignmentConfirmation,
   AssignmentWorkloadFeedback,
@@ -219,6 +222,12 @@ export default function PairingsPage() {
 
   const del = api.admin.deletePairing.useMutation();
   const review = useActionReview();
+  const revokeReview = review.revoke;
+  // Concealing a denied page must also release its captured private evidence.
+  // The shared controller retains admitted writes and accepted replay guards.
+  useEffect(() => {
+    if (denied || authorizationDenied || readOnly) revokeReview();
+  }, [denied, authorizationDenied, readOnly, revokeReview]);
 
   // Creation and row editing have independent owners: opening an edit cannot overwrite a draft.
   const [createDraft, setCreateDraft] = useState<PairingForm>(EMPTY);
@@ -542,11 +551,17 @@ export default function PairingsPage() {
       !p.roomId &&
       (p.roomMode === "AUTO" || p.roomMode === "LEGACY"),
   );
-  const unassignedReservations = new Set(
-    unassignedRooms.map((p) =>
-      p.groupId ? "group:" + p.groupId : "pairing:" + p.id,
-    ),
-  ).size;
+  // The count and the visible review use the same reservation units. Explicit
+  // groups list their subjects together; independent pairings stay separate.
+  const unassignedReservations = new Map<string, typeof unassignedRooms>();
+  for (const pairing of unassignedRooms) {
+    const key = pairing.groupId
+      ? "group:" + pairing.groupId
+      : "pairing:" + pairing.id;
+    const members = unassignedReservations.get(key) ?? [];
+    members.push(pairing);
+    unassignedReservations.set(key, members);
+  }
   const error = writeError;
   const rows = (pairings.data ?? []).filter(
     (p) => !needsRoomOnly || p.roomNeedsAssignment,
@@ -978,13 +993,21 @@ export default function PairingsPage() {
                       <div className="space-y-3">
                         <p>
                           {a("autoAssignCount", {
-                            count: unassignedReservations,
+                            count: unassignedReservations.size,
                           })}
                         </p>
-                        <ul className="max-h-60 list-inside list-disc overflow-y-auto">
-                          {unassignedRooms.map((p) => (
-                            <li key={p.id}>
-                              {personName(p.tutor)} · {p.subject}
+                        <ul className="max-h-60 list-inside list-disc space-y-3 overflow-y-auto">
+                          {[...unassignedReservations].map(([key, members]) => (
+                            <li key={key}>
+                              {personName(members[0]!.tutor)} ·{" "}
+                              {members.map((p) => p.subject).join(" / ")}
+                              <span className="block text-sm text-slate-600">
+                                {pairingScheduleText(
+                                  members[0]!,
+                                  t("scheduling.awaiting"),
+                                  locale,
+                                )}
+                              </span>
                             </li>
                           ))}
                         </ul>
@@ -1044,7 +1067,7 @@ export default function PairingsPage() {
       {/* Pairing-level facts stay in the summary. Allocation intent belongs in
           details; tutor-wide workload advice stays beside assignment decisions. */}
       <div className="card overflow-hidden">
-        <SummaryTable label={t("admin.pairings.title")}>
+        <SummaryTable sortable label={t("admin.pairings.title")}>
           <thead>
             <tr>
               <th scope="col">{t("admin.pairings.colTutor")}</th>
@@ -1070,10 +1093,14 @@ export default function PairingsPage() {
                   {personName(p.tutor)}
                 </td>
                 <td>{p.subject}</td>
-                <td>
+                <td data-sort-value={pairingScheduleSortValue(p)}>
                   {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
                 </td>
-                <td>
+                <td
+                  data-sort-value={
+                    p.scheduleConfirmed ? (p.room?.name ?? "") : ""
+                  }
+                >
                   <PairingRoomSummary pairing={p} />
                 </td>
 

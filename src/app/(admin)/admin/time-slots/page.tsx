@@ -320,7 +320,7 @@ export default function TimeSlotsPage() {
       )}
 
       <div className="card overflow-hidden">
-        <SummaryTable label={t("admin.timeslots.title")}>
+        <SummaryTable sortable label={t("admin.timeslots.title")}>
           <thead>
             <tr>
               <th>{t("admin.timeslots.colLabel")}</th>
@@ -338,8 +338,13 @@ export default function TimeSlotsPage() {
             {(slots.data ?? []).map((s) => (
               <tr key={s.id}>
                 <td className="font-medium text-slate-900">{s.label}</td>
-                <td>{formatWeekday(s.dayOfWeek, locale)}</td>
-                <td className="font-mono text-slate-700">
+                <td data-sort-value={s.dayOfWeek}>
+                  {formatWeekday(s.dayOfWeek, locale)}
+                </td>
+                <td
+                  data-sort-value={s.startMin * 1441 + s.endMin}
+                  className="font-mono text-slate-700"
+                >
                   {minToHm(s.startMin)}–{minToHm(s.endMin)}
                 </td>
                 <td>

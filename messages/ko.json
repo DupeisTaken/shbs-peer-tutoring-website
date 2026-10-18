@@ -3347,7 +3347,8 @@
         "studentWorkflow_headUnassign": "학생 배정 해제",
         "studentWorkflow_resolveSignupAppeal": "학생 신청 이의 검토",
         "admin_setPairingRoom": "Change a pairing’s room assignment",
-        "admin_retryRoomAllocation": "Retry automatic room allocation for a pairing"
+        "admin_retryRoomAllocation": "Retry automatic room allocation for a pairing",
+        "admin_autoAssignUnassignedRooms": "검토한 모든 미배정 세션에 강의실 자동 배정"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -5307,6 +5308,12 @@
     "compactHelp": "Numbers in parentheses show assigned sessions / preferred sessions. One number means no preference; ? means workload is unavailable or being refreshed."
   },
   "roomAllocation": {
+    "summaryLegend": "- 일정 대기 / 강의실 불필요 · x 미배정",
+    "autoAssignAll": "모든 미배정 세션에 강의실 자동 배정",
+    "autoAssignHelp": "이전 미배정 기록을 포함하여 일정이 확정되었지만 강의실이 없는 모든 세션에 강의실을 배정합니다. 기존 강의실, 고정 선택, 일정 대기 세션 및 명시적인 강의실 불필요 선택은 유지됩니다. 결합 그룹은 하나의 예약을 공유합니다. 기록이 변경되면 새로고침한 뒤 다시 검토하세요. 강의실 자동 배정이 활성화되어 있어야 합니다.",
+    "autoAssignCount": "현재 필터와 관계없이 모든 페어링의 미배정 예약 {count}개를 검토합니다.",
+    "autoAssignResult": "예약 {total}개 확인: {assigned}개 배정, {unassigned}개는 여전히 강의실이 필요합니다.",
+    "autoAssignLimit": "한 번에 최대 500개의 페어링 기록을 처리할 수 있습니다. 더 큰 목록은 각 행의 강의실 제어를 사용하세요.",
     "modeLabel": "Room assignment",
     "mode": {
       "AUTO": "Automatic",

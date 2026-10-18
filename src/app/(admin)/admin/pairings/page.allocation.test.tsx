@@ -253,16 +253,20 @@ it.each([
     const table = within(
       screen.getByRole("table", { name: messages.admin.pairings.title }),
     );
-    expect(
-      table.getAllByRole("columnheader").map((header) => header.textContent),
-    ).toEqual([
+    const headings = [
       messages.admin.pairings.colTutor,
       messages.admin.pairings.colSubject,
       messages.admin.pairings.colWhen,
       messages.admin.pairings.colRoom,
       messages.admin.pairings.colTutees,
       messages.tablePatterns.actions,
-    ]);
+    ];
+    expect(table.getAllByRole("columnheader")).toHaveLength(6);
+    headings.forEach((name, index) =>
+      expect(table.getAllByRole("columnheader")[index]).toBe(
+        table.getByRole("columnheader", { name }),
+      ),
+    );
     expect(table.getAllByRole("cell")).toHaveLength(6);
     expect(
       table.getByRole("button", {
@@ -403,7 +407,8 @@ it.each(
       ).toBe(true);
       expect(badge.classList.contains("bg-white")).toBe(false);
       expect(badge.classList.contains("badge-amber")).toBe(false);
-      if (needsRoom) expect(badge.classList.contains("text-amber-700")).toBe(true);
+      if (needsRoom)
+        expect(badge.classList.contains("text-amber-700")).toBe(true);
     } else if (mode === "FIXED") {
       expect(badge.classList.contains("bg-accent-100")).toBe(true);
       expect(badge.classList.contains("text-accent-800")).toBe(true);
@@ -480,6 +485,18 @@ it("reviews all eligible reservations independently of the shortage filter and c
   expect(
     review.getByText(en.roomAllocation.autoAssignCount.replace("{count}", "3")),
   ).toBeTruthy();
+  const reservations = review.getAllByRole("listitem");
+  expect(reservations).toHaveLength(3);
+  const group = reservations.find((item) =>
+    item.textContent?.includes("Grouped Math"),
+  )!;
+  expect(group.textContent).toContain("Grouped Math / Grouped Physics");
+  expect(within(group).getByText("Mon 15:00–16:00")).toBeTruthy();
+  expect(
+    reservations.filter((item) =>
+      item.textContent?.includes("Grouped Physics"),
+    ),
+  ).toEqual([group]);
   expect(state.autoAssign).not.toHaveBeenCalled();
   fireEvent.click(
     review.getByRole("button", { name: en.roomAllocation.autoAssignAll }),
@@ -505,6 +522,24 @@ it("can cancel a bulk review without changing allocation", () => {
   fireEvent.click(review.getByRole("button", { name: en.actionReview.cancel }));
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(state.autoAssign).not.toHaveBeenCalled();
+});
+
+it("releases captured bulk evidence when write authority becomes read-only", () => {
+  prepareBulkRoomless();
+  const view = render(element());
+  openBulkReview();
+  state.readonly = true;
+  view.rerender(element());
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: en.roomAllocation.autoAssignAll }),
+  ).toBeNull();
+  state.readonly = false;
+  view.rerender(element());
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(state.autoAssign).not.toHaveBeenCalled();
+  openBulkReview();
+  expect(screen.getByRole("dialog")).toBeTruthy();
 });
 
 it("disables bulk allocation when all pairings are assigned, unscheduled or intentionally roomless", () => {

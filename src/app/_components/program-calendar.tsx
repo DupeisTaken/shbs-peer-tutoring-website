@@ -41,14 +41,15 @@ export function ProgramCalendarNotice() {
         </InlineNotice>
       )}
       <ul className="mt-3 space-y-2 text-sm">
-        {!denied && query.data?.map((day) => (
-          <li key={day.date}>
-            <time dateTime={day.date} className="font-medium tabular-nums">
-              {day.date}
-            </time>{" "}
-            · {day.reason}
-          </li>
-        ))}
+        {!denied &&
+          query.data?.map((day) => (
+            <li key={day.date}>
+              <time dateTime={day.date} className="font-medium tabular-nums">
+                {day.date}
+              </time>{" "}
+              · {day.reason}
+            </li>
+          ))}
       </ul>
     </section>
   );
@@ -107,7 +108,7 @@ export function ProgramCalendarSettings() {
         </InlineNotice>
       )}
       {data.days.some((day) => day.active) ? (
-        <SummaryTable label={t("title")}>
+        <SummaryTable sortable label={t("title")}>
           <thead>
             <tr>
               <th>{t("date")}</th>
@@ -121,7 +122,10 @@ export function ProgramCalendarSettings() {
               .map((day) => (
                 <tr key={day.date}>
                   <td className="whitespace-nowrap tabular-nums">{day.date}</td>
-                  <td className="max-w-sm break-words">
+                  <td
+                    data-sort-value={day.reason}
+                    className="max-w-sm break-words"
+                  >
                     {/* A brief preview keeps the summary compact; full source remains in Details/edit. */}
                     <p className="line-clamp-2">
                       {day.reason.length > 80

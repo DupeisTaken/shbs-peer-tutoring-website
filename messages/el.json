@@ -3347,7 +3347,8 @@
         "studentWorkflow_headUnassign": "Αποδέσμευση ανάθεσης μαθητή",
         "studentWorkflow_resolveSignupAppeal": "Απόφαση ένστασης εγγραφής μαθητή",
         "admin_setPairingRoom": "Change a pairing’s room assignment",
-        "admin_retryRoomAllocation": "Retry automatic room allocation for a pairing"
+        "admin_retryRoomAllocation": "Retry automatic room allocation for a pairing",
+        "admin_autoAssignUnassignedRooms": "Αυτόματη ανάθεση αιθουσών σε όλες τις ελεγμένες συνεδρίες χωρίς αίθουσα"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -5307,6 +5308,12 @@
     "compactHelp": "Numbers in parentheses show assigned sessions / preferred sessions. One number means no preference; ? means workload is unavailable or being refreshed."
   },
   "roomAllocation": {
+    "summaryLegend": "- Αναμονή προγράμματος / δεν χρειάζεται αίθουσα · x Χωρίς ανάθεση",
+    "autoAssignAll": "Αυτόματη ανάθεση αιθουσών σε όλες τις συνεδρίες χωρίς αίθουσα",
+    "autoAssignHelp": "Αναθέτει αίθουσες σε όλες τις προγραμματισμένες συνεδρίες χωρίς αίθουσα, μαζί με παλαιότερες εγγραφές χωρίς ανάθεση. Διατηρούνται οι υπάρχουσες αίθουσες, οι σταθερές επιλογές, οι συνεδρίες που περιμένουν πρόγραμμα και οι ρητές επιλογές χωρίς αίθουσα. Οι συνδυασμένες ομάδες μοιράζονται μία κράτηση. Αν αλλάξουν οι εγγραφές, ανανεώστε και ελέγξτε ξανά. Η αυτόματη ανάθεση αιθουσών πρέπει να είναι ενεργοποιημένη.",
+    "autoAssignCount": "Ελέγξτε {count} κρατήσεις χωρίς ανάθεση από όλες τις αντιστοιχίσεις, ανεξάρτητα από το τρέχον φίλτρο.",
+    "autoAssignResult": "Ελέγχθηκαν {total} κρατήσεις: ανατέθηκαν {assigned}, ενώ {unassigned} χρειάζονται ακόμη αίθουσα.",
+    "autoAssignLimit": "Αυτή η ενέργεια υποστηρίζει έως 500 εγγραφές αντιστοίχισης κάθε φορά. Για μεγαλύτερες λίστες, χρησιμοποιήστε τα στοιχεία ελέγχου αίθουσας κάθε γραμμής.",
     "modeLabel": "Room assignment",
     "mode": {
       "AUTO": "Automatic",

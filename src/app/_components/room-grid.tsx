@@ -1,4 +1,5 @@
 "use client";
+import { Fragment } from "react";
 import { useMemo, useState } from "react";
 import { useSessionViewState } from "./session-view-state";
 import { viewEnum } from "~/lib/session-view-state";
@@ -200,6 +201,7 @@ export function RoomGrid(data: ScheduleData) {
     );
     return (
       <td
+        data-sort-value={blocked ? -1 : matches.length ? occupants.length : ""}
         className={`border-b border-l border-slate-100 p-2 text-center align-middle ${blocked || occupants.length ? "bg-slate-100 text-slate-800" : ""}`}
       >
         {blocked ? (
@@ -296,7 +298,7 @@ export function RoomGrid(data: ScheduleData) {
             {scheduleText("noSelection")}
           </p>
         ) : view === "combined" ? (
-          <SummaryTable label={t("schedule")}>
+          <SummaryTable sortable label={t("schedule")}>
             <thead>
               <tr>
                 <th className="sticky left-0 z-10 bg-white">{t("slot")}</th>
@@ -310,15 +312,19 @@ export function RoomGrid(data: ScheduleData) {
               {slots.map((slot) => (
                 <tr key={slot.id}>
                   <th
+                    data-sort-value={
+                      (slot.dayOfWeek * 1441 + slot.startMin) * 1441 +
+                      slot.endMin
+                    }
                     scope="row"
                     className="sticky left-0 z-10 bg-white p-2 text-left font-medium whitespace-nowrap"
                   >
                     {slotText(slot, locale)}
                   </th>
                   {selected.map((room) => (
-                    <SlotCell key={room.id}>
+                    <Fragment key={room.id}>
                       {renderCell(room, [slot])}
-                    </SlotCell>
+                    </Fragment>
                   ))}
                   <TableActions>
                     <TableDetails
@@ -338,7 +344,7 @@ export function RoomGrid(data: ScheduleData) {
             {selected.map((room) => (
               <section key={room.id} className="space-y-2">
                 <h3 className="font-semibold">{room.name}</h3>
-                <SummaryTable label={`${t("schedule")}: ${room.name}`}>
+                <SummaryTable sortable label={`${t("schedule")}: ${room.name}`}>
                   <thead>
                     <tr>
                       <th className="sticky left-0 z-10 bg-white">
@@ -354,6 +360,9 @@ export function RoomGrid(data: ScheduleData) {
                     {intervals.map((interval) => (
                       <tr key={`${interval.startMin}:${interval.endMin}`}>
                         <th
+                          data-sort-value={
+                            interval.startMin * 1441 + interval.endMin
+                          }
                           scope="row"
                           className="sticky left-0 z-10 bg-white p-2 text-left font-medium whitespace-nowrap"
                         >
@@ -361,7 +370,7 @@ export function RoomGrid(data: ScheduleData) {
                           {minToHm(interval.endMin)}
                         </th>
                         {[1, 2, 3, 4, 5, 6, 7].map((day) => (
-                          <SlotCell key={day}>
+                          <Fragment key={day}>
                             {renderCell(
                               room,
                               slots.filter(
@@ -372,7 +381,7 @@ export function RoomGrid(data: ScheduleData) {
                               ),
                               { ...interval, dayOfWeek: day },
                             )}
-                          </SlotCell>
+                          </Fragment>
                         ))}
                         <TableActions>
                           <TableDetails
@@ -406,10 +415,6 @@ export function RoomGrid(data: ScheduleData) {
       )}
     </div>
   );
-}
-// A keyed fragment keeps table markup valid without adding DOM wrappers.
-function SlotCell({ children }: { children: React.ReactNode }) {
-  return children;
 }
 
 /** Day/slot/room filters include all authorized records, including copied or missing catalog schedules. */

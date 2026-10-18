@@ -13,12 +13,13 @@ Start with the **[documentation hub](docs/README.md)** to find the guide for you
 | Deploy and operate the server | [Deployment runbook](docs/deployment.md) |
 | Reset an existing deployment and start fresh | [Reset and redeploy](docs/deployment.md#start-fresh-from-an-existing-deployment) |
 | Contribute code | [Contributor guidance](docs/contributing.md) |
+| Start a fresh agent session or extend the UI scaffold | [First-pass reading route](docs/README.md#first-pass-for-a-new-contributor-or-agent) |
 | Understand architecture and access rules | [Technical report](docs/technical-report.md) |
 | Report a bug or request a change | [Issue guide](docs/issues.md) |
 
 ## Development
 
-Next.js 16, React 19, tRPC 11, Prisma 7/PostgreSQL and Auth.js. Use Node 22 as in CI. Follow the [local setup guide](docs/local-development.md) to configure the environment and database before running:
+Next.js 16, React 19, tRPC 11, Prisma 7/PostgreSQL and Auth.js. Use Node 22 as in CI. Follow the [local setup guide](docs/local-development.md), including [worktree safety](docs/local-development.md#worktree-and-resource-safety), to configure the environment and database before running these commands in a standalone checkout:
 
 ```bash
 npm ci

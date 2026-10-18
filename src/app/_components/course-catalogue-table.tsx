@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { SummaryTable, TableActions, TableDetails } from "./ui/summary-table";
-import { useSessionPageScroll, useSessionViewState } from "./session-view-state";
+import {
+  useSessionPageScroll,
+  useSessionViewState,
+} from "./session-view-state";
 import { viewEnum, viewSearch } from "~/lib/session-view-state";
 
 type Subject = {
@@ -39,10 +42,31 @@ export function CourseCatalogueTable({
 }) {
   const t = useTranslations("courseCatalogue");
   const table = useTranslations("tablePatterns");
-  const [search, setSearch] = useSessionViewState({ id: "course-catalogue.search.v1", initialState: "", parse: viewSearch, enabled: viewEnabled });
-  const [level, setLevel] = useSessionViewState({ id: "course-catalogue.level.v1", initialState: "all", parse: viewEnum(["all", "none", ...levels.map((item) => item.id)]), enabled: viewEnabled, restoreReady: viewReady });
-  const [status, setStatus] = useSessionViewState({ id: "course-catalogue.status.v1", initialState: "all", parse: viewEnum(["all", "active", "inactive"]), enabled: viewEnabled });
-  useSessionPageScroll({ id: "subjects", scope: JSON.stringify([search, level, status]), ready: viewReady, enabled: ownsPageScroll && viewEnabled });
+  const [search, setSearch] = useSessionViewState({
+    id: "course-catalogue.search.v1",
+    initialState: "",
+    parse: viewSearch,
+    enabled: viewEnabled,
+  });
+  const [level, setLevel] = useSessionViewState({
+    id: "course-catalogue.level.v1",
+    initialState: "all",
+    parse: viewEnum(["all", "none", ...levels.map((item) => item.id)]),
+    enabled: viewEnabled,
+    restoreReady: viewReady,
+  });
+  const [status, setStatus] = useSessionViewState({
+    id: "course-catalogue.status.v1",
+    initialState: "all",
+    parse: viewEnum(["all", "active", "inactive"]),
+    enabled: viewEnabled,
+  });
+  useSessionPageScroll({
+    id: "subjects",
+    scope: JSON.stringify([search, level, status]),
+    ready: viewReady,
+    enabled: ownsPageScroll && viewEnabled,
+  });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batchStatus, setBatchStatus] = useState("keep");
   const [batchLevel, setBatchLevel] = useState("keep");
@@ -255,11 +279,11 @@ export function CourseCatalogueTable({
         </div>
       )}
       {/* Bulk selection leads the row; detail/editor entries keep their trailing column. */}
-      <SummaryTable label={t("title")}>
+      <SummaryTable sortable label={t("title")}>
         <thead>
           <tr>
             {!readOnly && (
-              <th scope="col">
+              <th data-sortable={false}>
                 <span className="sr-only">{t("selectAll")}</span>
               </th>
             )}
