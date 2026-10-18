@@ -1,5 +1,15 @@
 # User guide
 
+## Sorting information tables
+
+Click a data-column heading in Pairings, tutor/tutee rosters, Users & Roles and other
+information tables to sort ascending. Click it again for descending order, and a third
+time to restore the original order. Choosing another heading starts ascending. Arrows
+show the active direction; keyboard users can focus a heading and press Enter or Space.
+Sorting keeps the current filters and does not change records. Actions and selection
+checkboxes do not sort. Logs, submissions, historical reports and paginated history keep
+their existing order.
+
 ## Account invitations and sign-in
 
 All website account creation finishes through the shared invitation review at `/register-account`.

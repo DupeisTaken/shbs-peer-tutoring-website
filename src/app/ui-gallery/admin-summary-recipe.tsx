@@ -44,10 +44,10 @@ export function AdminSummaryRecipe({ locale }: { locale: "en" | "zh" }) {
           {zh ? "已发布" : "Published"}
         </span>
       </div>
-      <SummaryTable label={zh ? "示例记录" : "Example records"}>
+      <SummaryTable sortable label={zh ? "示例记录" : "Example records"}>
         <thead>
           <tr>
-            <th>
+            <th data-sortable={false}>
               <span className="sr-only">{zh ? "选择" : "Select"}</span>
             </th>
             <th>{zh ? "主题" : "Subject"}</th>

@@ -419,7 +419,7 @@ export function RecipeGallery({
               title={t.tableReader}
             >
               {/* Actual sticky actions exercise deep-scroll stacking beneath Close. */}
-              <SummaryTable label={t.tableReader}>
+              <SummaryTable sortable label={t.tableReader}>
                 <thead>
                   <tr>
                     <th>{t.roomColumn}</th>

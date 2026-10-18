@@ -13,6 +13,7 @@ import {
   TableDetails,
 } from "~/app/_components/ui/summary-table";
 import { DEFAULT_THEME, THEMES, isTheme, type Theme } from "~/lib/theme";
+import { SortingExample } from "./sorting-example";
 import { RecipeGallery } from "./recipes";
 
 const en = {
@@ -538,7 +539,7 @@ export function UIGallery() {
             description={t.recordsUse}
             components="SummaryTable · TableActions · TableDetails"
           >
-            <SummaryTable label={t.records}>
+            <SummaryTable sortable label={t.records}>
               <caption className="sr-only">{t.records}</caption>
               <thead>
                 <tr>
@@ -577,13 +578,22 @@ export function UIGallery() {
           </Example>
 
           <Example
+            number="05b"
+            title={locale === "zh" ? "信息表格排序" : "Sort information tables"}
+            description={t.recordsUse}
+            components="SummaryTable · SortHeader"
+          >
+            <SortingExample chinese={locale === "zh"} />
+          </Example>
+
+          <Example
             number="06"
             title={t.matrix}
             description={t.matrixUse}
             components="SummaryTable · TableDetails"
           >
             <p className="muted text-xs">{t.matrixHint}</p>
-            <SummaryTable label={t.matrixLabel}>
+            <SummaryTable sortable label={t.matrixLabel}>
               <caption className="sr-only">{t.matrixLabel}</caption>
               <thead className="bg-slate-50 text-slate-600">
                 <tr>

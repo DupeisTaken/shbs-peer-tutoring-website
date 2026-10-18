@@ -287,6 +287,23 @@ browser measurements and role/language evidence still require the running pages.
 
 ### Shared UI patterns
 
+Information tables opt into sorting in [SummaryTable](../src/app/_components/ui/summary-table.tsx).
+The [sorting adapter](../src/app/_components/ui/table-sorting.tsx) reorders keyed React rows,
+without DOM manipulation, changing source arrays, mounting detail readers or issuing queries.
+A header cycles ascending, descending, then no sort; the last state uses the latest incoming
+order, including refreshed/filter results. Numeric-aware collation follows the active locale;
+signed decimal values sort numerically, equal values preserve incoming order and missing values
+stay last in either direction. Cells with component-rendered or domain-specific values supply
+`data-sort-value`; weekly schedules use confirmed weekday/start/end values, not translated labels.
+Room comparisons sort unavailable cells before free/occupied counts, with missing slots last.
+Native fragments expose already-created cells without executing components. Selection headers
+opt out and Actions headers retain their existing sticky treatment. Roster adapters retain
+their allowlisted session storage and explicitly bypass their comparator for `dir: "none"`.
+The rollout covers pairings, tutor/tutee/user/crew directories, profile records, discipline
+standing, time slots, courses, room/meeting matrices, service-hour summaries, calendar and name
+configuration information. Activity logs, submission/review queues, historical reports, import
+previews and paginated history retain their established order. Sorting is presentation only.
+
 The [session view API](../src/app/_components/session-view-state.tsx) stores explicit
 tabs, filters and pages in `sessionStorage`, partitioned by the existing session
 identity (account/role/tutor link), pathname, feature/schema ID and feature-supplied

@@ -269,10 +269,14 @@ it("derives tutor defaults from arriving pairings without discarding an explicit
   );
   view.rerender(tree(pairings));
   expect(
-    screen.getByRole("button", { name: "101" }).getAttribute("aria-pressed"),
+    screen
+      .getByRole("button", { name: "101", pressed: true })
+      .getAttribute("aria-pressed"),
   ).toBe("true");
   expect(
-    screen.getByRole("button", { name: "202" }).getAttribute("aria-pressed"),
+    screen
+      .getByRole("button", { name: "202", pressed: false })
+      .getAttribute("aria-pressed"),
   ).toBe("false");
   fireEvent.click(
     screen.getByRole("button", { name: en.roomSchedule.clearRooms }),
@@ -288,7 +292,9 @@ it("derives tutor defaults from arriving pairings without discarding an explicit
     ),
   );
   expect(
-    screen.getByRole("button", { name: "202" }).getAttribute("aria-pressed"),
+    screen
+      .getByRole("button", { name: "202", pressed: true })
+      .getAttribute("aria-pressed"),
   ).toBe("true");
 });
 

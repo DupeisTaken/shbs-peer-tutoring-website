@@ -17,3 +17,12 @@ export function pairingScheduleText(
     ? `${formatWeekday(pairing.dayOfWeek, locale)} ${minToHm(pairing.startMin)}–${minToHm(pairing.endMin)}`
     : awaiting;
 }
+
+/** Sort confirmed weekly appointments by school weekday, start and end; unknowns stay last. */
+export function pairingScheduleSortValue(
+  pairing: PairingSchedule,
+): number | "" {
+  return pairing.scheduleConfirmed
+    ? (pairing.dayOfWeek * 1441 + pairing.startMin) * 1441 + pairing.endMin
+    : "";
+}
