@@ -24,6 +24,7 @@ export function QualifiedTutorSelect({
   retainedTutor,
   leading,
   actions,
+  className = "",
 }: {
   tutors: QualificationOption[];
   subjectId: string;
@@ -36,6 +37,8 @@ export function QualifiedTutorSelect({
   /** Row companions align with the select box, excluding its label and guidance. */
   leading?: ReactNode;
   actions?: ReactNode;
+  /** A caller may place the complete field in its own grid without changing other layouts. */
+  className?: string;
 }) {
   const t = useTranslations("assignmentQualification");
   const workloadText = useTranslations("tutorWorkload");
@@ -69,7 +72,7 @@ export function QualifiedTutorSelect({
   return (
     // Explicit rows support wrapped labels without language-dependent offsets.
     <div
-      className={`grid w-full min-w-0 gap-x-3 gap-y-1 ${leading ? "lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto]" : actions ? "lg:grid-cols-[minmax(0,1fr)_auto]" : ""}`}
+      className={`grid w-full min-w-0 gap-x-3 gap-y-1 ${leading ? "lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto]" : actions ? "lg:grid-cols-[minmax(0,1fr)_auto]" : ""} ${className}`}
     >
       {leading && (
         <div className="min-w-0 text-sm lg:col-start-1 lg:row-start-2 lg:self-center">

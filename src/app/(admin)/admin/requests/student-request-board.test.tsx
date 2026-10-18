@@ -32,15 +32,22 @@ vi.mock("~/app/_components/timed-action-dialog", () => ({
   TimedActionDialog: ({
     action,
     target,
+    title,
     onConfirm,
     onCancel,
   }: {
     action: string;
     target: string;
+    title: string;
     onConfirm: (ticket: string) => unknown;
     onCancel: () => void;
   }) => (
-    <div role="dialog" data-action={action} data-target={target}>
+    <div
+      role="dialog"
+      aria-label={title}
+      data-action={action}
+      data-target={target}
+    >
       <button
         onClick={() =>
           void Promise.resolve(onConfirm("fresh-ticket")).catch(() => undefined)
@@ -111,10 +118,11 @@ it("captures assignment version when review opens instead of adopting background
       proposal={false}
     />,
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: "unassign · Mathematics" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "unassign" }));
   const dialog = screen.getByRole("dialog");
+  expect(screen.getByRole("dialog", { name: "unassign · Mathematics" })).toBe(
+    dialog,
+  );
   expect(dialog.getAttribute("data-target")).toBe("survey:pairing");
   mounted.rerender(
     <SignupAssignmentRelease
@@ -135,6 +143,72 @@ it("captures assignment version when review opens instead of adopting background
     signedTicket: "fresh-ticket",
   });
 });
+
+it.each([
+  { pairingId: "second-math", subject: "Mathematics", proposal: false },
+  { pairingId: "removed-history", subject: "History", proposal: true },
+])(
+  "releases only the chosen $pairingId assignment among repeated and removed choices",
+  async ({ pairingId, subject, proposal }) => {
+    const pairings = [
+      { id: "first-math", subject: "Mathematics" },
+      { id: "second-math", subject: "Mathematics" },
+      { id: "removed-history", subject: "History" },
+    ] as typeof actionRow.pairings;
+    const selected = pairings.find((pairing) => pairing.id === pairingId)!;
+    render(
+      <SignupAssignmentRelease
+        row={{ ...actionRow, pairings }}
+        pairing={selected}
+        proposal={proposal}
+      />,
+    );
+    const trigger = screen.getByRole("button", {
+      name: proposal ? "proposeUnassign" : "unassign",
+    });
+    fireEvent.click(trigger);
+    expect(
+      screen.getByRole("dialog", {
+        name: `${proposal ? "proposeUnassign" : "unassign"} · ${subject}`,
+      }),
+    ).toBeTruthy();
+    expect(screen.getByRole("dialog").getAttribute("data-target")).toBe(
+      `survey:${pairingId}`,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(mocks.unassign).not.toHaveBeenCalled();
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(mocks.unassign).toHaveBeenCalledOnce());
+    expect(mocks.unassign.mock.calls[0]?.[0]).toMatchObject({
+      id: "survey",
+      pairingId,
+      expectedVersion: 2,
+      signedTicket: "fresh-ticket",
+    });
+  },
+);
+
+it("recovers a saved assignment release with reads only after synchronization fails", async () => {
+  mocks.refresh.mockRejectedValue(new Error("Offline"));
+  render(
+    <SignupAssignmentRelease
+      row={actionRow}
+      pairing={actionRow.pairings[0]!}
+      proposal={false}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "unassign" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+  await screen.findByText("savedRefresh");
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(mocks.unassign).toHaveBeenCalledOnce();
+  mocks.refresh.mockResolvedValue(undefined);
+  fireEvent.click(screen.getByRole("button", { name: "retryRefresh" }));
+  await waitFor(() => expect(screen.queryByText("savedRefresh")).toBeNull());
+  expect(mocks.unassign).toHaveBeenCalledOnce();
+});
+
 it("binds appeal consequences to appeal id and captured invalidity version; accepted refresh retries never repeat the decision", async () => {
   mocks.refresh.mockRejectedValue(new Error("Offline"));
   render(<SignupAppealReview row={actionRow} />);

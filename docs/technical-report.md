@@ -287,6 +287,15 @@ browser measurements and role/language evidence still require the running pages.
 
 ### Shared UI patterns
 
+The student request board owns the gap between its validity filters and results
+inside `SectionTabs`; shared tabs and filter toolbars do not add external margins.
+Its self-service cards use a one-third/two-thirds desktop grid for contact and
+availability, subject selection and assigned tutor rows. `QualifiedTutorSelect`
+accepts an optional root `className` so this feature can share the select's rows
+through CSS subgrid while retaining the other callers' default layout. Releases
+stay with each pairing, including duplicate-subject and retained extra-subject
+pairings; moving the controls does not change captured versions or review authority.
+
 The [session view API](../src/app/_components/session-view-state.tsx) stores explicit
 tabs, filters and pages in `sessionStorage`, partitioned by the existing session
 identity (account/role/tutor link), pathname, feature/schema ID and feature-supplied

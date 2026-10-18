@@ -4,8 +4,13 @@ import { afterEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 import { QualifiedTutorSelect } from "./qualified-tutor-select";
-const state = vi.hoisted(() => ({ active: true }));
+const state = vi.hoisted(() => ({
+  active: true,
+  loading: false,
+  error: null as Error | null,
+}));
 vi.mock("~/trpc/react", () => ({
   api: {
     admin: {
@@ -15,7 +20,13 @@ vi.mock("~/trpc/react", () => ({
           refetch: vi.fn(),
         }),
       },
-      subjectEligibility: { useQuery: () => ({ data: [] }) },
+      subjectEligibility: {
+        useQuery: () => ({
+          data: [],
+          isLoading: state.loading,
+          error: state.error,
+        }),
+      },
       subjects: {
         useQuery: () => ({ data: [{ id: "math", active: state.active }] }),
       },
@@ -25,6 +36,8 @@ vi.mock("~/trpc/react", () => ({
 afterEach(() => {
   cleanup();
   state.active = true;
+  state.loading = false;
+  state.error = null;
 });
 it("keeps companions on the control row with native labels, optgroups and described guidance", () => {
   const change = vi.fn();
@@ -124,3 +137,80 @@ it("keeps blank participant options identifiable without changing assignment IDs
   expect(change).toHaveBeenCalledExactlyOnceWith("handled");
   expect(tutors[0]?.englishName).toBe("  ");
 });
+
+it.each(["en", "zh"] as const)(
+  "composes a feature-owned %s grid without losing native labels, guidance or retained tutors",
+  (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <QualifiedTutorSelect
+            className="lg:col-start-2 lg:grid-rows-subgrid"
+            tutors={[{ id: "current", englishName: "Current Tutor" }]}
+            subjectId="math"
+            value="retained"
+            retainedTutor={{ id: "retained", englishName: "Previous Tutor" }}
+            onChange={() => undefined}
+            label="Choose a tutor for Mathematics"
+            actions={<button>Assign Mathematics</button>}
+          />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    const control = screen.getByRole<HTMLSelectElement>("combobox", {
+      name: "Choose a tutor for Mathematics",
+    });
+    const root = control.closest("label")!.parentElement!;
+    expect(root.className).toContain("grid w-full min-w-0");
+    expect(root.className).toContain("lg:col-start-2 lg:grid-rows-subgrid");
+    expect(
+      root.contains(screen.getByRole("button", { name: "Assign Mathematics" })),
+    ).toBe(true);
+    expect(control.value).toBe("retained");
+    expect(
+      screen.getByRole<HTMLOptionElement>("option", {
+        name: "Previous Tutor (?)",
+      }).disabled,
+    ).toBe(true);
+    expect(control.querySelectorAll("optgroup")).toHaveLength(2);
+    for (const id of control.getAttribute("aria-describedby")!.split(" ")) {
+      expect(document.getElementById(id)?.textContent).toBeTruthy();
+    }
+  },
+);
+
+it.each(["loading", "failed"] as const)(
+  "keeps a composed selector disabled with readable guidance while qualification reads are %s",
+  (readState) => {
+    state.loading = readState === "loading";
+    state.error = readState === "failed" ? new Error("Offline") : null;
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <NextIntlClientProvider locale="en" messages={en}>
+          <QualifiedTutorSelect
+            className="lg:grid-rows-subgrid"
+            tutors={[{ id: "tutor", englishName: "Tutor" }]}
+            subjectId="math"
+            value="tutor"
+            onChange={() => undefined}
+            label="Tutor"
+          />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    const control = screen.getByRole<HTMLSelectElement>("combobox", {
+      name: "Tutor",
+    });
+    expect(control.disabled).toBe(true);
+    expect(control.value).toBe("tutor");
+    expect(
+      screen.getByText(
+        en.assignmentQualification[
+          readState === "loading" ? "loading" : "loadError"
+        ],
+      ),
+    ).toBeTruthy();
+    if (readState === "failed") expect(screen.getByRole("alert")).toBeTruthy();
+  },
+);
