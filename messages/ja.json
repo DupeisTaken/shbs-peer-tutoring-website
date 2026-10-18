@@ -612,7 +612,8 @@
         "phone": "電話"
       },
       "emailVerifiedShort": "確認済み",
-      "emailUnverifiedShort": "未確認"
+      "emailUnverifiedShort": "未確認",
+      "emailUnknownShort": "確認情報なし"
     },
     "readOnly": {
       "banner": "管理エリアは閲覧専用です。許可された概要を閲覧できます。個人の連絡先情報は非表示です。"

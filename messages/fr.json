@@ -612,7 +612,8 @@
         "phone": "téléphone"
       },
       "emailVerifiedShort": "Vérifié",
-      "emailUnverifiedShort": "Non vérifié"
+      "emailUnverifiedShort": "Non vérifié",
+      "emailUnknownShort": "Vérification non enregistrée"
     },
     "readOnly": {
       "banner": "Accès en lecture seule à l’espace de gestion : consultez les synthèses autorisées ; les coordonnées personnelles sont masquées."

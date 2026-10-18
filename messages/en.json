@@ -612,7 +612,8 @@
         "phone": "phone"
       },
       "emailVerifiedShort": "Verified",
-      "emailUnverifiedShort": "Unverified"
+      "emailUnverifiedShort": "Unverified",
+      "emailUnknownShort": "Verification not recorded"
     },
     "readOnly": {
       "banner": "Read-only management access: browse permitted summaries; personal contact details are hidden."

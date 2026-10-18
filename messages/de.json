@@ -612,7 +612,8 @@
         "phone": "Telefon"
       },
       "emailVerifiedShort": "Bestätigt",
-      "emailUnverifiedShort": "Nicht bestätigt"
+      "emailUnverifiedShort": "Nicht bestätigt",
+      "emailUnknownShort": "Bestätigung nicht erfasst"
     },
     "readOnly": {
       "banner": "Schreibgeschützter Verwaltungszugang: Sie können freigegebene Übersichten einsehen; persönliche Kontaktdaten sind ausgeblendet."
