@@ -6,6 +6,7 @@ import {
   render,
   screen,
   within,
+  waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
@@ -16,17 +17,24 @@ const mocks = vi.hoisted(() => ({
   qualify: vi.fn(),
   complete: vi.fn(),
   refetch: vi.fn(),
+  fetch: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
-      interviewManagement: { options: { invalidate: mocks.refetch } },
-      admin: { tutorApplications: { invalidate: mocks.refetch } },
+      interviewManagement: {
+        options: { invalidate: mocks.refetch, fetch: mocks.fetch },
+      },
+      admin: {
+        tutorApplications: { invalidate: mocks.refetch },
+        registrationCodes: { invalidate: mocks.refetch },
+      },
+      tutor: { myInterviews: { invalidate: mocks.refetch } },
     }),
     interviewManagement: {
       options: { useQuery: mocks.options },
       qualify: { useMutation: () => ({ mutate: mocks.qualify }) },
-      complete: { useMutation: () => ({ mutate: mocks.complete }) },
+      complete: { useMutation: () => ({ mutateAsync: mocks.complete }) },
     },
   },
 }));
@@ -92,7 +100,7 @@ const show = (locale = "en") =>
       <InterviewManagement />
     </NextIntlClientProvider>,
   );
-it("shows panel/chair/schedule/completion without expansion and deep-links the existing panel editor", () => {
+it("shows panel/chair/schedule/completion without expansion and deep-links the existing panel editor", async () => {
   show();
   expect(screen.getByText("Chair: Alice Long Tutor Name")).toBeTruthy();
   expect(screen.getByText(/Completed:.*45 minutes/)).toBeTruthy();
@@ -106,21 +114,35 @@ it("shows panel/chair/schedule/completion without expansion and deep-links the e
       })
       .getAttribute("href"),
   ).toBe("/admin/applications#application-candidate");
-  const form = screen.getByRole("button", { name: "Save" }).closest("form")!;
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.record }),
+  );
+  const form = document.getElementById("interview-completion-editor")!;
   fireEvent.change(within(form).getByLabelText("Record Interview Completion"), {
     target: { value: "2026-09-10T16:00" },
   });
-  fireEvent.change(within(form).getByLabelText("Decision Reason"), {
+  fireEvent.change(within(form).getByLabelText(en.interviewReview.reason), {
     target: { value: "Verified records" },
   });
   fireEvent.submit(form);
+  expect(mocks.complete).not.toHaveBeenCalled();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.interviewReview.confirmAward }),
+  );
   expect(mocks.complete).toHaveBeenCalledWith({
     applicationId: "candidate",
     completedAt: new Date("2026-09-10T08:00:00Z"),
     durationMin: 30,
     attendedTutorIds: ["alice"],
     reason: "Verified records",
+    expectedUpdatedAt: undefined,
   });
+  await waitFor(() =>
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: en.common.close })
+        .disabled,
+    ).toBe(false),
+  );
 });
 it("submits interview search and completed filters to the paginated API", () => {
   show();
@@ -163,7 +185,9 @@ it("retains invalid interview history without offering completion writes", () =>
     screen.getByRole("button", { name: /Candidate One Invalid entry/ }),
   );
   expect(screen.getByText(en.requestInvalidity.processingPaused)).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: en.interviewReview.record }),
+  ).toBeNull();
   expect(
     screen.getByRole("link", {
       name: "Assign or edit this panel in Tutor Applications",
@@ -179,10 +203,83 @@ it("keeps historical records readable while completion is disabled", () => {
   fireEvent.click(
     screen.getByRole("button", { name: /Candidate One Needs completion/ }),
   );
-  expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: en.interviewReview.record }),
+  ).toBeNull();
   expect(screen.getByText(/Interviews are disabled/)).toBeTruthy();
   expect(screen.getByText("Chair: Alice Long Tutor Name")).toBeTruthy();
   expect(
     screen.queryByRole("button", { name: "Remove Qualification" }),
   ).toBeNull();
 });
+
+it.each(["save", "reload"])(
+  "conceals a cached-success host after %s denial and recovers only through a successful fresh read",
+  async (source) => {
+    const denial = Object.assign(
+      new Error("Current management access revoked"),
+      { data: { code: "FORBIDDEN" } },
+    );
+    mocks.complete.mockRejectedValueOnce(
+      source === "save" ? denial : new Error("Evidence changed"),
+    );
+    mocks.fetch.mockRejectedValueOnce(denial);
+    show();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Candidate One Needs completion/ }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: en.interviewReview.record }),
+    );
+    fireEvent.change(screen.getByLabelText(en.workflows.interviewComplete), {
+      target: { value: "2026-09-10T16:00" },
+    });
+    fireEvent.change(screen.getByLabelText(en.interviewReview.reason), {
+      target: { value: "Verified attendance" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: en.interviewReview.review }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: en.interviewReview.confirmAward }),
+    );
+    if (source === "reload") {
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", {
+            name: en.interviewReview.reloadEvidence,
+          }),
+        ).toBeTruthy(),
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: en.interviewReview.reloadEvidence }),
+      );
+    }
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(
+        en.interviewReview.accessDenied,
+      ),
+    );
+    expect(screen.queryByText("Candidate One")).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    mocks.refetch.mockRejectedValueOnce(new Error("Transport failed"));
+    fireEvent.click(
+      screen.getByRole("button", { name: en.interviewReview.refreshOnly }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole<HTMLButtonElement>("button", {
+          name: en.interviewReview.refreshOnly,
+        }).disabled,
+      ).toBe(false),
+    );
+    expect(screen.queryByText("Candidate One")).toBeNull();
+    mocks.refetch.mockResolvedValueOnce({ data: fixture(), error: null });
+    fireEvent.click(
+      screen.getByRole("button", { name: en.interviewReview.refreshOnly }),
+    );
+    await waitFor(() => expect(screen.getByText("Candidate One")).toBeTruthy());
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(mocks.complete).toHaveBeenCalledTimes(1);
+  },
+);

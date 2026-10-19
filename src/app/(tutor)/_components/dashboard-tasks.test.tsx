@@ -23,6 +23,8 @@ const state = vi.hoisted(() => ({
   retry: vi.fn(),
   interviews: vi.fn(),
   meetings: vi.fn(),
+  interviewStatus: "INTERVIEW",
+  completedEvidence: false,
   pausedInterview: false,
   mixedInterviews: false,
   empty: false,
@@ -86,7 +88,14 @@ vi.mock("~/trpc/react", () => ({
             data: state.empty
               ? []
               : [
-                  { status: "INTERVIEW", isInvalid: state.pausedInterview },
+                  {
+                    status: state.interviewStatus,
+                    isInvalid: state.pausedInterview,
+                    interviewCompletedAt: state.completedEvidence
+                      ? new Date("2026-10-01")
+                      : null,
+                    pendingDecision: state.completedEvidence,
+                  },
                   { status: "ACCEPTED", isInvalid: false },
                   ...(state.mixedInterviews
                     ? [{ status: "PENDING", isInvalid: false }]
@@ -133,6 +142,8 @@ afterEach(() => {
   state.loading = false;
   state.membership = false;
   state.pausedInterview = false;
+  state.interviewStatus = "INTERVIEW";
+  state.completedEvidence = false;
   state.mixedInterviews = false;
   state.empty = false;
   state.grouped = false;
@@ -360,4 +371,37 @@ it.each([
   );
   expect(raf.mock.calls.length).toBe(before);
   expect(document.activeElement?.id).not.toBe("attendance");
+});
+
+it("refreshes interview attention from the shared result without treating completion or queued decision as a terminal outcome", () => {
+  const view = show();
+  const updated = () => (
+    <NextIntlClientProvider
+      locale="en"
+      timeZone="Asia/Shanghai"
+      messages={messages}
+    >
+      <DashboardTasks
+        status="ACTIVE"
+        interviewsEnabled
+        meetingsEnabled
+        now={new Date("2026-10-01T17:00:00Z")}
+      />
+    </NextIntlClientProvider>
+  );
+  state.completedEvidence = true;
+  view.rerender(updated());
+  expect(
+    screen.getByRole("link", { name: "Open interviews (1)" }),
+  ).toBeTruthy();
+  state.interviewStatus = "ACCEPTED";
+  view.rerender(updated());
+  expect(
+    screen.queryByRole("link", { name: "Open interviews (1)" }),
+  ).toBeNull();
+  state.interviewStatus = "INTERVIEW";
+  view.rerender(updated());
+  expect(
+    screen.getByRole("link", { name: "Open interviews (1)" }),
+  ).toBeTruthy();
 });

@@ -1,5 +1,8 @@
 import { approveQualification, lockCatalogue } from "~/server/qualifications";
-import { assertRequestProcessable, lockApplicationReview } from "~/server/request-invalidity";
+import {
+  assertRequestProcessable,
+  lockApplicationReview,
+} from "~/server/request-invalidity";
 import type { Prisma } from "../../../../generated/prisma";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -9,6 +12,14 @@ import { validatePanel } from "~/server/interviews";
 import { getActivePeriod } from "~/server/period";
 import { monthKey } from "~/lib/service-hours";
 import { assertFeatureEnabled } from "~/server/program/features";
+import { staleConflict } from "~/server/concurrency";
+import {
+  INTERVIEW_HOURS_REASON,
+  interviewCompletionInput,
+  interviewHourRows,
+  interviewHoursId,
+  sameInterviewCompletionEvidence,
+} from "~/server/interview-hours";
 
 export const interviewManagementRouter = createTRPCRouter({
   options: adminProcedure
@@ -18,12 +29,14 @@ export const interviewManagementRouter = createTRPCRouter({
           page: z.number().int().min(0).default(0),
           search: z.string().trim().max(100).default(""),
           completion: z.enum(["OPEN", "COMPLETED", "ALL"]).default("OPEN"),
+          applicationId: z.string().min(1).optional(),
         })
         .default({ page: 0, search: "", completion: "OPEN" }),
     )
     .query(async ({ ctx, input }) => {
       const pageSize = 20;
       const where: Prisma.TutorApplicationWhereInput = {
+        ...(input.applicationId ? { id: input.applicationId } : {}),
         // Include waiting applicants so staff can reach panel setup from this queue.
         AND: [
           {
@@ -40,7 +53,11 @@ export const interviewManagementRouter = createTRPCRouter({
           },
         ],
         ...(input.completion === "OPEN"
-          ? { interviewCompletedAt: null, status: { not: "RECALLED" }, invalidatedAt: null }
+          ? {
+              interviewCompletedAt: null,
+              status: { not: "RECALLED" },
+              invalidatedAt: null,
+            }
           : input.completion === "COMPLETED"
             ? { interviewCompletedAt: { not: null } }
             : {}),
@@ -90,6 +107,10 @@ export const interviewManagementRouter = createTRPCRouter({
           select: {
             id: true,
             name: true,
+            type: true,
+            updatedAt: true,
+            decisionComment: true,
+            promotedTutorId: true,
             status: true,
             invalidatedAt: true,
             interviewAt: true,
@@ -110,8 +131,144 @@ export const interviewManagementRouter = createTRPCRouter({
         }),
         ctx.db.tutorApplication.count({ where }),
       ]);
+      const ids = applications.map((application) => application.id);
+      // Only metadata is selected here: account credentials and invitation/code secrets
+      // stay in their existing authorized management workflows.
+      const [codes, linkedTutors, pendingReviews] = await Promise.all([
+        ctx.db.registrationCode.findMany({
+          where: { applicationId: { in: ids }, kind: "TUTOR" },
+          select: {
+            id: true,
+            applicationId: true,
+            tutorId: true,
+            usedAt: true,
+            expiresAt: true,
+            createdAt: true,
+          },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        }),
+        ctx.db.tutor.findMany({
+          where: {
+            OR: [
+              {
+                id: {
+                  in: applications.flatMap((a) =>
+                    a.promotedTutorId ? [a.promotedTutorId] : [],
+                  ),
+                },
+              },
+              {
+                registrationCodes: {
+                  some: { applicationId: { in: ids }, kind: "TUTOR" },
+                },
+              },
+            ],
+          },
+          select: {
+            id: true,
+            status: true,
+            user: {
+              select: {
+                emailVerifiedAt: true,
+                tutorAccessRevoked: true,
+                suspendedAt: true,
+                mergedIntoId: true,
+              },
+            },
+          },
+        }),
+        ctx.db.approvalRequest.findMany({
+          where: {
+            state: "PENDING",
+            operation: {
+              in: ["tutor.decideInterview", "interviewManagement.complete"],
+            },
+            OR: ids.map((id) => ({
+              payload: { path: ["json", "applicationId"], equals: id },
+            })),
+          },
+          select: { operation: true, payload: true },
+        }),
+      ]);
       return {
-        applications: { rows: applications.map(({ invalidatedAt, ...application }) => ({ ...application, isInvalid: !!invalidatedAt })), total, pageSize },
+        applications: {
+          rows: applications.map(
+            ({ invalidatedAt, promotedTutorId, ...application }) => {
+              const pending = (operation: string) =>
+                pendingReviews.some(
+                  (review) =>
+                    review.operation === operation &&
+                    review.payload &&
+                    typeof review.payload === "object" &&
+                    !Array.isArray(review.payload) &&
+                    review.payload.json &&
+                    typeof review.payload.json === "object" &&
+                    !Array.isArray(review.payload.json) &&
+                    review.payload.json.applicationId === application.id,
+                );
+              const ownCodes = codes.filter(
+                (code) => code.applicationId === application.id,
+              );
+              const tutor =
+                linkedTutors.find((row) => row.id === promotedTutorId) ??
+                linkedTutors.find((row) =>
+                  ownCodes.some((code) => code.tutorId === row.id),
+                );
+              const activeCode = ownCodes.find(
+                (code) => !code.usedAt && code.expiresAt > new Date(),
+              );
+              const code =
+                activeCode ??
+                ownCodes.find((row) => !!row.usedAt) ??
+                ownCodes[0];
+              const registered =
+                tutor?.status === "ACTIVE" &&
+                tutor.user?.emailVerifiedAt &&
+                !tutor.user.tutorAccessRevoked &&
+                !tutor.user.suspendedAt &&
+                !tutor.user.mergedIntoId;
+              const registration =
+                application.type !== "INITIAL"
+                  ? { state: "qualification" as const, href: null }
+                  : invalidatedAt ||
+                      application.status === "RECALLED" ||
+                      application.status === "REJECTED"
+                    ? { state: "notEligible" as const, href: null }
+                    : application.status !== "ACCEPTED"
+                      ? { state: "pendingDecision" as const, href: null }
+                      : registered
+                        ? {
+                            state: "setupAvailable" as const,
+                            href: "/admin/users",
+                          }
+                        : code
+                          ? {
+                              state: code.usedAt
+                                ? ("codeUsed" as const)
+                                : activeCode
+                                  ? ("codeActive" as const)
+                                  : ("codeExpired" as const),
+                              href:
+                                (code.usedAt || !activeCode) && tutor
+                                  ? "/admin/users"
+                                  : `/admin/registration-codes#registration-code-${code.id}`,
+                            }
+                          : {
+                              state: "followUp" as const,
+                              href: tutor ? "/admin/users" : null,
+                            };
+              return {
+                ...application,
+                isInvalid: !!invalidatedAt,
+                registration,
+                pendingDecision: pending("tutor.decideInterview"),
+                pendingCompletion: pending("interviewManagement.complete"),
+              };
+            },
+          ),
+          total,
+          pageSize,
+        },
       };
     }),
   qualify: adminProcedure
@@ -150,15 +307,7 @@ export const interviewManagementRouter = createTRPCRouter({
       }),
     ),
   complete: adminProcedure
-    .input(
-      z.object({
-        applicationId: z.string(),
-        durationMin: z.number().int().min(1).max(480),
-        completedAt: z.coerce.date(),
-        attendedTutorIds: z.array(z.string()).min(1),
-        reason: z.string().trim().min(1).max(1000),
-      }),
-    )
+    .input(interviewCompletionInput)
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         await assertFeatureEnabled(tx, "INTERVIEWS");
@@ -174,6 +323,12 @@ export const interviewManagementRouter = createTRPCRouter({
           include: { interviewers: true },
         });
         assertRequestProcessable(before);
+        if (before.status === "RECALLED")
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "A recalled request cannot receive interview completion or credit.",
+          });
         const chair = before.interviewers.find((p) => p.isHead);
         await validatePanel(
           tx,
@@ -192,6 +347,20 @@ export const interviewManagementRouter = createTRPCRouter({
             code: "BAD_REQUEST",
             message: "Attendance must name assigned panelists only.",
           });
+        const credits = await interviewHourRows(
+          tx,
+          input.applicationId,
+          before.interviewers.map((p) => p.tutorId),
+        );
+        // Retrying already-applied evidence is read-only, preserving credit identity and
+        // its original period even when the review snapshot has since advanced.
+        if (sameInterviewCompletionEvidence(before, credits, input))
+          return { ok: true };
+        if (
+          input.expectedUpdatedAt &&
+          input.expectedUpdatedAt.getTime() !== before.updatedAt.getTime()
+        )
+          staleConflict();
         // Original period remains stable when staff later correct duration or attendance.
         const period =
           before.interviewSchoolYear && before.interviewQuarter
@@ -221,18 +390,18 @@ export const interviewManagementRouter = createTRPCRouter({
           data: { attended: true },
         });
         await tx.serviceHourAdjustment.deleteMany({
-          where: { id: { startsWith: `interview_${input.applicationId}_` } },
+          where: { id: { in: credits.map((row) => row.id) } },
         });
         await tx.serviceHourAdjustment.createMany({
           data: input.attendedTutorIds.map((tutorId) => ({
-            id: `interview_${input.applicationId}_${tutorId}`,
+            id: interviewHoursId(input.applicationId, tutorId),
             tutorId,
             month: monthKey(input.completedAt),
             schoolYear: period.schoolYear,
             quarter: period.quarter,
             type: "EXTRA" as const,
             amount: input.durationMin / 60,
-            reason: "Completed interview service",
+            reason: INTERVIEW_HOURS_REASON,
           })),
         });
         await tx.auditLog.create({

@@ -1,15 +1,25 @@
 "use client";
 import { participantNameLabel } from "./participant-name";
-import { formText, formTexts } from "~/lib/form-values";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useTranslations, useTimeZone, useFormatter } from "next-intl";
+import { useTranslations, useFormatter } from "next-intl";
 import { InlineNotice } from "./ui/patterns";
+import { Button } from "./ui/button";
+import {
+  InterviewCompletionReview,
+  InterviewWorkflowStatus,
+  type InterviewRecord,
+  type CompletionDraft,
+} from "./interview-completion-review";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 import { api } from "~/trpc/react";
-import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 import { DisclosureIcon } from "./icons";
 import { InvalidityBadge, InvalidityNotice } from "./request-invalidity";
-import { useSessionAccessDenied, useSessionViewState } from "./session-view-state";
+import {
+  useSessionAccessDenied,
+  useSessionViewState,
+} from "./session-view-state";
 import { viewEnum, viewPage, viewSearch } from "~/lib/session-view-state";
 
 /** Explicit disclosure state survives filtering; form state stays mounted while collapsed. */
@@ -51,22 +61,38 @@ function InterviewDisclosure({
 
 export function InterviewManagement({
   enabled = true,
+  hoursEnabled = true,
   onManageApplicant,
   onViewReadyChange,
 }: {
   enabled?: boolean;
+  hoursEnabled?: boolean;
   onManageApplicant?: () => void;
   onViewReadyChange?: (ready: boolean, scope: string, denied: boolean) => void;
 }) {
   const t = useTranslations("workflows");
   const allT = useTranslations();
   const format = useFormatter();
-  const timeZone = useTimeZone();
-  const [inputError, setInputError] = useState("");
+  const [review, setReview] = useState<InterviewRecord | null>(null);
+  const [drafts, setDrafts] = useState<
+    Record<string, CompletionDraft | undefined>
+  >({});
   const utils = api.useUtils();
   const [accessDenied, setAccessDenied] = useState(false);
-  const [page, setPage] = useSessionViewState({ id: "interviews.page.v1", initialState: 0, parse: viewPage, enabled: !accessDenied });
-  const [search, setSearch] = useSessionViewState({ id: "interviews.search.v1", initialState: "", parse: viewSearch, enabled: !accessDenied });
+  const [recovering, setRecovering] = useState(false);
+  const recoveringRef = useRef(false);
+  const [page, setPage] = useSessionViewState({
+    id: "interviews.page.v1",
+    initialState: 0,
+    parse: viewPage,
+    enabled: !accessDenied,
+  });
+  const [search, setSearch] = useSessionViewState({
+    id: "interviews.search.v1",
+    initialState: "",
+    parse: viewSearch,
+    enabled: !accessDenied,
+  });
   const [searchDraft, setSearchDraft] = useState("");
   useEffect(() => setSearchDraft(search), [search]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -77,7 +103,12 @@ export function InterviewManagement({
       else next.add(id);
       return next;
     });
-  const [completion, setCompletion] = useSessionViewState({ id: "interviews.completion.v1", initialState: "OPEN", parse: viewEnum(["OPEN", "COMPLETED", "ALL"]), enabled: !accessDenied });
+  const [completion, setCompletion] = useSessionViewState({
+    id: "interviews.completion.v1",
+    initialState: "OPEN",
+    parse: viewEnum(["OPEN", "COMPLETED", "ALL"]),
+    enabled: !accessDenied,
+  });
   const data = api.interviewManagement.options.useQuery({
     page,
     search,
@@ -85,21 +116,71 @@ export function InterviewManagement({
   });
   const denied = useSessionAccessDenied(data);
   // The parent Applications page owns viewport position; nested history owns only its read controls.
-  useEffect(() => setAccessDenied(denied), [denied]);
   useEffect(() => {
-    onViewReadyChange?.(!!data.data, JSON.stringify([page, search, completion]), denied);
-  }, [!!data.data, page, search, completion, denied, onViewReadyChange]);
-  const complete = api.interviewManagement.complete.useMutation({
-    onSuccess: async () => {
-      setPage(0);
-      await Promise.all([
-        utils.interviewManagement.options.invalidate(),
-        utils.admin.tutorApplications.invalidate(),
-      ]);
-    },
-  });
-  if (denied || data.error) return <p role="alert">{data.error?.message ?? allT("uiPatterns.loadFailed")}</p>;
-  if (!data.data) return <p>{t("loading")}</p>;
+    if (denied) setAccessDenied(true);
+  }, [denied]);
+  useEffect(() => {
+    onViewReadyChange?.(
+      !!data.data && !accessDenied,
+      JSON.stringify([page, search, completion]),
+      denied || accessDenied,
+    );
+  }, [
+    !!data.data,
+    page,
+    search,
+    completion,
+    denied,
+    accessDenied,
+    onViewReadyChange,
+  ]);
+  const refresh = () =>
+    settleRefreshes([
+      () => invalidateAndReport(utils.interviewManagement.options),
+      () => invalidateAndReport(utils.admin.tutorApplications),
+      () => invalidateAndReport(utils.tutor.myInterviews),
+      () => invalidateAndReport(utils.admin.registrationCodes),
+    ]);
+  const recoverAccess = async () => {
+    if (recoveringRef.current) return;
+    recoveringRef.current = true;
+    setRecovering(true);
+    try {
+      // A successful cached read predating revocation is not recovery evidence.
+      const result = await data.refetch({ throwOnError: true });
+      if (result.error || !result.data)
+        throw new Error(allT("uiPatterns.loadFailed"));
+      setAccessDenied(false);
+    } catch {
+      setAccessDenied(true);
+    } finally {
+      recoveringRef.current = false;
+      setRecovering(false);
+    }
+  };
+  if (denied || accessDenied)
+    return (
+      <div className="space-y-3">
+        <p role="alert">{allT("interviewReview.accessDenied")}</p>
+        <Button
+          disabled={recovering || data.isFetching}
+          onClick={() => void recoverAccess()}
+        >
+          {allT("interviewReview.refreshOnly")}
+        </Button>
+      </div>
+    );
+  if (!data.data)
+    return data.error ? (
+      <p role="alert">
+        {data.error.message}{" "}
+        <Button onClick={() => void data.refetch()}>
+          {allT("interviewReview.refreshOnly")}
+        </Button>
+      </p>
+    ) : (
+      <p>{t("loading")}</p>
+    );
   const { applications } = data.data;
   const first = applications.total === 0 ? 0 : page * applications.pageSize + 1;
   const last = Math.min(applications.total, (page + 1) * applications.pageSize);
@@ -110,9 +191,21 @@ export function InterviewManagement({
       {!enabled && (
         <p className="muted card p-4">{t("interviewsDisabledHistory")}</p>
       )}
-      {inputError && <p role="alert">{inputError}</p>}
+      {data.error && (
+        <InlineNotice
+          tone="warning"
+          announcement="status"
+          action={
+            <Button onClick={() => void data.refetch()}>
+              {allT("interviewReview.refreshOnly")}
+            </Button>
+          }
+        >
+          {allT("uiPatterns.loadFailed")}
+        </InlineNotice>
+      )}
       <section className="space-y-3" aria-labelledby="interview-heading">
-        <h2 id="interview-heading" className="section-title">
+        <h2 id="interview-heading" tabIndex={-1} className="section-title">
           {t("interviewRecords")}
         </h2>
         <div className="card grid items-end gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto]">
@@ -239,103 +332,28 @@ export function InterviewManagement({
               >
                 {t("manageApplicantPanel")}
               </Link>
+              <InterviewWorkflowStatus application={a} />
               {a.isInvalid ? (
                 <div className="mt-3">
                   <InvalidityNotice />
                 </div>
               ) : a.interviewers.length === 0 ? (
                 <p className="muted mt-3 text-sm">{t("panelRequired")}</p>
-              ) : enabled ? (
-                <form
-                  key={a.interviewCompletedAt?.toISOString() ?? "open"}
-                  className="mt-4 space-y-4"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    const form = new FormData(event.currentTarget);
-                    try {
-                      setInputError("");
-                      complete.mutate({
-                        applicationId: a.id,
-                        durationMin: Number(form.get("duration")),
-                        completedAt: parseProgramDateTime(
-                          formText(form, "date"),
-                          timeZone,
-                        ),
-                        attendedTutorIds: formTexts(form, "attended"),
-                        reason: formText(form, "reason"),
-                      });
-                    } catch (error) {
-                      setInputError(
-                        error instanceof Error
-                          ? error.message
-                          : t("invalidDate"),
-                      );
-                    }
-                  }}
+              ) : enabled && a.status !== "RECALLED" ? (
+                <Button
+                  variant="primary"
+                  className="mt-4"
+                  disabled={!hoursEnabled || a.pendingCompletion}
+                  onClick={() => setReview(a)}
                 >
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <label>
-                      <span className="label">{t("interviewComplete")}</span>
-                      <input
-                        className="input w-full"
-                        type="datetime-local"
-                        name="date"
-                        required
-                        defaultValue={
-                          a.interviewCompletedAt
-                            ? programDateTimeInput(
-                                a.interviewCompletedAt,
-                                timeZone,
-                              )
-                            : undefined
-                        }
-                      />
-                    </label>
-                    <label>
-                      <span className="label">{t("duration")}</span>
-                      <input
-                        className="input w-full"
-                        type="number"
-                        name="duration"
-                        required
-                        min={1}
-                        max={480}
-                        defaultValue={a.interviewDurationMin ?? 30}
-                      />
-                    </label>
-                  </div>
-                  <fieldset>
-                    <legend className="label">{t("attended")}</legend>
-                    <div className="flex flex-wrap gap-4">
-                      {a.interviewers.map((panelist) => (
-                        <label
-                          className="flex min-h-11 items-center gap-2 lg:min-h-8"
-                          key={panelist.tutorId}
-                        >
-                          <input
-                            type="checkbox"
-                            name="attended"
-                            value={panelist.tutorId}
-                            defaultChecked={panelist.attended}
-                          />
-                          {currentName(panelist.tutor.englishName)}
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                  <label className="block">
-                    <span className="label">{t("decision")}</span>
-                    <input
-                      className="input w-full"
-                      name="reason"
-                      required
-                      maxLength={1000}
-                    />
-                  </label>
-                  <button className="btn-primary" disabled={complete.isPending}>
-                    {t("save")}
-                  </button>
-                </form>
+                  {allT(
+                    drafts[a.id]?.outcome
+                      ? "interviewReview.refreshOnly"
+                      : a.interviewCompletedAt
+                        ? "interviewReview.correct"
+                        : "interviewReview.record",
+                  )}
+                </Button>
               ) : null}
             </InterviewDisclosure>
           );
@@ -365,16 +383,64 @@ export function InterviewManagement({
           </button>
         </div>
       </section>
-      {complete.error?.data?.approvalId && (
-        <InlineNotice tone="warning" announcement="status">
-          {allT("approvals.queuedBody")}
-        </InlineNotice>
-      )}
-      {complete.error && !complete.error.data?.approvalId && (
-        <p role="alert">{complete.error?.message}</p>
+      {Object.entries(drafts)
+        .filter(([, draft]) => draft?.outcome && draft.evidence)
+        .map(([id, draft]) => (
+          <InlineNotice
+            key={id}
+            tone="warning"
+            announcement="status"
+            action={
+              <Button onClick={() => setReview(draft!.evidence!)}>
+                {allT("interviewReview.refreshOnly")}
+              </Button>
+            }
+          >
+            {draft!.evidence!.name}:{" "}
+            {allT(
+              draft!.outcome === "queued"
+                ? "interviewReview.queuedRefreshFailed"
+                : "interviewReview.refreshFailed",
+            )}
+          </InlineNotice>
+        ))}
+      {review && (
+        <InterviewCompletionReview
+          key={review.id}
+          application={
+            applications.rows.find((row) => row.id === review.id) ?? review
+          }
+          initialDraft={drafts[review.id]}
+          onAccessDenied={() => {
+            setReview(null);
+            setDrafts({});
+            setAccessDenied(true);
+          }}
+          refresh={refresh}
+          reload={async () => {
+            const current = await utils.interviewManagement.options.fetch({
+              page: 0,
+              search: "",
+              completion: "ALL",
+              applicationId: review.id,
+            });
+            const row = current.applications.rows.find(
+              (candidate) => candidate.id === review.id,
+            );
+            if (!row) throw new Error(allT("uiPatterns.loadFailed"));
+            return row;
+          }}
+          onClose={(draft) => {
+            setDrafts((current) => ({ ...current, [review.id]: draft }));
+            setReview(null);
+            requestAnimationFrame(() => {
+              if (document.activeElement === document.body)
+                document.getElementById("interview-heading")?.focus();
+            });
+          }}
+        />
       )}
       <p className="muted text-sm">{allT("approvals.reversalHelp")}</p>
-      {complete.isSuccess && <p role="status">{t("saved")}</p>}
     </div>
   );
 }

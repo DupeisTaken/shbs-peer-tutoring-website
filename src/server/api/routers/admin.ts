@@ -7,6 +7,7 @@ import {
   previewDeleteAccount,
 } from "~/server/delete-account";
 import { notificationEvent } from "~/lib/notification-events";
+import { clearInterviewHours } from "~/server/interview-hours";
 import { SESSION_FLAG_FILTERS } from "~/lib/session-flag-state";
 import { tutorWorkloads } from "~/server/tutor-workload";
 import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
@@ -3792,9 +3793,15 @@ export const adminRouter = createTRPCRouter({
         });
         if (upd.count === 0) staleConflict();
         await reconcileApplication(tx, input.applicationId);
-        await tx.serviceHourAdjustment.deleteMany({
-          where: { id: { startsWith: `interview_${input.applicationId}_` } },
+        const oldPanel = await tx.interviewAssignment.findMany({
+          where: { applicationId: input.applicationId },
+          select: { tutorId: true },
         });
+        await clearInterviewHours(
+          tx,
+          input.applicationId,
+          oldPanel.map((row) => row.tutorId),
+        );
         // Replacing a panel starts a fresh review; votes from its previous panel cannot decide it.
         await tx.interviewVote.deleteMany({
           where: { applicationId: input.applicationId },

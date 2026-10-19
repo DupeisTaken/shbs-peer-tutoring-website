@@ -82,11 +82,10 @@ import { MyInterviews } from "./my-interviews";
 function show() {
   const view = render(<MyInterviews />);
   // Inspect completed evidence by deliberately expanding its retained disclosure.
-  const details = view.container.querySelector("details");
-  if (details) {
-    details.open = true;
-    fireEvent(details, new Event("toggle"));
-  }
+  const menu = screen.queryByRole("button", {
+    name: "interviewReview.completed",
+  });
+  if (menu) fireEvent.click(menu);
   return view;
 }
 

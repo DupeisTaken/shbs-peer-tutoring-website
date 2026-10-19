@@ -1,5 +1,8 @@
 "use client";
-import { HEAD_APPROVAL_OPERATIONS } from "~/lib/approval-policy";
+import {
+  HEAD_APPROVAL_OPERATIONS,
+  APPROVAL_OPERATIONS,
+} from "~/lib/approval-policy";
 
 import Link from "next/link";
 import { isAssignmentOperation } from "~/lib/assignment-qualification";
@@ -20,6 +23,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import SuperJSON from "superjson";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
@@ -41,7 +45,7 @@ function RequestCard({
   request: Request;
   canReview: boolean;
   canCancel: boolean;
-  onChanged: () => Promise<void>;
+  onChanged: (operation?: string) => Promise<void>;
 }) {
   const t = useTranslations("approvals");
   const editing = useTranslations("signupEditing");
@@ -62,10 +66,12 @@ function RequestCard({
       setConfirming(false);
       setPassword("");
       setOverrideReview(null);
-      await onChanged();
+      await onChanged(request.operation);
     },
   });
-  const cancel = api.approval.cancel.useMutation({ onSuccess: onChanged });
+  const cancel = api.approval.cancel.useMutation({
+    onSuccess: () => onChanged(request.operation),
+  });
   const pending = request.state === "PENDING";
   const busy = decision.isPending || cancel.isPending;
   const payload: unknown = SuperJSON.deserialize(
@@ -433,6 +439,7 @@ function ApprovalQueue({
     if (next.requesterId) search.set("requester", next.requesterId);
     router.replace(`/admin/approvals?${search.toString()}`, { scroll: false });
   };
+  const utils = api.useUtils();
   const queue = api.approval.list.useQuery({
     state: requestId ? undefined : state || undefined,
     page: requestId ? 0 : page,
@@ -454,8 +461,26 @@ function ApprovalQueue({
     ready: !!queue.data,
     enabled: !denied,
   });
-  const refresh = async () => {
-    await queue.refetch();
+  const refresh = async (operation?: string) => {
+    const reads = [
+      async () => {
+        await queue.refetch();
+      },
+    ];
+    // An applied/rejected/cancelled application proposal changes the same evidence
+    // used by tutor history and task counts, even while those pages are inactive.
+    if (
+      operation &&
+      APPROVAL_OPERATIONS[operation] === "TutorApplication"
+    ) {
+      reads.push(
+        () => utils.tutor.myInterviews.invalidate(),
+        () => utils.interviewManagement.options.invalidate(),
+        () => utils.admin.tutorApplications.invalidate(),
+        () => utils.admin.registrationCodes.invalidate(),
+      );
+    }
+    await settleRefreshes(reads);
   };
   if (denied)
     return <p role="alert">{queue.error?.message ?? ui("loadFailed")}</p>;

@@ -488,7 +488,11 @@ export default function ApplicationsPage() {
   // synchronization. Other callers retain their existing refresh behavior.
   const invalidate = (reportErrors = false) =>
     settleRefreshes(
-      [utils.admin.tutorApplications, utils.interviewManagement.options].map(
+      [
+        utils.admin.tutorApplications,
+        utils.interviewManagement.options,
+        utils.tutor.myInterviews,
+      ].map(
         (view) => () =>
           reportErrors ? invalidateAndReport(view) : view.invalidate(),
       ),
@@ -677,6 +681,7 @@ export default function ApplicationsPage() {
             <InterviewManagement
               onViewReadyChange={onInterviewView}
               enabled={features.data.INTERVIEWS}
+              hoursEnabled={features.data.SERVICE_HOURS}
               onManageApplicant={() => {
                 setFilters(emptyApplicationFilters);
                 setInvalidity("all");

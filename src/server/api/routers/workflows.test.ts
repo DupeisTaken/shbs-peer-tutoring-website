@@ -28,6 +28,10 @@ import { databaseScope } from "~/server/db-scope";
 import { lockEntity } from "~/server/transactions";
 import * as audit from "~/server/audit/log";
 import { availableSubjectIds } from "~/server/subject-willingness";
+import {
+  INTERVIEW_HOURS_REASON,
+  interviewHoursId,
+} from "~/server/interview-hours";
 
 const password = "ReviewPassword123!";
 
@@ -3418,6 +3422,725 @@ it("interview completion awards only attendees, and a correction replaces credit
   const rows = await db.serviceHourAdjustment.findMany();
   expect(rows).toHaveLength(1);
   expect(rows[0]!.amount).toBe(0.75);
+});
+
+it("interview completion rejects stale reviewed evidence but retries identical evidence without replacing credit", async () => {
+  const { app, panel } = await interviewFixture();
+  const current = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+  });
+  const input = {
+    applicationId: app.id,
+    durationMin: 30,
+    completedAt: new Date("2026-09-15T04:00:00Z"),
+    attendedTutorIds: panel.map((p) => p.id),
+    reason: "Reviewed completion",
+    expectedUpdatedAt: current.updatedAt,
+  };
+  await caller().interviewManagement.complete(input);
+  const credits = await db.serviceHourAdjustment.findMany({
+    orderBy: { id: "asc" },
+  });
+  const recorded = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+  });
+  await caller().interviewManagement.complete(input);
+  expect(
+    await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
+  ).toEqual(credits);
+  expect(
+    (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
+      .updatedAt,
+  ).toEqual(recorded.updatedAt);
+  await expect(
+    caller().interviewManagement.complete({ ...input, durationMin: 45 }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(
+    await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
+  ).toEqual(credits);
+});
+
+it("Admin lost-response completion retry returns its receipt while changed evidence still queues Head review", async () => {
+  const { app, panel } = await interviewFixture();
+  const current = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+  });
+  const admin = caller("ADMIN", "panel-user-0", panel[0]!.id);
+  const input = {
+    applicationId: app.id,
+    durationMin: 30,
+    completedAt: new Date("2026-09-15T04:00:00Z"),
+    attendedTutorIds: panel.map((p) => p.id),
+    reason: "Verified attendance",
+    expectedUpdatedAt: current.updatedAt,
+  };
+  await admin.interviewManagement.complete(input);
+  const credits = await db.serviceHourAdjustment.findMany({
+    orderBy: { id: "asc" },
+  });
+  await expect(admin.interviewManagement.complete(input)).resolves.toEqual({
+    ok: true,
+  });
+  expect(await db.approvalRequest.count()).toBe(0);
+  expect(
+    await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
+  ).toEqual(credits);
+  const recorded = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+  });
+  await expect(
+    admin.interviewManagement.complete({
+      ...input,
+      durationMin: 45,
+      expectedUpdatedAt: recorded.updatedAt,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(
+    await db.approvalRequest.count({
+      where: { operation: "interviewManagement.complete", state: "PENDING" },
+    }),
+  ).toBe(1);
+  expect(
+    await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
+  ).toEqual(credits);
+});
+
+it("Coordinator completion proposals deduplicate, replay on approval, and retry as exact receipts", async () => {
+  const { app, panel } = await interviewFixture();
+  await db.user.update({
+    where: { id: "review-viewer" },
+    data: { role: "COORDINATOR" },
+  });
+  const coordinator = caller("COORDINATOR", "review-viewer");
+  const current = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+  });
+  const input = {
+    applicationId: app.id,
+    durationMin: 30,
+    completedAt: new Date("2026-09-15T04:00:00Z"),
+    attendedTutorIds: panel.map((p) => p.id),
+    reason: "Coordinator checked attendance",
+    expectedUpdatedAt: current.updatedAt,
+  };
+  for (let attempt = 0; attempt < 2; attempt++)
+    await expect(
+      coordinator.interviewManagement.complete(input),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.serviceHourAdjustment.count()).toBe(0);
+  expect(await db.approvalRequest.count()).toBe(1);
+  const request = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "interviewManagement.complete", state: "PENDING" },
+  });
+  await caller().approval.decide({
+    id: request.id,
+    approve: true,
+    note: "Reviewed original completion evidence",
+  });
+  const credits = await db.serviceHourAdjustment.findMany({
+    orderBy: { id: "asc" },
+  });
+  expect(credits).toHaveLength(3);
+  await expect(
+    coordinator.interviewManagement.complete(input),
+  ).resolves.toEqual({ ok: true });
+  expect(await db.approvalRequest.count()).toBe(1);
+  expect(
+    await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
+  ).toEqual(credits);
+  // Missing credit is a correction even when every form field still matches;
+  // Coordinator cannot recreate it through the receipt exception.
+  await db.serviceHourAdjustment.delete({ where: { id: credits[0]!.id } });
+  const recorded = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+  });
+  await expect(
+    coordinator.interviewManagement.complete({
+      ...input,
+      expectedUpdatedAt: recorded.updatedAt,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.serviceHourAdjustment.count()).toBe(2);
+  expect(
+    await db.approvalRequest.count({
+      where: { operation: "interviewManagement.complete", state: "PENDING" },
+    }),
+  ).toBe(1);
+});
+
+it("Coordinator receipt retry cannot overwrite a correction committed while it waits for the source lock", async () => {
+  const { app, panel } = await interviewFixture();
+  await db.user.update({
+    where: { id: "review-viewer" },
+    data: { role: "COORDINATOR" },
+  });
+  const input = {
+    applicationId: app.id,
+    durationMin: 30,
+    completedAt: new Date("2026-09-15T04:00:00Z"),
+    attendedTutorIds: panel.map((p) => p.id),
+    reason: "Verified attendance",
+  };
+  await caller().interviewManagement.complete(input);
+  let pending: Promise<unknown> | undefined;
+  await db
+    .$transaction(async (tx) => {
+      await lockEntity(tx, `interview:${app.id}`);
+      await tx.$queryRaw`SELECT id FROM "TutorApplication" WHERE id=${app.id} FOR UPDATE`;
+      pending = caller("COORDINATOR", "review-viewer")
+        .interviewManagement.complete(input)
+        .then(
+          () => "unexpected success",
+          (error: unknown) => error,
+        );
+      let waiting = false;
+      const deadline = Date.now() + 2000;
+      while (!waiting && Date.now() < deadline) {
+        const [state] = await tx.$queryRaw<
+          { waiting: boolean }[]
+        >`SELECT EXISTS (SELECT 1 FROM pg_locks WHERE NOT granted AND pg_backend_pid() = ANY(pg_blocking_pids(pid))) AS waiting`;
+        waiting = state!.waiting;
+        if (!waiting) await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      expect(waiting).toBe(true);
+      await databaseScope.run(tx, () =>
+        caller().interviewManagement.complete({
+          ...input,
+          durationMin: 45,
+          reason: "Head reviewed correction",
+        }),
+      );
+    })
+    .finally(async () => {
+      await pending;
+    });
+  expect(await pending).toMatchObject({ code: "CONFLICT" });
+  expect(
+    (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
+      .interviewDurationMin,
+  ).toBe(45);
+  expect(
+    (await db.serviceHourAdjustment.findMany()).every(
+      (row) => row.amount === 0.75,
+    ),
+  ).toBe(true);
+  expect(await db.approvalRequest.count()).toBe(0);
+});
+
+it("concurrent interview completion creates one credit set and a retry preserves the winning evidence", async () => {
+  const { app, panel } = await interviewFixture();
+  const input = {
+    applicationId: app.id,
+    durationMin: 30,
+    completedAt: new Date("2026-09-15T04:00:00Z"),
+    attendedTutorIds: panel.map((p) => p.id),
+    reason: "Concurrent reviewed completion",
+  };
+  const results = await Promise.allSettled([
+    caller().interviewManagement.complete(input),
+    caller().interviewManagement.complete(input),
+  ]);
+  expect(results.some((result) => result.status === "fulfilled")).toBe(true);
+  // Serializable authority snapshots may reject a contender; a fresh identical retry
+  // must always be safe and must not rebuild the winner's original credit rows.
+  const credits = await db.serviceHourAdjustment.findMany({
+    orderBy: { id: "asc" },
+  });
+  expect(credits).toHaveLength(3);
+  await caller().interviewManagement.complete(input);
+  expect(
+    await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
+  ).toEqual(credits);
+});
+
+it("interview corrections and panel replacement preserve manual and prefix-neighbor source credits", async () => {
+  const { app, panel } = await interviewFixture();
+  const neighborId = `${app.id}_neighbor`;
+  await db.tutorApplication.create({
+    data: {
+      id: neighborId,
+      name: "Other interview",
+      email: "other-interview@example.test",
+      status: "INTERVIEW",
+    },
+  });
+  const preserved = await db.serviceHourAdjustment.createManyAndReturn({
+    data: [
+      {
+        id: interviewHoursId(neighborId, panel[0]!.id),
+        tutorId: panel[0]!.id,
+        month: "2026-09",
+        schoolYear: "26-27",
+        quarter: "Q1",
+        type: "EXTRA",
+        amount: 2,
+        reason: INTERVIEW_HOURS_REASON,
+      },
+      {
+        id: `interview_${app.id}_manual`,
+        tutorId: panel[0]!.id,
+        month: "2026-09",
+        schoolYear: "26-27",
+        quarter: "Q1",
+        type: "EXTRA",
+        amount: 1,
+        reason: "Manual staff correction",
+      },
+    ],
+  });
+  const input = {
+    applicationId: app.id,
+    durationMin: 30,
+    completedAt: new Date("2026-09-15T04:00:00Z"),
+    attendedTutorIds: panel.map((p) => p.id),
+    reason: "Verified",
+  };
+  await caller().interviewManagement.complete(input);
+  await caller().interviewManagement.complete({
+    ...input,
+    durationMin: 45,
+    attendedTutorIds: [panel[0]!.id],
+  });
+  const current = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+  });
+  await caller().admin.assignInterviewers({
+    applicationId: app.id,
+    tutorIds: panel.map((p) => p.id),
+    headTutorId: panel[0]!.id,
+    expectedUpdatedAt: current.updatedAt,
+  });
+  expect(
+    await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
+  ).toEqual(preserved.sort((a, b) => a.id.localeCompare(b.id)));
+});
+
+it("interview completion refuses deterministic identifier collisions without changing evidence", async () => {
+  const { app, panel } = await interviewFixture();
+  const existing = await db.serviceHourAdjustment.create({
+    data: {
+      id: interviewHoursId(app.id, panel[0]!.id),
+      tutorId: "review-tutor",
+      month: "2026-09",
+      schoolYear: "26-27",
+      quarter: "Q1",
+      type: "EXTRA",
+      amount: 4,
+      reason: "Manual credit owns this ID",
+    },
+  });
+  await expect(
+    caller().interviewManagement.complete({
+      applicationId: app.id,
+      durationMin: 30,
+      completedAt: new Date("2026-09-15"),
+      attendedTutorIds: panel.map((p) => p.id),
+      reason: "Verified",
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await db.serviceHourAdjustment.findMany()).toEqual([existing]);
+  expect(
+    (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
+      .interviewCompletedAt,
+  ).toBeNull();
+});
+
+it("Head-reviewed interview correction retains original period and exposes pending completion without live changes", async () => {
+  const { app, panel } = await interviewFixture();
+  const input = {
+    applicationId: app.id,
+    durationMin: 30,
+    completedAt: new Date("2026-09-15T04:00:00Z"),
+    attendedTutorIds: panel.map((p) => p.id),
+    reason: "Verified",
+  };
+  await caller().interviewManagement.complete(input);
+  await db.term.update({
+    where: { id: "review-term" },
+    data: { active: false },
+  });
+  await db.term.create({
+    data: {
+      name: "Later quarter",
+      schoolYear: "26-27",
+      quarter: "Q2",
+      active: true,
+    },
+  });
+  const current = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+  });
+  const correction = {
+    ...input,
+    durationMin: 45,
+    attendedTutorIds: [panel[0]!.id],
+    expectedUpdatedAt: current.updatedAt,
+  };
+  await expect(
+    caller("ADMIN", "panel-user-0", panel[0]!.id).interviewManagement.complete(
+      correction,
+    ),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.serviceHourAdjustment.count()).toBe(3);
+  const summary = (
+    await caller().interviewManagement.options({ completion: "COMPLETED" })
+  ).applications.rows.find((row) => row.id === app.id)!;
+  expect(summary).toMatchObject({
+    pendingCompletion: true,
+    pendingDecision: false,
+    interviewDurationMin: 30,
+  });
+  const request = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "interviewManagement.complete", state: "PENDING" },
+  });
+  await caller().approval.decide({
+    id: request.id,
+    approve: true,
+    note: "Checked original interview evidence",
+  });
+  expect(await db.serviceHourAdjustment.findMany()).toEqual([
+    expect.objectContaining({
+      tutorId: panel[0]!.id,
+      amount: 0.75,
+      schoolYear: "26-27",
+      quarter: "Q1",
+    }),
+  ]);
+});
+
+it("recalled interview completion is rejected and completion rolls back with its transaction", async () => {
+  const { app, panel } = await interviewFixture();
+  const input = {
+    applicationId: app.id,
+    durationMin: 30,
+    completedAt: new Date("2026-09-15"),
+    attendedTutorIds: panel.map((p) => p.id),
+    reason: "Verified",
+  };
+  const recalled = await db.tutorApplication.create({
+    data: {
+      name: "Recalled qualification",
+      email: "recalled-qualification@example.test",
+      type: "HIGHER_LEVEL",
+      status: "RECALLED",
+      requestedTutorId: "review-tutor",
+      requestedSubjectId: "review-subject",
+      qualificationReason: "Historical request evidence",
+      recalledAt: new Date(),
+      recalledById: "review-head",
+    },
+  });
+  await expect(
+    caller().interviewManagement.complete({
+      ...input,
+      applicationId: recalled.id,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.serviceHourAdjustment.count()).toBe(0);
+  await expect(
+    db.$transaction((tx) =>
+      databaseScope.run(tx, async () => {
+        await caller().interviewManagement.complete(input);
+        throw new Error("later completion failure");
+      }),
+    ),
+  ).rejects.toThrow("later completion failure");
+  expect(await db.serviceHourAdjustment.count()).toBe(0);
+  expect(
+    await db.interviewAssignment.count({
+      where: { applicationId: app.id, attended: true },
+    }),
+  ).toBe(0);
+  expect(
+    (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
+      .interviewCompletedAt,
+  ).toBeNull();
+});
+
+it("interview completion and approved acceptance stay independent and ordinary tutors see only their actual credit", async () => {
+  const { app, panel } = await interviewFixture();
+  await caller().interviewManagement.complete({
+    applicationId: app.id,
+    durationMin: 45,
+    completedAt: new Date("2026-09-15"),
+    attendedTutorIds: [panel[1]!.id],
+    reason: "Recorded attendance",
+  });
+  expect(
+    (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
+      .status,
+  ).toBe("INTERVIEW");
+  expect(await db.registrationCode.count()).toBe(0);
+  for (let i = 0; i < 3; i++)
+    await caller(
+      i === 0 ? "ADMIN" : "TUTOR",
+      `panel-user-${i}`,
+      panel[i]!.id,
+    ).tutor.castInterviewVote({ applicationId: app.id, accept: true });
+  const current = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+  });
+  await expect(
+    caller("ADMIN", "panel-user-0", panel[0]!.id).tutor.decideInterview({
+      applicationId: app.id,
+      accept: true,
+      comment: "All panelists recommend acceptance",
+      expectedUpdatedAt: current.updatedAt,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const pending = (
+    await caller().interviewManagement.options({
+      completion: "ALL",
+      applicationId: app.id,
+    })
+  ).applications.rows;
+  expect(pending).toHaveLength(1);
+  expect(pending[0]).toMatchObject({
+    pendingDecision: true,
+    registration: { state: "pendingDecision", href: null },
+  });
+  const ordinary = await caller(
+    "TUTOR",
+    "panel-user-1",
+    panel[1]!.id,
+  ).tutor.myInterviews();
+  expect(ordinary[0]).toMatchObject({
+    interviewDurationMin: 45,
+    interviewCompletedAt: new Date("2026-09-15"),
+    myAwardedHours: 0.75,
+    pendingDecision: true,
+  });
+  expect(ordinary[0]).not.toHaveProperty("registration");
+  expect(ordinary[0]).not.toHaveProperty("promotedTutorId");
+  expect(
+    (
+      await caller("TUTOR", "panel-user-2", panel[2]!.id).tutor.myInterviews()
+    )[0]?.myAwardedHours,
+  ).toBe(0);
+  expect(await tutor().tutor.myInterviews()).toEqual([]);
+  const proposal = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "tutor.decideInterview", state: "PENDING" },
+  });
+  await caller().approval.decide({
+    id: proposal.id,
+    approve: true,
+    note: "Approved decision independently of service completion",
+  });
+  const accepted = (
+    await caller().interviewManagement.options({
+      completion: "ALL",
+      applicationId: app.id,
+    })
+  ).applications.rows[0]!;
+  expect(accepted).toMatchObject({
+    status: "ACCEPTED",
+    interviewDurationMin: 45,
+    pendingDecision: false,
+    registration: { state: "codeActive" },
+  });
+  expect(await db.serviceHourAdjustment.count()).toBe(1);
+  const code = await db.registrationCode.findFirstOrThrow({
+    where: { applicationId: app.id },
+  });
+  expect(accepted.registration.href).toBe(
+    `/admin/registration-codes#registration-code-${code.id}`,
+  );
+  expect(JSON.stringify(accepted)).not.toContain(code.code);
+});
+
+it.each(["ACCEPTED", "REJECTED"] as const)(
+  "%s before completion preserves admission and invitation state while selected attendees earn hours",
+  async (status) => {
+    const { app, panel } = await interviewFixture();
+    await db.tutorApplication.update({
+      where: { id: app.id },
+      data: { status },
+    });
+    await db.$transaction((tx) => reconcileApplication(tx, app.id));
+    await db.$transaction((tx) => reconcileApplication(tx, app.id));
+    const invitations = await db.registrationCode.findMany({
+      where: { applicationId: app.id },
+    });
+    expect(invitations).toHaveLength(status === "ACCEPTED" ? 1 : 0);
+    await caller().interviewManagement.complete({
+      applicationId: app.id,
+      durationMin: 30,
+      completedAt: new Date("2026-09-15"),
+      attendedTutorIds: [panel[1]!.id],
+      reason: "Actual attendance independent of decision",
+    });
+    expect(
+      await db.registrationCode.findMany({ where: { applicationId: app.id } }),
+    ).toEqual(invitations);
+    expect(
+      (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
+        .status,
+    ).toBe(status);
+    expect(await db.serviceHourAdjustment.findMany()).toEqual([
+      expect.objectContaining({ tutorId: panel[1]!.id, amount: 0.5 }),
+    ]);
+  },
+);
+
+it("management registration summary uses applied state and application-linked code metadata without provisioning", async () => {
+  const { app } = await interviewFixture();
+  const read = async () =>
+    (
+      await caller().interviewManagement.options({
+        completion: "ALL",
+        applicationId: app.id,
+      })
+    ).applications.rows[0]!;
+  expect((await read()).registration.state).toBe("pendingDecision");
+  await db.tutorApplication.update({
+    where: { id: app.id },
+    data: { status: "REJECTED" },
+  });
+  expect((await read()).registration.state).toBe("notEligible");
+  const qualification = await db.tutorApplication.create({
+    data: {
+      name: "Approved qualification",
+      email: "approved-qualification@example.test",
+      type: "ADDITIONAL_SUBJECT",
+      status: "ACCEPTED",
+      requestedTutorId: "review-tutor",
+      requestedSubjectId: "review-subject",
+      qualificationReason: "Additional qualification evidence",
+      decisionComment: "Granted qualifications",
+    },
+  });
+  expect(
+    (
+      await caller().interviewManagement.options({
+        completion: "ALL",
+        applicationId: qualification.id,
+      })
+    ).applications.rows[0]?.registration.state,
+  ).toBe("qualification");
+  const pendingQualification = await db.tutorApplication.create({
+    data: {
+      name: "Pending higher level",
+      email: "pending-higher@example.test",
+      type: "HIGHER_LEVEL",
+      requestedTutorId: "review-tutor",
+      requestedSubjectId: "review-subject",
+      qualificationReason: "Pending additional qualification evidence",
+    },
+  });
+  expect(
+    (
+      await caller().interviewManagement.options({
+        completion: "ALL",
+        applicationId: pendingQualification.id,
+      })
+    ).applications.rows[0]?.registration,
+  ).toEqual({ state: "qualification", href: null });
+  await db.tutorApplication.update({
+    where: { id: app.id },
+    data: { status: "ACCEPTED" },
+  });
+  expect((await read()).registration.state).toBe("followUp");
+  // An unrelated invitation sharing an email is never evidence for this application.
+  await db.registrationCode.create({
+    data: {
+      code: "ZZZZZ",
+      email: app.email,
+      expiresAt: new Date(Date.now() + 3600000),
+    },
+  });
+  expect((await read()).registration.state).toBe("followUp");
+  const code = await db.registrationCode.create({
+    data: {
+      code: "ABCDE",
+      applicationId: app.id,
+      expiresAt: new Date(Date.now() + 3600000),
+      pendingEmail: "private-challenge@example.test",
+      emailCodeHash: "SECRET_HASH",
+    },
+  });
+  expect((await read()).registration).toEqual({
+    state: "codeActive",
+    href: `/admin/registration-codes#registration-code-${code.id}`,
+  });
+  await db.registrationCode.update({
+    where: { id: code.id },
+    data: { expiresAt: new Date(0) },
+  });
+  expect((await read()).registration.state).toBe("codeExpired");
+  await db.registrationCode.update({
+    where: { id: code.id },
+    data: { usedAt: new Date() },
+  });
+  expect((await read()).registration.state).toBe("codeUsed");
+  await db.tutorApplication.update({
+    where: { id: app.id },
+    data: { promotedTutorId: "review-tutor" },
+  });
+  expect((await read()).registration).toEqual({
+    state: "setupAvailable",
+    href: "/admin/users",
+  });
+  await db.user.update({
+    where: { id: "review-user" },
+    data: { tutorAccessRevoked: true },
+  });
+  expect((await read()).registration.state).toBe("codeUsed");
+  const serialized = JSON.stringify(await read());
+  for (const privateValue of [
+    "ABCDE",
+    "SECRET_HASH",
+    "private-challenge@example.test",
+    "emailCodeHash",
+    "passwordHash",
+  ])
+    expect(serialized).not.toContain(privateValue);
+  expect(await db.registrationCode.count()).toBe(2);
+  expect(await db.accountInvitation.count()).toBe(0);
+  expect(
+    (
+      await caller().interviewManagement.options({
+        completion: "ALL",
+        applicationId: "missing-application",
+      })
+    ).applications.rows,
+  ).toEqual([]);
+});
+
+it("completion validates actual evidence and live panel without partial records", async () => {
+  const { app, panel } = await interviewFixture();
+  const input = {
+    applicationId: app.id,
+    durationMin: 30,
+    completedAt: new Date("2026-09-15"),
+    attendedTutorIds: [panel[0]!.id],
+    reason: "Actual evidence",
+  };
+  for (const invalid of [
+    { durationMin: 0 },
+    { durationMin: 481 },
+    { durationMin: 30.5 },
+    { attendedTutorIds: [] },
+    { attendedTutorIds: [panel[0]!.id, panel[0]!.id] },
+    { attendedTutorIds: ["unassigned-tutor"] },
+    { completedAt: new Date(Date.now() + 86_400_000) },
+  ])
+    await expect(
+      caller().interviewManagement.complete({ ...input, ...invalid }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await db.tutorQualification.deleteMany();
+  await expect(
+    caller().interviewManagement.complete(input),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.serviceHourAdjustment.count()).toBe(0);
+  expect(
+    await db.interviewAssignment.count({
+      where: { applicationId: app.id, attended: true },
+    }),
+  ).toBe(0);
+  expect(
+    (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
+      .interviewCompletedAt,
+  ).toBeNull();
 });
 
 it("interview management paginates open and completed panel history", async () => {

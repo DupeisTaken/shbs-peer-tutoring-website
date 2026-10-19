@@ -1352,7 +1352,28 @@ Room-block review summaries use immutable payload/target evidence, not current r
 
 Attendance and crew patrol treat room IDs as opaque nonempty strings, including legacy/imported keys; a CUID generation default is not a restriction on stored IDs. The shared [room-reference check](../src/server/room-references.ts) verifies effective physical rooms inside the write transaction and holds key-share row locks through commit. Unknown/deleted rooms return a room-specific error before attendance, observations or credits are written. Online attendance needs no room, while omitted/null physical-room overrides retain the pairing default. Accepted submission retries return their existing receipt before this check, preserving replay after catalogue changes. No ID migration or frontend change is required.
 
-The [hour calculator](../src/lib/service-hours.ts) owns session rounding; use the [policy examples](../prisma/policies/tutor-policy.en.md#iii-service-hours-accrual) rather than ordinary nearest-half-hour rounding. Completed interviews credit actual duration. Meeting deductions use the semester allowance in [meeting-hours.ts](../src/server/meeting-hours.ts); corrections recompute system credits while preserving manual adjustments.
+The [hour calculator](../src/lib/service-hours.ts) owns session rounding; use the [policy examples](../prisma/policies/tutor-policy.en.md#iii-service-hours-accrual) rather than ordinary nearest-half-hour rounding. Completed interviews credit actual duration. The management completion adapter separates
+editing, credit review and final application, keeps cancelled/failed drafts with their
+captured `updatedAt`, and provides read-only synchronization recovery after successful
+writes. The completion transaction locks the application, rejects recalled/invalid
+requests and stale changed evidence, and uses exact deterministic credit IDs plus
+owner/type/reason checks in [interview hours](../src/server/interview-hours.ts). Identical
+already-applied evidence is idempotent; panel replacement uses the same source boundary.
+Corrections preserve original school year/quarter while the completion month follows
+the recorded actual datetime. Unrelated manual credits are never prefix-deleted.
+
+Management reads project existing application-linked invitation state and verified tutor
+setup without issuing or revealing codes. Applied acceptance retains existing reconciliation
+and timing; completion never triggers admission or provision. Pending decision/completion
+approval metadata is separate from applied evidence. Tutor reads expose completion and
+only the caller’s actual source credit, with no invitation/setup data. The shared
+[interview ordering](../src/lib/interview-order.ts) helper copies query results and sorts
+valid open schedules ascending (unscheduled last), paused open work next, then terminal
+history by decision/update descending and stable IDs. The tutor section keeps a flat keyed
+list mounted through collapse, history toggles and reorder, and shares the same query cache
+as task counts; only applied server outcomes move records between groups.
+
+Meeting deductions use the semester allowance in [meeting-hours.ts](../src/server/meeting-hours.ts); corrections recompute system credits while preserving manual adjustments.
 
 [Disciplinary standing](../src/lib/discipline.ts) counts valid cards: three yellows contribute one effective red. With discipline enabled, an unexcused tutee absence produces a valid red; tutor-requested cards await review. At two effective reds, [removal synchronization](../src/server/discipline/removal.ts) immediately inactivates an active tutee and detaches current-term pairings without another approval. Pending appeals do not invalidate cards. Appeals close at the end of the fifth subsequent school day using the program timezone and calendar overrides. Invalidating a card recalculates standing; restoration requires the removal's status snapshot to remain current and eligible pairings to remain valid.
 

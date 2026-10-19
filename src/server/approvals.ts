@@ -14,6 +14,7 @@ import {
   proposalConfirmation,
 } from "~/lib/approval-policy";
 import { validateInterviewDecision } from "./interviews";
+import { isAppliedInterviewCompletion } from "./interview-hours";
 import { validateRoomBlockProposal } from "./room-block-proposals";
 import {
   historicalApplyInput,
@@ -66,6 +67,19 @@ export async function proposalAuthority(
     value && typeof value === "object"
       ? (value as Record<string, unknown>)
       : {};
+  // Reading an exact completion receipt makes no live change. Admin lost-response
+  // retries and Coordinator retries after review must not create correction proposals.
+  // The API rechecks this classification under the application's review lock.
+  if (
+    operation === "interviewManagement.complete" &&
+    (await isAppliedInterviewCompletion(client, value))
+  )
+    return {
+      category: "DAILY_OPERATION",
+      directRoles: ["COORDINATOR", "ADMIN", "HEAD"],
+      requesterRoles: ["COORDINATOR", "ADMIN", "HEAD"],
+      reviewerRoles: ["ADMIN", "HEAD"],
+    } satisfies ApprovalAuthority;
   // Catalogue restoration includes implicit archived offerings retained by group/level.
   // Lock before reading authority so proposal evidence and application see one catalogue.
   const catalogueOperation = [

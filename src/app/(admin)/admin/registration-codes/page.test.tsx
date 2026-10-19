@@ -380,3 +380,26 @@ it.each(["TUTOR", "CREW"] as const)(
     expect(screen.queryByText(messages.approvals.queuedBody)).toBeNull();
   },
 );
+
+it("reveals the authorized invitation selected by an incoming interview link without issuing a code", async () => {
+  window.history.replaceState(
+    null,
+    "",
+    "/admin/registration-codes#registration-code-invite",
+  );
+  show();
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("button", {
+          name: `${messages.admin.registrationCodes.collapse}: ${state.label}`,
+        })
+        .getAttribute("aria-expanded"),
+    ).toBe("true"),
+  );
+  expect(document.getElementById("registration-code-invite")?.hidden).toBe(
+    false,
+  );
+  expect(state.issue).not.toHaveBeenCalled();
+  window.history.replaceState(null, "", "/");
+});
