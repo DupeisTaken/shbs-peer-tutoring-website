@@ -21,7 +21,7 @@ type Operation =
 type Failure = { message: string; data?: { code?: string } };
 type Callbacks = {
   onSuccess?: () => unknown;
-  onError?: (error: Failure) => unknown;
+  onError?: (error: Failure, input?: { email: string }) => unknown;
   onSettled?: () => unknown;
 };
 const state = vi.hoisted(() => {
@@ -130,7 +130,13 @@ vi.mock("~/trpc/react", async () => {
         invite: mutation("invite"),
         cancelInvitation: mutation("cancel"),
         invitationStatus: {
-          useQuery: () => ({ data: null, refetch: state.invalidate }),
+          useQuery: () => ({
+            data: null,
+            refetch: async () => {
+              await state.invalidate();
+              return { data: null };
+            },
+          }),
         },
       },
     },
@@ -221,7 +227,12 @@ async function fail(operation: Operation) {
   const error = { message: "Write failed", data: { code: "CONFLICT" } };
   state.errors[operation] = error;
   await act(async () => {
-    await state.callbacks[operation]?.onError?.(error);
+    await state.callbacks[operation]?.onError?.(
+      error,
+      operation === "invite"
+        ? (state.mutations.invite!.mock.calls.at(-1)![0] as { email: string })
+        : undefined,
+    );
     await state.callbacks[operation]?.onSettled?.();
   });
   state.pending[operation] = false;
@@ -492,6 +503,17 @@ it.each(["en", "zh"] as const)(
     await fail("invite");
     view.rerender(ui(locale, false));
     expect(email.value).toBe("invited@example.test");
+    fireEvent.submit(email.closest("form")!);
+    expect(state.mutations.invite).toHaveBeenCalledOnce();
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: labels.tuteeHistory.refreshInvitation,
+        }),
+      );
+    });
+    expect(state.invalidate).toHaveBeenCalledOnce();
+    expect(state.mutations.invite).toHaveBeenCalledOnce();
     fireEvent.submit(email.closest("form")!);
     expect(state.mutations.invite).toHaveBeenCalledTimes(2);
     expect(state.mutations.invite!.mock.calls[1]![0]).toEqual(

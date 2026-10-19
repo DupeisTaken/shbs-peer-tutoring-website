@@ -4218,7 +4218,17 @@
     "verifyAgain": "Verify another code",
     "invitationCancelled": "Invitation cancelled. Existing credentials and completed history ownership are preserved.",
     "switchAccount": "Use another account",
-    "currentAcademicsOptional": "Current academic details are not required to view history. Original enrollment details remain alongside this section."
+    "currentAcademicsOptional": "Current academic details are not required to view history. Original enrollment details remain alongside this section.",
+    "invitation_PUBLISHED": "Le serveur de messagerie a accepté cette tentative et son invitation a été publiée. La réception dans la boîte de réception reste non confirmée ; les détails du lien actif sont affichés séparément.",
+    "invitation_DELIVERY_FAILED": "Le serveur de messagerie n’a pas accepté cette tentative. Aucune invitation existante n’a été remplacée.",
+    "invitation_SUPERSEDED": "Cette tentative a été remplacée ou annulée. Aucune nouvelle invitation n’a été publiée.",
+    "invitation_UNCERTAIN": "Le résultat de cette tentative n’est pas confirmé. Actualisez son état ou annulez l’invitation en attente avant tout nouvel envoi.",
+    "invitationAttemptRecipient": "Destinataire de la tentative : {email}",
+    "refreshInvitation": "Actualiser l’état de l’invitation",
+    "invitationRefreshFailed": "Impossible d’actualiser l’état. Actualisez-le avant un envoi ou une annulation ; votre brouillon est conservé.",
+    "invitationRefreshRequired": "Actualisez l’état avant une autre modification. Cette consultation n’envoie aucun nouvel e-mail.",
+    "invitationDenied": "Vous n’avez plus l’autorisation de consulter ou gérer cette invitation.",
+    "cancelInvitationHelp": "L’annulation révoque le lien actif et tout remplacement en attente. Les identifiants existants et la propriété historique déjà établie sont conservés."
   },
   "schoolDeparture": {
     "title": "School Departure",

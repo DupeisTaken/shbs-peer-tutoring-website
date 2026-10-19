@@ -4218,7 +4218,17 @@
     "verifyAgain": "Verify another code",
     "invitationCancelled": "Invitation cancelled. Existing credentials and completed history ownership are preserved.",
     "switchAccount": "Use another account",
-    "currentAcademicsOptional": "Current academic details are not required to view history. Original enrollment details remain alongside this section."
+    "currentAcademicsOptional": "Current academic details are not required to view history. Original enrollment details remain alongside this section.",
+    "invitation_PUBLISHED": "메일 서버가 이번 발송을 수락했고 초대 링크가 공개되었습니다. 받은편지함 도착은 확인되지 않았으며 현재 유효한 링크 정보는 별도로 표시됩니다.",
+    "invitation_DELIVERY_FAILED": "메일 서버가 이번 발송을 수락하지 않았습니다. 기존 초대는 교체되지 않았습니다.",
+    "invitation_SUPERSEDED": "이번 발송은 후속 작업으로 대체되거나 취소되었습니다. 새 초대는 공개되지 않았습니다.",
+    "invitation_UNCERTAIN": "이번 발송 결과가 아직 확인되지 않았습니다. 다시 보내기 전에 상태를 새로고침하거나 대기 중인 초대를 취소하세요.",
+    "invitationAttemptRecipient": "이번 수신 주소: {email}",
+    "refreshInvitation": "초대 상태 새로고침",
+    "invitationRefreshFailed": "초대 상태를 새로고침하지 못했습니다. 발송하거나 취소하기 전에 새로고침하세요. 초안은 유지됩니다.",
+    "invitationRefreshRequired": "다음 작업 전에 초대 상태를 새로고침하세요. 상태만 조회하며 이메일을 다시 보내지 않습니다.",
+    "invitationDenied": "이 초대를 보거나 관리할 권한이 없습니다.",
+    "cancelInvitationHelp": "취소하면 현재 초대 링크와 대기 중인 교체 초대가 모두 무효화됩니다. 기존 로그인 정보와 완료된 기록 소유권은 유지됩니다."
   },
   "schoolDeparture": {
     "title": "School Departure",

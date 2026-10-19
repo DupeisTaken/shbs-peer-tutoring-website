@@ -5,7 +5,14 @@ import { hashCode, registrationCompletionProof } from "./auth/registration";
 import { hashPassword } from "./auth/password";
 import { lockUsernameNamespace } from "./auth/username";
 import { emailSender, isEmailDeliveryAvailable } from "./email/sender";
-import { historyTokenDigest, requireHistoryManager } from "./tutee-history";
+import {
+  historyTokenDigest,
+  requireHistoryManager,
+  historyInvitationFingerprint,
+  historyInvitationReceipt,
+  supersedeHistoryInvitationAttempts,
+} from "./tutee-history";
+import { lockAccountProfile } from "./account-profile";
 import {
   inTransaction,
   lockEntity,
@@ -255,20 +262,36 @@ export async function completeHistoryAccount(
 /** Staff may see delivery metadata, never a token, OTP or password. Cancellation removes only
  * the outstanding grant, preserving accounts and ownership already explicitly established. */
 export async function historyInvitationStatus(db: DomainDb, tuteeId: string) {
-  return db.tuteeHistoryInvitation
-    .findUnique({
-      where: { tuteeId },
-      select: { email: true, expiresAt: true, tokenHash: true },
-    })
-    .then((row) =>
-      row
-        ? {
-            email: row.email,
-            expiresAt: row.expiresAt,
-            revision: historyTokenDigest(`revision:${row.tokenHash}`),
-          }
+  return inTransaction(db, async (tx) => {
+    // Reconciliation must not combine a predecessor from before publication with
+    // a terminal receipt from afterward. These read locks compose with cancellation.
+    await lockUsernameNamespace(tx);
+    await lockEntity(tx, `tutee:${tuteeId}`);
+    const [invitation, attempt] = await Promise.all([
+      tx.tuteeHistoryInvitation.findUnique({ where: { tuteeId } }),
+      tx.tuteeHistoryInvitationAttempt.findFirst({
+        where: { tuteeId },
+        orderBy: { sequence: "desc" },
+      }),
+    ]);
+    if (!invitation && !attempt) return null;
+    return {
+      invitation: invitation
+        ? { email: invitation.email, expiresAt: invitation.expiresAt }
         : null,
-    );
+      attempt: attempt
+        ? { ...historyInvitationReceipt(attempt), email: attempt.email }
+        : null,
+      // Cancellation approves the displayed live grant AND latest delivery intent.
+      // Publication or a later admission invalidates a stale editor's cancellation.
+      revision: historyTokenDigest(
+        JSON.stringify([
+          await historyInvitationFingerprint(tx, invitation),
+          attempt && [attempt.id, attempt.sequence, attempt.status],
+        ]),
+      ),
+    };
+  });
 }
 export async function cancelHistoryInvitation(
   db: DomainDb,
@@ -277,15 +300,22 @@ export async function cancelHistoryInvitation(
 ) {
   return inTransaction(db, async (tx) => {
     await lockUsernameNamespace(tx);
+    await lockAccountProfile(tx, actorId);
     await lockEntity(tx, `tutee:${input.tuteeId}`);
     await requireHistoryManager(tx, actorId);
     const current = await historyInvitationStatus(tx, input.tuteeId);
+    if (!current?.invitation && current?.attempt?.status !== "UNCERTAIN")
+      return { cancelled: false };
     if (current && current.revision !== input.revision)
       throw new TRPCError({ code: "CONFLICT", message: "HISTORY_STALE" });
+    const superseded = await supersedeHistoryInvitationAttempts(
+      tx,
+      input.tuteeId,
+    );
     const removed = await tx.tuteeHistoryInvitation.deleteMany({
       where: { tuteeId: input.tuteeId },
     });
-    if (removed.count)
+    if (removed.count || superseded.count)
       await tx.auditLog.create({
         data: {
           userId: actorId,
@@ -296,6 +326,6 @@ export async function cancelHistoryInvitation(
           action: "Cancelled historical record invitation",
         },
       });
-    return { cancelled: removed.count === 1 };
+    return { cancelled: removed.count === 1 || superseded.count > 0 };
   });
 }

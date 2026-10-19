@@ -4252,7 +4252,17 @@
     "verifyAgain": "Verify another code",
     "invitationCancelled": "Invitation cancelled. Existing credentials and completed history ownership are preserved.",
     "switchAccount": "Use another account",
-    "currentAcademicsOptional": "Current academic details are not required to view history. Original enrollment details remain alongside this section."
+    "currentAcademicsOptional": "Current academic details are not required to view history. Original enrollment details remain alongside this section.",
+    "invitation_PUBLISHED": "The mail server accepted this attempt and its invitation was published. Inbox delivery is unconfirmed; current link details are listed separately.",
+    "invitation_DELIVERY_FAILED": "The mail server did not accept this attempt. It did not replace an existing invitation.",
+    "invitation_SUPERSEDED": "This attempt was superseded or cancelled. It did not publish a new invitation.",
+    "invitation_UNCERTAIN": "The outcome of this attempt is not confirmed. Refresh its status, or cancel the pending invitation before sending again.",
+    "invitationAttemptRecipient": "Attempt recipient: {email}",
+    "refreshInvitation": "Refresh invitation status",
+    "invitationRefreshFailed": "Invitation status could not be refreshed. Refresh status before sending or cancelling; your draft is retained.",
+    "invitationRefreshRequired": "Refresh invitation status before another write. This only reads status and does not send another email.",
+    "invitationDenied": "You no longer have permission to view or manage this invitation.",
+    "cancelInvitationHelp": "Cancelling revokes the active invitation link and any pending replacement. Existing credentials and completed history ownership are preserved."
   },
   "schoolDeparture": {
     "title": "School Departure",

@@ -4252,7 +4252,17 @@
     "verifyAgain": "验证新的验证码",
     "invitationCancelled": "邀请已取消。已有账号和已完成关联的历史归属保持不变。",
     "switchAccount": "切换登录账号",
-    "currentAcademicsOptional": "查看历史记录不需要提供当前学业信息。原始报名信息保留在左侧或上方。"
+    "currentAcademicsOptional": "查看历史记录不需要提供当前学业信息。原始报名信息保留在左侧或上方。",
+    "invitation_PUBLISHED": "邮件服务器已接受本次发送，邀请链接已发布。尚未确认收件箱送达；当前有效链接的信息另行显示。",
+    "invitation_DELIVERY_FAILED": "邮件服务器未接受本次发送。本次操作未替换已有邀请。",
+    "invitation_SUPERSEDED": "本次发送已被后续操作取代或取消，未发布新邀请。",
+    "invitation_UNCERTAIN": "本次发送结果尚未确认。请刷新状态，或先取消待处理邀请，再重新发送。",
+    "invitationAttemptRecipient": "本次收件地址：{email}",
+    "refreshInvitation": "刷新邀请状态",
+    "invitationRefreshFailed": "无法刷新邀请状态。发送或取消前请先刷新；已保留您的草稿。",
+    "invitationRefreshRequired": "再次操作前请刷新邀请状态。刷新仅查询状态，不会再次发送邮件。",
+    "invitationDenied": "您已无权查看或管理此邀请。",
+    "cancelInvitationHelp": "取消操作会撤销当前有效的邀请链接及所有待处理的替换邀请。已有登录凭据和已完成的历史归属不会受影响。"
   },
   "schoolDeparture": {
     "title": "离校状态",

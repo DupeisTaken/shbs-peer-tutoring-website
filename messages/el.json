@@ -4218,7 +4218,17 @@
     "verifyAgain": "Verify another code",
     "invitationCancelled": "Invitation cancelled. Existing credentials and completed history ownership are preserved.",
     "switchAccount": "Use another account",
-    "currentAcademicsOptional": "Current academic details are not required to view history. Original enrollment details remain alongside this section."
+    "currentAcademicsOptional": "Current academic details are not required to view history. Original enrollment details remain alongside this section.",
+    "invitation_PUBLISHED": "Ο διακομιστής αλληλογραφίας δέχθηκε αυτή την προσπάθεια και η πρόσκληση δημοσιεύτηκε. Η παράδοση στα εισερχόμενα δεν έχει επιβεβαιωθεί· τα στοιχεία του ενεργού συνδέσμου εμφανίζονται χωριστά.",
+    "invitation_DELIVERY_FAILED": "Ο διακομιστής αλληλογραφίας δεν δέχθηκε αυτή την προσπάθεια. Δεν αντικαταστάθηκε καμία υπάρχουσα πρόσκληση.",
+    "invitation_SUPERSEDED": "Αυτή η προσπάθεια αντικαταστάθηκε ή ακυρώθηκε. Δεν δημοσιεύτηκε νέα πρόσκληση.",
+    "invitation_UNCERTAIN": "Το αποτέλεσμα αυτής της προσπάθειας δεν έχει επιβεβαιωθεί. Ανανεώστε την κατάσταση ή ακυρώστε την εκκρεμή πρόσκληση πριν από νέα αποστολή.",
+    "invitationAttemptRecipient": "Παραλήπτης προσπάθειας: {email}",
+    "refreshInvitation": "Ανανέωση κατάστασης πρόσκλησης",
+    "invitationRefreshFailed": "Δεν ήταν δυνατή η ανανέωση της κατάστασης. Ανανεώστε πριν από αποστολή ή ακύρωση· το πρόχειρό σας διατηρείται.",
+    "invitationRefreshRequired": "Ανανεώστε την κατάσταση πριν από άλλη ενέργεια. Γίνεται μόνο ανάγνωση, χωρίς νέα αποστολή email.",
+    "invitationDenied": "Δεν έχετε πλέον δικαίωμα προβολής ή διαχείρισης αυτής της πρόσκλησης.",
+    "cancelInvitationHelp": "Η ακύρωση ανακαλεί τον ενεργό σύνδεσμο και κάθε εκκρεμή αντικατάσταση. Τα υπάρχοντα διαπιστευτήρια και η ολοκληρωμένη σύνδεση ιστορικού διατηρούνται."
   },
   "schoolDeparture": {
     "title": "School Departure",

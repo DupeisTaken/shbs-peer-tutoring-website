@@ -435,6 +435,14 @@ when changing this delivery boundary. SMTP acceptance is not an inbox-delivery c
 
 History-only credentials and cancellation use `src/server/history-account-setup.test.ts` alongside `src/server/api/routers/tutee-history.test.ts`. These suites require the isolated `shbs_shipping_test` database and check archive preservation, shared email ownership, retries, cancellation/expiry, access scoping and transaction rollback. Include the existing account-combination and school-departure regressions when changing this boundary.
 
+`src/server/tutee-history-delivery.test.ts` exercises the real audited invitation API,
+sender and PostgreSQL transactions with synthetic Nodemailer outcomes. It verifies
+committed inactive admission, predecessor preservation, latest-admitted replacement
+ordering, cancellation (including first delivery), setup/account-review progress,
+authority/freshness changes and read-only recovery after uncertain publication.
+Run it with the historical API/setup, account-invitation, audit and email suites;
+provider acceptance is separate from inbox delivery. No production SMTP is used.
+
 Historical tutor linking uses `src/server/tutor-history.test.ts` and
 `src/app/_components/tutor-history-link.test.tsx`. Include account-combination,
 historical-academic, registration and roster-editor regressions when changing its

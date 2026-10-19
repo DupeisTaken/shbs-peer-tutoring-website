@@ -1,6 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import type {
+  TuteeHistoryInvitation,
+  TuteeHistoryInvitationAttemptStatus,
+} from "../../generated/prisma";
 import { academicSummary } from "~/lib/academics";
 import { isHistoricalTutee } from "~/lib/tutee-history";
 import { legacyAcademicRecordId } from "~/lib/historical-academics";
@@ -9,6 +13,12 @@ import { lockAccountProfile } from "./account-profile";
 import { lockUsernameNamespace } from "./auth/username";
 import { authenticateEmailAction } from "./auth/account-emails";
 import { emailSender, isEmailDeliveryAvailable } from "./email/sender";
+import {
+  afterCommitDatabase,
+  afterCommitScope,
+  databaseScope,
+  deferUntilCommit,
+} from "./db-scope";
 import {
   inTransaction,
   lockEntity,
@@ -217,6 +227,7 @@ async function writeOwnership(
     update: { userId },
   });
   // Any completed staff link/correction invalidates outstanding claim links.
+  await supersedeHistoryInvitationAttempts(tx, tuteeId);
   await tx.tuteeHistoryInvitation.deleteMany({ where: { tuteeId } });
   await tx.auditLog.create({
     data: {
@@ -231,13 +242,124 @@ async function writeOwnership(
   });
 }
 
-/** A staff-reviewed, exact-record invitation is delivered before replacing its predecessor.
- * Account setup requires a separate email challenge. GET/scanner visits never claim records. */
+export type HistoryInvitationReceipt = {
+  attemptId: string;
+  status: "PUBLISHED" | "DELIVERY_FAILED" | "SUPERSEDED" | "UNCERTAIN";
+  /** An admitted candidate's expiry must never imply that it is already usable. */
+  expiresAt: Date | null;
+};
+
+export function historyInvitationReceipt(attempt: {
+  id: string;
+  status: TuteeHistoryInvitationAttemptStatus;
+  expiresAt: Date;
+}): HistoryInvitationReceipt {
+  return {
+    attemptId: attempt.id,
+    status: attempt.status === "ADMITTED" ? "UNCERTAIN" : attempt.status,
+    expiresAt: attempt.status === "PUBLISHED" ? attempt.expiresAt : null,
+  };
+}
+
+/** Latest explicit staff intent wins, including when that newer delivery fails.
+ * Cancelling/linking also fences a first invitation which has no predecessor yet. */
+export async function supersedeHistoryInvitationAttempts(
+  tx: TransactionDb,
+  tuteeId: string,
+) {
+  return tx.tuteeHistoryInvitationAttempt.updateMany({
+    where: { tuteeId, status: "ADMITTED" },
+    data: { status: "SUPERSEDED", settledAt: new Date() },
+  });
+}
+
+/** Setup challenges and shared account-review envelopes are independent progress.
+ * Hash their entire operational state so publication cannot erase a new proof,
+ * account receipt or existing-account completion which happened during SMTP. */
+export async function historyInvitationFingerprint(
+  db: DomainDb,
+  invite: TuteeHistoryInvitation | null,
+) {
+  const envelopes = invite
+    ? await db.accountInvitation.findMany({
+        where: {
+          kind: "HISTORY",
+          source: { path: ["tokenHash"], equals: invite.tokenHash },
+        },
+        orderBy: { id: "asc" },
+      })
+    : [];
+  return digest(JSON.stringify([invite, envelopes]));
+}
+
+async function lockInvitationRecord(
+  tx: TransactionDb,
+  tuteeId: string,
+  actorId: string,
+) {
+  // Period writers acquire this before the username namespace. Follow that order
+  // while fencing active-term rollover, manager demotion and record edits.
+  await lockEntity(tx, "program:period");
+  await lockUsernameNamespace(tx);
+  await lockAccountProfile(tx, actorId);
+  await lockEntity(tx, `tutee:${tuteeId}`);
+  await tx.$queryRaw`SELECT id FROM "Tutee" WHERE id = ${tuteeId} FOR UPDATE`;
+}
+
+async function invitationRecord(
+  tx: TransactionDb,
+  actorId: string,
+  input: z.infer<typeof historyInviteInput>,
+) {
+  const actor = await requireManager(tx, actorId);
+  const [record, ownership, term] = await Promise.all([
+    tx.tutee.findUniqueOrThrow({
+      where: { id: input.tuteeId },
+      include: { user: { select: { id: true } } },
+    }),
+    tx.studentProfileOwnership.findUnique({
+      where: { tuteeId: input.tuteeId },
+    }),
+    tx.term.findFirst({ where: { active: true }, select: { id: true } }),
+  ]);
+  if (record.user || ownership)
+    throw new TRPCError({ code: "CONFLICT", message: "HISTORY_ALREADY_OWNED" });
+  if (!isHistoricalTutee(record, term?.id ?? null))
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "HISTORY_NOT_HISTORICAL",
+    });
+  if (+record.updatedAt !== +input.expectedUpdatedAt)
+    throw new TRPCError({ code: "CONFLICT", message: "HISTORY_STALE" });
+  return {
+    record,
+    actor: { name: actor.name ?? actor.username ?? null, role: actor.role },
+  };
+}
+
+/** Commit admission before SMTP, retaining the complete published predecessor.
+ * A candidate is inert until accepted and revalidated in a fresh transaction.
+ * Process loss leaves an inert receipt; it never retries SMTP or invents access. */
 export async function inviteTuteeHistory(
   db: DomainDb,
   actorId: string,
   input: z.infer<typeof historyInviteInput>,
 ) {
+  const owner = afterCommitScope.getStore();
+  // Prisma supports nested $transaction calls, so that method alone cannot prove
+  // ownership of the outer commit. Transaction clients omit root lifecycle APIs.
+  const canCommitAdmission =
+    "$connect" in db && typeof db.$connect === "function";
+  if (
+    (!canCommitAdmission || databaseScope.getStore()) &&
+    (!owner?.database || owner.committed)
+  )
+    // A caller-owned bare transaction cannot safely send after its unknown commit.
+    // Require an actual owner queue or a root client which can commit admission.
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "HISTORY_DELIVERY_COMMIT_REQUIRED",
+    });
   const origin = process.env.AUTH_URL;
   if (!origin || !isEmailDeliveryAvailable("SECURITY"))
     throw new TRPCError({
@@ -253,72 +375,204 @@ export async function inviteTuteeHistory(
       code: "PRECONDITION_FAILED",
       message: "HISTORY_EMAIL_UNAVAILABLE",
     });
-  return inTransaction(db, async (tx) => {
-    await lockUsernameNamespace(tx);
-    await lockEntity(tx, `tutee:${input.tuteeId}`);
-    await tx.$queryRaw`SELECT id FROM "Tutee" WHERE id = ${input.tuteeId} FOR UPDATE`;
-    await requireManager(tx, actorId);
-    const [record, ownership, term] = await Promise.all([
-      tx.tutee.findUniqueOrThrow({
-        where: { id: input.tuteeId },
-        include: { user: { select: { id: true } } },
-      }),
-      tx.studentProfileOwnership.findUnique({
-        where: { tuteeId: input.tuteeId },
-      }),
-      tx.term.findFirst({ where: { active: true }, select: { id: true } }),
-    ]);
-    if (record.user || ownership)
-      throw new TRPCError({
-        code: "CONFLICT",
-        message: "HISTORY_ALREADY_OWNED",
-      });
-    if (!isHistoricalTutee(record, term?.id ?? null))
-      throw new TRPCError({
-        code: "PRECONDITION_FAILED",
-        message: "HISTORY_NOT_HISTORICAL",
-      });
-    if (+record.updatedAt !== +input.expectedUpdatedAt)
-      throw new TRPCError({ code: "CONFLICT", message: "HISTORY_STALE" });
-    const token = randomBytes(32).toString("hex");
-    url.searchParams.set("token", token);
-    const expiresAt = new Date(Date.now() + 7 * 86400000);
-    await emailSender.send({
-      category: "SECURITY",
-      to: input.email,
-      subject: "Link your historical tutoring records / 关联历史学习记录",
-      text: `The program team has reviewed your identity and invited you to link your past tutoring records:\n${url.href}\n\nSign in with your existing verified account, or use Create history-only account on this page and verify the separate email code. Then review and claim your records. The invitation expires in seven days and can be cancelled by staff. Account creation and claiming history do not enroll you or grant observer access. If your old email is unavailable, contact the program team for a reviewed replacement invitation.\n\n项目团队已核实你的身份并邀请你关联历史记录。请使用已有的已验证账号登录，或在页面选择创建仅供历史记录访问的账号并验证单独发送的邮箱验证码，然后确认关联。邀请七天内有效，管理人员可取消。创建账号和关联历史记录不会加入当前项目或授予观察员权限。如旧邮箱已无法使用，请联系项目团队核实后重新邀请。`,
-    });
-    const data = {
-      email: input.email,
-      tokenHash: digest(token),
-      expectedUpdatedAt: record.updatedAt,
-      expiresAt,
-      issuedById: actorId,
-      reason: input.reason,
-      setupCodeHash: null,
-      setupCodeExpiresAt: null,
-      setupAttempts: 0,
-      setupVerifiedAt: null,
-      setupUserId: null,
-    };
-    await tx.tuteeHistoryInvitation.upsert({
+  const token = randomBytes(32).toString("hex");
+  url.searchParams.set("token", token);
+  const deliveryDb = afterCommitDatabase(db);
+  const { attempt, actor } = await inTransaction(db, async (tx) => {
+    await lockInvitationRecord(tx, input.tuteeId, actorId);
+    const { record, actor } = await invitationRecord(tx, actorId, input);
+    const predecessor = await tx.tuteeHistoryInvitation.findUnique({
       where: { tuteeId: input.tuteeId },
-      create: { tuteeId: input.tuteeId, ...data },
-      update: data,
+    });
+    await supersedeHistoryInvitationAttempts(tx, input.tuteeId);
+    const candidate = await tx.tuteeHistoryInvitationAttempt.create({
+      data: {
+        tuteeId: input.tuteeId,
+        tokenHash: digest(token),
+        email: input.email,
+        predecessorFingerprint: await historyInvitationFingerprint(
+          tx,
+          predecessor,
+        ),
+        expectedUpdatedAt: record.updatedAt,
+        expiresAt: new Date(Date.now() + 7 * 86400000),
+        issuedById: actorId,
+        reason: input.reason,
+      },
     });
     await tx.auditLog.create({
       data: {
         userId: actorId,
+        userName: actor.name,
         entity: "Tutee",
         entityId: input.tuteeId,
         kind: "ACTION",
         operation: "tuteeHistory.invite",
-        action: "Invited a participant to link historical records",
+        action: "Admitted historical invitation delivery",
+        details: {
+          evidenceVersion: 1,
+          actorRole: actor.role,
+          outcome: "DELIVERY_ADMITTED",
+          attemptId: candidate.id,
+          changeApplied: false,
+          reason: input.reason,
+        },
       },
     });
-    return { expiresAt };
+    return { attempt: candidate, actor };
   });
+  const receipt = historyInvitationReceipt(attempt);
+  const deliver = async () => {
+    // Never let a post-commit error tell the caller to replay the admitted write.
+    // PUBLISHED is monotonic: uncertain commits are resolved by a fresh read only.
+    try {
+      await emailSender.send({
+        category: "SECURITY",
+        to: input.email,
+        subject: "Link your historical tutoring records / 关联历史学习记录",
+        text: `The program team has reviewed your identity and invited you to link your past tutoring records:\n${url.href}\n\nSign in with your existing verified account, or use Create history-only account on this page and verify the separate email code. Then review and claim your records. The invitation expires in seven days and can be cancelled by staff. Account creation and claiming history do not enroll you or grant observer access. If your old email is unavailable, contact the program team for a reviewed replacement invitation.\n\n项目团队已核实你的身份并邀请你关联历史记录。请使用已有的已验证账号登录，或在页面选择创建仅供历史记录访问的账号并验证单独发送的邮箱验证码，然后确认关联。邀请七天内有效，管理人员可取消。创建账号和关联历史记录不会加入当前项目或授予观察员权限。如旧邮箱已无法使用，请联系项目团队核实后重新邀请。`,
+      });
+    } catch {
+      try {
+        await inTransaction(deliveryDb, async (tx) => {
+          const failed = await tx.tuteeHistoryInvitationAttempt.updateMany({
+            where: { id: attempt.id, status: "ADMITTED" },
+            data: { status: "DELIVERY_FAILED", settledAt: new Date() },
+          });
+          if (failed.count)
+            await tx.auditLog.create({
+              data: {
+                userId: actorId,
+                userName: actor.name,
+                entity: "Tutee",
+                entityId: input.tuteeId,
+                kind: "ACTION",
+                operation: "tuteeHistory.inviteDelivery",
+                action: "Historical invitation delivery failed",
+                details: {
+                  evidenceVersion: 1,
+                  actorRole: actor.role,
+                  attemptId: attempt.id,
+                  outcome: "DELIVERY_FAILED",
+                  changeApplied: false,
+                },
+              },
+            });
+        });
+      } catch {
+        /* Read-only receipt recovery below owns an uncertain write. */
+      }
+      await recoverInvitationReceipt(deliveryDb, receipt);
+      return;
+    }
+    try {
+      await inTransaction(deliveryDb, async (tx) => {
+        await lockInvitationRecord(tx, input.tuteeId, actorId);
+        const candidate = await tx.tuteeHistoryInvitationAttempt.findUnique({
+          where: { id: attempt.id },
+        });
+        if (candidate?.status !== "ADMITTED") return;
+        let current = false;
+        try {
+          await invitationRecord(tx, actorId, input);
+          const predecessor = await tx.tuteeHistoryInvitation.findUnique({
+            where: { tuteeId: input.tuteeId },
+          });
+          current =
+            candidate.expiresAt > new Date() &&
+            (await historyInvitationFingerprint(tx, predecessor)) ===
+              candidate.predecessorFingerprint;
+        } catch (error) {
+          // Authority/freshness rejection is final; infrastructure errors remain
+          // uncertain rather than pretending the receipt was safely superseded.
+          if (!(error instanceof TRPCError)) throw error;
+        }
+        if (current) {
+          const data = {
+            email: candidate.email,
+            tokenHash: candidate.tokenHash,
+            expectedUpdatedAt: candidate.expectedUpdatedAt,
+            expiresAt: candidate.expiresAt,
+            issuedById: candidate.issuedById,
+            reason: candidate.reason,
+            setupCodeHash: null,
+            setupCodeExpiresAt: null,
+            setupAttempts: 0,
+            setupVerifiedAt: null,
+            setupUserId: null,
+          };
+          await tx.tuteeHistoryInvitation.upsert({
+            where: { tuteeId: input.tuteeId },
+            create: { tuteeId: input.tuteeId, ...data },
+            update: data,
+          });
+        }
+        await tx.tuteeHistoryInvitationAttempt.update({
+          where: { id: candidate.id },
+          data: {
+            status: current ? "PUBLISHED" : "SUPERSEDED",
+            settledAt: new Date(),
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            userId: actorId,
+            userName: actor.name,
+            entity: "Tutee",
+            entityId: input.tuteeId,
+            kind: "ACTION",
+            operation: "tuteeHistory.inviteDelivery",
+            action: current
+              ? "Published accepted historical invitation"
+              : "Historical invitation superseded after delivery",
+            details: {
+              evidenceVersion: 1,
+              actorRole: actor.role,
+              attemptId: candidate.id,
+              outcome: current ? "PUBLISHED" : "SUPERSEDED",
+              changeApplied: current,
+            },
+          },
+        });
+      });
+    } catch {
+      /* A possibly committed publication must only be read, never replayed. */
+    }
+    await recoverInvitationReceipt(deliveryDb, receipt);
+  };
+  if (!deferUntilCommit(deliver)) await deliver();
+  return receipt;
+}
+
+async function recoverInvitationReceipt(
+  db: DomainDb,
+  receipt: HistoryInvitationReceipt,
+) {
+  try {
+    const attempt = await db.tuteeHistoryInvitationAttempt.findUnique({
+      where: { id: receipt.attemptId },
+    });
+    if (attempt) {
+      const live =
+        attempt.status === "PUBLISHED"
+          ? await db.tuteeHistoryInvitation.findUnique({
+              where: { tuteeId: attempt.tuteeId },
+            })
+          : null;
+      // The durable published event stays monotonic. The response separately
+      // reports if cancellation/linking/replacement has already retired its grant.
+      Object.assign(
+        receipt,
+        attempt.status === "PUBLISHED" && live?.tokenHash !== attempt.tokenHash
+          ? { status: "SUPERSEDED", expiresAt: null }
+          : historyInvitationReceipt(attempt),
+      );
+    } else Object.assign(receipt, { status: "SUPERSEDED", expiresAt: null });
+  } catch {
+    // In-memory success is never claimed without a durable receipt readback.
+    receipt.status = "UNCERTAIN";
+    receipt.expiresAt = null;
+  }
 }
 
 async function claimSnapshot(
