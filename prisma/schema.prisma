@@ -2173,9 +2173,11 @@ model SchoolCalendarDay {
   note String?
 }
 
-/// Informational dates only; attendance and school-day appeal rules never consume these rows.
+/// Informational inclusive ranges only; attendance and school-day appeal rules never consume these rows.
 model ProgramCalendarDay {
+  /// The start date remains the stable identity, including for legacy single-day notices.
   date      String   @id
+  endDate   String
   reason    String
   /// Retain the version after removal so an old editor cannot overwrite a recreated date.
   active    Boolean  @default(true)

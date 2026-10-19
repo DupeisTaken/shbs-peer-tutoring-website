@@ -18,7 +18,35 @@ import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { useSessionAccessDenied } from "./session-view-state";
 
-type Day = { date: string; reason: string; active: boolean; version: number };
+type Day = {
+  date: string;
+  endDate: string;
+  reason: string;
+  active: boolean;
+  version: number;
+};
+
+/** Keep date-only labels intact: converting to local instants can shift their calendar day. */
+function CalendarRange({
+  date,
+  endDate = date,
+}: {
+  date: string;
+  endDate?: string;
+}) {
+  const t = useTranslations("programCalendar");
+  return (
+    <span className="font-medium tabular-nums">
+      <time dateTime={date}>{date}</time>
+      {endDate !== date && (
+        <>
+          {" "}
+          {t("through")} <time dateTime={endDate}>{endDate}</time>
+        </>
+      )}
+    </span>
+  );
+}
 /** Participant schedules consume this read-only context; it cannot affect attendance validity. */
 export function ProgramCalendarNotice() {
   const t = useTranslations("programCalendar");
@@ -44,10 +72,8 @@ export function ProgramCalendarNotice() {
         {!denied &&
           query.data?.map((day) => (
             <li key={day.date}>
-              <time dateTime={day.date} className="font-medium tabular-nums">
-                {day.date}
-              </time>{" "}
-              · {day.reason}
+              <CalendarRange date={day.date} endDate={day.endDate} /> ·{" "}
+              {day.reason}
             </li>
           ))}
       </ul>
@@ -91,7 +117,10 @@ export function ProgramCalendarSettings() {
           <p className="muted mt-1 text-sm">{t("informational")}</p>
         </div>
         {data.canEdit && (
-          <Button onClick={() => setEditor({ day: null, snapshot: data.days })}>
+          <Button
+            disabled={!!query.error}
+            onClick={() => setEditor({ day: null, snapshot: data.days })}
+          >
             {t("add")}
           </Button>
         )}
@@ -121,7 +150,12 @@ export function ProgramCalendarSettings() {
               .filter((day) => day.active)
               .map((day) => (
                 <tr key={day.date}>
-                  <td className="whitespace-nowrap tabular-nums">{day.date}</td>
+                  <td
+                    className="whitespace-nowrap tabular-nums"
+                    data-sort-value={day.date}
+                  >
+                    <CalendarRange date={day.date} endDate={day.endDate} />
+                  </td>
                   <td
                     data-sort-value={day.reason}
                     className="max-w-sm break-words"
@@ -135,7 +169,7 @@ export function ProgramCalendarSettings() {
                   </td>
                   <TableActions>
                     <TableDetails
-                      title={`${t("title")} · ${day.date}`}
+                      title={`${t("title")} · ${day.date}${day.endDate !== day.date ? ` ${t("through")} ${day.endDate}` : ""}`}
                       label={t("details")}
                     >
                       <p className="[overflow-wrap:anywhere] whitespace-pre-wrap">
@@ -162,7 +196,11 @@ export function ProgramCalendarSettings() {
                               confirmLabel: t("remove"),
                               details: (
                                 <p>
-                                  {day.date} · {day.reason}
+                                  <CalendarRange
+                                    date={day.date}
+                                    endDate={day.endDate}
+                                  />{" "}
+                                  · {day.reason}
                                 </p>
                               ),
                               commit: () =>
@@ -206,7 +244,7 @@ export function ProgramCalendarSettings() {
             initial={editor.day}
             snapshot={editor.snapshot}
             canApply={data.canApply}
-            disabled={!!query.error}
+            disabled={!!query.error || !data.canEdit}
             onReload={async () => {
               const result = await query.refetch();
               if (!result.isSuccess)
@@ -245,6 +283,9 @@ function CalendarEditor({
   const approvals = useTranslations("approvals");
   const utils = api.useUtils();
   const [date, setDate] = useState(initial?.date ?? "");
+  const [endDate, setEndDate] = useState(
+    initial?.endDate ?? initial?.date ?? "",
+  );
   const [reason, setReason] = useState(initial?.reason ?? "");
   const [readFailed, setReadFailed] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -281,6 +322,7 @@ function CalendarEditor({
         try {
           await save.mutateAsync({
             date,
+            endDate,
             reason,
             expectedVersion:
               initial?.version ??
@@ -310,17 +352,36 @@ function CalendarEditor({
         disabled={disabled || pending || accepted}
         className="min-w-0 space-y-4"
       >
-        <label className="block">
-          <span className="label">{t("date")}</span>
-          <input
-            className="input w-full"
-            type="date"
-            required
-            value={date}
-            disabled={!!initial}
-            onChange={(event) => setDate(event.target.value)}
-          />
-        </label>
+        <p className="muted text-sm">{t("rangeHelp")}</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block min-w-0">
+            <span className="label">{t("startDate")}</span>
+            <input
+              className="input w-full"
+              type="date"
+              required
+              value={date}
+              disabled={!!initial}
+              onChange={(event) => {
+                // A new single-day draft follows its start until the user extends its end.
+                if (!endDate || endDate === date)
+                  setEndDate(event.target.value);
+                setDate(event.target.value);
+              }}
+            />
+          </label>
+          <label className="block min-w-0">
+            <span className="label">{t("endDate")}</span>
+            <input
+              className="input w-full"
+              type="date"
+              required
+              min={date || undefined}
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+            />
+          </label>
+        </div>
         <label className="block">
           <span className="label">{t("reason")}</span>
           <textarea

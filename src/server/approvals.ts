@@ -587,10 +587,16 @@ export async function proposalTargets(
     if (tutees.size) ids.set("Tutee", tutees);
   }
   const targets: Record<string, unknown> = {};
-  if (primary === "ProgramCalendarDay")
-    targets.programCalendar = await client.programCalendarDay.findMany({
+  if (primary === "ProgramCalendarDay") {
+    const notices = await client.programCalendarDay.findMany({
       where: { date: z.string().parse(fields.date) },
     });
+    // Backfilled single-day rows keep pre-migration approval fingerprints. A real
+    // range retains its endpoint; every later edit also advances the row version.
+    targets.programCalendar = notices.map(({ endDate, ...notice }) =>
+      endDate === notice.date ? notice : { ...notice, endDate },
+    );
+  }
   if (operation === "admin.reorderRooms")
     targets.roomOrder = await client.room.findMany({
       orderBy: [{ programOrder: "asc" }, { name: "asc" }, { id: "asc" }],

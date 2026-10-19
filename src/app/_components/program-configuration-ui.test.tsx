@@ -69,6 +69,7 @@ vi.mock("~/trpc/react", () => {
         days: [
           {
             date: "2026-10-12",
+            endDate: "2026-10-12",
             reason: mocks.reason,
             active: true,
             version: 4,
@@ -186,6 +187,7 @@ it("keeps a calendar draft/version across failed writes and blocks same-tick dup
   expect(mocks.save).toHaveBeenCalledTimes(2);
   expect(mocks.save).toHaveBeenLastCalledWith({
     date: "2026-10-12",
+    endDate: "2026-10-12",
     reason: "Unsaved reason",
     expectedVersion: 4,
   });

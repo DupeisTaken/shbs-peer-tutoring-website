@@ -27,8 +27,17 @@ export async function saveProgramCalendar(
       });
     return tx.programCalendarDay.upsert({
       where: { date: input.date },
-      create: { date: input.date, reason: input.reason },
-      update: { reason: input.reason, active: true, version: { increment: 1 } },
+      create: {
+        date: input.date,
+        endDate: input.endDate,
+        reason: input.reason,
+      },
+      update: {
+        endDate: input.endDate,
+        reason: input.reason,
+        active: true,
+        version: { increment: 1 },
+      },
     });
   });
 }

@@ -1807,6 +1807,43 @@ it("PASS: attendance persists expected service hours and roster", async () => {
   expect(row.tutees).toHaveLength(1);
   expect(row.month).toBe("2026-09");
 });
+it("informational no-tutoring ranges preserve attendance, schedules and school-day rules", async () => {
+  const before = await db.pairing.findUniqueOrThrow({
+    where: { id: "review-pairing" },
+  });
+  await db.schoolCalendarDay.create({
+    data: {
+      date: "2026-09-07",
+      isSchoolDay: true,
+      note: "School remains open",
+    },
+  });
+  await caller().program.setCalendarDay({
+    date: "2026-09-06",
+    endDate: "2026-09-08",
+    reason: "Informational program break",
+    expectedVersion: 0,
+  });
+  // The real tutor attendance mutation must remain available inside a notice range.
+  const result = await tutor().tutor.submitAttendance(attendance());
+  const recorded = await db.session.findUniqueOrThrow({
+    where: { id: result.id },
+    include: { tutees: true },
+  });
+  expect(recorded).toMatchObject({ date: new Date("2026-09-07"), shCount: 2 });
+  expect(recorded.tutees).toHaveLength(1);
+  expect(
+    await db.pairing.findUniqueOrThrow({ where: { id: before.id } }),
+  ).toEqual(before);
+  expect(
+    await db.schoolCalendarDay.findUniqueOrThrow({
+      where: { date: "2026-09-07" },
+    }),
+  ).toMatchObject({
+    isSchoolDay: true,
+    note: "School remains open",
+  });
+});
 it("attendance rejects future school dates", async () => {
   const schoolTomorrow = new Date(Date.now() + 8 * 60 * 60 * 1000);
   schoolTomorrow.setUTCDate(schoolTomorrow.getUTCDate() + 1);
