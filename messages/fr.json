@@ -612,7 +612,8 @@
         "phone": "téléphone"
       },
       "emailVerifiedShort": "Vérifié",
-      "emailUnverifiedShort": "Non vérifié"
+      "emailUnverifiedShort": "Non vérifié",
+      "emailUnknownShort": "Vérification non enregistrée"
     },
     "readOnly": {
       "banner": "Accès en lecture seule à l’espace de gestion : consultez les synthèses autorisées ; les coordonnées personnelles sont masquées."
@@ -2061,6 +2062,20 @@
       "room": " · Salle {room}",
       "noRoom": " · Aucune salle assignée",
       "defaultSlotLabel": "Créneau par défaut :",
+      "ranking": {
+        "mutual": "Les disponibilités communes apparaissent en premier. Vérifiez ensemble l’horaire avant d’enregistrer.",
+        "missing": "Les disponibilités sont incomplètes ; ces suggestions ne permettent pas de conclure à un conflit d’horaire.",
+        "missingTutor": "Vous n’avez aucun créneau actif enregistré.",
+        "missingTutees": "{count, plural, one {# élève n’a aucun créneau actif enregistré.} other {# élèves n’ont aucun créneau actif enregistré.}}",
+        "noCommon": "Aucun créneau du catalogue n’a été sélectionné à la fois par vous et par tous les élèves qui vous sont attribués. Les correspondances partielles restent disponibles ; convenez d’un horaire avant d’enregistrer.",
+        "noTutees": "Aucun élève ne vous est encore attribué. Les disponibilités que vous avez sélectionnées apparaissent en premier.",
+        "unavailable": "Les suggestions de disponibilité sont indisponibles. Vous pouvez toujours choisir explicitement un créneau publié et vérifier votre choix avant de le confirmer.",
+        "optionMutual": "Commun à tous",
+        "optionTutor": "Vous + {count}/{total} élèves",
+        "optionOther": "{count}/{total} élèves ; non sélectionné par vous",
+        "selectedStatus": "Disponibilité du choix : {status}",
+        "retainedOption": "Créneau actuellement lié (non publié)"
+      },
       "notSet": "— non défini —",
       "mergeTitle": "Combine This Attendance Only",
       "mergeHelp": "Tick additional subjects for this actual attendance block only. To save a reusable group, use Combine / split pairings.",
@@ -2859,6 +2874,7 @@
     "abortFinal": "You have left the program for this quarter. You cannot apply again until a new quarter.",
     "closedFinal": "This request is permanently closed. A fresh submission creates a new request with a new priority timestamp.",
     "verified": "Email verified",
+    "emailPending": "E-mail en attente de vérification",
     "unverified": "Awaiting verification",
     "edited": "[Edited]",
     "priority": "Original submission: {time}",
@@ -5275,6 +5291,8 @@
     "value": "{count}",
     "current": "{count, plural, one {# assigned block} other {# assigned blocks}}",
     "savedPreference": "Preferred sessions: {count}",
+    "draftPreference": "Préférence sélectionnée : {count}",
+    "choices": "Choix du nombre de séances souhaité",
     "zeroHelp": "Choose 0–4 sessions. New tutors start at 1. Zero means no sessions preferred; Clear preference leaves it unset.",
     "save": "Save preference",
     "saving": "Saving…",
@@ -5357,6 +5375,25 @@
     "versionConflict": "The saved room assignment changed. Reload the pairing before saving again.",
     "groupScope": "Room-only changes affect the combined group: {subjects}.",
     "needsRoomReservations": "Needs room ({count} reservations)"
+  },
+  "tutorUpcoming": {
+    "unresolved": "{count, plural, one {# plage récurrente nécessite une vérification de l’horaire} other {# plages récurrentes nécessitent une vérification de l’horaire}}, car l’heure locale est inexistante ou répétée en raison d’un changement de fuseau horaire.",
+    "ongoing": "En cours",
+    "readFailed": "Impossible d’actualiser {source}. Les entrées conservées peuvent être obsolètes.",
+    "startOnly": "Heure de début uniquement · aucune durée ni réservation de salle enregistrée",
+    "grouped": "{count} affectations dans une même plage commune",
+    "interviews": "Entretiens",
+    "help": "Aujourd’hui et les six prochains jours dans le fuseau {timeZone}. Seules les activités confirmées de la période en cours sont affichées ; les annonces du calendrier n’annulent pas les séances récurrentes. Cette vue n’enregistre pas les présences et ne réserve pas de salles.",
+    "detailsFor": "Voir les actions associées à {name}",
+    "title": "À venir — 7 prochains jours",
+    "session": "Séance récurrente confirmée",
+    "loading": "Chargement de {source}…",
+    "denied": "L’accès à {source} est indisponible. Les entrées conservées sont masquées.",
+    "details": "Voir les actions associées",
+    "interview": "Entretien programmé",
+    "empty": "Aucune séance confirmée ni aucun entretien programmé à venir dans cette période.",
+    "retry": "Actualiser {source}",
+    "sessions": "Séances de tutorat"
   },
   "interviewReview": {
     "record": "Enregistrer la fin et créditer les heures",

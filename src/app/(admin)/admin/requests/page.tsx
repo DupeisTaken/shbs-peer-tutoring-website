@@ -7,6 +7,10 @@ import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
 import { EmailDetails } from "~/app/_components/email-details";
 import { StudentRequestBoard } from "./student-request-board";
 import { SignupSourceBadge } from "~/app/_components/signup-source-badge";
+import {
+  requestEmailStatus,
+  type RequestEmailOwner,
+} from "./request-email-status";
 import { SignupInvalidityControls } from "~/app/_components/request-invalidity-controls";
 import {
   InvalidityBadge,
@@ -54,7 +58,8 @@ type PendingTutee = InvalidityRecord & {
   signupSource: string;
   unverified?: boolean;
   englishName: string;
-  user?: { username: string | null } | null;
+  user?: ({ username: string | null } & RequestEmailOwner) | null;
+  owner?: RequestEmailOwner | null;
   gradeLevel: string | null;
   email: string | null;
   phone: string | null;
@@ -113,6 +118,10 @@ function RequestCard({
   const format = useFormatter();
   const locale = useLocale();
   const readOnly = useReadOnly();
+  // Never compare masked observer addresses or infer proof from intake eligibility.
+  const emailStatus = readOnly
+    ? null
+    : requestEmailStatus(tutee.email, tutee.user ?? tutee.owner);
   const account = api.account.me.useQuery().data;
   const { confirm, dialog } = useDialog();
   const [confirmCourse, setConfirmCourse] = useState<{
@@ -327,16 +336,24 @@ function RequestCard({
       <div id={choicesId}>
         {!collapsed && (
           <div className="mt-3 ml-[3.25rem] flex flex-wrap items-center gap-x-2 text-sm lg:ml-10">
-            <span>
-              {t("workflow.emailStatus", {
-                status: t(
-                  tutee.unverified
-                    ? "admin.requests.emailUnverifiedShort"
-                    : "admin.requests.emailVerifiedShort",
-                ),
-              })}
-            </span>
-            <EmailDetails contactOnly email={tutee.email} name={displayName} />
+            {emailStatus && (
+              <span>
+                {t("workflow.emailStatus", {
+                  status: t(
+                    emailStatus === "verified"
+                      ? "admin.requests.emailVerifiedShort"
+                      : emailStatus === "unverified"
+                        ? "admin.requests.emailUnverifiedShort"
+                        : "admin.requests.emailUnknownShort",
+                  ),
+                })}
+              </span>
+            )}
+            <EmailDetails
+              contactOnly
+              email={emailStatus ? tutee.email : null}
+              name={displayName}
+            />
           </div>
         )}
         {/* Assign each course choice to a tutor independently (workload shown in the dropdown). */}

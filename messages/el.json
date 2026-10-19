@@ -612,7 +612,8 @@
         "phone": "τηλέφωνο"
       },
       "emailVerifiedShort": "Επαληθευμένο",
-      "emailUnverifiedShort": "Μη επαληθευμένο"
+      "emailUnverifiedShort": "Μη επαληθευμένο",
+      "emailUnknownShort": "Δεν έχει καταγραφεί επαλήθευση"
     },
     "readOnly": {
       "banner": "Πρόσβαση διαχείρισης μόνο για ανάγνωση: δείτε τις επιτρεπόμενες επισκοπήσεις· τα προσωπικά στοιχεία επικοινωνίας είναι κρυφά."
@@ -2061,6 +2062,20 @@
       "room": " · Αίθουσα {room}",
       "noRoom": " · Χωρίς ανατεθειμένη αίθουσα",
       "defaultSlotLabel": "Προεπιλεγμένη χρονοθυρίδα:",
+      "ranking": {
+        "mutual": "Οι κοινές διαθέσιμες ώρες εμφανίζονται πρώτες. Ελέγξτε μαζί την ώρα πριν από την αποθήκευση.",
+        "missing": "Τα στοιχεία διαθεσιμότητας είναι ελλιπή· αυτές οι προτάσεις δεν τεκμηριώνουν σύγκρουση ωραρίου.",
+        "missingTutor": "Δεν έχετε καταγεγραμμένες ενεργές χρονοθυρίδες.",
+        "missingTutees": "{count, plural, one {# μαθητής δεν έχει καταγεγραμμένες ενεργές χρονοθυρίδες.} other {# μαθητές δεν έχουν καταγεγραμμένες ενεργές χρονοθυρίδες.}}",
+        "noCommon": "Δεν υπάρχει χρονοθυρίδα του καταλόγου που να έχετε επιλέξει τόσο εσείς όσο και όλοι οι μαθητές που σας έχουν ανατεθεί. Οι μερικές αντιστοιχίσεις παραμένουν διαθέσιμες· συμφωνήστε σε μια ώρα πριν από την αποθήκευση.",
+        "noTutees": "Δεν σας έχουν ανατεθεί ακόμη μαθητές. Οι διαθέσιμες ώρες που έχετε επιλέξει εμφανίζονται πρώτες.",
+        "unavailable": "Οι προτάσεις διαθεσιμότητας δεν είναι διαθέσιμες. Μπορείτε ακόμη να επιλέξετε ρητά μια δημοσιευμένη χρονοθυρίδα και να ελέγξετε την επιλογή σας.",
+        "optionMutual": "Κοινή για όλους",
+        "optionTutor": "Εσείς + {count}/{total} μαθητές",
+        "optionOther": "{count}/{total} μαθητές· δεν επιλέχθηκε από εσάς",
+        "selectedStatus": "Διαθεσιμότητα επιλογής: {status}",
+        "retainedOption": "Τρέχουσα συνδεδεμένη χρονοθυρίδα (μη δημοσιευμένη)"
+      },
       "notSet": "— δεν ορίστηκε —",
       "mergeTitle": "Combine This Attendance Only",
       "mergeHelp": "Tick additional subjects for this actual attendance block only. To save a reusable group, use Combine / split pairings.",
@@ -2859,6 +2874,7 @@
     "abortFinal": "You have left the program for this quarter. You cannot apply again until a new quarter.",
     "closedFinal": "This request is permanently closed. A fresh submission creates a new request with a new priority timestamp.",
     "verified": "Email verified",
+    "emailPending": "Εκκρεμεί επαλήθευση email",
     "unverified": "Awaiting verification",
     "edited": "[Edited]",
     "priority": "Original submission: {time}",
@@ -5275,6 +5291,8 @@
     "value": "{count}",
     "current": "{count, plural, one {# assigned block} other {# assigned blocks}}",
     "savedPreference": "Preferred sessions: {count}",
+    "draftPreference": "Επιλεγμένη προτίμηση: {count}",
+    "choices": "Επιλογές επιθυμητών συνεδριών",
     "zeroHelp": "Choose 0–4 sessions. New tutors start at 1. Zero means no sessions preferred; Clear preference leaves it unset.",
     "save": "Save preference",
     "saving": "Saving…",
@@ -5357,6 +5375,25 @@
     "versionConflict": "The saved room assignment changed. Reload the pairing before saving again.",
     "groupScope": "Room-only changes affect the combined group: {subjects}.",
     "needsRoomReservations": "Needs room ({count} reservations)"
+  },
+  "tutorUpcoming": {
+    "unresolved": "{count, plural, one {# επαναλαμβανόμενο χρονικό διάστημα χρειάζεται έλεγχο της ώρας} other {# επαναλαμβανόμενα χρονικά διαστήματα χρειάζονται έλεγχο της ώρας}}, επειδή η τοπική ώρα παραλείπεται ή επαναλαμβάνεται λόγω αλλαγής ζώνης ώρας.",
+    "ongoing": "Σε εξέλιξη",
+    "readFailed": "Δεν ήταν δυνατή η ανανέωση: {source}. Οι διατηρημένες εγγραφές ενδέχεται να μην είναι ενημερωμένες.",
+    "startOnly": "Μόνο ώρα έναρξης · δεν έχει καταγραφεί διάρκεια ή κράτηση αίθουσας",
+    "grouped": "{count} αναθέσεις σε ένα κοινό χρονικό διάστημα",
+    "interviews": "Συνεντεύξεις",
+    "help": "Σήμερα και οι επόμενες έξι ημέρες στη ζώνη ώρας {timeZone}. Εμφανίζονται μόνο επιβεβαιωμένα σχέδια της τρέχουσας περιόδου· οι ανακοινώσεις του ημερολογίου δεν ακυρώνουν επαναλαμβανόμενες συνεδρίες. Αυτή η προβολή δεν καταγράφει παρουσίες ούτε κάνει κρατήσεις αιθουσών.",
+    "detailsFor": "Προβολή σχετικών ενεργειών για {name}",
+    "title": "Προσεχείς δραστηριότητες — Επόμενες 7 ημέρες",
+    "session": "Επιβεβαιωμένη επαναλαμβανόμενη συνεδρία",
+    "loading": "Φόρτωση: {source}…",
+    "denied": "Η πρόσβαση δεν είναι διαθέσιμη: {source}. Οι διατηρημένες εγγραφές αποκρύπτονται.",
+    "details": "Προβολή σχετικών ενεργειών",
+    "interview": "Προγραμματισμένη συνέντευξη",
+    "empty": "Δεν υπάρχουν προσεχείς επιβεβαιωμένες συνεδρίες ή προγραμματισμένες συνεντεύξεις σε αυτό το διάστημα.",
+    "retry": "Ανανέωση: {source}",
+    "sessions": "Συνεδρίες ενισχυτικής διδασκαλίας"
   },
   "interviewReview": {
     "record": "Καταγραφή ολοκλήρωσης και απόδοση ωρών",

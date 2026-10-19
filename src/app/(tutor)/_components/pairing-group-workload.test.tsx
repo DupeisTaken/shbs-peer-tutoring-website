@@ -217,8 +217,8 @@ async function prepare(operation: "combine" | "split" = "combine") {
   click(messages.pairingGroups.review);
 }
 function preferenceControl() {
-  return screen.getByRole<HTMLSelectElement>("combobox", {
-    name: /Preferred Sessions/,
+  return screen.getByRole<HTMLButtonElement>("button", {
+    name: "4",
   });
 }
 const countText = (count: number) =>
@@ -242,9 +242,9 @@ it.each(["combine", "split"] as const)(
       };
     }
     show();
-    await screen.findByRole("combobox", { name: /Preferred Sessions/ });
+    await screen.findByRole("group", { name: /Preferred Sessions/ });
     const before = state.preference.count;
-    fireEvent.change(preferenceControl(), { target: { value: "4" } });
+    fireEvent.click(preferenceControl());
     await prepare(operation);
     // Simulate an independent preference revision arriving in the group refresh.
     // The local draft retains version 7 until an explicit successful Reload.
@@ -265,7 +265,7 @@ it.each(["combine", "split"] as const)(
       );
     }
     expect(state.groupSave).toHaveBeenCalledTimes(1);
-    expect(preferenceControl().value).toBe("4");
+    expect(preferenceControl().getAttribute("aria-pressed")).toBe("true");
     expect(state.preferenceSave).not.toHaveBeenCalled();
     await waitFor(() =>
       expect(
@@ -292,13 +292,13 @@ it.each(["combine", "split"] as const)(
 
 it("keeps the accepted receipt and waits for every workload read; failed refresh Retry is read-only", async () => {
   show();
-  await screen.findByRole("combobox", { name: /Preferred Sessions/ });
+  await screen.findByRole("group", { name: /Preferred Sessions/ });
   await waitFor(() =>
     expect(screen.getByLabelText("Admin workload selected").textContent).toBe(
       "2",
     ),
   );
-  fireEvent.change(preferenceControl(), { target: { value: "4" } });
+  fireEvent.click(preferenceControl());
   await prepare();
   const held = deferred<number>();
   state.preferenceRead.mockRejectedValue(
@@ -324,7 +324,7 @@ it("keeps the accepted receipt and waits for every workload read; failed refresh
   ).toBe(true);
   await act(async () => held.resolve(1));
   await screen.findByText(messages.pairingGroups.refreshFailed);
-  expect(preferenceControl().value).toBe("4");
+  expect(preferenceControl().getAttribute("aria-pressed")).toBe("true");
   const dialog = screen.getByRole("dialog", {
     name: messages.pairingGroups.manage,
   });
@@ -346,7 +346,7 @@ it("keeps the accepted receipt and waits for every workload read; failed refresh
   expect(screen.getByLabelText("Admin workload selected").textContent).toBe(
     "1",
   );
-  expect(preferenceControl().value).toBe("4");
+  expect(preferenceControl().getAttribute("aria-pressed")).toBe("true");
   expect(state.groupSave).toHaveBeenCalledTimes(1);
   expect(state.preferenceSave).not.toHaveBeenCalled();
 });

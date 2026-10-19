@@ -13,10 +13,14 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { TutorWorkloadPreference } from "./tutor-workload-preference";
+import { AvailabilityEditor } from "../(tutor)/_components/availability-editor";
+import { DisclosureSection } from "./ui/disclosure-section";
 
 const state = vi.hoisted(() => ({
   client: null as QueryClient | null,
   read: vi.fn(),
+  availabilityRead: vi.fn(),
+  availabilitySave: vi.fn(),
   save: vi.fn<
     (input: {
       preferredMaximum: number | null;
@@ -42,6 +46,17 @@ vi.mock("~/trpc/react", async () => {
         },
       }),
       tutor: {
+        myAvailability: {
+          useQuery: () =>
+            useQuery({
+              queryKey: ["availability"],
+              queryFn: state.availabilityRead,
+            }),
+        },
+        setAvailability: {
+          useMutation: (options: object) =>
+            useMutation({ mutationFn: state.availabilitySave, ...options }),
+        },
         workloadPreference: {
           useQuery: (_input: unknown, options: object) =>
             useQuery({
@@ -71,12 +86,25 @@ const snapshot = (changes: object = {}) => ({
 beforeEach(() => {
   state.read.mockReset().mockResolvedValue(snapshot());
   state.save.mockReset().mockResolvedValue({ ok: true });
+  state.availabilityRead.mockReset().mockResolvedValue({
+    slots: [
+      {
+        id: "early",
+        label: "Early",
+        dayOfWeek: 1,
+        startMin: 900,
+        endMin: 960,
+      },
+    ],
+    selectedSlotIds: [],
+  });
+  state.availabilitySave.mockReset().mockResolvedValue({ ok: true });
 });
 afterEach(() => {
   cleanup();
   state.client?.clear();
 });
-const mount = (locale: "en" | "zh" = "en") => {
+const mount = (locale: "en" | "zh" = "en", integrated = false) => {
   state.client = new QueryClient({
     defaultOptions: {
       queries: { retry: false, refetchOnWindowFocus: false },
@@ -93,18 +121,33 @@ const mount = (locale: "en" | "zh" = "en") => {
           aria-label="Independent profile draft"
           defaultValue="Retained name"
         />
-        <TutorWorkloadPreference />
+        {integrated ? (
+          <DisclosureSection
+            title="Edit My Time Availability"
+            lifetime="retained"
+          >
+            <AvailabilityEditor />
+            <TutorWorkloadPreference embedded />
+          </DisclosureSection>
+        ) : (
+          <TutorWorkloadPreference />
+        )}
       </NextIntlClientProvider>
     </QueryClientProvider>,
   );
 };
-const select = () =>
-  screen.getByRole<HTMLSelectElement>("combobox", {
-    name: /Preferred Sessions/,
+const choice = (value: number) =>
+  screen.getByRole<HTMLButtonElement>("button", {
+    name: String(value),
   });
+const selectedValue = () =>
+  screen
+    .queryAllByRole("button", { pressed: true })
+    .find((button) => /^[0-4]$/.test(button.textContent ?? ""))?.textContent ??
+  "";
 const choose = async (value: string) => {
-  await screen.findByRole("combobox");
-  fireEvent.change(select(), { target: { value } });
+  await screen.findByRole("group", { name: "Preferred session choices" });
+  fireEvent.click(choice(Number(value)));
 };
 const defer = <T,>() => {
   let resolve!: (value: T) => void;
@@ -117,22 +160,21 @@ const defer = <T,>() => {
 };
 
 it.each(["en", "zh"] as const)(
-  "uses an optional bounded native preference control in %s and keeps a sibling draft",
+  "uses accessible optional bounded preference choices in %s and keeps a sibling draft",
   async (locale) => {
     mount(locale);
-    const control = await screen.findByRole<HTMLSelectElement>("combobox");
-    expect([...control.options].map((option) => option.value)).toEqual([
-      "",
-      "0",
-      "1",
-      "2",
-      "3",
-      "4",
-    ]);
+    await screen.findByRole("group", {
+      name: locale === "en" ? "Preferred session choices" : "期望辅导次数选择",
+    });
+    expect(
+      [0, 1, 2, 3, 4].map((value) =>
+        choice(value).getAttribute("aria-pressed"),
+      ),
+    ).toEqual(["false", "false", "true", "false", "false"]);
     expect(
       screen.getByText(locale === "en" ? "Optional" : "选填"),
     ).toBeTruthy();
-    fireEvent.change(control, { target: { value: "0" } });
+    fireEvent.click(choice(0));
     expect(
       screen.getByRole<HTMLInputElement>("textbox", {
         name: "Independent profile draft",
@@ -146,7 +188,7 @@ it("retains a failed-save draft and original version on retry, clearing only thr
   await choose("4");
   fireEvent.click(screen.getByRole("button", { name: "Save preference" }));
   await screen.findByText(/Could not save the preference/);
-  expect(select().value).toBe("4");
+  expect(selectedValue()).toBe("4");
   state.read.mockResolvedValue(snapshot({ preferredMaximum: 4, version: 1 }));
   fireEvent.click(screen.getByRole("button", { name: "Save preference" }));
   await screen.findByText("Preference saved.");
@@ -155,7 +197,7 @@ it("retains a failed-save draft and original version on retry, clearing only thr
     { preferredMaximum: 4, expectedVersion: 0 },
   ]);
   fireEvent.click(screen.getByRole("button", { name: "Clear preference" }));
-  expect(select().value).toBe("");
+  expect(selectedValue()).toBe("");
   expect(state.save).toHaveBeenCalledTimes(2);
   state.read.mockResolvedValue(
     snapshot({ preferredMaximum: null, version: 2 }),
@@ -171,7 +213,7 @@ it("retains a failed-save draft and original version on retry, clearing only thr
 it("keeps dirty draft/version during background changes, shows current saved summary, and reloads only after a successful fresh read", async () => {
   mount();
   await choose("4");
-  expect(select().value).toBe("4");
+  expect(selectedValue()).toBe("4");
   await act(async () => {
     state.client!.setQueryData(
       ["preference"],
@@ -179,20 +221,20 @@ it("keeps dirty draft/version during background changes, shows current saved sum
     );
   });
   expect(await screen.findByText(/Preferred sessions: 1/)).toBeTruthy();
-  expect(select().value).toBe("4");
+  expect(selectedValue()).toBe("4");
   state.read.mockRejectedValueOnce(new Error("Synthetic reload failure"));
   fireEvent.click(
     screen.getByRole("button", { name: "Reload saved preference" }),
   );
   await screen.findByText(/Could not reload/);
-  expect(select().value).toBe("4");
+  expect(selectedValue()).toBe("4");
   state.read.mockResolvedValue(
     snapshot({ preferredMaximum: 1, count: 3, version: 1 }),
   );
   fireEvent.click(
     screen.getAllByRole("button", { name: "Retry refresh" }).at(-1)!,
   );
-  await waitFor(() => expect(select().value).toBe("1"));
+  await waitFor(() => expect(selectedValue()).toBe("1"));
   expect(state.save).not.toHaveBeenCalled();
 });
 it("never replays an accepted save when synchronization fails, then permits a new versioned save after recovery", async () => {
@@ -201,13 +243,13 @@ it("never replays an accepted save when synchronization fails, then permits a ne
   state.read.mockRejectedValueOnce(new Error("Synthetic read failure"));
   fireEvent.click(screen.getByRole("button", { name: "Save preference" }));
   await screen.findByText(/Preference saved, but synchronization failed/);
-  expect(select().disabled).toBe(true);
+  expect(choice(0).disabled).toBe(true);
   expect(state.save).toHaveBeenCalledTimes(1);
   state.read.mockResolvedValue(snapshot({ preferredMaximum: 0, version: 1 }));
   fireEvent.click(
     screen.getAllByRole("button", { name: "Retry refresh" }).at(-1)!,
   );
-  await waitFor(() => expect(select().disabled).toBe(false));
+  await waitFor(() => expect(choice(0).disabled).toBe(false));
   expect(state.save).toHaveBeenCalledTimes(1);
   await choose("1");
   state.read.mockResolvedValue(snapshot({ preferredMaximum: 1, version: 2 }));
@@ -228,7 +270,7 @@ it("freezes only its form during a pending save and admits one same-turn submit"
   fireEvent.submit(form);
   fireEvent.submit(form);
   await waitFor(() => expect(state.save).toHaveBeenCalledTimes(1));
-  expect(select().disabled).toBe(true);
+  expect(choice(0).disabled).toBe(true);
   expect(
     screen.getByRole<HTMLInputElement>("textbox", {
       name: "Independent profile draft",
@@ -245,7 +287,7 @@ it("blocks fresh read-only authority even with a dirty active snapshot and never
   await act(async () => {
     state.client!.setQueryData(["preference"], snapshot({ canEdit: false }));
   });
-  await waitFor(() => expect(select().disabled).toBe(true));
+  await waitFor(() => expect(choice(0).disabled).toBe(true));
   expect(screen.getByText(/read-only access/)).toBeTruthy();
   await act(async () => {
     state.client!.setQueryData(
@@ -259,15 +301,15 @@ it("blocks fresh read-only authority even with a dirty active snapshot and never
       }),
     );
   });
-  await waitFor(() => expect(select().value).toBe("0"));
-  expect(select().disabled).toBe(true);
+  await waitFor(() => expect(selectedValue()).toBe("0"));
+  expect(choice(0).disabled).toBe(true);
   await act(async () => {
     state.client!.setQueryData(
       ["preference"],
       snapshot({ preferredMaximum: 0, version: 1 }),
     );
   });
-  expect(select().value).toBe("0");
+  expect(selectedValue()).toBe("0");
   expect(state.save).not.toHaveBeenCalled();
 });
 it("conceals and evicts revoked preference reads without an automatic retry loop", async () => {
@@ -282,7 +324,9 @@ it("conceals and evicts revoked preference reads without an automatic retry loop
   await screen.findByText(
     "You no longer have access to this workload preference.",
   );
-  expect(screen.queryByRole("combobox")).toBeNull();
+  expect(
+    screen.queryByRole("group", { name: "Preferred session choices" }),
+  ).toBeNull();
   expect(state.client!.getQueryData(["preference"])).toBeUndefined();
   const reads = state.read.mock.calls.length;
   await act(async () => {
@@ -300,13 +344,15 @@ it("treats a freshly denied write as revoked authority and restores only after a
   await screen.findByText(
     "You no longer have access to this workload preference.",
   );
-  expect(screen.queryByRole("combobox")).toBeNull();
+  expect(
+    screen.queryByRole("group", { name: "Preferred session choices" }),
+  ).toBeNull();
   expect(state.client!.getQueryData(["preference"])).toBeUndefined();
   expect(state.save).toHaveBeenCalledTimes(1);
   state.read.mockResolvedValue(snapshot());
   fireEvent.click(screen.getByRole("button", { name: "Retry refresh" }));
-  await screen.findByRole("combobox");
-  expect(select().value).toBe("4");
+  await screen.findByRole("group", { name: "Preferred session choices" });
+  expect(selectedValue()).toBe("4");
   expect(state.save).toHaveBeenCalledTimes(1);
 });
 it.each([
@@ -329,9 +375,9 @@ it.each([
       snapshot({ status, canEdit, preferredMaximum: 0, version: 1 }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Retry refresh" }));
-    await screen.findByRole("combobox");
-    expect(select().value).toBe(expectedDraft);
-    expect(select().disabled).toBe(!canEdit);
+    await screen.findByRole("group", { name: "Preferred session choices" });
+    expect(selectedValue()).toBe(expectedDraft);
+    expect(choice(0).disabled).toBe(!canEdit);
     expect(await screen.findByText(/Preferred sessions: 0/)).toBeTruthy();
     expect(state.save).toHaveBeenCalledTimes(1);
     if (status === "ACTIVE") {
@@ -349,8 +395,8 @@ it.each([
             snapshot({ preferredMaximum: 0, version: 1, canEdit: true }),
           );
         });
-        await waitFor(() => expect(select().disabled).toBe(false));
-        expect(select().value).toBe("4");
+        await waitFor(() => expect(choice(0).disabled).toBe(false));
+        expect(selectedValue()).toBe("4");
       }
       if (canEdit) {
         // A new read must not silently adopt version1; an explicit Reload does.
@@ -370,11 +416,11 @@ it.each([
         await screen.findByText(
           /saved preference or participation state changed/,
         );
-        expect(select().value).toBe("4");
+        expect(selectedValue()).toBe("4");
         fireEvent.click(
           screen.getByRole("button", { name: "Reload saved preference" }),
         );
-        await waitFor(() => expect(select().value).toBe("0"));
+        await waitFor(() => expect(selectedValue()).toBe("0"));
         await choose("4");
         state.read.mockResolvedValue(
           snapshot({ preferredMaximum: 4, version: 2 }),
@@ -400,15 +446,103 @@ it.each([1, null])(
   async (preferredMaximum) => {
     state.read.mockResolvedValue(snapshot({ preferredMaximum }));
     mount();
-    await screen.findByRole("combobox");
+    await screen.findByRole("group", { name: "Preferred session choices" });
     await waitFor(() =>
-      expect(select().value).toBe(preferredMaximum === null ? "" : "1"),
+      expect(selectedValue()).toBe(preferredMaximum === null ? "" : "1"),
     );
     expect(state.save).not.toHaveBeenCalled();
-    expect(
-      [...select().options]
-        .filter((option) => option.value !== "")
-        .map((option) => option.textContent),
-    ).toEqual(["0", "1", "2", "3", "4"]);
+    expect([0, 1, 2, 3, 4].map((value) => choice(value).textContent)).toEqual([
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+    ]);
+  },
+);
+
+it("retains independent availability and preference drafts through collapse, saves, pending writes and preference reload", async () => {
+  mount("en", true);
+  const disclosure = screen
+    .getByText("Edit My Time Availability")
+    .closest("details")!;
+  disclosure.open = true;
+  fireEvent(disclosure, new Event("toggle"));
+  const early = await screen.findByRole<HTMLButtonElement>("button", {
+    name: /Early/,
+  });
+  fireEvent.click(early);
+  await choose("4");
+  disclosure.open = false;
+  fireEvent(disclosure, new Event("toggle"));
+  disclosure.open = true;
+  fireEvent(disclosure, new Event("toggle"));
+  expect(early.getAttribute("aria-pressed")).toBe("true");
+  expect(selectedValue()).toBe("4");
+  const pending = defer<{ ok: boolean }>();
+  state.availabilitySave.mockReturnValueOnce(pending.promise);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tutor.availability.save }),
+  );
+  await waitFor(() => expect(state.availabilitySave).toHaveBeenCalledTimes(1));
+  expect(choice(4).disabled).toBe(false);
+  state.save.mockRejectedValueOnce(
+    Object.assign(new Error("Conflict"), { data: { code: "CONFLICT" } }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Save preference" }));
+  await screen.findByText(/saved preference or participation state changed/);
+  expect(early.getAttribute("aria-pressed")).toBe("true");
+  state.read.mockResolvedValue(snapshot({ preferredMaximum: 1, version: 1 }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Reload saved preference" }),
+  );
+  await waitFor(() => expect(selectedValue()).toBe("1"));
+  expect(early.getAttribute("aria-pressed")).toBe("true");
+  state.availabilityRead.mockResolvedValue({
+    slots: [
+      { id: "early", label: "Early", dayOfWeek: 1, startMin: 900, endMin: 960 },
+    ],
+    selectedSlotIds: ["early"],
+  });
+  await act(async () => pending.resolve({ ok: true }));
+  await screen.findByText(en.tutor.availability.saved);
+  expect(selectedValue()).toBe("1");
+  expect(state.save.mock.calls[0]?.[0]).toEqual({
+    preferredMaximum: 4,
+    expectedVersion: 0,
+  });
+  expect(state.availabilitySave.mock.calls[0]?.[0]).toEqual({
+    slotIds: ["early"],
+  });
+});
+
+it.each(["empty", "unavailable"])(
+  "keeps the embedded preference usable with an %s catalog",
+  async (catalog) => {
+    if (catalog === "empty")
+      state.availabilityRead.mockResolvedValue({
+        slots: [],
+        selectedSlotIds: [],
+      });
+    else
+      state.availabilityRead.mockRejectedValue(
+        new Error("Catalog unavailable"),
+      );
+    mount("en", true);
+    const disclosure = screen
+      .getByText("Edit My Time Availability")
+      .closest("details")!;
+    disclosure.open = true;
+    fireEvent(disclosure, new Event("toggle"));
+    await choose("0");
+    state.read.mockResolvedValue(snapshot({ preferredMaximum: 0, version: 1 }));
+    fireEvent.click(screen.getByRole("button", { name: "Save preference" }));
+    await screen.findByText("Preference saved.");
+    expect(state.save).toHaveBeenCalledTimes(1);
+    expect(state.save.mock.calls[0]?.[0]).toEqual({
+      preferredMaximum: 0,
+      expectedVersion: 0,
+    });
+    expect(state.availabilitySave).not.toHaveBeenCalled();
   },
 );

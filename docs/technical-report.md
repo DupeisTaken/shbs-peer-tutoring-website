@@ -228,10 +228,19 @@ or reasons. Uncertain current academics use one **Review Needed** indicator;
 historical enrollment originals, correction overlays and reference years retain
 their existing precedence and detail evidence.
 
-Both signup sources show verification once in a compact **Email: Verified** or
-**Email: Unverified** contact line. The contextual short labels do not replace
-full-sentence verification messages elsewhere, and contact access stays with the
-existing email reader.
+Self-service survey request cards show a green **Email verified** or amber
+**Email pending** badge beside the signup source. The badge uses the submission's
+confirmation timestamp, independently of invalidity and workflow state; it must
+not infer verification from a legacy staff-created record's missing proof.
+Both signup sources retain the compact email contact line and existing private
+email reader below the identity. Legacy/manual cards label the displayed contact
+**Verified** only when it matches the current (or retained, when no current user
+exists) owner's primary address and has a confirmation timestamp. A matching
+owner address with an explicitly null timestamp is **Unverified**. Missing owner
+evidence or a different address is **Verification not recorded**, never inferred
+from an absent `unverified` flag. No address shows **No email**; observers retain
+the private-contact label without comparing masked addresses. This presentation
+does not change assignment eligibility, intake priority or account permissions.
 
 Subject Availability shows each subject with its level and qualification summary.
 Qualified subjects also show willingness, including an explicit **Not recorded**
@@ -949,6 +958,22 @@ Classify every management write in the [approval policy](../src/lib/approval-pol
 5. Commit the domain change, proposal decision, related notifications and decision audit together. Competing reviewers cannot apply a proposal twice.
 6. Send external email after commit. Delivery failure must remain retryable without undoing an applied assignment.
 
+Audited student assignment and management resend use `resendSurveyResult` to queue the
+entire resend workflow, including replacement-link publication. Its exact result object
+starts with `emailSent: null`; the audit owner settles it before returning the API result.
+Post-commit work uses the owner's root database client rather than the resolver's closed
+transaction client. Approval replay retains its distinct decision transaction and sends
+only after that decision commits. A failed send leaves the assignment and its audit saved;
+recovery resends email or refreshes reads and never repeats the assignment.
+
+For these verification-link outcomes, `emailSent: true` means SMTP accepted the message
+(or development logging completed) and the replacement challenge was published. It is
+not proof of inbox delivery. Rejected/unavailable transport, post-commit failure, or a
+replacement superseded during delivery returns false. Publication compares the previous
+token hash and rechecks open/unconfirmed/valid state and the fixed assignment deadline,
+so failed retries and slower overlapping sends preserve the currently usable link and
+success-only delivery metadata. The submitted priority and assignment deadline do not change.
+
 The [approval review presentation model](../src/lib/approval-review.ts) reads only the immutable input and submission evidence. Explicit operation titles and field/value vocabulary live under `approvals.review`; the [shared details component](../src/app/_components/approval-review-details.tsx) renders the same request in the card and consequence dialog. Direct-field comparisons require an exact target-table/ID or compound-key match. Attendance, patrol and pairing collections use their matching child snapshots. Missing evidence is distinct from an empty value; unchanged submitted values and supporting records remain inspectable. Known decisions are displayed as decisions rather than booleans, while user-authored text is preserved verbatim. New review vocabulary is authored in English and Chinese; the other six bundles currently use English for these new keys and retain their existing surrounding translations. Locale parity and ICU checks cover every bundle.
 
 Adding an approval operation requires an authored review title and an explicit choice about whether its input represents direct field updates or action parameters. Do not infer resulting database state from a decision input, fill historical gaps with live queries, or change proposal fingerprints for presentation. Regression coverage is in [model tests](../src/lib/approval-review.test.ts), [details tests](../src/app/_components/approval-review-details.test.tsx), and [queue tests](../src/app/_components/management-actions.test.tsx), alongside the existing server approval and confirmation tests.
@@ -1217,6 +1242,15 @@ editor retains failed/dirty drafts, adopts new versions only through its success
 save/read or explicit Reload, and distinguishes accepted-write synchronization
 failure from rejected-save recovery. Lowering a preference never changes pairings.
 
+On the active Tutor Dashboard, the retained availability disclosure composes two
+independent forms: weekday availability first, then the embedded preference.
+[WorkloadPreferenceChoices](../src/app/_components/workload-preference-choices.tsx)
+shares the accessible 0–4 `ChoiceButton` group with the gallery. Its explicit clear
+action stages `null`, distinct from zero. Neither form's save, pending state,
+failure or reload replaces the sibling draft/version. An empty or unavailable
+slot catalog does not hide the preference. Inactive dashboards retain the
+read-only workload/preference summary outside the active-only editor.
+
 Use [the pure block/projection helpers](../src/lib/tutor-workload.ts) for counts,
 [WorkloadAssignmentConfirmation](../src/app/_components/assignment-workload.tsx)
 for assignment advice, and [invalidateWorkloads](../src/lib/workload-cache.ts)
@@ -1278,7 +1312,37 @@ completed interview evidence and optional editor disclosures retain mounted draf
 The [contributor action inventory](contributing.md#consequential-action-inventory)
 documents draft, reversible and confirmed action boundaries.
 
+[The personal upcoming projection](../src/lib/tutor-upcoming.ts) reuses self-scoped
+`tutor.myPairings` and `tutor.myInterviews` evidence outside `RoomGrid`. It includes
+today plus six program-local dates, retains ongoing confirmed populated sessions
+until their end, and projects coherent `pairingEntries` groups once. Active-period
+filtering stays in the existing pairing reader; inactive accounts have no preview.
+Only valid PENDING/INTERVIEW assignments with a future recorded start appear;
+interviews have no inferred end or room. Existing workflow anchors retain all
+unresolved/history records. The shared grid/API projection gains no applicant data.
+Calendar notices do not modify recurrence. Strict program-time conversion reports
+ambiguous/nonexistent DST wall clocks rather than choosing an instant; 24:00 uses
+the next local boundary. Ties sort by instant then stable event ID.
+The client advances its clock every 30 seconds and on focus, with one-minute query
+refreshes sharing existing cache keys. Either source denial conceals both caches until every enabled source freshly
+recovers; untouched cached success cannot release this boundary. Transient read
+failures retain partial evidence with an explicit stale warning and independent retries. Feature-disabled interviews are not queried or projected. Rendering and
+workflow links never call scheduling, voting, attendance or booking mutations.
+
 `Pairing.scheduleConfirmed` separates assigned tutors from agreed schedules. New request assignments default false; catalog-slot creation or selection sets true. Clearing a slot link retains the flag and copied times. Lists expose the awaiting state, dashboard counts exclude it, and attendance requires explicit actual start/end values whenever any selected pairing is unconfirmed. Recording actual attendance never confirms the recurring schedule. The [scheduling migration](../prisma/migrations/20260922200100_pairing_scheduling/migration.sql) conservatively marks preexisting rows true because copied-time provenance is unknown; new rows default false. No historical schedule or session time is inferred or rewritten.
+
+[Mutual availability ranking](../src/lib/mutual-availability.ts) is a pure,
+read-only projection of the active slot catalog, tutor selected IDs and the
+assigned roster's slot IDs. The tutor pairing selector considers the full distinct
+current roster for a saved group and ranks exact shared IDs first. Remaining
+choices sort by tutor selection, descending matched-tutee count, then
+weekday/start/end/ID. Similar clock intervals never imply
+agreement. Missing selections and unavailable reads are distinct from a known
+lack of a shared slot; no published choice is removed. The current unpublished
+linked slot remains visible, while retained confirmed times keep their existing
+summary. Sorting never changes the saved selection, review or versioned mutation
+payload. Coverage lives in [pure ranking tests](../src/lib/mutual-availability.test.ts)
+and [pairing UI tests](<../src/app/(tutor)/_components/tutor-pairings.test.tsx>).
 
 Confirmed planned room bookings cannot overlap within a program period or conflict with a recurring blackout. Unconfirmed numeric placeholders do not reserve rooms, and changing only the confirmation flag still invokes the database room guard. Adjacent bookings are allowed. Shared transaction locks keep application validation coherent; database triggers enforce the final constraint. Actual historical attendance can differ from a plan and is recorded with conflict warnings and management notification.
 

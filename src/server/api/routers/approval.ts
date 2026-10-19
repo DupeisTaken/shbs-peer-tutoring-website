@@ -471,25 +471,28 @@ export const approvalRouter = createTRPCRouter({
       // SMTP happens only after the durable decision commits. A failed send is explicitly retryable.
       let emailSent: boolean | null = null;
       if (input.approve && result.operation === "studentWorkflow.assign") {
-        const payload = z
-          .object({ id: z.string() })
-          .parse(
-            superjson.deserialize(
-              result.payload as unknown as Parameters<
-                typeof superjson.deserialize
-              >[0],
-            ),
-          );
-        const survey = await ctx.db.studentSurvey.findUnique({
-          where: { id: payload.id },
-        });
-        if (survey && !survey.confirmedAt) {
-          const { resendSurvey } = await import("~/server/student-survey");
-          try {
-            emailSent = await resendSurvey(ctx.db, survey.email, false);
-          } catch {
-            emailSent = false;
-          }
+        // All delivery preparation is post-commit too. A lookup/publication outage
+        // must not reject an already-applied decision and invite replay.
+        emailSent = false;
+        try {
+          const payload = z
+            .object({ id: z.string() })
+            .parse(
+              superjson.deserialize(
+                result.payload as unknown as Parameters<
+                  typeof superjson.deserialize
+                >[0],
+              ),
+            );
+          const survey = await ctx.db.studentSurvey.findUnique({
+            where: { id: payload.id },
+          });
+          if (survey && !survey.confirmedAt) {
+            const { resendSurveyResult } = await import("~/server/student-survey");
+            emailSent = (await resendSurveyResult(ctx.db, survey.email, false)).emailSent;
+          } else if (survey?.confirmedAt) emailSent = null;
+        } catch {
+          emailSent = false;
         }
       }
       return { ...result, emailSent };

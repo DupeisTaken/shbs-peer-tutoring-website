@@ -507,6 +507,7 @@ export async function runAuditedMutation<T extends { ok: boolean }>(
   const currentTransaction = databaseScope.getStore();
   const changes: Prisma.InputJsonObject[] = [];
   const queue = {
+    database: client,
     effects: [] as Array<() => Promise<void>>,
     committed: false,
     onFailure: async () => {
@@ -817,6 +818,8 @@ export async function runAuditedMutation<T extends { ok: boolean }>(
     if (error instanceof ResolverFailed) return error.result as T;
     throw error;
   }
+  // Result-producing effects settle the resolver's exact receipt before tRPC
+  // serializes it; an already-computed primitive cannot report deferred SMTP.
   await afterCommitScope.run(queue, flushCommittedEffects);
   return result;
 }

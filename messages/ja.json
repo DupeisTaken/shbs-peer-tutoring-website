@@ -612,7 +612,8 @@
         "phone": "電話"
       },
       "emailVerifiedShort": "確認済み",
-      "emailUnverifiedShort": "未確認"
+      "emailUnverifiedShort": "未確認",
+      "emailUnknownShort": "確認情報なし"
     },
     "readOnly": {
       "banner": "管理エリアは閲覧専用です。許可された概要を閲覧できます。個人の連絡先情報は非表示です。"
@@ -2061,6 +2062,20 @@
       "room": " · 部屋 {room}",
       "noRoom": " · 部屋未割り当て",
       "defaultSlotLabel": "デフォルトタイムスロット：",
+      "ranking": {
+        "mutual": "全員が対応可能な時間を先に表示します。保存する前に、一緒に時間を確認してください。",
+        "missing": "対応可能な時間の情報が不足しています。この提案だけで日程の不一致が確定するわけではありません。",
+        "missingTutor": "有効なタイムスロットが登録されていません。",
+        "missingTutees": "{count} 人の生徒に、有効なタイムスロットの登録がありません。",
+        "noCommon": "あなたと担当するすべての生徒が選択した共通のタイムスロットは、カタログにありません。一部の人に合う時間も選択できます。保存する前に時間を相談してください。",
+        "noTutees": "担当する生徒はまだいません。あなたが選択した対応可能な時間を先に表示します。",
+        "unavailable": "対応可能な時間の提案を表示できません。公開中のタイムスロットを明示的に選択し、内容を確認することはできます。",
+        "optionMutual": "全員が対応可能",
+        "optionTutor": "あなたと生徒 {count}/{total} 人",
+        "optionOther": "生徒 {count}/{total} 人・あなたは未選択",
+        "selectedStatus": "選択肢の対応可能状況：{status}",
+        "retainedOption": "現在リンクされているタイムスロット（非公開）"
+      },
       "notSet": "— 未設定 —",
       "mergeTitle": "Combine This Attendance Only",
       "mergeHelp": "Tick additional subjects for this actual attendance block only. To save a reusable group, use Combine / split pairings.",
@@ -2859,6 +2874,7 @@
     "abortFinal": "You have left the program for this quarter. You cannot apply again until a new quarter.",
     "closedFinal": "This request is permanently closed. A fresh submission creates a new request with a new priority timestamp.",
     "verified": "Email verified",
+    "emailPending": "メール確認待ち",
     "unverified": "Awaiting verification",
     "edited": "[Edited]",
     "priority": "Original submission: {time}",
@@ -5275,6 +5291,8 @@
     "value": "{count}",
     "current": "{count, plural, one {# assigned block} other {# assigned blocks}}",
     "savedPreference": "Preferred sessions: {count}",
+    "draftPreference": "選択した希望回数：{count}",
+    "choices": "希望するセッション回数の選択肢",
     "zeroHelp": "Choose 0–4 sessions. New tutors start at 1. Zero means no sessions preferred; Clear preference leaves it unset.",
     "save": "Save preference",
     "saving": "Saving…",
@@ -5357,6 +5375,25 @@
     "versionConflict": "The saved room assignment changed. Reload the pairing before saving again.",
     "groupScope": "Room-only changes affect the combined group: {subjects}.",
     "needsRoomReservations": "Needs room ({count} reservations)"
+  },
+  "tutorUpcoming": {
+    "unresolved": "{count} 件の定期枠は、タイムゾーンの変更で現地時刻が存在しないか重複するため、時間の確認が必要です。",
+    "ongoing": "進行中",
+    "readFailed": "{source}を更新できませんでした。保持されている情報は古い可能性があります。",
+    "startOnly": "開始時刻のみ・所要時間と教室予約の記録なし",
+    "grouped": "{count} 件の担当を共通の 1 枠に統合",
+    "interviews": "面接",
+    "help": "{timeZone}での今日と今後 6 日間を表示します。現在の活動期間で確定した予定のみが対象です。カレンダーのお知らせによって定期セッションが取り消されることはありません。この表示では出席の記録や教室の予約は行いません。",
+    "detailsFor": "{name} の手続きを表示",
+    "title": "今後の予定 — 7 日間",
+    "session": "確定済みの定期セッション",
+    "loading": "{source}を読み込み中…",
+    "denied": "{source}にアクセスできません。保持されている情報は非表示になっています。",
+    "details": "手続きを表示",
+    "interview": "予定済みの面接",
+    "empty": "この期間に、確定済みのセッションや予定済みの面接はありません。",
+    "retry": "{source}を更新",
+    "sessions": "チュータリングのセッション"
   },
   "interviewReview": {
     "record": "完了を記録して奉仕時間を付与",

@@ -292,7 +292,7 @@ describe("survey-first enrollment", () => {
     send.mockImplementationOnce(async () => {
       await confirmSurvey(db, originalToken, password);
     });
-    expect(await resendSurvey(db, email)).toBe(true);
+    expect(await resendSurvey(db, email)).toBe(false);
     await expect(
       confirmSurvey(db, lastToken(), password),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });

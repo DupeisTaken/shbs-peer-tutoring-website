@@ -646,6 +646,10 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
               <ParticipantName name={row.name} username={row.username} />
             </h3>
             <SignupSourceBadge source="SELF_SERVICE" />
+            {/* Use this submission's proof, independently of its workflow state. */}
+            <span className={row.confirmedAt ? "badge-green" : "badge-amber"}>
+              {t(row.confirmedAt ? "verified" : "emailPending")}
+            </span>
             {row.isInvalid && <InvalidityBadge />}
             {row.state !== "OPEN" && (
               <span className="badge-slate">
@@ -664,8 +668,7 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
               }),
             })}
           </p>
-          {/* Verification belongs once in the contact summary, not a second
-           * identity badge. Contextual labels avoid "Email: Email verified". */}
+          {/* Keep contextual contact labels alongside the private email reader. */}
           <div className="flex flex-wrap items-center gap-x-2 text-sm">
             <span>
               {t("emailStatus", {

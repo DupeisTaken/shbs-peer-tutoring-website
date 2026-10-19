@@ -16,6 +16,7 @@ import en from "../../../../../messages/en.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import { StudentRequestBoard } from "./student-request-board";
 import RequestsPage from "./page";
+import type { RequestEmailOwner } from "./request-email-status";
 
 const mocks = vi.hoisted(() => ({
   survey: true,
@@ -23,6 +24,9 @@ const mocks = vi.hoisted(() => ({
   source: "SELF_SERVICE",
   assigned: false,
   verified: true,
+  legacyEmail: null as string | null,
+  legacyUser: null as RequestEmailOwner | null,
+  legacyOwner: null as RequestEmailOwner | null,
   unnamed: false,
   username: null as string | null,
   periodLoading: false,
@@ -294,7 +298,11 @@ vi.mock("~/trpc/react", () => ({
               status: "PENDING",
               intakeTermId: "term-1",
               englishName: mocks.unnamed ? "" : "Legacy public student",
-              user: mocks.username ? { username: mocks.username } : null,
+              user:
+                mocks.username || mocks.legacyUser
+                  ? { username: mocks.username, ...mocks.legacyUser }
+                  : null,
+              owner: mocks.legacyOwner,
               signupSource: mocks.source,
               signupSubmittedAt: new Date("2026-10-01"),
               createdAt: new Date("2026-10-01"),
@@ -305,11 +313,11 @@ vi.mock("~/trpc/react", () => ({
               invalidatedByName: mocks.invalid ? "Staff Reviewer" : null,
               invalidityVersion: mocks.invalid ? 1 : 0,
               gradeLevel: null,
-              email: null,
+              email: mocks.legacyEmail,
               phone: null,
               preferredContact: null,
               signedRulebook: false,
-              unverified: !mocks.verified,
+              // The real roster read has no `unverified` flag; its absence is not proof.
               signatureName: null,
               firstChoice: { id: "math", name: "Mathematics" },
               secondChoice: null,
@@ -355,6 +363,9 @@ beforeEach(() => {
   mocks.source = "SELF_SERVICE";
   mocks.assigned = false;
   mocks.verified = true;
+  mocks.legacyEmail = null;
+  mocks.legacyUser = null;
+  mocks.legacyOwner = null;
   mocks.unnamed = false;
   mocks.username = null;
   mocks.periodLoading = false;
@@ -413,23 +424,172 @@ it.each([false, true])(
   },
 );
 
-it.each([
-  [false, true],
-  [false, false],
-  [true, true],
-  [true, false],
-])(
-  "shows one compact email status for legacy=%s verified=%s",
-  (legacy, verified) => {
+it.each(
+  [false, true].flatMap((verified) =>
+    [false, true].flatMap((viewer) =>
+      (["en", "zh"] as const).map((locale) => ({
+        verified,
+        viewer,
+        locale,
+      })),
+    ),
+  ),
+)(
+  "shows the submission email badge for verified=$verified viewer=$viewer locale=$locale",
+  ({ verified, viewer, locale }) => {
     mocks.invalid = false;
     mocks.verified = verified;
-    mocks.survey = !legacy;
-    render(content(legacy));
+    const messages = locale === "zh" ? zh : en;
+    const view = render(content(false, viewer, locale));
+    const badge = screen.getByText(
+      messages.workflow[verified ? "verified" : "emailPending"],
+    );
     expect(
-      screen.getAllByText(`Email: ${verified ? "Verified" : "Unverified"}`),
-    ).toHaveLength(1);
-    expect(screen.queryByText("Email verified")).toBeNull();
-    expect(screen.queryByText("Email not verified")).toBeNull();
+      badge.classList.contains(verified ? "badge-green" : "badge-amber"),
+    ).toBe(true);
+    expect(badge.parentElement?.textContent).toContain("Public survey student");
+    expect(
+      screen.queryByText(
+        messages.workflow[verified ? "emailPending" : "verified"],
+      ),
+    ).toBeNull();
+
+    // A refreshed proof replaces the badge without leaving stale pending status.
+    mocks.verified = !verified;
+    view.rerender(content(false, viewer, locale));
+    expect(
+      screen.queryByText(
+        messages.workflow[verified ? "verified" : "emailPending"],
+      ),
+    ).toBeNull();
+    expect(
+      screen.getByText(
+        messages.workflow[verified ? "emailPending" : "verified"],
+      ),
+    ).toBeTruthy();
+  },
+);
+
+it.each(
+  (["en", "zh"] as const).flatMap((locale) =>
+    (
+      [
+        "unknown",
+        "verified",
+        "unverified",
+        "different-address",
+        "missing-metadata",
+      ] as const
+    ).map((evidence) => ({ locale, evidence })),
+  ),
+)(
+  "uses actual legacy email evidence in $locale ($evidence)",
+  ({ locale, evidence }) => {
+    mocks.survey = false;
+    mocks.invalid = false;
+    mocks.legacyEmail = "learner@example.test";
+    if (evidence !== "unknown") {
+      mocks.legacyUser = {
+        email:
+          evidence === "different-address"
+            ? "other@example.test"
+            : "learner@example.test",
+        ...(evidence === "missing-metadata"
+          ? {}
+          : {
+              emailVerifiedAt:
+                evidence === "unverified" ? null : new Date("2026-10-01"),
+            }),
+      };
+    }
+    const messages = locale === "zh" ? zh : en;
+    const status =
+      evidence === "verified"
+        ? messages.admin.requests.emailVerifiedShort
+        : evidence === "unverified"
+          ? messages.admin.requests.emailUnverifiedShort
+          : messages.admin.requests.emailUnknownShort;
+    render(content(true, false, locale));
+    expect(
+      screen.getByText(
+        messages.workflow.emailStatus.replace("{status}", status),
+      ),
+    ).toBeTruthy();
+    // Contact uncertainty must not alter the existing manual-intake assignment rules.
+    expect(screen.getAllByRole("combobox").length).toBeGreaterThan(0);
+    expect(screen.queryByText(messages.workflow.verified)).toBeNull();
+  },
+);
+
+it("uses retained ownership only without a current user and refreshes contact evidence", () => {
+  mocks.survey = false;
+  mocks.invalid = false;
+  mocks.legacyEmail = "learner@example.test";
+  mocks.legacyOwner = {
+    email: "LEARNER@example.test",
+    emailVerifiedAt: new Date("2026-10-01"),
+  };
+  const view = render(content(true));
+  expect(screen.getByText("Email: Verified")).toBeTruthy();
+  mocks.legacyUser = {
+    email: "different@example.test",
+    emailVerifiedAt: new Date("2026-10-01"),
+  };
+  view.rerender(content(true));
+  expect(screen.getByText("Email: Verification not recorded")).toBeTruthy();
+  expect(screen.queryByText("Email: Verified")).toBeNull();
+  mocks.legacyUser = { email: "learner@example.test", emailVerifiedAt: null };
+  view.rerender(content(true));
+  expect(screen.getByText("Email: Unverified")).toBeTruthy();
+  mocks.legacyUser.emailVerifiedAt = new Date("2026-10-02");
+  view.rerender(content(true));
+  expect(screen.getByText("Email: Verified")).toBeTruthy();
+});
+
+it.each([null, "", "   "])(
+  "does not label a missing legacy email as verified (%s)",
+  (email) => {
+    mocks.survey = false;
+    mocks.invalid = false;
+    mocks.legacyEmail = email;
+    mocks.legacyUser = {
+      email: "learner@example.test",
+      emailVerifiedAt: new Date("2026-10-01"),
+    };
+    render(content(true));
+    expect(screen.queryByText(/^Email:/)).toBeNull();
+    expect(screen.getAllByRole("combobox").length).toBeGreaterThan(0);
+  },
+);
+
+it("does not compare masked owner/contact addresses for read-only observers", () => {
+  mocks.survey = false;
+  mocks.invalid = false;
+  mocks.legacyEmail = "Private";
+  mocks.legacyUser = {
+    email: "Private",
+    emailVerifiedAt: new Date("2026-10-01"),
+  };
+  render(content(true, true));
+  expect(screen.queryByText(/^Email:/)).toBeNull();
+  expect(screen.queryByRole("combobox")).toBeNull();
+});
+
+it.each([true, false])(
+  "preserves independent invalid and closed request badges (verified=%s)",
+  (verified) => {
+    mocks.verified = verified;
+    mocks.state = "INVALID_REJECTED";
+    show();
+    fireEvent.click(screen.getByRole("tab", { name: /Processed/ }));
+    expect(
+      screen.getByText(en.workflow[verified ? "verified" : "emailPending"]),
+    ).toBeTruthy();
+    expect(screen.getByText("Invalid entry")).toBeTruthy();
+    expect(screen.getByText(en.signupAppeal.rejectedTitle)).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: en.workflow.resend }),
+    ).toBeNull();
   },
 );
 
