@@ -1139,6 +1139,25 @@ and binds operational retry receipts to these transactions.
 
 History-only account setup reuses the exact-record invitation and shared email-claim registry. A separate HMAC email code and purpose-bound completion proof open the shared receipt popup, whose optional email and prefilled link hand off to credential review at `/register`; invitation expiry/cancellation, record freshness and issuer authority are checked inside the identity transaction at every step. A neutral STUDENT rank with no participation links/memberships does not grant observer or current tutoring access. The receipt supports a lost-response retry without overwriting credentials. The explicit signed-in claim still establishes ownership separately. Personal tutor history reads current and retained tutor ownership across the account-combination family, without invoking participation, profile synchronization or hour recalculation.
 
+Historical invitation replacement separates durable delivery admission from publication.
+`TuteeHistoryInvitationAttempt` stores an inert hashed candidate, reviewed record
+version and a fingerprint of the complete predecessor plus its HISTORY account-review
+envelopes. Admission commits before SMTP; the existing invitation/setup remains intact.
+An admission sequence assigned under the period/username/account/tutee locks makes
+the latest explicit staff intent authoritative across instances. A newer failed
+attempt still supersedes an older in-flight candidate, while preserving the published
+predecessor. Only real recipient acceptance followed by a fresh locked manager,
+historical/unowned-record, version, expiry and exact-predecessor check publishes.
+Publication and its terminal receipt/audit commit atomically. Cancellation and linking
+supersede outstanding candidates, including a first send without a live predecessor.
+Uncertain SMTP/publication outcomes are reconciled by read-only committed receipts;
+they never replay a mutation or make an inactive candidate redeemable. Operational
+candidate hashes and setup/envelope fingerprints are excluded from audit snapshots,
+staff responses and program-record archives.
+The helper requires either a root client which can commit admission itself or an
+owning after-commit queue; a bare transaction without that owner fails before any
+candidate or mail is created.
+
 Deadline timestamps live in PostgreSQL. The Node worker checks at startup and every minute; workflow entry points also enforce expiry. Database locks serialize transitions across instances, and downtime never extends a deadline. Keep the SQL constraints and triggers in the migration chain; `db push` alone does not reproduce them.
 
 ### Membership changes

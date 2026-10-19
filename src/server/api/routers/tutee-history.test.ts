@@ -380,7 +380,15 @@ it("makes invitation inspection read-only, binds verified email, consumes once a
 it("keeps the old invitation usable if replacement delivery fails", async () => {
   const token = await invite();
   mail.send.mockRejectedValueOnce(new Error("SMTP offline"));
-  await expect(invite()).rejects.toThrow("SMTP offline");
+  const record = await db.tutee.findUniqueOrThrow({ where: { id: "past" } });
+  await expect(
+    caller().tuteeHistory.invite({
+      tuteeId: record.id,
+      email: "student@example.test",
+      expectedUpdatedAt: record.updatedAt,
+      reason,
+    }),
+  ).resolves.toMatchObject({ status: "DELIVERY_FAILED", expiresAt: null });
   await expect(
     caller("student", "STUDENT").tuteeHistory.inspectClaim({ token }),
   ).resolves.toMatchObject({ name: "Historical Learner" });

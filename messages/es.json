@@ -4218,7 +4218,17 @@
     "verifyAgain": "Verify another code",
     "invitationCancelled": "Invitation cancelled. Existing credentials and completed history ownership are preserved.",
     "switchAccount": "Use another account",
-    "currentAcademicsOptional": "Current academic details are not required to view history. Original enrollment details remain alongside this section."
+    "currentAcademicsOptional": "Current academic details are not required to view history. Original enrollment details remain alongside this section.",
+    "invitation_PUBLISHED": "El servidor de correo aceptó este intento y se publicó su invitación. La entrega en la bandeja de entrada no está confirmada; los datos del enlace vigente se muestran por separado.",
+    "invitation_DELIVERY_FAILED": "El servidor de correo no aceptó este intento. No se reemplazó ninguna invitación existente.",
+    "invitation_SUPERSEDED": "Este intento fue sustituido o cancelado. No se publicó una nueva invitación.",
+    "invitation_UNCERTAIN": "El resultado de este intento no está confirmado. Actualiza su estado o cancela la invitación pendiente antes de volver a enviarla.",
+    "invitationAttemptRecipient": "Destinatario del intento: {email}",
+    "refreshInvitation": "Actualizar estado de la invitación",
+    "invitationRefreshFailed": "No se pudo actualizar el estado. Actualízalo antes de enviar o cancelar; se conserva tu borrador.",
+    "invitationRefreshRequired": "Actualiza el estado antes de otra operación. Solo se consulta el estado; no se envía otro correo.",
+    "invitationDenied": "Ya no tienes permiso para ver ni gestionar esta invitación.",
+    "cancelInvitationHelp": "La cancelación revoca el enlace activo y cualquier reemplazo pendiente. Se conservan las credenciales existentes y la titularidad histórica ya completada."
   },
   "schoolDeparture": {
     "title": "School Departure",

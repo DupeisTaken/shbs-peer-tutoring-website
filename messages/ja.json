@@ -4218,7 +4218,17 @@
     "verifyAgain": "Verify another code",
     "invitationCancelled": "Invitation cancelled. Existing credentials and completed history ownership are preserved.",
     "switchAccount": "Use another account",
-    "currentAcademicsOptional": "Current academic details are not required to view history. Original enrollment details remain alongside this section."
+    "currentAcademicsOptional": "Current academic details are not required to view history. Original enrollment details remain alongside this section.",
+    "invitation_PUBLISHED": "メールサーバーが今回の送信を受け付け、招待リンクが公開されました。受信箱への到着は未確認です。有効なリンクの情報は別途表示されます。",
+    "invitation_DELIVERY_FAILED": "メールサーバーは今回の送信を受け付けませんでした。既存の招待は置き換えられていません。",
+    "invitation_SUPERSEDED": "今回の送信は後の操作で置き換えられたか、取り消されました。新しい招待は公開されていません。",
+    "invitation_UNCERTAIN": "今回の送信結果は未確認です。再送前に状態を更新するか、処理中の招待を取り消してください。",
+    "invitationAttemptRecipient": "今回の送信先：{email}",
+    "refreshInvitation": "招待の状態を更新",
+    "invitationRefreshFailed": "招待の状態を更新できませんでした。送信や取り消しの前に更新してください。下書きは保持されています。",
+    "invitationRefreshRequired": "次の操作の前に招待の状態を更新してください。状態の確認のみで、メールは再送されません。",
+    "invitationDenied": "この招待を表示・管理する権限がありません。",
+    "cancelInvitationHelp": "取り消すと、有効な招待リンクと処理中の置き換え招待が無効になります。既存の認証情報と確定済みの履歴の所有関係は保持されます。"
   },
   "schoolDeparture": {
     "title": "School Departure",

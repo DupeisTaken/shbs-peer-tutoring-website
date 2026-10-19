@@ -19,6 +19,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { useState, type ComponentProps } from "react";
 import en from "../../../messages/en.json";
 import { TuteeEditor } from "./tutee-editor";
+import type { RouterOutputs } from "~/trpc/react";
 
 const mock = vi.hoisted(() => ({
   save: vi.fn(),
@@ -35,6 +36,7 @@ const mock = vi.hoisted(() => ({
   academicRefetch: vi.fn(),
   routerRefresh: vi.fn(),
   academicVersion: 7,
+  historyStatus: null as RouterOutputs["tuteeHistory"]["invitationStatus"],
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mock.routerRefresh }),
@@ -118,12 +120,11 @@ vi.mock("~/trpc/react", async () => {
         link: mutation(mock.link),
         invitationStatus: {
           useQuery: () => ({
-            data: {
-              email: "alumni@example.test",
-              expiresAt: new Date("2026-10-09"),
-              revision: "a".repeat(64),
+            data: mock.historyStatus,
+            refetch: async () => {
+              await mock.invalidate();
+              return { data: mock.historyStatus };
             },
-            refetch: mock.invalidate,
           }),
         },
         candidates: {
@@ -188,6 +189,28 @@ beforeEach(() => {
     mock.academicRefetch,
   ])
     mutation.mockResolvedValue({});
+  mock.historyStatus = {
+    invitation: {
+      email: "alumni@example.test",
+      expiresAt: new Date("2026-10-09"),
+    },
+    attempt: null,
+    revision: "a".repeat(64),
+  };
+  mock.invite.mockImplementation(async (input: { email: string }) => {
+    const receipt = {
+      attemptId: "published-attempt",
+      status: "PUBLISHED" as const,
+      expiresAt: new Date("2026-10-26"),
+    };
+    mock.historyStatus = {
+      invitation: { email: input.email, expiresAt: receipt.expiresAt },
+      attempt: { ...receipt, email: input.email },
+      revision: "published-revision",
+    };
+    return receipt;
+  });
+  mock.cancel.mockResolvedValue({ cancelled: true });
   mock.preview.mockResolvedValue(preview);
   for (const refresh of [
     mock.refreshTutees,
@@ -328,6 +351,18 @@ it.each(["invite", "cancel", "link"] as const)(
     expect(ui.notes.value).toBe("Unsaved personal draft");
     expect(ui.evidence.value).toBe("Exact archived identity evidence reviewed");
     expect(ui.email.value).toBe("alumni@example.test");
+    if (operation === "invite" || operation === "cancel") {
+      expect(ui.invite.disabled).toBe(true);
+      const callsBeforeRead = mock[operation].mock.calls.length;
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole("button", {
+            name: en.tuteeHistory.refreshInvitation,
+          }),
+        );
+      });
+      expect(mock[operation]).toHaveBeenCalledTimes(callsBeforeRead);
+    }
     expect(ui.invite.disabled).toBe(false);
     fireEvent.submit(ui.profileForm);
     await closeSavedEditor(ui.close);
@@ -452,7 +487,7 @@ it("blocks every history write during profile save, then allows a failed save to
     }).checked,
   ).toBe(true);
   fireEvent.submit(ui.inviteForm);
-  await screen.findByText(en.tuteeHistory.sent);
+  await screen.findByText(en.tuteeHistory.invitation_PUBLISHED);
   await waitFor(() => expect(ui.save.disabled).toBe(false));
   expect(ui.close).not.toHaveBeenCalled();
   fireEvent.submit(ui.profileForm);
@@ -1109,3 +1144,36 @@ it.each([
     expect(screen.queryByRole("dialog")).toBeNull();
   },
 );
+
+it("releases the real editor after accepted SMTP publication with a failed refresh and recovers with reads only", async () => {
+  const ui = mount();
+  mock.invalidate.mockRejectedValueOnce(new Error("Status read failed"));
+  fireEvent.submit(ui.inviteForm);
+  await screen.findByText(en.tuteeHistory.invitationRefreshFailed);
+  await waitFor(() => expect(client.isMutating()).toBe(0));
+  expect(ui.save.disabled).toBe(false);
+  expect(ui.invite.disabled).toBe(true);
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.accountProfile.close,
+    }).disabled,
+  ).toBe(false);
+  expect(ui.evidence.value).toBe("Exact archived identity evidence reviewed");
+  fireEvent.submit(ui.inviteForm);
+  expect(mock.invite).toHaveBeenCalledOnce();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.refreshInvitation }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.queryByText(en.tuteeHistory.invitationRefreshFailed),
+    ).toBeNull(),
+  );
+  expect(mock.invite).toHaveBeenCalledOnce();
+  expect(screen.getByText(en.tuteeHistory.invitation_PUBLISHED)).toBeTruthy();
+  fireEvent(
+    screen.getByRole("dialog"),
+    new Event("cancel", { cancelable: true }),
+  );
+  expect(ui.close).toHaveBeenCalledOnce();
+});

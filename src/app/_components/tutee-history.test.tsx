@@ -27,6 +27,9 @@ type HistoryQuery = {
   isFetching?: boolean;
   refetch?: () => unknown;
 };
+type InviteReceipt = RouterOutputs["tuteeHistory"]["invite"];
+type MutationError = { message: string; data?: { code?: string } };
+type InviteInput = { email: string };
 const mock = vi.hoisted(() => ({
   preview: vi.fn(),
   link: vi.fn(),
@@ -34,12 +37,25 @@ const mock = vi.hoisted(() => ({
   claim: vi.fn(),
   cancel: vi.fn(),
   details: null as RouterOutputs["tuteeHistory"]["myDetails"] | null,
-  invitation: null as null | {
-    email: string;
-    expiresAt: Date;
-    revision: string;
-  },
+  invitation: null as
+    RouterOutputs["tuteeHistory"]["invitationStatus"] | undefined,
+  invitationError: null as MutationError | null,
+  invitationFetching: false,
+  candidateError: null as MutationError | null,
+  invitationRefetch: vi.fn(),
+  invitePending: false,
+  cancelPending: false,
+  inviteSuccess: undefined as
+    undefined | ((result: InviteReceipt, input: InviteInput) => Promise<void>),
+  inviteError: undefined as
+    undefined | ((error: MutationError, input: InviteInput) => void),
+  inviteSettled: undefined as undefined | (() => void),
+  cancelSuccess: undefined as
+    undefined | ((result: { cancelled: boolean }) => Promise<void>),
+  cancelError: undefined as undefined | ((error: MutationError) => void),
+  cancelSettled: undefined as undefined | (() => void),
   success: undefined as undefined | (() => Promise<void>),
+  linkError: undefined as undefined | ((error: MutationError) => void),
   invalidate: vi.fn(async () => undefined),
   pending: false,
   staffDetails: vi.fn<(input: unknown, options: unknown) => HistoryQuery>(),
@@ -75,11 +91,28 @@ vi.mock("~/trpc/react", () => ({
           mock.ownDetails(input, options),
       },
       invitationStatus: {
-        useQuery: () => ({ data: mock.invitation, refetch: mock.invalidate }),
+        useQuery: () => ({
+          data: mock.invitation,
+          error: mock.invitationError,
+          isFetching: mock.invitationFetching,
+          refetch: mock.invitationRefetch,
+        }),
       },
-      cancelInvitation: { useMutation: () => ({ mutate: mock.cancel }) },
+      cancelInvitation: {
+        useMutation: (options: {
+          onSuccess: typeof mock.cancelSuccess;
+          onError: typeof mock.cancelError;
+          onSettled: typeof mock.cancelSettled;
+        }) => {
+          mock.cancelSuccess = options.onSuccess;
+          mock.cancelError = options.onError;
+          mock.cancelSettled = options.onSettled;
+          return { mutate: mock.cancel, isPending: mock.cancelPending };
+        },
+      },
       candidates: {
         useQuery: () => ({
+          error: mock.candidateError,
           data: [
             {
               id: "account",
@@ -90,12 +123,27 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
       link: {
-        useMutation: (options: { onSuccess: () => Promise<void> }) => {
+        useMutation: (options: {
+          onSuccess: () => Promise<void>;
+          onError: typeof mock.linkError;
+        }) => {
           mock.success = options.onSuccess;
+          mock.linkError = options.onError;
           return { mutate: mock.link, isPending: mock.pending };
         },
       },
-      invite: { useMutation: () => ({ mutate: mock.invite }) },
+      invite: {
+        useMutation: (options: {
+          onSuccess: typeof mock.inviteSuccess;
+          onError: typeof mock.inviteError;
+          onSettled: typeof mock.inviteSettled;
+        }) => {
+          mock.inviteSuccess = options.onSuccess;
+          mock.inviteError = options.onError;
+          mock.inviteSettled = options.onSettled;
+          return { mutate: mock.invite, isPending: mock.invitePending };
+        },
+      },
       inspectClaim: {
         useQuery: () => ({ data: { name: "Alex Historical", sessions: 6 } }),
       },
@@ -110,9 +158,13 @@ const row = {
   user: null,
   owner: null,
 } as unknown as RouterOutputs["admin"]["tutees"][number];
-const mount = (head = false) =>
+const mount = (head = false, locale: "en" | "zh" = "en") =>
   render(
-    <NextIntlClientProvider locale="en" messages={en}>
+    <NextIntlClientProvider
+      locale={locale}
+      messages={locale === "zh" ? zh : en}
+      timeZone="Asia/Shanghai"
+    >
       <TuteeHistoryLinkForm
         row={row}
         isHead={head}
@@ -157,6 +209,15 @@ beforeEach(() => {
     mock.details ? { data: mock.details } : details,
   );
   mock.invitation = null;
+  mock.invitationError = null;
+  mock.invitationFetching = false;
+  mock.candidateError = null;
+  mock.invitePending = false;
+  mock.cancelPending = false;
+  mock.invitationRefetch.mockImplementation(async () => ({
+    data: mock.invitation,
+    error: mock.invitationError,
+  }));
   mock.preview.mockResolvedValue({
     fingerprint: "a".repeat(64),
     record: { name: "Alex Historical", sessions: 6 },
@@ -168,8 +229,11 @@ beforeEach(() => {
 
 it("shows invitation delivery metadata and cancels the exact displayed grant without losing the identity draft", () => {
   mock.invitation = {
-    email: "alumni@example.test",
-    expiresAt: new Date("2026-10-09T00:00:00Z"),
+    invitation: {
+      email: "alumni@example.test",
+      expiresAt: new Date("2026-10-09T00:00:00Z"),
+    },
+    attempt: null,
     revision: "b".repeat(64),
   };
   mount();
@@ -250,7 +314,7 @@ it("registers historical writes with the parent dialog and locks the whole histo
   });
   const close = vi.fn();
   const contents = () => (
-    <NextIntlClientProvider locale="en" messages={en}>
+    <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
       <Modal title="Profile" onClose={close} footer={null}>
         <TuteeHistoryLinkForm row={row} isHead={false} onLinked={vi.fn()} />
       </Modal>
@@ -310,7 +374,11 @@ it.each(["en", "zh"])(
       page: 0,
     };
     const content = (personal: boolean) => (
-      <NextIntlClientProvider locale={locale} messages={messages}>
+      <NextIntlClientProvider
+        locale={locale}
+        messages={messages}
+        timeZone="UTC"
+      >
         <TuteeHistoryDialog
           tuteeId="past"
           personal={personal}
@@ -390,7 +458,7 @@ it("shows retry after an initial history failure and disables duplicate reads wh
     refetch,
   });
   render(
-    <NextIntlClientProvider locale="en" messages={en}>
+    <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
       <TuteeHistoryContent tuteeId="record" />
     </NextIntlClientProvider>,
   );
@@ -416,7 +484,7 @@ it("keeps the personal-history dialog on its own retry endpoint", () => {
     refetch: ownRefetch,
   });
   render(
-    <NextIntlClientProvider locale="en" messages={en}>
+    <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
       <TuteeHistoryDialog
         tuteeId="personal-record"
         personal
@@ -532,7 +600,7 @@ it("blocks an Admin from resolving a retained-owner conflict", async () => {
 });
 it("does not claim a historical record on page load or before explicit confirmation", () => {
   render(
-    <NextIntlClientProvider locale="en" messages={en}>
+    <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
       <HistoryClaim token={"a".repeat(64)} />
     </NextIntlClientProvider>,
   );
@@ -618,4 +686,589 @@ it("clears a completed ownership preview and refreshes dependent views while rem
   expect(mock.invalidate).toHaveBeenCalledTimes(6);
   expect(screen.queryByRole("button", { name: "Confirm Link" })).toBeNull();
   expect(screen.getByRole("button", { name: "Review Link" })).toBeTruthy();
+});
+
+/** Delivery receipts and current live invitations are deliberately independent. */
+function invitationAttempt(
+  status: InviteReceipt["status"],
+  email = "new@example.test",
+) {
+  return {
+    attemptId: "attempt-1",
+    status,
+    expiresAt: status === "PUBLISHED" ? new Date("2026-10-26T00:00:00Z") : null,
+    email,
+  };
+}
+function fillInvitation(messages = en) {
+  fireEvent.change(screen.getByLabelText(messages.tuteeHistory.evidence), {
+    target: { value: "Verified identity against the original school archive" },
+  });
+  fireEvent.change(screen.getByLabelText(messages.tuteeHistory.email), {
+    target: { value: "new@example.test" },
+  });
+  return screen.getByLabelText(messages.tuteeHistory.email).closest("form")!;
+}
+
+it.each(["en", "zh"] as const)(
+  "reports each delivery outcome truthfully and preserves drafts (%s)",
+  async (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    for (const status of [
+      "PUBLISHED",
+      "DELIVERY_FAILED",
+      "SUPERSEDED",
+      "UNCERTAIN",
+    ] as const) {
+      mount(false, locale);
+      const form = fillInvitation(messages);
+      fireEvent.submit(form);
+      fireEvent.submit(form);
+      expect(mock.invite).toHaveBeenCalledOnce();
+      const attempt = invitationAttempt(status);
+      mock.invitation = {
+        invitation:
+          status === "PUBLISHED"
+            ? { email: attempt.email, expiresAt: attempt.expiresAt! }
+            : null,
+        attempt,
+        revision: "revision-1",
+      };
+      await act(async () => {
+        await mock.inviteSuccess!(attempt, { email: attempt.email });
+        mock.inviteSettled!();
+      });
+      expect(
+        screen.getByText(messages.tuteeHistory[`invitation_${status}`]),
+      ).toBeTruthy();
+      expect(screen.queryByText(messages.tuteeHistory.sent)).toBeNull();
+      expect(
+        screen.getByLabelText<HTMLInputElement>(messages.tuteeHistory.email)
+          .value,
+      ).toBe("new@example.test");
+      expect(
+        screen.getByLabelText<HTMLTextAreaElement>(
+          messages.tuteeHistory.evidence,
+        ).value,
+      ).toContain("original school archive");
+      const send = screen.getByRole<HTMLButtonElement>("button", {
+        name: messages.tuteeHistory.sendInvitation,
+      });
+      expect(send.disabled).toBe(
+        status === "PUBLISHED" || status === "UNCERTAIN",
+      );
+      fireEvent.change(screen.getByLabelText(messages.tuteeHistory.email), {
+        target: { value: "changed@example.test" },
+      });
+      expect(send.disabled).toBe(status === "UNCERTAIN");
+      if (status === "UNCERTAIN") {
+        fireEvent.submit(form);
+        expect(mock.invite).toHaveBeenCalledOnce();
+      }
+      cleanup();
+      mock.invite.mockClear();
+      mock.invitation = null;
+    }
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "recovers an accepted write through reads only after refresh fails (%s)",
+  async (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    mount(false, locale);
+    const form = fillInvitation(messages);
+    fireEvent.submit(form);
+    const attempt = invitationAttempt("PUBLISHED");
+    mock.invitationRefetch.mockRejectedValueOnce(
+      new Error("Network unavailable"),
+    );
+    await act(async () => {
+      await mock.inviteSuccess!(attempt, { email: attempt.email });
+      mock.inviteSettled!();
+    });
+    expect(
+      screen.getByText(messages.tuteeHistory.invitation_PUBLISHED),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(messages.tuteeHistory.invitationRefreshFailed),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(messages.tuteeHistory.email), {
+      target: { value: "changed@example.test" },
+    });
+    fireEvent.submit(form);
+    expect(mock.invite).toHaveBeenCalledOnce();
+    mock.invitation = {
+      invitation: { email: attempt.email, expiresAt: attempt.expiresAt! },
+      attempt,
+      revision: "revision-new",
+    };
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: messages.tuteeHistory.refreshInvitation,
+        }),
+      );
+    });
+    expect(mock.invitationRefetch).toHaveBeenCalledTimes(2);
+    expect(mock.invite).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByText(messages.tuteeHistory.invitationRefreshFailed),
+    ).toBeNull();
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "cancels an uncertain first send without a live invitation and clears its guard (%s)",
+  async (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    mock.invitation = {
+      invitation: null,
+      attempt: invitationAttempt("UNCERTAIN"),
+      revision: "pending-revision",
+    };
+    mount(false, locale);
+    const form = fillInvitation(messages);
+    fireEvent.submit(form);
+    expect(mock.invite).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.tuteeHistory.cancelInvitation,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.tuteeHistory.cancelInvitation,
+      }),
+    );
+    expect(mock.cancel).toHaveBeenCalledExactlyOnceWith({
+      tuteeId: "record",
+      revision: "pending-revision",
+    });
+    mock.invitation = {
+      invitation: null,
+      attempt: invitationAttempt("SUPERSEDED"),
+      revision: "cancelled-revision",
+    };
+    await act(async () => {
+      await mock.cancelSuccess!({ cancelled: true });
+      mock.cancelSettled!();
+    });
+    expect(
+      screen.getByText(messages.tuteeHistory.invitationCancelled),
+    ).toBeTruthy();
+    fireEvent.submit(form);
+    expect(mock.invite).toHaveBeenCalledOnce();
+  },
+);
+
+it("requires explicit read recovery after a stale cancellation, preserving its draft and not adopting a fresh revision", async () => {
+  mock.invitation = {
+    invitation: null,
+    attempt: invitationAttempt("UNCERTAIN"),
+    revision: "old-revision",
+  };
+  const view = mount();
+  fillInvitation();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.cancelInvitation }),
+  );
+  act(() => {
+    mock.cancelError!({ message: "HISTORY_STALE" });
+    mock.cancelSettled!();
+  });
+  mock.invitation = {
+    invitation: null,
+    attempt: invitationAttempt("UNCERTAIN"),
+    revision: "new-revision",
+  };
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+      <TuteeHistoryLinkForm row={row} isHead={false} onLinked={vi.fn()} />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.cancelInvitation }),
+  );
+  expect(mock.cancel).toHaveBeenCalledExactlyOnceWith({
+    tuteeId: "record",
+    revision: "old-revision",
+  });
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: en.tuteeHistory.refreshInvitation }),
+    );
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.cancelInvitation }),
+  );
+  expect(mock.cancel).toHaveBeenLastCalledWith({
+    tuteeId: "record",
+    revision: "new-revision",
+  });
+  expect(
+    screen.getByLabelText<HTMLTextAreaElement>(en.tuteeHistory.evidence).value,
+  ).toContain("original school archive");
+});
+
+it.each(["en", "zh"] as const)(
+  "retries initial read failures and hides cached receipts only after authoritative denial (%s)",
+  async (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    mock.invitation = undefined;
+    mock.invitationError = { message: "Offline" };
+    const view = mount(false, locale);
+    const form = fillInvitation(messages);
+    fireEvent.submit(form);
+    expect(mock.invite).not.toHaveBeenCalled();
+    mock.invitation = {
+      invitation: null,
+      attempt: invitationAttempt("UNCERTAIN", "private@example.test"),
+      revision: "r",
+    };
+    mock.invitationError = null;
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: messages.tuteeHistory.refreshInvitation,
+        }),
+      );
+    });
+    expect(screen.getByText(/private@example.test/)).toBeTruthy();
+    const content = () => (
+      <NextIntlClientProvider
+        locale={locale}
+        messages={messages}
+        timeZone="UTC"
+      >
+        <TuteeHistoryLinkForm row={row} isHead={false} onLinked={vi.fn()} />
+      </NextIntlClientProvider>
+    );
+    mock.invitationError = { message: "Offline" };
+    view.rerender(content());
+    expect(screen.getByText(/private@example.test/)).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.tuteeHistory.cancelInvitation,
+      }),
+    );
+    expect(mock.cancel).not.toHaveBeenCalled();
+    mock.invitationError = {
+      message: "Access revoked",
+      data: { code: "FORBIDDEN" },
+    };
+    view.rerender(content());
+    expect(screen.queryByText(/private@example.test/)).toBeNull();
+    expect(
+      screen.queryByText(messages.tuteeHistory.invitation_UNCERTAIN),
+    ).toBeNull();
+    expect(
+      screen.getByText(messages.tuteeHistory.invitationDenied),
+    ).toBeTruthy();
+    fireEvent.submit(form);
+    expect(mock.invite).not.toHaveBeenCalled();
+  },
+);
+
+it("blocks resending an unknown mutation outcome even after editing the recipient, then recovers only by status read", async () => {
+  mount();
+  const form = fillInvitation();
+  fireEvent.submit(form);
+  act(() => {
+    mock.inviteError!(
+      { message: "Response lost" },
+      { email: "new@example.test" },
+    );
+    mock.inviteSettled!();
+  });
+  fireEvent.change(screen.getByLabelText(en.tuteeHistory.email), {
+    target: { value: "changed@example.test" },
+  });
+  fireEvent.submit(form);
+  expect(mock.invite).toHaveBeenCalledOnce();
+  expect(screen.getByText(en.tuteeHistory.invitation_UNCERTAIN)).toBeTruthy();
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: en.tuteeHistory.refreshInvitation }),
+    );
+  });
+  expect(mock.invite).toHaveBeenCalledOnce();
+  expect(screen.queryByText(en.tuteeHistory.invitation_UNCERTAIN)).toBeNull();
+  fireEvent.submit(form);
+  expect(mock.invite).toHaveBeenCalledTimes(2);
+});
+
+it("does not present a historical published receipt as an active grant or block a new deliberate send", () => {
+  mock.invitation = {
+    invitation: null,
+    attempt: invitationAttempt("PUBLISHED"),
+    revision: "historical",
+  };
+  mount();
+  const form = fillInvitation();
+  expect(
+    screen.queryByRole("button", { name: en.tuteeHistory.cancelInvitation }),
+  ).toBeNull();
+  expect(screen.queryByText(/Expires:/)).toBeNull();
+  fireEvent.submit(form);
+  expect(mock.invite).toHaveBeenCalledOnce();
+});
+
+it("keeps the initiating dialog busy through SMTP and releases dismissal after a failed read, without latching sibling pending", async () => {
+  const close = vi.fn();
+  const content = () => (
+    <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+      <Modal title="Invitation editor" onClose={close} footer={null}>
+        <TuteeHistoryLinkForm row={row} isHead={false} onLinked={vi.fn()} />
+      </Modal>
+    </NextIntlClientProvider>
+  );
+  const view = render(content());
+  const form = fillInvitation();
+  fireEvent.submit(form);
+  mock.invitePending = true;
+  view.rerender(content());
+  const dialog = screen.getByRole("dialog", { name: "Invitation editor" });
+  expect(dialog.getAttribute("aria-busy")).toBe("true");
+  fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  expect(close).not.toHaveBeenCalled();
+  mock.invitationRefetch.mockRejectedValueOnce(new Error("Read failed"));
+  await act(async () => {
+    await mock.inviteSuccess!(invitationAttempt("PUBLISHED"), {
+      email: "new@example.test",
+    });
+    mock.inviteSettled!();
+  });
+  mock.invitePending = false;
+  view.rerender(content());
+  expect(dialog.getAttribute("aria-busy")).not.toBe("true");
+  fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  expect(close).toHaveBeenCalledOnce();
+  expect(mock.invite).toHaveBeenCalledOnce();
+});
+
+it("retains an existing live invitation while a replacement fails, and makes full cancellation scope explicit", () => {
+  mock.invitation = {
+    invitation: {
+      email: "old@example.test",
+      expiresAt: new Date("2026-10-26T00:00:00Z"),
+    },
+    attempt: invitationAttempt("DELIVERY_FAILED"),
+    revision: "old-still-live",
+  };
+  mount();
+  expect(screen.getByText(/old@example.test/)).toBeTruthy();
+  expect(
+    screen.getByText(en.tuteeHistory.invitation_DELIVERY_FAILED),
+  ).toBeTruthy();
+  expect(screen.getByText(en.tuteeHistory.cancelInvitationHelp)).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.cancelInvitation }),
+  );
+  expect(mock.cancel).toHaveBeenCalledWith({
+    tuteeId: "record",
+    revision: "old-still-live",
+  });
+});
+
+it.each(["status", "candidates", "preview", "link"] as const)(
+  "conceals cached candidate and preview details after %s authority is revoked",
+  async (source) => {
+    const view = mount();
+    await review();
+    expect(screen.getByText(/Link Alex Historical/)).toBeTruthy();
+    if (source === "status")
+      mock.invitationError = { message: "Denied", data: { code: "FORBIDDEN" } };
+    if (source === "candidates")
+      mock.candidateError = {
+        message: "Denied",
+        data: { code: "UNAUTHORIZED" },
+      };
+    if (source === "preview") {
+      fireEvent.change(screen.getByRole("combobox"), { target: { value: "" } });
+      fireEvent.change(screen.getByRole("combobox"), {
+        target: { value: "account" },
+      });
+      mock.preview.mockRejectedValueOnce(
+        Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } }),
+      );
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole("button", { name: en.tuteeHistory.preview }),
+        );
+      });
+    }
+    if (source === "link") {
+      // The real mutation callback is captured separately from its transport mock.
+      act(() =>
+        mock.linkError!({ message: "Denied", data: { code: "FORBIDDEN" } }),
+      );
+    }
+    view.rerender(
+      <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+        <TuteeHistoryLinkForm row={row} isHead={false} onLinked={vi.fn()} />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByText(/Link Alex Historical/)).toBeNull();
+    expect(screen.queryByText(/alex@example.test/)).toBeNull();
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: en.tuteeHistory.preview,
+      }).disabled,
+    ).toBe(true);
+  },
+);
+
+it("detects a failed refetch result even when its promise resolves, and does not replay the accepted write", async () => {
+  mount();
+  const form = fillInvitation();
+  fireEvent.submit(form);
+  mock.invitationRefetch.mockResolvedValueOnce({
+    data: null,
+    error: new Error("Read result failed"),
+    isError: true,
+  });
+  await act(async () => {
+    await mock.inviteSuccess!(invitationAttempt("DELIVERY_FAILED"), {
+      email: "new@example.test",
+    });
+    mock.inviteSettled!();
+  });
+  expect(
+    screen.getByText(en.tuteeHistory.invitationRefreshFailed),
+  ).toBeTruthy();
+  fireEvent.submit(form);
+  expect(mock.invite).toHaveBeenCalledOnce();
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: en.tuteeHistory.refreshInvitation }),
+    );
+  });
+  expect(mock.invitationRefetch).toHaveBeenCalledTimes(2);
+  expect(mock.invite).toHaveBeenCalledOnce();
+  fireEvent.submit(form);
+  expect(mock.invite).toHaveBeenCalledTimes(2);
+});
+
+it.each([
+  ["CONFLICT", "HISTORY_STALE"],
+  ["PRECONDITION_FAILED", "HISTORY_EMAIL_UNAVAILABLE"],
+] as const)(
+  "does not describe an authoritative pre-delivery %s rejection as an uncertain send",
+  (code, message) => {
+    mount();
+    const form = fillInvitation();
+    fireEvent.submit(form);
+    act(() => {
+      mock.inviteError!(
+        { message, data: { code } },
+        { email: "new@example.test" },
+      );
+      mock.inviteSettled!();
+    });
+    expect(screen.queryByText(en.tuteeHistory.invitation_UNCERTAIN)).toBeNull();
+    expect(screen.getByText(en.tuteeHistory[message])).toBeTruthy();
+    fireEvent.submit(form);
+    expect(mock.invite).toHaveBeenCalledOnce();
+  },
+);
+
+it("uses an explicit successful status read to recover permission without losing the private draft", async () => {
+  mock.invitation = {
+    invitation: null,
+    attempt: invitationAttempt("UNCERTAIN", "private@example.test"),
+    revision: "r",
+  };
+  const view = mount();
+  fillInvitation();
+  act(() =>
+    mock.linkError!({ message: "Denied", data: { code: "FORBIDDEN" } }),
+  );
+  expect(screen.queryByText(/private@example.test/)).toBeNull();
+  expect(screen.queryByRole("combobox")).toBeNull();
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole("button", { name: en.tuteeHistory.refreshInvitation }),
+    );
+  });
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+      <TuteeHistoryLinkForm row={row} isHead={false} onLinked={vi.fn()} />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getByText(/private@example.test/)).toBeTruthy();
+  expect(screen.getByRole("combobox")).toBeTruthy();
+  expect(
+    screen.getByLabelText<HTMLTextAreaElement>(en.tuteeHistory.evidence).value,
+  ).toContain("original school archive");
+});
+
+it("uses a newer background attempt instead of a previous local publication receipt", async () => {
+  const view = mount();
+  const form = fillInvitation();
+  fireEvent.submit(form);
+  const published = invitationAttempt("PUBLISHED");
+  mock.invitation = {
+    invitation: { email: published.email, expiresAt: published.expiresAt! },
+    attempt: published,
+    revision: "published",
+  };
+  await act(async () => {
+    await mock.inviteSuccess!(published, { email: published.email });
+    mock.inviteSettled!();
+  });
+  mock.invitation = {
+    invitation: { email: published.email, expiresAt: published.expiresAt! },
+    attempt: {
+      ...invitationAttempt("UNCERTAIN", "replacement@example.test"),
+      attemptId: "replacement",
+    },
+    revision: "replacement-pending",
+  };
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+      <TuteeHistoryLinkForm row={row} isHead={false} onLinked={vi.fn()} />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getByText(en.tuteeHistory.invitation_UNCERTAIN)).toBeTruthy();
+  expect(screen.queryByText(en.tuteeHistory.invitation_PUBLISHED)).toBeNull();
+  fireEvent.change(screen.getByLabelText(en.tuteeHistory.email), {
+    target: { value: "third@example.test" },
+  });
+  fireEvent.submit(form);
+  expect(mock.invite).toHaveBeenCalledOnce();
+  expect(screen.getByText(/new@example.test/)).toBeTruthy();
+  expect(screen.getByText(/replacement@example.test/)).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.cancelInvitation }),
+  );
+  expect(mock.cancel).toHaveBeenCalledExactlyOnceWith({
+    tuteeId: "record",
+    revision: "replacement-pending",
+  });
+});
+
+it("preserves a resolved non-Error refetch denial code when concealing cached receipt evidence", async () => {
+  mock.invitation = {
+    invitation: null,
+    attempt: invitationAttempt("UNCERTAIN", "private@example.test"),
+    revision: "private-revision",
+  };
+  mount();
+  expect(screen.getByText(/private@example.test/)).toBeTruthy();
+  mock.invitationRefetch.mockResolvedValueOnce({
+    data: mock.invitation,
+    error: { message: "Denied", data: { code: "FORBIDDEN" } },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.cancelInvitation }),
+  );
+  await act(async () => {
+    await mock.cancelSuccess!({ cancelled: true });
+    mock.cancelSettled!();
+  });
+  expect(screen.queryByText(/private@example.test/)).toBeNull();
+  expect(screen.queryByRole("combobox")).toBeNull();
+  expect(screen.getByText(en.tuteeHistory.invitationDenied)).toBeTruthy();
 });

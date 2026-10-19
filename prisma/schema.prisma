@@ -688,6 +688,7 @@ enum SignupSource {
 model Tutee {
   historicalAcademics HistoricalAcademicRecord[]
   historyInvitation TuteeHistoryInvitation?
+  historyInvitationAttempts TuteeHistoryInvitationAttempt[]
   user User?
   /// Entry provenance only; never an approval state or a priority override.
   signupSource SignupSource @default(UNKNOWN)
@@ -1977,6 +1978,35 @@ model TuteeHistoryInvitation {
   setupVerifiedAt DateTime?
   /// Receipt permits safe completion retries without changing an existing password.
   setupUserId String?
+}
+
+enum TuteeHistoryInvitationAttemptStatus {
+  ADMITTED
+  PUBLISHED
+  DELIVERY_FAILED
+  SUPERSEDED
+}
+
+/// A committed delivery admission is never itself a usable invitation. Only an
+/// accepted, still-current candidate can replace the published predecessor.
+/// Raw tokens remain request-local; these operational receipts are not archives.
+model TuteeHistoryInvitationAttempt {
+  id String @id @default(cuid())
+  /// Assigned at admission INSERT while the namespace/tutee locks are held.
+  sequence Int @unique @default(autoincrement())
+  tuteeId String
+  tutee Tutee @relation(fields: [tuteeId], references: [id], onDelete: Cascade)
+  tokenHash String @unique
+  predecessorFingerprint String
+  email String
+  expectedUpdatedAt DateTime
+  issuedById String
+  reason String
+  expiresAt DateTime
+  status TuteeHistoryInvitationAttemptStatus @default(ADMITTED)
+  createdAt DateTime @default(now())
+  settledAt DateTime?
+  @@index([tuteeId, sequence])
 }
 
 /// Short-lived, user/action-bound confirmation tickets enforce the popup delay on the server.

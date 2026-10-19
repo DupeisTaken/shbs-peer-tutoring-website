@@ -4218,7 +4218,17 @@
     "verifyAgain": "Verify another code",
     "invitationCancelled": "Invitation cancelled. Existing credentials and completed history ownership are preserved.",
     "switchAccount": "Use another account",
-    "currentAcademicsOptional": "Current academic details are not required to view history. Original enrollment details remain alongside this section."
+    "currentAcademicsOptional": "Current academic details are not required to view history. Original enrollment details remain alongside this section.",
+    "invitation_PUBLISHED": "Der Mailserver hat diesen Versuch angenommen und die Einladung wurde veröffentlicht. Der Eingang im Postfach ist unbestätigt; Angaben zum aktuell gültigen Link werden separat angezeigt.",
+    "invitation_DELIVERY_FAILED": "Der Mailserver hat diesen Versuch nicht angenommen. Eine bestehende Einladung wurde nicht ersetzt.",
+    "invitation_SUPERSEDED": "Dieser Versuch wurde ersetzt oder abgebrochen. Es wurde keine neue Einladung veröffentlicht.",
+    "invitation_UNCERTAIN": "Das Ergebnis dieses Versuchs ist unbestätigt. Aktualisiere den Status oder storniere die ausstehende Einladung vor einem erneuten Versand.",
+    "invitationAttemptRecipient": "Empfänger dieses Versuchs: {email}",
+    "refreshInvitation": "Einladungsstatus aktualisieren",
+    "invitationRefreshFailed": "Der Einladungsstatus konnte nicht aktualisiert werden. Aktualisiere ihn vor dem Senden oder Stornieren; dein Entwurf bleibt erhalten.",
+    "invitationRefreshRequired": "Aktualisiere den Status vor einer weiteren Änderung. Dabei wird nur gelesen und keine weitere E-Mail gesendet.",
+    "invitationDenied": "Du hast keine Berechtigung mehr, diese Einladung anzusehen oder zu verwalten.",
+    "cancelInvitationHelp": "Das Stornieren widerruft den aktiven Einladungslink und jeden ausstehenden Ersatz. Bestehende Zugangsdaten und abgeschlossene Zuordnungen des Verlaufs bleiben erhalten."
   },
   "schoolDeparture": {
     "title": "School Departure",

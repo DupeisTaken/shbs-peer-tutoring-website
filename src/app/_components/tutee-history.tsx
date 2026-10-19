@@ -7,9 +7,19 @@ import { api, type RouterOutputs } from "~/trpc/react";
 import { ProfileDialog } from "./profile-dialog";
 import { useDialogPending } from "./ui/modal";
 import { AcademicDetails } from "./academic-profile";
-import { ScrollTable } from "./ui/patterns";
+import { InlineNotice, ScrollTable } from "./ui/patterns";
+import { QueryFeedback } from "./ui/query-feedback";
 import { HistoricalAcademicEvidence } from "./historical-academic-evidence";
 import { Button } from "./ui/button";
+
+/** Only an authoritative permission response conceals cached private delivery evidence. */
+function historyAccessDenied(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { message?: string; data?: { code?: string } };
+  return ["FORBIDDEN", "UNAUTHORIZED"].some(
+    (code) => value.data?.code === code || value.message === code,
+  );
+}
 
 export function HistoryError({ message }: { message: string }) {
   const t = useTranslations("tuteeHistory");
@@ -252,7 +262,15 @@ export function TuteeHistoryLinkForm({
   >(null);
   const [reviewing, setReviewing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
+  const [receipt, setReceipt] = useState<
+    (RouterOutputs["tuteeHistory"]["invite"] & { email: string }) | null
+  >(null);
+  const [completedEmail, setCompletedEmail] = useState<string | null>(null);
+  const [refreshRequired, setRefreshRequired] = useState(false);
+  const [refreshError, setRefreshError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [permissionLost, setPermissionLost] = useState(false);
+  const refreshingRef = useRef(false);
   const [expectedUpdatedAt] = useState(row.updatedAt);
   const submitting = useRef(false);
   const reviewPending = useRef(false);
@@ -261,22 +279,86 @@ export function TuteeHistoryLinkForm({
     submitting.current = false;
   };
   const [cancelled, setCancelled] = useState(false);
-  const invitation = api.tuteeHistory.invitationStatus.useQuery({
-    tuteeId: row.id,
-  });
+  const invitation = api.tuteeHistory.invitationStatus.useQuery(
+    { tuteeId: row.id },
+    { refetchOnMount: "always" },
+  );
+  const accessDenied = permissionLost || historyAccessDenied(invitation.error);
+  const status = accessDenied ? null : invitation.data;
+  // Retain the mutation receipt while its synchronization is unresolved. Once
+  // synchronized, a newer query may reveal another manager's pending replacement.
+  const attempt = accessDenied
+    ? null
+    : refreshRequired
+      ? (receipt ?? status?.attempt)
+      : (status?.attempt ?? receipt);
+  const statusReady =
+    invitation.data !== undefined &&
+    !invitation.error &&
+    !invitation.isFetching &&
+    !refreshRequired &&
+    !refreshing &&
+    !accessDenied;
+  const uncertain = attempt?.status === "UNCERTAIN";
+  const canCancel = !!status && (!!status.invitation || uncertain);
+  // Suppress a repeated send only while our accepted recipient still has a live
+  // grant. A past published receipt alone is not current invitation authority.
+  const alreadyPublished =
+    completedEmail !== null &&
+    completedEmail === email.trim().toLowerCase() &&
+    status?.invitation?.email.trim().toLowerCase() === completedEmail;
+  // A resolved write is never replayed to recover a failed read. This read owns no
+  // dialog busy registration, so settled writes leave the editor dismissible.
+  const refreshInvitation = async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    setRefreshing(true);
+    try {
+      const result = await invitation.refetch({ throwOnError: true });
+      if (result.error)
+        // Refetch may resolve with a non-Error tRPC shape. Preserve its authority
+        // code when normalizing so a denied read still conceals private evidence.
+        throw Object.assign(new Error(result.error.message), {
+          data: result.error.data,
+        });
+      setReceipt(result.data?.attempt ?? null);
+      setRefreshRequired(false);
+      setRefreshError(false);
+      setPermissionLost(false);
+      setError(null);
+    } catch (cause) {
+      setRefreshRequired(true);
+      setRefreshError(true);
+      if (historyAccessDenied(cause)) setPermissionLost(true);
+    } finally {
+      refreshingRef.current = false;
+      setRefreshing(false);
+    }
+  };
   const cancelInvitation = api.tuteeHistory.cancelInvitation.useMutation({
     onSettled: settled,
-    onSuccess: async () => {
-      setSent(false);
-      setCancelled(true);
-      await invitation.refetch();
+    onSuccess: async (result) => {
+      setReceipt(null);
+      setCompletedEmail(null);
+      setCancelled(result.cancelled);
+      setRefreshRequired(true);
+      await refreshInvitation();
     },
-    onError: (e) => setError(e.message),
+    onError: (e) => {
+      setError(e.message);
+      // A stale revision requires a deliberate read before any further cancellation.
+      setRefreshRequired(true);
+      if (historyAccessDenied(e)) setPermissionLost(true);
+    },
   });
   const candidates = api.tuteeHistory.candidates.useQuery(
     { search: query },
-    { enabled: query.length >= 2 },
+    { enabled: query.length >= 2 && !accessDenied },
   );
+  const privateDenied = accessDenied || historyAccessDenied(candidates.error);
+  useEffect(() => {
+    if (historyAccessDenied(candidates.error)) setPermissionLost(true);
+  }, [candidates.error]);
   const link = api.tuteeHistory.link.useMutation({
     onSettled: settled,
     onSuccess: async () => {
@@ -292,24 +374,54 @@ export function TuteeHistoryLinkForm({
     },
     onError: (e) => {
       setError(e.message);
+      if (historyAccessDenied(e)) setPermissionLost(true);
       setPreview(null);
       setPassword("");
     },
   });
   const invite = api.tuteeHistory.invite.useMutation({
     onSettled: settled,
-    onSuccess: async () => {
-      setSent(true);
+    onSuccess: async (result, input) => {
+      setReceipt({ ...result, email: input.email });
+      setCompletedEmail(
+        result.status === "PUBLISHED" ? input.email.trim().toLowerCase() : null,
+      );
       setCancelled(false);
-      await invitation.refetch();
+      setRefreshRequired(true);
+      await refreshInvitation();
     },
-    onError: (e) => setError(e.message),
+    onError: (e, input) => {
+      setError(e.message);
+      // A lost response may hide an admitted attempt. Read or cancel it before
+      // sending again; editing the address must never bypass this uncertainty.
+      const rejectedBeforeDelivery = [
+        "BAD_REQUEST",
+        "CONFLICT",
+        "PRECONDITION_FAILED",
+        "FORBIDDEN",
+        "UNAUTHORIZED",
+        "NOT_FOUND",
+        "TOO_MANY_REQUESTS",
+      ].includes(e.data?.code ?? "");
+      setReceipt(
+        rejectedBeforeDelivery
+          ? null
+          : {
+              attemptId: "",
+              status: "UNCERTAIN",
+              expiresAt: null,
+              email: input.email,
+            },
+      );
+      setRefreshRequired(true);
+      if (historyAccessDenied(e)) setPermissionLost(true);
+    },
   });
   // Preview is a dismissible read. Register actual link/invitation/cancellation writes only.
   const ownPending =
     link.isPending || invite.isPending || cancelInvitation.isPending;
   const busy = useDialogPending(ownPending);
-  const pending = busy || parentPending || reviewing || linked;
+  const pending = busy || parentPending || reviewing || linked || privateDenied;
   // Report owned work only; inherited aggregate registration would latch sibling forms.
   useLayoutEffect(() => {
     onPendingChange?.(ownPending);
@@ -322,8 +434,8 @@ export function TuteeHistoryLinkForm({
   }, [linked, busy, parentPending, onLinked]);
   return (
     <fieldset
-      disabled={pending}
-      aria-busy={pending}
+      disabled={busy || parentPending || reviewing || linked}
+      aria-busy={ownPending}
       className="min-w-0 space-y-5"
     >
       <legend className="sr-only">{t("linkTitle")}</legend>
@@ -387,7 +499,7 @@ export function TuteeHistoryLinkForm({
         {candidates.error && (
           <HistoryError message={candidates.error.message} />
         )}
-        {candidates.data && (
+        {!privateDenied && candidates.data && (
           <label className="block">
             <span className="label">{t("chooseAccount")}</span>
             <select
@@ -438,6 +550,7 @@ export function TuteeHistoryLinkForm({
               );
             } catch (e) {
               setError(e instanceof Error ? e.message : "HISTORY_STALE");
+              if (historyAccessDenied(e)) setPermissionLost(true);
             } finally {
               reviewPending.current = false;
               setReviewing(false);
@@ -446,7 +559,7 @@ export function TuteeHistoryLinkForm({
         >
           {t("preview")}
         </button>
-        {preview && (
+        {!privateDenied && preview && (
           <div className="space-y-3 rounded-lg bg-slate-50 p-3">
             <p className="text-sm">
               {t("previewSummary", {
@@ -532,49 +645,103 @@ export function TuteeHistoryLinkForm({
         <section className="space-y-3 rounded-xl border border-slate-200 p-4">
           <h3 className="font-semibold">{t("invitation")}</h3>
           <p className="muted text-sm">{t("inviteHelp")}</p>
-          {invitation.error && (
-            <HistoryError message={invitation.error.message} />
-          )}
-          {cancelled && (
+          <QueryFeedback
+            hasData={!accessDenied && invitation.data !== undefined}
+            loading={invitation.isLoading || invitation.data === undefined}
+            error={!!invitation.error || refreshError || accessDenied}
+            retrying={
+              refreshing ||
+              invitation.isFetching ||
+              busy ||
+              parentPending ||
+              reviewing ||
+              linked
+            }
+            loadingTitle={t("loading")}
+            errorTitle={
+              accessDenied
+                ? t("invitationDenied")
+                : t("invitationRefreshFailed")
+            }
+            retryLabel={t("refreshInvitation")}
+            onRetry={() => void refreshInvitation()}
+          />
+          {refreshRequired &&
+            !refreshError &&
+            !invitation.error &&
+            !accessDenied && (
+              <InlineNotice tone="warning" announcement="status">
+                <p>{t("invitationRefreshRequired")}</p>
+                <Button
+                  size="compact"
+                  disabled={pending || refreshing}
+                  onClick={() => void refreshInvitation()}
+                >
+                  {t("refreshInvitation")}
+                </Button>
+              </InlineNotice>
+            )}
+          {!accessDenied && cancelled && (
             <p role="status" className="text-sm">
               {t("invitationCancelled")}
             </p>
           )}
-          {invitation.data && (
+          {status?.invitation && (
             <div className="space-y-2 rounded-lg bg-slate-50 p-3 text-sm">
               <p className="break-all">
-                {t("invitationRecipient", { email: invitation.data.email })}
+                {t("invitationRecipient", { email: status.invitation.email })}
               </p>
               <p>
                 {t("invitationExpiry", {
-                  date: format.dateTime(invitation.data.expiresAt, {
+                  date: format.dateTime(status.invitation.expiresAt, {
                     dateStyle: "medium",
                     timeStyle: "short",
                   }),
                 })}
               </p>
-              <button
-                type="button"
-                className="btn-secondary min-h-11 lg:min-h-10"
-                disabled={pending}
+            </div>
+          )}
+          {attempt && (
+            <InlineNotice
+              tone={
+                attempt.status === "PUBLISHED"
+                  ? "success"
+                  : attempt.status === "DELIVERY_FAILED"
+                    ? "error"
+                    : "warning"
+              }
+              announcement="status"
+            >
+              <p className="font-medium">{t(`invitation_${attempt.status}`)}</p>
+              <p className="mt-1 break-all">
+                {t("invitationAttemptRecipient", { email: attempt.email })}
+              </p>
+            </InlineNotice>
+          )}
+          {canCancel && !accessDenied && (
+            <div className="space-y-2">
+              <p className="muted text-sm">{t("cancelInvitationHelp")}</p>
+              <Button
+                disabled={pending || !statusReady}
                 onClick={() => {
                   if (
                     pending ||
+                    !statusReady ||
                     submitting.current ||
                     reviewPending.current ||
-                    !invitation.data
+                    !status
                   )
                     return;
                   submitting.current = true;
                   setError(null);
                   cancelInvitation.mutate({
                     tuteeId: row.id,
-                    revision: invitation.data.revision,
+                    revision: status.revision,
                   });
                 }}
               >
                 {t("cancelInvitation")}
-              </button>
+              </Button>
             </div>
           )}
           <form
@@ -587,7 +754,9 @@ export function TuteeHistoryLinkForm({
                 reviewPending.current ||
                 reason.trim().length < 10 ||
                 !email ||
-                sent ||
+                !statusReady ||
+                uncertain ||
+                alreadyPublished ||
                 row.owner ||
                 row.user
               )
@@ -613,22 +782,23 @@ export function TuteeHistoryLinkForm({
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
-                  setSent(false);
                 }}
               />
             </label>
             <button
               className="btn-secondary min-h-11 lg:min-h-10"
-              disabled={pending || reason.trim().length < 10 || !email || sent}
+              disabled={
+                pending ||
+                !statusReady ||
+                uncertain ||
+                reason.trim().length < 10 ||
+                !email ||
+                alreadyPublished
+              }
             >
               {t("sendInvitation")}
             </button>
           </form>
-          {sent && (
-            <p role="status" className="text-sm text-green-800">
-              {t("sent")}
-            </p>
-          )}
         </section>
       )}
       {error && <HistoryError message={error} />}
