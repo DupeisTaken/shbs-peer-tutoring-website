@@ -347,8 +347,25 @@ even when completed history is collapsed or filtered.
 Pending tutors confirm whether to participate before tutoring actions appear.
 Inactive tutors retain their records but cannot edit pairings or submit attendance.
 
-In **My Availability → Preferred Sessions** on the tutor dashboard, active tutors
-can save **0–4** sessions or clear the preference. New tutors default to **1**;
+In **Room schedule → Upcoming — Next 7 Days**, active tutors see today and the
+following six program-local dates. Confirmed current-period sessions with a current
+roster remain until their scheduled end; coherent pairing groups appear once.
+Unconfirmed default slots are excluded. Valid pending/interview panel assignments
+appear at their recorded start, without an invented end or room booking. Unscheduled,
+elapsed, invalid, recalled and finalized interviews remain in the full interview
+workflow rather than this preview. **View workflow** moves keyboard focus to the
+corresponding authorized section. Refreshing or returning to the page updates changed
+plans; separate refresh controls recover unavailable sources without scheduling or
+deciding anything. Calendar notices do not automatically cancel recurring plans.
+The program timezone governs midnight and the seven-date boundary. A skipped or
+repeated daylight-saving wall time needs review and is called out rather than guessed.
+Private interview evidence never appears in the shared room grid.
+
+In **My Availability → Edit My Time Availability** on the tutor dashboard, active
+tutors find **Preferred Sessions** below the weekday slot choices. Select one of
+the **0–4** buttons, then save the preference, or clear it. Availability and
+preference have separate Save/Cancel actions; saving or reloading one preserves
+the other's draft, and collapsing the editor retains both. New tutors default to **1**;
 existing unset preferences remain unset.
 Zero means you prefer no assignments; no preference is a separate unset choice.
 This is advisory: staff can still assign under the existing review rules. Lowering
@@ -379,6 +396,18 @@ schedule conflict. Schedule-conflict and eligible relay reason drafts remain
 separate when Details is closed and reopened on the same page. They are not saved across navigation. A
 pending write blocks dismissal; Cancel and Close do not submit it. The pairing's
 default time selector remains before the tutee list.
+
+The selector ranks published catalog slots by your saved availability and every
+current assigned tutee's saved selections. A shared slot must have the same
+catalog ID for everyone; overlapping clock times alone do not qualify. Shared
+slots appear first, followed by your selected slots with the most tutee matches.
+For a combined pairing group, the advice includes all current group members.
+Missing availability, unavailable guidance and no common slot have distinct
+messages. All published options remain selectable, and the current linked or
+retained confirmed schedule remains visible. Ranking never saves a choice;
+discuss the time and confirm the existing review before changing the schedule.
+The selected choice's availability also appears as wrapping text below the
+selector, so its full match status remains readable on a narrow screen.
 
 Meeting-excuse, qualification and interview drafts remain available after a failed
 save. Correct the problem and retry. Attendance keeps its successful receipt and

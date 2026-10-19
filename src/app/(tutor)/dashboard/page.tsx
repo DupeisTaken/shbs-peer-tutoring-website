@@ -24,6 +24,7 @@ import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import { SessionPagePosition } from "~/app/_components/session-view-state";
 
 import { TutorRoomSchedule } from "~/app/(tutor)/_components/tutor-room-schedule";
+import { TutorUpcoming } from "~/app/(tutor)/_components/tutor-upcoming";
 import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
 
 export default async function TutorDashboard() {
@@ -194,13 +195,15 @@ export default async function TutorDashboard() {
           <p className="muted mt-1 mb-4 text-sm">
             {t("dashboard.availability.help")}
           </p>
-          <TutorWorkloadPreference />
+          {inactive && <TutorWorkloadPreference summaryOnly />}
           {!inactive && (
             <DisclosureSection
               title={t("dashboard.availability.edit")}
               lifetime="retained"
             >
               <AvailabilityEditor />
+              {/* Independent sibling forms retain their own drafts and save recovery. */}
+              <TutorWorkloadPreference embedded />
             </DisclosureSection>
           )}
         </section>
@@ -220,6 +223,11 @@ export default async function TutorDashboard() {
           <p className="muted">{t("dashboard.schedule.help")}</p>
         </div>
         <ProgramCalendarNotice />
+        <TutorUpcoming
+          active={!inactive}
+          interviewsEnabled={features.INTERVIEWS}
+          now={new Date()}
+        />
         <TutorRoomSchedule initialData={schedule} />
       </section>
     </div>

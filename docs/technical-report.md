@@ -1242,6 +1242,15 @@ editor retains failed/dirty drafts, adopts new versions only through its success
 save/read or explicit Reload, and distinguishes accepted-write synchronization
 failure from rejected-save recovery. Lowering a preference never changes pairings.
 
+On the active Tutor Dashboard, the retained availability disclosure composes two
+independent forms: weekday availability first, then the embedded preference.
+[WorkloadPreferenceChoices](../src/app/_components/workload-preference-choices.tsx)
+shares the accessible 0–4 `ChoiceButton` group with the gallery. Its explicit clear
+action stages `null`, distinct from zero. Neither form's save, pending state,
+failure or reload replaces the sibling draft/version. An empty or unavailable
+slot catalog does not hide the preference. Inactive dashboards retain the
+read-only workload/preference summary outside the active-only editor.
+
 Use [the pure block/projection helpers](../src/lib/tutor-workload.ts) for counts,
 [WorkloadAssignmentConfirmation](../src/app/_components/assignment-workload.tsx)
 for assignment advice, and [invalidateWorkloads](../src/lib/workload-cache.ts)
@@ -1303,7 +1312,37 @@ completed interview evidence and optional editor disclosures retain mounted draf
 The [contributor action inventory](contributing.md#consequential-action-inventory)
 documents draft, reversible and confirmed action boundaries.
 
+[The personal upcoming projection](../src/lib/tutor-upcoming.ts) reuses self-scoped
+`tutor.myPairings` and `tutor.myInterviews` evidence outside `RoomGrid`. It includes
+today plus six program-local dates, retains ongoing confirmed populated sessions
+until their end, and projects coherent `pairingEntries` groups once. Active-period
+filtering stays in the existing pairing reader; inactive accounts have no preview.
+Only valid PENDING/INTERVIEW assignments with a future recorded start appear;
+interviews have no inferred end or room. Existing workflow anchors retain all
+unresolved/history records. The shared grid/API projection gains no applicant data.
+Calendar notices do not modify recurrence. Strict program-time conversion reports
+ambiguous/nonexistent DST wall clocks rather than choosing an instant; 24:00 uses
+the next local boundary. Ties sort by instant then stable event ID.
+The client advances its clock every 30 seconds and on focus, with one-minute query
+refreshes sharing existing cache keys. Either source denial conceals both caches until every enabled source freshly
+recovers; untouched cached success cannot release this boundary. Transient read
+failures retain partial evidence with an explicit stale warning and independent retries. Feature-disabled interviews are not queried or projected. Rendering and
+workflow links never call scheduling, voting, attendance or booking mutations.
+
 `Pairing.scheduleConfirmed` separates assigned tutors from agreed schedules. New request assignments default false; catalog-slot creation or selection sets true. Clearing a slot link retains the flag and copied times. Lists expose the awaiting state, dashboard counts exclude it, and attendance requires explicit actual start/end values whenever any selected pairing is unconfirmed. Recording actual attendance never confirms the recurring schedule. The [scheduling migration](../prisma/migrations/20260922200100_pairing_scheduling/migration.sql) conservatively marks preexisting rows true because copied-time provenance is unknown; new rows default false. No historical schedule or session time is inferred or rewritten.
+
+[Mutual availability ranking](../src/lib/mutual-availability.ts) is a pure,
+read-only projection of the active slot catalog, tutor selected IDs and the
+assigned roster's slot IDs. The tutor pairing selector considers the full distinct
+current roster for a saved group and ranks exact shared IDs first. Remaining
+choices sort by tutor selection, descending matched-tutee count, then
+weekday/start/end/ID. Similar clock intervals never imply
+agreement. Missing selections and unavailable reads are distinct from a known
+lack of a shared slot; no published choice is removed. The current unpublished
+linked slot remains visible, while retained confirmed times keep their existing
+summary. Sorting never changes the saved selection, review or versioned mutation
+payload. Coverage lives in [pure ranking tests](../src/lib/mutual-availability.test.ts)
+and [pairing UI tests](<../src/app/(tutor)/_components/tutor-pairings.test.tsx>).
 
 Confirmed planned room bookings cannot overlap within a program period or conflict with a recurring blackout. Unconfirmed numeric placeholders do not reserve rooms, and changing only the confirmation flag still invokes the database room guard. Adjacent bookings are allowed. Shared transaction locks keep application validation coherent; database triggers enforce the final constraint. Actual historical attendance can differ from a plan and is recorded with conflict warnings and management notification.
 
