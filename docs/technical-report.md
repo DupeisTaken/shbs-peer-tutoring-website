@@ -958,6 +958,22 @@ Classify every management write in the [approval policy](../src/lib/approval-pol
 5. Commit the domain change, proposal decision, related notifications and decision audit together. Competing reviewers cannot apply a proposal twice.
 6. Send external email after commit. Delivery failure must remain retryable without undoing an applied assignment.
 
+Audited student assignment and management resend use `resendSurveyResult` to queue the
+entire resend workflow, including replacement-link publication. Its exact result object
+starts with `emailSent: null`; the audit owner settles it before returning the API result.
+Post-commit work uses the owner's root database client rather than the resolver's closed
+transaction client. Approval replay retains its distinct decision transaction and sends
+only after that decision commits. A failed send leaves the assignment and its audit saved;
+recovery resends email or refreshes reads and never repeats the assignment.
+
+For these verification-link outcomes, `emailSent: true` means SMTP accepted the message
+(or development logging completed) and the replacement challenge was published. It is
+not proof of inbox delivery. Rejected/unavailable transport, post-commit failure, or a
+replacement superseded during delivery returns false. Publication compares the previous
+token hash and rechecks open/unconfirmed/valid state and the fixed assignment deadline,
+so failed retries and slower overlapping sends preserve the currently usable link and
+success-only delivery metadata. The submitted priority and assignment deadline do not change.
+
 The [approval review presentation model](../src/lib/approval-review.ts) reads only the immutable input and submission evidence. Explicit operation titles and field/value vocabulary live under `approvals.review`; the [shared details component](../src/app/_components/approval-review-details.tsx) renders the same request in the card and consequence dialog. Direct-field comparisons require an exact target-table/ID or compound-key match. Attendance, patrol and pairing collections use their matching child snapshots. Missing evidence is distinct from an empty value; unchanged submitted values and supporting records remain inspectable. Known decisions are displayed as decisions rather than booleans, while user-authored text is preserved verbatim. New review vocabulary is authored in English and Chinese; the other six bundles currently use English for these new keys and retain their existing surrounding translations. Locale parity and ICU checks cover every bundle.
 
 Adding an approval operation requires an authored review title and an explicit choice about whether its input represents direct field updates or action parameters. Do not infer resulting database state from a decision input, fill historical gaps with live queries, or change proposal fingerprints for presentation. Regression coverage is in [model tests](../src/lib/approval-review.test.ts), [details tests](../src/app/_components/approval-review-details.test.tsx), and [queue tests](../src/app/_components/management-actions.test.tsx), alongside the existing server approval and confirmation tests.

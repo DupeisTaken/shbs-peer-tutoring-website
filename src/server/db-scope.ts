@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { PrismaClient } from "../../generated/prisma";
-import type { TransactionDb } from "./transactions";
+import type { DomainDb, TransactionDb } from "./transactions";
 
 /** Approval replay must include legacy helpers which import the shared db directly.
  * Async-local scope keeps those writes in the decision transaction without crossing requests. */
@@ -15,7 +15,15 @@ export const auditCaptureScope = new AsyncLocalStorage<{
 }>();
 export const afterCommitScope = new AsyncLocalStorage<{
   effects: Array<() => Promise<void>>; committed: boolean; onFailure: () => Promise<void>;
+  /** Root client retained by the actual transaction owner for post-commit work. */
+  database?: DomainDb;
 }>();
+
+/** Capture this only for a post-commit effect: a resolver's injected client may
+ * otherwise still reference its closed transaction after databaseScope ends. */
+export function afterCommitDatabase(fallback: DomainDb): DomainDb {
+  return afterCommitScope.getStore()?.database ?? fallback;
+}
 
 /** Return true only when an outer owner will run this effect after its commit. */
 export function deferUntilCommit(effect: () => Promise<void>): boolean {
