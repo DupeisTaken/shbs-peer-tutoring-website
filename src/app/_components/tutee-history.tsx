@@ -186,6 +186,8 @@ export function TuteeHistoryContent({
                     <td>
                       {format.dateTime(row.session.date, {
                         dateStyle: "medium",
+                        // Preserve the original attendance day in every program timezone.
+                        timeZone: "UTC",
                       })}
                     </td>
                     <td>

@@ -7,7 +7,9 @@ import { useLocale, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { formatWeekday, minToHm } from "~/lib/time";
 import { Button, ChoiceButton } from "~/app/_components/ui/button";
-import { FormActions } from "~/app/_components/ui/patterns";
+import { FormActions, StatePanel } from "~/app/_components/ui/patterns";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
+import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 
 /**
  * Lets a tutor mark which catalog time slots they can teach. Slots are reference-only;
@@ -18,6 +20,7 @@ export function AvailabilityEditor() {
   // Localize presentation and group names; selected IDs stay catalog-owned.
   const locale = useLocale();
   const query = api.tutor.myAvailability.useQuery();
+  const denied = useSessionAccessDenied(query);
   // Follow live server data until editing starts; background refetches must not
   // replace an unsaved selection or a draft retained after a failed request.
   const [draft, setDraft] = useState<string[] | null>(null);
@@ -47,7 +50,12 @@ export function AvailabilityEditor() {
   });
   // After a successful write, keep the submitted selection visible but prevent
   // another write or Cancel from restoring a stale cache until refresh succeeds.
-  const locked = save.isPending || sync.status !== "idle";
+  const locked =
+    save.isPending ||
+    sync.status !== "idle" ||
+    denied ||
+    !!query.error ||
+    !query.data;
 
   const slots = useMemo(() => query.data?.slots ?? [], [query.data]);
 
@@ -72,16 +80,57 @@ export function AvailabilityEditor() {
     save.reset();
   };
 
-  if (query.isLoading)
-    return <p className="muted">{t("tutor.availability.loading")}</p>;
-  if (slots.length === 0)
-    return <p className="muted">{t("tutor.availability.empty")}</p>;
+  // Transport recovery keeps the draft; a latched access denial conceals its UI
+  // until a fresh successful read establishes authority again.
+  const retry = () => {
+    if (sync.status !== "idle") void refreshSavedSelection();
+    else void query.refetch();
+  };
+  if (denied)
+    return (
+      <StatePanel
+        kind="denied"
+        title={t("participantRecovery.accessDenied")}
+        action={
+          <Button disabled={query.isFetching} onClick={retry}>
+            {t("uiPatterns.retry")}
+          </Button>
+        }
+      />
+    );
+  const feedback = (
+    <QueryFeedback
+      hasData={!!query.data}
+      loading={!query.data && !query.error}
+      error={!!query.error && sync.status === "idle"}
+      retrying={query.isFetching}
+      loadingTitle={t("tutor.availability.loading")}
+      errorTitle={t(
+        query.data
+          ? "participantRecovery.refreshFailed"
+          : "participantRecovery.loadFailed",
+      )}
+      retryLabel={t("uiPatterns.retry")}
+      onRetry={retry}
+    />
+  );
+  if (!query.data) return feedback;
+  if (slots.length === 0 && sync.status === "idle")
+    return (
+      <>
+        {feedback}
+        {!query.error && (
+          <p className="muted">{t("tutor.availability.empty")}</p>
+        )}
+      </>
+    );
 
   return (
     <div
       className="space-y-3"
       aria-busy={save.isPending || sync.status === "refreshing"}
     >
+      {feedback}
       {slotsByDay.map(([day, daySlots]) => (
         <div key={day}>
           {/* Active grouping labels need body-text contrast, not disabled fading. */}
