@@ -410,14 +410,13 @@ default time selector remains before the tutee list.
 The selector ranks published catalog slots by your saved availability and every
 current assigned tutee's saved selections. A shared slot must have the same
 catalog ID for everyone; overlapping clock times alone do not qualify. Shared
-slots appear first, followed by your selected slots with the most tutee matches.
+slots appear under **Both Available**; the remaining choices appear under
+**Other Time Slots**. Each option shows only the slot name, weekday and time.
 For a combined pairing group, the advice includes all current group members.
-Missing availability, unavailable guidance and no common slot have distinct
-messages. All published options remain selectable, and the current linked or
+Missing selections or unavailable reads never place a slot in **Both Available**.
+All published options remain selectable, and the current linked or
 retained confirmed schedule remains visible. Ranking never saves a choice;
 discuss the time and confirm the existing review before changing the schedule.
-The selected choice's availability also appears as wrapping text below the
-selector, so its full match status remains readable on a narrow screen.
 
 Meeting-excuse, qualification and interview drafts remain available after a failed
 save. Correct the problem and retry. Attendance keeps its successful receipt and

@@ -9,6 +9,14 @@ import {
 import { afterEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import esMessages from "../../../../messages/es.json";
+import jaMessages from "../../../../messages/ja.json";
+import koMessages from "../../../../messages/ko.json";
+import elMessages from "../../../../messages/el.json";
+import deMessages from "../../../../messages/de.json";
+import frMessages from "../../../../messages/fr.json";
+import { type Locale } from "~/i18n/config";
 import { TutorPairings } from "./tutor-pairings";
 import { MergeProvider, useMerge } from "./merge-context";
 const state = vi.hoisted(() => ({
@@ -219,11 +227,22 @@ afterEach(() => {
   state.workflowRows = [];
   state.availabilityRefetch.mockResolvedValue({ isSuccess: true });
 });
-const element = (active = true, locale = "en") => (
+// Exercise each real bundled catalog; default-hidden languages can be published.
+const catalogs = {
+  en: messages,
+  zh: zhMessages,
+  es: esMessages,
+  ja: jaMessages,
+  ko: koMessages,
+  el: elMessages,
+  de: deMessages,
+  fr: frMessages,
+} satisfies Record<Locale, typeof messages>;
+const element = (active = true, locale: Locale = "en") => (
   <NextIntlClientProvider
     locale={locale}
     timeZone="Asia/Shanghai"
-    messages={messages}
+    messages={catalogs[locale]}
   >
     <MergeProvider>
       <TutorPairings active={active} />
@@ -268,17 +287,19 @@ it("ranks exact mutual selections without changing the saved selection or review
     "one",
   ]);
   expect(select.value).toBe("one");
-  expect(select.options[1]?.textContent).toContain("Shared by everyone");
-  expect(select.options[2]?.textContent).toContain("not selected by you");
-  const wrappingStatus = screen.getByText(
-    "Choice availability: 0/1 tutees; not selected by you",
+  expect(select.options[1]?.parentElement?.getAttribute("label")).toBe(
+    "Both Available",
   );
-  expect(wrappingStatus.closest("option")).toBeNull();
+  expect(select.options[2]?.parentElement?.getAttribute("label")).toBe(
+    "Other Time Slots",
+  );
+  expect(select.options[1]?.textContent).toBe("Shared · Fri 15:00–16:00");
+  expect(select.options[2]?.textContent).toBe("Same clock · Fri 15:00–16:00");
   expect(
-    document
-      .getElementById(select.getAttribute("aria-describedby")!)
-      ?.contains(wrappingStatus),
-  ).toBe(true);
+    screen.queryByText(
+      /Choice availability|Shared by everyone|not selected by you/,
+    ),
+  ).toBeNull();
   expect(state.setSlot).not.toHaveBeenCalled();
   state.confirm.mockResolvedValue(true);
   fireEvent.change(select, { target: { value: "shared" } });
@@ -290,7 +311,7 @@ it("ranks exact mutual selections without changing the saved selection or review
     }),
   );
 });
-it("keeps an inactive linked schedule visible and distinguishes missing availability from no common slot", () => {
+it("keeps an inactive linked schedule visible and puts incomplete or nonmatching availability in Other Time Slots", () => {
   state.slots = [
     { id: "new", label: "Published", dayOfWeek: 1, startMin: 900, endMin: 960 },
   ];
@@ -302,13 +323,11 @@ it("keeps an inactive linked schedule visible and distinguishes missing availabi
   expect(select.selectedOptions[0]?.textContent).toContain(
     "Current linked slot (not published)",
   );
-  expect(
-    screen
-      .getAllByText("Current linked slot (not published)")
-      .every((el) => !el.closest("option")),
-  ).toBe(true);
-  expect(screen.getByText(/Availability is incomplete/)).toBeTruthy();
-  expect(screen.queryByText(/No catalog slot is selected/)).toBeNull();
+  expect(select.selectedOptions[0]?.disabled).toBe(true);
+  expect(screen.queryByRole("group", { name: "Both Available" })).toBeNull();
+  expect(select.options[2]?.parentElement?.getAttribute("label")).toBe(
+    "Other Time Slots",
+  );
   state.slots.push({
     id: "other",
     label: "Other",
@@ -318,9 +337,62 @@ it("keeps an inactive linked schedule visible and distinguishes missing availabi
   });
   state.workflowRows[0]!.slots = [{ id: "other" }];
   view.rerender(element());
-  expect(screen.getByText(/No catalog slot is selected/)).toBeTruthy();
+  expect(screen.queryByRole("group", { name: "Both Available" })).toBeNull();
   expect(state.setSlot).not.toHaveBeenCalled();
 });
+it.each([
+  ["en", "Both Available", "Other Time Slots", "Mon"],
+  ["zh", "双方均有空", "其他时段", "周一"],
+  ["es", "Ambos disponibles", "Otras franjas horarias", "lun"],
+  ["ja", "双方が対応可能", "その他の時間帯", "月"],
+  ["ko", "모두 가능한 시간", "기타 시간대", "월"],
+  ["el", "Κοινή διαθεσιμότητα", "Άλλες χρονικές ζώνες", "Δευ"],
+  ["de", "Beide verfügbar", "Andere Zeitfenster", "Mo"],
+  ["fr", "Disponibilités communes", "Autres créneaux horaires", "lun."],
+] as const)(
+  "shows concise localized slot groups in %s without repeated guidance",
+  (locale, both, other, day) => {
+    state.selectedSlotIds = ["one"];
+    state.workflowRows = [
+      { pairingId: "pairing", tuteeId: "tutee", slots: [{ id: "one" }] },
+    ];
+    render(element(true, locale));
+    const select = screen.getAllByRole<HTMLSelectElement>("combobox")[0]!;
+    expect(select.querySelector("optgroup")?.label).toBe(both);
+    expect(select.options[1]?.textContent).toBe(`Monday · ${day} 15:00–16:00`);
+    expect(select.querySelectorAll("optgroup")).toHaveLength(1);
+    // The separate empty assignment cannot imply mutual availability with nobody.
+    expect(
+      screen
+        .getAllByRole<HTMLSelectElement>("combobox")[1]!
+        .querySelector("optgroup")?.label,
+    ).toBe(other);
+    expect(select.hasAttribute("aria-describedby")).toBe(false);
+    expect(state.confirm).not.toHaveBeenCalled();
+    expect(state.setSlot).not.toHaveBeenCalled();
+  },
+);
+it.each(["roster", "availability", "missingTutor", "missingTutee"])(
+  "never calls a slot shared after %s availability becomes unknown",
+  (failure) => {
+    state.selectedSlotIds = ["one"];
+    state.workflowRows = [
+      { pairingId: "pairing", tuteeId: "tutee", slots: [{ id: "one" }] },
+    ];
+    const view = render(element());
+    const select = screen.getAllByRole<HTMLSelectElement>("combobox")[0]!;
+    expect(select.querySelector("optgroup")?.label).toBe("Both Available");
+    if (failure === "roster") state.rosterFailure = "transport";
+    if (failure === "availability") state.availabilityFailure = "transport";
+    if (failure === "missingTutor") state.selectedSlotIds = [];
+    if (failure === "missingTutee") state.workflowRows = [];
+    view.rerender(element());
+    expect(select.querySelector("optgroup")?.label).toBe("Other Time Slots");
+    expect(select.value).toBe("one");
+    expect(select.options[1]?.textContent).toBe("Monday · Mon 15:00–16:00");
+    expect(state.setSlot).not.toHaveBeenCalled();
+  },
+);
 it("recomputes saved-group ranking from every distinct current member tutee when roster availability and assignments refresh, without writes", () => {
   state.savedGroup = true;
   // The same learner appears in both subjects, while a second learner belongs
@@ -368,24 +440,22 @@ it("recomputes saved-group ranking from every distinct current member tutee when
     selections().map((select) =>
       [...select.options].map((option) => option.value),
     );
-  const optionText = (slotId: string) =>
-    selections().map(
-      (select) =>
-        [...select.options].find((option) => option.value === slotId)!
-          .textContent,
+  const optionGroup = (slotId: string) =>
+    selections().map((select) =>
+      [...select.options]
+        .find((option) => option.value === slotId)!
+        .parentElement?.getAttribute("label"),
     );
   expect(selections()).toHaveLength(2);
   expect(optionOrder()).toEqual([
     ["", "full", "primary-only", "one"],
     ["", "full", "primary-only", "one"],
   ]);
+  expect(optionGroup("full").every((text) => text === "Both Available")).toBe(
+    true,
+  );
   expect(
-    optionText("full").every((text) => text?.includes("Shared by everyone")),
-  ).toBe(true);
-  expect(
-    optionText("primary-only").every((text) =>
-      text?.includes("You + 1/2 tutees"),
-    ),
+    optionGroup("primary-only").every((text) => text === "Other Time Slots"),
   ).toBe(true);
 
   // A read refresh changes only the second learner's saved availability. The
@@ -401,13 +471,11 @@ it("recomputes saved-group ranking from every distinct current member tutee when
     ["", "primary-only", "full", "one"],
   ]);
   expect(
-    optionText("primary-only").every((text) =>
-      text?.includes("Shared by everyone"),
-    ),
+    optionGroup("primary-only").every((text) => text === "Both Available"),
   ).toBe(true);
-  expect(
-    optionText("full").every((text) => text?.includes("You + 1/2 tutees")),
-  ).toBe(true);
+  expect(optionGroup("full").every((text) => text === "Other Time Slots")).toBe(
+    true,
+  );
 
   // A newly assigned member removes unanimity; a stale workflow row must stop
   // contributing once that learner drops out of the current active roster.
@@ -418,23 +486,19 @@ it("recomputes saved-group ranking from every distinct current member tutee when
   ];
   view.rerender(element());
   expect(
-    optionText("primary-only").every((text) =>
-      text?.includes("You + 2/3 tutees"),
-    ),
+    optionGroup("primary-only").every((text) => text === "Other Time Slots"),
   ).toBe(true);
-  expect(
-    optionText("full").every((text) => text?.includes("You + 2/3 tutees")),
-  ).toBe(true);
-  expect(screen.getAllByText(/No catalog slot is selected/)).toHaveLength(2);
+  expect(optionGroup("full").every((text) => text === "Other Time Slots")).toBe(
+    true,
+  );
+  expect(screen.queryByRole("group", { name: "Both Available" })).toBeNull();
   state.memberTuteeIds = ["tutee", "new"];
   view.rerender(element());
+  expect(optionGroup("full").every((text) => text === "Both Available")).toBe(
+    true,
+  );
   expect(
-    optionText("full").every((text) => text?.includes("Shared by everyone")),
-  ).toBe(true);
-  expect(
-    optionText("primary-only").every((text) =>
-      text?.includes("You + 1/2 tutees"),
-    ),
+    optionGroup("primary-only").every((text) => text === "Other Time Slots"),
   ).toBe(true);
   expect(selections().every((select) => select.value === "one")).toBe(true);
   expect(state.confirm).not.toHaveBeenCalled();
@@ -458,7 +522,7 @@ it.each(["learner", null])(
 it.each([
   ["en", "Mon"],
   ["zh", "周一"],
-])("localizes %s tutor pairing schedule evidence", (locale, weekday) => {
+] as const)("localizes %s tutor pairing schedule evidence", (locale, weekday) => {
   render(element(false, locale));
   expect(screen.getByText(`· ${weekday} 15:00–16:00`)).toBeTruthy();
 });
@@ -466,7 +530,7 @@ it.each([
 it("never exposes an unconfirmed placeholder schedule in Chinese", () => {
   state.confirmed = false;
   render(element(false, "zh"));
-  expect(screen.getByText(`· ${messages.scheduling.awaiting}`)).toBeTruthy();
+  expect(screen.getByText(`· ${zhMessages.scheduling.awaiting}`)).toBeTruthy();
   expect(screen.queryByText("周一 15:00–16:00")).toBeNull();
 });
 it("inactive tutors keep pairing evidence without schedule/removal/merge writes", () => {
