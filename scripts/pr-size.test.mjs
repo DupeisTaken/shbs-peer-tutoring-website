@@ -200,19 +200,19 @@ for (const [total, label] of [
   [1000, "XXL"],
   [20000, "XXL"],
 ]) {
-  test(`${total} effective lines receives size:${label}`, async () => {
+  test(`${total} effective lines receives code:${label}`, async () => {
     const { mutations } = await run({ total });
     assert.deepEqual(
       mutations.filter(([action]) => action === "add"),
-      [["add", [`size:${label}`]]],
+      [["add", [`code:${label}`]]],
     );
   });
 }
 
 test("excluded lines never inflate mixed or supporting-material-only PRs", async () => {
   for (const [effective, expected] of [
-    [10, "size:S"],
-    [0, "size:XS"],
+    [10, "code:S"],
+    [0, "code:XS"],
   ]) {
     const { mutations, messages } = await run({ total: 1500, effective });
     assert.deepEqual(
@@ -227,20 +227,51 @@ test("excluded lines never inflate mixed or supporting-material-only PRs", async
 });
 
 test("label replacement preserves unrelated labels and repeated runs do not relabel", async () => {
-  const labels = ["bug", "size:XS", "size:XXL", "size:custom"];
+  const labels = ["bug", "code:XS", "code:XXL", "code:custom"];
   const { mutations } = await run({ total: 40, labels });
   assert.deepEqual(
     mutations.filter(([action]) => ["add", "remove"].includes(action)),
     [
-      ["add", ["size:M"]],
-      ["remove", "size:XS"],
-      ["remove", "size:XXL"],
+      ["add", ["code:M"]],
+      ["remove", "code:XS"],
+      ["remove", "code:XXL"],
     ],
   );
-  const repeated = await run({ total: 40, labels: ["bug", "size:M"] });
+  const repeated = await run({ total: 40, labels: ["bug", "code:M"] });
   assert.ok(
     !repeated.mutations.some(([action]) => ["add", "remove"].includes(action)),
   );
+});
+
+test("legacy size labels migrate to code labels without disturbing documentation or custom labels", async () => {
+  for (const alreadyRenamed of [false, true]) {
+    const { mutations } = await run({
+      total: 40,
+      documentation: 10,
+      labels: [
+        "bug",
+        "documentation",
+        "size:custom",
+        "code:custom",
+        "docs:S",
+        ...["XS", "S", "M", "L", "XL", "XXL"].map((size) => `size:${size}`),
+        ...(alreadyRenamed ? ["code:M"] : []),
+      ],
+    });
+    assert.deepEqual(
+      mutations.filter(([action]) => ["add", "remove"].includes(action)),
+      [
+        ...(alreadyRenamed ? [] : [["add", ["code:M"]]]),
+        ...["XS", "S", "M", "L", "XL", "XXL"].map((size) => [
+          "remove", `size:${size}`,
+        ]),
+      ],
+    );
+    assert.ok(
+      !mutations.some(([action, label]) =>
+        ["create", "update"].includes(action) && label.name.startsWith("size:")),
+    );
+  }
 });
 
 test("first use creates all definitions and concurrent creation reconciles them", async () => {
@@ -250,6 +281,10 @@ test("first use creates all definitions and concurrent creation reconciles them"
       ([action]) => action === (race ? "update" : "create"),
     );
     assert.equal(definitions.length, 11);
+    assert.deepEqual(
+      definitions.slice(0, 6).map(([, label]) => label.name),
+      ["code:XS", "code:S", "code:M", "code:L", "code:XL", "code:XXL"],
+    );
     assert.equal(definitions[0][1].color, "0e8a16");
     assert.equal(definitions[5][1].color, "b60205");
     assert.deepEqual(
@@ -290,7 +325,7 @@ test("closed or changing PRs cause no label mutations", async () => {
           await run({
             ...options,
             documentation,
-            labels: ["size:L", "docs:L", "documentation", "docs:custom"],
+            labels: ["code:L", "docs:L", "documentation", "docs:custom"],
           })
         ).mutations,
         [],
@@ -302,15 +337,15 @@ test("closed or changing PRs cause no label mutations", async () => {
 test("API failures propagate, except removal of an already missing label", async () => {
   await assert.rejects(run({ apiError: 403 }), /HTTP 403/);
   await assert.rejects(
-    run({ labels: ["size:L"], removeError: 500 }),
+    run({ labels: ["code:L"], removeError: 500 }),
     /HTTP 500/,
   );
-  await run({ labels: ["size:L"], removeError: 404 });
+  await run({ labels: ["code:L"], removeError: 404 });
   await assert.rejects(
-    run({ labels: ["size:XS", "docs:L"], removeError: 500 }),
+    run({ labels: ["code:XS", "docs:L"], removeError: 500 }),
     /HTTP 500/,
   );
-  await run({ labels: ["size:XS", "docs:L"], removeError: 404 });
+  await run({ labels: ["code:XS", "docs:L"], removeError: 404 });
 });
 
 for (const [documentation, expected] of [
@@ -335,7 +370,7 @@ for (const [documentation, expected] of [
     });
     assert.deepEqual(
       mutations.filter(([action]) => action === "add"),
-      [["add", ["size:XS", ...(expected ? [`docs:${expected}`] : [])]]],
+      [["add", ["code:XS", ...(expected ? [`docs:${expected}`] : [])]]],
     );
     assert.ok(
       messages
@@ -352,13 +387,13 @@ test("code and documentation sizes transition independently and preserve manual 
     total: 2000,
     effective: 1000,
     documentation: 500,
-    labels: ["bug", "size:L", "docs:S", "documentation", "docs:custom"],
+    labels: ["bug", "code:L", "docs:S", "documentation", "docs:custom"],
   });
   assert.deepEqual(
     initial.mutations.filter(([action]) => ["add", "remove"].includes(action)),
     [
-      ["add", ["size:XXL", "docs:XL"]],
-      ["remove", "size:L"],
+      ["add", ["code:XXL", "docs:XL"]],
+      ["remove", "code:L"],
       ["remove", "docs:S"],
     ],
   );
@@ -367,7 +402,7 @@ test("code and documentation sizes transition independently and preserve manual 
     total: 2000,
     effective: 1000,
     documentation: 500,
-    labels: ["bug", "size:XXL", "docs:XL", "documentation", "docs:custom"],
+    labels: ["bug", "code:XXL", "docs:XL", "documentation", "docs:custom"],
   });
   assert.ok(
     !repeated.mutations.some(([action]) => ["add", "remove"].includes(action)),
@@ -376,7 +411,7 @@ test("code and documentation sizes transition independently and preserve manual 
     total: 1499,
     effective: 1000,
     documentation: 499,
-    labels: ["bug", "size:XXL", "docs:XL", "documentation", "docs:custom"],
+    labels: ["bug", "code:XXL", "docs:XL", "documentation", "docs:custom"],
   });
   assert.deepEqual(
     shrunk.mutations.filter(([action]) => ["add", "remove"].includes(action)),
@@ -390,13 +425,13 @@ test("code and documentation sizes transition independently and preserve manual 
     total: 1500,
     effective: 10,
     documentation: 500,
-    labels: ["bug", "size:XXL", "docs:L", "documentation", "docs:custom"],
+    labels: ["bug", "code:XXL", "docs:L", "documentation", "docs:custom"],
   });
   assert.deepEqual(
     grown.mutations.filter(([action]) => ["add", "remove"].includes(action)),
     [
-      ["add", ["size:S", "docs:XL"]],
-      ["remove", "size:XXL"],
+      ["add", ["code:S", "docs:XL"]],
+      ["remove", "code:XXL"],
       ["remove", "docs:L"],
     ],
   );
@@ -406,7 +441,7 @@ test("code and documentation sizes transition independently and preserve manual 
     documentation: 0,
     labels: [
       "bug",
-      "size:S",
+      "code:S",
       "docs:S",
       "docs:XXL",
       "documentation",
@@ -427,7 +462,7 @@ test("failed additions cannot remove existing size or documentation labels", asy
     run({
       total: 40,
       documentation: 0,
-      labels: ["size:XXL", "docs:XL"],
+      labels: ["code:XXL", "docs:XL"],
       addError: 403,
       removeError: 500,
     }),
@@ -497,7 +532,7 @@ test("real Git diffs handle merge bases, test paths, whitespace, deletions, rena
   );
   assert.deepEqual(
     mutations.find(([action]) => action === "add"),
-    ["add", ["size:XS"]],
+    ["add", ["code:XS"]],
   );
   // Removing the only code changes must not reintroduce the excluded tests.
   git("restore", "--source", base, "--", "deleted.ts");
@@ -519,7 +554,7 @@ test("real Git diffs handle merge bases, test paths, whitespace, deletions, rena
   );
   assert.deepEqual(
     testsOnly.mutations.find(([action]) => action === "add"),
-    ["add", ["size:XS"]],
+    ["add", ["code:XS"]],
   );
 });
 
@@ -634,7 +669,7 @@ test("real Git excludes docs, catalogs and colocated TSX tests while retaining r
       [
         "add",
         [
-          effective === 0 ? "size:XS" : effective === 10 ? "size:S" : "size:M",
+          effective === 0 ? "code:XS" : effective === 10 ? "code:S" : "code:M",
           ...(documentation > 0 ? ["docs:XL"] : []),
         ],
       ],
@@ -668,28 +703,28 @@ test("real Git documentation boundaries use one scope and keep code and catalogs
       docs: 499,
       code: 0,
       translations: 1000,
-      expected: ["size:XS", "docs:L"],
+      expected: ["code:XS", "docs:L"],
     },
     {
       name: "500 docs lines",
       docs: 500,
       code: 0,
       translations: 0,
-      expected: ["size:XS", "docs:XL"],
+      expected: ["code:XS", "docs:XL"],
     },
     {
       name: "large code and docs",
       docs: 500,
       code: 1000,
       translations: 1000,
-      expected: ["size:XXL", "docs:XL"],
+      expected: ["code:XXL", "docs:XL"],
     },
     {
       name: "catalogs only",
       docs: 0,
       code: 0,
       translations: 1500,
-      expected: ["size:XS"],
+      expected: ["code:XS"],
     },
   ]) {
     // Reset to the same committed base so every threshold case includes its own

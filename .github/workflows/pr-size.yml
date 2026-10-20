@@ -49,18 +49,18 @@ jobs:
 
             // Match pingdotgg/t3code's effective-line thresholds and colors.
             const sizes = [
-              { name: "size:XS", limit: 10, color: "0e8a16", range: "0-9" },
-              { name: "size:S", limit: 30, color: "5ebd3e", range: "10-29" },
-              { name: "size:M", limit: 100, color: "fbca04", range: "30-99" },
-              { name: "size:L", limit: 500, color: "fe7d37", range: "100-499" },
-              { name: "size:XL", limit: 1000, color: "d93f0b", range: "500-999" },
-              { name: "size:XXL", limit: Infinity, color: "b60205", range: "1,000+" },
+              { name: "code:XS", limit: 10, color: "0e8a16", range: "0-9" },
+              { name: "code:S", limit: 30, color: "5ebd3e", range: "10-29" },
+              { name: "code:M", limit: 100, color: "fbca04", range: "30-99" },
+              { name: "code:L", limit: 500, color: "fe7d37", range: "100-499" },
+              { name: "code:XL", limit: 1000, color: "d93f0b", range: "500-999" },
+              { name: "code:XXL", limit: Infinity, color: "b60205", range: "1,000+" },
             ];
             // Documentation shares code-size thresholds/colors, folding 1-9 into
             // S because the docs family intentionally has no XS or zero label.
             const documentationSizes = sizes.slice(1).map((size) => ({
-              ...size, name: size.name.replace("size:", "docs:"),
-              range: size.name === "size:S" ? "1-29" : size.range,
+              ...size, name: size.name.replace("code:", "docs:"),
+              range: size.name === "code:S" ? "1-29" : size.range,
             }));
             const definitions = sizes.map(({ name, color, range }) => ({
               name, color,
@@ -68,7 +68,12 @@ jobs:
             })).concat(documentationSizes.map(({ name, color, range }) => ({
               name, color, description: `${range} documentation changed lines.`,
             })));
-            const managedNames = new Set(definitions.map(({ name }) => name));
+            // Retire only the six legacy size labels, including any restored by
+            // an older workflow during migration. Custom labels stay untouched.
+            const managedNames = new Set([
+              ...definitions.map(({ name }) => name),
+              ...sizes.map(({ name }) => name.replace("code:", "size:")),
+            ]);
             const git = (...args) => execFileSync("git", args, {
               encoding: "utf8", maxBuffer: 32 * 1024 * 1024,
             });
