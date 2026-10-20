@@ -1363,12 +1363,16 @@ workflow links never call scheduling, voting, attendance or booking mutations.
 [Mutual availability ranking](../src/lib/mutual-availability.ts) is a pure,
 read-only projection of the active slot catalog, tutor selected IDs and the
 assigned roster's slot IDs. The tutor pairing selector considers the full distinct
-current roster for a saved group and ranks exact shared IDs first. Remaining
-choices sort by tutor selection, descending matched-tutee count, then
-weekday/start/end/ID. Similar clock intervals never imply
-agreement. Missing selections and unavailable reads are distinct from a known
-lack of a shared slot; no published choice is removed. The current unpublished
-linked slot remains visible, while retained confirmed times keep their existing
+current roster for a saved group and presents exact shared IDs under **Both
+Available**, with the remaining published choices under **Other Time Slots**.
+Option labels contain only catalog label, weekday and time; availability counts,
+per-option explanations and redundant guidance below the selector are omitted.
+Empty groups are omitted. Remaining choices sort by tutor selection, descending
+matched-tutee count, then weekday/start/end/ID. Similar clock intervals never imply
+agreement. Missing selections and unavailable reads never qualify a slot for the
+shared group; failed reads retain the existing query recovery. No published choice
+is removed. The current unpublished linked slot remains visible, while retained
+confirmed times keep their existing
 summary. Sorting never changes the saved selection, review or versioned mutation
 payload. Coverage lives in [pure ranking tests](../src/lib/mutual-availability.test.ts)
 and [pairing UI tests](<../src/app/(tutor)/_components/tutor-pairings.test.tsx>).

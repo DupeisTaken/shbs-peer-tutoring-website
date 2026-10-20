@@ -266,13 +266,15 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
         !!availability.data &&
         !availability.error,
     });
-    const guidanceId = `pairing-slot-guidance-${p.id}`;
-    const selectedSlotId = slotDrafts[p.id]
-      ? slotDrafts[p.id]!.slotId
-      : p.timeSlotId;
-    const selectedMatch = ranking.ranked.find(
-      ({ slot }) => slot.id === selectedSlotId,
-    );
+    // Group the existing advisory ranking without changing selection or save
+    // ownership. Unknown availability never qualifies as shared by everyone.
+    const slotGroups = [
+      { key: "bothAvailable", options: ranking.ranked.filter((s) => s.mutual) },
+      {
+        key: "otherTimeSlots",
+        options: ranking.ranked.filter((s) => !s.mutual),
+      },
+    ] as const;
     return (
       <li key={p.id} className="py-3">
         <p className="font-medium text-wrap text-slate-900">
@@ -297,7 +299,6 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                 ""
               }
               aria-label={`${p.subject}: ${t("tutor.pairings.defaultSlotLabel")}`}
-              aria-describedby={guidanceId}
               disabled={
                 setSlot.isPending ||
                 slotWorking ||
@@ -316,16 +317,20 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                     {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
                   </option>
                 )}
-              {ranking.ranked.map(
-                ({ slot: s, mutual, tutorSelected, matchedTutees }) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label} · {formatWeekday(s.dayOfWeek, locale)}{" "}
-                    {minToHm(s.startMin)}–{minToHm(s.endMin)}
-                    {ranking.status !== "unavailable" &&
-                      ranking.totalTutees > 0 &&
-                      ` · ${mutual ? t("tutor.pairings.ranking.optionMutual") : t(tutorSelected ? "tutor.pairings.ranking.optionTutor" : "tutor.pairings.ranking.optionOther", { count: matchedTutees, total: ranking.totalTutees })}`}
-                  </option>
-                ),
+              {slotGroups.map(({ key, options }) =>
+                options.length > 0 ? (
+                  <optgroup
+                    key={key}
+                    label={t(`tutor.pairings.ranking.${key}`)}
+                  >
+                    {options.map(({ slot: s }) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label} · {formatWeekday(s.dayOfWeek, locale)}{" "}
+                        {minToHm(s.startMin)}–{minToHm(s.endMin)}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null,
               )}
             </select>
             {slotDrafts[p.id] && !slotWorking && !slotRefreshFailed && (
@@ -342,48 +347,6 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                 </Button>
               </div>
             )}
-            {p.timeSlot && (
-              <span className="muted">
-                ({formatWeekday(p.timeSlot.dayOfWeek, locale)}{" "}
-                {minToHm(p.timeSlot.startMin)}–{minToHm(p.timeSlot.endMin)})
-              </span>
-            )}
-            <div
-              id={guidanceId}
-              className="muted w-full space-y-1 text-xs break-words"
-            >
-              <p>
-                {t(`tutor.pairings.ranking.${ranking.status}`)}
-                {ranking.status === "missing" &&
-                  ` ${ranking.missingTutor ? t("tutor.pairings.ranking.missingTutor") : ""} ${ranking.missingTutees > 0 ? t("tutor.pairings.ranking.missingTutees", { count: ranking.missingTutees }) : ""}`}
-              </p>
-              {/* Native selected text may clip on mobile. Mirror the same exact
-                  ranking evidence as wrapping text, without changing the choice. */}
-              {selectedMatch &&
-                ranking.status !== "unavailable" &&
-                ranking.totalTutees > 0 && (
-                  <p>
-                    {t("tutor.pairings.ranking.selectedStatus", {
-                      status: selectedMatch.mutual
-                        ? t("tutor.pairings.ranking.optionMutual")
-                        : t(
-                            selectedMatch.tutorSelected
-                              ? "tutor.pairings.ranking.optionTutor"
-                              : "tutor.pairings.ranking.optionOther",
-                            {
-                              count: selectedMatch.matchedTutees,
-                              total: ranking.totalTutees,
-                            },
-                          ),
-                    })}
-                  </p>
-                )}
-              {selectedSlotId &&
-                !selectedMatch &&
-                ranking.status !== "unavailable" && (
-                  <p>{t("tutor.pairings.ranking.retainedOption")}</p>
-                )}
-            </div>
           </div>
         )}
 
