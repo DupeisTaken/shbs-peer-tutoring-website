@@ -259,6 +259,43 @@ it("retains every correction revision and rejects replay or altered preview cont
   ]);
 });
 
+// A freshly generated report is an effective historical summary; correcting an
+// enrollment must not leave its table/CSV reading the superseded source mirror.
+async function prepareReportPeriod() {
+  await db.term.update({ where: { id: "old" }, data: { createdAt: new Date("2024-09-01T00:00:00Z") } });
+  await db.term.update({ where: { id: "current" }, data: { createdAt: new Date("2026-09-01T00:00:00Z") } });
+  await db.tutee.update({ where: { id: "a" }, data: { createdAt: new Date("2024-10-01T00:00:00Z") } });
+}
+
+it("uses the corrected enrollment grade in a newly generated period report", async () => {
+  await prepareReportPeriod();
+  const correction = await prepared(await input());
+  await caller().historicalAcademics.correctBatch(correction);
+  const snapshot = await historicalAcademicSnapshot(db, key("a"));
+  expect(snapshot.current.rawGrade).toBe("G8");
+  expect(snapshot.original.rawGrade).toBeNull();
+  const report = await caller().admin.periodReport({ schoolYear: "24-25", depth: "full" });
+  expect(report.signups.find((signup) => signup.id === "a")?.grade).toBe("G8");
+});
+
+it.each([null, "G8"])("reports preserved enrollment grade %s after a roster mirror changes", async (rawGrade) => {
+  await prepareReportPeriod();
+  await db.tutee.update({ where: { id: "a" }, data: { gradeLevel: rawGrade } });
+  await db.$transaction((tx) => preserveHistoricalAcademics(tx, "TUTEE", "a"));
+  await db.tutee.update({ where: { id: "a" }, data: { gradeLevel: "G12" } });
+  const report = await caller().admin.periodReport({ schoolYear: "24-25", depth: "full" });
+  expect(report.signups.find((signup) => signup.id === "a")?.grade).toBe(rawGrade);
+  expect((await historicalAcademicSnapshot(db, key("a"))).original.rawGrade).toBe(rawGrade);
+});
+
+it("reports legacy enrollment grades without creating historical evidence", async () => {
+  await prepareReportPeriod();
+  await db.tutee.update({ where: { id: "a" }, data: { gradeLevel: "初三" } });
+  const report = await caller().admin.periodReport({ schoolYear: "24-25", depth: "full" });
+  expect(report.signups.find((signup) => signup.id === "a")?.grade).toBe("初三");
+  expect(await db.historicalAcademicRecord.count()).toBe(0);
+});
+
 it("preserves recorded graduation as original evidence without changing participation", async () => {
   await db.tutee.update({
     where: { id: "a" },

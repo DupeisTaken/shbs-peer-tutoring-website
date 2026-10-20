@@ -371,6 +371,8 @@ Open **Reports** (`/admin/history`) and choose a school year and quarter, semest
 
 HEAD can download a displayed table as CSV. Use **Print / Save as PDF** and the browser's print dialog for a printable report. Review the private-data masking option before sharing; VIEWER responses are always masked by the server. Report exports reflect the chosen scope and current records. They are not database backups and do not use the import format below.
 
+Signup grades in newly generated reports use the latest reviewed historical academic correction, or the preserved enrollment grade when no correction exists. An originally unknown grade stays unknown; linking an account does not substitute its current grade. Legacy signups without preserved evidence use their recorded enrollment grade. Generating a report does not change original archive evidence or previously downloaded reports.
+
 ## Import and export program records
 
 Only **HEAD** can open **Program records** (`/admin/records`), download CSV archives/templates, preview an import or commit it. ADMIN and COORDINATOR cannot submit imports for approval. Access is checked against the current database role, including after a demotion or suspension.

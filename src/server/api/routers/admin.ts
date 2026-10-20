@@ -1861,6 +1861,27 @@ export const adminRouter = createTRPCRouter({
             : Promise.resolve([]),
         ]);
 
+      // Reports project effective enrollment evidence without rewriting the archive
+      // or borrowing a linked account's current grade. A preserved null is meaningful.
+      const signupAcademics = signups.length
+        ? await ctx.db.historicalAcademicRecord.findMany({
+            where: { id: { in: signups.map((s) => legacyAcademicRecordId("TUTEE", s.id)) } },
+            select: {
+              tuteeId: true,
+              rawGrade: true,
+              corrections: {
+                orderBy: { revision: "desc" },
+                take: 1,
+                select: { rawGrade: true },
+              },
+            },
+          })
+        : [];
+      const signupGrades = new Map(signupAcademics.map((record) => [
+        record.tuteeId,
+        record.corrections[0] ? record.corrections[0].rawGrade : record.rawGrade,
+      ]));
+
       return {
         ...detailed,
         applications: applications.map((a) => ({
@@ -1874,7 +1895,7 @@ export const adminRouter = createTRPCRouter({
           id: s.id,
           date: s.createdAt,
           name: s.englishName,
-          grade: s.gradeLevel,
+          grade: signupGrades.has(s.id) ? signupGrades.get(s.id)! : s.gradeLevel,
           status: s.status,
           firstChoice: s.firstChoice?.name ?? null,
           secondChoice: s.secondChoice?.name ?? null,
