@@ -82,6 +82,9 @@ export const authConfig = {
         "/tutee/account",
         "/tutee-signup",
         "/tutee-signup/account",
+        // This exact mailbox-capability page must mount before its fragment is
+        // consumed; adjacent routes still require an authenticated account.
+        "/tutee-signup/appeal",
         "/tutor",
         "/viewer",
         "/history/claim",

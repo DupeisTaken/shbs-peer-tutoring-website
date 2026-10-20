@@ -417,7 +417,16 @@ export function SignupForm() {
                 <select
                   className="select min-h-11 lg:min-h-10"
                   value={firstChoiceId}
-                  onChange={(e) => setFirstChoiceId(e.target.value)}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setFirstChoiceId(next);
+                    // Removing an option does not clear a controlled select's
+                    // draft. Keep the posted second choice aligned with None;
+                    // required-second validation then requests a replacement.
+                    setSecondChoiceId((previous) =>
+                      previous === next ? "" : previous,
+                    );
+                  }}
                   required
                 >
                   <option value="">
