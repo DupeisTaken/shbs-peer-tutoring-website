@@ -236,9 +236,11 @@ While eligible to participate, **Request a Tutor** appears once in the page head
 
 Current schedules include only active-period assignments on explicitly owned, non-inactive profiles. A new tutor assignment displays **Awaiting schedule** until a tutor or manager chooses a time slot; the assigned tutor remains visible. The dashboard counts only subjects with confirmed schedules. Multiple profiles on the same assignment produce one schedule entry. A matching name or email does not grant access to another person’s records. Historical attendance remains available after a refresh.
 
-Schedule notices can show program no-tutoring dates and their reasons. They are
-informational: confirm individual plans with your tutor. These notices do not
-cancel assignments, block attendance or change the school-day appeal calendar.
+Schedule notices can show program no-tutoring dates or date ranges and their
+reasons. Both the starting and ending dates are included; a single-day notice
+uses the same date for both. They are informational: confirm individual plans
+with your tutor. These notices do not cancel assignments, block attendance,
+change recurring schedules or change the school-day appeal calendar.
 
 The dashboard previews up to three existing recurring schedules and links to the
 complete schedule and request lists. Confirm individual meeting dates with your
@@ -734,6 +736,12 @@ visible. Each form keeps its own Save or approval process; changing panels does
 not save or discard its draft. Both tutor and tutee recruitment windows remain in
 **Recruitment and Refresh**, alongside separate no-tutoring notices and school-day
 calendar controls. Refreshing the period still requires its deliberate confirmation.
+
+For a no-tutoring notice, enter a starting date, an inclusive ending date and a
+reason. Head applies changes directly; Admin requests Head review. Each starting
+date identifies one notice. Different notices may overlap and remain separate.
+Edit an existing notice to change its ending date or reason; to move its starting
+date, remove it and create a new notice. **View details** shows the complete reason.
 
 **Crew** separates review work, the roster and patrol settings. Staff **Tutee Support**
 separates feedback and appeals, with a link to the school calendar in Program Settings; other users see only their

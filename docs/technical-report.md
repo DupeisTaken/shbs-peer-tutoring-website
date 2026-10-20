@@ -682,10 +682,20 @@ when extending them; they are not an outstanding implementation checklist.
 The [contributor recipe](contributing.md#add-an-action-or-feature) describes how
 to add a caller while preserving these boundaries.
 
-- **Informational tutoring dates:** no-tutoring dates carry a program-local date
-  and reason independently of the school-day calendar used by appeals. Displaying
-  a date must not prohibit attendance, change an appeal deadline, cancel a pairing
-  or infer a next session. Preserve the existing settings approval and audit model.
+- **Informational tutoring dates:** no-tutoring notices carry program-local
+  inclusive starting and ending dates and a reason, independently of the school-day
+  calendar used by appeals. `ProgramCalendarDay.date` remains the unique starting
+  date and stable identity; `endDate` must be on or after it. Equal endpoints mean
+  one day. Different starts may overlap without merging notices. Editors change
+  the end and reason; moving the start requires removal and recreation. The
+  [range migration](../prisma/migrations/20261020010000_program_calendar_ranges/migration.sql)
+  backfills existing notices and tombstones with `endDate = date`, preserving
+  their versions and one-day meaning. Legacy writes and queued approval payloads
+  without an end date retain that one-day meaning. Tombstones keep versions
+  monotonic across removal and recreation so stale writes cannot revive a notice.
+  Displaying a range must not prohibit attendance, change an appeal deadline,
+  cancel a pairing, modify recurrence or infer a next session. Preserve the
+  existing Head direct-write, Admin approval and audit model.
 - **Name requirements:** per-account-type Required, Optional and Hidden states
   apply to signup and later profile editing. All fields may be optional or hidden;
   an account without a displayable name uses its username. Signup uses the intake

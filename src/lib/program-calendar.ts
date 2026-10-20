@@ -13,10 +13,17 @@ export const programCalendarDate = z
 export const programCalendarWrite = z
   .object({
     date: programCalendarDate,
+    endDate: programCalendarDate.optional(),
     reason: z.string().trim().min(1).max(300),
     expectedVersion: z.number().int().nonnegative(),
   })
-  .strict();
+  .strict()
+  .refine((range) => !range.endDate || range.endDate >= range.date, {
+    message: "The ending date must be on or after the starting date.",
+    path: ["endDate"],
+  })
+  // Older callers and queued proposals still describe one inclusive calendar day.
+  .transform((range) => ({ ...range, endDate: range.endDate ?? range.date }));
 export const programCalendarRemove = z
   .object({
     date: programCalendarDate,

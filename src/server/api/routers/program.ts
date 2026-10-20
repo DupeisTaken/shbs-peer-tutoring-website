@@ -151,7 +151,7 @@ export const programRouter = createTRPCRouter({
     ctx.db.programCalendarDay.findMany({
       where: { active: true },
       orderBy: { date: "asc" },
-      select: { date: true, reason: true },
+      select: { date: true, endDate: true, reason: true },
     }),
   ),
   calendarSettings: adminProcedure.query(async ({ ctx }) => ({

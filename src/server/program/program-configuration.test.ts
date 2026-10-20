@@ -1,5 +1,7 @@
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
+import superjson from "superjson";
+import type { Prisma } from "../../../generated/prisma";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("~/server/notifications/create", () => ({
   notifyAdmins: vi.fn(),
@@ -136,7 +138,7 @@ it("keeps tutoring notices independent from school days and prevents stale delet
     expectedVersion: 2,
   });
   expect(await caller("STUDENT").program.calendar()).toEqual([
-    { date: first.date, reason: "Updated notice" },
+    { date: first.date, endDate: first.date, reason: "Updated notice" },
   ]);
   expect(
     await db.schoolCalendarDay.findUnique({ where: { date: first.date } }),
@@ -155,6 +157,203 @@ it("keeps tutoring notices independent from school days and prevents stale delet
       expectedVersion: 0,
     }),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+});
+it("stores inclusive ranges as independent notices and versions endpoint changes", async () => {
+  const first = await caller().program.setCalendarDay({
+    date: "2026-10-12",
+    endDate: "2026-10-16",
+    reason: "Exam week",
+    expectedVersion: 0,
+  });
+  await caller().program.setCalendarDay({
+    date: "2026-10-14",
+    endDate: "2026-10-18",
+    reason: "Campus closure",
+    expectedVersion: 0,
+  });
+  expect(await caller("STUDENT").program.calendar()).toEqual([
+    { date: "2026-10-12", endDate: "2026-10-16", reason: "Exam week" },
+    { date: "2026-10-14", endDate: "2026-10-18", reason: "Campus closure" },
+  ]);
+  expect(await db.schoolCalendarDay.count()).toBe(0);
+  const updated = await caller().program.setCalendarDay({
+    date: first.date,
+    endDate: "2026-10-20",
+    reason: first.reason,
+    expectedVersion: first.version,
+  });
+  expect(updated).toMatchObject({
+    endDate: "2026-10-20",
+    version: first.version + 1,
+  });
+  await expect(
+    caller().program.setCalendarDay({
+      date: first.date,
+      endDate: "2026-10-19",
+      reason: first.reason,
+      expectedVersion: first.version,
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  await expect(
+    caller().program.setCalendarDay({
+      date: first.date,
+      endDate: "2026-10-11",
+      reason: first.reason,
+      expectedVersion: updated.version,
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await caller().program.removeCalendarDay({
+    date: first.date,
+    expectedVersion: updated.version,
+  });
+  expect(await caller("STUDENT").program.calendar()).toHaveLength(1);
+  await expect(
+    caller().program.setCalendarDay({
+      date: first.date,
+      endDate: "2026-10-20",
+      reason: first.reason,
+      expectedVersion: 0,
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  const recreated = await caller().program.setCalendarDay({
+    date: first.date,
+    endDate: "2026-10-21",
+    reason: first.reason,
+    expectedVersion: updated.version + 1,
+  });
+  expect(recreated).toMatchObject({
+    active: true,
+    endDate: "2026-10-21",
+    version: updated.version + 2,
+  });
+});
+
+it("requires Head review for Admin ranges and refuses a changed range proposal", async () => {
+  await expect(
+    caller("ADMIN").program.setCalendarDay({
+      date: "2026-10-12",
+      endDate: "2026-10-16",
+      reason: "Exam week",
+      expectedVersion: 0,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const request = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "program.setCalendarDay" },
+  });
+  expect(await caller("STUDENT").program.calendar()).toEqual([]);
+  await caller().approval.decide({
+    id: request.id,
+    approve: true,
+    note: "Reviewed dates",
+  });
+  const first = await db.programCalendarDay.findUniqueOrThrow({
+    where: { date: "2026-10-12" },
+  });
+  expect(first.endDate).toBe("2026-10-16");
+  await expect(
+    caller("ADMIN").program.setCalendarDay({
+      date: first.date,
+      endDate: "2026-10-17",
+      reason: first.reason,
+      expectedVersion: first.version,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const pending = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "program.setCalendarDay", state: "PENDING" },
+  });
+  await caller().program.setCalendarDay({
+    date: first.date,
+    endDate: "2026-10-18",
+    reason: first.reason,
+    expectedVersion: first.version,
+  });
+  await expect(
+    caller().approval.decide({
+      id: pending.id,
+      approve: true,
+      note: "Reviewed dates",
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+});
+
+it("applies an unchanged legacy queued single-day edit after the additive range migration", async () => {
+  const first = await caller().program.setCalendarDay({
+    date: "2026-10-12",
+    reason: "Original notice",
+    expectedVersion: 0,
+  });
+  const legacyInput = {
+    date: first.date,
+    reason: "Legacy reviewed notice",
+    expectedVersion: first.version,
+  };
+  await expect(
+    caller("ADMIN").program.setCalendarDay(legacyInput),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const request = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "program.setCalendarDay" },
+  });
+  // Recreate the stored pre-migration payload. Its immutable target evidence has
+  // the old row shape, even though the migrated database now has an endpoint.
+  expect(request.targets).toMatchObject({
+    programCalendar: [{ date: first.date }],
+  });
+  expect(
+    (request.targets as { programCalendar: unknown[] }).programCalendar[0],
+  ).not.toHaveProperty("endDate");
+  await db.approvalRequest.update({
+    where: { id: request.id },
+    data: {
+      payload: superjson.serialize(
+        legacyInput,
+      ) as unknown as Prisma.InputJsonValue,
+    },
+  });
+  await caller().approval.decide({
+    id: request.id,
+    approve: true,
+    note: "Legacy notice checked",
+  });
+  expect(await caller("STUDENT").program.calendar()).toEqual([
+    { date: first.date, endDate: first.date, reason: legacyInput.reason },
+  ]);
+});
+it("applies an unchanged legacy queued removal and retains the range tombstone", async () => {
+  const first = await caller().program.setCalendarDay({
+    date: "2026-10-12",
+    reason: "Legacy removal",
+    expectedVersion: 0,
+  });
+  await expect(
+    caller("ADMIN").program.removeCalendarDay({
+      date: first.date,
+      expectedVersion: first.version,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const request = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "program.removeCalendarDay" },
+  });
+  // Removal payloads never gained an endpoint; unchanged single-day target
+  // evidence must remain valid across deployment, just like legacy edit evidence.
+  expect(
+    (request.targets as { programCalendar: unknown[] }).programCalendar[0],
+  ).not.toHaveProperty("endDate");
+  await caller().approval.decide({
+    id: request.id,
+    approve: true,
+    note: "Legacy removal checked",
+  });
+  expect(await caller("STUDENT").program.calendar()).toEqual([]);
+  expect(
+    await db.programCalendarDay.findUniqueOrThrow({
+      where: { date: first.date },
+    }),
+  ).toMatchObject({
+    date: first.date,
+    endDate: first.date,
+    active: false,
+    version: first.version + 1,
+  });
 });
 it("queues Admin notices, denies Coordinator writes and rejects a proposal after the notice changes", async () => {
   await expect(
