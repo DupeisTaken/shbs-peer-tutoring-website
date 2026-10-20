@@ -89,28 +89,36 @@ Crew submit/status mail uses the existing durable signup mail admission and opti
 
 ### Opaque invitation codes
 
-New displayed invitations and staff registration keys contain exactly five numeric
-digits (`0–9`); emailed verification challenges contain exactly four. Both are strings:
+New displayed invitations and staff registration keys contain exactly five characters,
+including both letters and numbers from `023456789ABCDEFGHIJKMNPQRSTUVWXYZ`;
+emailed verification challenges contain exactly four digits (`0–9`). Both are strings:
 leading zeros survive generation, rendering, copy/paste, normalization and submission.
 Invitation and verification generation/normalization have distinct contracts in
 [the code helpers](../src/server/auth/code.ts); never reuse an invitation generator
-for a mailbox challenge. Random generation uses cryptographic randomness. Displayed
-invitation derivation retains the stored collision nonce and shared namespace lock,
-so a retry or optional email reproduces the code already issued.
+for a mailbox challenge. Random generation uses cryptographic randomness and rejects
+invitation candidates lacking either character class. Displayed invitation derivation
+uses the `display:mixed:v3` namespace, skips candidates lacking either class and retains
+the stored collision nonce and shared namespace lock, so a retry or optional email
+reproduces the code already issued.
 
-The site and HTML mail use green invitation panels and blue verification panels,
-independent of the selected accent theme. Explicit translated purpose labels and
-five/four-digit guidance accompany the colors. Entry fields expose one editable
-value with five/four visible positions; paste, correction, leading zeros and
-email-code autofill retain ordinary input behavior. Legacy input remains complete
-instead of being silently truncated to the new scaffold. A translated keyboard
-switch lets mobile users type older codes containing letters.
+The site uses green invitation and blue verification box backgrounds, independent of
+the selected accent theme. It retains the legacy single wide native input, neutral
+text and borders, with gray `XXXXX` or `XXXX` placeholders. Purpose remains explicit
+in the field's translated label and accessible help; there are no segmented slots.
+Paste, correction, leading zeros and email-code autofill retain ordinary input behavior.
+Invitation entry uses a text keyboard; email entry requests a numeric keyboard and
+switches to text when a pasted or entered older code contains letters. Older input
+remains complete instead of being silently truncated.
+HTML mail retains its legacy single code panel, typography, border and spacing.
+Only the code background changes to dark green (`#18342C`) for invitations or blue
+(`#172F49`) for verification, including its dark-mode fallback. The existing body
+instructions identify the code's purpose; the panel adds no label or guidance wrapper.
 
-Outstanding five-character alphanumeric and twelve-character invitation codes remain
+Outstanding five-digit, five-character alphanumeric and twelve-character invitation codes remain
 usable until their existing expiry, revocation or consumption. Receipt reconstruction
-checks the persisted hash before selecting the numeric or legacy derivation, and fails
-closed if none matches. Mixed legacy codes retain letter aliases without rewriting a
-new numeric `1` into `I`. Entirely numeric input always denotes a numeric code;
+checks the persisted hash before selecting the new mixed derivation or an older
+numeric/alphanumeric derivation, and fails closed if none matches. Mixed codes retain
+letter aliases without rewriting a numeric `1` into `I`. Entirely numeric input always denotes a numeric code;
 use the original letters for an older code whose aliases would be all digits.
 Already issued verification challenges keep their original
 hash/format; replacement challenges use the new four-digit format. Tutee survey
@@ -119,7 +127,7 @@ verification and staged replacements persist `emailCodeVersion`: migration
 six-character hexadecimal challenge; new issuance writes version `1` for four digits.
 The verifier accepts only that row's format. A legacy code never acquires a new lifetime
 or a second valid numeric interpretation. Emails of old receipts show the full value
-with explicit previously-issued-code guidance.
+in the same single code panel, with previously-issued-code guidance in the body.
 
 The emailed challenge inventory is:
 

@@ -448,6 +448,9 @@ export async function deliverAccountInvitation(
       let found = false;
       for (let nonce = 0; nonce < 1000; nonce++) {
         const candidate = displayedInvitationCode(input.sourceKey, nonce);
+        // Every new invitation uses both character classes. The persisted nonce
+        // also records skipped unmixed candidates so receipt retries stay exact.
+        if (!/[A-Z]/.test(candidate) || !/[0-9]/.test(candidate)) continue;
         const candidateHash = hashCode(candidate);
         if (
           "challenge" in input.source &&
@@ -547,13 +550,9 @@ function displayedInvitationCode(
   nonce: number | null,
   storedCodeHash?: string,
 ) {
-  const digest = registrationCompletionProof(
-    "invitation",
-    nonce === null ? `display:${sourceKey}` : `display:${sourceKey}:${nonce}`,
-    "display",
-    new Date(0),
-  );
-  const derive = (alphabet: string) => {
+  const digestFor = (identity: string) =>
+    registrationCompletionProof("invitation", identity, "display", new Date(0));
+  const derive = (digest: string, alphabet: string) => {
     let entropy = BigInt(`0x${digest}`);
     let code = "";
     for (let i = 0; i < REG_CODE_LENGTH; i++) {
@@ -564,19 +563,24 @@ function displayedInvitationCode(
   };
   const current =
     nonce === null
-      ? digest.slice(0, 12).toUpperCase()
-      : derive(REG_CODE_ALPHABET);
+      ? digestFor(`display:${sourceKey}`).slice(0, 12).toUpperCase()
+      : derive(
+          digestFor(`display:mixed:v3:${sourceKey}:${nonce}`),
+          REG_CODE_ALPHABET,
+        );
   if (storedCodeHash === undefined || equal(hashCode(current), storedCodeHash))
     return current;
-  // Changing the alphabet changes the base conversion. Recover old five-character
-  // receipts only when their persisted hash proves the original derivation; never
-  // silently replace a recipient's code or guess a format from its nonce.
+  // New mixed issuance owns a distinct derivation namespace. Numeric and older
+  // mixed receipts all used the unversioned identity; recover their exact original
+  // value only when its persisted hash matches, never by guessing from the nonce.
   if (nonce !== null) {
+    const digest = digestFor(`display:${sourceKey}:${nonce}`);
     for (const alphabet of [
+      "0123456789",
       "023456789ABCDEFGHIJKMNPQRSTUVWXYZ",
       "23456789ABCDEFGHJKMNPQRSTUVWXYZ",
     ]) {
-      const legacy = derive(alphabet);
+      const legacy = derive(digest, alphabet);
       if (equal(hashCode(legacy), storedCodeHash)) return legacy;
     }
   }
@@ -696,7 +700,7 @@ export async function emailDisplayedInvitation(
     category: "SECURITY",
     to: row.email,
     subject: "Your account invitation / 账号邀请码",
-    text: `Your invitation code${/^[0-9]{5}$/.test(code) ? " (5 digits) / 邀请码（5 位数字）" : " / 邀请码"} is ${code}. Continue at ${url}. Expires ${row.expiresAt.toISOString()}. / 您的邀请码是 ${code}。请通过链接继续注册。`,
+    text: `Your invitation code / 邀请码: ${code}.\n\n${/^(?=.*[A-Z])(?=.*[0-9])[0-9A-Z]{5}$/.test(code) ? "5 letters and numbers. / 5 位字母与数字组合。" : "Previously issued code: enter the complete code as shown. / 此为此前签发的邀请码，请按显示内容完整输入。"}\n\nContinue at ${url}. Expires ${row.expiresAt.toISOString()}. / 请通过链接继续注册。`,
     presentation: {
       code,
       codePurpose: "invitation",

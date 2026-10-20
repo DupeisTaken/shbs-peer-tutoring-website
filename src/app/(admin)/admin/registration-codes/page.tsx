@@ -26,7 +26,7 @@ import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { queuedApprovalId } from "~/lib/approval-outcome";
 
 /**
- * Registration codes: issue single-use five-digit security keys for new tutors and track their
+ * Registration codes: issue single-use five-character mixed security keys for new tutors and track their
  * status. Active codes remain re-viewable from their expandable cards until they expire, are used,
  * or are revoked.
  * Head issues directly; Admin also issues Tutor/Crew codes directly. Other eligible
@@ -485,7 +485,7 @@ export default function RegistrationCodesPage() {
                       <p className="label">
                         {t("admin.registrationCodes.codeLabel")}
                       </p>
-                      <p className="font-mono text-2xl font-bold tracking-[0.3em] text-green-800 line-through">
+                      <p className="font-mono text-2xl font-bold tracking-[0.3em] text-slate-400 line-through">
                         {c.code}
                       </p>
                       <p className="muted text-xs">

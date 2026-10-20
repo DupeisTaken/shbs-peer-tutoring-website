@@ -313,7 +313,7 @@
       "step": {
         "code": {
           "label": "Einladungscode",
-          "help": "Gib 5 Ziffern ein. Bereits ausgestellte Codes bleiben gültig.",
+          "help": "Gib 5 Zeichen aus Buchstaben und Ziffern ein. Bereits ausgestellte Codes bleiben gültig.",
           "submit": "Weiter"
         },
         "email": {
@@ -5453,7 +5453,7 @@
   "codes": {
     "invitationLabel": "Einladungscode",
     "emailLabel": "E-Mail-Bestätigungscode",
-    "invitationHelp": "Gib 5 Ziffern ein. Bereits ausgestellte Codes bleiben gültig.",
+    "invitationHelp": "Gib 5 Zeichen aus Buchstaben und Ziffern ein. Bereits ausgestellte Codes bleiben gültig.",
     "emailHelp": "Gib die 4 Ziffern aus deiner E-Mail ein. Bereits ausgestellte Codes bleiben gültig.",
     "lettersKeyboard": "Code mit Buchstaben eingeben",
     "numericKeyboard": "Zifferntastatur verwenden"

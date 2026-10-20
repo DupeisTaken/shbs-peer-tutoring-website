@@ -6,6 +6,7 @@ import {
   generateEmailVerificationCode,
   normalizeRegCode,
   normalizeEmailCode,
+  REG_CODE_ALPHABET,
 } from "./code";
 import {
   isEmailCodeFormat,
@@ -18,26 +19,46 @@ vi.mock("crypto", async (importOriginal) => {
 });
 afterEach(() => vi.mocked(randomInt).mockReset());
 
-it("issues independent five-digit invitations and four-digit mailbox codes", () => {
+it("issues mixed five-character invitations and four-digit mailbox codes", () => {
   for (let i = 0; i < 250; i++) {
-    expect(generateRegistrationCode()).toMatch(/^[0-9]{5}$/);
+    const invitation = generateRegistrationCode();
+    expect(invitation).toMatch(/^[023456789ABCDEFGHIJKMNPQRSTUVWXYZ]{5}$/);
+    expect(invitation).toMatch(/[A-Z]/);
+    expect(invitation).toMatch(/[0-9]/);
     expect(generateEmailVerificationCode()).toMatch(/^[0-9]{4}$/);
   }
 });
 
-it("keeps leading zeros and digit one at both cryptographic bounds", () => {
+it("rejects single-class invitations while retaining canonical zero and I", () => {
+  const draws = ["00000", "AAAAA", "0AI9Z"].flatMap((candidate) =>
+    [...candidate].map((character) => REG_CODE_ALPHABET.indexOf(character)),
+  );
+  vi.mocked(randomInt).mockImplementation(() => draws.shift() ?? 0);
+  expect(generateRegistrationCode()).toBe("0AI9Z");
+  expect(randomInt).toHaveBeenCalledTimes(15);
+  expect(randomInt).toHaveBeenCalledWith(0, REG_CODE_ALPHABET.length);
+});
+
+it.each([0, 9])(
+  "fails closed when a faulty random source never provides mixed characters (%s)",
+  (value) => {
+    vi.mocked(randomInt).mockImplementation(() => value);
+    expect(() => generateRegistrationCode()).toThrow(
+      "Could not generate a mixed registration code.",
+    );
+    expect(randomInt).toHaveBeenCalledTimes(500);
+  },
+);
+
+it("keeps leading zeros and digit one in numeric mailbox codes", () => {
   vi.mocked(randomInt)
     // crypto also exposes a callback overload returning void; implementations
     // retain the synchronous numeric draws without narrowing that public API.
-    .mockImplementationOnce(() => 11)
     .mockImplementationOnce(() => 1)
-    .mockImplementationOnce(() => 99999)
     .mockImplementationOnce(() => 9999);
-  expect(generateRegistrationCode()).toBe("00011");
   expect(generateEmailVerificationCode()).toBe("0001");
-  expect(generateRegistrationCode()).toBe("99999");
   expect(generateEmailVerificationCode()).toBe("9999");
-  expect(randomInt).toHaveBeenNthCalledWith(1, 0, 100000);
+  expect(randomInt).toHaveBeenNthCalledWith(1, 0, 10000);
   expect(randomInt).toHaveBeenNthCalledWith(2, 0, 10000);
 });
 

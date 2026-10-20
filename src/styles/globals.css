@@ -1,98 +1,24 @@
 @import "tailwindcss" source("../");
 
-/* Code purpose is semantic and deliberately independent of the chosen accent.
- * One native input paints text over decorative slots, preserving normal editing. */
+/* Purpose is a background tint only. Shared input typography, neutral borders,
+ * placeholder color and focus treatment stay identical to the legacy controls. */
 [data-code-purpose="invitation"] {
   --code-background: #f0fdf4;
-  --code-border: #15803d;
-  --code-text: #166534;
 }
 [data-code-purpose="email"] {
   --code-background: #eff6ff;
-  --code-border: #1d4ed8;
-  --code-text: #1e40af;
 }
-.code-entry {
-  container-type: inline-size;
-  position: relative;
-  width: min(100%, calc(var(--code-positions) * 2.75rem));
-  min-height: 2.75rem;
-  border-radius: 0.5rem;
-  /* Unlike hidden, clip cannot scroll the whole slot row when the native caret
-   * reaches its reserved trailing space during focus or programmatic autofill. */
-  overflow: clip;
+.code-native,
+.code-display,
+.code-surface {
+  background-color: var(--code-background);
 }
-.code-positions {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  grid-template-columns: repeat(var(--code-positions), minmax(0, 1fr));
-  gap: 0.25rem;
-  pointer-events: none;
-}
-.code-positions span {
-  border: 1px solid var(--code-border);
-  border-radius: 0.375rem;
-  background: var(--code-background);
-}
-.code-native {
-  position: relative;
-  display: block;
-  /* Native letter-spacing includes a trailing half-cell past the final glyph.
-   * Reserve that invisible space so typing the final digit never scrolls all
-   * characters left out of their slots. The wrapper clips only this spare area. */
-  width: calc(100% + (100cqw / var(--code-positions) - 1ch) / 2);
-  min-width: 0;
-  min-height: 2.75rem;
-  border: 0;
-  border-radius: 0.5rem;
-  background: transparent;
-  color: var(--code-text);
-  font-family: var(--font-mono, monospace);
-  font-size: 1.25rem;
-  line-height: 1.5;
-  padding-block: 0.375rem;
-  padding-inline-start: calc((100cqw / var(--code-positions) - 1ch) / 2);
-  letter-spacing: calc(100cqw / var(--code-positions) - 1ch);
-}
-.code-native:focus-visible {
-  outline: none;
-}
-.code-entry:has(.code-native:focus-visible) {
-  outline: 2px solid var(--code-border);
-  outline-offset: 3px;
-}
-.code-entry:has(.code-native[aria-invalid="true"]) {
+.code-native[aria-invalid="true"] {
   outline: 2px solid #b91c1c;
-  outline-offset: 3px;
+  outline-offset: 2px;
 }
 .code-native:disabled {
   cursor: wait;
-}
-.code-entry[data-legacy] {
-  width: 100%;
-  border: 1px solid var(--code-border);
-  background: var(--code-background);
-}
-.code-entry[data-legacy] .code-native {
-  width: 100%;
-  padding-inline: 0.75rem;
-  letter-spacing: 0.12em;
-}
-.code-display {
-  border: 1px solid var(--code-border);
-  border-radius: 0.75rem;
-  padding: 1rem;
-  background: var(--code-background);
-  color: var(--code-text);
-  text-align: center;
-}
-.code-badge {
-  border: 1px solid var(--code-border);
-  border-radius: 0.375rem;
-  padding: 0.125rem 0.375rem;
-  background: var(--code-background);
-  color: var(--code-text);
 }
 
 @theme {

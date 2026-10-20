@@ -27,21 +27,21 @@ describe("purpose-specific code entry", () => {
     ["invitation", 5],
     ["email", 4],
   ] as const)(
-    "shows %s slots before typing and preserves leading zeros",
+    "keeps one legacy %s box with its placeholder count and preserves zeros",
     (purpose, count) => {
       const { container } = mount(purpose);
       const input = screen.getByRole<HTMLInputElement>("textbox");
-      expect(container.querySelectorAll(".code-positions span")).toHaveLength(
-        count,
+      expect(container.querySelectorAll("input")).toHaveLength(1);
+      expect(container.querySelector(".code-positions")).toBeNull();
+      expect(input.placeholder).toBe("X".repeat(count));
+      expect(input.getAttribute("inputmode")).toBe(
+        purpose === "invitation" ? "text" : "numeric",
       );
-      expect(input.getAttribute("inputmode")).toBe("numeric");
       expect(input.autocomplete).toBe("one-time-code");
       expect(input.getAttribute("aria-describedby")).toBeTruthy();
       fireEvent.change(input, { target: { value: "01" } });
       expect(input.value).toBe("01");
-      expect(container.querySelectorAll('[data-filled="true"]')).toHaveLength(
-        2,
-      );
+      expect(input.placeholder).toBe("X".repeat(count));
       expect(input.validity.valid).toBe(false);
       fireEvent.change(input, { target: { value: "0".repeat(count) } });
       expect(input.value).toBe("0".repeat(count));
@@ -61,7 +61,7 @@ describe("purpose-specific code entry", () => {
     expect(input.value).toBe("00903");
     fireEvent.change(input, { target: { value: "0090" } });
     expect(input.value).toBe("0090");
-    expect(document.querySelectorAll('[data-filled="true"]')).toHaveLength(4);
+    expect(input.placeholder).toBe("XXXXX");
   });
 
   it.each(["A1B2C", "A1B2C3D4E5F6"])(
@@ -97,20 +97,31 @@ describe("purpose-specific code entry", () => {
     }
   });
 
-  it("offers a text keyboard for manually entering an outstanding alphanumeric code", () => {
+  it("uses a text keyboard for mixed invitations without extra visible controls", () => {
     mount("invitation");
     const input = screen.getByRole<HTMLInputElement>("textbox");
-    fireEvent.click(
-      screen.getByRole("button", { name: en.codes.lettersKeyboard }),
-    );
     expect(input.inputMode).toBe("text");
+    expect(screen.queryByRole("button")).toBeNull();
     fireEvent.change(input, { target: { value: "A1B2C" } });
     expect(input.value).toBe("A1B2C");
-    fireEvent.click(
-      screen.getByRole("button", { name: en.codes.numericKeyboard }),
-    );
-    expect(input.inputMode).toBe("numeric");
     expect(input.value).toBe("A1B2C");
+  });
+
+  it("keeps pasted outstanding email letters editable and guidance accessible", () => {
+    mount("email");
+    const input = screen.getByRole<HTMLInputElement>("textbox");
+    expect(input.inputMode).toBe("numeric");
+    fireEvent.paste(input, {
+      clipboardData: { getData: () => "A1-B2-C3" },
+    });
+    expect(input.value).toBe("A1B2C3");
+    expect(input.inputMode).toBe("text");
+    expect(input.checkValidity()).toBe(true);
+    const help = document.getElementById(
+      input.getAttribute("aria-describedby")!,
+    );
+    expect(help?.textContent).toBe(en.codes.emailHelp);
+    expect(help?.classList.contains("sr-only")).toBe(true);
   });
 
   it("retains the draft and focus target when pending or errors change", () => {
@@ -146,10 +157,11 @@ describe("purpose-specific code entry", () => {
     cleanup();
     render(
       <NextIntlClientProvider locale="en" messages={en}>
-        <CodeDisplay code="00123" />
+        <CodeDisplay code="A2B3C" />
       </NextIntlClientProvider>,
     );
-    expect(screen.getByText("00123").textContent).toBe("00123");
+    expect(screen.getByText("A2B3C").textContent).toBe("A2B3C");
     expect(screen.getByText(en.codes.invitationLabel)).toBeTruthy();
+    expect(screen.queryByText(en.codes.invitationHelp)).toBeNull();
   });
 });

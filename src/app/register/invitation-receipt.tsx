@@ -89,7 +89,10 @@ export function InvitationReceipt({
           }
         >
           <div className="space-y-4">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center">
+            <div
+              data-code-purpose="invitation"
+              className="code-surface rounded-xl border border-slate-200 px-4 py-6 text-center"
+            >
               <CodeDisplay code={invitation.code ?? ""} />
               <p className="mt-3 text-sm break-all text-slate-600">
                 {invitation.email}

@@ -3,7 +3,7 @@ export interface EmailPresentation {
   eyebrow?: string;
   code?: string;
   /** Purpose is presentation metadata, never inferred authorization from code length.
-   * Absent metadata on older queued mail keeps the historical verification treatment. */
+   * Absent metadata on older queued mail keeps the original neutral code box. */
   codePurpose?: "invitation" | "verification";
   /** Optional-notification preference link; essential account mail omits it. */
   unsubscribeUrl?: string;
@@ -33,23 +33,15 @@ export function renderEmail(input: {
 }): string {
   const { brand, subject, text, presentation = {}, iconUrl } = input;
   const action = presentation.action;
-  const invitation = presentation.codePurpose === "invitation";
-  const codeColors = invitation
-    ? { background: "#f0fdf4", border: "#15803d", foreground: "#166534" }
-    : { background: "#eff6ff", border: "#1d4ed8", foreground: "#1e40af" };
-  const codeLabel = invitation
-    ? "Invitation code / 邀请码"
-    : "Email verification code / 邮箱验证码";
-  // Existing receipts can be mailed again. Describe their actual format rather
-  // than suggesting users truncate a still-valid legacy code to the new length.
-  const currentFormat =
-    presentation.code &&
-    (invitation ? /^\d{5}$/ : /^\d{4}$/).test(presentation.code);
-  const codeGuidance = currentFormat
-    ? invitation
-      ? "5 digits (0–9). Keep any leading zeros. / 5 位数字（0–9），请保留开头的零。"
-      : "4 digits (0–9). Keep any leading zeros. / 4 位数字（0–9），请保留开头的零。"
-    : "Previously issued code: enter every character shown. / 先前签发的代码：请输入显示的全部字符。";
+  // Purpose changes only the legacy box's background, including its dark-mode
+  // fallback. Caller body copy owns instructions; code values remain untouched.
+  // Code-free mail and older queued mail without metadata retain the neutral style.
+  const codeBackground =
+    !presentation.code || !presentation.codePurpose
+      ? "#22272E"
+      : presentation.codePurpose === "invitation"
+        ? "#18342C"
+        : "#172F49";
   const unsubscribeUrl = presentation.unsubscribeUrl;
   if (unsubscribeUrl !== undefined) {
     let unsubscribe: URL;
@@ -96,7 +88,7 @@ export function renderEmail(input: {
     })
     .join("");
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark"><title>${escape(subject)}</title>
-<style>:root{color-scheme:dark}a:focus-visible{outline:3px solid #ADC9FF;outline-offset:5px}@media(max-width:600px){.outer{padding:24px 12px!important}.inside{padding-left:24px!important;padding-right:24px!important}.heading{padding-top:32px!important;padding-bottom:28px!important}.title{font-size:32px!important;line-height:1.15!important}.footer{padding-left:12px!important;padding-right:12px!important}}@media(prefers-color-scheme:dark){.canvas{background:#181B20!important}.card{background:#272D35!important;color:#E0E5ED!important}.panel{background:#22272E!important}.muted{color:#C5CDDA!important}.ink{color:#F4F7FC!important}.accent{color:#ADC9FF!important}.code-panel,.code{background:${codeColors.background}!important;color:${codeColors.foreground}!important}.rule{border-color:#414A58!important}}</style></head>
+<style>:root{color-scheme:dark}a:focus-visible{outline:3px solid #ADC9FF;outline-offset:5px}@media(max-width:600px){.outer{padding:24px 12px!important}.inside{padding-left:24px!important;padding-right:24px!important}.heading{padding-top:32px!important;padding-bottom:28px!important}.title{font-size:32px!important;line-height:1.15!important}.footer{padding-left:12px!important;padding-right:12px!important}}@media(prefers-color-scheme:dark){.canvas{background:#181B20!important}.card{background:#272D35!important;color:#E0E5ED!important}.panel{background:#22272E!important}.muted{color:#C5CDDA!important}.ink{color:#F4F7FC!important}.accent{color:#ADC9FF!important}.code{background:${codeBackground}!important;color:#ADC9FF!important}.rule{border-color:#414A58!important}}</style></head>
 <body class="canvas" style="margin:0;padding:0;background:#181B20;color:#E0E5ED;font-family:'Trebuchet MS',Verdana,sans-serif">
 <div style="display:none;max-height:0;overflow:hidden;mso-hide:all">${escape(subject)}</div>
 <table class="canvas" role="presentation" width="100%" cellspacing="0" cellpadding="0" bgcolor="#181B20" style="background:#181B20"><tr><td class="outer" align="center" style="padding:48px 24px">
@@ -109,7 +101,7 @@ export function renderEmail(input: {
 <tr><td class="inside heading" style="padding:40px 40px 32px"><p class="muted accent" style="font-size:11px;line-height:18px;font-weight:700;letter-spacing:2px;margin:0 0 24px;color:#ADC9FF;overflow-wrap:anywhere;word-break:break-word">${escape(presentation.eyebrow ?? "ACCOUNT & PROGRAM MAIL")}</p><h1 class="title ink" style="font-weight:700;font-size:40px;line-height:1.12;letter-spacing:-1.3px;margin:0;color:#F4F7FC;overflow-wrap:anywhere;word-break:break-word">${escape(subject)}</h1></td></tr>
 <tr><td class="inside" style="padding:0 40px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td height="1" bgcolor="#495362" style="height:1px;background:#495362;font-size:1px;line-height:1px">&nbsp;</td></tr></table></td></tr>
 <tr><td class="inside body" style="padding:28px 40px 36px;font-size:16px;color:#E0E5ED">
-${presentation.code ? `<div class="code-panel" style="background:${codeColors.background};color:${codeColors.foreground};border:1px solid ${codeColors.border};padding:22px;margin:0 0 26px;text-align:center"><p class="code-label" style="margin:0 0 12px;font-size:14px;font-weight:700;line-height:1.5">${codeLabel}</p><div class="code" style="background:${codeColors.background};color:${codeColors.foreground};font-family:Consolas,monospace;font-size:30px;line-height:1.5;letter-spacing:5px;word-break:break-all">${escape(presentation.code)}</div><p class="code-guidance" style="margin:12px 0 0;font-size:13px;line-height:1.6">${codeGuidance}</p></div>` : ""}
+${presentation.code ? `<div class="code" style="background:${codeBackground};color:#ADC9FF;border:1px solid #495362;padding:22px;margin:0 0 26px;text-align:center;font-family:Consolas,monospace;font-size:30px;letter-spacing:5px;word-break:break-all">${escape(presentation.code)}</div>` : ""}
 ${paragraphs}
 ${action ? `<table role="presentation" cellspacing="0" cellpadding="0"><tr><td bgcolor="#0D59E6" style="background:#0D59E6;border-radius:4px"><a href="${escape(action.url)}" style="display:inline-block;border:1px solid #0D59E6;border-radius:4px;background:#0D59E6;padding:15px 23px;font-size:15px;font-weight:700;line-height:20px;color:#FFFFFF;text-decoration:none;mso-padding-alt:15px 23px;overflow-wrap:anywhere;word-break:break-word">${escape(action.label)}</a></td></tr></table>` : ""}
 </td></tr>

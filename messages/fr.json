@@ -313,7 +313,7 @@
       "step": {
         "code": {
           "label": "Code d’invitation",
-          "help": "Saisissez 5 chiffres. Les codes déjà émis restent acceptés.",
+          "help": "Saisissez 5 caractères mêlant lettres et chiffres. Les codes déjà émis restent acceptés.",
           "submit": "Continuer"
         },
         "email": {
@@ -5453,7 +5453,7 @@
   "codes": {
     "invitationLabel": "Code d’invitation",
     "emailLabel": "Code de vérification par e-mail",
-    "invitationHelp": "Saisissez 5 chiffres. Les codes déjà émis restent acceptés.",
+    "invitationHelp": "Saisissez 5 caractères mêlant lettres et chiffres. Les codes déjà émis restent acceptés.",
     "emailHelp": "Saisissez les 4 chiffres reçus par e-mail. Les codes déjà émis restent acceptés.",
     "lettersKeyboard": "Saisir un code avec des lettres",
     "numericKeyboard": "Utiliser le clavier numérique"

@@ -1,5 +1,5 @@
-/** Browser-safe normalization. Numeric codes retain every digit, including leading
- * zeros and 1. Mixed legacy five-character codes retain their O/1 aliases. */
+/** Browser-safe normalization. Mixed five-character invitations retain O/1 aliases.
+ * Outstanding numeric invitations retain every digit, including leading zeros and 1. */
 export function normalizeRegCode(raw: string): string {
   return normalizeRegCodeDraft(raw, false);
 }

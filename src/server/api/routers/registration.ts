@@ -4,7 +4,7 @@ import { optionalPersonNameFields } from "~/lib/person-name";
 import { preferredLatinNameSchema } from "~/lib/username";
 import { isSchoolYear } from "~/lib/period";
 /**
- * Public self-registration flow (no auth). A prospective tutor turns a five-digit registration code
+ * Public self-registration flow (no auth). A prospective tutor turns a mixed five-character registration code
  * (issued + handed out by an admin/coordinator) into a fully-verified account at /register:
  *   check       -> validate the code, return any prefill / email binding
  *   sendEmailCode -> email a four-digit code to the chosen address

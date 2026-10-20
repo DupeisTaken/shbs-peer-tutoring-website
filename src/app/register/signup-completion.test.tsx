@@ -590,7 +590,8 @@ it.each(["00123", "AB3D7"])(
       new RegExp(en.accountInvitation.code),
     );
     expect(input.maxLength).toBeGreaterThanOrEqual(12);
-    expect(container.querySelectorAll(".code-positions span")).toHaveLength(5);
+    expect(input.placeholder).toBe("XXXXX");
+    expect(container.querySelector(".code-positions")).toBeNull();
     fireEvent.change(input, { target: { value: code.toLowerCase() } });
     fireEvent.submit(container.querySelector("form")!);
     expect(state.enter).toHaveBeenCalledWith({ code });

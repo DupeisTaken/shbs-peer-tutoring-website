@@ -313,7 +313,7 @@
       "step": {
         "code": {
           "label": "邀请码",
-          "help": "请输入 5 位数字。之前签发的旧格式代码仍可使用。",
+          "help": "请输入由字母和数字组成的 5 位代码。之前签发的旧格式代码仍可使用。",
           "submit": "继续"
         },
         "email": {
@@ -5453,7 +5453,7 @@
   "codes": {
     "invitationLabel": "邀请码",
     "emailLabel": "电子邮箱验证码",
-    "invitationHelp": "请输入 5 位数字。之前签发的旧格式代码仍可使用。",
+    "invitationHelp": "请输入由字母和数字组成的 5 位代码。之前签发的旧格式代码仍可使用。",
     "emailHelp": "请输入邮件中的 4 位数字。之前签发的旧格式代码仍可使用。",
     "lettersKeyboard": "输入包含字母的代码",
     "numericKeyboard": "使用数字键盘"

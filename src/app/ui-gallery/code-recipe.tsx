@@ -26,7 +26,7 @@ export function CodeRecipe({ locale }: { locale: "en" | "zh" }) {
           aria-describedby={failed ? "code-example-error" : undefined}
         />
         <CodeInput purpose="email" value={email} onValueChange={setEmail} />
-        <CodeDisplay code="00123" />
+        <CodeDisplay code="A2B3C" />
         <CodeDisplay purpose="email" code="0123" />
       </fieldset>
       {failed && (

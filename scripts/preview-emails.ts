@@ -56,14 +56,14 @@ const samples: {
   {
     name: "invitation",
     subject: "Your invitation code / 您的邀请码",
-    text: "Invitation code: 00123 (5 digits). 邀请码：00123（5 位数字）。\n\nReview and accept the invitation to complete your request. Keep any leading zeros when copying your code.",
+    text: "Invitation code: A2B3C (5 letters and numbers). 邀请码：A2B3C（5 位字母和数字）。\n\nReview and accept the invitation to complete your request. Copy every character shown.",
     presentation: {
       eyebrow: "ACCOUNT INVITATION",
-      code: "00123",
+      code: "A2B3C",
       codePurpose: "invitation",
       action: {
         label: "Review invitation / 查看邀请",
-        url: "https://tutoring.example.edu/register-account?code=00123",
+        url: "https://tutoring.example.edu/register?code=A2B3C",
       },
     },
   },

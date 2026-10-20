@@ -52,7 +52,10 @@ import { currentPolicy } from "~/server/policy-acceptance";
 import { lockAccountProfile } from "~/server/account-profile";
 import * as usernameLocks from "~/server/auth/username";
 import { createCaller } from "~/server/api/root";
-import { setApplicationInvalidity, setStudentRequestInvalidity } from "~/server/request-invalidity";
+import {
+  setApplicationInvalidity,
+  setStudentRequestInvalidity,
+} from "~/server/request-invalidity";
 import * as transactions from "~/server/transactions";
 
 const email = "recipient@example.test";
@@ -137,7 +140,12 @@ async function staff(
           expires: "2099-01-01T00:00:00Z",
         },
       }).admin.issueRegistrationCode({ kind, email: target })
-    : await issueRegistrationCode({ kind, email: target, issuedById: "head", applicationId });
+    : await issueRegistrationCode({
+        kind,
+        email: target,
+        issuedById: "head",
+        applicationId,
+      });
   const initial = await db.registrationCode.findUniqueOrThrow({
     where: { id: issued.id },
   });
@@ -175,28 +183,66 @@ it("keeps invalid application reasons private and preserves completed invitation
   });
   const invite = await staff("TUTOR", email, false, application.id);
   const change = (invalid: boolean, expectedInvalidityVersion: number) =>
-    setApplicationInvalidity(db, {
-      id: application.id, invalid, expectedInvalidityVersion,
-      reason: invalid ? "Private staff-only duplicate evidence" : "Original application verified",
-    }, { id: "head", name: "Head" });
+    setApplicationInvalidity(
+      db,
+      {
+        id: application.id,
+        invalid,
+        expectedInvalidityVersion,
+        reason: invalid
+          ? "Private staff-only duplicate evidence"
+          : "Original application verified",
+      },
+      { id: "head", name: "Head" },
+    );
   await change(true, 0);
   const privateFailure = { code: "BAD_REQUEST", message: "INVITATION_INVALID" };
-  await expect(enterDisplayedInvitation(db, { code: invite.staffKey })).rejects.toMatchObject(privateFailure);
-  await expect(inspectAccountInvitation(db, invite)).rejects.toMatchObject(privateFailure);
-  await expect(consumeInvitationLogin(invite.invitationId, invite.proof)).rejects.toMatchObject(privateFailure);
-  await expect(redeemAccountInvitation(db, { ...profile, ...invite }, account.id)).rejects.toMatchObject(privateFailure);
-  expect((await db.registrationCode.findUniqueOrThrow({ where: { id: invite.row.id } })).usedAt).toBeNull();
-  expect(await db.user.findUniqueOrThrow({ where: { id: account.id } })).toEqual(account);
+  await expect(
+    enterDisplayedInvitation(db, { code: invite.staffKey }),
+  ).rejects.toMatchObject(privateFailure);
+  await expect(inspectAccountInvitation(db, invite)).rejects.toMatchObject(
+    privateFailure,
+  );
+  await expect(
+    consumeInvitationLogin(invite.invitationId, invite.proof),
+  ).rejects.toMatchObject(privateFailure);
+  await expect(
+    redeemAccountInvitation(db, { ...profile, ...invite }, account.id),
+  ).rejects.toMatchObject(privateFailure);
+  expect(
+    (
+      await db.registrationCode.findUniqueOrThrow({
+        where: { id: invite.row.id },
+      })
+    ).usedAt,
+  ).toBeNull();
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+  ).toEqual(account);
   await change(false, 1);
   await redeemAccountInvitation(db, { ...profile, ...invite }, account.id);
-  const granted = await db.user.findUniqueOrThrow({ where: { id: account.id } });
-  const tutor = await db.tutor.findUniqueOrThrow({ where: { id: granted.tutorId! } });
+  const granted = await db.user.findUniqueOrThrow({
+    where: { id: account.id },
+  });
+  const tutor = await db.tutor.findUniqueOrThrow({
+    where: { id: granted.tutorId! },
+  });
   await change(true, 2);
-  expect(await inspectAccountInvitation(db, invite)).toMatchObject({ completed: true });
-  expect(await redeemAccountInvitation(db, { ...profile, ...invite }, account.id)).toMatchObject({ completed: true });
-  expect(await consumeInvitationLogin(invite.invitationId, invite.proof)).toMatchObject({ id: account.id });
-  expect(await db.user.findUniqueOrThrow({ where: { id: account.id } })).toEqual(granted);
-  expect(await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } })).toEqual(tutor);
+  expect(await inspectAccountInvitation(db, invite)).toMatchObject({
+    completed: true,
+  });
+  expect(
+    await redeemAccountInvitation(db, { ...profile, ...invite }, account.id),
+  ).toMatchObject({ completed: true });
+  expect(
+    await consumeInvitationLogin(invite.invitationId, invite.proof),
+  ).toMatchObject({ id: account.id });
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+  ).toEqual(granted);
+  expect(await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } })).toEqual(
+    tutor,
+  );
 });
 
 it("rechecks an application flag committed while invitation redemption waits for its source lock", async () => {
@@ -206,25 +252,37 @@ it("rechecks an application flag committed while invitation redemption waits for
   const invite = await staff("TUTOR", email, false, application.id);
   let release!: () => void;
   let locked!: () => void;
-  const signal = new Promise<void>((resolve) => { locked = resolve; });
-  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const signal = new Promise<void>((resolve) => {
+    locked = resolve;
+  });
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   const changing = db.$transaction(async (tx) => {
     await transactions.lockEntity(tx, `interview:${application.id}`);
     locked();
     await gate;
     await tx.tutorApplication.update({
       where: { id: application.id },
-      data: { invalidatedAt: new Date(), invalidReason: "Private review", invalidityVersion: 1 },
+      data: {
+        invalidatedAt: new Date(),
+        invalidReason: "Private review",
+        invalidityVersion: 1,
+      },
     });
   });
   await signal;
   let waiting!: () => void;
-  const attempted = new Promise<void>((resolve) => { waiting = resolve; });
-  const originalLock = transactions.lockEntity;
-  const spy = vi.spyOn(transactions, "lockEntity").mockImplementation(async (tx, key) => {
-    if (key === `interview:${application.id}`) waiting();
-    await originalLock(tx, key);
+  const attempted = new Promise<void>((resolve) => {
+    waiting = resolve;
   });
+  const originalLock = transactions.lockEntity;
+  const spy = vi
+    .spyOn(transactions, "lockEntity")
+    .mockImplementation(async (tx, key) => {
+      if (key === `interview:${application.id}`) waiting();
+      await originalLock(tx, key);
+    });
   const redeeming = redeemAccountInvitation(db, { ...profile, ...invite });
   try {
     await attempted;
@@ -232,7 +290,13 @@ it("rechecks an application flag committed while invitation redemption waits for
     await changing;
     await expect(redeeming).rejects.toThrow("INVITATION_INVALID");
     expect(await db.user.count({ where: { email } })).toBe(0);
-    expect((await db.registrationCode.findUniqueOrThrow({ where: { id: invite.row.id } })).usedAt).toBeNull();
+    expect(
+      (
+        await db.registrationCode.findUniqueOrThrow({
+          where: { id: invite.row.id },
+        })
+      ).usedAt,
+    ).toBeNull();
   } finally {
     release();
     spy.mockRestore();
@@ -305,7 +369,11 @@ it.each(["TUTOR", "CREW"] as const)(
       invitation.row.emailCodeHash!,
       email,
     ]);
-    for (const secret of [invitation.proof, invitation.row.emailCodeHash!, email])
+    for (const secret of [
+      invitation.proof,
+      invitation.row.emailCodeHash!,
+      email,
+    ])
       expect(JSON.stringify(safeLifecycle)).not.toContain(secret);
     expect(
       await db.registrationCode.findUniqueOrThrow({
@@ -531,7 +599,9 @@ it("a redundant generic tutor invitation preserves an opted-out existing tutor",
 
 it("displays an invitation without mail, preserves its receipt, and requires separate identity proof", async () => {
   const invite = await displayedViewer();
-  expect(invite.code).toMatch(/^[0-9]{5}$/);
+  expect(invite.code).toMatch(/^[023456789ABCDEFGHIJKMNPQRSTUVWXYZ]{5}$/);
+  expect(invite.code).toMatch(/[A-Z]/);
+  expect(invite.code).toMatch(/[0-9]/);
   expect(mail.send).not.toHaveBeenCalled();
   expect(await enterDisplayedInvitation(db, { code: invite.code! })).toEqual({
     kind: "display",
@@ -586,6 +656,9 @@ it("displays an invitation without mail, preserves its receipt, and requires sep
   expect(code()).toBe(invite.code);
   expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(
     `&code=${invite.code}`,
+  );
+  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(
+    "5 letters and numbers",
   );
 });
 
@@ -673,10 +746,11 @@ function fixtureDisplayCode(
   sourceKey: string,
   nonce: number,
   alphabet: string,
+  namespace = "display",
 ) {
   const digest = registrationCompletionProof(
     "invitation",
-    `display:${sourceKey}:${nonce}`,
+    `${namespace}:${sourceKey}:${nonce}`,
     "display",
     new Date(0),
   );
@@ -703,13 +777,7 @@ it.each([
     let legacy = "";
     for (; nonce < 1000; nonce++) {
       legacy = fixtureDisplayCode(row.sourceKey, nonce, alphabet);
-      const current = fixtureDisplayCode(
-        row.sourceKey,
-        nonce,
-        codeHelpers.REG_CODE_ALPHABET,
-      );
-      if (/[A-Z]/.test(legacy) && /[2-9]/.test(legacy) && legacy !== current)
-        break;
+      if (/[A-Z]/.test(legacy) && /[2-9]/.test(legacy)) break;
     }
     expect(nonce).toBeLessThan(1000);
     await db.accountInvitation.update({
@@ -758,26 +826,24 @@ it.each([
   },
 );
 
-it("issues a receipt with leading zero and digit one across entry, retries and optional mail", async () => {
+it("retains outstanding numeric receipts with zero and one across entry, retries and optional mail", async () => {
   const invite = await displayedViewer();
   const row = await db.accountInvitation.findUniqueOrThrow({
     where: { id: invite.invitationId },
   });
-  await db.accountInvitation.delete({ where: { id: row.id } });
   let sourceKey = "",
     candidate = "";
   for (let index = 0; index < 1000; index++) {
     sourceKey = `zero-fixture:${index}`;
-    candidate = fixtureDisplayCode(sourceKey, 0, codeHelpers.REG_CODE_ALPHABET);
-    if (
-      candidate !== "ABI0D" &&
-      candidate.startsWith("0") &&
-      candidate.includes("1")
-    )
-      break;
+    candidate = fixtureDisplayCode(sourceKey, 0, "0123456789");
+    if (candidate.startsWith("0") && candidate.includes("1")) break;
   }
   expect(candidate).toMatch(/^0[0-9]{4}$/);
   expect(candidate).toContain("1");
+  await db.accountInvitation.update({
+    where: { id: row.id },
+    data: { sourceKey, displayCodeNonce: 0, codeHash: hashCode(candidate) },
+  });
   const input = {
     display: true,
     kind: row.kind,
@@ -807,6 +873,9 @@ it("issues a receipt with leading zero and digit one across entry, retries and o
     proof: issued.proof!,
   });
   expect(code()).toBe(candidate);
+  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(
+    "Previously issued code",
+  );
   expect(await deliverAccountInvitation(db, input)).toEqual(issued);
   const generator = vi
     .spyOn(codeHelpers, "generateEmailVerificationCode")
@@ -829,6 +898,82 @@ it("issues a receipt with leading zero and digit one across entry, retries and o
     generator.mockRestore();
   }
 });
+
+it("skips unmixed v3 candidates and reconstructs the exact mixed receipt", async () => {
+  const original = await displayedViewer();
+  const row = await db.accountInvitation.findUniqueOrThrow({
+    where: { id: original.invitationId },
+  });
+  await db.accountInvitation.delete({ where: { id: row.id } });
+  let sourceKey = "";
+  let first = "";
+  for (let index = 0; index < 1000; index++) {
+    sourceKey = `mixed-fixture:${index}`;
+    first = fixtureDisplayCode(
+      sourceKey,
+      0,
+      codeHelpers.REG_CODE_ALPHABET,
+      "display:mixed:v3",
+    );
+    if (!/[A-Z]/.test(first) || !/[0-9]/.test(first)) break;
+  }
+  expect(/^[A-Z]+$|^[0-9]+$/.test(first)).toBe(true);
+  let expected = "";
+  let nonce = 1;
+  for (; nonce < 1000; nonce++) {
+    expected = fixtureDisplayCode(
+      sourceKey,
+      nonce,
+      codeHelpers.REG_CODE_ALPHABET,
+      "display:mixed:v3",
+    );
+    if (/[A-Z]/.test(expected) && /[0-9]/.test(expected)) break;
+  }
+  expect(nonce).toBeLessThan(1000);
+  const input = {
+    display: true,
+    kind: row.kind,
+    email: row.email,
+    sourceKey,
+    source: row.source as InvitationSource,
+  };
+  const issued = await deliverAccountInvitation(db, input);
+  expect(issued.code).toBe(expected);
+  expect(issued.code).toHaveLength(5);
+  expect(
+    (
+      await db.accountInvitation.findUniqueOrThrow({
+        where: { id: issued.invitationId },
+      })
+    ).displayCodeNonce,
+  ).toBe(nonce);
+  expect(await deliverAccountInvitation(db, input)).toEqual(issued);
+  await emailDisplayedInvitation(db, {
+    invitationId: issued.invitationId,
+    proof: issued.proof!,
+  });
+  expect(code()).toBe(expected);
+});
+
+it.each(["00111", "99999"])(
+  "retains outstanding numeric staff key %s without changing its identity",
+  async (numeric) => {
+    await db.registrationCode.create({
+      data: {
+        code: numeric,
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+    for (const entered of [numeric, ` ${numeric.replaceAll("0", "O")} `]) {
+      expect(
+        await anonymous().accountInvitation.enter({ code: entered }),
+      ).toMatchObject({ kind: "staff" });
+      expect(
+        await anonymous().registration.check({ code: entered }),
+      ).toBeTruthy();
+    }
+  },
+);
 
 it("looks up staff codes by their canonical zero and I for every alias", async () => {
   const generator = vi
@@ -1783,9 +1928,15 @@ it("rechecks credentials after waiting on the account lock", async () => {
     await rotation;
     await expect(signing).rejects.toMatchObject({ code: "CONFLICT" });
     expect(
-      (await db.accountInvitation.findUniqueOrThrow({ where: { id: invite.invitationId } })).loginUsedAt,
+      (
+        await db.accountInvitation.findUniqueOrThrow({
+          where: { id: invite.invitationId },
+        })
+      ).loginUsedAt,
     ).toBeNull();
-    const rotated = await db.user.findUniqueOrThrow({ where: { id: account.id } });
+    const rotated = await db.user.findUniqueOrThrow({
+      where: { id: account.id },
+    });
     expect(rotated.passwordHash).not.toBe(account.passwordHash);
     expect(rotated.sessionVersion).toBeGreaterThan(account.sessionVersion);
   } finally {
@@ -2009,24 +2160,46 @@ it("pauses an issued tutee invitation without changing its intake evidence or co
   const invite = await surveyInvitation(email, await stagedSurvey(email));
   const survey = await db.studentSurvey.findFirstOrThrow();
   const change = (invalid: boolean, expectedInvalidityVersion: number) =>
-    setStudentRequestInvalidity(db, {
-      id: survey.id, invalid, expectedInvalidityVersion,
-      reason: invalid ? "Private staff reason" : "Original submission verified",
-    }, { id: "head", name: "Head" });
+    setStudentRequestInvalidity(
+      db,
+      {
+        id: survey.id,
+        invalid,
+        expectedInvalidityVersion,
+        reason: invalid
+          ? "Private staff reason"
+          : "Original submission verified",
+      },
+      { id: "head", name: "Head" },
+    );
   await change(true, 0);
-  await expect(inspectAccountInvitation(db, invite)).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  await expect(redeemAccountInvitation(db, { ...profile, ...invite })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(inspectAccountInvitation(db, invite)).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+  });
+  await expect(
+    redeemAccountInvitation(db, { ...profile, ...invite }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   expect(await db.user.count({ where: { email } })).toBe(0);
-  expect(await db.studentSurvey.findUniqueOrThrow({ where: { id: survey.id } })).toMatchObject({
-    submittedAt: survey.submittedAt, payload: survey.payload, confirmedAt: null,
+  expect(
+    await db.studentSurvey.findUniqueOrThrow({ where: { id: survey.id } }),
+  ).toMatchObject({
+    submittedAt: survey.submittedAt,
+    payload: survey.payload,
+    confirmedAt: null,
   });
   await change(false, 1);
   await redeemAccountInvitation(db, { ...profile, ...invite });
   const granted = await db.user.findUniqueOrThrow({ where: { email } });
   await change(true, 2);
-  expect(await inspectAccountInvitation(db, invite)).toMatchObject({ completed: true });
-  expect(await consumeInvitationLogin(invite.invitationId, invite.proof)).toMatchObject({ id: granted.id });
-  expect(await db.user.findUniqueOrThrow({ where: { id: granted.id } })).toEqual(granted);
+  expect(await inspectAccountInvitation(db, invite)).toMatchObject({
+    completed: true,
+  });
+  expect(
+    await consumeInvitationLogin(invite.invitationId, invite.proof),
+  ).toMatchObject({ id: granted.id });
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: granted.id } }),
+  ).toEqual(granted);
 });
 
 it.each([false, true])(

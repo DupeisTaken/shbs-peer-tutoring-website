@@ -313,7 +313,7 @@
       "step": {
         "code": {
           "label": "Invitation code",
-          "help": "Enter 5 digits. Previously issued codes are still accepted.",
+          "help": "Enter 5 letters and numbers. Previously issued codes are still accepted.",
           "submit": "Continue"
         },
         "email": {
@@ -5453,7 +5453,7 @@
   "codes": {
     "invitationLabel": "Invitation code",
     "emailLabel": "Email verification code",
-    "invitationHelp": "Enter 5 digits. Previously issued codes are still accepted.",
+    "invitationHelp": "Enter 5 letters and numbers. Previously issued codes are still accepted.",
     "emailHelp": "Enter 4 digits from your email. Previously issued codes are still accepted.",
     "lettersKeyboard": "Enter a code with letters",
     "numericKeyboard": "Use numeric keypad"

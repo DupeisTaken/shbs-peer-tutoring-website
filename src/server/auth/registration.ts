@@ -13,7 +13,7 @@ import {
   updateAccountProfile,
 } from "~/server/account-profile";
 /**
- * Self-registration via a five-digit authorization key (RegistrationCode).
+ * Self-registration via a mixed five-character authorization key (RegistrationCode).
  *
  * Admins/coordinators issue a single-use code (optionally bound to an email and/or an existing
  * roster Tutor, or generated when an application is accepted) and hand it to the intended person.
@@ -91,7 +91,7 @@ function secret(): string {
 
 /** Keyed (HMAC) hash of a code — deterministic for lookup, not offline-brute-forceable. Normalizes
  * first so entry and lookup share one identity. Numeric digits are preserved;
- * mixed legacy five-character codes retain O→0/1→I aliases. */
+ * mixed five-character codes retain O→0/1→I aliases. */
 export function hashCode(code: string): string {
   return createHmac("sha256", secret())
     .update(normalizeRegCode(code))

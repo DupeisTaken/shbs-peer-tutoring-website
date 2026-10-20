@@ -313,7 +313,7 @@
       "step": {
         "code": {
           "label": "Código de invitación",
-          "help": "Introduce 5 dígitos. Los códigos emitidos anteriormente siguen siendo válidos.",
+          "help": "Introduce 5 caracteres combinando letras y números. Los códigos emitidos anteriormente siguen siendo válidos.",
           "submit": "Continuar"
         },
         "email": {
@@ -5453,7 +5453,7 @@
   "codes": {
     "invitationLabel": "Código de invitación",
     "emailLabel": "Código de verificación por correo",
-    "invitationHelp": "Introduce 5 dígitos. Los códigos emitidos anteriormente siguen siendo válidos.",
+    "invitationHelp": "Introduce 5 caracteres combinando letras y números. Los códigos emitidos anteriormente siguen siendo válidos.",
     "emailHelp": "Introduce los 4 dígitos de tu correo. Los códigos emitidos anteriormente siguen siendo válidos.",
     "lettersKeyboard": "Introducir un código con letras",
     "numericKeyboard": "Usar teclado numérico"

@@ -28,17 +28,20 @@ A staff-visible key or a copied invitation code alone cannot sign in as its reci
 | Accountless tutor setup sent by Head | Receive a Tutor invitation. | The roster remains accountless until its recipient accepts; no placeholder login is created by sending mail. |
 
 The invitation page opens with one centered code field and a full-width **Continue** button.
-New **Invitation codes** and staff registration codes contain **5 digits** and appear
-in green. **Email verification codes** contain **4 digits** and appear in blue, including
+New **Invitation codes** and staff registration codes contain **5 letters and numbers**
+and use a green box background. **Email verification codes** contain **4 digits**
+and use a blue box background, including
 signup, historical access, associated-email changes, sign-in and security confirmation.
-The same colors and explicit labels appear on the website and in code emails.
-The empty input shows five or four positions before you type. Type or paste the full
-code, keeping any zeros at the start; you can correct or delete individual digits as
-usual. Email autofill is available for verification codes.
+The same background colors appear on the website and in code emails; the field label
+or email instructions identify the code's purpose. Each website field remains one
+wide input, with gray `XXXXX` for invitations or `XXXX` for email verification when
+empty. Type or paste the full code, keeping any zeros at the start; you can correct
+or delete individual characters as usual. Email autofill is available for verification codes.
 
-An older, still-valid code may contain letters or more characters. Enter the entire
-older code shown in its email or invitation card; the form accepts it without cutting
-off characters. Existing expiry, replacement, use and revocation rules still apply.
+An older, still-valid invitation may contain five digits or twelve characters.
+Enter the entire older code shown in its email or invitation card; the form accepts
+it without cutting off characters. Older email verification formats remain accepted
+for their existing challenge. Existing expiry, replacement, use and revocation rules still apply.
 The verification code proves mailbox ownership and is separate from the invitation
 shown afterward; enter each in its explicitly labeled field.
 After Viewer or tutee email verification, or verified retrieval of an approved Crew application, a popup shows the invitation code, **Copy code**,
@@ -128,7 +131,7 @@ their confirmation parameters. Tutor and crew applications open at `/tutor-signu
 and `/crew-signup` and retain the existing review process. See the
 [URL convention](technical-report.md#public-signup-url-convention) for the full mapping.
 
-- **Register with an Invitation Code** (`/register` → `/register-account`) opens the shared code card. Enter an invitation code or a five-digit staff key and choose **Continue**. A code without this browser's verified proof requires email verification before review.
+- **Register with an Invitation Code** (`/register` → `/register-account`) opens the shared code card. Enter an invitation code or a five-character staff key containing letters and numbers and choose **Continue**. A code without this browser's verified proof requires email verification before review.
 - **Register as a Viewer** (`/viewer` → `/viewer-signup`) collects Viewer details and verifies the mailbox when viewer signup is enabled. Its popup offers the invitation code, optional email delivery and a prefilled invitation link. A new account receives read-only Viewer access; an existing account signs in without changing its access. No staff key is needed.
 - **Request a Tutor** (`/tutee` → `/tutee-signup`) collects the full tutee application before email verification and invitation issuance. Enter the emailed verification code, or use the existing email link and explicitly confirm it. Continue from the invitation popup to review your request and any missing credentials.
 - **Join the crew** (`/crew` → `/crew-signup`) collects application details and verifies the mailbox before sending the application for staff review. Use the same page to check an existing application with a fresh emailed code; an approved application can continue through the shared invitation popup and account review.

@@ -1,5 +1,4 @@
 "use client";
-import { CodeDisplay } from "~/app/_components/ui/code-field";
 import { useRef, useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useBranding } from "~/app/_components/branding-provider";
@@ -70,8 +69,19 @@ export function ShareCard({
         <p className="mt-2 font-semibold text-slate-700">
           {t(`admin.registrationCodes.${registrationKindLabel[kind]}`)}
         </p>
-        {/* Shared green purpose treatment is retained in the downloaded image. */}
-        <CodeDisplay code={code} className="mt-3" />
+        {/* Keep the existing share-card geometry and typography in the export.
+         * Purpose supplies only the background, as on the other code surfaces. */}
+        <div
+          data-code-purpose="invitation"
+          className="code-surface mt-3 inline-block rounded-lg border-2 border-dashed border-green-300 px-6 py-3 text-center"
+        >
+          <p className="text-xs font-semibold tracking-wide text-green-700 uppercase">
+            {t("admin.registrationCodes.codeLabel")}
+          </p>
+          <p className="font-mono text-3xl font-bold tracking-[0.3em] text-green-800">
+            {code}
+          </p>
+        </div>
 
         <p className="mt-3 text-sm break-all text-slate-700">
           {t("admin.registrationCodes.share.enterAt", { url: registerUrl })}

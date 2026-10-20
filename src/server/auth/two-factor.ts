@@ -1,7 +1,7 @@
 /**
  * Email-based login 2FA via a one-time code.
  *
- * Codes use four numeric digits, independently of five-digit invitation keys. Only the
+ * Codes use four numeric digits, independently of mixed five-character invitation keys. Only the
  * HMAC hash is stored, codes are single-use, and each new login code supersedes older unconsumed
  * login codes for the same user.
  */

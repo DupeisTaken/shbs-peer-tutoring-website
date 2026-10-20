@@ -354,7 +354,7 @@ export default function CrewPage() {
                     {issuedCode[a.id] ? (
                       <span
                         data-code-purpose="invitation"
-                        className="code-badge ml-auto font-mono"
+                        className="code-surface badge-green ml-auto font-mono tracking-widest"
                       >
                         {t("admin.crew.codeIssued", {
                           code: issuedCode[a.id]!,
@@ -481,7 +481,7 @@ export default function CrewPage() {
                     {c.code && (
                       <span
                         data-code-purpose="invitation"
-                        className="code-badge font-mono"
+                        className="code-surface badge-green font-mono tracking-widest"
                       >
                         {t("admin.crew.codeIssued", { code: c.code })}
                       </span>

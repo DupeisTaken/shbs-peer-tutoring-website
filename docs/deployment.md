@@ -110,19 +110,22 @@ Transactional email (reset links plus sign-in and password-change 2FA codes) goe
 Direct Mail — see "Email" below. Sign-in 2FA is enforced when the `EMAIL_2FA` program feature and
 the user's 2FA preference are both enabled.
 
-New invitation and staff registration codes contain five numeric digits; emailed
-verification challenges contain four. Green invitation and blue verification panels
-include explicit purpose and length guidance on the site and in HTML email; plaintext
-mail preserves the purpose, full code and instructions. Leading zeros are significant.
-Outstanding alphanumeric/twelve-character invitations and already-issued verification
-challenges retain compatibility only within their original lifetime. Apply the additive
+New invitation and staff registration codes contain five characters, mixing letters
+and numbers; emailed verification challenges contain four digits. Green invitation
+and blue verification backgrounds identify the purpose alongside existing field labels
+and email instructions. Site entry retains one wide input with gray `XXXXX`/`XXXX`
+placeholders; HTML mail retains the legacy single code panel. Plaintext mail preserves
+the purpose, full code and instructions. Leading zeros are significant.
+Outstanding five-digit, alphanumeric and twelve-character invitations and already-issued
+verification challenges retain compatibility only within their original lifetime. Apply the additive
 `20261020070000_numeric_email_codes` migration before starting this version: existing survey
 challenges retain the old format and newly issued challenges record the numeric format.
 Do not clear pending challenges or reissue invitations as a deployment workaround.
 Upgrade all serving application instances together: older builds cannot verify every
-new four-digit challenge. An application rollback must account for those outstanding
-new codes; retaining the additive columns alone does not give an older verifier the
-new contract.
+new four-digit challenge or reconstruct receipts issued with the `display:mixed:v3`
+derivation. An application rollback must account for those outstanding new codes
+and retain receipt reconstruction support; additive columns alone do not give an
+older build these contracts.
 See [code contracts and challenge inventory](technical-report.md#opaque-invitation-codes).
 
 Website/CMS/email hrefs publish the short paths. Permanent redirects retain query
