@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   cleanup,
   fireEvent,
@@ -13,6 +13,12 @@ import en from "../../../../../messages/en.json";
 import zh from "../../../../../messages/zh.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import TimeSlotsPage from "./page";
+
+const auditMutations = vi.hoisted(() => ({
+  create: vi.fn(),
+  update: vi.fn(),
+  endMin: 990,
+}));
 
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -44,19 +50,27 @@ vi.mock("~/trpc/react", () => ({
               label: "Synthetic slot",
               dayOfWeek: 1,
               startMin: 930,
-              endMin: 990,
+              endMin: auditMutations.endMin,
               active: true,
             },
           ],
           isSuccess: true,
         }),
       },
-      createTimeSlot: { useMutation: () => ({}) },
-      updateTimeSlot: { useMutation: () => ({ reset: vi.fn() }) },
+      createTimeSlot: {
+        useMutation: () => ({ mutate: auditMutations.create }),
+      },
+      updateTimeSlot: {
+        useMutation: () => ({ reset: vi.fn(), mutate: auditMutations.update }),
+      },
       deleteTimeSlot: { useMutation: () => ({}) },
     },
   },
 }));
+beforeEach(() => {
+  vi.clearAllMocks();
+  auditMutations.endMin = 990;
+});
 afterEach(cleanup);
 
 function mount(locale: "en" | "zh", readOnly: boolean) {
@@ -116,7 +130,7 @@ it("keeps a new slot draft after dismissing and reopening creation", () => {
   fireEvent.click(
     screen.getByRole("button", { name: en.admin.timeslots.addSlot }),
   );
-  const input = screen.getByRole("textbox");
+  const input = screen.getByLabelText(en.admin.timeslots.label);
   fireEvent.change(input, { target: { value: "Synthetic draft slot" } });
   fireEvent.click(screen.getByRole("button", { name: en.common.close }));
   expect(screen.queryByRole("textbox")).toBeNull();
@@ -127,8 +141,9 @@ it("keeps a new slot draft after dismissing and reopening creation", () => {
     }),
   );
   expect(
-    within(screen.getByRole("dialog")).getByRole<HTMLInputElement>("textbox")
-      .value,
+    within(screen.getByRole("dialog")).getByLabelText<HTMLInputElement>(
+      en.admin.timeslots.label,
+    ).value,
   ).toBe("Synthetic slot");
   fireEvent.click(
     screen.getByRole("button", { name: en.admin.timeslots.cancel }),
@@ -136,9 +151,9 @@ it("keeps a new slot draft after dismissing and reopening creation", () => {
   fireEvent.click(
     screen.getByRole("button", { name: en.admin.timeslots.addSlot }),
   );
-  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe(
-    "Synthetic draft slot",
-  );
+  expect(
+    screen.getByLabelText<HTMLInputElement>(en.admin.timeslots.label).value,
+  ).toBe("Synthetic draft slot");
 });
 
 it.each(["en", "zh"] as const)(
@@ -166,3 +181,116 @@ it.each(["en", "zh"] as const)(
     expect(options[6]?.textContent).toBe(locale === "en" ? "Sun" : "周日");
   },
 );
+
+// An empty native time value is missing input, never an intentional midnight.
+// Assert the real submit handlers rather than only the appearance of a disabled button.
+it("audit: does not update historical schedules when the start clock is cleared", () => {
+  mount("en", false);
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `${en.admin.timeslots.edit}: Synthetic slot`,
+    }),
+  );
+  const dialog = within(screen.getByRole("dialog"));
+  fireEvent.change(dialog.getByLabelText(en.admin.timeslots.start), {
+    target: { value: "" },
+  });
+  fireEvent.click(
+    dialog.getByRole("button", { name: en.admin.timeslots.save }),
+  );
+  expect(auditMutations.update).not.toHaveBeenCalled();
+});
+
+it("audit: does not create a midnight schedule from a cleared start clock", () => {
+  mount("en", false);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.timeslots.addSlot }),
+  );
+  const dialog = within(screen.getByRole("dialog"));
+  fireEvent.change(dialog.getByLabelText(en.admin.timeslots.label), {
+    target: { value: "Synthetic new slot" },
+  });
+  fireEvent.change(dialog.getByLabelText(en.admin.timeslots.start), {
+    target: { value: "" },
+  });
+  fireEvent.click(
+    dialog.getByRole("button", { name: en.admin.timeslots.addSlot }),
+  );
+  expect(auditMutations.create).not.toHaveBeenCalled();
+});
+
+it.each(["", "24:01", "9:00", "15:30", "15:29"])(
+  "rejects invalid or non-increasing end %j before creating a slot",
+  (end) => {
+    mount("en", false);
+    fireEvent.click(
+      screen.getByRole("button", { name: en.admin.timeslots.addSlot }),
+    );
+    const dialog = within(screen.getByRole("dialog"));
+    fireEvent.change(dialog.getByLabelText(en.admin.timeslots.label), {
+      target: { value: "Explicit clock" },
+    });
+    fireEvent.change(dialog.getByLabelText(en.admin.timeslots.end), {
+      target: { value: end },
+    });
+    // Bypass native form validation to prove the feature's admission guard too.
+    fireEvent.submit(
+      dialog.getByLabelText(en.admin.timeslots.label).closest("form")!,
+    );
+    expect(auditMutations.create).not.toHaveBeenCalled();
+  },
+);
+
+it("creates an intentional midnight-to-end-of-day slot", () => {
+  mount("en", false);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.timeslots.addSlot }),
+  );
+  const dialog = within(screen.getByRole("dialog"));
+  fireEvent.change(dialog.getByLabelText(en.admin.timeslots.label), {
+    target: { value: "Full day" },
+  });
+  fireEvent.change(dialog.getByLabelText(en.admin.timeslots.start), {
+    target: { value: "00:00" },
+  });
+  fireEvent.change(dialog.getByLabelText(en.admin.timeslots.end), {
+    target: { value: "24:00" },
+  });
+  fireEvent.click(
+    dialog.getByRole("button", { name: en.admin.timeslots.addSlot }),
+  );
+  expect(auditMutations.create).toHaveBeenCalledWith({
+    label: "Full day",
+    dayOfWeek: 1,
+    startMin: 0,
+    endMin: 1440,
+  });
+});
+
+it("preserves an existing 24:00 end when editing its label", () => {
+  auditMutations.endMin = 1440;
+  mount("en", false);
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: `${en.admin.timeslots.edit}: Synthetic slot`,
+    }),
+  );
+  const dialog = within(screen.getByRole("dialog"));
+  expect(
+    dialog.getByLabelText<HTMLInputElement>(en.admin.timeslots.end).value,
+  ).toBe("24:00");
+  fireEvent.change(dialog.getByLabelText(en.admin.timeslots.label), {
+    target: { value: "Midnight ending" },
+  });
+  fireEvent.click(
+    dialog.getByRole("button", { name: en.admin.timeslots.save }),
+  );
+  expect(auditMutations.update).toHaveBeenCalledWith(
+    expect.objectContaining({
+      id: "slot",
+      label: "Midnight ending",
+      startMin: 930,
+      endMin: 1440,
+    }),
+  );
+});

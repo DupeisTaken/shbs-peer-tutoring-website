@@ -469,10 +469,7 @@ function ApprovalQueue({
     ];
     // An applied/rejected/cancelled application proposal changes the same evidence
     // used by tutor history and task counts, even while those pages are inactive.
-    if (
-      operation &&
-      APPROVAL_OPERATIONS[operation] === "TutorApplication"
-    ) {
+    if (operation && APPROVAL_OPERATIONS[operation] === "TutorApplication") {
       reads.push(
         () => utils.tutor.myInterviews.invalidate(),
         () => utils.interviewManagement.options.invalidate(),
@@ -612,7 +609,9 @@ function ApprovalQueue({
           )}
         </div>
       )}
-      {!requestId && queue.data && queue.data.total > 25 && (
+      {/* A resolved final row can leave a stale nonzero page. Keep its way back
+          even when the refreshed total fits on one page (or is now empty). */}
+      {!requestId && queue.data && (queue.data.total > 25 || page > 0) && (
         <div className="flex gap-2">
           <button
             className="btn-secondary"

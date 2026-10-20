@@ -187,6 +187,44 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+// A decision can remove the only row on the last page. The remaining queue must
+// stay reachable even when its new total no longer needs a second page.
+it.each([25, 0])(
+  "preserves filtered previous-page recovery after the queue shrinks to %s",
+  (total) => {
+    mocks.params = "status=PENDING&page=1&requester=coordinator";
+    queue([row()], true, 26);
+    const mounted = render(view(true));
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: en.approvals.previous,
+      }).disabled,
+    ).toBe(false);
+    queue([], true, total);
+    mounted.rerender(view(true));
+    const previous = screen.getByRole<HTMLButtonElement>("button", {
+      name: en.approvals.previous,
+    });
+    expect(previous.disabled).toBe(false);
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: en.approvals.next })
+        .disabled,
+    ).toBe(true);
+    fireEvent.click(previous);
+    expect(mocks.replace).toHaveBeenLastCalledWith(
+      "/admin/approvals?status=PENDING&requester=coordinator",
+      { scroll: false },
+    );
+    expect(mocks.list).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        page: 0,
+        state: "PENDING",
+        requesterId: "coordinator",
+      }),
+    );
+  },
+);
+
 it.each([
   [
     "studentWorkflow.headEditSignup",
