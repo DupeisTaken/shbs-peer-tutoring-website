@@ -57,6 +57,11 @@ The direct development dependency anchors the local package at the repository
 root; the override references it with `$fast-glob`. Keep the adapter's Docker
 `COPY` before `npm ci` so clean image builds resolve the same package.
 
+When adding, renaming or removing interface message keys, update every bundled
+catalog in `messages/`, including languages hidden from the default picker. Run
+`npm test -- src/i18n/locales.test.ts --maxWorkers=1` to check key parity, nonblank
+values and ICU placeholders before the complete CI suite.
+
 ## Reuse interaction patterns
 
 Review the development-only [UI gallery](local-development.md#ui-pattern-gallery) before building a new interaction. Its examples use the same [shared components](../src/app/_components/ui) as the application. Keep the existing slate surfaces, white cards and accent themes. The [agent entry point](../AGENTS.md#start-with-the-shared-patterns) maps interactions to components and owns the control-height, table-action and responsive-header conventions.

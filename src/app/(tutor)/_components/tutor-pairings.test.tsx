@@ -10,6 +10,13 @@ import { afterEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
+import esMessages from "../../../../messages/es.json";
+import jaMessages from "../../../../messages/ja.json";
+import koMessages from "../../../../messages/ko.json";
+import elMessages from "../../../../messages/el.json";
+import deMessages from "../../../../messages/de.json";
+import frMessages from "../../../../messages/fr.json";
+import { type Locale } from "~/i18n/config";
 import { TutorPairings } from "./tutor-pairings";
 import { MergeProvider, useMerge } from "./merge-context";
 const state = vi.hoisted(() => ({
@@ -220,11 +227,22 @@ afterEach(() => {
   state.workflowRows = [];
   state.availabilityRefetch.mockResolvedValue({ isSuccess: true });
 });
-const element = (active = true, locale = "en") => (
+// Exercise each real bundled catalog; default-hidden languages can be published.
+const catalogs = {
+  en: messages,
+  zh: zhMessages,
+  es: esMessages,
+  ja: jaMessages,
+  ko: koMessages,
+  el: elMessages,
+  de: deMessages,
+  fr: frMessages,
+} satisfies Record<Locale, typeof messages>;
+const element = (active = true, locale: Locale = "en") => (
   <NextIntlClientProvider
     locale={locale}
     timeZone="Asia/Shanghai"
-    messages={locale === "zh" ? zhMessages : messages}
+    messages={catalogs[locale]}
   >
     <MergeProvider>
       <TutorPairings active={active} />
@@ -325,7 +343,13 @@ it("keeps an inactive linked schedule visible and puts incomplete or nonmatching
 it.each([
   ["en", "Both Available", "Other Time Slots", "Mon"],
   ["zh", "双方均有空", "其他时段", "周一"],
-])(
+  ["es", "Ambos disponibles", "Otras franjas horarias", "lun"],
+  ["ja", "双方が対応可能", "その他の時間帯", "月"],
+  ["ko", "모두 가능한 시간", "기타 시간대", "월"],
+  ["el", "Κοινή διαθεσιμότητα", "Άλλες χρονικές ζώνες", "Δευ"],
+  ["de", "Beide verfügbar", "Andere Zeitfenster", "Mo"],
+  ["fr", "Disponibilités communes", "Autres créneaux horaires", "lun."],
+] as const)(
   "shows concise localized slot groups in %s without repeated guidance",
   (locale, both, other, day) => {
     state.selectedSlotIds = ["one"];
@@ -498,7 +522,7 @@ it.each(["learner", null])(
 it.each([
   ["en", "Mon"],
   ["zh", "周一"],
-])("localizes %s tutor pairing schedule evidence", (locale, weekday) => {
+] as const)("localizes %s tutor pairing schedule evidence", (locale, weekday) => {
   render(element(false, locale));
   expect(screen.getByText(`· ${weekday} 15:00–16:00`)).toBeTruthy();
 });
