@@ -31,6 +31,18 @@ import { InlineNotice } from "~/app/_components/ui/patterns";
 
 const EMPTY = { label: "", dayOfWeek: 1, startTime: "15:30", endTime: "16:30" };
 
+// Clock fields are explicit values: a cleared start must never become midnight.
+// Match room-unavailability editing, including the supported end-of-day boundary.
+const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
+function validSlotDraft(draft: typeof EMPTY) {
+  return (
+    draft.label.trim().length > 0 &&
+    CLOCK.test(draft.startTime) &&
+    (CLOCK.test(draft.endTime) || draft.endTime === "24:00") &&
+    hmToMin(draft.endTime) > hmToMin(draft.startTime)
+  );
+}
+
 type SlotDraft = typeof EMPTY & { id: string; active: boolean };
 
 export default function TimeSlotsPage() {
@@ -145,10 +157,7 @@ export default function TimeSlotsPage() {
     create.isPending ||
     update.isPending;
   const proposalId = queuedApprovalId(create.error ?? update.error);
-  const editingIsValid =
-    editing !== null &&
-    editing.label.trim().length > 0 &&
-    hmToMin(editing.endTime) > hmToMin(editing.startTime);
+  const editingIsValid = editing !== null && validSlotDraft(editing);
   const syncFeedback = refreshFailed && (
     <InlineNotice
       tone="warning"
@@ -239,7 +248,12 @@ export default function TimeSlotsPage() {
             className="card flex flex-wrap items-end gap-3 p-4"
             onSubmit={(e) => {
               e.preventDefault();
-              if (readOnly || blocked || admitted.current || !form.label.trim())
+              if (
+                readOnly ||
+                blocked ||
+                admitted.current ||
+                !validSlotDraft(form)
+              )
                 return;
               admitted.current = true;
               create.mutate({
@@ -285,6 +299,7 @@ export default function TimeSlotsPage() {
                 <span className="label">{t("admin.timeslots.start")}</span>
                 <input
                   type="time"
+                  required
                   value={form.startTime}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, startTime: e.target.value }))
@@ -295,7 +310,10 @@ export default function TimeSlotsPage() {
               <label className="space-y-1">
                 <span className="label">{t("admin.timeslots.end")}</span>
                 <input
-                  type="time"
+                  type="text"
+                  required
+                  placeholder="HH:MM"
+                  aria-describedby="slot-create-time-help"
                   value={form.endTime}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, endTime: e.target.value }))
@@ -305,12 +323,15 @@ export default function TimeSlotsPage() {
               </label>
               <button
                 className="btn-primary"
-                disabled={blocked || !form.label.trim()}
+                disabled={blocked || !validSlotDraft(form)}
               >
                 {t("admin.timeslots.addSlot")}
               </button>
             </fieldset>
           </form>
+          <p id="slot-create-time-help" className="muted text-sm">
+            {t("admin.rooms.timeHelp")}
+          </p>
         </ProfileDialog>
       )}
       {!readOnly && !proposalId && (create.error ?? update.error) && (
@@ -547,6 +568,7 @@ export default function TimeSlotsPage() {
               <input
                 className="input"
                 type="time"
+                required
                 value={editing.startTime}
                 onChange={(event) =>
                   setEditing({ ...editing, startTime: event.target.value })
@@ -557,7 +579,10 @@ export default function TimeSlotsPage() {
               <span className="label">{t("admin.timeslots.end")}</span>
               <input
                 className="input"
-                type="time"
+                type="text"
+                required
+                placeholder="HH:MM"
+                aria-describedby="slot-edit-time-help"
                 value={editing.endTime}
                 onChange={(event) =>
                   setEditing({ ...editing, endTime: event.target.value })
@@ -575,6 +600,9 @@ export default function TimeSlotsPage() {
               {t("admin.timeslots.colActive")}
             </label>
           </fieldset>
+          <p id="slot-edit-time-help" className="muted mt-2 text-sm">
+            {t("admin.rooms.timeHelp")}
+          </p>
           {proposalId && (
             <InlineNotice tone="warning" announcement="status">
               {t("approvals.queuedBody")}{" "}

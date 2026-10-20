@@ -116,7 +116,9 @@ it("recovers a committed catalog allocation using reads only and locks further e
   render(<TimeSlotsPage />, { wrapper });
   fireEvent.click(screen.getByRole("button", { name: "Edit: Monday" }));
   const dialog = screen.getByRole("dialog");
-  const label = within(dialog).getByRole<HTMLInputElement>("textbox");
+  const label = within(dialog).getByLabelText<HTMLInputElement>(
+    messages.admin.timeslots.label,
+  );
   fireEvent.change(label, { target: { value: "Accepted Monday" } });
   fireEvent.click(
     within(screen.getByRole("dialog")).getByRole("button", {
@@ -179,7 +181,9 @@ it("retains a committed creation until read-only refresh succeeds without creati
     screen.getByRole("button", { name: messages.admin.timeslots.addSlot }),
   );
   const dialog = screen.getByRole("dialog");
-  const label = within(dialog).getByRole<HTMLInputElement>("textbox");
+  const label = within(dialog).getByLabelText<HTMLInputElement>(
+    messages.admin.timeslots.label,
+  );
   fireEvent.change(label, { target: { value: "Accepted new slot" } });
   fireEvent.click(
     within(dialog).getByRole("button", {
@@ -204,8 +208,9 @@ it("retains a committed creation until read-only refresh succeeds without creati
     screen.getByRole("button", { name: messages.admin.timeslots.addSlot }),
   );
   expect(
-    within(screen.getByRole("dialog")).getByRole<HTMLInputElement>("textbox")
-      .value,
+    within(screen.getByRole("dialog")).getByLabelText<HTMLInputElement>(
+      messages.admin.timeslots.label,
+    ).value,
   ).toBe("");
 });
 
