@@ -26,18 +26,16 @@ const staffWorkload = async () =>
   (await caller("ADMIN").admin.assignmentWorkloads()).tutors.find(
     (tutor) => tutor.id === tutorId,
   );
-async function combine() {
+async function combine(slotId: string | null = "combined-slot") {
   const state = await caller().pairingGroups.mine();
   return caller().pairingGroups.save({
     snapshot: state.snapshot,
-    groups: [
-      { pairingIds: ["combined-a", "combined-b"], slotId: "combined-slot" },
-    ],
+    groups: [{ pairingIds: ["combined-a", "combined-b"], slotId }],
   });
 }
 
 beforeEach(async () => {
-  // Both PRs run against the same disposable database and real router middleware.
+  // Group and workload writes use the same disposable database and real middleware.
   // This catches schedule persistence/counting drift that isolated mocks cannot.
   const tables = await db.$queryRaw<
     { tablename: string }[]
@@ -135,19 +133,24 @@ beforeEach(async () => {
         startMin: 900,
         endMin: 960,
         tutees: {
+          // A valid two-subject group needs both the active and pending student
+          // on each subject. Disjoint rosters must fail before workload changes.
           create:
             id === "combined-empty"
               ? []
-              : [
-                  {
-                    tuteeId:
-                      id === "combined-inactive-only"
-                        ? "combined-inactive"
-                        : id === "combined-b"
-                          ? "combined-pending"
+              : id === "combined-a" || id === "combined-b"
+                ? [
+                    { tuteeId: "combined-active" },
+                    { tuteeId: "combined-pending" },
+                  ]
+                : [
+                    {
+                      tuteeId:
+                        id === "combined-inactive-only"
+                          ? "combined-inactive"
                           : "combined-active",
-                  },
-                ],
+                    },
+                  ],
         },
       },
     });
@@ -174,9 +177,13 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
-it.each([null, 0, 4])(
-  "combines and splits real assignments while preserving preference %s and its version",
-  async (preferredMaximum) => {
+it.each(
+  [null, 0, 4].flatMap((preferredMaximum) =>
+    [null, "combined-slot"].map((slotId) => ({ preferredMaximum, slotId })),
+  ),
+)(
+  "combines and splits real assignments while preserving preference $preferredMaximum and its version with slot $slotId",
+  async ({ preferredMaximum, slotId }) => {
     await caller().tutor.setWorkloadPreference({
       preferredMaximum,
       expectedVersion: 0,
@@ -186,7 +193,14 @@ it.each([null, 0, 4])(
       preferredMaximum,
       version: 1,
     });
-    const grouped = await combine();
+    const memberships = await db.pairingTutee.findMany({
+      orderBy: [{ pairingId: "asc" }, { tuteeId: "asc" }],
+    });
+    const grouped = await combine(slotId);
+    expect(grouped.groups[0]).toMatchObject({
+      groupStatus: slotId === null ? "awaiting" : "scheduled",
+      groupEligibility: { eligible: true },
+    });
     expect(await preference()).toMatchObject({
       count: 2,
       preferredMaximum,
@@ -220,7 +234,46 @@ it.each([null, 0, 4])(
       version: 1,
     });
     expect(await db.pairing.count()).toBe(6);
-    expect(await db.pairingTutee.count()).toBe(5);
+    expect(await db.pairingTutee.count()).toBe(7);
+    expect(
+      await db.pairingTutee.findMany({
+        orderBy: [{ pairingId: "asc" }, { tuteeId: "asc" }],
+      }),
+    ).toEqual(memberships);
+    expect(await db.session.count()).toBe(0);
+  },
+);
+
+it.each([null, "combined-slot"])(
+  "rejects incomplete subject coverage without changing assignments or workload with slot %s",
+  async (slotId) => {
+    await caller().tutor.setWorkloadPreference({
+      preferredMaximum: 2,
+      expectedVersion: 0,
+    });
+    // Reintroduce the old fixture's defect deliberately: a populated member is
+    // insufficient when one student lacks a subject in the proposed group.
+    await db.pairingTutee.delete({
+      where: {
+        pairingId_tuteeId: {
+          pairingId: "combined-b",
+          tuteeId: "combined-pending",
+        },
+      },
+    });
+    const before = await caller().pairingGroups.mine();
+    const tutorWorkload = await preference();
+    const managementWorkload = await staffWorkload();
+    const attempt = combine(slotId);
+    await expect(attempt).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(attempt).rejects.toThrow(
+      "Synthetic Pending: Synthetic Subject 2",
+    );
+    expect(await caller().pairingGroups.mine()).toEqual(before);
+    expect(await preference()).toEqual(tutorWorkload);
+    expect(await staffWorkload()).toEqual(managementWorkload);
+    expect(await db.pairingGroup.count()).toBe(0);
+    expect(await db.pairingTutee.count()).toBe(6);
     expect(await db.session.count()).toBe(0);
   },
 );

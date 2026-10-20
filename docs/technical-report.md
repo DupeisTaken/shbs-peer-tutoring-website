@@ -1249,7 +1249,8 @@ no new assignment permission or approval requirement.
 Pairing-group saves include workload invalidation in their awaited read refresh,
 including the accepted-save Retry path. This updates a mounted My Availability
 count after combine/split while its independent preference draft/version remains
-owned by the tutor. Group IDs do not replace the confirmed-time workload identity.
+owned by the tutor. Only a valid explicit group shares a workload identity;
+matching confirmed times alone never combine independent assignments.
 Assignment confirmation composes the shared Modal/NativeDialog pending, Escape and
 focus behavior while retaining its qualification ticket and countdown lifecycle.
 When a child write removes or disables its opener, focus returns to the still-open
