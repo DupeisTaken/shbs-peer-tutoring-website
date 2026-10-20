@@ -231,8 +231,8 @@
     "twoFactor": {
       "title": "Verification Code",
       "sent": "We emailed a sign-in code to {email}.",
-      "code": "Verification Code",
-      "help": "Enter the 5-character code from your email.",
+      "code": "メール確認コード",
+      "help": "メールに記載された 4 桁の数字を入力してください。発行済みの旧形式のコードも使用できます。",
       "verify": "Verify and Sign In",
       "verifying": "Verifying?",
       "invalid": "That code is incorrect or expired. Request a new sign-in code.",
@@ -312,8 +312,8 @@
       "backToSignIn": "← サインインに戻る",
       "step": {
         "code": {
-          "label": "セキュリティキー",
-          "help": "管理者またはコーディネーターから渡されたコードを入力してください。",
+          "label": "招待コード",
+          "help": "5 桁の数字を入力してください。発行済みの旧形式のコードも使用できます。",
           "submit": "続行"
         },
         "email": {
@@ -322,7 +322,7 @@
           "bound": "このコードはこのメールアドレスに紐付けられています。",
           "send": "確認コードを送信",
           "sent": "{email} にコードを送信しました。",
-          "codeLabel": "確認コード",
+          "codeLabel": "メール確認コード",
           "verify": "メールを確認",
           "resend": "コードを再送"
         },
@@ -1011,7 +1011,7 @@
       "expand": "展開",
       "noEmail": "メール未設定",
       "expiresOn": "有効期限 {date}",
-      "codeLabel": "コード",
+      "codeLabel": "招待コード",
       "invalidNote": "このコードは無効です。",
       "noCode": "コードは利用できません。",
       "share": {
@@ -1619,7 +1619,7 @@
       "applicationsEmpty": "保留中の申請はありません。",
       "accept": "承認してコード発行",
       "reject": "却下",
-      "codeIssued": "コード：{code}",
+      "codeIssued": "招待コード: {code}",
       "requestsHeading": "退会・再参加の申請",
       "requestsEmpty": "保留中の申請はありません。",
       "approve": "承認",
@@ -2337,7 +2337,7 @@
       "lookupHint": "申請時に使用したメールアドレスを入力してください。審査状況を表示する前に、そのメールアドレスを確認します。",
       "sendCode": "確認コードを送信",
       "sent": "確認コードを {email} に送信しました。",
-      "verifyHint": "5文字のコードを入力してください。メールアドレスの確認が完了すると、新規申請が審査に提出されます。この確認だけでは巡回班へのアクセス権は付与されません。",
+      "verifyHint": "4 桁の数字のコードを入力してください。メールアドレスの確認が完了すると、新規申請が審査に提出されます。この確認だけでは巡回班へのアクセス権は付与されません。",
       "emailCode": "メール確認コード",
       "verify": "メールを確認",
       "resend": "コードを再送",
@@ -2406,7 +2406,7 @@
         "affiliation": "ご関係",
         "affiliationPlaceholder": "例：生徒の保護者、数学教員、地域の方",
         "email": "メール",
-        "code": "確認コード",
+        "code": "メール確認コード",
         "password": "パスワード",
         "confirm": "パスワード（確認）"
       }
@@ -2488,7 +2488,7 @@
       "sendCode": "確認コードを送信",
       "sending": "送信中…",
       "codeSent": "{email} に確認コードを送信しました。下に入力して完了してください。",
-      "codeLabel": "確認コード",
+      "codeLabel": "メール確認コード",
       "resend": "コードを再送",
       "cancel": "キャンセル"
     }
@@ -2584,7 +2584,7 @@
     "email": "新しいメール",
     "password": "現在のパスワード",
     "send": "確認コードを送信",
-    "code": "新しいメールに届いたコード",
+    "code": "メール確認コード",
     "confirm": "確認してメールを変更",
     "success": "メールを変更しました。"
   },
@@ -3572,7 +3572,7 @@
     "working": "処理中…",
     "limit": "予備アドレスは最大5件です。メインに設定する前に確認してください。",
     "verifyAddress": "{email} を確認",
-    "code": "確認コード",
+    "code": "メール確認コード",
     "resend": "コードを再送",
     "sent": "コードを送信しました。10分以内に下の欄に入力してください。",
     "verifiedNotice": "確認が完了しました。ログイン、アカウント復旧、メインアドレスへの設定に利用できます。",
@@ -4185,7 +4185,7 @@
     "accountConfirm": "I am the intended recipient. I understand that this creates a login only; I will review and claim my record after signing in. It does not enroll me or grant observer access.",
     "accountReady": "Your login is ready",
     "accountReadyHelp": "Sign in with your verified email and password, then review and claim the invited record. If this page was closed after setup, sign in with the same account; do not create another login.",
-    "emailCode": "Email verification code",
+    "emailCode": "メール確認コード",
     "newPassword": "New password (at least 8 characters)",
     "sendCode": "Send verification code",
     "verifyCode": "Verify email",
@@ -4556,7 +4556,7 @@
     "emailed": "Emailed",
     "emailSent": "The invitation has been sent to your verified email.",
     "handoffRecovery": "Continue with your code. You may be asked to verify your email again.",
-    "verificationCode": "Email verification code",
+    "verificationCode": "メール確認コード",
     "emailTitle": "Verify your email",
     "verifyEmailHelp": "Verify your email to connect this invitation to your account.",
     "sendVerification": "Send verification code",
@@ -5449,5 +5449,13 @@
     "reloadEvidence": "最新の根拠を再読み込み（下書きを置換）",
     "historyFollowups": "{count, plural, one {終了した面接#件で} other {終了した面接#件で}}、管理担当者による完了記録と奉仕時間の付与がまだ必要です。",
     "accessDenied": "面接へのアクセスは現在利用できません。再読み込みして現在の権限を確認してください。"
+  },
+  "codes": {
+    "invitationLabel": "招待コード",
+    "emailLabel": "メール確認コード",
+    "invitationHelp": "5 桁の数字を入力してください。発行済みの旧形式のコードも使用できます。",
+    "emailHelp": "メールに記載された 4 桁の数字を入力してください。発行済みの旧形式のコードも使用できます。",
+    "lettersKeyboard": "英字を含むコードを入力",
+    "numericKeyboard": "数字キーボードを使用"
   }
 }

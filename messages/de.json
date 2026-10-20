@@ -231,8 +231,8 @@
     "twoFactor": {
       "title": "Verification Code",
       "sent": "We emailed a sign-in code to {email}.",
-      "code": "Verification Code",
-      "help": "Enter the 5-character code from your email.",
+      "code": "E-Mail-Bestätigungscode",
+      "help": "Gib die 4 Ziffern aus deiner E-Mail ein. Bereits ausgestellte Codes bleiben gültig.",
       "verify": "Verify and Sign In",
       "verifying": "Verifying?",
       "invalid": "That code is incorrect or expired. Request a new sign-in code.",
@@ -312,8 +312,8 @@
       "backToSignIn": "← Zurück zur Anmeldung",
       "step": {
         "code": {
-          "label": "Sicherheitsschlüssel",
-          "help": "Geben Sie den Code ein, den Ihnen ein Admin oder Koordinator gegeben hat.",
+          "label": "Einladungscode",
+          "help": "Gib 5 Ziffern ein. Bereits ausgestellte Codes bleiben gültig.",
           "submit": "Weiter"
         },
         "email": {
@@ -322,7 +322,7 @@
           "bound": "Dieser Code ist an diese E-Mail-Adresse gebunden.",
           "send": "Verifizierungscode senden",
           "sent": "Wir haben einen Code an {email} gesendet.",
-          "codeLabel": "Verifizierungscode",
+          "codeLabel": "E-Mail-Bestätigungscode",
           "verify": "E-Mail bestätigen",
           "resend": "Code erneut senden"
         },
@@ -1011,7 +1011,7 @@
       "expand": "Ausklappen",
       "noEmail": "Keine E-Mail",
       "expiresOn": "Läuft ab {date}",
-      "codeLabel": "Code",
+      "codeLabel": "Einladungscode",
       "invalidNote": "Dieser Code ist nicht mehr gültig.",
       "noCode": "Code nicht verfügbar.",
       "share": {
@@ -1619,7 +1619,7 @@
       "applicationsEmpty": "Keine offenen Bewerbungen.",
       "accept": "Annehmen & Code ausstellen",
       "reject": "Ablehnen",
-      "codeIssued": "Code: {code}",
+      "codeIssued": "Einladungscode: {code}",
       "requestsHeading": "Austritts- & Wiedereintrittsanträge",
       "requestsEmpty": "Keine offenen Anträge.",
       "approve": "Genehmigen",
@@ -2337,7 +2337,7 @@
       "lookupHint": "Verwenden Sie die E-Mail-Adresse Ihrer ursprünglichen Bewerbung. Wir überprüfen sie, bevor wir den Bearbeitungsstatus anzeigen.",
       "sendCode": "Bestätigungscode senden",
       "sent": "Wir haben einen Bestätigungscode per E-Mail an {email} gesendet.",
-      "verifyHint": "Geben Sie den fünf Zeichen langen Code ein. Durch die Bestätigung Ihrer E-Mail-Adresse wird eine neue Bewerbung zur Prüfung eingereicht; sie gewährt noch keinen Rundgang-Zugang.",
+      "verifyHint": "Geben Sie den vierstelligen Zahlencode ein. Durch die Bestätigung Ihrer E-Mail-Adresse wird eine neue Bewerbung zur Prüfung eingereicht; sie gewährt noch keinen Rundgang-Zugang.",
       "emailCode": "E-Mail-Bestätigungscode",
       "verify": "E-Mail bestätigen",
       "resend": "Code erneut senden",
@@ -2406,7 +2406,7 @@
         "affiliation": "Ihr Bezug",
         "affiliationPlaceholder": "z. B. Elternteil eines Schülers, Mathe-Lehrkraft, Gemeindemitglied",
         "email": "E-Mail",
-        "code": "Bestätigungscode",
+        "code": "E-Mail-Bestätigungscode",
         "password": "Passwort",
         "confirm": "Passwort bestätigen"
       }
@@ -2488,7 +2488,7 @@
       "sendCode": "Bestätigungscode senden",
       "sending": "Wird gesendet…",
       "codeSent": "Wir haben einen Code an {email} gesendet. Geben Sie ihn unten ein, um abzuschließen.",
-      "codeLabel": "Bestätigungscode",
+      "codeLabel": "E-Mail-Bestätigungscode",
       "resend": "Code erneut senden",
       "cancel": "Abbrechen"
     }
@@ -2584,7 +2584,7 @@
     "email": "Neue E-Mail",
     "password": "Aktuelles Passwort",
     "send": "Bestätigungscode senden",
-    "code": "Code an die neue E-Mail",
+    "code": "E-Mail-Bestätigungscode",
     "confirm": "Bestätigen und E-Mail ändern",
     "success": "Deine E-Mail wurde geändert."
   },
@@ -3572,7 +3572,7 @@
     "working": "Wird verarbeitet…",
     "limit": "Bis zu fünf weitere Adressen. Neue Adressen müssen vor dem Wechsel bestätigt werden.",
     "verifyAddress": "{email} bestätigen",
-    "code": "Bestätigungscode",
+    "code": "E-Mail-Bestätigungscode",
     "resend": "Code erneut senden",
     "sent": "Code gesendet. Bitte innerhalb von zehn Minuten unten eingeben.",
     "verifiedNotice": "Adresse bestätigt. Sie kann zur Anmeldung, Wiederherstellung oder als Hauptadresse verwendet werden.",
@@ -4185,7 +4185,7 @@
     "accountConfirm": "I am the intended recipient. I understand that this creates a login only; I will review and claim my record after signing in. It does not enroll me or grant observer access.",
     "accountReady": "Your login is ready",
     "accountReadyHelp": "Sign in with your verified email and password, then review and claim the invited record. If this page was closed after setup, sign in with the same account; do not create another login.",
-    "emailCode": "Email verification code",
+    "emailCode": "E-Mail-Bestätigungscode",
     "newPassword": "New password (at least 8 characters)",
     "sendCode": "Send verification code",
     "verifyCode": "Verify email",
@@ -4556,7 +4556,7 @@
     "emailed": "Emailed",
     "emailSent": "The invitation has been sent to your verified email.",
     "handoffRecovery": "Continue with your code. You may be asked to verify your email again.",
-    "verificationCode": "Email verification code",
+    "verificationCode": "E-Mail-Bestätigungscode",
     "emailTitle": "Verify your email",
     "verifyEmailHelp": "Verify your email to connect this invitation to your account.",
     "sendVerification": "Send verification code",
@@ -5449,5 +5449,13 @@
     "reloadEvidence": "Aktuelle Nachweise neu laden (Entwurf ersetzen)",
     "historyFollowups": "{count, plural, one {# abgeschlossenes Interview benötigt noch} other {# abgeschlossene Interviews benötigen noch}} die Erfassung des Abschlusses und die Stundengutschrift durch die Verwaltung.",
     "accessDenied": "Der Zugriff auf Interviews ist nicht mehr verfügbar. Laden Sie die Ansicht neu, um Ihre aktuellen Berechtigungen zu prüfen."
+  },
+  "codes": {
+    "invitationLabel": "Einladungscode",
+    "emailLabel": "E-Mail-Bestätigungscode",
+    "invitationHelp": "Gib 5 Ziffern ein. Bereits ausgestellte Codes bleiben gültig.",
+    "emailHelp": "Gib die 4 Ziffern aus deiner E-Mail ein. Bereits ausgestellte Codes bleiben gültig.",
+    "lettersKeyboard": "Code mit Buchstaben eingeben",
+    "numericKeyboard": "Zifferntastatur verwenden"
   }
 }

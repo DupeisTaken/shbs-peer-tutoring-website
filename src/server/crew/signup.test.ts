@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import type { EmailMessage } from "~/server/email/sender";
+import { expectNoCodeSecrets } from "~/test/code-secrets";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 const mail = vi.hoisted(() => ({
   send: vi.fn<(message: EmailMessage) => Promise<void>>(),
@@ -158,7 +159,7 @@ it("keeps unverified drafts out of the queue and creates one application/notice 
     },
   });
   expect(JSON.stringify(creation[0]?.details)).not.toContain(email);
-  expect(JSON.stringify(creation[0]?.details)).not.toContain(otp);
+  expectNoCodeSecrets(creation[0]?.details, [otp]);
   expect(JSON.stringify(creation[0]?.details)).not.toContain(draft.message);
   expect(
     (await db.crewSignupVerification.findUniqueOrThrow({ where: { email } }))

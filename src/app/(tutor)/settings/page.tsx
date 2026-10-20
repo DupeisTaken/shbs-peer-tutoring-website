@@ -1,4 +1,5 @@
 "use client";
+import { CodeInput } from "~/app/_components/ui/code-field";
 import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import {
   ConfiguredPersonNameFields as PersonNameFields,
@@ -517,25 +518,19 @@ export default function SettingsPage() {
               <p className="text-sm text-slate-700">
                 {t("account.password.codeSent", { email: sentTo })}
               </p>
-              <label className="block space-y-1">
-                <span className="label">{t("account.password.codeLabel")}</span>
-                <input
-                  value={code}
-                  onChange={(e) =>
-                    setCode(
-                      e.target.value
-                        .toUpperCase()
-                        .replace(/[^0-9A-Z]/g, "")
-                        .slice(0, 5),
-                    )
-                  }
-                  autoCapitalize="characters"
-                  autoComplete="one-time-code"
-                  maxLength={5}
-                  placeholder="XXXXX"
-                  className="input field-auto min-w-40 font-mono tracking-[0.3em] uppercase"
-                />
-              </label>
+              <CodeInput
+                purpose="email"
+                value={code}
+                onValueChange={setCode}
+                aria-invalid={Boolean(
+                  pwError ?? changePassword.error ?? requestCode.error,
+                )}
+                aria-describedby={
+                  pwError ?? changePassword.error ?? requestCode.error
+                    ? "tutor-password-error"
+                    : undefined
+                }
+              />
               <button
                 type="button"
                 className="link text-xs"
@@ -600,7 +595,11 @@ export default function SettingsPage() {
               </span>
             )}
             {(pwError ?? changePassword.error ?? requestCode.error) && (
-              <span className="text-sm text-red-600">
+              <span
+                id="tutor-password-error"
+                role="alert"
+                className="text-sm text-red-600"
+              >
                 {pwError ??
                   changePassword.error?.message ??
                   requestCode.error?.message}

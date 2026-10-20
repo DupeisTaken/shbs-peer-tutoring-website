@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
 import type { EmailMessage } from "~/server/email/sender";
+import { expectNoCodeSecrets } from "~/test/code-secrets";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 const mail = vi.hoisted(() => ({
   send: vi.fn<(message: EmailMessage) => Promise<void>>(),
@@ -279,10 +280,13 @@ it.each(["TUTOR", "CREW"] as const)(
       before: { used: false },
       after: { used: true },
     });
-    const evidence = JSON.stringify([issuance.details, redemption.details]);
-    expect(evidence).not.toContain(invitation.staffKey);
-    expect(evidence).not.toContain(invitation.secret);
-    expect(evidence).not.toContain(invitation.proof);
+    const evidence = [issuance.details, redemption.details];
+    expectNoCodeSecrets(evidence, [
+      invitation.staffKey,
+      invitation.secret,
+      invitation.proof,
+    ]);
+    expect(JSON.stringify(evidence)).not.toContain(invitation.proof);
     const lifecycle = await db.auditLog.findMany({
       where: { entity: "AccountInvitation", entityId: invitation.invitationId },
     });
@@ -293,17 +297,16 @@ it.each(["TUTOR", "CREW"] as const)(
         "accountInvitation.redeem",
       ]),
     );
-    const safeLifecycle = JSON.stringify(
-      lifecycle.map((entry) => entry.details),
-    );
-    for (const secret of [
+    const safeLifecycle = lifecycle.map((entry) => entry.details);
+    expectNoCodeSecrets(safeLifecycle, [
       invitation.staffKey,
       invitation.secret,
       invitation.proof,
       invitation.row.emailCodeHash!,
       email,
-    ])
-      expect(safeLifecycle).not.toContain(secret);
+    ]);
+    for (const secret of [invitation.proof, invitation.row.emailCodeHash!, email])
+      expect(JSON.stringify(safeLifecycle)).not.toContain(secret);
     expect(
       await db.registrationCode.findUniqueOrThrow({
         where: { id: invitation.row.id },
@@ -528,9 +531,7 @@ it("a redundant generic tutor invitation preserves an opted-out existing tutor",
 
 it("displays an invitation without mail, preserves its receipt, and requires separate identity proof", async () => {
   const invite = await displayedViewer();
-  expect(invite.code).toMatch(/^[023456789ABCDEFGHIJKMNPQRSTUVWXYZ]{5}$/);
-  expect(invite.code).toMatch(/[A-Z]/);
-  expect(invite.code).toMatch(/[02-9]/);
+  expect(invite.code).toMatch(/^[0-9]{5}$/);
   expect(mail.send).not.toHaveBeenCalled();
   expect(await enterDisplayedInvitation(db, { code: invite.code! })).toEqual({
     kind: "display",
@@ -688,74 +689,76 @@ function fixtureDisplayCode(
   return result;
 }
 
-it("retains pre-zero five-character receipts through retry, email, verification and redemption", async () => {
-  const invite = await displayedViewer();
-  const row = await db.accountInvitation.findUniqueOrThrow({
-    where: { id: invite.invitationId },
-  });
-  let nonce = 1;
-  let legacy = "";
-  for (; nonce < 1000; nonce++) {
-    legacy = fixtureDisplayCode(
-      row.sourceKey,
-      nonce,
-      "23456789ABCDEFGHJKMNPQRSTUVWXYZ",
-    );
-    const current = fixtureDisplayCode(
-      row.sourceKey,
-      nonce,
-      codeHelpers.REG_CODE_ALPHABET,
-    );
-    if (/[A-Z]/.test(legacy) && /[2-9]/.test(legacy) && legacy !== current)
-      break;
-  }
-  expect(nonce).toBeLessThan(1000);
-  await db.accountInvitation.update({
-    where: { id: row.id },
-    data: { displayCodeNonce: nonce, codeHash: hashCode(legacy) },
-  });
-  const restored = await deliverAccountInvitation(db, {
-    display: true,
-    kind: row.kind,
-    email: row.email,
-    sourceKey: row.sourceKey,
-    source: row.source as InvitationSource,
-  });
-  expect(restored.code).toBe(legacy);
-  expect(
-    await enterDisplayedInvitation(db, {
-      code: legacy.toLowerCase(),
-      proof: restored.proof,
-    }),
-  ).toMatchObject({ proof: restored.proof });
-  await emailDisplayedInvitation(db, {
-    invitationId: row.id,
-    proof: restored.proof!,
-  });
-  expect(code()).toBe(legacy);
-  await sendInvitationVerification(db, {
-    invitationId: row.id,
-    email,
-    code: legacy,
-  });
-  const verified = await verifyAccountInvitation(db, {
-    invitationId: row.id,
-    email,
-    code: code(),
-  });
-  expect(verified.proof).toBe(restored.proof);
-  await redeemAccountInvitation(db, {
-    ...profile,
-    invitationId: row.id,
-    proof: verified.proof,
-  });
-  expect(
-    (await db.accountInvitation.findUniqueOrThrow({ where: { id: row.id } }))
-      .completedAt,
-  ).not.toBeNull();
-});
+it.each([
+  "23456789ABCDEFGHJKMNPQRSTUVWXYZ",
+  "023456789ABCDEFGHIJKMNPQRSTUVWXYZ",
+])(
+  "retains legacy five-character receipts (%s) through retry, email, verification and redemption",
+  async (alphabet) => {
+    const invite = await displayedViewer();
+    const row = await db.accountInvitation.findUniqueOrThrow({
+      where: { id: invite.invitationId },
+    });
+    let nonce = 1;
+    let legacy = "";
+    for (; nonce < 1000; nonce++) {
+      legacy = fixtureDisplayCode(row.sourceKey, nonce, alphabet);
+      const current = fixtureDisplayCode(
+        row.sourceKey,
+        nonce,
+        codeHelpers.REG_CODE_ALPHABET,
+      );
+      if (/[A-Z]/.test(legacy) && /[2-9]/.test(legacy) && legacy !== current)
+        break;
+    }
+    expect(nonce).toBeLessThan(1000);
+    await db.accountInvitation.update({
+      where: { id: row.id },
+      data: { displayCodeNonce: nonce, codeHash: hashCode(legacy) },
+    });
+    const restored = await deliverAccountInvitation(db, {
+      display: true,
+      kind: row.kind,
+      email: row.email,
+      sourceKey: row.sourceKey,
+      source: row.source as InvitationSource,
+    });
+    expect(restored.code).toBe(legacy);
+    expect(
+      await enterDisplayedInvitation(db, {
+        code: legacy.toLowerCase(),
+        proof: restored.proof,
+      }),
+    ).toMatchObject({ proof: restored.proof });
+    await emailDisplayedInvitation(db, {
+      invitationId: row.id,
+      proof: restored.proof!,
+    });
+    expect(code()).toBe(legacy);
+    await sendInvitationVerification(db, {
+      invitationId: row.id,
+      email,
+      code: legacy,
+    });
+    const verified = await verifyAccountInvitation(db, {
+      invitationId: row.id,
+      email,
+      code: code(),
+    });
+    expect(verified.proof).toBe(restored.proof);
+    await redeemAccountInvitation(db, {
+      ...profile,
+      invitationId: row.id,
+      proof: verified.proof,
+    });
+    expect(
+      (await db.accountInvitation.findUniqueOrThrow({ where: { id: row.id } }))
+        .completedAt,
+    ).not.toBeNull();
+  },
+);
 
-it("issues a zero-only-digit receipt with I and preserves it across alias entry, retries and optional mail", async () => {
+it("issues a receipt with leading zero and digit one across entry, retries and optional mail", async () => {
   const invite = await displayedViewer();
   const row = await db.accountInvitation.findUniqueOrThrow({
     where: { id: invite.invitationId },
@@ -768,15 +771,13 @@ it("issues a zero-only-digit receipt with I and preserves it across alias entry,
     candidate = fixtureDisplayCode(sourceKey, 0, codeHelpers.REG_CODE_ALPHABET);
     if (
       candidate !== "ABI0D" &&
-      candidate.includes("0") &&
-      candidate.includes("I") &&
-      !/[1-9]/.test(candidate)
+      candidate.startsWith("0") &&
+      candidate.includes("1")
     )
       break;
   }
-  expect(candidate).toMatch(/0/);
-  expect(candidate).toMatch(/I/);
-  expect(candidate).not.toMatch(/[1-9]/);
+  expect(candidate).toMatch(/^0[0-9]{4}$/);
+  expect(candidate).toContain("1");
   const input = {
     display: true,
     kind: row.kind,
@@ -808,7 +809,7 @@ it("issues a zero-only-digit receipt with I and preserves it across alias entry,
   expect(code()).toBe(candidate);
   expect(await deliverAccountInvitation(db, input)).toEqual(issued);
   const generator = vi
-    .spyOn(codeHelpers, "generateRegistrationCode")
+    .spyOn(codeHelpers, "generateEmailVerificationCode")
     .mockReturnValue("ABI0D");
   try {
     await sendInvitationVerification(db, {
@@ -1061,7 +1062,9 @@ it("an already granted tutor capability is reused and lower management invitatio
 it("tutee mailbox codes preserve priority, commit failed guesses and rotate on resend", async () => {
   await stagedSurvey(email);
   const before = await db.studentSurvey.findFirstOrThrow({ where: { email } });
-  const initial = surveyEmailCode(before.tokenHash);
+  const initial = surveyEmailCode(before.tokenHash, before.emailCodeVersion);
+  expect(before.emailCodeVersion).toBe(1);
+  expect(initial).toMatch(/^[0-9]{4}$/);
   expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(initial);
   await expect(verifySurveyEmail(db, email, "WRONG")).rejects.toThrow();
   expect(
@@ -1078,8 +1081,47 @@ it("tutee mailbox codes preserve priority, commit failed guesses and rotate on r
   expect(after.payload).toEqual(before.payload);
   expect(after.verificationDueAt).toEqual(before.verificationDueAt);
   expect(
-    (await verifySurveyEmail(db, email, surveyEmailCode(after.tokenHash))).id,
+    (
+      await verifySurveyEmail(
+        db,
+        email,
+        surveyEmailCode(after.tokenHash, after.emailCodeVersion),
+      )
+    ).id,
   ).toBe(before.id);
+});
+
+it("keeps issued legacy survey codes exact until a successfully delivered replacement", async () => {
+  await stagedSurvey(email);
+  const old = await db.studentSurvey.findFirstOrThrow({ where: { email } });
+  await db.studentSurvey.update({
+    where: { id: old.id },
+    data: { emailCodeVersion: 0 },
+  });
+  const legacy = surveyEmailCode(old.tokenHash, 0);
+  expect(legacy).toMatch(/^[0-9A-F]{6}$/);
+  expect((await verifySurveyEmail(db, email, legacy)).id).toBe(old.id);
+  await expect(
+    verifySurveyEmail(db, email, surveyEmailCode(old.tokenHash, 1)),
+  ).rejects.toThrow();
+  mail.send.mockRejectedValueOnce(new Error("mail unavailable"));
+  expect(await resendSurvey(db, email, false)).toBe(false);
+  expect((await verifySurveyEmail(db, email, legacy)).id).toBe(old.id);
+  expect(await resendSurvey(db, email, false)).toBe(true);
+  const replacement = await db.studentSurvey.findUniqueOrThrow({
+    where: { id: old.id },
+  });
+  expect(replacement.emailCodeVersion).toBe(1);
+  await expect(verifySurveyEmail(db, email, legacy)).rejects.toThrow();
+  expect(
+    (
+      await verifySurveyEmail(
+        db,
+        email,
+        surveyEmailCode(replacement.tokenHash, replacement.emailCodeVersion),
+      )
+    ).id,
+  ).toBe(old.id);
 });
 
 it.each(["TUTOR", "CREW"] as const)(

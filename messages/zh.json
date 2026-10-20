@@ -231,8 +231,8 @@
     "twoFactor": {
       "title": "???",
       "sent": "???????????? {email}?",
-      "code": "???",
-      "help": "??????? 5 ?????",
+      "code": "电子邮箱验证码",
+      "help": "请输入邮件中的 4 位数字。之前签发的旧格式代码仍可使用。",
       "verify": "?????",
       "verifying": "?????",
       "invalid": "??????????????????????",
@@ -312,8 +312,8 @@
       "backToSignIn": "← 返回登录",
       "step": {
         "code": {
-          "label": "注册邀请码",
-          "help": "请输入项目团队提供的 5 位字母数字邀请码。它与下一步发送到邮箱的验证码不同。",
+          "label": "邀请码",
+          "help": "请输入 5 位数字。之前签发的旧格式代码仍可使用。",
           "submit": "继续"
         },
         "email": {
@@ -322,7 +322,7 @@
           "bound": "此验证码已绑定至该邮箱地址。",
           "send": "发送验证码",
           "sent": "我们已向 {email} 发送了验证码。",
-          "codeLabel": "验证码",
+          "codeLabel": "电子邮箱验证码",
           "verify": "验证邮箱",
           "resend": "重新发送验证码"
         },
@@ -1428,7 +1428,7 @@
       "expand": "展开",
       "noEmail": "未绑定邮箱",
       "expiresOn": "过期：{date}",
-      "codeLabel": "代码",
+      "codeLabel": "邀请码",
       "invalidNote": "此代码已失效。",
       "noCode": "无可用代码。",
       "share": {
@@ -1619,7 +1619,7 @@
       "applicationsEmpty": "暂无待处理申请。",
       "accept": "通过并签发密钥",
       "reject": "拒绝",
-      "codeIssued": "密钥：{code}",
+      "codeIssued": "邀请码: {code}",
       "requestsHeading": "退出与重新加入申请",
       "requestsEmpty": "暂无待处理申请。",
       "approve": "批准",
@@ -2337,8 +2337,8 @@
       "lookupHint": "请输入原申请使用的邮箱。验证邮箱后，你才能查看审核状态。",
       "sendCode": "发送验证码",
       "sent": "我们已向 {email} 发送了验证码。",
-      "verifyHint": "请输入五位验证码。邮箱验证会将新申请提交给管理员审核，不会直接授予巡查队权限。",
-      "emailCode": "邮箱验证码",
+      "verifyHint": "请输入四位数字验证码。邮箱验证会将新申请提交给管理员审核，不会直接授予巡查队权限。",
+      "emailCode": "电子邮箱验证码",
       "verify": "验证邮箱",
       "resend": "重新发送验证码",
       "editDetails": "返回申请选项",
@@ -2406,7 +2406,7 @@
         "affiliation": "你的身份",
         "affiliationPlaceholder": "例如：学生家长、数学教师、社区成员",
         "email": "邮箱",
-        "code": "验证码",
+        "code": "电子邮箱验证码",
         "password": "密码",
         "confirm": "确认密码"
       }
@@ -2488,7 +2488,7 @@
       "sendCode": "发送验证码",
       "sending": "发送中…",
       "codeSent": "我们已将验证码发送至 {email}，请在下方输入以完成更改。",
-      "codeLabel": "验证码",
+      "codeLabel": "电子邮箱验证码",
       "resend": "重新发送",
       "cancel": "取消"
     }
@@ -2584,7 +2584,7 @@
     "email": "新邮箱",
     "password": "当前密码",
     "send": "发送验证码",
-    "code": "新邮箱收到的验证码",
+    "code": "电子邮箱验证码",
     "confirm": "验证并更改邮箱",
     "success": "邮箱已更改。"
   },
@@ -3572,7 +3572,7 @@
     "working": "处理中…",
     "limit": "最多可添加五个备用邮箱。新邮箱必须验证后才能设为主邮箱。",
     "verifyAddress": "验证 {email}",
-    "code": "验证码",
+    "code": "电子邮箱验证码",
     "resend": "重新发送",
     "sent": "验证码已发送，请在下方输入。验证码十分钟内有效。",
     "verifiedNotice": "邮箱已验证。现在可用于登录、找回账户或设为主邮箱。",
@@ -4219,7 +4219,7 @@
     "accountConfirm": "我是预期收件人。我理解此步骤仅创建登录账号；登录后将核对并关联记录，不会自动加入当前项目或获得观察员权限。",
     "accountReady": "登录账号已准备就绪",
     "accountReadyHelp": "请使用已验证邮箱和密码登录，再核对并关联受邀记录。如设置后关闭了页面，请使用同一账号登录，不要重复创建账号。",
-    "emailCode": "邮箱验证码",
+    "emailCode": "电子邮箱验证码",
     "newPassword": "新密码（至少 8 个字符）",
     "sendCode": "发送验证码",
     "verifyCode": "验证邮箱",
@@ -4590,7 +4590,7 @@
     "emailed": "已发送",
     "emailSent": "邀请码已发送至您验证过的邮箱。",
     "handoffRecovery": "请使用邀请码继续，系统可能会要求您再次验证邮箱。",
-    "verificationCode": "邮箱验证码",
+    "verificationCode": "电子邮箱验证码",
     "emailTitle": "验证邮箱",
     "verifyEmailHelp": "请验证邮箱，将此邀请关联到您的账号。",
     "sendVerification": "发送验证码",
@@ -5449,5 +5449,13 @@
     "reloadEvidence": "重新加载当前凭据（替换草稿）",
     "historyFollowups": "{count} 场已作决定的面试仍需管理人员记录完成与服务时数。",
     "accessDenied": "面试访问权限当前不可用。请重新加载以核实当前权限。"
+  },
+  "codes": {
+    "invitationLabel": "邀请码",
+    "emailLabel": "电子邮箱验证码",
+    "invitationHelp": "请输入 5 位数字。之前签发的旧格式代码仍可使用。",
+    "emailHelp": "请输入邮件中的 4 位数字。之前签发的旧格式代码仍可使用。",
+    "lettersKeyboard": "输入包含字母的代码",
+    "numericKeyboard": "使用数字键盘"
   }
 }

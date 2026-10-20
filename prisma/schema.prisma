@@ -1768,6 +1768,8 @@ model StudentSurvey {
   submittedAt DateTime @default(now())
   tokenHash String @unique
   verificationAttempts Int @default(0)
+  /// Version 0 retains issued six-hex mailbox codes; version 1 issues four numeric digits.
+  emailCodeVersion Int @default(0)
   expiresAt DateTime
   confirmedAt DateTime?
   /// Terminal requests are immutable history. A fresh submission receives a new id and priority.
@@ -1826,6 +1828,8 @@ model StudentSignupIntent {
   payload Json
   policySnapshot Json
   tokenHash String @unique
+  /// Distinguishes outstanding six-hex challenges from new four-digit mailbox codes.
+  emailCodeVersion Int @default(0)
   attempts Int @default(0)
   expiresAt DateTime
   receivedAt DateTime @default(now())

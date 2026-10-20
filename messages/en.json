@@ -231,8 +231,8 @@
     "twoFactor": {
       "title": "Verification Code",
       "sent": "We emailed a sign-in code to {email}.",
-      "code": "Verification Code",
-      "help": "Enter the 5-character code from your email.",
+      "code": "Email verification code",
+      "help": "Enter 4 digits from your email. Previously issued codes are still accepted.",
       "verify": "Verify and Sign In",
       "verifying": "Verifying?",
       "invalid": "That code is incorrect or expired. Request a new sign-in code.",
@@ -312,8 +312,8 @@
       "backToSignIn": "← Back to Sign In",
       "step": {
         "code": {
-          "label": "Registration Code",
-          "help": "Enter the 5-character invitation code supplied by the program team. This is different from the email verification code sent in the next step.",
+          "label": "Invitation code",
+          "help": "Enter 5 digits. Previously issued codes are still accepted.",
           "submit": "Continue"
         },
         "email": {
@@ -322,7 +322,7 @@
           "bound": "This code is tied to this email address.",
           "send": "Send Verification Code",
           "sent": "We emailed a code to {email}.",
-          "codeLabel": "Verification Code",
+          "codeLabel": "Email verification code",
           "verify": "Verify Email",
           "resend": "Resend Code"
         },
@@ -1011,7 +1011,7 @@
       "expand": "Expand",
       "noEmail": "No Email Bound",
       "expiresOn": "Expires {date}",
-      "codeLabel": "Code",
+      "codeLabel": "Invitation code",
       "invalidNote": "This code is no longer valid.",
       "noCode": "Code not available.",
       "share": {
@@ -1619,7 +1619,7 @@
       "applicationsEmpty": "No pending applications.",
       "accept": "Accept & issue code",
       "reject": "Reject",
-      "codeIssued": "Code: {code}",
+      "codeIssued": "Invitation code: {code}",
       "requestsHeading": "Opt-Out & Reentry Requests",
       "requestsEmpty": "No pending requests.",
       "approve": "Approve",
@@ -2337,7 +2337,7 @@
       "lookupHint": "Use the email from your original application. We will verify it before showing your review status.",
       "sendCode": "Send verification code",
       "sent": "We emailed a verification code to {email}.",
-      "verifyHint": "Enter the five-character code. Email verification submits a new application for review; it does not grant crew access.",
+      "verifyHint": "Enter the four-digit code. Email verification submits a new application for review; it does not grant crew access.",
       "emailCode": "Email verification code",
       "verify": "Verify email",
       "resend": "Resend code",
@@ -2406,7 +2406,7 @@
         "affiliation": "Your Affiliation",
         "affiliationPlaceholder": "e.g. Parent of a tutee, Math faculty, community member",
         "email": "Email",
-        "code": "Verification Code",
+        "code": "Email verification code",
         "password": "Password",
         "confirm": "Confirm Password"
       }
@@ -2488,7 +2488,7 @@
       "sendCode": "Send Verification Code",
       "sending": "Sending…",
       "codeSent": "We emailed a code to {email}. Enter it below to finish.",
-      "codeLabel": "Verification Code",
+      "codeLabel": "Email verification code",
       "resend": "Resend Code",
       "cancel": "Cancel"
     }
@@ -2584,7 +2584,7 @@
     "email": "New Email",
     "password": "Current Password",
     "send": "Send Verification Code",
-    "code": "Code Sent to the New Email",
+    "code": "Email verification code",
     "confirm": "Verify and Change Email",
     "success": "Your email has been changed."
   },
@@ -3572,7 +3572,7 @@
     "working": "Working…",
     "limit": "Up to five secondary addresses. Verify a new address before making it primary.",
     "verifyAddress": "Verify {email}",
-    "code": "Verification code",
+    "code": "Email verification code",
     "resend": "Resend code",
     "sent": "Verification code sent. Enter it below; it expires in ten minutes.",
     "verifiedNotice": "Email verified. You can now use it to sign in, recover this account, or make it primary.",
@@ -5449,5 +5449,13 @@
     "reloadEvidence": "Reload current evidence (replace draft)",
     "historyFollowups": "{count, plural, one {# finalized interview still needs} other {# finalized interviews still need}} management to record completion and hours.",
     "accessDenied": "Interview access is no longer available. Reload to check your current permissions."
+  },
+  "codes": {
+    "invitationLabel": "Invitation code",
+    "emailLabel": "Email verification code",
+    "invitationHelp": "Enter 5 digits. Previously issued codes are still accepted.",
+    "emailHelp": "Enter 4 digits from your email. Previously issued codes are still accepted.",
+    "lettersKeyboard": "Enter a code with letters",
+    "numericKeyboard": "Use numeric keypad"
   }
 }

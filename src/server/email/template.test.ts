@@ -33,6 +33,80 @@ it("keeps mixed-language instructions and code readable without images", () => {
   expect(doc.querySelector("img,a")).toBeNull();
 });
 
+it.each([
+  {
+    purpose: "invitation" as const,
+    code: "00123",
+    label: "Invitation code / 邀请码",
+    guidance: "5 digits",
+    background: "rgb(240, 253, 244)",
+    foreground: "rgb(22, 101, 52)",
+  },
+  {
+    purpose: "verification" as const,
+    code: "0012",
+    label: "Email verification code / 邮箱验证码",
+    guidance: "4 digits",
+    background: "rgb(239, 246, 255)",
+    foreground: "rgb(30, 64, 175)",
+  },
+])(
+  "preserves leading zeros and readable $purpose colors when email CSS is stripped",
+  (sample) => {
+    const html = renderEmail({
+      brand: "School",
+      subject: "Your code",
+      text: "Keep this code private.",
+      presentation: { code: sample.code, codePurpose: sample.purpose },
+    });
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    doc.querySelectorAll("style").forEach((style) => style.remove());
+    const code = doc.querySelector(".code")!;
+    expect(code.textContent).toBe(sample.code);
+    expect(inlineColor(code, "backgroundColor")).toBe(sample.background);
+    expect(inlineColor(code, "color")).toBe(sample.foreground);
+    expect(doc.querySelector(".code-label")?.textContent).toBe(sample.label);
+    expect(doc.querySelector(".code-guidance")?.textContent).toContain(
+      sample.guidance,
+    );
+    expect(doc.querySelector(".code-guidance")?.textContent).toContain(
+      "请保留开头的零",
+    );
+    for (const element of doc.querySelectorAll(
+      ".code,.code-label,.code-guidance",
+    ))
+      expect(contrastRatio(element)).toBeGreaterThanOrEqual(4.5);
+    // Dark clients must retain each purpose's palette instead of forcing every code blue.
+    expect(html).toContain(
+      `background:${sample.purpose === "invitation" ? "#f0fdf4" : "#eff6ff"}!important`,
+    );
+  },
+);
+
+it.each([
+  { purpose: "invitation" as const, code: "AB234" },
+  { purpose: "invitation" as const, code: "012345ABCDEF" },
+  { purpose: "verification" as const, code: "AB234" },
+  { purpose: "verification" as const, code: "01ABCD" },
+])(
+  "does not mislabel or truncate a legacy $purpose code ($code)",
+  ({ purpose, code }) => {
+    const doc = new DOMParser().parseFromString(
+      renderEmail({
+        brand: "School",
+        subject: "Your code",
+        text: "",
+        presentation: { code, codePurpose: purpose },
+      }),
+      "text/html",
+    );
+    expect(doc.querySelector(".code")?.textContent).toBe(code);
+    expect(doc.querySelector(".code-guidance")?.textContent).toBe(
+      "Previously issued code: enter every character shown. / 先前签发的代码：请输入显示的全部字符。",
+    );
+  },
+);
+
 it("rejects executable CTA URLs", () => {
   expect(() =>
     renderEmail({

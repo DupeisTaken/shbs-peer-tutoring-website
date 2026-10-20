@@ -231,8 +231,8 @@
     "twoFactor": {
       "title": "Verification Code",
       "sent": "We emailed a sign-in code to {email}.",
-      "code": "Verification Code",
-      "help": "Enter the 5-character code from your email.",
+      "code": "Code de vérification par e-mail",
+      "help": "Saisissez les 4 chiffres reçus par e-mail. Les codes déjà émis restent acceptés.",
       "verify": "Verify and Sign In",
       "verifying": "Verifying?",
       "invalid": "That code is incorrect or expired. Request a new sign-in code.",
@@ -312,8 +312,8 @@
       "backToSignIn": "← Retour à la connexion",
       "step": {
         "code": {
-          "label": "Clé de sécurité",
-          "help": "Saisissez le code qu'un administrateur ou coordinateur vous a donné.",
+          "label": "Code d’invitation",
+          "help": "Saisissez 5 chiffres. Les codes déjà émis restent acceptés.",
           "submit": "Continuer"
         },
         "email": {
@@ -322,7 +322,7 @@
           "bound": "Ce code est lié à cette adresse e-mail.",
           "send": "Envoyer le code de vérification",
           "sent": "Nous avons envoyé un code à {email}.",
-          "codeLabel": "Code de vérification",
+          "codeLabel": "Code de vérification par e-mail",
           "verify": "Vérifier l'e-mail",
           "resend": "Renvoyer le code"
         },
@@ -1011,7 +1011,7 @@
       "expand": "Développer",
       "noEmail": "Aucun e-mail",
       "expiresOn": "Expire {date}",
-      "codeLabel": "Code",
+      "codeLabel": "Code d’invitation",
       "invalidNote": "Ce code n'est plus valide.",
       "noCode": "Code indisponible.",
       "share": {
@@ -1619,7 +1619,7 @@
       "applicationsEmpty": "Aucune candidature en attente.",
       "accept": "Accepter et émettre le code",
       "reject": "Refuser",
-      "codeIssued": "Code : {code}",
+      "codeIssued": "Code d’invitation: {code}",
       "requestsHeading": "Départs et Retours",
       "requestsEmpty": "Aucune demande en attente.",
       "approve": "Approuver",
@@ -2337,8 +2337,8 @@
       "lookupHint": "Utilisez l’adresse e-mail de votre candidature initiale. Nous la vérifierons avant d’afficher le statut de votre candidature.",
       "sendCode": "Envoyer le code de vérification",
       "sent": "Nous avons envoyé un code de vérification par e-mail à {email}.",
-      "verifyHint": "Saisissez le code de cinq caractères. La vérification de l’e-mail soumet une nouvelle candidature à l’examen ; elle ne donne pas accès à la ronde.",
-      "emailCode": "Code de vérification de l’e-mail",
+      "verifyHint": "Saisissez le code à quatre chiffres. La vérification de l’e-mail soumet une nouvelle candidature à l’examen ; elle ne donne pas accès à la ronde.",
+      "emailCode": "Code de vérification par e-mail",
       "verify": "Vérifier l’e-mail",
       "resend": "Renvoyer le code",
       "editDetails": "Revenir aux options de candidature",
@@ -2406,7 +2406,7 @@
         "affiliation": "Votre lien",
         "affiliationPlaceholder": "ex. Parent d'un élève, enseignant de maths, membre de la communauté",
         "email": "E-mail",
-        "code": "Code de vérification",
+        "code": "Code de vérification par e-mail",
         "password": "Mot de passe",
         "confirm": "Confirmer le mot de passe"
       }
@@ -2488,7 +2488,7 @@
       "sendCode": "Envoyer le code de vérification",
       "sending": "Envoi…",
       "codeSent": "Nous avons envoyé un code à {email}. Saisissez-le ci-dessous pour terminer.",
-      "codeLabel": "Code de vérification",
+      "codeLabel": "Code de vérification par e-mail",
       "resend": "Renvoyer le code",
       "cancel": "Annuler"
     }
@@ -2584,7 +2584,7 @@
     "email": "Nouvelle adresse e-mail",
     "password": "Mot de passe actuel",
     "send": "Envoyer le code de vérification",
-    "code": "Code envoyé à la nouvelle adresse",
+    "code": "Code de vérification par e-mail",
     "confirm": "Vérifier et modifier l’adresse",
     "success": "Votre adresse e-mail a été modifiée."
   },
@@ -3572,7 +3572,7 @@
     "working": "Traitement…",
     "limit": "Cinq adresses secondaires maximum. Vérifiez une adresse avant de la définir comme principale.",
     "verifyAddress": "Vérifier {email}",
-    "code": "Code de vérification",
+    "code": "Code de vérification par e-mail",
     "resend": "Renvoyer le code",
     "sent": "Code envoyé. Saisissez-le ci-dessous dans les dix minutes.",
     "verifiedNotice": "Adresse vérifiée. Vous pouvez l’utiliser pour vous connecter, récupérer ce compte ou la définir comme principale.",
@@ -4185,7 +4185,7 @@
     "accountConfirm": "I am the intended recipient. I understand that this creates a login only; I will review and claim my record after signing in. It does not enroll me or grant observer access.",
     "accountReady": "Your login is ready",
     "accountReadyHelp": "Sign in with your verified email and password, then review and claim the invited record. If this page was closed after setup, sign in with the same account; do not create another login.",
-    "emailCode": "Email verification code",
+    "emailCode": "Code de vérification par e-mail",
     "newPassword": "New password (at least 8 characters)",
     "sendCode": "Send verification code",
     "verifyCode": "Verify email",
@@ -4556,7 +4556,7 @@
     "emailed": "Emailed",
     "emailSent": "The invitation has been sent to your verified email.",
     "handoffRecovery": "Continue with your code. You may be asked to verify your email again.",
-    "verificationCode": "Email verification code",
+    "verificationCode": "Code de vérification par e-mail",
     "emailTitle": "Verify your email",
     "verifyEmailHelp": "Verify your email to connect this invitation to your account.",
     "sendVerification": "Send verification code",
@@ -5449,5 +5449,13 @@
     "reloadEvidence": "Recharger les justificatifs actuels (remplacer le brouillon)",
     "historyFollowups": "{count, plural, one {# entretien clôturé nécessite encore} other {# entretiens clôturés nécessitent encore}} l’enregistrement de la fin et l’attribution des heures par l’équipe de gestion.",
     "accessDenied": "L’accès aux entretiens n’est plus disponible. Rechargez la vue pour vérifier vos droits actuels."
+  },
+  "codes": {
+    "invitationLabel": "Code d’invitation",
+    "emailLabel": "Code de vérification par e-mail",
+    "invitationHelp": "Saisissez 5 chiffres. Les codes déjà émis restent acceptés.",
+    "emailHelp": "Saisissez les 4 chiffres reçus par e-mail. Les codes déjà émis restent acceptés.",
+    "lettersKeyboard": "Saisir un code avec des lettres",
+    "numericKeyboard": "Utiliser le clavier numérique"
   }
 }

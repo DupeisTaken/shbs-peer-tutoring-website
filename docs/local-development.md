@@ -219,21 +219,33 @@ Try the public forms (no login required):
 
 - **Student signup** at `/signup` collects the full application and policy agreement and reserves a survey timestamp before account verification. The request queue (`/admin/requests`) tracks verified and unverified demand. Enter the captured mailbox verification code, or explicitly confirm the existing local email link, to open the invitation receipt popup. Continue to `/register` for prefilled account/access review; issuing or displaying the invitation alone does not create credentials or confirm participation. Assignment starts a fixed verification deadline if demand is still unverified; retries preserve the original submission priority and policy evidence.
 - **Viewer signup** at `/viewer-signup` collects identity, affiliation and email, verifies the captured mailbox code, then opens the same receipt popup with copy, optional email delivery and a prefilled invitation link. Existing accounts take the LOGIN path with unchanged credentials and access. Keep synthetic mail and browser proofs in ignored evidence.
-- **Invitation entry** at `/register` is a single code card with Continue. Rehearse a five-character staff key, a displayed invitation code without browser proof and a verified-browser popup handoff. **Add access** in the account menu and Account Settings opens this same entry for signed-in accounts; entering a code alone makes no access write.
+- **Invitation entry** at `/register` is a single code card with Continue. Rehearse a five-digit staff key, a displayed invitation code without browser proof and a verified-browser popup handoff. **Add access** in the account menu and Account Settings opens this same entry for signed-in accounts; entering a code alone makes no access write.
 - **Tutor application** at `/tutor-signup` starts recruitment. Assign at least three active tutor accounts, a highest-ranking management chair, and explicit subject qualification coverage. Every panelist votes; the majority determines the outcome and the chair breaks ties. A non-Head chair's initial-application decision requires Head approval.
 - **Crew application** at `/crew-signup` stages details and sends a captured mailbox code. Verify it to create a pending application; no credentials or Crew membership exist yet. Approve the synthetic applicant through `/admin/crew`, then use the public page's existing-application check and fresh mailbox code to retrieve the shared receipt. Continue to `/register` and review a new account or additive Crew access for an existing tutor. Check pending/rejected status, a revoked/expired/used grant, disabled Crew, resend proof invalidation and original-answer retry preservation. Keep staff approval separate from mailbox proof and account review.
 - **History-only access** starts from a staff-reviewed historical tutee invitation at `/history/claim`. Rehearse with synthetic archive records: send the invitation in the roster editor, verify a separate email code, inspect the receipt popup, test copy/optional mail/prefilled continuation to `/register`, create missing credentials and explicitly claim the record after sign-in. Closing or showing the popup does not claim ownership. No current enrollment or policy acceptance is needed. Keep development email tokens/codes in ignored local logs, never public evidence.
 
 Follow the [role guide](user-guide.md) using the [demo accounts](#demo-accounts-and-workflows). Real SMTP setup and final school policy approval remain launch configuration work; local capture delivers no external mail.
 
-Verify new five-character invitation issuance and outstanding older invitation compatibility
-separately. Both staff keys and displayed invitations use the legacy centered, spaced `XXXXX`
-input and contain uppercase letters and digits; their shared length does not identify the source
-or authorize a recipient. Check copied-code mailbox verification and verified-browser handoff
-independently. The tutee mailbox OTP remains six hexadecimal characters.
-Verify generated `0` and `I`, equivalent `O`/`o` and five-character `1` entry, typed/pasted
-codes and prefilled browser proof. Check older five-character receipts after alphabet changes
-through retry and optional email, and retain digit `1` in twelve-character legacy receipts.
+Verify new five-digit green invitations and four-digit blue email verification codes,
+including leading zeros, separately from outstanding legacy formats. Check empty and
+partly filled five/four-position scaffolds, typing, full-code paste, correction,
+keyboard focus, numeric mobile keyboards, email autofill and accessible errors.
+Test at desktop/mobile sizes in English/Chinese, all accent themes and enlarged text.
+Verify invitation receipts, management share cards/exports and actual generated HTML
+emails as well as entry fields. Code purpose remains explicit in text, and email
+panels must retain readable colors/labels when stylesheets or images are blocked.
+Use `npx tsx scripts/preview-emails.ts` to generate synthetic invitation, verification
+and legacy-mail previews in ignored `.validation/email-previews`; it sends no mail.
+
+Check copied-code mailbox verification and verified-browser handoff independently.
+Older five-character alphanumeric and twelve-character invitations must survive
+typing/paste, receipt retry and optional email without truncation; preserve their
+legacy letter aliases without converting a new numeric `1` into `I`. Test existing
+six-character tutee verification challenges against their persisted format version,
+alongside replacement four-digit challenges. Include wrong-purpose/length input,
+expired/used codes, each flow's existing five- or six-failure budget, resend
+invalidation and failed delivery. A legacy challenge with one allowed attempt
+remaining must not be rejected early merely because its format predates deployment.
 
 ### UI pattern gallery
 
@@ -352,6 +364,20 @@ annotated user crop is not a measured browser result. Preserve earlier reports
 with their original revisions instead of rewriting their historical claims.
 
 ## 5. Run the tests
+
+For invitation and email-code presentation, run `node scripts/test-code-fields.mjs`
+against an isolated demo site. Set `TEST_BASE_URL` and `SHBS_BROWSER_STATE` to a
+synthetic staff browser state; the public-page cases run signed out, and the state
+is used only to reach the development gallery. `SHBS_BROWSER_MODULE`,
+`SHBS_BROWSER_CHANNEL` and `SHBS_BROWSER_OUTPUT` select the installed browser runtime
+and ignored evidence directory. To include email screenshots, first run
+`npx tsx scripts/preview-emails.ts .validation/email-previews` and set
+`SHBS_EMAIL_PREVIEWS` to that directory. The check types, pastes and corrects
+synthetic codes without redeeming them or sending mail. It records English/Chinese,
+390/1440 px, enlarged-text and all six gallery themes, including input and slot
+scroll measurements so caret focus cannot silently misalign the digit positions.
+Component and integration suites separately cover submission, delivery failures,
+legacy compatibility, purpose ownership and attempt budgets.
 
 For shared table-action sizing, run `node scripts/test-table-action-layout.mjs`
 against a loopback synthetic site. Set `TEST_BASE_URL` and `SHBS_BROWSER_STATE`

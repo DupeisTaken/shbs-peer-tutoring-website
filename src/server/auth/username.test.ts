@@ -91,9 +91,7 @@ async function acceptSetup(email: string) {
   const invitationId = /invitation=([a-zA-Z0-9_-]+)/.exec(
     message?.text ?? "",
   )?.[1];
-  const code = /invitation code is ([A-Z0-9]{5})/.exec(
-    message?.text ?? "",
-  )?.[1];
+  const code = / is ([0-9]{4})/.exec(message?.text ?? "")?.[1];
   if (!invitationId || !code) throw Error("Expected recipient invitation");
   const { proof } = await verifyAccountInvitation(db, {
     invitationId,

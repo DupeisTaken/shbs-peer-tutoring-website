@@ -1,4 +1,5 @@
 "use client";
+import { CodeDisplay } from "~/app/_components/ui/code-field";
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -89,10 +90,7 @@ export function InvitationReceipt({
         >
           <div className="space-y-4">
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center">
-              <p className="mb-2 text-sm text-slate-500">{t("code")}</p>
-              <p className="text-2xl font-semibold tracking-[0.4em] break-all text-slate-900">
-                {invitation.code}
-              </p>
+              <CodeDisplay code={invitation.code ?? ""} />
               <p className="mt-3 text-sm break-all text-slate-600">
                 {invitation.email}
               </p>
