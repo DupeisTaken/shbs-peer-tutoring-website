@@ -231,8 +231,8 @@
     "twoFactor": {
       "title": "Verification Code",
       "sent": "We emailed a sign-in code to {email}.",
-      "code": "Verification Code",
-      "help": "Enter the 5-character code from your email.",
+      "code": "이메일 인증 코드",
+      "help": "이메일에 있는 숫자 4자리를 입력하세요. 이전에 발급된 코드도 사용할 수 있습니다.",
       "verify": "Verify and Sign In",
       "verifying": "Verifying?",
       "invalid": "That code is incorrect or expired. Request a new sign-in code.",
@@ -312,8 +312,8 @@
       "backToSignIn": "← 로그인으로 돌아가기",
       "step": {
         "code": {
-          "label": "보안 키",
-          "help": "관리자나 코디네이터가 준 코드를 입력하세요.",
+          "label": "초대 코드",
+          "help": "영문자와 숫자가 섞인 5자리 코드를 입력하세요. 이전에 발급된 코드도 사용할 수 있습니다.",
           "submit": "계속"
         },
         "email": {
@@ -322,7 +322,7 @@
           "bound": "이 코드는 해당 이메일 주소에 연결되어 있습니다.",
           "send": "인증 코드 보내기",
           "sent": "{email}(으)로 코드를 보냈습니다.",
-          "codeLabel": "인증 코드",
+          "codeLabel": "이메일 인증 코드",
           "verify": "이메일 인증",
           "resend": "코드 재전송"
         },
@@ -1011,7 +1011,7 @@
       "expand": "펼치기",
       "noEmail": "이메일 미지정",
       "expiresOn": "만료 {date}",
-      "codeLabel": "코드",
+      "codeLabel": "초대 코드",
       "invalidNote": "이 코드는 더 이상 유효하지 않습니다.",
       "noCode": "코드를 사용할 수 없습니다.",
       "share": {
@@ -1619,7 +1619,7 @@
       "applicationsEmpty": "대기 중인 지원이 없습니다.",
       "accept": "승인 후 코드 발급",
       "reject": "거절",
-      "codeIssued": "코드: {code}",
+      "codeIssued": "초대 코드: {code}",
       "requestsHeading": "탈퇴 · 재가입 신청",
       "requestsEmpty": "대기 중인 신청이 없습니다.",
       "approve": "승인",
@@ -2337,7 +2337,7 @@
       "lookupHint": "처음 지원할 때 사용한 이메일을 입력하세요. 검토 상태를 보여드리기 전에 이메일을 인증합니다.",
       "sendCode": "인증 코드 보내기",
       "sent": "{email}(으)로 인증 코드를 보냈습니다.",
-      "verifyHint": "5자리 코드를 입력하세요. 이메일 인증을 완료하면 새 지원서가 검토를 위해 제출됩니다. 이메일 인증만으로 순찰조 접근 권한이 부여되지는 않습니다.",
+      "verifyHint": "숫자 4자리 코드를 입력하세요. 이메일 인증을 완료하면 새 지원서가 검토를 위해 제출됩니다. 이메일 인증만으로 순찰조 접근 권한이 부여되지는 않습니다.",
       "emailCode": "이메일 인증 코드",
       "verify": "이메일 인증",
       "resend": "코드 재전송",
@@ -2406,7 +2406,7 @@
         "affiliation": "관계",
         "affiliationPlaceholder": "예: 학생 학부모, 수학 교사, 지역 주민",
         "email": "이메일",
-        "code": "인증 코드",
+        "code": "이메일 인증 코드",
         "password": "비밀번호",
         "confirm": "비밀번호 확인"
       }
@@ -2488,7 +2488,7 @@
       "sendCode": "인증 코드 보내기",
       "sending": "보내는 중…",
       "codeSent": "{email}(으)로 코드를 보냈습니다. 아래에 입력하여 완료하세요.",
-      "codeLabel": "인증 코드",
+      "codeLabel": "이메일 인증 코드",
       "resend": "코드 재전송",
       "cancel": "취소"
     }
@@ -2584,7 +2584,7 @@
     "email": "새 이메일",
     "password": "현재 비밀번호",
     "send": "인증 코드 보내기",
-    "code": "새 이메일로 받은 코드",
+    "code": "이메일 인증 코드",
     "confirm": "인증하고 이메일 변경",
     "success": "이메일이 변경되었습니다."
   },
@@ -3572,7 +3572,7 @@
     "working": "처리 중…",
     "limit": "보조 주소는 최대 5개입니다. 기본으로 설정하기 전에 인증하세요.",
     "verifyAddress": "{email} 인증",
-    "code": "인증 코드",
+    "code": "이메일 인증 코드",
     "resend": "코드 다시 보내기",
     "sent": "코드를 보냈습니다. 10분 이내에 아래에 입력하세요.",
     "verifiedNotice": "인증되었습니다. 로그인, 계정 복구 또는 기본 주소로 사용할 수 있습니다.",
@@ -4185,7 +4185,7 @@
     "accountConfirm": "I am the intended recipient. I understand that this creates a login only; I will review and claim my record after signing in. It does not enroll me or grant observer access.",
     "accountReady": "Your login is ready",
     "accountReadyHelp": "Sign in with your verified email and password, then review and claim the invited record. If this page was closed after setup, sign in with the same account; do not create another login.",
-    "emailCode": "Email verification code",
+    "emailCode": "이메일 인증 코드",
     "newPassword": "New password (at least 8 characters)",
     "sendCode": "Send verification code",
     "verifyCode": "Verify email",
@@ -4556,7 +4556,7 @@
     "emailed": "Emailed",
     "emailSent": "The invitation has been sent to your verified email.",
     "handoffRecovery": "Continue with your code. You may be asked to verify your email again.",
-    "verificationCode": "Email verification code",
+    "verificationCode": "이메일 인증 코드",
     "emailTitle": "Verify your email",
     "verifyEmailHelp": "Verify your email to connect this invitation to your account.",
     "sendVerification": "Send verification code",
@@ -5449,5 +5449,13 @@
     "reloadEvidence": "현재 근거 다시 불러오기 (초안 교체)",
     "historyFollowups": "{count, plural, one {종료된 면접 #건에 대해} other {종료된 면접 #건에 대해}} 관리 담당자가 아직 완료 기록과 봉사 시간 부여를 해야 합니다.",
     "accessDenied": "더 이상 면접에 접근할 수 없습니다. 다시 불러와 현재 권한을 확인하세요."
+  },
+  "codes": {
+    "invitationLabel": "초대 코드",
+    "emailLabel": "이메일 인증 코드",
+    "invitationHelp": "영문자와 숫자가 섞인 5자리 코드를 입력하세요. 이전에 발급된 코드도 사용할 수 있습니다.",
+    "emailHelp": "이메일에 있는 숫자 4자리를 입력하세요. 이전에 발급된 코드도 사용할 수 있습니다.",
+    "lettersKeyboard": "문자가 포함된 코드 입력",
+    "numericKeyboard": "숫자 키패드 사용"
   }
 }

@@ -13,12 +13,12 @@ import {
   updateAccountProfile,
 } from "~/server/account-profile";
 /**
- * Self-registration via a five-character authorization key (RegistrationCode).
+ * Self-registration via a mixed five-character authorization key (RegistrationCode).
  *
  * Admins/coordinators issue a single-use code (optionally bound to an email and/or an existing
  * roster Tutor, or generated when an application is accepted) and hand it to the intended person.
  * The registrant then, at /register: (1) enters the code, (2) verifies their email with a second
- * emailed five-character code, and (3) sets their name / grade / password — which creates (or links) a
+ * emailed four-digit code, and (3) sets their name / grade / password — which creates (or links) a
  * Tutor and a fully-verified login. This guarantees every account has a validated email and
  * self-set credentials.
  *
@@ -48,7 +48,11 @@ import { env } from "~/env";
 import { db } from "~/server/db";
 import { approvalScope } from "~/server/db-scope";
 import { hashPassword } from "./password";
-import { generateRegistrationCode, normalizeRegCode } from "./code";
+import {
+  generateRegistrationCode,
+  generateEmailVerificationCode,
+  normalizeRegCode,
+} from "./code";
 import {
   defaultUsername,
   ensureUniqueUsername,
@@ -86,12 +90,24 @@ function secret(): string {
 }
 
 /** Keyed (HMAC) hash of a code — deterministic for lookup, not offline-brute-forceable. Normalizes
- * first (uppercase, separators, O→0 and five-character 1→I aliases) so entry and lookup
- * share one canonical identity while longer legacy codes retain their digit 1. */
+ * first so entry and lookup share one identity. Numeric digits are preserved;
+ * mixed five-character codes retain O→0/1→I aliases. */
 export function hashCode(code: string): string {
   return createHmac("sha256", secret())
     .update(normalizeRegCode(code))
     .digest("hex");
+}
+
+/** Short OTPs can repeat by chance. Resampling keeps the previous delivered value
+ * invalid after replacement; bounded retries fail closed if the RNG is faulty. */
+export function freshEmailCode(
+  previousHashes: (string | null | undefined)[],
+): string {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const code = generateEmailVerificationCode();
+    if (!previousHashes.includes(hashCode(code))) return code;
+  }
+  throw new Error("Could not generate a fresh email verification code.");
 }
 
 /** Completion grants are high-entropy, purpose-bound proofs returned only after an OTP succeeds.
@@ -406,7 +422,7 @@ export async function codePrefill(row: CodeRow, client: DomainDb = db) {
 }
 
 /**
- * Stage the email-verification step: store the email + a hashed five-character code (and its
+ * Stage the email-verification step: store the email + a hashed four-digit code (and its
  * expiry) on the code row. Returns the plaintext email code so the caller can send it. Enforces
  * any email binding on the code.
  */
@@ -426,14 +442,11 @@ export async function setEmailVerification(
       if (row.email && row.email.toLowerCase() !== normalized) {
         return { ok: false, error: "email-mismatch" };
       }
-      let emailCode = generateRegistrationCode();
-      // A staff-visible authorization key must never double as mailbox proof. Resends
-      // also choose a different secret so the preceding challenge cannot remain valid.
-      while (
-        emailCode === row.code ||
-        hashCode(emailCode) === row.emailCodeHash
-      )
-        emailCode = generateRegistrationCode();
+      // A staff-visible key and the preceding challenge must not become mailbox proof.
+      const emailCode = freshEmailCode([
+        row.code ? hashCode(row.code) : null,
+        row.emailCodeHash,
+      ]);
       const changed = await tx.registrationCode.updateMany({
         where: {
           id: row.id,
@@ -458,7 +471,7 @@ export async function setEmailVerification(
   );
 }
 
-/** Verify the emailed five-character code; on success stamp emailVerifiedAt on the code row. */
+/** Verify the emailed four-digit code; on success stamp emailVerifiedAt on the code row. */
 export async function confirmEmailCode(
   row: CodeRow,
   emailCode: string,

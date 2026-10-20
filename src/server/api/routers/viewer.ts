@@ -1,3 +1,4 @@
+import { isEmailCodeFormat } from "~/lib/registration-code";
 import { continueInEmailedInvitation } from "~/server/auth/legacy-invitation";
 import { optionalPersonNameFields } from "~/lib/person-name";
 import { captchaGrantInput } from "~/lib/captcha";
@@ -15,7 +16,7 @@ import { withSignupAdmission, signupMetric } from "~/server/signup-admission";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
 import { getFeatures } from "~/server/program/features";
-import { normalizeRegCode } from "~/server/auth/code";
+import { normalizeEmailCode } from "~/server/auth/code";
 import {
   VIEWER_CODE_TTL_MINUTES,
   startViewerSignup,
@@ -36,7 +37,7 @@ async function assertEnabled(db: typeof dbClient): Promise<void> {
 }
 
 export const viewerRouter = createTRPCRouter({
-  /** Stage a signup + email a 6-digit verification code. */
+  /** Stage a signup + email a four-digit verification code. */
   start: publicProcedure
     .input(
       z.object({
@@ -73,8 +74,12 @@ export const viewerRouter = createTRPCRouter({
                 signup: true,
                 to: input.email.trim().toLowerCase(),
                 subject: `Your ${APP_TITLE} verification code`,
-                text: `Your ${APP_TITLE} email verification code is ${res.code}.\n\nIt expires in ${VIEWER_CODE_TTL_MINUTES} minutes. If you didn't request this, ignore this email.`,
-                presentation: { code: res.code, eyebrow: "EMAIL VERIFICATION" },
+                text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${res.code}.\n\nIt expires in ${VIEWER_CODE_TTL_MINUTES} minutes. If you didn't request this, ignore this email.`,
+                presentation: {
+                  code: res.code,
+                  codePurpose: "verification",
+                  eyebrow: "EMAIL VERIFICATION",
+                },
               });
             });
           } catch (error) {
@@ -97,8 +102,8 @@ export const viewerRouter = createTRPCRouter({
         email: z.string().trim().email().max(254),
         code: z
           .string()
-          .transform(normalizeRegCode)
-          .pipe(z.string().regex(/^[0-9A-Z]{5}$/)),
+          .transform(normalizeEmailCode)
+          .refine(isEmailCodeFormat),
       }),
     )
     .mutation(async ({ ctx, input }) =>

@@ -33,6 +33,153 @@ it("keeps mixed-language instructions and code readable without images", () => {
   expect(doc.querySelector("img,a")).toBeNull();
 });
 
+it.each([
+  {
+    purpose: "invitation" as const,
+    code: "A2B3C",
+    background: "rgb(24, 52, 44)",
+    hexBackground: "#18342C",
+    instructions:
+      "Invitation code: A2B3C (5 letters and numbers). 邀请码：A2B3C（5 位字母和数字）。",
+  },
+  {
+    purpose: "verification" as const,
+    code: "0012",
+    background: "rgb(23, 47, 73)",
+    hexBackground: "#172F49",
+    instructions:
+      "Email verification code: 0012 (4 digits). 邮箱验证码：0012（4 位数字）。",
+  },
+])(
+  "tints only the legacy $purpose box background with readable CSS-free colors",
+  (sample) => {
+    const input = {
+      brand: "School",
+      subject: "Your code",
+      text: sample.instructions,
+    };
+    const legacy = renderEmail({
+      ...input,
+      presentation: { code: sample.code },
+    });
+    const html = renderEmail({
+      ...input,
+      presentation: { code: sample.code, codePurpose: sample.purpose },
+    });
+    // The purpose is the only visual difference: all markup, type, spacing and
+    // neutral borders remain identical to the unannotated legacy presentation.
+    expect(html.replaceAll(sample.hexBackground, "#22272E")).toBe(legacy);
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    doc.querySelectorAll("style").forEach((style) => style.remove());
+    const code = doc.querySelector<HTMLElement>(".code")!;
+    expect(code.textContent).toBe(sample.code);
+    expect(inlineColor(code, "backgroundColor")).toBe(sample.background);
+    expect(inlineColor(code, "color")).toBe("rgb(173, 201, 255)");
+    expect(code.children).toHaveLength(0);
+    expect(code.parentElement?.classList.contains("body")).toBe(true);
+    expect(code.style.border).toBe("1px solid rgb(73, 83, 98)");
+    expect(code.style.padding).toBe("22px");
+    expect(code.style.margin).toBe("0px 0px 26px");
+    expect(code.style.textAlign).toBe("center");
+    expect(code.style.fontFamily.replace(/\s/g, "")).toBe("Consolas,monospace");
+    expect(code.style.fontSize).toBe("30px");
+    expect(code.style.letterSpacing).toBe("5px");
+    expect(code.style.lineHeight).toBe("");
+    expect(code.style.wordBreak).toBe("break-all");
+    expect(
+      doc.querySelector(".code-panel,.code-label,.code-guidance"),
+    ).toBeNull();
+    expect(doc.body.textContent).toContain(sample.instructions);
+    expect(contrastRatio(code)).toBeGreaterThanOrEqual(4.5);
+    // Dark clients must retain each purpose's palette instead of forcing every code blue.
+    expect(html).toContain(
+      `.code{background:${sample.hexBackground}!important;color:#ADC9FF!important}`,
+    );
+  },
+);
+
+it("retains the original neutral box for queued mail without purpose metadata", () => {
+  const html = renderEmail({
+    brand: "School",
+    subject: "Your code",
+    text: "Enter every character shown.",
+    presentation: { code: "AB234" },
+  });
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const code = doc.querySelector(".code")!;
+  expect(inlineColor(code, "backgroundColor")).toBe("rgb(34, 39, 46)");
+  expect(inlineColor(code, "color")).toBe("rgb(173, 201, 255)");
+  expect(html).toContain(
+    ".code{background:#22272E!important;color:#ADC9FF!important}",
+  );
+});
+
+it.each(["invitation", "verification"] as const)(
+  "leaves mail without a code unchanged when %s metadata is supplied",
+  (codePurpose) => {
+    const input = {
+      brand: "School",
+      subject: "Program update",
+      text: "Read the update. 请查看更新。",
+      presentation: {
+        action: { label: "View update", url: "https://school.example/update" },
+      },
+    };
+    expect(
+      renderEmail({
+        ...input,
+        presentation: { ...input.presentation, codePurpose },
+      }),
+    ).toBe(renderEmail(input));
+    const doc = new DOMParser().parseFromString(
+      renderEmail(input),
+      "text/html",
+    );
+    expect(doc.querySelector(".code")).toBeNull();
+  },
+);
+
+it.each([
+  { purpose: "invitation" as const, code: "AB234" },
+  { purpose: "invitation" as const, code: "00123" },
+  { purpose: "invitation" as const, code: "012345ABCDEF" },
+  { purpose: "verification" as const, code: "AB234" },
+  { purpose: "verification" as const, code: "01ABCD" },
+])(
+  "does not relabel or truncate an outstanding $purpose code ($code)",
+  ({ purpose, code }) => {
+    const instructions =
+      "Previously issued code: enter every character shown. 先前签发的代码：请输入显示的全部字符。";
+    const doc = new DOMParser().parseFromString(
+      renderEmail({
+        brand: "School",
+        subject: "Your code",
+        text: instructions,
+        presentation: { code, codePurpose: purpose },
+      }),
+      "text/html",
+    );
+    expect(doc.querySelector(".code")?.textContent).toBe(code);
+    expect(doc.body.textContent).toContain(instructions);
+    expect(doc.querySelector(".code-label,.code-guidance")).toBeNull();
+  },
+);
+
+it("escapes displayed code text without adding executable content", () => {
+  const code = '<img src=x onerror="alert(1)">&AB234';
+  const doc = new DOMParser().parseFromString(
+    renderEmail({
+      brand: "School",
+      subject: "Your code",
+      text: "",
+      presentation: { code, codePurpose: "invitation" },
+    }),
+    "text/html",
+  );
+  expect(doc.querySelector(".code")?.textContent).toBe(code);
+  expect(doc.querySelector("img,script,[onerror]")).toBeNull();
+});
+
 it("rejects executable CTA URLs", () => {
   expect(() =>
     renderEmail({

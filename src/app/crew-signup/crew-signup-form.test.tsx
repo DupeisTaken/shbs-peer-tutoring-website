@@ -255,7 +255,7 @@ it("normalizes lowercase and pasted O/1 mailbox aliases with the shared five-cha
     clipboardData: { getData: () => " o-1 ab c " },
   });
   expect(document.querySelector<HTMLInputElement>("#crew-code")!.value).toBe(
-    "0IABC",
+    "01ABC",
   );
   fireEvent.submit(document.querySelector("form")!);
   await waitFor(() =>

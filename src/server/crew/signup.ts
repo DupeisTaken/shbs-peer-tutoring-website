@@ -10,9 +10,9 @@ import {
 } from "~/server/program/name-fields";
 import { recordAudit } from "~/server/audit/log";
 import { deliverAccountInvitation } from "~/server/auth/account-invitations";
-import { generateRegistrationCode } from "~/server/auth/code";
 import {
   hashCode,
+  freshEmailCode,
   issueRegistrationCode,
   registrationCompletionProof,
   MAX_CODE_ATTEMPTS,
@@ -152,12 +152,10 @@ export async function stageCrewVerification(
           select: { code: true },
         })
       : [];
-    let code = generateRegistrationCode();
-    while (
-      hashCode(code) === prior?.codeHash ||
-      keys.some((key) => key.code === code)
-    )
-      code = generateRegistrationCode();
+    const code = freshEmailCode([
+      prior?.codeHash,
+      ...keys.map((key) => (key.code ? hashCode(key.code) : null)),
+    ]);
     const data = {
       applicationId: application?.id ?? null,
       draft:
@@ -186,8 +184,12 @@ export async function stageCrewVerification(
       signup: true,
       to: email,
       subject: "Verify your crew application email / 验证工作人员申请邮箱",
-      text: `Your crew application verification code is ${code}. It expires in ${CREW_CODE_TTL_MINUTES} minutes. This verifies your mailbox; crew access still requires approval.\n\n工作人员申请邮箱验证码为 ${code}，有效期 ${CREW_CODE_TTL_MINUTES} 分钟。此步骤仅验证邮箱，工作人员权限仍须审批。`,
-      presentation: { code, eyebrow: "EMAIL VERIFICATION" },
+      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires in ${CREW_CODE_TTL_MINUTES} minutes. This verifies your mailbox; crew access still requires approval.\n\n工作人员申请邮箱验证码为 ${code}，有效期 ${CREW_CODE_TTL_MINUTES} 分钟。此步骤仅验证邮箱，工作人员权限仍须审批。`,
+      presentation: {
+        code,
+        codePurpose: "verification",
+        eyebrow: "EMAIL VERIFICATION",
+      },
     });
     return { ok: true as const };
   });

@@ -1,12 +1,13 @@
+import { isEmailCodeFormat } from "~/lib/registration-code";
 import { continueInEmailedInvitation } from "~/server/auth/legacy-invitation";
 import { optionalPersonNameFields } from "~/lib/person-name";
 import { preferredLatinNameSchema } from "~/lib/username";
 import { isSchoolYear } from "~/lib/period";
 /**
- * Public self-registration flow (no auth). A prospective tutor turns a five-character registration code
+ * Public self-registration flow (no auth). A prospective tutor turns a mixed five-character registration code
  * (issued + handed out by an admin/coordinator) into a fully-verified account at /register:
  *   check       -> validate the code, return any prefill / email binding
- *   sendEmailCode -> email a five-character code to the chosen address
+ *   sendEmailCode -> email a four-digit code to the chosen address
  *   verifyEmail -> confirm that emailed code
  *   complete    -> set name / grade / password, creating + linking the Tutor and login
  *
@@ -26,7 +27,7 @@ import {
   resolveUsableCode,
   setEmailVerification,
 } from "~/server/auth/registration";
-import { normalizeRegCode } from "~/server/auth/code";
+import { normalizeRegCode, normalizeEmailCode } from "~/server/auth/code";
 import { deliverAccountInvitation } from "~/server/auth/account-invitations";
 import { inTransaction } from "~/server/transactions";
 import { lockUsernameNamespace } from "~/server/auth/username";
@@ -38,8 +39,12 @@ const codeInput = z
   .string()
   .transform(normalizeRegCode)
   .pipe(z.string().regex(/^[0-9A-Z]{5}$/));
-/** The emailed email-verification OTP uses the same 5-char Steam format (see docs/contributing.md). */
-const emailCodeInput = codeInput;
+/** New mailbox codes have four digits; outstanding five-character codes stay valid. */
+const emailCodeInput = z
+  .string()
+  .max(30)
+  .transform(normalizeEmailCode)
+  .refine(isEmailCodeFormat);
 
 /** Coarse client IP from proxy headers (best-effort; only used for rate-limit keys). */
 function clientIp(headers: Headers): string {
@@ -98,7 +103,7 @@ export const registrationRouter = createTRPCRouter({
       };
     }),
 
-  /** Stage email verification and email a five-character code to the chosen address. */
+  /** Stage email verification and email a four-digit code to the chosen address. */
   sendEmailCode: publicProcedure
     .input(z.object({ code: codeInput, email: z.string().email() }))
     .mutation(async ({ ctx, input }) => {

@@ -1,5 +1,26 @@
 @import "tailwindcss" source("../");
 
+/* Purpose is a background tint only. Shared input typography, neutral borders,
+ * placeholder color and focus treatment stay identical to the legacy controls. */
+[data-code-purpose="invitation"] {
+  --code-background: #f0fdf4;
+}
+[data-code-purpose="email"] {
+  --code-background: #eff6ff;
+}
+.code-native,
+.code-display,
+.code-surface {
+  background-color: var(--code-background);
+}
+.code-native[aria-invalid="true"] {
+  outline: 2px solid #b91c1c;
+  outline-offset: 2px;
+}
+.code-native:disabled {
+  cursor: wait;
+}
+
 @theme {
   --font-sans:
     var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,

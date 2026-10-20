@@ -2,7 +2,7 @@
  * Step-up verification via an emailed one-time code.
  *
  * Used to re-confirm a signed-in user before a sensitive change — currently changing a password
- * (purpose PASSWORD_CHANGE). A fresh 6-digit code is emailed; only its HMAC hash is stored in
+ * (purpose PASSWORD_CHANGE). A fresh 4-digit code is emailed; only its HMAC hash is stored in
  * `EmailVerificationCode` (keyed with AUTH_SECRET, never the plaintext). Verification is
  * constant-time, single-use, expiring, and attempt-capped.
  *
@@ -18,8 +18,7 @@ import { db } from "~/server/db";
 import { lockAccountProfile } from "~/server/account-profile";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
-import { hashCode } from "./registration";
-import { generateRegistrationCode } from "./code";
+import { hashCode, freshEmailCode } from "./registration";
 
 /** How long an emailed step-up code stays valid. */
 export const STEP_UP_CODE_TTL_MINUTES = 15;
@@ -48,7 +47,7 @@ export async function issueStepUpCode(
     );
   }
 
-  const code = generateRegistrationCode();
+  let code = "";
   const expiresAt = new Date(Date.now() + STEP_UP_CODE_TTL_MINUTES * 60_000);
   const user = await db.$transaction(async (tx) => {
     // Serialize with combine; a request accepted before retirement must recheck before issuing.
@@ -57,7 +56,15 @@ export async function issueStepUpCode(
       where: { id: userId }, select: { email: true, name: true, mergedIntoId: true },
     });
     if (current.mergedIntoId) throw new Error("This login has been retired.");
-    await tx.emailVerificationCode.deleteMany({ where: { userId, purpose, consumedAt: null } });
+    const previous = await tx.emailVerificationCode.findFirst({
+      where: { userId, purpose: purpose, consumedAt: null },
+      orderBy: { createdAt: "desc" },
+      select: { codeHash: true },
+    });
+    code = freshEmailCode([previous?.codeHash]);
+    await tx.emailVerificationCode.deleteMany({
+      where: { userId, purpose, consumedAt: null },
+    });
     await tx.emailVerificationCode.create({
       data: { userId, purpose, codeHash: hashCode(code), expiresAt },
     });
@@ -68,10 +75,14 @@ export async function issueStepUpCode(
     category: "SECURITY",
     to: user.email,
     subject: `${APP_TITLE}: your verification code`,
-    presentation: { code, eyebrow: "ACCOUNT SECURITY" },
+    presentation: {
+      code,
+      codePurpose: "verification",
+      eyebrow: "ACCOUNT SECURITY",
+    },
     text:
       `Hi ${user.name ?? "there"},\n\n` +
-      `Your verification code is ${code}. It expires in ${STEP_UP_CODE_TTL_MINUTES} minutes.\n\n` +
+      `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires in ${STEP_UP_CODE_TTL_MINUTES} minutes.\n\n` +
       `If you didn't request this, you can ignore this email — your password hasn't changed.`,
   });
 

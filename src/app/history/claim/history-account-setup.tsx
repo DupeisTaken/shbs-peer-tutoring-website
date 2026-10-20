@@ -1,4 +1,5 @@
 "use client";
+import { CodeInput } from "~/app/_components/ui/code-field";
 import {
   InvitationReceipt,
   type InvitationReceiptData,
@@ -79,21 +80,16 @@ export function HistoryAccountSetup({ token }: { token: string }) {
             />
           </label>
           {sent && (
-            <label className="block">
-              <span className="label">
-                {t("emailCode")}
-                <FieldRequirement state="required" />
-              </span>
-              <input
-                ref={codeRef}
-                className="input"
-                autoComplete="one-time-code"
-                required
-                maxLength={30}
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-              />
-            </label>
+            <CodeInput
+              purpose="email"
+              value={code}
+              onValueChange={setCode}
+              ref={codeRef}
+              aria-invalid={Boolean(error)}
+              aria-describedby={
+                error ? "history-verification-error" : undefined
+              }
+            />
           )}
           <button className="btn-primary" type="submit">
             {sent ? a("verify") : a("sendVerification")}
@@ -112,7 +108,11 @@ export function HistoryAccountSetup({ token }: { token: string }) {
             </button>
           )}
         </fieldset>
-        {error && <HistoryError message={error.message} />}
+        {error && (
+          <div id="history-verification-error">
+            <HistoryError message={error.message} />
+          </div>
+        )}
       </form>
     </details>
   );

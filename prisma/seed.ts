@@ -350,7 +350,7 @@ const TUTEE_REMOVALS: {
 ];
 
 // Registration codes (security keys for new tutors) in each status: active, used, expired.
-// Codes are randomly generated (Steam-style 5-char) on each seed, matching production.
+// Codes are randomly generated as five numeric digits on each seed, matching production.
 const REGISTRATION_CODES = [
   { id: seedId("regcode-active"), code: generateRegistrationCode(), email: "maya@example.edu", label: "Maya Lindqvist (recruit)", expiresInDays: 7, usedDaysAgo: null, applicationId: null },
   { id: seedId("regcode-used"), code: generateRegistrationCode(), email: "george@example.edu", label: "George Adler", expiresInDays: 6, usedDaysAgo: 1, applicationId: seedId("app-george") },

@@ -69,8 +69,12 @@ export function ShareCard({
         <p className="mt-2 font-semibold text-slate-700">
           {t(`admin.registrationCodes.${registrationKindLabel[kind]}`)}
         </p>
-        {/* The code box — two centered lines: label + digits (same dashed-green scheme). */}
-        <div className="mt-3 inline-block rounded-lg border-2 border-dashed border-green-300 bg-green-50 px-6 py-3 text-center">
+        {/* Keep the existing share-card geometry and typography in the export.
+         * Purpose supplies only the background, as on the other code surfaces. */}
+        <div
+          data-code-purpose="invitation"
+          className="code-surface mt-3 inline-block rounded-lg border-2 border-dashed border-green-300 px-6 py-3 text-center"
+        >
           <p className="text-xs font-semibold tracking-wide text-green-700 uppercase">
             {t("admin.registrationCodes.codeLabel")}
           </p>

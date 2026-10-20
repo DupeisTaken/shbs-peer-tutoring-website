@@ -352,7 +352,10 @@ export default function CrewPage() {
                       </TableDetails>
                     )}
                     {issuedCode[a.id] ? (
-                      <span className="badge-green ml-auto font-mono tracking-widest">
+                      <span
+                        data-code-purpose="invitation"
+                        className="code-surface badge-green ml-auto font-mono tracking-widest"
+                      >
                         {t("admin.crew.codeIssued", {
                           code: issuedCode[a.id]!,
                         })}
@@ -476,8 +479,11 @@ export default function CrewPage() {
                   >
                     <span className="font-medium text-slate-800">{c.name}</span>
                     {c.code && (
-                      <span className="badge-green font-mono tracking-widest">
-                        {c.code}
+                      <span
+                        data-code-purpose="invitation"
+                        className="code-surface badge-green font-mono tracking-widest"
+                      >
+                        {t("admin.crew.codeIssued", { code: c.code })}
                       </span>
                     )}
                     <span className="muted ml-auto text-xs">

@@ -231,8 +231,8 @@
     "twoFactor": {
       "title": "Verification Code",
       "sent": "We emailed a sign-in code to {email}.",
-      "code": "Verification Code",
-      "help": "Enter the 5-character code from your email.",
+      "code": "Κωδικός επαλήθευσης email",
+      "help": "Εισαγάγετε τα 4 ψηφία από το email σας. Οι κωδικοί που έχουν ήδη εκδοθεί γίνονται ακόμη δεκτοί.",
       "verify": "Verify and Sign In",
       "verifying": "Verifying?",
       "invalid": "That code is incorrect or expired. Request a new sign-in code.",
@@ -312,8 +312,8 @@
       "backToSignIn": "← Πίσω στη σύνδεση",
       "step": {
         "code": {
-          "label": "Κωδικός ασφαλείας",
-          "help": "Εισαγάγετε τον κωδικό που σας έδωσε ένας διαχειριστής ή συντονιστής.",
+          "label": "Κωδικός πρόσκλησης",
+          "help": "Εισαγάγετε 5 χαρακτήρες με γράμματα και αριθμούς. Οι κωδικοί που έχουν ήδη εκδοθεί γίνονται ακόμη δεκτοί.",
           "submit": "Συνέχεια"
         },
         "email": {
@@ -322,7 +322,7 @@
           "bound": "Αυτός ο κωδικός είναι συνδεδεμένος με αυτή τη διεύθυνση email.",
           "send": "Αποστολή κωδικού επαλήθευσης",
           "sent": "Στείλαμε έναν κωδικό στο {email}.",
-          "codeLabel": "Κωδικός επαλήθευσης",
+          "codeLabel": "Κωδικός επαλήθευσης email",
           "verify": "Επαλήθευση email",
           "resend": "Επαναποστολή κωδικού"
         },
@@ -1011,7 +1011,7 @@
       "expand": "Ανάπτυξη",
       "noEmail": "Χωρίς email",
       "expiresOn": "Λήγει {date}",
-      "codeLabel": "Κωδικός",
+      "codeLabel": "Κωδικός πρόσκλησης",
       "invalidNote": "Αυτός ο κωδικός δεν ισχύει πλέον.",
       "noCode": "Ο κωδικός δεν είναι διαθέσιμος.",
       "share": {
@@ -1619,7 +1619,7 @@
       "applicationsEmpty": "Καμία εκκρεμής αίτηση.",
       "accept": "Αποδοχή & έκδοση κωδικού",
       "reject": "Απόρριψη",
-      "codeIssued": "Κωδικός: {code}",
+      "codeIssued": "Κωδικός πρόσκλησης: {code}",
       "requestsHeading": "Αιτήματα Αποχώρησης & Επανένταξης",
       "requestsEmpty": "Κανένα εκκρεμές αίτημα.",
       "approve": "Έγκριση",
@@ -2337,7 +2337,7 @@
       "lookupHint": "Χρησιμοποιήστε το email της αρχικής αίτησής σας. Θα το επαληθεύσουμε πριν εμφανίσουμε την κατάσταση του ελέγχου.",
       "sendCode": "Αποστολή κωδικού επαλήθευσης",
       "sent": "Στείλαμε κωδικό επαλήθευσης στο {email}.",
-      "verifyHint": "Εισαγάγετε τον κωδικό πέντε χαρακτήρων. Η επαλήθευση email υποβάλλει μια νέα αίτηση για έλεγχο· δεν παρέχει πρόσβαση στην περίπολο.",
+      "verifyHint": "Εισαγάγετε τον τετραψήφιο αριθμητικό κωδικό. Η επαλήθευση email υποβάλλει μια νέα αίτηση για έλεγχο· δεν παρέχει πρόσβαση στην περίπολο.",
       "emailCode": "Κωδικός επαλήθευσης email",
       "verify": "Επαλήθευση email",
       "resend": "Επαναποστολή κωδικού",
@@ -2406,7 +2406,7 @@
         "affiliation": "Η ιδιότητά σας",
         "affiliationPlaceholder": "π.χ. Γονέας μαθητή, καθηγητής Μαθηματικών, μέλος της κοινότητας",
         "email": "Email",
-        "code": "Κωδικός επαλήθευσης",
+        "code": "Κωδικός επαλήθευσης email",
         "password": "Κωδικός",
         "confirm": "Επιβεβαίωση κωδικού"
       }
@@ -2488,7 +2488,7 @@
       "sendCode": "Αποστολή κωδικού επαλήθευσης",
       "sending": "Αποστολή…",
       "codeSent": "Στείλαμε έναν κωδικό στο {email}. Εισαγάγετέ τον παρακάτω για ολοκλήρωση.",
-      "codeLabel": "Κωδικός επαλήθευσης",
+      "codeLabel": "Κωδικός επαλήθευσης email",
       "resend": "Επαναποστολή κωδικού",
       "cancel": "Άκυρο"
     }
@@ -2584,7 +2584,7 @@
     "email": "Νέο email",
     "password": "Τρέχων κωδικός",
     "send": "Αποστολή κωδικού επαλήθευσης",
-    "code": "Κωδικός στο νέο email",
+    "code": "Κωδικός επαλήθευσης email",
     "confirm": "Επαλήθευση και αλλαγή email",
     "success": "Το email σας άλλαξε."
   },
@@ -3572,7 +3572,7 @@
     "working": "Επεξεργασία…",
     "limit": "Έως πέντε δευτερεύουσες διευθύνσεις. Επαληθεύστε μια νέα διεύθυνση πριν την ορίσετε ως κύρια.",
     "verifyAddress": "Επαλήθευση {email}",
-    "code": "Κωδικός επαλήθευσης",
+    "code": "Κωδικός επαλήθευσης email",
     "resend": "Επαναποστολή κωδικού",
     "sent": "Ο κωδικός εστάλη. Εισαγάγετέ τον παρακάτω εντός δέκα λεπτών.",
     "verifiedNotice": "Το email επαληθεύτηκε. Μπορεί να χρησιμοποιηθεί για σύνδεση, ανάκτηση ή ως κύριο.",
@@ -4185,7 +4185,7 @@
     "accountConfirm": "I am the intended recipient. I understand that this creates a login only; I will review and claim my record after signing in. It does not enroll me or grant observer access.",
     "accountReady": "Your login is ready",
     "accountReadyHelp": "Sign in with your verified email and password, then review and claim the invited record. If this page was closed after setup, sign in with the same account; do not create another login.",
-    "emailCode": "Email verification code",
+    "emailCode": "Κωδικός επαλήθευσης email",
     "newPassword": "New password (at least 8 characters)",
     "sendCode": "Send verification code",
     "verifyCode": "Verify email",
@@ -4556,7 +4556,7 @@
     "emailed": "Emailed",
     "emailSent": "The invitation has been sent to your verified email.",
     "handoffRecovery": "Continue with your code. You may be asked to verify your email again.",
-    "verificationCode": "Email verification code",
+    "verificationCode": "Κωδικός επαλήθευσης email",
     "emailTitle": "Verify your email",
     "verifyEmailHelp": "Verify your email to connect this invitation to your account.",
     "sendVerification": "Send verification code",
@@ -5449,5 +5449,13 @@
     "reloadEvidence": "Επαναφόρτωση τρεχόντων τεκμηρίων (αντικατάσταση προχείρου)",
     "historyFollowups": "{count, plural, one {Για # οριστικοποιημένη συνέντευξη εκκρεμεί ακόμη} other {Για # οριστικοποιημένες συνεντεύξεις εκκρεμεί ακόμη}} η καταγραφή ολοκλήρωσης και η απόδοση ωρών από τη διαχείριση.",
     "accessDenied": "Η πρόσβαση στις συνεντεύξεις δεν είναι πλέον διαθέσιμη. Επαναφορτώστε για να ελέγξετε τα τρέχοντα δικαιώματά σας."
+  },
+  "codes": {
+    "invitationLabel": "Κωδικός πρόσκλησης",
+    "emailLabel": "Κωδικός επαλήθευσης email",
+    "invitationHelp": "Εισαγάγετε 5 χαρακτήρες με γράμματα και αριθμούς. Οι κωδικοί που έχουν ήδη εκδοθεί γίνονται ακόμη δεκτοί.",
+    "emailHelp": "Εισαγάγετε τα 4 ψηφία από το email σας. Οι κωδικοί που έχουν ήδη εκδοθεί γίνονται ακόμη δεκτοί.",
+    "lettersKeyboard": "Εισαγωγή κωδικού με γράμματα",
+    "numericKeyboard": "Χρήση αριθμητικού πληκτρολογίου"
   }
 }

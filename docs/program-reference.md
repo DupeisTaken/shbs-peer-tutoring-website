@@ -91,11 +91,15 @@ for that exact submitted request plus existing sign-in/MFA and explicit review;
 email matching alone never grants access or combines accounts. Tutor recruitment
 and its existing approval process remain separate.
 
-New invitation and staff registration codes retain the five-character uppercase
-Steam-style format, containing both letters and digits, including `0` and `I`. Input accepts
-`O`/`o` as `0` and, in five-character codes, `1` as `I`. Codes are opaque; their characters
-do not encode access or invitation type. Outstanding older invitations remain usable.
-Mailbox verification codes remain separate and keep their existing formats.
+New invitation and staff registration codes contain five characters, mixing letters
+and numbers, and use a green box background. Separate email verification codes contain
+four digits and use a blue box background. The website retains one wide input, with
+gray `XXXXX` or `XXXX` placeholders; emails retain the existing single code panel.
+Field labels and email instructions identify the purpose. Leading zeros are part
+of the code. Codes are opaque: characters do not encode access or invitation type.
+Outstanding five-digit, alphanumeric and twelve-character invitations remain usable
+within their original validity, and entry fields accept the entire older code without
+truncation.
 
 ## Optional modules
 
