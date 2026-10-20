@@ -56,7 +56,7 @@ vi.mock("~/trpc/react", async () => {
   return {
     api: {
       useUtils: () => ({
-        admin: { assignmentWorkloads: target("admin-workload") },
+        admin: { assignmentWorkloads: target("admin-workload"), pairings: { invalidate: state.refresh } },
         tutor: {
           myPairings: { invalidate: state.refresh },
           schedule: { invalidate: state.refresh },
@@ -128,7 +128,7 @@ const pairings = ["a", "b"].map((id, index) => ({
   startMin: 900,
   endMin: 960,
   tutees: [
-    { tuteeId: id, tutee: { englishName: `Synthetic ${id}`, user: null } },
+    { tuteeId: "shared", tutee: { englishName: `Synthetic ${id}`, user: null } },
   ],
 })) as Pairing[];
 
@@ -238,7 +238,7 @@ it.each(["combine", "split"] as const)(
       state.preference = { ...state.preference, count: 1 };
       state.groups = {
         ...state.groups,
-        groups: [{ id: "group", pairingIds: ["a", "b"], slotId: "slot" }],
+        groups: [{ id: "group", pairingIds: ["a", "b"], slotId: "slot", scheduleConfirmed: true, dayOfWeek: 1, startMin: 900, endMin: 960, retainSchedule: false, groupStatus: "scheduled", groupEligibility: {eligible: true, reason: null, missing: [], emptyPairingIds: []} }],
       };
     }
     show();

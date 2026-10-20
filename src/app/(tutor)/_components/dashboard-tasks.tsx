@@ -36,6 +36,7 @@ export function DashboardTasks({
   now: Date;
 }) {
   const t = useTranslations("tutor.tasks");
+  const groupText = useTranslations("pairingGroups");
   const pairingsText = useTranslations("dashboard.pairings");
   const format = useFormatter();
   const timeZone = useTimeZone();
@@ -84,13 +85,18 @@ export function DashboardTasks({
   ];
   const date = programDateKey(now, timeZone);
   const weekday = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
-  const today = pairingEntries(pairings.data ?? []).filter(
+  const entries = pairingEntries(pairings.data ?? []);
+  const today = entries.filter(
     (entry) =>
+      entry.groupStatus !== "needsRepair" &&
       entry.primary.scheduleConfirmed && entry.primary.dayOfWeek === weekday,
   );
-  const unscheduled = (pairings.data ?? []).filter(
-    (p) => !p.scheduleConfirmed,
+  // One valid unscheduled group is one plan, not one task for every subject.
+  // Invalid groups get their own repair task rather than an invented appointment.
+  const unscheduled = entries.filter(
+    (entry) => entry.groupStatus !== "needsRepair" && !entry.primary.scheduleConfirmed,
   ).length;
+  const needsRepair = entries.filter((entry) => entry.groupStatus === "needsRepair").length;
   const reviews = (roster.data ?? []).filter(
     (r) => r.pending || !r.verified || r.editedAt,
   ).length;
@@ -104,7 +110,7 @@ export function DashboardTasks({
     ...(status === "PENDING"
       ? [{ id: "tutor-activation", label: t("activation") }]
       : []),
-    ...(unscheduled || reviews || removals.data?.length
+    ...(unscheduled || needsRepair || reviews || removals.data?.length
       ? [
           {
             id: "tutor-pairings",
@@ -112,6 +118,9 @@ export function DashboardTasks({
             detail: [
               ...(pairings.data
                 ? [t("unconfirmedCount", { count: unscheduled })]
+                : []),
+              ...(needsRepair
+                ? [groupText("repairCount", { count: needsRepair })]
                 : []),
               ...(roster.data ? [t("rosterCount", { count: reviews })] : []),
               ...(removals.data?.length

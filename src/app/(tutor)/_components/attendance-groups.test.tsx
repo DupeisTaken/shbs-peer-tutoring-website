@@ -12,6 +12,10 @@ import { AttendanceForm } from "./attendance-form";
 import { MergeProvider, useMerge } from "./merge-context";
 const state = vi.hoisted(() => ({
   grouped: true,
+  incomplete: false,
+  extraIndependent: false,
+  primaryId: "a",
+  splitRoster: false,
   mutate: vi.fn(),
   pending: false,
   saved: false,
@@ -37,11 +41,11 @@ vi.mock("~/trpc/react", () => ({
     tutor: {
       myPairings: {
         useQuery: () => ({
-          data: ["a", "b"].map((id) => ({
+          data: ["a", "b", ...(state.extraIndependent ? ["c"] : [])].map((id) => ({
             id,
-            subject: id === "a" ? "Mathematics" : "Physics",
-            groupId: state.grouped ? "g" : null,
-            group: { primaryPairingId: "a" },
+            subject: state.splitRoster ? "Chemistry" : id === "a" ? "Mathematics" : "Physics",
+            groupId: state.grouped && id !== "c" ? "g" : null,
+            group: { primaryPairingId: state.primaryId },
             dayOfWeek: 1,
             startMin: 900,
             endMin: 960,
@@ -54,7 +58,7 @@ vi.mock("~/trpc/react", () => ({
                 tuteeId: "shared",
                 tutee: { englishName: "Shared Student", user: null },
               },
-              ...(id === "b"
+              ...(!state.incomplete || id !== "a"
                 ? [
                     {
                       tuteeId: "second",
@@ -62,7 +66,7 @@ vi.mock("~/trpc/react", () => ({
                     },
                   ]
                 : []),
-            ],
+            ].filter((student) => !state.splitRoster || student.tuteeId === (id === "a" ? "shared" : "second")),
           })),
         }),
       },
@@ -81,9 +85,12 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 function CatalogueAction() {
-  const { selectAttendance } = useMerge();
+  const { selectAttendance, setMergeIds } = useMerge();
   return (
-    <button onClick={() => selectAttendance("group:g")}>Use saved group</button>
+    <>
+      <button onClick={() => selectAttendance("group:g")}>Use saved group</button>
+      <button onClick={() => setMergeIds(["c"])}>Merge independent Physics</button>
+    </>
   );
 }
 const tree = () => (
@@ -94,6 +101,10 @@ const tree = () => (
 );
 beforeEach(() => {
   state.grouped = true;
+  state.incomplete = false;
+  state.extraIndependent = false;
+  state.primaryId = "a";
+  state.splitRoster = false;
   state.mutate.mockReset();
   state.pending = false;
   state.saved = false;
@@ -150,13 +161,13 @@ it("lets a grouped subject be recorded independently for one attendance", async 
   fireEvent.change(screen.getByLabelText("tutor.attendance.pairing"), {
     target: { value: "a" },
   });
-  expect(screen.queryByText("Second Student")).toBeNull();
+  expect(screen.getByText("Second Student")).toBeTruthy();
   await submit();
   await waitFor(() => expect(state.mutate).toHaveBeenCalledTimes(1));
   expect(state.mutate.mock.calls[0]?.[0]).toMatchObject({
     pairingId: "a",
     mergePairingIds: undefined,
-    tutees: [{ tuteeId: "shared", status: "PRESENT" }],
+    tutees: [{ tuteeId: "shared", status: "PRESENT" }, { tuteeId: "second", status: "PRESENT" }],
   });
 });
 it("retains a composed attendance snapshot when a saved group is split in the background", async () => {
@@ -195,5 +206,81 @@ it("does not replace a pending or saved attendance through a catalogue action", 
   state.pending = true;
   view.rerender(tree());
   fireEvent.click(screen.getByRole("button", { name: "Use saved group" }));
-  expect(screen.queryByText("Second Student")).toBeNull();
+  expect(screen.getByLabelText<HTMLSelectElement>("tutor.attendance.pairing").value).toBe("a");
+});
+
+
+it("keeps a legacy incomplete group discoverable but blocks combined attendance", async () => {
+  state.incomplete = true;
+  render(tree());
+  const select = screen.getByLabelText<HTMLSelectElement>("tutor.attendance.pairing");
+  const option = select.querySelector<HTMLOptionElement>('option[value="group:g"]')!;
+  expect(option.disabled).toBe(true);
+  expect(option.textContent).toContain("pairingGroups.status.needsRepair");
+  chooseGroup();
+  await submit();
+  expect(screen.getByRole("alert").textContent).toContain("pairingGroups.needsRepair");
+  expect(state.mutate).not.toHaveBeenCalled();
+});
+
+
+it("blocks a locally complete one-off merge containing a member of a saved group needing repair", async () => {
+  state.incomplete = true;
+  state.extraIndependent = true;
+  render(tree());
+  // Physics rows b/c have the same full roster and pass local coverage. The
+  // existing Mathematics/Physics saved group containing b still needs repair.
+  fireEvent.change(screen.getByLabelText("tutor.attendance.pairing"), { target: { value: "b" } });
+  expect(screen.queryByRole("alert")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Merge independent Physics" }));
+  expect(screen.getByRole("alert").textContent).toContain("pairingGroups.needsRepair");
+  await submit();
+  expect(state.mutate).not.toHaveBeenCalled();
+});
+
+it("preserves zero-merge individual attendance from a saved group needing repair", async () => {
+  state.incomplete = true;
+  render(tree());
+  fireEvent.change(screen.getByLabelText("tutor.attendance.pairing"), { target: { value: "b" } });
+  expect(screen.queryByRole("alert")).toBeNull();
+  await submit();
+  await waitFor(() => expect(state.mutate).toHaveBeenCalledTimes(1));
+  expect(state.mutate.mock.calls[0]?.[0]).toMatchObject({ pairingId: "b", mergePairingIds: undefined });
+});
+
+
+it("retains the original primary and every attendance row when a saved group's primary changes in the background", async () => {
+  state.splitRoster = true;
+  const view = render(tree());
+  chooseGroup();
+  fireEvent.change(screen.getByLabelText("tutor.attendance.start"), { target: { value: "14:30" } });
+  state.primaryId = "b";
+  view.rerender(tree());
+  expect(screen.getByText("Shared Student")).toBeTruthy();
+  expect(screen.getByText("Second Student")).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByLabelText<HTMLInputElement>("tutor.attendance.start").value).toBe("14:30");
+  await submit();
+  await waitFor(() => expect(state.mutate).toHaveBeenCalledTimes(1));
+  expect(state.mutate.mock.calls[0]?.[0]).toMatchObject({
+    pairingId: "a", mergePairingIds: ["b"], startMin: 870,
+    tutees: [{ tuteeId: "shared", status: "PRESENT" }, { tuteeId: "second", status: "PRESENT" }],
+  });
+});
+
+it("uses the newly chosen individual pairing after a background primary change instead of retaining another selection", async () => {
+  state.splitRoster = true;
+  const view = render(tree());
+  chooseGroup();
+  state.primaryId = "b";
+  view.rerender(tree());
+  fireEvent.change(screen.getByLabelText("tutor.attendance.pairing"), { target: { value: "b" } });
+  expect(screen.queryByText("Shared Student")).toBeNull();
+  expect(screen.getByText("Second Student")).toBeTruthy();
+  await submit();
+  await waitFor(() => expect(state.mutate).toHaveBeenCalledTimes(1));
+  expect(state.mutate.mock.calls[0]?.[0]).toMatchObject({
+    pairingId: "b", mergePairingIds: undefined,
+    tutees: [{ tuteeId: "second", status: "PRESENT" }],
+  });
 });

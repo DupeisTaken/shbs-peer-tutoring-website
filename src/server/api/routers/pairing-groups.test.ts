@@ -6,6 +6,8 @@ import { createCaller } from "~/server/api/root";
 import { currentPolicy } from "~/server/policy-acceptance";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { pairingEntries } from "~/lib/pairing-groups";
+import * as transactions from "~/server/transactions";
+import { databaseScope, auditCaptureScope, afterCommitScope } from "~/server/db-scope";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
 let roomId: string;
@@ -22,13 +24,24 @@ function caller(role: Session["role"] = "TUTOR", id = "groups-user") {
   });
 }
 const mine = () => caller().pairingGroups.mine();
-const save = async (pairingIds = ["a", "b"], slotId = "slot-one") => {
+const save = async (pairingIds = ["a", "b"], slotId: string | null = "slot-one") => {
   const state = await mine();
   return caller().pairingGroups.save({
     snapshot: state.snapshot,
     groups: [{ id: state.groups[0]?.id, pairingIds, slotId }],
   });
 };
+const attendance = (date = "2026-01-05") => ({
+  pairingId: "a", mergePairingIds: ["b"], date: new Date(date),
+  tutorStatus: "PRESENT" as const, startMin: 900, endMin: 960,
+  tutees: [
+    { tuteeId: "one", status: "PRESENT" as const },
+    { tuteeId: "two", status: "PRESENT" as const },
+  ],
+  actualRoomId: roomId, comments: "Synthetic combined attendance",
+  ratingPreparedness: 4, ratingParticipation: 4, ratingUnderstanding: 4,
+  ratingBehavior: 4, ratingProgress: 4,
+});
 beforeEach(async () => {
   // This fixture owns the explicitly selected disposable local test database.
   const tables = await db.$queryRaw<
@@ -121,7 +134,7 @@ beforeEach(async () => {
         tutees: {
           create: [
             { tuteeId: "one" },
-            ...(id === "a" ? [{ tuteeId: "two" }] : []),
+            { tuteeId: "two" },
           ],
         },
       },
@@ -175,6 +188,214 @@ it("persists one coherent group, common schedule and room, preserving subject me
   ).toBe(1);
 });
 
+it("saves before scheduling, reloads, schedules, reschedules and explicitly returns to awaiting", async () => {
+  const awaiting = await save(["a", "b"], null);
+  expect(await mine()).toEqual(awaiting);
+  expect(awaiting.groups[0]).toMatchObject({
+    slotId: null, scheduleConfirmed: false, groupStatus: "awaiting",
+    groupEligibility: { eligible: true },
+  });
+  expect(await db.pairing.findMany({ where: { id: { in: ["a", "b"] } } }))
+    .toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "a", scheduleConfirmed: false, timeSlotId: null, roomNeedsAssignment: false }),
+      expect.objectContaining({ id: "b", scheduleConfirmed: false, timeSlotId: null, roomNeedsAssignment: false }),
+    ]));
+  expect((await caller().tutor.workloadPreference())?.count).toBe(2);
+  await caller().tutor.setPairingSlot({ pairingId: "b", slotId: "slot-one" });
+  expect((await mine()).groups[0]).toMatchObject({ slotId: "slot-one", groupStatus: "scheduled" });
+  await save(["a", "b"], "slot-two");
+  expect((await mine()).groups[0]).toMatchObject({ slotId: "slot-two", dayOfWeek: 2 });
+  await save(["a", "b"], null);
+  expect((await mine()).groups[0]).toMatchObject({ slotId: null, groupStatus: "awaiting" });
+  expect(await db.session.count()).toBe(0);
+});
+
+it.each(["slot-one", "slot-two"])("retains an explicitly reviewed custom/inactive time after %s", async (slotId) => {
+  await save(["a", "b"], slotId);
+  if (slotId === "slot-one")
+    await caller().tutor.setPairingSlot({ pairingId: "a", slotId: null });
+  else
+    await db.timeSlot.update({ where: { id: slotId }, data: { active: false } });
+  const before = await mine();
+  const group = before.groups[0]!;
+  expect(group).toMatchObject({ scheduleConfirmed: true, retainSchedule: true });
+  const after = await caller().pairingGroups.save({
+    snapshot: before.snapshot,
+    groups: [{ id: group.id, pairingIds: group.pairingIds, slotId: null, retainSchedule: true }],
+  });
+  expect(after.groups[0]).toMatchObject({
+    groupStatus: "scheduled", dayOfWeek: group.dayOfWeek,
+    startMin: group.startMin, endMin: group.endMin, slotId: group.slotId,
+  });
+});
+
+it("does not extend a keep-current decision to a changed group membership", async () => {
+  await save();
+  await caller().tutor.setPairingSlot({ pairingId: "a", slotId: null });
+  const before = await mine();
+  await expect(caller().pairingGroups.save({
+    snapshot: before.snapshot,
+    groups: [{ id: before.groups[0]!.id, pairingIds: ["a", "b", "c"], slotId: null, retainSchedule: true }],
+  })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await mine()).toEqual(before);
+});
+
+it.each([null, "slot-one"])("rejects incomplete coverage before any writes with time %s", async (slotId) => {
+  await db.pairingTutee.delete({ where: { pairingId_tuteeId: { pairingId: "b", tuteeId: "two" } } });
+  const before = await mine();
+  const notifications = await db.notification.count();
+  const attempt = save(["a", "b"], slotId);
+  await expect(attempt).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(attempt).rejects.toThrow("Student Two: Physics");
+  expect(await mine()).toEqual(before);
+  expect(await db.pairingGroup.count()).toBe(0);
+  expect(await db.notification.count()).toBe(notifications);
+  expect(await db.session.count()).toBe(0);
+});
+
+it("preserves a saved group after roster removal as visible repair evidence and permits explicit split", async () => {
+  await save();
+  await db.pairingTutee.delete({ where: { pairingId_tuteeId: { pairingId: "b", tuteeId: "two" } } });
+  const broken = await mine();
+  expect(broken.groups[0]).toMatchObject({
+    pairingIds: ["a", "b"], groupStatus: "needsRepair",
+    groupEligibility: { missing: [{ tuteeId: "two", subjects: ["Physics"] }] },
+  });
+  await expect(caller().tutor.setPairingSlot({ pairingId: "a", slotId: "slot-two" }))
+    .rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(save()).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await mine()).toEqual(broken);
+  await caller().pairingGroups.save({ snapshot: broken.snapshot, groups: [] });
+  expect((await mine()).groups).toEqual([]);
+  expect(await db.pairing.count()).toBe(3);
+});
+
+it("flags inactive-only members rather than hiding a retained group", async () => {
+  // A/B Chemistry is valid before departure; afterwards B's member is empty.
+  await db.pairing.update({ where: { id: "b" }, data: { subject: "Math" } });
+  await db.pairingTutee.deleteMany({ where: { OR: [
+    { pairingId: "a", tuteeId: "two" }, { pairingId: "b", tuteeId: "one" },
+  ] } });
+  await save(["a", "b"], null);
+  await db.tutee.update({ where: { id: "two" }, data: { status: "INACTIVE" } });
+  const broken = await mine();
+  expect(broken.groups[0]).toMatchObject({ groupStatus: "needsRepair", groupEligibility: { reason: "emptyRoster", emptyPairingIds: ["b"] } });
+  expect(broken.groups[0]?.pairingIds).toEqual(["a", "b"]);
+});
+
+it.each(["supported cleanup", "retained legacy references"] as const)("records the current group roster after inactivation with %s while preserving old attendance replay", async (mode) => {
+  await save();
+  const original = attendance();
+  await caller().tutor.submitAttendance(original);
+  const history = await db.session.findMany({ include: { tutees: true }, orderBy: { id: "asc" } });
+  const departing = await db.tutee.findUniqueOrThrow({ where: { id: "two" } });
+  if (mode === "supported cleanup")
+    await caller("HEAD", "groups-head").admin.updateTutee({
+      id: departing.id, expectedUpdatedAt: departing.updatedAt,
+      englishName: departing.englishName, status: "INACTIVE",
+    });
+  else
+    await db.tutee.update({ where: { id: departing.id }, data: { status: "INACTIVE" } });
+  // Supported removal deletes current links. Legacy imports can retain inactive
+  // enrollment references; either way the live roster is A across both subjects.
+  expect(await db.pairingTutee.count({ where: { tuteeId: "two" } }))
+    .toBe(mode === "supported cleanup" ? 0 : 3);
+  expect((await mine()).groups[0]).toMatchObject({
+    groupStatus: "scheduled", groupEligibility: { eligible: true },
+  });
+  const current = await caller().tutor.myPairings();
+  expect(current.filter((pairing) => pairing.groupId).every((pairing) =>
+    pairing.tutees.length === 1 && pairing.tutees[0]?.tuteeId === "one",
+  )).toBe(true);
+  await caller().tutor.submitAttendance(original);
+  expect(await db.session.findMany({ include: { tutees: true }, orderBy: { id: "asc" } })).toEqual(history);
+  await caller().tutor.submitAttendance({
+    ...attendance("2026-01-12"), tutees: [{ tuteeId: "one", status: "PRESENT" }],
+  });
+  await expect(caller().tutor.submitAttendance({
+    ...attendance("2026-01-19"), tutees: [{ tuteeId: "two", status: "PRESENT" }],
+  })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  const recorded = await db.session.findMany({
+    where: { date: new Date("2026-01-12") }, include: { tutees: true },
+  });
+  expect(recorded).toHaveLength(2);
+  expect(recorded.every((session) => session.tutees.length === 1 && session.tutees[0]?.tuteeId === "one")).toBe(true);
+  expect(await db.session.findMany({
+    where: { id: { in: history.map((session) => session.id) } },
+    include: { tutees: true }, orderBy: { id: "asc" },
+  })).toEqual(history);
+});
+
+it("applies complete coverage to a one-off attendance merge without creating a reusable group", async () => {
+  await db.pairingTutee.delete({ where: { pairingId_tuteeId: { pairingId: "b", tuteeId: "two" } } });
+  await expect(caller().tutor.submitAttendance(attendance()))
+    .rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.session.count()).toBe(0);
+  expect(await db.pairingGroup.count()).toBe(0);
+  await db.pairing.update({ where: { id: "b" }, data: { subject: "Math" } });
+  await caller().tutor.submitAttendance(attendance());
+  expect(await db.session.count()).toBe(2);
+  expect(await db.pairingGroup.count()).toBe(0);
+});
+
+it("blocks merged attendance for a broken saved group while preserving individual attendance, history and replay", async () => {
+  await save();
+  const input = attendance();
+  await caller().tutor.submitAttendance(input);
+  const history = await db.session.findMany({ include: { tutees: true }, orderBy: { id: "asc" } });
+  await db.pairingTutee.delete({ where: { pairingId_tuteeId: { pairingId: "b", tuteeId: "two" } } });
+  await expect(caller().tutor.submitAttendance(attendance("2026-01-12")))
+    .rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await caller().tutor.submitAttendance(input);
+  expect(await db.session.findMany({ include: { tutees: true }, orderBy: { id: "asc" } })).toEqual(history);
+  // The invalid current plan cannot prohibit recording an actual lesson for one
+  // original subject. Its full individual roster remains authoritative.
+  await caller().tutor.submitAttendance({ ...attendance("2026-01-12"), mergePairingIds: [] });
+  expect(await db.session.count()).toBe(history.length + 1);
+  expect(await db.session.findMany({
+    where: { id: { in: history.map((session) => session.id) } },
+    include: { tutees: true }, orderBy: { id: "asc" },
+  })).toEqual(history);
+  expect((await mine()).groups[0]?.groupStatus).toBe("needsRepair");
+});
+
+it("rejects inferred attendance defaults if scheduling changes immediately before its planned fence", async () => {
+  await db.timeSlot.create({
+    data: { id: "slot-four", label: "Thursday", dayOfWeek: 4, startMin: 1020, endMin: 1080 },
+  });
+  const acquire = transactions.lockEntity;
+  let moved = false;
+  // Reproduce the ordering deterministically: attendance has read its original
+  // defaults, then a legitimate schedule save wins the planned reservation fence.
+  // A fence acquired only after checking those defaults would admit stale times.
+  const lock = vi.spyOn(transactions, "lockEntity").mockImplementation(async (tx, key) => {
+    if (key === "planned-room-schedule" && !moved) {
+      moved = true;
+      // A concurrent request owns its transaction and audit queue. Leaving all
+      // three scopes prevents this save from joining attendance's rollback.
+      await databaseScope.exit(() => auditCaptureScope.exit(() => afterCommitScope.exit(() =>
+        caller().tutor.setPairingSlot({ pairingId: "a", slotId: "slot-four" }),
+      )));
+    }
+    await acquire(tx, key);
+  });
+  const input = attendance();
+  try {
+    const attempt = caller().tutor.submitAttendance({
+      ...input, startMin: undefined, endMin: undefined,
+    });
+    await expect(attempt).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(attempt).rejects.toThrow("schedule changed");
+    expect(moved).toBe(true);
+    expect(await db.session.count()).toBe(0);
+    expect(await db.pairing.findUnique({ where: { id: "a" } })).toMatchObject({
+      timeSlotId: "slot-four", startMin: 1020, endMin: 1080,
+    });
+  } finally {
+    lock.mockRestore();
+  }
+});
+
 it("adds/removes members and can split/rejoin repeatedly without losing assignments", async () => {
   await save();
   await save(["a", "b", "c"]);
@@ -188,7 +409,7 @@ it("adds/removes members and can split/rejoin repeatedly without losing assignme
   await caller().pairingGroups.save({ snapshot: removed.snapshot, groups: [] });
   expect(await db.pairingGroup.count()).toBe(0);
   expect(await db.pairing.count()).toBe(3);
-  expect(await db.pairingTutee.count()).toBe(4);
+  expect(await db.pairingTutee.count()).toBe(6);
   expect((await save()).groups).toHaveLength(1);
 });
 
@@ -452,7 +673,7 @@ it("database guards prevent foreign group membership and unrelated room overlap"
   expect(await db.pairing.findUnique({ where: { id: "b" } })).toMatchObject({
     groupId: null,
   });
-  expect((await mine()).groups).toHaveLength(0);
+  expect((await mine()).groups[0]).toMatchObject({ groupStatus: "needsRepair", pairingIds: ["a"] });
 });
 
 it("an independent management schedule edit releases that member without disturbing its old group", async () => {

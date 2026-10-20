@@ -16,6 +16,8 @@ import PairingsPage from "./page";
 
 const state = vi.hoisted(() => ({
   sorting: false,
+  grouped: false,
+  invalidGroup: false,
   sortMissing: false,
   confirmed: true,
   readOnly: true,
@@ -95,6 +97,11 @@ vi.mock("~/trpc/react", () => ({
                             ]
                           : [p],
                       )
+                      .flatMap((p) => state.grouped ? [
+                        { ...p, id: "member-a", groupId: "saved-group", group: { primaryPairingId: "member-a" }, subject: "Chemistry", tutees: [{tuteeId: "student", tutee: {englishName: "Group Student"}}] },
+                        { ...p, id: "member-b", groupId: "saved-group", group: { primaryPairingId: "member-a" }, subject: "Mathematics", tutees: state.invalidGroup ? [] : [{tuteeId: "student", tutee: {englishName: "Group Student"}}] },
+                        { ...p, id: "independent", groupId: null, subject: "Physics" },
+                      ] : [p])
                       .flatMap((p, index) =>
                         state.sortMissing && index === 0
                           ? [
@@ -136,6 +143,8 @@ vi.mock("~/trpc/react", () => ({
 afterEach(() => {
   cleanup();
   state.sorting = false;
+  state.grouped = false;
+  state.invalidGroup = false;
   state.sortMissing = false;
   state.confirmed = true;
   state.readOnly = true;
@@ -565,3 +574,35 @@ it.each([
     expect(state.mutate).not.toHaveBeenCalled();
   },
 );
+
+
+it.each(["en", "zh"] as const)("shows explicit group identity and complete membership to a %s read-only viewer in six columns", (locale) => {
+  state.grouped = true;
+  state.confirmed = false;
+  mount(locale);
+  const messages = locale === "en" ? en : zh;
+  expect(screen.getAllByRole("columnheader")).toHaveLength(6);
+  const reference = messages.pairingGroups.reference.replace("{id}", "saved-group");
+  expect(screen.getAllByText(reference)).toHaveLength(2);
+  const independent = document.getElementById("independent")!;
+  expect(independent.textContent).not.toContain(reference);
+  expect(screen.queryByRole("button", { name: /^Edit:/ })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /Synthetic tutor · Chemistry/ }));
+  const dialog = screen.getByRole("dialog");
+  const group = within(dialog).getByRole("heading", { name: reference }).closest("section")!;
+  expect(within(group).getByText(messages.pairingGroups.status.awaiting)).toBeTruthy();
+  expect(within(group).getByText("Chemistry + Mathematics")).toBeTruthy();
+  expect(within(group).getAllByText("Group Student")).toHaveLength(1);
+  expect(within(group).getByText("Chemistry, Mathematics")).toBeTruthy();
+  expect(state.mutate).not.toHaveBeenCalled();
+});
+
+it("marks a legacy incomplete saved group as needing repair in its summary and reader", () => {
+  state.grouped = true;
+  state.invalidGroup = true;
+  mount("en");
+  expect(screen.getAllByText(en.pairingGroups.status.needsRepair)).toHaveLength(2);
+  fireEvent.click(screen.getByRole("button", { name: /Synthetic tutor · Chemistry/ }));
+  expect(within(screen.getByRole("dialog")).getByText(en.pairingGroups.needsRepair)).toBeTruthy();
+  expect(state.mutate).not.toHaveBeenCalled();
+});

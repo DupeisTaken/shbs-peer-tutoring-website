@@ -1184,11 +1184,12 @@ Application locks protect supported API writes. Do not import directly into requ
 snapshot for the active quarter, tutor eligibility, preference and assignment
 identities. Only pairings with at least one non-INACTIVE tutee count; PENDING
 tutees already assigned reserve effort. Empty/inactive-only rosters, inactive or
-revoked tutors and ended quarters contribute no blocks. Confirmed rows share the
-`termId/dayOfWeek/startMin/endMin` identity, independent of subjects, roster size,
-room and catalog-slot IDs; unconfirmed rows use their pairing ID so placeholder
-times never merge. Attendance history is not queried. Inactive slots retain the
-copied confirmed schedule's workload. The count estimates effort if assignments
+revoked tutors and ended quarters contribute no blocks. A coherent, eligible
+explicit group shares one block identity whether scheduled or awaiting a time.
+Independent rows use their pairing ID even when their confirmed clocks match;
+placeholder clocks never imply grouping. Invalid groups are not collapsed.
+Attendance history is not queried. Inactive slots retain the copied confirmed
+schedule's workload. The count estimates effort if assignments
 work out; it is neither an attendance total nor a weekly/program cap.
 
 `admin.assignmentWorkloads` is staff-only assignment context. Native options use
@@ -1205,7 +1206,9 @@ pending protection until it settles.
 A separate default-only migration sets new tutors to 1 without backfilling unset
 values; the existing inactive trigger still wins with zero. All native tutor
 selectors and the Pairings assignment editor consume the same count. The Pairings
-summary keeps six pairing-level columns; workload counts and preferences remain
+summary keeps six pairing-level columns and individual actions, exposes each saved
+group's shared reference and status, and shows membership/coverage in the rightmost
+Details reader. Workload counts and preferences remain
 at assignment decisions. Its Room cell renders a name only for a confirmed
 schedule with a room. Feature-owned `PairingRoomSummary` displays `-` for awaiting
 schedules or explicit NONE, and `x` for remaining roomless records. Automatic is
@@ -1363,19 +1366,38 @@ workflow links never call scheduling, voting, attendance or booking mutations.
 [Mutual availability ranking](../src/lib/mutual-availability.ts) is a pure,
 read-only projection of the active slot catalog, tutor selected IDs and the
 assigned roster's slot IDs. The tutor pairing selector considers the full distinct
-current roster for a saved group and presents exact shared IDs under **Both
-Available**, with the remaining published choices under **Other Time Slots**.
-Option labels contain only catalog label, weekday and time; availability counts,
-per-option explanations and redundant guidance below the selector are omitted.
-Empty groups are omitted. Remaining choices sort by tutor selection, descending
+current roster for a saved group and presents non-conflicting exact shared IDs
+under **Both Available**, with other non-conflicting published choices under
+**Other Time Slots**. The separate [planned interval helper](../src/lib/planned-scheduling.ts)
+classifies a conflict with another assigned tutor block as **Unavailable** first.
+Those options stay visible but disabled. It compares copied weekday/start/end,
+including retained unlinked schedules, and excludes only the selected assignment
+or its complete valid explicit group; strict overlap permits adjacency.
+Available option labels contain catalog label, weekday and time; unavailable
+options also explain the overlap. Availability counts and redundant guidance below
+the selector are omitted.
+Empty selector categories are omitted. Remaining choices sort by tutor selection, descending
 matched-tutee count, then weekday/start/end/ID. Similar clock intervals never imply
 agreement. Missing selections and unavailable reads never qualify a slot for the
-shared group; failed reads retain the existing query recovery. No published choice
-is removed. The current unpublished linked slot remains visible, while retained
+shared group; failed reads retain the existing query recovery and cannot authorize
+a new schedule. No published choice is removed. The current unpublished linked slot remains visible, while retained
 confirmed times keep their existing
 summary. Sorting never changes the saved selection, review or versioned mutation
 payload. Coverage lives in [pure ranking tests](../src/lib/mutual-availability.test.ts)
 and [pairing UI tests](<../src/app/(tutor)/_components/tutor-pairings.test.tsx>).
+
+[Tutor scheduling validation](../src/server/tutor-scheduling.ts) runs under the
+existing planned-room transaction fence before room-mode early returns, so NONE,
+AUTO shortages and distinct physical rooms cannot bypass tutor occupancy.
+Management creation/edit/reassignment and tutor/group scheduling use the same
+allocator boundary. Catalog changes validate the complete prospective cohort,
+including conflicts between its units, before changing reservations. Approval
+execution reruns the authoritative writer. Live roster eligibility applies to
+active-period groups; catalog propagation retains complete historical groups
+without treating later student inactivation as a repair requirement for ended
+periods. This is application transaction
+enforcement, not a new claim about arbitrary direct SQL writes; recorded attendance
+retains its separate tutor/date overlap and immutable-retry rules.
 
 Confirmed planned room bookings cannot overlap within a program period or conflict with a recurring blackout. Unconfirmed numeric placeholders do not reserve rooms, and changing only the confirmation flag still invokes the database room guard. Adjacent bookings are allowed. Shared transaction locks keep application validation coherent; database triggers enforce the final constraint. Actual historical attendance can differ from a plan and is recorded with conflict warnings and management notification.
 
@@ -1412,9 +1434,36 @@ Meeting deductions use the semester allowance in [meeting-hours.ts](../src/serve
 
 [Catalog-slot attendance propagation](../src/server/attendance-schedule.ts) holds an exclusive transaction advisory barrier before discovering affected history. Attendance and patrol submissions/corrections acquire shared access before their other locks, so normal independent writes can still proceed concurrently. Clock changes move each complete merged block atomically, retain its slot identities and single-credit factors, reject final tutor/date overlaps, reconcile flags and linked deductions, and preserve prior evidence in the audit log. Slot, pairing, session, hours, flags, audit and HEAD notification updates share one transaction. Weekday-only edits preserve actual history. Submissions that read stale catalog defaults must reload; this application coordination does not claim to prevent arbitrary direct SQL attendance writes.
 
-Reusable tutor pairing groups are implemented by [pairing-groups](../src/server/pairing-groups.ts) and the self-scoped [router](../src/server/api/routers/pairing-groups.ts). `PairingGroup` owns a tutor, period and preferred primary assignment; nullable `Pairing.groupId` retains each original subject and roster. The additive migration backfills no group and never changes Session evidence. A complete group draft carries a SHA-256 fingerprint of current assignments, memberships, active-student roster identity, room labels, schedules and active catalog slots. Saving holds the program-period, tutor and planned-room locks, row-locks the tutor's current assignments, revalidates the snapshot and all memberships, then atomically replaces the requested groups and copied schedules. Only active tutors with participation access can write their own current populated assignments; each assignment belongs to at most one group, with two to six members. No subject-name/shared-student rule is inferred.
+Reusable tutor pairing groups are implemented by [pairing-groups](../src/server/pairing-groups.ts) and the self-scoped [router](../src/server/api/routers/pairing-groups.ts). `PairingGroup` owns a tutor, period and preferred primary assignment; nullable `Pairing.groupId` retains each original subject and roster. The additive migration backfills no group and never changes Session evidence. A complete group draft carries a SHA-256 fingerprint of current assignments, memberships, active-student roster identity, room labels, schedules and active catalog slots. Saving holds the program-period, tutor and planned-room locks, row-locks the tutor's current assignments, revalidates the snapshot and all memberships, then atomically replaces the requested groups and copied schedules. Only active tutors with participation access can write their own current populated assignments; each assignment belongs to at most one group, with two to six members. The shared [eligibility helper](../src/lib/pairing-group-eligibility.ts) requires each distinct tutee's selected subject set to equal the whole group's subject set. It compares stored subject labels exactly because Pairing has no subject ID; case, whitespace and aliases never invent missing assignments. Splitting one subject across roster rows remains valid.
 
-Every group uses its primary member's room and one active catalog slot. Affected bookings are temporarily unconfirmed inside the transaction before complete room validation and final member writes; any failure rolls everything back. Members leaving a group become unscheduled without deleting assignments or changing actual attendance. A database owner guard clears membership on reassignment and independent schedule/room edits, while retaining catalog propagation through the same slot. The assignment editor's `admin.updatePairing` detaches a member when tutor, slot or room intent changes; retained subject/roster edits preserve its group. Dedicated `admin.setPairingRoom` and `admin.retryRoomAllocation` instead operate on the complete reservation unit from any member, preserving the roster and qualification evidence. The room trigger allows same-tutor/same-period group members to share a booking and continues rejecting unrelated bookings and blackouts. Existing self-service slot changes expand to all members, and catalog preflight recognizes one grouped room booking. Read projections only combine members with a coherent schedule/room tuple, falling back to independent assignments if an old primary disappears or a group becomes a singleton. Group tables are included before Pairing in historical export/import dependency order.
+Groups can persist before scheduling: nullable `slotId` saves an Awaiting schedule
+group, with no confirmed time or reservation. A selected active slot schedules
+every member together using the primary's room intent. `retainSchedule` explicitly
+preserves an unchanged complete group's existing confirmed interval when its
+catalog link is absent or unpublished; it cannot smuggle a new interval or changed
+membership. Affected bookings are temporarily unconfirmed inside the transaction
+before complete room/tutor validation and final member writes; failure rolls back
+the whole change. Members leaving a group become unscheduled without deleting
+assignments or changing actual attendance.
+
+The database owner guard still clears membership on reassignment and independent
+schedule/room edits, while retaining catalog propagation through the same slot.
+Deliberate management subject/roster/deletion changes validate the prospective
+remaining group or require an explicit split first. Mandatory lifecycle removal
+keeps its existing authority and can leave a dynamically flagged repair group.
+Read projections retain every explicit group, including unscheduled, singleton
+and divergent legacy groups, and expose `scheduled`, `awaiting` or `needsRepair`.
+No coherent subset is silently presented as the whole lesson. Group attendance
+and scheduling reject repair groups; dashboard/upcoming readers show repair work
+instead of an appointment. Historical Session evidence remains unchanged.
+
+Dedicated `admin.setPairingRoom` and `admin.retryRoomAllocation` operate on the
+complete valid reservation unit from any member, preserving roster and
+qualification evidence. The room trigger allows same-tutor/same-period group
+members to share a booking and rejects unrelated bookings and blackouts. Existing
+self-service slot changes expand to all members, and catalog preflight recognizes
+one grouped room booking. Group tables precede Pairing in historical export/import
+dependency order.
 
 The [group editor](../src/app/(tutor)/_components/pairing-group-editor.tsx) composes ProfileDialog, FormSection, ChangeReview and QueryFeedback. Its draft/version survives failed writes and background reads; explicit Reload replaces it only after a successful read. Same-tick admission and owned dialog pending state block duplicate writes and dismissal. The retained editor must also honor current participation eligibility after opening: loss of active status blocks new Review/Save admission without discarding the draft. This write guard must not block read-only synchronization Retry for a save already accepted. Accepted saves retain their receipt through read-only synchronization recovery. Attendance group selection copies a distinct-student snapshot into its separate draft; changing saved groups does not rewrite a pending/saved attendance form. One-off combined attendance and individual-subject attendance remain available. English/Chinese copy is authored; the other six catalogs use English for these new group strings pending translation.
 

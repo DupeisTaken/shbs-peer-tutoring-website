@@ -83,7 +83,7 @@ beforeEach(() => {
       startMin: 900,
       endMin: 960,
       room: null,
-      tutees: [{}],
+      tutees: [{ tuteeId: "student" }],
     },
   ];
   state.interviews = [
@@ -141,6 +141,20 @@ it.each(["en", "zh"])(
     ).toContain(locale === "en" ? "04:00 PM" : "16:00");
   },
 );
+it("shows a repair warning without presenting an incomplete group as a confirmed appointment", () => {
+  const base = state.pairings[0] as Record<string, unknown>;
+  state.pairings = [
+    { ...base, id: "chem", groupId: "g", subject: "Chemistry",
+      group: { primaryPairingId: "chem" }, tutees: [{ tuteeId: "a" }] },
+    { ...base, id: "math", groupId: "g", subject: "Mathematics",
+      group: { primaryPairingId: "chem" }, tutees: [{ tuteeId: "a" }, { tuteeId: "b" }] },
+  ];
+  state.interviews = [];
+  render(page());
+  expect(screen.getByText(/1 pairing group needs repair/)).toBeTruthy();
+  expect(screen.queryByText("Chemistry / Mathematics")).toBeNull();
+  expect(screen.queryByText(en.tutorUpcoming.empty)).toBeNull();
+});
 it.each(["pairings", "interviews"])(
   "conceals both cached sources after %s denial until both freshly recover",
   async (source) => {

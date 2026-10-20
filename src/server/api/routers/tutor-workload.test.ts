@@ -118,9 +118,15 @@ const pairing = (
     },
   });
 };
-it("counts current shared blocks once, pending placeholders separately, zero explicitly, and excludes empty/history/inactive-only rosters", async () => {
-  await pairing();
-  await pairing();
+it("counts explicit groups once, pending placeholders separately, zero explicitly, and excludes empty/history/inactive-only rosters", async () => {
+  const first = await pairing();
+  const second = await pairing();
+  const group = await db.pairingGroup.create({
+    data: { tutorId, termId, primaryPairingId: first.id },
+  });
+  await db.pairing.updateMany({
+    where: { id: { in: [first.id, second.id] } }, data: { groupId: group.id },
+  });
   await pairing({ scheduleConfirmed: false });
   await pairing({ scheduleConfirmed: false });
   await pairing({ dayOfWeek: 2 });
@@ -172,6 +178,28 @@ it("retains confirmed work when its catalog slot becomes inactive and ignores hi
     },
   });
   expect((await workload()).count).toBe(1);
+});
+
+it("counts matching independent clocks separately and a valid awaiting group once", async () => {
+  await pairing();
+  await pairing();
+  const first = await pairing({ scheduleConfirmed: false });
+  const second = await pairing({ scheduleConfirmed: false, dayOfWeek: 2 });
+  const group = await db.pairingGroup.create({ data: { tutorId, termId, primaryPairingId: first.id } });
+  await db.pairing.updateMany({ where: { id: { in: [first.id, second.id] } }, data: { groupId: group.id } });
+  expect((await workload()).count).toBe(3);
+});
+
+it("does not collapse invalid groups after active roster coverage changes", async () => {
+  const first = await pairing({ scheduleConfirmed: false });
+  const second = await pairing({ scheduleConfirmed: false });
+  const additional = await db.tutee.create({ data: { englishName: "Synthetic extra student", status: "ACTIVE" } });
+  await db.pairing.update({ where: { id: second.id }, data: { subject: "Other subject" } });
+  const group = await db.pairingGroup.create({ data: { tutorId, termId, primaryPairingId: first.id } });
+  await db.pairing.updateMany({ where: { id: { in: [first.id, second.id] } }, data: { groupId: group.id } });
+  expect((await workload()).count).toBe(1);
+  await db.pairingTutee.create({ data: { pairingId: second.id, tuteeId: additional.id } });
+  expect((await workload()).count).toBe(2);
 });
 it("uses the same single current quarter as assignment when an older active flag remains", async () => {
   await pairing();

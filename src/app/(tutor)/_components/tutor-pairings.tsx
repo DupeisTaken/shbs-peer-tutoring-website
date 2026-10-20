@@ -7,6 +7,7 @@ import { Button } from "~/app/_components/ui/button";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 import { rankMutualAvailability } from "~/lib/mutual-availability";
+import { plannedIntervalsOverlap } from "~/lib/planned-scheduling";
 
 import { PairingTuteeDetails } from "./pairing-tutee-details";
 import { useLayoutEffect, useRef, useState } from "react";
@@ -76,6 +77,8 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
       await settleRefreshes([
         () => invalidateAndReport(utils.tutor.myPairings),
         () => invalidateAndReport(utils.tutor.schedule),
+        // The same account may also have an inactive management reader cached.
+        () => utils.admin?.pairings ? invalidateAndReport(utils.admin.pairings) : Promise.resolve(),
         () =>
           availability.refetch({ throwOnError: true }).then((result) => {
             if (!result.isSuccess)
@@ -123,6 +126,20 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
       slotRefreshFailed
     )
       return;
+    const entry = pairingEntries(pairings.data ?? []).find((item) =>
+      item.pairings.some((member) => member.id === p.id),
+    );
+    const candidate = availability.data?.slots.find((slot) => slot.id === slotId);
+    const exclusions = entry?.groupId && entry.groupStatus !== "needsRepair"
+      ? entry.pairings.map((member) => member.id)
+      : [p.id];
+    // Native disabled options are also guarded at admission, including retries
+    // of a retained draft after the occupied timetable changes.
+    if (entry?.groupStatus === "needsRepair" || (candidate &&
+      (pairings.data ?? []).some((other) =>
+        !exclusions.includes(other.id) && other.termId === p.termId && other.scheduleConfirmed &&
+        plannedIntervalsOverlap(candidate, other),
+      ))) return;
     const draft = {
       slotId,
       version: slotDrafts[p.id]?.version ?? p.roomVersion,
@@ -235,9 +252,15 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
   const renderAssignment = (p: (typeof list)[number]) => {
     // A member control schedules its entire saved group. Recommendations must
     // therefore include every current tutee affected by that reviewed write.
-    const members = entries.find((entry) =>
+    const entry = entries.find((entry) =>
       entry.pairings.some((member) => member.id === p.id),
-    )?.pairings ?? [p];
+    );
+    const members = entry?.pairings ?? [p];
+    const excluded = new Set(entry?.groupId && entry.groupStatus !== "needsRepair"
+      ? members.map((member) => member.id) : [p.id]);
+    const conflicting = (slot: (typeof slots)[number]) =>
+      list.find((other) => !excluded.has(other.id) && other.termId === p.termId && other.scheduleConfirmed &&
+        plannedIntervalsOverlap(slot, other));
     const currentTutees = [
       ...new Map(
         members.flatMap((member) =>
@@ -269,11 +292,13 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
     // Group the existing advisory ranking without changing selection or save
     // ownership. Unknown availability never qualifies as shared by everyone.
     const slotGroups = [
-      { key: "bothAvailable", options: ranking.ranked.filter((s) => s.mutual) },
+      { key: "bothAvailable", options: ranking.ranked.filter((s) => s.mutual && !conflicting(s.slot)), disabled: false },
       {
         key: "otherTimeSlots",
-        options: ranking.ranked.filter((s) => !s.mutual),
+        options: ranking.ranked.filter((s) => !s.mutual && !conflicting(s.slot)),
+        disabled: false,
       },
+      { key: "unavailable", options: ranking.ranked.filter((s) => conflicting(s.slot)), disabled: true },
     ] as const;
     return (
       <li key={p.id} className="py-3">
@@ -304,7 +329,8 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                 slotWorking ||
                 slotRefreshFailed ||
                 !!pairings.error ||
-                !!availability.error
+                !!availability.error ||
+                entry?.groupStatus === "needsRepair"
               }
               onChange={(e) => void changeSlot(p, e.target.value || null)}
               className="select min-w-0 sm:w-auto"
@@ -317,16 +343,17 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                     {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
                   </option>
                 )}
-              {slotGroups.map(({ key, options }) =>
+              {slotGroups.map(({ key, options, disabled }) =>
                 options.length > 0 ? (
                   <optgroup
                     key={key}
                     label={t(`tutor.pairings.ranking.${key}`)}
                   >
                     {options.map(({ slot: s }) => (
-                      <option key={s.id} value={s.id}>
+                      <option key={s.id} value={s.id} disabled={disabled}>
                         {s.label} · {formatWeekday(s.dayOfWeek, locale)}{" "}
                         {minToHm(s.startMin)}–{minToHm(s.endMin)}
+                        {disabled ? ` · ${t("pairingGroups.slotConflict", { subjects: conflicting(s)!.subject })}` : ""}
                       </option>
                     ))}
                   </optgroup>
@@ -448,8 +475,11 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
             <li key={entry.id} className="space-y-3 py-4">
               <p className="badge">{t("pairingGroups.combined")}</p>
               <h3 className="font-semibold text-wrap">
-                {entry.pairings.map((p) => p.subject).join(" + ")}
+                {[...new Set(entry.pairings.map((p) => p.subject))].join(" + ")}
               </h3>
+              {entry.groupStatus === "needsRepair" && (
+                <InlineNotice tone="warning">{t("pairingGroups.needsRepair")}</InlineNotice>
+              )}
               <p className="muted text-sm">
                 {pairingScheduleText(
                   entry.primary,
@@ -483,6 +513,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
                           p.tutees.some((x) => x.tuteeId === student.tuteeId),
                         )
                         .map((p) => p.subject)
+                        .filter((subject, index, all) => all.indexOf(subject) === index)
                         .join(", ")}
                     </p>
                   </li>
@@ -491,7 +522,7 @@ export function TutorPairings({ active = true }: { active?: boolean }) {
               {active && (
                 <Button
                   size="compact"
-                  disabled={attendanceLocked}
+                  disabled={attendanceLocked || entry.groupStatus === "needsRepair"}
                   onClick={() => {
                     selectAttendance("group:" + entry.groupId);
                     document
