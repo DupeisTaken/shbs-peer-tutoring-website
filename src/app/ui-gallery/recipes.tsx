@@ -5,6 +5,7 @@ import { WorkloadPreferenceRecipe } from "./workload-preference-recipe";
 import { NavigationRecipes } from "./navigation-recipes";
 import { ActionReviewRecipe } from "./action-review-recipe";
 import { CreationRiskRecipe } from "./creation-risk-recipe";
+import { CodeRecipe } from "./code-recipe";
 import { useEffect, useState, type ReactNode } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import enMessages from "../../../messages/en.json";
@@ -403,6 +404,7 @@ export function RecipeGallery({
       messages={locale === "en" ? enMessages : zhMessages}
     >
       <div className="grid items-start gap-6 lg:grid-cols-2">
+        <CodeRecipe locale={locale} />
         <ActionReviewRecipe />
         <CreationRiskRecipe />
         <Recipe

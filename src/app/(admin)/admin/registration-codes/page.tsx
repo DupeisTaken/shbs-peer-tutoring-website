@@ -26,7 +26,7 @@ import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { queuedApprovalId } from "~/lib/approval-outcome";
 
 /**
- * Registration codes: issue single-use five-character security keys for new tutors and track their
+ * Registration codes: issue single-use five-character mixed security keys for new tutors and track their
  * status. Active codes remain re-viewable from their expandable cards until they expire, are used,
  * or are revoked.
  * Head issues directly; Admin also issues Tutor/Crew codes directly. Other eligible

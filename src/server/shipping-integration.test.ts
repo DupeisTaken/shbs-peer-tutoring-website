@@ -338,9 +338,7 @@ it("keeps history, feedback and appeals after a new intake profile and verified 
     "changed-shipping@example.test",
     "ShippingStudentPassword42",
   );
-  const code = /code is ([A-Z0-9]{5})/.exec(
-    send.mock.calls.at(-1)![0].text,
-  )![1]!;
+  const code = / is ([0-9]{4})/.exec(send.mock.calls.at(-1)![0].text)![1]!;
   expect(await confirmEmailChange(user.id, code)).toBe(true);
   expect(
     (await student.student.me({ page: 0 })).sessions.map((s) => s.session.id),
@@ -417,7 +415,7 @@ it("preserves quarter withdrawal restrictions after a verified account email cha
   expect(
     await confirmEmailChange(
       user.id,
-      /code is ([A-Z0-9]{5})/.exec(send.mock.calls.at(-1)![0].text)![1]!,
+      / is ([0-9]{4})/.exec(send.mock.calls.at(-1)![0].text)![1]!,
     ),
   ).toBe(true);
   await expect(
@@ -676,10 +674,31 @@ it("consolidates current tutee schedules for admin and tutor accounts using expl
     });
   }
   // Two owned profiles on one pairing must still produce one schedule entry.
-  await db.pairingTutee.create({data:{pairingId:"schedule-a",tuteeId:"owned-b"}});
-  expect((await admin().student.me({page:0})).schedule.map(row=>row.id)).toEqual(["schedule-a","schedule-b"]);
-  await db.user.update({where:{id:"shipping-admin"},data:{role:"TUTOR",tutorId:"shipping-tutor"}});
-  await db.policyAcceptance.create({ data: { userId: "shipping-admin", slug: "tutee-policy", revision, signature: "Synthetic manager", snapshot: [] } });
-  expect((await actor("shipping-admin","TUTOR").student.me({page:0})).schedule.map(row=>row.id)).toEqual(["schedule-a","schedule-b"]);
-  await expect(coordinator().student.me({page:0})).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await db.pairingTutee.create({
+    data: { pairingId: "schedule-a", tuteeId: "owned-b" },
+  });
+  expect(
+    (await admin().student.me({ page: 0 })).schedule.map((row) => row.id),
+  ).toEqual(["schedule-a", "schedule-b"]);
+  await db.user.update({
+    where: { id: "shipping-admin" },
+    data: { role: "TUTOR", tutorId: "shipping-tutor" },
+  });
+  await db.policyAcceptance.create({
+    data: {
+      userId: "shipping-admin",
+      slug: "tutee-policy",
+      revision,
+      signature: "Synthetic manager",
+      snapshot: [],
+    },
+  });
+  expect(
+    (
+      await actor("shipping-admin", "TUTOR").student.me({ page: 0 })
+    ).schedule.map((row) => row.id),
+  ).toEqual(["schedule-a", "schedule-b"]);
+  await expect(coordinator().student.me({ page: 0 })).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
 });

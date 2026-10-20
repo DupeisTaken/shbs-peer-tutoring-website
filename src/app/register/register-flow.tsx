@@ -1,11 +1,9 @@
 "use client";
+import { CodeInput } from "~/app/_components/ui/code-field";
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
-import {
-  normalizeRegCode,
-  normalizeRegCodeDraft,
-} from "~/lib/registration-code";
+import { normalizeRegCode } from "~/lib/registration-code";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { RegistrationProgress } from "~/app/_components/registration-progress";
 import { Button } from "~/app/_components/ui/button";
@@ -32,9 +30,6 @@ export function RegisterFlow({
   );
   const [proof, setProof] = useState("");
   const [code, setCode] = useState(normalizedInitialCode);
-  const [legacyEntry, setLegacyEntry] = useState(
-    normalizedInitialCode.length > 5,
-  );
   const [email, setEmail] = useState("");
   const [checked, setChecked] = useState(false);
   const [displayedId, setDisplayedId] = useState("");
@@ -139,43 +134,20 @@ export function RegisterFlow({
             </label>
           </>
         ) : (
-          <label className="block">
-            <span className="label">
-              {t("code")}
-              <FieldRequirement state="required" />
-            </span>
-            <input
-              className="input w-full text-center text-2xl tracking-[0.4em] uppercase"
-              autoComplete="one-time-code"
-              autoCapitalize="characters"
-              placeholder="XXXXX"
-              required
-              minLength={5}
-              maxLength={legacyEntry ? 12 : 5}
-              value={code}
-              onPaste={(event) => {
-                // Normalize before native maxlength can truncate copied separators.
-                // A legacy editor also preserves digit 1 in pasted code prefixes.
-                const pasted = normalizeRegCodeDraft(
-                  event.clipboardData.getData("text"),
-                  legacyEntry,
-                );
-                if (pasted.length === 5 || /^[A-F0-9]{12}$/.test(pasted)) {
-                  event.preventDefault();
-                  setCode(pasted);
-                  if (pasted.length === 12) setLegacyEntry(true);
-                }
-              }}
-              onChange={(event) =>
-                // Retyping a legacy receipt must not turn its digit 1 into I
-                // when the draft temporarily reaches five characters.
-                setCode(normalizeRegCodeDraft(event.target.value, legacyEntry))
-              }
-            />
-          </label>
+          <CodeInput
+            purpose="invitation"
+            value={code}
+            onValueChange={setCode}
+            aria-invalid={Boolean(error)}
+            aria-describedby={error ? "registration-entry-error" : undefined}
+          />
         )}
         {error && (
-          <p role="alert" className="text-sm text-red-700">
+          <p
+            role="alert"
+            id="registration-entry-error"
+            className="text-sm text-red-700"
+          >
             <SignupError error={error} />
           </p>
         )}

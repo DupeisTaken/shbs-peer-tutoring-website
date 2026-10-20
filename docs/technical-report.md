@@ -89,20 +89,67 @@ Crew submit/status mail uses the existing durable signup mail admission and opti
 
 ### Opaque invitation codes
 
-New displayed invitations and staff keys use the shared five-character
-Steam-style alphabet `023456789ABCDEFGHIJKMNPQRSTUVWXYZ`, with both letters and digits.
-Entry canonicalizes `O`/`o` to `0` and, for five-character codes only, `1` to `I`.
-The shared browser-safe normalizer keeps input, lookup and quota identity consistent;
-longer legacy hexadecimal receipts and OTPs retain digit `1`. Existing displayed receipts
-are re-derived with the current or original alphabet only when the persisted hash matches,
-so retries and optional mail preserve their code; an unmatched hash fails closed.
-Keep the legacy centered, uppercase, widely spaced `XXXXX` code card. Outstanding
-twelve-character invitations remain accepted for compatibility; code length must not
-determine a new invitation's source or authorization. Server resolution distinguishes
-staff keys from displayed invitations, retains proof and exact recipient checks, and
-avoids ambiguous code issuance through the shared database namespace lock.
-Mailbox verification remains a separate secret: tutee verification uses six hexadecimal
-characters, while the resulting invitation uses five Steam-style characters.
+New displayed invitations and staff registration keys contain exactly five characters,
+including both letters and numbers from `023456789ABCDEFGHIJKMNPQRSTUVWXYZ`;
+emailed verification challenges contain exactly four digits (`0–9`). Both are strings:
+leading zeros survive generation, rendering, copy/paste, normalization and submission.
+Invitation and verification generation/normalization have distinct contracts in
+[the code helpers](../src/server/auth/code.ts); never reuse an invitation generator
+for a mailbox challenge. Random generation uses cryptographic randomness and rejects
+invitation candidates lacking either character class. Displayed invitation derivation
+uses the `display:mixed:v3` namespace, skips candidates lacking either class and retains
+the stored collision nonce and shared namespace lock, so a retry or optional email
+reproduces the code already issued.
+
+The site uses green invitation and blue verification box backgrounds, independent of
+the selected accent theme. It retains the legacy single wide native input, neutral
+text and borders, with gray `XXXXX` or `XXXX` placeholders. Purpose remains explicit
+in the field's translated label and accessible help; there are no segmented slots.
+Paste, correction, leading zeros and email-code autofill retain ordinary input behavior.
+Invitation entry uses a text keyboard; email entry requests a numeric keyboard and
+switches to text when a pasted or entered older code contains letters. Older input
+remains complete instead of being silently truncated.
+HTML mail retains its legacy single code panel, typography, border and spacing.
+Only the code background changes to dark green (`#18342C`) for invitations or blue
+(`#172F49`) for verification, including its dark-mode fallback. The existing body
+instructions identify the code's purpose; the panel adds no label or guidance wrapper.
+
+Outstanding five-digit, five-character alphanumeric and twelve-character invitation codes remain
+usable until their existing expiry, revocation or consumption. Receipt reconstruction
+checks the persisted hash before selecting the new mixed derivation or an older
+numeric/alphanumeric derivation, and fails closed if none matches. Mixed codes retain
+letter aliases without rewriting a numeric `1` into `I`. Entirely numeric input always denotes a numeric code;
+use the original letters for an older code whose aliases would be all digits.
+Already issued verification challenges keep their original
+hash/format; replacement challenges use the new four-digit format. Tutee survey
+verification and staged replacements persist `emailCodeVersion`: migration
+`20261020070000_numeric_email_codes` gives existing rows version `0` for their
+six-character hexadecimal challenge; new issuance writes version `1` for four digits.
+The verifier accepts only that row's format. A legacy code never acquires a new lifetime
+or a second valid numeric interpretation. Emails of old receipts show the full value
+in the same single code panel, with previously-issued-code guidance in the body.
+
+The emailed challenge inventory is:
+
+| Purpose | Owning implementation | Preserved authority |
+| --- | --- | --- |
+| Tutee signup and replacement verification | [Student surveys](../src/server/student-survey.ts), [staged replacements](../src/server/student-signup-intents.ts) | Exact survey/submission, fixed deadline, original priority and consent |
+| Viewer signup | [Viewer signup](../src/server/auth/viewer-signup.ts) | Verified mailbox before invitation issuance |
+| Crew application and private status | [Crew signup](../src/server/crew/signup.ts) | Mailbox proof remains separate from staff approval |
+| Staff-key and recipient invitation verification | [Registration](../src/server/auth/registration.ts), [account invitations](../src/server/auth/account-invitations.ts) | Recipient, original staff authorization, explicit access review |
+| Historical access setup | [History setup](../src/server/history-account-setup.ts) | Exact historical invitation; no current enrollment |
+| Associated-email verification and primary-email change | [Account emails](../src/server/auth/account-emails.ts), [email change](../src/server/auth/email-change.ts) | Exact account and destination; ownership rechecked on claim |
+| Email sign-in challenge | [Two-factor sign-in](../src/server/auth/two-factor.ts) | Primary mailbox, credentials, session generation and sign-in policy |
+| Password/security step-up confirmation | [Step-up](../src/server/auth/step-up.ts) | Exact account and purpose; single-use confirmation |
+
+Four numeric digits have 10,000 possible values. Each verification flow retains its
+existing five- or six-failure cap (0.05%–0.06% per challenge), including the remaining
+budget of outstanding legacy challenges; recipient/IP admission and resend limits
+remain separate.
+Expiry, single use, resend replacement and purpose/recipient scoping still apply;
+a code's color or length grants no role or ownership. Passwords, long proof tokens,
+recovery/setup links and their authorization rules are unchanged. Preserve failed
+delivery cleanup and transaction boundaries when adding another challenge caller.
 
 The code is opaque: no character or position encodes a role, account identity or
 invitation type. The server resolves its value against authorization records and checks

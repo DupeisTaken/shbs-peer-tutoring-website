@@ -46,8 +46,36 @@ const samples: {
   {
     name: "code",
     subject: "Your sign-in code",
-    text: "Hi there,\n\nYour sign-in code is AB234. It expires in 10 minutes.\n\nIf you did not request this, ignore this email.",
-    presentation: { eyebrow: "SIGN IN", code: "AB234" },
+    text: "Hi there,\n\nYour email verification code is 0012 (4 digits). 邮箱验证码：0012（4 位数字）。It expires in 10 minutes.\n\nIf you did not request this, ignore this email.",
+    presentation: {
+      eyebrow: "SIGN IN",
+      code: "0012",
+      codePurpose: "verification",
+    },
+  },
+  {
+    name: "invitation",
+    subject: "Your invitation code / 您的邀请码",
+    text: "Invitation code: A2B3C (5 letters and numbers). 邀请码：A2B3C（5 位字母和数字）。\n\nReview and accept the invitation to complete your request. Copy every character shown.",
+    presentation: {
+      eyebrow: "ACCOUNT INVITATION",
+      code: "A2B3C",
+      codePurpose: "invitation",
+      action: {
+        label: "Review invitation / 查看邀请",
+        url: "https://tutoring.example.edu/register?code=A2B3C",
+      },
+    },
+  },
+  {
+    name: "legacy-invitation",
+    subject: "Your invitation code / 您的邀请码",
+    text: "Invitation code: 012345ABCDEF. 邀请码：012345ABCDEF。\n\nThis previously issued invitation is unchanged. Enter every character shown.",
+    presentation: {
+      eyebrow: "ACCOUNT INVITATION",
+      code: "012345ABCDEF",
+      codePurpose: "invitation",
+    },
   },
   {
     name: "signup",

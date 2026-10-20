@@ -6,8 +6,11 @@ import {
  * Existing recipients follow exactly the same public response and retain their role. */
 import { db } from "~/server/db";
 import { hashPassword } from "./password";
-import { hashCode, registrationCompletionProof } from "./registration";
-import { generateRegistrationCode } from "./code";
+import {
+  hashCode,
+  freshEmailCode,
+  registrationCompletionProof,
+} from "./registration";
 import { inTransaction, type DomainDb } from "~/server/transactions";
 import {
   configuredNewNames,
@@ -60,7 +63,11 @@ async function startViewerSignupLocked(
       name: await configuredLegacyIntakeName(client, input.name, "VIEWER"),
     };
   await assertPrimaryName(client, input.name);
-  const code = generateRegistrationCode();
+  const previous = await client.viewerSignup.findUnique({
+    where: { email },
+    select: { codeHash: true },
+  });
+  const code = freshEmailCode([previous?.codeHash]);
   const data = {
     firstName: input.firstName,
     lastName: input.lastName,

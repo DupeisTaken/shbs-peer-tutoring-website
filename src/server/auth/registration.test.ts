@@ -16,6 +16,8 @@ import {
   completeRegistration,
   setEmailVerification,
   confirmEmailCode,
+  freshEmailCode,
+  hashCode,
 } from "./registration";
 import {
   REGISTRATION_KINDS,
@@ -23,6 +25,21 @@ import {
 } from "~/lib/registration-kind";
 import { setApplicationInvalidity } from "~/server/request-invalidity";
 let ip = 0;
+
+it("bounds replacement-code retries when the random source repeatedly returns the prior code", () => {
+  const generator = vi
+    .spyOn(codeHelpers, "generateEmailVerificationCode")
+    .mockReturnValue("0001");
+  try {
+    expect(() => freshEmailCode([hashCode("0001")])).toThrow(
+      "Could not generate a fresh",
+    );
+    expect(generator).toHaveBeenCalledTimes(20);
+  } finally {
+    generator.mockRestore();
+  }
+});
+
 const actor = (id: string, role: Session["role"] = "HEAD") =>
   createCaller({
     db,
@@ -146,7 +163,7 @@ it("never reuses the staff-visible key or previous OTP as a mailbox challenge", 
     (candidate) => candidate !== row.code,
   );
   const generator = vi
-    .spyOn(codeHelpers, "generateRegistrationCode")
+    .spyOn(codeHelpers, "generateEmailVerificationCode")
     .mockReturnValueOnce(previous!);
   try {
     await setEmailVerification(row, "new@example.test");
@@ -280,7 +297,7 @@ it.each([
       expect.objectContaining({ category: "SECURITY" }),
     );
     const sent = mail.send.mock.calls[0]?.[0] as { text: string };
-    const otp = /invitation code is ([A-Z0-9]{5})/.exec(sent.text)?.[1];
+    const otp = / is ([0-9]{4})/.exec(sent.text)?.[1];
     if (!otp) throw Error("No email OTP captured");
     await expect(
       client.registration.verifyEmail({

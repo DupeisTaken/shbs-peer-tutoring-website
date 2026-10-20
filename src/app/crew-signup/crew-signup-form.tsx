@@ -1,4 +1,5 @@
 "use client";
+import { CodeInput } from "~/app/_components/ui/code-field";
 
 import Link from "next/link";
 import { useRef, useState } from "react";
@@ -27,7 +28,7 @@ import {
 } from "~/app/_components/profile-policy";
 import { InvitationReceipt } from "../register/invitation-receipt";
 import { nameDraft, fullPersonName } from "~/lib/person-name";
-import { normalizeRegCode } from "~/lib/registration-code";
+import { normalizeEmailCode, isEmailCodeFormat } from "~/lib/registration-code";
 import { api, type RouterOutputs } from "~/trpc/react";
 
 type Mode = "new" | "existing";
@@ -338,12 +339,12 @@ export function CrewSignupForm() {
           className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
-            if (code.length !== 5) return;
+            if (!isEmailCodeFormat(code)) return;
             void perform(async () =>
               received(
                 await verify.mutateAsync({
                   email: challengeEmail,
-                  code: normalizeRegCode(code),
+                  code: normalizeEmailCode(code),
                 }),
               ),
             );
@@ -356,32 +357,13 @@ export function CrewSignupForm() {
           <p className="muted text-sm">{t("verifyHint")}</p>
           <FormSection title={t("emailCode")} busy={busy}>
             <div>
-              <label className="label" htmlFor="crew-code">
-                {t("emailCode")}
-                <FieldRequirement state="required" />
-              </label>
-              <input
+              <CodeInput
                 id="crew-code"
-                className="input w-full font-mono uppercase"
-                autoComplete="one-time-code"
-                autoCapitalize="characters"
-                spellCheck={false}
-                required
-                minLength={5}
-                maxLength={5}
+                purpose="email"
                 value={code}
-                onChange={(event) =>
-                  setCode(normalizeRegCode(event.target.value))
-                }
-                onPaste={(event) => {
-                  event.preventDefault();
-                  setCode(
-                    normalizeRegCode(event.clipboardData.getData("text")).slice(
-                      0,
-                      5,
-                    ),
-                  );
-                }}
+                onValueChange={setCode}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? "crew-verification-error" : undefined}
               />
             </div>
           </FormSection>
@@ -389,7 +371,7 @@ export function CrewSignupForm() {
             <Button
               type="submit"
               variant="primary"
-              disabled={busy || code.length !== 5}
+              disabled={busy || !isEmailCodeFormat(code)}
             >
               {t("verify")}
             </Button>
@@ -475,7 +457,11 @@ export function CrewSignupForm() {
         </div>
       )}
       {error && (
-        <p role="alert" className="text-sm text-red-700">
+        <p
+          role="alert"
+          id="crew-verification-error"
+          className="text-sm text-red-700"
+        >
           {error.message === "SIGNUP_CREW_INVALID" ? (
             t("invalidCode")
           ) : error.message === "CREW_DISABLED" ? (

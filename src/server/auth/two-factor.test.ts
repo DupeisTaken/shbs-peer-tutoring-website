@@ -13,7 +13,9 @@ vi.mock("~/server/email/sender", () => ({
 }));
 
 import { db } from "~/server/db";
-import { REG_CODE_LENGTH } from "./code";
+import * as codeHelpers from "./code";
+import { hashCode } from "./registration";
+import { EMAIL_CODE_LENGTH } from "./code";
 import {
   issueLoginCode,
   MAX_CODE_ATTEMPTS,
@@ -25,10 +27,7 @@ const EMAIL = "login-2fa@example.com";
 
 function extractCode(): string {
   const message = send.mock.calls.at(-1)?.[0];
-  // Read the issued canonical alphabet, including 0/I; O/1 are entry aliases only.
-  const code = message?.text.match(
-    /[023456789ABCDEFGHIJKMNPQRSTUVWXYZ]{5}/,
-  )?.[0];
+  const code = message?.presentation?.code;
   if (!code) throw new Error("expected an emailed login code");
   return code;
 }
@@ -56,18 +55,62 @@ afterAll(async () => {
 });
 
 describe("login 2FA codes", () => {
+  it("resamples a repeated short code so a resend cannot revive the old value", async () => {
+    const generator = vi
+      .spyOn(codeHelpers, "generateEmailVerificationCode")
+      .mockReturnValueOnce("0001")
+      .mockReturnValueOnce("0001")
+      .mockReturnValueOnce("0110");
+    try {
+      await issueLoginCode(USER_ID, 0);
+      expect(extractCode()).toBe("0001");
+      await issueLoginCode(USER_ID, 0);
+      expect(extractCode()).toBe("0110");
+      expect(await verifyLoginCode(USER_ID, "0001")).toBe(false);
+      expect(await verifyLoginCode(USER_ID, " 0-1 10 ")).toBe(true);
+    } finally {
+      generator.mockRestore();
+    }
+  });
+
+  it("accepts an outstanding legacy challenge and retains purpose, expiry and single use", async () => {
+    const row = await db.emailVerificationCode.create({
+      data: {
+        userId: USER_ID,
+        purpose: "LOGIN_2FA",
+        codeHash: hashCode("ABI0D"),
+        expiresAt: new Date(Date.now() + 60000),
+      },
+    });
+    expect(await verifyLoginCode(USER_ID, "ab10d")).toBe(true);
+    expect(await verifyLoginCode(USER_ID, "ABI0D")).toBe(false);
+    await db.emailVerificationCode.update({
+      where: { id: row.id },
+      data: { purpose: "PASSWORD_CHANGE", consumedAt: null },
+    });
+    expect(await verifyLoginCode(USER_ID, "ABI0D")).toBe(false);
+    await db.emailVerificationCode.update({
+      where: { id: row.id },
+      data: { purpose: "LOGIN_2FA", expiresAt: new Date(0) },
+    });
+    expect(await verifyLoginCode(USER_ID, "ABI0D")).toBe(false);
+  });
+
   it("emails a hashed, single-use login code", async () => {
     const result = await issueLoginCode(USER_ID, 0);
     const code = extractCode();
+    expect(code).toMatch(/^[0-9]{4}$/);
 
     expect(result.email).toBe(EMAIL);
-    expect(code).toHaveLength(REG_CODE_LENGTH);
+    expect(code).toHaveLength(EMAIL_CODE_LENGTH);
     expect(send).toHaveBeenCalledTimes(1);
 
     const row = await db.emailVerificationCode.findFirstOrThrow({
       where: { userId: USER_ID, purpose: "LOGIN_2FA" },
     });
-    expect(row.codeHash).not.toContain(code);
+    expect(row.codeHash).toBe(hashCode(code));
+    expect(row.codeHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(row.codeHash).not.toBe(code);
     expect(row.consumedAt).toBeNull();
     expect(row.expiresAt.getTime()).toBeGreaterThan(Date.now());
 
@@ -85,6 +128,7 @@ describe("login 2FA codes", () => {
   it("rejects a code after the attempt cap", async () => {
     await issueLoginCode(USER_ID, 0);
     const code = extractCode();
+    expect(code).toMatch(/^[0-9]{4}$/);
     const wrong = code === "AAAAA" ? "BBBBB" : "AAAAA";
 
     for (let i = 0; i < MAX_CODE_ATTEMPTS; i++) {
@@ -102,6 +146,7 @@ describe("login 2FA codes", () => {
   it("allows only one concurrent consumer of the same code", async () => {
     await issueLoginCode(USER_ID, 0);
     const code = extractCode();
+    expect(code).toMatch(/^[0-9]{4}$/);
 
     const results = await Promise.all(
       Array.from({ length: 8 }, () => verifyLoginCode(USER_ID, code)),

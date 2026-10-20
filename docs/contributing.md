@@ -62,6 +62,21 @@ catalog in `messages/`, including languages hidden from the default picker. Run
 `npm test -- src/i18n/locales.test.ts --maxWorkers=1` to check key parity, nonblank
 values and ICU placeholders before the complete CI suite.
 
+Invitation codes and emailed verification challenges have separate
+[generation, display and compatibility contracts](technical-report.md#opaque-invitation-codes).
+Use the shared purpose-specific code field/display for site entry and receipts;
+email callers declare `presentation.codePurpose` and provide matching bilingual
+plaintext instructions. New invitations mix letters and numbers in five characters;
+emailed challenges contain four digits, preserving leading zeros. Keep the legacy
+single wide site input, gray `XXXXX`/`XXXX` placeholders and neutral text/borders;
+change only the box background to green for invitations or blue for verification.
+Email keeps the legacy single code panel's layout, typography and border, with dark
+green (`#18342C`) or blue (`#172F49`) backgrounds and no added label/guidance wrapper.
+Never infer authorization from this presentation metadata. Include old-format
+acceptance, purpose confusion, attempt limits, resend and failed delivery in tests;
+capture both site and email panels at desktop/mobile widths and verify that stripping
+email styles preserves readable instructions, full codes and contrast.
+
 ## Reuse interaction patterns
 
 Review the development-only [UI gallery](local-development.md#ui-pattern-gallery) before building a new interaction. Its examples use the same [shared components](../src/app/_components/ui) as the application. Keep the existing slate surfaces, white cards and accent themes. The [agent entry point](../AGENTS.md#start-with-the-shared-patterns) maps interactions to components and owns the control-height, table-action and responsive-header conventions.
