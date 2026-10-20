@@ -2867,7 +2867,7 @@
     "verified": "邮箱已验证",
     "emailPending": "邮箱待验证",
     "unverified": "待验证邮箱",
-    "edited": "[已修改]",
+    "edited": "已修改",
     "priority": "原始提交时间：{time}",
     "assignments": "辅导伙伴安排",
     "waitingMatch": "等待匹配辅导伙伴。",

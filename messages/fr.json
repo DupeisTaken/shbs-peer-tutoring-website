@@ -2867,7 +2867,7 @@
     "verified": "Email verified",
     "emailPending": "E-mail en attente de vérification",
     "unverified": "Awaiting verification",
-    "edited": "[Edited]",
+    "edited": "Edited",
     "priority": "Original submission: {time}",
     "assignments": "Your Tutor Assignments",
     "waitingMatch": "Awaiting tutor matching.",

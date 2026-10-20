@@ -24,6 +24,17 @@ const bundledMessages = {
   Locale,
   { common: { language: string }; landing: { nav: { menu: string } } }
 >;
+
+it.each(LOCALES)("uses an unbracketed Edited badge label in %s", (locale) => {
+  // Management, tutor and student badges share this catalog key (#444).
+  const label = bundledMessages[locale].workflow.edited;
+  expect(label.trim()).not.toBe("");
+  expect(label).not.toContain("[");
+  expect(label).not.toContain("]");
+  if (locale === "en") expect(label).toBe("Edited");
+  if (locale === "zh") expect(label).toBe("已修改");
+});
+
 it("uses the same Program Settings label in navigation and page titles in every bundled locale", () => {
   for (const messages of Object.values(bundledMessages)) {
     expect(messages.admin.nav.links.program).toBe(messages.admin.program.title);
