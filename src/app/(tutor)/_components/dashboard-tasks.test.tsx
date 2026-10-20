@@ -29,6 +29,8 @@ const state = vi.hoisted(() => ({
   mixedInterviews: false,
   empty: false,
   grouped: false,
+  unscheduledGroup: false,
+  invalidGroup: false,
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -51,11 +53,12 @@ vi.mock("~/trpc/react", () => ({
                     groupId: state.grouped ? "group" : null,
                     group: { primaryPairingId: "today" },
                     subject: "Friday maths",
-                    scheduleConfirmed: true,
+                    scheduleConfirmed: !state.unscheduledGroup,
                     dayOfWeek: 5,
                     startMin: 900,
                     endMin: 960,
                     room: { name: "A101" },
+                    tutees: [{ tuteeId: "student" }],
                   },
                   {
                     id: "unknown",
@@ -64,16 +67,21 @@ vi.mock("~/trpc/react", () => ({
                     dayOfWeek: 5,
                     startMin: 0,
                     endMin: 0,
+                    tutees: [{ tuteeId: "student" }],
                   },
                   {
                     id: "yesterday",
                     groupId: state.grouped ? "group" : null,
                     group: { primaryPairingId: "today" },
                     subject: "Thursday science",
-                    scheduleConfirmed: true,
+                    scheduleConfirmed: !state.unscheduledGroup,
                     dayOfWeek: state.grouped ? 5 : 4,
                     startMin: 900,
                     endMin: 960,
+                    tutees: [
+                      { tuteeId: "student" },
+                      ...(state.invalidGroup ? [{ tuteeId: "other-student" }] : []),
+                    ],
                   },
                 ],
           isLoading: state.loading,
@@ -147,6 +155,8 @@ afterEach(() => {
   state.mixedInterviews = false;
   state.empty = false;
   state.grouped = false;
+  state.unscheduledGroup = false;
+  state.invalidGroup = false;
   vi.clearAllMocks();
   vi.restoreAllMocks();
   window.history.replaceState(null, "", window.location.pathname);
@@ -176,6 +186,28 @@ it("shows a reusable group once in today’s recurring schedule", () => {
   expect(screen.getByText("Friday maths + Thursday science")).toBeTruthy();
   expect(screen.queryByText("Friday maths")).toBeNull();
   expect(screen.queryByText("Thursday science")).toBeNull();
+});
+
+it("counts an unscheduled group once and does not invent a session for it", () => {
+  state.grouped = true;
+  state.unscheduledGroup = true;
+  show();
+  // The grouped plan plus the independent Unconfirmed assignment are two tasks.
+  expect(screen.getByText(/Unconfirmed schedules \(2\)/)).toBeTruthy();
+  expect(screen.queryByText("Friday maths + Thursday science")).toBeNull();
+});
+
+it("keeps an incomplete group discoverable as a repair task rather than a usable scheduled block", () => {
+  state.grouped = true;
+  state.invalidGroup = true;
+  show();
+  expect(screen.getByText(/1 pairing group needs repair/)).toBeTruthy();
+  expect(screen.queryByText("Friday maths + Thursday science")).toBeNull();
+  expect(
+    within(screen.getByRole("navigation", { name: messages.tutor.tasks.attention }))
+      .getByRole("link", { name: messages.dashboard.pairings.title })
+      .getAttribute("href"),
+  ).toBe("#tutor-pairings");
 });
 
 it("prioritizes attendance and the program-zone weekday, excluding unconfirmed times", () => {

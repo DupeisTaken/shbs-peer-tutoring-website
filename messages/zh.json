@@ -2057,6 +2057,7 @@
       "ranking": {
         "bothAvailable": "双方均有空",
         "otherTimeSlots": "其他时段",
+        "unavailable": "不可用",
         "retainedOption": "当前关联时段（未发布）"
       },
       "notSet": "— 未设置 —",
@@ -5255,7 +5256,7 @@
   "pairingGroups": {
     "manage": "合并／拆分配对",
     "title": "我的配对组",
-    "help": "将自己的两至六个科目配对组成一组。选择共同的固定时间段；所有成员使用主配对的教室。保存前请检查变更。",
+    "help": "每组包含两至六个配对，每位学习伙伴必须涵盖所有所选科目。可先保存为待安排时间，也可选择共同时间，保存前请检查。",
     "loading": "正在加载配对组…",
     "loadError": "无法加载配对组。",
     "retry": "重试",
@@ -5280,17 +5281,36 @@
     "consequences": "保存将同时更新所有所选成员的后续时间及教室，不会提交或改写出勤记录。拆分后的配对需要单独安排时间。",
     "noGroups": "所有配对将单独列出。",
     "splitHelp": "取消勾选可移除成员，也可拆分整组。保留的每组至少需要两个成员。离组配对将恢复为待安排时间。",
-    "catalogueHelp": "已保存配对组共用固定时间，提交出勤后仍可合并或拆分。",
+    "catalogueHelp": "先合并符合要求的配对，再为已保存的整组安排共同时间。",
     "combined": "合并配对",
     "combinedRoster": "合并学习伙伴名单",
     "memberDetails": "科目配对与学习伙伴操作",
     "record": "记录整组出勤",
     "individualAttendance": "单独记录一个科目",
-    "accessDenied": "你的辅导权限已更改。请重新加载并验证权限后再编辑配对组。"
+    "accessDenied": "你的辅导权限已更改。请重新加载并验证权限后再编辑配对组。",
+    "awaiting": "待安排时间",
+    "keepCurrentTime": "保留当前已确认时间",
+    "scheduleAfterMembershipChange": "成员已更改。请选择新的共同时间，或明确选择待安排时间。",
+    "clearSchedule": "保存为待安排时间将清除所有成员的已确认时间及教室预约。",
+    "slotConflict": "与{subjects}的时间重叠",
+    "needsRepair": "此配对组需要修复。请编辑成员或拆分后，再安排时间或记录整组出勤。",
+    "repairCount": "{count} 个配对组需要修复。请先检查“我的配对”，再安排时间或记录整组出勤。",
+    "reference": "配对组 {id}",
+    "missingCoverage": "{student}缺少以下科目：{subjects}。",
+    "eligibility": {
+      "size": "请选择两至六个配对。",
+      "emptyRoster": "每个配对均须包含当前学习伙伴。请移除空配对或拆分该组。",
+      "incompleteCoverage": "每位学习伙伴必须涵盖全部所选科目。"
+    },
+    "status": {
+      "scheduled": "共同时间已确认",
+      "awaiting": "待安排时间",
+      "needsRepair": "需要修复"
+    }
   },
   "tutorWorkload": {
     "title": "已分配辅导时段",
-    "help": "这是本季度所有已分配学习伙伴顺利参与时的预估工作量。共同的已确认时段只计一次；尚待确定时间的辅导安排分别计算。偏好仅供参考，不会改变现有安排。",
+    "help": "这是本季度所有已分配学习伙伴顺利参与时的预估工作量。有效配对组无论是否已安排时间均计一次，其他配对分别计算。偏好仅供参考，不会改变现有安排。",
     "editPreference": "期望辅导次数",
     "preference": "期望辅导次数",
     "unset": "未设置偏好",
@@ -5325,7 +5345,7 @@
     "reloadFailed": "无法重新载入偏好。草稿及原始版本已保留。",
     "countHeading": "已分配时段",
     "preferenceHeading": "期望上限",
-    "staffHelp": "本季度预估工作量；共同的已确认时段只计一次，尚待确定时间的安排分别计算。",
+    "staffHelp": "本季度预估工作量；每个符合要求的已保存配对组计为一次，包括尚待安排时间的组。其他配对分别计算。",
     "confirmTitle": "分配次数超过期望次数？",
     "continue": "继续",
     "reviewAssignment": "尝试分配辅导",

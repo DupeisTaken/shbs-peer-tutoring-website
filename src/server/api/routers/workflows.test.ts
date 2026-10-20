@@ -1865,7 +1865,9 @@ it("attendance requires the complete merged roster exactly once", async () => {
       id: "second-pairing",
       tutorId: "review-tutor",
       termId: "review-term",
-      subject: "Second subject",
+      // Separate students assigned the same subject form a complete combined
+      // roster; distinct subjects here would require both assignments per student.
+      subject: "Review Math",
       dayOfWeek: 1,
       startMin: 930,
       endMin: 990,

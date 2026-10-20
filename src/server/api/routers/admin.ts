@@ -174,6 +174,7 @@ import {
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 import { allocateRoom, allocationData, allocateSlotCohort, assertRoomVersion, notifyRoomShortage } from "~/server/room-allocation";
+import { assertPairingGroupsRemainEligible } from "~/server/tutor-scheduling";
 import { pairingCreationReceipt } from "~/server/pairing-creation";
 import {
   assertRoomBlackoutAvailable,
@@ -908,6 +909,7 @@ export const adminRouter = createTRPCRouter({
         room: true,
         term: true,
         timeSlot: true,
+        group: { select: { primaryPairingId: true } },
         tutees: { include: { tutee: true } },
       },
     });
@@ -1042,6 +1044,9 @@ export const adminRouter = createTRPCRouter({
         const retainGroup = current.groupId && tutorId === current.tutorId &&
           timeSlotId === current.timeSlotId && requestedMode === current.roomMode &&
           (requestedMode !== "FIXED" || input.roomId === undefined || input.roomId === current.roomId);
+        await assertPairingGroupsRemainEligible(tx, { replacement: {
+          id, subject, tuteeIds, detach: !retainGroup,
+        } });
         const allocation = retainGroup ? { ...current, roomOutcome: "RETAINED" as const } : await allocateRoom(tx, {
           id, tutorId, tuteeIds, scheduleConfirmed: true,
           termId: current.termId,
@@ -1119,6 +1124,9 @@ export const adminRouter = createTRPCRouter({
           "admin.deletePairing",
           input,
         );
+        await assertPairingGroupsRemainEligible(tx, {
+          pairingIds: [input.id], removePairingIds: [input.id],
+        });
         const sessions = await tx.session.count({
           where: { pairingId: input.id },
         });
@@ -2631,6 +2639,9 @@ export const adminRouter = createTRPCRouter({
         await lockEntity(tx, "program:period");
         await lockUsernameNamespace(tx);
         await lockCatalogue(tx);
+        // Take the reservation fence before request/account/tutee row locks, as
+        // assignment writers hold it while replacing a group's active roster.
+        await lockPlannedRoomSchedule(tx);
         const signup = await tx.studentSurvey.findUnique({
           where: { tuteeId: input.id },
         });
@@ -2792,6 +2803,12 @@ export const adminRouter = createTRPCRouter({
           });
         if (input.status !== "INACTIVE" && before.status !== input.status)
           await preserveHistoricalAcademics(tx, "TUTEE", id);
+        if (fields.status === "INACTIVE" && before.status !== "INACTIVE")
+          await assertPairingGroupsRemainEligible(tx, {
+            tuteeIds: [id], removeTuteeIds: [id],
+          });
+        if (fields.status !== "INACTIVE" && before.status === "INACTIVE")
+          await assertPairingGroupsRemainEligible(tx, { activateTuteeIds: [id] });
         const updated = await tx.tutee.update({
           where: { id },
           data: {

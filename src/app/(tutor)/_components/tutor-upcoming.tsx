@@ -24,6 +24,7 @@ export function TutorUpcoming({
   now: Date;
 }) {
   const t = useTranslations("tutorUpcoming");
+  const groupText = useTranslations("pairingGroups");
   const format = useFormatter();
   const timeZone = useTimeZone() ?? DEFAULT_TIME_ZONE;
   const [now, setNow] = useState(initialNow);
@@ -104,7 +105,7 @@ export function TutorUpcoming({
       </section>
     );
   }
-  const { events, unresolvedTimes } = tutorUpcoming({
+  const { events, unresolvedTimes, groupsNeedingRepair } = tutorUpcoming({
     pairings: pairings.data ?? [],
     interviews: interviewsEnabled ? (interviews.data ?? []) : [],
     now,
@@ -141,7 +142,12 @@ export function TutorUpcoming({
           {t("unresolved", { count: unresolvedTimes })}
         </InlineNotice>
       )}
-      {complete && !events.length && !unresolvedTimes && (
+      {groupsNeedingRepair > 0 && (
+        <InlineNotice tone="warning">
+          {groupText("repairCount", { count: groupsNeedingRepair })}
+        </InlineNotice>
+      )}
+      {complete && !events.length && !unresolvedTimes && !groupsNeedingRepair && (
         <p className="muted">{t("empty")}</p>
       )}
       {events.length > 0 && (

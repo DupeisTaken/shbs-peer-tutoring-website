@@ -420,12 +420,17 @@ default time selector remains before the tutee list.
 The selector ranks published catalog slots by your saved availability and every
 current assigned tutee's saved selections. A shared slot must have the same
 catalog ID for everyone; overlapping clock times alone do not qualify. Shared
-slots appear under **Both Available**; the remaining choices appear under
-**Other Time Slots**. Each option shows only the slot name, weekday and time.
+slots without a booking conflict appear under **Both Available**; other
+non-conflicting choices appear under **Other Time Slots**. **Unavailable**
+contains visible, disabled choices that overlap another assigned teaching block.
+This restriction takes precedence even when everyone selected the slot as available.
+Each option shows the slot name, weekday and time.
 For a combined pairing group, the advice includes all current group members.
 Missing selections or unavailable reads never place a slot in **Both Available**.
-All published options remain selectable, and the current linked or
-retained confirmed schedule remains visible. Ranking never saves a choice;
+The current linked or retained confirmed schedule remains visible. A group shares
+one time: its own members do not conflict with each other, but another independent
+assignment or group does. Different catalog slots can overlap; back-to-back times
+are allowed. Unscheduled assignments reserve no time. Ranking never saves a choice;
 discuss the time and confirm the existing review before changing the schedule.
 
 Meeting-excuse, qualification and interview drafts remain available after a failed
@@ -494,9 +499,35 @@ Use combined attendance when several assigned subjects share one block: shared t
 
 ### Combine and split recurring pairings
 
-Active tutors can use **My Pairings → Combine / split pairings** to save reusable groups of two to six current assignments. Add a group, select its subjects, choose the primary assignment and a shared recurring catalog time slot, then select **Review group changes**. The preview shows the distinct students, common time and the primary assignment's room. **Save pairing groups** applies the schedule and room to every member together; room conflicts reject the complete change. Grouping does not submit attendance or change qualifications, ownership or subject-level rosters. All members must be your current, populated assignments; subjects do not need to share a student or name.
+Active tutors can use **My Pairings → Combine / split pairings** to save reusable
+groups of two to six current, populated assignments they own. Every student in
+the group must already have every selected subject. A–Chemistry plus B–Chemistry
+can combine, as can A–Chemistry plus A–Mathematics. Combining both students across
+both subjects requires all four student–subject relationships (which may be
+represented by shared roster rows); A–Chemistry, A–Mathematics and
+B–Mathematics cannot combine because B has no Chemistry assignment. Combining
+never creates a missing subject assignment.
 
-My Pairings displays one combined entry with each distinct student once and their subjects beneath their name. **Subject assignments and student actions** opens the existing per-subject schedule and student controls. Changing a member's default time slot changes the complete group. **Record group attendance** selects the group in the attendance form; the separate-subject options remain available when only one subject ran on a particular date. Check actual attendance time and location before submitting.
+Select the assignments and primary member, then leave the group **Awaiting
+schedule** or choose one shared catalog slot. Review the distinct students,
+subject coverage and scheduling consequence before saving. This allows
+**assign → combine → schedule** without first double-booking independent
+assignments. Later, choosing a member's default time schedules the whole group.
+An explicit retained-time choice preserves an existing unpublished or unlinked
+confirmed interval; selecting Awaiting schedule clears its recurring reservation.
+Room intent remains separate. An automatic room shortage may save as **Needs room**,
+but a fixed-room conflict or overlapping independent tutor block rejects the save.
+Grouping does not record attendance or change qualifications, ownership or rosters.
+
+My Pairings displays one combined entry with each distinct student once and their subjects beneath their name. Management's Pairings table keeps subject-level rows and actions, with a common group reference and group details in the rightmost Actions column. A valid group counts as one planned block even while awaiting a schedule; identical times alone do not combine independent assignments. **Subject assignments and student actions** opens the existing per-subject schedule and student controls. Changing a member's default time slot changes the complete group. **Record group attendance** selects the group in the attendance form; the separate-subject options remain available when only one subject ran on a particular date. Check actual attendance time and location before submitting.
+
+Existing groups that fail the coverage or schedule checks show **Needs repair**.
+Repair or split them before scheduling or recording combined attendance.
+Deliberate management edits cannot silently break a valid group. A withdrawal,
+departure or disciplinary removal still proceeds under its existing rules; if it
+leaves a group incomplete, that group is marked for repair. Previous attendance is
+not changed. The same complete subject-coverage rule applies to one-off combined
+attendance; it does not merge recurring plans.
 
 Reopen **Combine / split pairings** to add or untick members, or choose **Split this group**. Each remaining group needs at least two members. Assignments leaving a group keep their subject, students and assigned room, but return to **Awaiting schedule** with no catalog slot until a separate schedule is chosen. Changing a member's tutor, schedule or room choice through the management assignment editor releases that member from its old group. The separate room-change and room-retry actions apply to the complete group's reservation; editing the shared catalog slot also retains the group. Group changes remain available after attendance submission and affect future plans only. Previous session records, attendance, ratings, room and credited hours remain unchanged.
 
@@ -923,14 +954,15 @@ Course-aware tutor selectors in Signup Requests and Pairings list tutors with ap
 The same selectors and the **Pairings** assignment editor show each tutor's approximate assigned
 session-block workload for the **current quarter**, including zero. This estimates
 the load if the assigned tutees work out, rather than counting attendance already
-recorded. A confirmed time shared by subjects or multiple tutees counts once.
-Each **Awaiting schedule** pairing counts separately until its schedule is confirmed;
-copied placeholder times do not establish a shared block. Empty pairings, inactive
+recorded. Each valid saved group counts once, including groups **Awaiting schedule**.
+Independent assignments count separately even when their confirmed or placeholder
+times match. Groups needing repair do not collapse their populated assignments into
+one block. Empty pairings, inactive
 tutees, inactive tutors and ended quarters do not add load. Pending tutees with an
 assignment do count. An inactive catalog slot does not erase a retained assignment.
 Unavailable or refreshing counts are labelled accordingly. Staff see the saved
 preference and a warning when it is reached, already exceeded, or a proposed new
-block would exceed it. Joining an existing shared block adds no block. These notices
+block would exceed it. Adding eligible assignments to a valid saved group adds no block. These notices
 create no hard cap or new approval requirement.
 
 ### Planned rooms

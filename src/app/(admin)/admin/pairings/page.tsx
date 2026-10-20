@@ -18,6 +18,7 @@ import type { WorkloadProposal } from "~/lib/tutor-workload";
 import { invalidateWorkloads } from "~/lib/workload-cache";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
+import { pairingEntries } from "~/lib/pairing-groups";
 
 import Link from "next/link";
 import { PairingRoomSummary } from "./room-summary";
@@ -353,6 +354,18 @@ export default function PairingsPage() {
           .map((member) => member.subject)
           .join(" + ")
       : undefined;
+  // Explicit persisted identity is visible on each independently sortable row.
+  // Matching clocks never imply membership, and detail reads use this same cache.
+  const groups = pairingEntries((pairings.data ?? []).map((pairing) => ({
+    ...pairing,
+    // Management retains inactive enrollment evidence in its authorized read;
+    // current plan eligibility uses the same live roster as the tutor catalogue.
+    tutees: pairing.tutees.filter((student) => student.tutee.status !== "INACTIVE"),
+  }))).filter((entry) => entry.groupId);
+  const groupOf = (pairingId: string) => groups.find((entry) =>
+    entry.pairings.some((member) => member.id === pairingId),
+  );
+  const groupReference = (groupId: string) => t("pairingGroups.reference", { id: groupId });
   const roomOnly = !!form.id && form.originalAssignment === assignmentKey(form);
   const loadForm = (
     p: NonNullable<typeof pairings.data>[number],
@@ -442,6 +455,15 @@ export default function PairingsPage() {
           ? {
               id: form.id ?? "proposed-pairing",
               termId: originalPairing?.termId ?? workloads.data!.termId!,
+              // Mirror the server's retained-group rule so an unchanged group
+              // does not appear as an extra independent block in workload advice.
+              groupId: originalPairing?.groupId &&
+                groupOf(originalPairing.id)?.groupStatus !== "needsRepair" &&
+                originalPairing.tutorId === form.tutorId &&
+                originalPairing.timeSlotId === form.timeSlotId &&
+                originalPairing.roomMode === form.roomMode &&
+                (form.roomMode !== "FIXED" || originalPairing.roomId === form.roomId)
+                  ? originalPairing.groupId : null,
               scheduleConfirmed: true,
               dayOfWeek: selectedSlot.dayOfWeek,
               startMin: selectedSlot.startMin,
@@ -1092,7 +1114,17 @@ export default function PairingsPage() {
                 <td className="font-medium text-slate-900">
                   {personName(p.tutor)}
                 </td>
-                <td>{p.subject}</td>
+                <td>
+                  <p>{p.subject}</p>
+                  {p.groupId && (
+                    <p className="muted mt-1 break-all text-xs">
+                      {groupReference(p.groupId)}
+                      <span className="block">
+                        {t(`pairingGroups.status.${groupOf(p.id)?.groupStatus ?? "needsRepair"}`)}
+                      </span>
+                    </p>
+                  )}
+                </td>
                 <td data-sort-value={pairingScheduleSortValue(p)}>
                   {pairingScheduleText(p, t("scheduling.awaiting"), locale)}
                 </td>
@@ -1107,6 +1139,28 @@ export default function PairingsPage() {
                 <td>{p.tutees.length}</td>
                 <TableActions>
                   <TableDetails title={`${personName(p.tutor)} · ${p.subject}`}>
+                    {groupOf(p.id) && (() => {
+                      const entry = groupOf(p.id)!;
+                      const roster = [...new Map(entry.pairings.flatMap((member) =>
+                        member.tutees.map((student) => [student.tuteeId, student] as const),
+                      )).values()];
+                      return <section className="space-y-3 rounded-lg border border-slate-200 p-3">
+                        <h3 className="font-semibold break-all">{groupReference(entry.groupId!)}</h3>
+                        <p>{t(`pairingGroups.status.${entry.groupStatus ?? "needsRepair"}`)}</p>
+                        {entry.groupStatus === "needsRepair" && <InlineNotice tone="warning">{t("pairingGroups.needsRepair")}</InlineNotice>}
+                        <dl className="space-y-2 text-sm">
+                          <div><dt className="label">{t("pairingGroups.primary")}</dt><dd>{entry.primary.subject}</dd></div>
+                          <div><dt className="label">{t("pairingGroups.members")}</dt><dd>{[...new Set(entry.pairings.map((member) => member.subject))].join(" + ")}</dd></div>
+                        </dl>
+                        <h4 className="font-medium">{t("pairingGroups.combinedRoster")}</h4>
+                        <ul className="space-y-2 text-sm">
+                          {roster.map((student) => <li key={student.tuteeId}>
+                            <p>{personName(student.tutee)}</p>
+                            <p className="muted">{entry.pairings.filter((member) => member.tutees.some((item) => item.tuteeId === student.tuteeId)).map((member) => member.subject).filter((subject, index, all) => all.indexOf(subject) === index).join(", ")}</p>
+                          </li>)}
+                        </ul>
+                      </section>;
+                    })()}
                     <dl className="space-y-3">
                       <div>
                         <dt className="label">{t("admin.pairings.colWhen")}</dt>

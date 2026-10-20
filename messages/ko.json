@@ -2065,6 +2065,7 @@
       "ranking": {
         "bothAvailable": "모두 가능한 시간",
         "otherTimeSlots": "기타 시간대",
+        "unavailable": "이용 불가",
         "retainedOption": "현재 연결된 시간대(미게시)"
       },
       "notSet": "— 설정 안 됨 —",
@@ -5255,7 +5256,7 @@
   "pairingGroups": {
     "manage": "Combine / split pairings",
     "title": "Your Pairing Groups",
-    "help": "Group two to six of your assignments. Choose one shared recurring time slot; all members use the primary assignment’s room. Review the change before saving.",
+    "help": "Group two to six assignments only when every student has all selected subjects. Save as Awaiting schedule or choose one shared time. Review before saving.",
     "loading": "Loading your pairing groups…",
     "loadError": "Your pairing groups could not be loaded.",
     "retry": "Retry",
@@ -5280,17 +5281,36 @@
     "consequences": "Saving updates the future schedule and room for every selected member together. It does not submit or rewrite attendance. Split assignments need a separate schedule.",
     "noGroups": "All assignments will be listed separately.",
     "splitHelp": "Remove members by unticking them, or split the whole group. Keep at least two members in each remaining group. Assignments that leave a group return to Awaiting schedule.",
-    "catalogueHelp": "Saved groups share a recurring schedule and remain flexible after attendance.",
+    "catalogueHelp": "Combine eligible assignments first, then schedule the saved group together.",
     "combined": "Combined pairing",
     "combinedRoster": "Combined student roster",
     "memberDetails": "Subject assignments and student actions",
     "record": "Record group attendance",
     "individualAttendance": "Record one subject separately",
-    "accessDenied": "Your tutoring access changed. Reload to verify access before editing groups."
+    "accessDenied": "Your tutoring access changed. Reload to verify access before editing groups.",
+    "awaiting": "Awaiting schedule",
+    "keepCurrentTime": "Keep the current confirmed time",
+    "scheduleAfterMembershipChange": "Membership changed. Choose a shared time or explicitly select Awaiting schedule.",
+    "clearSchedule": "Saving as Awaiting schedule clears the confirmed time and room reservation for every member.",
+    "slotConflict": "Overlaps {subjects}",
+    "needsRepair": "This saved group needs repair. Edit its members or split it before scheduling or recording combined attendance.",
+    "repairCount": "{count, plural, one {# pairing group needs repair} other {# pairing groups need repair}}. Review My Pairings before scheduling or recording combined attendance.",
+    "reference": "Group {id}",
+    "missingCoverage": "{student} is missing: {subjects}.",
+    "eligibility": {
+      "size": "Choose two to six assignments.",
+      "emptyRoster": "Every assignment needs a current student. Remove empty assignments or split the group.",
+      "incompleteCoverage": "Every student must have the same complete set of selected subjects."
+    },
+    "status": {
+      "scheduled": "Shared schedule confirmed",
+      "awaiting": "Awaiting schedule",
+      "needsRepair": "Needs repair"
+    }
   },
   "tutorWorkload": {
     "title": "Assigned Session Blocks",
-    "help": "Approximate workload for the current quarter if your assigned tutees work out. Shared confirmed times count once; assignments awaiting a schedule count separately. Your preference is advisory and does not change existing assignments.",
+    "help": "Approximate workload for the current quarter if your assigned tutees work out. Each valid saved group counts once, including groups awaiting a schedule; other assignments count separately. Your preference is advisory and does not change assignments.",
     "editPreference": "Preferred Sessions",
     "preference": "Preferred Sessions",
     "unset": "No preference",
@@ -5325,7 +5345,7 @@
     "reloadFailed": "Could not reload the preference. Your draft and original version are retained.",
     "countHeading": "Assigned Blocks",
     "preferenceHeading": "Preferred Maximum",
-    "staffHelp": "Approximate current-quarter workload; shared confirmed times count once and awaiting-schedule assignments count separately.",
+    "staffHelp": "Approximate current-quarter workload; each valid saved group counts once, including groups awaiting a schedule. Other assignments count separately.",
     "confirmTitle": "Assign Above Preferred Sessions?",
     "continue": "Continue",
     "reviewAssignment": "Try assigning a session",

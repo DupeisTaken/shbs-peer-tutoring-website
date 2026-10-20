@@ -26,6 +26,7 @@ assertIsolatedTestDatabase(process.env.DATABASE_URL);
 let termId: string;
 let tutorId: string;
 let otherTutorId: string;
+let thirdTutorId: string;
 let subjectId: string;
 let rooms: string[];
 let slotId: string;
@@ -152,6 +153,7 @@ beforeEach(async () => {
       data: { englishName: "Evidence Tutor", status: "ACTIVE" },
     })
   ).id;
+  thirdTutorId = (await db.tutor.create({ data: { englishName: "Independent blocker tutor", status: "ACTIVE" } })).id;
   for (const role of [
     "HEAD",
     "ADMIN",
@@ -169,7 +171,7 @@ beforeEach(async () => {
       },
     });
   subjectId = (await db.subject.create({ data: { name: subject } })).id;
-  for (const id of [tutorId, otherTutorId])
+  for (const id of [tutorId, otherTutorId, thirdTutorId])
     await db.tutorQualification.create({
       data: {
         tutorId: id,
@@ -240,8 +242,11 @@ const bulkTargets = (rows: { id: string; roomVersion: number }[]) => ({
   targets: rows.map((row) => ({ id: row.id, expectedRoomVersion: row.roomVersion })),
 });
 async function roomless(mode: "AUTO" | "LEGACY" = "AUTO") {
+  // Bulk room capacity uses independent tutors; one tutor cannot reserve two
+  // independent lessons at the same time merely because both need a room.
+  const independentTutor = await db.tutor.create({ data: { englishName: "Bulk room fixture tutor", status: "ACTIVE" } });
   return db.pairing.create({ data: {
-    termId, tutorId, subject, timeSlotId: slotId, roomMode: mode,
+    termId, tutorId: independentTutor.id, subject, timeSlotId: slotId, roomMode: mode,
     scheduleConfirmed: true, dayOfWeek: 7, startMin: 600, endMin: 660,
     tutees: { create: learners.map((tuteeId) => ({ tuteeId })) },
   } });
@@ -265,7 +270,7 @@ it("bulk room allocation includes legacy and non-shortage automatic rows without
 it("bulk room allocation counts shared groups once and requires all reviewed siblings", async () => {
   await blockAll();
   const first = await create({ tuteeIds: learners });
-  const second = await create({ tuteeIds: learners });
+  const second = await create({ tuteeIds: learners, timeSlotId: otherSlotId });
   await combineRoomUnit([first.id, second.id]);
   const rows = await unitRows([first.id, second.id]);
   await expect(actor().admin.autoAssignUnassignedRooms(bulkTargets([rows[0]!]))).rejects.toMatchObject({ code: "CONFLICT" });
@@ -362,7 +367,7 @@ it("bulk room allocation queues one coordinator review and chooses rooms at appr
 it("bulk room approval captures group primary and rejects primary drift", async () => {
   await blockAll();
   const first = await create({ tuteeIds: learners });
-  const second = await create({ tuteeIds: learners });
+  const second = await create({ tuteeIds: learners, timeSlotId: otherSlotId });
   await combineRoomUnit([first.id, second.id]);
   const rows = await unitRows([first.id, second.id]);
   await expect(actor("COORDINATOR").admin.autoAssignUnassignedRooms(bulkTargets(rows))).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
@@ -394,7 +399,7 @@ it("bulk room allocation rejects duplicate IDs and serializes simultaneous retri
 
 it("explicitly combines one reservation, atomically changes its slot, and keeps unrelated entries separate", async () => {
   const first = await create({ tuteeIds: learners });
-  const second = await create({ tuteeIds: [learners[0]!] });
+  const second = await create({ tuteeIds: [learners[0]!], timeSlotId: otherSlotId });
   await combineRoomUnit([first.id, second.id]);
   const rows = await unitRows([first.id, second.id]);
   expect(new Set(rows.map(row => row.groupId)).size).toBe(1);
@@ -413,7 +418,7 @@ it("explicitly combines one reservation, atomically changes its slot, and keeps 
 
 it("shares fixed and intentional no-room choices from any member and accepts an existing opaque room ID", async () => {
   const first = await create({ tuteeIds: learners, roomMode: "FIXED", roomId: rooms[0] });
-  const second = await create({ tuteeIds: learners });
+  const second = await create({ tuteeIds: learners, timeSlotId: otherSlotId });
   await combineRoomUnit([first.id, second.id]);
   let current = await db.pairing.findUniqueOrThrow({ where: { id: second.id } });
   await actor().admin.setPairingRoom({ id: second.id, roomMode: "NONE", expectedRoomVersion: current.roomVersion });
@@ -433,7 +438,7 @@ it("shares fixed and intentional no-room choices from any member and accepts an 
 it("deduplicates group shortage effects and explicitly retries the complete unit", async () => {
   await blockAll();
   const first = await create({ tuteeIds: [learners[0]!] });
-  const second = await create({ tuteeIds: [learners[1]!] });
+  const second = await create({ tuteeIds: [learners[1]!], timeSlotId: otherSlotId });
   const initialNotices = await shortages();
   await combineRoomUnit([first.id, second.id]);
   let rows = await unitRows([first.id, second.id]);
@@ -452,7 +457,7 @@ it("deduplicates group shortage effects and explicitly retries the complete unit
 
 it("invalidates sibling room editors on roster, membership and member deletion", async () => {
   const first = await create({ tuteeIds: learners });
-  const second = await create({ tuteeIds: learners });
+  const second = await create({ tuteeIds: learners, timeSlotId: otherSlotId });
   await combineRoomUnit([first.id, second.id]);
   const current = await db.pairing.findUniqueOrThrow({ where: { id: first.id } });
   await db.pairingTutee.delete({ where: { pairingId_tuteeId: { pairingId: second.id, tuteeId: learners[0]! } } });
@@ -470,7 +475,7 @@ it("invalidates sibling room editors on roster, membership and member deletion",
 
 it("preserves shared manual reservations while automation is off and splits without shortage constraint failures", async () => {
   const first = await create({ tuteeIds: learners });
-  const second = await create({ tuteeIds: learners });
+  const second = await create({ tuteeIds: learners, timeSlotId: otherSlotId });
   await db.programFeature.create({ data: { key: "AUTO_ASSIGN_ROOMS", enabled: false } });
   const grouped = await combineRoomUnit([first.id, second.id]);
   expect((await unitRows([first.id, second.id])).every(row => row.roomId === first.roomId && row.roomMode === "AUTO")).toBe(true);
@@ -486,7 +491,7 @@ it("preserves shared manual reservations while automation is off and splits with
 
 it("serializes competing member room saves and retains a subject edit in its group", async () => {
   const first = await create({ tuteeIds: learners });
-  const second = await create({ tuteeIds: learners });
+  const second = await create({ tuteeIds: learners, timeSlotId: otherSlotId });
   await combineRoomUnit([first.id, second.id]);
   let current = await db.pairing.findUniqueOrThrow({ where: { id: first.id } });
   await update(first.id, { tuteeIds: learners, expectedRoomVersion: current.roomVersion, roomMode: "AUTO" });
@@ -576,6 +581,7 @@ it("respects copied interval overlap and recurring blackouts while allowing adja
       roomMode: "FIXED",
       roomId: rooms[0],
       timeSlotId: adjacentId,
+      tutorId: otherTutorId,
     }),
   ).toMatchObject({ roomId: rooms[0] });
 });
@@ -729,11 +735,11 @@ it("stages OFF and reenable until refresh, permits cancellation, and retains res
     key: "AUTO_ASSIGN_ROOMS",
     enabled: true,
   });
-  expect((await create({ timeSlotId: otherSlotId })).roomOutcome).toBe(
+  expect((await create({ timeSlotId: otherSlotId, tutorId: otherTutorId })).roomOutcome).toBe(
     "DISABLED",
   );
   await applyPendingFeatures(db);
-  expect((await create({ timeSlotId: otherSlotId })).roomId).not.toBeNull();
+  expect((await create({ timeSlotId: adjacentId })).roomId).not.toBeNull();
 });
 
 it("serializes two automatic saves for one remaining room into one booking and one shortage", async () => {
@@ -903,7 +909,7 @@ it("catalog propagation reserves retained automatic rooms before reallocating di
   const first = await create();
   const second = await create({ tutorId: otherTutorId });
   await create({
-    tutorId: otherTutorId,
+    tutorId: thirdTutorId,
     roomMode: "FIXED",
     roomId: rooms[0],
     timeSlotId: otherSlotId,
@@ -928,6 +934,7 @@ it("a fixed-room catalog conflict rolls back the entire cohort and slot", async 
   const fixed = await create({ roomMode: "FIXED", roomId: rooms[0] });
   const automatic = await create({ tutorId: otherTutorId });
   await create({
+    tutorId: thirdTutorId,
     roomMode: "FIXED",
     roomId: rooms[0],
     timeSlotId: otherSlotId,
@@ -1365,4 +1372,232 @@ it("updates historical cohort shortage evidence without issuing a new current-pe
   expect(updated).toMatchObject({ roomId: null, roomNeedsAssignment: true });
   expect(updated.roomShortageKey).not.toBe(pairing.roomShortageKey);
   expect(await shortages()).toHaveLength(2);
+});
+
+it("propagates a catalog weekday correction through an archived group with departed students without changing attendance", async () => {
+  await blockAll();
+  const first = await create({ tuteeIds: learners });
+  const second = await create({ tuteeIds: learners, timeSlotId: otherSlotId });
+  await combineRoomUnit([first.id, second.id]);
+  const grouped = await unitRows([first.id, second.id]);
+  const originalGroupId = grouped[0]!.groupId;
+  await db.session.create({ data: {
+    pairingId: first.id, tutorId, timeSlotId: slotId,
+    date: new Date("2026-10-11T00:00:00Z"), month: "2026-10",
+    schoolYear: "26-27", quarter: "Q1", tutorStatus: "PRESENT",
+    startMin: 600, endMin: 660, durationMin: 60, shFactor: 2, shCount: 2,
+    tutees: { create: learners.map(tuteeId => ({ tuteeId, status: "PRESENT" as const })) },
+  } });
+  await db.term.update({ where: { id: termId }, data: { active: false } });
+  await db.term.create({ data: { name: "Current after archived group", schoolYear: "26-27", quarter: "Q2", active: true } });
+  // Historical enrollment links survive participant departure. They are evidence,
+  // rather than a live group that can be repaired from the current dashboard.
+  await db.tutee.updateMany({ where: { id: { in: learners } }, data: { status: "INACTIVE" } });
+  const roster = await db.pairingTutee.findMany({ orderBy: [{ pairingId: "asc" }, { tuteeId: "asc" }] });
+  const sessions = await db.session.findMany({ include: { tutees: true }, orderBy: { id: "asc" } });
+  const notices = await shortages();
+  const result = await actor("HEAD").admin.updateTimeSlot({ id: slotId,
+    label: "Archived group weekday correction", dayOfWeek: 6, startMin: 600, endMin: 660, active: true });
+  expect(result.updatedPairings).toBe(2);
+  expect((await unitRows([first.id, second.id])).every(row =>
+    row.groupId === originalGroupId && row.dayOfWeek === 6 && row.scheduleConfirmed && row.roomNeedsAssignment)).toBe(true);
+  expect(await db.pairingTutee.findMany({ orderBy: [{ pairingId: "asc" }, { tuteeId: "asc" }] })).toEqual(roster);
+  expect(await db.session.findMany({ include: { tutees: true }, orderBy: { id: "asc" } })).toEqual(sessions);
+  expect(await shortages()).toEqual(notices);
+});
+
+it.each(["NONE", "AUTO", "FIXED"] as const)(
+  "rejects overlapping independent tutor plans before %s room allocation, including shortages", async roomMode => {
+    await blockAll();
+    await create({ roomMode: "NONE" });
+    const before = await db.pairing.findMany();
+    const attempt = create({ timeSlotId: overlapId, roomMode,
+      ...(roomMode === "FIXED" ? { roomId: rooms[0] } : {}) });
+    await expect(attempt).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(attempt).rejects.toThrow("This tutor already");
+    expect(await db.pairing.findMany()).toEqual(before);
+    expect(await shortages()).toHaveLength(0);
+  },
+);
+
+it.each(["NONE", "AUTO", "FIXED"] as const)(
+  "protects copied unlinked tutor intervals when moving a %s plan", async roomMode => {
+    const occupied = await create({ roomMode: "NONE" });
+    await actor("TUTOR").tutor.setPairingSlot({ pairingId: occupied.id, slotId: null });
+    await db.timeSlot.update({ where: { id: slotId }, data: { active: false } });
+    const moving = await create({ timeSlotId: otherSlotId, roomMode,
+      ...(roomMode === "FIXED" ? { roomId: rooms[0] } : {}) });
+    const before = await unitRows([occupied.id, moving.id]);
+    await expect(actor("TUTOR").tutor.setPairingSlot({ pairingId: moving.id,
+      slotId: overlapId, expectedRoomVersion: moving.roomVersion }))
+      .rejects.toMatchObject({ code: "CONFLICT" });
+    expect(await unitRows([occupied.id, moving.id])).toEqual(before);
+  },
+);
+
+it("allows adjacent tutor plans, other weekdays, tutors and historical periods", async () => {
+  const first = await create({ roomMode: "NONE" });
+  await create({ timeSlotId: adjacentId, roomMode: "NONE" });
+  await create({ timeSlotId: otherSlotId, roomMode: "NONE" });
+  await create({ tutorId: otherTutorId, roomMode: "NONE" });
+  const past = await db.term.create({ data: { name: "Historical scheduling scope", schoolYear: "25-26", quarter: "Q4" } });
+  await db.pairing.update({ where: { id: first.id }, data: { termId: past.id } });
+  await create({ roomMode: "NONE" });
+  expect(await db.pairing.count()).toBe(5);
+});
+
+it("rejects management reassignment into another tutor's occupied time atomically", async () => {
+  await create({ roomMode: "NONE" });
+  const moving = await create({ tutorId: otherTutorId, roomMode: "NONE" });
+  const before = await db.pairing.findMany({ orderBy: { id: "asc" } });
+  await expect(update(moving.id, { tutorId, roomMode: "NONE", expectedRoomVersion: moving.roomVersion }))
+    .rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await db.pairing.findMany({ orderBy: { id: "asc" } })).toEqual(before);
+});
+
+it("schedules eligible unscheduled groups together and blocks overlap with a different explicit group", async () => {
+  const ids: string[] = [];
+  for (let index = 0; index < 4; index++) {
+    const row = await db.pairing.create({ data: { tutorId, termId, subject, roomMode: "NONE",
+      dayOfWeek: 1, startMin: 600, endMin: 660, scheduleConfirmed: false,
+      tutees: { create: learners.map(tuteeId => ({ tuteeId })) } } });
+    ids.push(row.id);
+  }
+  const state = await actor("TUTOR").pairingGroups.mine();
+  await actor("TUTOR").pairingGroups.save({ snapshot: state.snapshot, groups: [
+    { pairingIds: ids.slice(0, 2), slotId: null }, { pairingIds: ids.slice(2), slotId: null },
+  ] });
+  await actor("TUTOR").tutor.setPairingSlot({ pairingId: ids[0]!, slotId });
+  const before = await unitRows(ids);
+  await expect(actor("TUTOR").tutor.setPairingSlot({ pairingId: ids[2]!, slotId: overlapId }))
+    .rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await unitRows(ids)).toEqual(before);
+  await actor("TUTOR").tutor.setPairingSlot({ pairingId: ids[2]!, slotId: adjacentId });
+  const saved = await unitRows(ids);
+  expect(saved.every(row => row.scheduleConfirmed)).toBe(true);
+  expect(new Set(saved.map(row => row.groupId)).size).toBe(2);
+});
+
+it("rejects catalog propagation against an external copied tutor interval and rolls back the slot", async () => {
+  const first = await create({ roomMode: "NONE" });
+  await actor("TUTOR").tutor.setPairingSlot({ pairingId: first.id, slotId: null });
+  await create({ roomMode: "NONE", timeSlotId: otherSlotId });
+  const before = await db.pairing.findMany({ orderBy: { id: "asc" } });
+  const beforeSlot = await db.timeSlot.findUniqueOrThrow({ where: { id: otherSlotId } });
+  await expect(actor("HEAD").admin.updateTimeSlot({ id: otherSlotId,
+    label: "Conflicting catalog move", dayOfWeek: 7, startMin: 630, endMin: 690, active: true }))
+    .rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await db.timeSlot.findUniqueOrThrow({ where: { id: otherSlotId } })).toEqual(beforeSlot);
+  expect(await db.pairing.findMany({ orderBy: { id: "asc" } })).toEqual(before);
+});
+
+it("validates independent legacy reservations inside the final catalog cohort", async () => {
+  await create({ roomMode: "NONE" });
+  await db.pairing.create({ data: { tutorId, termId, subject, timeSlotId: slotId,
+    roomMode: "NONE", scheduleConfirmed: true, dayOfWeek: 2, startMin: 900, endMin: 960 } });
+  const before = await db.pairing.findMany({ orderBy: { id: "asc" } });
+  await expect(actor("HEAD").admin.updateTimeSlot({ id: slotId,
+    label: "Final cohort conflict", dayOfWeek: 7, startMin: 610, endMin: 670, active: true }))
+    .rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await db.pairing.findMany({ orderBy: { id: "asc" } })).toEqual(before);
+  expect(await db.timeSlot.findUniqueOrThrow({ where: { id: slotId } })).toMatchObject({ startMin: 600, endMin: 660 });
+});
+
+it("catalog propagation preserves unconfirmed linked placeholders without promoting or allocating them", async () => {
+  const confirmed = await create({ roomMode: "NONE" });
+  const awaiting = await db.pairing.create({ data: { tutorId, termId, subject, timeSlotId: slotId,
+    roomMode: "AUTO", scheduleConfirmed: false, dayOfWeek: 2, startMin: 900, endMin: 960 } });
+  const result = await actor("HEAD").admin.updateTimeSlot({ id: slotId,
+    label: "Confirmed reservations only", dayOfWeek: 7, startMin: 610, endMin: 670, active: true });
+  expect(result.updatedPairings).toBe(1);
+  expect(await db.pairing.findUniqueOrThrow({ where: { id: awaiting.id } })).toEqual(awaiting);
+  expect(await db.pairing.findUniqueOrThrow({ where: { id: confirmed.id } })).toMatchObject({ scheduleConfirmed: true, startMin: 610, endMin: 670 });
+  expect(await shortages()).toHaveLength(0);
+});
+
+it("reruns the tutor conflict rule at approval execution instead of reserving proposal time", async () => {
+  await expect(actor("COORDINATOR").admin.createPairing({ tutorId, subject, subjectId,
+    timeSlotId: overlapId, roomMode: "NONE", tuteeIds: [] }))
+    .rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const request = await db.approvalRequest.findFirstOrThrow({ where: { operation: "admin.createPairing" } });
+  const occupied = await create({ roomMode: "NONE" });
+  await expect(actor("HEAD").approval.decide({ id: request.id, approve: true, note: "Review live tutor occupancy" }))
+    .rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await db.pairing.findMany()).toMatchObject([{ id: occupied.id }]);
+  expect(await db.approvalRequest.findUniqueOrThrow({ where: { id: request.id } })).toMatchObject({ state: "PENDING" });
+});
+
+it("serializes simultaneous roomless plans for the same tutor so only one commits", async () => {
+  const results = await Promise.allSettled([create({ roomMode: "NONE" }), create({ roomMode: "NONE", timeSlotId: overlapId })]);
+  expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
+  expect(results.filter(result => result.status === "rejected")).toHaveLength(1);
+  expect(await db.pairing.count()).toBe(1);
+  expect(await shortages()).toHaveLength(0);
+});
+
+it("rejects incomplete management group edits and permits explicit repair without changing history", async () => {
+  const physics = await db.subject.create({ data: { name: "Allocation Integration Physics" } });
+  await db.tutorQualification.create({ data: { tutorId, subjectId: physics.id, approvedById: "allocation-ADMIN",
+    grants: { create: { subjectId: physics.id } } } });
+  const first = await create({ tuteeIds: learners, roomMode: "NONE" });
+  const second = await create({ subject: physics.name, subjectId: physics.id,
+    tuteeIds: learners, timeSlotId: otherSlotId, roomMode: "NONE" });
+  await combineRoomUnit([first.id, second.id]);
+  const before = await unitRows([first.id, second.id]);
+  const current = before.find(row => row.id === first.id)!;
+  await expect(update(first.id, { tuteeIds: [learners[0]!], roomMode: "NONE", expectedRoomVersion: current.roomVersion }))
+    .rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await unitRows([first.id, second.id])).toEqual(before);
+  await expect(actor().admin.deletePairing({ id: first.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  // Existing invalid groups remain explicitly repairable; no missing assignment
+  // is invented, and completed attendance is never recalculated by this path.
+  await db.pairingTutee.delete({ where: { pairingId_tuteeId: { pairingId: first.id, tuteeId: learners[1]! } } });
+  await expect(actor("TUTOR").tutor.setPairingSlot({ pairingId: second.id, slotId: otherSlotId }))
+    .rejects.toMatchObject({ code: "BAD_REQUEST" });
+  const repair = await db.pairing.findUniqueOrThrow({ where: { id: first.id } });
+  await update(first.id, { tuteeIds: learners, roomMode: "NONE", expectedRoomVersion: repair.roomVersion });
+  expect((await unitRows([first.id, second.id])).every(row => row.groupId === current.groupId)).toBe(true);
+  expect(await db.session.count()).toBe(0);
+});
+
+it("keeps a complete remaining group schedulable after management removes its original primary", async () => {
+  const first = await create({ tuteeIds: learners, roomMode: "NONE" });
+  const second = await create({ tuteeIds: learners, roomMode: "NONE", timeSlotId: otherSlotId });
+  const third = await create({ tuteeIds: learners, roomMode: "NONE", timeSlotId: adjacentId });
+  await combineRoomUnit([first.id, second.id, third.id]);
+  await actor().admin.deletePairing({ id: first.id });
+  await actor("TUTOR").tutor.setPairingSlot({ pairingId: second.id, slotId: otherSlotId });
+  const remaining = await unitRows([second.id, third.id]);
+  expect(remaining).toHaveLength(2);
+  expect(remaining.every(row => row.scheduleConfirmed && row.timeSlotId === otherSlotId && !!row.groupId)).toBe(true);
+  expect(await db.session.count()).toBe(0);
+});
+
+it("validates reactivated retained group coverage but allows unrelated edits to already-inactive students", async () => {
+  const physics = await db.subject.create({ data: { name: "Retained Coverage Physics" } });
+  await db.tutorQualification.create({ data: { tutorId, subjectId: physics.id, approvedById: "allocation-ADMIN",
+    grants: { create: { subjectId: physics.id } } } });
+  const first = await create({ tuteeIds: learners, roomMode: "NONE" });
+  const second = await create({ subject: physics.name, subjectId: physics.id,
+    tuteeIds: learners, timeSlotId: otherSlotId, roomMode: "NONE" });
+  await combineRoomUnit([first.id, second.id]);
+  const inactiveId = learners[1]!;
+  // Legacy retained links are deliberately synthetic here: ordinary inactivation
+  // removes them. Reactivation must still validate the prospective active roster.
+  await db.tutee.update({ where: { id: inactiveId }, data: { status: "INACTIVE" } });
+  await db.pairingTutee.delete({ where: { pairingId_tuteeId: { pairingId: second.id, tuteeId: inactiveId } } });
+  let inactive = await db.tutee.findUniqueOrThrow({ where: { id: inactiveId } });
+  await expect(actor("HEAD").admin.updateTutee({ id: inactive.id, englishName: inactive.englishName,
+    expectedUpdatedAt: inactive.updatedAt, status: "ACTIVE" }))
+    .rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.tutee.findUniqueOrThrow({ where: { id: inactiveId } })).toEqual(inactive);
+  // Make the group visibly invalid without changing the inactive student. A
+  // notes-only update must not be mistaken for another inactivation transition.
+  await db.pairingTutee.delete({ where: { pairingId_tuteeId: { pairingId: second.id, tuteeId: learners[0]! } } });
+  inactive = await db.tutee.findUniqueOrThrow({ where: { id: inactiveId } });
+  await actor("HEAD").admin.updateTutee({ id: inactive.id, englishName: inactive.englishName,
+    expectedUpdatedAt: inactive.updatedAt, status: "INACTIVE", notes: "Unrelated profile correction" });
+  expect(await db.tutee.findUniqueOrThrow({ where: { id: inactiveId } })).toMatchObject({
+    status: "INACTIVE", notes: "Unrelated profile correction",
+  });
 });
