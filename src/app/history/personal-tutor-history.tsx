@@ -72,8 +72,12 @@ function TutorEvidence({
                   key={row.id}
                 >
                   <p className="font-medium">
-                    {format.dateTime(row.date, { dateStyle: "medium" })} ·{" "}
-                    {row.pairing?.subject}
+                    {/* Attendance stores a calendar date at UTC midnight, not an instant. */}
+                    {format.dateTime(row.date, {
+                      dateStyle: "medium",
+                      timeZone: "UTC",
+                    })}{" "}
+                    · {row.pairing?.subject}
                   </p>
                   <p>
                     {row.schoolYear} {row.quarter} ·{" "}

@@ -13,6 +13,10 @@ import {
 import { api } from "~/trpc/react";
 import { DetailsAutoClose } from "~/app/_components/details-auto-close";
 import { useClampedPopover } from "~/app/_components/use-clamped-popover";
+import { QueryFeedback } from "./ui/query-feedback";
+import { InlineNotice, StatePanel } from "./ui/patterns";
+import { Button } from "./ui/button";
+import { useSessionAccessDenied } from "./session-view-state";
 
 /**
  * Bell + dropdown of the signed-in user's in-app notifications, with an unread badge.
@@ -28,6 +32,12 @@ export function NotificationBell() {
   const utils = api.useUtils();
   const list = api.notification.list.useQuery();
   const unread = api.notification.unreadCount.useQuery();
+  const denied = useSessionAccessDenied(list, unread);
+  const readFailed = !!list.error || !!unread.error;
+  const retry = () => {
+    // Retry reads only: marking a notice is never replayed to recover its display.
+    void Promise.allSettled([list.refetch(), unread.refetch()]);
+  };
   const invalidate = async () => {
     await Promise.all([
       utils.notification.list.invalidate(),
@@ -41,8 +51,9 @@ export function NotificationBell() {
     onSuccess: invalidate,
   });
 
-  const items = list.data ?? [];
-  const count = unread.data ?? 0;
+  const items = denied ? [] : (list.data ?? []);
+  const count = denied || unread.error ? 0 : (unread.data ?? 0);
+  const writeBlocked = denied || readFailed || !list.data;
 
   return (
     <details
@@ -75,15 +86,54 @@ export function NotificationBell() {
           {count > 0 && (
             <button
               className="link min-h-11 text-xs lg:min-h-8"
-              disabled={markAll.isPending}
+              disabled={markAll.isPending || markOne.isPending || writeBlocked}
               onClick={() => markAll.mutate()}
             >
               {t("components.notifications.markAllRead")}
             </button>
           )}
         </div>
+        <div className="px-3">
+          {denied ? (
+            <StatePanel
+              kind="denied"
+              title={t("participantRecovery.accessDenied")}
+              action={
+                <Button
+                  onClick={retry}
+                  disabled={list.isFetching || unread.isFetching}
+                >
+                  {t("uiPatterns.retry")}
+                </Button>
+              }
+            />
+          ) : (
+            <QueryFeedback
+              hasData={!!list.data}
+              loading={!list.data && !list.error}
+              error={readFailed}
+              retrying={list.isFetching || unread.isFetching}
+              loadingTitle={t("participantRecovery.loading")}
+              errorTitle={t(
+                list.data
+                  ? "participantRecovery.refreshFailed"
+                  : "participantRecovery.loadFailed",
+              )}
+              retryLabel={t("uiPatterns.retry")}
+              onRetry={retry}
+            />
+          )}
+          {!denied &&
+            [markOne.error, markAll.error]
+              .filter(Boolean)
+              .map((error, index) => (
+                <InlineNotice key={index} tone="error" announcement="alert">
+                  {error!.message}
+                </InlineNotice>
+              ))}
+        </div>
         <ul className="max-h-[min(24rem,calc(100dvh-16rem))] overflow-y-auto">
-          {items.length === 0 && (
+          {!denied && !readFailed && !!list.data && items.length === 0 && (
             <li className="px-3 py-4 text-center text-sm text-slate-400">
               {t("components.notifications.empty")}
             </li>
@@ -141,13 +191,18 @@ export function NotificationBell() {
                       navigateNotificationFragment(n.link!, event)
                     }
                     className={cls}
-                    onClick={() => markOne.mutate({ id: n.id })}
+                    onClick={() => {
+                      if (!writeBlocked) markOne.mutate({ id: n.id });
+                    }}
                   >
                     {inner}
                   </Link>
                 ) : (
                   <button
                     className={`w-full ${cls}`}
+                    disabled={
+                      writeBlocked || markOne.isPending || markAll.isPending
+                    }
                     onClick={() => markOne.mutate({ id: n.id })}
                   >
                     {inner}
