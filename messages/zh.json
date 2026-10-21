@@ -231,8 +231,8 @@
     "twoFactor": {
       "title": "???",
       "sent": "???????????? {email}?",
-      "code": "???",
-      "help": "??????? 5 ?????",
+      "code": "电子邮箱验证码",
+      "help": "请输入邮件中的 4 位数字。之前签发的旧格式代码仍可使用。",
       "verify": "?????",
       "verifying": "?????",
       "invalid": "??????????????????????",
@@ -312,8 +312,8 @@
       "backToSignIn": "← 返回登录",
       "step": {
         "code": {
-          "label": "注册邀请码",
-          "help": "请输入项目团队提供的 5 位字母数字邀请码。它与下一步发送到邮箱的验证码不同。",
+          "label": "邀请码",
+          "help": "请输入由字母和数字组成的 5 位代码。之前签发的旧格式代码仍可使用。",
           "submit": "继续"
         },
         "email": {
@@ -322,7 +322,7 @@
           "bound": "此验证码已绑定至该邮箱地址。",
           "send": "发送验证码",
           "sent": "我们已向 {email} 发送了验证码。",
-          "codeLabel": "验证码",
+          "codeLabel": "电子邮箱验证码",
           "verify": "验证邮箱",
           "resend": "重新发送验证码"
         },
@@ -1429,7 +1429,7 @@
       "expand": "展开",
       "noEmail": "未绑定邮箱",
       "expiresOn": "过期：{date}",
-      "codeLabel": "代码",
+      "codeLabel": "邀请码",
       "invalidNote": "此代码已失效。",
       "noCode": "无可用代码。",
       "share": {
@@ -1620,7 +1620,7 @@
       "applicationsEmpty": "暂无待处理申请。",
       "accept": "通过并签发密钥",
       "reject": "拒绝",
-      "codeIssued": "密钥：{code}",
+      "codeIssued": "邀请码: {code}",
       "requestsHeading": "退出与重新加入申请",
       "requestsEmpty": "暂无待处理申请。",
       "approve": "批准",
@@ -2056,17 +2056,9 @@
       "noRoom": " · 未分配教室",
       "defaultSlotLabel": "默认时间段：",
       "ranking": {
-        "mutual": "共同可用时段排在前面。保存前请与学习伙伴协商确认。",
-        "missing": "可用时间信息不完整；这些建议不代表已存在时间冲突。",
-        "missingTutor": "你尚未记录当前有效的可用时段。",
-        "missingTutees": "{count} 位学习伙伴尚未记录当前有效的可用时段。",
-        "noCommon": "没有你与所有已分配学习伙伴都选择的目录时段。仍可选择部分匹配时段；保存前请协商时间。",
-        "noTutees": "尚未分配学习伙伴。你选择的可用时段排在前面。",
-        "unavailable": "暂时无法提供可用时间建议。仍可明确选择并审阅已发布时段。",
-        "optionMutual": "所有人共同可用",
-        "optionTutor": "你及 {count}/{total} 位学习伙伴",
-        "optionOther": "{count}/{total} 位学习伙伴；你未选择",
-        "selectedStatus": "所选时段可用情况：{status}",
+        "bothAvailable": "双方均有空",
+        "otherTimeSlots": "其他时段",
+        "unavailable": "不可用",
         "retainedOption": "当前关联时段（未发布）"
       },
       "notSet": "— 未设置 —",
@@ -2347,8 +2339,8 @@
       "lookupHint": "请输入原申请使用的邮箱。验证邮箱后，你才能查看审核状态。",
       "sendCode": "发送验证码",
       "sent": "我们已向 {email} 发送了验证码。",
-      "verifyHint": "请输入五位验证码。邮箱验证会将新申请提交给管理员审核，不会直接授予巡查队权限。",
-      "emailCode": "邮箱验证码",
+      "verifyHint": "请输入四位数字验证码。邮箱验证会将新申请提交给管理员审核，不会直接授予巡查队权限。",
+      "emailCode": "电子邮箱验证码",
       "verify": "验证邮箱",
       "resend": "重新发送验证码",
       "editDetails": "返回申请选项",
@@ -2416,7 +2408,7 @@
         "affiliation": "你的身份",
         "affiliationPlaceholder": "例如：学生家长、数学教师、社区成员",
         "email": "邮箱",
-        "code": "验证码",
+        "code": "电子邮箱验证码",
         "password": "密码",
         "confirm": "确认密码"
       }
@@ -2498,7 +2490,7 @@
       "sendCode": "发送验证码",
       "sending": "发送中…",
       "codeSent": "我们已将验证码发送至 {email}，请在下方输入以完成更改。",
-      "codeLabel": "验证码",
+      "codeLabel": "电子邮箱验证码",
       "resend": "重新发送",
       "cancel": "取消"
     }
@@ -2594,7 +2586,7 @@
     "email": "新邮箱",
     "password": "当前密码",
     "send": "发送验证码",
-    "code": "新邮箱收到的验证码",
+    "code": "电子邮箱验证码",
     "confirm": "验证并更改邮箱",
     "success": "邮箱已更改。"
   },
@@ -2878,7 +2870,7 @@
     "verified": "邮箱已验证",
     "emailPending": "邮箱待验证",
     "unverified": "待验证邮箱",
-    "edited": "[已修改]",
+    "edited": "已修改",
     "priority": "原始提交时间：{time}",
     "assignments": "辅导伙伴安排",
     "waitingMatch": "等待匹配辅导伙伴。",
@@ -3583,7 +3575,7 @@
     "working": "处理中…",
     "limit": "最多可添加五个备用邮箱。新邮箱必须验证后才能设为主邮箱。",
     "verifyAddress": "验证 {email}",
-    "code": "验证码",
+    "code": "电子邮箱验证码",
     "resend": "重新发送",
     "sent": "验证码已发送，请在下方输入。验证码十分钟内有效。",
     "verifiedNotice": "邮箱已验证。现在可用于登录、找回账户或设为主邮箱。",
@@ -4230,7 +4222,7 @@
     "accountConfirm": "我是预期收件人。我理解此步骤仅创建登录账号；登录后将核对并关联记录，不会自动加入当前项目或获得观察员权限。",
     "accountReady": "登录账号已准备就绪",
     "accountReadyHelp": "请使用已验证邮箱和密码登录，再核对并关联受邀记录。如设置后关闭了页面，请使用同一账号登录，不要重复创建账号。",
-    "emailCode": "邮箱验证码",
+    "emailCode": "电子邮箱验证码",
     "newPassword": "新密码（至少 8 个字符）",
     "sendCode": "发送验证码",
     "verifyCode": "验证邮箱",
@@ -4605,7 +4597,7 @@
     "emailed": "已发送",
     "emailSent": "邀请码已发送至您验证过的邮箱。",
     "handoffRecovery": "请使用邀请码继续，系统可能会要求您再次验证邮箱。",
-    "verificationCode": "邮箱验证码",
+    "verificationCode": "电子邮箱验证码",
     "emailTitle": "验证邮箱",
     "verifyEmailHelp": "请验证邮箱，将此邀请关联到您的账号。",
     "sendVerification": "发送验证码",
@@ -5275,7 +5267,7 @@
   "pairingGroups": {
     "manage": "合并／拆分配对",
     "title": "我的配对组",
-    "help": "将自己的两至六个科目配对组成一组。选择共同的固定时间段；所有成员使用主配对的教室。保存前请检查变更。",
+    "help": "每组包含两至六个配对，每位学习伙伴必须涵盖所有所选科目。可先保存为待安排时间，也可选择共同时间，保存前请检查。",
     "loading": "正在加载配对组…",
     "loadError": "无法加载配对组。",
     "retry": "重试",
@@ -5300,17 +5292,36 @@
     "consequences": "保存将同时更新所有所选成员的后续时间及教室，不会提交或改写出勤记录。拆分后的配对需要单独安排时间。",
     "noGroups": "所有配对将单独列出。",
     "splitHelp": "取消勾选可移除成员，也可拆分整组。保留的每组至少需要两个成员。离组配对将恢复为待安排时间。",
-    "catalogueHelp": "已保存配对组共用固定时间，提交出勤后仍可合并或拆分。",
+    "catalogueHelp": "先合并符合要求的配对，再为已保存的整组安排共同时间。",
     "combined": "合并配对",
     "combinedRoster": "合并学习伙伴名单",
     "memberDetails": "科目配对与学习伙伴操作",
     "record": "记录整组出勤",
     "individualAttendance": "单独记录一个科目",
-    "accessDenied": "你的辅导权限已更改。请重新加载并验证权限后再编辑配对组。"
+    "accessDenied": "你的辅导权限已更改。请重新加载并验证权限后再编辑配对组。",
+    "awaiting": "待安排时间",
+    "keepCurrentTime": "保留当前已确认时间",
+    "scheduleAfterMembershipChange": "成员已更改。请选择新的共同时间，或明确选择待安排时间。",
+    "clearSchedule": "保存为待安排时间将清除所有成员的已确认时间及教室预约。",
+    "slotConflict": "与{subjects}的时间重叠",
+    "needsRepair": "此配对组需要修复。请编辑成员或拆分后，再安排时间或记录整组出勤。",
+    "repairCount": "{count} 个配对组需要修复。请先检查“我的配对”，再安排时间或记录整组出勤。",
+    "reference": "配对组 {id}",
+    "missingCoverage": "{student}缺少以下科目：{subjects}。",
+    "eligibility": {
+      "size": "请选择两至六个配对。",
+      "emptyRoster": "每个配对均须包含当前学习伙伴。请移除空配对或拆分该组。",
+      "incompleteCoverage": "每位学习伙伴必须涵盖全部所选科目。"
+    },
+    "status": {
+      "scheduled": "共同时间已确认",
+      "awaiting": "待安排时间",
+      "needsRepair": "需要修复"
+    }
   },
   "tutorWorkload": {
     "title": "已分配辅导时段",
-    "help": "这是本季度所有已分配学习伙伴顺利参与时的预估工作量。共同的已确认时段只计一次；尚待确定时间的辅导安排分别计算。偏好仅供参考，不会改变现有安排。",
+    "help": "这是本季度所有已分配学习伙伴顺利参与时的预估工作量。有效配对组无论是否已安排时间均计一次，其他配对分别计算。偏好仅供参考，不会改变现有安排。",
     "editPreference": "期望辅导次数",
     "preference": "期望辅导次数",
     "unset": "未设置偏好",
@@ -5345,7 +5356,7 @@
     "reloadFailed": "无法重新载入偏好。草稿及原始版本已保留。",
     "countHeading": "已分配时段",
     "preferenceHeading": "期望上限",
-    "staffHelp": "本季度预估工作量；共同的已确认时段只计一次，尚待确定时间的安排分别计算。",
+    "staffHelp": "本季度预估工作量；每个符合要求的已保存配对组计为一次，包括尚待安排时间的组。其他配对分别计算。",
     "confirmTitle": "分配次数超过期望次数？",
     "continue": "继续",
     "reviewAssignment": "尝试分配辅导",
@@ -5506,5 +5517,13 @@
     "unavailable": "你已无法批准此面试。",
     "waitingVotes": "所有评审均须投票后才能批准。",
     "changed": "面试资料已更改，请重新加载并核对最新信息。"
+  },
+  "codes": {
+    "invitationLabel": "邀请码",
+    "emailLabel": "电子邮箱验证码",
+    "invitationHelp": "请输入由字母和数字组成的 5 位代码。之前签发的旧格式代码仍可使用。",
+    "emailHelp": "请输入邮件中的 4 位数字。之前签发的旧格式代码仍可使用。",
+    "lettersKeyboard": "输入包含字母的代码",
+    "numericKeyboard": "使用数字键盘"
   }
 }

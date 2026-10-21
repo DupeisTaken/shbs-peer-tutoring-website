@@ -175,6 +175,7 @@ import {
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 import { allocateRoom, allocationData, allocateSlotCohort, assertRoomVersion, notifyRoomShortage } from "~/server/room-allocation";
+import { assertPairingGroupsRemainEligible } from "~/server/tutor-scheduling";
 import { pairingCreationReceipt } from "~/server/pairing-creation";
 import {
   assertRoomBlackoutAvailable,
@@ -910,6 +911,7 @@ export const adminRouter = createTRPCRouter({
         room: true,
         term: true,
         timeSlot: true,
+        group: { select: { primaryPairingId: true } },
         tutees: { include: { tutee: true } },
       },
     });
@@ -1044,6 +1046,9 @@ export const adminRouter = createTRPCRouter({
         const retainGroup = current.groupId && tutorId === current.tutorId &&
           timeSlotId === current.timeSlotId && requestedMode === current.roomMode &&
           (requestedMode !== "FIXED" || input.roomId === undefined || input.roomId === current.roomId);
+        await assertPairingGroupsRemainEligible(tx, { replacement: {
+          id, subject, tuteeIds, detach: !retainGroup,
+        } });
         const allocation = retainGroup ? { ...current, roomOutcome: "RETAINED" as const } : await allocateRoom(tx, {
           id, tutorId, tuteeIds, scheduleConfirmed: true,
           termId: current.termId,
@@ -1121,6 +1126,9 @@ export const adminRouter = createTRPCRouter({
           "admin.deletePairing",
           input,
         );
+        await assertPairingGroupsRemainEligible(tx, {
+          pairingIds: [input.id], removePairingIds: [input.id],
+        });
         const sessions = await tx.session.count({
           where: { pairingId: input.id },
         });
@@ -1863,6 +1871,27 @@ export const adminRouter = createTRPCRouter({
             : Promise.resolve([]),
         ]);
 
+      // Reports project effective enrollment evidence without rewriting the archive
+      // or borrowing a linked account's current grade. A preserved null is meaningful.
+      const signupAcademics = signups.length
+        ? await ctx.db.historicalAcademicRecord.findMany({
+            where: { id: { in: signups.map((s) => legacyAcademicRecordId("TUTEE", s.id)) } },
+            select: {
+              tuteeId: true,
+              rawGrade: true,
+              corrections: {
+                orderBy: { revision: "desc" },
+                take: 1,
+                select: { rawGrade: true },
+              },
+            },
+          })
+        : [];
+      const signupGrades = new Map(signupAcademics.map((record) => [
+        record.tuteeId,
+        record.corrections[0] ? record.corrections[0].rawGrade : record.rawGrade,
+      ]));
+
       return {
         ...detailed,
         applications: applications.map((a) => ({
@@ -1876,7 +1905,7 @@ export const adminRouter = createTRPCRouter({
           id: s.id,
           date: s.createdAt,
           name: s.englishName,
-          grade: s.gradeLevel,
+          grade: signupGrades.has(s.id) ? signupGrades.get(s.id)! : s.gradeLevel,
           status: s.status,
           firstChoice: s.firstChoice?.name ?? null,
           secondChoice: s.secondChoice?.name ?? null,
@@ -2612,6 +2641,9 @@ export const adminRouter = createTRPCRouter({
         await lockEntity(tx, "program:period");
         await lockUsernameNamespace(tx);
         await lockCatalogue(tx);
+        // Take the reservation fence before request/account/tutee row locks, as
+        // assignment writers hold it while replacing a group's active roster.
+        await lockPlannedRoomSchedule(tx);
         const signup = await tx.studentSurvey.findUnique({
           where: { tuteeId: input.id },
         });
@@ -2773,6 +2805,12 @@ export const adminRouter = createTRPCRouter({
           });
         if (input.status !== "INACTIVE" && before.status !== input.status)
           await preserveHistoricalAcademics(tx, "TUTEE", id);
+        if (fields.status === "INACTIVE" && before.status !== "INACTIVE")
+          await assertPairingGroupsRemainEligible(tx, {
+            tuteeIds: [id], removeTuteeIds: [id],
+          });
+        if (fields.status !== "INACTIVE" && before.status === "INACTIVE")
+          await assertPairingGroupsRemainEligible(tx, { activateTuteeIds: [id] });
         const updated = await tx.tutee.update({
           where: { id },
           data: {

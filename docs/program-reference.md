@@ -91,11 +91,15 @@ for that exact submitted request plus existing sign-in/MFA and explicit review;
 email matching alone never grants access or combines accounts. Tutor recruitment
 and its existing approval process remain separate.
 
-New invitation and staff registration codes retain the five-character uppercase
-Steam-style format, containing both letters and digits, including `0` and `I`. Input accepts
-`O`/`o` as `0` and, in five-character codes, `1` as `I`. Codes are opaque; their characters
-do not encode access or invitation type. Outstanding older invitations remain usable.
-Mailbox verification codes remain separate and keep their existing formats.
+New invitation and staff registration codes contain five characters, mixing letters
+and numbers, and use a green box background. Separate email verification codes contain
+four digits and use a blue box background. The website retains one wide input, with
+gray `XXXXX` or `XXXX` placeholders; emails retain the existing single code panel.
+Field labels and email instructions identify the purpose. Leading zeros are part
+of the code. Codes are opaque: characters do not encode access or invitation type.
+Outstanding five-digit, alphanumeric and twelve-character invitations remain usable
+within their original validity, and entry fields accept the entire older code without
+truncation.
 
 ## Optional modules
 
@@ -220,6 +224,16 @@ In **Rooms**, Head/Admin use the up/down arrows beside each room's existing acti
 
 Use **Time Slots**, **Rooms** and **Pairings** to plan recurring sessions. A room cannot host overlapping pairings in one program period or a pairing during a recurring blackout; back-to-back sessions are allowed. Availability helps participants agree on a slot and does not prevent staff from assigning a tutor before that agreement. New assignments display **Awaiting schedule** until a tutor or manager selects a catalog slot. These assignments do not reserve rooms or count as scheduled subjects; the assigned tutor remains visible to the tutee.
 
+A tutor also cannot reserve overlapping times for separate assigned teaching
+blocks, even with different rooms or no physical room. The default slot selector
+marks these choices **Unavailable**; remaining choices retain **Both Available**
+and **Other Time Slots** according to saved participant availability. Tutors can
+first combine eligible assignments without a time, then choose one time for the
+whole group. Every tutee must have the complete selected subject set. Management
+Pairings keeps subject-level rows with a common group reference and group Details;
+invalid retained groups are marked for repair before scheduling or combined
+attendance. See [combining and splitting](user-guide.md#combine-and-split-recurring-pairings).
+
 Each independent Pairings row reserves at most one room. An explicitly combined
 pairing group instead shares one reservation using its primary assignment’s room
 and schedule. Coincident times, shared students and one-off combined attendance
@@ -261,8 +275,9 @@ Assignment selectors and Pairings show the current quarter's approximate assigne
 session-block load and an optional tutor preference of 0–4 sessions. Selectors use
 `(assigned/preferred)`, such as `(2/3)`, or `(2)` for an unset preference.
 Submitting above the preference opens a Continue/Cancel dialog. New tutors default
-to 1; existing unset values are preserved. Tutors edit this in **My Availability**. A shared confirmed
-time counts once; awaiting-schedule pairings count separately. Staff can assign over
+to 1; existing unset values are preserved. Tutors edit this in **My Availability**.
+Each valid saved group counts once, including while awaiting a schedule.
+Independent assignments count separately even when their times match. Staff can assign over
 the preference under the original approval rules. Inactivity resets it to locked
 zero, and reactivation keeps zero until the tutor changes it. See the
 [role guide](user-guide.md#tutors) for editing and the full counting rule.
@@ -370,6 +385,8 @@ HEAD and ADMIN can apply additions; Coordinator additions require Admin/Head rev
 Open **Reports** (`/admin/history`) and choose a school year and quarter, semester or whole-year scope. **Summary** shows totals and tutors; **Detailed** adds sessions, cards, meetings, meeting attendance, adjustments, crew and attendance flags; **Full** also includes applications, signups, removals and tutor participation requests. Sections follow enabled modules.
 
 HEAD can download a displayed table as CSV. Use **Print / Save as PDF** and the browser's print dialog for a printable report. Review the private-data masking option before sharing; VIEWER responses are always masked by the server. Report exports reflect the chosen scope and current records. They are not database backups and do not use the import format below.
+
+Signup grades in newly generated reports use the latest reviewed historical academic correction, or the preserved enrollment grade when no correction exists. An originally unknown grade stays unknown; linking an account does not substitute its current grade. Legacy signups without preserved evidence use their recorded enrollment grade. Generating a report does not change original archive evidence or previously downloaded reports.
 
 ## Import and export program records
 

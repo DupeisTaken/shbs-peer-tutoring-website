@@ -6,6 +6,7 @@ import {
 } from "~/lib/tutor-workload";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 import { portalAccess } from "~/lib/portal-access";
+import { pairingEntries } from "~/lib/pairing-groups";
 import { lockAccountProfile } from "~/server/account-profile";
 import { staleConflict } from "~/server/concurrency";
 import { recordDomainAudit } from "~/server/audit/evidence";
@@ -50,12 +51,20 @@ export async function tutorWorkloads(db: DomainDb, tutorId?: string) {
             where: {
               ...(tutorId ? { tutorId } : {}),
               termId: term.id,
-              tutees: { some: { tutee: { status: { not: "INACTIVE" } } } },
             },
             select: {
               id: true,
               tutorId: true,
               termId: true,
+              subject: true,
+              groupId: true,
+              group: { select: { primaryPairingId: true } },
+              roomId: true,
+              timeSlotId: true,
+              tutees: {
+                where: { tutee: { status: { not: "INACTIVE" } } },
+                select: { tuteeId: true },
+              },
               scheduleConfirmed: true,
               dayOfWeek: true,
               startMin: true,
@@ -73,9 +82,15 @@ export async function tutorWorkloads(db: DomainDb, tutorId?: string) {
         termId: term?.id ?? null,
         tutors: tutors.map((tutor) => {
           const assignable = isAssignableTutor(tutor);
-          const blocks = assignedBlocks(
-            assignable ? (byTutor.get(tutor.id) ?? []) : [],
-          );
+          const current = assignable ? (byTutor.get(tutor.id) ?? []) : [];
+          // Include empty members while checking complete group coverage; dropping
+          // them first would make a broken group look like a valid smaller one.
+          const validGroups = new Set(pairingEntries(current)
+            .filter((entry) => entry.groupId && entry.groupStatus !== "needsRepair")
+            .map((entry) => entry.groupId));
+          const blocks = assignedBlocks(current
+            .filter((pairing) => pairing.tutees.length > 0)
+            .map((pairing) => ({ ...pairing, groupValid: validGroups.has(pairing.groupId) })));
           return {
             id: tutor.id,
             status: tutor.status,

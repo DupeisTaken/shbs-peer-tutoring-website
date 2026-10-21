@@ -89,20 +89,67 @@ Crew submit/status mail uses the existing durable signup mail admission and opti
 
 ### Opaque invitation codes
 
-New displayed invitations and staff keys use the shared five-character
-Steam-style alphabet `023456789ABCDEFGHIJKMNPQRSTUVWXYZ`, with both letters and digits.
-Entry canonicalizes `O`/`o` to `0` and, for five-character codes only, `1` to `I`.
-The shared browser-safe normalizer keeps input, lookup and quota identity consistent;
-longer legacy hexadecimal receipts and OTPs retain digit `1`. Existing displayed receipts
-are re-derived with the current or original alphabet only when the persisted hash matches,
-so retries and optional mail preserve their code; an unmatched hash fails closed.
-Keep the legacy centered, uppercase, widely spaced `XXXXX` code card. Outstanding
-twelve-character invitations remain accepted for compatibility; code length must not
-determine a new invitation's source or authorization. Server resolution distinguishes
-staff keys from displayed invitations, retains proof and exact recipient checks, and
-avoids ambiguous code issuance through the shared database namespace lock.
-Mailbox verification remains a separate secret: tutee verification uses six hexadecimal
-characters, while the resulting invitation uses five Steam-style characters.
+New displayed invitations and staff registration keys contain exactly five characters,
+including both letters and numbers from `023456789ABCDEFGHIJKMNPQRSTUVWXYZ`;
+emailed verification challenges contain exactly four digits (`0–9`). Both are strings:
+leading zeros survive generation, rendering, copy/paste, normalization and submission.
+Invitation and verification generation/normalization have distinct contracts in
+[the code helpers](../src/server/auth/code.ts); never reuse an invitation generator
+for a mailbox challenge. Random generation uses cryptographic randomness and rejects
+invitation candidates lacking either character class. Displayed invitation derivation
+uses the `display:mixed:v3` namespace, skips candidates lacking either class and retains
+the stored collision nonce and shared namespace lock, so a retry or optional email
+reproduces the code already issued.
+
+The site uses green invitation and blue verification box backgrounds, independent of
+the selected accent theme. It retains the legacy single wide native input, neutral
+text and borders, with gray `XXXXX` or `XXXX` placeholders. Purpose remains explicit
+in the field's translated label and accessible help; there are no segmented slots.
+Paste, correction, leading zeros and email-code autofill retain ordinary input behavior.
+Invitation entry uses a text keyboard; email entry requests a numeric keyboard and
+switches to text when a pasted or entered older code contains letters. Older input
+remains complete instead of being silently truncated.
+HTML mail retains its legacy single code panel, typography, border and spacing.
+Only the code background changes to dark green (`#18342C`) for invitations or blue
+(`#172F49`) for verification, including its dark-mode fallback. The existing body
+instructions identify the code's purpose; the panel adds no label or guidance wrapper.
+
+Outstanding five-digit, five-character alphanumeric and twelve-character invitation codes remain
+usable until their existing expiry, revocation or consumption. Receipt reconstruction
+checks the persisted hash before selecting the new mixed derivation or an older
+numeric/alphanumeric derivation, and fails closed if none matches. Mixed codes retain
+letter aliases without rewriting a numeric `1` into `I`. Entirely numeric input always denotes a numeric code;
+use the original letters for an older code whose aliases would be all digits.
+Already issued verification challenges keep their original
+hash/format; replacement challenges use the new four-digit format. Tutee survey
+verification and staged replacements persist `emailCodeVersion`: migration
+`20261020070000_numeric_email_codes` gives existing rows version `0` for their
+six-character hexadecimal challenge; new issuance writes version `1` for four digits.
+The verifier accepts only that row's format. A legacy code never acquires a new lifetime
+or a second valid numeric interpretation. Emails of old receipts show the full value
+in the same single code panel, with previously-issued-code guidance in the body.
+
+The emailed challenge inventory is:
+
+| Purpose | Owning implementation | Preserved authority |
+| --- | --- | --- |
+| Tutee signup and replacement verification | [Student surveys](../src/server/student-survey.ts), [staged replacements](../src/server/student-signup-intents.ts) | Exact survey/submission, fixed deadline, original priority and consent |
+| Viewer signup | [Viewer signup](../src/server/auth/viewer-signup.ts) | Verified mailbox before invitation issuance |
+| Crew application and private status | [Crew signup](../src/server/crew/signup.ts) | Mailbox proof remains separate from staff approval |
+| Staff-key and recipient invitation verification | [Registration](../src/server/auth/registration.ts), [account invitations](../src/server/auth/account-invitations.ts) | Recipient, original staff authorization, explicit access review |
+| Historical access setup | [History setup](../src/server/history-account-setup.ts) | Exact historical invitation; no current enrollment |
+| Associated-email verification and primary-email change | [Account emails](../src/server/auth/account-emails.ts), [email change](../src/server/auth/email-change.ts) | Exact account and destination; ownership rechecked on claim |
+| Email sign-in challenge | [Two-factor sign-in](../src/server/auth/two-factor.ts) | Primary mailbox, credentials, session generation and sign-in policy |
+| Password/security step-up confirmation | [Step-up](../src/server/auth/step-up.ts) | Exact account and purpose; single-use confirmation |
+
+Four numeric digits have 10,000 possible values. Each verification flow retains its
+existing five- or six-failure cap (0.05%–0.06% per challenge), including the remaining
+budget of outstanding legacy challenges; recipient/IP admission and resend limits
+remain separate.
+Expiry, single use, resend replacement and purpose/recipient scoping still apply;
+a code's color or length grants no role or ownership. Passwords, long proof tokens,
+recovery/setup links and their authorization rules are unchanged. Preserve failed
+delivery cleanup and transaction boundaries when adding another challenge caller.
 
 The code is opaque: no character or position encodes a role, account identity or
 invitation type. The server resolves its value against authorization records and checks
@@ -1190,11 +1237,12 @@ Application locks protect supported API writes. Do not import directly into requ
 snapshot for the active quarter, tutor eligibility, preference and assignment
 identities. Only pairings with at least one non-INACTIVE tutee count; PENDING
 tutees already assigned reserve effort. Empty/inactive-only rosters, inactive or
-revoked tutors and ended quarters contribute no blocks. Confirmed rows share the
-`termId/dayOfWeek/startMin/endMin` identity, independent of subjects, roster size,
-room and catalog-slot IDs; unconfirmed rows use their pairing ID so placeholder
-times never merge. Attendance history is not queried. Inactive slots retain the
-copied confirmed schedule's workload. The count estimates effort if assignments
+revoked tutors and ended quarters contribute no blocks. A coherent, eligible
+explicit group shares one block identity whether scheduled or awaiting a time.
+Independent rows use their pairing ID even when their confirmed clocks match;
+placeholder clocks never imply grouping. Invalid groups are not collapsed.
+Attendance history is not queried. Inactive slots retain the copied confirmed
+schedule's workload. The count estimates effort if assignments
 work out; it is neither an attendance total nor a weekly/program cap.
 
 `admin.assignmentWorkloads` is staff-only assignment context. Native options use
@@ -1211,7 +1259,9 @@ pending protection until it settles.
 A separate default-only migration sets new tutors to 1 without backfilling unset
 values; the existing inactive trigger still wins with zero. All native tutor
 selectors and the Pairings assignment editor consume the same count. The Pairings
-summary keeps six pairing-level columns; workload counts and preferences remain
+summary keeps six pairing-level columns and individual actions, exposes each saved
+group's shared reference and status, and shows membership/coverage in the rightmost
+Details reader. Workload counts and preferences remain
 at assignment decisions. Its Room cell renders a name only for a confirmed
 schedule with a room. Feature-owned `PairingRoomSummary` displays `-` for awaiting
 schedules or explicit NONE, and `x` for remaining roomless records. Automatic is
@@ -1252,7 +1302,8 @@ no new assignment permission or approval requirement.
 Pairing-group saves include workload invalidation in their awaited read refresh,
 including the accepted-save Retry path. This updates a mounted My Availability
 count after combine/split while its independent preference draft/version remains
-owned by the tutor. Group IDs do not replace the confirmed-time workload identity.
+owned by the tutor. Only a valid explicit group shares a workload identity;
+matching confirmed times alone never combine independent assignments.
 Assignment confirmation composes the shared Modal/NativeDialog pending, Escape and
 focus behavior while retaining its qualification ticket and countdown lifecycle.
 When a child write removes or disables its opener, focus returns to the still-open
@@ -1369,15 +1420,38 @@ workflow links never call scheduling, voting, attendance or booking mutations.
 [Mutual availability ranking](../src/lib/mutual-availability.ts) is a pure,
 read-only projection of the active slot catalog, tutor selected IDs and the
 assigned roster's slot IDs. The tutor pairing selector considers the full distinct
-current roster for a saved group and ranks exact shared IDs first. Remaining
-choices sort by tutor selection, descending matched-tutee count, then
-weekday/start/end/ID. Similar clock intervals never imply
-agreement. Missing selections and unavailable reads are distinct from a known
-lack of a shared slot; no published choice is removed. The current unpublished
-linked slot remains visible, while retained confirmed times keep their existing
+current roster for a saved group and presents non-conflicting exact shared IDs
+under **Both Available**, with other non-conflicting published choices under
+**Other Time Slots**. The separate [planned interval helper](../src/lib/planned-scheduling.ts)
+classifies a conflict with another assigned tutor block as **Unavailable** first.
+Those options stay visible but disabled. It compares copied weekday/start/end,
+including retained unlinked schedules, and excludes only the selected assignment
+or its complete valid explicit group; strict overlap permits adjacency.
+Available option labels contain catalog label, weekday and time; unavailable
+options also explain the overlap. Availability counts and redundant guidance below
+the selector are omitted.
+Empty selector categories are omitted. Remaining choices sort by tutor selection, descending
+matched-tutee count, then weekday/start/end/ID. Similar clock intervals never imply
+agreement. Missing selections and unavailable reads never qualify a slot for the
+shared group; failed reads retain the existing query recovery and cannot authorize
+a new schedule. No published choice is removed. The current unpublished linked slot remains visible, while retained
+confirmed times keep their existing
 summary. Sorting never changes the saved selection, review or versioned mutation
 payload. Coverage lives in [pure ranking tests](../src/lib/mutual-availability.test.ts)
 and [pairing UI tests](<../src/app/(tutor)/_components/tutor-pairings.test.tsx>).
+
+[Tutor scheduling validation](../src/server/tutor-scheduling.ts) runs under the
+existing planned-room transaction fence before room-mode early returns, so NONE,
+AUTO shortages and distinct physical rooms cannot bypass tutor occupancy.
+Management creation/edit/reassignment and tutor/group scheduling use the same
+allocator boundary. Catalog changes validate the complete prospective cohort,
+including conflicts between its units, before changing reservations. Approval
+execution reruns the authoritative writer. Live roster eligibility applies to
+active-period groups; catalog propagation retains complete historical groups
+without treating later student inactivation as a repair requirement for ended
+periods. This is application transaction
+enforcement, not a new claim about arbitrary direct SQL writes; recorded attendance
+retains its separate tutor/date overlap and immutable-retry rules.
 
 Confirmed planned room bookings cannot overlap within a program period or conflict with a recurring blackout. Unconfirmed numeric placeholders do not reserve rooms, and changing only the confirmation flag still invokes the database room guard. Adjacent bookings are allowed. Shared transaction locks keep application validation coherent; database triggers enforce the final constraint. Actual historical attendance can differ from a plan and is recorded with conflict warnings and management notification.
 
@@ -1412,9 +1486,36 @@ Meeting deductions use the semester allowance in [meeting-hours.ts](../src/serve
 
 [Catalog-slot attendance propagation](../src/server/attendance-schedule.ts) holds an exclusive transaction advisory barrier before discovering affected history. Attendance and patrol submissions/corrections acquire shared access before their other locks, so normal independent writes can still proceed concurrently. Clock changes move each complete merged block atomically, retain its slot identities and single-credit factors, reject final tutor/date overlaps, reconcile flags and linked deductions, and preserve prior evidence in the audit log. Slot, pairing, session, hours, flags, audit and HEAD notification updates share one transaction. Weekday-only edits preserve actual history. Submissions that read stale catalog defaults must reload; this application coordination does not claim to prevent arbitrary direct SQL attendance writes.
 
-Reusable tutor pairing groups are implemented by [pairing-groups](../src/server/pairing-groups.ts) and the self-scoped [router](../src/server/api/routers/pairing-groups.ts). `PairingGroup` owns a tutor, period and preferred primary assignment; nullable `Pairing.groupId` retains each original subject and roster. The additive migration backfills no group and never changes Session evidence. A complete group draft carries a SHA-256 fingerprint of current assignments, memberships, active-student roster identity, room labels, schedules and active catalog slots. Saving holds the program-period, tutor and planned-room locks, row-locks the tutor's current assignments, revalidates the snapshot and all memberships, then atomically replaces the requested groups and copied schedules. Only active tutors with participation access can write their own current populated assignments; each assignment belongs to at most one group, with two to six members. No subject-name/shared-student rule is inferred.
+Reusable tutor pairing groups are implemented by [pairing-groups](../src/server/pairing-groups.ts) and the self-scoped [router](../src/server/api/routers/pairing-groups.ts). `PairingGroup` owns a tutor, period and preferred primary assignment; nullable `Pairing.groupId` retains each original subject and roster. The additive migration backfills no group and never changes Session evidence. A complete group draft carries a SHA-256 fingerprint of current assignments, memberships, active-student roster identity, room labels, schedules and active catalog slots. Saving holds the program-period, tutor and planned-room locks, row-locks the tutor's current assignments, revalidates the snapshot and all memberships, then atomically replaces the requested groups and copied schedules. Only active tutors with participation access can write their own current populated assignments; each assignment belongs to at most one group, with two to six members. The shared [eligibility helper](../src/lib/pairing-group-eligibility.ts) requires each distinct tutee's selected subject set to equal the whole group's subject set. It compares stored subject labels exactly because Pairing has no subject ID; case, whitespace and aliases never invent missing assignments. Splitting one subject across roster rows remains valid.
 
-Every group uses its primary member's room and one active catalog slot. Affected bookings are temporarily unconfirmed inside the transaction before complete room validation and final member writes; any failure rolls everything back. Members leaving a group become unscheduled without deleting assignments or changing actual attendance. A database owner guard clears membership on reassignment and independent schedule/room edits, while retaining catalog propagation through the same slot. The assignment editor's `admin.updatePairing` detaches a member when tutor, slot or room intent changes; retained subject/roster edits preserve its group. Dedicated `admin.setPairingRoom` and `admin.retryRoomAllocation` instead operate on the complete reservation unit from any member, preserving the roster and qualification evidence. The room trigger allows same-tutor/same-period group members to share a booking and continues rejecting unrelated bookings and blackouts. Existing self-service slot changes expand to all members, and catalog preflight recognizes one grouped room booking. Read projections only combine members with a coherent schedule/room tuple, falling back to independent assignments if an old primary disappears or a group becomes a singleton. Group tables are included before Pairing in historical export/import dependency order.
+Groups can persist before scheduling: nullable `slotId` saves an Awaiting schedule
+group, with no confirmed time or reservation. A selected active slot schedules
+every member together using the primary's room intent. `retainSchedule` explicitly
+preserves an unchanged complete group's existing confirmed interval when its
+catalog link is absent or unpublished; it cannot smuggle a new interval or changed
+membership. Affected bookings are temporarily unconfirmed inside the transaction
+before complete room/tutor validation and final member writes; failure rolls back
+the whole change. Members leaving a group become unscheduled without deleting
+assignments or changing actual attendance.
+
+The database owner guard still clears membership on reassignment and independent
+schedule/room edits, while retaining catalog propagation through the same slot.
+Deliberate management subject/roster/deletion changes validate the prospective
+remaining group or require an explicit split first. Mandatory lifecycle removal
+keeps its existing authority and can leave a dynamically flagged repair group.
+Read projections retain every explicit group, including unscheduled, singleton
+and divergent legacy groups, and expose `scheduled`, `awaiting` or `needsRepair`.
+No coherent subset is silently presented as the whole lesson. Group attendance
+and scheduling reject repair groups; dashboard/upcoming readers show repair work
+instead of an appointment. Historical Session evidence remains unchanged.
+
+Dedicated `admin.setPairingRoom` and `admin.retryRoomAllocation` operate on the
+complete valid reservation unit from any member, preserving roster and
+qualification evidence. The room trigger allows same-tutor/same-period group
+members to share a booking and rejects unrelated bookings and blackouts. Existing
+self-service slot changes expand to all members, and catalog preflight recognizes
+one grouped room booking. Group tables precede Pairing in historical export/import
+dependency order.
 
 The [group editor](../src/app/(tutor)/_components/pairing-group-editor.tsx) composes ProfileDialog, FormSection, ChangeReview and QueryFeedback. Its draft/version survives failed writes and background reads; explicit Reload replaces it only after a successful read. Same-tick admission and owned dialog pending state block duplicate writes and dismissal. The retained editor must also honor current participation eligibility after opening: loss of active status blocks new Review/Save admission without discarding the draft. This write guard must not block read-only synchronization Retry for a save already accepted. Accepted saves retain their receipt through read-only synchronization recovery. Attendance group selection copies a distinct-student snapshot into its separate draft; changing saved groups does not rewrite a pending/saved attendance form. One-off combined attendance and individual-subject attendance remain available. English/Chinese copy is authored; the other six catalogs use English for these new group strings pending translation.
 

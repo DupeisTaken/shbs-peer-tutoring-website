@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { pairingEntries } from "~/lib/pairing-groups";
+import { pairingGroupEligibility } from "~/lib/pairing-group-eligibility";
 import {
   inTransaction,
   lockEntity,
@@ -18,7 +19,10 @@ export const pairingGroupsInput = z.object({
       z.object({
         id: z.string().min(1).optional(),
         pairingIds: z.array(z.string().min(1)).min(2).max(6),
-        slotId: z.string().min(1),
+        slotId: z.string().min(1).nullable(),
+        // An explicit keep-current choice preserves a confirmed custom interval.
+        // Null without this flag explicitly returns the group to Awaiting schedule.
+        retainSchedule: z.boolean().optional(),
       }),
     )
     .max(100),
@@ -87,7 +91,15 @@ export async function readPairingGroups(db: DomainDb, tutorId: string) {
       .map((p) => ({
         id: p.groupId!,
         pairingIds: p.pairings.map((x) => x.id),
-        slotId: p.primary.timeSlotId,
+        slotId: p.groupStatus === "scheduled" ? p.primary.timeSlotId : null,
+        scheduleConfirmed: p.groupStatus === "scheduled",
+        dayOfWeek: p.primary.dayOfWeek,
+        startMin: p.primary.startMin,
+        endMin: p.primary.endMin,
+        retainSchedule: p.groupStatus === "scheduled" &&
+          !slots.some((slot) => slot.id === p.primary.timeSlotId),
+        groupStatus: p.groupStatus,
+        groupEligibility: p.groupEligibility,
       })),
     pairings,
     slots,
@@ -149,11 +161,35 @@ export async function savePairingGroups(
           });
         seen.add(id);
       }
-      if (!before.slots.some((s) => s.id === group.slotId))
+      const members = group.pairingIds.map((id) => pairings.get(id)!);
+      const eligibility = pairingGroupEligibility(members);
+      if (!eligibility.eligible) {
+        const missing = eligibility.missing.map(({ tuteeId, subjects }) => {
+          const student = members.flatMap((p) => p.tutees).find((p) => p.tuteeId === tuteeId);
+          const name = [student?.tutee.englishName, student?.tutee.user?.username]
+            .find((label) => typeof label === "string" && label.trim().length > 0) ?? tuteeId;
+          return `${name}: ${subjects.join(", ")}`;
+        }).join("; ");
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Every student must have every selected subject. Missing assignments: ${missing}`,
+        });
+      }
+      if (group.slotId !== null && !before.slots.some((s) => s.id === group.slotId))
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Choose an available catalog time slot.",
         });
+      if (group.retainSchedule) {
+        const current = before.groups.find((g) => g.id === group.id);
+        if (group.slotId !== null || !current?.retainSchedule ||
+          current.pairingIds.length !== group.pairingIds.length ||
+          !current.pairingIds.every((id) => group.pairingIds.includes(id)))
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Keep current time requires the same complete, scheduled group. Choose a time or Awaiting schedule.",
+          });
+      }
     }
 
     // Temporarily release affected planned bookings inside this atomic transaction.
@@ -174,7 +210,16 @@ export async function savePairingGroups(
     });
     for (const group of input.groups) {
       const primary = fullPairings.get(group.pairingIds[0]!)!;
-      const slot = before.slots.find((s) => s.id === group.slotId)!;
+      const slot = before.slots.find((s) => s.id === group.slotId);
+      // Placeholder clocks remain storage-only for unscheduled groups. A saved
+      // custom interval is retained only through the explicit reviewed choice.
+      const schedule = {
+        dayOfWeek: slot?.dayOfWeek ?? primary.dayOfWeek,
+        startMin: slot?.startMin ?? primary.startMin,
+        endMin: slot?.endMin ?? primary.endMin,
+        timeSlotId: group.retainSchedule ? primary.timeSlotId : slot?.id ?? null,
+        scheduleConfirmed: !!slot || group.retainSchedule === true,
+      };
       const saved = group.id
         ? await tx.pairingGroup.update({
             where: { id: group.id },
@@ -189,9 +234,8 @@ export async function savePairingGroups(
           });
       const members = group.pairingIds.map(id => ({ ...fullPairings.get(id)!, groupId: saved.id }));
       const allocation = await allocateRoom(tx,
-        { ...roomUnitSchedule(members), ...slot, scheduleConfirmed: true }, {}, primary);
-      await persistRoomUnit(tx, members, allocation,
-        { ...slot, timeSlotId: group.slotId, scheduleConfirmed: true });
+        { ...roomUnitSchedule(members), ...schedule }, {}, primary);
+      await persistRoomUnit(tx, members, allocation, schedule);
       await notifyRoomShortage(tx, primary.id, allocation, primary.roomShortageKey);
     }
     return readPairingGroups(tx, tutorId);
@@ -208,14 +252,25 @@ export async function groupMembersForSchedule(
     termId: string;
   },
 ) {
-  return pairing.groupId
-    ? tx.pairing.findMany({
+  if (!pairing.groupId) return [{ id: pairing.id, roomId: null }];
+  const members = await tx.pairing.findMany({
         where: {
           groupId: pairing.groupId,
           tutorId: pairing.tutorId,
           termId: pairing.termId,
         },
-        select: { id: true, roomId: true },
-      })
-    : [{ id: pairing.id, roomId: null }];
+        select: {
+          id: true, roomId: true, subject: true,
+          tutees: {
+            where: { tutee: { status: { not: "INACTIVE" } } },
+            select: { tuteeId: true },
+          },
+        },
+      });
+  if (!pairingGroupEligibility(members).eligible)
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "This group needs repair. Every student must have every selected subject before scheduling.",
+    });
+  return members;
 }

@@ -1,9 +1,9 @@
 "use client";
+import { CodeInput } from "~/app/_components/ui/code-field";
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { Button } from "~/app/_components/ui/button";
-import { FieldRequirement } from "~/app/_components/field-requirement";
 import { SignupError } from "~/app/_components/signup-error";
 import { InvitationReceipt } from "../register/invitation-receipt";
 import {
@@ -46,20 +46,15 @@ export function SurveyVerification({
         }}
       >
         <fieldset disabled={busy} className="space-y-4">
-          <label className="block">
-            <span className="label">
-              {t("verificationCode")}
-              <FieldRequirement state="required" />
-            </span>
-            <input
-              className="input text-center font-mono text-xl tracking-widest"
-              autoComplete="one-time-code"
-              required
-              maxLength={6}
-              value={code}
-              onChange={(event) => setCode(event.target.value.toUpperCase())}
-            />
-          </label>
+          <CodeInput
+            purpose="email"
+            value={code}
+            onValueChange={setCode}
+            aria-invalid={Boolean(verify.error)}
+            aria-describedby={
+              verify.error ? "survey-verification-error" : undefined
+            }
+          />
           <Button type="submit" variant="primary" className="w-full">
             {t("verify")}
           </Button>
@@ -87,7 +82,11 @@ export function SurveyVerification({
         </fieldset>
         {captcha.panel}
         {verify.error && (
-          <p role="alert" className="text-sm text-red-700">
+          <p
+            role="alert"
+            id="survey-verification-error"
+            className="text-sm text-red-700"
+          >
             <SignupError error={verify.error} />
           </p>
         )}

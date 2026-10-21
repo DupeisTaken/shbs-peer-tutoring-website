@@ -49,14 +49,31 @@ jobs:
 
             // Match pingdotgg/t3code's effective-line thresholds and colors.
             const sizes = [
-              { name: "size:XS", limit: 10, color: "0e8a16", range: "0-9" },
-              { name: "size:S", limit: 30, color: "5ebd3e", range: "10-29" },
-              { name: "size:M", limit: 100, color: "fbca04", range: "30-99" },
-              { name: "size:L", limit: 500, color: "fe7d37", range: "100-499" },
-              { name: "size:XL", limit: 1000, color: "d93f0b", range: "500-999" },
-              { name: "size:XXL", limit: Infinity, color: "b60205", range: "1,000+" },
+              { name: "code:XS", limit: 10, color: "0e8a16", range: "0-9" },
+              { name: "code:S", limit: 30, color: "5ebd3e", range: "10-29" },
+              { name: "code:M", limit: 100, color: "fbca04", range: "30-99" },
+              { name: "code:L", limit: 500, color: "fe7d37", range: "100-499" },
+              { name: "code:XL", limit: 1000, color: "d93f0b", range: "500-999" },
+              { name: "code:XXL", limit: Infinity, color: "b60205", range: "1,000+" },
             ];
-            const managedNames = new Set(sizes.map(({ name }) => name));
+            // Documentation shares code-size thresholds/colors, folding 1-9 into
+            // S because the docs family intentionally has no XS or zero label.
+            const documentationSizes = sizes.slice(1).map((size) => ({
+              ...size, name: size.name.replace("code:", "docs:"),
+              range: size.name === "code:S" ? "1-29" : size.range,
+            }));
+            const definitions = sizes.map(({ name, color, range }) => ({
+              name, color,
+              description: `${range} effective changed lines (excludes tests, docs and translation files).`,
+            })).concat(documentationSizes.map(({ name, color, range }) => ({
+              name, color, description: `${range} documentation changed lines.`,
+            })));
+            // Retire only the six legacy size labels, including any restored by
+            // an older workflow during migration. Custom labels stay untouched.
+            const managedNames = new Set([
+              ...definitions.map(({ name }) => name),
+              ...sizes.map(({ name }) => name.replace("code:", "size:")),
+            ]);
             const git = (...args) => execFileSync("git", args, {
               encoding: "utf8", maxBuffer: 32 * 1024 * 1024,
             });
@@ -85,6 +102,17 @@ jobs:
               ":(glob,exclude)scripts/test-*",
               ":(glob,exclude)scripts/smoke-*",
             ];
+            // Exclude supporting material by location, not all Markdown/JSON:
+            // prisma/policies is runtime input, and i18n implementation still counts.
+            // One documentation scope drives both code exclusions and the separate
+            // documentation size. Translation catalogs never contribute to docs size.
+            const documentationPaths = ["docs/**", "**/README.md", "**/AGENTS.md"];
+            const documentationPathspecs = (exclude = false) => documentationPaths
+              .map((path) => `:(top,glob${exclude ? ",exclude" : ""})${path}`);
+            const contentExclusions = [
+              ...documentationPathspecs(true),
+              ":(top,glob,exclude)messages/*.json",
+            ];
             const sumLines = (numstat) => numstat.split("\n").filter(Boolean)
               .reduce((total, line) => {
                 const [added, removed] = line.split("\t");
@@ -92,10 +120,16 @@ jobs:
                   + (Number.parseInt(removed, 10) || 0);
               }, 0);
             const total = sumLines(git(...diffArgs));
-            const nonTest = sumLines(git(...diffArgs, "--", ".", ...testExclusions));
-            // Test-only PRs still receive a meaningful size instead of always XS.
-            const effective = nonTest === 0 ? total : nonTest;
+            // Apply exclusions even to supporting-material-only PRs. Falling back
+            // to the total would reintroduce the inflation this label avoids.
+            const effective = sumLines(git(...diffArgs, "--", ".",
+              ...testExclusions, ...contentExclusions));
             const nextLabel = sizes.find(({ limit }) => effective < limit).name;
+            const documentation = sumLines(git(...diffArgs, "--", ...documentationPathspecs()));
+            const nextDocumentationLabel = documentation > 0
+              ? documentationSizes.find(({ limit }) => documentation < limit).name : null;
+            const desiredLabels = new Set([nextLabel]);
+            if (nextDocumentationLabel) desiredLabels.add(nextDocumentationLabel);
 
             const { data: latest } = await github.rest.pulls.get(pullParams);
             if (latest.state !== "open" || latest.head.sha !== pr.head.sha
@@ -105,9 +139,8 @@ jobs:
             }
 
             // Bootstrap labels on first use; reconcile their color/description later.
-            for (const { name, color, range } of sizes) {
-              const label = { ...repo, name, color,
-                description: `${range} effective changed lines (test files excluded in mixed PRs).` };
+            for (const { name, color, description } of definitions) {
+              const label = { ...repo, name, color, description };
               let existing;
               try {
                 ({ data: existing } = await github.rest.issues.getLabel({ ...repo, name }));
@@ -129,17 +162,21 @@ jobs:
 
             const labels = await github.paginate(github.rest.issues.listLabelsOnIssue,
               { ...repo, issue_number, per_page: 100 });
-            // Add first so an API failure never removes the PR's only size label.
-            if (!labels.some(({ name }) => name === nextLabel)) {
-              await github.rest.issues.addLabels({ ...repo, issue_number, labels: [nextLabel] });
+            // Add all desired labels before removing stale ones. Documentation
+            // size is independent of the exactly-one code-size classification.
+            const missingLabels = [...desiredLabels]
+              .filter((name) => !labels.some((label) => label.name === name));
+            if (missingLabels.length > 0) {
+              await github.rest.issues.addLabels({ ...repo, issue_number, labels: missingLabels });
             }
             for (const { name } of labels) {
-              if (!managedNames.has(name) || name === nextLabel) continue;
+              if (!managedNames.has(name) || desiredLabels.has(name)) continue;
               try {
                 await github.rest.issues.removeLabel({ ...repo, issue_number, name });
               } catch (error) {
                 if (error.status !== 404) throw error;
               }
             }
-            core.info(`PR #${issue_number}: ${total} total lines, ${nonTest} non-test lines, `
-              + `${effective} effective lines -> ${nextLabel}`);
+            core.info(`PR #${issue_number}: ${total} total lines, ${total - effective} excluded lines, `
+              + `${effective} effective lines -> ${nextLabel}; ${documentation} documentation lines -> `
+              + `${nextDocumentationLabel ?? "none"}`);

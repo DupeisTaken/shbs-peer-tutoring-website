@@ -19,10 +19,7 @@ const USER_ID = "test-step-up-user";
 
 function extractCode(): string {
   const message = send.mock.calls.at(-1)?.[0];
-  // Read the issued canonical alphabet, including 0/I; O/1 are entry aliases only.
-  const code = message?.text.match(
-    /[023456789ABCDEFGHIJKMNPQRSTUVWXYZ]{5}/,
-  )?.[0];
+  const code = message?.presentation?.code;
   if (!code) throw new Error("expected an emailed step-up code");
   return code;
 }
@@ -46,6 +43,7 @@ describe("step-up verification codes", () => {
   it("allows exactly one concurrent consumer", async () => {
     await issueStepUpCode(USER_ID, "PASSWORD_CHANGE");
     const code = extractCode();
+    expect(code).toMatch(/^[0-9]{4}$/);
 
     const results = await Promise.all(
       Array.from({ length: 8 }, () =>

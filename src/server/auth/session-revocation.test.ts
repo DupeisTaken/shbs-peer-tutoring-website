@@ -35,7 +35,9 @@ function assertSessionTestDatabase() {
     throw new Error("Use the isolated local shbs_shipping_test database.");
 }
 const lastCode = () => {
-  const code = /code is ([A-Z0-9]+)/.exec(mail.mock.calls.at(-1)?.[0].text ?? "")?.[1];
+  const code = / is ([0-9]{4})/.exec(
+    mail.mock.calls.at(-1)?.[0].text ?? "",
+  )?.[1];
   if (!code) throw new Error("Expected an emailed verification code");
   return code;
 };

@@ -51,7 +51,7 @@ const caller = (id = userId, role: Session["role"] = "VIEWER") =>
   });
 const secondary = () => `${userId}-secondary@example.test`;
 const lastCode = () =>
-  /code is ([A-Z0-9]+)/.exec(mail.send.mock.calls.at(-1)?.[0].text ?? "")![1]!;
+  / is ([0-9]{4})/.exec(mail.send.mock.calls.at(-1)?.[0].text ?? "")![1]!;
 async function verifiedAlias() {
   await requestSecondaryEmail(userId, secondary(), password);
   expect(mail.send).toHaveBeenLastCalledWith(

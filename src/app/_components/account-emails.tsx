@@ -1,8 +1,13 @@
 "use client";
+import { CodeInput } from "~/app/_components/ui/code-field";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
+import { QueryFeedback } from "./ui/query-feedback";
+import { Button } from "./ui/button";
+import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
+import { useSessionAccessDenied } from "./session-view-state";
 
 /** One shared address manager for account and tutor settings. Passwords remain local to the form.
  * Form actions retain 44px touch targets; compact desktop address actions share 32px rows. */
@@ -231,17 +236,13 @@ export function AccountEmails() {
                 <p className="text-sm font-medium break-all">
                   {t("verifyAddress", { email: selected })}
                 </p>
-                <label className="block space-y-1">
-                  <span className="label">{t("code")}</span>
-                  <input
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    autoComplete="one-time-code"
-                    maxLength={30}
-                    className="input min-h-11 font-mono tracking-widest lg:min-h-10"
-                    required
-                  />
-                </label>
+                <CodeInput
+                  purpose="email"
+                  value={code}
+                  onValueChange={setCode}
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? "account-emails-error" : undefined}
+                />
                 <div className="flex flex-wrap gap-2">
                   <button
                     className="btn-primary min-h-11 lg:min-h-10"
@@ -274,7 +275,11 @@ export function AccountEmails() {
           </p>
         )}
         {error && (
-          <p role="alert" className="text-sm text-red-700">
+          <p
+            role="alert"
+            id="account-emails-error"
+            className="text-sm text-red-700"
+          >
             {error.message}
           </p>
         )}
@@ -283,118 +288,185 @@ export function AccountEmails() {
   );
 }
 
-/** Server data seeds a keyed form only after a save/refetch; typing never fights an effect. */
+type PreferenceDraft = {
+  emailMessages: boolean;
+  emailInfo: boolean;
+  emailSecondaryRecipients: boolean;
+};
+
+/** A dirty draft owns all three choices. Background reads can change availability,
+ * but only Cancel or a successful post-save read replaces the draft. */
 export function EmailPreferences() {
   const t = useTranslations("emailPreferences");
+  const recovery = useTranslations("participantRecovery");
+  const ui = useTranslations("uiPatterns");
   const settings = api.account.emailSettings.useQuery();
+  const denied = useSessionAccessDenied(settings);
   const [saved, setSaved] = useState(false);
-  if (!settings.data)
-    return settings.error ? <p role="alert">{settings.error.message}</p> : null;
+  const [draft, setDraft] = useState<PreferenceDraft | null>(null);
+  const [committed, setCommitted] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const admitted = useRef(false);
+  const refreshSaved = async () => {
+    setRefreshing(true);
+    try {
+      const result = await settings.refetch({ throwOnError: true });
+      if (!result.data || !result.isSuccess)
+        throw new Error("Preference refresh failed");
+      setDraft(null);
+      setCommitted(false);
+      setRefreshFailed(false);
+    } catch {
+      setRefreshFailed(true);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+  const save = api.account.setEmailPreferences.useMutation({
+    onSuccess: async () => {
+      setSaved(true);
+      setCommitted(true);
+      await refreshSaved();
+    },
+    onSettled: () => {
+      admitted.current = false;
+    },
+  });
+  const retry = () => {
+    if (committed) void refreshSaved();
+    else void settings.refetch();
+  };
+  const feedback = (
+    <QueryFeedback
+      hasData={!!settings.data}
+      loading={!settings.data && !settings.error}
+      error={!!settings.error && !committed}
+      retrying={settings.isFetching}
+      loadingTitle={recovery("loading")}
+      errorTitle={recovery(settings.data ? "refreshFailed" : "loadFailed")}
+      retryLabel={ui("retry")}
+      onRetry={retry}
+    />
+  );
+  if (denied)
+    return (
+      <StatePanel
+        kind="denied"
+        title={recovery("accessDenied")}
+        action={
+          <Button onClick={retry} disabled={settings.isFetching || refreshing}>
+            {ui("retry")}
+          </Button>
+        }
+      />
+    );
+  if (!settings.data) return feedback;
   const data = settings.data;
+  const preferences = draft ?? {
+    emailMessages: data.emailMessages,
+    emailInfo: data.emailInfo,
+    emailSecondaryRecipients: data.emailSecondaryRecipients,
+  };
+  const blocked =
+    !data.enabled ||
+    !!settings.error ||
+    save.isPending ||
+    committed ||
+    refreshing;
   return (
     <section className="card space-y-4 p-5 sm:p-6">
       <div>
         <h2 className="section-title">{t("title")}</h2>
         <p className="muted mt-1 text-sm">{t("help")}</p>
       </div>
+      {feedback}
       {!data.enabled && (
         <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
           {t("disabled")}
         </p>
       )}
-      <PreferenceForm
-        key={[
-          data.enabled,
-          data.emailMessages,
-          data.emailInfo,
-          data.emailSecondaryRecipients,
-        ].join(":")}
-        data={data}
-        onSaved={setSaved}
-      />
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (blocked || admitted.current) return;
+          admitted.current = true;
+          setDraft(preferences);
+          save.mutate(preferences);
+        }}
+      >
+        <fieldset
+          disabled={blocked}
+          className="divide-y divide-slate-100 disabled:opacity-60"
+        >
+          {(
+            ["emailMessages", "emailInfo", "emailSecondaryRecipients"] as const
+          ).map((key) => (
+            <label
+              key={key}
+              className="flex cursor-pointer items-start gap-3 py-3"
+            >
+              <input
+                type="checkbox"
+                checked={preferences[key]}
+                onChange={(e) => {
+                  setSaved(false);
+                  setDraft({ ...preferences, [key]: e.target.checked });
+                }}
+                className="accent-accent-600 mt-1 h-4 w-4 shrink-0"
+              />
+              <span>
+                <span className="block text-sm font-medium text-slate-900">
+                  {t(key)}
+                </span>
+                <span className="muted block text-xs">{t(`${key}Help`)}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+        <p className="muted text-xs">{t("essential")}</p>
+        <FormActions>
+          <button
+            className="btn-primary min-h-11 lg:min-h-10"
+            disabled={blocked}
+          >
+            {t(save.isPending ? "saving" : "save")}
+          </button>
+          <Button
+            disabled={blocked}
+            onClick={() => {
+              setDraft(null);
+              setSaved(false);
+            }}
+          >
+            {ui("cancel")}
+          </Button>
+        </FormActions>
+        {save.error && (
+          <p role="alert" className="text-sm text-red-700">
+            {save.error.message}
+          </p>
+        )}
+      </form>
       {saved && (
         <p role="status" className="text-sm text-green-700">
           {t("saved")}
         </p>
       )}
-    </section>
-  );
-}
-
-function PreferenceForm({
-  data,
-  onSaved,
-}: {
-  data: {
-    enabled: boolean;
-    emailMessages: boolean;
-    emailInfo: boolean;
-    emailSecondaryRecipients: boolean;
-  };
-  onSaved: (saved: boolean) => void;
-}) {
-  const t = useTranslations("emailPreferences");
-  const utils = api.useUtils();
-  const [preferences, setPreferences] = useState({
-    emailMessages: data.emailMessages,
-    emailInfo: data.emailInfo,
-    emailSecondaryRecipients: data.emailSecondaryRecipients,
-  });
-  const save = api.account.setEmailPreferences.useMutation({
-    onSuccess: async () => {
-      onSaved(true);
-      await utils.account.emailSettings.invalidate();
-    },
-  });
-  return (
-    <form
-      className="space-y-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        save.mutate(preferences);
-      }}
-    >
-      <fieldset
-        disabled={!data.enabled || save.isPending}
-        className="divide-y divide-slate-100 disabled:opacity-60"
-      >
-        {(
-          ["emailMessages", "emailInfo", "emailSecondaryRecipients"] as const
-        ).map((key) => (
-          <label
-            key={key}
-            className="flex cursor-pointer items-start gap-3 py-3"
-          >
-            <input
-              type="checkbox"
-              checked={preferences[key]}
-              onChange={(e) => {
-                onSaved(false);
-                setPreferences({ ...preferences, [key]: e.target.checked });
-              }}
-              className="accent-accent-600 mt-1 h-4 w-4 shrink-0"
-            />
-            <span>
-              <span className="block text-sm font-medium text-slate-900">
-                {t(key)}
-              </span>
-              <span className="muted block text-xs">{t(`${key}Help`)}</span>
-            </span>
-          </label>
-        ))}
-      </fieldset>
-      <p className="muted text-xs">{t("essential")}</p>
-      <button
-        className="btn-primary min-h-11 lg:min-h-10"
-        disabled={!data.enabled || save.isPending}
-      >
-        {t(save.isPending ? "saving" : "save")}
-      </button>
-      {save.error && (
-        <p role="alert" className="text-sm text-red-700">
-          {save.error.message}
-        </p>
+      {refreshFailed && (
+        <InlineNotice
+          tone="warning"
+          announcement="alert"
+          action={
+            <Button disabled={refreshing} onClick={() => void refreshSaved()}>
+              {ui("retry")}
+            </Button>
+          }
+        >
+          {recovery("refreshFailed")}
+        </InlineNotice>
       )}
-    </form>
+    </section>
   );
 }

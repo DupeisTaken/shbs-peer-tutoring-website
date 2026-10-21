@@ -1,3 +1,4 @@
+import { normalizeEmailCode } from "~/lib/registration-code";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import type { Prisma, StudentSignupIntent } from "../../generated/prisma";
@@ -31,6 +32,7 @@ import {
   confirmSurvey,
   assertIntakeEligibility,
   surveyEmailCode,
+  freshSurveyToken,
 } from "./student-survey";
 import { emailSender, isEmailDeliveryAvailable } from "./email/sender";
 import { emailOrigin } from "./email/urls";
@@ -215,6 +217,7 @@ export async function stageStudentSignupIntent(
         policySnapshot: policy.documents,
         submittedAt: receivedAt,
         tokenHash: hashKey(randomBytes(32).toString("hex")),
+        emailCodeVersion: 1,
         expiresAt: new Date(+receivedAt + 86400000),
       },
     });
@@ -238,6 +241,7 @@ export async function stageStudentSignupIntent(
         payload: input,
         policySnapshot: policy.documents,
         tokenHash: hashKey(randomBytes(32).toString("hex")),
+        emailCodeVersion: 1,
         expiresAt,
         receivedAt,
       },
@@ -269,7 +273,11 @@ async function sendStudentSignupIntent(
       signup: true,
       to: intent.email,
       subject: "Tutoring signup — verify this submission",
-      text: `Your email verification code is ${surveyEmailCode(intent.tokenHash)}. / 您的邮箱验证码是 ${surveyEmailCode(intent.tokenHash)}。\n\nThis code is for this exact submitted signup. Your previous request stays unchanged until you sign in and review this submission. Priority and existing assignments are preserved. / 此验证码仅用于本次提交。登录并确认前，原申请保持不变。\n\nVerify by ${intent.expiresAt.toISOString()}.\n${emailOrigin()}/tutee-signup/account?intent=${intent.id}`,
+      presentation: {
+        code: surveyEmailCode(intent.tokenHash, intent.emailCodeVersion),
+        codePurpose: "verification",
+      },
+      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${surveyEmailCode(intent.tokenHash, intent.emailCodeVersion)}. / 您的邮箱验证码是 ${surveyEmailCode(intent.tokenHash, intent.emailCodeVersion)}。\n\nThis code is for this exact submitted signup. Your previous request stays unchanged until you sign in and review this submission. Priority and existing assignments are preserved. / 此验证码仅用于本次提交。登录并确认前，原申请保持不变。\n\nVerify by ${intent.expiresAt.toISOString()}.\n${emailOrigin()}/tutee-signup/account?intent=${intent.id}`,
     });
     return true;
   } catch {
@@ -315,7 +323,10 @@ export async function verifyStudentSignupIntent(
     await lockEntity(tx, `student-signup-intent-id:${id}`);
     const { intent } = await validStudentSignupIntent(tx, id);
     if (intent.email !== email) return false;
-    if (surveyEmailCode(intent.tokenHash) !== code.trim().toUpperCase()) {
+    if (
+      surveyEmailCode(intent.tokenHash, intent.emailCodeVersion) !==
+      normalizeEmailCode(code)
+    ) {
       await tx.studentSignupIntent.update({
         where: { id },
         data: { attempts: { increment: 1 } },
@@ -352,7 +363,10 @@ export async function resendStudentSignupIntent(
   // Rotate only this staged challenge after delivery succeeds; original request proof is untouched.
   const replacement = {
     ...intent,
-    tokenHash: hashKey(randomBytes(32).toString("hex")),
+    tokenHash: hashKey(
+      freshSurveyToken(intent.tokenHash, intent.emailCodeVersion),
+    ),
+    emailCodeVersion: 1,
   };
   const sent = await sendStudentSignupIntent(db, replacement);
   if (sent)
@@ -373,6 +387,7 @@ export async function resendStudentSignupIntent(
         where: { id },
         data: {
           tokenHash: replacement.tokenHash,
+          emailCodeVersion: replacement.emailCodeVersion,
           attempts: 0,
           verifiedAt: null,
           emailSentAt: new Date(),

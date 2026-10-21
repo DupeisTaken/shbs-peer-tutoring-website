@@ -33,7 +33,8 @@
   white-space: normal;
 }
 
-.month {
+.month,
+.amount {
   display: inline-block;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;

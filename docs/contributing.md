@@ -57,6 +57,26 @@ The direct development dependency anchors the local package at the repository
 root; the override references it with `$fast-glob`. Keep the adapter's Docker
 `COPY` before `npm ci` so clean image builds resolve the same package.
 
+When adding, renaming or removing interface message keys, update every bundled
+catalog in `messages/`, including languages hidden from the default picker. Run
+`npm test -- src/i18n/locales.test.ts --maxWorkers=1` to check key parity, nonblank
+values and ICU placeholders before the complete CI suite.
+
+Invitation codes and emailed verification challenges have separate
+[generation, display and compatibility contracts](technical-report.md#opaque-invitation-codes).
+Use the shared purpose-specific code field/display for site entry and receipts;
+email callers declare `presentation.codePurpose` and provide matching bilingual
+plaintext instructions. New invitations mix letters and numbers in five characters;
+emailed challenges contain four digits, preserving leading zeros. Keep the legacy
+single wide site input, gray `XXXXX`/`XXXX` placeholders and neutral text/borders;
+change only the box background to green for invitations or blue for verification.
+Email keeps the legacy single code panel's layout, typography and border, with dark
+green (`#18342C`) or blue (`#172F49`) backgrounds and no added label/guidance wrapper.
+Never infer authorization from this presentation metadata. Include old-format
+acceptance, purpose confusion, attempt limits, resend and failed delivery in tests;
+capture both site and email panels at desktop/mobile widths and verify that stripping
+email styles preserves readable instructions, full codes and contrast.
+
 ## Reuse interaction patterns
 
 Review the development-only [UI gallery](local-development.md#ui-pattern-gallery) before building a new interaction. Its examples use the same [shared components](../src/app/_components/ui) as the application. Keep the existing slate surfaces, white cards and accent themes. The [agent entry point](../AGENTS.md#start-with-the-shared-patterns) maps interactions to components and owns the control-height, table-action and responsive-header conventions.
@@ -456,36 +476,75 @@ and [page-composition roles](#compose-a-page-by-its-purpose) from their first ca
 ## Pull request size labels
 
 The [PR Size workflow](../.github/workflows/pr-size.yml) automatically maintains one
-size label when a PR is opened, reopened, updated, edited (including a new base),
+`code:` size label when a PR is opened, reopened, updated, edited (including a new base),
 or switched between draft and ready. It applies to all target branches and forks.
 It becomes active after the workflow is merged into the default branch; existing
 PRs receive labels on their next matching event.
 
-Following [t3code's sizing rules](https://github.com/pingdotgg/t3code/blob/main/.github/workflows/pr-size.yml),
-size counts added plus deleted lines from the PR's merge base, ignoring whitespace
-and blank-line changes. Binary files contribute zero lines. Tests are excluded
-when non-test lines change; test-only PRs use their full count. Lockfiles and
-documentation count normally.
+Size counts added plus deleted lines from the PR's merge base, ignoring whitespace
+and blank-line changes. Binary files contribute zero lines. Tests, documentation
+and bundled translation files are always excluded, including when they are the
+only changes: those PRs receive `code:XS`. There is no fallback to the total diff.
+The thresholds and colors follow t3code's original sizing convention; the label
+measures code/configuration churn, not total review effort or risk.
 
 | Label | Effective changed lines |
 | --- | --- |
-| `size:XS` | 0–9 |
-| `size:S` | 10–29 |
-| `size:M` | 30–99 |
-| `size:L` | 100–499 |
-| `size:XL` | 500–999 |
-| `size:XXL` | 1,000+ |
+| `code:XS` | 0–9 |
+| `code:S` | 10–29 |
+| `code:M` | 30–99 |
+| `code:L` | 100–499 |
+| `code:XL` | 500–999 |
+| `code:XXL` | 1,000+ |
 
 Test paths include `test/`, `tests/`, `__tests__/`, files containing `.test.`,
 `.spec.`, `.browser.` or `.integration.`, and `scripts/test-*` / `scripts/smoke-*`.
-Keep the workflow's exclusions aligned with new test entrypoints.
+Documentation exclusions cover `docs/**` and `README.md` / `AGENTS.md` at any depth.
+Translation exclusions cover the bundled `messages/*.json` catalogs. Runtime
+localization code, `prisma/policies/` Markdown inputs, other JSON/Markdown files and
+lockfiles still count. Keep the workflow's exclusions aligned with new test
+entrypoints and documentation/translation locations.
+
+An independent `docs:` label measures documentation changes in `docs/**` or
+`README.md` / `AGENTS.md` at any depth. It uses the same merge-base diff and
+whitespace/blank-line adjustments as code size, counting additions plus deletions.
+Documentation labels share the corresponding code-size label colors:
+
+| Label | Documentation changed lines |
+| --- | --- |
+| `docs:S` | 1–29 |
+| `docs:M` | 30–99 |
+| `docs:L` | 100–499 |
+| `docs:XL` | 500–999 |
+| `docs:XXL` | 1,000+ |
+
+Zero documentation lines receive no `docs:` label; there is no `docs:XS`.
+Translation catalogs contribute to neither code size nor documentation size.
+Runtime policy inputs in `prisma/policies/` still count as code/configuration,
+except `README.md` / `AGENTS.md` guidance, which counts as documentation.
+A documentation-only PR can therefore have both `code:XS` and `docs:XL`, for
+example. A mixed PR keeps its code-size label alongside its documentation size.
+The workflow replaces documentation labels as the count changes, maintaining
+exactly one code size label and at most one documentation size label. It preserves
+manual labels such as `documentation` and custom labels outside these families.
+Workflow logs show total, excluded, effective and documentation line counts plus
+the selected labels. Existing closed PR labels are not backfilled by a rule
+change; open PRs are reconciled on their next matching event.
+
+The former `size:XS` through `size:XXL` labels are now named `code:XS` through
+`code:XXL`. Rename existing repository labels in place to preserve their associations
+with open, merged and closed PRs. The workflow removes any remaining legacy size
+labels from the PR after adding its code label; custom labels such as `size:custom`
+are preserved. Thresholds, exclusions and the `docs:` labels are unchanged.
 
 Missing label definitions are created automatically; colors and descriptions stay
 synchronized while unrelated PR labels are preserved. The workflow uses the
 built-in GitHub token. Its `pull_request_target` job reads PR commits only as Git
 data: never add PR checkouts, dependency installation, builds or cache restores.
 Run `npm run test:pr-size` to verify sizing and label updates locally; CI also runs
-these tests.
+these tests in the build workflow's `checks` job, which gates required `verify`.
+Automatic `code:` and `docs:` label updates run in the separate PR Size workflow
+so ordinary PR build jobs do not need label-write permissions.
 
 ## Implementation conventions
 

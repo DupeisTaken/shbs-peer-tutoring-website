@@ -1,3 +1,8 @@
+import {
+  pairingGroupEligibility,
+  type PairingGroupEligibility,
+} from "./pairing-group-eligibility";
+
 /** A reusable group is a current plan. Session.mergeGroupId remains a separate saved snapshot. */
 export type GroupablePairing = {
   id: string;
@@ -9,11 +14,14 @@ export type GroupablePairing = {
   endMin: number;
   roomId?: string | null;
   timeSlotId?: string | null;
+  subject?: string;
+  // Schedule-only readers may omit coverage; operational readers provide the
+  // actual current student IDs so incomplete groups can be flagged for repair.
+  tutees?: readonly unknown[];
 };
 
 const scheduleKey = (p: GroupablePairing) =>
   JSON.stringify([
-    p.scheduleConfirmed,
     p.dayOfWeek,
     p.startMin,
     p.endMin,
@@ -21,8 +29,28 @@ const scheduleKey = (p: GroupablePairing) =>
     p.timeSlotId ?? null,
   ]);
 
-/** Project only coherent groups. Management reassignment/schedule changes cannot
- * silently include an unrelated assignment in a tutor's next attendance draft. */
+function hasCoverage<T extends GroupablePairing>(
+  pairing: T,
+): pairing is T & {
+  subject: string;
+  tutees: readonly { tuteeId: string }[];
+} {
+  return (
+    typeof pairing.subject === "string" &&
+    Array.isArray(pairing.tutees) &&
+    pairing.tutees.every(
+      (row: unknown) =>
+        typeof row === "object" && row !== null && "tuteeId" in row &&
+        typeof row.tuteeId === "string",
+    )
+  );
+}
+
+export type PairingGroupStatus = "scheduled" | "awaiting" | "needsRepair";
+
+/** Preserve explicit membership, including plans awaiting a time and legacy
+ * invalid groups. Never hide a partial group or project just its coherent subset
+ * as a complete lesson; operational callers must honor the repair flag. */
 export function pairingEntries<T extends GroupablePairing>(
   pairings: readonly T[],
 ) {
@@ -32,6 +60,8 @@ export function pairingEntries<T extends GroupablePairing>(
     groupId: string | null;
     primary: T;
     pairings: T[];
+    groupStatus: PairingGroupStatus | null;
+    groupEligibility: PairingGroupEligibility | null;
   }[] = [];
   for (const pairing of pairings) {
     if (visited.has(pairing.id)) continue;
@@ -41,30 +71,27 @@ export function pairingEntries<T extends GroupablePairing>(
     const primary =
       candidates.find((p) => p.id === pairing.group?.primaryPairingId) ??
       candidates[0]!;
-    const members = candidates.filter(
+    const groupEligibility = pairing.groupId && candidates.every(hasCoverage)
+      ? pairingGroupEligibility(candidates)
+      : null;
+    const awaiting = candidates.every((p) => !p.scheduleConfirmed && !p.timeSlotId);
+    const scheduled = candidates.every(
       (p) => p.scheduleConfirmed && scheduleKey(p) === scheduleKey(primary),
     );
-    if (
-      pairing.groupId &&
-      members.length >= 2 &&
-      members.some((p) => p.id === pairing.id)
-    ) {
-      members.forEach((p) => visited.add(p.id));
-      entries.push({
-        id: pairing.groupId,
-        groupId: pairing.groupId,
-        primary,
-        pairings: [primary, ...members.filter((p) => p.id !== primary.id)],
-      });
-    } else {
-      visited.add(pairing.id);
-      entries.push({
-        id: pairing.id,
-        groupId: null,
-        primary: pairing,
-        pairings: [pairing],
-      });
-    }
+    const groupStatus: PairingGroupStatus | null = !pairing.groupId ? null
+      : candidates.length < 2 || candidates.length > 6 ||
+          groupEligibility?.eligible === false || (!awaiting && !scheduled)
+        ? "needsRepair"
+        : awaiting ? "awaiting" : "scheduled";
+    candidates.forEach((p) => visited.add(p.id));
+    entries.push({
+      id: pairing.groupId ?? pairing.id,
+      groupId: pairing.groupId ?? null,
+      primary,
+      pairings: [primary, ...candidates.filter((p) => p.id !== primary.id)],
+      groupStatus,
+      groupEligibility,
+    });
   }
   return entries;
 }

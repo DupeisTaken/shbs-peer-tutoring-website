@@ -28,14 +28,10 @@ import { getFeatures } from "~/server/program/features";
 import { lockAccountProfile } from "~/server/account-profile";
 import { lockUsernameNamespace } from "./username";
 import { hashPassword } from "./password";
-import {
-  generateRegistrationCode,
-  normalizeRegCode,
-  REG_CODE_ALPHABET,
-  REG_CODE_LENGTH,
-} from "./code";
+import { normalizeRegCode, REG_CODE_ALPHABET, REG_CODE_LENGTH } from "./code";
 import {
   hashCode,
+  freshEmailCode,
   registrationCompletionProof,
   completeRegistration,
   codePrefill,
@@ -441,12 +437,20 @@ export async function deliverAccountInvitation(
     // Persist the winning nonce so retries recover the exact same code, including
     // when another invitation or the source email challenge occupied a candidate.
     let displayCodeNonce: number | null = null;
-    let code = input.display ? "" : (input.code ?? generateRegistrationCode());
+    let code = input.display
+      ? ""
+      : (input.code ??
+        freshEmailCode([
+          prior?.codeHash,
+          "challenge" in input.source ? input.source.challenge : null,
+        ]));
     if (input.display) {
       let found = false;
       for (let nonce = 0; nonce < 1000; nonce++) {
         const candidate = displayedInvitationCode(input.sourceKey, nonce);
-        if (!/[A-Z]/.test(candidate) || !/[02-9]/.test(candidate)) continue;
+        // Every new invitation uses both character classes. The persisted nonce
+        // also records skipped unmixed candidates so receipt retries stay exact.
+        if (!/[A-Z]/.test(candidate) || !/[0-9]/.test(candidate)) continue;
         const candidateHash = hashCode(candidate);
         if (
           "challenge" in input.source &&
@@ -470,14 +474,6 @@ export async function deliverAccountInvitation(
       if (!found)
         throw new Error("Could not generate a unique invitation code.");
     }
-    // Viewer/history verification and invitation are deliberately distinct secrets.
-    while (
-      !input.display &&
-      !input.code &&
-      "challenge" in input.source &&
-      hashCode(code) === input.source.challenge
-    )
-      code = generateRegistrationCode();
     const data = {
       kind: input.kind,
       email,
@@ -536,11 +532,12 @@ export async function deliverAccountInvitation(
     await emailSender.send({
       category: "SECURITY",
       to: email,
-      subject: "Your account invitation / 账号邀请码",
-      text: `Your invitation code is ${code}. It expires at ${expiresAt.toISOString()} (UTC). Enter it at ${url}. If you already have an account, this signs you in without changing your password or memberships. Review any added access separately.\n\n您的邀请码是 ${code}，有效期至 ${expiresAt.toISOString()}（UTC）。请前往 ${url} 输入。已有账号可登录，密码和身份不会改变；新增权限须另行确认。`,
+      subject: "Your email verification code / 邮箱验证码",
+      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires at ${expiresAt.toISOString()} (UTC). Enter it at ${url}. If you already have an account, this signs you in without changing your password or memberships. Review any added access separately.\n\n您的邮箱验证码是 ${code}，有效期至 ${expiresAt.toISOString()}（UTC）。请前往 ${url} 输入。已有账号可登录，密码和身份不会改变；新增权限须另行确认。`,
       presentation: {
         code,
-        eyebrow: "ACCOUNT INVITATION",
+        codePurpose: "verification",
+        eyebrow: "EMAIL VERIFICATION",
         action: { label: "Review invitation / 查看邀请", url },
       },
     });
@@ -553,13 +550,9 @@ function displayedInvitationCode(
   nonce: number | null,
   storedCodeHash?: string,
 ) {
-  const digest = registrationCompletionProof(
-    "invitation",
-    nonce === null ? `display:${sourceKey}` : `display:${sourceKey}:${nonce}`,
-    "display",
-    new Date(0),
-  );
-  const derive = (alphabet: string) => {
+  const digestFor = (identity: string) =>
+    registrationCompletionProof("invitation", identity, "display", new Date(0));
+  const derive = (digest: string, alphabet: string) => {
     let entropy = BigInt(`0x${digest}`);
     let code = "";
     for (let i = 0; i < REG_CODE_LENGTH; i++) {
@@ -570,16 +563,26 @@ function displayedInvitationCode(
   };
   const current =
     nonce === null
-      ? digest.slice(0, 12).toUpperCase()
-      : derive(REG_CODE_ALPHABET);
+      ? digestFor(`display:${sourceKey}`).slice(0, 12).toUpperCase()
+      : derive(
+          digestFor(`display:mixed:v3:${sourceKey}:${nonce}`),
+          REG_CODE_ALPHABET,
+        );
   if (storedCodeHash === undefined || equal(hashCode(current), storedCodeHash))
     return current;
-  // Changing the alphabet changes the base conversion. Recover old five-character
-  // receipts only when their persisted hash proves the original derivation; never
-  // silently replace a recipient's code or guess a format from its nonce.
+  // New mixed issuance owns a distinct derivation namespace. Numeric and older
+  // mixed receipts all used the unversioned identity; recover their exact original
+  // value only when its persisted hash matches, never by guessing from the nonce.
   if (nonce !== null) {
-    const legacy = derive("23456789ABCDEFGHJKMNPQRSTUVWXYZ");
-    if (equal(hashCode(legacy), storedCodeHash)) return legacy;
+    const digest = digestFor(`display:${sourceKey}:${nonce}`);
+    for (const alphabet of [
+      "0123456789",
+      "023456789ABCDEFGHIJKMNPQRSTUVWXYZ",
+      "23456789ABCDEFGHJKMNPQRSTUVWXYZ",
+    ]) {
+      const legacy = derive(digest, alphabet);
+      if (equal(hashCode(legacy), storedCodeHash)) return legacy;
+    }
   }
   throw invalid();
 }
@@ -697,9 +700,10 @@ export async function emailDisplayedInvitation(
     category: "SECURITY",
     to: row.email,
     subject: "Your account invitation / 账号邀请码",
-    text: `Your invitation code is ${code}. Continue at ${url}. Expires ${row.expiresAt.toISOString()}. / 您的邀请码是 ${code}。请通过链接继续注册。`,
+    text: `Your invitation code / 邀请码: ${code}.\n\n${/^(?=.*[A-Z])(?=.*[0-9])[0-9A-Z]{5}$/.test(code) ? "5 letters and numbers. / 5 位字母与数字组合。" : "Previously issued code: enter the complete code as shown. / 此为此前签发的邀请码，请按显示内容完整输入。"}\n\nContinue at ${url}. Expires ${row.expiresAt.toISOString()}. / 请通过链接继续注册。`,
     presentation: {
       code,
+      codePurpose: "invitation",
       action: { label: "Continue to signup / 继续注册", url },
     },
   });
@@ -732,20 +736,15 @@ export async function sendInvitationVerification(
       throw invalid();
     await sourceState(tx, row);
     await lockedInvitationOwner(tx, row);
-    let code = generateRegistrationCode();
-    // The mailbox challenge must remain a different secret, including on resend.
-    while (
-      hashCode(code) === row.codeHash ||
-      hashCode(code) === row.emailCodeHash
-    )
-      code = generateRegistrationCode();
+    // A replacement must remain distinct from the invitation and the last mailbox code.
+    const code = freshEmailCode([row.codeHash, row.emailCodeHash]);
     const expiresAt = new Date(Math.min(+row.expiresAt, Date.now() + TTL));
     await emailSender.send({
       category: "SECURITY",
       to: row.email,
       subject: "Verify your email / 验证邮箱",
-      text: `Your email verification code is ${code}. / 您的邮箱验证码是 ${code}。`,
-      presentation: { code },
+      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. / 您的邮箱验证码是 ${code}。`,
+      presentation: { code, codePurpose: "verification" },
     });
     const challenged = await tx.accountInvitation.update({
       where: { id: row.id },

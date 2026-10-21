@@ -39,7 +39,13 @@ export async function forgotPasswordAction(
   const idOk = id ? rateLimit(`pwreset:id:${id}`, { max: 3, windowMs: 60 * 60_000 }).ok : true;
 
   if (ipOk && idOk) {
-    await issuePasswordReset(identifier);
+    try {
+      await issuePasswordReset(identifier);
+    } catch {
+      // A configured provider can still fail. Keep the same public receipt for
+      // matched and unmatched accounts; the sender owns sanitized diagnostics.
+      // Never log the identifier, token or caught provider/database exception here.
+    }
   }
   return { sent: true };
 }

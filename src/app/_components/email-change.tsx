@@ -1,4 +1,5 @@
 "use client";
+import { CodeInput } from "~/app/_components/ui/code-field";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { api } from "~/trpc/react";
@@ -78,23 +79,24 @@ export function EmailChange() {
             confirm.mutate({ code });
           }}
         >
-          <label className="block space-y-1">
-            <span className="label">{t("code")}</span>
-            <input
-              className="input"
-              autoComplete="one-time-code"
-              required
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-            />
-          </label>
+          <CodeInput
+            purpose="email"
+            value={code}
+            onValueChange={setCode}
+            aria-invalid={Boolean(confirm.error)}
+            aria-describedby={confirm.error ? "email-change-error" : undefined}
+          />
           <button className="btn-primary" disabled={confirm.isPending}>
             {t("confirm")}
           </button>
         </form>
       )}
       {(request.error ?? confirm.error) && (
-        <p role="alert" className="text-sm text-red-600">
+        <p
+          role="alert"
+          id="email-change-error"
+          className="text-sm text-red-600"
+        >
           {request.error?.message ?? confirm.error?.message}
         </p>
       )}

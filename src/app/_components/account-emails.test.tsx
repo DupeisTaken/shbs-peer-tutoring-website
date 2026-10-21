@@ -137,27 +137,36 @@ it("requires a password to promote/remove/add while leaving code entry available
   });
 });
 
-it("verifies the selected pending address and scopes cancellation to it", () => {
-  view(<AccountEmails />);
-  fireEvent.click(screen.getByRole("button", { name: "Verify" }));
-  fireEvent.change(screen.getByLabelText("Verification code"), {
-    target: { value: "abcde" },
-  });
-  fireEvent.click(screen.getAllByRole("button", { name: "Verify" })[1]!);
-  expect(mocks.confirm).toHaveBeenCalledWith({
-    email: "pending@example.test",
-    code: "ABCDE",
-  });
-  fireEvent.change(screen.getByLabelText("Current password"), {
-    target: { value: "synthetic-password" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Cancel pending" }));
-  expect(mocks.manage).toHaveBeenCalledWith({
-    email: "pending@example.test",
-    currentPassword: "synthetic-password",
-    action: "remove",
-  });
-});
+it.each([
+  ["00-12", "0012"],
+  ["abcde", "ABCDE"],
+])(
+  "verifies code %s for the selected pending address and scopes cancellation to it",
+  (draft, code) => {
+    view(<AccountEmails />);
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    fireEvent.change(
+      screen.getByRole("textbox", {
+        name: (name) => name.startsWith(messages.codes.emailLabel),
+      }),
+      { target: { value: draft } },
+    );
+    fireEvent.click(screen.getAllByRole("button", { name: "Verify" })[1]!);
+    expect(mocks.confirm).toHaveBeenCalledWith({
+      email: "pending@example.test",
+      code,
+    });
+    fireEvent.change(screen.getByLabelText("Current password"), {
+      target: { value: "synthetic-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel pending" }));
+    expect(mocks.manage).toHaveBeenCalledWith({
+      email: "pending@example.test",
+      currentPassword: "synthetic-password",
+      action: "remove",
+    });
+  },
+);
 
 it("saves independent categories and recipients", () => {
   view(<EmailPreferences />);

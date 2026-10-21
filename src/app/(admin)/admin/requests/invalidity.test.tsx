@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   source: "SELF_SERVICE",
   assigned: false,
   verified: true,
+  edited: false,
   legacyEmail: null as string | null,
   legacyUser: null as RequestEmailOwner | null,
   legacyOwner: null as RequestEmailOwner | null,
@@ -216,7 +217,7 @@ vi.mock("~/trpc/react", () => ({
                   currentVersion: mocks.currentVersion,
                   confirmedAt: mocks.verified ? new Date("2026-10-01") : null,
                   submittedAt: new Date("2026-10-01"),
-                  editedAt: null,
+                  editedAt: mocks.edited ? new Date("2026-10-20") : null,
                   verificationDueAt: null,
                   subjects: [
                     { id: "math", name: "Mathematics" },
@@ -363,6 +364,7 @@ beforeEach(() => {
   mocks.source = "SELF_SERVICE";
   mocks.assigned = false;
   mocks.verified = true;
+  mocks.edited = false;
   mocks.legacyEmail = null;
   mocks.legacyUser = null;
   mocks.legacyOwner = null;
@@ -397,6 +399,31 @@ beforeEach(() => {
   mocks.fetchTutees.mockImplementation(async () => fresh("legacy-1"));
 });
 afterEach(cleanup);
+
+it.each([
+  { locale: "en" as const, label: "Edited", viewer: false },
+  { locale: "zh" as const, label: "已修改", viewer: false },
+  { locale: "en" as const, label: "Edited", viewer: true },
+  { locale: "zh" as const, label: "已修改", viewer: true },
+])(
+  "keeps the edited badge unbracketed for $locale viewer=$viewer",
+  ({ locale, label, viewer }) => {
+    mocks.invalid = false;
+    const view = render(content(false, viewer, locale));
+    expect(screen.queryByText(label)).toBeNull();
+
+    mocks.edited = true;
+    view.rerender(content(false, viewer, locale));
+    expect(screen.getByText(label).classList.contains("badge-amber")).toBe(
+      true,
+    );
+    expect(screen.queryByText(`[${label}]`)).toBeNull();
+
+    mocks.edited = false;
+    view.rerender(content(false, viewer, locale));
+    expect(screen.queryByText(label)).toBeNull();
+  },
+);
 
 it.each([false, true])(
   "renders current unnamed requests with a handle or localized fallback (legacy=%s), preserving original labels when supplied",

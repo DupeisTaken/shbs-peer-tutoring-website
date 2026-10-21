@@ -37,6 +37,8 @@ let slotWednesday: string;
 let tutorA: string;
 let tutorB: string;
 let tutorC: string;
+let tutorD: string;
+let tutorE: string;
 let updatePairingId: string;
 let tutorPairingId: string;
 let tutorUserId: string;
@@ -169,14 +171,18 @@ beforeAll(async () => {
   slotTuesday = tuesday.id;
   slotWednesday = wednesday.id;
 
-  const [firstTutor, secondTutor, thirdTutor] = await Promise.all([
+  const [firstTutor, secondTutor, thirdTutor, fourthTutor, fifthTutor] = await Promise.all([
     db.tutor.create({ data: { englishName: `${TUTOR_PREFIX} Tutor A` } }),
     db.tutor.create({ data: { englishName: `${TUTOR_PREFIX} Tutor B` } }),
     db.tutor.create({ data: { englishName: `${TUTOR_PREFIX} Tutor C` } }),
+    db.tutor.create({ data: { englishName: `${TUTOR_PREFIX} Tutor D` } }),
+    db.tutor.create({ data: { englishName: `${TUTOR_PREFIX} Tutor E` } }),
   ]);
   tutorA = firstTutor.id;
   tutorB = secondTutor.id;
   tutorC = thirdTutor.id;
+  tutorD = fourthTutor.id;
+  tutorE = fifthTutor.id;
   // Room conflict tests use explicit approved catalogue subjects so room validation is reached.
   for (const name of [
     "Released",
@@ -187,13 +193,14 @@ beforeAll(async () => {
     "Conflicting update",
     "Race A",
     "Race B",
+    "Competing",
   ]) {
     const subject = await db.subject.upsert({
       where: { name },
       update: {},
       create: { name },
     });
-    for (const tutorId of [tutorA, tutorB, tutorC])
+    for (const tutorId of [tutorA, tutorB, tutorC, tutorD, tutorE])
       await db.tutorQualification.create({
         data: {
           tutorId,
@@ -223,6 +230,8 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  // Distinct tutors own the simultaneous room fixtures. Tutor C/E remain free
+  // on Monday so new bookings and races exercise the room guarantee itself.
   await db.pairing.deleteMany({ where: { termId } });
   await db.roomUnavailability.deleteMany({
     where: { roomId: { in: [roomA, roomB, roomC, roomRace] } },
@@ -271,7 +280,7 @@ beforeEach(async () => {
       data: {
       scheduleConfirmed: true,
         termId,
-        tutorId: tutorA,
+        tutorId: tutorD,
         roomId: roomC,
         timeSlotId: slotMonday,
         subject: "Existing C",
@@ -350,7 +359,7 @@ describe("planned room booking integrity", () => {
     await expect(
       admin().admin.createPairing({
         roomId: roomRace,
-        tutorId: tutorA,
+        tutorId: tutorE,
         timeSlotId: slotMonday,
         subject: "Released",
         tuteeIds: [],
@@ -514,7 +523,7 @@ describe("planned room booking integrity", () => {
       admin().admin.createRoomUnavailability(input),
       admin().admin.createPairing({
         roomId: roomRace,
-        tutorId: tutorA,
+        tutorId: tutorE,
         timeSlotId: slotMonday,
         subject: "Competing",
         tuteeIds: [],
@@ -531,7 +540,7 @@ describe("planned room booking integrity", () => {
   it("rejects overlapping and blacked-out admin creates but permits adjacency", async () => {
     await expect(
       admin().admin.createPairing({
-        tutorId: tutorB,
+        tutorId: tutorE,
         roomId: roomA,
         timeSlotId: slotOverlap,
         subject: "Overlap",
@@ -543,7 +552,7 @@ describe("planned room booking integrity", () => {
     });
     await expect(
       admin().admin.createPairing({
-        tutorId: tutorB,
+        tutorId: tutorE,
         roomId: roomA,
         timeSlotId: slotTuesday,
         subject: "Blackout",
@@ -556,7 +565,7 @@ describe("planned room booking integrity", () => {
 
     await expect(
       admin().admin.createPairing({
-        tutorId: tutorB,
+        tutorId: tutorE,
         roomId: roomA,
         timeSlotId: slotAdjacent,
         subject: "Adjacent",
@@ -669,14 +678,14 @@ describe("planned room booking integrity", () => {
   it("serializes simultaneous writes so only one room booking wins", async () => {
     const results = await Promise.allSettled([
       admin().admin.createPairing({
-        tutorId: tutorA,
+        tutorId: tutorC,
         roomId: roomRace,
         timeSlotId: slotMonday,
         subject: "Race A",
         tuteeIds: [],
       }),
       admin().admin.createPairing({
-        tutorId: tutorB,
+        tutorId: tutorE,
         roomId: roomRace,
         timeSlotId: slotMonday,
         subject: "Race B",

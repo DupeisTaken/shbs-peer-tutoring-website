@@ -28,12 +28,22 @@ A staff-visible key or a copied invitation code alone cannot sign in as its reci
 | Accountless tutor setup sent by Head | Receive a Tutor invitation. | The roster remains accountless until its recipient accepts; no placeholder login is created by sending mail. |
 
 The invitation page opens with one centered code field and a full-width **Continue** button.
-New invitation and staff registration codes use the legacy Steam-style format: five
-characters containing both uppercase letters and digits from `023456789ABCDEFGHIJKMNPQRSTUVWXYZ`.
-The spaced input shows `XXXXX`; lowercase entry is normalized to uppercase. `O`/`o` is
-accepted as `0`, and `1` is accepted as `I` in five-character codes. Older outstanding
-invitation codes remain usable for compatibility. Mailbox verification is a separate code;
-the tutee verification code retains its six-character format and is not the invitation shown afterward.
+New **Invitation codes** and staff registration codes contain **5 letters and numbers**
+and use a green box background. **Email verification codes** contain **4 digits**
+and use a blue box background, including
+signup, historical access, associated-email changes, sign-in and security confirmation.
+The same background colors appear on the website and in code emails; the field label
+or email instructions identify the code's purpose. Each website field remains one
+wide input, with gray `XXXXX` for invitations or `XXXX` for email verification when
+empty. Type or paste the full code, keeping any zeros at the start; you can correct
+or delete individual characters as usual. Email autofill is available for verification codes.
+
+An older, still-valid invitation may contain five digits or twelve characters.
+Enter the entire older code shown in its email or invitation card; the form accepts
+it without cutting off characters. Older email verification formats remain accepted
+for their existing challenge. Existing expiry, replacement, use and revocation rules still apply.
+The verification code proves mailbox ownership and is separate from the invitation
+shown afterward; enter each in its explicitly labeled field.
 After Viewer or tutee email verification, or verified retrieval of an approved Crew application, a popup shows the invitation code, **Copy code**,
 an optional **Email code** action and a link that prefills the invitation page. Close and
 reopen the popup without repeating verification. Failed optional delivery leaves the code
@@ -121,7 +131,7 @@ their confirmation parameters. Tutor and crew applications open at `/tutor-signu
 and `/crew-signup` and retain the existing review process. See the
 [URL convention](technical-report.md#public-signup-url-convention) for the full mapping.
 
-- **Register with an Invitation Code** (`/register` → `/register-account`) opens the shared code card. Enter an invitation code or a five-character staff key and choose **Continue**. A code without this browser's verified proof requires email verification before review.
+- **Register with an Invitation Code** (`/register` → `/register-account`) opens the shared code card. Enter an invitation code or a five-character staff key containing letters and numbers and choose **Continue**. A code without this browser's verified proof requires email verification before review.
 - **Register as a Viewer** (`/viewer` → `/viewer-signup`) collects Viewer details and verifies the mailbox when viewer signup is enabled. Its popup offers the invitation code, optional email delivery and a prefilled invitation link. A new account receives read-only Viewer access; an existing account signs in without changing its access. No staff key is needed.
 - **Request a Tutor** (`/tutee` → `/tutee-signup`) collects the full tutee application before email verification and invitation issuance. Enter the emailed verification code, or use the existing email link and explicitly confirm it. Continue from the invitation popup to review your request and any missing credentials.
 - **Join the crew** (`/crew` → `/crew-signup`) collects application details and verifies the mailbox before sending the application for staff review. Use the same page to check an existing application with a fresh emailed code; an approved application can continue through the shared invitation popup and account review.
@@ -410,14 +420,18 @@ default time selector remains before the tutee list.
 The selector ranks published catalog slots by your saved availability and every
 current assigned tutee's saved selections. A shared slot must have the same
 catalog ID for everyone; overlapping clock times alone do not qualify. Shared
-slots appear first, followed by your selected slots with the most tutee matches.
+slots without a booking conflict appear under **Both Available**; other
+non-conflicting choices appear under **Other Time Slots**. **Unavailable**
+contains visible, disabled choices that overlap another assigned teaching block.
+This restriction takes precedence even when everyone selected the slot as available.
+Each option shows the slot name, weekday and time.
 For a combined pairing group, the advice includes all current group members.
-Missing availability, unavailable guidance and no common slot have distinct
-messages. All published options remain selectable, and the current linked or
-retained confirmed schedule remains visible. Ranking never saves a choice;
+Missing selections or unavailable reads never place a slot in **Both Available**.
+The current linked or retained confirmed schedule remains visible. A group shares
+one time: its own members do not conflict with each other, but another independent
+assignment or group does. Different catalog slots can overlap; back-to-back times
+are allowed. Unscheduled assignments reserve no time. Ranking never saves a choice;
 discuss the time and confirm the existing review before changing the schedule.
-The selected choice's availability also appears as wrapping text below the
-selector, so its full match status remains readable on a narrow screen.
 
 Meeting-excuse, qualification and interview drafts remain available after a failed
 save. Correct the problem and retry. Attendance keeps its successful receipt and
@@ -491,9 +505,35 @@ Use combined attendance when several assigned subjects share one block: shared t
 
 ### Combine and split recurring pairings
 
-Active tutors can use **My Pairings → Combine / split pairings** to save reusable groups of two to six current assignments. Add a group, select its subjects, choose the primary assignment and a shared recurring catalog time slot, then select **Review group changes**. The preview shows the distinct students, common time and the primary assignment's room. **Save pairing groups** applies the schedule and room to every member together; room conflicts reject the complete change. Grouping does not submit attendance or change qualifications, ownership or subject-level rosters. All members must be your current, populated assignments; subjects do not need to share a student or name.
+Active tutors can use **My Pairings → Combine / split pairings** to save reusable
+groups of two to six current, populated assignments they own. Every student in
+the group must already have every selected subject. A–Chemistry plus B–Chemistry
+can combine, as can A–Chemistry plus A–Mathematics. Combining both students across
+both subjects requires all four student–subject relationships (which may be
+represented by shared roster rows); A–Chemistry, A–Mathematics and
+B–Mathematics cannot combine because B has no Chemistry assignment. Combining
+never creates a missing subject assignment.
 
-My Pairings displays one combined entry with each distinct student once and their subjects beneath their name. **Subject assignments and student actions** opens the existing per-subject schedule and student controls. Changing a member's default time slot changes the complete group. **Record group attendance** selects the group in the attendance form; the separate-subject options remain available when only one subject ran on a particular date. Check actual attendance time and location before submitting.
+Select the assignments and primary member, then leave the group **Awaiting
+schedule** or choose one shared catalog slot. Review the distinct students,
+subject coverage and scheduling consequence before saving. This allows
+**assign → combine → schedule** without first double-booking independent
+assignments. Later, choosing a member's default time schedules the whole group.
+An explicit retained-time choice preserves an existing unpublished or unlinked
+confirmed interval; selecting Awaiting schedule clears its recurring reservation.
+Room intent remains separate. An automatic room shortage may save as **Needs room**,
+but a fixed-room conflict or overlapping independent tutor block rejects the save.
+Grouping does not record attendance or change qualifications, ownership or rosters.
+
+My Pairings displays one combined entry with each distinct student once and their subjects beneath their name. Management's Pairings table keeps subject-level rows and actions, with a common group reference and group details in the rightmost Actions column. A valid group counts as one planned block even while awaiting a schedule; identical times alone do not combine independent assignments. **Subject assignments and student actions** opens the existing per-subject schedule and student controls. Changing a member's default time slot changes the complete group. **Record group attendance** selects the group in the attendance form; the separate-subject options remain available when only one subject ran on a particular date. Check actual attendance time and location before submitting.
+
+Existing groups that fail the coverage or schedule checks show **Needs repair**.
+Repair or split them before scheduling or recording combined attendance.
+Deliberate management edits cannot silently break a valid group. A withdrawal,
+departure or disciplinary removal still proceeds under its existing rules; if it
+leaves a group incomplete, that group is marked for repair. Previous attendance is
+not changed. The same complete subject-coverage rule applies to one-off combined
+attendance; it does not merge recurring plans.
 
 Reopen **Combine / split pairings** to add or untick members, or choose **Split this group**. Each remaining group needs at least two members. Assignments leaving a group keep their subject, students and assigned room, but return to **Awaiting schedule** with no catalog slot until a separate schedule is chosen. Changing a member's tutor, schedule or room choice through the management assignment editor releases that member from its old group. The separate room-change and room-retry actions apply to the complete group's reservation; editing the shared catalog slot also retains the group. Group changes remain available after attendance submission and affect future plans only. Previous session records, attendance, ratings, room and credited hours remain unchanged.
 
@@ -922,14 +962,15 @@ Course-aware tutor selectors in Signup Requests and Pairings list tutors with ap
 The same selectors and the **Pairings** assignment editor show each tutor's approximate assigned
 session-block workload for the **current quarter**, including zero. This estimates
 the load if the assigned tutees work out, rather than counting attendance already
-recorded. A confirmed time shared by subjects or multiple tutees counts once.
-Each **Awaiting schedule** pairing counts separately until its schedule is confirmed;
-copied placeholder times do not establish a shared block. Empty pairings, inactive
+recorded. Each valid saved group counts once, including groups **Awaiting schedule**.
+Independent assignments count separately even when their confirmed or placeholder
+times match. Groups needing repair do not collapse their populated assignments into
+one block. Empty pairings, inactive
 tutees, inactive tutors and ended quarters do not add load. Pending tutees with an
 assignment do count. An inactive catalog slot does not erase a retained assignment.
 Unavailable or refreshing counts are labelled accordingly. Staff see the saved
 preference and a warning when it is reached, already exceeded, or a proposed new
-block would exceed it. Joining an existing shared block adds no block. These notices
+block would exceed it. Adding eligible assignments to a valid saved group adds no block. These notices
 create no hard cap or new approval requirement.
 
 ### Planned rooms

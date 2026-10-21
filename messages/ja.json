@@ -231,8 +231,8 @@
     "twoFactor": {
       "title": "Verification Code",
       "sent": "We emailed a sign-in code to {email}.",
-      "code": "Verification Code",
-      "help": "Enter the 5-character code from your email.",
+      "code": "メール確認コード",
+      "help": "メールに記載された 4 桁の数字を入力してください。発行済みの旧形式のコードも使用できます。",
       "verify": "Verify and Sign In",
       "verifying": "Verifying?",
       "invalid": "That code is incorrect or expired. Request a new sign-in code.",
@@ -312,8 +312,8 @@
       "backToSignIn": "← サインインに戻る",
       "step": {
         "code": {
-          "label": "セキュリティキー",
-          "help": "管理者またはコーディネーターから渡されたコードを入力してください。",
+          "label": "招待コード",
+          "help": "英字と数字を組み合わせた 5 文字のコードを入力してください。発行済みの旧形式のコードも使用できます。",
           "submit": "続行"
         },
         "email": {
@@ -322,7 +322,7 @@
           "bound": "このコードはこのメールアドレスに紐付けられています。",
           "send": "確認コードを送信",
           "sent": "{email} にコードを送信しました。",
-          "codeLabel": "確認コード",
+          "codeLabel": "メール確認コード",
           "verify": "メールを確認",
           "resend": "コードを再送"
         },
@@ -1011,7 +1011,7 @@
       "expand": "展開",
       "noEmail": "メール未設定",
       "expiresOn": "有効期限 {date}",
-      "codeLabel": "コード",
+      "codeLabel": "招待コード",
       "invalidNote": "このコードは無効です。",
       "noCode": "コードは利用できません。",
       "share": {
@@ -1620,7 +1620,7 @@
       "applicationsEmpty": "保留中の申請はありません。",
       "accept": "承認してコード発行",
       "reject": "却下",
-      "codeIssued": "コード：{code}",
+      "codeIssued": "招待コード: {code}",
       "requestsHeading": "退会・再参加の申請",
       "requestsEmpty": "保留中の申請はありません。",
       "approve": "承認",
@@ -2064,17 +2064,9 @@
       "noRoom": " · 部屋未割り当て",
       "defaultSlotLabel": "デフォルトタイムスロット：",
       "ranking": {
-        "mutual": "全員が対応可能な時間を先に表示します。保存する前に、一緒に時間を確認してください。",
-        "missing": "対応可能な時間の情報が不足しています。この提案だけで日程の不一致が確定するわけではありません。",
-        "missingTutor": "有効なタイムスロットが登録されていません。",
-        "missingTutees": "{count} 人の生徒に、有効なタイムスロットの登録がありません。",
-        "noCommon": "あなたと担当するすべての生徒が選択した共通のタイムスロットは、カタログにありません。一部の人に合う時間も選択できます。保存する前に時間を相談してください。",
-        "noTutees": "担当する生徒はまだいません。あなたが選択した対応可能な時間を先に表示します。",
-        "unavailable": "対応可能な時間の提案を表示できません。公開中のタイムスロットを明示的に選択し、内容を確認することはできます。",
-        "optionMutual": "全員が対応可能",
-        "optionTutor": "あなたと生徒 {count}/{total} 人",
-        "optionOther": "生徒 {count}/{total} 人・あなたは未選択",
-        "selectedStatus": "選択肢の対応可能状況：{status}",
+        "bothAvailable": "双方が対応可能",
+        "otherTimeSlots": "その他の時間帯",
+        "unavailable": "利用不可",
         "retainedOption": "現在リンクされているタイムスロット（非公開）"
       },
       "notSet": "— 未設定 —",
@@ -2347,7 +2339,7 @@
       "lookupHint": "申請時に使用したメールアドレスを入力してください。審査状況を表示する前に、そのメールアドレスを確認します。",
       "sendCode": "確認コードを送信",
       "sent": "確認コードを {email} に送信しました。",
-      "verifyHint": "5文字のコードを入力してください。メールアドレスの確認が完了すると、新規申請が審査に提出されます。この確認だけでは巡回班へのアクセス権は付与されません。",
+      "verifyHint": "4 桁の数字のコードを入力してください。メールアドレスの確認が完了すると、新規申請が審査に提出されます。この確認だけでは巡回班へのアクセス権は付与されません。",
       "emailCode": "メール確認コード",
       "verify": "メールを確認",
       "resend": "コードを再送",
@@ -2416,7 +2408,7 @@
         "affiliation": "ご関係",
         "affiliationPlaceholder": "例：生徒の保護者、数学教員、地域の方",
         "email": "メール",
-        "code": "確認コード",
+        "code": "メール確認コード",
         "password": "パスワード",
         "confirm": "パスワード（確認）"
       }
@@ -2498,7 +2490,7 @@
       "sendCode": "確認コードを送信",
       "sending": "送信中…",
       "codeSent": "{email} に確認コードを送信しました。下に入力して完了してください。",
-      "codeLabel": "確認コード",
+      "codeLabel": "メール確認コード",
       "resend": "コードを再送",
       "cancel": "キャンセル"
     }
@@ -2594,7 +2586,7 @@
     "email": "新しいメール",
     "password": "現在のパスワード",
     "send": "確認コードを送信",
-    "code": "新しいメールに届いたコード",
+    "code": "メール確認コード",
     "confirm": "確認してメールを変更",
     "success": "メールを変更しました。"
   },
@@ -2878,7 +2870,7 @@
     "verified": "Email verified",
     "emailPending": "メール確認待ち",
     "unverified": "Awaiting verification",
-    "edited": "[Edited]",
+    "edited": "Edited",
     "priority": "Original submission: {time}",
     "assignments": "Your Tutor Assignments",
     "waitingMatch": "Awaiting tutor matching.",
@@ -3583,7 +3575,7 @@
     "working": "処理中…",
     "limit": "予備アドレスは最大5件です。メインに設定する前に確認してください。",
     "verifyAddress": "{email} を確認",
-    "code": "確認コード",
+    "code": "メール確認コード",
     "resend": "コードを再送",
     "sent": "コードを送信しました。10分以内に下の欄に入力してください。",
     "verifiedNotice": "確認が完了しました。ログイン、アカウント復旧、メインアドレスへの設定に利用できます。",
@@ -4196,7 +4188,7 @@
     "accountConfirm": "I am the intended recipient. I understand that this creates a login only; I will review and claim my record after signing in. It does not enroll me or grant observer access.",
     "accountReady": "Your login is ready",
     "accountReadyHelp": "Sign in with your verified email and password, then review and claim the invited record. If this page was closed after setup, sign in with the same account; do not create another login.",
-    "emailCode": "Email verification code",
+    "emailCode": "メール確認コード",
     "newPassword": "New password (at least 8 characters)",
     "sendCode": "Send verification code",
     "verifyCode": "Verify email",
@@ -4571,7 +4563,7 @@
     "emailed": "Emailed",
     "emailSent": "The invitation has been sent to your verified email.",
     "handoffRecovery": "Continue with your code. You may be asked to verify your email again.",
-    "verificationCode": "Email verification code",
+    "verificationCode": "メール確認コード",
     "emailTitle": "Verify your email",
     "verifyEmailHelp": "Verify your email to connect this invitation to your account.",
     "sendVerification": "Send verification code",
@@ -5275,7 +5267,7 @@
   "pairingGroups": {
     "manage": "Combine / split pairings",
     "title": "Your Pairing Groups",
-    "help": "Group two to six of your assignments. Choose one shared recurring time slot; all members use the primary assignment’s room. Review the change before saving.",
+    "help": "Group two to six assignments only when every student has all selected subjects. Save as Awaiting schedule or choose one shared time. Review before saving.",
     "loading": "Loading your pairing groups…",
     "loadError": "Your pairing groups could not be loaded.",
     "retry": "Retry",
@@ -5300,17 +5292,36 @@
     "consequences": "Saving updates the future schedule and room for every selected member together. It does not submit or rewrite attendance. Split assignments need a separate schedule.",
     "noGroups": "All assignments will be listed separately.",
     "splitHelp": "Remove members by unticking them, or split the whole group. Keep at least two members in each remaining group. Assignments that leave a group return to Awaiting schedule.",
-    "catalogueHelp": "Saved groups share a recurring schedule and remain flexible after attendance.",
+    "catalogueHelp": "Combine eligible assignments first, then schedule the saved group together.",
     "combined": "Combined pairing",
     "combinedRoster": "Combined student roster",
     "memberDetails": "Subject assignments and student actions",
     "record": "Record group attendance",
     "individualAttendance": "Record one subject separately",
-    "accessDenied": "Your tutoring access changed. Reload to verify access before editing groups."
+    "accessDenied": "Your tutoring access changed. Reload to verify access before editing groups.",
+    "awaiting": "Awaiting schedule",
+    "keepCurrentTime": "Keep the current confirmed time",
+    "scheduleAfterMembershipChange": "Membership changed. Choose a shared time or explicitly select Awaiting schedule.",
+    "clearSchedule": "Saving as Awaiting schedule clears the confirmed time and room reservation for every member.",
+    "slotConflict": "Overlaps {subjects}",
+    "needsRepair": "This saved group needs repair. Edit its members or split it before scheduling or recording combined attendance.",
+    "repairCount": "{count, plural, one {# pairing group needs repair} other {# pairing groups need repair}}. Review My Pairings before scheduling or recording combined attendance.",
+    "reference": "Group {id}",
+    "missingCoverage": "{student} is missing: {subjects}.",
+    "eligibility": {
+      "size": "Choose two to six assignments.",
+      "emptyRoster": "Every assignment needs a current student. Remove empty assignments or split the group.",
+      "incompleteCoverage": "Every student must have the same complete set of selected subjects."
+    },
+    "status": {
+      "scheduled": "Shared schedule confirmed",
+      "awaiting": "Awaiting schedule",
+      "needsRepair": "Needs repair"
+    }
   },
   "tutorWorkload": {
     "title": "Assigned Session Blocks",
-    "help": "Approximate workload for the current quarter if your assigned tutees work out. Shared confirmed times count once; assignments awaiting a schedule count separately. Your preference is advisory and does not change existing assignments.",
+    "help": "Approximate workload for the current quarter if your assigned tutees work out. Each valid saved group counts once, including groups awaiting a schedule; other assignments count separately. Your preference is advisory and does not change assignments.",
     "editPreference": "Preferred Sessions",
     "preference": "Preferred Sessions",
     "unset": "No preference",
@@ -5345,7 +5356,7 @@
     "reloadFailed": "Could not reload the preference. Your draft and original version are retained.",
     "countHeading": "Assigned Blocks",
     "preferenceHeading": "Preferred Maximum",
-    "staffHelp": "Approximate current-quarter workload; shared confirmed times count once and awaiting-schedule assignments count separately.",
+    "staffHelp": "Approximate current-quarter workload; each valid saved group counts once, including groups awaiting a schedule. Other assignments count separately.",
     "confirmTitle": "Assign Above Preferred Sessions?",
     "continue": "Continue",
     "reviewAssignment": "Try assigning a session",
@@ -5506,5 +5517,13 @@
     "unavailable": "This interview is no longer available for your approval.",
     "waitingVotes": "Every panelist must vote before approval.",
     "changed": "Interview evidence changed. Reload to review current information."
+  },
+  "codes": {
+    "invitationLabel": "招待コード",
+    "emailLabel": "メール確認コード",
+    "invitationHelp": "英字と数字を組み合わせた 5 文字のコードを入力してください。発行済みの旧形式のコードも使用できます。",
+    "emailHelp": "メールに記載された 4 桁の数字を入力してください。発行済みの旧形式のコードも使用できます。",
+    "lettersKeyboard": "英字を含むコードを入力",
+    "numericKeyboard": "数字キーボードを使用"
   }
 }

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -15,6 +16,10 @@ import { ReadOnlyProvider } from "~/app/_components/read-only";
 
 const state = vi.hoisted(() => ({
   create: vi.fn(),
+  completeCreate: undefined as undefined | (() => Promise<unknown>),
+  failCreate: undefined as undefined | ((error: Error) => Promise<unknown>),
+  createError: null as Error | null,
+  invalidate: vi.fn(),
   remove: vi.fn(),
   pending: false,
   loading: false,
@@ -36,7 +41,9 @@ const state = vi.hoisted(() => ({
 
 vi.mock("~/trpc/react", () => ({
   api: {
-    useUtils: () => ({ admin: { adjustments: { invalidate: vi.fn() } } }),
+    useUtils: () => ({
+      admin: { adjustments: { invalidate: state.invalidate } },
+    }),
     admin: {
       tutors: {
         useQuery: () => ({
@@ -67,10 +74,28 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
       createAdjustment: {
-        useMutation: () => ({
-          mutate: state.create,
+        useMutation: (options: {
+          onSuccess: () => Promise<unknown>;
+          onError: (error: Error) => Promise<unknown>;
+          onSettled: () => void;
+        }) => ({
+          mutate: (input: unknown) => {
+            state.create(input);
+            state.completeCreate = async () => {
+              await options.onSuccess();
+              options.onSettled();
+            };
+            state.failCreate = async (error) => {
+              state.createError = error;
+              await options.onError(error);
+              options.onSettled();
+            };
+          },
+          reset: () => {
+            state.createError = null;
+          },
           isPending: false,
-          error: null,
+          error: state.createError,
         }),
       },
       deleteAdjustment: {
@@ -129,11 +154,15 @@ function renderPage(locale = "en", readOnly = false) {
 }
 
 beforeEach(() => {
+  state.completeCreate = undefined;
+  state.failCreate = undefined;
+  state.createError = null;
   state.pending = false;
   state.loading = false;
   state.error = null;
   state.deleteError = null;
   vi.clearAllMocks();
+  state.invalidate.mockReset().mockResolvedValue(undefined);
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
     configurable: true,
     value: function (this: HTMLDialogElement) {
@@ -148,6 +177,159 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+
+// Completing the write must retire its draft even though the list underneath
+// the modal also refreshes. An unchanged Add button must not duplicate hours.
+it("audit: retires an accepted hour adjustment before another Add can replay it", async () => {
+  renderPage();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.adjustments.create }),
+  );
+  fireEvent.change(screen.getByLabelText(en.admin.adjustments.table.tutor), {
+    target: { value: "synthetic-tutor" },
+  });
+  fireEvent.change(screen.getByLabelText(en.admin.adjustments.table.reason), {
+    target: { value: "Synthetic accepted adjustment" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.adjustments.form.add }),
+  );
+  expect(state.create).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    await state.completeCreate?.();
+  });
+  const repeat = screen.queryByRole("button", {
+    name: en.admin.adjustments.form.add,
+  });
+  if (repeat) fireEvent.click(repeat);
+  expect(state.create).toHaveBeenCalledTimes(1);
+});
+
+function openAdjustmentDraft() {
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.adjustments.create }),
+  );
+  fireEvent.change(screen.getByLabelText(en.admin.adjustments.table.tutor), {
+    target: { value: "synthetic-tutor" },
+  });
+  fireEvent.change(screen.getByLabelText(en.admin.adjustments.table.reason), {
+    target: { value: "Retained synthetic reason" },
+  });
+  return screen
+    .getByLabelText(en.admin.adjustments.table.reason)
+    .closest("form")!;
+}
+
+it("admits one same-tick adjustment and prevents pending dismissal", () => {
+  renderPage();
+  const form = openAdjustmentDraft();
+  act(() => {
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+  });
+  expect(state.create).toHaveBeenCalledTimes(1);
+  const close = within(screen.getByRole("dialog")).getByRole<HTMLButtonElement>(
+    "button",
+    { name: en.accountProfile.close },
+  );
+  expect(close.disabled).toBe(true);
+  fireEvent.click(close);
+  expect(screen.getByRole("dialog")).toBeTruthy();
+});
+
+it("preserves a failed adjustment draft and permits an intentional retry", async () => {
+  renderPage();
+  const form = openAdjustmentDraft();
+  fireEvent.submit(form);
+  await act(async () => {
+    await state.failCreate?.(new Error("Synthetic write failure"));
+  });
+  expect(screen.getByRole("alert").textContent).toBe("Synthetic write failure");
+  expect(
+    screen.getByLabelText<HTMLInputElement>(en.admin.adjustments.table.reason)
+      .value,
+  ).toBe("Retained synthetic reason");
+  fireEvent.submit(form);
+  expect(state.create).toHaveBeenCalledTimes(2);
+  expect(state.create.mock.calls[1]).toEqual(state.create.mock.calls[0]);
+});
+
+it.each([false, true])(
+  "retires an accepted draft and recovers only reads after failed refresh (queued=%s)",
+  async (queued) => {
+    // Model React Query's swallowed refresh failure: invalidateAndReport observes
+    // the matching reader's error revision after all active reads have settled.
+    state.invalidate.mockImplementationOnce(
+      async (
+        _input: unknown,
+        filters: {
+          predicate: (read: {
+            state: { errorUpdateCount: number; error: unknown };
+          }) => boolean;
+        },
+      ) => {
+        const read = { state: { errorUpdateCount: 0, error: null as unknown } };
+        filters.predicate(read);
+        read.state.errorUpdateCount = 1;
+        read.state.error = new Error("Synthetic refresh failure");
+      },
+    );
+    renderPage();
+    fireEvent.submit(openAdjustmentDraft());
+    await act(async () => {
+      if (queued)
+        await state.failCreate?.(
+          Object.assign(new Error("Queued"), {
+            data: { approvalId: "synthetic-approval" },
+          }),
+        );
+      else await state.completeCreate?.();
+    });
+    const dialog = within(screen.getByRole("dialog"));
+    expect(
+      dialog.getByText(
+        queued ? en.actionReview.queued : en.actionReview.applied,
+      ),
+    ).toBeTruthy();
+    expect(
+      dialog.queryByRole("button", { name: en.admin.adjustments.form.add }),
+    ).toBeNull();
+    expect(
+      dialog.getByRole<HTMLButtonElement>("button", {
+        name: en.admin.adjustments.create,
+      }).disabled,
+    ).toBe(true);
+    if (queued)
+      expect(
+        dialog
+          .getByRole("link", { name: en.actionReview.viewRequest })
+          .getAttribute("href"),
+      ).toBe("/admin/approvals?request=synthetic-approval");
+    fireEvent.click(
+      dialog.getByRole("button", { name: en.actionReview.retry }),
+    );
+    await waitFor(() =>
+      expect(
+        dialog.queryByRole("button", { name: en.actionReview.retry }),
+      ).toBeNull(),
+    );
+    expect(state.invalidate).toHaveBeenCalledTimes(2);
+    expect(state.create).toHaveBeenCalledTimes(1);
+    // A distinct explicit entry starts an empty draft; it cannot replay the receipt.
+    fireEvent.click(
+      dialog.getByRole("button", { name: en.admin.adjustments.create }),
+    );
+    expect(
+      dialog.getByLabelText<HTMLInputElement>(en.admin.adjustments.table.reason)
+        .value,
+    ).toBe("");
+    expect(
+      dialog.getByRole<HTMLButtonElement>("button", {
+        name: en.admin.adjustments.form.add,
+      }).disabled,
+    ).toBe(true);
+  },
+);
 
 it("reveals past choices and retains a selected past tutor after hiding the others", () => {
   renderPage();

@@ -8,7 +8,7 @@ import {
 export type UpcomingPairing = GroupablePairing & {
   subject: string;
   room: { name: string } | null;
-  tutees: readonly unknown[];
+  tutees: readonly { tuteeId: string }[];
 };
 export type UpcomingInterview = {
   id: string;
@@ -57,11 +57,16 @@ export function tutorUpcoming({
   const lastDate = dateAfter(today, 6);
   const events: UpcomingEvent[] = [];
   let unresolvedTimes = 0;
-  const confirmed = pairings.filter(
-    (p) => p.scheduleConfirmed && p.tutees.length > 0,
-  );
-  for (const entry of pairingEntries(confirmed)) {
+  let groupsNeedingRepair = 0;
+  // Validate the complete group before filtering empty or unconfirmed members.
+  // Filtering first could make an incomplete group look like a usable appointment.
+  for (const entry of pairingEntries(pairings)) {
+    if (entry.groupStatus === "needsRepair") {
+      groupsNeedingRepair++;
+      continue;
+    }
     const primary = entry.primary;
+    if (!primary.scheduleConfirmed || !primary.tutees.length) continue;
     for (let day = 0; day < 7; day++) {
       const date = dateAfter(today, day);
       const weekday = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
@@ -117,5 +122,5 @@ export function tutorUpcoming({
       a.start.getTime() - b.start.getTime() ||
       (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
   );
-  return { events, unresolvedTimes };
+  return { events, unresolvedTimes, groupsNeedingRepair };
 }

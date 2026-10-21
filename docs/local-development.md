@@ -220,21 +220,36 @@ Try the public forms (no login required):
 
 - **Student signup** at `/signup` collects the full application and policy agreement and reserves a survey timestamp before account verification. The request queue (`/admin/requests`) tracks verified and unverified demand. Enter the captured mailbox verification code, or explicitly confirm the existing local email link, to open the invitation receipt popup. Continue to `/register` for prefilled account/access review; issuing or displaying the invitation alone does not create credentials or confirm participation. Assignment starts a fixed verification deadline if demand is still unverified; retries preserve the original submission priority and policy evidence.
 - **Viewer signup** at `/viewer-signup` collects identity, affiliation and email, verifies the captured mailbox code, then opens the same receipt popup with copy, optional email delivery and a prefilled invitation link. Existing accounts take the LOGIN path with unchanged credentials and access. Keep synthetic mail and browser proofs in ignored evidence.
-- **Invitation entry** at `/register` is a single code card with Continue. Rehearse a five-character staff key, a displayed invitation code without browser proof and a verified-browser popup handoff. **Add access** in the account menu and Account Settings opens this same entry for signed-in accounts; entering a code alone makes no access write.
+- **Invitation entry** at `/register` is a single code card with Continue. Rehearse a five-character staff key containing letters and numbers, a displayed invitation code without browser proof and a verified-browser popup handoff. **Add access** in the account menu and Account Settings opens this same entry for signed-in accounts; entering a code alone makes no access write.
 - **Tutor application** at `/tutor-signup` starts recruitment. Assign at least three active tutor accounts, an Admin or Head chair, and explicit subject qualification coverage. The selected chair need not outrank other panelists; a Coordinator may participate and vote but cannot chair. Every panelist votes; the majority determines the outcome and the chair breaks ties. The chair's approval includes actual duration/attendance and immediately applies hours, initial registration setup and Admin/Head notification. An Admin chair's initial-application rejection retains Head review.
 - **Crew application** at `/crew-signup` stages details and sends a captured mailbox code. Verify it to create a pending application; no credentials or Crew membership exist yet. Approve the synthetic applicant through `/admin/crew`, then use the public page's existing-application check and fresh mailbox code to retrieve the shared receipt. Continue to `/register` and review a new account or additive Crew access for an existing tutor. Check pending/rejected status, a revoked/expired/used grant, disabled Crew, resend proof invalidation and original-answer retry preservation. Keep staff approval separate from mailbox proof and account review.
 - **History-only access** starts from a staff-reviewed historical tutee invitation at `/history/claim`. Rehearse with synthetic archive records: send the invitation in the roster editor, verify a separate email code, inspect the receipt popup, test copy/optional mail/prefilled continuation to `/register`, create missing credentials and explicitly claim the record after sign-in. Closing or showing the popup does not claim ownership. No current enrollment or policy acceptance is needed. Keep development email tokens/codes in ignored local logs, never public evidence.
 
 Follow the [role guide](user-guide.md) using the [demo accounts](#demo-accounts-and-workflows). Real SMTP setup and final school policy approval remain launch configuration work; local capture delivers no external mail.
 
-Verify new five-character invitation issuance and outstanding older invitation compatibility
-separately. Both staff keys and displayed invitations use the legacy centered, spaced `XXXXX`
-input and contain uppercase letters and digits; their shared length does not identify the source
-or authorize a recipient. Check copied-code mailbox verification and verified-browser handoff
-independently. The tutee mailbox OTP remains six hexadecimal characters.
-Verify generated `0` and `I`, equivalent `O`/`o` and five-character `1` entry, typed/pasted
-codes and prefilled browser proof. Check older five-character receipts after alphabet changes
-through retry and optional email, and retain digit `1` in twelve-character legacy receipts.
+Verify new five-character mixed invitations and four-digit email verification codes,
+including leading zeros, separately from outstanding legacy formats. Check the legacy
+single wide input with gray `XXXXX`/`XXXX` placeholders, green/blue box backgrounds,
+neutral text/borders, typing, full-code paste, correction, keyboard focus, invitation
+letter entry, numeric email keyboards, email autofill and accessible errors.
+Test at desktop/mobile sizes in English/Chinese, all accent themes and enlarged text.
+Verify invitation receipts, management share cards/exports and actual generated HTML
+emails as well as entry fields. Code purpose remains explicit in field labels or mail
+instructions. Email must retain its legacy single code panel, typography, border and
+spacing; only its background changes to dark green (`#18342C`) or blue (`#172F49`).
+Check that instructions and full codes remain readable when stylesheets or images are blocked.
+Use `npx tsx scripts/preview-emails.ts` to generate synthetic invitation, verification
+and legacy-mail previews in ignored `.validation/email-previews`; it sends no mail.
+
+Check copied-code mailbox verification and verified-browser handoff independently.
+Older five-digit, five-character alphanumeric and twelve-character invitations must
+survive typing/paste, receipt retry and optional email without truncation; preserve
+their legacy letter aliases without converting a numeric `1` into `I`. Test existing
+six-character tutee verification challenges against their persisted format version,
+alongside replacement four-digit challenges. Include wrong-purpose/length input,
+expired/used codes, each flow's existing five- or six-failure budget, resend
+invalidation and failed delivery. A legacy challenge with one allowed attempt
+remaining must not be rejected early merely because its format predates deployment.
 
 ### UI pattern gallery
 
@@ -277,7 +292,7 @@ does not establish authorization, native browser focus or persisted behavior.
 | Named destructive review | Rooms, hour adjustments, pairings, time slots, subject levels, tutees and registration invitations: exact target/consequence, Cancel/Escape without writes, one confirmed mutation, queued versus applied result, failed-write retry, held refresh and read-only recovery after Close. Viewers retain only authorized read access |
 | Timed confirmations | Hold a schedule-conflict write and press Escape repeatedly: the dialog and reason remain. After rejection, retry retains the reason/ticket; idle Cancel restores the opener. Mandatory policy review blocks repeated Escape even when idle while keeping explicit Sign out available. Verify native behavior separately from jsdom handlers. |
 | Tutor attendance | Submit twice before the first response and verify one feature POST; reject it and retry the retained draft. Hold/fail totals refresh after acceptance, verify read-only Retry issues no attendance POST, then use Submit another entry to start a new draft. Server deduplication is a separate integration assertion. |
-| Tutor pairing groups | Create → reload → add/remove members → split → rejoin, shared schedule/primary room and deduplicated roster. Review/Cancel without writes; stale draft/explicit Reload; pending dismissal; accepted-save read Retry without another POST. Record attendance, regroup and compare saved evidence/hours. Check member and catalog slot edits, foreign/inactive/old-period denial, unrelated room conflicts and concurrent saves. Capture desktop/mobile English/Chinese on the real portal, measure 44 px phone controls and retain independent attendance drafts. |
+| Tutor pairing groups | Create without a time → reload → schedule → split/rejoin. Check complete student × subject coverage, missing combinations, shared schedule/primary room, distinct roster and matching management group references. Verify Both Available / Other Time Slots / Unavailable, exact/partial overlaps and adjacency. Review/Cancel without writes; stale draft/explicit Reload; pending dismissal; accepted-save read Retry without another POST. Record attendance, regroup and compare saved evidence/hours, including background primary changes. Check member and catalog slot edits, foreign/inactive/old-period denial, archived groups with departed students, unrelated room conflicts and concurrent saves. Capture desktop/mobile English/Chinese on the real portal, measure 44 px phone controls and retain independent attendance drafts. |
 | Cached queries | Initial loading/error/empty are distinct; background failure retains content and draft; Retry completes without a mutation; explicit conflict Reload adopts data only on success. Use a real QueryClient for denial → cache eviction → transport failure → authorized recovery, including independent query scopes and unchanged observer restrictions |
 | Retained editor contexts | Policy/landing languages, meeting selection and translation targets keep independent drafts. Collapse, search and tab changes retain pending/error state without eagerly mounting untouched contexts. Accepted writes with failed synchronization recover through reads only; leaving or reloading the feature ends local draft retention |
 | Review evidence and revocation | Policy archives use the exact selected language/version. Appeals and Crew reviews expose original full text. Exercise named dialogs, Escape and exact focus return. In the gallery and Crew, authoritative access revocation conceals the active evidence; pending generations still settle, accepted/queued keys stay blocked and stale callbacks cannot affect a later authorized review |
@@ -357,6 +372,23 @@ annotated user crop is not a measured browser result. Preserve earlier reports
 with their original revisions instead of rewriting their historical claims.
 
 ## 5. Run the tests
+
+For invitation and email-code presentation, run `node scripts/test-code-fields.mjs`
+against an isolated demo site. Set `TEST_BASE_URL` and `SHBS_BROWSER_STATE` to a
+synthetic staff browser state; the public-page cases run signed out, and the state
+is used only to reach the development gallery. `SHBS_BROWSER_MODULE`,
+`SHBS_BROWSER_CHANNEL` and `SHBS_BROWSER_OUTPUT` select the installed browser runtime
+and ignored evidence directory. To include email screenshots, first run
+`npx tsx scripts/preview-emails.ts .validation/email-previews` and set
+`SHBS_EMAIL_PREVIEWS` to that directory. The check types, pastes and corrects
+synthetic codes without redeeming them or sending mail. It records English/Chinese,
+390/1440 px, enlarged-text and all six gallery themes, including native input
+scroll measurements so complete older codes remain editable without page overflow.
+At 200% text on narrow screens, the retained legacy font and tracking can also
+require native scrolling for a new code; verify Home/End reaches both ends and
+preserves the full value without shrinking the text.
+Component and integration suites separately cover submission, delivery failures,
+legacy compatibility, purpose ownership and attempt budgets.
 
 For shared table-action sizing, run `node scripts/test-table-action-layout.mjs`
 against a loopback synthetic site. Set `TEST_BASE_URL` and `SHBS_BROWSER_STATE`

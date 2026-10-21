@@ -1,6 +1,7 @@
 "use client";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 import { pairingEntries } from "~/lib/pairing-groups";
+import { pairingGroupEligibility } from "~/lib/pairing-group-eligibility";
 import { useDialog } from "~/app/_components/confirm-dialog";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -177,7 +178,6 @@ export function AttendanceForm() {
     (entry) =>
       selectionKey === (entry.groupId ? `group:${entry.groupId}` : entry.id),
   );
-  const selectedPairingId = selectedEntry?.primary.id ?? selectionKey;
   type Pairing = RouterOutputs["tutor"]["myPairings"][number];
   // A draft keeps its assignment/roster snapshot if a saved group changes in another editor.
   const [draftSelection, setDraftSelection] = useState<{
@@ -187,6 +187,10 @@ export function AttendanceForm() {
   }>();
   const retainedSelection =
     draftSelection?.key === selectionKey ? draftSelection : undefined;
+  // Keep identity and roster from the same draft snapshot. A background group
+  // primary change must not remove that new primary from the retained merge.
+  const selectedPairingId = retainedSelection?.primary.id ??
+    selectedEntry?.primary.id ?? selectionKey;
   const selectedPairing =
     retainedSelection?.primary ??
     pairings.find((p) => p.id === selectedPairingId);
@@ -203,6 +207,23 @@ export function AttendanceForm() {
   const mergedPairings = availableDraftPairings.filter(
     (p) => mergeIds.includes(p.id) && p.id !== selectedPairingId,
   );
+  // Reusable and one-off combinations use the same coverage rule. An old
+  // attendance draft remains visible when a group changes, but cannot bypass
+  // current group repair or submit an incomplete student/subject combination.
+  const combinedEligibility = selectedPairing && mergedPairings.length
+    ? pairingGroupEligibility([selectedPairing, ...mergedPairings])
+    : null;
+  // Individual attendance remains available for one subject in an old group.
+  // Combining it again must also respect its containing saved group's repair
+  // state, even when the local subset happens to have complete subject coverage.
+  const mergedGroupNeedsRepair = !!selectedPairing && mergedPairings.length > 0 &&
+    [selectedPairing, ...mergedPairings].some((pairing) => entries.some((entry) =>
+      entry.groupId && entry.groupStatus === "needsRepair" &&
+      entry.pairings.some((member) => member.id === pairing.id),
+    ));
+  const invalidCombination = selectedEntry?.groupStatus === "needsRepair" ||
+    mergedGroupNeedsRepair ||
+    combinedEligibility?.eligible === false;
   // The block's combined roster — the primary plus every merged course, de-duplicated.
   const unionTutees = selectedPairing
     ? [
@@ -311,6 +332,7 @@ export function AttendanceForm() {
       !selectedPairing
     )
       return;
+    if (invalidCombination) return; // The retained draft already shows its repair warning.
     const status = values.tutorStatus as TutorStatus;
 
     // Per-tutee attendance across the whole block (default present).
@@ -456,14 +478,16 @@ export function AttendanceForm() {
               <option
                 key={entry.id}
                 value={entry.groupId ? `group:${entry.groupId}` : entry.id}
+                disabled={entry.groupStatus === "needsRepair"}
               >
-                {entry.pairings.map((p) => p.subject).join(" + ")} ·{" "}
+                {[...new Set(entry.pairings.map((p) => p.subject))].join(" + ")} ·{" "}
                 {pairingScheduleText(
                   entry.primary,
                   t("scheduling.awaiting"),
                   locale,
                 )}
                 {entry.primary.room ? ` · ${entry.primary.room.name}` : ""}
+                {entry.groupStatus === "needsRepair" ? ` · ${t("pairingGroups.status.needsRepair")}` : ""}
               </option>
             ))}
             {entries.some((entry) => entry.groupId) && (
@@ -490,6 +514,11 @@ export function AttendanceForm() {
                 </option>
               )}
           </select>
+          {invalidCombination && (
+            <p role="alert" className="mt-2 text-sm text-amber-800">
+              {t("pairingGroups.needsRepair")}
+            </p>
+          )}
           {errors.pairingId && (
             <p className="text-sm text-red-600">{errors.pairingId.message}</p>
           )}
@@ -880,7 +909,7 @@ export function AttendanceForm() {
         <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
           <button
             type="submit"
-            disabled={submit.isPending || incomplete}
+            disabled={submit.isPending || incomplete || invalidCombination}
             className="btn-primary"
           >
             {submit.isPending

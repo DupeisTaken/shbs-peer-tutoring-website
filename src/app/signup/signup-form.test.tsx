@@ -160,6 +160,109 @@ function completeMinimalSubmission() {
   fireEvent.click(screen.getByLabelText("Accept policy"));
   return mounted;
 }
+/** Isolate subject changes from unrelated configured intake requirements. */
+function prepareSubjectChoices(
+  secondSubject: "optional" | "required" | "hidden",
+) {
+  mocks.options.mockReturnValue({
+    isFetchedAfterMount: true,
+    data: {
+      subjects: [
+        { id: "math", name: "Math" },
+        { id: "physics", name: "Physics" },
+        { id: "chemistry", name: "Chemistry" },
+      ],
+      slots: [],
+      fields: signupSettings({
+        tutee: {
+          preferredContact: "hidden",
+          availability: "hidden",
+          signatureName: "hidden",
+          phone: "hidden",
+          secondSubject,
+        },
+      }).tutee,
+    },
+    refetch: mocks.retry,
+  });
+  const mounted = render(<SignupForm />);
+  fireEvent.change(screen.getByLabelText("firstName signupFields.required"), {
+    target: { value: "Student" },
+  });
+  fireEvent.change(screen.getByLabelText(/survey.emailLabel/), {
+    target: { value: "student@example.test" },
+  });
+  const first = screen.getByRole("combobox", {
+    name: "public.signup.fields.firstChoice signupFields.required",
+  });
+  const second = screen.queryByRole<HTMLSelectElement>("combobox", {
+    name: /signupFields.labels.secondSubject/,
+  });
+  fireEvent.change(first, { target: { value: "math" } });
+  fireEvent.click(screen.getByLabelText("Accept policy"));
+  return { mounted, first, second };
+}
+it("clears an optional second choice when it becomes the first choice before submitting", async () => {
+  const { first, second } = prepareSubjectChoices("optional");
+  expect(second).not.toBeNull();
+  fireEvent.change(second!, { target: { value: "physics" } });
+  fireEvent.change(first, { target: { value: "physics" } });
+  // The unavailable option disappears visually; the serialized draft must agree
+  // with the displayed None choice instead of silently retaining Physics twice.
+  expect(second!.value).toBe("");
+  fireEvent.click(screen.getByRole("button", { name: "public.signup.submit" }));
+  await waitFor(() => expect(mocks.mutate).toHaveBeenCalledTimes(1));
+  expect(mocks.mutate.mock.calls[0]?.[0]).toMatchObject({
+    firstChoiceId: "physics",
+    secondChoiceId: undefined,
+  });
+});
+it("requires a fresh secondary selection after a required choice collides", async () => {
+  const { mounted, first, second } = prepareSubjectChoices("required");
+  fireEvent.change(second!, { target: { value: "physics" } });
+  fireEvent.change(first, { target: { value: "physics" } });
+  expect(second!.value).toBe("");
+  expect(second!.checkValidity()).toBe(false);
+  expect(
+    screen
+      .getByRole("button", { name: "public.signup.submit" })
+      .hasAttribute("disabled"),
+  ).toBe(true);
+  // The feature guard must also reject programmatic form submission, rather
+  // than relying exclusively on native required-field validation.
+  fireEvent.submit(mounted.container.querySelector("form")!);
+  expect(mocks.mutate).not.toHaveBeenCalled();
+  fireEvent.change(second!, { target: { value: "math" } });
+  fireEvent.click(screen.getByRole("button", { name: "public.signup.submit" }));
+  await waitFor(() => expect(mocks.mutate).toHaveBeenCalledTimes(1));
+  expect(mocks.mutate.mock.calls[0]?.[0]).toMatchObject({
+    firstChoiceId: "physics",
+    secondChoiceId: "math",
+  });
+});
+it("retains a distinct secondary choice when the primary changes", async () => {
+  const { first, second } = prepareSubjectChoices("optional");
+  fireEvent.change(second!, { target: { value: "physics" } });
+  fireEvent.change(first, { target: { value: "chemistry" } });
+  expect(second!.value).toBe("physics");
+  fireEvent.click(screen.getByRole("button", { name: "public.signup.submit" }));
+  await waitFor(() => expect(mocks.mutate).toHaveBeenCalledTimes(1));
+  expect(mocks.mutate.mock.calls[0]?.[0]).toMatchObject({
+    firstChoiceId: "chemistry",
+    secondChoiceId: "physics",
+  });
+});
+it("keeps hidden secondary choices omitted while changing the primary", async () => {
+  const { first, second } = prepareSubjectChoices("hidden");
+  expect(second).toBeNull();
+  fireEvent.change(first, { target: { value: "physics" } });
+  fireEvent.click(screen.getByRole("button", { name: "public.signup.submit" }));
+  await waitFor(() => expect(mocks.mutate).toHaveBeenCalledTimes(1));
+  expect(mocks.mutate.mock.calls[0]?.[0]).toMatchObject({
+    firstChoiceId: "physics",
+    secondChoiceId: undefined,
+  });
+});
 it("recovers a lost committed response through POST receipt without another submit, preserving the captured answers", async () => {
   mocks.mutate.mockRejectedValueOnce(new Error("Response lost"));
   completeMinimalSubmission();

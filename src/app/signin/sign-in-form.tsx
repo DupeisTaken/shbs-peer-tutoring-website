@@ -1,7 +1,9 @@
 "use client";
+import { CodeInput } from "~/app/_components/ui/code-field";
 
 import { useActionState, useState } from "react";
 import { useTranslations } from "next-intl";
+import { isEmailCodeFormat } from "~/lib/registration-code";
 
 import { signInAction } from "./actions";
 
@@ -17,7 +19,6 @@ export function SignInForm({ callbackUrl = "/" }: { callbackUrl?: string }) {
     return (
       <form
         action={formAction}
-        onChange={(e) => setCodeValid(e.currentTarget.checkValidity())}
         className="flex w-full flex-col gap-4"
       >
         <input type="hidden" name="step" value="code" />
@@ -34,23 +35,21 @@ export function SignInForm({ callbackUrl = "/" }: { callbackUrl?: string }) {
           </p>
         </div>
 
-        <label className="space-y-1">
-          <span className="label">{t("twoFactor.code")}</span>
-          <input
-            name="code"
-            type="text"
-            required
-            autoComplete="one-time-code"
-            inputMode="text"
-            pattern="[0-9A-Za-z\\s-]{5,}"
-            placeholder="XXXXX"
-            className="input uppercase"
-          />
-          <span className="muted block text-xs">{t("twoFactor.help")}</span>
-        </label>
+        <CodeInput
+          purpose="email"
+          name="code"
+          disabled={pending}
+          aria-invalid={Boolean(state.error)}
+          aria-describedby={state.error ? "signin-code-error" : undefined}
+          onValueChange={(code) => setCodeValid(isEmailCodeFormat(code))}
+        />
 
         {state.error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p
+            id="signin-code-error"
+            role="alert"
+            className="text-sm text-red-600"
+          >
             {state.error}
           </p>
         )}

@@ -2,6 +2,9 @@ export interface EmailPresentation {
   action?: { label: string; url: string };
   eyebrow?: string;
   code?: string;
+  /** Purpose is presentation metadata, never inferred authorization from code length.
+   * Absent metadata on older queued mail keeps the original neutral code box. */
+  codePurpose?: "invitation" | "verification";
   /** Optional-notification preference link; essential account mail omits it. */
   unsubscribeUrl?: string;
 }
@@ -30,6 +33,15 @@ export function renderEmail(input: {
 }): string {
   const { brand, subject, text, presentation = {}, iconUrl } = input;
   const action = presentation.action;
+  // Purpose changes only the legacy box's background, including its dark-mode
+  // fallback. Caller body copy owns instructions; code values remain untouched.
+  // Code-free mail and older queued mail without metadata retain the neutral style.
+  const codeBackground =
+    !presentation.code || !presentation.codePurpose
+      ? "#22272E"
+      : presentation.codePurpose === "invitation"
+        ? "#18342C"
+        : "#172F49";
   const unsubscribeUrl = presentation.unsubscribeUrl;
   if (unsubscribeUrl !== undefined) {
     let unsubscribe: URL;
@@ -76,7 +88,7 @@ export function renderEmail(input: {
     })
     .join("");
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark"><title>${escape(subject)}</title>
-<style>:root{color-scheme:dark}a:focus-visible{outline:3px solid #ADC9FF;outline-offset:5px}@media(max-width:600px){.outer{padding:24px 12px!important}.inside{padding-left:24px!important;padding-right:24px!important}.heading{padding-top:32px!important;padding-bottom:28px!important}.title{font-size:32px!important;line-height:1.15!important}.footer{padding-left:12px!important;padding-right:12px!important}}@media(prefers-color-scheme:dark){.canvas{background:#181B20!important}.card{background:#272D35!important;color:#E0E5ED!important}.panel{background:#22272E!important}.muted{color:#C5CDDA!important}.ink{color:#F4F7FC!important}.accent{color:#ADC9FF!important}.code{background:#22272E!important;color:#ADC9FF!important}.rule{border-color:#414A58!important}}</style></head>
+<style>:root{color-scheme:dark}a:focus-visible{outline:3px solid #ADC9FF;outline-offset:5px}@media(max-width:600px){.outer{padding:24px 12px!important}.inside{padding-left:24px!important;padding-right:24px!important}.heading{padding-top:32px!important;padding-bottom:28px!important}.title{font-size:32px!important;line-height:1.15!important}.footer{padding-left:12px!important;padding-right:12px!important}}@media(prefers-color-scheme:dark){.canvas{background:#181B20!important}.card{background:#272D35!important;color:#E0E5ED!important}.panel{background:#22272E!important}.muted{color:#C5CDDA!important}.ink{color:#F4F7FC!important}.accent{color:#ADC9FF!important}.code{background:${codeBackground}!important;color:#ADC9FF!important}.rule{border-color:#414A58!important}}</style></head>
 <body class="canvas" style="margin:0;padding:0;background:#181B20;color:#E0E5ED;font-family:'Trebuchet MS',Verdana,sans-serif">
 <div style="display:none;max-height:0;overflow:hidden;mso-hide:all">${escape(subject)}</div>
 <table class="canvas" role="presentation" width="100%" cellspacing="0" cellpadding="0" bgcolor="#181B20" style="background:#181B20"><tr><td class="outer" align="center" style="padding:48px 24px">
@@ -89,7 +101,7 @@ export function renderEmail(input: {
 <tr><td class="inside heading" style="padding:40px 40px 32px"><p class="muted accent" style="font-size:11px;line-height:18px;font-weight:700;letter-spacing:2px;margin:0 0 24px;color:#ADC9FF;overflow-wrap:anywhere;word-break:break-word">${escape(presentation.eyebrow ?? "ACCOUNT & PROGRAM MAIL")}</p><h1 class="title ink" style="font-weight:700;font-size:40px;line-height:1.12;letter-spacing:-1.3px;margin:0;color:#F4F7FC;overflow-wrap:anywhere;word-break:break-word">${escape(subject)}</h1></td></tr>
 <tr><td class="inside" style="padding:0 40px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td height="1" bgcolor="#495362" style="height:1px;background:#495362;font-size:1px;line-height:1px">&nbsp;</td></tr></table></td></tr>
 <tr><td class="inside body" style="padding:28px 40px 36px;font-size:16px;color:#E0E5ED">
-${presentation.code ? `<div class="code" style="background:#22272E;color:#ADC9FF;border:1px solid #495362;padding:22px;margin:0 0 26px;text-align:center;font-family:Consolas,monospace;font-size:30px;letter-spacing:5px;word-break:break-all">${escape(presentation.code)}</div>` : ""}
+${presentation.code ? `<div class="code" style="background:${codeBackground};color:#ADC9FF;border:1px solid #495362;padding:22px;margin:0 0 26px;text-align:center;font-family:Consolas,monospace;font-size:30px;letter-spacing:5px;word-break:break-all">${escape(presentation.code)}</div>` : ""}
 ${paragraphs}
 ${action ? `<table role="presentation" cellspacing="0" cellpadding="0"><tr><td bgcolor="#0D59E6" style="background:#0D59E6;border-radius:4px"><a href="${escape(action.url)}" style="display:inline-block;border:1px solid #0D59E6;border-radius:4px;background:#0D59E6;padding:15px 23px;font-size:15px;font-weight:700;line-height:20px;color:#FFFFFF;text-decoration:none;mso-padding-alt:15px 23px;overflow-wrap:anywhere;word-break:break-word">${escape(action.label)}</a></td></tr></table>` : ""}
 </td></tr>
