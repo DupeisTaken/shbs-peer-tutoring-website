@@ -25,18 +25,35 @@ Integration tests reset fixtures. Use the isolated loopback `shbs_shipping_test`
 
 The [CI workflow](../../.github/workflows/docker-build.yml) also checks dependency installation, migrations, schema agreement, dependency audit, production build and image boot/restart. Use its result for the commit being reviewed; old test totals are not current verification.
 
-CI runs static/tooling checks, two test shards, and image build/smoke verification
-in parallel. Each shard owns a PostgreSQL service named `shbs_shipping_test` and
+CI runs static/tooling checks, five test shards, and image build/smoke verification
+in parallel. Each job has a nine-minute timeout (the short `verify` gate uses two
+minutes). This is a whole-job limit, including setup, installation and migrations;
+it fails an over-budget job rather than treating partial coverage as success.
+Each shard owns a PostgreSQL service named `shbs_shipping_test` and
 keeps test files serial; do not enable parallel database fixtures against one
 database. The required `verify` check succeeds only when every job succeeds,
-including both shards. Failed, cancelled, skipped or missing prerequisites fail
+including every shard. Failed, cancelled, skipped or missing prerequisites fail
 the gate. Keep `verify` as the branch-protection check when changing job names.
 
 Run `npm run test:ci` for workflow and image-promotion regressions. It also checks
-that Vitest's two shards cover every discovered file exactly once without running
+that Vitest's five shards cover every discovered file exactly once without running
 database fixtures. Each CI shard uploads a seven-day JSON report with test timings
-and failures. Use these reports to assess shard balance before adding more runners.
+and failures. Use these reports and whole-job durations to assess shard balance
+before adding more runners. The matrix size supplies Vitest's shard denominator;
+keep the matrix contiguous from 1 and preserve serial files within each runner.
 Local `npm test` still runs the complete suite serially.
+
+The sizing baseline is successful [run 39441513352](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/39441513352)
+at `6357007373d1efd177e36140d9e0ba7c80d2f237`: 467 files and 5,569 passing
+tests. Its two whole test jobs took 11m44s and 13m19s; checks took 3m54s and
+image verification took 5m33s. Replaying Vitest's path-hash partitioning over its
+file timings estimates the slowest five-shard job at roughly 7–7½ minutes with
+the observed setup and per-file runner overhead. Four shards estimate about
+8m20s, leaving less room for variation. These are projections, not a hosted
+five-shard result: confirm the complete jobs on the changed revision, including
+cleanup and report upload. Runner queues are outside the job execution budget.
+Preserve assertions and database isolation; refactor measured slow fixtures or
+split an oversized file only when timings show that partitioning is insufficient.
 
 For a dependency-audit failure, inspect the reported advisory and dependency path,
 then update the affected lockfile entries within the supported version range.
