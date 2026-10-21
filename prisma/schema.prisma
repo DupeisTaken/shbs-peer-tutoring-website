@@ -518,7 +518,7 @@ model Tutor {
 ///              On approval the tutor becomes OPTED_OUT (their tutees are re-queued by the admin).
 ///   REENTRY  — an OPTED_OUT tutor asks to return. No cooldown; on approval they become ACTIVE.
 /// New submissions allow one PENDING request per tutor, serialized by the membership helper.
-/// Membership writes share a transaction boundary; see docs/technical-report.md#membership-changes.
+/// Membership writes share a transaction boundary; see docs/reference/technical-report.md#membership-changes.
 model TutorStatusRequest {
   id          String                  @id @default(cuid())
   tutorId     String
@@ -1778,6 +1778,8 @@ model StudentSurvey {
   submittedAt DateTime @default(now())
   tokenHash String @unique
   verificationAttempts Int @default(0)
+  /// Version 0 retains issued six-hex mailbox codes; version 1 issues four numeric digits.
+  emailCodeVersion Int @default(0)
   expiresAt DateTime
   confirmedAt DateTime?
   /// Terminal requests are immutable history. A fresh submission receives a new id and priority.
@@ -1836,6 +1838,8 @@ model StudentSignupIntent {
   payload Json
   policySnapshot Json
   tokenHash String @unique
+  /// Distinguishes outstanding six-hex challenges from new four-digit mailbox codes.
+  emailCodeVersion Int @default(0)
   attempts Int @default(0)
   expiresAt DateTime
   receivedAt DateTime @default(now())

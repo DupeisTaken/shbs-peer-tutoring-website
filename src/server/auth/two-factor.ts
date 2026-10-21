@@ -1,7 +1,7 @@
 /**
  * Email-based login 2FA via a one-time code.
  *
- * Codes use the same 5-character unambiguous alphanumeric format as registration keys. Only the
+ * Codes use four numeric digits, independently of mixed five-character invitation keys. Only the
  * HMAC hash is stored, codes are single-use, and each new login code supersedes older unconsumed
  * login codes for the same user.
  */
@@ -10,15 +10,11 @@ import { timingSafeEqual } from "crypto";
 import { APP_TITLE } from "~/lib/branding";
 import { db } from "~/server/db";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
-import {
-  generateRegistrationCode,
-  normalizeRegCode,
-  REG_CODE_LENGTH,
-} from "./code";
-import { hashCode } from "./registration";
+import { normalizeEmailCode, EMAIL_CODE_LENGTH } from "./code";
+import { hashCode, freshEmailCode } from "./registration";
 
 /** Length of the emailed code. */
-export const CODE_LENGTH = REG_CODE_LENGTH;
+export const CODE_LENGTH = EMAIL_CODE_LENGTH;
 /** How long an issued code stays valid. */
 export const CODE_TTL_MINUTES = 10;
 /** Max verification attempts before a code is rejected. */
@@ -41,7 +37,7 @@ export async function issueLoginCode(
     );
   }
 
-  const code = generateRegistrationCode();
+  let code = "";
   const expiresAt = new Date(Date.now() + CODE_TTL_MINUTES * 60_000);
 
   const user = await db.$transaction(async (tx) => {
@@ -65,6 +61,12 @@ export async function issueLoginCode(
       throw new Error(
         "Credentials changed; sign in again before requesting a login code.",
       );
+    const previous = await tx.emailVerificationCode.findFirst({
+      where: { userId, purpose: "LOGIN_2FA", consumedAt: null },
+      orderBy: { createdAt: "desc" },
+      select: { codeHash: true },
+    });
+    code = freshEmailCode([previous?.codeHash]);
     await tx.emailVerificationCode.deleteMany({
       where: { userId, purpose: "LOGIN_2FA", consumedAt: null },
     });
@@ -83,10 +85,10 @@ export async function issueLoginCode(
     category: "SECURITY",
     to: user.email,
     subject: `${APP_TITLE}: your sign-in code`,
-    presentation: { code, eyebrow: "SIGN IN" },
+    presentation: { code, codePurpose: "verification", eyebrow: "SIGN IN" },
     text:
       `Hi ${user.name ?? "there"},\n\n` +
-      `Your sign-in code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes.\n\n` +
+      `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires in ${CODE_TTL_MINUTES} minutes.\n\n` +
       "If you did not just try to sign in, change your password or contact the program team.",
   });
 
@@ -106,7 +108,7 @@ export async function verifyLoginCode(
   if (row.expiresAt < new Date()) return false;
   if (row.attempts >= MAX_CODE_ATTEMPTS) return false;
 
-  if (!hashesEqual(row.codeHash, hashCode(normalizeRegCode(code)))) {
+  if (!hashesEqual(row.codeHash, hashCode(normalizeEmailCode(code)))) {
     await db.emailVerificationCode.updateMany({
       where: {
         id: row.id,

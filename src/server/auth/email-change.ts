@@ -9,8 +9,7 @@ import { rateLimit } from "~/server/rate-limit";
 import { db } from "~/server/db";
 import { inTransaction, lockEntity } from "~/server/transactions";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
-import { hashCode } from "./registration";
-import { generateRegistrationCode } from "./code";
+import { hashCode, freshEmailCode } from "./registration";
 import { verifyPasswordConfirmation } from "./password-confirmation";
 
 /** Reauthentication plus proof of the destination replaces unsafe email-only identity relinking. */
@@ -42,7 +41,7 @@ export async function requestEmailChange(
         "Email delivery must be configured before changing an account email.",
     });
   const targetEmail = email.trim().toLowerCase();
-  const code = generateRegistrationCode();
+  let code = "";
   await inTransaction(db, async (tx) => {
     await lockAccountProfile(tx, userId);
     // Password verification before the transaction is only an early rejection. Recheck the
@@ -64,6 +63,12 @@ export async function requestEmailChange(
         code: "TOO_MANY_REQUESTS",
         message: "Wait one minute before requesting another code.",
       });
+    const previous = await tx.emailVerificationCode.findFirst({
+      where: { userId, purpose: "EMAIL_CHANGE" },
+      orderBy: { createdAt: "desc" },
+      select: { codeHash: true },
+    });
+    code = freshEmailCode([previous?.codeHash]);
     await tx.emailVerificationCode.updateMany({
       where: { userId, purpose: "EMAIL_CHANGE", consumedAt: null },
       data: { consumedAt: new Date() },
@@ -82,8 +87,12 @@ export async function requestEmailChange(
     category: "SECURITY",
     to: targetEmail,
     subject: "Verify your new account email",
-    presentation: { code, eyebrow: "EMAIL VERIFICATION" },
-    text: `Your email change code is ${code}. It expires in ten minutes.`,
+    presentation: {
+      code,
+      codePurpose: "verification",
+      eyebrow: "EMAIL VERIFICATION",
+    },
+    text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires in ten minutes.`,
   });
 }
 

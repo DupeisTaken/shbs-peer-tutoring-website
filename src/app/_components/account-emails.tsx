@@ -1,4 +1,5 @@
 "use client";
+import { CodeInput } from "~/app/_components/ui/code-field";
 
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -235,17 +236,13 @@ export function AccountEmails() {
                 <p className="text-sm font-medium break-all">
                   {t("verifyAddress", { email: selected })}
                 </p>
-                <label className="block space-y-1">
-                  <span className="label">{t("code")}</span>
-                  <input
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    autoComplete="one-time-code"
-                    maxLength={30}
-                    className="input min-h-11 font-mono tracking-widest lg:min-h-10"
-                    required
-                  />
-                </label>
+                <CodeInput
+                  purpose="email"
+                  value={code}
+                  onValueChange={setCode}
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? "account-emails-error" : undefined}
+                />
                 <div className="flex flex-wrap gap-2">
                   <button
                     className="btn-primary min-h-11 lg:min-h-10"
@@ -278,7 +275,11 @@ export function AccountEmails() {
           </p>
         )}
         {error && (
-          <p role="alert" className="text-sm text-red-700">
+          <p
+            role="alert"
+            id="account-emails-error"
+            className="text-sm text-red-700"
+          >
             {error.message}
           </p>
         )}

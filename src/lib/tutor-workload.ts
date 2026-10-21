@@ -1,10 +1,13 @@
 /** Current-quarter workload estimates assignments, never historical attendance.
- * Confirmed simultaneous subjects share a block; unscheduled placeholder clocks
- * have no agreed identity and therefore remain separate until scheduled. */
+ * Only an explicit valid teaching group shares a planned block. Matching clocks
+ * never imply grouping; a valid group counts once even before choosing a time. */
 export type AssignedBlock = {
   id: string;
   tutorId: string;
   termId: string;
+  groupId?: string | null;
+  /** Readers mark incomplete or incoherent legacy groups false until repaired. */
+  groupValid?: boolean;
   scheduleConfirmed: boolean;
   dayOfWeek: number;
   startMin: number;
@@ -12,14 +15,9 @@ export type AssignedBlock = {
 };
 export type WorkloadBlock = { key: string; pairingIds: string[] };
 export function assignedBlockKey(block: AssignedBlock): string {
-  return block.scheduleConfirmed
-    ? JSON.stringify([
-        block.termId,
-        block.dayOfWeek,
-        block.startMin,
-        block.endMin,
-      ])
-    : JSON.stringify(["awaiting", block.id]);
+  return block.groupId && block.groupValid !== false
+    ? JSON.stringify(["group", block.termId, block.groupId])
+    : JSON.stringify(["pairing", block.termId, block.id]);
 }
 export function assignedBlocks(pairings: AssignedBlock[]): WorkloadBlock[] {
   const blocks = new Map<string, string[]>();

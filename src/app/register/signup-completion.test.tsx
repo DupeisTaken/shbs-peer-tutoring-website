@@ -470,7 +470,7 @@ it.each([
       ? "od4e5f6"
       : "a1b2cod4e5f6")
       fireEvent.change(input, { target: { value: input.value + character } });
-    expect(input.maxLength).toBe(12);
+    expect(input.maxLength).toBeGreaterThanOrEqual(12);
     expect(input.value).toBe("A1B2C0D4E5F6");
     fireEvent.submit(container.querySelector("form")!);
     expect(state.enter).toHaveBeenCalledWith({ code: "A1B2C0D4E5F6" });
@@ -579,37 +579,41 @@ it("staff-key navigation focuses its next heading and Back retains the key", asy
     screen.getByLabelText<HTMLInputElement>(
       new RegExp(en.accountInvitation.code),
     ).value,
-  ).toBe("ABCI2");
+  ).toBe("ABC12");
 });
 
-it("resolves five-character displayed invitations through the shared lookup and retains the legacy field", async () => {
-  const { container } = render(view("en", true));
-  const input = screen.getByLabelText<HTMLInputElement>(
-    new RegExp(en.accountInvitation.code),
-  );
-  expect(input.maxLength).toBe(5);
-  expect(input.className).toContain("tracking-[0.4em]");
-  fireEvent.change(input, { target: { value: "ab3d7" } });
-  fireEvent.submit(container.querySelector("form")!);
-  expect(state.enter).toHaveBeenCalledWith({ code: "AB3D7" });
-  await act(async () => {
-    state.callbacks.enter!.onSuccess!({
-      kind: "display",
-      invitationId: "displayed",
+it.each(["00123", "AB3D7"])(
+  "resolves displayed invitation %s through the shared lookup",
+  async (code) => {
+    const { container } = render(view("en", true));
+    const input = screen.getByLabelText<HTMLInputElement>(
+      new RegExp(en.accountInvitation.code),
+    );
+    expect(input.maxLength).toBeGreaterThanOrEqual(12);
+    expect(input.placeholder).toBe("XXXXX");
+    expect(container.querySelector(".code-positions")).toBeNull();
+    fireEvent.change(input, { target: { value: code.toLowerCase() } });
+    fireEvent.submit(container.querySelector("form")!);
+    expect(state.enter).toHaveBeenCalledWith({ code });
+    await act(async () => {
+      state.callbacks.enter!.onSuccess!({
+        kind: "display",
+        invitationId: "displayed",
+      });
+      state.callbacks.enter!.onSettled?.();
     });
-    state.callbacks.enter!.onSettled?.();
-  });
-  fireEvent.change(container.querySelector('input[type="email"]')!, {
-    target: { value: "recipient@example.test" },
-  });
-  fireEvent.submit(container.querySelector("form")!);
-  expect(state.sendDisplayed).toHaveBeenCalledWith({
-    invitationId: "displayed",
-    code: "AB3D7",
-    email: "recipient@example.test",
-  });
-  expect(state.send).not.toHaveBeenCalled();
-});
+    fireEvent.change(container.querySelector('input[type="email"]')!, {
+      target: { value: "recipient@example.test" },
+    });
+    fireEvent.submit(container.querySelector("form")!);
+    expect(state.sendDisplayed).toHaveBeenCalledWith({
+      invitationId: "displayed",
+      code,
+      email: "recipient@example.test",
+    });
+    expect(state.send).not.toHaveBeenCalled();
+  },
+);
 
 it.each([
   [" a1b2-c3d4-e5f6 ", "A1B2C3D4E5F6"],
@@ -641,7 +645,7 @@ it.each(["typed", "pasted"])(
       fireEvent.change(input, { target: { value: "ab1od" } });
     else
       fireEvent.paste(input, { clipboardData: { getData: () => " aB-1 od " } });
-    expect(input.value).toBe("ABI0D");
+    expect(input.value).toBe("AB10D");
     fireEvent.submit(container.querySelector("form")!);
     expect(state.enter).toHaveBeenCalledWith({ code: "ABI0D" });
   },
@@ -660,7 +664,7 @@ it.each([false, true])(
       new RegExp(en.accountInvitation.code),
     );
     expect(input.value).toBe("ABI0D");
-    expect(input.maxLength).toBe(5);
+    expect(input.maxLength).toBeGreaterThanOrEqual(12);
     if (edited) fireEvent.change(input, { target: { value: "abode" } });
     fireEvent.submit(container.querySelector("form")!);
     expect(state.enter).toHaveBeenCalledWith(

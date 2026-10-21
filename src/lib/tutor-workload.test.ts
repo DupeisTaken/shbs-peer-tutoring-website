@@ -19,12 +19,12 @@ const row = (
   endMin: 960,
   ...fields,
 });
-it("counts a shared confirmed clock once across subject/tutee records and keeps quarters separate", () => {
+it("counts explicit valid groups once and keeps independent matching clocks and quarters separate", () => {
   expect(
     assignedBlocks([
-      row("math"),
-      row("english"),
-      row("math"),
+      row("math", { groupId: "shared" }),
+      row("english", { groupId: "shared" }),
+      row("math", { groupId: "shared" }),
       row("other", { termId: "other" }),
       row("later", { startMin: 960, endMin: 1020 }),
     ]),
@@ -41,8 +41,8 @@ it("never merges unscheduled placeholder times", () => {
   ).toHaveLength(3);
 });
 it("projects joining, moving one shared member, replacing the sole member and empty-roster removal", () => {
-  const shared = assignedBlocks([row("a"), row("b")]);
-  expect(proposedAssignedCount(shared, [{ block: row("new") }])).toBe(1);
+  const shared = assignedBlocks([row("a", { groupId: "shared" }), row("b", { groupId: "shared" })]);
+  expect(proposedAssignedCount(shared, [{ block: row("new", { groupId: "shared" }) }])).toBe(1);
   expect(
     proposedAssignedCount(shared, [
       { replacingPairingId: "a", block: row("a", { dayOfWeek: 2 }) },
@@ -59,6 +59,15 @@ it("projects joining, moving one shared member, replacing the sole member and em
       { replacingPairingId: "b" },
     ]),
   ).toBe(0);
+});
+it("counts unscheduled explicit groups once, independent equal clocks separately, and invalid groups per assignment", () => {
+  expect(assignedBlocks([
+    row("a", { groupId: "shared", scheduleConfirmed: false }),
+    row("b", { groupId: "shared", scheduleConfirmed: false }),
+    row("independent-a"), row("independent-b"),
+    row("invalid-a", { groupId: "invalid", groupValid: false }),
+    row("invalid-b", { groupId: "invalid", groupValid: false }),
+  ])).toHaveLength(5);
 });
 it("aggregates a two-subject unscheduled proposal instead of warning on each independent +1", () => {
   expect(

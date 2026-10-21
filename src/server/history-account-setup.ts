@@ -1,7 +1,10 @@
 import { TRPCError } from "@trpc/server";
 import { isHistoricalTutee } from "~/lib/tutee-history";
-import { generateRegistrationCode } from "./auth/code";
-import { hashCode, registrationCompletionProof } from "./auth/registration";
+import {
+  hashCode,
+  freshEmailCode,
+  registrationCompletionProof,
+} from "./auth/registration";
 import { hashPassword } from "./auth/password";
 import { lockUsernameNamespace } from "./auth/username";
 import { emailSender, isEmailDeliveryAvailable } from "./email/sender";
@@ -94,13 +97,17 @@ export async function startHistoryAccount(
         code: "TOO_MANY_REQUESTS",
         message: "HISTORY_RATE_LIMIT",
       });
-    const code = generateRegistrationCode();
+    const code = freshEmailCode([invite.setupCodeHash]);
     await emailSender.send({
       category: "SECURITY",
       to: invite.email,
       subject: "Verify historical access / 验证历史记录访问",
-      text: `Your historical-access verification code is ${code}. It expires in 15 minutes. This only sets up a personal login; it does not enroll you in the program.\n\n历史记录访问验证码：${code}，15 分钟内有效。此步骤仅用于设置个人登录账号，不会加入当前项目。`,
-      presentation: { code, eyebrow: "EMAIL VERIFICATION" },
+      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires in 15 minutes. This only sets up a personal login; it does not enroll you in the program.\n\n历史记录访问验证码：${code}，15 分钟内有效。此步骤仅用于设置个人登录账号，不会加入当前项目。`,
+      presentation: {
+        code,
+        codePurpose: "verification",
+        eyebrow: "EMAIL VERIFICATION",
+      },
     });
     await tx.tuteeHistoryInvitation.update({
       where: { tuteeId: invite.tuteeId },

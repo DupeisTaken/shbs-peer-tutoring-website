@@ -486,7 +486,7 @@ it("guards a direct password change when emailed step-up is disabled", () => {
   expect(state.code).not.toHaveBeenCalled();
 });
 
-it("guards same-turn password changes and preserves five-character emailed-code behavior", () => {
+it("guards same-turn password changes and preserves four-digit emailed-code behavior", () => {
   state.feature = true;
   const view = render(ui());
   for (const [label, value] of [
@@ -508,13 +508,17 @@ it("guards same-turn password changes and preserves five-character emailed-code 
     state.codeCallbacks.onSuccess({ email: "person@example.test" });
     state.codeCallbacks.onSettled();
   });
-  fireEvent.change(screen.getByLabelText(messages.account.password.codeLabel), {
-    target: { value: "abc-123456" },
-  });
+  fireEvent.change(
+    screen.getByLabelText(new RegExp(messages.account.password.codeLabel)),
+    {
+      target: { value: "00-12" },
+    },
+  );
   expect(
-    screen.getByLabelText<HTMLInputElement>(messages.account.password.codeLabel)
-      .value,
-  ).toBe("ABC12");
+    screen.getByLabelText<HTMLInputElement>(
+      new RegExp(messages.account.password.codeLabel),
+    ).value,
+  ).toBe("0012");
   const change = screen.getByRole("button", {
     name: messages.tutor.settings.changePasswordBtn,
   });

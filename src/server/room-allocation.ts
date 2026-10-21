@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { pairingEntries } from "~/lib/pairing-groups";
 import {
   rankRoomCandidates,
   type RoomMode,
@@ -11,6 +12,7 @@ import {
   lockPlannedRoomSchedule,
 } from "~/server/room-bookings";
 import type { TransactionDb } from "~/server/transactions";
+import { assertTutorScheduleAvailable, assertTutorScheduleCohortAvailable } from "~/server/tutor-scheduling";
 import type { Prisma } from "../../generated/prisma";
 
 export type AllocationSchedule = {
@@ -115,6 +117,8 @@ export async function allocateRoom(
 ): Promise<AllocationResult> {
   await lockPlannedRoomSchedule(db);
   if (current) assertRoomVersion(current, intent.expectedRoomVersion);
+  // Room intent never changes whether a confirmed lesson occupies its tutor.
+  await assertTutorScheduleAvailable(db, schedule);
   const mode =
     intent.roomMode ??
     (intent.roomId
@@ -292,7 +296,7 @@ export function allocationData(allocation: AllocationResult) {
 }
 
 export const roomUnitInclude = {
-  tutees: { select: { tuteeId: true } },
+  tutees: { select: { tuteeId: true, tutee: { select: { status: true } } } },
   term: { select: { active: true } },
   group: { select: { primaryPairingId: true } },
 } satisfies Prisma.PairingInclude;
@@ -307,6 +311,13 @@ export async function roomUnitMembers(db: TransactionDb, pairing: RoomUnitMember
       })
     : [pairing];
   const primaryId = pairing.group?.primaryPairingId ?? pairing.id;
+  // Current membership governs live plans only. Archived groups retain their
+  // original roster after departure and still follow existing catalog corrections.
+  if (pairing.groupId && pairing.term.active && (pairingEntries(members.map(member => ({
+    ...member, tutees: member.tutees.filter(row => row.tutee.status !== "INACTIVE"),
+  })))[0]?.groupStatus === "needsRepair"))
+    throw new TRPCError({ code: "BAD_REQUEST",
+      message: "This combined group needs repair. Every student must have the same complete set of subjects. Repair or split the group before scheduling it." });
   return members.sort((a, b) => Number(b.id === primaryId) - Number(a.id === primaryId) || (a.id < b.id ? -1 : 1));
 }
 
@@ -398,7 +409,9 @@ export async function allocateSlotCohort(
 ) {
   await lockPlannedRoomSchedule(db);
   const linked = await db.pairing.findMany({
-    where: { timeSlotId: slot.id }, include: roomUnitInclude, orderBy: { id: "asc" },
+    // A catalog correction never promotes a legacy awaiting placeholder into a
+    // confirmed lesson. Only existing confirmed reservations follow its clocks.
+    where: { timeSlotId: slot.id, scheduleConfirmed: true }, include: roomUnitInclude, orderBy: { id: "asc" },
   });
   const units: RoomUnitMember[][] = [];
   const seen = new Set<string>();
@@ -408,6 +421,10 @@ export async function allocateSlotCohort(
     unit.forEach(row => seen.add(row.id));
     units.push(unit);
   }
+  await assertTutorScheduleCohortAvailable(db, units.map(unit => ({
+    ...roomUnitSchedule(unit), ...slot, scheduleConfirmed: true,
+    memberIds: unit.map(member => member.id),
+  })));
   const enabled = (await getFeatures(db)).AUTO_ASSIGN_ROOMS;
   const movable = units.filter(unit => enabled && unit[0]!.term.active && unit[0]!.roomMode === "AUTO");
   const fixed = units.filter(unit => !movable.includes(unit));

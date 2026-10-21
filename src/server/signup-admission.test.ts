@@ -204,8 +204,10 @@ it("allows 100 mixed registrations, reads, verification and ordinary retries fro
       const signupReceipt = await caller().tutee.requestSignup(submission);
       // Exact transport recovery shares completion capacity, consumes no additional
       // mail allowance and cannot issue another challenge for the accepted demand.
-      await expect(caller().tutee.submitSurvey(submission)).resolves.toEqual(signupReceipt);
-      const emailCode = /email verification code is ([0-9A-Z]{6})/.exec(
+      await expect(caller().tutee.submitSurvey(submission)).resolves.toEqual(
+        signupReceipt,
+      );
+      const emailCode = / is ([0-9]{4})/.exec(
         send.mock.calls.at(-1)![0].text,
       )![1]!;
       const invitation = await caller().accountInvitation.verifySurvey({
@@ -236,9 +238,7 @@ it("allows 100 mixed registrations, reads, verification and ordinary retries fro
         affiliation: "Family",
         email,
       });
-      const code = /code is ([0-9A-Z]{5})/.exec(
-        send.mock.calls.at(-1)![0].text,
-      )![1]!;
+      const code = / is ([0-9]{4})/.exec(send.mock.calls.at(-1)![0].text)![1]!;
       if (i % 5 === 0)
         await expect(
           caller().viewer.verify({

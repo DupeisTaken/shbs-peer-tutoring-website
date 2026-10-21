@@ -231,8 +231,8 @@
     "twoFactor": {
       "title": "Verification Code",
       "sent": "We emailed a sign-in code to {email}.",
-      "code": "Verification Code",
-      "help": "Enter the 5-character code from your email.",
+      "code": "Κωδικός επαλήθευσης email",
+      "help": "Εισαγάγετε τα 4 ψηφία από το email σας. Οι κωδικοί που έχουν ήδη εκδοθεί γίνονται ακόμη δεκτοί.",
       "verify": "Verify and Sign In",
       "verifying": "Verifying?",
       "invalid": "That code is incorrect or expired. Request a new sign-in code.",
@@ -312,8 +312,8 @@
       "backToSignIn": "← Πίσω στη σύνδεση",
       "step": {
         "code": {
-          "label": "Κωδικός ασφαλείας",
-          "help": "Εισαγάγετε τον κωδικό που σας έδωσε ένας διαχειριστής ή συντονιστής.",
+          "label": "Κωδικός πρόσκλησης",
+          "help": "Εισαγάγετε 5 χαρακτήρες με γράμματα και αριθμούς. Οι κωδικοί που έχουν ήδη εκδοθεί γίνονται ακόμη δεκτοί.",
           "submit": "Συνέχεια"
         },
         "email": {
@@ -322,7 +322,7 @@
           "bound": "Αυτός ο κωδικός είναι συνδεδεμένος με αυτή τη διεύθυνση email.",
           "send": "Αποστολή κωδικού επαλήθευσης",
           "sent": "Στείλαμε έναν κωδικό στο {email}.",
-          "codeLabel": "Κωδικός επαλήθευσης",
+          "codeLabel": "Κωδικός επαλήθευσης email",
           "verify": "Επαλήθευση email",
           "resend": "Επαναποστολή κωδικού"
         },
@@ -1011,7 +1011,7 @@
       "expand": "Ανάπτυξη",
       "noEmail": "Χωρίς email",
       "expiresOn": "Λήγει {date}",
-      "codeLabel": "Κωδικός",
+      "codeLabel": "Κωδικός πρόσκλησης",
       "invalidNote": "Αυτός ο κωδικός δεν ισχύει πλέον.",
       "noCode": "Ο κωδικός δεν είναι διαθέσιμος.",
       "share": {
@@ -1088,7 +1088,7 @@
       },
       "stats": {
         "title": "Παρουσίες βοηθών",
-        "help": "Σε όλες τις συναντήσεις.",
+        "help": "Για τις συναντήσεις αυτής της ομάδας.",
         "tutor": "Βοηθός",
         "empty": "Δεν έχουν καταγραφεί παρουσίες ακόμη."
       },
@@ -1619,7 +1619,7 @@
       "applicationsEmpty": "Καμία εκκρεμής αίτηση.",
       "accept": "Αποδοχή & έκδοση κωδικού",
       "reject": "Απόρριψη",
-      "codeIssued": "Κωδικός: {code}",
+      "codeIssued": "Κωδικός πρόσκλησης: {code}",
       "requestsHeading": "Αιτήματα Αποχώρησης & Επανένταξης",
       "requestsEmpty": "Κανένα εκκρεμές αίτημα.",
       "approve": "Έγκριση",
@@ -2065,6 +2065,7 @@
       "ranking": {
         "bothAvailable": "Κοινή διαθεσιμότητα",
         "otherTimeSlots": "Άλλες χρονικές ζώνες",
+        "unavailable": "Μη διαθέσιμες",
         "retainedOption": "Τρέχουσα συνδεδεμένη χρονοθυρίδα (μη δημοσιευμένη)"
       },
       "notSet": "— δεν ορίστηκε —",
@@ -2337,7 +2338,7 @@
       "lookupHint": "Χρησιμοποιήστε το email της αρχικής αίτησής σας. Θα το επαληθεύσουμε πριν εμφανίσουμε την κατάσταση του ελέγχου.",
       "sendCode": "Αποστολή κωδικού επαλήθευσης",
       "sent": "Στείλαμε κωδικό επαλήθευσης στο {email}.",
-      "verifyHint": "Εισαγάγετε τον κωδικό πέντε χαρακτήρων. Η επαλήθευση email υποβάλλει μια νέα αίτηση για έλεγχο· δεν παρέχει πρόσβαση στην περίπολο.",
+      "verifyHint": "Εισαγάγετε τον τετραψήφιο αριθμητικό κωδικό. Η επαλήθευση email υποβάλλει μια νέα αίτηση για έλεγχο· δεν παρέχει πρόσβαση στην περίπολο.",
       "emailCode": "Κωδικός επαλήθευσης email",
       "verify": "Επαλήθευση email",
       "resend": "Επαναποστολή κωδικού",
@@ -2406,7 +2407,7 @@
         "affiliation": "Η ιδιότητά σας",
         "affiliationPlaceholder": "π.χ. Γονέας μαθητή, καθηγητής Μαθηματικών, μέλος της κοινότητας",
         "email": "Email",
-        "code": "Κωδικός επαλήθευσης",
+        "code": "Κωδικός επαλήθευσης email",
         "password": "Κωδικός",
         "confirm": "Επιβεβαίωση κωδικού"
       }
@@ -2488,7 +2489,7 @@
       "sendCode": "Αποστολή κωδικού επαλήθευσης",
       "sending": "Αποστολή…",
       "codeSent": "Στείλαμε έναν κωδικό στο {email}. Εισαγάγετέ τον παρακάτω για ολοκλήρωση.",
-      "codeLabel": "Κωδικός επαλήθευσης",
+      "codeLabel": "Κωδικός επαλήθευσης email",
       "resend": "Επαναποστολή κωδικού",
       "cancel": "Άκυρο"
     }
@@ -2584,7 +2585,7 @@
     "email": "Νέο email",
     "password": "Τρέχων κωδικός",
     "send": "Αποστολή κωδικού επαλήθευσης",
-    "code": "Κωδικός στο νέο email",
+    "code": "Κωδικός επαλήθευσης email",
     "confirm": "Επαλήθευση και αλλαγή email",
     "success": "Το email σας άλλαξε."
   },
@@ -3572,7 +3573,7 @@
     "working": "Επεξεργασία…",
     "limit": "Έως πέντε δευτερεύουσες διευθύνσεις. Επαληθεύστε μια νέα διεύθυνση πριν την ορίσετε ως κύρια.",
     "verifyAddress": "Επαλήθευση {email}",
-    "code": "Κωδικός επαλήθευσης",
+    "code": "Κωδικός επαλήθευσης email",
     "resend": "Επαναποστολή κωδικού",
     "sent": "Ο κωδικός εστάλη. Εισαγάγετέ τον παρακάτω εντός δέκα λεπτών.",
     "verifiedNotice": "Το email επαληθεύτηκε. Μπορεί να χρησιμοποιηθεί για σύνδεση, ανάκτηση ή ως κύριο.",
@@ -4185,7 +4186,7 @@
     "accountConfirm": "I am the intended recipient. I understand that this creates a login only; I will review and claim my record after signing in. It does not enroll me or grant observer access.",
     "accountReady": "Your login is ready",
     "accountReadyHelp": "Sign in with your verified email and password, then review and claim the invited record. If this page was closed after setup, sign in with the same account; do not create another login.",
-    "emailCode": "Email verification code",
+    "emailCode": "Κωδικός επαλήθευσης email",
     "newPassword": "New password (at least 8 characters)",
     "sendCode": "Send verification code",
     "verifyCode": "Verify email",
@@ -4581,7 +4582,7 @@
     "emailed": "Emailed",
     "emailSent": "The invitation has been sent to your verified email.",
     "handoffRecovery": "Continue with your code. You may be asked to verify your email again.",
-    "verificationCode": "Email verification code",
+    "verificationCode": "Κωδικός επαλήθευσης email",
     "emailTitle": "Verify your email",
     "verifyEmailHelp": "Verify your email to connect this invitation to your account.",
     "sendVerification": "Send verification code",
@@ -5280,7 +5281,7 @@
   "pairingGroups": {
     "manage": "Combine / split pairings",
     "title": "Your Pairing Groups",
-    "help": "Group two to six of your assignments. Choose one shared recurring time slot; all members use the primary assignment’s room. Review the change before saving.",
+    "help": "Group two to six assignments only when every student has all selected subjects. Save as Awaiting schedule or choose one shared time. Review before saving.",
     "loading": "Loading your pairing groups…",
     "loadError": "Your pairing groups could not be loaded.",
     "retry": "Retry",
@@ -5305,17 +5306,36 @@
     "consequences": "Saving updates the future schedule and room for every selected member together. It does not submit or rewrite attendance. Split assignments need a separate schedule.",
     "noGroups": "All assignments will be listed separately.",
     "splitHelp": "Remove members by unticking them, or split the whole group. Keep at least two members in each remaining group. Assignments that leave a group return to Awaiting schedule.",
-    "catalogueHelp": "Saved groups share a recurring schedule and remain flexible after attendance.",
+    "catalogueHelp": "Combine eligible assignments first, then schedule the saved group together.",
     "combined": "Combined pairing",
     "combinedRoster": "Combined student roster",
     "memberDetails": "Subject assignments and student actions",
     "record": "Record group attendance",
     "individualAttendance": "Record one subject separately",
-    "accessDenied": "Your tutoring access changed. Reload to verify access before editing groups."
+    "accessDenied": "Your tutoring access changed. Reload to verify access before editing groups.",
+    "awaiting": "Awaiting schedule",
+    "keepCurrentTime": "Keep the current confirmed time",
+    "scheduleAfterMembershipChange": "Membership changed. Choose a shared time or explicitly select Awaiting schedule.",
+    "clearSchedule": "Saving as Awaiting schedule clears the confirmed time and room reservation for every member.",
+    "slotConflict": "Overlaps {subjects}",
+    "needsRepair": "This saved group needs repair. Edit its members or split it before scheduling or recording combined attendance.",
+    "repairCount": "{count, plural, one {# pairing group needs repair} other {# pairing groups need repair}}. Review My Pairings before scheduling or recording combined attendance.",
+    "reference": "Group {id}",
+    "missingCoverage": "{student} is missing: {subjects}.",
+    "eligibility": {
+      "size": "Choose two to six assignments.",
+      "emptyRoster": "Every assignment needs a current student. Remove empty assignments or split the group.",
+      "incompleteCoverage": "Every student must have the same complete set of selected subjects."
+    },
+    "status": {
+      "scheduled": "Shared schedule confirmed",
+      "awaiting": "Awaiting schedule",
+      "needsRepair": "Needs repair"
+    }
   },
   "tutorWorkload": {
     "title": "Assigned Session Blocks",
-    "help": "Approximate workload for the current quarter if your assigned tutees work out. Shared confirmed times count once; assignments awaiting a schedule count separately. Your preference is advisory and does not change existing assignments.",
+    "help": "Approximate workload for the current quarter if your assigned tutees work out. Each valid saved group counts once, including groups awaiting a schedule; other assignments count separately. Your preference is advisory and does not change assignments.",
     "editPreference": "Preferred Sessions",
     "preference": "Preferred Sessions",
     "unset": "No preference",
@@ -5350,7 +5370,7 @@
     "reloadFailed": "Could not reload the preference. Your draft and original version are retained.",
     "countHeading": "Assigned Blocks",
     "preferenceHeading": "Preferred Maximum",
-    "staffHelp": "Approximate current-quarter workload; shared confirmed times count once and awaiting-schedule assignments count separately.",
+    "staffHelp": "Approximate current-quarter workload; each valid saved group counts once, including groups awaiting a schedule. Other assignments count separately.",
     "confirmTitle": "Assign Above Preferred Sessions?",
     "continue": "Continue",
     "reviewAssignment": "Try assigning a session",
@@ -5568,5 +5588,34 @@
     "correctOwner": "Correct history owner",
     "correctOwnerHelp": "Head only: move this exact historical record to its correct owner after a mistaken association. This does not combine the two people’s other records or logins. Review the former owner, recipient and original evidence.",
     "operationReference": "Operation reference: {id}"
+  },
+  "codes": {
+    "invitationLabel": "Κωδικός πρόσκλησης",
+    "emailLabel": "Κωδικός επαλήθευσης email",
+    "invitationHelp": "Εισαγάγετε 5 χαρακτήρες με γράμματα και αριθμούς. Οι κωδικοί που έχουν ήδη εκδοθεί γίνονται ακόμη δεκτοί.",
+    "emailHelp": "Εισαγάγετε τα 4 ψηφία από το email σας. Οι κωδικοί που έχουν ήδη εκδοθεί γίνονται ακόμη δεκτοί.",
+    "lettersKeyboard": "Εισαγωγή κωδικού με γράμματα",
+    "numericKeyboard": "Χρήση αριθμητικού πληκτρολογίου"
+  },
+  "meetingPeriods": {
+    "current": "Τρέχουσα περίοδος",
+    "unconfigured": "Δεν έχει οριστεί ενεργή περίοδος προγράμματος.",
+    "outside": "Προσεχείς συναντήσεις άλλων περιόδων",
+    "outsideHelp": "Αυτές οι συναντήσεις ανήκουν σε άλλη καταγεγραμμένη περίοδο. Ελέγξτε τις εδώ για να μην παραλειφθούν.",
+    "history": "Ιστορικό συναντήσεων",
+    "noHistory": "Δεν υπάρχουν παλαιότερες καταγραφές.",
+    "unassigned": "Η περίοδος δεν καταγράφηκε",
+    "group": "{period} · {count} συναντήσεις",
+    "empty": "Δεν υπάρχουν συναντήσεις σε αυτή την περίοδο.",
+    "denied": "Δεν έχετε πλέον πρόσβαση σε αυτές τις συναντήσεις.",
+    "historyHelp": "Ανοίξτε μια περίοδο για να δείτε τις συναντήσεις της.",
+    "outsideStaffHelp": "Για επεξεργασία παρουσιών, ανοίξτε την καταγεγραμμένη περίοδο στο ιστορικό συναντήσεων.",
+    "previous": "Προηγούμενη ομαδοποίηση",
+    "groupingChanged": "Το πρόγραμμα ομαδοποιεί πλέον διαφορετικά τις συναντήσεις. Αυτή η προβολή διατηρεί την προηγούμενη ομαδοποίηση και τα πρόχειρά σας. Φορτώστε ξανά τις ομάδες για την ισχύουσα λειτουργία τριμήνου ή εξαμήνου.",
+    "reload": "Επαναφόρτωση ομάδων",
+    "reloadTitle": "Επαναφόρτωση ομάδων συναντήσεων;",
+    "reloadWarning": "Η επαναφόρτωση αυτής της σελίδας απορρίπτει όλα τα μη αποθηκευμένα πρόχειρα, μαζί με αυτά των συναντήσεων και παρουσιών. Οι αποθηκευμένες αλλαγές διατηρούνται.",
+    "keepEditing": "Συνέχεια επεξεργασίας",
+    "reloadBusy": "Περιμένετε να ολοκληρωθούν η αποθήκευση και η ανανέωση."
   }
 }

@@ -33,7 +33,7 @@ const state = vi.hoisted(() => ({
   data: {
     snapshot: "0".repeat(64),
     termId: "term",
-    groups: [],
+    groups: [] as RouterOutputs["pairingGroups"]["mine"]["groups"],
     pairings: [] as Pairing[],
     slots: [] as {
       id: string;
@@ -47,6 +47,7 @@ const state = vi.hoisted(() => ({
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
+      admin: { pairings: { invalidate: state.refresh } },
       tutor: {
         myPairings: { invalidate: state.refresh },
         schedule: { invalidate: state.refresh },
@@ -84,7 +85,7 @@ const pairings = ["a", "b", "c"].map((id, index) => ({
   groupId: null,
   scheduleConfirmed: true,
   timeSlotId: "slot",
-  dayOfWeek: 1,
+  dayOfWeek: index === 2 ? 3 : 1,
   startMin: 900,
   endMin: 960,
   roomId: "room",
@@ -383,4 +384,103 @@ it("keeps the saved receipt when refresh fails; refresh Retry never repeats the 
     expect(screen.queryByText(messages.pairingGroups.refreshFailed)).toBeNull(),
   );
   expect(state.writes).toHaveLength(1);
+});
+
+
+it("saves eligible members before scheduling and reviews clearing their former reservation", async () => {
+  show();
+  open();
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.add }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Mathematics" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Physics" }));
+  expect(screen.getByLabelText<HTMLSelectElement>(messages.pairingGroups.schedule).value).toBe("");
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.review }));
+  expect(screen.getByText(messages.pairingGroups.awaiting)).toBeTruthy();
+  expect(screen.getByText(messages.pairingGroups.clearSchedule)).toBeTruthy();
+  expect(state.writes).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.save }));
+  await waitFor(() => expect(state.writes).toHaveLength(1));
+  expect(state.writes[0]!.input).toMatchObject({ groups: [{ pairingIds: ["a", "b"], slotId: null }] });
+  await act(async () => state.writes[0]!.resolve({ ok: true }));
+});
+
+it("explains the missing student subject and retains the selection until it is repaired", () => {
+  state.data.pairings = pairings.map((p) => p.id === "b" ? {
+    ...p, tutees: [...p.tutees, { ...p.tutees[0]!, tuteeId: "second", tutee: { ...p.tutees[0]!.tutee, id: "second", englishName: "Second Student", user: null } }],
+  } : p);
+  show();
+  open();
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.add }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Mathematics" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Physics" }));
+  expect(screen.getByText("Second Student is missing: Mathematics.")).toBeTruthy();
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.pairingGroups.review }).disabled).toBe(true);
+  expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Physics" }).checked).toBe(true);
+  expect(state.writes).toHaveLength(0);
+});
+
+it("blocks an overlapping independent copied interval while allowing adjacency and excluding draft members", () => {
+  state.data.pairings = pairings.map((p) => p.id === "c" ? { ...p, dayOfWeek: 1, startMin: 930, endMin: 990, timeSlotId: null } : p);
+  state.data.slots.push({ id: "adjacent", label: "Adjacent", dayOfWeek: 1, startMin: 990, endMin: 1050 });
+  show();
+  open();
+  compose();
+  const select = screen.getByLabelText<HTMLSelectElement>(messages.pairingGroups.schedule);
+  expect(select.querySelector<HTMLOptionElement>('option[value="slot"]')!.disabled).toBe(true);
+  expect(select.querySelector<HTMLOptionElement>('option[value="adjacent"]')!.disabled).toBe(false);
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.pairingGroups.review }).disabled).toBe(true);
+  fireEvent.change(select, { target: { value: "adjacent" } });
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.pairingGroups.review }).disabled).toBe(false);
+});
+
+
+it.each([null, "unpublished"])("requires an explicit choice to clear an existing confirmed schedule linked to %s", async (timeSlotId) => {
+  state.data.pairings = pairings.map((p) => p.id === "c" ? p : {
+    ...p, groupId: "saved-group", group: { primaryPairingId: "a" }, timeSlotId,
+  });
+  state.data.groups = [{
+    id: "saved-group", pairingIds: ["a", "b"], slotId: timeSlotId,
+    scheduleConfirmed: true, dayOfWeek: 1, startMin: 900, endMin: 960,
+    groupStatus: "scheduled", retainSchedule: true,
+    groupEligibility: { eligible: true, reason: null, missing: [], emptyPairingIds: [] },
+  }];
+  show();
+  open();
+  const select = screen.getByLabelText<HTMLSelectElement>(messages.pairingGroups.schedule);
+  expect(select.value).toBe("__retain__");
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.review }));
+  expect(screen.getByText(/Keep the current confirmed time · Mon 15:00–16:00/)).toBeTruthy();
+  expect(screen.queryByText(messages.pairingGroups.clearSchedule)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.back }));
+  fireEvent.change(screen.getByLabelText(messages.pairingGroups.schedule), { target: { value: "" } });
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.review }));
+  expect(screen.getByText(messages.pairingGroups.clearSchedule)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.save }));
+  await waitFor(() => expect(state.writes).toHaveLength(1));
+  expect(state.writes[0]!.input).toMatchObject({ groups: [{ id: "saved-group", pairingIds: ["a", "b"], slotId: null }] });
+  expect((state.writes[0]!.input as { groups: { retainSchedule?: boolean }[] }).groups[0]!.retainSchedule).not.toBe(true);
+  await act(async () => state.writes[0]!.resolve({ ok: true }));
+});
+
+
+it("allows separate students' assignments for one common subject without a slot", () => {
+  state.data.pairings = pairings.slice(0, 2).map((p, index) => ({
+    ...p,
+    subject: "Chemistry",
+    tutees: p.tutees.map((student) => ({
+      ...student, tuteeId: `student-${index}`,
+      tutee: { ...student.tutee, englishName: `Learner ${index}` },
+    })),
+  }));
+  show();
+  open();
+  fireEvent.click(screen.getByRole("button", { name: messages.pairingGroups.add }));
+  for (const checkbox of screen.getAllByRole("checkbox", { name: "Chemistry" })) fireEvent.click(checkbox);
+  const review = screen.getByRole<HTMLButtonElement>("button", { name: messages.pairingGroups.review });
+  expect(review.disabled).toBe(false);
+  fireEvent.click(review);
+  expect(screen.getByRole("heading", { name: "Chemistry" })).toBeTruthy();
+  expect(screen.getByText("Learner 0, Learner 1")).toBeTruthy();
+  expect(screen.getByText(messages.pairingGroups.awaiting)).toBeTruthy();
+  expect(state.writes).toHaveLength(0);
 });

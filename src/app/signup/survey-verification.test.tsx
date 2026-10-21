@@ -59,27 +59,30 @@ beforeEach(() => {
   state.resend.mockResolvedValue({ emailSent: true });
 });
 afterEach(cleanup);
-it("binds verification and resend to the exact submission intent without changing the mailbox proof flow", async () => {
-  const mounted = render(view("specific-intent"));
-  fireEvent.change(screen.getByLabelText(/^Email verification code/), {
-    target: { value: "ABC123" },
-  });
-  fireEvent.submit(mounted.container.querySelector("form")!);
-  expect(state.verify).toHaveBeenCalledWith({
-    email: "verified@example.test",
-    code: "ABC123",
-    intentId: "specific-intent",
-  });
-  state.settled!();
-  fireEvent.click(screen.getByRole("button", { name: en.survey.resend }));
-  await act(() => Promise.resolve());
-  expect(state.resend).toHaveBeenCalledWith(
-    expect.objectContaining({
+it.each(["0012", "ABC123"])(
+  "binds verification code %s and resend to the exact submission intent",
+  async (code) => {
+    const mounted = render(view("specific-intent"));
+    fireEvent.change(screen.getByLabelText(/^Email verification code/), {
+      target: { value: code },
+    });
+    fireEvent.submit(mounted.container.querySelector("form")!);
+    expect(state.verify).toHaveBeenCalledWith({
       email: "verified@example.test",
+      code,
       intentId: "specific-intent",
-    }),
-  );
-});
+    });
+    state.settled!();
+    fireEvent.click(screen.getByRole("button", { name: en.survey.resend }));
+    await act(() => Promise.resolve());
+    expect(state.resend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "verified@example.test",
+        intentId: "specific-intent",
+      }),
+    );
+  },
+);
 it("blocks resends throughout a held verification and retains the code for retry", () => {
   const { container, rerender } = render(view());
   fireEvent.change(screen.getByLabelText(/^Email verification code/), {

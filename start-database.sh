@@ -58,7 +58,7 @@ if [ -n "$EXISTING_CONTAINER" ]; then
   EXISTING_NETWORK=$($DOCKER_CMD inspect --format '{{.HostConfig.NetworkMode}}' "$DB_CONTAINER_NAME") || exit 1
   if [ "$EXISTING_BINDINGS" != "$DB_BIND_ADDRESS:$DB_PORT" ] || [ "$EXISTING_NETWORK" = "host" ]; then
     echo "Existing container '$DB_CONTAINER_NAME' does not match the requested PostgreSQL binding." >&2
-    echo "Back up its data and review its mounts before recreating it; see docs/local-development.md." >&2
+    echo "Back up its data and review its mounts before recreating it; see docs/contributing/local-development.md." >&2
     exit 1
   fi
   EXISTING_RUNNING=$($DOCKER_CMD inspect --format '{{.State.Running}}' "$DB_CONTAINER_NAME") || exit 1

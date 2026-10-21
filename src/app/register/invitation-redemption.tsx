@@ -1,4 +1,5 @@
 "use client";
+import { CodeInput } from "~/app/_components/ui/code-field";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
@@ -589,20 +590,15 @@ function InvitationRedemptionFlow({
                 onChange={(event) => setEmail(event.target.value)}
               />
             </label>
-            <label className="block">
-              <span className="label">
-                {t("verificationCode")}
-                <FieldRequirement state="required" />
-              </span>
-              <input
-                className="input font-mono tracking-widest"
-                autoComplete="one-time-code"
-                required
-                maxLength={30}
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-              />
-            </label>
+            <CodeInput
+              purpose="email"
+              value={code}
+              onValueChange={setCode}
+              aria-invalid={Boolean(error)}
+              aria-describedby={
+                error ? "invitation-redemption-error" : undefined
+              }
+            />
             <FormActions>
               <Button type="submit">{t("verify")}</Button>
               {onBack ? (
@@ -619,7 +615,11 @@ function InvitationRedemptionFlow({
         </form>
       )}
       {error && (
-        <div role="alert" className="space-y-2 text-sm text-red-700">
+        <div
+          role="alert"
+          id="invitation-redemption-error"
+          className="space-y-2 text-sm text-red-700"
+        >
           <SignupError error={error} />
           <p>{t("recovery")}</p>
           {reviewError && (proof || signedIn) && (

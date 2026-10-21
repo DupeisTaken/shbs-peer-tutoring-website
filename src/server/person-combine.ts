@@ -395,6 +395,10 @@ export async function combinePersonRecords(
   void _password;
   const inputHash = hash(intent);
   return inTransaction(db, async (tx) => {
+    // Pairing writers hold period before Tutor rows and planned-schedule writes.
+    // Join that fence before namespace/account/table locks so our Pairing fence
+    // cannot wait on a Tutor row whose writer is waiting for our table lock.
+    await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
     await lockEntity(tx, "program:leadership");
     // Receipt lookup precedes source resolution: a completed intent remains

@@ -18,7 +18,7 @@ import {
   ownedTutorHistory,
   personalTutorHistory,
 } from "~/server/personal-tutor-history";
-import { normalizeRegCode } from "~/server/auth/code";
+import { normalizeEmailCode } from "~/server/auth/code";
 import { withSignupAdmission } from "~/server/signup-admission";
 import {
   startHistoryAccount,
@@ -102,7 +102,7 @@ export const tuteeHistoryRouter = createTRPCRouter({
   verifyAccount: publicProcedure
     .input(
       setupInput.extend({
-        code: z.string().max(30).transform(normalizeRegCode),
+        code: z.string().max(30).transform(normalizeEmailCode),
       }),
     )
     .mutation(({ ctx, input }) =>

@@ -29,6 +29,9 @@ const state = vi.hoisted(() => ({
   removalPending: false,
   confirmed: true,
   savedGroup: false,
+  incompleteGroup: false,
+  copiedConflict: false,
+  otherTerm: false,
   memberTuteeIds: [] as string[],
   name: "Sample Learner",
   username: null as string | null,
@@ -97,6 +100,7 @@ vi.mock("~/trpc/react", () => ({
           data: [
             {
               id: "pairing",
+              termId: "term",
               groupId: state.savedGroup ? "saved-group" : null,
               group: state.savedGroup ? { primaryPairingId: "pairing" } : null,
               roomMode: "FIXED",
@@ -119,10 +123,14 @@ vi.mock("~/trpc/react", () => ({
                     user: { username: state.username },
                   },
                 },
+                ...(state.savedGroup && !state.incompleteGroup ? state.memberTuteeIds.filter((id) => id !== "tutee").map((tuteeId) => ({
+                  tuteeId, tutee: { englishName: `Learner ${tuteeId}`, user: { username: null } },
+                })) : []),
               ],
             },
             {
               id: "merge-pairing",
+              termId: state.otherTerm ? "other-term" : "term",
               groupId: state.savedGroup ? "saved-group" : null,
               group: state.savedGroup ? { primaryPairingId: "pairing" } : null,
               roomMode: "AUTO",
@@ -135,7 +143,7 @@ vi.mock("~/trpc/react", () => ({
               endMin: 960,
               room: state.savedGroup ? { name: "A101" } : null,
               roomId: state.savedGroup ? "room" : null,
-              timeSlotId: "one",
+              timeSlotId: state.copiedConflict ? null : "one",
               timeSlot: null,
               tutees: state.memberTuteeIds.map((tuteeId) => ({
                 tuteeId,
@@ -217,6 +225,9 @@ afterEach(() => {
   state.removalPending = false;
   state.confirmed = true;
   state.savedGroup = false;
+  state.incompleteGroup = false;
+  state.copiedConflict = false;
+  state.otherTerm = false;
   state.memberTuteeIds = [];
   state.name = "Sample Learner";
   state.username = null;
@@ -351,7 +362,7 @@ it.each([
   ["fr", "Disponibilités communes", "Autres créneaux horaires", "lun."],
 ] as const)(
   "shows concise localized slot groups in %s without repeated guidance",
-  (locale, both, other, day) => {
+  (locale, both, _other, day) => {
     state.selectedSlotIds = ["one"];
     state.workflowRows = [
       { pairingId: "pairing", tuteeId: "tutee", slots: [{ id: "one" }] },
@@ -361,12 +372,12 @@ it.each([
     expect(select.querySelector("optgroup")?.label).toBe(both);
     expect(select.options[1]?.textContent).toBe(`Monday · ${day} 15:00–16:00`);
     expect(select.querySelectorAll("optgroup")).toHaveLength(1);
-    // The separate empty assignment cannot imply mutual availability with nobody.
+    // The other independent assignment cannot take the primary's occupied time.
     expect(
       screen
         .getAllByRole<HTMLSelectElement>("combobox")[1]!
         .querySelector("optgroup")?.label,
-    ).toBe(other);
+    ).toBe(catalogs[locale].tutor.pairings.ranking.unavailable);
     expect(select.hasAttribute("aria-describedby")).toBe(false);
     expect(state.confirm).not.toHaveBeenCalled();
     expect(state.setSlot).not.toHaveBeenCalled();
@@ -395,8 +406,8 @@ it.each(["roster", "availability", "missingTutor", "missingTutee"])(
 );
 it("recomputes saved-group ranking from every distinct current member tutee when roster availability and assignments refresh, without writes", () => {
   state.savedGroup = true;
-  // The same learner appears in both subjects, while a second learner belongs
-  // only to Physics. The group-wide denominator must count two people, not three.
+  // Both learners have all selected subjects. The group-wide denominator
+  // deduplicates their repeated subject rows.
   state.memberTuteeIds = ["tutee", "second"];
   state.slots = [
     { id: "one", label: "Original", dayOfWeek: 1, startMin: 900, endMin: 960 },
@@ -782,5 +793,57 @@ it("does not claim an allocation was saved when ordinary availability recovery a
   await waitFor(() =>
     expect(screen.queryByText(messages.roomAllocation.readFailed)).toBeNull(),
   );
+  expect(state.setSlot).not.toHaveBeenCalled();
+});
+
+
+it("puts copied-interval collisions in disabled Unavailable even when mutually selected and permits adjacency", async () => {
+  state.copiedConflict = true;
+  state.slots = [
+    { id: "overlap", label: "Partial overlap", dayOfWeek: 2, startMin: 930, endMin: 990 },
+    { id: "adjacent", label: "Adjacent", dayOfWeek: 2, startMin: 960, endMin: 1020 },
+  ];
+  state.selectedSlotIds = ["overlap", "adjacent"];
+  state.workflowRows = [{ pairingId: "pairing", tuteeId: "tutee", slots: [{ id: "overlap" }, { id: "adjacent" }] }];
+  render(element());
+  const select = screen.getAllByRole<HTMLSelectElement>("combobox")[0]!;
+  const overlap = select.querySelector<HTMLOptionElement>('option[value="overlap"]')!;
+  expect(overlap.parentElement?.getAttribute("label")).toBe("Unavailable");
+  expect(overlap.disabled).toBe(true);
+  expect(overlap.textContent).toContain("Overlaps Maths");
+  const adjacent = select.querySelector<HTMLOptionElement>('option[value="adjacent"]')!;
+  expect(adjacent.disabled).toBe(false);
+  expect(adjacent.parentElement?.getAttribute("label")).toBe("Both Available");
+  state.confirm.mockResolvedValue(true);
+  fireEvent.change(select, { target: { value: "overlap" } });
+  expect(state.confirm).not.toHaveBeenCalled();
+  expect(state.setSlot).not.toHaveBeenCalled();
+  fireEvent.change(select, { target: { value: "adjacent" } });
+  await waitFor(() => expect(state.setSlot).toHaveBeenCalledWith({ pairingId: "pairing", slotId: "adjacent", expectedRoomVersion: 2 }));
+});
+
+it("keeps an incomplete saved group visible and blocks scheduling and combined attendance", () => {
+  state.savedGroup = true;
+  state.incompleteGroup = true;
+  state.memberTuteeIds = ["tutee", "second"];
+  render(element());
+  expect(screen.getByText(messages.pairingGroups.needsRepair)).toBeTruthy();
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.pairingGroups.record }).disabled).toBe(true);
+  const details = screen.getByText(messages.pairingGroups.memberDetails).closest("details")!;
+  details.open = true;
+  fireEvent(details, new Event("toggle"));
+  expect(screen.getAllByRole<HTMLSelectElement>("combobox").every((select) => select.disabled)).toBe(true);
+  expect(state.setSlot).not.toHaveBeenCalled();
+});
+
+
+it("does not reserve a different period's copied interval when multiple legacy periods remain active", () => {
+  state.otherTerm = true;
+  state.slots = [{ id: "overlap", label: "Other period time", dayOfWeek: 2, startMin: 930, endMin: 990 }];
+  render(element());
+  const select = screen.getAllByRole<HTMLSelectElement>("combobox")[0]!;
+  const option = select.querySelector<HTMLOptionElement>('option[value="overlap"]')!;
+  expect(option.disabled).toBe(false);
+  expect(option.parentElement?.getAttribute("label")).toBe("Other Time Slots");
   expect(state.setSlot).not.toHaveBeenCalled();
 });

@@ -231,8 +231,8 @@
     "twoFactor": {
       "title": "Verification Code",
       "sent": "We emailed a sign-in code to {email}.",
-      "code": "Verification Code",
-      "help": "Enter the 5-character code from your email.",
+      "code": "E-Mail-Bestätigungscode",
+      "help": "Gib die 4 Ziffern aus deiner E-Mail ein. Bereits ausgestellte Codes bleiben gültig.",
       "verify": "Verify and Sign In",
       "verifying": "Verifying?",
       "invalid": "That code is incorrect or expired. Request a new sign-in code.",
@@ -312,8 +312,8 @@
       "backToSignIn": "← Zurück zur Anmeldung",
       "step": {
         "code": {
-          "label": "Sicherheitsschlüssel",
-          "help": "Geben Sie den Code ein, den Ihnen ein Admin oder Koordinator gegeben hat.",
+          "label": "Einladungscode",
+          "help": "Gib 5 Zeichen aus Buchstaben und Ziffern ein. Bereits ausgestellte Codes bleiben gültig.",
           "submit": "Weiter"
         },
         "email": {
@@ -322,7 +322,7 @@
           "bound": "Dieser Code ist an diese E-Mail-Adresse gebunden.",
           "send": "Verifizierungscode senden",
           "sent": "Wir haben einen Code an {email} gesendet.",
-          "codeLabel": "Verifizierungscode",
+          "codeLabel": "E-Mail-Bestätigungscode",
           "verify": "E-Mail bestätigen",
           "resend": "Code erneut senden"
         },
@@ -1011,7 +1011,7 @@
       "expand": "Ausklappen",
       "noEmail": "Keine E-Mail",
       "expiresOn": "Läuft ab {date}",
-      "codeLabel": "Code",
+      "codeLabel": "Einladungscode",
       "invalidNote": "Dieser Code ist nicht mehr gültig.",
       "noCode": "Code nicht verfügbar.",
       "share": {
@@ -1088,7 +1088,7 @@
       },
       "stats": {
         "title": "Tutor-Anwesenheit",
-        "help": "Über alle Treffen.",
+        "help": "Über alle Treffen dieser Gruppe.",
         "tutor": "Tutor",
         "empty": "Noch keine Anwesenheit erfasst."
       },
@@ -1619,7 +1619,7 @@
       "applicationsEmpty": "Keine offenen Bewerbungen.",
       "accept": "Annehmen & Code ausstellen",
       "reject": "Ablehnen",
-      "codeIssued": "Code: {code}",
+      "codeIssued": "Einladungscode: {code}",
       "requestsHeading": "Austritts- & Wiedereintrittsanträge",
       "requestsEmpty": "Keine offenen Anträge.",
       "approve": "Genehmigen",
@@ -2065,6 +2065,7 @@
       "ranking": {
         "bothAvailable": "Beide verfügbar",
         "otherTimeSlots": "Andere Zeitfenster",
+        "unavailable": "Nicht verfügbar",
         "retainedOption": "Aktuell verknüpftes Zeitfenster (nicht veröffentlicht)"
       },
       "notSet": "— nicht gesetzt —",
@@ -2337,7 +2338,7 @@
       "lookupHint": "Verwenden Sie die E-Mail-Adresse Ihrer ursprünglichen Bewerbung. Wir überprüfen sie, bevor wir den Bearbeitungsstatus anzeigen.",
       "sendCode": "Bestätigungscode senden",
       "sent": "Wir haben einen Bestätigungscode per E-Mail an {email} gesendet.",
-      "verifyHint": "Geben Sie den fünf Zeichen langen Code ein. Durch die Bestätigung Ihrer E-Mail-Adresse wird eine neue Bewerbung zur Prüfung eingereicht; sie gewährt noch keinen Rundgang-Zugang.",
+      "verifyHint": "Geben Sie den vierstelligen Zahlencode ein. Durch die Bestätigung Ihrer E-Mail-Adresse wird eine neue Bewerbung zur Prüfung eingereicht; sie gewährt noch keinen Rundgang-Zugang.",
       "emailCode": "E-Mail-Bestätigungscode",
       "verify": "E-Mail bestätigen",
       "resend": "Code erneut senden",
@@ -2406,7 +2407,7 @@
         "affiliation": "Ihr Bezug",
         "affiliationPlaceholder": "z. B. Elternteil eines Schülers, Mathe-Lehrkraft, Gemeindemitglied",
         "email": "E-Mail",
-        "code": "Bestätigungscode",
+        "code": "E-Mail-Bestätigungscode",
         "password": "Passwort",
         "confirm": "Passwort bestätigen"
       }
@@ -2488,7 +2489,7 @@
       "sendCode": "Bestätigungscode senden",
       "sending": "Wird gesendet…",
       "codeSent": "Wir haben einen Code an {email} gesendet. Geben Sie ihn unten ein, um abzuschließen.",
-      "codeLabel": "Bestätigungscode",
+      "codeLabel": "E-Mail-Bestätigungscode",
       "resend": "Code erneut senden",
       "cancel": "Abbrechen"
     }
@@ -2584,7 +2585,7 @@
     "email": "Neue E-Mail",
     "password": "Aktuelles Passwort",
     "send": "Bestätigungscode senden",
-    "code": "Code an die neue E-Mail",
+    "code": "E-Mail-Bestätigungscode",
     "confirm": "Bestätigen und E-Mail ändern",
     "success": "Deine E-Mail wurde geändert."
   },
@@ -3572,7 +3573,7 @@
     "working": "Wird verarbeitet…",
     "limit": "Bis zu fünf weitere Adressen. Neue Adressen müssen vor dem Wechsel bestätigt werden.",
     "verifyAddress": "{email} bestätigen",
-    "code": "Bestätigungscode",
+    "code": "E-Mail-Bestätigungscode",
     "resend": "Code erneut senden",
     "sent": "Code gesendet. Bitte innerhalb von zehn Minuten unten eingeben.",
     "verifiedNotice": "Adresse bestätigt. Sie kann zur Anmeldung, Wiederherstellung oder als Hauptadresse verwendet werden.",
@@ -4185,7 +4186,7 @@
     "accountConfirm": "I am the intended recipient. I understand that this creates a login only; I will review and claim my record after signing in. It does not enroll me or grant observer access.",
     "accountReady": "Your login is ready",
     "accountReadyHelp": "Sign in with your verified email and password, then review and claim the invited record. If this page was closed after setup, sign in with the same account; do not create another login.",
-    "emailCode": "Email verification code",
+    "emailCode": "E-Mail-Bestätigungscode",
     "newPassword": "New password (at least 8 characters)",
     "sendCode": "Send verification code",
     "verifyCode": "Verify email",
@@ -4581,7 +4582,7 @@
     "emailed": "Emailed",
     "emailSent": "The invitation has been sent to your verified email.",
     "handoffRecovery": "Continue with your code. You may be asked to verify your email again.",
-    "verificationCode": "Email verification code",
+    "verificationCode": "E-Mail-Bestätigungscode",
     "emailTitle": "Verify your email",
     "verifyEmailHelp": "Verify your email to connect this invitation to your account.",
     "sendVerification": "Send verification code",
@@ -5280,7 +5281,7 @@
   "pairingGroups": {
     "manage": "Combine / split pairings",
     "title": "Your Pairing Groups",
-    "help": "Group two to six of your assignments. Choose one shared recurring time slot; all members use the primary assignment’s room. Review the change before saving.",
+    "help": "Group two to six assignments only when every student has all selected subjects. Save as Awaiting schedule or choose one shared time. Review before saving.",
     "loading": "Loading your pairing groups…",
     "loadError": "Your pairing groups could not be loaded.",
     "retry": "Retry",
@@ -5305,17 +5306,36 @@
     "consequences": "Saving updates the future schedule and room for every selected member together. It does not submit or rewrite attendance. Split assignments need a separate schedule.",
     "noGroups": "All assignments will be listed separately.",
     "splitHelp": "Remove members by unticking them, or split the whole group. Keep at least two members in each remaining group. Assignments that leave a group return to Awaiting schedule.",
-    "catalogueHelp": "Saved groups share a recurring schedule and remain flexible after attendance.",
+    "catalogueHelp": "Combine eligible assignments first, then schedule the saved group together.",
     "combined": "Combined pairing",
     "combinedRoster": "Combined student roster",
     "memberDetails": "Subject assignments and student actions",
     "record": "Record group attendance",
     "individualAttendance": "Record one subject separately",
-    "accessDenied": "Your tutoring access changed. Reload to verify access before editing groups."
+    "accessDenied": "Your tutoring access changed. Reload to verify access before editing groups.",
+    "awaiting": "Awaiting schedule",
+    "keepCurrentTime": "Keep the current confirmed time",
+    "scheduleAfterMembershipChange": "Membership changed. Choose a shared time or explicitly select Awaiting schedule.",
+    "clearSchedule": "Saving as Awaiting schedule clears the confirmed time and room reservation for every member.",
+    "slotConflict": "Overlaps {subjects}",
+    "needsRepair": "This saved group needs repair. Edit its members or split it before scheduling or recording combined attendance.",
+    "repairCount": "{count, plural, one {# pairing group needs repair} other {# pairing groups need repair}}. Review My Pairings before scheduling or recording combined attendance.",
+    "reference": "Group {id}",
+    "missingCoverage": "{student} is missing: {subjects}.",
+    "eligibility": {
+      "size": "Choose two to six assignments.",
+      "emptyRoster": "Every assignment needs a current student. Remove empty assignments or split the group.",
+      "incompleteCoverage": "Every student must have the same complete set of selected subjects."
+    },
+    "status": {
+      "scheduled": "Shared schedule confirmed",
+      "awaiting": "Awaiting schedule",
+      "needsRepair": "Needs repair"
+    }
   },
   "tutorWorkload": {
     "title": "Assigned Session Blocks",
-    "help": "Approximate workload for the current quarter if your assigned tutees work out. Shared confirmed times count once; assignments awaiting a schedule count separately. Your preference is advisory and does not change existing assignments.",
+    "help": "Approximate workload for the current quarter if your assigned tutees work out. Each valid saved group counts once, including groups awaiting a schedule; other assignments count separately. Your preference is advisory and does not change assignments.",
     "editPreference": "Preferred Sessions",
     "preference": "Preferred Sessions",
     "unset": "No preference",
@@ -5350,7 +5370,7 @@
     "reloadFailed": "Could not reload the preference. Your draft and original version are retained.",
     "countHeading": "Assigned Blocks",
     "preferenceHeading": "Preferred Maximum",
-    "staffHelp": "Approximate current-quarter workload; shared confirmed times count once and awaiting-schedule assignments count separately.",
+    "staffHelp": "Approximate current-quarter workload; each valid saved group counts once, including groups awaiting a schedule. Other assignments count separately.",
     "confirmTitle": "Assign Above Preferred Sessions?",
     "continue": "Continue",
     "reviewAssignment": "Try assigning a session",
@@ -5568,5 +5588,34 @@
     "correctOwner": "Correct history owner",
     "correctOwnerHelp": "Head only: move this exact historical record to its correct owner after a mistaken association. This does not combine the two people’s other records or logins. Review the former owner, recipient and original evidence.",
     "operationReference": "Operation reference: {id}"
+  },
+  "codes": {
+    "invitationLabel": "Einladungscode",
+    "emailLabel": "E-Mail-Bestätigungscode",
+    "invitationHelp": "Gib 5 Zeichen aus Buchstaben und Ziffern ein. Bereits ausgestellte Codes bleiben gültig.",
+    "emailHelp": "Gib die 4 Ziffern aus deiner E-Mail ein. Bereits ausgestellte Codes bleiben gültig.",
+    "lettersKeyboard": "Code mit Buchstaben eingeben",
+    "numericKeyboard": "Zifferntastatur verwenden"
+  },
+  "meetingPeriods": {
+    "current": "Aktueller Zeitraum",
+    "unconfigured": "Kein aktiver Programmzeitraum eingerichtet.",
+    "outside": "Bevorstehende Treffen in anderen Zeiträumen",
+    "outsideHelp": "Diese bevorstehenden Treffen sind einem anderen Zeitraum zugeordnet. Prüfe sie hier, damit sie nicht übersehen werden.",
+    "history": "Treffenverlauf",
+    "noHistory": "Keine früheren Treffen erfasst.",
+    "unassigned": "Zeitraum nicht erfasst",
+    "group": "{period} · {count} Treffen",
+    "empty": "Keine Treffen in diesem Zeitraum.",
+    "denied": "Du hast keinen Zugriff mehr auf diese Treffen.",
+    "historyHelp": "Öffne einen Zeitraum, um seine Treffen anzusehen.",
+    "outsideStaffHelp": "Öffne zum Bearbeiten der Anwesenheit den zugeordneten Zeitraum im Treffenverlauf.",
+    "previous": "Bisherige Gruppierung",
+    "groupingChanged": "Das Programm gruppiert Treffen jetzt anders. Diese Ansicht behält die bisherige Gruppierung und deine Entwürfe. Lade die Gruppen neu, um den geltenden Quartals- oder Semestermodus zu verwenden.",
+    "reload": "Gruppen neu laden",
+    "reloadTitle": "Treffengruppen neu laden?",
+    "reloadWarning": "Beim Neuladen dieser Seite gehen alle ungespeicherten Entwürfe verloren, auch Treffen- und Anwesenheitsentwürfe. Gespeicherte Änderungen bleiben erhalten.",
+    "keepEditing": "Weiter bearbeiten",
+    "reloadBusy": "Warte, bis Speichern und Aktualisieren abgeschlossen sind."
   }
 }

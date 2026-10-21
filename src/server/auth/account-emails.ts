@@ -5,8 +5,8 @@ import { lockEntity, type TransactionDb } from "~/server/transactions";
 import { rateLimit } from "~/server/rate-limit";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { verifyPasswordConfirmation } from "./password-confirmation";
-import { hashCode } from "./registration";
-import { generateRegistrationCode, normalizeRegCode } from "./code";
+import { hashCode, freshEmailCode } from "./registration";
+import { normalizeEmailCode } from "./code";
 
 export const MAX_SECONDARY_EMAILS = 5;
 export const normalizeEmail = (email: string) => email.trim().toLowerCase();
@@ -134,7 +134,7 @@ export async function requestSecondaryEmail(
       message: "Email delivery is unavailable.",
     });
   const email = normalizeEmail(inputEmail);
-  const code = generateRegistrationCode();
+  let code = "";
   const challenge = await db.$transaction(async (tx) => {
     await requireSecondaryEmailBinding(tx);
     const user = await authenticateEmailAction(tx, userId, password);
@@ -173,6 +173,12 @@ export async function requestSecondaryEmail(
         code: "TOO_MANY_REQUESTS",
         message: "Wait one minute before resending.",
       });
+    const previous = await tx.emailVerificationCode.findFirst({
+      where: { userId, purpose: "SECONDARY_EMAIL", targetEmail: email },
+      orderBy: { createdAt: "desc" },
+      select: { codeHash: true },
+    });
+    code = freshEmailCode([previous?.codeHash]);
     await tx.emailVerificationCode.updateMany({
       where: {
         userId,
@@ -197,8 +203,12 @@ export async function requestSecondaryEmail(
       category: "SECURITY",
       to: email,
       subject: "Verify your secondary email",
-      presentation: { code, eyebrow: "EMAIL VERIFICATION" },
-      text: `Your verification code is ${code}. It expires in ten minutes. If you did not request this, ignore this message.`,
+      presentation: {
+        code,
+        codePurpose: "verification",
+        eyebrow: "EMAIL VERIFICATION",
+      },
+      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires in ten minutes. If you did not request this, ignore this message.`,
     });
   } catch (error) {
     // Retire only this failed delivery's challenge; never cancel a newer resend.
@@ -232,7 +242,7 @@ export async function confirmSecondaryEmail(
       orderBy: { createdAt: "desc" },
     });
     if (!row || row.expiresAt <= new Date() || row.attempts >= 5) return false;
-    if (hashCode(normalizeRegCode(code)) !== row.codeHash) {
+    if (hashCode(normalizeEmailCode(code)) !== row.codeHash) {
       await tx.emailVerificationCode.update({
         where: { id: row.id },
         data: { attempts: { increment: 1 } },

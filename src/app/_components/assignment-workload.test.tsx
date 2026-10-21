@@ -72,7 +72,7 @@ const workload = (count = 1, preferredMaximum: number | null = 1) => ({
       blocks: count
         ? [
             {
-              key: JSON.stringify(["term", 1, 900, 960]),
+              key: JSON.stringify(["group", "term", "saved-group"]),
               pairingIds: ["shared-a", "shared-b"],
             },
           ]
@@ -277,7 +277,7 @@ it.each([null, 2, 4])(
   },
 );
 it.each(["term", "old-quarter"])(
-  "does not add a block for a shared-time or old-quarter edit (%s)",
+  "does not add a block for an explicitly grouped or old-quarter edit (%s)",
   async (termId) => {
     review([
       {
@@ -285,6 +285,7 @@ it.each(["term", "old-quarter"])(
         block: {
           id: "new",
           termId,
+          groupId: "saved-group",
           scheduleConfirmed: true,
           dayOfWeek: 1,
           startMin: 900,
@@ -296,6 +297,20 @@ it.each(["term", "old-quarter"])(
     expect(screen.queryByText(/above the tutor/)).toBeNull();
   },
 );
+it("does not treat an independent assignment at the same clock as joining a saved group", async () => {
+  review([{
+    block: {
+      id: "independent",
+      termId: "term",
+      scheduleConfirmed: true,
+      dayOfWeek: 1,
+      startMin: 900,
+      endMin: 960,
+    },
+  }]);
+  expect(await screen.findByRole("button", { name: "Continue" })).toBeTruthy();
+  expect(state.confirm).not.toHaveBeenCalled();
+});
 it("waits for a held workload read before choosing the fast path", async () => {
   let release!: (data: ReturnType<typeof workload>) => void;
   state.read.mockReturnValue(

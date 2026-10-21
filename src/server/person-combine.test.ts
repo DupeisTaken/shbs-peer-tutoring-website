@@ -19,6 +19,7 @@ import { syncAccountPerson } from "./person-identity";
 import { linkTutorHistory, previewTutorHistory } from "./tutor-history";
 import { linkTuteeHistory, previewHistoryLink } from "./tutee-history";
 import { deleteAccount, previewDeleteAccount } from "./delete-account";
+import { lockEntity } from "./transactions";
 import { recordCsv } from "~/lib/record-transfer";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
@@ -1130,6 +1131,102 @@ it("rejects an overlapping stale group review after another transaction wins", a
   ).toMatchObject({ reason: { code: "CONFLICT" } });
   expect(await db.user.count()).toBe(6);
 });
+
+it.each([false, true])(
+  "waits behind scheduling without a Tutor/Pairing lock inversion (new current assignment=%s)",
+  async (newCurrentAssignment) => {
+    const input = { ...(await reviewed(archives)), confirmPassword: password };
+    const before = await originals();
+    let releaseScheduler!: () => void;
+    let signalLocked!: (pid: number) => void;
+    let rejectLocked!: (error: unknown) => void;
+    const release = new Promise<void>((resolve) => {
+      releaseScheduler = resolve;
+    });
+    const locked = new Promise<number>((resolve, reject) => {
+      signalLocked = resolve;
+      rejectLocked = reject;
+    });
+    const scheduling = db.$transaction(
+      async (tx) => {
+        // Match upstream scheduling: period barrier, participant row, then
+        // Pairing write. Bound SQL waits so a regression cannot strand fixtures.
+        await tx.$executeRawUnsafe("SET LOCAL statement_timeout = '5s'");
+        await lockEntity(tx, "program:period");
+        await tx.$queryRaw`SELECT id FROM "Tutor" WHERE id='archive' FOR UPDATE`;
+        const backend = await tx.$queryRaw<{ pid: number }[]>`
+          SELECT pg_backend_pid() AS pid`;
+        signalLocked(backend[0]!.pid);
+        await release;
+        return tx.pairing.update({
+          where: { id: "original-pairing" },
+          data: newCurrentAssignment
+            ? { termId: "current-term" }
+            : { subject: "Scheduled historical subject correction" },
+        });
+      },
+      { timeout: 12000 },
+    );
+    void scheduling.catch(rejectLocked);
+    const schedulerPid = await locked;
+    const combining = caller().personCombine.combine(input);
+    // Attach rejection handlers before releasing either contender. The real
+    // database wait, not a sleep, establishes the contested lock ordering.
+    const settled = Promise.allSettled([scheduling, combining]);
+    let observedWait = false;
+    let outcomes: Awaited<typeof settled>;
+    try {
+      const deadline = Date.now() + 5000;
+      while (Date.now() < deadline) {
+        const rows = await db.$queryRaw<{ waiting: boolean }[]>`
+          SELECT EXISTS (
+            SELECT 1 FROM pg_stat_activity
+            WHERE ${schedulerPid} = ANY(pg_blocking_pids(pid))
+          ) AS waiting`;
+        if (rows[0]?.waiting) {
+          observedWait = true;
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    } finally {
+      releaseScheduler();
+      outcomes = await settled;
+    }
+    expect(observedWait).toBe(true);
+    expect(outcomes[0].status).toBe("fulfilled");
+    if (newCurrentAssignment) {
+      // Scheduling may change what staff reviewed while combine waits. Reject
+      // that stale intent normally rather than failing with a database deadlock.
+      expect(outcomes[1]).toMatchObject({
+        status: "rejected",
+        reason: { code: "CONFLICT" },
+      });
+      expect(await db.personCombineReceipt.count()).toBe(0);
+      expect(await db.person.count()).toBe(0);
+      expect((await previewPersonCombine(db, archives)).requiresHead).toBe(
+        true,
+      );
+    } else {
+      expect(outcomes[1]).toMatchObject({
+        status: "fulfilled",
+        value: { ok: true, outcome: "GROUPED" },
+      });
+      expect((await previewPersonCombine(db, archives)).alreadyTogether).toBe(
+        true,
+      );
+    }
+    expect(
+      await db.pairing.findUnique({ where: { id: "original-pairing" } }),
+    ).toMatchObject(
+      newCurrentAssignment
+        ? { termId: "current-term" }
+        : { termId: "old", subject: "Scheduled historical subject correction" },
+    );
+    expect(await originals()).toEqual(before);
+  },
+  20000,
+);
 
 it("rolls back grouping and historical access when durable audit evidence cannot be written", async () => {
   const selection = {

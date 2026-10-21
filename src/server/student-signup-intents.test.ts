@@ -27,10 +27,18 @@ import { db } from "~/server/db";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { createCaller } from "./api/root";
 import { currentPolicy, requirePolicy } from "./policy-acceptance";
-import { surveyInput, surveyEmailCode, verifySurveyEmail } from "./student-survey";
 import {
-  stageStudentSignupIntent, recoverStudentSignupIntent,
-  resendStudentSignupIntent, validStudentSignupIntent, studentSignupAdmissionLane,
+  surveyInput,
+  surveyEmailCode,
+  verifySurveyEmail,
+} from "./student-survey";
+import {
+  stageStudentSignupIntent,
+  recoverStudentSignupIntent,
+  resendStudentSignupIntent,
+  validStudentSignupIntent,
+  studentSignupAdmissionLane,
+  verifyStudentSignupIntent,
 } from "./student-signup-intents";
 import { consumeInvitationLogin, redeemAccountInvitation } from "./auth/account-invitations";
 import { hashPassword, verifyPassword } from "./auth/password";
@@ -140,7 +148,9 @@ async function invitation(intentId: string) {
   const intent = await db.studentSignupIntent.findUniqueOrThrow({ where: { id: intentId } });
   // This is the real public exact-submission proof path, not a fixture verifiedAt write.
   const issued = await anonymous().accountInvitation.verifySurvey({
-    email: intent.email, intentId, code: surveyEmailCode(intent.tokenHash),
+    email: intent.email,
+    intentId,
+    code: surveyEmailCode(intent.tokenHash, intent.emailCodeVersion),
   });
   if (!issued.proof) throw new Error("Expected verified displayed invitation proof");
   return { invitationId: issued.invitationId, proof: issued.proof };
@@ -158,6 +168,49 @@ async function unchangedSource(id: string, before: unknown) {
   expect(await db.studentSurvey.findUniqueOrThrow({ where: { id } })).toEqual(before);
   expect(await db.studentSignupRevision.count()).toBe(0);
 }
+
+it("preserves legacy intent codes and their remaining attempt until a delivered resend upgrades them", async () => {
+  const accepted = await staged(await answers());
+  expect(accepted.intent.emailCodeVersion).toBe(1);
+  expect(surveyEmailCode(accepted.intent.tokenHash, 1)).toMatch(/^[0-9]{4}$/);
+  await db.studentSignupIntent.update({
+    where: { id: accepted.intent.id },
+    data: { emailCodeVersion: 0, attempts: 5 },
+  });
+  const legacy = surveyEmailCode(accepted.intent.tokenHash, 0);
+  expect(
+    (await verifyStudentSignupIntent(db, accepted.intent.id, email, legacy))
+      .intent.id,
+  ).toBe(accepted.intent.id);
+  fixtures.send.mockRejectedValueOnce(new Error("Synthetic resend failure"));
+  expect(
+    await resendStudentSignupIntent(db, accepted.intent.id, email),
+  ).toEqual({ emailSent: false });
+  expect(
+    (await verifyStudentSignupIntent(db, accepted.intent.id, email, legacy))
+      .intent.id,
+  ).toBe(accepted.intent.id);
+  expect(
+    await resendStudentSignupIntent(db, accepted.intent.id, email),
+  ).toEqual({ emailSent: true });
+  const updated = await db.studentSignupIntent.findUniqueOrThrow({
+    where: { id: accepted.intent.id },
+  });
+  expect(updated.emailCodeVersion).toBe(1);
+  await expect(
+    verifyStudentSignupIntent(db, updated.id, email, legacy),
+  ).rejects.toThrow();
+  expect(
+    (
+      await verifyStudentSignupIntent(
+        db,
+        updated.id,
+        email,
+        surveyEmailCode(updated.tokenHash, 1),
+      )
+    ).intent.id,
+  ).toBe(updated.id);
+});
 
 it("rejects public submissions without an explicit retry key before reserving demand or sending mail", async () => {
   const payload = await answers();
@@ -197,9 +250,15 @@ it("refuses a definitive missing receipt while that key's real pre-stage admissi
 
 it("stages anonymously without exposing or changing the live answers, priority, deadline or original mailbox challenge", async () => {
   const { row, payload } = await existing({ confirmed: false });
-  const originalCode = surveyEmailCode(row.tokenHash);
-  const first = await staged({ ...payload, preferredContact: "Untrusted replacement" });
-  const second = await staged({ ...payload, preferredContact: "Independent replacement" });
+  const originalCode = surveyEmailCode(row.tokenHash, row.emailCodeVersion);
+  const first = await staged({
+    ...payload,
+    preferredContact: "Untrusted replacement",
+  });
+  const second = await staged({
+    ...payload,
+    preferredContact: "Independent replacement",
+  });
   expect(first.intent.id).not.toBe(second.intent.id);
   expect(first.intent.tokenHash).not.toBe(second.intent.tokenHash);
   expect(first.receipt).toEqual({ ok: true, emailSent: true, intentId: first.intent.id });
@@ -239,10 +298,17 @@ it("reuses a normalized existing tutor mailbox only after existing sign-in/MFA a
 
 it("requires the exact source mailbox code and explicit owner authentication before overwriting a known request", async () => {
   const { row, payload } = await existing();
-  const { intent } = await staged({ ...payload, preferredContact: "Replacement" });
-  await expect(anonymous().accountInvitation.verifySurvey({
-    intentId: intent.id, email, code: surveyEmailCode(row.tokenHash),
-  })).rejects.toMatchObject({ message: "INVITATION_INVALID" });
+  const { intent } = await staged({
+    ...payload,
+    preferredContact: "Replacement",
+  });
+  await expect(
+    anonymous().accountInvitation.verifySurvey({
+      intentId: intent.id,
+      email,
+      code: surveyEmailCode(row.tokenHash, row.emailCodeVersion),
+    }),
+  ).rejects.toMatchObject({ message: "INVITATION_INVALID" });
   const invite = await invitation(intent.id);
   await db.user.create({ data: { id: "other", email: "other@example.test", name: "Other" } });
   await expect(redeemAccountInvitation(db, { ...profile, ...invite }, "other")).rejects.toMatchObject({
@@ -278,14 +344,30 @@ it("records deliberate identical submissions as new consent revisions while exac
   expect(revisions.map(({ answers: snapshot }) => snapshot)).toEqual([
     studentSignupLocalAnswers(first.input), studentSignupLocalAnswers(first.input),
   ]);
-  expect(revisions[0]).toMatchObject({ signatureName: "First New Signature", policyAcceptedAt: first.intent.receivedAt });
-  expect(revisions[1]).toMatchObject({ signatureName: "First New Signature", policyAcceptedAt: second.intent.receivedAt });
-  expect(await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } })).toMatchObject({
-    payload: row.payload, submittedAt: row.submittedAt, tokenHash: row.tokenHash,
-    policyRevision: row.policyRevision, policySnapshot: row.policySnapshot,
-    verificationDueAt: row.verificationDueAt, currentVersion: 2,
+  expect(revisions[0]).toMatchObject({
+    signatureName: "First New Signature",
+    policyAcceptedAt: first.intent.receivedAt,
   });
-  expect(await db.policyAcceptance.findUniqueOrThrow({ where: { id: acceptance.id } })).toEqual(acceptance);
+  expect(revisions[1]).toMatchObject({
+    signatureName: "First New Signature",
+    policyAcceptedAt: second.intent.receivedAt,
+  });
+  expect(
+    await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }),
+  ).toMatchObject({
+    payload: row.payload,
+    submittedAt: row.submittedAt,
+    tokenHash: row.tokenHash,
+    policyRevision: row.policyRevision,
+    policySnapshot: row.policySnapshot,
+    verificationDueAt: row.verificationDueAt,
+    currentVersion: 2,
+  });
+  expect(
+    await db.policyAcceptance.findUniqueOrThrow({
+      where: { id: acceptance.id },
+    }),
+  ).toEqual(acceptance);
   expect(await db.notification.count()).toBe(notificationCount);
 });
 
@@ -629,16 +711,32 @@ it("rechecks a newly assigned subject and fails closed on an unresolved legacy a
   const { user, tutor, tutee, row, payload } = await existing();
   const accepted = await staged({ ...payload, secondChoiceId: "writing" });
   const invite = await invitation(accepted.intent.id);
-  const pairing = await db.pairing.create({ data: {
-    tutorId: tutor.id, termId, subject: "Science", tutees: { create: { tuteeId: tutee.id } },
-    dayOfWeek: 1, startMin: 960, endMin: 1020,
-  } });
-  await expect(redeemAccountInvitation(db, { ...profile, ...invite }, user.id)).rejects.toMatchObject({
-    code: "FORBIDDEN", message: "SIGNUP_ASSIGNED_SUBJECT_LOCKED",
+  const pairing = await db.pairing.create({
+    data: {
+      tutorId: tutor.id,
+      termId,
+      subject: "Science",
+      tutees: { create: { tuteeId: tutee.id } },
+      dayOfWeek: 1,
+      startMin: 960,
+      endMin: 1020,
+    },
   });
-  await db.pairing.update({ where: { id: pairing.id }, data: { subject: "Unresolved historical label" } });
-  await expect(redeemAccountInvitation(db, { ...profile, ...invite }, user.id)).rejects.toMatchObject({
-    code: "CONFLICT", message: "SIGNUP_ASSIGNMENT_UNKNOWN",
+  await expect(
+    redeemAccountInvitation(db, { ...profile, ...invite }, user.id),
+  ).rejects.toMatchObject({
+    code: "FORBIDDEN",
+    message: "SIGNUP_ASSIGNED_SUBJECT_LOCKED",
+  });
+  await db.pairing.update({
+    where: { id: pairing.id },
+    data: { subject: "Unresolved historical label" },
+  });
+  await expect(
+    redeemAccountInvitation(db, { ...profile, ...invite }, user.id),
+  ).rejects.toMatchObject({
+    code: "CONFLICT",
+    message: "SIGNUP_ASSIGNMENT_UNKNOWN",
   });
   await unchangedSource(row.id, row);
 });

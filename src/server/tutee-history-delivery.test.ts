@@ -734,9 +734,7 @@ it("preserves an older in-flight candidate when a newer admission rolls back", a
 
 async function verifiedSetup(email = "old@example.test") {
   await startHistoryAccount(db, { token: oldToken, email });
-  const code = /code is ([A-Z0-9]+)/.exec(
-    smtp.send.mock.calls.at(-1)![0].text,
-  )?.[1];
+  const code = / is ([0-9]{4})/.exec(smtp.send.mock.calls.at(-1)![0].text)?.[1];
   if (!code) throw new Error("Missing separate setup verification code");
   return {
     token: oldToken,

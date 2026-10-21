@@ -231,8 +231,8 @@
     "twoFactor": {
       "title": "Verification Code",
       "sent": "We emailed a sign-in code to {email}.",
-      "code": "Verification Code",
-      "help": "Enter the 5-character code from your email.",
+      "code": "Código de verificación por correo",
+      "help": "Introduce los 4 dígitos de tu correo. Los códigos emitidos anteriormente siguen siendo válidos.",
       "verify": "Verify and Sign In",
       "verifying": "Verifying?",
       "invalid": "That code is incorrect or expired. Request a new sign-in code.",
@@ -312,8 +312,8 @@
       "backToSignIn": "← Volver al inicio de sesión",
       "step": {
         "code": {
-          "label": "Clave de seguridad",
-          "help": "Introduce el código que te dio un administrador o coordinador.",
+          "label": "Código de invitación",
+          "help": "Introduce 5 caracteres combinando letras y números. Los códigos emitidos anteriormente siguen siendo válidos.",
           "submit": "Continuar"
         },
         "email": {
@@ -322,7 +322,7 @@
           "bound": "Este código está vinculado a esta dirección de correo electrónico.",
           "send": "Enviar código de verificación",
           "sent": "Enviamos un código a {email}.",
-          "codeLabel": "Código de verificación",
+          "codeLabel": "Código de verificación por correo",
           "verify": "Verificar correo electrónico",
           "resend": "Reenviar código"
         },
@@ -1010,7 +1010,7 @@
       },
       "stats": {
         "title": "Asistencia de tutores",
-        "help": "En todas las reuniones.",
+        "help": "De las reuniones de este grupo.",
         "tutor": "Tutor",
         "empty": "Aún no hay asistencia registrada."
       },
@@ -1428,7 +1428,7 @@
       "expand": "Expandir",
       "noEmail": "Sin correo vinculado",
       "expiresOn": "Caduca {date}",
-      "codeLabel": "Código",
+      "codeLabel": "Código de invitación",
       "invalidNote": "Este código ya no es válido.",
       "noCode": "Código no disponible.",
       "share": {
@@ -1619,7 +1619,7 @@
       "applicationsEmpty": "No hay solicitudes pendientes.",
       "accept": "Aceptar y emitir código",
       "reject": "Rechazar",
-      "codeIssued": "Código: {code}",
+      "codeIssued": "Código de invitación: {code}",
       "requestsHeading": "Bajas y Reingresos",
       "requestsEmpty": "No hay solicitudes pendientes.",
       "approve": "Aprobar",
@@ -2057,6 +2057,7 @@
       "ranking": {
         "bothAvailable": "Ambos disponibles",
         "otherTimeSlots": "Otras franjas horarias",
+        "unavailable": "No disponible",
         "retainedOption": "Franja vinculada actual (no publicada)"
       },
       "notSet": "— sin establecer —",
@@ -2337,8 +2338,8 @@
       "lookupHint": "Usa el correo de tu solicitud original. Lo verificaremos antes de mostrar el estado de la revisión.",
       "sendCode": "Enviar código de verificación",
       "sent": "Hemos enviado un código de verificación a {email}.",
-      "verifyHint": "Introduce el código de cinco caracteres. La verificación del correo envía una nueva solicitud para su revisión; no concede acceso a la ronda.",
-      "emailCode": "Código de verificación del correo",
+      "verifyHint": "Introduce el código de cuatro dígitos. La verificación del correo envía una nueva solicitud para su revisión; no concede acceso a la ronda.",
+      "emailCode": "Código de verificación por correo",
       "verify": "Verificar correo",
       "resend": "Reenviar código",
       "editDetails": "Volver a las opciones de solicitud",
@@ -2406,7 +2407,7 @@
         "affiliation": "Tu vínculo",
         "affiliationPlaceholder": "p. ej. Padre/madre de un estudiante, profesor de Matemáticas, miembro de la comunidad",
         "email": "Correo",
-        "code": "Código de verificación",
+        "code": "Código de verificación por correo",
         "password": "Contraseña",
         "confirm": "Confirmar contraseña"
       }
@@ -2488,7 +2489,7 @@
       "sendCode": "Enviar código de verificación",
       "sending": "Enviando…",
       "codeSent": "Enviamos un código a {email}. Introdúcelo abajo para terminar.",
-      "codeLabel": "Código de verificación",
+      "codeLabel": "Código de verificación por correo",
       "resend": "Reenviar código",
       "cancel": "Cancelar"
     }
@@ -2584,7 +2585,7 @@
     "email": "Nuevo correo",
     "password": "Contraseña actual",
     "send": "Enviar código de verificación",
-    "code": "Código enviado al nuevo correo",
+    "code": "Código de verificación por correo",
     "confirm": "Verificar y cambiar correo",
     "success": "Se ha cambiado tu correo."
   },
@@ -3572,7 +3573,7 @@
     "working": "Procesando…",
     "limit": "Hasta cinco correos secundarios. Verifica una dirección antes de hacerla principal.",
     "verifyAddress": "Verificar {email}",
-    "code": "Código de verificación",
+    "code": "Código de verificación por correo",
     "resend": "Reenviar código",
     "sent": "Código enviado. Introdúcelo abajo; caduca en diez minutos.",
     "verifiedNotice": "Correo verificado. Ya puedes usarlo para acceder, recuperar la cuenta o hacerlo principal.",
@@ -4185,7 +4186,7 @@
     "accountConfirm": "I am the intended recipient. I understand that this creates a login only; I will review and claim my record after signing in. It does not enroll me or grant observer access.",
     "accountReady": "Your login is ready",
     "accountReadyHelp": "Sign in with your verified email and password, then review and claim the invited record. If this page was closed after setup, sign in with the same account; do not create another login.",
-    "emailCode": "Email verification code",
+    "emailCode": "Código de verificación por correo",
     "newPassword": "New password (at least 8 characters)",
     "sendCode": "Send verification code",
     "verifyCode": "Verify email",
@@ -4581,7 +4582,7 @@
     "emailed": "Emailed",
     "emailSent": "The invitation has been sent to your verified email.",
     "handoffRecovery": "Continue with your code. You may be asked to verify your email again.",
-    "verificationCode": "Email verification code",
+    "verificationCode": "Código de verificación por correo",
     "emailTitle": "Verify your email",
     "verifyEmailHelp": "Verify your email to connect this invitation to your account.",
     "sendVerification": "Send verification code",
@@ -5280,7 +5281,7 @@
   "pairingGroups": {
     "manage": "Combine / split pairings",
     "title": "Your Pairing Groups",
-    "help": "Group two to six of your assignments. Choose one shared recurring time slot; all members use the primary assignment’s room. Review the change before saving.",
+    "help": "Group two to six assignments only when every student has all selected subjects. Save as Awaiting schedule or choose one shared time. Review before saving.",
     "loading": "Loading your pairing groups…",
     "loadError": "Your pairing groups could not be loaded.",
     "retry": "Retry",
@@ -5305,17 +5306,36 @@
     "consequences": "Saving updates the future schedule and room for every selected member together. It does not submit or rewrite attendance. Split assignments need a separate schedule.",
     "noGroups": "All assignments will be listed separately.",
     "splitHelp": "Remove members by unticking them, or split the whole group. Keep at least two members in each remaining group. Assignments that leave a group return to Awaiting schedule.",
-    "catalogueHelp": "Saved groups share a recurring schedule and remain flexible after attendance.",
+    "catalogueHelp": "Combine eligible assignments first, then schedule the saved group together.",
     "combined": "Combined pairing",
     "combinedRoster": "Combined student roster",
     "memberDetails": "Subject assignments and student actions",
     "record": "Record group attendance",
     "individualAttendance": "Record one subject separately",
-    "accessDenied": "Your tutoring access changed. Reload to verify access before editing groups."
+    "accessDenied": "Your tutoring access changed. Reload to verify access before editing groups.",
+    "awaiting": "Awaiting schedule",
+    "keepCurrentTime": "Keep the current confirmed time",
+    "scheduleAfterMembershipChange": "Membership changed. Choose a shared time or explicitly select Awaiting schedule.",
+    "clearSchedule": "Saving as Awaiting schedule clears the confirmed time and room reservation for every member.",
+    "slotConflict": "Overlaps {subjects}",
+    "needsRepair": "This saved group needs repair. Edit its members or split it before scheduling or recording combined attendance.",
+    "repairCount": "{count, plural, one {# pairing group needs repair} other {# pairing groups need repair}}. Review My Pairings before scheduling or recording combined attendance.",
+    "reference": "Group {id}",
+    "missingCoverage": "{student} is missing: {subjects}.",
+    "eligibility": {
+      "size": "Choose two to six assignments.",
+      "emptyRoster": "Every assignment needs a current student. Remove empty assignments or split the group.",
+      "incompleteCoverage": "Every student must have the same complete set of selected subjects."
+    },
+    "status": {
+      "scheduled": "Shared schedule confirmed",
+      "awaiting": "Awaiting schedule",
+      "needsRepair": "Needs repair"
+    }
   },
   "tutorWorkload": {
     "title": "Assigned Session Blocks",
-    "help": "Approximate workload for the current quarter if your assigned tutees work out. Shared confirmed times count once; assignments awaiting a schedule count separately. Your preference is advisory and does not change existing assignments.",
+    "help": "Approximate workload for the current quarter if your assigned tutees work out. Each valid saved group counts once, including groups awaiting a schedule; other assignments count separately. Your preference is advisory and does not change assignments.",
     "editPreference": "Preferred Sessions",
     "preference": "Preferred Sessions",
     "unset": "No preference",
@@ -5350,7 +5370,7 @@
     "reloadFailed": "Could not reload the preference. Your draft and original version are retained.",
     "countHeading": "Assigned Blocks",
     "preferenceHeading": "Preferred Maximum",
-    "staffHelp": "Approximate current-quarter workload; shared confirmed times count once and awaiting-schedule assignments count separately.",
+    "staffHelp": "Approximate current-quarter workload; each valid saved group counts once, including groups awaiting a schedule. Other assignments count separately.",
     "confirmTitle": "Assign Above Preferred Sessions?",
     "continue": "Continue",
     "reviewAssignment": "Try assigning a session",
@@ -5568,5 +5588,34 @@
     "correctOwner": "Correct history owner",
     "correctOwnerHelp": "Head only: move this exact historical record to its correct owner after a mistaken association. This does not combine the two people’s other records or logins. Review the former owner, recipient and original evidence.",
     "operationReference": "Operation reference: {id}"
+  },
+  "codes": {
+    "invitationLabel": "Código de invitación",
+    "emailLabel": "Código de verificación por correo",
+    "invitationHelp": "Introduce 5 caracteres combinando letras y números. Los códigos emitidos anteriormente siguen siendo válidos.",
+    "emailHelp": "Introduce los 4 dígitos de tu correo. Los códigos emitidos anteriormente siguen siendo válidos.",
+    "lettersKeyboard": "Introducir un código con letras",
+    "numericKeyboard": "Usar teclado numérico"
+  },
+  "meetingPeriods": {
+    "current": "Período actual",
+    "unconfigured": "No hay ningún período activo configurado.",
+    "outside": "Próximas reuniones de otros períodos",
+    "outsideHelp": "Estas reuniones pertenecen a otro período registrado. Revísalas aquí para no pasarlas por alto.",
+    "history": "Historial de reuniones",
+    "noHistory": "No hay reuniones anteriores registradas.",
+    "unassigned": "Período no registrado",
+    "group": "{period} · {count} reuniones",
+    "empty": "No hay reuniones en este período.",
+    "denied": "Ya no tienes acceso a estas reuniones.",
+    "historyHelp": "Abre un período para revisar sus reuniones.",
+    "outsideStaffHelp": "Para editar la asistencia, abre el período registrado en el historial de reuniones.",
+    "previous": "Agrupación anterior",
+    "groupingChanged": "El programa ahora agrupa las reuniones de otra forma. Esta vista conserva la agrupación anterior y tus borradores. Recarga los grupos para usar el modo trimestral o semestral aplicado.",
+    "reload": "Recargar grupos",
+    "reloadTitle": "¿Recargar los grupos de reuniones?",
+    "reloadWarning": "Recargar esta página descarta todos los borradores sin guardar, incluidos los de reuniones y asistencia. Los cambios guardados se conservan.",
+    "keepEditing": "Seguir editando",
+    "reloadBusy": "Espera a que terminen el guardado y la actualización."
   }
 }

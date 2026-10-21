@@ -565,9 +565,7 @@ describe("survey-first enrollment", () => {
     const invitation = await db.accountInvitation.findFirstOrThrow({
       where: { email },
     });
-    const code = /invitation code is ([A-Z0-9]{5})/.exec(
-      send.mock.calls.at(-1)![0].text,
-    )?.[1];
+    const code = / is ([0-9]{4})/.exec(send.mock.calls.at(-1)![0].text)?.[1];
     if (!code) throw Error("Expected recipient invitation code");
     const { proof } = await verifyAccountInvitation(db, {
       invitationId: invitation.id,

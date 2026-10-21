@@ -1,4 +1,6 @@
 "use client";
+import { isEmailCodeFormat } from "~/lib/registration-code";
+import { CodeInput } from "~/app/_components/ui/code-field";
 import {
   ConfiguredPersonNameFields as PersonNameFields,
   useNameFieldPresentation,
@@ -196,7 +198,7 @@ export function ViewerSignupFlow(_props: { signedIn?: boolean }) {
             onSubmit={(e) => {
               e.preventDefault();
               if (busy || verifying.current) return;
-              if (/^[0-9A-Z]{5}$/.test(code)) {
+              if (isEmailCodeFormat(code)) {
                 verifying.current = true;
                 verify.mutate({ email: email.trim(), code });
               }
@@ -205,30 +207,22 @@ export function ViewerSignupFlow(_props: { signedIn?: boolean }) {
             <p className="text-sm text-slate-700">
               {t("public.viewerSignup.sent", { email })}
             </p>
-            <label className="label" htmlFor="obs-code">
-              {t("public.viewerSignup.fields.code")}
-              <FieldRequirement state="required" />
-            </label>
-            <input
+            <CodeInput
               id="obs-code"
-              autoCapitalize="characters"
-              autoComplete="one-time-code"
-              required
-              maxLength={5}
+              purpose="email"
               value={code}
-              onChange={(e) =>
-                setCode(
-                  e.target.value
-                    .toUpperCase()
-                    .replace(/[^0-9A-Z]/g, "")
-                    .slice(0, 5),
-                )
+              onValueChange={setCode}
+              aria-invalid={Boolean(verify.error)}
+              aria-describedby={
+                verify.error ? "viewer-verification-error" : undefined
               }
-              placeholder="XXXXX"
-              className="input w-full text-center text-2xl tracking-[0.4em] uppercase"
             />
             {verify.error && (
-              <p role="alert" className="text-sm text-red-600">
+              <p
+                role="alert"
+                id="viewer-verification-error"
+                className="text-sm text-red-600"
+              >
                 <SignupError error={verify.error} />
               </p>
             )}
@@ -241,7 +235,7 @@ export function ViewerSignupFlow(_props: { signedIn?: boolean }) {
               type="submit"
               variant="primary"
               className="w-full"
-              disabled={!/^[0-9A-Z]{5}$/.test(code) || verify.isPending}
+              disabled={!isEmailCodeFormat(code) || verify.isPending}
             >
               {t("public.viewerSignup.verify")}
             </Button>

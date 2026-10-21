@@ -19,10 +19,31 @@ import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 import { participantNameLabel } from "~/app/_components/participant-name";
 import { formatWeekday, minToHm } from "~/lib/time";
 import { invalidateWorkloads } from "~/lib/workload-cache";
+import { pairingGroupEligibility } from "~/lib/pairing-group-eligibility";
+import { plannedIntervalsOverlap } from "~/lib/planned-scheduling";
 
 type Pairing = RouterOutputs["tutor"]["myPairings"][number];
 type GroupState = RouterOutputs["pairingGroups"]["mine"];
-type DraftGroup = { id?: string; pairingIds: string[]; slotId: string };
+type DraftGroup = {
+  id?: string;
+  pairingIds: string[];
+  slotId: string | null;
+  retainSchedule?: boolean;
+};
+
+/** Preserve a confirmed interval whose catalog link is no longer published.
+ * A separate explicit Awaiting choice clears it; null alone never means keep. */
+function draftGroups(state: GroupState): DraftGroup[] {
+  return state.groups.map((group) => {
+    const retain = group.scheduleConfirmed && !state.slots.some((slot) => slot.id === group.slotId);
+    return {
+      id: group.id,
+      pairingIds: group.pairingIds,
+      slotId: retain ? null : group.slotId,
+      ...(retain ? { retainSchedule: true } : {}),
+    };
+  });
+}
 
 /** The editor owns one immutable read snapshot through editing/review/retry.
  * Opening or cancelling the review never writes; saved refresh failures never replay. */
@@ -49,7 +70,7 @@ export function PairingGroupEditor({
         <Button
           size="compact"
           onClick={() => setOpen(true)}
-          disabled={pairings.length < 2}
+          disabled={pairings.length < 2 && !pairings.some((p) => p.groupId)}
         >
           {t("manage")}
         </Button>
@@ -101,7 +122,7 @@ function GroupDraft({
   const admitted = useRef(false);
   if (!snapshot && query.data && !query.isFetching && !query.error) {
     setSnapshot(query.data);
-    setGroups(query.data.groups.map((g) => ({ ...g, slotId: g.slotId ?? "" })));
+    setGroups(draftGroups(query.data));
   }
   async function refresh() {
     const results = await Promise.allSettled([
@@ -111,6 +132,11 @@ function GroupDraft({
         { throwOnError: true },
       ),
       utils.tutor.schedule.invalidate(
+        undefined,
+        { refetchType: "all" },
+        { throwOnError: true },
+      ),
+      utils.admin.pairings.invalidate(
         undefined,
         { refetchType: "all" },
         { throwOnError: true },
@@ -140,16 +166,55 @@ function GroupDraft({
   const selected = new Set(groups.flatMap((g) => g.pairingIds));
   const released =
     snapshot?.pairings.filter((p) => p.groupId && !selected.has(p.id)) ?? [];
-  const invalid = groups.some(
-    (g) => g.pairingIds.length < 2 || g.pairingIds.length > 6 || !g.slotId,
+  const membersOf = (group: DraftGroup) =>
+    assignments.filter((p) => group.pairingIds.includes(p.id));
+  const intervalOf = (group: DraftGroup) =>
+    group.retainSchedule
+      ? snapshot?.groups.find((saved) => saved.id === group.id)
+      : scheduleSlots.find((slot) => slot.id === group.slotId);
+  // Evaluate the final draft: released members no longer occupy their previous
+  // clocks, while other drafted groups reserve the time reviewed for them.
+  const conflictOf = (group: DraftGroup, interval = intervalOf(group)) => {
+    if (!interval) return undefined;
+    const independent = assignments.find((p) =>
+      !selected.has(p.id) && !p.groupId && p.scheduleConfirmed &&
+      plannedIntervalsOverlap(interval, p),
+    );
+    if (independent) return independent.subject;
+    const other = groups.find((candidate) => {
+      const otherInterval = intervalOf(candidate);
+      return candidate !== group && otherInterval &&
+        plannedIntervalsOverlap(interval, otherInterval);
+    });
+    return other?.pairingIds.map((id) =>
+      assignments.find((p) => p.id === id)?.subject ?? id,
+    ).join(" + ");
+  };
+  const retainedMembershipMatches = (group: DraftGroup) => snapshot?.groups.some((saved) =>
+    saved.id === group.id && saved.pairingIds.length === group.pairingIds.length &&
+    saved.pairingIds.every((id) => group.pairingIds.includes(id)),
+  );
+  const invalid = groups.some((group) =>
+    !pairingGroupEligibility(membersOf(group)).eligible ||
+    !!conflictOf(group) ||
+    ((group.retainSchedule ?? false) && !retainedMembershipMatches(group)) ||
+    (!!group.slotId && !scheduleSlots.some((slot) => slot.id === group.slotId)),
   );
   const label = (id: string) =>
     assignments.find((p) => p.id === id)?.subject ?? id;
-  const slotLabel = (id: string) => {
+  const studentLabel = (id: string) => {
+    const student = assignments.flatMap((p) => p.tutees).find((x) => x.tuteeId === id)?.tutee;
+    return participantNameLabel(student?.englishName ?? "", student?.user?.username, t("unnamed"));
+  };
+  const slotLabel = (id: string | null) => {
     const s = scheduleSlots.find((slot) => slot.id === id);
     return s
       ? `${s.label} · ${formatWeekday(s.dayOfWeek, locale)} ${minToHm(s.startMin)}–${minToHm(s.endMin)}`
-      : t("chooseSlot");
+      : t("awaiting");
+  };
+  const retainedLabel = (group: DraftGroup) => {
+    const saved = snapshot?.groups.find((item) => item.id === group.id);
+    return saved ? `${t("keepCurrentTime")} · ${formatWeekday(saved.dayOfWeek, locale)} ${minToHm(saved.startMin)}–${minToHm(saved.endMin)}` : t("keepCurrentTime");
   };
   const patch = (index: number, update: Partial<DraftGroup>) =>
     setGroups((value) =>
@@ -231,14 +296,14 @@ function GroupDraft({
                         key={index}
                       >
                         <h3 className="font-semibold text-wrap">
-                          {group.pairingIds.map(label).join(" + ")}
+                          {[...new Set(group.pairingIds.map(label))].join(" + ")}
                         </h3>
                         <p className="mt-1 text-sm">
-                          {slotLabel(group.slotId)}
+                          {group.retainSchedule ? retainedLabel(group) : slotLabel(group.slotId)}
                         </p>
                         <p className="text-sm">
                           {t("sharedRoom", {
-                            room: primary?.room?.name ?? t("noRoom"),
+                            room: group.slotId || group.retainSchedule ? primary?.room?.name ?? t("noRoom") : t("noRoom"),
                           })}
                         </p>
                         <p className="mt-2 text-sm">
@@ -252,6 +317,9 @@ function GroupDraft({
                             )
                             .join(", ")}
                         </p>
+                        {!group.slotId && !group.retainSchedule && members.some((p) => p.scheduleConfirmed) && (
+                          <InlineNotice tone="warning">{t("clearSchedule")}</InlineNotice>
+                        )}
                       </section>
                     );
                   })}
@@ -275,12 +343,12 @@ function GroupDraft({
                   </Button>
                   <Button
                     variant="primary"
-                    disabled={!active || busy || !!query.error}
+                    disabled={!active || busy || invalid || !!query.error}
                     onClick={() => {
                       // The retained dialog must use current participation, not
                       // eligibility from the earlier Manage click. Recovery of
                       // an accepted save remains read-only and independent.
-                      if (!active || busy || query.error || admitted.current)
+                      if (!active || busy || invalid || query.error || admitted.current)
                         return;
                       admitted.current = true;
                       save.mutate({ snapshot: snapshot.snapshot, groups });
@@ -342,9 +410,10 @@ function GroupDraft({
                       >
                         <input
                           type="checkbox"
+                          aria-describedby={`group-member-${index}-${p.id}`}
                           checked={group.pairingIds.includes(p.id)}
                           disabled={
-                            !p.tutees.length ||
+                            (!p.tutees.length && !group.pairingIds.includes(p.id)) ||
                             (!group.pairingIds.includes(p.id) &&
                               (selected.has(p.id) ||
                                 group.pairingIds.length >= 6))
@@ -358,9 +427,23 @@ function GroupDraft({
                           }
                         />
                         <span className="text-wrap">{p.subject}</span>
+                        <span id={`group-member-${index}-${p.id}`} className="muted text-xs" aria-hidden="true">
+                          {p.tutees.map((x) => participantNameLabel(x.tutee.englishName, x.tutee.user?.username, t("unnamed"))).join(", ")}
+                        </span>
                       </label>
                     ))}
                   </fieldset>
+                  {!pairingGroupEligibility(membersOf(group)).eligible && (
+                    <InlineNotice tone="warning">
+                      <p>{t(`eligibility.${pairingGroupEligibility(membersOf(group)).reason ?? "size"}`)}</p>
+                      {pairingGroupEligibility(membersOf(group)).missing.map((missing) => (
+                        <p key={missing.tuteeId}>{t("missingCoverage", {
+                          student: studentLabel(missing.tuteeId),
+                          subjects: missing.subjects.join(", "),
+                        })}</p>
+                      ))}
+                    </InlineNotice>
+                  )}
                   <label className="block">
                     <span className="label">{t("primary")}</span>
                     <select
@@ -384,6 +467,7 @@ function GroupDraft({
                       {group.pairingIds.map((id) => (
                         <option key={id} value={id}>
                           {label(id)}
+                          {" · "}{assignments.find((p) => p.id === id)?.tutees.map((x) => participantNameLabel(x.tutee.englishName, x.tutee.user?.username, t("unnamed"))).join(", ")}
                         </option>
                       ))}
                     </select>
@@ -393,17 +477,28 @@ function GroupDraft({
                     <select
                       className="select"
                       aria-label={t("schedule")}
-                      value={group.slotId}
-                      onChange={(e) => patch(index, { slotId: e.target.value })}
+                      value={group.retainSchedule ? "__retain__" : group.slotId ?? ""}
+                      onChange={(e) => patch(index, {
+                        slotId: e.target.value === "__retain__" ? null : e.target.value || null,
+                        retainSchedule: e.target.value === "__retain__" ? true : undefined,
+                      })}
                     >
-                      <option value="">{t("chooseSlot")}</option>
+                      <option value="">{t("awaiting")}</option>
+                      {snapshot.groups.some((saved) => saved.id === group.id && saved.scheduleConfirmed && !scheduleSlots.some((slot) => slot.id === saved.slotId)) && (
+                        <option value="__retain__">{retainedLabel(group)}</option>
+                      )}
                       {scheduleSlots.map((slot) => (
-                        <option key={slot.id} value={slot.id}>
+                        <option key={slot.id} value={slot.id} disabled={!!conflictOf(group, slot)}>
                           {slotLabel(slot.id)}
+                          {conflictOf(group, slot) ? ` · ${t("slotConflict", { subjects: conflictOf(group, slot)! })}` : ""}
                         </option>
                       ))}
                     </select>
                   </label>
+                  {conflictOf(group) && <InlineNotice tone="warning">{t("slotConflict", { subjects: conflictOf(group)! })}</InlineNotice>}
+                  {group.retainSchedule && !retainedMembershipMatches(group) && (
+                    <InlineNotice tone="warning">{t("scheduleAfterMembershipChange")}</InlineNotice>
+                  )}
                 </section>
               ))}
               <Button
@@ -411,7 +506,7 @@ function GroupDraft({
                 onClick={() =>
                   setGroups((current) => [
                     ...current,
-                    { pairingIds: [], slotId: "" },
+                    { pairingIds: [], slotId: null },
                   ])
                 }
               >
@@ -432,12 +527,7 @@ function GroupDraft({
                     const fresh = await query.refetch();
                     if (fresh.data && !fresh.error) {
                       setSnapshot(fresh.data);
-                      setGroups(
-                        fresh.data.groups.map((g) => ({
-                          ...g,
-                          slotId: g.slotId ?? "",
-                        })),
-                      );
+                      setGroups(draftGroups(fresh.data));
                       setPhase("edit");
                       save.reset();
                     }

@@ -1865,7 +1865,9 @@ it("attendance requires the complete merged roster exactly once", async () => {
       id: "second-pairing",
       tutorId: "review-tutor",
       termId: "review-term",
-      subject: "Second subject",
+      // Separate students assigned the same subject form a complete combined
+      // roster; distinct subjects here would require both assignments per student.
+      subject: "Review Math",
       dayOfWeek: 1,
       startMin: 930,
       endMin: 990,
@@ -3982,7 +3984,13 @@ it("interview completion and approved acceptance stay independent and ordinary t
   expect(accepted.registration.href).toBe(
     `/admin/registration-codes#registration-code-${code.id}`,
   );
-  expect(JSON.stringify(accepted)).not.toContain(code.code);
+  // The DTO exposes only a registration status/href, never the numeric secret.
+  // Substring checks can confuse an incidental ID/date fragment with a code leak.
+  expect(accepted.registration).toEqual({
+    state: "codeActive",
+    href: `/admin/registration-codes#registration-code-${code.id}`,
+  });
+  expectNoCodeSecrets(accepted, [code.code!]);
 });
 
 it.each(["ACCEPTED", "REJECTED"] as const)(
@@ -4732,3 +4740,4 @@ it("reviews published memberships even when another membership has no publicatio
   expect(await studentPolicyStatus(db, "review-user", true)).toBeNull();
   expect(await studentPolicyStatus(db, "review-head")).toBeNull();
 });
+import { expectNoCodeSecrets } from "~/test/code-secrets";

@@ -43,6 +43,7 @@ import { currentPolicy } from "~/server/policy-acceptance";
 import { retainStudentOwnership, ownedStudentIds } from "./student-ownership";
 import { recruitmentStatus, recruitmentWindow } from "~/lib/recruitment";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
+import { normalizeEmailCode } from "~/lib/registration-code";
 import { hashPassword } from "~/server/auth/password";
 import { registrationCompletionProof } from "~/server/auth/registration";
 import { expireStudentRequests } from "./student-request-state";
@@ -55,15 +56,30 @@ const digest = (token: string) =>
   createHash("sha256").update(token).digest("hex");
 
 /** The mailbox challenge rotates with the secret link, preserving intake priority. */
-export function surveyEmailCode(tokenHash: string) {
-  return registrationCompletionProof(
+export function surveyEmailCode(tokenHash: string, version = 1) {
+  const proof = registrationCompletionProof(
     "invitation",
     "survey-email",
     tokenHash,
     new Date(0),
-  )
-    .slice(0, 6)
-    .toUpperCase();
+  );
+  // Persist the format with the rotating secret: old delivered challenges remain exact.
+  if (version === 0) return proof.slice(0, 6).toUpperCase();
+  return (BigInt(`0x${proof}`) % 10000n).toString().padStart(4, "0");
+}
+
+/** Rotate both the secret link and its short derived OTP. A new random token alone
+ * can repeat a four-digit value; do not revive the previous delivered challenge. */
+export function freshSurveyToken(
+  previousHash: string,
+  previousVersion: number,
+) {
+  const previousCode = surveyEmailCode(previousHash, previousVersion);
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const token = randomBytes(32).toString("hex");
+    if (surveyEmailCode(digest(token)) !== previousCode) return token;
+  }
+  throw new Error("Could not generate a fresh email verification code.");
 }
 
 export async function verifySurveyEmail(
@@ -85,7 +101,10 @@ export async function verifySurveyEmail(
       (current.verificationDueAt && current.verificationDueAt <= new Date())
     )
       return null;
-    if (surveyEmailCode(current.tokenHash) !== code.trim().toUpperCase()) {
+    if (
+      surveyEmailCode(current.tokenHash, current.emailCodeVersion) !==
+      normalizeEmailCode(code)
+    ) {
       await tx.studentSurvey.update({
         where: { id: current.id },
         data: { verificationAttempts: { increment: 1 } },
@@ -143,12 +162,13 @@ async function deliver(
       subject: "Tutoring signup received — confirm your email",
       presentation: {
         code: surveyEmailCode(digest(token)),
+        codePurpose: "verification",
         action: {
           label: "Confirm your tutoring request",
           url: `${origin}/tutee/account?token=${token}`,
         },
       },
-      text: `Your email verification code is ${surveyEmailCode(digest(token))}. / 您的邮箱验证码是 ${surveyEmailCode(digest(token))}。\n\n${deadline ? `Verify by ${deadline.toISOString()}. Your request will be permanently disqualified and all assignments released after this deadline. Resends do not extend it. 验证截止时间：${deadline.toISOString()}。逾期将永久取消申请资格并解除辅导伙伴安排，重发邮件不会延长期限。\n\n` : ""}Your tutoring survey has been saved. Priority is based on when you first submitted it after signup opened, not when you create your account.\n\nReview your request and confirm this email to receive your account invitation:\n${origin}/tutee/account?token=${token}\n\nYour recipient-delivered invitation signs in an existing account without replacing its password. Review and accept the invitation to complete this request. The confirmation link expires in 24 hours. You can request another link without losing your submission time. If you did not submit this survey, ignore this email.`,
+      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${surveyEmailCode(digest(token))}. / 您的邮箱验证码是 ${surveyEmailCode(digest(token))}。\n\n${deadline ? `Verify by ${deadline.toISOString()}. Your request will be permanently disqualified and all assignments released after this deadline. Resends do not extend it. 验证截止时间：${deadline.toISOString()}。逾期将永久取消申请资格并解除辅导伙伴安排，重发邮件不会延长期限。\n\n` : ""}Your tutoring survey has been saved. Priority is based on when you first submitted it after signup opened, not when you create your account.\n\nReview your request and confirm this email to receive your account invitation:\n${origin}/tutee/account?token=${token}\n\nYour recipient-delivered invitation signs in an existing account without replacing its password. Review and accept the invitation to complete this request. The confirmation link expires in 24 hours. You can request another link without losing your submission time. If you did not submit this survey, ignore this email.`,
     });
     return true;
   } catch {
@@ -329,6 +349,7 @@ export async function submitSurvey(
         policyRevision: policy.revision,
         policySnapshot: policy.documents,
         tokenHash: digest(token),
+        emailCodeVersion: 1,
         expiresAt: new Date(Date.now() + 24 * 3600000),
       },
     });
@@ -393,7 +414,6 @@ async function sendSurveyReplacement(
   await expireStudentRequests(db);
   const origin = emailOrigin();
   if (!isEmailDeliveryAvailable("PROGRAM")) return false;
-  const token = randomBytes(32).toString("hex");
   const updated = await inTransaction(db, async (tx) => {
     await lockEntity(tx, "program:period");
     await lockEntity(tx, `student-survey:${email}`);
@@ -424,6 +444,7 @@ async function sendSurveyReplacement(
   }
   // Give the same public response for unknown addresses to avoid exposing accounts.
   if (updated === "missing") return missingIsSuccess;
+  const token = freshSurveyToken(updated.tokenHash, updated.emailCodeVersion);
   const sent = await deliver(email, token, origin, updated.verificationDueAt);
   if (sent) {
     // Publish only successfully delivered replacements. Failed/concurrent retries cannot
@@ -443,6 +464,7 @@ async function sendSurveyReplacement(
       data: {
         lastLinkSentAt: new Date(),
         tokenHash: digest(token),
+        emailCodeVersion: 1,
         verificationAttempts: 0,
         expiresAt: new Date(Date.now() + 24 * 3600000),
       },

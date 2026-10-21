@@ -13,7 +13,7 @@ const pairing = (fields: Partial<UpcomingPairing> = {}): UpcomingPairing => ({
   scheduleConfirmed: true,
   subject: "Mathematics",
   room: null,
-  tutees: [{}],
+  tutees: [{ tuteeId: "student" }],
   ...fields,
 });
 const interview = (
@@ -90,7 +90,7 @@ describe("personal seven-program-date projection", () => {
       "interview:PENDING",
     ]);
   });
-  it("groups coherent plans once, keeps disjoint members separate and orders equal instants by stable identity", () => {
+  it("groups coherent plans once, flags divergent groups and orders equal instants by stable identity", () => {
     const common = { groupId: "group", group: { primaryPairingId: "p1" } };
     const pairings = [
       pairing({ ...common, id: "p2", subject: "Physics" }),
@@ -115,10 +115,25 @@ describe("personal seven-program-date projection", () => {
       project([...pairings].reverse(), [], new Date("2026-10-18T06:00:00Z"))
         .events,
     ).toEqual(project(pairings, [], new Date("2026-10-18T06:00:00Z")).events);
-    expect(
-      project([pairings[0]!, { ...pairings[1]!, startMin: 960, endMin: 1020 }])
-        .events,
-    ).toHaveLength(2);
+    const divergent = project([
+      pairings[0]!,
+      { ...pairings[1]!, startMin: 960, endMin: 1020 },
+    ]);
+    expect(divergent.events).toEqual([]);
+    expect(divergent.groupsNeedingRepair).toBe(1);
+  });
+  it("keeps unscheduled groups out of appointments and never hides an empty member before validating coverage", () => {
+    const common = { groupId: "group", group: { primaryPairingId: "p1" } };
+    const members = [
+      pairing({ ...common, id: "p1" }),
+      pairing({ ...common, id: "p2", subject: "Physics" }),
+    ];
+    const waiting = project(members.map((p) => ({ ...p, scheduleConfirmed: false })));
+    expect(waiting.events).toEqual([]);
+    expect(waiting.groupsNeedingRepair).toBe(0);
+    const invalid = project([members[0]!, { ...members[1]!, tutees: [] }]);
+    expect(invalid.events).toEqual([]);
+    expect(invalid.groupsNeedingRepair).toBe(1);
   });
   it("reprojects reschedules, panel removal and replaced active-period lists without retained commitments", () => {
     expect(project([pairing()], [interview()]).events).toHaveLength(2);

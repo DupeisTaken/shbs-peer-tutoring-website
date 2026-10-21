@@ -25,6 +25,8 @@ export function WorkloadPreferenceRecipe() {
       id,
       tutorId: "synthetic",
       termId: "quarter",
+      // Only explicit group membership combines these synthetic subject rows.
+      groupId: "synthetic-teaching-group",
       scheduleConfirmed: true,
       dayOfWeek: 1,
       startMin: 900,
