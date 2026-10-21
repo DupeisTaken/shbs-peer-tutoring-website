@@ -12,6 +12,34 @@ import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { InterviewManagement } from "./interview-management";
+import type { ComponentProps } from "react";
+import type Link from "next/link";
+// Match Next Link's onNavigate boundary: modified/new-tab clicks retain native handling.
+vi.mock("next/link", () => ({
+  default: ({
+    href,
+    onNavigate,
+    scroll: _scroll,
+    ...props
+  }: ComponentProps<typeof Link>) => (
+    <a
+      {...props}
+      href={typeof href === "string" ? href : (href.pathname ?? "")}
+      onClick={(event) => {
+        props.onClick?.(event);
+        if (
+          !event.defaultPrevented &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.shiftKey &&
+          !event.altKey &&
+          event.button === 0
+        )
+          onNavigate?.({ preventDefault: () => event.preventDefault() });
+      }}
+    />
+  ),
+}));
 const mocks = vi.hoisted(() => ({
   options: vi.fn(),
   qualify: vi.fn(),
@@ -100,6 +128,34 @@ const show = (locale = "en") =>
       <InterviewManagement />
     </NextIntlClientProvider>,
   );
+it("hands history links to the existing same-page record observer, including repeated fragments", () => {
+  window.history.replaceState({ retained: true }, "", "/admin/applications");
+  show();
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  const link = screen.getByRole("link", {
+    name: en.workflows.manageApplicantPanel,
+  });
+  const observed = vi.fn();
+  window.addEventListener("hashchange", observed);
+  try {
+    // Prevent jsdom's native navigation after observing that modifiers never enter the adapter.
+    const nativeClick = (event: MouseEvent) => event.preventDefault();
+    window.addEventListener("click", nativeClick, { once: true });
+    fireEvent.click(link, { ctrlKey: true });
+    expect(window.location.hash).toBe("");
+    expect(observed).not.toHaveBeenCalled();
+    fireEvent.click(link);
+    expect(window.location.hash).toBe("#application-candidate");
+    expect(window.history.state).toEqual({ retained: true });
+    expect(observed).toHaveBeenCalledTimes(1);
+    fireEvent.click(link);
+    expect(observed).toHaveBeenCalledTimes(2);
+  } finally {
+    window.removeEventListener("hashchange", observed);
+    window.history.replaceState(null, "", "/");
+  }
+});
+
 it("shows panel/chair/schedule/completion without expansion and deep-links the existing panel editor", async () => {
   show();
   expect(screen.getByText("Chair: Alice Long Tutor Name")).toBeTruthy();

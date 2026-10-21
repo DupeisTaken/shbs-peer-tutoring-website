@@ -745,10 +745,6 @@ export default function ApplicationsPage() {
               onViewReadyChange={onInterviewView}
               enabled={features.data.INTERVIEWS}
               hoursEnabled={features.data.SERVICE_HOURS}
-              onManageApplicant={() => {
-                setFilters(emptyApplicationFilters);
-                setInvalidity("all");
-              }}
             />
           </div>
         )}

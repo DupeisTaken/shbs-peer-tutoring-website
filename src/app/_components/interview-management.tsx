@@ -2,6 +2,7 @@
 import { participantNameLabel } from "./participant-name";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { navigateNotificationFragment } from "~/lib/notification-navigation";
 import { useTranslations, useFormatter } from "next-intl";
 import { FilterToolbar, InlineNotice } from "./ui/patterns";
 import { Button } from "./ui/button";
@@ -62,12 +63,10 @@ function InterviewDisclosure({
 export function InterviewManagement({
   enabled = true,
   hoursEnabled = true,
-  onManageApplicant,
   onViewReadyChange,
 }: {
   enabled?: boolean;
   hoursEnabled?: boolean;
-  onManageApplicant?: () => void;
   onViewReadyChange?: (ready: boolean, scope: string, denied: boolean) => void;
 }) {
   const t = useTranslations("workflows");
@@ -462,7 +461,15 @@ export function InterviewManagement({
             >
               <Link
                 href={`/admin/applications#application-${a.id}`}
-                onClick={onManageApplicant}
+                scroll={false}
+                // Next changes fragments without hashchange. Reuse the record
+                // adapter handoff, including repeated fragments and native modifiers.
+                onNavigate={(event) =>
+                  navigateNotificationFragment(
+                    `/admin/applications#application-${a.id}`,
+                    event,
+                  )
+                }
                 className="link inline-flex min-h-11 items-center text-sm lg:min-h-8"
               >
                 {t("manageApplicantPanel")}
