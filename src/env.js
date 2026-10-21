@@ -32,7 +32,7 @@ export const env = createEnv({
       .transform((v) => v === "true"),
     // Dedicated SMTP accounts fall back to the complete legacy pair during rollout.
     // Each sender uses its own password; development retains log delivery.
-    // See src/server/email/sender.ts and the email setup notes in docs/deployment.md.
+    // See src/server/email/sender.ts and the email setup notes in docs/guides/deployment.md.
     SMTP_HOST: z.string().default("smtpdm.aliyun.com"),
     SMTP_PORT: z.coerce.number().int().positive().default(465),
     // SMTP login. For Aliyun the username IS the sender address; leave unset to use EMAIL_FROM.

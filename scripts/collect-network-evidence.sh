@@ -10,7 +10,7 @@ if [[ $# -ne 1 || "$1" == -* ]]; then
   exit 64
 fi
 if [[ ! -d "$1" ]]; then
-  echo 'Create a private evidence directory first; see docs/deployment.md.' >&2
+  echo 'Create a private evidence directory first; see docs/guides/deployment.md.' >&2
   exit 64
 fi
 for tool in timeout head mktemp date; do
