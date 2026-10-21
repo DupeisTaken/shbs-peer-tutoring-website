@@ -84,6 +84,19 @@ const applications = [
   qualificationSnapshot: null,
   preferredContact: null,
   updatedAt: new Date("2026-09-01"),
+  createdAt: new Date(
+    app.id === "a"
+      ? "2026-09-03"
+      : app.id === "b"
+        ? "2026-09-01"
+        : "2026-09-02",
+  ),
+  interviewCompletedAt:
+    app.id === "a"
+      ? new Date("2026-10-02T08:00:00Z")
+      : app.id === "c"
+        ? new Date("2026-10-01T08:00:00Z")
+        : null,
   interviewAt: null,
   interviewers: [],
   votes: [],
@@ -129,6 +142,96 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+// Inspect actual keyed cards, so a comparator alone cannot satisfy page ordering.
+const renderedIds = () =>
+  Array.from(document.querySelectorAll('[id^="application-"]'))
+    .map((element) => element.id)
+    .filter((id) => !id.startsWith("application-panel-"));
+
+it("sorts the rendered queue and filters recorded completion independently of acceptance", () => {
+  show();
+  expect(renderedIds()).toEqual([
+    "application-a",
+    "application-b",
+    "application-c",
+  ]);
+  change("Sort by", "CREATED_ASC");
+  expect(renderedIds()).toEqual([
+    "application-b",
+    "application-c",
+    "application-a",
+  ]);
+  change("Interview completion", "COMPLETED");
+  change("Sort by", "COMPLETED_DESC");
+  expect(renderedIds()).toEqual(["application-a", "application-c"]);
+  expect(screen.getByText("2 of 3 applications")).toBeTruthy();
+  expect(screen.getAllByText(/Interview completed:/)).toHaveLength(2);
+  change("Application status", "ACCEPTED");
+  expect(renderedIds()).toEqual([]);
+  change("Interview completion", "NOT_COMPLETED");
+  expect(renderedIds()).toEqual(["application-b"]);
+  fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
+  expect(renderedIds()).toEqual([
+    "application-a",
+    "application-b",
+    "application-c",
+  ]);
+  change("Sort by", "NAME_DESC");
+  expect(renderedIds()).toEqual([
+    "application-c",
+    "application-b",
+    "application-a",
+  ]);
+});
+
+it("remembers new completion and sorting choices across remounts", () => {
+  const page = show();
+  change("Interview completion", "COMPLETED");
+  change("Sort by", "COMPLETED_ASC");
+  page.unmount();
+  show();
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", {
+      name: "Interview completion",
+    }).value,
+  ).toBe("COMPLETED");
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", { name: "Sort by" }).value,
+  ).toBe("COMPLETED_ASC");
+  expect(renderedIds()).toEqual(["application-c", "application-a"]);
+});
+
+it("rejects unsupported stored completion and sorting values", () => {
+  const key = viewStateKey(
+    "head",
+    "/admin/applications",
+    "applications.filters.v1",
+    "",
+  );
+  writeViewState(window.sessionStorage, key, {
+    search: "",
+    status: "",
+    type: "",
+    subjectId: "",
+    completion: "ACCEPTED",
+    sort: "UPDATED_DESC",
+  });
+  show();
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", {
+      name: "Interview completion",
+    }).value,
+  ).toBe("");
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", { name: "Sort by" }).value,
+  ).toBe("");
+  expect(renderedIds()).toEqual([
+    "application-a",
+    "application-b",
+    "application-c",
+  ]);
+});
+
 it("focuses the revealed application after filters commit rather than consuming a pre-commit frame", () => {
   window.history.replaceState(null, "", "/admin/applications");
   const frames: FrameRequestCallback[] = [];
@@ -143,6 +246,8 @@ it("focuses the revealed application after filters commit rather than consuming 
   const page = show();
   change("Name or email", "Bea");
   expect(screen.queryByText("Alex Chen")).toBeNull();
+  change("Interview completion", "NOT_COMPLETED");
+  change("Sort by", "NAME_DESC");
   act(() => {
     window.history.replaceState(null, "", "/admin/applications#application-a");
     window.dispatchEvent(new HashChangeEvent("hashchange"));
@@ -152,6 +257,14 @@ it("focuses the revealed application after filters commit rather than consuming 
   expect(target).not.toBeNull();
   expect(document.activeElement).toBe(target);
   expect(scroll).toHaveBeenCalledWith({ block: "center" });
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", {
+      name: "Interview completion",
+    }).value,
+  ).toBe("");
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", { name: "Sort by" }).value,
+  ).toBe("");
   page.unmount();
   vi.restoreAllMocks();
 });
@@ -190,6 +303,14 @@ it("restores the authorized queue filters after slow choices, lets an applicatio
   mocks.query.mockReturnValue({ data: applications });
   page.rerender(tree());
   expect(screen.getByText("Bea Lin")).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", {
+      name: "Interview completion",
+    }).value,
+  ).toBe("");
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", { name: "Sort by" }).value,
+  ).toBe("");
   expect(screen.queryByText("Alex Chen")).toBeNull();
   act(() => {
     window.history.replaceState(null, "", "/#application-a");

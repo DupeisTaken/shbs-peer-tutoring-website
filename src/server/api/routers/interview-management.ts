@@ -27,9 +27,35 @@ export const interviewManagementRouter = createTRPCRouter({
           page: z.number().int().min(0).default(0),
           search: z.string().trim().max(100).default(""),
           completion: z.enum(["OPEN", "COMPLETED", "ALL"]).default("OPEN"),
+          status: z
+            .enum([
+              "",
+              "PENDING",
+              "INTERVIEW",
+              "ACCEPTED",
+              "REJECTED",
+              "RECALLED",
+            ])
+            .default(""),
+          sort: z
+            .enum([
+              "COMPLETED_DESC",
+              "COMPLETED_ASC",
+              "CREATED_DESC",
+              "CREATED_ASC",
+              "NAME_ASC",
+              "NAME_DESC",
+            ])
+            .default("CREATED_DESC"),
           applicationId: z.string().min(1).optional(),
         })
-        .default({ page: 0, search: "", completion: "OPEN" }),
+        .default({
+          page: 0,
+          search: "",
+          completion: "OPEN",
+          status: "",
+          sort: "CREATED_DESC",
+        }),
     )
     .query(async ({ ctx, input }) => {
       const pageSize = 20;
@@ -37,6 +63,8 @@ export const interviewManagementRouter = createTRPCRouter({
         ...(input.applicationId ? { id: input.applicationId } : {}),
         // Include waiting applicants so staff can reach panel setup from this queue.
         AND: [
+          // Status intersects the completion scope; it must not overwrite OPEN's recalled exclusion.
+          ...(input.status ? [{ status: input.status }] : []),
           {
             OR: [
               { interviewers: { some: {} } },
@@ -95,11 +123,35 @@ export const interviewManagementRouter = createTRPCRouter({
             }
           : {}),
       };
+      // Order the entire matching queue before pagination. Null completion dates
+      // stay last in either direction, and IDs settle imported timestamp/name ties.
+      const orderBy: Prisma.TutorApplicationOrderByWithRelationInput[] =
+        input.sort === "COMPLETED_DESC" || input.sort === "COMPLETED_ASC"
+          ? [
+              {
+                interviewCompletedAt: {
+                  sort: input.sort === "COMPLETED_DESC" ? "desc" : "asc",
+                  nulls: "last",
+                },
+              },
+              { createdAt: "desc" },
+              { id: "desc" },
+            ]
+          : input.sort === "NAME_ASC" || input.sort === "NAME_DESC"
+            ? [
+                { name: input.sort === "NAME_ASC" ? "asc" : "desc" },
+                { createdAt: "desc" },
+                { id: "desc" },
+              ]
+            : [
+                { createdAt: input.sort === "CREATED_ASC" ? "asc" : "desc" },
+                { id: "desc" },
+              ];
       const [applications, total] = await Promise.all([
         ctx.db.tutorApplication.findMany({
           where,
           // Imported/batched applications may share timestamps; offset pages need a total order.
-          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          orderBy,
           take: pageSize,
           skip: input.page * pageSize,
           select: {
@@ -267,7 +319,9 @@ export const interviewManagementRouter = createTRPCRouter({
                 registration,
                 // An old proposal remains review history after a direct decision;
                 // it cannot make the committed outcome look pending again.
-                pendingDecision: ["PENDING", "INTERVIEW"].includes(application.status) && pending("tutor.decideInterview"),
+                pendingDecision:
+                  ["PENDING", "INTERVIEW"].includes(application.status) &&
+                  pending("tutor.decideInterview"),
                 pendingCompletion: pending("interviewManagement.complete"),
               };
             },
@@ -376,7 +430,13 @@ export const interviewManagementRouter = createTRPCRouter({
         )
           staleConflict();
         // The same source-owned write is used by immediate chair approval.
-        await writeInterviewCompletion(tx, input.applicationId, before, input, credits);
+        await writeInterviewCompletion(
+          tx,
+          input.applicationId,
+          before,
+          input,
+          credits,
+        );
         await tx.auditLog.create({
           data: {
             userId: ctx.session.user.id,

@@ -1412,7 +1412,24 @@
         "allSubjects": "Όλα τα αιτούμενα μαθήματα",
         "count": "{count} από {total} αιτήσεις",
         "reset": "Επαναφορά φίλτρων",
-        "noMatches": "Δεν βρέθηκαν αιτήσεις. Δοκιμάστε άλλη αναζήτηση ή επαναφέρετε τα φίλτρα."
+        "noMatches": "Δεν βρέθηκαν αιτήσεις. Δοκιμάστε άλλη αναζήτηση ή επαναφέρετε τα φίλτρα.",
+        "completion": "Interview completion",
+        "completionOptions": {
+          "ALL": "Any completion status",
+          "COMPLETED": "Completed interviews",
+          "NOT_COMPLETED": "Completion not recorded"
+        },
+        "sort": "Sort by",
+        "sortOptions": {
+          "DEFAULT": "Default order",
+          "COMPLETED_DESC": "Completion date: newest first",
+          "COMPLETED_ASC": "Completion date: oldest first",
+          "CREATED_DESC": "Application date: newest first",
+          "CREATED_ASC": "Application date: oldest first",
+          "NAME_ASC": "Applicant name: A–Z",
+          "NAME_DESC": "Applicant name: Z–A"
+        },
+        "completedOn": "Interview completed: {date}"
       },
       "picker": {
         "subjectFocus": "Ομαδοποίηση μελών ανά μάθημα",

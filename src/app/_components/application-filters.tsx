@@ -2,6 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import {
+  APPLICATION_COMPLETIONS,
+  APPLICATION_SORTS,
   emptyApplicationFilters,
   type ApplicationFilters as Filters,
 } from "~/lib/application-filters";
@@ -29,7 +31,14 @@ export function ApplicationFilters({
   const t = useTranslations("admin.applications");
   const allT = useTranslations();
   const update = (field: keyof Filters, next: string) =>
-    onChange({ ...value, [field]: next });
+    onChange({
+      ...value,
+      [field]: next,
+      // Completed history starts with the latest interview; preserve an explicit sort.
+      ...(field === "completion" && next === "COMPLETED" && !value.sort
+        ? { sort: "COMPLETED_DESC" as const }
+        : {}),
+    });
   const active = Object.values(value).some(Boolean);
   return (
     <div className="card p-4">
@@ -107,6 +116,34 @@ export function ApplicationFilters({
             {subjects.map((subject) => (
               <option key={subject.id} value={subject.id}>
                 {subject.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="min-w-0 flex-[1_1_12rem]">
+          <span className="label">{t("filters.completion")}</span>
+          <select
+            className={filterControl}
+            value={value.completion}
+            onChange={(event) => update("completion", event.target.value)}
+          >
+            {APPLICATION_COMPLETIONS.map((completion) => (
+              <option key={completion} value={completion}>
+                {t(`filters.completionOptions.${completion || "ALL"}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="min-w-0 flex-[1_1_15rem]">
+          <span className="label">{t("filters.sort")}</span>
+          <select
+            className={filterControl}
+            value={value.sort}
+            onChange={(event) => update("sort", event.target.value)}
+          >
+            {APPLICATION_SORTS.map((sort) => (
+              <option key={sort} value={sort}>
+                {t(`filters.sortOptions.${sort || "DEFAULT"}`)}
               </option>
             ))}
           </select>

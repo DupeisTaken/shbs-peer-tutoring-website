@@ -1412,7 +1412,24 @@
         "allSubjects": "All requested subjects",
         "count": "{count} of {total} applications",
         "reset": "Reset filters",
-        "noMatches": "No applications match these filters. Try another search or reset the filters."
+        "noMatches": "No applications match these filters. Try another search or reset the filters.",
+        "completion": "Interview completion",
+        "completionOptions": {
+          "ALL": "Any completion status",
+          "COMPLETED": "Completed interviews",
+          "NOT_COMPLETED": "Completion not recorded"
+        },
+        "sort": "Sort by",
+        "sortOptions": {
+          "DEFAULT": "Default order",
+          "COMPLETED_DESC": "Completion date: newest first",
+          "COMPLETED_ASC": "Completion date: oldest first",
+          "CREATED_DESC": "Application date: newest first",
+          "CREATED_ASC": "Application date: oldest first",
+          "NAME_ASC": "Applicant name: A–Z",
+          "NAME_DESC": "Applicant name: Z–A"
+        },
+        "completedOn": "Interview completed: {date}"
       },
       "picker": {
         "subjectFocus": "Group panelists by subject",

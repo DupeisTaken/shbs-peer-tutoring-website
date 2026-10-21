@@ -18,6 +18,7 @@ const applications = [
     status: "INTERVIEW",
     type: "INITIAL",
     subjectIntents: [{ subjectId: "math-ap" }],
+    interviewCompletedAt: new Date("2026-10-01T08:00:00Z"),
   },
   {
     name: "Alex Lin",
@@ -81,6 +82,18 @@ it.each(["en", "zh"] as const)(
     const reset = screen.getByRole<HTMLButtonElement>("button", {
       name: labels.reset,
     });
+    const completion = screen.getByRole<HTMLSelectElement>("combobox", {
+      name: labels.completion,
+    });
+    const sort = screen.getByRole<HTMLSelectElement>("combobox", {
+      name: labels.sort,
+    });
+    expect(
+      screen.getByRole("option", { name: labels.completionOptions.COMPLETED }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("option", { name: labels.sortOptions.COMPLETED_DESC }),
+    ).toBeTruthy();
     const countText = (count: number) =>
       labels.count.replace("{count}", String(count)).replace("{total}", "3");
     expect(screen.getByRole("region", { name: labels.heading })).toBeTruthy();
@@ -96,12 +109,25 @@ it.each(["en", "zh"] as const)(
     expect(search.value).toBe("Alex");
     expect(status.value).toBe("INTERVIEW");
     expect(type.value).toBe("INITIAL");
+    fireEvent.change(completion, { target: { value: "COMPLETED" } });
+    expect(sort.value).toBe("COMPLETED_DESC");
+    fireEvent.change(sort, { target: { value: "COMPLETED_DESC" } });
+    expect(screen.getByRole("status").textContent).toBe(countText(1));
+    expect(completion.value).toBe("COMPLETED");
+    expect(sort.value).toBe("COMPLETED_DESC");
+    fireEvent.change(completion, { target: { value: "NOT_COMPLETED" } });
+    expect(screen.getByRole("status").textContent).toBe(countText(0));
+    fireEvent.change(completion, { target: { value: "" } });
+    fireEvent.change(sort, { target: { value: "COMPLETED_ASC" } });
+    fireEvent.change(completion, { target: { value: "COMPLETED" } });
+    expect(sort.value).toBe("COMPLETED_ASC");
+    fireEvent.change(completion, { target: { value: "" } });
 
     // Distinct subject IDs remain distinct even when the course name matches.
     fireEvent.change(subject, { target: { value: "math-standard" } });
     expect(screen.getByRole("status").textContent).toBe(countText(0));
     fireEvent.click(reset);
-    for (const control of [search, status, type, subject])
+    for (const control of [search, status, type, subject, completion, sort])
       expect(control.value).toBe("");
     expect(screen.getByRole("status").textContent).toBe(countText(3));
     expect(reset.disabled).toBe(true);

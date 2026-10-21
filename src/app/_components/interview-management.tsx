@@ -109,10 +109,38 @@ export function InterviewManagement({
     parse: viewEnum(["OPEN", "COMPLETED", "ALL"]),
     enabled: !accessDenied,
   });
+  const [status, setStatus] = useSessionViewState({
+    id: "interviews.status.v1",
+    initialState: "",
+    parse: viewEnum([
+      "",
+      "PENDING",
+      "INTERVIEW",
+      "ACCEPTED",
+      "REJECTED",
+      "RECALLED",
+    ]),
+    enabled: !accessDenied,
+  });
+  const [sort, setSort] = useSessionViewState({
+    id: "interviews.sort.v1",
+    initialState: "CREATED_DESC",
+    parse: viewEnum([
+      "COMPLETED_DESC",
+      "COMPLETED_ASC",
+      "CREATED_DESC",
+      "CREATED_ASC",
+      "NAME_ASC",
+      "NAME_DESC",
+    ]),
+    enabled: !accessDenied,
+  });
   const data = api.interviewManagement.options.useQuery({
     page,
     search,
     completion,
+    status,
+    sort,
   });
   const denied = useSessionAccessDenied(data);
   // The parent Applications page owns viewport position; nested history owns only its read controls.
@@ -122,7 +150,7 @@ export function InterviewManagement({
   useEffect(() => {
     onViewReadyChange?.(
       !!data.data && !accessDenied,
-      JSON.stringify([page, search, completion]),
+      JSON.stringify([page, search, completion, status, sort]),
       denied || accessDenied,
     );
   }, [
@@ -130,6 +158,8 @@ export function InterviewManagement({
     page,
     search,
     completion,
+    status,
+    sort,
     denied,
     accessDenied,
     onViewReadyChange,
@@ -231,7 +261,13 @@ export function InterviewManagement({
                 <Button
                   variant="ghost"
                   size="compact"
-                  disabled={!search && !searchDraft && completion === "OPEN"}
+                  disabled={
+                    !search &&
+                    !searchDraft &&
+                    completion === "OPEN" &&
+                    !status &&
+                    sort === "CREATED_DESC"
+                  }
                   onClick={() => {
                     // Reset only the read controls. Expanded records and pending
                     // completion drafts retain their independent lifetimes.
@@ -239,6 +275,8 @@ export function InterviewManagement({
                     setSearch("");
                     setSearchDraft("");
                     setCompletion("OPEN");
+                    setStatus("");
+                    setSort("CREATED_DESC");
                   }}
                 >
                   {allT("admin.applications.filters.reset")}
@@ -265,11 +303,76 @@ export function InterviewManagement({
                   onChange={(event) => {
                     setPage(0);
                     setCompletion(event.target.value as typeof completion);
+                    // The completed view opens on recent interviews instead of application age.
+                    if (
+                      event.target.value === "COMPLETED" &&
+                      sort === "CREATED_DESC"
+                    )
+                      setSort("COMPLETED_DESC");
                   }}
                 >
                   <option value="OPEN">{t("interviewOpen")}</option>
                   <option value="COMPLETED">{t("interviewCompleted")}</option>
                   <option value="ALL">{t("interviewAll")}</option>
+                </select>
+              </label>
+              <label className="min-w-0 flex-[1_1_12rem]">
+                <span className="label">
+                  {allT("admin.applications.filters.status")}
+                </span>
+                <select
+                  className="input control-compact mt-1 min-h-11 w-full lg:min-h-8 lg:py-1"
+                  value={status}
+                  onChange={(event) => {
+                    setPage(0);
+                    setStatus(event.target.value as typeof status);
+                  }}
+                >
+                  <option value="">
+                    {allT("admin.applications.filters.allStatuses")}
+                  </option>
+                  {(
+                    [
+                      "PENDING",
+                      "INTERVIEW",
+                      "ACCEPTED",
+                      "REJECTED",
+                      "RECALLED",
+                    ] as const
+                  ).map((choice) => (
+                    <option key={choice} value={choice}>
+                      {allT(`admin.applications.status.${choice}`)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="min-w-0 flex-[1_1_14rem]">
+                <span className="label">
+                  {allT("admin.applications.filters.sort")}
+                </span>
+                <select
+                  className="input control-compact mt-1 min-h-11 w-full lg:min-h-8 lg:py-1"
+                  value={sort}
+                  onChange={(event) => {
+                    // Read preferences never replace the unsubmitted search or completion drafts.
+                    setPage(0);
+                    setSort(event.target.value as typeof sort);
+                  }}
+                >
+                  {(
+                    [
+                      "CREATED_DESC",
+                      "CREATED_ASC",
+                      "COMPLETED_DESC",
+                      "COMPLETED_ASC",
+                      "NAME_ASC",
+                      "NAME_DESC",
+                    ] as const
+                  ).map((choice) => (
+                    <option key={choice} value={choice}>
+                      {allT(`admin.applications.filters.sortOptions.${choice}`)}
+                    </option>
+                  ))}
                 </select>
               </label>
               <Button size="compact" type="submit">

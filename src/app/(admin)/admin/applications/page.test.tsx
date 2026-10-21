@@ -607,6 +607,21 @@ it("keeps an open interview approval draft mounted when its application leaves t
   expect(dialog).toBeTruthy();
   // A filter change (or equivalent background status transition) cannot discard
   // the open form's captured evidence before its own cancellation/close boundary.
+  fireEvent.change(screen.getByRole("combobox", { name: "Sort by" }), {
+    target: { value: "COMPLETED_DESC" },
+  });
+  fireEvent.change(
+    screen.getByRole("combobox", { name: "Interview completion" }),
+    {
+      target: { value: "COMPLETED" },
+    },
+  );
+  expect(
+    screen.getByRole("dialog", { name: "Approve Interview · Candidate One" }),
+  ).toBe(dialog);
+  expect(
+    within(dialog).getByDisplayValue("Ready for the next subject"),
+  ).toBeTruthy();
   fireEvent.change(screen.getByRole("searchbox", { name: "Name or email" }), {
     target: { value: "No matching name" },
   });

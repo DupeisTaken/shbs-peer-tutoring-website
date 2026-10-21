@@ -1412,7 +1412,24 @@
         "allSubjects": "すべての申請科目",
         "count": "{total} 件中 {count} 件の申請",
         "reset": "絞り込みをリセット",
-        "noMatches": "条件に一致する申請はありません。検索条件を変えるか、絞り込みをリセットしてください。"
+        "noMatches": "条件に一致する申請はありません。検索条件を変えるか、絞り込みをリセットしてください。",
+        "completion": "Interview completion",
+        "completionOptions": {
+          "ALL": "Any completion status",
+          "COMPLETED": "Completed interviews",
+          "NOT_COMPLETED": "Completion not recorded"
+        },
+        "sort": "Sort by",
+        "sortOptions": {
+          "DEFAULT": "Default order",
+          "COMPLETED_DESC": "Completion date: newest first",
+          "COMPLETED_ASC": "Completion date: oldest first",
+          "CREATED_DESC": "Application date: newest first",
+          "CREATED_ASC": "Application date: oldest first",
+          "NAME_ASC": "Applicant name: A–Z",
+          "NAME_DESC": "Applicant name: Z–A"
+        },
+        "completedOn": "Interview completed: {date}"
       },
       "picker": {
         "subjectFocus": "科目別に面接担当者を分類",

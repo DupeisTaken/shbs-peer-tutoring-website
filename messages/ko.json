@@ -1412,7 +1412,24 @@
         "allSubjects": "모든 신청 과목",
         "count": "전체 {total}개 중 {count}개 지원서",
         "reset": "필터 초기화",
-        "noMatches": "조건에 맞는 지원서가 없습니다. 다른 검색어를 사용하거나 필터를 초기화하세요."
+        "noMatches": "조건에 맞는 지원서가 없습니다. 다른 검색어를 사용하거나 필터를 초기화하세요.",
+        "completion": "Interview completion",
+        "completionOptions": {
+          "ALL": "Any completion status",
+          "COMPLETED": "Completed interviews",
+          "NOT_COMPLETED": "Completion not recorded"
+        },
+        "sort": "Sort by",
+        "sortOptions": {
+          "DEFAULT": "Default order",
+          "COMPLETED_DESC": "Completion date: newest first",
+          "COMPLETED_ASC": "Completion date: oldest first",
+          "CREATED_DESC": "Application date: newest first",
+          "CREATED_ASC": "Application date: oldest first",
+          "NAME_ASC": "Applicant name: A–Z",
+          "NAME_DESC": "Applicant name: Z–A"
+        },
+        "completedOn": "Interview completed: {date}"
       },
       "picker": {
         "subjectFocus": "과목별 면접위원 분류",

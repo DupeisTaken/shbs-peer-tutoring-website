@@ -19,7 +19,7 @@ import {
   useSessionViewVerified,
 } from "~/app/_components/session-view-state";
 import { viewEnum, viewFields, viewSearch } from "~/lib/session-view-state";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
@@ -44,8 +44,11 @@ import {
   type PanelTutor,
 } from "~/app/_components/interview-panel-editor";
 import {
+  APPLICATION_COMPLETIONS,
+  APPLICATION_SORTS,
   emptyApplicationFilters,
   matchesApplicationFilters,
+  sortApplications,
 } from "~/lib/application-filters";
 
 type Status = "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED" | "RECALLED";
@@ -76,6 +79,7 @@ type Application = InvalidityRecord & {
   email: string;
   preferredContact: string | null;
   status: Status;
+  createdAt: Date;
   updatedAt: Date;
   interviewAt: Date | null;
   interviewCompletedAt: Date | null;
@@ -231,6 +235,21 @@ function ApplicationCard({
                 </>
               )}
             </span>
+            {app.interviewCompletedAt ? (
+              <span className="muted block w-full text-xs">
+                {t("admin.applications.filters.completedOn", {
+                  date: programFormat.dateTime(app.interviewCompletedAt, {
+                    dateStyle: "medium",
+                  }),
+                })}
+              </span>
+            ) : hasInterviewHistory ? (
+              <span className="muted block w-full text-xs">
+                {t(
+                  "admin.applications.filters.completionOptions.NOT_COMPLETED",
+                )}
+              </span>
+            ) : null}
           </span>
         </button>
         {/* Put account setup before boxed decisions in DOM/keyboard order, with Delete
@@ -472,6 +491,7 @@ function ApplicationCard({
 
 export default function ApplicationsPage() {
   const t = useTranslations();
+  const locale = useLocale();
   const [activeInterviewApprovals, setActiveInterviewApprovals] = useState<
     Set<string>
   >(() => new Set());
@@ -547,6 +567,12 @@ export default function ApplicationsPage() {
           app.subjectIntents.map((intent) => intent.subjectId),
         ),
       ]),
+      // Older saved views predate these controls. Preserve their existing
+      // criteria, but reject unknown new values instead of adopting them.
+      completion: (value) =>
+        value === undefined ? "" : viewEnum(APPLICATION_COMPLETIONS)(value),
+      sort: (value) =>
+        value === undefined ? "" : viewEnum(APPLICATION_SORTS)(value),
     }),
   });
   const [invalidity, setInvalidity] =
@@ -621,8 +647,12 @@ export default function ApplicationsPage() {
   // dialog finishes synchronization. Keep that feature owner mounted until
   // deliberate Close; authoritative access denial still conceals the whole page.
   const matchingIds = new Set(filtered.map((app) => app.id));
-  const visible = list.filter(
-    (app) => matchingIds.has(app.id) || activeInterviewApprovals.has(app.id),
+  const visible = sortApplications(
+    list.filter(
+      (app) => matchingIds.has(app.id) || activeInterviewApprovals.has(app.id),
+    ),
+    filters.sort,
+    locale,
   );
   // Build choices from the full queue so applying one filter never erases another.
   const subjects = Array.from(

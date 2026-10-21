@@ -1334,7 +1334,24 @@
         "allSubjects": "所有申请科目",
         "count": "显示 {count} / {total} 份申请",
         "reset": "重置筛选",
-        "noMatches": "没有符合筛选条件的申请。请尝试其他搜索或重置筛选。"
+        "noMatches": "没有符合筛选条件的申请。请尝试其他搜索或重置筛选。",
+        "completion": "面试完成情况",
+        "completionOptions": {
+          "ALL": "全部完成情况",
+          "COMPLETED": "已完成面试",
+          "NOT_COMPLETED": "尚未记录完成"
+        },
+        "sort": "排序方式",
+        "sortOptions": {
+          "DEFAULT": "默认顺序",
+          "COMPLETED_DESC": "完成日期：从新到旧",
+          "COMPLETED_ASC": "完成日期：从旧到新",
+          "CREATED_DESC": "申请日期：从新到旧",
+          "CREATED_ASC": "申请日期：从旧到新",
+          "NAME_ASC": "申请人姓名：正序",
+          "NAME_DESC": "申请人姓名：倒序"
+        },
+        "completedOn": "面试完成日期：{date}"
       },
       "picker": {
         "subjectFocus": "按科目分组面试成员",
