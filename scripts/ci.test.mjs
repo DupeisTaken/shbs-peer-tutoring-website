@@ -44,7 +44,7 @@ test("the stable verify gate rejects failure, cancellation, skips and missing jo
 test("parallel jobs retain checks, isolated databases, bounded workers and failure reports", () => {
   for (const job of [checks, tests, image]) assert.equal(job.needs, undefined);
   for (const job of Object.values(workflow.jobs)) {
-    assert.ok(job["timeout-minutes"] > 0 && job["timeout-minutes"] <= 15);
+    assert.ok(job["timeout-minutes"] > 0 && job["timeout-minutes"] <= 9);
     for (const step of job.steps) assert.ok(step.name);
   }
   for (const command of [
@@ -62,7 +62,8 @@ test("parallel jobs retain checks, isolated databases, bounded workers and failu
       command,
     );
   }
-  assert.deepEqual(tests.strategy.matrix.shard, [1, 2]);
+  assert.deepEqual(tests.strategy.matrix.shard, [1, 2, 3, 4, 5]);
+  assert.equal(tests.name, "tests (${{ matrix.shard }}/${{ strategy.job-total }})");
   assert.equal(tests.strategy["fail-fast"], false);
   assert.equal(tests.services.postgres.env.POSTGRES_DB, "shbs_shipping_test");
   assert.equal(image.services.postgres.env.POSTGRES_DB, "shbs_boot_test");
@@ -77,7 +78,12 @@ test("parallel jobs retain checks, isolated databases, bounded workers and failu
     ),
   );
   const run = tests.steps.find((step) => step.name === "Run test shard").run;
-  assert.match(run, /--shard=\$\{\{ matrix.shard \}\}\/2 --maxWorkers=1/);
+  assert.ok(
+    run.includes(
+      "--shard=${{ matrix.shard }}/${{ strategy.job-total }} --maxWorkers=1",
+    ),
+    "the shard denominator must follow the actual matrix size",
+  );
   assert.match(
     run,
     /--reporter=json --outputFile.json=\.validation\/test-results.json/,
@@ -90,6 +96,26 @@ test("parallel jobs retain checks, isolated databases, bounded workers and failu
   assert.equal(report.with.path, ".validation/test-results.json");
 });
 
+test("the test budget covers setup and execution without retries or dropped coverage", () => {
+  // A step-only timeout would exclude the install/migration costs from the budget.
+  assert.equal(tests["timeout-minutes"], 9);
+  assert.equal(tests["continue-on-error"], undefined);
+  assert.equal(tests.strategy["max-parallel"], undefined);
+  const runIndex = tests.steps.findIndex((step) => step.name === "Run test shard");
+  for (const command of ["npm ci", "npm run db:migrate"]) {
+    const setupIndex = tests.steps.findIndex((step) => step.run === command);
+    assert.ok(setupIndex >= 0 && setupIndex < runIndex, command);
+  }
+  const run = tests.steps[runIndex];
+  assert.equal(
+    run.if,
+    undefined,
+    "every shard must run for every checked revision",
+  );
+  assert.equal(run["continue-on-error"], undefined);
+  assert.ok(!/--(?:retry|bail|passWithNoTests|testNamePattern|exclude)/.test(run.run));
+});
+
 test("Vitest shards cover every discovered test file exactly once without running fixtures", async () => {
   // filesOnly listing does not apply sharding in Vitest 4. Use its resolved
   // sequencer with discovered specifications; never collect/import DB fixtures.
@@ -100,7 +126,7 @@ test("Vitest shards cover every discovered test file exactly once without runnin
     const ctx = await createVitest("test", {
       root,
       watch: false,
-      shard: index + "/2",
+      shard: index + "/" + tests.strategy.matrix.shard.length,
       maxWorkers: 1,
     });
     try {
@@ -122,7 +148,7 @@ test("Vitest shards cover every discovered test file exactly once without runnin
   assert.equal(
     new Set(combined).size,
     combined.length,
-    "no file may appear in both shards",
+    "no file may appear in multiple shards",
   );
   assert.deepEqual(combined.sort(), all, "no file may be dropped");
 });

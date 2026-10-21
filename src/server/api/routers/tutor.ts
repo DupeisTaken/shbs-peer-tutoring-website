@@ -1,5 +1,6 @@
 import { notificationEvent } from "~/lib/notification-events";
 import { isInterviewChairRole } from "~/lib/interview-chair";
+import { meetingPeriodInput, meetingPeriodContext, meetingPeriods, meetingPeriodsOverlap, meetingScope, recordedMeetingPeriod } from "~/server/meeting-periods";
 import {
   INTERVIEW_HOURS_REASON,
   interviewHoursId,
@@ -1980,7 +1981,50 @@ export const tutorRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Tutor meetings — self-excuse an upcoming absence (up to 60 min before the meeting).
   // --------------------------------------------------------------------------
-  /** Upcoming meetings with this tutor's excuse state and whether they can still excuse. */
+  meetingPeriods: tutorProcedure.query(({ ctx }) => meetingPeriods(ctx.db, ctx.session.tutorId)),
+
+  /** The current linked tutor's evidence only. Retained historical identities keep
+   * their existing owned personal-history route; this read accepts no tutor ID. */
+  meetingRecords: tutorProcedure.input(meetingPeriodInput).query(async ({ ctx, input }) => {
+    const now = new Date();
+    const { current } = await meetingPeriodContext(ctx.db);
+    const historical = !["current", "upcomingOutside"].includes(input.period) &&
+      !meetingPeriodsOverlap(input.period, current?.key);
+    const meetings = await ctx.db.tutorMeeting.findMany({
+      where: {
+        AND: [
+          await meetingScope(ctx.db, input.period, now, input.outsideCurrent),
+          // A retained semester key can overlap today's quarter without granting
+          // access to other tutors' past evidence in its other quarter.
+          { OR: [
+            { attendances: { some: { tutorId: ctx.session.tutorId } } },
+            { date: { gte: now } },
+            ...(current ? [recordedMeetingPeriod(current.key)] : []),
+          ] },
+        ],
+      },
+      orderBy: [{ date: "asc" }, { id: "asc" }],
+      select: {
+        id: true, title: true, date: true,
+        attendances: {
+          where: { tutorId: ctx.session.tutorId },
+          select: { status: true, reason: true, excusedAt: true },
+        },
+      },
+    });
+    return meetings.map(meeting => {
+      const own = meeting.attendances[0];
+      return {
+        id: meeting.id, title: meeting.title, date: meeting.date,
+        status: own?.status ?? null, reason: own?.reason ?? null,
+        upcoming: meeting.date >= now,
+        excused: own?.status === "EXCUSED_ABSENT" && own.excusedAt != null,
+        canExcuse: !historical && now.getTime() <= meeting.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000,
+      };
+    });
+  }),
+
+  /** Upcoming task count deliberately stays independent of period/history browsing. */
   myMeetings: tutorProcedure.query(async ({ ctx }) => {
     const now = new Date();
     const meetings = await ctx.db.tutorMeeting.findMany({

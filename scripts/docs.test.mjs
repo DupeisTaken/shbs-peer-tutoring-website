@@ -17,7 +17,7 @@ import {
 } from "./check-docs.mjs";
 
 test("the root has only its README and agent instructions, and every guide is reachable", () => {
-  // AGENTS.md must remain at the root for agent discovery; user guides still live in docs.
+  // Agents find their entry point at the root; maintained guidance lives by audience.
   assert.deepEqual(
     fs
       .readdirSync(root)
@@ -67,6 +67,146 @@ test("the root has only its README and agent instructions, and every guide is re
   assert.deepEqual([...visited].sort(), [...guides].sort());
 });
 
+test("maintained documentation has separate contributor, reference and guide homes", () => {
+  const files = (directory) =>
+    fs
+      .readdirSync(path.join(root, directory), { withFileTypes: true })
+      .flatMap((entry) => {
+        const file = path.posix.join(directory, entry.name);
+        if (entry.isDirectory())
+          return entry.name === "reports" ? [] : files(file);
+        return [file];
+      });
+  // Historical captures cannot silently become current source guidance again.
+  for (const file of files("docs")) {
+    assert.match(
+      file,
+      /^docs\/(?:README\.md|(?:contributing|reference|guides)\/.+\.md)$/,
+    );
+  }
+  const hub = markdownModel(
+    fs.readFileSync(path.join(root, "docs/README.md"), "utf8"),
+  );
+  for (const audience of ["contributing", "reference", "guides"]) {
+    assert.ok(
+      hub.links.includes(`${audience}/README.md`),
+      `${audience} must have a visible entry point`,
+    );
+  }
+});
+
+test("agent discovery routes to contributor rules instead of duplicating them", () => {
+  const source = fs.readFileSync(path.join(root, "AGENTS.md"), "utf8");
+  const [entry, framework] = source.split("<!-- BEGIN:nextjs-agent-rules -->");
+  assert.ok(framework?.includes("<!-- END:nextjs-agent-rules -->"));
+  const model = markdownModel(entry);
+  assert.equal(
+    model.headings.length,
+    1,
+    "agent entry stays a reading route, with rules owned by docs/contributing",
+  );
+  for (const file of [
+    "README.md",
+    "design.md",
+    "interaction-patterns.md",
+    "implementation.md",
+    "verification.md",
+    "local-development.md",
+  ]) {
+    assert.ok(
+      model.links.some(
+        (link) => link.split("#")[0] === `docs/contributing/${file}`,
+      ),
+      `missing agent route: ${file}`,
+    );
+  }
+});
+
+test("contributor guides retain canonical visual, state and verification contracts", () => {
+  const contracts = {
+    "design.md": [
+      "control-height-hierarchy",
+      "mobile-header-hierarchy",
+      "table-summaries-and-detail-submenus",
+      "signup-field-requirements",
+      "evolving-the-conventions",
+    ],
+    "interaction-patterns.md": [
+      "start-with-the-shared-patterns",
+      "drafts-pending-writes-and-nested-dialogs",
+      "profile-editor-completion",
+    ],
+    "implementation.md": ["add-an-action-or-feature"],
+    "verification.md": [
+      "required-checks",
+      "ui-verification-matrix",
+      "handoff-record",
+    ],
+    "documentation.md": [
+      "choose-the-audience",
+      "historical-evidence-and-continuation-notes",
+    ],
+  };
+  for (const [file, anchors] of Object.entries(contracts)) {
+    const model = markdownModel(
+      fs.readFileSync(path.join(root, "docs/contributing", file), "utf8"),
+    );
+    for (const anchor of anchors)
+      assert.ok(
+        model.headings.some((heading) => heading.id === anchor),
+        `${file} lost #${anchor}`,
+      );
+  }
+});
+
+test("issue chooser and code comments resolve the relocated documentation", () => {
+  const config = yaml.load(
+    fs.readFileSync(
+      path.join(root, ".github/ISSUE_TEMPLATE/config.yml"),
+      "utf8",
+    ),
+  );
+  const prefix =
+    "https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/";
+  for (const link of config.contact_links) {
+    assert.ok(link.url.startsWith(prefix));
+    assert.ok(
+      fs.existsSync(path.join(root, link.url.slice(prefix.length))),
+      `missing issue chooser target: ${link.url}`,
+    );
+  }
+  // The Markdown checker cannot see paths inside comments, shell help or env examples.
+  for (const file of [
+    ".env.example",
+    "start-database.sh",
+    "scripts/collect-network-evidence.sh",
+    "src/env.js",
+    "src/server/email/sender.ts",
+    "src/server/audit/log.ts",
+    "src/app/(admin)/admin/activity/page.tsx",
+    "src/app/(admin)/admin/audit/page.tsx",
+    "prisma/schema.prisma",
+  ]) {
+    const content = fs.readFileSync(path.join(root, file), "utf8");
+    for (const match of content.matchAll(/\bdocs\/[\w./-]+\.md(?:#[\w-]+)?/g)) {
+      const [target, anchor] = match[0].split("#");
+      assert.ok(
+        fs.existsSync(path.join(root, target)),
+        `${file} refers to missing ${target}`,
+      );
+      if (anchor) {
+        const model = markdownModel(
+          fs.readFileSync(path.join(root, target), "utf8"),
+        );
+        assert.ok(
+          model.headings.some((heading) => heading.id === anchor),
+          `${file} refers to missing ${match[0]}`,
+        );
+      }
+    }
+  }
+});
+
 test("HTML reports are ignored while source docs and application HTML remain trackable", () => {
   const ignored = [
     "docs/reports/user-guide.html",
@@ -79,7 +219,7 @@ test("HTML reports are ignored while source docs and application HTML remain tra
     "docs/signup-audit.html",
   ];
   const tracked = [
-    "docs/user-guide.md",
+    "docs/guides/user-guide.md",
     "scripts/check-docs.mjs",
     "public/example.html",
   ];
@@ -275,7 +415,7 @@ test("the issue guide links every available form to a valid template", () => {
   // Discover the chooser's forms so future additions cannot silently lack guidance.
   const directory = path.join(root, ".github/ISSUE_TEMPLATE");
   const guide = markdownModel(
-    fs.readFileSync(path.join(root, "docs/issues.md"), "utf8"),
+    fs.readFileSync(path.join(root, "docs/contributing/issues.md"), "utf8"),
   );
   const linkedTemplates = guide.links
     .filter((href) => href.includes("/issues/new?template="))
