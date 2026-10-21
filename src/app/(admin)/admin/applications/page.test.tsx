@@ -602,7 +602,7 @@ it("keeps an open interview approval draft mounted when its application leaves t
     screen.getByRole("button", { name: "Approve qualification" }),
   );
   const dialog = screen.getByRole("dialog", {
-    name: "Approve interview · Candidate One",
+    name: "Approve Interview · Candidate One",
   });
   expect(dialog).toBeTruthy();
   // A filter change (or equivalent background status transition) cannot discard
@@ -611,14 +611,14 @@ it("keeps an open interview approval draft mounted when its application leaves t
     target: { value: "No matching name" },
   });
   expect(
-    screen.getByRole("dialog", { name: "Approve interview · Candidate One" }),
+    screen.getByRole("dialog", { name: "Approve Interview · Candidate One" }),
   ).toBe(dialog);
   expect(
     within(dialog).getByDisplayValue("Ready for the next subject"),
   ).toBeTruthy();
   fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
   expect(
-    screen.queryByRole("dialog", { name: "Approve interview · Candidate One" }),
+    screen.queryByRole("dialog", { name: "Approve Interview · Candidate One" }),
   ).toBeNull();
   expect(screen.queryByRole("button", { name: /Candidate One/ })).toBeNull();
   expect(mocks.decide).not.toHaveBeenCalled();

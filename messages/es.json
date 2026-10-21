@@ -5197,7 +5197,7 @@
       "action": "Review request history"
     },
     "interview_approved": {
-      "title": "Interview approved",
+      "title": "Interview Approved",
       "body": "The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome.",
       "action": "View application"
     }
@@ -5483,7 +5483,7 @@
     "chairNeedsUpdate": "This panel needs an Admin or Head chair. Ask management to update the panel."
   },
   "applicationAccountSetup": {
-    "title": "Account setup · {name}",
+    "title": "Account Setup · {name}",
     "loading": "Loading account setup…",
     "error": "Account setup could not be loaded. Try again.",
     "denied": "You no longer have access to this account setup information.",
@@ -5503,7 +5503,7 @@
     "copyFailed": "Copy failed. Select and copy the displayed code."
   },
   "interviewApproval": {
-    "title": "Approve interview · {name}",
+    "title": "Approve Interview · {name}",
     "help": "Record the actual interview attendance and duration before approval.",
     "attendanceHelp": "Select only panelists who attended. Voting does not confirm attendance.",
     "hours": "{minutes} minutes = {hours} hours per attendee.",
