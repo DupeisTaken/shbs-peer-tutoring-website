@@ -147,7 +147,7 @@ it("shows panel/chair/schedule/completion without expansion and deep-links the e
 it("submits interview search and completed filters to the paginated API", () => {
   show();
   fireEvent.change(
-    screen.getByRole("textbox", {
+    screen.getByRole("searchbox", {
       name: "Search applicants, panelists or subjects",
     }),
     { target: { value: " Math " } },
@@ -165,6 +165,85 @@ it("submits interview search and completed filters to the paginated API", () => 
     completion: "COMPLETED",
   });
 });
+it("applies completion immediately while retaining an unsubmitted search draft", () => {
+  show();
+  const search = screen.getByRole<HTMLInputElement>("searchbox", {
+    name: en.workflows.interviewSearch,
+  });
+  fireEvent.change(search, { target: { value: " Math " } });
+  expect(mocks.options).toHaveBeenLastCalledWith({
+    page: 0,
+    search: "",
+    completion: "OPEN",
+  });
+  fireEvent.change(
+    screen.getByRole("combobox", { name: en.workflows.interviewFilter }),
+    { target: { value: "COMPLETED" } },
+  );
+  expect(search.value).toBe(" Math ");
+  expect(mocks.options).toHaveBeenLastCalledWith({
+    page: 0,
+    search: "",
+    completion: "COMPLETED",
+  });
+  fireEvent.submit(search.closest("form")!);
+  expect(mocks.options).toHaveBeenLastCalledWith({
+    page: 0,
+    search: "Math",
+    completion: "COMPLETED",
+  });
+});
+it.each(["en", "zh"] as const)(
+  "resets %s interview search, draft, completion and page without collapsing a record",
+  (locale) => {
+    const data = fixture();
+    data.applications.total = 45;
+    mocks.options.mockReturnValue({ data, refetch: mocks.refetch });
+    const messages = locale === "zh" ? zh : en;
+    show(locale);
+    const search = screen.getByRole<HTMLInputElement>("searchbox", {
+      name: messages.workflows.interviewSearch,
+    });
+    const completion = screen.getByRole<HTMLSelectElement>("combobox", {
+      name: messages.workflows.interviewFilter,
+    });
+    const reset = screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.admin.applications.filters.reset,
+    });
+    expect(reset.disabled).toBe(true);
+    const record = screen.getByRole("button", { name: /Candidate One/ });
+    fireEvent.click(record);
+    fireEvent.change(search, { target: { value: " Math " } });
+    fireEvent.submit(search.closest("form")!);
+    fireEvent.change(completion, { target: { value: "ALL" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.workflows.next }),
+    );
+    expect(mocks.options).toHaveBeenLastCalledWith({
+      page: 1,
+      search: "Math",
+      completion: "ALL",
+    });
+    fireEvent.change(search, { target: { value: "Unsubmitted search" } });
+    fireEvent.click(reset);
+    expect(mocks.options).toHaveBeenLastCalledWith({
+      page: 0,
+      search: "",
+      completion: "OPEN",
+    });
+    expect(search.value).toBe("");
+    expect(completion.value).toBe("OPEN");
+    expect(reset.disabled).toBe(true);
+    expect(record.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("status").textContent).toBe(
+      messages.workflows.interviewCount
+        .replace("{first}", "1")
+        .replace("{last}", "20")
+        .replace("{total}", "45"),
+    );
+    expect(mocks.complete).not.toHaveBeenCalled();
+  },
+);
 
 it("retains invalid interview history without offering completion writes", () => {
   const data = fixture();

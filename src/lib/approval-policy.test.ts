@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 import { classifyApproval } from "./approval-policy";
 
 describe("management authority by effect", () => {
+  it("applies chair acceptance directly while rejection retains Head review", () => {
+    expect(classifyApproval("tutor.decideInterview", { accept: true })).toMatchObject({
+      directRoles: ["ADMIN", "HEAD"], requesterRoles: ["ADMIN", "HEAD"], reviewerRoles: ["HEAD"],
+    });
+    expect(classifyApproval("tutor.decideInterview", { accept: false })).toMatchObject({
+      directRoles: ["HEAD"], reviewerRoles: ["HEAD"],
+    });
+  });
   it.each(["admin.setApplicationInvalidity", "studentWorkflow.setRequestInvalidity", "admin.setSignupInvalidity"])("keeps both directions of %s in the daily review queue", (operation) => {
     for (const invalid of [true, false])
       expect(classifyApproval(operation, { invalid })).toEqual({

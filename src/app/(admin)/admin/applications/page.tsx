@@ -1,5 +1,6 @@
 "use client";
 import { participantNameLabel } from "~/app/_components/participant-name";
+import { ApplicationAccountSetupButton } from "~/app/_components/application-account-setup";
 import { EmailDetails } from "~/app/_components/email-details";
 import { Button } from "~/app/_components/ui/button";
 import { QualificationReview } from "~/app/_components/qualification-review";
@@ -67,6 +68,7 @@ function StatusBadge({ status }: { status: Status }) {
 type Application = InvalidityRecord & {
   type: "INITIAL" | "ADDITIONAL_SUBJECT" | "HIGHER_LEVEL";
   requestedTutorId: string | null;
+  setupTutorId: string | null;
   qualificationReason: string | null;
   qualificationSnapshot: unknown;
   id: string;
@@ -76,6 +78,8 @@ type Application = InvalidityRecord & {
   status: Status;
   updatedAt: Date;
   interviewAt: Date | null;
+  interviewCompletedAt: Date | null;
+  interviewDurationMin: number | null;
   subjectIntents: {
     subjectId: string;
     taken: boolean;
@@ -88,6 +92,7 @@ type Application = InvalidityRecord & {
   }[];
   interviewers: {
     isHead: boolean;
+    attended: boolean;
     tutor: { id: string; englishName: string };
   }[];
   votes: {
@@ -105,13 +110,19 @@ function ApplicationCard({
   app,
   tutors,
   onChanged,
+  onInterviewApprovalActive,
 }: {
   app: Application;
   tutors: PanelTutor[];
   onChanged: (reportErrors?: boolean) => Promise<unknown> | void;
+  onInterviewApprovalActive: (id: string, active: boolean) => void;
 }) {
   const programFormat = useFormatter();
   const t = useTranslations();
+  const retainInterviewApproval = useCallback(
+    (active: boolean) => onInterviewApprovalActive(app.id, active),
+    [app.id, onInterviewApprovalActive],
+  );
   // Only current labels use a fallback. Intake/search/mutation records stay unchanged.
   const displayName = participantNameLabel(
     app.name,
@@ -222,17 +233,18 @@ function ApplicationCard({
             </span>
           </span>
         </button>
-        {/* Put navigation before boxed decisions in DOM/keyboard order, with Delete
+        {/* Put account setup before boxed decisions in DOM/keyboard order, with Delete
          * last. Wrapping preserves that order and each owner's existing guards. */}
         <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto">
-          {!additional && !app.isInvalid && app.status === "ACCEPTED" && (
-            <Link
-              href="/admin/users"
-              className="link inline-flex min-h-11 max-w-full items-center text-sm break-words lg:min-h-8"
-            >
-              {t("admin.applications.setupAccount")}
-            </Link>
-          )}
+          {!readOnly &&
+            !additional &&
+            !app.isInvalid &&
+            app.status === "ACCEPTED" && (
+              <ApplicationAccountSetupButton
+                applicationId={app.id}
+                name={displayName}
+              />
+            )}
           {!readOnly && !additional && (
             <ApplicationInvalidityControls
               record={app}
@@ -316,6 +328,7 @@ function ApplicationCard({
               app={app}
               displayName={displayName}
               onChanged={onChanged}
+              onInterviewApprovalActive={retainInterviewApproval}
             />
           )}
           <ul className="mt-3 flex flex-wrap gap-2">
@@ -459,6 +472,18 @@ function ApplicationCard({
 
 export default function ApplicationsPage() {
   const t = useTranslations();
+  const [activeInterviewApprovals, setActiveInterviewApprovals] = useState<
+    Set<string>
+  >(() => new Set());
+  const retainInterviewApproval = useCallback((id: string, active: boolean) => {
+    setActiveInterviewApprovals((current) => {
+      if (current.has(id) === active) return current;
+      const next = new Set(current);
+      if (active) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
   const [noticeTargetMissing, setNoticeTargetMissing] = useState(false);
   const arrivalSequence = useRef(0);
   const [arrival, setArrival] = useState<
@@ -592,6 +617,13 @@ export default function ApplicationsPage() {
       matchesApplicationFilters(app, filters) &&
       (invalidity === "all" || !!app.isInvalid === (invalidity === "invalid")),
   );
+  // Acceptance can move a row outside the current status filter before its
+  // dialog finishes synchronization. Keep that feature owner mounted until
+  // deliberate Close; authoritative access denial still conceals the whole page.
+  const matchingIds = new Set(filtered.map((app) => app.id));
+  const visible = list.filter(
+    (app) => matchingIds.has(app.id) || activeInterviewApprovals.has(app.id),
+  );
   // Build choices from the full queue so applying one filter never erases another.
   const subjects = Array.from(
     new Map(
@@ -652,18 +684,19 @@ export default function ApplicationsPage() {
           {apps.isLoading && <p role="status">{t("workflows.loading")}</p>}
           {apps.error && <p role="alert">{apps.error.message}</p>}
           {tutors.error && <p role="alert">{tutors.error.message}</p>}
-          {filtered.map((app) => (
+          {visible.map((app) => (
             <ApplicationCard
               key={app.id}
               app={app}
               tutors={tutors.data ?? []}
               onChanged={invalidate}
+              onInterviewApprovalActive={retainInterviewApproval}
             />
           ))}
           {!apps.isLoading &&
             !apps.error &&
             list.length > 0 &&
-            filtered.length === 0 && (
+            visible.length === 0 && (
               <p className="muted card p-6 text-center">
                 {t("admin.applications.filters.noMatches")}
               </p>

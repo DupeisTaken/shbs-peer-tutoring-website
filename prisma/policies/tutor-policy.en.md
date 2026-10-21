@@ -71,7 +71,7 @@ For example, 35 minutes with two present tutees earns 1 × (1 + 2) = 3 hours. A 
 
 ### 3. Interviews and other credits
 
-Completed interviews credit actual recorded minutes divided by 60 to recorded attendees. Scheduling alone earns nothing. Management records completion, duration and attendees; corrections replace earlier automatic credits. Authorized extra hours and deductions appear separately in period totals.
+Completed interviews credit actual recorded minutes divided by 60 to recorded attendees. Scheduling alone earns nothing. When approving an interview, the assigned ADMIN or HEAD chair records actual completion, duration and attendees; acceptance and these credits apply together. Separate completion remains available for rejected interviews and older records. Corrections replace earlier automatic credits. Authorized extra hours and deductions appear separately in period totals.
 
 Tutor status does not grant crew membership. An active crew member's eligible patrol with at least one room observation earns 0.5 crew hours separately from tutoring, at most once every 20 minutes measured by the server across combined accounts. All observations must be from the preceding 20 minutes, with a one-minute future allowance for device clock differences. Older observations, repeated evidence and patrols submitted during the cooldown are saved with zero additional hours. Each 20-minute observation interval can support credit only once across all rooms, even if room order, counts or notes change. Record actual observation times and headcounts; identical retries return the original result. Corrections preserve hours and reservations for both original and corrected evidence. Crew opt-out requires a seven-day wait and approval; reentry requires approval without that wait.
 
@@ -121,11 +121,11 @@ Review and, where enabled, interview precede admission. After acceptance, use th
 
 ### 2. Interview procedure
 
-When interviews are enabled, the panel has at least **three distinct active tutors with accounts**, including at least one management member and staff-confirmed qualification coverage for an applicant subject. The highest-ranking management panelist chairs: HEAD, then ADMIN, then COORDINATOR; select one chair if ranks tie. Only the current chair schedules the interview.
+When interviews are enabled, the panel has at least **three distinct active tutors with accounts** and staff-confirmed qualification coverage for an applicant subject. Select an ADMIN or HEAD panelist as chair, regardless of other panelists' rank. COORDINATOR panelists may participate and vote but cannot chair. Only the selected eligible chair schedules the interview. If a legacy panel has no chair or its chair is no longer ADMIN or HEAD, management must arrange a valid chair assignment before scheduling, new decisions or first recorded completion. Hour corrections for an already completed interview preserve its recorded chair, including a legacy COORDINATOR chair, without checking today's management rank. Other panel and qualification requirements and correction approvals still apply; correcting hours does not reopen admission.
 
 Retain the teaching demonstration format: the team supplies a topic at least 24 hours beforehand and normally allows 15–20 minutes for the demonstration. These are organizational expectations, not automatic website timers. Confirm arrangements with the chair.
 
-Every panelist must vote before a final decision. A simple majority decides; the chair resolves a tie. A coordinator chair submits the chosen outcome for ADMIN or HEAD approval. A pending proposal is not admission. Changed panel or review evidence requires a fresh proposal.
+Every panelist must vote before a final decision. A simple majority decides; the chair resolves a tie. When approving, the ADMIN or HEAD chair records actual completion, duration and attendance. Acceptance, service credits and initial-applicant registration setup apply together, and active ADMIN and HEAD accounts are notified. An existing linked account does not need a new registration code; additional-qualification requests do not create one. An ADMIN chair’s rejection still requires HEAD approval. A pending proposal is not admission. Changed panel or review evidence requires fresh review.
 
 ### 3. Qualifications and continued participation
 

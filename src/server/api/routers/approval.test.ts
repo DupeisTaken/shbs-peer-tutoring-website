@@ -1064,13 +1064,17 @@ it("applies a nested transaction and its helper audit records as one decision", 
   expect(databaseScope.getStore()).toBeUndefined();
 });
 
-it("requires Head approval for a coordinator chair's final interview decision", async () => {
+it("requires Head approval for an Admin chair's final interview decision", async () => {
   const tutor = await db.tutor.create({
-    data: { englishName: "Trainee Chair" },
+    data: { englishName: "Admin Chair" },
   });
-  await db.user.update({
-    where: { id: "approval-coordinator" },
-    data: { tutorId: tutor.id },
+  await db.user.create({
+    data: {
+      id: "approval-interview-chair",
+      email: "interview-chair@example.test",
+      role: "ADMIN",
+      tutorId: tutor.id,
+    },
   });
   const application = await db.tutorApplication.create({
     data: {
@@ -1123,7 +1127,7 @@ it("requires Head approval for a coordinator chair's final interview decision", 
     data: { applicationId: application.id, tutorId: tutor.id, accept: false },
   });
   const request = await queued(() =>
-    trainee().tutor.decideInterview({
+    actor("approval-interview-chair", "ADMIN").tutor.decideInterview({
       applicationId: application.id,
       accept: false,
       comment: "More preparation needed",

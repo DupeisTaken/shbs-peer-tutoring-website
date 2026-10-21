@@ -17,6 +17,7 @@ export const notificationEvents = [
   "tutor_setup_needed",
   "interview_panel_assigned",
   "interview_scheduled",
+  "interview_approved",
   "management_review_pending",
   "management_head_review_pending",
   "management_approved",

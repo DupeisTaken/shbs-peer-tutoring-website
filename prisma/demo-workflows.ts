@@ -21,7 +21,8 @@ export async function seedModernWorkflows(
     signature: string,
     policy: typeof studentPolicy,
   ) => {
-    if (policy.slug === "tutee-policy") await db.user.update({ where: { id: userId }, data: { tuteeMember: true } });
+    if (policy.slug === "tutee-policy") await db.user.update({ where: { id: userId }, data: { tuteeMember: true },
+      });
     await db.policyAcceptance.upsert({
       where: {
         userId_slug_revision: {
@@ -65,6 +66,32 @@ export async function seedModernWorkflows(
       },
     });
   }
+  // Keep the coordinator fixture intact; panel chair eligibility is Admin/Head,
+  // independent of other panelists' rank.
+  const chairTutor = await db.tutor.upsert({
+    where: { id: seedId("tutor-chair") },
+    update: { status: "ACTIVE" },
+    create: {
+      id: seedId("tutor-chair"),
+      englishName: "Alex Interview Chair",
+      email: "chair@example.test",
+      username: "chair",
+    },
+  });
+  await db.user.upsert({
+    where: { email: "chair@example.test" },
+    update: { role: "ADMIN", tutorId: chairTutor.id, passwordHash },
+    create: {
+      id: seedId("user-chair"),
+      email: "chair@example.test",
+      username: "chair",
+      name: "Alex Interview Chair",
+      role: "ADMIN",
+      tutorId: chairTutor.id,
+      passwordHash,
+      emailVerifiedAt: ago(20),
+    },
+  });
   for (const user of await db.user.findMany({
     where: { tutorId: { not: null } },
   })) {
@@ -357,13 +384,13 @@ export async function seedModernWorkflows(
   });
 
   // Existing two-person, tutor-chaired examples predate current panel rules. Rebuild each
-  // panel with a coordinator chair, explicit qualifications, and complete voting evidence.
+  // panel with an Admin chair, explicit qualifications, and complete voting evidence.
   for (const key of ["fiona", "george", "hana"] as const) {
     const applicationId = seedId(`app-${key}`);
     const members =
       key === "hana"
-        ? ["carol", "iris", "jason", "alice"]
-        : ["carol", "alice", "bob"];
+        ? ["chair", "iris", "jason", "alice"]
+        : ["chair", "alice", "bob"];
     await db.interviewAssignment.deleteMany({ where: { applicationId } });
     await db.interviewVote.deleteMany({ where: { applicationId } });
     const intents = await db.applicationSubjectIntent.findMany({
@@ -421,7 +448,7 @@ export async function seedModernWorkflows(
         interviewQuarter: "Q1",
         ...(key === "fiona"
           ? {}
-          : { decidedByTutorId: seedId("tutor-carol"), decidedAt: ago(3) }),
+          : { decidedByTutorId: seedId("tutor-chair"), decidedAt: ago(3) }),
       },
     });
   }

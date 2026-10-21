@@ -3,7 +3,7 @@ import { participantNameLabel } from "./participant-name";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations, useFormatter } from "next-intl";
-import { InlineNotice } from "./ui/patterns";
+import { FilterToolbar, InlineNotice } from "./ui/patterns";
 import { Button } from "./ui/button";
 import {
   InterviewCompletionReview,
@@ -208,43 +208,75 @@ export function InterviewManagement({
         <h2 id="interview-heading" tabIndex={-1} className="section-title">
           {t("interviewRecords")}
         </h2>
-        <div className="card grid items-end gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="card p-4">
           <form
-            className="flex w-full min-w-0 flex-wrap items-end gap-2"
             onSubmit={(event) => {
               event.preventDefault();
               setPage(0);
               setSearch(searchDraft.trim());
             }}
           >
-            <label className="min-w-0 flex-1">
-              <span className="label">{t("interviewSearch")}</span>
-              <input
-                className="input w-full"
-                maxLength={100}
-                value={searchDraft}
-                onChange={(event) => setSearchDraft(event.target.value)}
-              />
-            </label>
-            <button className="btn-secondary" type="submit">
-              {t("searchInterviews")}
-            </button>
-          </form>
-          <label>
-            <span className="label">{t("interviewFilter")}</span>
-            <select
-              className="select w-full"
-              value={completion}
-              onChange={(event) => {
-                setPage(0);
-                setCompletion(event.target.value as typeof completion);
-              }}
+            <FilterToolbar
+              label={t("interviewFilters")}
+              summary={
+                <p role="status">
+                  {t("interviewCount", {
+                    first,
+                    last,
+                    total: applications.total,
+                  })}
+                </p>
+              }
+              actions={
+                <Button
+                  variant="ghost"
+                  size="compact"
+                  disabled={!search && !searchDraft && completion === "OPEN"}
+                  onClick={() => {
+                    // Reset only the read controls. Expanded records and pending
+                    // completion drafts retain their independent lifetimes.
+                    setPage(0);
+                    setSearch("");
+                    setSearchDraft("");
+                    setCompletion("OPEN");
+                  }}
+                >
+                  {allT("admin.applications.filters.reset")}
+                </Button>
+              }
             >
-              <option value="OPEN">{t("interviewOpen")}</option>
-              <option value="COMPLETED">{t("interviewCompleted")}</option>
-              <option value="ALL">{t("interviewAll")}</option>
-            </select>
-          </label>
+              <label className="min-w-0 flex-[2_1_20rem]">
+                <span className="label">{t("interviewSearch")}</span>
+                {/* Native controls explicitly retain the toolbar's 32 px desktop
+                    baseline; their default 44 px touch target stays intact. */}
+                <input
+                  type="search"
+                  className="input control-compact mt-1 min-h-11 w-full lg:min-h-8 lg:py-1"
+                  maxLength={100}
+                  value={searchDraft}
+                  onChange={(event) => setSearchDraft(event.target.value)}
+                />
+              </label>
+              <label className="min-w-0 flex-[1_1_12rem]">
+                <span className="label">{t("interviewFilter")}</span>
+                <select
+                  className="input control-compact mt-1 min-h-11 w-full lg:min-h-8 lg:py-1"
+                  value={completion}
+                  onChange={(event) => {
+                    setPage(0);
+                    setCompletion(event.target.value as typeof completion);
+                  }}
+                >
+                  <option value="OPEN">{t("interviewOpen")}</option>
+                  <option value="COMPLETED">{t("interviewCompleted")}</option>
+                  <option value="ALL">{t("interviewAll")}</option>
+                </select>
+              </label>
+              <Button size="compact" type="submit">
+                {t("searchInterviews")}
+              </Button>
+            </FilterToolbar>
+          </form>
         </div>
         {applications.rows.map((a) => {
           // Application identity keeps unrelated people with matching names separate.
@@ -362,25 +394,20 @@ export function InterviewManagement({
           <p className="muted card p-6 text-center">{t("interviewEmpty")}</p>
         )}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <button
-            type="button"
-            className="btn-secondary btn-sm"
+          <Button
+            size="compact"
             disabled={page === 0}
             onClick={() => setPage((p) => Math.max(0, p - 1))}
           >
             {t("previous")}
-          </button>
-          <span className="muted text-sm">
-            {t("interviewCount", { first, last, total: applications.total })}
-          </span>
-          <button
-            type="button"
-            className="btn-secondary btn-sm"
+          </Button>
+          <Button
+            size="compact"
             disabled={last >= applications.total}
             onClick={() => setPage((p) => p + 1)}
           >
             {t("next")}
-          </button>
+          </Button>
         </div>
       </section>
       {Object.entries(drafts)

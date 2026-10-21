@@ -11,12 +11,18 @@ import { Button } from "./ui/button";
 import { Modal } from "./ui/modal";
 import { InlineNotice } from "./ui/patterns";
 import { ParticipantName } from "./participant-name";
+import {
+  InterviewApprovalDialog,
+  type InterviewApprovalDraft,
+  type InterviewApprovalEvidence,
+} from "./interview-approval-dialog";
 
 /** The application card owns panel setup; this component owns additional-request decisions only. */
 export function QualificationReview({
   app,
   onChanged,
   displayName,
+  onInterviewApprovalActive,
 }: {
   app: {
     id: string;
@@ -29,11 +35,20 @@ export function QualificationReview({
     qualificationSnapshot?: unknown;
     decisionComment: string | null;
     requestedTutorId?: string | null;
-    interviewers?: { isHead: boolean; tutor: { id: string } }[];
+    interviewers?: {
+      isHead: boolean;
+      attended?: boolean;
+      tutor: { id: string; englishName?: string };
+    }[];
+    votes?: { accept: boolean }[];
+    interviewCompletedAt?: Date | null;
+    interviewDurationMin?: number | null;
   };
   onChanged: (reportErrors?: boolean) => Promise<unknown> | void;
   /** An authorized caller can supply its projected current handle without altering application evidence. */
   displayName?: string;
+  /** The list retains this record while its dialog owns a write or read recovery. */
+  onInterviewApprovalActive?: (active: boolean) => void;
 }) {
   const t = useTranslations("qualificationRequests");
   const ui = useTranslations("uiPatterns");
@@ -41,6 +56,12 @@ export function QualificationReview({
   const me = api.account.me.useQuery().data;
   const utils = api.useUtils();
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [interviewApproval, setInterviewApproval] =
+    useState<InterviewApprovalEvidence | null>(null);
+  const [interviewDraft, setInterviewDraft] =
+    useState<InterviewApprovalDraft>();
+  const interviewWrite = useRef(false);
+  const interviewOpen = useRef(false);
   // The note and expected version belong to one review, including cancel/reopen
   // and failed writes. Background refetches must never rebase that draft.
   const [draft, setDraft] = useState<{
@@ -52,32 +73,35 @@ export function QualificationReview({
   const [refreshing, setRefreshing] = useState(false);
   const [reloading, setReloading] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const refreshReads = async () => {
+    // A committed decision cannot be submitted again when a subsequent read
+    // fails. Retry only synchronization, including the independent detail cache.
+    const requestedTutorId = app.requestedTutorId;
+    await settleRefreshes([
+      async () => {
+        await onChanged(true);
+      },
+      () => invalidateAndReport(utils.qualificationApplication.mine),
+      () => invalidateAndReport(utils.subjectAvailability.options),
+      () => invalidateAndReport(utils.admin.tutors),
+      () =>
+        requestedTutorId
+          ? invalidateAndReport({
+              invalidate: (_input, filters, options) =>
+                utils.tutorDetails.get.invalidate(
+                  { tutorId: requestedTutorId },
+                  filters,
+                  options,
+                ),
+            })
+          : Promise.resolve(),
+    ]);
+  };
   const refreshDecision = async () => {
     setRefreshing(true);
     setRecoveryError(null);
     try {
-      // A committed decision cannot be submitted again when a subsequent read
-      // fails. Retry only synchronization, including the independent detail cache.
-      const requestedTutorId = app.requestedTutorId;
-      await settleRefreshes([
-        async () => {
-          await onChanged(true);
-        },
-        () => invalidateAndReport(utils.qualificationApplication.mine),
-        () => invalidateAndReport(utils.subjectAvailability.options),
-        () => invalidateAndReport(utils.admin.tutors),
-        () =>
-          requestedTutorId
-            ? invalidateAndReport({
-                invalidate: (_input, filters, options) =>
-                  utils.tutorDetails.get.invalidate(
-                    { tutorId: requestedTutorId },
-                    filters,
-                    options,
-                  ),
-              })
-            : Promise.resolve(),
-      ]);
+      await refreshReads();
       setReviewOpen(false);
       setDraft(null);
     } catch (error) {
@@ -90,10 +114,12 @@ export function QualificationReview({
   };
   const mutation = api.qualificationApplication.decide.useMutation({
     onSuccess: async () => {
+      if (interviewWrite.current) return;
       setDecided(true);
       await refreshDecision();
     },
     onError: () => {
+      if (interviewWrite.current) return;
       void Promise.resolve()
         .then(() => onChanged())
         .catch(() => undefined);
@@ -103,6 +129,27 @@ export function QualificationReview({
     },
   });
   const hasPanel = app.status === "INTERVIEW" || !!app.interviewers?.length;
+  const canApproveInterview =
+    app.status === "INTERVIEW" &&
+    !!app.interviewers?.length &&
+    app.votes?.length === app.interviewers.length &&
+    app.votes.filter((vote) => vote.accept).length * 2 >=
+      app.interviewers.length;
+  const interviewEvidence = (
+    record: typeof app,
+  ): InterviewApprovalEvidence => ({
+    id: record.id,
+    name: displayName ?? record.name,
+    type: record.type,
+    updatedAt: record.updatedAt,
+    panel: (record.interviewers ?? []).map((person) => ({
+      tutorId: person.tutor.id,
+      name: person.tutor.englishName ?? person.tutor.id,
+      attended: !!person.attended,
+    })),
+    interviewCompletedAt: record.interviewCompletedAt ?? null,
+    interviewDurationMin: record.interviewDurationMin ?? null,
+  });
   const canReview =
     !readOnly &&
     app.type !== "INITIAL" &&
@@ -116,7 +163,7 @@ export function QualificationReview({
         )));
   const open = app.status === "PENDING" || app.status === "INTERVIEW";
   const busy = mutation.isPending || refreshing || reloading;
-  const locked = busy || decided;
+  const locked = busy || decided || !!interviewApproval;
   const closeReview = () => {
     if (!busy && !submitted.current) setReviewOpen(false);
   };
@@ -129,10 +176,21 @@ export function QualificationReview({
       !open ||
       (!accept && !hasPanel) ||
       locked ||
+      interviewOpen.current ||
       submitted.current ||
       !draft?.comment.trim()
     )
       return;
+    if (accept && hasPanel) {
+      if (!canApproveInterview) return;
+      interviewOpen.current = true;
+      setInterviewApproval({
+        ...interviewEvidence(app),
+        updatedAt: draft.expectedUpdatedAt,
+      });
+      onInterviewApprovalActive?.(true);
+      return;
+    }
     submitted.current = true;
     mutation.mutate({ id: app.id, accept, ...draft });
   };
@@ -213,7 +271,11 @@ export function QualificationReview({
         <Button
           key={String(accept)}
           variant={accept ? "primary" : "secondary"}
-          disabled={!comment.trim() || locked}
+          disabled={
+            !comment.trim() ||
+            locked ||
+            (accept && hasPanel && !canApproveInterview)
+          }
           onClick={() => submit(accept)}
         >
           {t(accept ? "approve" : "reject")}
@@ -224,6 +286,61 @@ export function QualificationReview({
   const grants = qualificationSnapshot(app.qualificationSnapshot);
   return (
     <div className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      {interviewApproval && (
+        <InterviewApprovalDialog
+          evidence={interviewEvidence(app)}
+          initialComment={comment}
+          initialEvidence={interviewApproval}
+          initialDraft={interviewDraft}
+          authorized={canReview}
+          canApprove={canApproveInterview}
+          canRetrySubmitted={app.status === "ACCEPTED"}
+          commit={async (input) => {
+            if (submitted.current) throw new Error(t("reloadHelp"));
+            submitted.current = true;
+            interviewWrite.current = true;
+            try {
+              const result = await mutation.mutateAsync({
+                id: app.id,
+                accept: true,
+                ...input,
+              });
+              setDecided(true);
+              return result;
+            } finally {
+              interviewWrite.current = false;
+              submitted.current = false;
+            }
+          }}
+          refresh={() =>
+            settleRefreshes([
+              refreshReads,
+              () => invalidateAndReport(utils.notification.list),
+              () => invalidateAndReport(utils.notification.unreadCount),
+            ])
+          }
+          reload={async () => {
+            const rows = await utils.admin.tutorApplications.fetch(undefined, {
+              staleTime: 0,
+            });
+            const current = rows.find((row) => row.id === app.id);
+            if (
+              current?.status !== "INTERVIEW" ||
+              !current.interviewers.some(
+                (person) => person.isHead && person.tutor.id === me?.tutorId,
+              )
+            )
+              throw new Error(ui("loadFailed"));
+            return interviewEvidence(current);
+          }}
+          onClose={(next) => {
+            interviewOpen.current = false;
+            setInterviewDraft(next);
+            setInterviewApproval(null);
+            onInterviewApprovalActive?.(false);
+          }}
+        />
+      )}
       <p className="text-sm break-words whitespace-pre-wrap">
         {app.qualificationReason}
       </p>

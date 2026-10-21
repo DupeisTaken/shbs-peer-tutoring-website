@@ -6,8 +6,10 @@ const state = vi.hoisted(() => ({
   status: "ACCEPTED",
   type: "INITIAL",
   isHead: false,
+  canChair: true,
   invalid: false,
   schedule: vi.fn(),
+  vote: vi.fn(),
 }));
 
 vi.mock("next-intl", () => ({
@@ -31,7 +33,7 @@ vi.mock("~/trpc/react", () => ({
       setInterviewTime: { useMutation: () => ({ mutate: state.schedule }) },
       castInterviewVote: {
         useMutation: () => ({
-          mutate: vi.fn(),
+          mutate: state.vote,
           reset: vi.fn(),
           isPending: false,
         }),
@@ -44,6 +46,7 @@ vi.mock("~/trpc/react", () => ({
               name: "Closed Applicant",
               email: "closed@example.test",
               isHead: state.isHead,
+              canChair: state.isHead && state.canChair,
               isInvalid: state.invalid,
               type: state.type,
               qualificationReason:
@@ -93,9 +96,11 @@ afterEach(() => {
   cleanup();
   state.status = "ACCEPTED";
   state.isHead = false;
+  state.canChair = true;
   state.type = "INITIAL";
   state.invalid = false;
   state.schedule.mockClear();
+  state.vote.mockClear();
 });
 
 it.each(["ACCEPTED", "REJECTED"] as const)(
@@ -204,4 +209,44 @@ it("pauses a flagged initial interview without exposing staff reason or dropping
     ),
   ).toBeNull();
   expect(screen.getByText(/Strong demo/)).toBeTruthy();
+});
+
+it.each(["INITIAL", "ADDITIONAL_SUBJECT", "HIGHER_LEVEL"])(
+  "retains a legacy %s chair's panel and vote while hiding ineligible chair actions",
+  (type) => {
+    state.status = "INTERVIEW";
+    state.type = type;
+    state.isHead = true;
+    state.canChair = false;
+    show();
+
+    expect(screen.getByText("interviewReview.chairNeedsUpdate")).toBeTruthy();
+    expect(screen.queryByLabelText("tutor.interviews.setTime")).toBeNull();
+    expect(
+      screen.queryByLabelText("tutor.interviews.decisionCommentPlaceholder"),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: "qualificationRequests.reviewLink" }),
+    ).toBeNull();
+    const vote = screen.getByRole<HTMLButtonElement>("button", {
+      name: /tutor\.interviews\.accept/,
+    });
+    expect(vote.disabled).toBe(false);
+    fireEvent.click(vote);
+    expect(state.vote).toHaveBeenCalledWith({
+      applicationId: "application-1",
+      accept: true,
+      comment: "Strong demo",
+    });
+    expect(state.schedule).not.toHaveBeenCalled();
+  },
+);
+
+it("retains a final decision when its recorded chair no longer has chair authority", () => {
+  state.isHead = true;
+  state.canChair = false;
+  show();
+  expect(screen.getByText("tutor.interviews.statusAccepted")).toBeTruthy();
+  expect(screen.getByText(/Accepted after panel review/)).toBeTruthy();
+  expect(screen.queryByText("interviewReview.chairNeedsUpdate")).toBeNull();
 });

@@ -143,6 +143,7 @@ import {
   issueTutorSetupLink,
 } from "~/server/auth/password-reset";
 import { issueRegistrationCode } from "~/server/auth/registration";
+import { applicationAccountSetup } from "~/server/application-account-setup";
 import { decideCrewApplication } from "~/server/crew/signup";
 import { reconcileApplication } from "~/server/tutors/application-status";
 import {
@@ -419,6 +420,7 @@ export const adminRouter = createTRPCRouter({
           user: {
             select: {
               id: true,
+              role: true,
               tutorAccessRevoked: true,
               suspendedAt: true,
               name: true,
@@ -3626,6 +3628,11 @@ export const adminRouter = createTRPCRouter({
       setSignupInvalidity(ctx.db, input, ctx.session.user),
     ),
 
+  /** Application-specific credentials are loaded only by an authorized open action. */
+  applicationAccountSetup: adminProcedure
+    .input(z.object({ applicationId: cuid }))
+    .query(({ ctx, input }) => applicationAccountSetup(ctx.db, input.applicationId)),
+
   tutorApplications: viewerProcedure.query(async ({ ctx }) => {
     const isViewer = ctx.portalAccess.maskManagementData;
     const apps = await ctx.db.tutorApplication.findMany({
@@ -3651,12 +3658,51 @@ export const adminRouter = createTRPCRouter({
         decidedByTutor: { select: { englishName: true } },
       },
     });
-    if (!isViewer)
-      return apps.map((app) => ({ ...app, ...requestInvalidity(app) }));
+    if (!isViewer) {
+      // Legacy accepted applications predate promotedTutorId. Only their own
+      // code provenance may recover the roster link; names/emails are not identity.
+      const legacyIds = apps
+        .filter(
+          (app) =>
+            app.type === "INITIAL" &&
+            app.status === "ACCEPTED" &&
+            !app.promotedTutorId,
+        )
+        .map((app) => app.id);
+      const codes = legacyIds.length
+        ? await ctx.db.registrationCode.findMany({
+            where: {
+              applicationId: { in: legacyIds },
+              kind: "TUTOR",
+              tutorId: { not: null },
+            },
+            select: { applicationId: true, tutorId: true },
+          })
+        : [];
+      const legacyTutors = new Map<string, Set<string>>();
+      for (const code of codes) {
+        if (!code.applicationId || !code.tutorId) continue;
+        const targets = legacyTutors.get(code.applicationId) ?? new Set<string>();
+        targets.add(code.tutorId);
+        legacyTutors.set(code.applicationId, targets);
+      }
+      return apps.map((app) => {
+        const targets = legacyTutors.get(app.id);
+        // Reissued codes may share one tutor; conflicting bindings must not guess.
+        const legacyTutorId =
+          targets?.size === 1 ? [...targets][0] ?? null : null;
+        return {
+          ...app,
+          ...requestInvalidity(app),
+          setupTutorId: app.promotedTutorId ?? legacyTutorId,
+        };
+      });
+    }
     // Withhold panelist deliberation free-text (vote comments) from VIEWER.
     return apps.map((a) => ({
       ...a,
       ...requestInvalidity(a, false),
+      setupTutorId: null,
       votes: a.votes.map((v) => ({ ...v, comment: null })),
     }));
   }),

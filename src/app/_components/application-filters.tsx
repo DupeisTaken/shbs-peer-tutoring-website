@@ -5,6 +5,13 @@ import {
   emptyApplicationFilters,
   type ApplicationFilters as Filters,
 } from "~/lib/application-filters";
+import { Button } from "./ui/button";
+import { FilterToolbar } from "./ui/patterns";
+
+// Native input padding follows the shared control declarations; retain the
+// compact desktop baseline explicitly while leaving touch targets at 44 px.
+const filterControl =
+  "input control-compact mt-1 w-full min-h-11 lg:min-h-8 lg:py-1";
 
 export function ApplicationFilters({
   value,
@@ -25,21 +32,34 @@ export function ApplicationFilters({
     onChange({ ...value, [field]: next });
   const active = Object.values(value).some(Boolean);
   return (
-    <section className="card space-y-3 p-4" aria-label={t("filters.heading")}>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <label className="min-w-0">
+    <div className="card p-4">
+      <FilterToolbar
+        label={t("filters.heading")}
+        summary={<p role="status">{t("filters.count", { count, total })}</p>}
+        actions={
+          <Button
+            variant="ghost"
+            size="compact"
+            disabled={!active}
+            onClick={() => onChange(emptyApplicationFilters)}
+          >
+            {t("filters.reset")}
+          </Button>
+        }
+      >
+        <label className="min-w-0 flex-[2_1_16rem]">
           <span className="label">{t("filters.search")}</span>
           <input
             type="search"
-            className="input min-h-11 w-full lg:min-h-10"
+            className={filterControl}
             value={value.search}
             onChange={(event) => update("search", event.target.value)}
           />
         </label>
-        <label className="min-w-0">
+        <label className="min-w-0 flex-[1_1_10rem]">
           <span className="label">{t("filters.status")}</span>
           <select
-            className="select min-h-11 w-full lg:min-h-10"
+            className={filterControl}
             value={value.status}
             onChange={(event) => update("status", event.target.value)}
           >
@@ -59,10 +79,10 @@ export function ApplicationFilters({
             ))}
           </select>
         </label>
-        <label className="min-w-0">
+        <label className="min-w-0 flex-[1_1_12rem]">
           <span className="label">{t("filters.type")}</span>
           <select
-            className="select min-h-11 w-full lg:min-h-10"
+            className={filterControl}
             value={value.type}
             onChange={(event) => update("type", event.target.value)}
           >
@@ -76,10 +96,10 @@ export function ApplicationFilters({
             )}
           </select>
         </label>
-        <label className="min-w-0">
+        <label className="min-w-0 flex-[1_1_12rem]">
           <span className="label">{t("filters.subject")}</span>
           <select
-            className="select min-h-11 w-full lg:min-h-10"
+            className={filterControl}
             value={value.subjectId}
             onChange={(event) => update("subjectId", event.target.value)}
           >
@@ -91,20 +111,7 @@ export function ApplicationFilters({
             ))}
           </select>
         </label>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="muted text-sm" role="status">
-          {t("filters.count", { count, total })}
-        </p>
-        <button
-          type="button"
-          className="btn-secondary btn-sm"
-          disabled={!active}
-          onClick={() => onChange(emptyApplicationFilters)}
-        >
-          {t("filters.reset")}
-        </button>
-      </div>
-    </section>
+      </FilterToolbar>
+    </div>
   );
 }

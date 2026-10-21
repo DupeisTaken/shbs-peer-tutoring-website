@@ -9,16 +9,14 @@ import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, adminProcedure } from "~/server/api/trpc";
 import { inTransaction } from "~/server/transactions";
 import { validatePanel } from "~/server/interviews";
-import { getActivePeriod } from "~/server/period";
-import { monthKey } from "~/lib/service-hours";
+import { tutorDirectoryHref } from "~/lib/tutor-directory-link";
 import { assertFeatureEnabled } from "~/server/program/features";
 import { staleConflict } from "~/server/concurrency";
 import {
-  INTERVIEW_HOURS_REASON,
   interviewCompletionInput,
   interviewHourRows,
-  interviewHoursId,
   sameInterviewCompletionEvidence,
+  writeInterviewCompletion,
 } from "~/server/interview-hours";
 
 export const interviewManagementRouter = createTRPCRouter({
@@ -209,11 +207,17 @@ export const interviewManagementRouter = createTRPCRouter({
               const ownCodes = codes.filter(
                 (code) => code.applicationId === application.id,
               );
-              const tutor =
-                linkedTutors.find((row) => row.id === promotedTutorId) ??
-                linkedTutors.find((row) =>
-                  ownCodes.some((code) => code.tutorId === row.id),
-                );
+              // A stale explicit link must not silently select another person.
+              // Legacy codes recover identity only when all bindings agree.
+              const codeTutorIds = new Set(
+                ownCodes.flatMap((code) =>
+                  code.tutorId ? [code.tutorId] : [],
+                ),
+              );
+              const setupTutorId =
+                promotedTutorId ??
+                (codeTutorIds.size === 1 ? [...codeTutorIds][0] : null);
+              const tutor = linkedTutors.find((row) => row.id === setupTutorId);
               const activeCode = ownCodes.find(
                 (code) => !code.usedAt && code.expiresAt > new Date(),
               );
@@ -239,7 +243,7 @@ export const interviewManagementRouter = createTRPCRouter({
                       : registered
                         ? {
                             state: "setupAvailable" as const,
-                            href: "/admin/users",
+                            href: tutorDirectoryHref(tutor.id),
                           }
                         : code
                           ? {
@@ -250,18 +254,20 @@ export const interviewManagementRouter = createTRPCRouter({
                                   : ("codeExpired" as const),
                               href:
                                 (code.usedAt || !activeCode) && tutor
-                                  ? "/admin/users"
+                                  ? tutorDirectoryHref(tutor.id)
                                   : `/admin/registration-codes#registration-code-${code.id}`,
                             }
                           : {
                               state: "followUp" as const,
-                              href: tutor ? "/admin/users" : null,
+                              href: tutor ? tutorDirectoryHref(tutor.id) : null,
                             };
               return {
                 ...application,
                 isInvalid: !!invalidatedAt,
                 registration,
-                pendingDecision: pending("tutor.decideInterview"),
+                // An old proposal remains review history after a direct decision;
+                // it cannot make the committed outcome look pending again.
+                pendingDecision: ["PENDING", "INTERVIEW"].includes(application.status) && pending("tutor.decideInterview"),
                 pendingCompletion: pending("interviewManagement.complete"),
               };
             },
@@ -330,11 +336,19 @@ export const interviewManagementRouter = createTRPCRouter({
               "A recalled request cannot receive interview completion or credit.",
           });
         const chair = before.interviewers.find((p) => p.isHead);
+        // Correcting recorded service must not require replacing its historical
+        // panel (which would also erase votes and reverse accepted admission).
+        // Only this completed-evidence path relaxes today's chair-role rule.
         await validatePanel(
           tx,
           input.applicationId,
           before.interviewers.map((p) => p.tutorId),
           chair?.tutorId ?? "",
+          {
+            chairEligibility: before.interviewCompletedAt
+              ? "recorded"
+              : "current",
+          },
         );
         if (
           new Set(input.attendedTutorIds).size !==
@@ -361,49 +375,8 @@ export const interviewManagementRouter = createTRPCRouter({
           input.expectedUpdatedAt.getTime() !== before.updatedAt.getTime()
         )
           staleConflict();
-        // Original period remains stable when staff later correct duration or attendance.
-        const period =
-          before.interviewSchoolYear && before.interviewQuarter
-            ? {
-                schoolYear: before.interviewSchoolYear,
-                quarter: before.interviewQuarter,
-              }
-            : await getActivePeriod(tx);
-        await tx.tutorApplication.update({
-          where: { id: input.applicationId },
-          data: {
-            interviewCompletedAt: input.completedAt,
-            interviewDurationMin: input.durationMin,
-            interviewSchoolYear: period.schoolYear,
-            interviewQuarter: period.quarter,
-          },
-        });
-        await tx.interviewAssignment.updateMany({
-          where: { applicationId: input.applicationId },
-          data: { attended: false },
-        });
-        await tx.interviewAssignment.updateMany({
-          where: {
-            applicationId: input.applicationId,
-            tutorId: { in: input.attendedTutorIds },
-          },
-          data: { attended: true },
-        });
-        await tx.serviceHourAdjustment.deleteMany({
-          where: { id: { in: credits.map((row) => row.id) } },
-        });
-        await tx.serviceHourAdjustment.createMany({
-          data: input.attendedTutorIds.map((tutorId) => ({
-            id: interviewHoursId(input.applicationId, tutorId),
-            tutorId,
-            month: monthKey(input.completedAt),
-            schoolYear: period.schoolYear,
-            quarter: period.quarter,
-            type: "EXTRA" as const,
-            amount: input.durationMin / 60,
-            reason: INTERVIEW_HOURS_REASON,
-          })),
-        });
+        // The same source-owned write is used by immediate chair approval.
+        await writeInterviewCompletion(tx, input.applicationId, before, input, credits);
         await tx.auditLog.create({
           data: {
             userId: ctx.session.user.id,
