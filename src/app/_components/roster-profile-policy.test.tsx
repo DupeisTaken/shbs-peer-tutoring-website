@@ -64,6 +64,25 @@ vi.mock("~/trpc/react", async () => {
   const invalidation = { invalidate: () => Promise.resolve() };
   return {
     api: {
+      personCombine: {
+        candidates: {
+          useQuery: () => ({
+            data: [],
+            isSuccess: true,
+            isFetching: false,
+            refetch: async () => ({ data: [] }),
+          }),
+        },
+        combine: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+      },
+      tutorHistory: {
+        permissions: {
+          useQuery: () => ({
+            data: { canLink: true, isHead: true },
+            isFetching: false,
+          }),
+        },
+      },
       useUtils: () => ({
         admin: {
           tutors: { ...invalidation, fetch: mock.fetch },

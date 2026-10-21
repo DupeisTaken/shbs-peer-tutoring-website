@@ -835,20 +835,24 @@ feature, revoke departure-based observer grants or deploy a compatible correctiv
 do not run an older application that cannot read the enum or remove departure data to
 restore participation implicitly.
 
-The generic account-combine tool refuses accounts with departure history, including
-reviewed returns. Combining those identities needs a reviewed data migration that keeps
-departure events and explicit access revocations; do not delete departure rows to bypass it.
+Combine records can group identities with departure history while preserving their
+separate logins and restrictions in Review required state. Credential retirement still
+requires a supported reviewed resolution that keeps departure events and explicit access
+revocations; do not delete departure rows to bypass its blockers.
 
 ## Combined-account identity retention
 
 Deploy `20260929010000_combine_accounts` and
 `20260929020000_retired_credential_grants` before running code with the Head-only
 account-combine workflow. The nullable `User.mergedIntoId` self-reference records an
-explicit, one-level historical ownership relationship. Existing accounts remain active.
+explicit historical ownership relationship. Existing accounts remain active.
 The database guards reject deleting either side of a combined identity, restoring
 retired credentials/links, and issuing new recovery or verification grants to a retired
 login. Duplicate primary/secondary addresses and usernames remain reserved; they are
-not aliases of the surviving login. Merge chains are deliberately blocked.
+not aliases of the surviving login. The unified record workflow can append another
+retirement edge; history and patrol-credit readers traverse the complete chain without
+rewriting protected original edges. A Person group containing several live logins is
+not such a retirement chain and never grants their private history to one another.
 
 Rollback of a completed combine is not an ordinary account edit or audit undo. Preserve
 the original accounts, messages, policy evidence and audit records; use a reviewed data
@@ -856,6 +860,25 @@ migration if the ownership decision needs correction. Never remove the database 
 or reuse a retired identifier as a shortcut. The application checks retirement on login,
 JWT validation, recovery, signup and live API authorization. Concurrent credential issuance
 is fenced by a User-row lock, and the merge's actor/evidence audit commits atomically.
+
+### Unified person identity migration
+
+Apply `20261021020000_person_identity` and regenerate Prisma before running the unified
+Combine records UI. It adds nullable source associations, Person grouping and durable
+combination receipts. Existing current pointers, retained ownership and recorded
+retirement are the only backfill evidence. Every remaining accountless source receives
+its own person; no credentials or memberships are created.
+
+The migration stops on orphaned retained student ownership or contradictory current and
+retained ownership. Inspect and correct those through a reviewed process before retrying;
+do not automatically pick an owner. Back up the database and rehearse against an isolated
+copy first. New archive imports cannot write person IDs or combination receipts.
+
+Older application code does not maintain canonical grouping, recognize review-required
+groups or traverse new retirement chains. Roll back with a compatible corrective release,
+not by deleting Person metadata, receipts or credential guards. Preserve all source rows
+and reviewed evidence. Grouping alone does not resolve assignments, qualifications,
+consent, departure or suspension; those remain explicit operational decisions.
 
 ## Historical tutor ownership migration
 

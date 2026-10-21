@@ -274,7 +274,26 @@ it("creates a verified neutral login then explicitly claims unchanged owned hist
   await expect(
     alumni.tuteeHistory.myDetails({ tuteeId: "someone-else" }),
   ).rejects.toThrow("HISTORY_NOT_FOUND");
-  expect(await evidence()).toEqual(before);
+  const after = await evidence();
+  const account = await db.user.findUniqueOrThrow({ where: { id: user.id } });
+  expect(account.personId).toEqual(expect.any(String));
+  expect(after.tutee.find((row) => row.id === "past")?.personId).toBe(
+    account.personId,
+  );
+  // Claiming adds directory membership only. Still compare every original
+  // roster/evidence field, including timestamps, and every unrelated record.
+  expect({
+    ...after,
+    tutee: after.tutee.map((row) =>
+      row.id === "past"
+        ? {
+            ...row,
+            personId: before.tutee.find((original) => original.id === row.id)!
+              .personId,
+          }
+        : row,
+    ),
+  }).toEqual(before);
 });
 
 it("does not expose a name or create any account for a wrong recipient or invalid token", async () => {

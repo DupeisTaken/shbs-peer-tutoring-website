@@ -42,6 +42,19 @@ export async function previewDeleteAccount(
       code: "NOT_FOUND",
       message: "An account no longer exists.",
     });
+  const person = user.personId
+    ? await db.person.findUnique({
+        where: { id: user.personId },
+        select: {
+          id: true,
+          revision: true,
+          resolutionState: true,
+          _count: {
+            select: { users: true, tutors: true, tutees: true, receipts: true },
+          },
+        },
+      })
+    : null;
   const [
     combined,
     tutors,
@@ -119,7 +132,17 @@ export async function previewDeleteAccount(
   const blockers: (keyof typeof blockerMessages)[] = [];
   if (userId === actorId) blockers.push("self");
   if (user.role === "HEAD") blockers.push("head");
-  if (user.mergedIntoId || combined) blockers.push("combined");
+  if (
+    user.mergedIntoId ||
+    combined ||
+    (person &&
+      (person.resolutionState === "REVIEW_REQUIRED" ||
+        person._count.receipts > 0 ||
+        person._count.users > 1 ||
+        person._count.tutors > (user.tutorId ? 1 : 0) ||
+        person._count.tutees > (user.studentId ? 1 : 0)))
+  )
+    blockers.push("combined");
   if (tutors.length) blockers.push("tutorHistory");
   // Student ownership deliberately has scalar IDs, so an ordinary User delete
   // cannot rely on a foreign key to prevent an inaccessible retained archive.
@@ -161,7 +184,15 @@ export async function previewDeleteAccount(
   // keep writers from adding a signup or changing these counts after validation.
   const fingerprint = createHash("sha256")
     .update(
-      JSON.stringify({ user, tutors, students, removed, retained, blockers }),
+      JSON.stringify({
+        user,
+        person,
+        tutors,
+        students,
+        removed,
+        retained,
+        blockers,
+      }),
     )
     .digest("hex");
   return {
@@ -241,6 +272,12 @@ export async function deleteAccount(
       });
     await tx.studentActionConfirmation.deleteMany({
       where: { userId: input.userId },
+    });
+    // The preview has excluded reviewed groups. A lone account's presentation
+    // identity must not turn ordinary deletion into a foreign-key failure.
+    await tx.person.updateMany({
+      where: { primaryUserId: input.userId },
+      data: { primaryUserId: null },
     });
     await tx.user.delete({ where: { id: input.userId } });
     await recordAudit(

@@ -76,6 +76,8 @@ export const tuteeHistoryRouter = createTRPCRouter({
       z.object({
         tutorId: z.string().min(1).max(128),
         page: z.number().int().min(0).max(10000).default(0),
+        meetingPage: z.number().int().min(0).max(10000).optional(),
+        amendmentPage: z.number().int().min(0).max(10000).optional(),
       }),
     )
     .query(({ ctx, input }) =>
@@ -84,6 +86,8 @@ export const tuteeHistoryRouter = createTRPCRouter({
         ctx.session.user.id,
         input.tutorId,
         input.page,
+        input.meetingPage,
+        input.amendmentPage,
       ),
     ),
   // Possession of an exact staff invitation replaces open signup admission; delivery/CPU
@@ -240,8 +244,8 @@ export const tuteeHistoryRouter = createTRPCRouter({
         fromEnvelope,
       );
     }),
-  myRecords: protectedProcedure.query(async ({ ctx }) =>
-    ctx.db.tutee.findMany({
+  myRecords: protectedProcedure.query(async ({ ctx }) => {
+    const records = await ctx.db.tutee.findMany({
       where: { id: { in: await ownedStudentIds(ctx.db, ctx.session.user.id) } },
       select: {
         id: true,
@@ -251,8 +255,24 @@ export const tuteeHistoryRouter = createTRPCRouter({
         _count: { select: { sessions: true } },
       },
       orderBy: [{ createdAt: "desc" }, { id: "asc" }],
-    }),
-  ),
+    });
+    // The original intake term identifies an enrollment; current account grades
+    // and the active term must not relabel imported history.
+    const termIds = records.flatMap((row) =>
+      row.intakeTermId ? [row.intakeTermId] : [],
+    );
+    const terms = await ctx.db.term.findMany({
+      where: { id: { in: termIds } },
+      select: { id: true, name: true, schoolYear: true, quarter: true },
+    });
+    const byId = new Map(terms.map((term) => [term.id, term]));
+    return records.map((record) => ({
+      ...record,
+      term: record.intakeTermId
+        ? (byId.get(record.intakeTermId) ?? null)
+        : null,
+    }));
+  }),
   myDetails: protectedProcedure
     .input(detailInput)
     .query(async ({ ctx, input }) => {

@@ -21,15 +21,15 @@ import {
   userDirectoryFilters,
   type UserDirectoryView,
 } from "~/lib/management-view-state";
-vi.mock("~/app/_components/combine-accounts", () => ({
-  CombineAccounts: ({
-    visibleAccounts,
+vi.mock("~/app/_components/combine-records", () => ({
+  CombineRecords: ({
+    isHead,
     onPendingChange,
   }: {
-    visibleAccounts: { userId: string | null }[];
+    isHead: boolean;
     onPendingChange: (pending: boolean) => void;
   }) => {
-    fixture.combineRows(visibleAccounts);
+    fixture.combineRows({ isHead });
     return (
       <div>
         Head combine controls
@@ -642,28 +642,29 @@ it("reveals unverified accounts explicitly and resets the saved choice", () => {
   expect(screen.queryByText("Unverified student")).toBeNull();
 });
 
-it("supplies combine choices from the exact filtered and searched directory rows", () => {
+it("keeps unified combine search independent of directory visibility filters", () => {
   mount();
-  const ids = () =>
-    (
-      fixture.combineRows.mock.calls.at(-1)![0] as { userId: string | null }[]
-    ).map((row) => row.userId);
-  expect(ids()).not.toContain("synthetic-unverified");
+  expect(fixture.combineRows).toHaveBeenLastCalledWith({ isHead: true });
   fireEvent.click(
     screen.getByRole("button", { name: messages.tuteeHistory.showUnverified }),
   );
-  expect(ids()).toContain("synthetic-unverified");
   fireEvent.change(screen.getByRole("searchbox"), {
     target: { value: "Unverified student" },
   });
-  expect(ids()).toEqual(["synthetic-unverified"]);
+  expect(fixture.combineRows).toHaveBeenLastCalledWith({ isHead: true });
   fireEvent.click(
     screen.getByRole("button", { name: messages.tuteeHistory.hideUnverified }),
   );
-  expect(ids()).toEqual([]);
+  expect(fixture.combineRows).toHaveBeenLastCalledWith({ isHead: true });
 });
 
-it("restores session directory criteria before offering combine candidates", () => {
+it("offers the unified historical workflow to Admin without Head authority", () => {
+  fixture.role = "ADMIN";
+  mount();
+  expect(fixture.combineRows).toHaveBeenLastCalledWith({ isHead: false });
+});
+
+it("restores session directory criteria without restricting the unified record picker", () => {
   const filters = { ...emptyUserFilters(), showUnverified: true };
   writeViewState(sessionStorage, storageKey, {
     ...userDirectoryView(filters),
@@ -673,10 +674,7 @@ it("restores session directory criteria before offering combine candidates", () 
   expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe(
     "Unverified student",
   );
-  const candidates = fixture.combineRows.mock.calls.at(-1)![0] as {
-    userId: string | null;
-  }[];
-  expect(candidates.map((row) => row.userId)).toEqual(["synthetic-unverified"]);
+  expect(fixture.combineRows).toHaveBeenLastCalledWith({ isHead: true });
   expect(screen.getByRole("table").textContent).not.toContain(
     "Management account",
   );
@@ -686,7 +684,7 @@ it("releases the filter restriction when a role change removes pending combine c
   const view = mount();
   fireEvent.click(screen.getByRole("button", { name: "Hold combine" }));
   expect(screen.getByRole("searchbox").matches(":disabled")).toBe(true);
-  fixture.role = "ADMIN";
+  fixture.role = "COORDINATOR";
   view.rerender(<UsersPage />);
   expect(screen.queryByText("Head combine controls")).toBeNull();
   expect(screen.getByRole("searchbox").matches(":disabled")).toBe(false);
@@ -869,15 +867,8 @@ it("recovers only account reads after accepted deletion followed by refresh fail
   });
   view.rerender(<UsersPage />);
   expect(screen.queryByRole("dialog")).toBeNull();
-  // A failed refresh must not reintroduce the accepted deletion into either
-  // the visible directory or the combine choices derived from that directory.
+  // A failed refresh must not reintroduce the accepted deletion into the directory.
   expect(screen.queryByText("Management account")).toBeNull();
-  const candidates = fixture.combineRows.mock.calls.at(-1)![0] as {
-    userId: string | null;
-  }[];
-  expect(candidates.map((row) => row.userId)).not.toContain(
-    "synthetic-management",
-  );
   expect(screen.getByText(messages.uiPatterns.loadFailed)).toBeTruthy();
   expect(fixture.delete).toHaveBeenCalledTimes(1);
   expect(fixture.refresh).toHaveBeenCalledTimes(1);

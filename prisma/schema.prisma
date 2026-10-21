@@ -37,6 +37,9 @@ enum Role {
 }
 
 model User {
+  personId String?
+  person Person? @relation("PersonAccounts", fields: [personId], references: [id], onDelete: Restrict)
+  primaryForPerson Person? @relation("PersonPrimaryAccount")
   retainedTutorProfiles TutorProfileOwnership[]
   studentId                String?                @unique
   student                  Tutee?                 @relation(fields: [studentId], references: [id], onDelete: SetNull)
@@ -155,6 +158,7 @@ model User {
   createdAt DateTime @default(now())
 
   @@index([mergedIntoId])
+  @@index([personId])
 }
 
 /// An available UI language. Built-in locales (en/zh/es) ship with bundled JSON; translators can
@@ -445,6 +449,8 @@ model Term {
 }
 
 model Tutor {
+  personId String?
+  person Person? @relation(fields: [personId], references: [id], onDelete: Restrict)
   retainedOwner TutorProfileOwnership?
   historicalAcademics HistoricalAcademicRecord[]
   qualificationApplications TutorApplication[] @relation("QualificationApplicant")
@@ -503,6 +509,7 @@ model Tutor {
   applicationDecisions TutorApplication[]    @relation("AppDecider")
 
   @@index([status])
+  @@index([personId])
 }
 
 /// A tutor-initiated lifecycle request, reviewed by an admin.
@@ -686,6 +693,8 @@ enum SignupSource {
 }
 
 model Tutee {
+  personId String?
+  person Person? @relation(fields: [personId], references: [id], onDelete: Restrict)
   historicalAcademics HistoricalAcademicRecord[]
   historyInvitation TuteeHistoryInvitation?
   historyInvitationAttempts TuteeHistoryInvitationAttempt[]
@@ -735,6 +744,7 @@ model Tutee {
   removalRequests TuteeRemovalRequest[]
 
   @@index([status])
+  @@index([personId])
 }
 
 /// A request to remove a tutee from the program, raised by their tutor (the person who knows the
@@ -1946,7 +1956,45 @@ model StudentQuarterBlock {
 model StudentProfileOwnership {
   tuteeId String @id
   userId String
+  /// Every reviewed transfer advances this version, even when ownership later returns.
+  revision Int @default(1)
   @@index([userId])
+}
+
+/// Reviewed same-person grouping, independent of credentials and participation access.
+/// Source records and historical actor IDs remain authoritative; grouping grants no access itself.
+model Person {
+  id String @id @default(cuid())
+  revision Int @default(1)
+  primaryUserId String? @unique(map: "Person_primaryUserId_key")
+  primaryUser User? @relation("PersonPrimaryAccount", fields: [primaryUserId], references: [id], onDelete: Restrict)
+  resolutionState PersonResolutionState @default(GROUPED)
+  mergedIntoId String?
+  mergedInto Person? @relation("PersonGroups", fields: [mergedIntoId], references: [id], onDelete: Restrict)
+  mergedGroups Person[] @relation("PersonGroups")
+  users User[] @relation("PersonAccounts")
+  tutors Tutor[]
+  tutees Tutee[]
+  receipts PersonCombineReceipt[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+enum PersonResolutionState {
+  GROUPED
+  REVIEW_REQUIRED
+}
+
+/// Durable accepted-operation receipt. Lost responses never repeat ownership or credential writes.
+model PersonCombineReceipt {
+  id String @id
+  actorId String
+  inputHash String
+  personId String
+  person Person @relation(fields: [personId], references: [id], onDelete: Restrict)
+  outcome PersonResolutionState
+  retiredUserIds String[]
+  createdAt DateTime @default(now())
 }
 
 /// Staff-reviewed historical read ownership; never grants current tutor membership.
