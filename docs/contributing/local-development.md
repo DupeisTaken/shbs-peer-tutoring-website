@@ -303,6 +303,15 @@ npm test            # one-shot
 npm run test:watch  # watch mode
 ```
 
+CI divides the complete suite across five independent runners, with a nine-minute
+limit per whole job including setup. To reproduce one partition locally after
+configuring the isolated database below, run
+`npm test -- --shard=1/5 --maxWorkers=1` (replace `1` with `2` through `5`). Run
+these partitions serially on a shared local database; the CI matrix's separate
+PostgreSQL services are what make parallel execution safe. `npm test` continues
+to run the complete suite. See [CI checks and timing evidence](verification.md#required-checks)
+for the sizing baseline and hosted verification requirements.
+
 Application tests live under `src/**/*.test.{ts,tsx}`:
 
 - **Pure unit tests** (e.g. `src/lib/service-hours.test.ts`) — no database needed.

@@ -17,7 +17,7 @@ concurrency:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 9
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shbs_shipping_test
       AUTH_SECRET: ci-only-secret-that-is-at-least-thirty-two-characters
@@ -47,14 +47,16 @@ jobs:
         run: npm audit
 
   tests:
-    name: tests (${{ matrix.shard }}/2)
+    name: tests (${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Whole-job budget includes container startup, installation and migrations.
+    # Five shards leave headroom below nine minutes using the recorded CI timings.
+    timeout-minutes: 9
     strategy:
-      # Let both shards finish so a failure still leaves complete diagnostics.
+      # Let every shard finish so a failure still leaves complete diagnostics.
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4, 5]
     # Each runner owns its database. Files stay serial within each shard because
     # integration fixtures truncate shared tables; local test defaults are unchanged.
     services:
@@ -89,7 +91,7 @@ jobs:
       - name: Check migration and schema agreement
         run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
       - name: Run test shard
-        run: npm test -- --shard=${{ matrix.shard }}/2 --maxWorkers=1 --reporter=default --reporter=json --outputFile.json=.validation/test-results.json
+        run: npm test -- --shard=${{ matrix.shard }}/${{ strategy.job-total }} --maxWorkers=1 --reporter=default --reporter=json --outputFile.json=.validation/test-results.json
       - name: Upload test results and timings
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -102,7 +104,7 @@ jobs:
 
   image:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 9
     outputs:
       image-id: ${{ steps.build.outputs.imageid }}
       artifact-id: ${{ steps.archive.outputs.artifact-id }}
@@ -199,7 +201,7 @@ jobs:
     needs: [verify, image]
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 9
     permissions:
       contents: read
       packages: write
