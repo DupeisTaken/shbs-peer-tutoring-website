@@ -354,6 +354,7 @@ export function RecipeGallery({
   state: "normal" | "pending" | "error" | "readonly";
 }) {
   const t = locale === "en" ? en : zh;
+  const [controlledDisclosure, setControlledDisclosure] = useState(false);
   const [dialog, setDialog] = useState<"editor" | "reader" | null>(null);
   const [name, setName] = useState({
     firstName: "Alex",
@@ -638,6 +639,13 @@ export function RecipeGallery({
           <DisclosureSection title={t.lazy} lifetime="lazy">
             <p className="text-sm text-slate-600">{t.lazyText}</p>
           </DisclosureSection>
+          <Button onClick={() => setControlledDisclosure(value => !value)}>
+            {locale === "en" ? "Toggle controlled disclosure" : "切换受控展开状态"}
+          </Button>
+          <DisclosureSection
+            title={locale === "en" ? "Controlled retained draft" : "受控保留草稿"}
+            lifetime="retained" open={controlledDisclosure} onOpenChange={setControlledDisclosure}
+          ><DraftNote label={t.draft} /></DisclosureSection>
         </Recipe>
         <Recipe
           title={t.settings}

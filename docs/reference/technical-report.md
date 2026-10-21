@@ -1470,6 +1470,49 @@ as task counts; only applied server outcomes move records between groups.
 
 Meeting deductions use the semester allowance in [meeting-hours.ts](../../src/server/meeting-hours.ts); corrections recompute system credits while preserving manual adjustments.
 
+Meeting workspaces use the count-only catalog in
+[meeting-periods.ts](../../src/server/meeting-periods.ts), grouping stored term ownership
+by school year and quarter, or both quarters under the applied semester mode.
+The current group includes completed dates. Historical groups fetch on first open;
+retained disclosures preserve staff attendance editors after collapse. Each staff
+group scopes its list, comparison and totals together. Null-term records remain in
+an explicit unassigned group, and future meetings outside the active period have a
+separate visible section. Dates never reassign a meeting to another term.
+
+Period panels use explicit recorded keys rather than a shared current-period cache
+key. They remain keyed siblings when refresh moves a period into history, preserving
+opened staff drafts without showing old cached records beneath a new label. The
+supplemental staff upcoming overview is read-only; each meeting's recorded group
+owns its attendance editor. Controlled `DisclosureSection` opening retains the same
+child lifetime as native opening; the gallery includes this composition.
+
+The catalog includes the applied quarter/semester mode, even when no active term or
+meeting exists. A mode change regroups recorded periods and would replace keyed
+owners; an already-mounted workspace therefore retains its previous catalog and
+controllers with an explicit notice. It labels the retained group as previous and
+withholds new-meeting creation. **Reload groups** requires confirmation that unsaved
+drafts will be discarded and performs a page read, never a mutation replay. Each
+feature registers its own pending write and post-save synchronization; reload is
+blocked until all owners settle, including a second check after confirmation.
+Switching back to the retained mode resumes ordinary catalog reconciliation. A
+fresh visit always uses the applied mode; staged toggles do not alter grouping.
+Supplemental reads bind their exclusion to the displayed recorded current key
+(explicit null for no current term), so a background regroup cannot remove an open
+outside-period excuse draft. A retained tutor Q/S key may overlap the live current
+scope: future actions remain available, while each read independently requires live
+current membership, personal attendance or an upcoming date. Overlap never grants
+access to another tutor's past attendance or expands historical read eligibility.
+
+The scoped `admin.meetings` read retains its existing observer projection; the new
+catalog exposes period labels and counts only. `tutor.meetingRecords` selects only
+the current linked tutor's attendance and includes past-period meetings only when
+that tutor has evidence (or the meeting is still upcoming). Historical readers
+offer no writes; retained historical tutor identities continue through the existing
+owned personal-history route. `tutor.myMeetings` remains upcoming-only for dashboard
+task counts. Missing attendance is not inferred from present-day membership.
+Period filters do not change excuse deadlines, correction authority or semester-wide
+deduction reconciliation.
+
 [Disciplinary standing](../../src/lib/discipline.ts) counts valid cards: three yellows contribute one effective red. With discipline enabled, an unexcused tutee absence produces a valid red; tutor-requested cards await review. At two effective reds, [removal synchronization](../../src/server/discipline/removal.ts) immediately inactivates an active tutee and detaches current-term pairings without another approval. Pending appeals do not invalidate cards. Appeals close at the end of the fifth subsequent school day using the program timezone and calendar overrides. Invalidating a card recalculates standing; restoration requires the removal's status snapshot to remain current and eligible pairings to remain valid.
 
 [Catalog-slot attendance propagation](../../src/server/attendance-schedule.ts) holds an exclusive transaction advisory barrier before discovering affected history. Attendance and patrol submissions/corrections acquire shared access before their other locks, so normal independent writes can still proceed concurrently. Clock changes move each complete merged block atomically, retain its slot identities and single-credit factors, reject final tutor/date overlaps, reconcile flags and linked deductions, and preserve prior evidence in the audit log. Slot, pairing, session, hours, flags, audit and HEAD notification updates share one transaction. Weekday-only edits preserve actual history. Submissions that read stale catalog defaults must reload; this application coordination does not claim to prevent arbitrary direct SQL attendance writes.

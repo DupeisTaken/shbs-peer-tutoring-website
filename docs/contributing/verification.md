@@ -65,6 +65,13 @@ The direct development dependency anchors the local package at the repository
 root; the override references it with `$fast-glob`. Keep the adapter's Docker
 `COPY` before `npm ci` so clean image builds resolve the same package.
 
+The `vite` override pins the test runner's transitive toolchain to 8.1.6, which
+contains the patched editor launcher (see
+[GHSA-698v-4r3x-3vcv](https://github.com/advisories/GHSA-698v-4r3x-3vcv)).
+Keep the lockfile and override together; run `npm audit`, the affected Vitest
+suites and CI before changing this pin. It does not replace the dependency audit
+or suppress advisory findings.
+
 When adding, renaming or removing interface message keys, update every bundled
 catalog in `messages/`, including languages hidden from the default picker. Run
 `npm test -- src/i18n/locales.test.ts --maxWorkers=1` to check key parity, nonblank

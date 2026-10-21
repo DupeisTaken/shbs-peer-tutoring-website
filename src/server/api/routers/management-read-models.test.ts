@@ -107,7 +107,7 @@ function fixture(access: Access = "VIEWER") {
     policyDocument: empty(),
     policyArchive: empty(),
     announcement: empty(),
-    programFeature: { findUnique: vi.fn().mockResolvedValue(null) },
+    programFeature: { ...empty(), findUnique: vi.fn().mockResolvedValue(null) },
     $executeRaw: vi.fn().mockResolvedValue(0),
     $transaction: vi
       .fn()
