@@ -12,6 +12,7 @@ import messages from "../../../../messages/en.json";
 import zh from "../../../../messages/zh.json";
 import { TutorMeetings } from "./tutor-meetings";
 const state = vi.hoisted(() => ({
+  quarters: true,
   history: false,
   empty: false,
   read: vi.fn<(input: { period: string }) => void>(),
@@ -39,7 +40,10 @@ vi.mock("~/trpc/react", () => ({
       meetingPeriods: {
         useQuery: () => ({
           data: {
-            current: { key: "26-27:Q1", label: "2026–27 Q1" },
+            quarters: state.quarters,
+            current: state.quarters
+              ? { key: "26-27:Q1", label: "2026–27 Q1" }
+              : { key: "26-27:S1", label: "2026–27 S1" },
             outsideUpcoming: 0,
             history: state.history
               ? [{ key: "25-26:Q4", label: "2025–26 Q4", count: 1 }]
@@ -95,6 +99,7 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   state.history = false;
+  state.quarters = true;
   state.empty = false;
   state.pending = false;
   state.error = "";
@@ -148,6 +153,22 @@ const start = () => {
   });
   return view;
 };
+it("keeps an excuse draft and pending owner through Q→S→Q grouping changes", () => {
+  const view = start();
+  const draft = screen.getByRole<HTMLInputElement>("textbox");
+  state.quarters = false;
+  state.pending = true;
+  view.rerender(element());
+  expect(screen.getByRole("textbox")).toBe(draft);
+  expect(draft.value).toBe("Exam conflict draft");
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.meetingPeriods.reload }).disabled).toBe(true);
+  state.pending = false;
+  state.quarters = true;
+  view.rerender(element());
+  expect(screen.getByRole("textbox")).toBe(draft);
+  expect(screen.queryByText(messages.meetingPeriods.groupingChanged)).toBeNull();
+  expect(state.mutate).not.toHaveBeenCalled();
+});
 it("cancel writes nothing; failed writes retain the reason and pending writes freeze it", async () => {
   let view = start();
   fireEvent.click(

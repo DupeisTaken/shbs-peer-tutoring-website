@@ -261,7 +261,7 @@ export const managementReadModels = {
     totals: summary(`sessions ${hours} ${attendanceCounts}`),
   }),
   "admin.periodReport": report,
-  "admin.meetingPeriods": summary("outsideUpcoming", {
+  "admin.meetingPeriods": summary("outsideUpcoming quarters", {
     current: summary("key label").nullable(),
     history: list(summary("key label count")),
   }),

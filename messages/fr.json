@@ -5490,6 +5490,13 @@
     "empty": "Aucune réunion pour cette période.",
     "denied": "Vous n’avez plus accès à ces réunions.",
     "historyHelp": "Ouvrez une période pour consulter ses réunions.",
-    "outsideStaffHelp": "Pour modifier la présence, ouvrez la période enregistrée dans l’historique des réunions."
+    "outsideStaffHelp": "Pour modifier la présence, ouvrez la période enregistrée dans l’historique des réunions.",
+    "previous": "Regroupement précédent",
+    "groupingChanged": "Le programme regroupe désormais les réunions différemment. Cette vue conserve le regroupement précédent et vos brouillons. Rechargez les groupes pour utiliser le mode trimestriel ou semestriel appliqué.",
+    "reload": "Recharger les groupes",
+    "reloadTitle": "Recharger les groupes de réunions ?",
+    "reloadWarning": "Le rechargement de cette page supprime tous les brouillons non enregistrés, y compris ceux des réunions et des présences. Les modifications enregistrées sont conservées.",
+    "keepEditing": "Continuer à modifier",
+    "reloadBusy": "Attendez la fin de l’enregistrement et de l’actualisation."
   }
 }

@@ -16,6 +16,7 @@ import { SessionViewProvider } from "~/app/_components/session-view-state";
 import { viewStateKey } from "~/lib/session-view-state";
 
 const state = vi.hoisted(() => ({
+  quarters: true,
   history: false,
   outside: false,
   periodsRead: vi.fn<(input: { period: string }) => void>(),
@@ -48,7 +49,10 @@ vi.mock("~/trpc/react", () => ({
       meetingPeriods: {
         useQuery: () => ({
           data: {
-            current: { key: "26-27:Q1", label: "2026–27 Q1" },
+            quarters: state.quarters,
+            current: state.quarters
+              ? { key: "26-27:Q1", label: "2026–27 Q1" }
+              : { key: "26-27:S1", label: "2026–27 S1" },
             outsideUpcoming: state.outside ? 1 : 0,
             history: state.history
               ? [{ key: "25-26:Q4", label: "2025–26 Q4", count: 2 }]
@@ -118,6 +122,7 @@ vi.mock("~/trpc/react", () => ({
 }));
 beforeEach(() => {
   vi.clearAllMocks();
+  state.quarters = true;
   state.history = false;
   state.outside = false;
   sessionStorage.clear();
@@ -350,6 +355,32 @@ it("retains accepted attendance after failed synchronization and retries reads o
       screen.getByRole("button", { name: messages.uiPatterns.retry }),
     );
   });
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(state.save).toHaveBeenCalledOnce();
+});
+
+it("retains a failed-sync attendance controller through regrouping and blocks reload during recovery", async () => {
+  state.refresh.mockRejectedValue(new Error("Refresh failed"));
+  const view = render(sessionMeetingPage());
+  fireEvent.click(screen.getByRole("button", { name: /^Synthetic briefing ·/ }));
+  const present = screen.getByRole("button", { name: messages.admin.meetings.status.present });
+  fireEvent.click(present);
+  fireEvent.click(screen.getByRole("button", { name: messages.admin.meetings.saveAttendance }));
+  await act(async () => { await state.completion?.(); });
+  state.quarters = false;
+  view.rerender(sessionMeetingPage());
+  expect(screen.getByRole("button", { name: messages.admin.meetings.status.present })).toBe(present);
+  expect(present.getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("alert").textContent).toContain("Attendance was saved");
+  expect(screen.queryByLabelText(messages.admin.meetings.titlePlaceholder)).toBeNull();
+  let finishRefresh: (() => void) | undefined;
+  state.refresh.mockImplementation(() => new Promise<void>((resolve) => { finishRefresh = resolve; }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: messages.uiPatterns.retry }));
+  });
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.meetingPeriods.reload }).disabled).toBe(true);
+  await act(async () => { finishRefresh?.(); });
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: messages.meetingPeriods.reload }).disabled).toBe(false);
   expect(screen.queryByRole("alert")).toBeNull();
   expect(state.save).toHaveBeenCalledOnce();
 });

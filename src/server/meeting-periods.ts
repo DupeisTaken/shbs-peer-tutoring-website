@@ -10,14 +10,35 @@ import { getActivePeriodOrNull } from "./period";
 import { getFeatures } from "./program/features";
 
 type Db = Pick<PrismaClient, "term" | "tutorMeeting" | "programFeature">;
+const recordedPeriodKey = z.string().regex(/^\d{2}-\d{2}:(Q[1-4]|S[12])$/);
 export const meetingPeriodInput = z.object({
   period: z.union([
     z.literal("current"),
     z.literal("unassigned"),
     z.literal("upcomingOutside"),
-    z.string().regex(/^\d{2}-\d{2}:(Q[1-4]|S[12])$/),
+    recordedPeriodKey,
   ]),
+  // Bind supplemental reads to the displayed grouping, even after an applied
+  // mode change. Null explicitly means the displayed catalog has no active term.
+  outsideCurrent: recordedPeriodKey.nullable().optional(),
 });
+
+/** Overlap controls presentation of future actions, never private read eligibility. */
+export function meetingPeriodsOverlap(left: string, right?: string) {
+  if (!right || !left.includes(":")) return false;
+  const [leftYear, leftPeriod] = left.split(":");
+  const [rightYear, rightPeriod] = right.split(":");
+  const quarters = (period: string) =>
+    period.startsWith("S") ? semesterQuarters(period as "S1" | "S2") : [period];
+  return (
+    leftYear === rightYear &&
+    !!leftPeriod &&
+    !!rightPeriod &&
+    quarters(leftPeriod).some((quarter) =>
+      quarters(rightPeriod).includes(quarter),
+    )
+  );
+}
 
 /** Stored ownership determines grouping; a date never moves evidence to another term. */
 function periodKey(
@@ -58,9 +79,16 @@ export async function meetingPeriodContext(db: Db) {
   return { current, quarters: features.QUARTER_SYSTEM };
 }
 
-export async function meetingScope(db: Db, period: string, now = new Date()) {
+export async function meetingScope(
+  db: Db,
+  period: string,
+  now = new Date(),
+  outsideCurrent?: string | null,
+) {
   if (period !== "current" && period !== "upcomingOutside")
     return recordedMeetingPeriod(period);
+  if (period === "upcomingOutside" && outsideCurrent !== undefined)
+    return outsideMeetingScope(outsideCurrent ?? undefined, now);
   const { current } = await meetingPeriodContext(db);
   const currentWhere = current
     ? recordedMeetingPeriod(current.key)
@@ -125,6 +153,7 @@ export async function meetingPeriods(db: Db, tutorId?: string) {
     groups.set(key, group);
   }
   return {
+    quarters,
     current,
     outsideUpcoming,
     history: [...groups.values()]

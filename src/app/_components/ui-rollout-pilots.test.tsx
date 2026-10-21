@@ -169,6 +169,7 @@ vi.mock("~/trpc/react", async () => ({
       meetingPeriods: {
         useQuery: () => ({
           data: {
+            quarters: true,
             current: { key: "29-30:Q2", label: "2029–30 Q2" },
             history: [],
             outsideUpcoming: 0,

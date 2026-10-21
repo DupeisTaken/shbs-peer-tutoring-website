@@ -555,6 +555,11 @@ period remain visible in a separate section, with the same excuse deadline.
 History groups offer no excuse actions. Missing attendance means it has not been
 recorded, not that you were absent. Previously linked tutor identities remain
 available through **My Tutoring History**.
+
+If quarter/semester grouping changes while this page is open, it keeps the previous
+groups and your drafts with a notice. **Reload groups** asks before discarding
+unsaved drafts and waits for saves and refreshes to finish. A fresh visit uses the
+applied mode immediately; staged changes do not affect this view.
 - On an interview panel, review the application and submit your own vote. Every panelist must vote before a final decision. The majority decides; a tie is resolved by the selected highest-ranking management chair.
 - For an initial tutor application, a chair who is not Head submits the outcome for Head approval. The reviewer preserves the chair’s decision and identity. Hours are earned from recorded interview completion and attendance, not scheduling alone.
 
@@ -809,6 +814,11 @@ still controls which people appear in the editor; it does not select past meetin
 Recorded attendance takes precedence over a tutor's present-day membership status.
 Upcoming meetings in other recorded periods have a visible section; check their
 period ownership with management rather than assuming their date changes it.
+
+If the applied quarter/semester mode changes during your visit, a notice identifies
+the previous grouping and retains opened drafts and save recovery. **Reload groups**
+requires confirmation before discarding unsaved drafts and is unavailable while a
+save or its refresh is running. Create new meetings after reloading the groups.
 - In **Landing Editor**, use the section tabs to move between layout, fixed content, sections, news, pages and images. With a keyboard, arrow keys move between tab labels; Enter or Space opens the focused tab. Switching an opened tab or language preserves its independent unsaved draft during this visit; switching does not save it. If your role lacks editing access, the page explains this and offers a return to management. A failed load shows an error and retry action instead of an indefinite loading state. Editor access follows the same permission rule as landing preview.
 
 Invitation and hour-adjustment field labels stay visible after typing. In invitation

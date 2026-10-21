@@ -1494,6 +1494,23 @@ supplemental staff upcoming overview is read-only; each meeting's recorded group
 owns its attendance editor. Controlled `DisclosureSection` opening retains the same
 child lifetime as native opening; the gallery includes this composition.
 
+The catalog includes the applied quarter/semester mode, even when no active term or
+meeting exists. A mode change regroups recorded periods and would replace keyed
+owners; an already-mounted workspace therefore retains its previous catalog and
+controllers with an explicit notice. It labels the retained group as previous and
+withholds new-meeting creation. **Reload groups** requires confirmation that unsaved
+drafts will be discarded and performs a page read, never a mutation replay. Each
+feature registers its own pending write and post-save synchronization; reload is
+blocked until all owners settle, including a second check after confirmation.
+Switching back to the retained mode resumes ordinary catalog reconciliation. A
+fresh visit always uses the applied mode; staged toggles do not alter grouping.
+Supplemental reads bind their exclusion to the displayed recorded current key
+(explicit null for no current term), so a background regroup cannot remove an open
+outside-period excuse draft. A retained tutor Q/S key may overlap the live current
+scope: future actions remain available, while each read independently requires live
+current membership, personal attendance or an upcoming date. Overlap never grants
+access to another tutor's past attendance or expands historical read eligibility.
+
 The scoped `admin.meetings` read retains its existing observer projection; the new
 catalog exposes period labels and counts only. `tutor.meetingRecords` selects only
 the current linked tutor's attendance and includes past-period meetings only when

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
-import { MeetingPeriodSections } from "~/app/_components/meeting-period-sections";
+import { MeetingPeriodSections, useMeetingPeriodBusy } from "~/app/_components/meeting-period-sections";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 
@@ -39,8 +39,8 @@ export function TutorMeetings() {
       {!denied && periods.data && (
         <MeetingPeriodSections
           catalog={periods.data}
-          renderPeriod={(period, history) => (
-            <TutorMeetingPeriod period={period} history={history} />
+          renderPeriod={(period, history, outsideCurrent) => (
+            <TutorMeetingPeriod period={period} history={history} outsideCurrent={outsideCurrent} />
           )}
         />
       )}
@@ -51,14 +51,16 @@ export function TutorMeetings() {
 function TutorMeetingPeriod({
   period,
   history,
+  outsideCurrent,
 }: {
   period: string;
   history: boolean;
+  outsideCurrent?: string | null;
 }) {
   const programFormat = useFormatter();
   const t = useTranslations();
   const utils = api.useUtils();
-  const meetings = api.tutor.meetingRecords.useQuery({ period });
+  const meetings = api.tutor.meetingRecords.useQuery({ period, outsideCurrent });
   const denied = useSessionAccessDenied(meetings);
   const refresh = () =>
     Promise.all([
@@ -77,6 +79,7 @@ function TutorMeetingPeriod({
   const cancel = api.tutor.cancelMeetingExcuse.useMutation({
     onSuccess: refresh,
   });
+  useMeetingPeriodBusy(excuse.isPending || cancel.isPending);
 
   // Which meeting's reason box is open, and its draft text.
   const [openId, setOpenId] = useState<string | null>(null);

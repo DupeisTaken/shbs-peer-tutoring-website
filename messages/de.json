@@ -5490,6 +5490,13 @@
     "empty": "Keine Treffen in diesem Zeitraum.",
     "denied": "Du hast keinen Zugriff mehr auf diese Treffen.",
     "historyHelp": "Öffne einen Zeitraum, um seine Treffen anzusehen.",
-    "outsideStaffHelp": "Öffne zum Bearbeiten der Anwesenheit den zugeordneten Zeitraum im Treffenverlauf."
+    "outsideStaffHelp": "Öffne zum Bearbeiten der Anwesenheit den zugeordneten Zeitraum im Treffenverlauf.",
+    "previous": "Bisherige Gruppierung",
+    "groupingChanged": "Das Programm gruppiert Treffen jetzt anders. Diese Ansicht behält die bisherige Gruppierung und deine Entwürfe. Lade die Gruppen neu, um den geltenden Quartals- oder Semestermodus zu verwenden.",
+    "reload": "Gruppen neu laden",
+    "reloadTitle": "Treffengruppen neu laden?",
+    "reloadWarning": "Beim Neuladen dieser Seite gehen alle ungespeicherten Entwürfe verloren, auch Treffen- und Anwesenheitsentwürfe. Gespeicherte Änderungen bleiben erhalten.",
+    "keepEditing": "Weiter bearbeiten",
+    "reloadBusy": "Warte, bis Speichern und Aktualisieren abgeschlossen sind."
   }
 }

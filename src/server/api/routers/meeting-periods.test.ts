@@ -135,6 +135,7 @@ it("groups semester mode across recorded Q1/Q2 and ignores staged switches", asy
     data: { enabled: false },
   });
   const catalog = await caller().admin.meetingPeriods();
+  expect(catalog.quarters).toBe(false);
   expect(catalog.current).toEqual({ key: "26-27:S1", label: "2026–27 S1" });
   expect(catalog.history.map((group) => group.key)).toEqual([
     "25-26:S1",
@@ -145,6 +146,104 @@ it("groups semester mode across recorded Q1/Q2 and ignores staged switches", asy
       .map((row) => row.id)
       .sort(),
   ).toEqual(["current-future", "current-past", "history", "outside"]);
+  expect(catalog.outsideUpcoming).toBe(1);
+  // Explicit recorded quarter keys keep their scope despite regrouping.
+  expect(
+    (await caller().admin.meetings({ period: "26-27:Q1" }))
+      .map((row) => row.id)
+      .sort(),
+  ).toEqual(["history", "outside"]);
+  await db.programFeature.update({
+    where: { key: "QUARTER_SYSTEM" },
+    data: { enabled: true },
+  });
+  const restored = await caller().admin.meetingPeriods();
+  expect(restored.quarters).toBe(true);
+  expect(restored.current?.key).toBe("26-27:Q2");
+  expect(restored.history.map((group) => group.key)).toContain("26-27:Q1");
+  expect(restored.outsideUpcoming).toBe(2);
+});
+
+it("handles Q2 evidence with active Q1 across applied mode changes without broadening tutor history", async () => {
+  await db.term.updateMany({ data: { active: false } });
+  await db.term.update({ where: { id: "q1" }, data: { active: true } });
+  await db.programFeature.create({
+    data: { key: "QUARTER_SYSTEM", enabled: false, pendingEnabled: true },
+  });
+  const api = caller("TUTOR").tutor;
+  expect((await api.meetingPeriods()).current?.key).toBe("26-27:S1");
+  const semesterRows = await api.meetingRecords({ period: "26-27:S1" });
+  expect(semesterRows.map((row) => row.id).sort()).toEqual([
+    "current-future",
+    "current-past",
+    "history",
+    "outside",
+  ]);
+  // A retained quarter within the applied current semester remains actionable.
+  expect(
+    (await api.meetingRecords({ period: "26-27:Q1" })).find(
+      (row) => row.id === "outside",
+    )?.canExcuse,
+  ).toBe(true);
+  await db.programFeature.update({
+    where: { key: "QUARTER_SYSTEM" },
+    data: { enabled: true, pendingEnabled: null },
+  });
+  const catalog = await api.meetingPeriods();
+  expect(catalog.current?.key).toBe("26-27:Q1");
+  expect(catalog.history.find((group) => group.key === "26-27:Q2")?.count).toBe(
+    1,
+  );
+  // The retained semester contains current Q1 plus eligible Q2 evidence only.
+  const retained = await api.meetingRecords({ period: "26-27:S1" });
+  expect(retained.map((row) => row.id).sort()).toEqual([
+    "current-future",
+    "history",
+    "outside",
+  ]);
+  expect(retained.find((row) => row.id === "current-future")?.canExcuse).toBe(
+    true,
+  );
+  expect(JSON.stringify(retained)).not.toContain("Private other note");
+  expect(
+    (await api.meetingRecords({ period: "26-27:Q2" })).map((row) => row.id),
+  ).toEqual(["current-future"]);
+});
+
+it("binds outside obligations to the displayed recorded group across Q/S toggles and no-active catalogs", async () => {
+  const api = caller("TUTOR").tutor;
+  const bound = { period: "upcomingOutside", outsideCurrent: "26-27:Q2" };
+  const ids = async () =>
+    (await api.meetingRecords(bound)).map((row) => row.id).sort();
+  expect(await ids()).toEqual(["outside", "unassigned-future"]);
+  await db.programFeature.create({
+    data: { key: "QUARTER_SYSTEM", enabled: false },
+  });
+  expect(await ids()).toEqual(["outside", "unassigned-future"]);
+  expect(
+    (await caller().admin.meetings(bound)).map((row) => row.id).sort(),
+  ).toEqual(["outside", "unassigned-future"]);
+  expect(
+    (await api.meetingRecords({ period: "upcomingOutside" })).map(
+      (row) => row.id,
+    ),
+  ).toEqual(["unassigned-future"]);
+  // Explicit null preserves an unconfigured catalog's all-upcoming overview.
+  expect(
+    (
+      await api.meetingRecords({
+        period: "upcomingOutside",
+        outsideCurrent: null,
+      })
+    )
+      .map((row) => row.id)
+      .sort(),
+  ).toEqual(["current-future", "outside", "unassigned-future"]);
+  await db.programFeature.update({
+    where: { key: "QUARTER_SYSTEM" },
+    data: { enabled: true },
+  });
+  expect(await ids()).toEqual(["outside", "unassigned-future"]);
 });
 
 it("keeps unassigned and old-term upcoming obligations visible across rollover", async () => {

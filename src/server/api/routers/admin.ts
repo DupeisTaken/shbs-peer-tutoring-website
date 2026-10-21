@@ -3510,7 +3510,7 @@ export const adminRouter = createTRPCRouter({
   // always supplies a recorded period and loads older groups on demand.
   meetings: viewerProcedure.input(meetingPeriodInput.optional()).query(async ({ ctx, input }) =>
     ctx.db.tutorMeeting.findMany({
-      where: input ? await meetingScope(ctx.db, input.period) : undefined,
+      where: input ? await meetingScope(ctx.db, input.period, new Date(), input.outsideCurrent) : undefined,
       orderBy: { date: "desc" },
       include: {
         attendances: { include: { tutor: { select: { englishName: true } } } },

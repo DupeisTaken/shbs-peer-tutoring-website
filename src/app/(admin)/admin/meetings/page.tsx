@@ -32,7 +32,7 @@ import {
 } from "~/app/_components/ui/summary-table";
 import { visibleTutors } from "~/lib/tutor-visibility";
 import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
-import { MeetingPeriodSections } from "~/app/_components/meeting-period-sections";
+import { MeetingPeriodSections, useMeetingPeriodBusy } from "~/app/_components/meeting-period-sections";
 import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 
 /** The statuses an admin picks directly. EXEMPT (X) is auto-applied to inactive tutors;
@@ -74,8 +74,8 @@ export default function MeetingsPage() {
       {!denied && periods.data && (
         <MeetingPeriodSections
           catalog={periods.data}
-          renderPeriod={(period, history) => (
-            <MeetingPeriodPanel period={period} history={history} />
+          renderPeriod={(period, history, outsideCurrent) => (
+            <MeetingPeriodPanel period={period} history={history} outsideCurrent={outsideCurrent} />
           )}
         />
       )}
@@ -86,9 +86,11 @@ export default function MeetingsPage() {
 function MeetingPeriodPanel({
   period,
   history,
+  outsideCurrent,
 }: {
   period: string;
   history: boolean;
+  outsideCurrent?: string | null;
 }) {
   const programFormat = useFormatter();
   const t = useTranslations();
@@ -99,7 +101,7 @@ function MeetingPeriodPanel({
   const readOnly = useReadOnly() || period === "upcomingOutside";
   const utils = api.useUtils();
   const { confirm, dialog } = useDialog();
-  const meetings = api.admin.meetings.useQuery({ period });
+  const meetings = api.admin.meetings.useQuery({ period, outsideCurrent });
   const tutors = api.admin.tutors.useQuery();
   const denied = useSessionAccessDenied(meetings, tutors);
   const [view, setView] = useSessionViewState<MeetingView>({
@@ -129,6 +131,7 @@ function MeetingPeriodPanel({
     },
   });
   const del = api.admin.deleteMeeting.useMutation({ onSuccess: invalidate });
+  const previousGrouping = useMeetingPeriodBusy(create.isPending || del.isPending);
 
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(() => programDateKey(new Date(), timeZone));
@@ -217,7 +220,7 @@ function MeetingPeriodPanel({
         <MeetingSummary meetings={meetings.data ?? []} tutors={tutorOpts} />
       )}
 
-      {!readOnly && !history && (
+      {!readOnly && !history && !previousGrouping && (
         <form
           className="flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
@@ -800,6 +803,7 @@ function AttendanceEditor({
     },
   });
   const pending = save.isPending || refreshing;
+  useMeetingPeriodBusy(pending);
   useEffect(() => {
     onBusyChange(meetingId, pending);
     return () => onBusyChange(meetingId, false);

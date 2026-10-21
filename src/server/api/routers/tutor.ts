@@ -1,5 +1,5 @@
 import { notificationEvent } from "~/lib/notification-events";
-import { meetingPeriodInput, meetingPeriodContext, meetingPeriods, meetingScope } from "~/server/meeting-periods";
+import { meetingPeriodInput, meetingPeriodContext, meetingPeriods, meetingPeriodsOverlap, meetingScope, recordedMeetingPeriod } from "~/server/meeting-periods";
 import {
   INTERVIEW_HOURS_REASON,
   interviewHoursId,
@@ -1905,15 +1905,19 @@ export const tutorRouter = createTRPCRouter({
   meetingRecords: tutorProcedure.input(meetingPeriodInput).query(async ({ ctx, input }) => {
     const now = new Date();
     const { current } = await meetingPeriodContext(ctx.db);
-    const historical = !["current", "upcomingOutside", current?.key].includes(input.period);
+    const historical = !["current", "upcomingOutside"].includes(input.period) &&
+      !meetingPeriodsOverlap(input.period, current?.key);
     const meetings = await ctx.db.tutorMeeting.findMany({
       where: {
         AND: [
-          await meetingScope(ctx.db, input.period, now),
-          ...(historical ? [{ OR: [
+          await meetingScope(ctx.db, input.period, now, input.outsideCurrent),
+          // A retained semester key can overlap today's quarter without granting
+          // access to other tutors' past evidence in its other quarter.
+          { OR: [
             { attendances: { some: { tutorId: ctx.session.tutorId } } },
             { date: { gte: now } },
-          ] }] : []),
+            ...(current ? [recordedMeetingPeriod(current.key)] : []),
+          ] },
         ],
       },
       orderBy: [{ date: "asc" }, { id: "asc" }],

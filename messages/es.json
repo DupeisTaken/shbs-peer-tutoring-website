@@ -5490,6 +5490,13 @@
     "empty": "No hay reuniones en este período.",
     "denied": "Ya no tienes acceso a estas reuniones.",
     "historyHelp": "Abre un período para revisar sus reuniones.",
-    "outsideStaffHelp": "Para editar la asistencia, abre el período registrado en el historial de reuniones."
+    "outsideStaffHelp": "Para editar la asistencia, abre el período registrado en el historial de reuniones.",
+    "previous": "Agrupación anterior",
+    "groupingChanged": "El programa ahora agrupa las reuniones de otra forma. Esta vista conserva la agrupación anterior y tus borradores. Recarga los grupos para usar el modo trimestral o semestral aplicado.",
+    "reload": "Recargar grupos",
+    "reloadTitle": "¿Recargar los grupos de reuniones?",
+    "reloadWarning": "Recargar esta página descarta todos los borradores sin guardar, incluidos los de reuniones y asistencia. Los cambios guardados se conservan.",
+    "keepEditing": "Seguir editando",
+    "reloadBusy": "Espera a que terminen el guardado y la actualización."
   }
 }
