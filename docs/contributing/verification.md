@@ -38,6 +38,12 @@ database fixtures. Each CI shard uploads a seven-day JSON report with test timin
 and failures. Use these reports to assess shard balance before adding more runners.
 Local `npm test` still runs the complete suite serially.
 
+For a dependency-audit failure, inspect the reported advisory and dependency path,
+then update the affected lockfile entries within the supported version range.
+Keep the audit gate enabled. For Vite/Vitest tooling updates, run `npm audit`,
+`npm run test:ci` (including shard discovery) and a focused test suite before
+relying on the complete CI test shards and image build for the new commit.
+
 The Docker build owns production-build validation; there is no duplicate host
 build. Publishable `main` runs save the smoke-tested image as a one-day artifact,
 then a separate publishing job verifies its image ID and pushes it without a
