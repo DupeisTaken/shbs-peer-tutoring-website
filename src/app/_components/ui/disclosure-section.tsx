@@ -9,14 +9,22 @@ export function DisclosureSection({
   lifetime,
   children,
   defaultOpen = false,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   title: string;
   lifetime: "lazy" | "retained" | "mounted";
   children: ReactNode;
   defaultOpen?: boolean;
+  /** Optional feature-owned state, e.g. opening the newly active program period. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const [opened, setOpened] = useState(defaultOpen);
+  const [localOpen, setOpen] = useState(defaultOpen);
+  const open = controlledOpen ?? localOpen;
+  const [opened, setOpened] = useState(open);
+  // Retention also applies to programmatic opening, before a native toggle fires.
+  if (open && !opened) setOpened(true);
   const mounted =
     lifetime === "mounted" || open || (lifetime === "retained" && opened);
   return (
@@ -26,6 +34,7 @@ export function DisclosureSection({
       onToggle={(event) => {
         const next = event.currentTarget.open;
         setOpen(next);
+        onOpenChange?.(next);
         if (next) setOpened(true);
       }}
     >

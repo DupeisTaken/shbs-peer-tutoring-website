@@ -99,7 +99,8 @@
       "mysql2": "3.24.4"
     },
     "deepmerge-ts": "8.0.0",
-    "postcss": "$postcss"
+    "postcss": "$postcss",
+    "vite": "8.1.6"
   },
   "packageManager": "npm@11.13.0"
 }

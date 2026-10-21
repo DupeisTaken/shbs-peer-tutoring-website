@@ -1010,7 +1010,7 @@
       },
       "stats": {
         "title": "辅导伙伴出勤",
-        "help": "统计所有会议。",
+        "help": "本组会议的出勤统计。",
         "tutor": "辅导伙伴",
         "empty": "暂无出勤记录。"
       },
@@ -5477,5 +5477,26 @@
     "emailHelp": "请输入邮件中的 4 位数字。之前签发的旧格式代码仍可使用。",
     "lettersKeyboard": "输入包含字母的代码",
     "numericKeyboard": "使用数字键盘"
+  },
+  "meetingPeriods": {
+    "current": "当前周期",
+    "unconfigured": "尚未设置当前项目周期。",
+    "outside": "其他周期即将举行的会议",
+    "outsideHelp": "以下会议记录在其他周期，请在此查看，以免遗漏。",
+    "history": "会议历史",
+    "noHistory": "暂无往期会议记录。",
+    "unassigned": "未记录周期",
+    "group": "{period} · {count} 场会议",
+    "empty": "本周期暂无会议。",
+    "denied": "您已无权查看这些会议。",
+    "historyHelp": "展开周期以查看其中的会议。",
+    "outsideStaffHelp": "如需编辑出勤，请在会议历史中展开该会议所属周期。",
+    "previous": "原分组",
+    "groupingChanged": "项目已更改会议分组方式。此页面保留原分组和您的草稿。重新加载分组后，将使用已生效的学季或学期模式。",
+    "reload": "重新加载分组",
+    "reloadTitle": "重新加载会议分组？",
+    "reloadWarning": "重新加载此页面将丢弃所有尚未保存的草稿，包括会议和出勤草稿。已保存的更改仍会保留。",
+    "keepEditing": "继续编辑",
+    "reloadBusy": "请等待保存和刷新完成后再重新加载。"
   }
 }

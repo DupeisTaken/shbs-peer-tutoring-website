@@ -1088,7 +1088,7 @@
       },
       "stats": {
         "title": "Présence des tuteurs",
-        "help": "Sur toutes les réunions.",
+        "help": "Pour les réunions de ce groupe.",
         "tutor": "Tuteur",
         "empty": "Aucune présence enregistrée pour l'instant."
       },
@@ -5477,5 +5477,26 @@
     "emailHelp": "Saisissez les 4 chiffres reçus par e-mail. Les codes déjà émis restent acceptés.",
     "lettersKeyboard": "Saisir un code avec des lettres",
     "numericKeyboard": "Utiliser le clavier numérique"
+  },
+  "meetingPeriods": {
+    "current": "Période actuelle",
+    "unconfigured": "Aucune période active n’est configurée.",
+    "outside": "Réunions à venir d’autres périodes",
+    "outsideHelp": "Ces réunions sont rattachées à une autre période. Consultez-les ici pour ne pas les manquer.",
+    "history": "Historique des réunions",
+    "noHistory": "Aucune réunion antérieure enregistrée.",
+    "unassigned": "Période non enregistrée",
+    "group": "{period} · {count} réunions",
+    "empty": "Aucune réunion pour cette période.",
+    "denied": "Vous n’avez plus accès à ces réunions.",
+    "historyHelp": "Ouvrez une période pour consulter ses réunions.",
+    "outsideStaffHelp": "Pour modifier la présence, ouvrez la période enregistrée dans l’historique des réunions.",
+    "previous": "Regroupement précédent",
+    "groupingChanged": "Le programme regroupe désormais les réunions différemment. Cette vue conserve le regroupement précédent et vos brouillons. Rechargez les groupes pour utiliser le mode trimestriel ou semestriel appliqué.",
+    "reload": "Recharger les groupes",
+    "reloadTitle": "Recharger les groupes de réunions ?",
+    "reloadWarning": "Le rechargement de cette page supprime tous les brouillons non enregistrés, y compris ceux des réunions et des présences. Les modifications enregistrées sont conservées.",
+    "keepEditing": "Continuer à modifier",
+    "reloadBusy": "Attendez la fin de l’enregistrement et de l’actualisation."
   }
 }
