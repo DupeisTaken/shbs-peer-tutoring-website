@@ -1,64 +1,41 @@
 # SHBS Peer Tutoring documentation
 
-These guides describe the current application. Choose the task you need to complete; run repository commands from the project root.
+Choose the audience and task below. Maintained guidance describes the current
+application; proposals and historical verification have separate homes.
 
-| Task | Guide |
-| --- | --- |
-| Install locally, create demo accounts, run tests or troubleshoot | [Local development](local-development.md) |
-| Deploy, create the first administrator, configure email or restore a backup | [Deployment runbook](deployment.md) |
-| Check Aliyun security groups, public addresses and forwarding paths | [Aliyun network verification](aliyun-network-verification.md) |
-| Reset an existing deployment and start fresh | [Reset and redeploy](deployment.md#start-fresh-from-an-existing-deployment) |
-| Contribute changes and maintain repository files | [Contributor guidance](contributing.md) |
-| Choose shared UI patterns and preserve interaction rules | [Agent component map](../AGENTS.md#start-with-the-shared-patterns) and [component boundaries](technical-report.md#shared-ui-patterns) |
-| Verify UI changes in the gallery and running application | [UI verification matrix](local-development.md#ui-verification-matrix) |
-| Find implementation files and understand authorization or transaction rules | [Technical guide](technical-report.md) |
-| Use the website as a tutee, tutor, crew member, coordinator, administrator, HEAD, viewer or translator | [User guide](user-guide.md) |
-| Understand the four name fields and display settings | [Name fields](design/name-fields.md) |
-| Configure modules, periods, schedules, timezones, recipients or public content | [Program reference](program-reference.md) |
-| Check notification events, recipients, English/Chinese copy and destinations | [Notification event inventory](notification-events.md) |
-| Adapt the English/Chinese policy drafts and publish school-approved revisions | [Policy drafts and publication](policies/README.md) |
-| Import pre-site history and link accountless tutees | [Historical participant transition](historical-participant-transition.md) |
-| Report a bug, enhancement, feature or documentation request | [Issue guide](issues.md) |
-| Understand public signup limits and recovery | [Signup protection](signup-protection.md) |
-| Configure optional Aliyun CAPTCHA and plan rollout | [CAPTCHA guide](captcha.md) |
-| Review dated production host and external network evidence | [Issue #242 evidence and remaining work](continuation/issue-242.md) |
+| Audience                                  | Start here                                     | Contents                                                                                                  |
+| ----------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Contributors and coding agents            | [Contributor guidance](contributing/README.md) | Working principles, design conventions, interaction patterns, implementation, local setup, checks and PRs |
+| Developers investigating current behavior | [Technical reference](reference/README.md)     | Architecture, component contracts, permissions, data invariants and integration references                |
+| Participants, staff and operators         | [User and operator guides](guides/README.md)   | Role tasks, program configuration, deployment, records and policy publication                             |
 
-## First pass for a new contributor or agent
+## Common tasks
 
-1. Read [AGENTS.md](../AGENTS.md) for repository rules, then confirm the current
-   branch and working-tree changes. Dated evidence and earlier implementation
-   descriptions are context; inspect the checked-out source before relying on them.
-2. Read [contributor guidance](contributing.md) and the
-   [architecture map](technical-report.md#architecture). For a new UI action, use
-   [Add an action or feature](contributing.md#add-an-action-or-feature): it maps the
-   existing scaffold to a feature-owned adapter and its real callers. Consult
-   [UI extension boundaries](technical-report.md#ui-extension-boundaries) before
-   broadening a shared contract.
-3. Check [worktree and resource safety](local-development.md#worktree-and-resource-safety)
-   before installing, generating, migrating or running anything. Follow the affected
-   domain guide in the table above; proposals and historical verification do not
-   establish current behavior.
-4. Select [required checks](contributing.md#required-checks) for the change and
-   record what was verified. Documentation-only validation uses `npm run docs:check`
-   without starting the app or a database. UI work also needs the
-   [gallery and actual-page matrix](local-development.md#ui-verification-matrix).
+| Task                                 | Guide                                                                                |
+| ------------------------------------ | ------------------------------------------------------------------------------------ |
+| Start a contributor or agent session | [First-pass route](contributing/README.md#first-pass-for-a-new-contributor-or-agent) |
+| Find visual rules for new UI work    | [Design conventions](contributing/design.md)                                         |
+| Add an action or feature             | [Implementation recipe](contributing/implementation.md#add-an-action-or-feature)     |
+| Run locally or test                  | [Local development](contributing/local-development.md)                               |
+| Verify UI work                       | [Verification matrix](contributing/verification.md#ui-verification-matrix)           |
+| Use the website                      | [User guide](guides/user-guide.md)                                                   |
+| Deploy or recover                    | [Deployment](guides/deployment.md)                                                   |
+| Find current code responsibilities   | [Architecture map](reference/technical-report.md#architecture)                       |
+| Propose a design or report a problem | [Issue conventions](contributing/issues.md)                                          |
 
-Keep setup procedures here in the existing linked guides; add implementation and
-tests beside the owning feature rather than creating a second policy or scaffold.
+## Documentation ownership
 
-## Historical verification
+Keep contributor prescriptions in `contributing/`, implemented contracts in
+`reference/`, and user/operator instructions in `guides/`. Unimplemented design
+changes stay in linked issues until reviewed and delivered. See
+[documentation ownership](contributing/documentation.md) for placement and maintenance.
 
-These records describe the revisions and scenarios tested at the time, not verification of the current application:
+Superseded evidence and continuation notes remain in
+[Git history](contributing/documentation.md#historical-evidence-and-continuation-notes).
+Unfinished operator checks belong in their maintained guide, including
+[Aliyun verification](guides/aliyun-network-verification.md).
 
-- [Identity, academic profile and policy verification](evidence/issues-145-154/README.md)
-- [Email rendering and destination-link verification](evidence/issue-192/README.md)
-
-Completed continuation checkpoints are retained in Git and their linked issue/PR history. Use the maintained guides above for current setup and behavior.
-
-## Maintaining the guides
-
-Read and edit the Markdown files directly. Run `npm run docs:check` to validate links, headings and documentation structure.
-
-For contribution checks and where to add information, see [documentation ownership](contributing.md#documentation-and-repository-hygiene). Historical reports and superseded documents remain available in Git history.
+Read Markdown directly. Run `npm run docs:check` to check repository links,
+headings, discoverability and documentation regressions without a server or database.
 
 [Project README](../README.md).

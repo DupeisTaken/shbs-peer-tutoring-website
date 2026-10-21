@@ -157,7 +157,9 @@ export function checkDocs() {
       ),
     );
   }
-  const roleIds = modelFor("docs/user-guide.md").headings.map((h) => h.id);
+  const roleIds = modelFor("docs/guides/user-guide.md").headings.map(
+    (h) => h.id,
+  );
   for (const role of [
     "tutees",
     "tutors",

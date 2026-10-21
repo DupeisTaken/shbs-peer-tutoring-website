@@ -27,7 +27,7 @@ import {
 
 /**
  * Audit trail of admin mutations. Entries that carry undo data can be reverted with one
- * click (see src/server/audit/log.ts). Supports the revertibility philosophy in docs/contributing.md.
+ * click (see src/server/audit/log.ts). Supports the audit contracts in docs/reference/technical-report.md.
  */
 function AuditLog() {
   const t = useTranslations();
