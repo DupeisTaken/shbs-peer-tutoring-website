@@ -12,6 +12,9 @@ import messages from "../../../../messages/en.json";
 import zh from "../../../../messages/zh.json";
 import { TutorMeetings } from "./tutor-meetings";
 const state = vi.hoisted(() => ({
+  history: false,
+  empty: false,
+  read: vi.fn<(input: { period: string }) => void>(),
   mutate: vi.fn(),
   cancel: vi.fn(),
   refresh: vi.fn(),
@@ -25,20 +28,48 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    useUtils: () => ({ tutor: { myMeetings: { invalidate: state.refresh } } }),
+    useUtils: () => ({
+      tutor: {
+        myMeetings: { invalidate: state.refresh },
+        meetingRecords: { invalidate: vi.fn() },
+        meetingPeriods: { invalidate: vi.fn() },
+      },
+    }),
     tutor: {
-      myMeetings: {
+      meetingPeriods: {
         useQuery: () => ({
-          data: [
-            {
-              id: "meeting",
-              title: "Synthetic meeting",
-              date: new Date("2026-10-10T00:00:00Z"),
-              excused: state.excused,
-              canExcuse: state.canExcuse,
-            },
-          ],
+          data: {
+            current: { key: "26-27:Q1", label: "2026–27 Q1" },
+            outsideUpcoming: 0,
+            history: state.history
+              ? [{ key: "25-26:Q4", label: "2025–26 Q4", count: 1 }]
+              : [],
+          },
         }),
+      },
+      meetingRecords: {
+        useQuery: (input: { period: string }) => {
+          state.read(input);
+          return {
+            data:
+              state.empty && input.period === "26-27:Q1"
+                ? []
+                : [
+                    {
+                      id: "meeting",
+                      title:
+                        input.period === "26-27:Q1"
+                          ? "Synthetic meeting"
+                          : "Historical meeting",
+                      date: new Date("2026-10-10T00:00:00Z"),
+                      excused: state.excused,
+                      canExcuse: state.canExcuse,
+                      upcoming: true,
+                      status: null,
+                    },
+                  ],
+          };
+        },
       },
       excuseMeeting: {
         useMutation: (options: { onSuccess: () => Promise<void> }) => {
@@ -63,12 +94,40 @@ vi.mock("~/trpc/react", () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  state.history = false;
+  state.empty = false;
   state.pending = false;
   state.error = "";
   state.success = false;
   state.excused = false;
   state.cancelError = "";
   state.canExcuse = true;
+});
+
+it("keeps personal history reachable with an empty current quarter and no history writes", async () => {
+  state.history = true;
+  state.empty = true;
+  render(element());
+  expect(screen.getByText(messages.meetingPeriods.empty)).toBeTruthy();
+  expect(
+    state.read.mock.calls.every(([input]) => input.period === "26-27:Q1"),
+  ).toBe(true);
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.meetingPeriods.history }),
+  );
+  for (const label of ["2025–26 Q4 · 1 meeting"]) {
+    const details = screen.getByText(label).closest("details")!;
+    await act(async () => {
+      details.open = true;
+      fireEvent(details, new Event("toggle"));
+    });
+  }
+  expect(screen.getByText("Historical meeting")).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: messages.tutor.meetings.excuseBtn }),
+  ).toBeNull();
+  expect(screen.getByText(messages.auditEventDetails.notRecorded)).toBeTruthy();
+  expect(state.mutate).not.toHaveBeenCalled();
 });
 const element = (locale = "en") => (
   <NextIntlClientProvider

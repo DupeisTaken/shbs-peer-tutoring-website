@@ -1088,7 +1088,7 @@
       },
       "stats": {
         "title": "Tutor Attendance",
-        "help": "Across all meetings.",
+        "help": "Across meetings in this group.",
         "tutor": "Tutor",
         "empty": "No attendance recorded yet."
       },
@@ -5477,5 +5477,19 @@
     "emailHelp": "Enter 4 digits from your email. Previously issued codes are still accepted.",
     "lettersKeyboard": "Enter a code with letters",
     "numericKeyboard": "Use numeric keypad"
+  },
+  "meetingPeriods": {
+    "current": "Current period",
+    "unconfigured": "No active program period is configured.",
+    "outside": "Upcoming meetings in other periods",
+    "outsideHelp": "These upcoming meetings belong to another recorded period. Review them here so they are not missed.",
+    "history": "Meeting history",
+    "noHistory": "No earlier meeting records.",
+    "unassigned": "Period not recorded",
+    "group": "{period} · {count, plural, one {# meeting} other {# meetings}}",
+    "empty": "No meetings in this period.",
+    "denied": "You no longer have access to these meetings.",
+    "historyHelp": "Open a period to review its meetings.",
+    "outsideStaffHelp": "To edit attendance, open the meeting’s recorded period in Meeting history."
   }
 }

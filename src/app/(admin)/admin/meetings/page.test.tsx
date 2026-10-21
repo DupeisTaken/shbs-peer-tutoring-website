@@ -16,6 +16,9 @@ import { SessionViewProvider } from "~/app/_components/session-view-state";
 import { viewStateKey } from "~/lib/session-view-state";
 
 const state = vi.hoisted(() => ({
+  history: false,
+  outside: false,
+  periodsRead: vi.fn<(input: { period: string }) => void>(),
   save: vi.fn(),
   readError: null as null | { message: string; data?: { code?: string } },
   readRefetch: vi.fn(),
@@ -35,29 +38,51 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    useUtils: () => ({ admin: { meetings: { invalidate: state.refresh } } }),
+    useUtils: () => ({
+      admin: {
+        meetings: { invalidate: state.refresh },
+        meetingPeriods: { invalidate: vi.fn() },
+      },
+    }),
     admin: {
-      meetings: {
+      meetingPeriods: {
         useQuery: () => ({
-          error: state.readError,
-          isSuccess: !state.readError,
-          isFetching: false,
-          refetch: state.readRefetch,
-          data: [
-            {
-              id: "meeting",
-              title: "Synthetic briefing",
-              date: new Date("2026-09-29T04:00:00Z"),
-              attendances: state.attendances,
-            },
-            {
-              id: "other",
-              title: "Other briefing",
-              date: new Date("2026-10-02T04:00:00Z"),
-              attendances: [],
-            },
-          ],
+          data: {
+            current: { key: "26-27:Q1", label: "2026–27 Q1" },
+            outsideUpcoming: state.outside ? 1 : 0,
+            history: state.history
+              ? [{ key: "25-26:Q4", label: "2025–26 Q4", count: 2 }]
+              : [],
+          },
         }),
+      },
+      meetings: {
+        useQuery: (input: { period: string }) => {
+          state.periodsRead(input);
+          return {
+            error: state.readError,
+            isSuccess: !state.readError,
+            isFetching: false,
+            refetch: state.readRefetch,
+            data: [
+              {
+                id: "meeting",
+                title:
+                  input.period === "26-27:Q1"
+                    ? "Synthetic briefing"
+                    : "Historical briefing",
+                date: new Date("2026-09-29T04:00:00Z"),
+                attendances: state.attendances,
+              },
+              {
+                id: "other",
+                title: "Other briefing",
+                date: new Date("2026-10-02T04:00:00Z"),
+                attendances: [],
+              },
+            ],
+          };
+        },
       },
       tutors: {
         useQuery: () => ({
@@ -93,6 +118,8 @@ vi.mock("~/trpc/react", () => ({
 }));
 beforeEach(() => {
   vi.clearAllMocks();
+  state.history = false;
+  state.outside = false;
   sessionStorage.clear();
   state.readError = null;
   state.attendances = [];
@@ -100,6 +127,98 @@ beforeEach(() => {
   state.error = null;
   state.refresh.mockResolvedValue(undefined);
   state.completion = undefined;
+});
+
+it("loads history on demand and retains its attendance draft across quarter collapse", async () => {
+  state.history = true;
+  mount();
+  expect(
+    state.periodsRead.mock.calls.every(
+      ([input]) => input.period === "26-27:Q1",
+    ),
+  ).toBe(true);
+  const toggle = async (summary: HTMLElement, open: boolean) => {
+    const details = summary.closest("details")!;
+    await act(async () => {
+      details.open = open;
+      fireEvent(details, new Event("toggle"));
+    });
+  };
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.meetingPeriods.history }),
+  );
+  expect(
+    screen.queryByRole("button", { name: /^Historical briefing/ }),
+  ).toBeNull();
+  const quarter = screen.getByText("2025–26 Q4 · 2 meetings");
+  await toggle(quarter, true);
+  const region = quarter.closest("details")!;
+  fireEvent.click(
+    within(region).getByRole("button", { name: /^Historical briefing/ }),
+  );
+  const choose = () =>
+    within(region).getByRole("group", {
+      name: `Attendance for ${state.longName}`,
+    });
+  fireEvent.click(
+    within(choose()).getByRole("button", {
+      name: messages.admin.meetings.status.unexcusedAbsent,
+    }),
+  );
+  await toggle(quarter, false);
+  await toggle(quarter, true);
+  expect(
+    within(choose())
+      .getByRole("button", {
+        name: messages.admin.meetings.status.unexcusedAbsent,
+      })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+  expect(state.save).not.toHaveBeenCalled();
+  expect(
+    within(region).queryByLabelText(messages.admin.meetings.titlePlaceholder),
+  ).toBeNull();
+});
+
+it("keeps the supplemental upcoming overview read-only while its owning history remains editable", async () => {
+  state.history = true;
+  state.outside = true;
+  mount();
+  const outside = screen.getByRole("region", {
+    name: messages.meetingPeriods.outside,
+  });
+  expect(
+    within(outside).queryByRole("button", {
+      name: messages.admin.meetings.delete,
+    }),
+  ).toBeNull();
+  fireEvent.click(
+    within(outside).getByRole("button", { name: /^Historical briefing/ }),
+  );
+  expect(
+    within(outside).queryByRole("button", {
+      name: messages.admin.meetings.saveAttendance,
+    }),
+  ).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.meetingPeriods.history }),
+  );
+  const details = screen
+    .getByText("2025–26 Q4 · 2 meetings")
+    .closest("details")!;
+  await act(async () => {
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
+  });
+  fireEvent.click(
+    within(details).getByRole("button", { name: /^Historical briefing/ }),
+  );
+  expect(
+    within(details).getByRole("button", {
+      name: messages.admin.meetings.saveAttendance,
+    }),
+  ).toBeTruthy();
+  expect(state.save).not.toHaveBeenCalled();
 });
 afterEach(cleanup);
 function mount(readOnly = false) {
@@ -403,7 +522,12 @@ it("restores summary and visibility but starts meeting fields and attendance edi
   expect(
     JSON.parse(
       sessionStorage.getItem(
-        viewStateKey("head", "/admin/meetings", "meeting-panels-v1", ""),
+        viewStateKey(
+          "head",
+          "/admin/meetings",
+          "meeting-panels-v1",
+          "26-27:Q1",
+        ),
       )!,
     ),
   ).toEqual({ showPast: true, showSummary: true });
@@ -428,7 +552,7 @@ it("clears meeting view choices and conceals cached attendance through failed re
   ).toBeNull();
   expect(
     sessionStorage.getItem(
-      viewStateKey("head", "/admin/meetings", "meeting-panels-v1", ""),
+      viewStateKey("head", "/admin/meetings", "meeting-panels-v1", "26-27:Q1"),
     ),
   ).toBeNull();
   fireEvent.click(

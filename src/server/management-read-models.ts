@@ -261,6 +261,10 @@ export const managementReadModels = {
     totals: summary(`sessions ${hours} ${attendanceCounts}`),
   }),
   "admin.periodReport": report,
+  "admin.meetingPeriods": summary("outsideUpcoming", {
+    current: summary("key label").nullable(),
+    history: list(summary("key label count")),
+  }),
   "admin.meetings": list(
     summary("id title date createdAt termId", {
       attendances: list(

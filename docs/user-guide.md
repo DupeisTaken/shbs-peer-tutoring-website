@@ -545,6 +545,16 @@ For a student enrolled outside the survey flow, the tutor can relay the student'
 
 - If an assigned tutee’s availability cannot work, submit a reasoned schedule-rejection request. The assignment continues until approval.
 - Submit or cancel your own meeting excuse at least **60 minutes** before the start. The first three unexcused tutor-meeting absences in a semester have no automatic deduction; each further one deducts **0.25 hours**. Excused absences do not consume this allowance. Staff-recorded statuses require staff correction.
+
+The tutor workspace shows completed and upcoming meetings in the current program
+period. Open **Meeting history**, then a school-year/quarter group, to read your
+recorded attendance. Semester mode groups both quarters of a semester together.
+History remains available when the current period has no meetings; records without
+a period appear under **Period not recorded**. Upcoming meetings recorded in another
+period remain visible in a separate section, with the same excuse deadline.
+History groups offer no excuse actions. Missing attendance means it has not been
+recorded, not that you were absent. Previously linked tutor identities remain
+available through **My Tutoring History**.
 - On an interview panel, review the application and submit your own vote. Every panelist must vote before a final decision. The majority decides; a tie is resolved by the selected highest-ranking management chair.
 - For an initial tutor application, a chair who is not Head submits the outcome for Head approval. The reviewer preserves the chair’s decision and identity. Hours are earned from recorded interview completion and attendance, not scheduling alone.
 
@@ -789,6 +799,16 @@ permitted content. Switching panels preserves the existing draft, filters and
 pagination. An open review and its refresh recovery keep their own controls.
 
 - In **Meetings**, open a meeting to edit attendance, choose statuses, then use the attendance save action. Collapsing it or opening another meeting retains each attendance draft during the current visit. A successful save followed by a failed refresh offers read-only Retry; it does not record attendance again. On a narrow screen, individual records show labels and keep their actions visible. The multi-meeting comparison remains a table; scroll its own region horizontally to compare columns. Deletion opens a confirmation that names the affected meeting; cancel returns to the same record.
+
+Meetings opens on the current program period, including meetings already held.
+Its attendance totals and comparison cover that same group. Open **Meeting history**
+and a labeled period to load earlier meetings and their own totals/comparison.
+Opened attendance drafts survive collapsing either history level during the visit.
+History retains the existing correction permissions and approvals. **Show past tutors**
+still controls which people appear in the editor; it does not select past meetings.
+Recorded attendance takes precedence over a tutor's present-day membership status.
+Upcoming meetings in other recorded periods have a visible section; check their
+period ownership with management rather than assuming their date changes it.
 - In **Landing Editor**, use the section tabs to move between layout, fixed content, sections, news, pages and images. With a keyboard, arrow keys move between tab labels; Enter or Space opens the focused tab. Switching an opened tab or language preserves its independent unsaved draft during this visit; switching does not save it. If your role lacks editing access, the page explains this and offers a return to management. A failed load shows an error and retry action instead of an indefinite loading state. Editor access follows the same permission rule as landing preview.
 
 Invitation and hour-adjustment field labels stay visible after typing. In invitation

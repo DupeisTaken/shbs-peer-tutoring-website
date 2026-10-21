@@ -125,7 +125,10 @@ vi.mock("~/trpc/react", async () => ({
   api: {
     useUtils: () => ({
       account: { me: { invalidate: vi.fn() } },
-      admin: { meetings: { invalidate: vi.fn() } },
+      admin: {
+        meetings: { invalidate: vi.fn() },
+        meetingPeriods: { invalidate: vi.fn() },
+      },
     }),
     program: {
       ...(
@@ -163,6 +166,15 @@ vi.mock("~/trpc/react", async () => ({
       },
     },
     admin: {
+      meetingPeriods: {
+        useQuery: () => ({
+          data: {
+            current: { key: "29-30:Q2", label: "2029–30 Q2" },
+            history: [],
+            outsideUpcoming: 0,
+          },
+        }),
+      },
       meetings: {
         useQuery: () => ({
           data: mocks.meetings,

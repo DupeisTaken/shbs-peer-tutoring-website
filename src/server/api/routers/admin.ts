@@ -1,4 +1,5 @@
 import { allocateAndPersistRoomUnit, roomUnitInclude } from "~/server/room-allocation";
+import { meetingPeriodInput, meetingPeriods, meetingScope } from "~/server/meeting-periods";
 import { autoAssignUnassignedRooms, bulkRoomAllocationInput } from "~/server/bulk-room-allocation";
 import { roomReference } from "~/lib/room-reference";
 import {
@@ -3503,8 +3504,13 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Tutor meetings + attendance (P / EA / UA / X)
   // --------------------------------------------------------------------------
-  meetings: viewerProcedure.query(({ ctx }) =>
+  meetingPeriods: viewerProcedure.query(({ ctx }) => meetingPeriods(ctx.db)),
+
+  // The optional scope preserves existing all-record readers; the workspace
+  // always supplies a recorded period and loads older groups on demand.
+  meetings: viewerProcedure.input(meetingPeriodInput.optional()).query(async ({ ctx, input }) =>
     ctx.db.tutorMeeting.findMany({
+      where: input ? await meetingScope(ctx.db, input.period) : undefined,
       orderBy: { date: "desc" },
       include: {
         attendances: { include: { tutor: { select: { englishName: true } } } },

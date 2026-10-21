@@ -4,18 +4,68 @@ import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { MeetingPeriodSections } from "~/app/_components/meeting-period-sections";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
+import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 
 /**
- * Upcoming tutor meetings with a self-excuse control. A tutor can excuse an absence (with an
- * optional reason) at least 60 minutes before the meeting; it shows on the admin coordination page.
- * The section hides itself when there are no upcoming meetings.
+ * Active-period meetings and personal recorded history. Upcoming exceptions stay
+ * visible across refreshes; history mounts on demand and never offers writes.
  */
 export function TutorMeetings() {
+  const t = useTranslations();
+  const periods = api.tutor.meetingPeriods.useQuery();
+  const denied = useSessionAccessDenied(periods);
+  return (
+    <section
+      id="tutor-meetings"
+      tabIndex={-1}
+      className="card scroll-mt-6 space-y-4 p-4 sm:p-5"
+    >
+      <h2 className="section-title">{t("tutor.meetings.title")}</h2>
+      <p className="muted">{t("tutor.meetings.help")}</p>
+      <QueryFeedback
+        hasData={periods.data !== undefined && !denied}
+        loading={periods.isLoading}
+        error={!!periods.error}
+        retrying={periods.isFetching}
+        loadingTitle={t("tutor.tasks.loading")}
+        errorTitle={t(
+          denied ? "meetingPeriods.denied" : "uiPatterns.loadFailed",
+        )}
+        retryLabel={t("tutor.tasks.retry")}
+        onRetry={() => void periods.refetch()}
+      />
+      {!denied && periods.data && (
+        <MeetingPeriodSections
+          catalog={periods.data}
+          renderPeriod={(period, history) => (
+            <TutorMeetingPeriod period={period} history={history} />
+          )}
+        />
+      )}
+    </section>
+  );
+}
+
+function TutorMeetingPeriod({
+  period,
+  history,
+}: {
+  period: string;
+  history: boolean;
+}) {
   const programFormat = useFormatter();
   const t = useTranslations();
   const utils = api.useUtils();
-  const meetings = api.tutor.myMeetings.useQuery();
-  const refresh = () => utils.tutor.myMeetings.invalidate();
+  const meetings = api.tutor.meetingRecords.useQuery({ period });
+  const denied = useSessionAccessDenied(meetings);
+  const refresh = () =>
+    Promise.all([
+      utils.tutor.myMeetings.invalidate(),
+      utils.tutor.meetingRecords.invalidate(),
+      utils.tutor.meetingPeriods.invalidate(),
+    ]);
   const excuse = api.tutor.excuseMeeting.useMutation({
     onSuccess: async () => {
       // A rejected write must leave the editor and its reason available for retry.
@@ -40,16 +90,24 @@ export function TutorMeetings() {
     lastAction === "excuse" ? excuse : lastAction === "cancel" ? cancel : null;
 
   const list = meetings.data ?? [];
-  if (list.length === 0 && !meetings.error && !meetings.isLoading) return null;
+  if (denied)
+    return (
+      <QueryFeedback
+        hasData={false}
+        loading={false}
+        error
+        loadingTitle={t("tutor.tasks.loading")}
+        errorTitle={t("meetingPeriods.denied")}
+        retryLabel={t("tutor.tasks.retry")}
+        onRetry={() => void meetings.refetch()}
+      />
+    );
 
   return (
-    <section
-      id="tutor-meetings"
-      tabIndex={-1}
-      className="card scroll-mt-6 p-4 sm:p-5"
-    >
-      <h2 className="section-title">{t("tutor.meetings.title")}</h2>
-      <p className="muted mt-1 mb-3">{t("tutor.meetings.help")}</p>
+    <div className="space-y-3">
+      {meetings.data?.length === 0 && (
+        <p className="muted">{t("meetingPeriods.empty")}</p>
+      )}
       {meetings.isLoading && <p role="status">{t("tutor.tasks.loading")}</p>}
       {meetings.error && (
         <p role="alert">
@@ -82,10 +140,29 @@ export function TutorMeetings() {
                   {m.reason ? ` — ${m.reason}` : ""}
                 </p>
               )}
+              {!m.excused && m.reason && (
+                <p className="muted mt-1 text-xs whitespace-pre-wrap">
+                  {m.reason}
+                </p>
+              )}
             </div>
 
             <div className="min-w-0 sm:shrink-0">
-              {m.excused ? (
+              {history || !m.upcoming ? (
+                <span className="badge-slate">
+                  {m.status
+                    ? t(
+                        m.status === "EXEMPT"
+                          ? "admin.meetings.exempt"
+                          : m.status === "PRESENT"
+                            ? "admin.meetings.status.present"
+                            : m.status === "EXCUSED_ABSENT"
+                              ? "admin.meetings.status.excusedAbsent"
+                              : "admin.meetings.status.unexcusedAbsent",
+                      )
+                    : t("auditEventDetails.notRecorded")}
+                </span>
+              ) : m.excused ? (
                 m.canExcuse ? (
                   <button
                     className="btn-secondary btn-sm"
@@ -168,6 +245,6 @@ export function TutorMeetings() {
           {t("workflows.saved")}
         </p>
       )}
-    </section>
+    </div>
   );
 }

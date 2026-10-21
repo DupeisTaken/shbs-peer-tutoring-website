@@ -1088,7 +1088,7 @@
       },
       "stats": {
         "title": "튜터 출석",
-        "help": "모든 회의 기준.",
+        "help": "이 그룹의 회의에 대한 통계입니다.",
         "tutor": "튜터",
         "empty": "아직 기록된 출석이 없습니다."
       },
@@ -5477,5 +5477,19 @@
     "emailHelp": "이메일에 있는 숫자 4자리를 입력하세요. 이전에 발급된 코드도 사용할 수 있습니다.",
     "lettersKeyboard": "문자가 포함된 코드 입력",
     "numericKeyboard": "숫자 키패드 사용"
+  },
+  "meetingPeriods": {
+    "current": "현재 기간",
+    "unconfigured": "활성 프로그램 기간이 설정되지 않았습니다.",
+    "outside": "다른 기간의 예정된 회의",
+    "outsideHelp": "이 회의는 다른 기간에 기록되어 있습니다. 놓치지 않도록 여기에서 확인하세요.",
+    "history": "회의 기록",
+    "noHistory": "이전 회의 기록이 없습니다.",
+    "unassigned": "기간 미기록",
+    "group": "{period} · 회의 {count}개",
+    "empty": "이 기간에는 회의가 없습니다.",
+    "denied": "더 이상 이 회의에 접근할 수 없습니다.",
+    "historyHelp": "기간을 열어 해당 회의를 확인하세요.",
+    "outsideStaffHelp": "출석을 수정하려면 회의 기록에서 해당 기간을 여세요."
   }
 }

@@ -1088,7 +1088,7 @@
       },
       "stats": {
         "title": "Tutor-Anwesenheit",
-        "help": "Über alle Treffen.",
+        "help": "Über alle Treffen dieser Gruppe.",
         "tutor": "Tutor",
         "empty": "Noch keine Anwesenheit erfasst."
       },
@@ -5477,5 +5477,19 @@
     "emailHelp": "Gib die 4 Ziffern aus deiner E-Mail ein. Bereits ausgestellte Codes bleiben gültig.",
     "lettersKeyboard": "Code mit Buchstaben eingeben",
     "numericKeyboard": "Zifferntastatur verwenden"
+  },
+  "meetingPeriods": {
+    "current": "Aktueller Zeitraum",
+    "unconfigured": "Kein aktiver Programmzeitraum eingerichtet.",
+    "outside": "Bevorstehende Treffen in anderen Zeiträumen",
+    "outsideHelp": "Diese bevorstehenden Treffen sind einem anderen Zeitraum zugeordnet. Prüfe sie hier, damit sie nicht übersehen werden.",
+    "history": "Treffenverlauf",
+    "noHistory": "Keine früheren Treffen erfasst.",
+    "unassigned": "Zeitraum nicht erfasst",
+    "group": "{period} · {count} Treffen",
+    "empty": "Keine Treffen in diesem Zeitraum.",
+    "denied": "Du hast keinen Zugriff mehr auf diese Treffen.",
+    "historyHelp": "Öffne einen Zeitraum, um seine Treffen anzusehen.",
+    "outsideStaffHelp": "Öffne zum Bearbeiten der Anwesenheit den zugeordneten Zeitraum im Treffenverlauf."
   }
 }

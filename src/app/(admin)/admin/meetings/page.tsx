@@ -32,6 +32,8 @@ import {
 } from "~/app/_components/ui/summary-table";
 import { visibleTutors } from "~/lib/tutor-visibility";
 import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
+import { MeetingPeriodSections } from "~/app/_components/meeting-period-sections";
+import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 
 /** The statuses an admin picks directly. EXEMPT (X) is auto-applied to inactive tutors;
  *  EXCUSED_ABSENT comes only from a tutor's self-excuse and shows as a read-only badge. */
@@ -46,18 +48,63 @@ type MeetingStatus =
   "PRESENT" | "EXCUSED_ABSENT" | "UNEXCUSED_ABSENT" | "EXEMPT";
 
 export default function MeetingsPage() {
+  const t = useTranslations();
+  const periods = api.admin.meetingPeriods.useQuery();
+  const denied = useSessionAccessDenied(periods);
+  useSessionPageScroll({
+    id: "meetings-v2",
+    ready: periods.data !== undefined && !denied,
+    enabled: !denied,
+  });
+  return (
+    <div className="space-y-6">
+      <h1 className="page-title">{t("admin.meetings.title")}</h1>
+      <QueryFeedback
+        hasData={periods.data !== undefined && !denied}
+        loading={periods.isLoading}
+        error={!!periods.error}
+        retrying={periods.isFetching}
+        loadingTitle={t("tutor.tasks.loading")}
+        errorTitle={t(
+          denied ? "meetingPeriods.denied" : "uiPatterns.loadFailed",
+        )}
+        retryLabel={t("uiPatterns.retry")}
+        onRetry={() => void periods.refetch()}
+      />
+      {!denied && periods.data && (
+        <MeetingPeriodSections
+          catalog={periods.data}
+          renderPeriod={(period, history) => (
+            <MeetingPeriodPanel period={period} history={history} />
+          )}
+        />
+      )}
+    </div>
+  );
+}
+
+function MeetingPeriodPanel({
+  period,
+  history,
+}: {
+  period: string;
+  history: boolean;
+}) {
   const programFormat = useFormatter();
   const t = useTranslations();
   const timeZone = useTimeZone();
   const [inputError, setInputError] = useState("");
-  const readOnly = useReadOnly();
+  // Supplemental upcoming records have one editable owner in their recorded
+  // history group; this overview must not create a competing attendance draft.
+  const readOnly = useReadOnly() || period === "upcomingOutside";
   const utils = api.useUtils();
   const { confirm, dialog } = useDialog();
-  const meetings = api.admin.meetings.useQuery();
+  const meetings = api.admin.meetings.useQuery({ period });
   const tutors = api.admin.tutors.useQuery();
   const denied = useSessionAccessDenied(meetings, tutors);
   const [view, setView] = useSessionViewState<MeetingView>({
     id: "meeting-panels-v1",
+    scope: period,
     initialState: { showPast: false, showSummary: false },
     parse: meetingViewParser,
     enabled: !denied,
@@ -70,13 +117,11 @@ export default function MeetingsPage() {
       ...previous,
       showSummary: change(previous.showSummary),
     }));
-  useSessionPageScroll({
-    id: "meetings-v1",
-    scope: JSON.stringify(view),
-    ready: meetings.data !== undefined && tutors.data !== undefined && !denied,
-    enabled: !denied,
-  });
-  const invalidate = () => utils.admin.meetings.invalidate();
+  const invalidate = () =>
+    Promise.all([
+      utils.admin.meetings.invalidate(),
+      utils.admin.meetingPeriods.invalidate(),
+    ]);
   const create = api.admin.createMeeting.useMutation({
     onSuccess: async () => {
       setTitle("");
@@ -117,7 +162,6 @@ export default function MeetingsPage() {
   if (denied)
     return (
       <div className="space-y-6">
-        <h1 className="page-title">{t("admin.meetings.title")}</h1>
         <StatePanel
           kind="denied"
           title={t("managementRecovery.denied", {
@@ -140,6 +184,9 @@ export default function MeetingsPage() {
   return (
     <div className="space-y-6">
       {dialog}
+      {period === "upcomingOutside" && (
+        <p className="muted">{t("meetingPeriods.outsideStaffHelp")}</p>
+      )}
       {meetings.error && (
         <StatePanel
           kind="error"
@@ -155,7 +202,6 @@ export default function MeetingsPage() {
       )}
       {inputError && <p role="alert">{inputError}</p>}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="page-title">{t("admin.meetings.title")}</h1>
         <button
           className="btn-secondary control-standard"
           aria-expanded={showSummary}
@@ -171,7 +217,7 @@ export default function MeetingsPage() {
         <MeetingSummary meetings={meetings.data ?? []} tutors={tutorOpts} />
       )}
 
-      {!readOnly && (
+      {!readOnly && !history && (
         <form
           className="flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
@@ -249,6 +295,18 @@ export default function MeetingsPage() {
         <p role="alert" className="text-sm text-red-700">
           {del.error.message}
         </p>
+      )}
+      <QueryFeedback
+        hasData={meetings.data !== undefined}
+        loading={meetings.isLoading}
+        error={false}
+        loadingTitle={t("tutor.tasks.loading")}
+        errorTitle={t("uiPatterns.loadFailed")}
+        retryLabel={t("uiPatterns.retry")}
+        onRetry={() => void meetings.refetch()}
+      />
+      {meetings.data?.length === 0 && (
+        <p className="muted">{t("meetingPeriods.empty")}</p>
       )}
       <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-5">
         <div className="card min-w-0 overflow-hidden lg:col-span-3">
@@ -375,7 +433,7 @@ export default function MeetingsPage() {
   );
 }
 
-/** Per-tutor attendance tally across all meetings (present / excused / unexcused), worst first.
+/** Per-tutor attendance tally for the supplied period (present / excused / unexcused), worst first.
  *  Shown beside the meetings list so coordinators can spot patterns at a glance. */
 function TutorMeetingStats({
   meetings,
@@ -490,11 +548,7 @@ function TutorMeetingStats({
                       t("participantNames.unnamed"),
                     )}
                   >
-                    <MeetingRecordDetails
-                      meetings={meetings}
-                      tutorId={r.id}
-                      active={r.active}
-                    />
+                    <MeetingRecordDetails meetings={meetings} tutorId={r.id} />
                   </TableDetails>
                 </TableActions>
               </tr>
@@ -506,8 +560,8 @@ function TutorMeetingStats({
   );
 }
 
-/** Read-only matrix: every tutor (rows) × every meeting (columns), showing attendance at a glance.
- *  Inactive tutors are exempt (X); cells with no record show a dot. */
+/** Recorded evidence takes precedence over today's membership. Missing records
+ * cannot establish a historical exemption or absence. */
 function MeetingSummary({
   meetings,
   tutors,
@@ -529,14 +583,14 @@ function MeetingSummary({
     byMeeting.set(m.id, inner);
   }
 
-  const cell = (status: string | undefined, active: boolean) => {
-    if (!active)
-      return {
-        text: "X",
-        cls: "text-slate-400",
-        title: t("admin.meetings.exempt"),
-      };
+  const cell = (status: string | undefined) => {
     switch (status) {
+      case "EXEMPT":
+        return {
+          text: "X",
+          cls: "text-slate-400",
+          title: t("admin.meetings.exempt"),
+        };
       case "PRESENT":
         return {
           text: "P",
@@ -599,7 +653,7 @@ function MeetingSummary({
                 <ParticipantName name={tu.englishName} username={tu.username} />
               </th>
               {meetings.map((m) => {
-                const c = cell(byMeeting.get(m.id)?.get(tu.id), tu.active);
+                const c = cell(byMeeting.get(m.id)?.get(tu.id));
                 return (
                   <td
                     key={m.id}
@@ -618,11 +672,7 @@ function MeetingSummary({
                     t("participantNames.unnamed"),
                   )}
                 >
-                  <MeetingRecordDetails
-                    meetings={meetings}
-                    tutorId={tu.id}
-                    active={tu.active}
-                  />
+                  <MeetingRecordDetails meetings={meetings} tutorId={tu.id} />
                 </TableDetails>
               </TableActions>
             </tr>
@@ -651,11 +701,9 @@ type MeetingRecord = {
 function MeetingRecordDetails({
   meetings,
   tutorId,
-  active,
 }: {
   meetings: MeetingRecord[];
   tutorId: string;
-  active: boolean;
 }) {
   const t = useTranslations();
   const format = useFormatter();
@@ -671,7 +719,7 @@ function MeetingRecordDetails({
         const record = meeting.attendances.find(
           (entry) => entry.tutorId === tutorId,
         );
-        const status = record?.status ?? (!active ? "EXEMPT" : "");
+        const status = record?.status ?? "";
         return (
           <li
             key={meeting.id}

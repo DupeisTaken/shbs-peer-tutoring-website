@@ -163,6 +163,7 @@ vi.mock("~/trpc/react", () => ({
         timeSlots: { invalidate: vi.fn() },
         pairings: { invalidate: vi.fn() },
         meetings: { invalidate: vi.fn() },
+        meetingPeriods: { invalidate: vi.fn() },
       },
       student: { me: { invalidate: vi.fn() } },
       studentWorkflow: { mine: { invalidate: vi.fn() } },
@@ -207,6 +208,15 @@ vi.mock("~/trpc/react", () => ({
       },
       pairings: { useQuery: () => ({ data: mocks.pairings }) },
       meetings: { useQuery: () => ({ data: mocks.meetings }) },
+      meetingPeriods: {
+        useQuery: () => ({
+          data: {
+            current: { key: "29-30:Q2", label: "2029–30 Q2" },
+            history: [],
+            outsideUpcoming: 0,
+          },
+        }),
+      },
       createTimeSlot: { useMutation: () => ({ mutate: vi.fn() }) },
       updateTimeSlot: {
         useMutation: () => ({
