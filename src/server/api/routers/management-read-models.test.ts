@@ -483,7 +483,7 @@ it.each<Access>(["HEAD", "ADMIN", "COORDINATOR"])(
       sessionRow,
     ]);
     expect(await caller.admin.tutorApplications()).toEqual([
-      { ...applicationRow, isInvalid: true, setupTutorId: null },
+      { ...applicationRow, isInvalid: true, setupTutorId: null, identityNeedsReview: false },
     ]);
     expect(await caller.admin.auditLog({ search: PRIVATE })).toEqual([
       auditRow,
