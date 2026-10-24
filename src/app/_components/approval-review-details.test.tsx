@@ -7,6 +7,38 @@ import zh from "../../../messages/zh.json";
 import { ApprovalReviewDetails } from "./approval-review-details";
 
 afterEach(cleanup);
+it.each(["en", "zh"])("renders immutable next-period approval evidence and an explicit clear (%s)", (locale) => {
+  const copy = locale === "en" ? en : zh;
+  const target = { sourceTermId: "old-source", sourceSchoolYear: "26-27", sourceQuarter: "Q4", destinationSchoolYear: "27-28", destinationQuarter: "Q1", semesterMode: false, modeRevision: 7 };
+  show("program.prepareNextRecruitment", { audience: "tutor", opensAt: null, expectedTarget: target, expectedVersion: 3 }, { nextRecruitment: { audience: "tutor", currentName: "26-27 Q4", nextName: "27-28 Q1", target, timeZone: "Asia/Shanghai", preparation: { target, version: 3, opensAt: "2027-09-01T01:00:00.000Z", timeZone: "Asia/Shanghai" }, destinationClosesAt: null } }, locale);
+  expect(screen.getByText("26-27 Q4")).toBeTruthy();
+  expect(screen.getByText("27-28 Q1")).toBeTruthy();
+  expect(screen.getByText(copy.nextRecruitment.proposedOpening)).toBeTruthy();
+  expect(screen.getByText(copy.nextRecruitment.noRestriction)).toBeTruthy();
+  expect(screen.queryByText(copy.nextRecruitment.tutee)).toBeNull();
+  expect(screen.queryByText("Expected Target")).toBeNull();
+});
+
+it("does not invent next-period evidence for a legacy refresh request", () => {
+  show("admin.refresh", { confirm: "REFRESH", expectedTermId: "legacy" }, {});
+  expect(screen.getByText(en.approvals.review.unavailable)).toBeTruthy();
+  expect(screen.queryByText(en.nextRecruitment.noRestriction)).toBeNull();
+});
+
+it.each(["en", "zh"])("shows the captured refresh consequences and academic reconfirmation in the Head review (%s)", (locale) => {
+  const copy = locale === "en" ? en : zh;
+  const target = { sourceTermId: "historical-source", sourceSchoolYear: "26-27", sourceQuarter: "Q3", destinationSchoolYear: "27-28", destinationQuarter: "Q1", semesterMode: true, modeRevision: 4 };
+  const snapshot = { target, currentName: "26-27 S2", nextName: "27-28 S1", timeZone: "Asia/Shanghai", preparations: { tutor: null, tutee: null }, refreshEvidence: { destination: null } };
+  show("admin.refresh", { confirm: "REFRESH" }, { nextRecruitment: snapshot }, locale);
+  expect(screen.getByText(copy.admin.program.effectTutees)).toBeTruthy();
+  expect(screen.getByText(copy.admin.program.effectPairings)).toBeTruthy();
+  expect(screen.getByText(copy.admin.program.effectReactivate)).toBeTruthy();
+  expect(screen.getByText(copy.nextRecruitment.graduationHelp)).toBeTruthy();
+  expect(screen.getByText(copy.nextRecruitment.academicReconfirm)).toBeTruthy();
+  expect(screen.getByText(copy.nextRecruitment.historyHelp)).toBeTruthy();
+  expect(screen.queryByText(copy.admin.program.effectAgeUp)).toBeNull();
+  expect(screen.getByText(copy.admin.program.effectHoursReset.replace("{semester}", "S1"))).toBeTruthy();
+});
 it.each(["en", "zh"])(
   "localizes name-policy roles/requirements and preserves ordered room names (%s)",
   (locale) => {

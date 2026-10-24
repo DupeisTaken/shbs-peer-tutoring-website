@@ -232,6 +232,47 @@ content, query strings, fragments, external URLs and private destinations intact
 Seed buttons and editor defaults use the same published convention. Absolute URLs
 in stored content retain their explicit origin and destination.
 
+## Next-period recruitment preparation
+
+[`next-recruitment.ts`](../../src/server/program/next-recruitment.ts) owns the typed
+preparation and exact target contract shared by Program Settings, proposal capture
+and official refresh. `NextRecruitmentPreparation` is separate from `Term`, keyed
+by source term and audience, with a monotonically increasing version, UTC opening
+instant, timezone evidence, destination, effective mode revision and actor metadata.
+No row means preserve the destination opening; a row with a null opening is an
+explicit clear. Preparations never create an inactive period or change live intake.
+
+`program.prepareNextRecruitment` requires the source/destination/mode target,
+audience version and timezone. Head applies; Admin queues for Head; lower roles
+cannot submit. Proposal capture and execution repeat the same locked checks. Save
+evidence contains only the selected audience, so independently reviewed Tutor and
+Tutee proposals can both apply. Refresh evidence includes both preparations and
+the reused destination's switches, bounds and preview links. Legacy queued refresh
+payloads lacking this evidence require new review.
+
+The lock order is `program:period`, active-source row, then `program-timezone`.
+Refresh then locks the username namespace before touching participant rows; its
+graduation path and intake writers use compatible period-before-identity ordering.
+Preparation and refresh lock and recheck the actor after the period wait, while
+approval replay also locks and rechecks the requester and reviewer.
+The source transaction fence prevents a pre-lock Serializable snapshot from
+accepting stale absent rows or mode evidence. Quarter System staging shares the
+period barrier and advances its revision even across an away-and-back change.
+Every changed feature staging and timezone write advances the source fence too.
+`admin.refresh` validates reviewed evidence before any archive or activation,
+then applies only opening overrides in its destination upsert. Submission writers
+use the same period barrier and observe either the previous active period or the
+fully configured destination. Rollback retains preparations and history; the old
+source ID rejects repeated activation. Existing switches, closing bounds, preview
+links and participant-history semantics remain unchanged.
+
+Saved instants are never converted again after a timezone change. Editing requires
+current timezone evidence, and refresh reviews both the program zone and stored
+preparation zone. Closing validation applies to reused destinations. Elapsed
+openings are allowed; the inclusive opening boundary still composes with acceptance,
+exclusive closing and normal signup prerequisites. Operator behavior is documented
+in [next-period openings](../guides/program-configuration.md#prepare-next-period-openings).
+
 ## Architecture
 
 Tutor Roster details use the read-only `tutorDetails.get` procedure, guarded by the same management permission as account policy history. Its explicit field selection excludes authentication secrets; the UI mounts the query only after a staff member opens a tutor. Subject grouping reads concrete grants from approved qualification sources, never recalculating inheritance from current level ranks. Willingness remains a separate three-state value (true, false, or no record). Policy history uses the linked account ID through `student.acceptanceRecords`; neither matching contact data nor viewing a record grants account or role-edit access.

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
 import { viewStateKey } from "~/lib/session-view-state";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
 import zh from "../../../../../messages/zh.json";
@@ -43,6 +43,12 @@ vi.mock("~/app/_components/program-time-zone-settings", () => ({
 vi.mock("~/app/_components/recruitment-settings", () => ({
   RecruitmentSettings: () => null,
 }));
+vi.mock("~/app/_components/next-recruitment-settings", () => ({
+  NextRecruitmentSettings: access.privateChild,
+  NextRecruitmentError: ({ message }: { message: string }) => message,
+}));
+const target = { sourceTermId: "term-1", sourceSchoolYear: "26-27", sourceQuarter: "Q1", destinationSchoolYear: "26-27", destinationQuarter: "Q2", semesterMode: false, modeRevision: 0 };
+const nextRecruitment = { canEdit: true, canApply: true, target, currentName: "Current", nextName: "Next", timeZone: "Asia/Shanghai", preparations: { tutor: null, tutee: null }, refreshEvidence: { target, timeZone: "Asia/Shanghai", preparations: { tutor: null, tutee: null }, destination: null } };
 // This suite owns refresh confirmation. Relocated settings own separate query tests.
 vi.mock("~/app/_components/program-calendar", () => ({
   ProgramCalendarSettings: access.privateChild,
@@ -69,7 +75,7 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
     },
-    useUtils: () => ({ admin: { invalidate: vi.fn() } }),
+    useUtils: () => ({ admin: { currentPeriod: { cancel: vi.fn().mockResolvedValue(undefined), fetch: vi.fn().mockResolvedValue({ termId: "term-2", schoolYear: "26-27", quarter: "Q2", recruitment: { tutor: {}, tutee: {} } }) } }, program: { nextRecruitment: { cancel: vi.fn().mockResolvedValue(undefined), fetch: vi.fn().mockResolvedValue({ ...nextRecruitment, target: { ...target, sourceTermId: "term-2" } }) } } }),
     admin: {
       currentPeriod: {
         useQuery: () => ({
@@ -85,15 +91,19 @@ vi.mock("~/trpc/react", () => ({
           },
         }),
       },
-      refresh: { useMutation: () => ({ mutate, isPending: false }) },
+      refresh: { useMutation: () => ({ mutateAsync: mutate, isPending: false }) },
     },
     program: {
+      nextRecruitment: { useQuery: () => ({ data: nextRecruitment, refetch: vi.fn() }) },
       featureSettings: { useQuery: () => ({ data: undefined }) },
       setFeaturePending: { useMutation: () => ({}) },
     },
   },
 }));
 beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
+  HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
+  mutate.mockResolvedValue({ name: "Next", archivedTutees: 0, graduatedTutors: 0, agedTutors: 0, pendingTutors: 0 });
   access.known = true;
   access.error = null;
   access.refetch.mockClear();
@@ -111,7 +121,7 @@ afterEach(() => {
 });
 it.each(["en", "zh"] as const)(
   "associates the visible confirmation label in %s without changing typed confirmation",
-  (locale) => {
+  async (locale) => {
     const messages = locale === "zh" ? zh : en;
     render(
       <NextIntlClientProvider locale={locale} messages={messages}>
@@ -129,10 +139,13 @@ it.each(["en", "zh"] as const)(
     fireEvent.change(input, { target: { value: "REFRESH" } });
     expect(button.disabled).toBe(false);
     fireEvent.click(button);
-    expect(mutate).toHaveBeenCalledWith({
+    expect(mutate).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: messages.admin.program.refreshButton.replace("{name}", "Next") }));
+    await waitFor(() => expect(mutate).toHaveBeenCalledWith({
       confirm: "REFRESH",
       expectedTermId: "term-1",
-    });
+      expectedPreparation: nextRecruitment.refreshEvidence,
+    }));
   },
 );
 
@@ -242,11 +255,9 @@ it.each(["VIEWER", "departed HEAD"])(
     );
     expect(screen.getByText("Current")).toBeTruthy();
     expect(access.privateChild).not.toHaveBeenCalled();
-    const button = screen.getByRole<HTMLButtonElement>("button", {
+    expect(screen.queryByRole<HTMLButtonElement>("button", {
       name: en.approvals.requestHead,
-    });
-    expect(button.disabled).toBe(true);
-    fireEvent.click(button);
+    })).toBeNull();
     expect(mutate).not.toHaveBeenCalled();
   },
 );

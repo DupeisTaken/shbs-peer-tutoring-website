@@ -89,7 +89,7 @@ export async function applyPendingFeatures(
     if (row.pendingEnabled == null) continue;
     await db.programFeature.update({
       where: { key: row.key },
-      data: { enabled: row.pendingEnabled, pendingEnabled: null },
+      data: { enabled: row.pendingEnabled, pendingEnabled: null, revision: { increment: 1 } },
     });
     changed.push(row.key);
   }

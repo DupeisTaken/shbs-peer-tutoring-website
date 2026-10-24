@@ -320,7 +320,7 @@ Completed menu and retain drafts across collapse and deterministic reordering.
 
 ## Refresh the program
 
-Head runs refresh in **Program Settings → Recruitment and Refresh** after checking the displayed current period and typing `REFRESH`; Admin may request Head review. Coordinators can inspect it but cannot submit or execute it. Head-approved pending module settings take effect in this operation; the applied quarter/semester mode determines the next period.
+Head runs refresh in **Program Settings → Recruitment and Refresh** after reviewing the current period, exact destination, program timezone and prepared Tutor/Tutee openings, then typing `REFRESH`; Admin may request Head review. Coordinators can inspect it but cannot submit or execute it. Head-approved pending module settings take effect in this operation; the applied quarter/semester mode determines the next period.
 
 | Change                       | Result                                                                                                                                                      |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -329,8 +329,11 @@ Head runs refresh in **Program Settings → Recruitment and Refresh** after chec
 | Graduate senior tutors       | Active tutors with confirmed G12 for the graduating reference year graduate on entry to Q4 in quarter mode, or at the school-year boundary in semester mode |
 | Cross a school-year boundary | Reported grades remain unchanged; academic profiles need reconfirmation for the new year                                                                    |
 | Preserve evidence            | Attendance, service hours, policy acceptances and audit records remain; current-period totals and participation are evaluated separately                    |
+| Activate prepared openings   | Applied next-period Tutor and Tutee openings become current settings in the same transaction that activates the destination; pending proposals do not apply |
 
-Reload if another administrator has already changed the period. After refresh, check applied switches, tutor availability, intake settings and new assignments before resuming the program.
+Reload and review again after the source period, prepared values, destination intake settings or staged Quarter System revision changes. Changing Quarter System away and back still requires renewed review. A preparation bound to an older target must be explicitly replaced or cleared for the new target before refresh; it is never silently moved or discarded. Previously queued refresh requests without preparation evidence require a fresh request.
+
+A failed refresh rolls back activation, participant changes and opening settings together, retaining the preparations for review and retry. Replaying a completed refresh cannot advance another period. After refresh, check applied switches, tutor availability, intake settings and new assignments before resuming the program.
 
 ## School departure and viewer access
 
@@ -508,7 +511,21 @@ Translations cover interface strings and supported public text such as news, sec
 
 ## Tutor and tutee recruitment windows
 
-In **Program Settings**, Head applies **Tutor recruitment** and **Tutee recruitment** settings separately for the active period; Admin submits each change for Head review. Each panel has an **Accept applications** switch, independently optional starting and ending times, and an optional external preview link. Save each panel separately. Times use the configured program timezone; the start is inclusive and the end is exclusive. An enabled form with neither bound accepts applications immediately, provided its prerequisites are configured. Turning off the switch pauses applications regardless of dates. Period refresh creates a new period with the default open switches and no time bounds; configure its intake before announcing it.
+In **Program Settings**, Head applies **Tutor recruitment** and **Tutee recruitment** settings separately for the active period; Admin submits each change for Head review. Each current-period panel has an **Accept applications** switch, independently optional starting and ending times, and an optional external preview link. Save each panel separately. Times use the configured program timezone; the start is inclusive and the end is exclusive. An enabled form with neither bound accepts applications immediately, provided its prerequisites are configured. Turning off the switch pauses applications regardless of dates.
+
+### Prepare next-period openings
+
+The next-period editors name the source and destination school year and quarter or semester, alongside the program timezone. Head can save, edit or clear the Tutor and Tutee opening times independently; Admin submits each for Head review. A queued proposal is not a saved preparation. Coordinators and Viewers cannot change preparations. Saving does not refresh the program, accept next-period applications, archive participants or alter current intake.
+
+An unset preparation preserves the destination's existing opening time; for a new period, the default is no opening restriction. An explicitly saved clear removes only that audience's opening restriction. Both cases preserve the destination's acceptance switch, closing time and preview link. New periods retain enabled switches and unbounded closing times. A prepared opening at or after an existing destination closing time is rejected. An elapsed opening is valid and allows intake immediately after activation only when the switch, closing bound and normal signup prerequisites permit it.
+
+The review and save stay bound to their original target and version. Background reads do not replace an unfinished draft. After a conflict, use explicit **Reload**, inspect the new target and save a replacement or clear deliberately. Timezone changes preserve saved UTC instants; reload before editing so a local clock value cannot be reinterpreted silently. Skipped and repeated daylight-saving times remain invalid input. If a write succeeds but its follow-up read fails, **Retry latest read** only reloads data and does not repeat the accepted write. If a later change supersedes that save, its original destination remains shown until explicit **Reload** adopts the newer state.
+
+For an Admin proposal, **Check approval status** preserves the draft and request link while the decision is pending. The editor unlocks only after reading the terminal decision and current settings; checking status never submits another proposal.
+
+At official refresh, both applied preparations are checked again and installed atomically with the destination period. They then appear in the normal current-period editors. The original source preparations and audit evidence remain retained. See [refresh the program](#refresh-the-program) for cases requiring renewed review.
+
+### Current-period access and submissions
 
 Coordinator and Viewer recruitment controls are read-only. Missing editing eligibility never grants a write affordance. Informational no-tutoring summaries show an inclusive date range and a brief reason preview; authorized readers open **View details** for the complete reason. A single-day notice has equal starting and ending dates. There is one notice per starting date; overlapping notices with different starts remain independent. Editing changes the ending date and reason; moving the start requires removal and recreation. Editing and removing notices keep their own permissions and reviewed versions.
 

@@ -70,6 +70,12 @@ vi.mock("~/app/_components/program-time-zone-settings", () => ({
 vi.mock("~/app/_components/recruitment-settings", () => ({
   RecruitmentSettings: () => null,
 }));
+vi.mock("~/app/_components/next-recruitment-settings", () => ({
+  NextRecruitmentSettings: () => null,
+}));
+vi.mock("~/app/_components/program-refresh", () => ({
+  ProgramRefresh: () => null,
+}));
 vi.mock("~/app/_components/program-calendar", () => ({
   ProgramCalendarSettings: () => null,
 }));
@@ -101,7 +107,11 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     useUtils: () => ({
-      admin: { registrationCodes: { invalidate: async () => undefined } },
+      admin: {
+        registrationCodes: { invalidate: async () => undefined },
+        currentPeriod: { invalidate: async () => undefined },
+      },
+      program: { nextRecruitment: { invalidate: async () => undefined } },
     }),
     tutor: {
       myAvailability: {

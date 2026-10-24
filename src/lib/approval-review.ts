@@ -1,4 +1,7 @@
 import { APPROVAL_OPERATIONS } from "./approval-policy";
+import { z } from "zod";
+import { nextRecruitmentTargetSchema, sameNextRecruitmentTarget } from "./next-recruitment";
+import { isProgramTimeZone } from "./program-time";
 import {
   NAME_ACCOUNT_TYPES,
   nameFieldPolicies,
@@ -36,6 +39,8 @@ export const reviewTechnicalFields = new Set([
   "expectedTimeZone",
   "expectedTermId",
   "expectedFingerprint",
+  "expectedTarget",
+  "expectedPreparation",
   "ticket",
   "overrideTicket",
   "confirmPassword",
@@ -47,6 +52,48 @@ export const reviewTechnicalFields = new Set([
   "createdAt",
   "updatedAt",
 ]);
+
+const reviewOpening = z.preprocess(
+  (value) => typeof value === "string" ? new Date(value) : value,
+  z.date().nullable(),
+);
+const reviewPreparation = z.object({
+  version: z.number().int().positive(),
+  opensAt: reviewOpening,
+  timeZone: z.string().refine(isProgramTimeZone),
+  target: nextRecruitmentTargetSchema,
+  matchesTarget: z.boolean(),
+});
+const reviewDestinationWindow = z.object({ enabled: z.boolean(), opensAt: reviewOpening, closesAt: reviewOpening, previewUrl: z.string().nullable() });
+const reviewNextSnapshot = z.object({
+  target: nextRecruitmentTargetSchema,
+  currentName: z.string(), nextName: z.string(),
+  timeZone: z.string().refine(isProgramTimeZone),
+  preparations: z.object({ tutor: reviewPreparation.nullable(), tutee: reviewPreparation.nullable() }),
+  refreshEvidence: z.object({ destination: z.object({ termId: z.string(), tutor: reviewDestinationWindow, tutee: reviewDestinationWindow }).nullable() }),
+});
+
+/** Approval JSON dates are restored only for this typed evidence. Legacy requests
+ * without a captured target stay visibly unavailable, never inferred from live data. */
+export function nextRecruitmentApprovalReview(operation: string, payload: unknown, targets: unknown) {
+  if (operation !== "program.prepareNextRecruitment" && operation !== "admin.refresh") return null;
+  const evidence = record(targets)?.nextRecruitment;
+  if (operation === "admin.refresh") {
+    const snapshot = reviewNextSnapshot.safeParse(evidence);
+    return snapshot.success ? { snapshot: snapshot.data } : null;
+  }
+  const saved = z.object({
+    target: nextRecruitmentTargetSchema,
+    currentName: z.string(), nextName: z.string(),
+    timeZone: z.string().refine(isProgramTimeZone),
+    preparation: reviewPreparation.omit({ matchesTarget: true }).nullable(),
+  }).safeParse(evidence);
+  const input = z.object({ audience: z.enum(["tutor", "tutee"]), opensAt: reviewOpening, expectedTarget: nextRecruitmentTargetSchema }).safeParse(payload);
+  if (!saved.success || !input.success || !sameNextRecruitmentTarget(input.data.expectedTarget, saved.data.target)) return null;
+  const preparation = saved.data.preparation;
+  const preparations = { tutor: null, tutee: null, [input.data.audience]: preparation ? { ...preparation, matchesTarget: sameNextRecruitmentTarget(preparation.target, saved.data.target) } : null };
+  return { snapshot: { ...saved.data, preparations }, audience: input.data.audience, proposedOpening: input.data.opensAt };
+}
 const targetKeys = new Set([
   "id",
   "userId",

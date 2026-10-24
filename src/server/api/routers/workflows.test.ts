@@ -1538,7 +1538,8 @@ it("revoking an application accepted for an existing account revokes its tutor g
 });
 
 it("concurrent period refresh advances exactly one quarter and rejects a stale retry", async () => {
-  const input = { confirm: "REFRESH", expectedTermId: "review-term" };
+  const input = { confirm: "REFRESH", expectedTermId: "review-term",
+    expectedPreparation: (await caller().program.nextRecruitment()).refreshEvidence };
   const outcomes = await Promise.allSettled([
     caller().admin.refresh(input),
     caller().admin.refresh(input),
