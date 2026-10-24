@@ -5520,6 +5520,7 @@
     "copyFailed": "复制失败，请选择并复制所显示的注册码。"
   },
   "interviewApproval": {
+    "tutoringAccessRevoked": "此账号的辅导伙伴权限已被撤销。请先由总负责人恢复辅导伙伴权限，再批准此申请。你填写的面试凭据已保留。",
     "title": "批准面试 · {name}",
     "help": "批准前请记录实际面试出席情况和时长。",
     "attendanceHelp": "仅选择实际出席的评审。投票不代表出席。",

@@ -5520,6 +5520,7 @@
     "copyFailed": "Copy failed. Select and copy the displayed code."
   },
   "interviewApproval": {
+    "tutoringAccessRevoked": "튜터 권한이 철회되었습니다. 이 신청을 승인하기 전에 총책임자에게 튜터 권한 복원을 요청하세요. 입력한 면접 기록은 유지됩니다.",
     "title": "Approve Interview · {name}",
     "help": "Record the actual interview attendance and duration before approval.",
     "attendanceHelp": "Select only panelists who attended. Voting does not confirm attendance.",

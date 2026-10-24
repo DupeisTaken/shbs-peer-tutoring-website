@@ -9,6 +9,8 @@ import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { interviewHoursId } from "~/server/interview-hours";
 import { lockAccountProfile } from "~/server/account-profile";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
+import { reconcileApplication } from "~/server/tutors/application-status";
+import { isSerializationFailure } from "~/server/auth/username-snapshot";
 
 const session = (id = "chair"): Session => ({
   user: { id, name: `Synthetic ${id}`, email: `${id}@example.test` },
@@ -136,6 +138,50 @@ async function outcome(applicationId: string) {
       where: { event: "interview_approved" },
       orderBy: { userId: "asc" },
     }),
+  };
+}
+
+async function existingApplicant(options: { verified?: boolean } = {}) {
+  const tutor = await db.tutor.create({
+    data: {
+      englishName: "Synthetic Returning Candidate",
+      email: "candidate@example.test",
+      username: "returning_candidate",
+      status: "ACTIVE",
+      gradeLevel: 10,
+      gradeSchoolYear: "25-26",
+    },
+  });
+  const account = await db.user.create({
+    data: {
+      username: "returning_candidate",
+      email: "candidate@example.test",
+      role: "TUTOR",
+      tutorId: tutor.id,
+      emailVerifiedAt: options.verified === false ? null : new Date(),
+    },
+  });
+  return { tutor, account };
+}
+
+// Compare persisted domain evidence, not just the rejected RPC. Failed attempts
+// may create their own audit entry, but cannot mutate any admission-owned state.
+async function promotionState(applicationId: string) {
+  return {
+    ...(await outcome(applicationId)),
+    users: await db.user.findMany({ orderBy: { id: "asc" } }),
+    tutors: await db.tutor.findMany({ orderBy: { id: "asc" } }),
+    academics: await db.academicProfile.findMany({
+      orderBy: { userId: "asc" },
+    }),
+    academicConfirmations: await db.academicConfirmation.findMany({
+      orderBy: { id: "asc" },
+    }),
+    history: await db.historicalAcademicRecord.findMany({
+      orderBy: { id: "asc" },
+    }),
+    proposals: await db.approvalRequest.findMany({ orderBy: { id: "asc" } }),
+    allNotices: await db.notification.findMany({ orderBy: { id: "asc" } }),
   };
 }
 
@@ -864,3 +910,723 @@ it("a superseded legacy proposal cannot replay over a new atomic chair approval"
       .state,
   ).toBe("PENDING");
 });
+
+// Keep the original reproduction's complete observed outcome together so the
+// regression identifies an implicit restoration and all accompanying side effects.
+it("Admin chair approval preserves an applicant's Head-revoked tutoring access", async () => {
+  const { app, input } = await fixture();
+  const tutor = await db.tutor.create({
+    data: {
+      englishName: "Synthetic Restricted Candidate",
+      email: "candidate@example.test",
+      username: "restricted_candidate",
+      status: "ACTIVE",
+    },
+  });
+  const applicant = await db.user.create({
+    data: {
+      username: "restricted_candidate",
+      email: "candidate@example.test",
+      role: "TUTOR",
+      tutorId: tutor.id,
+      emailVerifiedAt: new Date(),
+    },
+  });
+  // Establish the restriction through its real Head-only entry point, not an
+  // arbitrary fixture flag: this also archives the retained tutor identity.
+  await caller("head").admin.setUserCanTutor({
+    userId: applicant.id,
+    canTutor: false,
+  });
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: applicant.id } }),
+  ).toMatchObject({ tutorId: tutor.id, tutorAccessRevoked: true });
+  expect(
+    await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } }),
+  ).toMatchObject({ status: "ARCHIVED" });
+
+  let outcomeLabel = "rejected";
+  try {
+    await caller().tutor.decideInterview(input);
+    outcomeLabel = "accepted";
+  } catch {
+    // Rejection is the desired behavior until Head explicitly restores access.
+  }
+  const result = await outcome(app.id);
+  const applicantAfter = await db.user.findUniqueOrThrow({
+    where: { id: applicant.id },
+  });
+  const tutorAfter = await db.tutor.findUniqueOrThrow({
+    where: { id: tutor.id },
+  });
+  // A combined assertion exposes the complete observed outcome in one failure:
+  // direct acceptance, cleared revocation, ACTIVE roster, credits and notices.
+  expect({
+    outcome: outcomeLabel,
+    applicationStatus: result.app.status,
+    completedAt: result.app.interviewCompletedAt,
+    tutorAccessRevoked: applicantAfter.tutorAccessRevoked,
+    tutorStatus: tutorAfter.status,
+    credits: result.credits.length,
+    codes: result.codes.length,
+    notifications: result.notices.length,
+    proposals: await db.approvalRequest.count(),
+  }).toEqual({
+    outcome: "rejected",
+    applicationStatus: "INTERVIEW",
+    completedAt: null,
+    tutorAccessRevoked: true,
+    tutorStatus: "ARCHIVED",
+    credits: 0,
+    codes: 0,
+    notifications: 0,
+    proposals: 0,
+  });
+});
+
+it.each(["ADMIN", "HEAD"] as const)(
+  "%s chair cannot restore independent Head revocation and rolls back every promotion effect",
+  async (role) => {
+    const { app, input } = await fixture();
+    const { tutor, account } = await existingApplicant();
+    await db.user.update({ where: { id: "chair" }, data: { role } });
+    await caller("head").admin.setUserCanTutor({
+      userId: account.id,
+      canTutor: false,
+    });
+    const before = await promotionState(app.id);
+
+    await expect(caller().tutor.decideInterview(input)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: expect.stringMatching(/Head.*restore/i),
+    });
+
+    expect(await promotionState(app.id)).toEqual(before);
+    expect(before.app).toMatchObject({
+      status: "INTERVIEW",
+      decidedAt: null,
+      decidedByTutorId: null,
+      decisionComment: null,
+      interviewCompletedAt: null,
+      interviewDurationMin: null,
+      promotedTutorId: null,
+    });
+    expect(before.tutors.find((row) => row.id === tutor.id)).toMatchObject({
+      status: "ARCHIVED",
+    });
+    expect(before.users.find((row) => row.id === account.id)).toMatchObject({
+      tutorAccessRevoked: true,
+    });
+    expect(before.credits).toEqual([]);
+    expect(before.codes).toEqual([]);
+    expect(before.notices).toEqual([]);
+    expect(before.proposals).toEqual([]);
+  },
+);
+
+it("explicit Head restoration permits a fresh chair approval using the retained tutor identity", async () => {
+  const { app, input } = await fixture();
+  const { tutor, account } = await existingApplicant();
+  await caller("head").admin.setUserCanTutor({
+    userId: account.id,
+    canTutor: false,
+  });
+  await expect(caller().tutor.decideInterview(input)).rejects.toHaveProperty(
+    "code",
+    "FORBIDDEN",
+  );
+  await caller("head").admin.setUserCanTutor({
+    userId: account.id,
+    canTutor: true,
+  });
+  const current = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+  });
+
+  await expect(
+    caller().tutor.decideInterview({
+      ...input,
+      expectedUpdatedAt: current.updatedAt,
+    }),
+  ).resolves.toEqual({ ok: true });
+
+  const saved = await outcome(app.id);
+  expect(saved.app).toMatchObject({
+    status: "ACCEPTED",
+    promotedTutorId: tutor.id,
+  });
+  expect(saved.credits).toHaveLength(2);
+  expect(saved.notices).toHaveLength(2);
+  expect(saved.codes).toEqual([]);
+  expect(await db.tutor.count()).toBe(5);
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+  ).toMatchObject({
+    tutorId: tutor.id,
+    tutorAccessRevoked: false,
+  });
+});
+
+it("an identical accepted retry after later Head revocation is read-only and retains restriction", async () => {
+  const { app, input } = await fixture();
+  const { tutor, account } = await existingApplicant();
+  await caller().tutor.decideInterview(input);
+  await caller("head").admin.setUserCanTutor({
+    userId: account.id,
+    canTutor: false,
+  });
+  const restricted = await promotionState(app.id);
+
+  await expect(caller().tutor.decideInterview(input)).resolves.toEqual({
+    ok: true,
+  });
+
+  expect(await promotionState(app.id)).toEqual(restricted);
+  expect(restricted.app).toMatchObject({
+    status: "ACCEPTED",
+    promotedTutorId: tutor.id,
+  });
+  expect(restricted.users.find((row) => row.id === account.id)).toMatchObject({
+    tutorAccessRevoked: true,
+  });
+  expect(restricted.tutors.find((row) => row.id === tutor.id)).toMatchObject({
+    status: "ARCHIVED",
+  });
+});
+
+it("Head review of a pending legacy acceptance cannot implicitly restore applicant access", async () => {
+  const { app, input } = await fixture();
+  const { account } = await existingApplicant();
+  const request = await queueProposal(session(), "tutor.decideInterview", {
+    applicationId: input.applicationId,
+    accept: input.accept,
+    comment: input.comment,
+    expectedUpdatedAt: input.expectedUpdatedAt,
+  });
+  await caller("head").admin.setUserCanTutor({
+    userId: account.id,
+    canTutor: false,
+  });
+  const before = await promotionState(app.id);
+
+  await expect(
+    caller("head").approval.decide({
+      id: request.id,
+      approve: true,
+      note: "The applicant restriction is a separate Head decision",
+    }),
+  ).rejects.toHaveProperty("code", "FORBIDDEN");
+
+  expect(await promotionState(app.id)).toEqual(before);
+  expect(before.proposals[0]).toMatchObject({
+    id: request.id,
+    state: "PENDING",
+  });
+});
+
+it.each(["verified", "unverified"] as const)(
+  "shared promotion refuses a revoked %s account before creating historical records or invitations",
+  async (verification) => {
+    const app = await db.tutorApplication.create({
+      data: {
+        name: "Synthetic Returning Candidate",
+        email: "candidate@example.test",
+        status: "ACCEPTED",
+      },
+    });
+    const { account } = await existingApplicant({
+      verified: verification === "verified",
+    });
+    await caller("head").admin.setUserCanTutor({
+      userId: account.id,
+      canTutor: false,
+    });
+    const before = await promotionState(app.id);
+
+    await expect(promoteApplicantToTutor(app.id)).rejects.toHaveProperty(
+      "code",
+      "FORBIDDEN",
+    );
+
+    expect(await promotionState(app.id)).toEqual(before);
+  },
+);
+
+it.each([true, false])(
+  "an email-matched roster's actual owner is respected with revoked=%s and outdated contact data",
+  async (revoked) => {
+    const { app, input } = await fixture();
+    const { account } = await existingApplicant();
+    // The roster retains the historical applicant email while its current owner
+    // has a different mailbox. A missing email lookup never means an unowned tutor.
+    await db.user.update({
+      where: { id: account.id },
+      data: { email: "new-owner-mail@example.test" },
+    });
+    if (revoked)
+      await caller("head").admin.setUserCanTutor({
+        userId: account.id,
+        canTutor: false,
+      });
+    const before = await promotionState(app.id);
+
+    await expect(caller().tutor.decideInterview(input)).rejects.toHaveProperty(
+      "code",
+      revoked ? "FORBIDDEN" : "CONFLICT",
+    );
+
+    expect(await promotionState(app.id)).toEqual(before);
+  },
+);
+
+it.each([true, false])(
+  "first admission preserves the account verification boundary when no tutor membership exists (verified=%s)",
+  async (verified) => {
+    const { app, input } = await fixture();
+    const account = await db.user.create({
+      data: {
+        email: "candidate@example.test",
+        username: "unlinked_candidate",
+        role: "STUDENT",
+        emailVerifiedAt: verified ? new Date() : null,
+        // Historical setup and membership selection use this flag for no membership
+        // as well as linked revocation. First admission follows registration's rule.
+        tutorAccessRevoked: true,
+      },
+    });
+    await expect(caller().tutor.decideInterview(input)).resolves.toEqual({
+      ok: true,
+    });
+    const saved = await outcome(app.id);
+    expect(saved.app).toMatchObject({ status: "ACCEPTED" });
+    expect(saved.credits).toHaveLength(2);
+    expect(saved.codes).toHaveLength(verified ? 0 : 1);
+    expect(
+      await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+    ).toMatchObject({
+      tutorId: verified ? saved.app.promotedTutorId : null,
+      tutorAccessRevoked: !verified,
+      username: "unlinked_candidate",
+    });
+    expect(await db.tutor.count()).toBe(5);
+  },
+);
+
+it.each([true, false])(
+  "a different email account cannot acquire an already owned tutor (owner revoked=%s)",
+  async (revoked) => {
+    const { app, input } = await fixture();
+    const { account } = await existingApplicant();
+    await db.user.update({
+      where: { id: account.id },
+      data: { email: "actual-owner@example.test" },
+    });
+    await db.user.create({
+      data: {
+        email: "candidate@example.test",
+        username: "different_candidate",
+        role: "STUDENT",
+        emailVerifiedAt: new Date(),
+      },
+    });
+    if (revoked)
+      await caller("head").admin.setUserCanTutor({
+        userId: account.id,
+        canTutor: false,
+      });
+    const before = await promotionState(app.id);
+
+    await expect(caller().tutor.decideInterview(input)).rejects.toHaveProperty(
+      "code",
+      revoked ? "FORBIDDEN" : "CONFLICT",
+    );
+
+    expect(await promotionState(app.id)).toEqual(before);
+  },
+);
+
+it("Head panel replacement can reverse an admission while preserving a later independent revocation", async () => {
+  const { app, input } = await fixture();
+  const { account, tutor } = await existingApplicant();
+  await caller().tutor.decideInterview(input);
+  await caller("head").admin.setUserCanTutor({
+    userId: account.id,
+    canTutor: false,
+  });
+  const accepted = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+  });
+
+  await caller("head").admin.assignInterviewers({
+    applicationId: app.id,
+    tutorIds: ["chair-tutor", "head-tutor", "member-tutor"],
+    headTutorId: "chair-tutor",
+    expectedUpdatedAt: accepted.updatedAt,
+  });
+
+  const reset = await outcome(app.id);
+  expect(reset.app).toMatchObject({
+    status: "INTERVIEW",
+    decidedAt: null,
+    interviewCompletedAt: null,
+  });
+  expect(reset.app.votes).toEqual([]);
+  expect(reset.credits).toEqual([]);
+  expect(reset.codes).toEqual([]);
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+  ).toMatchObject({ tutorId: tutor.id, tutorAccessRevoked: true });
+  expect(
+    await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } }),
+  ).toMatchObject({ status: "ARCHIVED" });
+});
+
+it.each([
+  "status acceptance",
+  "same-status reconciliation",
+  "shared reconciliation",
+  "audit undo",
+] as const)(
+  "%s cannot turn Head revocation into an implicit restoration",
+  async (entryPoint) => {
+    await db.programFeature.create({
+      data: { key: "INTERVIEWS", enabled: false },
+    });
+    const { account } = await existingApplicant();
+    const app = await db.tutorApplication.create({
+      data: {
+        name: "Synthetic Returning Candidate",
+        email: "candidate@example.test",
+        status:
+          entryPoint === "same-status reconciliation" ||
+          entryPoint === "shared reconciliation"
+            ? "ACCEPTED"
+            : "PENDING",
+      },
+    });
+    await caller("head").admin.setUserCanTutor({
+      userId: account.id,
+      canTutor: false,
+    });
+    const audit =
+      entryPoint === "audit undo"
+        ? await db.auditLog.create({
+            data: {
+              action: "Historical application reversal",
+              entity: "TutorApplication",
+              entityId: app.id,
+              undoData: {
+                kind: "application.status",
+                payload: {
+                  id: app.id,
+                  status: "ACCEPTED",
+                  expectedUpdatedAt: app.updatedAt.toISOString(),
+                },
+              },
+            },
+          })
+        : null;
+    const before = await promotionState(app.id);
+
+    const action =
+      entryPoint === "audit undo"
+        ? caller("head").admin.undoAudit({ id: audit!.id })
+        : entryPoint === "shared reconciliation"
+          ? reconcileApplication(db, app.id)
+          : caller("head").admin.setApplicationStatus({
+              id: app.id,
+              status: "ACCEPTED",
+              expectedUpdatedAt: app.updatedAt,
+            });
+    // Undo intentionally translates domain refusals into its existing recovery
+    // message; the other entry points must expose the actual restriction.
+    await expect(action).rejects.toHaveProperty(
+      "code",
+      entryPoint === "audit undo" ? "BAD_REQUEST" : "FORBIDDEN",
+    );
+
+    expect(await promotionState(app.id)).toEqual(before);
+    if (audit)
+      expect(
+        await db.auditLog.findUniqueOrThrow({ where: { id: audit.id } }),
+      ).toEqual(audit);
+  },
+);
+
+it.each(["ARCHIVED", "OPTED_OUT"] as const)(
+  "an unrestricted %s roster return reuses its account and preserves historical evidence",
+  async (status) => {
+    const { app, input } = await fixture();
+    const { tutor, account } = await existingApplicant();
+    await db.tutor.update({ where: { id: tutor.id }, data: { status } });
+
+    await expect(caller().tutor.decideInterview(input)).resolves.toEqual({
+      ok: true,
+    });
+
+    const saved = await outcome(app.id);
+    expect(saved.app).toMatchObject({
+      status: "ACCEPTED",
+      promotedTutorId: tutor.id,
+    });
+    expect(saved.codes).toEqual([]);
+    expect(await db.tutor.count()).toBe(5);
+    expect(
+      await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } }),
+    ).toMatchObject({ status: "ACTIVE" });
+    expect(
+      await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+    ).toMatchObject({
+      username: "returning_candidate",
+      tutorId: tutor.id,
+      tutorAccessRevoked: false,
+    });
+    // ARCHIVED is historical evidence; a temporary OPTED_OUT state is not an
+    // archive and must not manufacture one as a side effect of admission.
+    expect(
+      await db.historicalAcademicRecord.findMany({
+        where: { tutorId: tutor.id },
+      }),
+    ).toEqual(
+      status === "ARCHIVED"
+        ? [expect.objectContaining({ rawGrade: "10", schoolYear: "25-26" })]
+        : [],
+    );
+  },
+);
+
+it("an in-flight real Head revocation serializes with chair acceptance without restoring access", async () => {
+  const { app, input } = await fixture();
+  const { account, tutor } = await existingApplicant();
+  let releaseRevocation!: () => void;
+  let revocationReady!: (pid: number) => void;
+  const release = new Promise<void>((resolve) => {
+    releaseRevocation = resolve;
+  });
+  const ready = new Promise<number>((resolve) => {
+    revocationReady = resolve;
+  });
+  const revoking = db.$transaction(
+    async (tx) =>
+      databaseScope.run(tx, async () => {
+        const [backend] = await tx.$queryRaw<
+          { pid: number }[]
+        >`SELECT pg_backend_pid() AS pid`;
+        await caller("head").admin.setUserCanTutor({
+          userId: account.id,
+          canTutor: false,
+        });
+        revocationReady(backend!.pid);
+        await release;
+      }),
+    { timeout: 10000 },
+  );
+  let accepting: Promise<unknown> | undefined;
+  let observedWait = false;
+  try {
+    const writerPid = await Promise.race([
+      ready,
+      revoking.then(() => {
+        throw new Error("Revocation completed before the test released it");
+      }),
+    ]);
+    // Capture the result immediately so a rejected transaction never becomes an
+    // unhandled promise while the test observes the real PostgreSQL wait.
+    accepting = caller()
+      .tutor.decideInterview(input)
+      .then(
+        (value) => ({ status: "fulfilled", value }),
+        (reason: unknown) => ({ status: "rejected", reason }),
+      );
+    await vi.waitUntil(
+      async () => {
+        const [row] = await db.$queryRaw<{ waiting: boolean }[]>`SELECT EXISTS (
+        SELECT 1 FROM pg_locks
+        WHERE locktype = 'advisory' AND NOT granted
+          AND ${writerPid} = ANY(pg_blocking_pids(pid))
+      ) AS waiting`;
+        observedWait = row?.waiting === true;
+        return observedWait;
+      },
+      { timeout: 3000, interval: 25 },
+    );
+  } finally {
+    releaseRevocation();
+    // Even a failed writer must not leave its competing transaction running
+    // when the next test truncates the isolated database.
+    const [writerResult] = await Promise.allSettled([revoking, accepting]);
+    if (writerResult.status === "rejected") throw writerResult.reason;
+  }
+  expect(await accepting).toMatchObject({
+    status: "rejected",
+    reason: {
+      code: "FORBIDDEN",
+      message: expect.stringMatching(/Head.*restore/i),
+    },
+  });
+  expect(observedWait).toBe(true);
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+  ).toMatchObject({ tutorAccessRevoked: true });
+  expect(
+    await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } }),
+  ).toMatchObject({ status: "ARCHIVED" });
+  const saved = await outcome(app.id);
+  expect(saved.app).toMatchObject({
+    status: "INTERVIEW",
+    interviewCompletedAt: null,
+    promotedTutorId: null,
+    decidedAt: null,
+  });
+  expect(saved.credits).toEqual([]);
+  expect(saved.codes).toEqual([]);
+  expect(saved.notices).toEqual([]);
+  expect(await db.approvalRequest.count()).toBe(0);
+}, 15000);
+
+it.each(["ReadCommitted", "Serializable"] as const)(
+  "%s promotion cannot miss a restriction committed while it waits for the account row lock",
+  async (isolationLevel) => {
+    const app = await db.tutorApplication.create({
+      data: {
+        name: "Synthetic Returning Candidate",
+        email: "candidate@example.test",
+        status: "ACCEPTED",
+      },
+    });
+    const { account, tutor } = await existingApplicant();
+    let releaseWriter!: () => void;
+    let rowReady!: () => void;
+    const release = new Promise<void>((resolve) => {
+      releaseWriter = resolve;
+    });
+    const ready = new Promise<void>((resolve) => {
+      rowReady = resolve;
+    });
+    const writing = db.$transaction(
+      async (tx) => {
+        // Existing credential/email writers can already own User through UPDATE.
+        // Exercise the lock boundary directly; the preceding case covers the real
+        // Head RPC and its namespace order independently.
+        await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${account.id} FOR UPDATE`;
+        rowReady();
+        await release;
+        await tx.user.update({
+          where: { id: account.id },
+          data: { tutorAccessRevoked: true },
+        });
+        await tx.tutor.update({
+          where: { id: tutor.id },
+          data: { status: "ARCHIVED" },
+        });
+      },
+      { timeout: 10000 },
+    );
+    let promotion: Promise<PromiseSettledResult<void>> | undefined;
+    let pidReady!: (pid: number) => void;
+    const promotingPid = new Promise<number>((resolve) => {
+      pidReady = resolve;
+    });
+    try {
+      await Promise.race([ready, writing]);
+      promotion = db
+        .$transaction(
+          async (tx) => {
+            const [backend] = await tx.$queryRaw<
+              { pid: number }[]
+            >`SELECT pg_backend_pid() AS pid`;
+            pidReady(backend!.pid);
+            await promoteApplicantToTutor(app.id, tx);
+          },
+          { timeout: 10000, isolationLevel },
+        )
+        .then(
+          (value) => ({ status: "fulfilled" as const, value }),
+          (reason: unknown) => ({ status: "rejected" as const, reason }),
+        );
+      const pid = await Promise.race([
+        promotingPid,
+        promotion.then(() => {
+          throw new Error(
+            "Promotion completed before its backend was observed",
+          );
+        }),
+      ]);
+      await vi.waitUntil(
+        async () => {
+          const [row] = await db.$queryRaw<
+            { waiting: boolean }[]
+          >`SELECT cardinality(pg_blocking_pids(${pid})) > 0 AS waiting`;
+          return row?.waiting === true;
+        },
+        { timeout: 3000, interval: 25 },
+      );
+    } finally {
+      releaseWriter();
+      const [writerResult] = await Promise.allSettled([writing, promotion]);
+      if (writerResult.status === "rejected") throw writerResult.reason;
+    }
+
+    // READ COMMITTED rereads the authoritative restriction. A stale Serializable
+    // snapshot may instead abort at the row fence; either result prevents a grant.
+    const result = await promotion;
+    expect(result).toMatchObject({ status: "rejected" });
+    if (result?.status !== "rejected")
+      throw new Error("The row-lock race must reject promotion");
+    if (isolationLevel === "ReadCommitted") {
+      expect(result.reason).toMatchObject({ code: "FORBIDDEN" });
+    } else {
+      // A timeout, unrelated validation error or database outage is not evidence
+      // that Serializable isolation fenced the stale account snapshot correctly.
+      expect(isSerializationFailure(result.reason)).toBe(true);
+    }
+    expect(
+      await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+    ).toMatchObject({ tutorAccessRevoked: true });
+    expect(
+      await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } }),
+    ).toMatchObject({ status: "ARCHIVED" });
+    expect((await outcome(app.id)).app.promotedTutorId).toBeNull();
+    expect(await db.historicalAcademicRecord.count()).toBe(0);
+    expect(await db.registrationCode.count()).toBe(0);
+  },
+  15000,
+);
+
+// Existing restrictions are independent of tutorAccessRevoked; the promotion
+// boundary must preserve each even when that membership flag is false.
+it.each(["suspended", "merged", "departed"] as const)(
+  "promotion preserves an applicant's independent %s account restriction",
+  async (restriction) => {
+    const { app, input } = await fixture();
+    const { account } = await existingApplicant();
+    if (restriction === "departed") {
+      await caller("head").departure.setState({
+        userId: account.id,
+        action: "GRADUATED",
+        expectedRevision: 0,
+        explanation: "Synthetic confirmed departure before admission",
+      });
+    } else {
+      await db.user.update({
+        where: { id: account.id },
+        data:
+          restriction === "suspended"
+            ? { suspendedAt: new Date() }
+            : { mergedIntoId: "head" },
+      });
+    }
+    const before = await promotionState(app.id);
+    const departureBefore = await db.schoolDeparture.findUnique({
+      where: { userId: account.id },
+    });
+    await expect(caller().tutor.decideInterview(input)).rejects.toHaveProperty(
+      "code",
+      restriction === "merged" ? "CONFLICT" : "FORBIDDEN",
+    );
+    expect(await promotionState(app.id)).toEqual(before);
+    expect(
+      await db.schoolDeparture.findUnique({ where: { userId: account.id } }),
+    ).toEqual(departureBefore);
+  },
+);

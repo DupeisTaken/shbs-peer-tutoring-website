@@ -440,6 +440,14 @@ save. Correct the problem and retry. Attendance keeps its successful receipt and
 locks that entry; choose **Submit Another** to start a fresh record. If a saved
 entry's totals fail to refresh, retry the refresh without resubmitting attendance.
 
+Approving an initial tutor application does not restore tutoring access previously
+revoked by Head. This applies even when Head is the chair or reviews an older
+decision. Ask Head to review and explicitly restore access in **Users & Roles**,
+then review the application again. A refused approval retains the completion time,
+duration, attendees and decision note; it saves no decision, hours, registration
+code or approval notification. An ordinary archived tutor without a separate
+account restriction can still return through the application workflow.
+
 Existing tutors can use **Subject Qualifications** on their dashboard to request another subject or a higher offered level in a subject they already teach. Choose a subject, explain your qualifications and submit; the request history shows outcomes, the decision note, and the subjects granted on approval. Under **Your Requests**, filter by **Pending** (including interviews), **Approved**, **Rejected**, or **Recalled**; counts show how many requests are in each category. History starts with Pending. Use **Collapse** / **Expand** to hide or show the history without losing the selected filter. Active tutors can **Recall request** while a request is pending or under interview. Confirming recall stops review, records who recalled it and when, and retains the request and panel history. A recalled request cannot be approved or reopened; submit a new request for that subject and level when ready. Approved and rejected decisions cannot be recalled. Pending, rejected and recalled requests do not change current qualifications. Duplicate open requests for the same subject and level are blocked. Inactive tutors retain read-only history.
 
 In **Tutor Applications**, additional-subject and higher-level requests have distinct badges. Only Admin or Head may approve directly or assign an interview panel. Rejection requires an interview and a decision note. Direct approval is available even when interviews are enabled. An interview uses the existing votes and majority rules with an Admin/Head tutor as chair, regardless of other panelists' rank; that chair records the outcome in Tutor Applications. Panelists see the requested course and the tutor's qualification explanation on their dashboard. Coordinators cannot make or queue these decisions. Applicants cannot review themselves. Review history and final decisions are retained. Approval records the requested level and lower offered levels in that course group under the ordering at approval time; reordering later does not change those grants. Subject willingness remains a separate choice in Subject Availability.
