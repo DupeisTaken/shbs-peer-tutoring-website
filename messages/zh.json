@@ -1,4 +1,68 @@
 {
+  "applicationIdentity": {
+    "errors": {
+      "APPLICATION_IDENTITY_EMAIL_REQUIRED": "原始申请没有邮箱地址。请通过适当的申请流程核对联系方式归属；此表单仅更正姓名。",
+      "APPLICATION_IDENTITY_NOT_FOUND": "此申请已不可用。",
+      "APPLICATION_IDENTITY_ORIGINAL_MISSING": "无法获取原始身份记录。请刷新记录后继续。",
+      "APPLICATION_IDENTITY_AUTHORITY_REQUIRED": "只有负责人可应用更正；管理员可请求负责人批准。",
+      "APPLICATION_IDENTITY_NO_CHANGE": "提交更正前，请至少修改一个姓名字段。",
+      "APPLICATION_IDENTITY_RETRY_CHANGED": "此回执属于另一项更正。请重新加载当前姓名后再开始新的更正。",
+      "APPLICATION_IDENTITY_PROPOSAL_DECIDED": "此提案已经审核。请查看决定并重新加载当前姓名，再准备新的更正。"
+    },
+    "title": "申请姓名",
+    "edit": "更正姓名",
+    "dialogTitle": "更正申请姓名",
+    "original": "原始提交",
+    "current": "当前申请姓名",
+    "recordedLabel": "已记录的显示姓名",
+    "notRecorded": "未记录",
+    "blank": "留空",
+    "ready": "姓名符合建档要求",
+    "needsReview": "姓名待核对",
+    "needsReviewHelp": "新建辅导伙伴档案前，请记录申请人明确确认的拉丁字母姓名字段。其他语言的姓名可单独保留。",
+    "notAcceptance": "姓名符合要求并不代表申请获批；其他处理条件仍须满足。",
+    "source": {
+      "APPLICATION": "建档将使用当前申请姓名。",
+      "VERIFIED_ACCOUNT": "建档使用已验证账户的身份信息；此更正不会修改该账户。",
+      "EXISTING_ROSTER": "建档将沿用已有辅导伙伴档案；此更正不会替换其身份信息。"
+    },
+    "protectedEvidence": "此处只能更正四个姓名字段。邮箱、联系方式偏好、资格证明及已接受的政策记录均保留原始提交内容。",
+    "ineligible": {
+      "APPLICATION_IDENTITY_NOT_INITIAL": "这是资格申请，请通过资格审核流程查看其证明。",
+      "APPLICATION_IDENTITY_NOT_OPEN": "此申请已结束。后续姓名修改请使用参与者资料编辑流程。",
+      "APPLICATION_IDENTITY_DECIDED": "此申请已有最终决定或面试完成记录。后续姓名修改请使用参与者资料编辑流程。",
+      "APPLICATION_IDENTITY_PROVISIONED": "此申请已配置账户设置或辅导伙伴档案，请查看关联参与者资料。"
+    },
+    "readOnly": "负责人可直接应用更正；管理员可提交更正供负责人审核；协调员可查看此记录。",
+    "invalidPreserved": "此申请仍标记为无效。更正姓名不会清除无效标记，也不会恢复处理。",
+    "history": "更正历史（{count}）",
+    "noHistory": "暂无姓名更正记录。",
+    "revision": "第 {revision} 次更正 · {actor} · {date}",
+    "before": "更正前",
+    "after": "更正后",
+    "viewRequest": "查看审批请求",
+    "accessDenied": "你已无权查看此申请的身份记录。",
+    "loading": "正在加载申请姓名…",
+    "loadFailed": "无法加载申请姓名。",
+    "retryRead": "重试刷新",
+    "readFailedRetained": "无法读取最新姓名。当前草稿已保留；成功刷新后才能保存。",
+    "editHelp": "填写申请人确认的姓名，并说明更正原因。原始提交和每次已应用的更正都会保留在审计历史中。",
+    "applied": "姓名更正已应用",
+    "appliedHelp": "更正已记录。请查看姓名是否符合要求，并继续申请的正常审核流程。",
+    "queued": "更正已提交负责人审核",
+    "queuedHelp": "负责人批准前，申请姓名保持不变。已提交的草稿会保留。",
+    "acceptedReadFailed": "更正已收到，但无法刷新最新记录。重试只会刷新记录，不会再次提交更正。",
+    "reloadFailed": "重新加载失败。草稿及其原始版本已保留。",
+    "authorityChanged": "你的角色已无权更正姓名，保留的草稿不能提交。",
+    "legacyRetained": "原始未拆分姓名会保留，不会推测名字或姓氏。仅更正其他语言姓名后，申请仍可能需要核对姓名。",
+    "reason": "更正原因",
+    "reasonHelp": "说明更正内容以及申请人的确认方式。原因会与审计记录一起保留。",
+    "apply": "应用姓名更正",
+    "propose": "请求负责人批准",
+    "saveFailed": "无法保存更正。",
+    "reload": "重新加载当前姓名",
+    "cancel": "取消"
+  },
   "requestInvalidity": {
     "badge": "无效条目",
     "filterLabel": "申请有效性",
@@ -1336,6 +1400,12 @@
         "reset": "重置筛选",
         "noMatches": "没有符合筛选条件的申请。请尝试其他搜索或重置筛选。",
         "completion": "面试完成情况",
+        "identity": "姓名核对状态",
+        "identityOptions": {
+          "ALL": "所有姓名状态",
+          "NEEDS_REVIEW": "姓名待核对",
+          "READY": "姓名符合要求"
+        },
         "completionOptions": {
           "ALL": "全部完成情况",
           "COMPLETED": "已完成面试",
@@ -3249,6 +3319,7 @@
         "messagePermissions": "消息权限"
       },
       "operations": {
+        "admin_correctApplicationIdentity": "更正待处理申请姓名",
         "corrections_correctAttendance": "更正课次考勤",
         "corrections_correctPatrol": "更正巡查记录",
         "interviewManagement_qualify": "更改辅导伙伴的科目资格",

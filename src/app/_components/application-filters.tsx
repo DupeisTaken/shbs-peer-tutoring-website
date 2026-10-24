@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import {
   APPLICATION_COMPLETIONS,
+  APPLICATION_IDENTITIES,
   APPLICATION_SORTS,
   emptyApplicationFilters,
   type ApplicationFilters as Filters,
@@ -130,6 +131,20 @@ export function ApplicationFilters({
             {APPLICATION_COMPLETIONS.map((completion) => (
               <option key={completion} value={completion}>
                 {t(`filters.completionOptions.${completion || "ALL"}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="min-w-0 flex-[1_1_15rem]">
+          <span className="label">{t("filters.identity")}</span>
+          <select
+            className={filterControl}
+            value={value.identity}
+            onChange={(event) => update("identity", event.target.value)}
+          >
+            {APPLICATION_IDENTITIES.map((identity) => (
+              <option key={identity} value={identity}>
+                {t(`filters.identityOptions.${identity || "ALL"}`)}
               </option>
             ))}
           </select>

@@ -30,6 +30,7 @@ describe("management authority by effect", () => {
     "i18n.reorderLanguages", "messaging.setPermission", "admin.updateAccountProfile",
     "admin.updateAccountAcademics", "admin.updateAccountUsername", "admin.setUserRole", "admin.setMemberships",
     "admin.updateTutor", "admin.updateTutee", "admin.setUserCanTutor", "admin.setCrewStatus",
+    "admin.correctApplicationIdentity",
   ])("limits %s to Admin requests and Head application", (operation) => {
     const authority = classifyApproval(operation);
     expect(authority?.directRoles).toEqual(["HEAD"]);

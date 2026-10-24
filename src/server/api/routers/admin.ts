@@ -145,6 +145,12 @@ import {
 } from "~/server/auth/password-reset";
 import { issueRegistrationCode } from "~/server/auth/registration";
 import { applicationAccountSetup } from "~/server/application-account-setup";
+import {
+  applicationIdentityCorrectionInput,
+  applicationIdentitySnapshot,
+  applicationIdentitySummaries,
+  correctApplicationIdentity,
+} from "~/server/tutors/application-identity";
 import { decideCrewApplication } from "~/server/crew/signup";
 import { reconcileApplication } from "~/server/tutors/application-status";
 import {
@@ -3677,6 +3683,21 @@ export const adminRouter = createTRPCRouter({
     .input(z.object({ applicationId: cuid }))
     .query(({ ctx, input }) => applicationAccountSetup(ctx.db, input.applicationId)),
 
+  /** Read submitted evidence and the effective promotion identity without changing either. */
+  applicationIdentity: adminProcedure
+    .input(z.object({ applicationId: cuid }))
+    .query(({ ctx, input }) =>
+      applicationIdentitySnapshot(ctx.db, input.applicationId),
+    ),
+
+  // Classification denies Coordinator before proposal interception. The domain helper
+  // rechecks the live Head under the same locks used by promotion and review replay.
+  correctApplicationIdentity: adminOnlyProcedure
+    .input(applicationIdentityCorrectionInput)
+    .mutation(({ ctx, input }) =>
+      correctApplicationIdentity(ctx.db, input, { id: ctx.session.user.id }),
+    ),
+
   tutorApplications: viewerProcedure.query(async ({ ctx }) => {
     const isViewer = ctx.portalAccess.maskManagementData;
     const apps = await ctx.db.tutorApplication.findMany({
@@ -3703,6 +3724,10 @@ export const adminRouter = createTRPCRouter({
       },
     });
     if (!isViewer) {
+      const identitySummaries = await applicationIdentitySummaries(
+        ctx.db,
+        apps.filter((app) => app.type === "INITIAL" && ["PENDING", "INTERVIEW"].includes(app.status)),
+      );
       // Legacy accepted applications predate promotedTutorId. Only their own
       // code provenance may recover the roster link; names/emails are not identity.
       const legacyIds = apps
@@ -3739,6 +3764,7 @@ export const adminRouter = createTRPCRouter({
           ...app,
           ...requestInvalidity(app),
           setupTutorId: app.promotedTutorId ?? legacyTutorId,
+          identityNeedsReview: identitySummaries.get(app.id)?.needsReview ?? false,
         };
       });
     }
@@ -3747,6 +3773,7 @@ export const adminRouter = createTRPCRouter({
       ...a,
       ...requestInvalidity(a, false),
       setupTutorId: null,
+      identityNeedsReview: false,
       votes: a.votes.map((v) => ({ ...v, comment: null })),
     }));
   }),

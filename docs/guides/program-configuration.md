@@ -28,6 +28,13 @@ retain their existing ownership rules; subject qualification levels are distinct
 | Message restoration, removal of messaging restrictions, and an appeal that overturns an applied decision                                                          | Head             | Eligible requesters in the underlying workflow                      | Head                    |
 | Assignments, rooms/blocks/slots, catalogues, meetings/attendance, ordinary hours, announcements, initial discipline decisions and other reviewed daily work       | Admin or Head    | Coordinator                                                         | All eligible Admin/Head |
 
+Initial tutor application name corrections follow the same Head-only application
+boundary: Admin may propose, while Coordinator and read-only accounts cannot
+submit. The four name fields and correction reason are the whole save scope.
+Contact, qualification and policy evidence remain unchanged. A name correction
+does not accept the request or clear an invalid flag. See
+[the correction workflow](user-guide.md#correct-an-initial-tutor-applications-name).
+
 The executable inventory is [approval-policy.ts](../../src/lib/approval-policy.ts).
 Restoring archived subjects, subject levels or time slots requires Head application, including batch subject edits and offerings implicitly restored when saving a course group; ordinary catalogue edits retain daily-operation authority.
 

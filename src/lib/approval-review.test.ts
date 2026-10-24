@@ -5,6 +5,35 @@ import { APPROVAL_OPERATIONS } from "./approval-policy";
 import { approvalReview } from "./approval-review";
 
 describe("immutable approval presentation", () => {
+  it("compares corrected names with submission-time values and separates the explanation", () => {
+    const model = approvalReview(
+      "admin.correctApplicationIdentity",
+      {
+        id: "application",
+        firstName: "Ming",
+        lastName: "Li",
+        preferredName: null,
+        alternativeNames: "李明",
+        reason: "Applicant confirmed the structured spelling",
+        expectedUpdatedAt: new Date(),
+        clientKey: "private-retry-receipt",
+      },
+      {
+        TutorApplication: [{ record: {
+          id: "application", name: "李明", firstName: null, lastName: null,
+          preferredName: null, alternativeNames: "李明", identityRevision: 0,
+        } }],
+      },
+    );
+    expect(model.kind).toBe("update");
+    expect(model.changes).toEqual([
+      { key: "firstName", requested: "Ming", before: null, hasBefore: true },
+      { key: "lastName", requested: "Li", before: null, hasBefore: true },
+    ]);
+    expect(model.unchanged.map(({ key }) => key)).toEqual(["preferredName", "alternativeNames"]);
+    expect(model.context).toContainEqual({ key: "requestReason", value: "Applicant confirmed the structured spelling" });
+    expect(model.changes.some(({ key }) => key === "clientKey")).toBe(false);
+  });
   it("compares captured role-specific requirements and room order using submission-time names", () => {
     expect(
       approvalReview(

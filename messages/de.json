@@ -1,4 +1,68 @@
 {
+  "applicationIdentity": {
+    "title": "Namen im Antrag",
+    "edit": "Namen korrigieren",
+    "dialogTitle": "Antragsnamen korrigieren",
+    "original": "Ursprüngliche Einreichung",
+    "current": "Aktuelle Antragsnamen",
+    "recordedLabel": "Gespeicherter Anzeigename",
+    "notRecorded": "Nicht erfasst",
+    "blank": "Leer gelassen",
+    "ready": "Namen für die Aufnahme bereit",
+    "needsReview": "Namen prüfen",
+    "needsReviewHelp": "Erfassen Sie die ausdrücklich bestätigten lateinischen Namensfelder vor dem Anlegen eines neuen Tutorprofils. Namen in anderen Sprachen können separat erhalten bleiben.",
+    "notAcceptance": "Die Namensprüfung ist von der Antragsgenehmigung und allen weiteren Voraussetzungen unabhängig.",
+    "source": {
+      "APPLICATION": "Für die Aufnahme werden die aktuellen Antragsnamen verwendet.",
+      "VERIFIED_ACCOUNT": "Die Aufnahme verwendet die Identität des verifizierten Kontos. Diese Korrektur ändert das Konto nicht.",
+      "EXISTING_ROSTER": "Die Aufnahme verwendet das bestehende Tutorprofil. Diese Korrektur ersetzt dessen Identität nicht."
+    },
+    "protectedEvidence": "Hier können nur die vier Namensfelder korrigiert werden. E-Mail, Kontaktpräferenzen, Qualifikationen und akzeptierte Richtlinien bleiben in ihrer ursprünglichen Form erhalten.",
+    "ineligible": {
+      "APPLICATION_IDENTITY_NOT_INITIAL": "Dies ist ein Qualifikationsantrag. Prüfen Sie die Nachweise im Qualifikationsablauf.",
+      "APPLICATION_IDENTITY_NOT_OPEN": "Dieser Antrag ist abgeschlossen. Verwenden Sie für spätere Namensänderungen das Teilnehmerprofil.",
+      "APPLICATION_IDENTITY_DECIDED": "Eine endgültige Entscheidung oder ein abgeschlossenes Interview liegt bereits vor. Verwenden Sie für spätere Namensänderungen das Teilnehmerprofil.",
+      "APPLICATION_IDENTITY_PROVISIONED": "Die Kontoeinrichtung oder das Tutorprofil wurde bereits angelegt. Prüfen Sie das verknüpfte Teilnehmerprofil."
+    },
+    "readOnly": "Eine Leitung kann Korrekturen anwenden. Admins können sie zur Prüfung durch die Leitung vorschlagen. Koordinatoren können diese Nachweise lesen.",
+    "invalidPreserved": "Dieser Antrag bleibt als ungültig markiert. Eine Namenskorrektur entfernt die Markierung nicht und setzt die Bearbeitung nicht fort.",
+    "history": "Korrekturverlauf ({count})",
+    "noHistory": "Keine Namenskorrekturen erfasst.",
+    "revision": "Revision {revision} · {actor} · {date}",
+    "before": "Vor der Korrektur",
+    "after": "Nach der Korrektur",
+    "viewRequest": "Genehmigungsantrag ansehen",
+    "accessDenied": "Sie haben keinen Zugriff mehr auf die Identitätsnachweise dieses Antrags.",
+    "loading": "Antragsnamen werden geladen…",
+    "loadFailed": "Antragsnamen konnten nicht geladen werden.",
+    "retryRead": "Aktualisierung wiederholen",
+    "readFailedRetained": "Die neuesten Namen konnten nicht gelesen werden. Ihr Entwurf bleibt erhalten. Aktualisieren Sie erfolgreich, bevor Sie speichern.",
+    "editHelp": "Geben Sie die vom Antragsteller bestätigten Namen und den Korrekturgrund ein. Die ursprüngliche Einreichung und jede angewandte Korrektur bleiben im Prüfverlauf erhalten.",
+    "applied": "Namenskorrektur angewandt",
+    "appliedHelp": "Die Korrektur wurde erfasst. Prüfen Sie die Namen und setzen Sie die reguläre Antragsprüfung fort.",
+    "queued": "Korrektur zur Leitungsprüfung eingereicht",
+    "queuedHelp": "Die Antragsnamen bleiben bis zur Genehmigung durch die Leitung unverändert. Ihr eingereichter Entwurf bleibt erhalten.",
+    "acceptedReadFailed": "Die Korrektur wurde empfangen, die neuesten Datensätze konnten jedoch nicht aktualisiert werden. Ein erneuter Versuch liest nur Daten und reicht keine neue Korrektur ein.",
+    "reloadFailed": "Neuladen fehlgeschlagen. Ihr Entwurf und seine ursprüngliche Version bleiben erhalten.",
+    "authorityChanged": "Ihre Rolle darf Namen nicht mehr korrigieren. Der gespeicherte Entwurf kann nicht eingereicht werden.",
+    "legacyRetained": "Der ursprüngliche ungeteilte Name bleibt erhalten, ohne Vor- oder Nachnamen zu erraten. Eine Korrektur nur des anderssprachigen Namens kann weitere Namensprüfung erfordern.",
+    "reason": "Korrekturgrund",
+    "reasonHelp": "Beschreiben Sie die Korrektur und wie der Antragsteller sie bestätigt hat. Der Grund bleibt im Prüfprotokoll erhalten.",
+    "apply": "Namenskorrektur anwenden",
+    "propose": "Genehmigung der Leitung anfordern",
+    "saveFailed": "Die Korrektur konnte nicht gespeichert werden.",
+    "reload": "Aktuelle Namen neu laden",
+    "cancel": "Abbrechen",
+    "errors": {
+      "APPLICATION_IDENTITY_EMAIL_REQUIRED": "Der ursprüngliche Antrag enthält keine E-Mail-Adresse. Prüfen Sie die Kontaktzuordnung im vorgesehenen Ablauf; dieses Formular ändert nur Namen.",
+      "APPLICATION_IDENTITY_NOT_FOUND": "Dieser Antrag ist nicht mehr verfügbar.",
+      "APPLICATION_IDENTITY_ORIGINAL_MISSING": "Die ursprünglichen Identitätsnachweise fehlen. Aktualisieren Sie den Datensatz.",
+      "APPLICATION_IDENTITY_AUTHORITY_REQUIRED": "Nur die Leitung darf diese Korrektur anwenden; Admins können die Genehmigung anfordern.",
+      "APPLICATION_IDENTITY_NO_CHANGE": "Ändern Sie mindestens ein Namensfeld, bevor Sie die Korrektur einreichen.",
+      "APPLICATION_IDENTITY_RETRY_CHANGED": "Dieser Beleg gehört zu einer anderen Korrektur. Laden Sie die aktuellen Namen neu.",
+      "APPLICATION_IDENTITY_PROPOSAL_DECIDED": "Dieser Vorschlag wurde bereits geprüft. Sehen Sie die Entscheidung an und laden Sie die aktuellen Namen neu."
+    }
+  },
   "uiPatterns": {
     "meetingDate": "Besprechungsdatum",
     "profile": "Profil",
@@ -1414,6 +1478,12 @@
         "reset": "Filter zurücksetzen",
         "noMatches": "Keine Bewerbung entspricht den Filtern. Ändere die Suche oder setze die Filter zurück.",
         "completion": "Interview completion",
+        "identity": "Namensprüfung",
+        "identityOptions": {
+          "ALL": "Alle Namenszustände",
+          "NEEDS_REVIEW": "Namen prüfen",
+          "READY": "Namen bereit"
+        },
         "completionOptions": {
           "ALL": "Any completion status",
           "COMPLETED": "Completed interviews",
@@ -3249,6 +3319,7 @@
         "TuteeRequestInvalidity": "Prüfung einer älteren öffentlichen Anmeldung"
       },
       "operations": {
+        "admin_correctApplicationIdentity": "Namen eines offenen Antrags korrigieren",
         "corrections_correctAttendance": "Correct a session's attendance",
         "corrections_correctPatrol": "Correct a patrol record",
         "interviewManagement_qualify": "Change a tutor's subject qualification",
