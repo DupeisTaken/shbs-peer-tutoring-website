@@ -29,8 +29,10 @@ const mock = vi.hoisted(() => ({
   link: vi.fn(),
   preview: vi.fn(),
   combine: vi.fn(),
+  finalize: vi.fn(),
   combineCandidates: vi.fn(),
   combinePreview: vi.fn(),
+  combineReview: vi.fn(),
   combineReceipt: vi.fn(),
   invalidate: vi.fn(),
   refreshTutees: vi.fn(),
@@ -83,6 +85,7 @@ vi.mock("~/trpc/react", async () => {
         personCombine: {
           candidates: invalidation,
           preview: { fetch: mock.combinePreview },
+          review: { fetch: mock.combineReview },
           receipt: { fetch: mock.combineReceipt },
         },
       }),
@@ -140,6 +143,8 @@ vi.mock("~/trpc/react", async () => {
             }),
         },
         combine: mutation(mock.combine),
+        // Registration is unconditional even while this editor uses combine mode.
+        finalize: mutation(mock.finalize),
       },
       tuteeHistory: {
         invite: mutation(mock.invite),

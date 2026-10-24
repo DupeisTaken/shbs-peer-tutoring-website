@@ -15,9 +15,20 @@ import type { RouterOutputs } from "~/trpc/react";
 import { UserDetails } from "./user-details";
 import { LoginSetup, MembershipBadges } from "./presentation";
 
-const fixture = vi.hoisted(() => ({ query: vi.fn(), refetch: vi.fn() }));
+const fixture = vi.hoisted(() => ({ query: vi.fn(), refetch: vi.fn(), directory: vi.fn(), combine: vi.fn(), invitation: vi.fn() }));
 vi.mock("~/trpc/react", () => ({
-  api: { admin: { accountDetails: { useQuery: fixture.query } } },
+  api: { admin: { accountDetails: { useQuery: fixture.query }, accounts: { useQuery: fixture.directory } } },
+}));
+vi.mock("~/app/_components/combine-records", async () => {
+  const { useState } = await import("react");
+  return { CombineRecords: (props: { reviewPersonId: string; accessDenied?: boolean }) => {
+    fixture.combine(props);
+    const [accepted, setAccepted] = useState(false);
+    return <section>{accepted ? <p>Accepted finalization receipt</p> : <button onClick={() => setAccepted(true)}>Finalize reviewed group</button>}</section>;
+  } };
+});
+vi.mock("~/app/_components/historical-record-invitation", () => ({
+  HistoricalRecordInvitation: (props: unknown) => { fixture.invitation(props); return <p>Exact history invitation editor</p>; },
 }));
 vi.mock("~/app/_components/email-details", () => ({
   EmailContent: () => <div>Email and verification controls</div>,
@@ -116,6 +127,9 @@ beforeEach(() => {
     isFetching: false,
   });
   fixture.refetch.mockClear();
+  fixture.directory.mockReset().mockReturnValue({ data: { caller: { role: "HEAD" } }, isFetching: false, isSuccess: true });
+  fixture.combine.mockClear();
+  fixture.invitation.mockClear();
 });
 afterEach(cleanup);
 it("uses the current projected handle in the opener without changing its account query", () => {
@@ -321,3 +335,54 @@ it.each(["registered", "setup", "invited", "none"])(
     expect(screen.getByText(zh.admin.users.suspended)).toBeTruthy();
   },
 );
+
+it("keeps private detail denial latched through later transport errors and dialog reopen", () => {
+  const mounted = mount();
+  open();
+  fixture.query.mockReturnValue({ data, error: { message: "denied", data: { code: "FORBIDDEN" } }, isFetching: false });
+  mounted.rerender(<NextIntlClientProvider locale="en" messages={messages}><UserDetails row={row} /></NextIntlClientProvider>);
+  expect(screen.queryByText("Archive 1")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: messages.accountProfile.close }));
+  fixture.query.mockReturnValue({ data, error: new Error("offline"), isFetching: false });
+  open();
+  expect(screen.queryByText("Archive 1")).toBeNull();
+  expect(screen.queryByText("Policy evidence: login")).toBeNull();
+  fixture.query.mockReturnValue({ data, error: null, isFetching: false, isSuccess: true });
+  mounted.rerender(<NextIntlClientProvider locale="en" messages={messages}><UserDetails row={row} /></NextIntlClientProvider>);
+  expect(screen.getByText("Archive 1")).toBeTruthy();
+});
+
+const groupLogin = { id: "one", name: "Original login", email: "original@example.test", tutor: null };
+it("keeps an accepted group review mounted when retirement leaves one live source", () => {
+  const group = { id: "person", resolutionState: "REVIEW_REQUIRED", users: [groupLogin, { ...groupLogin, id: "two" }], tutors: [], tutees: [] };
+  fixture.query.mockReturnValue({ data: { ...data, group }, isFetching: false, isSuccess: true });
+  const mounted = mount();
+  open();
+  fireEvent.click(screen.getByRole("button", { name: "Finalize reviewed group" }));
+  fixture.query.mockReturnValue({ data: { ...data, group: { ...group, resolutionState: "GROUPED", users: [groupLogin] } }, isFetching: false, isSuccess: true });
+  mounted.rerender(<NextIntlClientProvider locale="en" messages={messages}><UserDetails row={row} /></NextIntlClientProvider>);
+  expect(screen.getByText("Accepted finalization receipt")).toBeTruthy();
+  expect(fixture.combine).toHaveBeenLastCalledWith(expect.objectContaining({ reviewPersonId: "person" }));
+});
+
+it("exposes operational review for a singleton group and notices review required after a refresh", () => {
+  const group = { id: "person", resolutionState: "GROUPED", users: [groupLogin], tutors: [], tutees: [] };
+  fixture.query.mockReturnValue({ data: { ...data, group }, isFetching: false, isSuccess: true });
+  const mounted = mount();
+  open();
+  expect(screen.queryByRole("button", { name: "Finalize reviewed group" })).toBeNull();
+  fixture.query.mockReturnValue({ data: { ...data, group: { ...group, resolutionState: "REVIEW_REQUIRED" } }, isFetching: false, isSuccess: true });
+  mounted.rerender(<NextIntlClientProvider locale="en" messages={messages}><UserDetails row={row} /></NextIntlClientProvider>);
+  expect(screen.getByRole("button", { name: "Finalize reviewed group" })).toBeTruthy();
+});
+
+it("exposes exact account setup for one accountless historical Tutor", () => {
+  fixture.query.mockReturnValue({ data: { ...data, group: { id: "archive-person", resolutionState: "GROUPED", users: [], tutors: [{ id: "only-archive", englishName: "Original Tutor", status: "ARCHIVED" }], tutees: [] } }, isFetching: false, isSuccess: true });
+  mount();
+  open();
+  const disclosure = screen.getByText(messages.combineRecords.historySetup).closest("details")!;
+  disclosure.open = true;
+  fireEvent(disclosure, new Event("toggle"));
+  expect(screen.getByText("Exact history invitation editor")).toBeTruthy();
+  expect(fixture.invitation).toHaveBeenLastCalledWith(expect.objectContaining({ sources: [{ kind: "TUTOR", id: "only-archive" }] }));
+});

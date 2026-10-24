@@ -339,6 +339,10 @@ it.each([
       where: { email: "new@example.test" },
     });
     expect(user.role).toBe(kind);
+    expect(user.personId).toBeTruthy();
+    expect(await db.person.findUniqueOrThrow({ where: { id: user.personId! } })).toMatchObject({ primaryUserId: user.id });
+    if (user.tutorId)
+      expect(await db.tutor.findUniqueOrThrow({ where: { id: user.tutorId } })).toMatchObject({ personId: user.personId });
     expect(user.emailVerifiedAt).not.toBeNull();
     expect(Boolean(user.tutorId)).toBe(kind === "TUTOR");
     expect(user.crewStatus).toBe(kind === "CREW" ? "ACTIVE" : null);

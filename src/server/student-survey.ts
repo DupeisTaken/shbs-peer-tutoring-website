@@ -859,6 +859,9 @@ export async function materializeStudent(
     });
   const student = await tx.tutee.create({
     data: {
+      // Materializing demand creates a directory source, never a login. The
+      // later mailbox-confirmed ownership transaction attaches its exact owner.
+      personId: (await tx.person.create({ data: {} })).id,
       // Staff may materialize a verified intake before the account-link step.
       // Preserve every explicit field here; the canonical account can mirror over it later.
       firstName: input.firstName,

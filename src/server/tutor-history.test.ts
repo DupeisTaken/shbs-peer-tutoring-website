@@ -5,7 +5,8 @@ import { db } from "./db";
 import { createCaller } from "./api/root";
 import { hashPassword } from "./auth/password";
 import { previewTutorHistory, linkTutorHistory } from "./tutor-history";
-import { previewCombine } from "./combine-accounts";
+import { previewPersonCombine } from "./person-combine";
+import { reviewedLoginRetirement } from "~/test/person-combine-fixture";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -260,9 +261,10 @@ it("links multiple histories beside a current tutor without changing identity, m
   // version remains evidence and must still match the pre-link snapshot.
   expect(linkedAccount.personId).toEqual(expect.any(String));
   expect(after.tutor?.personId).toBe(linkedAccount.personId);
+  expect(after.tutor!.historyIdentityRevision).toBeGreaterThan(before.tutor!.historyIdentityRevision);
   expect({
     ...after,
-    tutor: { ...after.tutor, personId: before.tutor?.personId },
+    tutor: { ...after.tutor, personId: before.tutor?.personId, historyIdentityRevision: before.tutor?.historyIdentityRevision },
   }).toEqual(before);
   expect({ ...linkedAccount, personId: account?.personId }).toEqual(account);
   expect(
@@ -443,21 +445,19 @@ it("database guards prevent alternate login assignment and deletion of owned arc
   ).rejects.toThrow();
 });
 
-it("account combination transfers retained archives before current tutor attachment", async () => {
+it("reviewed login retirement preserves retained archives without adding current tutor membership", async () => {
   await caller().tutorHistory.link(await input());
   await db.user.update({
     where: { id: "owner" },
     data: { tutorId: "archive" },
   });
   const merge = { survivorId: "other", duplicateId: "owner" };
-  const preview = await previewCombine(db, merge);
+  const combineInput = await reviewedLoginRetirement(db, merge, password);
+  const preview = await previewPersonCombine(db, combineInput);
   expect(preview.conflicts).toEqual([]);
-  expect(preview.counts.tutorProfiles).toBe(1);
-  await caller().accountCombine.combine({
-    ...merge,
-    fingerprint: preview.fingerprint,
-    confirmPassword: password,
-  });
+  expect(preview.counts.tutors).toBe(1);
+  await caller().personCombine.combine(combineInput);
+  expect(await db.user.findUnique({ where: { id: "other" } })).toMatchObject({ tutorId: null, role: "STUDENT" });
   expect(
     await db.tutorProfileOwnership.findUnique({
       where: { tutorId: "archive" },

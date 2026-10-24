@@ -79,13 +79,29 @@ operational conflicts are resolved. The tool does not automatically move assignm
 
 A failed write keeps the evidence draft and requires another review. If linking
 succeeds but refresh fails, **Retry** only refreshes data; it does not repeat the link.
-Tutor invitations and new history-only tutor account creation are not part of this
-existing-account linking workflow. [Issue #265](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/265)
-tracks this extension of historical ownership.
+History-only Tutor invitations use the separate **Set up historical access**
+disclosure in the editor. They do not change the existing-account correction or
+combination authority described above.
 
 ## Invite an alumnus without a login
 
 After checking identity, an Admin or Head sends an invitation from the specific accountless historical tutee row. Record the reviewed identity evidence and use an email address the person can still access. The invited person can either sign in to an eligible account with that primary or secondary email verified, or choose **Create history-only account** on the invitation page.
+
+For a historical Tutor, open **Edit Profile → Set up historical access**. For a
+reviewed historical group, open **Users & Roles → User details → Combined records →
+Set up historical access**. The preview lists each exact Tutor/Tutee source and the
+recipient. Current work, conflicting ownership, incomplete credentials or an
+unresolved group blocks sending. Resolve those conditions in their existing
+workflows; an invitation never grants current participation or changes restrictions.
+
+The new invitation stores the reviewed source list and its ownership/group revisions.
+Later group additions never expand its scope. Group membership, ownership or source
+changes invalidate the old review, including changes that are later reversed. The
+recipient sees the same exact list before claiming. Original Tutee invitations and
+in-flight deliveries continue through their existing adapter; their tokens retain
+their original purpose, expiry and proof requirements. A lost new invitation response
+is recovered using **Check delivery receipt**, which reads the actor's original
+attempt even if another invitation has since replaced it. It never resends email.
 
 New displayed invitation codes contain five characters, mixing letters and numbers,
 in a box with a green background. The separate email verification code contains four
@@ -116,7 +132,7 @@ For a new login, enter the invited email and verify the separately emailed code.
 
 If the school email is unavailable, use the verified program support contact shown on the invitation page (or contact the school team when no email is configured). Staff must review identity evidence and the exact record before sending a replacement to an accessible address. Cancel an unwanted invitation or pending attempt explicitly; sending a replacement preserves the existing invitation until publication succeeds. Email changes, matching names and knowledge of a record ID never establish ownership. Existing primary/secondary email owners use **Recover existing account**, not another registration; genuine duplicate logins and conflicting ownership remain Head-only decisions.
 
-**My Tutoring History** also shows retained tutor sessions, stored hours, meeting attendance and hour amendments for current tutor identities and explicitly linked historical tutor records, including supported Head-reviewed account combinations. Revoked tutor capability or observer access does not hide this personal evidence. Missing tutor identity links require staff review through **Tutors → Edit Profile → Combine records**. History-only account creation still starts from an exact historical tutee invitation; it does not introduce self-service tutor matching or bypass Head review for login and ownership conflicts. Staff can keep all unclaimed tutor/tutee archives without creating any login.
+**My Tutoring History** also shows retained tutor sessions, stored hours, meeting attendance and hour amendments for current tutor identities and explicitly linked historical tutor records, including supported Head-reviewed account combinations. Revoked tutor capability or observer access does not hide this personal evidence. Missing tutor identity links require staff review through **Tutors → Edit Profile → Combine records**. History-only account creation starts from an exact staff-reviewed Tutee, Tutor or safe-group invitation; it does not introduce self-service matching or bypass Head review for login and ownership conflicts. Staff can keep all unclaimed tutor/tutee archives without creating any login.
 
 The personal page separates tutoring received from tutoring provided. Summaries show the original record identifier, recorded period and session count; tutor summaries also show the sum of stored session hours, with amendments kept separate. Each record's rightmost history action opens its evidence. Tutor session, meeting and amendment lists paginate independently, so browsing one does not skip another. Reopening details refreshes the read. A failed background read retains cached content beside a read-only **Retry**; neither viewing history nor retrying recalculates credit or repeats an ownership write.
 
@@ -133,6 +149,8 @@ All supported operational actions below have website controls; staff do not need
 | Correct historical academics on screen or by CSV | Academic Corrections → select/upload → preview → apply/propose | Stable record IDs, original evidence retained, atomic batch and stale/ownership checks. |
 | Combine historical records or link one ready account | Edit Profile or Users & Roles → Combine records → select → preview → confirm | Admin for unowned history; Head for login/ownership or active-work conflicts. |
 | Correct retained ownership | Historical profile → Correct history owner → Head password → review | Transfers the exact source instead of combining unrelated people. |
+| Review and finalize current participation | User details → Combined records → Review current participation | Fresh reads show exact blockers; finalization is explicit and rechecks live evidence. No assignment or qualification transfer. |
+| Invite a historical Tutor or reviewed group | Tutor Edit Profile or Combined records → Set up historical access → review → send | Frozen exact sources; later group changes cannot widen access. |
 | Invite an alumnus | Historical row → Edit Profile → Invite the Participant → invited email → Send Invitation | Exact accountless record and reviewed identity evidence; security email must be available. |
 | Create history-only credentials | Email link → Create history-only account → verify email code → invitation popup → `/register-account` review | No membership, current academics or participation consent is created. |
 | Cancel or replace an invitation | Same staff invitation section → Cancel invitation / Send Invitation | Cancellation/expiry invalidates outstanding setup and claim; completed ownership remains. |

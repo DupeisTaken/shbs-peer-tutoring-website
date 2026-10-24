@@ -764,7 +764,19 @@ not combine permissions.
 **Current participation or login review required** means identity grouping saved
 but operational work remains. Existing logins retain their separate access and
 assignments. Resolve membership, academic, messaging, pending-request or lifecycle
-conflicts through their existing reviewed workflows, then reopen the combination.
+conflicts through their existing reviewed workflows. Open **User details → Combined
+records → Review current participation** for typed reasons, exact source/work
+references and links to those workflows. **Get fresh participation review** only
+reads current evidence. Once blockers are resolved, record the review evidence and
+choose **Finalize reviewed group**; the server rechecks live evidence and authority
+before atomically saving the finalization receipt. A checkbox or refresh never
+clears the review state. Older Combine Accounts submissions require a fresh Combine
+Records review and cannot silently combine capabilities.
+If a pending history invitation blocks the review, open **Review pending history
+invitation** to inspect its original records and cancel it when no longer needed.
+Later group members are not added to that invitation. After cancellation, request
+a fresh participation review; cancelling does not finalize the group. Earlier
+Tutee invitations still use their original Tutees workflow.
 The tool does not silently transfer current assignments, restore suspended or
 departed access, grant roles, or fabricate consent. Departure-history conflicts
 still require a supported reviewed resolution before login retirement.
@@ -778,6 +790,14 @@ Changed evidence requires a fresh preview. A saved operation returns a receipt;
 if refresh fails, retry only the read. If the response is interrupted, check the
 receipt before retrying the identical intent. Reviewed groups cannot be deleted
 as ordinary accounts, and retired credentials are never automatically restored.
+
+Historical Tutors can receive an exact history-only invitation from **Edit Profile →
+Set up historical access**. For a reviewed historical Tutor/Tutee group, use the same
+entry in **User details → Combined records**. Review the recipient and every included
+source before sending. The scope stays frozen; adding a record to the group does not
+add it to a pending invitation. Conflicts or current work require their existing
+review workflows. Existing historical Tutee invitations remain usable through their
+original editor and claim pathway. See the [historical transition guide](historical-participant-transition.md#invite-an-alumnus-without-a-login).
 
 ### Past tutor records and unlinked profiles
 
