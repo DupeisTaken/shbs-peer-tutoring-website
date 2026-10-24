@@ -853,6 +853,16 @@
       "graduating": "졸업",
       "noActiveTutors": "검토할 활성 튜터가 없습니다.",
       "cancel": "취소",
+      "publicQr": {
+        "heading": "신청 링크 공유",
+        "help": "공개된 사이트 주소와 이름이 표시된 QR 이미지를 다운로드하세요. 링크를 열어도 모집 기간과 기능 설정은 그대로 적용됩니다.",
+        "tutor": "튜터 신청",
+        "tutee": "학습 지원 신청",
+        "crew": "순찰팀 신청",
+        "site": "사이트 홈",
+        "download": "PNG 다운로드",
+        "downloadLabel": "{destination} QR PNG 다운로드"
+      },
       "signupWindow": {
         "heading": "학생 신청 오픈",
         "help": "{quarter} 학생 신청이 공개되는 시간을 설정합니다.",

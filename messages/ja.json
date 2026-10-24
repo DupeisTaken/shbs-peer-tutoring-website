@@ -853,6 +853,16 @@
       "graduating": "卒業予定",
       "noActiveTutors": "確認する有効なチューターはいません。",
       "cancel": "キャンセル",
+      "publicQr": {
+        "heading": "申込リンクを共有",
+        "help": "公開サイトのアドレスと名称を記載したQR画像をダウンロードできます。リンクを開いた際も、募集期間と機能設定が適用されます。",
+        "tutor": "チューターの申込",
+        "tutee": "学習サポートの申込",
+        "crew": "巡回班の申込",
+        "site": "サイトのホーム",
+        "download": "PNGをダウンロード",
+        "downloadLabel": "{destination}のQR PNGをダウンロード"
+      },
       "signupWindow": {
         "heading": "生徒申請の受付開始",
         "help": "{quarter} の生徒申請を一般公開する日時を設定します。",

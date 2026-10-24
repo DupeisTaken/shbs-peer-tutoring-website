@@ -845,6 +845,16 @@
       "graduating": "毕业",
       "noActiveTutors": "暂无需审核的正在参与的辅导伙伴。",
       "cancel": "取消",
+      "publicQr": {
+        "heading": "分享报名链接",
+        "help": "下载带有名称和网站正式地址的二维码图片。打开链接后，报名时间和功能设置仍然生效。",
+        "tutor": "辅导伙伴报名",
+        "tutee": "学习伙伴报名",
+        "crew": "巡查队报名",
+        "site": "网站首页",
+        "download": "下载 PNG",
+        "downloadLabel": "下载{destination}二维码 PNG"
+      },
       "signupWindow": {
         "heading": "学习伙伴报名开放时间",
         "help": "设置 {quarter} 学习伙伴报名向公众开放的时间。",

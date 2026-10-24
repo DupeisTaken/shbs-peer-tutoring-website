@@ -853,6 +853,16 @@
       "graduating": "Diplômé",
       "noActiveTutors": "Aucun tuteur actif à examiner.",
       "cancel": "Annuler",
+      "publicQr": {
+        "heading": "Partager les liens d'inscription",
+        "help": "Téléchargez des images QR légendées pour l'adresse publiée du site. Les périodes d'inscription et les paramètres des fonctionnalités s'appliquent toujours à l'ouverture des liens.",
+        "tutor": "Inscription des tuteurs",
+        "tutee": "Demande de tutorat",
+        "crew": "Inscription à l'équipe de ronde",
+        "site": "Accueil du site",
+        "download": "Télécharger le PNG",
+        "downloadLabel": "Télécharger le QR PNG pour {destination}"
+      },
       "signupWindow": {
         "heading": "Ouverture des inscriptions des élèves",
         "help": "Planifiez l'ouverture au public des inscriptions des élèves pour {quarter}.",

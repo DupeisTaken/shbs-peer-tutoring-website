@@ -232,6 +232,26 @@ content, query strings, fragments, external URLs and private destinations intact
 Seed buttons and editor defaults use the same published convention. Absolute URLs
 in stored content retain their explicit origin and destination.
 
+Public QR downloads use [the allowlisted endpoint](../../src/app/api/public-qr/route.ts)
+with `destination=tutor|tutee|crew|site`, optional `locale=en|zh` (default `en`),
+and optional `download=1` (otherwise inline). Missing/invalid destinations,
+unsupported values, unknown parameters and duplicate parameters are rejected.
+Only `/tutor`, `/tutee`, `/crew` and `/` can be encoded; callers cannot supply a
+URL, filename, invitation, participant data or verification proof. The endpoint
+uses the validated `AUTH_URL` origin independently of request/forwarded headers,
+returns `no-store` PNG responses with `nosniff`, and names files
+`shbs-{destination}-qr-{locale}.png`. Invalid canonical configuration returns an
+actionable generic 503 without echoing its value.
+
+[The renderer](../../src/server/public-qr/render.tsx) composes one black-on-white
+QR at an integer module scale with a four-module quiet zone, destination label
+and full absolute URL outside it. Locally packaged EN/ZH font glyphs avoid runtime
+font downloads or host font dependencies. Long URLs wrap without changing the
+encoded URL. The Program recruitment panel's native download links are outside
+settings forms and disabled fieldsets; they neither mutate settings nor gate
+public entrypoints. Other UI locales use English PNG labels. The existing
+`/api/signin-qr` interface and signup availability/access checks are unchanged.
+
 ## Architecture
 
 Tutor Roster details use the read-only `tutorDetails.get` procedure, guarded by the same management permission as account policy history. Its explicit field selection excludes authentication secrets; the UI mounts the query only after a staff member opens a tutor. Subject grouping reads concrete grants from approved qualification sources, never recalculating inheritance from current level ranks. Willingness remains a separate three-state value (true, false, or no record). Policy history uses the linked account ID through `student.acceptanceRecords`; neither matching contact data nor viewing a record grants account or role-edit access.

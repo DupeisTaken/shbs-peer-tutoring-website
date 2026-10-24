@@ -16,6 +16,7 @@ import { useTranslations } from "next-intl";
 
 import { ProgramTimeZoneSettings } from "~/app/_components/program-time-zone-settings";
 import { RecruitmentSettings } from "~/app/_components/recruitment-settings";
+import { ProgramPublicQrLinks } from "~/app/_components/program-public-qr-links";
 import { SchoolCalendar } from "~/app/_components/school-calendar";
 import { ProgramCalendarSettings } from "~/app/_components/program-calendar";
 import { MessagePermissions } from "~/app/_components/message-admin";
@@ -205,6 +206,8 @@ function ProgramSettingsPage() {
                   canApply={canApplyPeriod}
                 />
               ))}
+
+              <ProgramPublicQrLinks />
 
               <section className="card border-amber-200 p-5">
                 <h2 className="section-title">
