@@ -14,7 +14,7 @@ import {
   lockPatrolCreditOwner,
   reservePatrolEvidence,
 } from "./crew/patrol-credit";
-import { combinePersonRecords, previewPersonCombine } from "./person-combine";
+import { combinePersonRecords, previewPersonCombine, reviewPersonParticipation, finalizePersonParticipation } from "./person-combine";
 import { syncAccountPerson } from "./person-identity";
 import { linkTutorHistory, previewTutorHistory } from "./tutor-history";
 import { linkTuteeHistory, previewHistoryLink } from "./tutee-history";
@@ -1639,3 +1639,118 @@ it.each(["password", "email", "forced-change"] as const)(
     ).toBeNull();
   },
 );
+
+it("projects actionable participation IDs and deadlines without changing the review or exposing payloads", async () => {
+  const grouped = await combine({ sources: [user("owner"), user("other")] });
+  const dueAt = new Date("2099-10-01");
+  await db.crewStatusRequest.create({ data: { userId: "other", kind: "OPT_OUT", reason: "private request content", eligibleAt: dueAt } });
+  const before = await db.person.findUniqueOrThrow({ where: { id: grouped.personId } });
+  const review = await caller().personCombine.review({ personId: grouped.personId, retainedUserId: "owner" });
+  expect(review.personId).toBe(grouped.personId);
+  expect(review.blockers).toEqual(expect.arrayContaining([
+    expect.objectContaining({ reason: "MULTIPLE_LIVE_LOGINS", sources: [user("other"), user("owner")], blocksFinalization: true }),
+    expect.objectContaining({ reason: "PENDING_CREW_REQUEST", destination: "/admin/crew", work: [expect.objectContaining({ kind: "CREW_REQUEST", dueAt: null, availableAt: dueAt })] }),
+  ]));
+  expect(JSON.stringify(review)).not.toContain("private request content");
+  expect(await db.person.findUniqueOrThrow({ where: { id: grouped.personId } })).toEqual(before);
+  expect(await db.personCombineReceipt.count()).toBe(1);
+});
+
+it("refuses remaining active work, then explicitly finalizes a fresh review without rewriting evidence", async () => {
+  const assignment = await currentAssignment("TUTOR");
+  const grouped = await combine(archives);
+  const original = await originals();
+  const selection = { personId: grouped.personId };
+  const blocked = await reviewPersonParticipation(db, selection);
+  expect(blocked.blockers).toEqual(expect.arrayContaining([
+    expect.objectContaining({ reason: "CURRENT_ASSIGNMENT", work: [{ kind: "PAIRING", id: assignment.id, dueAt: null }], blocksFinalization: true }),
+  ]));
+  await expect(finalizePersonParticipation(db, "head", {
+    ...selection, fingerprint: blocked.fingerprint, reason, acknowledged: true, operationId: randomUUID(), confirmPassword: password,
+  })).rejects.toMatchObject({ code: "CONFLICT" });
+  // Existing scheduling workflow resolves the work; a refresh alone cannot clear state.
+  await db.pairing.delete({ where: { id: assignment.id } });
+  const ready = await reviewPersonParticipation(db, selection);
+  expect(ready.outcome).toBe("GROUPED");
+  expect((await db.person.findUniqueOrThrow({ where: { id: grouped.personId } })).resolutionState).toBe("REVIEW_REQUIRED");
+  const input = { ...selection, fingerprint: ready.fingerprint, reason, acknowledged: true as const, operationId: randomUUID() };
+  const result = await caller("admin", "ADMIN").personCombine.finalize(input);
+  expect(result).toMatchObject({ personId: grouped.personId, outcome: "GROUPED", retiredUserIds: [] });
+  expect(await caller("admin", "ADMIN").personCombine.receipt({ operationId: input.operationId })).toEqual(result);
+  expect(await caller("admin", "ADMIN").personCombine.finalize(input)).toEqual(result);
+  expect(await db.auditLog.count({ where: { operation: "personCombine.finalize" } })).toBe(1);
+  expect(await originals()).toEqual(original);
+});
+
+it("requires explicit safe retirement and current Head authority while finalizing separate private logins", async () => {
+  const grouped = await combine({ sources: [user("owner"), user("other")] });
+  const selection = { personId: grouped.personId, retainedUserId: "owner", retireDuplicateLogins: true };
+  const review = await reviewPersonParticipation(db, selection);
+  const input = { ...selection, fingerprint: review.fingerprint, reason, acknowledged: true as const, operationId: randomUUID(), confirmPassword: password };
+  await expect(finalizePersonParticipation(db, "admin", input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(finalizePersonParticipation(db, "head", { ...input, confirmPassword: "wrong" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await accountHistoryIds(db, "owner")).toEqual(["owner"]);
+  const result = await finalizePersonParticipation(db, "head", input);
+  expect(result).toMatchObject({ outcome: "GROUPED", retiredUserIds: ["other"] });
+  expect((await accountHistoryIds(db, "owner")).sort()).toEqual(["other", "owner"]);
+  expect(await finalizePersonParticipation(db, "head", input)).toEqual(result);
+});
+
+it("binds finalization to current membership and source revisions rather than a grouping fingerprint", async () => {
+  const grouped = await combine({ sources: [user("owner"), user("other")] });
+  const selection = { personId: grouped.personId, retainedUserId: "owner", retireDuplicateLogins: true };
+  const oldReview = await reviewPersonParticipation(db, selection);
+  await db.person.update({ where: { id: grouped.personId }, data: { revision: { increment: 1 } } });
+  const input = { ...selection, reason, acknowledged: true as const, operationId: randomUUID(), confirmPassword: password };
+  await expect(finalizePersonParticipation(db, "head", { ...input, fingerprint: oldReview.fingerprint })).rejects.toMatchObject({ code: "CONFLICT" });
+  const grouping = await previewPersonCombine(db, { sources: [user("owner"), user("other")], retainedUserId: "owner", retireDuplicateLogins: true });
+  await expect(finalizePersonParticipation(db, "head", { ...input, fingerprint: grouping.fingerprint })).rejects.toMatchObject({ code: "CONFLICT" });
+  expect((await db.person.findUniqueOrThrow({ where: { id: grouped.personId } })).resolutionState).toBe("REVIEW_REQUIRED");
+  expect(await db.personCombineReceipt.count()).toBe(1);
+});
+
+it("rolls back finalization state, retirement and receipt when its audit fails", async () => {
+  const grouped = await combine({ sources: [user("owner"), user("other")] });
+  const selection = { personId: grouped.personId, retainedUserId: "owner", retireDuplicateLogins: true };
+  const review = await reviewPersonParticipation(db, selection);
+  await db.$executeRawUnsafe(`CREATE FUNCTION fail_finalize_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation = 'personCombine.finalize' THEN RAISE EXCEPTION 'finalize audit failure'; END IF; RETURN NEW; END $$`);
+  await db.$executeRawUnsafe('CREATE TRIGGER fail_finalize_audit BEFORE INSERT ON "AuditLog" FOR EACH ROW EXECUTE FUNCTION fail_finalize_audit()');
+  try {
+    await expect(finalizePersonParticipation(db, "head", { ...selection, fingerprint: review.fingerprint, reason, acknowledged: true, operationId: randomUUID(), confirmPassword: password })).rejects.toThrow();
+  } finally {
+    await db.$executeRawUnsafe('DROP TRIGGER fail_finalize_audit ON "AuditLog"');
+    await db.$executeRawUnsafe('DROP FUNCTION fail_finalize_audit()');
+  }
+  expect((await db.person.findUniqueOrThrow({ where: { id: grouped.personId } })).resolutionState).toBe("REVIEW_REQUIRED");
+  expect((await db.user.findUniqueOrThrow({ where: { id: "other" } })).mergedIntoId).toBeNull();
+  expect(await db.personCombineReceipt.count()).toBe(1);
+});
+
+it.each(["COORDINATOR", "STUDENT", "VIEWER"] as const)("denies %s review and finalization through the live authorization boundary", async (role) => {
+  const grouped = await combine({ sources: [user("owner"), user("other")] });
+  await db.user.update({ where: { id: "admin" }, data: { role } });
+  // The claimed session remains ADMIN; procedures must consult the saved role.
+  await expect(caller("admin", "ADMIN").personCombine.review({ personId: grouped.personId })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(caller("admin", "ADMIN").personCombine.finalize({ personId: grouped.personId, fingerprint: "a".repeat(64), reason, acknowledged: true, operationId: randomUUID() })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect((await db.person.findUniqueOrThrow({ where: { id: grouped.personId } })).resolutionState).toBe("REVIEW_REQUIRED");
+});
+
+it("rejects newly introduced work after review and preserves the original request deadline", async () => {
+  const grouped = await combine({ sources: [user("owner"), user("other")] });
+  const selection = { personId: grouped.personId, retainedUserId: "owner", retireDuplicateLogins: true };
+  const review = await reviewPersonParticipation(db, selection);
+  const deadline = new Date("2099-10-01T00:00:00Z");
+  const intake = await db.studentSurvey.create({ data: {
+    email: "other@example.test", intakeTermId: "current-term", payload: { private: "do not expose" },
+    policyRevision: "original", policySnapshot: {}, tokenHash: "operational-review-private-proof",
+    verificationDueAt: deadline, expiresAt: deadline,
+  } });
+  await expect(finalizePersonParticipation(db, "head", { ...selection, fingerprint: review.fingerprint, reason, acknowledged: true, operationId: randomUUID(), confirmPassword: password })).rejects.toMatchObject({ code: "CONFLICT" });
+  const fresh = await reviewPersonParticipation(db, selection);
+  expect(fresh.blockers).toEqual(expect.arrayContaining([
+    expect.objectContaining({ reason: "UNCONFIRMED_INTAKE", sources: [user("other")], blocksFinalization: true, work: [{ kind: "STUDENT_SURVEY", id: intake.id, dueAt: deadline }] }),
+  ]));
+  expect(JSON.stringify(fresh)).not.toContain("do not expose");
+  expect(JSON.stringify(fresh)).not.toContain("operational-review-private-proof");
+  expect(await db.studentSurvey.findUnique({ where: { id: intake.id } })).toEqual(intake);
+});

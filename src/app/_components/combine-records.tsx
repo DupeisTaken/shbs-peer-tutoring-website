@@ -15,6 +15,7 @@ import { SummaryTable, TableAction, TableActions } from "./ui/summary-table";
 import { useDialogPending } from "./ui/modal";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
+import { PersonParticipationReview } from "./person-participation-review";
 
 type Preview = RouterOutputs["personCombine"]["preview"];
 type Receipt = RouterOutputs["personCombine"]["combine"];
@@ -38,12 +39,15 @@ function isDenied(error: unknown) {
 export function CombineRecords({
   isHead,
   initialSource,
+  reviewPersonId,
   onPendingChange,
   unavailable = false,
   accessDenied = false,
 }: {
   isHead: boolean;
   initialSource?: CombineRecordSource;
+  /** Existing groups use a fresh read and an explicit finalization, never a second grouping. */
+  reviewPersonId?: string;
   onPendingChange?: (pending: boolean) => void;
   /** A parent's failed permission refresh preserves the receipt/draft lifetime. */
   unavailable?: boolean;
@@ -96,7 +100,7 @@ export function CombineRecords({
   const operationId = useRef<string | null>(null);
   const candidates = api.personCombine.candidates.useQuery(
     { search: query },
-    { enabled: open },
+    { enabled: open && !reviewPersonId },
   );
   const refresh = async () => {
     if (refreshAdmission.current) return;
@@ -120,8 +124,8 @@ export function CombineRecords({
       setSyncing(false);
     }
   };
-  const combine = api.personCombine.combine.useMutation({
-    onSuccess: async (result) => {
+  const callbacks = {
+    onSuccess: async (result: Receipt) => {
       accepted.current = true;
       setReceipt(result);
       setOutcomeUnknown(false);
@@ -130,7 +134,7 @@ export function CombineRecords({
       setAcknowledged(false);
       await refresh();
     },
-    onError: (failure) => {
+    onError: (failure: { message: string; data?: { code?: string } | null }) => {
       const definiteRejection = [
         "BAD_REQUEST",
         "CONFLICT",
@@ -152,7 +156,10 @@ export function CombineRecords({
       admission.current = false;
       setAdmitted(false);
     },
-  });
+  };
+  const groupMutation = api.personCombine.combine.useMutation(callbacks);
+  const finalizeMutation = api.personCombine.finalize.useMutation(callbacks);
+  const combine = reviewPersonId ? finalizeMutation : groupMutation;
   const ownPending = admitted || combine.isPending || syncing;
   // An unresolved response keeps the parent and siblings locked. Its own receipt
   // read / exact retry remain usable, so it must not disable its own recovery.
@@ -165,11 +172,15 @@ export function CombineRecords({
   }, [dismissalPending, onPendingChange]);
   const currentDenial =
     accessDenied ||
-    ["UNAUTHORIZED", "FORBIDDEN"].includes(candidates.error?.data?.code ?? "");
+    (!reviewPersonId && ["UNAUTHORIZED", "FORBIDDEN"].includes(candidates.error?.data?.code ?? ""));
   const denied = accessLost || currentDenial;
   useEffect(() => {
-    if (currentDenial) setAccessLost(true);
+    if (currentDenial) {
+      setAccessLost(true);
+      reviewGeneration.current++;
+    }
     else if (
+      !reviewPersonId &&
       candidates.isSuccess &&
       !candidates.isFetching &&
       !candidates.error &&
@@ -182,6 +193,7 @@ export function CombineRecords({
     candidates.isFetching,
     candidates.error,
     unavailable,
+    reviewPersonId,
   ]);
   const disabled =
     busy ||
@@ -246,12 +258,12 @@ export function CombineRecords({
           : current,
     );
   }
-  async function review() {
+  async function review(recoverAccess = false) {
     if (
-      disabled ||
+      (recoverAccess ? busy || reviewing || checkingOutcome || outcomeUnknown || !!receipt : disabled) ||
       admission.current ||
       readAdmission.current ||
-      selected.length < 2
+      (!reviewPersonId && selected.length < 2)
     )
       return;
     readAdmission.current = true;
@@ -259,16 +271,23 @@ export function CombineRecords({
     const generation = reviewGeneration.current;
     setReviewing(true);
     try {
-      const result = await utils.personCombine.preview.fetch(
-        {
-          sources: selected.map((row) => row.ref),
-          retainedUserId,
-          retireDuplicateLogins,
-        },
-        { staleTime: 0 },
-      );
+      const result = reviewPersonId
+        ? await utils.personCombine.review.fetch(
+            { personId: reviewPersonId, retainedUserId, retireDuplicateLogins },
+            { staleTime: 0 },
+          )
+        : await utils.personCombine.preview.fetch(
+            {
+              sources: selected.map((row) => row.ref),
+              retainedUserId,
+              retireDuplicateLogins,
+            },
+            { staleTime: 0 },
+          );
       if (generation !== reviewGeneration.current) return;
+      setAccessLost(false);
       setPreview(result);
+      if (reviewPersonId) setSelected(result.sources);
       setAccounts(result.accounts);
       setRetainedUserId(result.retainedUserId ?? undefined);
     } catch (failure) {
@@ -288,9 +307,9 @@ export function CombineRecords({
       <div className="flex flex-wrap items-center justify-between gap-3 p-4">
         <div>
           <h2 id={`${regionId}-title`} className="font-semibold">
-            {t("title")}
+            {t(reviewPersonId ? "participationTitle" : "title")}
           </h2>
-          <p className="muted mt-1 text-sm">{t("intro")}</p>
+          <p className="muted mt-1 text-sm">{t(reviewPersonId ? "participationIntro" : "intro")}</p>
         </div>
         <Button
           aria-expanded={open}
@@ -298,7 +317,7 @@ export function CombineRecords({
           disabled={busy || reviewing || checkingOutcome || outcomeUnknown}
           onClick={() => setOpen(!open)}
         >
-          {t(open ? "close" : "open")}
+          {t(open ? "close" : reviewPersonId ? "reviewParticipation" : "open")}
         </Button>
       </div>
       {open && (
@@ -336,7 +355,7 @@ export function CombineRecords({
             </InlineNotice>
           )}
           {syncing && <p role="status">{t("refreshing")}</p>}
-          {receipt && !refreshFailed && (
+          {receipt && !refreshFailed && (!reviewPersonId || receipt.outcome === "REVIEW_REQUIRED") && (
             <Button
               disabled={busy}
               onClick={() => {
@@ -382,7 +401,9 @@ export function CombineRecords({
                 </InlineNotice>
               )}
               <InlineNotice>{t("scope")}</InlineNotice>
-              <QueryFeedback
+              {reviewPersonId && denied && <StatePanel kind="denied" title={t("denied")}
+                action={<Button disabled={busy || reviewing || checkingOutcome} onClick={() => void review(true)}>{common("retry")}</Button>} />}
+              {!reviewPersonId && <QueryFeedback
                 hasData={!denied && candidates.data !== undefined}
                 loading={candidates.isLoading}
                 error={denied || !!candidates.error}
@@ -391,8 +412,8 @@ export function CombineRecords({
                 errorTitle={t(denied ? "denied" : "failed")}
                 retryLabel={common("retry")}
                 onRetry={() => void candidates.refetch()}
-              />
-              <FormSection
+              />}
+              {!reviewPersonId && <FormSection
                 title={t("chooseRecords")}
                 description={t("chooseHelp")}
                 disabled={disabled}
@@ -476,7 +497,7 @@ export function CombineRecords({
                 {!denied && candidates.data?.length === 0 && (
                   <StatePanel kind="empty" title={t("noResults")} />
                 )}
-              </FormSection>
+              </FormSection>}
               {!denied && (
                 <FormSection
                   title={t("selected", { count: selected.length })}
@@ -504,11 +525,11 @@ export function CombineRecords({
                             </td>
                             <td>{t(`kind.${person.ref.kind}`)}</td>
                             <TableActions>
-                              <TableAction
+                              {!reviewPersonId && <TableAction
                                 onClick={() => changeSelection(person)}
                               >
                                 {t("remove")}
-                              </TableAction>
+                              </TableAction>}
                             </TableActions>
                           </tr>
                         ))}
@@ -551,10 +572,10 @@ export function CombineRecords({
                     </label>
                   )}
                   <Button
-                    disabled={selected.length < 2 || selected.length > 20}
+                    disabled={!reviewPersonId && (selected.length < 2 || selected.length > 20)}
                     onClick={() => void review()}
                   >
-                    {reviewing ? t("loading") : t("preview")}
+                    {reviewing ? t("loading") : t(reviewPersonId ? "refreshParticipation" : "preview")}
                   </Button>
                 </FormSection>
               )}
@@ -611,7 +632,7 @@ export function CombineRecords({
                               : "adminAuthority",
                           )}
                         </p>
-                        {preview.alreadyTogether && (
+                        {preview.alreadyTogether && !reviewPersonId && (
                           <InlineNotice>{t("alreadyTogether")}</InlineNotice>
                         )}
                         {preview.retireDuplicateLogins &&
@@ -620,7 +641,7 @@ export function CombineRecords({
                               {t("cannotRetire")}
                             </InlineNotice>
                           )}
-                        {(preview.conflicts.length > 0 ||
+                        {preview.blockers ? <PersonParticipationReview blockers={preview.blockers} sources={preview.sources} /> : (preview.conflicts.length > 0 ||
                           preview.warnings.length > 0) && (
                           <InlineNotice tone="warning">
                             <p className="font-semibold">
@@ -701,6 +722,7 @@ export function CombineRecords({
                           variant="primary"
                           disabled={
                             unavailable ||
+                            (!!reviewPersonId && preview.outcome === "REVIEW_REQUIRED") ||
                             (outcomeUnknown && !missingReceipt) ||
                             !acknowledged ||
                             reason.trim().length < 10 ||
@@ -711,6 +733,7 @@ export function CombineRecords({
                           onClick={() => {
                             if (
                               unavailable ||
+                              (!!reviewPersonId && preview.outcome === "REVIEW_REQUIRED") ||
                               denied ||
                               busy ||
                               reviewing ||
@@ -731,26 +754,32 @@ export function CombineRecords({
                             setError(null);
                             operationId.current ??= crypto.randomUUID();
                             setSubmittedOperation(operationId.current);
-                            combine.mutate({
-                              sources: selected.map((row) => row.ref),
+                            const input = {
                               retainedUserId:
                                 preview.retainedUserId ?? undefined,
                               retireDuplicateLogins:
                                 preview.retireDuplicateLogins,
                               fingerprint: preview.fingerprint,
                               reason,
-                              acknowledged: true,
+                              acknowledged: true as const,
                               operationId: operationId.current,
                               ...(preview.requiresHead
                                 ? { confirmPassword: password }
                                 : {}),
-                            });
+                            };
+                            if (reviewPersonId) {
+                              finalizeMutation.mutate({ ...input, personId: reviewPersonId });
+                            } else {
+                              groupMutation.mutate({ ...input, sources: selected.map((row) => row.ref) });
+                            }
                           }}
                         >
                           {t(
                             outcomeUnknown
                               ? "retryExact"
-                              : preview.outcome === "REVIEW_REQUIRED"
+                              : reviewPersonId
+                                ? "finalizeParticipation"
+                                : preview.outcome === "REVIEW_REQUIRED"
                                 ? "confirmPending"
                                 : "confirm",
                           )}

@@ -37,6 +37,16 @@ import {
   claimTuteeHistory,
   tuteeHistoryDetails,
 } from "~/server/tutee-history";
+import {
+  exactHistorySources,
+  exactHistoryPreviewInput,
+  exactHistoryInviteInput,
+  previewExactHistoryInvitation,
+  inviteExactHistory,
+  exactHistoryInvitationStatus,
+  cancelExactHistoryInvitation,
+  exactHistoryInvitationReceipt,
+} from "~/server/exact-history-invitations";
 
 const detailInput = z.object({
   tuteeId: z.string().min(1).max(128),
@@ -68,6 +78,22 @@ function limit(actorId: string) {
 /** Historical ownership is independent of current tutee membership. Every personal read
  * is scoped again on the server; knowing another record ID never grants access. */
 export const tuteeHistoryRouter = createTRPCRouter({
+  previewExactInvitation: adminOnlyProcedure.input(exactHistoryPreviewInput).query(({ ctx, input }) =>
+    previewExactHistoryInvitation(ctx.db, ctx.session.user.id, input),
+  ),
+  inviteExact: adminOnlyProcedure.input(exactHistoryInviteInput).mutation(({ ctx, input }) => {
+    limit(ctx.session.user.id);
+    return inviteExactHistory(ctx.db, ctx.session.user.id, input);
+  }),
+  exactInvitationStatus: adminOnlyProcedure.input(z.object({ sources: exactHistorySources })).query(({ ctx, input }) =>
+    exactHistoryInvitationStatus(ctx.db, ctx.session.user.id, input.sources),
+  ),
+  exactInvitationReceipt: adminOnlyProcedure.input(z.object({ operationId: z.string().uuid() })).query(({ ctx, input }) =>
+    exactHistoryInvitationReceipt(ctx.db, ctx.session.user.id, input.operationId),
+  ),
+  cancelExactInvitation: adminOnlyProcedure.input(z.object({ sources: exactHistorySources, revision: z.string().length(64) })).mutation(({ ctx, input }) =>
+    cancelExactHistoryInvitation(ctx.db, ctx.session.user.id, input),
+  ),
   myTutorRecords: protectedProcedure.query(({ ctx }) =>
     ownedTutorHistory(ctx.db, ctx.session.user.id),
   ),

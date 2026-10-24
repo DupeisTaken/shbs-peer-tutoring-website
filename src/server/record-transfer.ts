@@ -18,6 +18,8 @@ import {
   legacyAcademicRecordId,
 } from "~/lib/historical-academics";
 import { historicalAcademicSnapshot } from "~/server/historical-academics";
+import { initializePersonSource } from "~/server/person-source-initialization";
+import type { PersonSource } from "~/server/person-identity";
 
 // Explicit domain allowlist, in dependency order. Never expand this to every database table:
 // executable approvals, account privileges, credentials and private messages are not archives.
@@ -116,8 +118,9 @@ async function catalogue(tx: TransactionDb) {
         (c) =>
           c.table === table &&
           // Canonical identity is reviewed operational state, never archive data.
-          // Imported sources receive their identity through normal resolution.
+          // Imported sources receive identity metadata inside this transaction.
           c.name !== "personId" &&
+          c.name !== "historyIdentityRevision" &&
           (table !== "User" || ["id", "email", "name"].includes(c.name)) &&
           !(table === "StudentSurvey" && c.name === "tokenHash") &&
           // Retry keys are operational capabilities, not archival answer/consent evidence.
@@ -240,6 +243,7 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
   let count = 0;
   const byTable = new Map<Table, { columns: Column[]; rows: string[][] }>();
   const inserted: { table: Table; row: Row; line: number }[] = [];
+  const identitySources = new Map<string, PersonSource>();
   for (const file of files) {
     const table = file.name.slice(0, -4) as Table;
     const columns = schema.get(table);
@@ -319,6 +323,23 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
         const row = Object.fromEntries(
           file.columns.map((c, i) => [c.name, parseValue(cells[i]!, c)]),
         );
+        if (table === "User" || table === "Tutor" || table === "Tutee") {
+          const kind = table.toUpperCase() as PersonSource["kind"];
+          identitySources.set(`${kind}:${String(row.id)}`, {
+            kind,
+            id: String(row.id),
+          });
+        }
+        if (table === "StudentProfileOwnership") {
+          identitySources.set(`TUTEE:${String(row.tuteeId)}`, {
+            kind: "TUTEE",
+            id: String(row.tuteeId),
+          });
+          identitySources.set(`USER:${String(row.userId)}`, {
+            kind: "USER",
+            id: String(row.userId),
+          });
+        }
         // JSON null and SQL NULL have different meanings. jsonb_populate_record alone
         // collapses them; retain explicit JSON nulls in both comparison and insertion.
         const jsonNulls = new Set(
@@ -533,6 +554,11 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
         );
     }
   }
+  // Initialize only after all explicit owner references pass validation. This is
+  // also safe on identical archive retries: established groups and source edit
+  // versions remain untouched, and preview/audit failure rolls everything back.
+  for (const source of identitySources.values())
+    await initializePersonSource(tx, source);
   // Older archives have no credit ledger. Preserve their awarded hours and timestamps,
   // but reserve their evidence just as the migration does; restoring cannot reopen credit.
   const patrolIds = [

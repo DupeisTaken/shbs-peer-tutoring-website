@@ -15,6 +15,7 @@ import { useDialogPending } from "./ui/modal";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { CombineRecords } from "./combine-records";
+import { HistoricalRecordInvitation } from "./historical-record-invitation";
 
 /** The disclosure owns its permission recovery; absent authority never silently
  * looks like an unsupported archive. Retained lifetime preserves unfinished review. */
@@ -82,6 +83,15 @@ export function TutorHistorySection({
         />
       )}
       {/* Correcting one mistaken owner must not identify two unrelated people. */}
+      {unified && historical && (permissions.data?.canLink || hadAccess) && (
+        <DisclosureSection title={combineText("historySetup")} lifetime="retained">
+          <HistoricalRecordInvitation
+            sources={[{ kind: "TUTOR", id: tutorId }]}
+            unavailable={!!permissions.error}
+            accessDenied={concealed}
+          />
+        </DisclosureSection>
+      )}
       {unified &&
         historical &&
         ((permissions.data?.canLink === true && permissions.data.isHead) ||

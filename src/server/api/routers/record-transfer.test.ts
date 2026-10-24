@@ -238,11 +238,19 @@ it("previews without persistence, imports linked history atomically, and skips i
   expect(preview.summary.reduce((n, s) => n + s.created, 0)).toBe(8);
   expect(await db.tutor.count()).toBe(0);
   expect(await db.auditLog.count()).toBe(0);
+  expect(await db.person.count()).toBe(0);
   const imported = await caller().recordTransfer.import({
     files,
     ticket: preview.ticket,
   });
   expect(imported.summary).toEqual(preview.summary);
+  const tutorIdentity = await db.tutor.findUniqueOrThrow({ where: { id: "tutor" }, select: { personId: true } });
+  const studentIdentity = await db.tutee.findUniqueOrThrow({ where: { id: "tutee" }, select: { personId: true, updatedAt: true } });
+  expect(tutorIdentity.personId).toBeTruthy();
+  expect(studentIdentity.personId).toBeTruthy();
+  expect(tutorIdentity.personId).not.toBe(studentIdentity.personId);
+  expect(studentIdentity.updatedAt).toEqual(new Date("2024-10-01T10:00:00Z"));
+  const peopleBeforeRetry = await db.person.findMany({ orderBy: { id: "asc" } });
   expect(
     await db.session.findUnique({
       where: { id: "session" },
@@ -259,9 +267,48 @@ it("previews without persistence, imports linked history atomically, and skips i
   });
   expect(repeat.summary.reduce((n, s) => n + s.created, 0)).toBe(0);
   expect(await db.session.count()).toBe(1);
+  expect(await db.person.findMany({ orderBy: { id: "asc" } })).toEqual(peopleBeforeRetry);
   expect(
     await db.auditLog.count({ where: { operation: "recordTransfer.import" } }),
   ).toBe(2);
+});
+
+it("initializes imported explicit ownership without changing account privileges or source versions", async () => {
+  const files = [
+    file("StudentProfileOwnership", [{ tuteeId: "owned-history", userId: "HEAD" }]),
+    file("Tutee", [{ id: "owned-history", englishName: "Original history", status: "INACTIVE", updatedAt: "2024-10-01T10:00:00Z" }]),
+    file("User", [{ id: "HEAD", email: "HEAD@example.test", name: "HEAD" }]),
+  ];
+  const before = await db.user.findUniqueOrThrow({ where: { id: "HEAD" } });
+  const preview = await caller().recordTransfer.preview({ files });
+  expect(await db.person.count()).toBe(0);
+  await caller().recordTransfer.import({ files, ticket: preview.ticket });
+  const owner = await db.user.findUniqueOrThrow({ where: { id: "HEAD" } });
+  expect(owner.personId).toBeTruthy();
+  expect(owner).toEqual({ ...before, personId: owner.personId });
+  expect(await db.tutee.findUniqueOrThrow({ where: { id: "owned-history" } })).toMatchObject({
+    personId: owner.personId, englishName: "Original history", status: "INACTIVE", updatedAt: new Date("2024-10-01T10:00:00Z"),
+  });
+  expect(await db.studentProfileOwnership.findUniqueOrThrow({ where: { tuteeId: "owned-history" } })).toMatchObject({ userId: "HEAD", revision: 1 });
+});
+
+it("refuses conflicting explicit imported ownership and rolls back all identity metadata", async () => {
+  await db.tutee.create({ data: { id: "already-current", englishName: "Current source" } });
+  await db.user.update({ where: { id: "ADMIN" }, data: { studentId: "already-current" } });
+  const files = [file("StudentProfileOwnership", [{ tuteeId: "already-current", userId: "HEAD" }])];
+  await expect(caller().recordTransfer.preview({ files })).rejects.toThrow(/conflicting current and retained owners/);
+  expect(await db.person.count()).toBe(0);
+  expect(await db.studentProfileOwnership.count()).toBe(0);
+});
+
+it("keeps operational identity IDs and invitation revisions outside archive authority", async () => {
+  const exported = await caller().recordTransfer.export({ templates: true });
+  for (const name of ["User.csv", "Tutor.csv", "Tutee.csv"])
+    expect(exported.files.find((entry) => entry.name === name)?.text).not.toMatch(/personId|historyIdentityRevision/);
+  for (const metadata of [{ personId: "forged-person" }, { historyIdentityRevision: 10 }])
+    await expect(caller().recordTransfer.preview({ files: [file("Tutee", [{ id: "forged", englishName: "Source", updatedAt: "2024-10-01T10:00:00Z", ...metadata }])] })).rejects.toThrow(/unknown or duplicate columns/);
+  expect(await db.person.count()).toBe(0);
+  expect(await db.tutee.count()).toBe(0);
 });
 
 it("round-trips historical pairing groups before their member references", async () => {

@@ -886,6 +886,16 @@ retained ownership. Inspect and correct those through a reviewed process before 
 do not automatically pick an owner. Back up the database and rehearse against an isolated
 copy first. New archive imports cannot write person IDs or combination receipts.
 
+New source writers and archive imports initialize missing directory identities in
+their owning transaction, without name/mailbox matching or changing original
+source evidence. Use `npm run identity:reconcile` from a trusted checkout with the
+matching generated Prisma client to inspect a consistent, database-enforced
+read-only snapshot. Exit `2` means findings need review; it does not repair them.
+Follow the [authority inventory and cutover comparison](../reference/identity-lifecycle.md#cutover-comparison-and-rollback-limits),
+retain reports securely, and review conflicts through existing ownership/grouping
+workflows before rollout. The command is a source-checkout operator tool, not a
+new public endpoint or an assumption that development tooling ships in the image.
+
 Older application code does not maintain canonical grouping, recognize review-required
 groups or traverse new retirement chains. Roll back with a compatible corrective release,
 not by deleting Person metadata, receipts or credential guards. Preserve all source rows

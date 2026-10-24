@@ -200,6 +200,7 @@ vi.mock("~/trpc/react", async () => {
           personCombine: {
             candidates: invalidator("personCombine.candidates"),
             preview: { fetch: async () => null },
+            review: { fetch: async () => null },
             receipt: { fetch: async () => null },
           },
         };
@@ -250,6 +251,8 @@ vi.mock("~/trpc/react", async () => {
       personCombine: {
         candidates: query("personCombine.candidates", () => []),
         combine: mutation("personCombine.combine"),
+        // Both modes use the same mounted controller and real mutation lifecycle.
+        finalize: mutation("personCombine.finalize"),
       },
     },
   };

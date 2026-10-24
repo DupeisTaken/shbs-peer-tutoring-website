@@ -3,7 +3,8 @@ import type { Session } from "next-auth";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { db } from "~/server/db";
 import { createCaller } from "~/server/api/root";
-import { previewCombine } from "./combine-accounts";
+import { previewPersonCombine } from "./person-combine";
+import { reviewedLoginRetirement } from "~/test/person-combine-fixture";
 import { hashPassword } from "./auth/password";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
@@ -75,13 +76,10 @@ it("shows one crew member with both patrol histories and refuses merge-family de
     });
   const staff = caller(head.id, "HEAD");
   const pair = { survivorId: survivor.id, duplicateId: duplicate.id };
-  const preview = await previewCombine(db, pair);
+  const combineInput = await reviewedLoginRetirement(db, pair, password);
+  const preview = await previewPersonCombine(db, combineInput);
   expect(preview.conflicts).toEqual([]);
-  await staff.accountCombine.combine({
-    ...pair,
-    fingerprint: preview.fingerprint,
-    confirmPassword: password,
-  });
+  await staff.personCombine.combine(combineInput);
   const roster = await staff.admin.crewRoster();
   expect(roster).toHaveLength(1);
   expect(roster[0]).toMatchObject({ id: survivor.id, patrols: 2, hours: 2 });

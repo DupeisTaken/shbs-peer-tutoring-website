@@ -13,6 +13,8 @@ import { PrismaClient } from "../generated/prisma";
 import { utcDatabaseUrl } from "../src/server/database-url";
 import { hashPassword } from "../src/server/auth/password";
 import { initializeProgram } from "../src/server/program/bootstrap";
+import { initializePersonSource } from "../src/server/person-source-initialization";
+import { lockUsernameNamespace } from "../src/server/auth/username";
 
 const connectionString = process.env.DATABASE_URL;
 const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
@@ -41,6 +43,9 @@ const db = new PrismaClient({
 
 try {
   const account = await db.$transaction(async (tx) => {
+    // Match identity writers' period -> namespace -> leadership lock order.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('program:period', 0))`;
+    await lockUsernameNamespace(tx);
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('program:leadership', 0))`;
     const headExists = (await tx.user.count({ where: { role: "HEAD" } })) > 0;
     const existing = await tx.user.findUnique({
@@ -65,7 +70,7 @@ try {
       schoolYear,
       quarter as "Q1" | "Q2" | "Q3" | "Q4",
     );
-    return tx.user.upsert({
+    const account = await tx.user.upsert({
       where: { email },
       update: {
         name,
@@ -82,8 +87,10 @@ try {
         mustChangePassword: false,
         emailVerifiedAt: new Date(),
       },
-      select: { email: true, role: true },
+      select: { id: true, email: true, role: true },
     });
+    await initializePersonSource(tx, { kind: "USER", id: account.id });
+    return account;
   });
   console.info(
     `Created or updated ${account.email} with role ${account.role}.`,

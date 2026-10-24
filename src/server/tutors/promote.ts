@@ -7,6 +7,7 @@ import { assertPrimaryName } from "~/server/program/profile-policy";
 import { ensureNameFallbackForRole } from "~/server/program/name-fields";
 import { initializeAccountAcademics } from "~/server/academics";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
+import { initializePersonSource } from "~/server/person-source-initialization";
 import {
   lockAccountProfile,
   updateAccountProfile,
@@ -122,6 +123,9 @@ export async function promoteApplicantToTutor(
       });
       const tutor = await db.tutor.create({
         data: {
+          // Accepted accountless applicants still need a standalone directory
+          // identity; this does not redeem their invitation or create a login.
+          personId: (await db.person.create({ data: {} })).id,
           firstName: hasLogin?.emailVerifiedAt
             ? hasLogin.firstName
             : app.firstName,
@@ -144,6 +148,9 @@ export async function promoteApplicantToTutor(
       tutorId = tutor.id;
     }
 
+    // Older accountless roster rows can predate directory identities. This
+    // initializes metadata only, preserving the application's access decision.
+    await initializePersonSource(db, { kind: "TUTOR", id: tutorId });
     await db.tutorApplication.update({
       where: { id: applicationId },
       data: { promotedTutorId: tutorId },

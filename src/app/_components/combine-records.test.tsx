@@ -16,6 +16,8 @@ import type { RouterInputs } from "~/trpc/react";
 
 const fixture = vi.hoisted(() => ({
   preview: vi.fn(),
+  reviewGroup: vi.fn(),
+  finalize: vi.fn(),
   mutate: vi.fn<(input: RouterInputs["personCombine"]["combine"]) => void>(),
   refresh: vi.fn<() => Promise<void>>(),
   receipt: vi.fn(),
@@ -26,6 +28,11 @@ const fixture = vi.hoisted(() => ({
   candidateSuccess: true,
   candidateFetching: false,
   callbacks: null as null | {
+    onSuccess: (result: unknown) => Promise<void>;
+    onError: (error: unknown) => void;
+    onSettled: () => void;
+  },
+  finalizeCallbacks: null as null | {
     onSuccess: (result: unknown) => Promise<void>;
     onError: (error: unknown) => void;
     onSettled: () => void;
@@ -71,10 +78,14 @@ vi.mock("~/trpc/react", () => ({
       personCombine: {
         candidates: { invalidate: fixture.refresh },
         preview: { fetch: fixture.preview },
+        review: { fetch: fixture.reviewGroup },
         receipt: { fetch: fixture.receipt },
       },
     }),
     personCombine: {
+      finalize: {
+        useMutation: (callbacks: typeof fixture.finalizeCallbacks) => { fixture.finalizeCallbacks = callbacks; return { mutate: fixture.finalize, isPending: false }; },
+      },
       candidates: {
         useQuery: (input: unknown, options: unknown) => {
           fixture.query(input, options);
@@ -122,19 +133,52 @@ beforeEach(() => {
   vi.clearAllMocks();
   fixture.refresh.mockReset().mockResolvedValue(undefined);
   fixture.preview.mockReset().mockResolvedValue(preview());
+  fixture.reviewGroup.mockReset().mockResolvedValue({ ...preview(), personId: "review-person", alreadyTogether: true, requiresHead: true, blockers: [] });
   fixture.receipt.mockReset().mockResolvedValue(null);
   fixture.candidateError = null;
   fixture.candidateSuccess = true;
   fixture.candidateFetching = false;
 });
 afterEach(cleanup);
-const element = (isHead = false, locale: "en" | "zh" = "en") => (
+
+it("reads an existing group's participation without searching or writing, then explicitly finalizes", async () => {
+  render(element(true, "en", "review-person"));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.reviewParticipation }));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.refreshParticipation }));
+  await screen.findByText(en.personParticipation.clear);
+  expect(fixture.reviewGroup).toHaveBeenCalledWith({ personId: "review-person", retainedUserId: undefined, retireDuplicateLogins: false }, { staleTime: 0 });
+  expect(fixture.query).toHaveBeenLastCalledWith({ search: "" }, { enabled: false });
+  expect(fixture.finalize).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText(en.combineRecords.evidence), { target: { value: "Current assignments resolved through their original workflow" } });
+  fireEvent.change(screen.getByLabelText(en.combineRecords.password), { target: { value: "head-password" } });
+  fireEvent.click(screen.getByLabelText(en.combineRecords.acknowledge));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.finalizeParticipation }));
+  expect(fixture.finalize).toHaveBeenCalledWith(expect.objectContaining({ personId: "review-person", fingerprint: "a".repeat(64), confirmPassword: "head-password", acknowledged: true }));
+  expect(fixture.mutate).not.toHaveBeenCalled();
+});
+
+it("keeps finalization blocked while a typed current assignment remains", async () => {
+  fixture.reviewGroup.mockResolvedValue({ ...preview(), personId: "review-person", alreadyTogether: true, requiresHead: true, outcome: "REVIEW_REQUIRED", blockers: [{ id: "assignment", reason: "CURRENT_ASSIGNMENT", sources: [candidates[0]!.ref], work: [{ kind: "PAIRING", id: "pairing-original", dueAt: null }], destination: "/admin/pairings", blocksFinalization: true, blocksRetirement: true, field: null }] });
+  render(element(true, "en", "review-person"));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.reviewParticipation }));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.refreshParticipation }));
+  await screen.findByText(en.personParticipation.reason.CURRENT_ASSIGNMENT);
+  expect(screen.getByRole("link", { name: en.personParticipation.destination.pairings }).getAttribute("href")).toBe("/admin/pairings");
+  fireEvent.change(screen.getByLabelText(en.combineRecords.evidence), { target: { value: "Identity confirmed, assignment remains unresolved" } });
+  fireEvent.change(screen.getByLabelText(en.combineRecords.password), { target: { value: "head-password" } });
+  fireEvent.click(screen.getByLabelText(en.combineRecords.acknowledge));
+  const button = screen.getByRole("button", { name: en.combineRecords.finalizeParticipation }) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
+  fireEvent.click(button);
+  expect(fixture.finalize).not.toHaveBeenCalled();
+});
+const element = (isHead = false, locale: "en" | "zh" = "en", reviewPersonId?: string) => (
   <NextIntlClientProvider
     locale={locale}
     messages={locale === "en" ? en : zh}
     timeZone="UTC"
   >
-    <CombineRecords isHead={isHead} onPendingChange={fixture.pending} />
+    <CombineRecords isHead={isHead} onPendingChange={fixture.pending} reviewPersonId={reviewPersonId} />
   </NextIntlClientProvider>
 );
 function mount(isHead = false, locale: "en" | "zh" = "en") {
@@ -443,4 +487,49 @@ it("blocks unsafe credential retirement while preserving grouping as an explicit
     }).disabled,
   ).toBe(true);
   expect(fixture.mutate).not.toHaveBeenCalled();
+});
+
+it("recovers a denied group review through its own fresh read without trusting disabled candidate cache", async () => {
+  fixture.candidateError = { message: "old candidate denial", data: { code: "FORBIDDEN" } };
+  fixture.candidateSuccess = false;
+  fixture.reviewGroup.mockRejectedValueOnce(Object.assign(new Error("review denied"), { data: { code: "FORBIDDEN" } }));
+  render(element(true, "en", "review-person"));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.reviewParticipation }));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.refreshParticipation }));
+  await screen.findByText(en.combineRecords.denied);
+  fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
+  await screen.findByText(en.personParticipation.clear);
+  expect(fixture.reviewGroup).toHaveBeenCalledTimes(2);
+  expect(fixture.refetch).not.toHaveBeenCalled();
+  expect(fixture.finalize).not.toHaveBeenCalled();
+});
+
+it("retains an accepted finalization receipt and retries failed synchronization without offering another finalization", async () => {
+  render(element(true, "en", "review-person"));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.reviewParticipation }));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.refreshParticipation }));
+  await screen.findByText(en.personParticipation.clear);
+  fireEvent.change(screen.getByLabelText(en.combineRecords.evidence), { target: { value: "Existing domain workflows resolved every current conflict" } });
+  fireEvent.change(screen.getByLabelText(en.combineRecords.password), { target: { value: "head-password" } });
+  fireEvent.click(screen.getByLabelText(en.combineRecords.acknowledge));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.finalizeParticipation }));
+  fixture.refresh.mockRejectedValue(new Error("read failed"));
+  await act(async () => { await fixture.finalizeCallbacks!.onSuccess(result); fixture.finalizeCallbacks!.onSettled(); });
+  expect(screen.getByText(en.combineRecords.saved)).toBeTruthy();
+  expect(screen.getByText(en.combineRecords.refreshFailed)).toBeTruthy();
+  fixture.refresh.mockResolvedValue(undefined);
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry })); });
+  expect(screen.queryByRole("button", { name: en.combineRecords.combineMore })).toBeNull();
+  expect(screen.queryByRole("button", { name: en.combineRecords.finalizeParticipation })).toBeNull();
+  expect(fixture.finalize).toHaveBeenCalledTimes(1);
+});
+
+it("shows retained current work without falsely labelling it as a retirement blocker", async () => {
+  fixture.reviewGroup.mockResolvedValue({ ...preview(), personId: "review-person", blockers: [{ id: "retained-assignment", reason: "CURRENT_ASSIGNMENT", sources: [candidates[0]!.ref], work: [{ kind: "PAIRING", id: "retained-pairing", dueAt: null }], destination: "/admin/pairings", blocksFinalization: false, blocksRetirement: false, field: null }] });
+  render(element(true, "en", "review-person"));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.reviewParticipation }));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.refreshParticipation }));
+  await screen.findByText(en.personParticipation.reason.CURRENT_ASSIGNMENT);
+  expect(screen.queryByText(en.personParticipation.blocksRetirement)).toBeNull();
+  expect(screen.queryByText(en.personParticipation.blocksFinalization)).toBeNull();
 });

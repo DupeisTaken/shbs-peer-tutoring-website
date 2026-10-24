@@ -833,7 +833,7 @@ it("preserves credentials completed during SMTP, then permits a separate explici
   });
   // Canonical identity metadata changes; original enrollment evidence does not.
   expect(claimedArchive.personId).toBeTruthy();
-  expect({ ...claimedArchive, personId: archive.personId }).toEqual(archive);
+  expect({ ...claimedArchive, personId: archive.personId, historyIdentityRevision: archive.historyIdentityRevision }).toEqual(archive);
   expect(
     await db.studentProfileOwnership.findUnique({
       where: { tuteeId: archive.id },
