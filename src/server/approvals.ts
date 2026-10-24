@@ -27,6 +27,10 @@ import { inTransaction, lockEntity, type TransactionDb } from "./transactions";
 import { announcementCandidates } from "./announcement-recipients";
 import { lockUsernameNamespace } from "./auth/username";
 import {
+  applicationIdentityCorrectionInput,
+  validateApplicationIdentityCorrection,
+} from "./tutors/application-identity";
+import {
   announcementAudienceSchema,
   selectAnnouncementRecipients,
 } from "~/lib/announcement-recipients";
@@ -385,11 +389,49 @@ export async function proposalTargets(
   payload: unknown,
   includeRoomBlockContext = false,
   includeAuthorityContext = false,
+  actorId?: string,
 ) {
   const input: unknown = superjson.deserialize(
     payload as Parameters<typeof superjson.deserialize>[0],
   );
   const fields = z.record(z.unknown()).parse(input);
+  if (operation === "admin.correctApplicationIdentity") {
+    // Queue interception happens before the resolver. Capture only a validated,
+    // locked correction; replay repeats the same validation before fingerprinting.
+    if (!actorId) throw new TRPCError({ code: "FORBIDDEN" });
+    const identity = await validateApplicationIdentityCorrection(
+      client,
+      applicationIdentityCorrectionInput.parse(input),
+      { id: actorId },
+    );
+    // Names do not replace review evidence. Hold the application lock while
+    // capturing the exact panel, votes and qualification evidence the Head sees.
+    const application = await client.tutorApplication.findUniqueOrThrow({
+      where: { id: identity.id },
+      include: {
+        interviewers: { orderBy: { tutorId: "asc" } },
+        votes: { orderBy: { tutorId: "asc" } },
+        subjectIntents: { orderBy: { id: "asc" } },
+      },
+    });
+    return JSON.parse(
+      JSON.stringify({
+        TutorApplication: [{ record: application }],
+        applicationIdentity: {
+          original: identity.original,
+          current: identity.current,
+          next: identity.next,
+          revision: identity.revision,
+          policy: identity.policy,
+          readiness: identity.readiness,
+          provisioning: identity.provisioning,
+        },
+        ...(includeAuthorityContext
+          ? { authorityContext: await authoritySnapshot(client) }
+          : {}),
+      }),
+    ) as Record<string, Prisma.InputJsonValue>;
+  }
   // An automatic proposal approves the scheduling intent, not a previewed candidate room.
   // The slot itself and the edited pairing remain immutable review evidence.
   const automaticRoomIntent = ["admin.createPairing", "admin.updatePairing", "admin.setPairingRoom"].includes(operation) && fields.roomMode === "AUTO";
@@ -779,7 +821,12 @@ export async function proposalTargets(
                 : ["TutorApplication", "StudentSurvey"].includes(table)
                   ? // Untouched additive columns must not invalidate pre-migration proposals.
                     // A first flag or later clear leaves a positive revision in every future snapshot.
-                    "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[] - CASE WHEN t.\"invalidityVersion\" = 0 AND t.\"invalidatedAt\" IS NULL THEN ARRAY['invalidReason','invalidatedAt','invalidatedById','invalidatedByName','invalidityVersion']::text[] ELSE ARRAY[]::text[] END"
+                    "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[] - CASE WHEN t.\"invalidityVersion\" = 0 AND t.\"invalidatedAt\" IS NULL THEN ARRAY['invalidReason','invalidatedAt','invalidatedById','invalidatedByName','invalidityVersion']::text[] ELSE ARRAY[]::text[] END" +
+                    // Preserve old decisions for untouched applications. Every actual
+                    // correction contributes its positive revision to future fingerprints.
+                    (table === "TutorApplication"
+                      ? " - CASE WHEN t.\"identityRevision\" = 0 THEN ARRAY['identityRevision']::text[] ELSE ARRAY[]::text[] END"
+                      : "")
                   : "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[]";
     targets[table] = await client.$queryRaw(
       Prisma.sql`SELECT ${Prisma.raw(fields)} AS record FROM ${Prisma.raw('"' + table + '"')} t WHERE t.id IN (${Prisma.join([...values].sort())}) ORDER BY t.id`,
@@ -900,14 +947,21 @@ export async function queueProposal(
     input = value;
   }
   const payload = await parseProposal(operation, input);
+  const value: unknown = superjson.deserialize(
+    payload as unknown as Parameters<typeof superjson.deserialize>[0],
+  );
+  const identityCorrection = operation === "admin.correctApplicationIdentity"
+    ? applicationIdentityCorrectionInput.parse(value)
+    : null;
   return inTransaction(db, async (tx) => {
+    if (identityCorrection) {
+      await lockUsernameNamespace(tx);
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${session.user.id} FOR SHARE`;
+    }
     // Retry/double-click of the same unchanged proposal returns its existing request.
     await lockEntity(
       tx,
-      `proposal:${session.user.id}:${operation}:${fingerprint(payload)}`,
-    );
-    const value: unknown = superjson.deserialize(
-      payload as unknown as Parameters<typeof superjson.deserialize>[0],
+      `proposal:${session.user.id}:${operation}:${identityCorrection?.clientKey ?? fingerprint(payload)}`,
     );
     if (operation === "admin.updateTimeSlot") {
       // Capture both requested authority and attendance after any in-flight writer
@@ -945,8 +999,25 @@ export async function queueProposal(
         code: "FORBIDDEN",
         message: "Your current role cannot submit this change.",
       });
+    if (identityCorrection) {
+      const receipt = await tx.approvalRequest.findFirst({
+        where: {
+          requesterId: session.user.id,
+          operation,
+          payload: { path: ["json", "clientKey"], equals: identityCorrection.clientKey },
+        },
+      });
+      if (receipt) {
+        if (fingerprint(receipt.payload) !== fingerprint(payload))
+          throw new TRPCError({ code: "CONFLICT", message: "APPLICATION_IDENTITY_RETRY_CHANGED" });
+        // The original proposal remains the receipt even after its target drifts.
+        // Reopening it cannot recapture later evidence or duplicate notifications.
+        if (receipt.state === "PENDING") return receipt;
+        throw new TRPCError({ code: "CONFLICT", message: "APPLICATION_IDENTITY_PROPOSAL_DECIDED" });
+      }
+    }
     await validateRoomBlockProposal(tx, operation, value);
-    const targets = await proposalTargets(tx, operation, payload, true, true);
+    const targets = await proposalTargets(tx, operation, payload, true, true, session.user.id);
     if (targets && typeof targets === "object" && !Array.isArray(targets))
       targets.reviewAuthority = JSON.parse(
         JSON.stringify(authority),

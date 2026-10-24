@@ -404,16 +404,22 @@ export async function codePrefill(row: CodeRow, client: DomainDb = db) {
       : row.tutorId
         ? await client.tutor.findUnique({ where: { id: row.tutorId } })
         : null;
+  // A returning roster keeps its established identity during promotion. Prefill
+  // must describe that exact invitation-bound roster too, rather than suggesting
+  // a request-local correction that account creation will correctly refuse to adopt.
+  const names = row.applicationId && row.tutorId
+    ? (await client.tutor.findUnique({ where: { id: row.tutorId } })) ?? source
+    : source;
   return {
     boundEmail: row.email?.toLowerCase() ?? null,
-    firstName: source?.firstName ?? "",
-    lastName: source?.lastName ?? "",
-    preferredName: source?.preferredName ?? "",
-    alternativeNames: source?.alternativeNames ?? "",
-    legacyName: source
-      ? "englishName" in source
-        ? (source.legacyName ?? source.englishName)
-        : source.name
+    firstName: names?.firstName ?? "",
+    lastName: names?.lastName ?? "",
+    preferredName: names?.preferredName ?? "",
+    alternativeNames: names?.alternativeNames ?? "",
+    legacyName: names
+      ? "englishName" in names
+        ? (names.legacyName ?? names.englishName)
+        : names.name
       : null,
     gradeLevel: source && "gradeLevel" in source ? source.gradeLevel : null,
     gradeSchoolYear:

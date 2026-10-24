@@ -3,6 +3,7 @@ export const APPLICATION_COMPLETIONS = [
   "COMPLETED",
   "NOT_COMPLETED",
 ] as const;
+export const APPLICATION_IDENTITIES = ["", "NEEDS_REVIEW", "READY"] as const;
 export const APPLICATION_SORTS = [
   "",
   "COMPLETED_DESC",
@@ -29,6 +30,7 @@ export type ApplicationFilters = {
   type: string;
   subjectId: string;
   completion: (typeof APPLICATION_COMPLETIONS)[number];
+  identity: (typeof APPLICATION_IDENTITIES)[number];
   sort: ApplicationSort;
 };
 
@@ -38,6 +40,7 @@ export const emptyApplicationFilters: ApplicationFilters = {
   type: "",
   subjectId: "",
   completion: "",
+  identity: "",
   sort: "",
 };
 
@@ -46,25 +49,31 @@ export const emptyApplicationFilters: ApplicationFilters = {
 export function matchesApplicationFilters(
   application: {
     name: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    preferredName?: string | null;
+    alternativeNames?: string | null;
     email: string;
     status: string;
     type: string;
     subjectIntents: { subjectId: string }[];
     interviewCompletedAt?: ApplicationDate;
+    identityNeedsReview?: boolean;
   },
   filters: ApplicationFilters,
 ) {
-  const search = filters.search.trim().toLocaleLowerCase();
   return (
-    (!search ||
-      application.name.toLocaleLowerCase().includes(search) ||
-      application.email.toLocaleLowerCase().includes(search)) &&
+    matchesPersonSearch(application, filters.search, [application.name, application.email]) &&
     (!filters.status || application.status === filters.status) &&
     (!filters.type || application.type === filters.type) &&
     (!filters.subjectId ||
       application.subjectIntents.some(
         (intent) => intent.subjectId === filters.subjectId,
       )) &&
+    (!filters.identity ||
+      (application.type === "INITIAL" &&
+        typeof application.identityNeedsReview === "boolean" &&
+        application.identityNeedsReview === (filters.identity === "NEEDS_REVIEW"))) &&
     (!filters.completion ||
       (timestamp(application.interviewCompletedAt) !== null) ===
         (filters.completion === "COMPLETED"))
@@ -113,3 +122,5 @@ export function sortApplications<
     })
     .map(({ application }) => application);
 }
+import { matchesPersonSearch } from "./person-search";
+

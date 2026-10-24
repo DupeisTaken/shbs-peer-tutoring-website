@@ -1,4 +1,68 @@
 {
+  "applicationIdentity": {
+    "errors": {
+      "APPLICATION_IDENTITY_EMAIL_REQUIRED": "The original application has no email address. Review contact ownership through the appropriate application workflow; this form only changes names.",
+      "APPLICATION_IDENTITY_NOT_FOUND": "This application is no longer available.",
+      "APPLICATION_IDENTITY_ORIGINAL_MISSING": "The original identity evidence is unavailable. Refresh the record before continuing.",
+      "APPLICATION_IDENTITY_AUTHORITY_REQUIRED": "Only a Head may apply this correction; an Admin may request Head approval.",
+      "APPLICATION_IDENTITY_NO_CHANGE": "Change at least one name field before submitting a correction.",
+      "APPLICATION_IDENTITY_RETRY_CHANGED": "This receipt belongs to a different correction. Reload the current names before starting a new correction.",
+      "APPLICATION_IDENTITY_PROPOSAL_DECIDED": "This proposal has already been reviewed. View its decision and reload current names before preparing another correction."
+    },
+    "title": "Application names",
+    "edit": "Correct names",
+    "dialogTitle": "Correct Application Names",
+    "original": "Original submission",
+    "current": "Current application names",
+    "recordedLabel": "Recorded display name",
+    "notRecorded": "Not recorded",
+    "blank": "Left blank",
+    "ready": "Names ready for promotion",
+    "needsReview": "Names need review",
+    "needsReviewHelp": "Record the applicant’s explicit Latin name fields before creating a new tutor record. Names in another language may be retained separately.",
+    "notAcceptance": "Name readiness is separate from application approval and all other processing requirements.",
+    "source": {
+      "APPLICATION": "Promotion will use the current application names.",
+      "VERIFIED_ACCOUNT": "Promotion uses the verified account’s identity. This correction cannot change that account.",
+      "EXISTING_ROSTER": "Promotion reuses the existing tutor record. This correction cannot replace its identity."
+    },
+    "protectedEvidence": "Only the four name fields may be corrected here. Email, contact preferences, qualifications and accepted policy evidence remain as originally submitted.",
+    "ineligible": {
+      "APPLICATION_IDENTITY_NOT_INITIAL": "This is a qualification request. Review its evidence through the qualification workflow.",
+      "APPLICATION_IDENTITY_NOT_OPEN": "This application is closed. Use the participant’s profile workflow for later name changes.",
+      "APPLICATION_IDENTITY_DECIDED": "A final decision or completed interview is already recorded. Use the participant’s profile workflow for later name changes.",
+      "APPLICATION_IDENTITY_PROVISIONED": "Account setup or a tutor record has already been provisioned. Review the linked participant profile instead."
+    },
+    "readOnly": "A Head may apply a correction. An Admin may propose one for Head review. Coordinators can read this evidence.",
+    "invalidPreserved": "This application remains flagged invalid. Correcting its names does not clear the flag or resume processing.",
+    "history": "Correction history ({count})",
+    "noHistory": "No name corrections recorded.",
+    "revision": "Revision {revision} · {actor} · {date}",
+    "before": "Before correction",
+    "after": "After correction",
+    "viewRequest": "View approval request",
+    "accessDenied": "You no longer have access to this application’s identity evidence.",
+    "loading": "Loading application names…",
+    "loadFailed": "Application names could not be loaded.",
+    "retryRead": "Retry refresh",
+    "readFailedRetained": "The latest names could not be read. Your current draft is retained; refresh successfully before saving.",
+    "editHelp": "Enter the names confirmed by the applicant and explain the correction. The original submission and every applied correction remain in the audit history.",
+    "applied": "Name correction applied",
+    "appliedHelp": "The correction is recorded. Review name readiness and continue the application’s usual approval process.",
+    "queued": "Correction sent for Head review",
+    "queuedHelp": "The application’s names remain unchanged until a Head approves this proposal. Your submitted draft is retained.",
+    "acceptedReadFailed": "The correction was received, but the latest records could not be refreshed. Retry only refreshes the records; it does not submit another correction.",
+    "reloadFailed": "Reload failed. Your draft and its original version are retained.",
+    "authorityChanged": "Your role no longer permits name corrections. The retained draft cannot be submitted.",
+    "legacyRetained": "The original unsplit name is retained without guessing first or last names. An alternate-language-only correction may still leave the application needing name review.",
+    "reason": "Correction reason",
+    "reasonHelp": "Explain what was corrected and how the applicant confirmed it. This reason is retained with the audit record.",
+    "apply": "Apply name correction",
+    "propose": "Request Head approval",
+    "saveFailed": "The correction could not be saved.",
+    "reload": "Reload current names",
+    "cancel": "Cancel"
+  },
   "requestInvalidity": {
     "badge": "Invalid entry",
     "filterLabel": "Request validity",
@@ -1414,6 +1478,12 @@
         "reset": "Reset filters",
         "noMatches": "No applications match these filters. Try another search or reset the filters.",
         "completion": "Interview completion",
+        "identity": "Name readiness",
+        "identityOptions": {
+          "ALL": "All name readiness",
+          "NEEDS_REVIEW": "Names need review",
+          "READY": "Names ready"
+        },
         "completionOptions": {
           "ALL": "Any completion status",
           "COMPLETED": "Completed interviews",
@@ -3248,7 +3318,8 @@
         "languages": "Languages",
         "messagePermissions": "Messaging permissions"
       },
-      "operations": {
+        "operations": {
+          "admin_correctApplicationIdentity": "Correct pending application names",
         "corrections_correctAttendance": "Correct a session's attendance",
         "corrections_correctPatrol": "Correct a patrol record",
         "interviewManagement_qualify": "Change a tutor's subject qualification",

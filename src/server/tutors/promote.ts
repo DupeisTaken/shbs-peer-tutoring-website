@@ -3,7 +3,8 @@ import {
   assertRequestProcessable,
   lockApplicationReview,
 } from "~/server/request-invalidity";
-import { assertPrimaryName } from "~/server/program/profile-policy";
+import { TRPCError } from "@trpc/server";
+import { applicationPromotionReadiness } from "./application-identity";
 import { ensureNameFallbackForRole } from "~/server/program/name-fields";
 import { initializeAccountAcademics } from "~/server/academics";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
@@ -33,7 +34,6 @@ import {
   canonicalUsername,
   ensureUserUsername,
   lockUsernameNamespace,
-  splitDisplayName,
 } from "~/server/auth/username";
 
 export async function promoteApplicantToTutor(
@@ -46,6 +46,7 @@ export async function promoteApplicantToTutor(
     const app = await db.tutorApplication.findUnique({
       where: { id: applicationId },
       select: {
+        id: true,
         name: true,
         firstName: true,
         lastName: true,
@@ -87,14 +88,11 @@ export async function promoteApplicantToTutor(
     // replace it when participation is granted. Unlinked applicants establish a new name.
     // Active display may be a username under a hidden policy. Never turn that
     // handle into an original human name while granting tutoring membership.
-    const canonicalName = hasLogin?.emailVerifiedAt
-      ? hasLogin.firstName != null
-        ? [hasLogin.firstName, hasLogin.lastName].filter(Boolean).join(" ")
-        : (hasLogin.legacyName ?? "")
-      : null;
-    const { firstName, lastName, englishName } = splitDisplayName(
-      canonicalName ?? app.name,
-    );
+    const readiness = await applicationPromotionReadiness(db, app);
+    if (!readiness.ready)
+      throw new TRPCError({ code: "BAD_REQUEST", message: readiness.reason! });
+    const promotionIdentity = readiness.identity;
+    const englishName = promotionIdentity.name.trim();
 
     // Resolve (or create) the Tutor record — reactivated if one already exists for this email.
     const existing = await db.tutor.findUnique({
@@ -110,12 +108,13 @@ export async function promoteApplicantToTutor(
       });
       tutorId = existing.id;
     } else {
-      // Recheck old applications against today's rule before creating a roster identity.
-      // Reactivating an unchanged existing roster above remains grandfathered.
-      await assertPrimaryName(db, englishName, canonicalName);
-      const usernameBase = lastName
-        ? defaultUsername(firstName, lastName)
-        : firstName;
+      // Confirmed parts drive the first handle. An unsplit legacy label stays a
+      // single input; no inferred given/family boundary becomes identity evidence.
+      // An established verified-account handle still wins in canonicalUsername.
+      const usernameBase = defaultUsername(
+        promotionIdentity.firstName ?? englishName,
+        promotionIdentity.lastName ?? "",
+      );
       const username = await canonicalUsername(db, usernameBase, {
         excludeUserId: hasLogin?.emailVerifiedAt ? hasLogin.id : undefined,
         userUsername: hasLogin?.emailVerifiedAt ? hasLogin.username : undefined,

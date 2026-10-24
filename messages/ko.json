@@ -1,4 +1,68 @@
 {
+  "applicationIdentity": {
+    "title": "신청서 이름",
+    "edit": "이름 정정",
+    "dialogTitle": "신청서 이름 정정",
+    "original": "원본 제출 내용",
+    "current": "현재 신청서 이름",
+    "recordedLabel": "기록된 표시 이름",
+    "notRecorded": "기록 없음",
+    "blank": "빈칸",
+    "ready": "이름이 등록 요건을 충족함",
+    "needsReview": "이름 확인 필요",
+    "needsReviewHelp": "새 튜터 기록을 만들기 전에 신청자가 명확히 확인한 라틴 문자 이름을 입력하세요. 다른 언어의 이름은 별도로 유지할 수 있습니다.",
+    "notAcceptance": "이름 요건 충족은 신청 승인 및 다른 처리 요건과 별개입니다.",
+    "source": {
+      "APPLICATION": "등록 시 현재 신청서 이름을 사용합니다.",
+      "VERIFIED_ACCOUNT": "등록 시 인증된 계정의 신원 정보를 사용합니다. 이 정정은 해당 계정을 변경하지 않습니다.",
+      "EXISTING_ROSTER": "등록 시 기존 튜터 기록을 사용합니다. 이 정정은 해당 신원 정보를 대체하지 않습니다."
+    },
+    "protectedEvidence": "여기서는 네 가지 이름 필드만 정정할 수 있습니다. 이메일, 연락 선호 사항, 자격 증빙 및 동의한 정책 기록은 원본 그대로 유지됩니다.",
+    "ineligible": {
+      "APPLICATION_IDENTITY_NOT_INITIAL": "자격 신청입니다. 자격 심사 절차에서 증빙을 확인하세요.",
+      "APPLICATION_IDENTITY_NOT_OPEN": "종료된 신청입니다. 이후 이름 변경은 참여자 프로필에서 진행하세요.",
+      "APPLICATION_IDENTITY_DECIDED": "최종 결정 또는 면접 완료가 이미 기록되었습니다. 이름 변경은 참여자 프로필에서 진행하세요.",
+      "APPLICATION_IDENTITY_PROVISIONED": "계정 설정 또는 튜터 기록이 이미 마련되었습니다. 연결된 참여자 프로필을 확인하세요."
+    },
+    "readOnly": "책임자는 정정을 적용할 수 있고 관리자는 책임자에게 승인을 요청할 수 있습니다. 코디네이터는 이 기록을 읽을 수 있습니다.",
+    "invalidPreserved": "이 신청은 계속 무효로 표시됩니다. 이름을 정정해도 무효 표시가 해제되거나 처리가 재개되지 않습니다.",
+    "history": "정정 이력 ({count})",
+    "noHistory": "기록된 이름 정정이 없습니다.",
+    "revision": "정정 {revision} · {actor} · {date}",
+    "before": "정정 전",
+    "after": "정정 후",
+    "viewRequest": "승인 요청 보기",
+    "accessDenied": "이 신청의 신원 증빙에 더 이상 접근할 수 없습니다.",
+    "loading": "신청서 이름 불러오는 중…",
+    "loadFailed": "신청서 이름을 불러오지 못했습니다.",
+    "retryRead": "새로고침 다시 시도",
+    "readFailedRetained": "최신 이름을 읽지 못했습니다. 초안은 유지됩니다. 새로고침에 성공한 후 저장하세요.",
+    "editHelp": "신청자가 확인한 이름과 정정 이유를 입력하세요. 원본 제출 내용과 적용된 모든 정정은 감사 이력에 남습니다.",
+    "applied": "이름 정정 적용됨",
+    "appliedHelp": "정정을 기록했습니다. 이름 요건을 확인하고 일반 신청 승인 절차를 계속하세요.",
+    "queued": "책임자에게 정정 승인 요청됨",
+    "queuedHelp": "책임자가 승인하기 전까지 신청서 이름은 변경되지 않습니다. 제출한 초안은 유지됩니다.",
+    "acceptedReadFailed": "정정은 접수되었지만 최신 기록을 새로고침하지 못했습니다. 다시 시도하면 기록만 읽으며 정정을 다시 제출하지 않습니다.",
+    "reloadFailed": "다시 불러오지 못했습니다. 초안과 원래 버전은 유지됩니다.",
+    "authorityChanged": "현재 역할로는 이름을 정정할 수 없습니다. 유지된 초안을 제출할 수 없습니다.",
+    "legacyRetained": "이름과 성을 추측하지 않고 원래의 분리되지 않은 이름을 유지합니다. 다른 언어의 이름만 정정하면 이름 확인이 여전히 필요할 수 있습니다.",
+    "reason": "정정 이유",
+    "reasonHelp": "정정 내용과 신청자의 확인 방법을 설명하세요. 이유는 감사 기록에 유지됩니다.",
+    "apply": "이름 정정 적용",
+    "propose": "책임자 승인 요청",
+    "saveFailed": "정정을 저장하지 못했습니다.",
+    "reload": "현재 이름 다시 불러오기",
+    "cancel": "취소",
+    "errors": {
+      "APPLICATION_IDENTITY_EMAIL_REQUIRED": "원본 신청에 이메일 주소가 없습니다. 적절한 신청 절차에서 연락처 소유권을 확인하세요. 이 양식은 이름만 변경합니다.",
+      "APPLICATION_IDENTITY_NOT_FOUND": "이 신청을 더 이상 사용할 수 없습니다.",
+      "APPLICATION_IDENTITY_ORIGINAL_MISSING": "원본 신원 증빙을 사용할 수 없습니다. 기록을 새로고침하세요.",
+      "APPLICATION_IDENTITY_AUTHORITY_REQUIRED": "책임자만 정정을 적용할 수 있습니다. 관리자는 승인을 요청할 수 있습니다.",
+      "APPLICATION_IDENTITY_NO_CHANGE": "정정을 제출하기 전에 이름 필드를 하나 이상 변경하세요.",
+      "APPLICATION_IDENTITY_RETRY_CHANGED": "이 접수 기록은 다른 정정에 해당합니다. 현재 이름을 다시 불러오세요.",
+      "APPLICATION_IDENTITY_PROPOSAL_DECIDED": "이미 심사된 제안입니다. 결정을 확인하고 현재 이름을 다시 불러온 후 새로운 정정을 준비하세요."
+    }
+  },
   "uiPatterns": {
     "meetingDate": "회의 날짜",
     "profile": "프로필",
@@ -1414,6 +1478,12 @@
         "reset": "필터 초기화",
         "noMatches": "조건에 맞는 지원서가 없습니다. 다른 검색어를 사용하거나 필터를 초기화하세요.",
         "completion": "Interview completion",
+        "identity": "이름 확인 상태",
+        "identityOptions": {
+          "ALL": "모든 이름 상태",
+          "NEEDS_REVIEW": "이름 확인 필요",
+          "READY": "이름 요건 충족"
+        },
         "completionOptions": {
           "ALL": "Any completion status",
           "COMPLETED": "Completed interviews",
@@ -3248,7 +3318,8 @@
         "TutorApplication": "튜터 지원",
         "TuteeRequestInvalidity": "이전 방식의 공개 신청 검토"
       },
-      "operations": {
+        "operations": {
+          "admin_correctApplicationIdentity": "대기 중인 신청 이름 정정",
         "corrections_correctAttendance": "Correct a session's attendance",
         "corrections_correctPatrol": "Correct a patrol record",
         "interviewManagement_qualify": "Change a tutor's subject qualification",

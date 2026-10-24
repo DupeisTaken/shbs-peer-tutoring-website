@@ -166,6 +166,7 @@ export const approvalRouter = createTRPCRouter({
           "admin.setUserCanTutor",
           "admin.setMemberships",
           "admin.setApplicationStatus",
+          "admin.correctApplicationIdentity",
           "tutor.decideInterview",
           "historicalAcademics.correctBatch",
           "admin.updateAccountProfile",
@@ -322,6 +323,7 @@ export const approvalRouter = createTRPCRouter({
                       request.targets as object,
                       "authorityContext",
                     ),
+                    request.requesterId,
                   );
                   if (
                     targets &&

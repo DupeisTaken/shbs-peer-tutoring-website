@@ -16,6 +16,19 @@ const matches = (filters: Partial<typeof emptyApplicationFilters>) =>
   matchesApplicationFilters(app, { ...emptyApplicationFilters, ...filters });
 
 describe("application filters", () => {
+  it("searches effective structured, preferred and alternative names without splitting legacy labels", () => {
+    const record = { ...app, firstName: "José", lastName: "García", preferredName: "Pepe", alternativeNames: "何塞", name: "José García" };
+    for (const search of ["Pepe", "何塞", "Jose\u0301", "García"])
+      expect(matchesApplicationFilters(record, { ...emptyApplicationFilters, search })).toBe(true);
+  });
+  it("uses the server readiness result independently of unsplit labels, validity and status", () => {
+    const record = { ...app, type: "INITIAL", name: "Mary Ann Smith", identityNeedsReview: false };
+    expect(matchesApplicationFilters(record, { ...emptyApplicationFilters, identity: "NEEDS_REVIEW" })).toBe(false);
+    expect(matchesApplicationFilters(record, { ...emptyApplicationFilters, identity: "READY" })).toBe(true);
+    expect(matchesApplicationFilters({ ...record, name: "张小明", identityNeedsReview: true }, { ...emptyApplicationFilters, identity: "NEEDS_REVIEW" })).toBe(true);
+    expect(matchesApplicationFilters({ ...record, type: "ADDITIONAL_SUBJECT" }, { ...emptyApplicationFilters, identity: "READY" })).toBe(false);
+    expect(matchesApplicationFilters({ ...record, identityNeedsReview: undefined }, { ...emptyApplicationFilters, identity: "READY" })).toBe(false);
+  });
   it("keeps all requests by default, including requests without subjects", () => {
     expect(matches({})).toBe(true);
     expect(
