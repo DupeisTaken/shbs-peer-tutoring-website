@@ -6,7 +6,7 @@ import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { DEFAULT_NAME_FIELDS, nameFieldPolicies, type NameFieldStates } from "~/lib/name-field-policy";
 import { ApplicationIdentityCorrection } from "./application-identity-correction";
-import type { RouterOutputs } from "~/trpc/react";
+import type { RouterInputs, RouterOutputs } from "~/trpc/react";
 
 type Snapshot = RouterOutputs["admin"]["applicationIdentity"];
 const state = vi.hoisted(() => ({
@@ -108,7 +108,9 @@ it("freezes pending fields and dismissal, and admits one same-turn write with on
   const { dialog } = open(); fill("José");
   act(() => { submit(); submit(); });
   expect(state.save).toHaveBeenCalledOnce();
-  expect(state.save.mock.calls[0]![0]).toEqual({ id: "application", expectedUpdatedAt: fixture().expectedUpdatedAt, clientKey: expect.any(String), firstName: "José", lastName: "Zhang", preferredName: "", alternativeNames: "", reason: "Confirmed spelling with applicant" });
+  const { clientKey, ...fields } = state.save.mock.calls[0]![0] as RouterInputs["admin"]["correctApplicationIdentity"];
+  expect(clientKey).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  expect(fields).toEqual({ id: "application", expectedUpdatedAt: fixture().expectedUpdatedAt, firstName: "José", lastName: "Zhang", preferredName: "", alternativeNames: "", reason: "Confirmed spelling with applicant" });
   expect(screen.getByLabelText(/^First Name/).matches(":disabled")).toBe(true);
   expect(screen.getByRole<HTMLButtonElement>("button", { name: en.applicationIdentity.cancel }).disabled).toBe(true);
   expect(dialog.getAttribute("aria-busy")).toBe("true");
@@ -245,7 +247,7 @@ it("conceals cached private evidence after authoritative read denial", () => {
 
 it("presents immutable before/after audit evidence and the actual promotion identity source", () => {
   const current = { ...fixture().current, name: "Xiaoming Zhang", firstName: "Xiaoming", lastName: "Zhang" };
-  state.data = { ...fixture(), current, revision: 1, history: [{ revision: 1, actorName: "Synthetic Head", reason: "Applicant confirmed spelling", before: fixture().original, after: current, createdAt: new Date("2026-10-03"), approvalId: "approved-request" }], readiness: { ...fixture().readiness, ready: true, source: "VERIFIED_ACCOUNT", reason: null } };
+  state.data = { ...fixture(), current, revision: 1, history: [{ revision: 1, actorId: "synthetic-head", actorName: "Synthetic Head", reason: "Applicant confirmed spelling", before: fixture().original, after: current, createdAt: new Date("2026-10-03"), approvalId: "approved-request" }], readiness: { ...fixture().readiness, ready: true, source: "VERIFIED_ACCOUNT", reason: null } };
   render(tree());
   expect(screen.getByText(en.applicationIdentity.source.VERIFIED_ACCOUNT)).toBeTruthy();
   expect(screen.getByText(en.applicationIdentity.before)).toBeTruthy();

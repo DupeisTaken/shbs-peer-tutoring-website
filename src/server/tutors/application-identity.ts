@@ -190,8 +190,9 @@ async function correctedNames(db: DomainDb, current: ApplicationIdentityNames,
     return { ...current, alternativeNames: input.alternativeNames === undefined
       ? current.alternativeNames : input.alternativeNames?.trim() ?? null };
   }
+  const currentProfile = { ...current, legacyName: legacy };
   const parsed = await configuredProfileNames(db, draft,
-    { ...current, legacyName: legacy }, "TUTOR", true);
+    currentProfile, "TUTOR", true);
   const next = { ...current };
   // Preserve unchanged null versus empty evidence; normalize only deliberate edits.
   for (const key of NAME_FIELD_KEYS) {

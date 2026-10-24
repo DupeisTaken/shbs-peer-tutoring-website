@@ -25,6 +25,18 @@ const fixture = (name = "王小明") => db.tutorApplication.create({ data: {
   policyRevision: "original-policy-revision", policySnapshot: { body: "Original signed policy" },
   policyAcceptedAt: acceptedAt,
 } });
+async function qualificationFixture(type: "ADDITIONAL_SUBJECT" | "HIGHER_LEVEL") {
+  const tutor = await db.tutor.create({ data: {
+    englishName: "Qualification Tutor", email: "tutor@example.test",
+    user: { connect: { id: "identity-tutor" } },
+  } });
+  const subject = await db.subject.create({ data: { name: "Qualification Mathematics" } });
+  return db.tutorApplication.create({ data: {
+    name: "Qualification Tutor", email: "tutor@example.test", type,
+    requestedTutorId: tutor.id, requestedSubjectId: subject.id,
+    qualificationReason: "Requesting review of additional subject evidence.",
+  } });
+}
 const correction = (app: { id: string; updatedAt: Date },
   fields: Partial<ApplicationIdentityCorrectionInput> = {}): ApplicationIdentityCorrectionInput => ({
   id: app.id, expectedUpdatedAt: app.updatedAt, clientKey: randomUUID(),
@@ -132,8 +144,10 @@ it.each([
   const saved = await fetchApplication(app.id);
   expect(saved.firstName).toBe(fields.firstName);
   expect(saved.lastName).toBe(fields.lastName);
-  expect(saved.preferredName).toBe(fields.preferredName || null);
+  // Deliberately blank supplied parts remain distinct from the original nulls.
+  expect(saved.preferredName).toBe(fields.preferredName);
   expect(saved.alternativeNames).toBe(fields.alternativeNames);
+  expect((await applicationIdentitySnapshot(db, app.id)).original.preferredName).toBeNull();
   expect((await applicationPromotionReadiness(db, saved)).ready).toBe(true);
 });
 
@@ -176,7 +190,7 @@ it.each(["coordinator", "viewer", "tutor", "student", "crew"])("denies %s before
   expect(await db.applicationIdentityCorrection.count()).toBe(0);
 });
 
-it.each(["ACCEPTED", "REJECTED", "RECALLED"] as const)("denies terminal %s applications", async (status) => {
+it.each(["ACCEPTED", "REJECTED"] as const)("denies terminal %s applications", async (status) => {
   const app = await fixture();
   const closed = await db.tutorApplication.update({ where: { id: app.id }, data: { status } });
   await expect(correctApplicationIdentity(db, correction(closed), head))
@@ -184,10 +198,24 @@ it.each(["ACCEPTED", "REJECTED", "RECALLED"] as const)("denies terminal %s appli
 });
 
 it.each(["ADDITIONAL_SUBJECT", "HIGHER_LEVEL"] as const)("denies %s qualification requests", async (type) => {
-  const app = await fixture();
-  const request = await db.tutorApplication.update({ where: { id: app.id }, data: { type } });
+  const request = await qualificationFixture(type);
   await expect(correctApplicationIdentity(db, correction(request), head))
     .rejects.toMatchObject({ message: "APPLICATION_IDENTITY_NOT_INITIAL" });
+  expect(await fetchApplication(request.id)).toEqual(request);
+  expect(await db.applicationIdentityCorrection.count()).toBe(0);
+});
+
+it("denies a recalled qualification request while retaining its recall evidence", async () => {
+  // Recall belongs to qualification requests; INITIAL + RECALLED is forbidden by
+  // the database itself, so use the real retained-request shape for this boundary.
+  const request = await qualificationFixture("ADDITIONAL_SUBJECT");
+  const recalled = await db.tutorApplication.update({ where: { id: request.id }, data: {
+    status: "RECALLED", recalledAt: new Date(), recalledById: "identity-tutor",
+  } });
+  await expect(correctApplicationIdentity(db, correction(recalled), head))
+    .rejects.toMatchObject({ message: "APPLICATION_IDENTITY_NOT_INITIAL" });
+  expect(await fetchApplication(request.id)).toEqual(recalled);
+  expect(await db.applicationIdentityCorrection.count()).toBe(0);
 });
 
 it.each(["decision", "completion", "promotion", "invitation"] as const)("rejects already provisioned/final evidence: %s", async (state) => {
@@ -267,7 +295,7 @@ it("concurrent copies of the same intent create one revision and one audit", asy
     correctApplicationIdentity(db, input, head),
   ]);
   expect(results.map((result) => result.replayed).sort()).toEqual([false, true]);
-  expect(results[0]!.revision).toBe(results[1]!.revision);
+  expect(results[0].revision).toBe(results[1].revision);
   expect(await db.applicationIdentityCorrection.count()).toBe(1);
   expect(await db.auditLog.count()).toBe(1);
 });
@@ -348,7 +376,7 @@ it("does not treat an unverified login as authoritative and grandfathers an exis
   const app = await fixture();
   await db.user.create({ data: { email: app.email, name: "Unverified Name", role: "STUDENT" } });
   expect(await applicationPromotionReadiness(db, app)).toMatchObject({ ready: false, source: "APPLICATION" });
-  const tutor = await db.tutor.create({ data: { email: app.email, englishName: "旧名", status: "INACTIVE" } });
+  const tutor = await db.tutor.create({ data: { email: app.email, englishName: "旧名", status: "ARCHIVED" } });
   expect(await applicationPromotionReadiness(db, app)).toMatchObject({ ready: true, source: "EXISTING_ROSTER" });
   await correctApplicationIdentity(db, correction(app), head);
   expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toEqual(tutor);
@@ -357,7 +385,7 @@ it("does not treat an unverified login as authoritative and grandfathers an exis
 it("returning-roster prefill and full registration retain its established identity and stable handle", async () => {
   const app = await fixture();
   const roster = await db.tutor.create({ data: { email: app.email, firstName: "Roster", lastName: "Owner",
-    preferredName: "Ro", alternativeNames: "原名", englishName: "Roster Owner", username: "retainedhandle", status: "INACTIVE" } });
+    preferredName: "Ro", alternativeNames: "原名", englishName: "Roster Owner", username: "retainedhandle", status: "ARCHIVED" } });
   await correctApplicationIdentity(db, correction(app, { firstName: "Changed", lastName: "Applicant" }), head);
   await db.tutorApplication.update({ where: { id: app.id }, data: { status: "ACCEPTED", decidedAt: new Date() } });
   await promoteApplicantToTutor(app.id);
@@ -378,15 +406,16 @@ it("returning-roster prefill and full registration retain its established identi
     alternativeNames: "原名", username: "retainedhandle" };
   expect(canonical).toMatchObject({ ...expected, tutorId: roster.id });
   expect(await db.tutor.findUniqueOrThrow({ where: { id: roster.id } })).toMatchObject(expected);
-  expect(await db.registrationCode.findUniqueOrThrow({ where: { id: code.id } }))
-    .toMatchObject({ usedByUserId: canonical.id, usedAt: expect.any(Date) });
+  const redeemedCode = await db.registrationCode.findUniqueOrThrow({ where: { id: code.id } });
+  expect(redeemedCode.usedByUserId).toBe(canonical.id);
+  expect(redeemedCode.usedAt).toBeInstanceOf(Date);
   expect((await applicationIdentitySnapshot(db, app.id)).current).toMatchObject({ firstName: "Changed", lastName: "Applicant" });
 });
 
 it("retains an unsplit returning-roster original through registration without inventing name parts", async () => {
   const app = await fixture();
   const roster = await db.tutor.create({ data: { email: app.email, englishName: "旧名",
-    alternativeNames: "原始姓名", username: "legacyhandle", status: "INACTIVE" } });
+    alternativeNames: "原始姓名", username: "legacyhandle", status: "ARCHIVED" } });
   await correctApplicationIdentity(db, correction(app), head);
   await db.tutorApplication.update({ where: { id: app.id }, data: { status: "ACCEPTED", decidedAt: new Date() } });
   await promoteApplicantToTutor(app.id);
@@ -456,8 +485,9 @@ it("normal chair approval uses corrected explicit names for roster and invitatio
     alternativeNames: "王小明", username: "mwatson" };
   expect(canonical).toMatchObject({ ...expected, tutorId: admitted.promotedTutorId });
   expect(await db.tutor.findUniqueOrThrow({ where: { id: admitted.promotedTutorId! } })).toMatchObject(expected);
-  expect(await db.registrationCode.findUniqueOrThrow({ where: { id: codes[0]!.id } }))
-    .toMatchObject({ usedByUserId: canonical.id, usedAt: expect.any(Date) });
+  const redeemedCode = await db.registrationCode.findUniqueOrThrow({ where: { id: codes[0]!.id } });
+  expect(redeemedCode.usedByUserId).toBe(canonical.id);
+  expect(redeemedCode.usedAt).toBeInstanceOf(Date);
   expect((await applicationIdentitySnapshot(db, app.id)).original.name).toBe("王小明");
   expect(await db.user.count({ where: { email: app.email } })).toBe(1);
   expect(await db.serviceHourAdjustment.count()).toBe(3);

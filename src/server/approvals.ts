@@ -911,25 +911,27 @@ export async function proposalTargets(
   >;
 }
 
+/** JSONB preserves values and array order, but not object insertion order. */
+const canonicalJson = (item: unknown): unknown =>
+  Array.isArray(item)
+    ? item.map(canonicalJson)
+    : item && typeof item === "object"
+      ? Object.fromEntries(
+          Object.entries(item)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, next]) => [key, canonicalJson(next)]),
+        )
+      : item;
+
 export function fingerprint(value: unknown) {
   // JSONB reorders nested object keys. New authority evidence uses a canonical digest;
   // old immutable fingerprints retain their original algorithm and evidence shape.
-  const canonical = (item: unknown): unknown =>
-    Array.isArray(item)
-      ? item.map(canonical)
-      : item && typeof item === "object"
-        ? Object.fromEntries(
-            Object.entries(item)
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([key, next]) => [key, canonical(next)]),
-          )
-        : item;
   const modern =
     value &&
     typeof value === "object" &&
     ("authorityContext" in value || "reviewAuthority" in value);
   return createHash("sha256")
-    .update(JSON.stringify(modern ? canonical(value) : value))
+    .update(JSON.stringify(modern ? canonicalJson(value) : value))
     .digest("hex");
 }
 
@@ -1008,7 +1010,9 @@ export async function queueProposal(
         },
       });
       if (receipt) {
-        if (fingerprint(receipt.payload) !== fingerprint(payload))
+        // This is a semantic retry comparison, not an old review fingerprint:
+        // PostgreSQL may reorder both payload and SuperJSON metadata keys.
+        if (JSON.stringify(canonicalJson(receipt.payload)) !== JSON.stringify(canonicalJson(payload)))
           throw new TRPCError({ code: "CONFLICT", message: "APPLICATION_IDENTITY_RETRY_CHANGED" });
         // The original proposal remains the receipt even after its target drifts.
         // Reopening it cannot recapture later evidence or duplicate notifications.

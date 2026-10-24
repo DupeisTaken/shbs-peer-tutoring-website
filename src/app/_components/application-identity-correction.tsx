@@ -130,7 +130,7 @@ export function ApplicationIdentityCorrection(props: Props) {
 /** One owner retains the draft, expected revision and receipt key across Close,
  * rejected writes and failed reads. Background query updates never adopt a draft. */
 function IdentityCorrectionEditor({
-  initial, open, onClose, readFailed, readPending, ...props
+  initial, open, onClose, readFailed, readPending, onActive, ...props
 }: Props & { initial: IdentitySnapshot; open: boolean; onClose: () => void; readFailed: boolean; readPending: boolean }) {
   const t = useTranslations("applicationIdentity");
   const utils = api.useUtils();
@@ -158,9 +158,9 @@ function IdentityCorrectionEditor({
   const legacyName = unsplitLegacyName(snapshot.current);
   const identity = personNameEdit(names, originalNames, legacyName);
   useEffect(() => {
-    props.onActive(open || writing || needsRefresh);
-    return () => props.onActive(false);
-  }, [open, writing, needsRefresh, props.onActive]);
+    onActive(open || writing || needsRefresh);
+    return () => onActive(false);
+  }, [open, writing, needsRefresh, onActive]);
 
   const adopt = (latest: IdentitySnapshot) => {
     setSnapshot(latest);
@@ -193,7 +193,7 @@ function IdentityCorrectionEditor({
           proposalComplete = proposal.state !== "PENDING";
         }] : []),
       ]);
-      if (!latest || latest.id !== props.applicationId) throw new Error(t("loadFailed"));
+      if (latest?.id !== props.applicationId) throw new Error(t("loadFailed"));
       if (outcome !== "queued") adopt(latest);
       else if (!afterWrite && proposalComplete) {
         // Explicit Reload after a reviewed proposal may begin a new correction.
@@ -255,7 +255,7 @@ function IdentityCorrectionEditor({
   );
   return (
     <>
-      {!open && (accepted || refreshError) && <div className="space-y-3">{feedback}{needsRefresh && <Button disabled={reloading} onClick={() => void refresh(true)}>{t("retryRead")}</Button>}</div>}
+      {!open && (accepted !== null || Boolean(refreshError)) && <div className="space-y-3">{feedback}{needsRefresh && <Button disabled={reloading} onClick={() => void refresh(true)}>{t("retryRead")}</Button>}</div>}
       {open && <ProfileDialog title={t("dialogTitle")} onClose={onClose} pending={writing}>
         <CorrectionForm busy={writing} formRef={formRef} submit={() => void submit()}>
           <p className="muted text-sm">{t("editHelp")}</p>

@@ -9,7 +9,7 @@
       "APPLICATION_IDENTITY_RETRY_CHANGED": "This receipt belongs to a different correction. Reload the current names before starting a new correction.",
       "APPLICATION_IDENTITY_PROPOSAL_DECIDED": "This proposal has already been reviewed. View its decision and reload current names before preparing another correction."
     },
-    "title": "Application names",
+    "title": "Application Names",
     "edit": "Correct names",
     "dialogTitle": "Correct Application Names",
     "original": "Original submission",

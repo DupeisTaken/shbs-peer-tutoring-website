@@ -20,7 +20,7 @@ async function queued(work: () => Promise<unknown>) {
   try { await work(); }
   catch (error) {
     const cause = (error as { cause: unknown }).cause;
-    expect(cause).toBeInstanceOf(ApprovalQueued);
+    expect(cause, String(error)).toBeInstanceOf(ApprovalQueued);
     return db.approvalRequest.findUniqueOrThrow({
       where: { id: (cause as ApprovalQueued).approvalId },
     });
@@ -88,6 +88,8 @@ it("queues one exact Admin intent, rejects a changed retry and applies only thro
   const second = await queued(() => caller("admin").admin.correctApplicationIdentity(input));
   expect(second.id).toBe(first.id);
   await expect(caller("admin").admin.correctApplicationIdentity({ ...input, firstName: "Mingjie" }))
+    .rejects.toMatchObject({ code: "CONFLICT", message: "APPLICATION_IDENTITY_RETRY_CHANGED" });
+  await expect(caller("admin").admin.correctApplicationIdentity({ ...input, reason: "A different justification" }))
     .rejects.toMatchObject({ code: "CONFLICT", message: "APPLICATION_IDENTITY_RETRY_CHANGED" });
   expect(await db.approvalRequest.count()).toBe(1);
   expect(await db.notification.count({ where: { link: `/admin/approvals?request=${first.id}` } })).toBe(1);
