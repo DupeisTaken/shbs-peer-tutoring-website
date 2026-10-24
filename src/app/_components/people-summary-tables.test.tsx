@@ -186,7 +186,8 @@ vi.mock("~/trpc/react", async () => ({
         useQuery: (input: unknown, options: { enabled: boolean }) =>
           useQuery({
             queryKey: ["personCombine.candidates", input],
-            queryFn: async () => state.combineCandidates(input),
+            queryFn: async () =>
+              (await state.combineCandidates(input)) as unknown[],
             ...options,
           }),
       },

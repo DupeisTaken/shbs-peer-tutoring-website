@@ -501,7 +501,12 @@ it("keeps the real tutor grouping section closed and read-only until explicitly 
   fireEvent.click(open);
   await waitFor(() => expect(transport.queries).toContain("personCombine.candidates"));
   expect(await screen.findByText(en.combineRecords.noResults)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.close }));
+  fireEvent.click(
+    within(screen.getByRole("region", { name: en.combineRecords.title })).getByRole(
+      "button",
+      { name: en.combineRecords.close },
+    ),
+  );
   expect(transport.requests).toHaveLength(0);
   expect(transport.commits).toHaveLength(0);
   deliberatelyClose(close);

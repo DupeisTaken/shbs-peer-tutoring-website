@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import {
   QueryClient,
@@ -133,7 +134,8 @@ vi.mock("~/trpc/react", async () => {
           useQuery: (input: unknown, options: { enabled: boolean }) =>
             useQuery({
               queryKey: ["personCombine.candidates", input],
-              queryFn: async () => mock.combineCandidates(input),
+              queryFn: async () =>
+                (await mock.combineCandidates(input)) as typeof combineCandidate[],
               ...options,
             }),
         },
@@ -388,6 +390,16 @@ async function flushMutationJobs() {
   });
 }
 
+function dialogCloseButton() {
+  // Grouping has its own Close action. Keep pending/dismissal assertions on the
+  // dialog's declared initial-focus control, even while that section is open.
+  const button = screen.getByRole("dialog").querySelector<HTMLButtonElement>(
+    "button[data-dialog-autofocus]",
+  );
+  expect(button?.textContent).toBe(en.accountProfile.close);
+  return button!;
+}
+
 it("keeps the real closed grouping observer idle and opens it without a write", async () => {
   renderEditor();
   expect(client.getQueryState(["personCombine.candidates", { search: "" }])).toBeTruthy();
@@ -398,7 +410,12 @@ it("keeps the real closed grouping observer idle and opens it without a write", 
   await screen.findByRole("checkbox", { name: /Verified Alumnus.*owner/ });
   expect(mock.combineCandidates).toHaveBeenCalledOnce();
   expect(mock.combineCandidates).toHaveBeenCalledWith({ search: "" });
-  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.close }));
+  fireEvent.click(
+    within(screen.getByRole("region", { name: en.combineRecords.title })).getByRole(
+      "button",
+      { name: en.combineRecords.close },
+    ),
+  );
   expect(mock.combine).not.toHaveBeenCalled();
   expect(mock.combinePreview).not.toHaveBeenCalled();
   expect(mock.combineReceipt).not.toHaveBeenCalled();
@@ -454,11 +471,7 @@ it.each(["invite", "cancel", "combine"] as const)(
       );
     });
     await waitFor(() => expect(ui.save.disabled).toBe(false));
-    expect(
-      screen.getByRole<HTMLButtonElement>("button", {
-        name: en.accountProfile.close,
-      }).disabled,
-    ).toBe(false);
+    expect(dialogCloseButton().disabled).toBe(false);
     expect(screen.getByRole("alert").textContent).toContain(
       en.tuteeHistory.HISTORY_STALE,
     );
@@ -539,9 +552,7 @@ it("ignores a late identity preview after deliberate dismissal without starting 
     screen.getByRole("button", { name: en.tuteeHistory.preview }),
   );
   await waitFor(() => expect(mock.preview).toHaveBeenCalledOnce());
-  fireEvent.click(
-    screen.getByRole("button", { name: en.accountProfile.close }),
-  );
+  fireEvent.click(dialogCloseButton());
   expect(close).toHaveBeenCalledOnce();
   expect(screen.queryByRole("dialog")).toBeNull();
   await act(async () => {
@@ -583,11 +594,7 @@ it("blocks every history write during profile save, then allows a failed save to
     work.reject(new Error("PROFILE_STALE"));
   });
   await waitFor(() => expect(ui.invite.disabled).toBe(false));
-  expect(
-    screen.getByRole<HTMLButtonElement>("button", {
-      name: en.accountProfile.close,
-    }).disabled,
-  ).toBe(false);
+  expect(dialogCloseButton().disabled).toBe(false);
   expect(screen.getByRole("alert")).toBeTruthy();
   expect(ui.notes.value).toBe("Unsaved personal draft");
   expect(ui.evidence.value).toBe("Exact archived identity evidence reviewed");
@@ -724,11 +731,7 @@ function expectLinkedDrafts(ui: ReturnType<typeof mountLinked>) {
 }
 function expectDismissalBlocked(close: ReturnType<typeof vi.fn>) {
   const dialog = screen.getByRole("dialog");
-  expect(
-    screen.getByRole<HTMLButtonElement>("button", {
-      name: en.accountProfile.close,
-    }).disabled,
-  ).toBe(true);
+  expect(dialogCloseButton().disabled).toBe(true);
   for (let attempt = 0; attempt < 3; attempt++)
     expect(fireEvent.keyDown(dialog, { key: "Escape" })).toBe(false);
   fireEvent(dialog, new Event("cancel", { cancelable: true }));
@@ -737,9 +740,7 @@ function expectDismissalBlocked(close: ReturnType<typeof vi.fn>) {
 
 async function closeSavedEditor(close: ReturnType<typeof vi.fn>) {
   await screen.findByText(en.accountProfile.sectionSaved);
-  const button = screen.getByRole<HTMLButtonElement>("button", {
-    name: en.accountProfile.close,
-  });
+  const button = dialogCloseButton();
   await waitFor(() => expect(button.disabled).toBe(false));
   expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
   expect(close).not.toHaveBeenCalled();
@@ -1292,11 +1293,7 @@ it("releases the real editor after accepted SMTP publication with a failed refre
   await waitFor(() => expect(client.isMutating()).toBe(0));
   expect(ui.save.disabled).toBe(false);
   expect(ui.invite.disabled).toBe(true);
-  expect(
-    screen.getByRole<HTMLButtonElement>("button", {
-      name: en.accountProfile.close,
-    }).disabled,
-  ).toBe(false);
+  expect(dialogCloseButton().disabled).toBe(false);
   expect(ui.evidence.value).toBe("Exact archived identity evidence reviewed");
   fireEvent.submit(ui.inviteForm);
   expect(mock.invite).toHaveBeenCalledOnce();
