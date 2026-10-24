@@ -510,7 +510,7 @@ Translations cover interface strings and supported public text such as news, sec
 
 ### Download public QR images
 
-Open **Program Settings → Recruitment and Refresh → Share signup links** to
+Open **Program Settings → Recruitment and Refresh → Share Signup Links** to
 download separate labeled PNGs for **Tutor signup**, **Tutee signup**, **Crew
 signup** and the **Website home**. Each image contains one QR code, its destination
 name and the full published URL. The paths are `/tutor`, `/tutee`, `/crew` and `/`.

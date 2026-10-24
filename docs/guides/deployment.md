@@ -766,7 +766,7 @@ The quoted commands read `POSTGRES_USER` inside the database container; Compose'
 ## Public QR domain and regeneration
 
 The four public QR exports in **Program Settings → Recruitment and Refresh →
-Share signup links** use `AUTH_URL` as their canonical public origin. Compose
+Share Signup Links** use `AUTH_URL` as their canonical public origin. Compose
 already sets this to `https://${DOMAIN}`. Source deployments must set it explicitly
 in production: use an absolute public HTTPS origin with no credentials, path,
 query or fragment. HTTP and loopback origins are rejected in production. Only
