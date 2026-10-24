@@ -435,6 +435,47 @@ it("retains an unsplit returning-roster original through registration without in
   expect((await applicationIdentitySnapshot(db, app.id)).current.firstName).toBe("Xiaoming");
 });
 
+it.each(["Other", null])("preserves alternate-only or nameless returning identity through completion: %s", async (alternativeNames) => {
+  await db.programSettings.create({ data: {
+    id: "program", showAlternateNames: true,
+    nameFields: { TUTOR: { firstName: "optional", lastName: "optional",
+      preferredName: "optional", alternativeNames: "optional" } },
+  } });
+  const app = await fixture();
+  // Empty input label permits the database formatter to show the alternate name
+  // or handle while preserving the absence of an original unsplit Latin name.
+  const roster = await db.tutor.create({ data: { email: app.email, englishName: "",
+    firstName: null, lastName: null, preferredName: null, legacyName: null,
+    alternativeNames, username: "member", status: "ARCHIVED" } });
+  const retained = { firstName: null, lastName: null, preferredName: null,
+    legacyName: null, alternativeNames, username: "member" };
+  expect(roster).toMatchObject({ ...retained, englishName: alternativeNames ?? "member" });
+  await correctApplicationIdentity(db, correction(app), head);
+  await db.tutorApplication.update({ where: { id: app.id }, data: { status: "ACCEPTED", decidedAt: new Date() } });
+  await promoteApplicantToTutor(app.id);
+  const code = await db.registrationCode.findFirstOrThrow({ where: { applicationId: app.id } });
+  expect(await codePrefill(code, db)).toMatchObject({ firstName: "", lastName: "", preferredName: "",
+    alternativeNames: alternativeNames ?? "", legacyName: null });
+  const verified = await verifiedInvitation(code.id, app.email);
+  expect(await completeRegistration(verified.row, {
+    ...forgedRegistrationProfile, completionProof: verified.completionProof,
+  }, db)).toMatchObject({ ok: true, username: "member" });
+  const canonical = await db.user.findUniqueOrThrow({ where: { email: app.email } });
+  expect(canonical).toMatchObject({ ...retained, tutorId: roster.id, name: alternativeNames ?? "member" });
+  expect(await db.tutor.findUniqueOrThrow({ where: { id: roster.id } }))
+    .toMatchObject({ ...retained, englishName: alternativeNames ?? "member" });
+
+  // Hiding alternate display must reveal only the stable handle. If redemption
+  // invented a legacy original, it would persist visibly after this policy change.
+  await db.programSettings.update({ where: { id: "program" }, data: { showAlternateNames: false } });
+  expect(await db.user.findUniqueOrThrow({ where: { id: canonical.id } }))
+    .toMatchObject({ ...retained, name: "member" });
+  expect(await db.tutor.findUniqueOrThrow({ where: { id: roster.id } }))
+    .toMatchObject({ ...retained, englishName: "member" });
+  expect(await codePrefill(code, db)).toMatchObject({ legacyName: null });
+  expect((await applicationIdentitySnapshot(db, app.id)).current.firstName).toBe("Xiaoming");
+});
+
 it("normal chair approval uses corrected explicit names for roster and invitation and keeps atomic service", async () => {
   await db.term.create({ data: { name: "Correction Q1", schoolYear: "26-27", quarter: "Q1", active: true } });
   const panel = [head.id, "identity-admin", "identity-tutor"];

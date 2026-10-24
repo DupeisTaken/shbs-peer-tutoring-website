@@ -3,6 +3,7 @@ import {
   ensureNameFallbackForRole,
 } from "~/server/program/name-fields";
 import { requireSchoolParticipation } from "~/server/school-departure";
+import { fullPersonName } from "~/lib/person-name";
 import {
   applyAcademicIntake,
   synchronizeAcademicMirrors,
@@ -416,9 +417,11 @@ export async function codePrefill(row: CodeRow, client: DomainDb = db) {
     lastName: names?.lastName ?? "",
     preferredName: names?.preferredName ?? "",
     alternativeNames: names?.alternativeNames ?? "",
+    // A stored null means there is no unsplit original. A live roster label
+    // may consist only of alternate names or the username fallback.
     legacyName: names
       ? "englishName" in names
-        ? (names.legacyName ?? names.englishName)
+        ? names.legacyName
         : names.name
       : null,
     gradeLevel: source && "gradeLevel" in source ? source.gradeLevel : null,
@@ -659,15 +662,10 @@ async function completeRegistrationLocked(
         lastName: acceptedSource.lastName,
         preferredName: acceptedSource.preferredName,
         alternativeNames: acceptedSource.alternativeNames,
+        // Preserve the null sentinel; materialized roster labels are not originals.
         legacyName:
           "legacyName" in acceptedSource
-            ? acceptedSource.legacyName ??
-              (acceptedSource.firstName == null &&
-              acceptedSource.lastName == null &&
-              acceptedSource.preferredName == null &&
-              acceptedSource.englishName !== acceptedSource.username
-                ? acceptedSource.englishName
-                : null)
+            ? acceptedSource.legacyName
             : acceptedSource.name,
       }
     : null;
@@ -677,6 +675,8 @@ async function completeRegistrationLocked(
   const email = owner?.email ?? (row.email ?? row.pendingEmail).toLowerCase();
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
+  const explicitName = fullPersonName({ firstName, lastName });
+  const acceptedRoster = acceptedSource && "englishName" in acceptedSource;
   const alternativeNames = acceptedSource
     ? acceptedSource.alternativeNames
     : input.alternativeNames?.trim()
@@ -812,7 +812,7 @@ async function completeRegistrationLocked(
           firstName,
           lastName,
           preferredName,
-          name: `${firstName} ${lastName}`,
+          name: explicitName,
           alternativeNames,
           role,
           gradeLevel,
@@ -960,13 +960,13 @@ async function completeRegistrationLocked(
           firstName,
           lastName,
           preferredName,
-          name: `${firstName} ${lastName}`,
+          name: explicitName,
           alternativeNames,
           role: "CREW",
           ...(sourceIdentity
             ? {
                 ...sourceIdentity,
-                name: sourceIdentity.legacyName ?? `${firstName} ${lastName}`,
+                name: sourceIdentity.legacyName,
               }
             : {}),
           gradeLevel,
@@ -1131,9 +1131,16 @@ async function completeRegistrationLocked(
           firstName,
           lastName,
           preferredName,
-          englishName: existingUser?.name?.trim()
-            ? existingUser.name
-            : `${firstName} ${lastName}`.trim(),
+          // A bound roster already has the accepted originals. Leave its live
+          // label as the trigger's unchanged input; writing a derived alternate
+          // label or blank here could recapture it as a new legacy original.
+          ...(!acceptedRoster
+            ? {
+                englishName: existingUser?.name?.trim()
+                  ? existingUser.name
+                  : sourceIdentity?.legacyName ?? explicitName,
+              }
+            : {}),
           alternativeNames,
           gradeLevel,
           email,
@@ -1146,13 +1153,7 @@ async function completeRegistrationLocked(
             )
               ? rosterTutor.status
               : "ACTIVE",
-          ...(sourceIdentity
-            ? {
-                ...sourceIdentity,
-                englishName:
-                  sourceIdentity.legacyName ?? `${firstName} ${lastName}`,
-              }
-            : {}),
+          ...(sourceIdentity ?? {}),
         },
       });
     } else {
@@ -1163,7 +1164,7 @@ async function completeRegistrationLocked(
           preferredName,
           englishName: existingUser?.name?.trim()
             ? existingUser.name
-            : `${firstName} ${lastName}`.trim(),
+            : explicitName,
           alternativeNames,
           gradeLevel,
           email,
@@ -1204,12 +1205,14 @@ async function completeRegistrationLocked(
           firstName,
           lastName,
           preferredName,
-          name: `${firstName} ${lastName}`,
+          name: explicitName,
           role: "TUTOR",
           ...(sourceIdentity
             ? {
                 ...sourceIdentity,
-                name: sourceIdentity.legacyName ?? `${firstName} ${lastName}`,
+                // Null is evidence that no unsplit original exists. The name
+                // trigger derives the live label from fields/policy/username.
+                name: sourceIdentity.legacyName,
               }
             : {}),
           // Seed the already-validated legal name so unchanged roster values are preserved.
