@@ -314,6 +314,8 @@ describe("English heading and navigation capitalization", () => {
     // Some rendered h1–h3 labels use action or section keys instead of Title/Heading.
     const sectionHeadings = new Set([
       "admin.tutees.addTutee",
+      "nextRecruitment.tutor",
+      "nextRecruitment.tutee",
       "courseGroups.import",
       "qualificationRequests.approved",
       "qualificationRequests.history",
