@@ -552,6 +552,7 @@ it.each(["VIEWER", "TUTOR"])(
     expect(screen.getAllByText(/Tutor One/).length).toBeGreaterThan(0);
     expect(document.body.textContent).not.toContain(PRIVATE);
     expect(mocks.history).not.toHaveBeenCalled();
+    expect(mocks.identity).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
   },
 );

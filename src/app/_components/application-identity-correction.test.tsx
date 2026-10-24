@@ -15,13 +15,14 @@ const state = vi.hoisted(() => ({
   readPending: false,
   policyError: null as Error | null,
   fields: undefined as NameFieldStates | undefined,
-  save: vi.fn(), fetch: vi.fn(), policyFetch: vi.fn(), refetch: vi.fn(), changed: vi.fn(), active: vi.fn(), mutationMounted: vi.fn(),
+  save: vi.fn(), fetch: vi.fn(), policyFetch: vi.fn(), proposalFetch: vi.fn(), refetch: vi.fn(), changed: vi.fn(), active: vi.fn(), mutationMounted: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
       admin: { applicationIdentity: { fetch: state.fetch } },
       program: { nameFieldPolicy: { fetch: state.policyFetch } },
+      approval: { list: { fetch: state.proposalFetch } },
     }),
     admin: {
       applicationIdentity: { useQuery: () => ({ data: state.data, error: state.readError, isFetching: state.readPending, isSuccess: !state.readError, refetch: state.refetch }) },
@@ -71,6 +72,7 @@ beforeEach(() => {
   state.fetch.mockReset().mockImplementation(async () => state.data);
   state.policyFetch.mockReset().mockResolvedValue({ policies: nameFieldPolicies({}), version: 1 });
   state.changed.mockReset().mockResolvedValue(undefined);
+  state.proposalFetch.mockReset().mockResolvedValue({ rows: [{ id: "approval-1", state: "PENDING" }] });
 });
 afterEach(cleanup);
 
@@ -184,6 +186,26 @@ it("shows an Admin proposal as queued, retains its draft and prevents replay", a
   await waitFor(() => expect(state.fetch).toHaveBeenCalledTimes(2));
   submit();
   expect(state.save).toHaveBeenCalledOnce();
+});
+
+it.each(["REJECTED", "CANCELLED"])("starts a deliberate new correction only after a successful read of the %s proposal", async (status) => {
+  state.save.mockRejectedValueOnce(Object.assign(new Error("Queued"), { data: { approvalId: "approval-1" } }));
+  render(tree({ isHead: false })); open(); fill(); submit();
+  await screen.findByText(en.applicationIdentity.queued);
+  await waitFor(() => expect(screen.getByRole<HTMLButtonElement>("button", { name: en.applicationIdentity.reload }).disabled).toBe(false));
+  const firstKey = (state.save.mock.calls[0]![0] as {clientKey: string}).clientKey;
+  state.proposalFetch.mockRejectedValueOnce(new Error("Review unavailable"));
+  fireEvent.click(screen.getByRole("button", { name: en.applicationIdentity.reload }));
+  await screen.findByText("Review unavailable");
+  expect(screen.getByLabelText<HTMLInputElement>(/^First Name/).value).toBe("Xiaoming");
+  expect(screen.getByLabelText(/^First Name/).matches(":disabled")).toBe(true);
+  state.proposalFetch.mockResolvedValue({ rows: [{ id: "approval-1", state: status }] });
+  fireEvent.click(screen.getByRole("button", { name: en.applicationIdentity.reload }));
+  await waitFor(() => expect(screen.queryByText(en.applicationIdentity.queued)).toBeNull());
+  fill("Another"); submit();
+  await waitFor(() => expect(state.save).toHaveBeenCalledTimes(2));
+  expect((state.save.mock.calls[1]![0] as {clientKey: string}).clientKey).not.toBe(firstKey);
+  expect(state.proposalFetch).toHaveBeenLastCalledWith({ requestId: "approval-1", page: 0 }, { staleTime: 0 });
 });
 
 it("preserves null legacy Latin parts for an alternate-only correction under newly required Last/Preferred", async () => {

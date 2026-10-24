@@ -4,7 +4,6 @@ import {
   assertRequestProcessable,
   lockApplicationReview,
 } from "~/server/request-invalidity";
-import { TRPCError } from "@trpc/server";
 import { applicationPromotionReadiness } from "./application-identity";
 import { ensureNameFallbackForRole } from "~/server/program/name-fields";
 import { initializeAccountAcademics } from "~/server/academics";

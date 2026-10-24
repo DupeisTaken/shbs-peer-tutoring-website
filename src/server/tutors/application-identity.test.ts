@@ -6,7 +6,7 @@ import { db } from "~/server/db";
 import { createCaller } from "~/server/api/root";
 import { approvalScope, databaseScope } from "~/server/db-scope";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
-import { codePrefill } from "~/server/auth/registration";
+import { codePrefill, completeRegistration, confirmEmailCode, setEmailVerification } from "~/server/auth/registration";
 import { promoteApplicantToTutor } from "./promote";
 import {
   applicationIdentityCorrectionInput,
@@ -36,6 +36,21 @@ const setPolicy = (states: Record<string, string>) => db.programSettings.upsert(
   update: { nameFields: { TUTOR: states }, nameFieldsVersion: { increment: 1 } },
 });
 const fetchApplication = (id: string) => db.tutorApplication.findUniqueOrThrow({ where: { id } });
+/** Exercise actual mailbox proof creation rather than forging registration sub-state. */
+async function verifiedInvitation(id: string, email: string) {
+  let row = await db.registrationCode.findUniqueOrThrow({ where: { id } });
+  const challenge = await setEmailVerification(row, email);
+  if (!challenge.ok) throw new Error("Expected an invitation mailbox challenge");
+  row = await db.registrationCode.findUniqueOrThrow({ where: { id } });
+  const verification = await confirmEmailCode(row, challenge.emailCode);
+  if (!verification.ok) throw new Error("Expected verified invitation mailbox proof");
+  return { row: await db.registrationCode.findUniqueOrThrow({ where: { id } }),
+    completionProof: verification.completionProof };
+}
+const forgedRegistrationProfile = {
+  firstName: "Posted", lastName: "Replacement", preferredName: "Forged", alternativeNames: "替换姓名",
+  password: "SyntheticRegistrationPassword42!",
+};
 
 beforeEach(async () => {
   assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -321,6 +336,11 @@ it("honors verified-account and existing-roster precedence without rewriting eit
   await promoteApplicantToTutor(app.id);
   expect(await db.tutor.findUnique({ where: { email: app.email } })).toMatchObject({
     firstName: "Verified", lastName: "Owner", username: "stablehandle" });
+  expect(await db.user.findUnique({ where: { id: account.id } })).toMatchObject({
+    firstName: account.firstName, lastName: account.lastName,
+    preferredName: account.preferredName, alternativeNames: account.alternativeNames,
+    username: "stablehandle",
+  });
   expect(await db.registrationCode.count()).toBe(0);
 });
 
@@ -334,11 +354,12 @@ it("does not treat an unverified login as authoritative and grandfathers an exis
   expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toEqual(tutor);
 });
 
-it("returning-roster invitation prefill retains its established fields and stable handle", async () => {
+it("returning-roster prefill and full registration retain its established identity and stable handle", async () => {
   const app = await fixture();
   const roster = await db.tutor.create({ data: { email: app.email, firstName: "Roster", lastName: "Owner",
     preferredName: "Ro", alternativeNames: "原名", englishName: "Roster Owner", username: "retainedhandle", status: "INACTIVE" } });
   await correctApplicationIdentity(db, correction(app, { firstName: "Changed", lastName: "Applicant" }), head);
+  await db.tutorApplication.update({ where: { id: app.id }, data: { status: "ACCEPTED", decidedAt: new Date() } });
   await promoteApplicantToTutor(app.id);
   const after = await db.tutor.findUniqueOrThrow({ where: { id: roster.id } });
   expect(after).toMatchObject({ firstName: roster.firstName, lastName: roster.lastName,
@@ -348,6 +369,41 @@ it("returning-roster invitation prefill retains its established fields and stabl
   expect(await codePrefill(code, db)).toMatchObject({ firstName: "Roster", lastName: "Owner",
     preferredName: "Ro", alternativeNames: "原名" });
   expect((await applicationIdentitySnapshot(db, app.id)).current).toMatchObject({ firstName: "Changed", lastName: "Applicant" });
+  const verified = await verifiedInvitation(code.id, app.email);
+  expect(await completeRegistration(verified.row, {
+    ...forgedRegistrationProfile, completionProof: verified.completionProof,
+  }, db)).toMatchObject({ ok: true, username: "retainedhandle" });
+  const canonical = await db.user.findUniqueOrThrow({ where: { email: app.email } });
+  const expected = { firstName: "Roster", lastName: "Owner", preferredName: "Ro",
+    alternativeNames: "原名", username: "retainedhandle" };
+  expect(canonical).toMatchObject({ ...expected, tutorId: roster.id });
+  expect(await db.tutor.findUniqueOrThrow({ where: { id: roster.id } })).toMatchObject(expected);
+  expect(await db.registrationCode.findUniqueOrThrow({ where: { id: code.id } }))
+    .toMatchObject({ usedByUserId: canonical.id, usedAt: expect.any(Date) });
+  expect((await applicationIdentitySnapshot(db, app.id)).current).toMatchObject({ firstName: "Changed", lastName: "Applicant" });
+});
+
+it("retains an unsplit returning-roster original through registration without inventing name parts", async () => {
+  const app = await fixture();
+  const roster = await db.tutor.create({ data: { email: app.email, englishName: "旧名",
+    alternativeNames: "原始姓名", username: "legacyhandle", status: "INACTIVE" } });
+  await correctApplicationIdentity(db, correction(app), head);
+  await db.tutorApplication.update({ where: { id: app.id }, data: { status: "ACCEPTED", decidedAt: new Date() } });
+  await promoteApplicantToTutor(app.id);
+  const code = await db.registrationCode.findFirstOrThrow({ where: { applicationId: app.id } });
+  expect(await codePrefill(code, db)).toMatchObject({ firstName: "", lastName: "",
+    preferredName: "", alternativeNames: "原始姓名", legacyName: "旧名" });
+  const verified = await verifiedInvitation(code.id, app.email);
+  expect(await completeRegistration(verified.row, {
+    ...forgedRegistrationProfile, completionProof: verified.completionProof,
+  }, db)).toMatchObject({ ok: true, username: "legacyhandle" });
+  const expected = { firstName: null, lastName: null, preferredName: null,
+    alternativeNames: "原始姓名", legacyName: "旧名", username: "legacyhandle" };
+  expect(await db.user.findUniqueOrThrow({ where: { email: app.email } })).toMatchObject({
+    ...expected, tutorId: roster.id,
+  });
+  expect(await db.tutor.findUniqueOrThrow({ where: { id: roster.id } })).toMatchObject(expected);
+  expect((await applicationIdentitySnapshot(db, app.id)).current.firstName).toBe("Xiaoming");
 });
 
 it("normal chair approval uses corrected explicit names for roster and invitation and keeps atomic service", async () => {
@@ -390,5 +446,19 @@ it("normal chair approval uses corrected explicit names for roster and invitatio
   expect((await applicationIdentitySnapshot(db, app.id)).original.name).toBe("王小明");
   await caller.tutor.decideInterview({ ...decision, expectedUpdatedAt: updated.updatedAt });
   expect(await db.registrationCode.count({ where: { applicationId: app.id } })).toBe(1);
+  expect(await db.serviceHourAdjustment.count()).toBe(3);
+  const verified = await verifiedInvitation(codes[0]!.id, app.email);
+  expect(await completeRegistration(verified.row, {
+    ...forgedRegistrationProfile, completionProof: verified.completionProof,
+  }, db)).toMatchObject({ ok: true, username: "mwatson" });
+  const canonical = await db.user.findUniqueOrThrow({ where: { email: app.email } });
+  const expected = { firstName: "Mary Jane", lastName: "Watson", preferredName: "MJ",
+    alternativeNames: "王小明", username: "mwatson" };
+  expect(canonical).toMatchObject({ ...expected, tutorId: admitted.promotedTutorId });
+  expect(await db.tutor.findUniqueOrThrow({ where: { id: admitted.promotedTutorId! } })).toMatchObject(expected);
+  expect(await db.registrationCode.findUniqueOrThrow({ where: { id: codes[0]!.id } }))
+    .toMatchObject({ usedByUserId: canonical.id, usedAt: expect.any(Date) });
+  expect((await applicationIdentitySnapshot(db, app.id)).original.name).toBe("王小明");
+  expect(await db.user.count({ where: { email: app.email } })).toBe(1);
   expect(await db.serviceHourAdjustment.count()).toBe(3);
 });

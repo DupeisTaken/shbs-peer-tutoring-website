@@ -3318,8 +3318,8 @@
         "languages": "语言",
         "messagePermissions": "消息权限"
       },
-        "operations": {
-          "admin_correctApplicationIdentity": "更正待处理申请姓名",
+      "operations": {
+        "admin_correctApplicationIdentity": "更正待处理申请姓名",
         "corrections_correctAttendance": "更正课次考勤",
         "corrections_correctPatrol": "更正巡查记录",
         "interviewManagement_qualify": "更改辅导伙伴的科目资格",

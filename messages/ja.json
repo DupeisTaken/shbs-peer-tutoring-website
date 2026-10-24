@@ -3318,8 +3318,8 @@
         "TutorApplication": "チューター応募",
         "TuteeRequestInvalidity": "旧方式の公開申込の審査"
       },
-        "operations": {
-          "admin_correctApplicationIdentity": "処理中の申請氏名を訂正",
+      "operations": {
+        "admin_correctApplicationIdentity": "処理中の申請氏名を訂正",
         "corrections_correctAttendance": "Correct a session's attendance",
         "corrections_correctPatrol": "Correct a patrol record",
         "interviewManagement_qualify": "Change a tutor's subject qualification",

@@ -27,6 +27,7 @@ describe("application filters", () => {
     expect(matchesApplicationFilters(record, { ...emptyApplicationFilters, identity: "READY" })).toBe(true);
     expect(matchesApplicationFilters({ ...record, name: "张小明", identityNeedsReview: true }, { ...emptyApplicationFilters, identity: "NEEDS_REVIEW" })).toBe(true);
     expect(matchesApplicationFilters({ ...record, type: "ADDITIONAL_SUBJECT" }, { ...emptyApplicationFilters, identity: "READY" })).toBe(false);
+    expect(matchesApplicationFilters({ ...record, status: "ACCEPTED" }, { ...emptyApplicationFilters, identity: "READY" })).toBe(false);
     expect(matchesApplicationFilters({ ...record, identityNeedsReview: undefined }, { ...emptyApplicationFilters, identity: "READY" })).toBe(false);
   });
   it("keeps all requests by default, including requests without subjects", () => {

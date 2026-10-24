@@ -1948,7 +1948,10 @@ the originating requester and records the reviewing Head separately.
 
 Promotion readiness uses verified-account, existing-roster and then application
 identity precedence. Existing identities are not overwritten. Explicit corrected
-parts transfer without splitting a display name; Latin accents and Unicode
+parts transfer to a new roster without splitting a display name. Invitation
+prefill and completion both consume the invitation-bound roster: a new roster
+carries the accepted correction, while a returning roster retains its established
+identity and handle. An existing verified account remains authoritative. Latin accents and Unicode
 alternate names follow the shared configured name policy. Unchanged legacy fields
 retain null rather than invented parts, even when a names-only correction leaves
 newly required components unresolved. An unsplit Latin label is not by itself an

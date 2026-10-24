@@ -179,16 +179,23 @@ function IdentityCorrectionEditor({
     let succeeded = false;
     try {
       let latest: IdentitySnapshot | undefined;
+      let proposalComplete = false;
       // Wait for every affected read before releasing the form. A failed list
       // refresh must not turn a committed correction into another mutation.
       await settleRefreshes([
         async () => { latest = await utils.admin.applicationIdentity.fetch({ applicationId: props.applicationId }, { staleTime: 0 }); },
-        () => utils.program.nameFieldPolicy.fetch(undefined, { staleTime: 0 }),
-        ...(afterWrite ? [() => Promise.resolve(props.onChanged(true))] : []),
+        async () => { await utils.program.nameFieldPolicy.fetch(undefined, { staleTime: 0 }); },
+        ...(afterWrite ? [async () => { await props.onChanged(true); }] : []),
+        ...(outcome === "queued" && !afterWrite && approvalId ? [async () => {
+          const review = await utils.approval.list.fetch({ requestId: approvalId, page: 0 }, { staleTime: 0 });
+          const proposal = review.rows.find((row) => row.id === approvalId);
+          if (!proposal) throw new Error(t("loadFailed"));
+          proposalComplete = proposal.state !== "PENDING";
+        }] : []),
       ]);
       if (!latest || latest.id !== props.applicationId) throw new Error(t("loadFailed"));
       if (outcome !== "queued") adopt(latest);
-      else if (!afterWrite && latest.revision !== snapshot.revision) {
+      else if (!afterWrite && proposalComplete) {
         // Explicit Reload after a reviewed proposal may begin a new correction.
         adopt(latest);
         setAccepted(null);
@@ -207,7 +214,7 @@ function IdentityCorrectionEditor({
     }
   };
   const submit = async () => {
-    if (inFlight.current || committed.current || !props.canCorrect || !snapshot.eligible || readFailed || readPending || !namePolicyReady) return;
+    if (inFlight.current || committed.current || !props.canCorrect || !snapshot.eligible || !initial.eligible || readFailed || readPending || !namePolicyReady) return;
     const payload = { id: props.applicationId, expectedUpdatedAt: snapshot.expectedUpdatedAt, ...identity.fields, reason: reason.trim() };
     const signature = JSON.stringify(payload);
     const key = lastPayload.current && lastPayload.current !== signature ? crypto.randomUUID() : clientKey;
@@ -254,8 +261,9 @@ function IdentityCorrectionEditor({
           <p className="muted text-sm">{t("editHelp")}</p>
           {feedback}
           {!props.canCorrect && <InlineNotice tone="warning">{t("authorityChanged")}</InlineNotice>}
+          {!initial.eligible && <InlineNotice tone="warning">{t(`ineligible.${initial.ineligibleReason ?? "APPLICATION_IDENTITY_NOT_OPEN"}`)}</InlineNotice>}
           {readFailed && <InlineNotice tone="error">{t("readFailedRetained")}</InlineNotice>}
-          <fieldset disabled={writing || reloading || needsRefresh || accepted === "queued" || !props.canCorrect || readFailed || readPending} className="min-w-0 space-y-4">
+          <fieldset disabled={writing || reloading || needsRefresh || accepted === "queued" || !props.canCorrect || !initial.eligible || readFailed || readPending} className="min-w-0 space-y-4">
             <RecordedNames value={snapshot.original} title={t("original")} />
             <ConfiguredPersonNameFields accountType="TUTOR" management preserveLegacyRequiredFields value={names} originalValue={originalNames} legacyName={legacyName} onChange={(next) => { setNames(next); setAccepted(null); }} onPolicyAvailabilityChange={setNamePolicyReady} />
             {identity.preserved && <InlineNotice tone="warning">{t("legacyRetained")}</InlineNotice>}

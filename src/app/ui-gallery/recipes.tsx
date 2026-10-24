@@ -12,6 +12,7 @@ import enMessages from "../../../messages/en.json";
 import zhMessages from "../../../messages/zh.json";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { DEFAULT_NAME_FIELDS } from "~/lib/name-field-policy";
+import { nameDraft } from "~/lib/person-name";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { OfferedGradeSelect } from "~/app/_components/profile-policy";
 import { AcademicDetails } from "~/app/_components/academic-profile";
@@ -363,9 +364,10 @@ export function RecipeGallery({
     alternativeNames: "陈同学",
   });
   const [grade, setGrade] = useState("10");
+  const [legacyNames, setLegacyNames] = useState(() => nameDraft());
   const [participantSaved, setParticipantSaved] = useState(false);
   const [namePreview, setNamePreview] = useState<
-    "default" | "optional" | "hidden"
+    "default" | "optional" | "hidden" | "legacy-correction"
   >("default");
   const [search, setSearch] = useSessionViewState({
     id: "gallery-room-search-v1",
@@ -511,12 +513,17 @@ export function RecipeGallery({
                           ? "隐藏名，姓必填"
                           : "First name hidden, last name required"}
                       </option>
+                      <option value="legacy-correction">
+                        {locale === "zh" ? "申请更正：保留旧姓名" : "Application correction: retain legacy names"}
+                      </option>
                     </select>
                   </label>
                   <PersonNameFields
                     states={
                       namePreview === "default"
                         ? DEFAULT_NAME_FIELDS
+                        : namePreview === "legacy-correction"
+                          ? { firstName: "required", lastName: "required", preferredName: "required", alternativeNames: "optional" }
                         : namePreview === "optional"
                           ? {
                               firstName: "optional",
@@ -531,12 +538,17 @@ export function RecipeGallery({
                               alternativeNames: "optional",
                             }
                     }
-                    value={name}
+                    value={namePreview === "legacy-correction" ? legacyNames : name}
+                    originalValue={namePreview === "legacy-correction" ? nameDraft() : undefined}
+                    legacyName={namePreview === "legacy-correction" ? "张小明" : undefined}
+                    preserveLegacyRequiredFields={namePreview === "legacy-correction"}
                     onChange={(value) => {
-                      setName(value);
+                      if (namePreview === "legacy-correction") setLegacyNames(value);
+                      else setName(value);
                       setParticipantSaved(false);
                     }}
                   />
+                  {namePreview === "legacy-correction" && <div className="mt-3"><InlineNotice tone="warning">{(locale === "zh" ? zhMessages : enMessages).applicationIdentity.legacyRetained}</InlineNotice></div>}
                 </div>
                 <div>
                   <label htmlFor="recipe-grade" className="label">

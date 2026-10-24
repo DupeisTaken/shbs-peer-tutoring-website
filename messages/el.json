@@ -3318,8 +3318,8 @@
         "TutorApplication": "Αιτήσεις βοηθών",
         "TuteeRequestInvalidity": "Έλεγχος παλαιών δημόσιων εγγραφών"
       },
-        "operations": {
-          "admin_correctApplicationIdentity": "Διόρθωση ονομάτων εκκρεμούς αίτησης",
+      "operations": {
+        "admin_correctApplicationIdentity": "Διόρθωση ονομάτων εκκρεμούς αίτησης",
         "corrections_correctAttendance": "Correct a session's attendance",
         "corrections_correctPatrol": "Correct a patrol record",
         "interviewManagement_qualify": "Change a tutor's subject qualification",

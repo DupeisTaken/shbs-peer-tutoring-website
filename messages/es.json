@@ -3318,8 +3318,8 @@
         "TutorApplication": "Solicitudes de tutores",
         "TuteeRequestInvalidity": "Revisión de registros públicos anteriores"
       },
-        "operations": {
-          "admin_correctApplicationIdentity": "Corregir nombres de una solicitud pendiente",
+      "operations": {
+        "admin_correctApplicationIdentity": "Corregir nombres de una solicitud pendiente",
         "corrections_correctAttendance": "Correct a session's attendance",
         "corrections_correctPatrol": "Correct a patrol record",
         "interviewManagement_qualify": "Change a tutor's subject qualification",

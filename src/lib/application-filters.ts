@@ -1,3 +1,5 @@
+import { matchesPersonSearch } from "./person-search";
+
 export const APPLICATION_COMPLETIONS = [
   "",
   "COMPLETED",
@@ -72,6 +74,7 @@ export function matchesApplicationFilters(
       )) &&
     (!filters.identity ||
       (application.type === "INITIAL" &&
+        ["PENDING", "INTERVIEW"].includes(application.status) &&
         typeof application.identityNeedsReview === "boolean" &&
         application.identityNeedsReview === (filters.identity === "NEEDS_REVIEW"))) &&
     (!filters.completion ||
@@ -122,5 +125,4 @@ export function sortApplications<
     })
     .map(({ application }) => application);
 }
-import { matchesPersonSearch } from "./person-search";
 

@@ -613,9 +613,13 @@ async function completeRegistrationLocked(
   const acceptedSource =
     !owner && (row.applicationId || row.crewApplicationId || row.tutorId)
       ? row.applicationId
-        ? await client.tutorApplication.findUniqueOrThrow({
-            where: { id: row.applicationId },
-          })
+        ? row.tutorId
+          ? await client.tutor.findUniqueOrThrow({
+              where: { id: row.tutorId },
+            })
+          : await client.tutorApplication.findUniqueOrThrow({
+              where: { id: row.applicationId },
+            })
         : row.crewApplicationId
           ? await client.crewApplication.findUniqueOrThrow({
               where: { id: row.crewApplicationId },
@@ -624,8 +628,11 @@ async function completeRegistrationLocked(
               where: { id: row.tutorId! },
             })
       : null;
-  // Redemption consumes the accepted source identity, never a posted replacement.
-  // In particular, newly hidden form fields must not erase already accepted values.
+  // Promotion has already selected the exact bound roster identity: a returning
+  // tutor keeps that identity even if its new application was corrected. Redemption
+  // must use the same source as prefill; canonical account ownership still wins and
+  // Crew applications retain their existing precedence over a generic tutor link.
+  // Newly hidden form fields and posted replacements cannot erase accepted values.
   const preservedIdentity = owner ?? acceptedSource;
   if (preservedIdentity)
     input = {
@@ -654,7 +661,13 @@ async function completeRegistrationLocked(
         alternativeNames: acceptedSource.alternativeNames,
         legacyName:
           "legacyName" in acceptedSource
-            ? acceptedSource.legacyName
+            ? acceptedSource.legacyName ??
+              (acceptedSource.firstName == null &&
+              acceptedSource.lastName == null &&
+              acceptedSource.preferredName == null &&
+              acceptedSource.englishName !== acceptedSource.username
+                ? acceptedSource.englishName
+                : null)
             : acceptedSource.name,
       }
     : null;
