@@ -14,7 +14,7 @@ import { utcDatabaseUrl } from "../src/server/database-url";
 import { hashPassword } from "../src/server/auth/password";
 import { initializeProgram } from "../src/server/program/bootstrap";
 import { initializePersonSource } from "../src/server/person-source-initialization";
-import { lockUsernameNamespace } from "../src/server/auth/username";
+import { lockUsernameNamespace } from "../src/server/auth/username-namespace";
 
 const connectionString = process.env.DATABASE_URL;
 const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();

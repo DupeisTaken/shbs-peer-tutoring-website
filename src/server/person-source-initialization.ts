@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { accountHistoryIds, accountRetirementChain } from "./account-history";
-import { lockUsernameNamespace } from "./auth/username";
+import { lockUsernameNamespace } from "./auth/username-namespace";
 import {
   assignParticipantPerson,
   type PersonSource,

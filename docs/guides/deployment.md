@@ -888,13 +888,22 @@ copy first. New archive imports cannot write person IDs or combination receipts.
 
 New source writers and archive imports initialize missing directory identities in
 their owning transaction, without name/mailbox matching or changing original
-source evidence. Use `npm run identity:reconcile` from a trusted checkout with the
-matching generated Prisma client to inspect a consistent, database-enforced
-read-only snapshot. Exit `2` means findings need review; it does not repair them.
+source evidence. The deployed image includes the read-only reconciliation command:
+
+```bash
+docker compose exec -T app npm run --silent identity:reconcile > identity-reconciliation.json
+```
+
+From a trusted checkout with the matching generated Prisma client, use
+`npm run --silent identity:reconcile > identity-reconciliation.json`.
+Both inspect a consistent, database-enforced read-only snapshot. The silent npm
+option keeps its script headers out of the JSON output. Exit `2` means findings
+need review; it does not repair them.
 Follow the [authority inventory and cutover comparison](../reference/identity-lifecycle.md#cutover-comparison-and-rollback-limits),
 retain reports securely, and review conflicts through existing ownership/grouping
-workflows before rollout. The command is a source-checkout operator tool, not a
-new public endpoint or an assumption that development tooling ships in the image.
+workflows before rollout. The command is an operator tool with no public endpoint.
+Image smoke verifies the packaged CLI and its production dependencies against
+clean and missing-identity fixtures without application authentication settings.
 
 Older application code does not maintain canonical grouping, recognize review-required
 groups or traverse new retirement chains. Roll back with a compatible corrective release,

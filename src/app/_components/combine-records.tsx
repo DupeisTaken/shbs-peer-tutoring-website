@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { Button } from "./ui/button";
@@ -78,6 +78,16 @@ export function CombineRecords({
   const [accounts, setAccounts] = useState<Preview["accounts"]>([]);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
+  const [pendingInvitationScopes, setPendingInvitationScopes] = useState<ReadonlySet<string>>(() => new Set());
+  const invitationPendingChanged = useCallback((scopeId: string, pending: boolean) => {
+    setPendingInvitationScopes((current) => {
+      if (current.has(scopeId) === pending) return current;
+      const next = new Set(current);
+      if (pending) next.add(scopeId);
+      else next.delete(scopeId);
+      return next;
+    });
+  }, []);
   const [reason, setReason] = useState("");
   const [password, setPassword] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
@@ -165,11 +175,12 @@ export function CombineRecords({
   const finalizeMutation = api.personCombine.finalize.useMutation(callbacks);
   const combine = reviewPersonId ? finalizeMutation : groupMutation;
   const ownPending = admitted || combine.isPending || syncing;
+  const invitationPending = pendingInvitationScopes.size > 0;
   // An unresolved response keeps the parent and siblings locked. Its own receipt
   // read / exact retry remain usable, so it must not disable its own recovery.
-  const dismissalPending = ownPending || outcomeUnknown;
+  const dismissalPending = ownPending || outcomeUnknown || invitationPending;
   const aggregatePending = useDialogPending(dismissalPending);
-  const busy = ownPending || (!outcomeUnknown && aggregatePending);
+  const busy = ownPending || invitationPending || (!outcomeUnknown && aggregatePending);
   useEffect(() => {
     onPendingChange?.(dismissalPending);
     return () => onPendingChange?.(false);
@@ -819,23 +830,50 @@ export function CombineRecords({
       {pendingInvitations.length > 0 && (
         <div hidden={!open || denied} className="space-y-3 border-t border-slate-200 p-4">
           {pendingInvitations.map((invitation) => (
-            <DisclosureSection key={invitation.id} title={t("pendingInvitation")} lifetime="retained">
-              <p className="muted mb-3 text-sm">{t("pendingInvitationHelp")}</p>
-              <ul className="mb-3 space-y-1 text-sm">
-                {invitation.sources.map((source) => <li key={keyOf(source)}>
-                  {t(`kind.${source.kind}`)} · <span className="break-all">{source.id}</span>
-                </li>)}
-              </ul>
-              <HistoricalRecordInvitation
-                sources={invitation.sources}
-                accessDenied={denied}
-                unavailable={unavailable || ownPending || reviewing || checkingOutcome || outcomeUnknown || !!receipt}
-                onCancelled={resetReview}
-              />
-            </DisclosureSection>
+            <PendingInvitationDisclosure
+              key={invitation.id}
+              invitation={invitation}
+              accessDenied={denied}
+              unavailable={unavailable || ownPending || reviewing || checkingOutcome || outcomeUnknown || !!receipt ||
+                pendingInvitationScopes.size > (pendingInvitationScopes.has(invitation.id) ? 1 : 0)}
+              onCancelled={resetReview}
+              onPendingChange={invitationPendingChanged}
+            />
           ))}
         </div>
       )}
     </section>
+  );
+}
+
+/** Keep each reporting callback stable, and exclude this scope's own pending
+ * state from its unavailable prop so receipt reads never disable themselves. */
+function PendingInvitationDisclosure({ invitation, accessDenied, unavailable, onCancelled, onPendingChange }: {
+  invitation: PendingInvitation;
+  accessDenied: boolean;
+  unavailable: boolean;
+  onCancelled: () => void;
+  onPendingChange: (scopeId: string, pending: boolean) => void;
+}) {
+  const t = useTranslations("combineRecords");
+  const reportPending = useCallback((pending: boolean) => {
+    onPendingChange(invitation.id, pending);
+  }, [invitation.id, onPendingChange]);
+  return (
+    <DisclosureSection title={t("pendingInvitation")} lifetime="retained">
+      <p className="muted mb-3 text-sm">{t("pendingInvitationHelp")}</p>
+      <ul className="mb-3 space-y-1 text-sm">
+        {invitation.sources.map((source) => <li key={keyOf(source)}>
+          {t(`kind.${source.kind}`)} · <span className="break-all">{source.id}</span>
+        </li>)}
+      </ul>
+      <HistoricalRecordInvitation
+        sources={invitation.sources}
+        accessDenied={accessDenied}
+        unavailable={unavailable}
+        onCancelled={onCancelled}
+        onPendingChange={reportPending}
+      />
+    </DisclosureSection>
   );
 }

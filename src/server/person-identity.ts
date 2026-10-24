@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { lockUsernameNamespace } from "./auth/username";
+import { lockUsernameNamespace } from "./auth/username-namespace";
 import {
   inTransaction,
   type DomainDb,

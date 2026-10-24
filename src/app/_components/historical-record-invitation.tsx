@@ -26,12 +26,15 @@ export function HistoricalRecordInvitation({
   unavailable = false,
   accessDenied = false,
   onCancelled,
+  onPendingChange,
 }: {
   sources: HistoricalInvitationSource[];
   unavailable?: boolean;
   accessDenied?: boolean;
   /** Invalidate an enclosing participation preview after an accepted cancellation. */
   onCancelled?: () => void;
+  /** Standalone hosts also fence sibling actions while delivery is unresolved. */
+  onPendingChange?: (pending: boolean) => void;
 }) {
   const t = useTranslations("historicalInvitation");
   const history = useTranslations("tuteeHistory");
@@ -152,8 +155,13 @@ export function HistoricalRecordInvitation({
   // registered would disable the child modal through its inherited busy state.
   const ownPending = send.isPending || cancel.isPending;
   const unresolved = uncertain && !uncertainRevision;
-  const aggregatePending = useDialogPending(ownPending || unresolved);
+  const dismissalPending = ownPending || unresolved;
+  const aggregatePending = useDialogPending(dismissalPending);
   const busy = ownPending || (!unresolved && aggregatePending);
+  useEffect(() => {
+    onPendingChange?.(dismissalPending);
+    return () => onPendingChange?.(false);
+  }, [dismissalPending, onPendingChange]);
   useEffect(() => {
     if (denied(cancel.error)) { setAccessLost(true); revoke(); }
   }, [cancel.error, revoke]);

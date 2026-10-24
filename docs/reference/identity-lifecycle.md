@@ -110,8 +110,18 @@ From a trusted checkout with the deployed schema and generated Prisma client,
 configure the intended database through the normal environment and run:
 
 ```sh
-npm run identity:reconcile > identity-reconciliation.json
+npm run --silent identity:reconcile > identity-reconciliation.json
 ```
+
+The production image also ships this command and its runtime dependencies:
+
+```sh
+docker compose exec -T app npm run --silent identity:reconcile > identity-reconciliation.json
+```
+
+Use `--silent` so npm's script headers do not precede the JSON report. The image
+smoke exercises both clean exit `0` and findings exit `2` with only the database
+environment; no application authentication configuration is required by the CLI.
 
 The command takes no arguments. It reads one PostgreSQL `REPEATABLE READ`,
 `READ ONLY` transaction, prints JSON to stdout and disconnects. Exit status is `0`
