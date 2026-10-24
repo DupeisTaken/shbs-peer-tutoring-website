@@ -5,9 +5,9 @@ import { NextIntlClientProvider } from "next-intl";
 import { QueryClient } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import { NextRecruitmentEditor, type NextRecruitmentSettingsData } from "./next-recruitment-settings";
-import type { PrepareNextRecruitmentInput } from "~/lib/next-recruitment";
+import type { NextRecruitmentPreparationEvidence, PrepareNextRecruitmentInput } from "~/lib/next-recruitment";
 
-const mocks = vi.hoisted(() => ({ write: vi.fn(), fetch: vi.fn(), cancel: vi.fn(), approvalFetch: vi.fn(), approvalCancel: vi.fn() }));
+const mocks = vi.hoisted(() => ({ write: vi.fn<(input: PrepareNextRecruitmentInput) => Promise<NextRecruitmentPreparationEvidence>>(), fetch: vi.fn(), cancel: vi.fn(), approvalFetch: vi.fn(), approvalCancel: vi.fn() }));
 vi.mock("~/trpc/react", () => ({ api: {
   useUtils: () => ({ program: { nextRecruitment: { fetch: mocks.fetch, cancel: mocks.cancel } }, approval: { list: { fetch: mocks.approvalFetch, cancel: mocks.approvalCancel } } }),
   program: { prepareNextRecruitment: { useMutation: () => ({ mutateAsync: mocks.write }) } },
@@ -43,7 +43,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 it("saves only the chosen audience and admits one same-turn write", async () => {
-  const pending = deferred<object>();
+  const pending = deferred<NextRecruitmentPreparationEvidence>();
   mocks.write.mockReturnValue(pending.promise);
   const view = render(show());
   setOpening();
@@ -56,7 +56,7 @@ it("saves only the chosen audience and admits one same-turn write", async () => 
 });
 
 it("keeps Tutor and Tutee drafts independent while one save is pending", async () => {
-  const pending = deferred<object>();
+  const pending = deferred<NextRecruitmentPreparationEvidence>();
   mocks.write.mockReturnValue(pending.promise);
   render(<NextIntlClientProvider locale="en" messages={en}><NextRecruitmentEditor data={data()} audience="tutor" /><NextRecruitmentEditor data={data()} audience="tutee" /></NextIntlClientProvider>);
   const tutor = within(screen.getByRole("region", { name: text.tutor }));
@@ -173,7 +173,7 @@ it("forces a real QueryClient read even when cached preparation has an infinite 
   const fresh = data();
   fresh.preparations.tutor = { target, version: 1, opensAt: null, timeZone: fresh.timeZone, matchesTarget: true };
   const network = vi.fn().mockResolvedValue(fresh);
-  mocks.fetch.mockImplementation((_input, options) => client.fetchQuery({ queryKey: ["preparation"], queryFn: network, ...options }));
+  mocks.fetch.mockImplementation((_input?: undefined, options?: { staleTime?: number }) => client.fetchQuery({ queryKey: ["preparation"], queryFn: network, ...options }));
   render(show());
   fireEvent.click(screen.getByRole("button", { name: text.clear }));
   await screen.findByText(text.saved);

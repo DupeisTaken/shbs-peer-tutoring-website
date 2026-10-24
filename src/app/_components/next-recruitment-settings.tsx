@@ -42,7 +42,7 @@ export function NextRecruitmentSettings() {
       </div>
       {query.error && <InlineNotice tone="error" announcement="alert" action={<button className="btn-secondary" disabled={query.isFetching} onClick={() => void query.refetch()}>{t("retry")}</button>}>{t("loadFailed")}</InlineNotice>}
       <div className="grid items-start gap-4 lg:grid-cols-2">
-        {(["tutor", "tutee"] as const).map((audience) => <NextRecruitmentEditor key={audience} audience={audience} data={query.data!} readFailed={!!query.error} />)}
+        {(["tutor", "tutee"] as const).map((audience) => <NextRecruitmentEditor key={audience} audience={audience} data={query.data} readFailed={!!query.error} />)}
       </div>
     </section>
   );
@@ -98,7 +98,7 @@ export function NextRecruitmentEditor({ audience, data, readFailed = false }: { 
     const receipt = accepted.current;
     if (receipt) {
       const latestRow = fresh.preparations[audience];
-      const receiptPresent = latestRow && latestRow.version === receipt.version &&
+      const receiptPresent = latestRow?.version === receipt.version &&
         sameNextRecruitmentTarget(latestRow.target, receipt.target) &&
         latestRow.timeZone === receipt.timeZone &&
         (latestRow.opensAt?.getTime() ?? null) === (receipt.opensAt?.getTime() ?? null);
@@ -107,7 +107,7 @@ export function NextRecruitmentEditor({ audience, data, readFailed = false }: { 
       // Only a deliberate Reload adopts it; automatic synchronization keeps the
       // original draft and receipt visible. Older/same-version mismatches fail closed.
       const superseded = receiptPresent || fresh.target.sourceTermId !== receipt.target.sourceTermId ||
-        (latestRow && latestRow.version > receipt.version);
+        (latestRow !== null && latestRow.version > receipt.version);
       if (!exact && !(allowReplacement && superseded)) {
         setReadChanged(true);
         throw new Error(t("savedChanged"));

@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
 import superjson from "superjson";
+import type { Prisma } from "../../../../generated/prisma";
 
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 
@@ -178,7 +179,7 @@ describe("reviewed atomic refresh", () => {
   it("refuses legacy queued refresh payloads without preparation evidence", async () => {
     const request = await queued(actor("ADMIN").admin.refresh(await refreshInput()));
     await db.approvalRequest.update({ where: { id: request.id }, data: {
-      payload: superjson.serialize({ confirm: "REFRESH", expectedTermId: sourceId }),
+      payload: JSON.parse(JSON.stringify(superjson.serialize({ confirm: "REFRESH", expectedTermId: sourceId }))) as Prisma.InputJsonValue,
     } });
     await expect(actor().approval.decide({ id: request.id, approve: true, note: "Legacy review" })).rejects.toBeDefined();
     expect((await db.term.findFirstOrThrow({ where: { active: true } })).id).toBe(sourceId);
@@ -326,7 +327,12 @@ describe("stale target and boundary protection", () => {
     expect(observationError).toBeUndefined();
     expect(observed).toBe(true);
     expect(refreshResult).toMatchObject({ status: "fulfilled" });
-    expect(submissionResult).toMatchObject({ status: "rejected", reason: { code: "PRECONDITION_FAILED", message: expect.stringContaining("recruitment is currently closed") } });
+    expect(submissionResult).toMatchObject({ status: "rejected", reason: { code: "PRECONDITION_FAILED" } });
+    if (submissionResult.status === "rejected") {
+      expect(submissionResult.reason).toBeInstanceOf(Error);
+      if (submissionResult.reason instanceof Error)
+        expect(submissionResult.reason.message).toContain("recruitment is currently closed");
+    }
     expect(await db.tutorApplication.count()).toBe(0);
     expect((await db.term.findFirstOrThrow({ where: { active: true } })).tutorSignupOpensAt).toEqual(opening);
   });

@@ -33,7 +33,7 @@ export function ProgramRefresh({ period, canEdit, canApply, onActivated }: { per
   useEffect(() => { if (!liveCanEdit || denied) revoke(); }, [liveCanEdit, denied, revoke]);
   if (denied) return <StatePanel kind="denied" title={nextText("readOnly")} />;
   const data = query.data;
-  const stale = data && Object.values(data.preparations).some((row) => row && !row.matchesTarget);
+  const stale = data ? Object.values(data.preparations).some((row) => row !== null && !row.matchesTarget) : false;
   const key = `refresh:${period.termId}`;
   const blocked = !liveCanEdit || !data || !!query.error || stale || data.target.sourceTermId !== period.termId || review.blocked(key);
   return <section className="card space-y-4 border-amber-200 p-5">

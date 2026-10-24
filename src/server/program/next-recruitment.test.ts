@@ -26,7 +26,8 @@ beforeEach(async () => {
     SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
   await db.$executeRawUnsafe("TRUNCATE " + tables.map(({ tablename }) =>
     '"' + tablename.replaceAll('"', '""') + '"').join(",") + " CASCADE");
-  await db.user.create({ data: { ...actor, role: "HEAD", username: "preparation-head" } });
+  await db.user.create({ data: { ...actor, role: "HEAD", username: "preparation-head",
+    email: "preparation-head@example.test" } });
   await db.term.create({ data: { id: "source", schoolYear: "26-27", quarter: "Q1",
     name: "26-27 Q1", active: true, signupEnabled: false, tutorSignupOpensAt: firstOpening } });
 });
@@ -168,7 +169,12 @@ it.each(["preparation", "mode", "other-module"] as const)(
       return validateNextRecruitmentRefresh(tx, review.refreshEvidence);
     }, { isolationLevel: "Serializable", timeout: 10_000 }).then(
       (value) => ({ status: "fulfilled" as const, value }),
-      (reason: unknown) => ({ status: "rejected" as const, reason }),
+      (reason: unknown) => {
+        // Also release admission when the transaction fails before pinning its
+        // snapshot, so the test reaches the shared gate cleanup and settlement.
+        snapshotPinned.release();
+        return { status: "rejected" as const, reason };
+      },
     );
     await snapshotPinned.ready;
     const writing = inTransaction(db, async (tx) => {
