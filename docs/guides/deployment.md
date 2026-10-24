@@ -763,6 +763,33 @@ The quoted commands read `POSTGRES_USER` inside the database container; Compose'
 - **Fresh sign-ins fail or alternate between servers:** confirm every instance uses the same stable `AUTH_SECRET`, canonical `AUTH_URL` and HTTPS proxy settings.
 - **DB healthcheck failing:** `docker compose logs db`; ensure `POSTGRES_*` match across `.env`.
 
+## Public QR domain and regeneration
+
+The four public QR exports in **Program Settings → Recruitment and Refresh →
+Share signup links** use `AUTH_URL` as their canonical public origin. Compose
+already sets this to `https://${DOMAIN}`. Source deployments must set it explicitly
+in production: use an absolute public HTTPS origin with no credentials, path,
+query or fragment. HTTP and loopback origins are rejected in production. Only
+development may use the `http://localhost:3000` fallback; do not distribute those
+local rehearsal images.
+
+The export never derives its origin from the browser address, request `Host` or
+forwarded headers. A missing or invalid production origin produces a generic
+configuration error rather than a PNG containing an internal address. Correct the
+configuration and restart the application before retrying. No participant or
+account information belongs in the public origin.
+
+After changing `DOMAIN`/`AUTH_URL`, regenerate all four PNGs and replace previously
+distributed assets. Responses use `Cache-Control: no-store`; downloaded files and
+printed posters cannot update automatically. Decode each replacement and confirm
+the expected origin and `/tutor`, `/tutee`, `/crew` or `/` path. Then follow the
+short links to verify current recruitment and Crew availability on the deployment.
+Images use packaged local fonts and require no external font service. Keep their
+white quiet zones intact when resizing or printing.
+
+The existing sign-in QR download remains a separate interface. These exports
+do not enable recruitment, modify settings or bypass verification/access checks.
+
 ## Optional notification delivery
 
 Email actions require `AUTH_URL` to be the canonical public HTTPS origin in production (no path, query, credentials or localhost). Notification, password/setup and signup link builders share this validation; invalid configuration fails delivery instead of emailing a localhost link. Development alone may fall back to `http://localhost:3000`.

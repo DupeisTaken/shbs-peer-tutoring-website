@@ -853,6 +853,16 @@
       "graduating": "Graduating",
       "noActiveTutors": "No active tutors to review.",
       "cancel": "Cancel",
+      "publicQr": {
+        "heading": "Share signup links",
+        "help": "Download labeled QR images for the published site address. Recruitment windows and feature settings still apply when someone opens a link.",
+        "tutor": "Tutor signup",
+        "tutee": "Tutee signup",
+        "crew": "Crew signup",
+        "site": "Website home",
+        "download": "Download PNG",
+        "downloadLabel": "Download {destination} QR PNG"
+      },
       "signupWindow": {
         "heading": "Tutee Signup Opening",
         "help": "Schedule when {quarter} tutee signups become available to the public.",
