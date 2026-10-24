@@ -16,9 +16,12 @@ import { useDialogPending } from "./ui/modal";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { PersonParticipationReview } from "./person-participation-review";
+import { HistoricalRecordInvitation, type HistoricalInvitationSource } from "./historical-record-invitation";
+import { DisclosureSection } from "./ui/disclosure-section";
 
 type Preview = RouterOutputs["personCombine"]["preview"];
 type Receipt = RouterOutputs["personCombine"]["combine"];
+type PendingInvitation = { id: string; sources: HistoricalInvitationSource[] };
 export type CombineRecordSource = {
   kind: "USER" | "TUTOR" | "TUTEE";
   id: string;
@@ -74,6 +77,7 @@ export function CombineRecords({
   const [retireDuplicateLogins, setRetireDuplicateLogins] = useState(false);
   const [accounts, setAccounts] = useState<Preview["accounts"]>([]);
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
   const [reason, setReason] = useState("");
   const [password, setPassword] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
@@ -287,6 +291,25 @@ export function CombineRecords({
       if (generation !== reviewGeneration.current) return;
       setAccessLost(false);
       setPreview(result);
+      // A grant belongs to its originally reviewed scope. Retain that controller
+      // across fresh group reads so new members cannot expand a cancellation or
+      // discard an accepted action's read-only recovery.
+      const invitations = (result.blockers ?? []).flatMap((item) => {
+        if (item.reason !== "PENDING_HISTORY_INVITATION" || !item.sources.length) return [];
+        const sources = item.sources.flatMap((source) =>
+          source.kind === "TUTOR" || source.kind === "TUTEE"
+            ? [{ kind: source.kind, id: source.id }]
+            : [],
+        );
+        // Never silently truncate a malformed source set to another valid scope.
+        if (sources.length !== item.sources.length) return [];
+        return item.work.filter((work) => work.kind === "HISTORICAL_RECORD_INVITATION")
+          .map((work) => ({ id: work.id, sources }));
+      });
+      setPendingInvitations((current) => [
+        ...current,
+        ...invitations.filter((item) => !current.some((known) => known.id === item.id)),
+      ]);
       if (reviewPersonId) setSelected(result.sources);
       setAccounts(result.accounts);
       setRetainedUserId(result.retainedUserId ?? undefined);
@@ -791,6 +814,26 @@ export function CombineRecords({
               )}
             </>
           )}
+        </div>
+      )}
+      {pendingInvitations.length > 0 && (
+        <div hidden={!open || denied} className="space-y-3 border-t border-slate-200 p-4">
+          {pendingInvitations.map((invitation) => (
+            <DisclosureSection key={invitation.id} title={t("pendingInvitation")} lifetime="retained">
+              <p className="muted mb-3 text-sm">{t("pendingInvitationHelp")}</p>
+              <ul className="mb-3 space-y-1 text-sm">
+                {invitation.sources.map((source) => <li key={keyOf(source)}>
+                  {t(`kind.${source.kind}`)} · <span className="break-all">{source.id}</span>
+                </li>)}
+              </ul>
+              <HistoricalRecordInvitation
+                sources={invitation.sources}
+                accessDenied={denied}
+                unavailable={unavailable || ownPending || reviewing || checkingOutcome || outcomeUnknown || !!receipt}
+                onCancelled={resetReview}
+              />
+            </DisclosureSection>
+          ))}
         </div>
       )}
     </section>

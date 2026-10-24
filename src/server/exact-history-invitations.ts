@@ -129,7 +129,7 @@ async function predecessorFingerprint(db: DomainDb, invite: HistoricalRecordInvi
 export async function exactHistoryInvitationReceipt(db: DomainDb, actorId: string, operationId: string) {
   await requireHistoryManager(db, actorId);
   const attempt = await db.historicalRecordInvitationAttempt.findUnique({ where: { id: operationId } });
-  if (!attempt || attempt.issuedById !== actorId) return null;
+  if (attempt?.issuedById !== actorId) return null;
   const live = attempt.status === "PUBLISHED" ? await db.historicalRecordInvitation.findUnique({ where: { scopeKey: attempt.scopeKey } }) : null;
   const receipt = historyInvitationReceipt(attempt);
   if (attempt.status === "PUBLISHED" && (live?.tokenHash !== attempt.tokenHash || live?.claimedAt)) Object.assign(receipt, { status: "SUPERSEDED", expiresAt: null });

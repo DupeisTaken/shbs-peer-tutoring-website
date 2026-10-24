@@ -109,7 +109,7 @@ export function HistoryClaim({
       {(query.error ?? claim.error) && (
         <HistoryError message={(query.error ?? claim.error)!.message} />
       )}
-      {(query.error || uncertain || denied || accessLost) && <div className="space-y-2">
+      {(!!query.error || uncertain || denied || accessLost) && <div className="space-y-2">
         {uncertain && <p role="status">{exact("claimUncertain")}</p>}
         <Button disabled={query.isFetching || claim.isPending} onClick={() => void recover()}>{ui("retry")}</Button>
       </div>}

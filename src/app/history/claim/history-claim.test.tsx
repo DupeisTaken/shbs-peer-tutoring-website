@@ -71,7 +71,7 @@ it("freezes claim consent and submission while the exact source read refreshes",
   fireEvent.click(screen.getByLabelText(en.tuteeHistory.claimConfirm));
   mocks.fetching = true;
   mounted.rerender(view());
-  expect((screen.getByLabelText(en.tuteeHistory.claimConfirm) as HTMLInputElement).disabled).toBe(true);
+  expect(screen.getByLabelText<HTMLInputElement>(en.tuteeHistory.claimConfirm).disabled).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.claim }));
   expect(mocks.claim).not.toHaveBeenCalled();
 });

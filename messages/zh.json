@@ -5569,6 +5569,8 @@
     "refreshParticipation": "重新获取参与审核",
     "finalizeParticipation": "确认完成合并组审核",
     "historySetup": "设置历史访问权限",
+    "pendingInvitation": "审核待处理的历史邀请",
+    "pendingInvitationHelp": "此邀请仅包含下列原始记录。如已不再需要，请取消邀请，然后重新获取参与审核。",
     "title": "合并记录",
     "intro": "将属于同一人的账号与参与记录归在一起。",
     "open": "合并记录",

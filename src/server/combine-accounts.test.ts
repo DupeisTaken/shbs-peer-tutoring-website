@@ -519,15 +519,19 @@ it("rechecks the live Head and password inside the transaction", async () => {
     }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
-it("rejects authenticated legacy fingerprints with an actionable fresh-review precondition and no writes", async () => {
+it("rejects authenticated legacy fingerprints with an actionable fresh-review precondition and no identity writes", async () => {
   const oldReview = await previewCombine(db, pair());
   const before = await db.user.findMany({ orderBy: { id: "asc" } });
   await expect(caller(headId).accountCombine.combine({
     ...pair(), fingerprint: oldReview.fingerprint, confirmPassword: password,
-  })).rejects.toMatchObject({ code: "PRECONDITION_FAILED", message: expect.stringContaining("Combine Records") });
+  })).rejects.toMatchObject({ code: "PRECONDITION_FAILED", message: expect.stringContaining("Combine Records") as unknown });
   expect(await db.user.findMany({ orderBy: { id: "asc" } })).toEqual(before);
   expect(await db.personCombineReceipt.count()).toBe(0);
-  expect(await db.auditLog.count()).toBe(0);
+  // Rejection is still auditable through the router's standard attempt recorder.
+  expect(await db.auditLog.findMany()).toMatchObject([{
+    kind: "ATTEMPT", operation: "accountCombine.combine",
+    details: { applied: false, outcome: "FAILED", errorCode: "PRECONDITION_FAILED" },
+  }]);
   await combine();
   expect((await db.user.findUniqueOrThrow({ where: { id: duplicateId } })).mergedIntoId).toBe(survivorId);
 });

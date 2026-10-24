@@ -81,7 +81,7 @@ it("freezes source scope across directory refreshes and clears review on recipie
   await review();
   mounted.rerender(view("en", [...sources, { kind: "TUTOR", id: "later-member" }]));
   send();
-  expect(mocks.send).toHaveBeenCalledWith(expect.objectContaining({ sources, email: "alumni@example.test", fingerprint: preview.fingerprint, operationId: expect.any(String) }));
+  expect(mocks.send).toHaveBeenCalledWith(expect.objectContaining({ sources, email: "alumni@example.test", fingerprint: preview.fingerprint, operationId: expect.any(String) as unknown }));
   expect(mocks.query).toHaveBeenLastCalledWith({ sources });
   act(() => { mocks.callbacks!.onSettled(); });
   fireEvent.change(screen.getByLabelText(en.tuteeHistory.email), { target: { value: "different@example.test" } });
@@ -119,7 +119,7 @@ it("keeps a missing receipt uncertain instead of authorizing another send", asyn
   act(() => { mocks.callbacks!.onError({ message: "network interrupted" }); mocks.callbacks!.onSettled(); });
   fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt }));
   await screen.findByText(en.historicalInvitation.notRecorded);
-  expect((screen.getByRole("button", { name: en.historicalInvitation.review }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: en.historicalInvitation.review }).matches(":disabled")).toBe(true);
   expect(mocks.send).toHaveBeenCalledTimes(1);
 });
 
@@ -129,13 +129,27 @@ it("preserves the draft on a transient read failure and conceals denied evidence
   mocks.error = { message: "temporary network failure" };
   mounted.rerender(view());
   expect(screen.getByText("Original Tutor")).toBeTruthy();
-  expect((screen.getByLabelText(en.tuteeHistory.email) as HTMLInputElement).value).toBe("alumni@example.test");
+  expect(screen.getByLabelText<HTMLInputElement>(en.tuteeHistory.email).value).toBe("alumni@example.test");
   mocks.error = { message: "forbidden", data: { code: "FORBIDDEN" } };
   mounted.rerender(view());
   expect(screen.queryByText("Original Tutor")).toBeNull();
   mocks.error = { message: "temporary network failure" };
   mounted.rerender(view());
   expect(screen.queryByText("Original Tutor")).toBeNull();
+});
+
+it("preserves denied authority when a refetch returns a serialized error", async () => {
+  const mounted = render(view());
+  await review();
+  mocks.error = { message: "temporary network failure" };
+  mounted.rerender(view());
+  mocks.refetch.mockResolvedValueOnce({ error: { message: "forbidden", data: { code: "FORBIDDEN" } } });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.refreshInvitation })); });
+  expect(screen.queryByText("Original Tutor")).toBeNull();
+  mocks.error = null;
+  mounted.rerender(view());
+  expect(screen.queryByText("Original Tutor")).toBeNull();
+  expect(mocks.send).not.toHaveBeenCalled();
 });
 
 it("keeps unresolved delivery receipts mounted and allows only receipt reads until publication is known", async () => {
@@ -145,14 +159,14 @@ it("keeps unresolved delivery receipts mounted and allows only receipt reads unt
   send();
   const operationId = (mocks.send.mock.calls[0]![0] as { operationId: string }).operationId;
   await act(async () => { await mocks.callbacks!.onSuccess({ attemptId: operationId, status: "UNCERTAIN", expiresAt: null }); mocks.callbacks!.onSettled(); });
-  const closeButton = screen.getByRole("button", { name: en.accountProfile.close }) as HTMLButtonElement;
+  const closeButton = screen.getByRole<HTMLButtonElement>("button", { name: en.accountProfile.close });
   expect(closeButton.disabled).toBe(true);
   fireEvent(screen.getByRole("dialog"), new Event("cancel", { bubbles: false, cancelable: true }));
   expect(close).not.toHaveBeenCalled();
   mocks.receipt.mockResolvedValue({ attemptId: operationId, status: "UNCERTAIN", expiresAt: null });
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt })); });
   expect(closeButton.disabled).toBe(true);
-  expect((screen.getByRole("button", { name: en.historicalInvitation.review }) as HTMLButtonElement).matches(":disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: en.historicalInvitation.review }).matches(":disabled")).toBe(true);
   mocks.receipt.mockResolvedValue({ attemptId: operationId, status: "PUBLISHED", expiresAt: new Date() });
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: en.historicalInvitation.checkReceipt })); });
   expect(closeButton.disabled).toBe(false);
@@ -198,7 +212,7 @@ it("cancels a durable uncertain attempt using its fresh revision without replayi
   expect(confirm.matches(":disabled")).toBe(true);
   expect(mocks.cancel).toHaveBeenCalledTimes(1);
   expect(mocks.cancel).toHaveBeenCalledWith({ sources, revision: "b".repeat(64) });
-  mocks.status = { ...mocks.status!, revision: "c".repeat(64), attempt: { ...mocks.status!.attempt!, status: "SUPERSEDED" } };
+  mocks.status = { ...mocks.status, revision: "c".repeat(64), attempt: { ...mocks.status.attempt!, status: "SUPERSEDED" } };
   await act(async () => { finishCancellation({ cancelled: true }); });
   await within(confirmation).findByText(en.actionReview.applied);
   expect(closeButton.matches(":disabled")).toBe(false);
@@ -228,7 +242,7 @@ it("recovers an accepted uncertain-attempt cancellation with reads after its ref
   // Dismissing the confirmation keeps its accepted result and read recovery inline.
   fireEvent.click(within(confirmation).getByRole("button", { name: en.actionReview.close }));
   expect(screen.queryByRole("dialog", { name: en.tuteeHistory.cancelInvitation })).toBeNull();
-  mocks.status = { ...mocks.status!, revision: "c".repeat(64), attempt: { ...mocks.status!.attempt!, status: "SUPERSEDED" } };
+  mocks.status = { ...mocks.status, revision: "c".repeat(64), attempt: { ...mocks.status.attempt!, status: "SUPERSEDED" } };
   fireEvent.click(screen.getByRole("button", { name: en.actionReview.retry }));
   await screen.findByText(en.actionReview.applied);
   await waitFor(() => expect(screen.getByRole("button", { name: en.historicalInvitation.review }).matches(":disabled")).toBe(false));

@@ -395,10 +395,10 @@ it.each(["short", "long"] as const)(
     ).toMatchObject({ personId: result.personId, actorId: "admin" });
     expect(
       await db.tutor.findUniqueOrThrow({ where: { id: tutorId } }),
-    ).toEqual({ ...sourceBefore.tutor, personId: result.personId });
+    ).toEqual({ ...sourceBefore.tutor, personId: result.personId, historyIdentityRevision: sourceBefore.tutor.historyIdentityRevision + 1 });
     expect(
       await db.tutee.findUniqueOrThrow({ where: { id: tuteeId } }),
-    ).toEqual({ ...sourceBefore.tutee, personId: result.personId });
+    ).toEqual({ ...sourceBefore.tutee, personId: result.personId, historyIdentityRevision: sourceBefore.tutee.historyIdentityRevision + 1 });
     expect(await admin.personCombine.preview(selection)).toMatchObject({
       alreadyTogether: true,
       counts: { users: 0, tutors: 1, tutees: 1 },
@@ -909,22 +909,30 @@ it.each([
     });
     const before = await originals();
     const survivor = await credentials("owner");
-    // Compare every source field except the deliberately added directory metadata.
+    // Original evidence stays identical; directory and ownership fences advance
+    // separately and are checked below for exactly the affected source records.
     const sourceRows = async () => ({
       tutors: (await db.tutor.findMany({ orderBy: { id: "asc" } })).map(
-        ({ personId: _personId, ...row }) => {
+        ({ personId: _personId, historyIdentityRevision: _revision, ...row }) => {
           void _personId;
+          void _revision;
           return row;
         },
       ),
       tutees: (await db.tutee.findMany({ orderBy: { id: "asc" } })).map(
-        ({ personId: _personId, ...row }) => {
+        ({ personId: _personId, historyIdentityRevision: _revision, ...row }) => {
           void _personId;
+          void _revision;
           return row;
         },
       ),
     });
     const sourceBefore = await sourceRows();
+    const identityRows = async () => ({
+      tutors: await db.tutor.findMany({ orderBy: { id: "asc" }, select: { id: true, historyIdentityRevision: true } }),
+      tutees: await db.tutee.findMany({ orderBy: { id: "asc" }, select: { id: true, historyIdentityRevision: true } }),
+    });
+    const identityBefore = await identityRows();
     const selection = {
       sources: [user("owner"), user("other")],
       retainedUserId: "owner",
@@ -944,6 +952,10 @@ it.each([
       passwordHash: null,
     });
     expect(await sourceRows()).toEqual(sourceBefore);
+    expect(await identityRows()).toEqual({
+      tutors: identityBefore.tutors.map((row) => ({ ...row, historyIdentityRevision: row.historyIdentityRevision + (kind !== "TUTOR" ? 0 : row.id === "archive" ? 3 : row.id === retainedProfile ? 1 : 0) })),
+      tutees: identityBefore.tutees.map((row) => ({ ...row, historyIdentityRevision: row.historyIdentityRevision + (kind !== "TUTEE" ? 0 : row.id === "past" ? 3 : row.id === retainedProfile ? 1 : 0) })),
+    });
     expect(await originals()).toEqual(before);
     if (kind === "TUTOR") {
       expect(
@@ -1678,7 +1690,10 @@ it("refuses remaining active work, then explicitly finalizes a fresh review with
   expect(result).toMatchObject({ personId: grouped.personId, outcome: "GROUPED", retiredUserIds: [] });
   expect(await caller("admin", "ADMIN").personCombine.receipt({ operationId: input.operationId })).toEqual(result);
   expect(await caller("admin", "ADMIN").personCombine.finalize(input)).toEqual(result);
-  expect(await db.auditLog.count({ where: { operation: "personCombine.finalize" } })).toBe(1);
+  // The domain decision is single-use; transport audit also records the retry
+  // as NO_CHANGE without another finalization, ownership write, or receipt.
+  expect(await db.auditLog.count({ where: { operation: "personCombine.finalize", entity: "Person" } })).toBe(1);
+  expect(await db.auditLog.count({ where: { operation: "personCombine.finalize", entity: "personCombine", details: { path: ["outcome"], equals: "NO_CHANGE" } } })).toBe(1);
   expect(await originals()).toEqual(original);
 });
 

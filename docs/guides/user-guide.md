@@ -772,6 +772,11 @@ choose **Finalize reviewed group**; the server rechecks live evidence and author
 before atomically saving the finalization receipt. A checkbox or refresh never
 clears the review state. Older Combine Accounts submissions require a fresh Combine
 Records review and cannot silently combine capabilities.
+If a pending history invitation blocks the review, open **Review pending history
+invitation** to inspect its original records and cancel it when no longer needed.
+Later group members are not added to that invitation. After cancellation, request
+a fresh participation review; cancelling does not finalize the group. Earlier
+Tutee invitations still use their original Tutees workflow.
 The tool does not silently transfer current assignments, restore suspended or
 departed access, grant roles, or fabricate consent. Departure-history conflicts
 still require a supported reviewed resolution before login retirement.

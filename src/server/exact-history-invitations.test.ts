@@ -4,7 +4,8 @@ import type { Session } from "next-auth";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
-const mail = vi.hoisted(() => ({ send: vi.fn(), available: vi.fn(() => true) }));
+type Mail = { text: string };
+const mail = vi.hoisted(() => ({ send: vi.fn<(message: Mail) => Promise<void>>(), available: vi.fn(() => true) }));
 vi.mock("~/server/email/sender", () => ({ emailSender: { send: mail.send }, isEmailDeliveryAvailable: mail.available }));
 
 import { db } from "./db";
@@ -32,8 +33,9 @@ async function invite(scope = sources, recipient = email) {
   return { receipt: await caller().tuteeHistory.inviteExact(payload), payload };
 }
 function token() {
-  const message = mail.send.mock.calls.findLast((call) => (call[0] as { text: string }).text.includes("token="))?.[0] as { text: string } | undefined;
-  const value = message?.text.match(/token=([a-f0-9]{64})/)?.[1];
+  // Keep the captured chronology intact while using the project's ES2022 API set.
+  const message = [...mail.send.mock.calls].reverse().find(([message]) => message.text.includes("token="))?.[0];
+  const value = message ? /token=([a-f0-9]{64})/.exec(message.text)?.[1] : undefined;
   if (!value) throw new Error("Missing synthetic invitation token");
   return value;
 }
@@ -85,12 +87,16 @@ it("claims only the frozen Tutor/Tutee sources and recovers a consumed claim by 
   const { receipt } = await invite();
   expect(receipt.status).toBe("PUBLISHED");
   const claimToken = token();
-  expect(await caller("recipient", "STUDENT").tuteeHistory.inspectClaim({ token: claimToken })).toMatchObject({ claimed: false, sources: expect.arrayContaining([{ kind: "TUTOR", id: "tutor", name: "Original Tutor" }, { kind: "TUTEE", id: "tutee", name: "Original Learner" }]) });
+  const inspected = await caller("recipient", "STUDENT").tuteeHistory.inspectClaim({ token: claimToken });
+  expect(inspected.claimed).toBe(false);
+  expect(inspected.sources).toEqual([{ kind: "TUTEE", id: "tutee", name: "Original Learner" }, { kind: "TUTOR", id: "tutor", name: "Original Tutor" }]);
   await expect(caller("other", "STUDENT").tuteeHistory.inspectClaim({ token: claimToken })).rejects.toThrow("HISTORY_EMAIL_MISMATCH");
   await caller("recipient", "STUDENT").tuteeHistory.claim({ token: claimToken });
   expect(await db.tutorProfileOwnership.findUnique({ where: { tutorId: "tutor" } })).toMatchObject({ userId: "recipient" });
   expect(await db.studentProfileOwnership.findUnique({ where: { tuteeId: "tutee" } })).toMatchObject({ userId: "recipient" });
-  expect(await caller("recipient", "STUDENT").tuteeHistory.inspectClaim({ token: claimToken })).toMatchObject({ claimed: true, sources: expect.any(Array) });
+  const recovered = await caller("recipient", "STUDENT").tuteeHistory.inspectClaim({ token: claimToken });
+  expect(recovered.claimed).toBe(true);
+  expect(recovered.sources).toEqual(inspected.sources);
   const auditCount = await db.auditLog.count({ where: { operation: "tuteeHistory.claimExact" } });
   await caller("recipient", "STUDENT").tuteeHistory.claim({ token: claimToken });
   expect(await db.auditLog.count({ where: { operation: "tuteeHistory.claimExact" } })).toBe(auditCount);
@@ -106,7 +112,7 @@ it("creates missing history-only credentials through the existing separate email
   await invite([{ kind: "TUTOR", id: "tutor" }], recipient);
   const claimToken = token();
   await startHistoryAccount(db, { token: claimToken, email: recipient });
-  const code = (mail.send.mock.calls.at(-1)![0] as { text: string }).text.match(/ is ([0-9]{4})/)![1]!;
+  const code = / is ([0-9]{4})/.exec(mail.send.mock.calls.at(-1)![0].text)![1]!;
   await expect(verifyHistoryAccount(db, { token: claimToken, email: recipient, code: "wrong" })).rejects.toThrow("HISTORY_CODE_MISMATCH");
   const verified = await verifyHistoryAccount(db, { token: claimToken, email: recipient, code });
   const envelope = await issueHistoryAccountInvitation(db, { token: claimToken, email: recipient, ...verified }, true);
@@ -114,7 +120,9 @@ it("creates missing history-only credentials through the existing separate email
   const created = await db.user.findUniqueOrThrow({ where: { email: recipient } });
   await completeHistoryAccount(db, { token: claimToken, email: recipient, ...verified, password: "Retry-must-not-replace-password-460!" });
   expect((await db.user.findUniqueOrThrow({ where: { id: created.id } })).passwordHash).toBe(created.passwordHash);
-  expect(created).toMatchObject({ role: "STUDENT", studentId: null, tutorId: null, tuteeMember: false, tutorAccessRevoked: true, personId: expect.any(String) });
+  expect(created).toMatchObject({ role: "STUDENT", studentId: null, tutorId: null, tuteeMember: false, tutorAccessRevoked: true });
+  expect(typeof created.personId).toBe("string");
+  expect(created.personId).not.toBe("");
   expect(await db.tutorProfileOwnership.count()).toBe(0);
   expect(await db.studentProfileOwnership.count()).toBe(0);
   await caller(created.id, "STUDENT").tuteeHistory.claim({ invitationId: envelope.invitationId });
@@ -162,7 +170,12 @@ it("reports stable reasons for unrelated groups, current work, nonhistorical rec
 });
 
 it("keeps a pending qualification with its original domain and blocks historical setup until resolved", async () => {
-  await db.tutorApplication.create({ data: { id: "qualification", requestedTutorId: "tutor", type: "ADDITIONAL_SUBJECT", name: "Original Tutor", email: "archive@example.test", status: "PENDING" } });
+  await db.subject.create({ data: { id: "qualification-subject", name: "Additional historical subject" } });
+  await db.tutorApplication.create({ data: {
+    id: "qualification", requestedTutorId: "tutor", requestedSubjectId: "qualification-subject",
+    type: "ADDITIONAL_SUBJECT", qualificationReason: "Reviewed request for another subject",
+    name: "Original Tutor", email: "archive@example.test", status: "PENDING",
+  } });
   expect((await preview([{ kind: "TUTOR", id: "tutor" }])).blocked).toContain("CURRENT_WORK");
   expect(await db.tutorApplication.findUnique({ where: { id: "qualification" } })).toMatchObject({ status: "PENDING", requestedTutorId: "tutor" });
   expect(mail.send).not.toHaveBeenCalled();

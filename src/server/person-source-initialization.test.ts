@@ -69,11 +69,14 @@ it("rejects conflicting explicit current and retained owners and rolls initializ
 it("preserves established groups and every revision on repeated initialization", async () => {
   const person = await db.person.create({ data: { id: "p", revision: 8, resolutionState: "REVIEW_REQUIRED" } });
   const student = await db.tutee.create({ data: { id: "s", englishName: "Original", personId: person.id } });
+  // Inserting a member advances the group fence before initialization begins.
+  const establishedPerson = await db.person.findUniqueOrThrow({ where: { id: person.id } });
+  expect(establishedPerson.revision).toBe(person.revision + 1);
   await db.$transaction(async (tx) => {
     expect(await initializePersonSource(tx, { kind: "TUTEE", id: "s" })).toBe(person.id);
     expect(await initializePersonSource(tx, { kind: "TUTEE", id: "s" })).toBe(person.id);
   });
-  expect(await db.person.findUniqueOrThrow({ where: { id: person.id } })).toEqual(person);
+  expect(await db.person.findUniqueOrThrow({ where: { id: person.id } })).toEqual(establishedPerson);
   expect(await db.tutee.findUniqueOrThrow({ where: { id: student.id } })).toEqual(student);
 });
 

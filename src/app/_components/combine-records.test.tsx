@@ -6,13 +6,14 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { CombineRecords } from "./combine-records";
-import type { RouterInputs } from "~/trpc/react";
+import type { RouterInputs, RouterOutputs } from "~/trpc/react";
 
 const fixture = vi.hoisted(() => ({
   preview: vi.fn(),
@@ -24,6 +25,11 @@ const fixture = vi.hoisted(() => ({
   refetch: vi.fn(),
   query: vi.fn(),
   pending: vi.fn(),
+  invitationQuery: vi.fn(),
+  invitationRefetch: vi.fn(),
+  invitationCancel: vi.fn(),
+  invitationSend: vi.fn(),
+  invitationStatus: null as RouterOutputs["tuteeHistory"]["exactInvitationStatus"],
   candidateError: null as null | { message: string; data?: { code: string } },
   candidateSuccess: true,
   candidateFetching: false,
@@ -105,6 +111,16 @@ vi.mock("~/trpc/react", () => ({
         },
       },
     },
+    tuteeHistory: {
+      exactInvitationStatus: {
+        useQuery: (input: unknown) => {
+          fixture.invitationQuery(input);
+          return { data: fixture.invitationStatus, error: null, isFetching: false, isLoading: false, refetch: fixture.invitationRefetch };
+        },
+      },
+      inviteExact: { useMutation: () => ({ mutate: fixture.invitationSend, isPending: false }) },
+      cancelExactInvitation: { useMutation: () => ({ mutateAsync: fixture.invitationCancel, isPending: false }) },
+    },
   },
 }));
 const preview = () => ({
@@ -138,6 +154,13 @@ beforeEach(() => {
   fixture.candidateError = null;
   fixture.candidateSuccess = true;
   fixture.candidateFetching = false;
+  fixture.invitationStatus = null;
+  fixture.invitationRefetch.mockReset().mockImplementation(async () => ({ data: fixture.invitationStatus }));
+  fixture.invitationCancel.mockReset().mockResolvedValue({ cancelled: true });
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } },
+    close: { configurable: true, value: function (this: HTMLDialogElement) { this.open = false; } },
+  });
 });
 afterEach(cleanup);
 
@@ -167,10 +190,87 @@ it("keeps finalization blocked while a typed current assignment remains", async 
   fireEvent.change(screen.getByLabelText(en.combineRecords.evidence), { target: { value: "Identity confirmed, assignment remains unresolved" } });
   fireEvent.change(screen.getByLabelText(en.combineRecords.password), { target: { value: "head-password" } });
   fireEvent.click(screen.getByLabelText(en.combineRecords.acknowledge));
-  const button = screen.getByRole("button", { name: en.combineRecords.finalizeParticipation }) as HTMLButtonElement;
+  const button = screen.getByRole<HTMLButtonElement>("button", { name: en.combineRecords.finalizeParticipation });
   expect(button.disabled).toBe(true);
   fireEvent.click(button);
   expect(fixture.finalize).not.toHaveBeenCalled();
+});
+
+it("cancels the original invitation scope after a group grows and requires a fresh participation review", async () => {
+  const originalSources = [
+    { kind: "TUTOR" as const, id: "archive-tutor" },
+    { kind: "TUTEE" as const, id: "archive-tutee" },
+  ];
+  const blocker = {
+    id: "pending-exact-invitation",
+    reason: "PENDING_HISTORY_INVITATION",
+    sources: originalSources,
+    work: [{ kind: "HISTORICAL_RECORD_INVITATION", id: "original-scope-key", dueAt: new Date("2026-11-01") }],
+    destination: "/admin/users",
+    blocksFinalization: true,
+    blocksRetirement: true,
+    field: null,
+  };
+  const pendingReview = { ...preview(), personId: "review-person", alreadyTogether: true, outcome: "REVIEW_REQUIRED", blockers: [blocker] };
+  fixture.reviewGroup.mockResolvedValue(pendingReview);
+  fixture.invitationStatus = {
+    revision: "b".repeat(64),
+    invitation: { email: "original@example.test", expiresAt: new Date("2026-11-01") },
+    attempt: { attemptId: "original-attempt", status: "PUBLISHED", email: "original@example.test", expiresAt: new Date("2026-11-01") },
+  };
+  render(element(true, "en", "review-person"));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.reviewParticipation }));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.refreshParticipation }));
+  const summary = await screen.findByText(en.combineRecords.pendingInvitation, { selector: "summary" });
+  expect(fixture.invitationQuery).not.toHaveBeenCalled();
+  fireEvent.click(summary);
+  const email = await screen.findByLabelText<HTMLInputElement>(en.tuteeHistory.email);
+  fireEvent.change(email, { target: { value: "unfinished-draft@example.test" } });
+  expect(fixture.invitationQuery).toHaveBeenLastCalledWith({ sources: originalSources });
+
+  const added = { ...candidates[0]!, ref: { kind: "TUTOR", id: "later-group-member" }, name: "Later historical record" };
+  fixture.reviewGroup.mockResolvedValue({ ...pendingReview, sources: [...pendingReview.sources, added], counts: { users: 0, tutors: 2, tutees: 1 } });
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.refreshParticipation }));
+  await screen.findAllByText("Later historical record");
+  expect(screen.getByLabelText<HTMLInputElement>(en.tuteeHistory.email)).toBe(email);
+  expect(email.value).toBe("unfinished-draft@example.test");
+  expect(fixture.invitationQuery).toHaveBeenLastCalledWith({ sources: originalSources });
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: en.combineRecords.finalizeParticipation }).disabled).toBe(true);
+
+  fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.cancelInvitation }));
+  const confirmation = screen.getByRole("dialog", { name: en.tuteeHistory.cancelInvitation });
+  fixture.invitationStatus = null;
+  fireEvent.click(within(confirmation).getByRole("button", { name: en.tuteeHistory.cancelInvitation }));
+  await within(confirmation).findByText(en.actionReview.applied);
+  expect(fixture.invitationCancel).toHaveBeenCalledTimes(1);
+  expect(fixture.invitationCancel).toHaveBeenCalledWith({ sources: originalSources, revision: "b".repeat(64) });
+  expect(screen.queryByRole("button", { name: en.combineRecords.finalizeParticipation })).toBeNull();
+  expect(fixture.reviewGroup).toHaveBeenCalledTimes(2);
+  expect(fixture.finalize).not.toHaveBeenCalled();
+  expect(fixture.mutate).not.toHaveBeenCalled();
+  expect(fixture.invitationSend).not.toHaveBeenCalled();
+
+  fireEvent.click(within(confirmation).getByRole("button", { name: en.actionReview.close }));
+  fixture.reviewGroup.mockResolvedValue({ ...pendingReview, outcome: "GROUPED", blockers: [] });
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.refreshParticipation }));
+  await screen.findByText(en.personParticipation.clear);
+  expect(fixture.reviewGroup).toHaveBeenCalledTimes(3);
+  expect(fixture.finalize).not.toHaveBeenCalled();
+  expect(fixture.invitationCancel).toHaveBeenCalledTimes(1);
+});
+
+it("keeps legacy invitations in their original workflow without inventing an exact scope", async () => {
+  fixture.reviewGroup.mockResolvedValue({
+    ...preview(), personId: "review-person", outcome: "REVIEW_REQUIRED",
+    blockers: [{ id: "legacy-invitation", reason: "PENDING_HISTORY_INVITATION", sources: [{ kind: "TUTEE", id: "archive-tutee" }], work: [{ kind: "TUTEE_HISTORY_INVITATION", id: "archive-tutee", dueAt: null }], destination: "/admin/tutees", blocksFinalization: true, blocksRetirement: true, field: null }],
+  });
+  render(element(true, "en", "review-person"));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.reviewParticipation }));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.refreshParticipation }));
+  expect((await screen.findByRole("link", { name: en.personParticipation.destination.tutees })).getAttribute("href")).toBe("/admin/tutees");
+  expect(screen.queryByText(en.combineRecords.pendingInvitation, { selector: "summary" })).toBeNull();
+  expect(fixture.invitationQuery).not.toHaveBeenCalled();
+  expect(fixture.invitationCancel).not.toHaveBeenCalled();
 });
 const element = (isHead = false, locale: "en" | "zh" = "en", reviewPersonId?: string) => (
   <NextIntlClientProvider

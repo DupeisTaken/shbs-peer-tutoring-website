@@ -25,10 +25,13 @@ export function HistoricalRecordInvitation({
   sources: initialSources,
   unavailable = false,
   accessDenied = false,
+  onCancelled,
 }: {
   sources: HistoricalInvitationSource[];
   unavailable?: boolean;
   accessDenied?: boolean;
+  /** Invalidate an enclosing participation preview after an accepted cancellation. */
+  onCancelled?: () => void;
 }) {
   const t = useTranslations("historicalInvitation");
   const history = useTranslations("tuteeHistory");
@@ -69,7 +72,11 @@ export function HistoricalRecordInvitation({
 
   const refresh = async (knownReceipt = receipt) => {
     const result = await status.refetch({ throwOnError: true });
-    if (result.error) throw result.error;
+    if (result.error) {
+      // Refetch can return a serialized tRPC error; preserve its authority code
+      // when normalizing the thrown value for recovery and evidence concealment.
+      throw Object.assign(new Error(result.error.message), { data: result.error.data });
+    }
     // A durable admitted attempt can be explicitly superseded. Confirm its exact
     // identity in a fresh scope read before releasing the unknown-outcome fence.
     setUncertainRevision(
@@ -196,7 +203,7 @@ export function HistoricalRecordInvitation({
           <p>{history(`invitation_${status.data.attempt.status}`)}</p>
           <p className="break-all">{history("invitationAttemptRecipient", { email: status.data.attempt.email })}</p>
         </InlineNotice>}
-        {(status.data?.invitation || status.data?.attempt?.status === "UNCERTAIN") && <Button
+        {(!!status.data?.invitation || status.data?.attempt?.status === "UNCERTAIN") && <Button
           disabled={cancellationDisabled || cancellation.blocked("cancel-history-invitation")}
           onClick={() => {
             if (!status.data || cancellationDisabled) return;
@@ -215,6 +222,7 @@ export function HistoricalRecordInvitation({
                 setReceipt(null);
                 clearReview();
                 setRefreshRequired(true);
+                onCancelled?.();
                 return result;
               },
               refresh: async () => { setRefreshRequired(true); await refresh(null); },

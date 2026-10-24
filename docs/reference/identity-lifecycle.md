@@ -72,6 +72,13 @@ conflicting accounts and incomplete credentials. Staff resolve those conditions 
 their existing workflows and request a fresh preview; this invitation path does not
 transfer assignments, qualifications, restrictions or policy acceptance.
 
+When an exact invitation blocks participation finalization, the review keeps a
+separate cancellation control for that invitation's original source set. Adding
+or removing group members cannot widen that set. Cancellation uses a fresh scope
+revision; an accepted cancellation clears the participation preview and requires
+an explicit fresh review. It never finalizes the group automatically. Legacy
+Tutee invitations retain their original Tutees workflow.
+
 The additive `HistoricalRecordInvitation` stores the selected typed source IDs,
 recipient and issuer credential bindings, source/group ownership generations and a
 hashed token. Later group members never join its scope. Source/group revisions also

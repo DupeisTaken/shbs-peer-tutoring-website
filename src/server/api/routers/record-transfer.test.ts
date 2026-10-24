@@ -274,12 +274,13 @@ it("previews without persistence, imports linked history atomically, and skips i
 });
 
 it("initializes imported explicit ownership without changing account privileges or source versions", async () => {
+  const before = await db.user.findUniqueOrThrow({ where: { id: "HEAD" } });
   const files = [
     file("StudentProfileOwnership", [{ tuteeId: "owned-history", userId: "HEAD" }]),
     file("Tutee", [{ id: "owned-history", englishName: "Original history", status: "INACTIVE", updatedAt: "2024-10-01T10:00:00Z" }]),
-    file("User", [{ id: "HEAD", email: "HEAD@example.test", name: "HEAD" }]),
+    // Archives reference the persisted account; its email trigger normalizes case.
+    file("User", [{ id: before.id, email: before.email, name: before.name }]),
   ];
-  const before = await db.user.findUniqueOrThrow({ where: { id: "HEAD" } });
   const preview = await caller().recordTransfer.preview({ files });
   expect(await db.person.count()).toBe(0);
   await caller().recordTransfer.import({ files, ticket: preview.ticket });
@@ -294,11 +295,15 @@ it("initializes imported explicit ownership without changing account privileges 
 
 it("refuses conflicting explicit imported ownership and rolls back all identity metadata", async () => {
   await db.tutee.create({ data: { id: "already-current", englishName: "Current source" } });
-  await db.user.update({ where: { id: "ADMIN" }, data: { studentId: "already-current" } });
+  const owner = await db.user.update({ where: { id: "ADMIN" }, data: { studentId: "already-current" } });
+  const source = await db.tutee.findUniqueOrThrow({ where: { id: "already-current" } });
   const files = [file("StudentProfileOwnership", [{ tuteeId: "already-current", userId: "HEAD" }])];
-  await expect(caller().recordTransfer.preview({ files })).rejects.toThrow(/conflicting current and retained owners/);
+  // Import rejects conflicting ownership before directory initialization runs.
+  await expect(caller().recordTransfer.preview({ files })).rejects.toThrow("StudentProfileOwnership.csv, row 2: this student profile belongs to another account.");
   expect(await db.person.count()).toBe(0);
   expect(await db.studentProfileOwnership.count()).toBe(0);
+  expect(await db.user.findUniqueOrThrow({ where: { id: owner.id } })).toEqual(owner);
+  expect(await db.tutee.findUniqueOrThrow({ where: { id: source.id } })).toEqual(source);
 });
 
 it("keeps operational identity IDs and invitation revisions outside archive authority", async () => {

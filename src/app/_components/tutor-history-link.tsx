@@ -83,7 +83,7 @@ export function TutorHistorySection({
         />
       )}
       {/* Correcting one mistaken owner must not identify two unrelated people. */}
-      {unified && historical && (permissions.data?.canLink || hadAccess) && (
+      {unified && historical && (permissions.data?.canLink === true || hadAccess) && (
         <DisclosureSection title={combineText("historySetup")} lifetime="retained">
           <HistoricalRecordInvitation
             sources={[{ kind: "TUTOR", id: tutorId }]}

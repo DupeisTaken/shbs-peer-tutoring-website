@@ -1,11 +1,11 @@
 {
   "historicalInvitation": {
     "claimUncertain": "The claim result is unknown. Read the invitation again to check its result; do not repeat the claim.",
-    "title": "Set up historical access",
+    "title": "Set Up Historical Access",
     "help": "Review the recipient and exact original records before sending a history-only invitation. The recipient must verify their mailbox and claim these records.",
     "recipient": "Recipient and identity evidence",
     "review": "Review invitation",
-    "reviewTitle": "Review exact history access",
+    "reviewTitle": "Review Exact History Access",
     "exactSources": "Records included in this invitation",
     "consequences": "Only the listed records can be claimed. Later group additions are excluded. Setup does not enroll the recipient, grant current roles or record policy consent.",
     "acknowledge": "I verified the recipient and every listed original record.",
@@ -23,7 +23,7 @@
   },
   "personParticipation": {
     "availableAt": "Earliest review: {date}",
-    "title": "Current participation review",
+    "title": "Current Participation Review",
     "help": "Resolve each item in its existing workflow, then get a fresh review. Refresh does not change access or clear the review state.",
     "clear": "No remaining participation blockers were found. Finalization rechecks the live records.",
     "workReference": "Work reference: {id}",
@@ -5563,12 +5563,14 @@
     "accessDenied": "더 이상 면접에 접근할 수 없습니다. 다시 불러와 현재 권한을 확인하세요."
   },
   "combineRecords": {
-    "participationTitle": "Review current participation",
+    "participationTitle": "Review Current Participation",
     "participationIntro": "Check current work and access before explicitly completing this group's review.",
     "reviewParticipation": "Review current participation",
     "refreshParticipation": "Get fresh participation review",
     "finalizeParticipation": "Finalize reviewed group",
     "historySetup": "Set up historical access",
+    "pendingInvitation": "Review pending history invitation",
+    "pendingInvitationHelp": "This invitation covers only the original records below. Cancel it if it is no longer needed, then refresh the participation review.",
     "title": "Combine records",
     "intro": "Bring together accounts and participant records belonging to the same person.",
     "open": "Combine records",

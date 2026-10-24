@@ -271,6 +271,8 @@ it("stages anonymously without exposing or changing the live answers, priority, 
 
 it("reuses a normalized existing tutor mailbox only after existing sign-in/MFA and preserves credentials and tutor membership", async () => {
   const { user, tutor } = await owner({ mfa: true });
+  // Account creation has already advanced the tutor's current-owner fence.
+  const tutorBeforeConfirmation = await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } });
   const input = await answers({ email: "  OWNER@EXAMPLE.TEST  ", englishName: "Posted different name" });
   const accepted = await anonymous().tutee.submitSurvey({ ...input, clientKey: randomUUID() });
   const invite = await invitation(accepted.intentId);
@@ -296,14 +298,26 @@ it("reuses a normalized existing tutor mailbox only after existing sign-in/MFA a
   expect(person).toMatchObject({ primaryUserId: user.id, resolutionState: "GROUPED", mergedIntoId: null });
   expect(confirmedUser).toMatchObject({ personId: person.id, studentId: tutee.id });
   expect(tutee.personId).toBe(person.id);
-  expect(await db.person.count()).toBe(1);
+  expect(await db.person.findMany({ where: { mergedIntoId: null } })).toEqual([person]);
+  // Materialization first creates an accountless source. Ownership then retains
+  // that directory row as an empty redirect to the account's canonical group.
+  expect(await db.person.findMany({
+    where: { mergedIntoId: { not: null } },
+    include: { _count: { select: { users: true, tutors: true, tutees: true } } },
+  })).toEqual([expect.objectContaining({
+    primaryUserId: null, mergedIntoId: person.id, resolutionState: "GROUPED",
+    _count: { users: 0, tutors: 0, tutees: 0 },
+  })]);
+  expect(await db.studentProfileOwnership.findUniqueOrThrow({ where: { tuteeId: tutee.id } }))
+    .toMatchObject({ userId: user.id, revision: 1 });
   // First tutee confirmation creates canonical directory metadata and runs the
   // profile mirror. Assert both separately so no original tutor business field
   // is excluded from the unchanged-record comparison.
-  const { updatedAt: originalTimestamp, personId: originalPersonId, ...originalTutor } = tutor;
-  const { updatedAt: mirroredTimestamp, personId: mirroredPersonId, ...mirroredTutor } = await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } });
+  const { updatedAt: originalTimestamp, personId: originalPersonId, historyIdentityRevision: originalIdentityRevision, ...originalTutor } = tutorBeforeConfirmation;
+  const { updatedAt: mirroredTimestamp, personId: mirroredPersonId, historyIdentityRevision: mirroredIdentityRevision, ...mirroredTutor } = await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } });
   expect(originalPersonId).toBeNull();
   expect(mirroredPersonId).toBe(person.id);
+  expect(mirroredIdentityRevision).toBe(originalIdentityRevision + 1);
   expect(mirroredTutor).toEqual(originalTutor);
   expect(mirroredTimestamp.getTime()).toBeGreaterThanOrEqual(originalTimestamp.getTime());
 });
