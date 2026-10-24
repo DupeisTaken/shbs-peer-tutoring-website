@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { ApplicationAccountSetupButton } from "./application-account-setup";
 import { useFormatter, useTimeZone, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { parseProgramDateTime, programDateTimeInput } from "~/lib/program-time";
@@ -22,7 +22,7 @@ export type CompletionDraft = {
   refreshFailed?: boolean;
 };
 
-/** No registration secrets are fetched here. This is a management-only projection. */
+/** Summary reads contain no secrets; the setup action loads its exact application on demand. */
 export function InterviewWorkflowStatus({
   application,
   navigationBlocked = false,
@@ -51,23 +51,16 @@ export function InterviewWorkflowStatus({
       {application.registration && (
         <p>{t(`registration.${application.registration.state}`)}</p>
       )}
-      {application.registration?.href &&
-        (navigationBlocked ? (
-          <span
-            role="link"
-            aria-disabled="true"
-            className="inline-flex min-h-11 items-center text-slate-500 lg:min-h-8"
-          >
-            {t("registrationAction")}
-          </span>
-        ) : (
-          <Link
-            className="link inline-flex min-h-11 items-center lg:min-h-8"
-            href={application.registration.href}
-          >
-            {t("registrationAction")}
-          </Link>
-        ))}
+      {application.type === "INITIAL" &&
+        application.status === "ACCEPTED" &&
+        !application.isInvalid && (
+          <ApplicationAccountSetupButton
+            applicationId={application.id}
+            name={application.name}
+            label={t("registrationAction")}
+            disabled={navigationBlocked}
+          />
+        )}
     </div>
   );
 }

@@ -23,6 +23,8 @@ const mocks = vi.hoisted(() => ({
   decide: vi.fn(),
   changed: vi.fn(),
   invalidate: vi.fn(),
+  notificationList: vi.fn(),
+  notificationUnread: vi.fn(),
   fetch: vi.fn(),
 }));
 type Callbacks = {
@@ -49,26 +51,30 @@ vi.mock("~/trpc/react", () => ({
           // Model asynchronous success/refetch separately from transport failure.
           const [isPending, setPending] = useState(false);
           const [error, setError] = useState<Error | null>(null);
+          const execute = async (input: unknown) => {
+            setPending(true);
+            setError(null);
+            try {
+              const result: unknown = await mocks.decide(input);
+              await callbacks.onSuccess();
+              return result;
+            } catch (failure) {
+              setError(failure as Error);
+              callbacks.onError();
+              throw failure;
+            } finally {
+              setPending(false);
+              callbacks.onSettled();
+            }
+          };
           return {
             isPending,
             error,
             reset: () => setError(null),
             mutate: (input: unknown) => {
-              setPending(true);
-              setError(null);
-              void (async () => {
-                try {
-                  await mocks.decide(input);
-                  await callbacks.onSuccess();
-                } catch (failure) {
-                  setError(failure as Error);
-                  callbacks.onError();
-                } finally {
-                  setPending(false);
-                  callbacks.onSettled();
-                }
-              })();
+              void execute(input).catch(() => undefined);
             },
+            mutateAsync: execute,
           };
         },
       },
@@ -81,6 +87,10 @@ vi.mock("~/trpc/react", () => ({
         tutorApplications: { fetch: mocks.fetch },
       },
       tutorDetails: { get: { invalidate: mocks.invalidate } },
+      notification: {
+        list: { invalidate: mocks.notificationList },
+        unreadCount: { invalidate: mocks.notificationUnread },
+      },
     }),
   },
 }));
@@ -96,6 +106,30 @@ const base: App = {
   requestedTutorId: "applicant",
   qualificationReason: "Synthetic evidence",
 };
+const interviewed: App = {
+  ...base,
+  status: "INTERVIEW",
+  interviewers: [
+    {
+      isHead: true,
+      attended: false,
+      tutor: { id: "reviewer", englishName: "Admin Chair" },
+    },
+    {
+      isHead: false,
+      attended: false,
+      tutor: { id: "one", englishName: "Panelist One" },
+    },
+    {
+      isHead: false,
+      attended: false,
+      tutor: { id: "two", englishName: "Panelist Two" },
+    },
+  ],
+  votes: [{ accept: true }, { accept: true }, { accept: false }],
+  interviewCompletedAt: null,
+  interviewDurationMin: null,
+};
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.role = "ADMIN";
@@ -104,11 +138,17 @@ beforeEach(() => {
   mocks.decide.mockResolvedValue({ ok: true });
   mocks.changed.mockResolvedValue(undefined);
   mocks.invalidate.mockResolvedValue(undefined);
+  mocks.notificationList.mockResolvedValue(undefined);
+  mocks.notificationUnread.mockResolvedValue(undefined);
   mocks.fetch.mockResolvedValue([base]);
 });
 afterEach(cleanup);
 const element = (app = base, readOnly = false, locale: "en" | "zh" = "en") => (
-  <NextIntlClientProvider locale={locale} messages={locale === "en" ? en : zh}>
+  <NextIntlClientProvider
+    locale={locale}
+    timeZone="Asia/Shanghai"
+    messages={locale === "en" ? en : zh}
+  >
     <ReadOnlyProvider value={readOnly}>
       <QualificationReview app={app} onChanged={mocks.changed} />
     </ReadOnlyProvider>
@@ -270,21 +310,79 @@ it.each(["PENDING", "INTERVIEW"])(
     expect(screen.queryByRole("textbox")).toBeNull();
   },
 );
-it("retains the authorized chair's inline panel decision workflow", async () => {
-  show({
-    ...base,
-    status: "INTERVIEW",
-    interviewers: [{ isHead: true, tutor: { id: "reviewer" } }],
-  });
-  expect(
-    screen.queryByRole("button", { name: "Approve without Interview" }),
-  ).toBeNull();
-  expect(screen.getByText(/after every panelist has voted/)).toBeTruthy();
-  writeNote();
-  approve();
-  await waitFor(() => expect(mocks.changed).toHaveBeenCalledWith(true));
-  expect(mocks.decide).toHaveBeenCalledTimes(1);
-});
+it.each(["ADDITIONAL_SUBJECT", "HIGHER_LEVEL"] as const)(
+  "collects %s completion and actual attendance before the chair approves",
+  async (type) => {
+    show({ ...interviewed, type });
+    expect(
+      screen.queryByRole("button", { name: "Approve without Interview" }),
+    ).toBeNull();
+    expect(screen.getByText(/after every panelist has voted/)).toBeTruthy();
+    writeNote();
+    approve();
+    expect(mocks.decide).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(
+      screen
+        .getAllByRole<HTMLInputElement>("checkbox")
+        .every((box) => !box.checked),
+    ).toBe(true);
+    fireEvent.change(screen.getByLabelText(en.workflows.interviewComplete), {
+      target: { value: "2026-09-01T10:00" },
+    });
+    fireEvent.change(screen.getByLabelText(en.workflows.duration), {
+      target: { value: "45" },
+    });
+    fireEvent.click(screen.getByLabelText("Admin Chair"));
+    fireEvent.click(screen.getByLabelText("Panelist One"));
+    fireEvent.click(
+      screen.getByRole("button", { name: en.interviewApproval.review }),
+    );
+    const confirmation = screen.getAllByRole("dialog").at(-1)!;
+    expect(
+      within(confirmation).getByText(en.interviewApproval.effectsQualification),
+    ).toBeTruthy();
+    fireEvent.click(
+      within(confirmation).getByRole("button", {
+        name: en.interviewApproval.confirm,
+      }),
+    );
+    await waitFor(() => expect(mocks.changed).toHaveBeenCalledWith(true));
+    expect(mocks.decide).toHaveBeenCalledExactlyOnceWith({
+      id: base.id,
+      accept: true,
+      comment: "Evidence reviewed",
+      expectedUpdatedAt: base.updatedAt,
+      completion: {
+        completedAt: new Date("2026-09-01T02:00:00Z"),
+        durationMin: 45,
+        attendedTutorIds: ["reviewer", "one"],
+      },
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(mocks.notificationList).toHaveBeenCalledOnce();
+    expect(mocks.notificationUnread).toHaveBeenCalledOnce();
+  },
+);
+
+it.each([
+  { votes: [{ accept: true }, { accept: true }] },
+  { votes: [{ accept: true }, { accept: false }, { accept: false }] },
+])(
+  "withholds interviewed approval for missing votes or a rejecting majority",
+  ({ votes }) => {
+    show({ ...interviewed, votes });
+    writeNote();
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: en.qualificationRequests.approve,
+      }).disabled,
+    ).toBe(true);
+    approve();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(mocks.decide).not.toHaveBeenCalled();
+  },
+);
 it("does not expose the chair controls with revoked tutor access", () => {
   mocks.revoked = true;
   show({
@@ -345,6 +443,24 @@ it("blocks opposite interview decisions in the same tick", async () => {
     expectedUpdatedAt: base.updatedAt,
   });
   await act(async () => write.resolve());
+});
+
+it("opening interviewed approval blocks an opposite decision before the dialog render", () => {
+  show(interviewed);
+  writeNote();
+  const yes = screen.getByRole("button", {
+    name: en.qualificationRequests.approve,
+  });
+  const no = screen.getByRole("button", {
+    name: en.qualificationRequests.reject,
+  });
+  act(() => {
+    yes.click();
+    no.click();
+    yes.click();
+  });
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  expect(mocks.decide).not.toHaveBeenCalled();
 });
 
 it("preserves the failed draft/version through background refresh and retry; explicit reload replaces it only after a successful read", async () => {

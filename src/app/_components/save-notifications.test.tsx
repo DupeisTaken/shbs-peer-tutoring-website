@@ -13,6 +13,7 @@ import zh from "../../../messages/zh.json";
 import { NotificationViewport, SaveNotifications } from "./save-notifications";
 import { ApprovalNotice } from "./approval-notice";
 import { createQueryClient, isAdminSaveMutation } from "~/trpc/query-client";
+import { TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE } from "~/lib/tutor-promotion";
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <NextIntlClientProvider locale="en" messages={messages}>
     {children}
@@ -75,6 +76,37 @@ it("retains failed saves across later successes and deduplicates repeated errors
   fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   expect(screen.queryByRole("alert")).toBeNull();
 });
+
+it.each([
+  ["en", messages],
+  ["zh", zh],
+] as const)(
+  "explains revoked tutor access in %s for direct application status failures",
+  async (locale, catalog) => {
+    window.history.replaceState(null, "", "/admin/applications");
+    render(
+      <NextIntlClientProvider locale={locale} messages={catalog}>
+        <SaveNotifications />
+      </NextIntlClientProvider>,
+    );
+    const client = createQueryClient();
+    const mutation = client.getMutationCache().build(client, {
+      mutationKey: [["admin", "setApplicationStatus"]],
+      mutationFn: () =>
+        Promise.reject(new Error(TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE)),
+    });
+    await act(async () => {
+      await expect(mutation.execute(undefined)).rejects.toThrow(
+        TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE,
+      );
+    });
+    expect(screen.getByRole("alert").textContent).toContain(
+      catalog.interviewApproval.tutoringAccessRevoked,
+    );
+    expect(screen.queryByRole("status")).toBeNull();
+    client.clear();
+  },
+);
 
 it.each([
   ["en", messages],
