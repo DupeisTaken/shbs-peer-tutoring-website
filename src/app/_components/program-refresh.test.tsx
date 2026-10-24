@@ -86,6 +86,16 @@ it("keeps the reviewed values after background changes and refuses silent adopti
   expect(mocks.write).not.toHaveBeenCalled();
 });
 
+it("blocks an already-open review when its latest committed read has failed", async () => {
+  const view = render(tree());
+  const { dialog } = open();
+  mocks.error = new Error("Latest preparation read failed");
+  view.rerender(tree());
+  fireEvent.click(within(dialog).getByRole("button", { name: en.admin.program.refreshButton.replace("{name}", "26-27 S2") }));
+  await within(dialog).findByText(en.nextRecruitment.loadFailed);
+  expect(mocks.write).not.toHaveBeenCalled();
+});
+
 it("admits one pending refresh and blocks dismissal until it settles", async () => {
   let resolve!: (value: typeof result) => void;
   mocks.write.mockReturnValue(new Promise<typeof result>((done) => { resolve = done; }));

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { queuedApprovalId } from "~/lib/approval-outcome";
@@ -28,7 +28,11 @@ export function ProgramRefresh({ period, canEdit, canApply, onActivated }: { per
   const liveCanEdit = canEdit && !!query.data?.canEdit;
   const liveCanApply = canApply && !!query.data?.canApply;
   const latest = useRef({ canEdit: liveCanEdit, data: query.data, error: query.error });
-  latest.current = { canEdit: liveCanEdit, data: query.data, error: query.error };
+  // The open dialog retains its immutable review, while admission reads the
+  // latest committed authority/evidence. Update before interaction, not in render.
+  useLayoutEffect(() => {
+    latest.current = { canEdit: liveCanEdit, data: query.data, error: query.error };
+  }, [liveCanEdit, query.data, query.error]);
   const revoke = review.revoke;
   useEffect(() => { if (!liveCanEdit || denied) revoke(); }, [liveCanEdit, denied, revoke]);
   if (denied) return <StatePanel kind="denied" title={nextText("readOnly")} />;
