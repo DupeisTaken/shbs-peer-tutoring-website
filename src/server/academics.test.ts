@@ -405,6 +405,7 @@ it.each(["ACTIVE", "PENDING", "OPTED_OUT", "ARCHIVED", "GRADUATED"] as const)(
     await caller("academic-head", "HEAD").admin.refresh({
       confirm: "REFRESH",
       expectedTermId: "academic-term",
+      expectedPreparation: (await caller("academic-head", "HEAD").program.nextRecruitment()).refreshEvidence,
     });
     expect(
       (await db.tutor.findUniqueOrThrow({ where: { id: "academic-tutor" } }))
@@ -439,6 +440,7 @@ it("graduates confirmed current-year G12, preserving stale G12 until correction"
   await caller("academic-head", "HEAD").admin.refresh({
     confirm: "REFRESH",
     expectedTermId: "academic-term",
+    expectedPreparation: (await caller("academic-head", "HEAD").program.nextRecruitment()).refreshEvidence,
   });
   expect(
     (await db.tutor.findUniqueOrThrow({ where: { id: "academic-tutor" } }))
