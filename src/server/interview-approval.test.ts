@@ -998,7 +998,8 @@ it.each(["ADMIN", "HEAD"] as const)(
 
     await expect(caller().tutor.decideInterview(input)).rejects.toMatchObject({
       code: "FORBIDDEN",
-      message: expect.stringMatching(/Head.*restore/i),
+      message:
+        "Tutoring access was revoked. Ask Head to restore tutoring access before approving this application.",
     });
 
     expect(await promotionState(app.id)).toEqual(before);
@@ -1221,6 +1222,13 @@ it.each([true, false])(
       where: { id: account.id },
       data: { email: "actual-owner@example.test" },
     });
+    // Changing the primary address retains its verified alias. Release that
+    // claim explicitly to model a reused mailbox with stale roster contact data,
+    // while preserving the original account's authoritative tutor ownership.
+    const formerEmail = await db.accountEmail.delete({
+      where: { email: "candidate@example.test" },
+    });
+    expect(formerEmail.userId).toBe(account.id);
     await db.user.create({
       data: {
         email: "candidate@example.test",
@@ -1461,7 +1469,8 @@ it("an in-flight real Head revocation serializes with chair acceptance without r
     status: "rejected",
     reason: {
       code: "FORBIDDEN",
-      message: expect.stringMatching(/Head.*restore/i),
+      message:
+        "Tutoring access was revoked. Ask Head to restore tutoring access before approving this application.",
     },
   });
   expect(observedWait).toBe(true);
