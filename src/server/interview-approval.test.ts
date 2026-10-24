@@ -7,6 +7,8 @@ import { databaseScope } from "~/server/db-scope";
 import { queueProposal } from "~/server/approvals";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { interviewHoursId } from "~/server/interview-hours";
+import { lockAccountProfile } from "~/server/account-profile";
+import { promoteApplicantToTutor } from "~/server/tutors/promote";
 
 const session = (id = "chair"): Session => ({
   user: { id, name: `Synthetic ${id}`, email: `${id}@example.test` },
@@ -490,6 +492,292 @@ it("verified existing accounts reuse their identity while atomic approval adds p
     tutorId: saved.app.promotedTutorId,
     role: "TUTOR",
     tutorAccessRevoked: false,
+  });
+});
+
+// Restriction tests use the real Head operation, preserving the distinction
+// between a historical archive and an explicit revocation of current membership.
+async function revokedApplicant() {
+  const tutor = await db.tutor.create({
+    data: {
+      englishName: "Synthetic Restricted Candidate",
+      email: "candidate@example.test",
+      status: "ACTIVE",
+    },
+  });
+  const user = await db.user.create({
+    data: {
+      username: "restricted_candidate",
+      email: "candidate@example.test",
+      role: "TUTOR",
+      tutorId: tutor.id,
+      emailVerifiedAt: new Date(),
+    },
+  });
+  await caller("head").admin.setUserCanTutor({
+    userId: user.id,
+    canTutor: false,
+  });
+  return { tutor, user };
+}
+
+it.each(["ADMIN", "HEAD"] as const)(
+  "%s interview approval cannot restore Head-revoked tutoring",
+  async (role) => {
+    const { app, input } = await fixture();
+    const { tutor, user } = await revokedApplicant();
+    await db.user.update({ where: { id: "chair" }, data: { role } });
+    const before = await outcome(app.id);
+    await expect(caller().tutor.decideInterview(input)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(await outcome(app.id)).toEqual(before);
+    expect(await db.user.findUnique({ where: { id: user.id } })).toMatchObject({
+      tutorId: tutor.id,
+      tutorAccessRevoked: true,
+    });
+    expect(
+      await db.tutor.findUnique({ where: { id: tutor.id } }),
+    ).toMatchObject({ status: "ARCHIVED" });
+    expect(await db.approvalRequest.count()).toBe(0);
+
+    await expect(promoteApplicantToTutor(app.id)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(await outcome(app.id)).toEqual(before);
+
+    // Explicit restoration remains Head-only and makes the same reviewed input usable.
+    await caller("head").admin.setUserCanTutor({
+      userId: user.id,
+      canTutor: true,
+    });
+    await caller().tutor.decideInterview(input);
+    const restored = await outcome(app.id);
+    expect(restored.app).toMatchObject({
+      status: "ACCEPTED",
+      promotedTutorId: tutor.id,
+    });
+    expect(restored.credits).toHaveLength(2);
+    expect(restored.notices).toHaveLength(2);
+    expect(restored.codes).toEqual([]);
+    await caller().tutor.decideInterview(input);
+    expect(await outcome(app.id)).toEqual(restored);
+  },
+);
+
+it.each([
+  "unverified primary",
+  "verified alias",
+  "legacy email case",
+  "current roster owner",
+  "retained roster owner",
+] as const)(
+  "preserves revocation through %s evidence",
+  async (representation) => {
+    const { app, input } = await fixture();
+    const { tutor, user } = await revokedApplicant();
+    if (representation === "unverified primary")
+      await db.user.update({
+        where: { id: user.id },
+        data: { emailVerifiedAt: null },
+      });
+    if (representation === "legacy email case")
+      await db.user.update({
+        where: { id: user.id },
+        data: { email: "Candidate@Example.Test" },
+      });
+    if (
+      [
+        "verified alias",
+        "current roster owner",
+        "retained roster owner",
+      ].includes(representation)
+    )
+      await db.user.update({
+        where: { id: user.id },
+        data: { email: "other-primary@example.test" },
+      });
+    if (representation === "verified alias") {
+      await db.tutor.update({
+        where: { id: tutor.id },
+        data: { email: "other-primary@example.test" },
+      });
+      await db.accountEmail.upsert({
+        where: { email: "candidate@example.test" },
+        update: { verifiedAt: new Date() },
+        create: {
+          userId: user.id,
+          email: "candidate@example.test",
+          verifiedAt: new Date(),
+        },
+      });
+    }
+    if (representation === "retained roster owner") {
+      const current = await db.tutor.create({
+        data: { englishName: "Current Restricted Tutor", status: "ARCHIVED" },
+      });
+      await db.user.update({
+        where: { id: user.id },
+        data: { tutorId: current.id },
+      });
+      await db.tutorProfileOwnership.create({
+        data: { tutorId: tutor.id, userId: user.id },
+      });
+    }
+    const before = await outcome(app.id);
+    await expect(caller().tutor.decideInterview(input)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(await outcome(app.id)).toEqual(before);
+    expect(
+      await db.tutor.findUnique({ where: { id: tutor.id } }),
+    ).toMatchObject({ status: "ARCHIVED" });
+    expect(await db.user.findUnique({ where: { id: user.id } })).toMatchObject({
+      tutorAccessRevoked: true,
+    });
+  },
+);
+
+it.each(["suspended", "retired", "departed"] as const)(
+  "does not promote a %s applicant or issue a replacement invitation",
+  async (restriction) => {
+    const { app, input } = await fixture();
+    await db.user.create({
+      data: {
+        email: "candidate@example.test",
+        role: "STUDENT",
+        emailVerifiedAt: null,
+        ...(restriction === "suspended"
+          ? { suspendedAt: new Date() }
+          : restriction === "retired"
+            ? { mergedIntoId: "head" }
+            : {
+                schoolDeparture: {
+                  create: { reason: "TRANSFERRED", source: "HEAD" },
+                },
+              }),
+      },
+    });
+    const before = await outcome(app.id);
+    await expect(caller().tutor.decideInterview(input)).rejects.toMatchObject({
+      code: restriction === "retired" ? "CONFLICT" : "FORBIDDEN",
+    });
+    expect(await outcome(app.id)).toEqual(before);
+    expect(await db.tutor.count()).toBe(4);
+  },
+);
+
+it("admits a history-only account without mistaking its non-membership flag for a revoked tutor link", async () => {
+  const { app, input } = await fixture();
+  const user = await db.user.create({
+    data: {
+      username: "history_candidate",
+      email: "candidate@example.test",
+      role: "STUDENT",
+      emailVerifiedAt: new Date(),
+      tutorAccessRevoked: true,
+    },
+  });
+  const history = await db.tutor.create({
+    data: {
+      englishName: "Historical Candidate",
+      email: "candidate@example.test",
+      status: "ARCHIVED",
+    },
+  });
+  await db.tutorProfileOwnership.create({
+    data: { tutorId: history.id, userId: user.id },
+  });
+  await caller().tutor.decideInterview(input);
+  const saved = await outcome(app.id);
+  expect(saved.app.status).toBe("ACCEPTED");
+  expect(saved.app.promotedTutorId).toBe(history.id);
+  expect(saved.codes).toEqual([]);
+  expect(await db.user.findUnique({ where: { id: user.id } })).toMatchObject({
+    tutorId: saved.app.promotedTutorId,
+    tutorAccessRevoked: false,
+  });
+});
+
+it("reactivates an ordinary archive without overriding names or manufacturing a restriction", async () => {
+  const { app, input } = await fixture();
+  const tutor = await db.tutor.create({
+    data: {
+      englishName: "Preserved Historical Name",
+      email: "candidate@example.test",
+      status: "ARCHIVED",
+    },
+  });
+  await caller().tutor.decideInterview(input);
+  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({
+    englishName: "Preserved Historical Name",
+    status: "ACTIVE",
+  });
+  expect((await outcome(app.id)).codes).toHaveLength(1);
+});
+
+it("rechecks a revocation committed while approval waits for the account lock", async () => {
+  const { app, input } = await fixture();
+  const { tutor, user } = await revokedApplicant();
+  await caller("head").admin.setUserCanTutor({
+    userId: user.id,
+    canTutor: true,
+  });
+  let release!: () => void;
+  let locked!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    locked = resolve;
+  });
+  const hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const revocation = db.$transaction(async (tx) => {
+    await lockAccountProfile(tx, user.id);
+    await tx.user.update({
+      where: { id: user.id },
+      data: { tutorAccessRevoked: true },
+    });
+    await tx.tutor.update({
+      where: { id: tutor.id },
+      data: { status: "ARCHIVED" },
+    });
+    locked();
+    await hold;
+  });
+  await ready;
+  const approval = caller()
+    .tutor.decideInterview(input)
+    .then(
+      () => ({ accepted: true }),
+      (error: unknown) => ({ error }),
+    );
+  try {
+    // Observe a real blocked namespace write instead of depending on a sleep or
+    // promise scheduling to claim that the competing transaction was exercised.
+    await vi.waitFor(
+      async () => {
+        const waiting = await db.$queryRaw<{ count: bigint }[]>`
+        SELECT count(*) FROM pg_stat_activity
+        WHERE datname = current_database() AND wait_event_type = 'Lock'
+          AND wait_event = 'advisory'
+          AND query LIKE '%pg_advisory_xact_lock%'`;
+        expect(Number(waiting[0]?.count)).toBeGreaterThan(0);
+      },
+      { timeout: 3000, interval: 20 },
+    );
+  } finally {
+    release();
+  }
+  await revocation;
+  expect(await approval).toMatchObject({ error: { code: "FORBIDDEN" } });
+  expect((await outcome(app.id)).app).toMatchObject({
+    status: "INTERVIEW",
+    interviewCompletedAt: null,
+  });
+  expect(await db.registrationCode.count()).toBe(0);
+  expect(await db.serviceHourAdjustment.count()).toBe(0);
+  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({
+    status: "ARCHIVED",
   });
 });
 

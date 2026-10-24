@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import {
   assertRequestProcessable,
@@ -62,6 +63,59 @@ export async function promoteApplicantToTutor(
     const email = app.email?.trim() ? app.email.trim().toLowerCase() : null;
     if (!email) return; // applications always capture an email; nothing to bind a code to otherwise
 
+    const existing = await db.tutor.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    // Admission is not authority to restore restricted participation. Check known
+    // email and roster owners before activating anything; aliases/history provide
+    // negative checks only, never permission to link an account to this applicant.
+    const owners = await db.user.findMany({
+      where: {
+        OR: [
+          { email: { equals: email, mode: "insensitive" } },
+          {
+            emails: {
+              some: {
+                email: { equals: email, mode: "insensitive" },
+                verifiedAt: { not: null },
+              },
+            },
+          },
+          ...(existing
+            ? [
+                { tutorId: existing.id },
+                { retainedTutorProfiles: { some: { tutorId: existing.id } } },
+              ]
+            : []),
+        ],
+      },
+      select: { id: true },
+      orderBy: { id: "asc" },
+    });
+    for (const owner of owners) {
+      await lockAccountProfile(db, owner.id);
+      const current = await db.user.findUniqueOrThrow({
+        where: { id: owner.id },
+      });
+      await requireSchoolParticipation(db, current.id);
+      if (current.mergedIntoId)
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "This login has been retired. Review the surviving account before approving.",
+        });
+      // A history-only login may carry this flag without ever having had tutor
+      // membership. Match registration's linked-revocation rule for first admission.
+      if (
+        current.suspendedAt ||
+        (current.tutorId && current.tutorAccessRevoked)
+      )
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Ask Head to review suspended or revoked participation.",
+        });
+    }
     const hasLogin = await db.user.findUnique({
       where: { email },
       select: {
@@ -78,10 +132,6 @@ export async function promoteApplicantToTutor(
         username: true,
       },
     });
-    if (hasLogin) {
-      await lockAccountProfile(db, hasLogin.id);
-      await requireSchoolParticipation(db, hasLogin.id);
-    }
 
     // A verified account already owns its name; a historical application cannot
     // replace it when participation is granted. Unlinked applicants establish a new name.
@@ -97,10 +147,6 @@ export async function promoteApplicantToTutor(
     );
 
     // Resolve (or create) the Tutor record — reactivated if one already exists for this email.
-    const existing = await db.tutor.findUnique({
-      where: { email },
-      select: { id: true },
-    });
     let tutorId: string;
     if (existing) {
       await preserveHistoricalAcademics(db, "TUTOR", existing.id);
