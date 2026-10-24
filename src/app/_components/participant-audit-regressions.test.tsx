@@ -100,11 +100,28 @@ vi.mock("~/trpc/react", () => ({
       details: { useQuery: () => ({ data: history }) },
       myDetails: { useQuery: () => ({ data: history }) },
       myTutorRecords: {
-        useQuery: () => ({ data: [{ id: "tutor", englishName: "Tutor" }] }),
+        useQuery: () => ({
+          data: [
+            {
+              id: "tutor",
+              englishName: "Tutor",
+              periods: ["26-27 Q1"],
+              sessionCount: 1,
+              meetingCount: 1,
+              amendmentCount: 0,
+              storedSessionHours: 1,
+            },
+          ],
+        }),
       },
       myTutorDetails: {
         useQuery: () => ({
           data: {
+            record: { id: "tutor", englishName: "Tutor" },
+            counts: { sessions: 1, meetings: 1, amendments: 0 },
+            periods: ["26-27 Q1"],
+            firstSessionDate: date,
+            lastSessionDate: date,
             sessions: [
               {
                 id: "session",
@@ -125,6 +142,9 @@ vi.mock("~/trpc/react", () => ({
             ],
             amendments: [],
             more: false,
+            sessionMore: false,
+            meetingMore: false,
+            amendmentMore: false,
           },
         }),
       },
@@ -514,7 +534,9 @@ it.each(["en", "zh"] as const)(
     const messages = locale === "en" ? en : zh;
     render(wrap(<PersonalTutorHistory />, locale));
     fireEvent.click(
-      screen.getByRole("button", { name: messages.tuteeHistory.details }),
+      screen.getByRole("button", {
+        name: new RegExp(messages.tuteeHistory.details),
+      }),
     );
     const expected = new Intl.DateTimeFormat(locale, {
       dateStyle: "medium",
@@ -531,4 +553,3 @@ it.each(["en", "zh"] as const)(
     ).toBeTruthy();
   },
 );
-

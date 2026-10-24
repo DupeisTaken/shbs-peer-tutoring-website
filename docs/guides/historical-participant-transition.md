@@ -1,6 +1,6 @@
 # Historical participant transition
 
-This workflow preserves pre-site tutoring records without requiring each historical participant to register. It uses the Tutor and Tutee records, explicit StudentProfileOwnership and TutorProfileOwnership links, and the existing [Combine accounts feature](user-guide.md#combine-duplicate-accounts-head-only).
+This workflow preserves pre-site tutoring records without requiring each historical participant to register. [Combine records](user-guide.md#combine-records-admin-and-head) groups login accounts and Tutor/Tutee sources under one person. Explicit StudentProfileOwnership and TutorProfileOwnership links still govern personal history access; directory grouping itself grants no access.
 
 ## Import and inspect
 
@@ -40,43 +40,42 @@ Archive retries remain additive: identical original rows are skipped and changed
 
 ## Account lists
 
-Users & Roles contains login accounts and the existing unlinked tutor entries; accountless tutees remain in the tutee roster. An absent tutee row in Users & Roles does not imply missing attendance.
+Users & Roles contains login accounts and accountless tutor/tutee records. Explicitly combined records appear as one person; **User details → Combined records** retains access to the original profiles and any live logins still awaiting review. An archive linked to an existing login no longer appears as an independent directory identity. Original roster rows and evidence remain. The separate login-retirement choice within Combine records requires Head approval and a conflict-free preview.
 
 - Unverified logins are hidden by default. **Show unverified accounts** or an explicit account-setup filter reveals them.
-- **Show historical records** reveals archived/graduated tutors and historical-only tutee accounts.
+- **Show historical records** reveals archived/graduated tutors and accounts with only retained tutor or tutee history.
 - Current management, viewer, crew, translator, tutor or tutee participation keeps a verified account visible even when another identity is historical.
 - These are display filters. No record is deleted, suspended, reactivated or granted new access by changing a filter.
 
 ## Link an accountless historical tutee
 
-An Admin or Head opens **Edit Profile → Link Historical Records** from a historical tutee row, records identity evidence, selects an eligible verified account and reviews the named record and session count before confirming.
+An Admin or Head opens **Edit Profile → Combine records** from a historical tutee row, selects the other records or login, records identity evidence and reviews the complete group before confirming. Two accountless historical records can combine without creating credentials. Admin may attach unowned historical records to one ready login; login or ownership conflicts require Head review.
 
-The write adds explicit retained ownership. It does not replace User.studentId, enroll someone in the current term, change membership, copy academics, fabricate consent, or rewrite sessions, meetings or hour amendments. The person can find linked records through **My Tutoring History** in the account menu, without accepting current participation policies solely to read history.
+When one eligible ready login remains, the reviewed write grants it explicit retained ownership of the unowned historical records. Combining accountless records alone creates no personal read grant. It does not replace User.studentId, enroll someone in the current term, change membership, copy academics, fabricate consent, or rewrite sessions, meetings or hour amendments. The person can find linked records through **My Tutoring History** in the account menu, without accepting current participation policies solely to read history.
 
-A Head must resolve an existing retained-owner conflict and confirm their password. If another login currently owns the enrollment, review the existing Head-only **Combine accounts** workflow and its blockers; accounts with school-departure history need a reviewed data migration. The link workflow never combines two login accounts.
+A Head must resolve an existing retained-owner conflict and confirm their password. If two records belong to the same person but live participation cannot yet be consolidated, Combine records can save identity grouping with **Review required**, preserving each login's current access and work. A mistaken owner is a different operation: use the Head-only ownership-correction disclosure to move the exact historical source without combining unrelated people.
 
-Concurrent profile/record changes invalidate the preview. Refresh and review again. Each successful link records the actor, target, previous owner and staff evidence in the audit log.
+Concurrent profile/record changes, target email changes and ownership changes invalidate the preview. An ownership transfer away and back also requires a fresh review; returning to the same owner does not restore an old confirmation. Refresh and review again. Each successful link records the actor, target, previous owner and staff evidence in the audit log.
 
 ## Link archived tutor history
 
 In **Tutors**, enable **Show past tutors**, then open the historical tutor's rightmost
-**Edit Profile** action. At the bottom of the editor, expand **Link Historical Records**.
-This section is available to Admin and Head for **Archived, Graduated and Transferred**
+**Edit Profile** action. At the bottom of the editor, open **Combine records**.
+This shared workflow is available to Admin and Head and includes current and archived
 records. An old name or missing login alone does not make an active record historical.
 
-Search for an existing verified account, select the exact person, record identity
-evidence, and choose **Review Link**. Check the named tutor, account and counts of
-sessions, meeting attendance and hour amendments. Acknowledge that they belong to
-the same person, then **Confirm Link**. Matching names or emails never establishes
-ownership automatically. A retained-owner correction requires the Head's password.
+Select the exact source records or existing account, record identity evidence, and
+review the complete group. Acknowledge that the records belong to the same person
+before confirming. Matching names or emails never establishes ownership automatically.
+Head-only ownership correction remains available separately for mistaken links.
 
 One account can retain several historical tutor profiles alongside its current tutor
 profile. Linking grants personal read access through **My Tutoring History**. It does
 not change the current tutor link, memberships, credentials, original names/academics,
 archive status, stored hours, or departure/observer decisions. Records and credit are
-not collapsed or recalculated. Another login's current tutor link blocks history
-linking; use Combine accounts and its existing conflict checks. Two distinct current
-tutor profiles still cannot be combined by that tool.
+not collapsed or recalculated. Two distinct current tutor profiles may share one
+reviewed directory identity, but their work and login access stay separate until
+operational conflicts are resolved. The tool does not automatically move assignments.
 
 A failed write keeps the evidence draft and requires another review. If linking
 succeeds but refresh fails, **Retry** only refreshes data; it does not repeat the link.
@@ -117,7 +116,9 @@ For a new login, enter the invited email and verify the separately emailed code.
 
 If the school email is unavailable, use the verified program support contact shown on the invitation page (or contact the school team when no email is configured). Staff must review identity evidence and the exact record before sending a replacement to an accessible address. Cancel an unwanted invitation or pending attempt explicitly; sending a replacement preserves the existing invitation until publication succeeds. Email changes, matching names and knowledge of a record ID never establish ownership. Existing primary/secondary email owners use **Recover existing account**, not another registration; genuine duplicate logins and conflicting ownership remain Head-only decisions.
 
-**My Tutoring History** also shows retained tutor sessions, stored hours, meeting attendance and hour amendments for current tutor identities and explicitly linked historical tutor records, including supported Head-reviewed account combinations. Revoked tutor capability or observer access does not hide this personal evidence. Missing tutor identity links require staff review through **Tutors → Edit Profile → Link Historical Records**; this account-creation route still starts from an exact historical tutee invitation and does not introduce self-service tutor matching or change the Head-only account-combination blockers. Staff can keep all unclaimed tutor/tutee archives without creating any login.
+**My Tutoring History** also shows retained tutor sessions, stored hours, meeting attendance and hour amendments for current tutor identities and explicitly linked historical tutor records, including supported Head-reviewed account combinations. Revoked tutor capability or observer access does not hide this personal evidence. Missing tutor identity links require staff review through **Tutors → Edit Profile → Combine records**. History-only account creation still starts from an exact historical tutee invitation; it does not introduce self-service tutor matching or bypass Head review for login and ownership conflicts. Staff can keep all unclaimed tutor/tutee archives without creating any login.
+
+The personal page separates tutoring received from tutoring provided. Summaries show the original record identifier, recorded period and session count; tutor summaries also show the sum of stored session hours, with amendments kept separate. Each record's rightmost history action opens its evidence. Tutor session, meeting and amendment lists paginate independently, so browsing one does not skip another. Reopening details refreshes the read. A failed background read retains cached content beside a read-only **Retry**; neither viewing history nor retrying recalculates credit or repeats an ownership write.
 
 ## Website action coverage
 
@@ -130,11 +131,11 @@ All supported operational actions below have website controls; staff do not need
 | Read original academics and attendance | Tutee row → View History | Staff or the linked owner; general observers cannot read private details. |
 | Correct an accountless participant profile | Tutee row → Edit profile | Head applies; Admin requests Head review. Use Academic Corrections for audited period-specific academic changes. |
 | Correct historical academics on screen or by CSV | Academic Corrections → select/upload → preview → apply/propose | Stable record IDs, original evidence retained, atomic batch and stale/ownership checks. |
-| Link an existing verified account | Historical row → Edit Profile → Link Historical Records → search → Review Link → Confirm Link | Admin/Head, identity evidence and acknowledgement required. |
-| Correct retained ownership | Same link section → Head password → Confirm Link | Current login ownership conflicts require Head review through Combine accounts and its conflict checks. |
-| Invite an alumnus | Historical row → Edit Profile → Link Historical Records → invited email → Send Invitation | Exact accountless record and reviewed identity evidence; security email must be available. |
+| Combine historical records or link one ready account | Edit Profile or Users & Roles → Combine records → select → preview → confirm | Admin for unowned history; Head for login/ownership or active-work conflicts. |
+| Correct retained ownership | Historical profile → Correct history owner → Head password → review | Transfers the exact source instead of combining unrelated people. |
+| Invite an alumnus | Historical row → Edit Profile → Invite the Participant → invited email → Send Invitation | Exact accountless record and reviewed identity evidence; security email must be available. |
 | Create history-only credentials | Email link → Create history-only account → verify email code → invitation popup → `/register-account` review | No membership, current academics or participation consent is created. |
-| Cancel or replace an invitation | Same staff link section → Cancel invitation / Send Invitation | Cancellation/expiry invalidates outstanding setup and claim; completed ownership remains. |
+| Cancel or replace an invitation | Same staff invitation section → Cancel invitation / Send Invitation | Cancellation/expiry invalidates outstanding setup and claim; completed ownership remains. |
 | Accept an invitation | Email link → Sign In → review → Link My History | Sign-in returns to the exact claim. Existing primary or verified secondary email must match. |
 | Recover access | Invitation page → Recover existing account, or verified program support | Staff reviews a lost-email replacement; Head handles conflicts and genuine duplicate logins. |
 | Read personal historical attendance | My Tutoring History → View History | Includes explicitly owned tutor evidence; does not reactivate participation or restore revoked observer access. |
@@ -147,6 +148,10 @@ Current participation remains a separate, explicit application and consent workf
 
 Apply the complete migration chain, including `20261002080000_history_account_setup` and `20261019010000_history_invitation_delivery`, before deploying. The additive delivery-attempt table preserves outstanding invitations, participant identities and every archive row. Candidates contain token hashes only and remain outside Program Records exports/imports. Normal backups and migration procedures still apply.
 
+The unified workflow also requires `20261021020000_person_identity`; follow the
+[identity migration procedure](deployment.md#unified-person-identity-migration).
+Existing login, ownership and operational guards remain in force after grouping.
+
 Transfer is not inferred from ARCHIVED status, nor graduation from inactivity. Follow the implemented [school departure and viewer-access workflow](program-configuration.md#school-departure-and-viewer-access) for those decisions. Apply `20261002010000_historical_academic_corrections` and regenerate Prisma before using Academic Corrections. This additive migration creates no accounts or backfilled confirmation dates. The archive importer still rejects changed existing IDs instead of silently overwriting history.
 
 The original imported ZIP was unavailable for this task. Validation uses synthetic records covering the owner-confirmed families: sessions, stored service credit, tutee attendance, meetings, meeting attendance and hour amendments. It does not claim a new reconciliation of the deployed archive.
@@ -158,6 +163,8 @@ New interface copy is provided in English and Chinese; the other bundled languag
 | Concern | Implementation |
 | --- | --- |
 | Current/history predicate | `src/lib/tutee-history.ts` |
+| Canonical identity, reviewed grouping and durable receipts | `src/server/person-identity.ts`, `src/server/person-combine.ts`, `src/server/api/routers/person-combine.ts` |
+| Shared staff combination interface | `src/app/_components/combine-records.tsx` |
 | Retained ownership and invitations | `src/server/tutee-history.ts` |
 | Email-verified history credentials and cancellation | `src/server/history-account-setup.ts` |
 | Retained tutor ownership and staff linking | `src/server/tutor-history.ts`, `src/server/api/routers/tutor-history.ts` and `src/app/_components/tutor-history-link.tsx` |

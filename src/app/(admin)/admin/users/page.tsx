@@ -13,7 +13,6 @@ import {
 } from "~/lib/management-view-state";
 import { participantNameLabel } from "~/app/_components/participant-name";
 
-import { matchesPersonSearch } from "~/lib/person-search";
 import { accountMembership } from "~/lib/account-membership";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
@@ -37,7 +36,8 @@ import { UserDetails } from "./user-details";
 import { LoginSetup, MembershipBadges } from "./presentation";
 import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 import Link from "next/link";
-import { CombineAccounts } from "~/app/_components/combine-accounts";
+import { CombineRecords } from "~/app/_components/combine-records";
+import { TuteeEditor } from "~/app/_components/tutee-editor";
 import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
 import { TutorProfileEditor } from "~/app/_components/tutor-profile-editor";
 import { MultiFilter } from "~/app/_components/multi-filter";
@@ -87,6 +87,7 @@ export default function UsersPage() {
   const directoryDenied = useSessionAccessDenied(accounts);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [editingTutorId, setEditingTutorId] = useState<string | null>(null);
+  const [editingTuteeId, setEditingTuteeId] = useState<string | null>(null);
   // Fetch the full roster record only when staff open an unlinked profile.
   const tutorProfiles = api.admin.tutors.useQuery(undefined, {
     enabled: !!editingTutorId,
@@ -253,15 +254,7 @@ export default function UsersPage() {
   );
   const rows = useMemo(() => {
     const data = directoryRows;
-    const filtered = data.filter(
-      (u) =>
-        matchesUserFilters(u, filters) &&
-        matchesPersonSearch({ ...u, legacyName: u.name }, search, [
-          u.username,
-          u.email,
-          u.tutor?.username,
-        ]),
-    );
+    const filtered = data.filter((u) => matchesUserFilters(u, filters, search));
     if (sort.dir === "none") return filtered;
     const dir = sort.dir === "asc" ? 1 : -1;
     const compareText = (a: string, b: string) => compare(a, b, locale);
@@ -300,6 +293,13 @@ export default function UsersPage() {
     );
   return (
     <div className="space-y-6">
+      {isAdminTier && editingTuteeId && (
+        <DirectoryTuteeEditor
+          tuteeId={editingTuteeId}
+          isHead={isHead}
+          onClose={() => setEditingTuteeId(null)}
+        />
+      )}
       {isAdminTier && editingTutor && !editingTutor.user && (
         <TutorProfileEditor
           key={editingTutor.id}
@@ -366,14 +366,11 @@ export default function UsersPage() {
           </div>
         </DisclosureSection>
       </section>
-      {isHead && (
-        <CombineAccounts
-          visibleAccounts={rows}
-          onPendingChange={setCombinePending}
-        />
+      {isAdminTier && !readOnly && (
+        <CombineRecords isHead={isHead} onPendingChange={setCombinePending} />
       )}
       <fieldset
-        disabled={isHead && combinePending}
+        disabled={isAdminTier && combinePending}
         className="card min-w-0 space-y-3 p-4"
       >
         <FilterToolbar
@@ -744,7 +741,10 @@ export default function UsersPage() {
               </tr>
             )}
             {rows.map((u) => {
-              const key = u.userId ?? `tutor-${u.tutorId}`;
+              const key =
+                u.personId ??
+                u.userId ??
+                (u.tutorId ? `tutor-${u.tutorId}` : `tutee-${u.tuteeId}`);
               return (
                 <tr key={key}>
                   {/* Identity contains names and the handle; all row actions live in the last column. */}
@@ -764,6 +764,18 @@ export default function UsersPage() {
                               ? "academics.usernameMissing"
                               : "tuteeHistory.noAccount",
                           )}
+                        </p>
+                      )}
+                      {u.combinedRecordCount > 1 && (
+                        <p className="muted mt-1 text-xs">
+                          {t("combineRecords.combinedRecords", {
+                            count: u.combinedRecordCount,
+                          })}
+                        </p>
+                      )}
+                      {u.identityReviewRequired && (
+                        <p className="mt-1 text-xs text-amber-800">
+                          {t("combineRecords.reviewRequired")}
                         </p>
                       )}
                     </div>
@@ -848,6 +860,11 @@ export default function UsersPage() {
                         {t("accountProfile.editProfile")}
                       </TableAction>
                     )}
+                    {isAdminTier && !u.userId && !u.tutorId && u.tuteeId && (
+                      <TableAction onClick={() => setEditingTuteeId(u.tuteeId)}>
+                        {t("accountProfile.editProfile")}
+                      </TableAction>
+                    )}
                     {isHead &&
                       u.userId &&
                       u.role === "STUDENT" &&
@@ -923,5 +940,44 @@ export default function UsersPage() {
       )}
       {dialog}
     </div>
+  );
+}
+
+/** Only an opened accountless enrollment editor loads its full roster evidence. */
+function DirectoryTuteeEditor({
+  tuteeId,
+  isHead,
+  onClose,
+}: {
+  tuteeId: string;
+  isHead: boolean;
+  onClose: () => void;
+}) {
+  const t = useTranslations();
+  const records = api.admin.tutees.useQuery();
+  const record = records.data?.find((row) => row.id === tuteeId);
+  if (record)
+    return (
+      <TuteeEditor
+        row={record}
+        canApply={isHead}
+        historyPermissions={{ canLink: true, isHead }}
+        onClose={onClose}
+      />
+    );
+  return (
+    <ProfileDialog title={t("accountProfile.editProfile")} onClose={onClose}>
+      <QueryFeedback
+        hasData={records.data !== undefined}
+        loading={records.isLoading}
+        error={!!records.error}
+        retrying={records.isFetching}
+        loadingTitle={t("common.loading")}
+        errorTitle={t("uiPatterns.loadFailed")}
+        retryLabel={t("uiPatterns.retry")}
+        onRetry={() => void records.refetch()}
+      />
+      {records.data && !record && <p>{t("tuteeHistory.HISTORY_NOT_FOUND")}</p>}
+    </ProfileDialog>
   );
 }

@@ -56,7 +56,7 @@ const mock = vi.hoisted(() => ({
   cancelSettled: undefined as undefined | (() => void),
   success: undefined as undefined | (() => Promise<void>),
   linkError: undefined as undefined | ((error: MutationError) => void),
-  invalidate: vi.fn(async () => undefined),
+  invalidate: vi.fn<() => Promise<void>>(async () => undefined),
   pending: false,
   staffDetails: vi.fn<(input: unknown, options: unknown) => HistoryQuery>(),
   ownDetails: vi.fn<(input: unknown, options: unknown) => HistoryQuery>(),
@@ -74,6 +74,7 @@ vi.mock("~/trpc/react", () => ({
         tuteeStats: { invalidate: mock.invalidate },
         pairings: { invalidate: mock.invalidate },
         accounts: { invalidate: mock.invalidate },
+        accountDetails: { invalidate: mock.invalidate },
       },
       student: { invalidate: mock.invalidate },
       tuteeHistory: {
@@ -174,6 +175,7 @@ const mount = (head = false, locale: "en" | "zh" = "en") =>
   );
 beforeEach(() => {
   vi.clearAllMocks();
+  mock.invalidate.mockReset().mockResolvedValue(undefined);
   mock.pending = false;
   const details = {
     data: {
@@ -573,6 +575,7 @@ it("requires a concrete preview, identity acknowledgement and staff evidence, th
     userId: "account",
     fingerprint: "a".repeat(64),
     reason: "Checked school archive and verified participant",
+    acknowledged: true,
   });
   fireEvent.change(screen.getByRole("combobox"), { target: { value: "" } });
   expect(screen.queryByRole("button", { name: "Confirm Link" })).toBeNull();
@@ -683,9 +686,56 @@ it("clears a completed ownership preview and refreshes dependent views while rem
   await act(async () => {
     await mock.success!();
   });
-  expect(mock.invalidate).toHaveBeenCalledTimes(6);
+  expect(mock.invalidate).toHaveBeenCalledTimes(7);
   expect(screen.queryByRole("button", { name: "Confirm Link" })).toBeNull();
   expect(screen.getByRole("button", { name: "Review Link" })).toBeTruthy();
+});
+
+it("retains an accepted link through failed synchronization and retries only reads", async () => {
+  mount();
+  await review();
+  fireEvent.change(
+    screen.getByRole("textbox", { name: en.tuteeHistory.evidence }),
+    {
+      target: { value: "Checked school archive and verified participant" },
+    },
+  );
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: en.tuteeHistory.confirmIdentity }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Confirm Link" }));
+  expect(mock.link).toHaveBeenCalledOnce();
+  mock.invalidate.mockRejectedValue(new Error("Read failed"));
+  await act(async () => {
+    await mock.success!();
+  });
+  expect(screen.getByText(en.tuteeHistory.linkRefreshFailed)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Confirm Link" })).toBeNull();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Review Link" })
+      .disabled,
+  ).toBe(true);
+  let finish!: () => void;
+  const recovery = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  mock.invalidate.mockImplementation(() => recovery);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.refreshLinkedHistory }),
+  );
+  expect(screen.getByText(en.tuteeHistory.linkRefreshFailed)).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.tuteeHistory.refreshLinkedHistory,
+    }).disabled,
+  ).toBe(true);
+  await act(async () => {
+    finish();
+  });
+  await waitFor(() =>
+    expect(screen.queryByText(en.tuteeHistory.linkRefreshFailed)).toBeNull(),
+  );
+  expect(mock.link).toHaveBeenCalledOnce();
 });
 
 /** Delivery receipts and current live invitations are deliberately independent. */

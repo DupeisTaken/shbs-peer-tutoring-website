@@ -115,6 +115,9 @@ async function catalogue(tx: TransactionDb) {
       columns.filter(
         (c) =>
           c.table === table &&
+          // Canonical identity is reviewed operational state, never archive data.
+          // Imported sources receive their identity through normal resolution.
+          c.name !== "personId" &&
           (table !== "User" || ["id", "email", "name"].includes(c.name)) &&
           !(table === "StudentSurvey" && c.name === "tokenHash") &&
           // Retry keys are operational capabilities, not archival answer/consent evidence.
@@ -434,7 +437,11 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
               );
           }
         }
-        if (table === "Pairing" || table === "PairingGroup" || table === "Session") {
+        if (
+          table === "Pairing" ||
+          table === "PairingGroup" ||
+          table === "Session"
+        ) {
           const active =
             table !== "Session"
               ? await tx.term.findUnique({

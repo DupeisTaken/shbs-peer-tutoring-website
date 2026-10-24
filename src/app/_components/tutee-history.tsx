@@ -11,6 +11,9 @@ import { InlineNotice, ScrollTable } from "./ui/patterns";
 import { QueryFeedback } from "./ui/query-feedback";
 import { HistoricalAcademicEvidence } from "./historical-academic-evidence";
 import { Button } from "./ui/button";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
+import { useHistoryReadDenial } from "~/app/history/use-history-read-denial";
 
 /** Only an authoritative permission response conceals cached private delivery evidence. */
 function historyAccessDenied(error: unknown): boolean {
@@ -101,13 +104,17 @@ export function TuteeHistoryContent({
     { enabled: personal, refetchOnMount: "always" },
   );
   const query = personal ? own : staff;
-  const data = query.data;
+  const deniedRead = useHistoryReadDenial(own);
+  const denied = personal && deniedRead;
+  const data = denied ? undefined : query.data;
   return (
     <div className="min-w-0 space-y-4">
       {query.isLoading && <p role="status">{t("loading")}</p>}
-      {query.error && (
+      {(denied || query.error) && (
         <div className="space-y-2">
-          <HistoryError message={query.error.message} />
+          <HistoryError
+            message={denied ? "historyAccessLost" : query.error!.message}
+          />
           <Button
             size="compact"
             disabled={query.isFetching}
@@ -242,12 +249,15 @@ export function TuteeHistoryLinkForm({
   onLinked,
   onPendingChange,
   parentPending = false,
+  invitationOnly = false,
 }: {
   row: RouterOutputs["admin"]["tutees"][number];
   isHead: boolean;
   onLinked: () => void;
   onPendingChange?: (pending: boolean) => void;
   parentPending?: boolean;
+  /** Unified combination owns existing-account association in real editors. */
+  invitationOnly?: boolean;
 }) {
   const t = useTranslations("tuteeHistory");
   const format = useFormatter();
@@ -277,6 +287,11 @@ export function TuteeHistoryLinkForm({
   const submitting = useRef(false);
   const reviewPending = useRef(false);
   const [linked, setLinked] = useState(false);
+  const linkCommitted = useRef(false);
+  const [linkAccepted, setLinkAccepted] = useState(false);
+  const linkRefreshInFlight = useRef(false);
+  const [linkSyncing, setLinkSyncing] = useState(false);
+  const [linkRefreshFailed, setLinkRefreshFailed] = useState(false);
   const settled = () => {
     submitting.current = false;
   };
@@ -361,18 +376,38 @@ export function TuteeHistoryLinkForm({
   useEffect(() => {
     if (historyAccessDenied(candidates.error)) setPermissionLost(true);
   }, [candidates.error]);
+  // Accepted ownership is never submitted again to recover a failed read.
+  // Keep the receipt until every affected read settles; independent drafts survive.
+  const refreshLink = async () => {
+    if (linkRefreshInFlight.current) return;
+    linkRefreshInFlight.current = true;
+    setLinkSyncing(true);
+    try {
+      await settleRefreshes([
+        async () => {
+          await invalidateTuteeViews(utils, { reportErrors: true });
+        },
+        () => invalidateAndReport(utils.admin.accountDetails),
+        () => invalidateAndReport(utils.student),
+      ]);
+      setLinkRefreshFailed(false);
+      setLinked(true);
+    } catch {
+      setLinkRefreshFailed(true);
+    } finally {
+      linkRefreshInFlight.current = false;
+      setLinkSyncing(false);
+    }
+  };
   const link = api.tuteeHistory.link.useMutation({
     onSettled: settled,
     onSuccess: async () => {
-      await Promise.all([
-        invalidateTuteeViews(utils),
-        utils.student.invalidate(),
-      ]);
-      // The editor remains open; a second attempt must obtain a fresh ownership preview.
+      linkCommitted.current = true;
+      setLinkAccepted(true);
       setPreview(null);
       setAcknowledged(false);
       setPassword("");
-      setLinked(true);
+      await refreshLink();
     },
     onError: (e) => {
       setError(e.message);
@@ -423,17 +458,23 @@ export function TuteeHistoryLinkForm({
   const ownPending =
     link.isPending || invite.isPending || cancelInvitation.isPending;
   const busy = useDialogPending(ownPending);
-  const pending = busy || parentPending || reviewing || linked || privateDenied;
+  const pending =
+    busy ||
+    parentPending ||
+    reviewing ||
+    linked ||
+    privateDenied ||
+    linkAccepted;
   // Report owned work only; inherited aggregate registration would latch sibling forms.
   useLayoutEffect(() => {
     onPendingChange?.(ownPending);
     return () => onPendingChange?.(false);
   }, [ownPending, onPendingChange]);
   useEffect(() => {
-    if (!linked || busy || parentPending) return;
+    if (!linked || busy || parentPending || linkSyncing) return;
     setLinked(false);
     onLinked();
-  }, [linked, busy, parentPending, onLinked]);
+  }, [linked, busy, parentPending, linkSyncing, onLinked]);
   return (
     <fieldset
       disabled={busy || parentPending || reviewing || linked}
@@ -441,6 +482,28 @@ export function TuteeHistoryLinkForm({
       className="min-w-0 space-y-5"
     >
       <legend className="sr-only">{t("linkTitle")}</legend>
+      {linkAccepted && (
+        <InlineNotice tone="success" announcement="status">
+          {t("linkSaved")}
+        </InlineNotice>
+      )}
+      {linkRefreshFailed && (
+        <InlineNotice
+          tone="warning"
+          announcement="alert"
+          action={
+            <Button
+              disabled={busy || parentPending || linkSyncing}
+              onClick={() => void refreshLink()}
+            >
+              {t("refreshLinkedHistory")}
+            </Button>
+          }
+        >
+          {t("linkRefreshFailed")}
+        </InlineNotice>
+      )}
+      {linkSyncing && <p role="status">{t("loading")}</p>}
       <div>
         <p className="font-semibold">{row.englishName}</p>
         <p className="muted text-xs break-all">
@@ -460,189 +523,193 @@ export function TuteeHistoryLinkForm({
           onChange={(e) => setReason(e.target.value)}
         />
       </label>
-      <section className="space-y-3 rounded-xl border border-slate-200 p-4">
-        <h3 className="font-semibold">{t("existingAccount")}</h3>
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (
-              pending ||
-              submitting.current ||
-              reviewPending.current ||
-              search.trim().length < 2
-            )
-              return;
-            setQuery(search.trim());
-            setUserId("");
-            setPreview(null);
-            setAcknowledged(false);
-            setError(null);
-          }}
-        >
-          <label className="min-w-0 flex-1">
-            <span className="label">{t("searchAccount")}</span>
-            <input
-              className="input w-full"
-              disabled={pending}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              maxLength={100}
-            />
-          </label>
-          <button
-            className="btn-secondary min-h-11 lg:min-h-10"
-            disabled={search.trim().length < 2 || pending}
+      {!invitationOnly && (
+        <section className="space-y-3 rounded-xl border border-slate-200 p-4">
+          <h3 className="font-semibold">{t("existingAccount")}</h3>
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (
+                pending ||
+                submitting.current ||
+                reviewPending.current ||
+                search.trim().length < 2
+              )
+                return;
+              setQuery(search.trim());
+              setUserId("");
+              setPreview(null);
+              setAcknowledged(false);
+              setError(null);
+            }}
           >
-            {t("search")}
-          </button>
-        </form>
-        {candidates.isFetching && <p role="status">{t("loading")}</p>}
-        {candidates.error && (
-          <HistoryError message={candidates.error.message} />
-        )}
-        {!privateDenied && candidates.data && (
-          <label className="block">
-            <span className="label">{t("chooseAccount")}</span>
-            <select
-              className="select w-full"
-              disabled={pending}
-              value={userId}
-              onChange={(e) => {
-                setUserId(e.target.value);
-                setPreview(null);
-                setAcknowledged(false);
-                setError(null);
-              }}
+            <label className="min-w-0 flex-1">
+              <span className="label">{t("searchAccount")}</span>
+              <input
+                className="input w-full"
+                disabled={pending}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                maxLength={100}
+              />
+            </label>
+            <button
+              className="btn-secondary min-h-11 lg:min-h-10"
+              disabled={search.trim().length < 2 || pending}
             >
-              <option value="">{t("chooseAccount")}</option>
-              {candidates.data.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name ?? account.username ?? account.email} ·{" "}
-                  {account.email}
-                </option>
-              ))}
-            </select>
-            {!candidates.data.length && (
-              <p className="muted text-sm">{t("noAccounts")}</p>
-            )}
-          </label>
-        )}
-        <button
-          className="btn-secondary min-h-11 lg:min-h-9"
-          disabled={!userId || pending}
-          onClick={async () => {
-            if (
-              pending ||
-              submitting.current ||
-              reviewPending.current ||
-              !userId
-            )
-              return;
-            reviewPending.current = true;
-            setReviewing(true);
-            setError(null);
-            setAcknowledged(false);
-            try {
-              setPreview(
-                await utils.tuteeHistory.preview.fetch(
-                  { tuteeId: row.id, userId },
-                  { staleTime: 0 },
-                ),
-              );
-            } catch (e) {
-              setError(e instanceof Error ? e.message : "HISTORY_STALE");
-              if (historyAccessDenied(e)) setPermissionLost(true);
-            } finally {
-              reviewPending.current = false;
-              setReviewing(false);
-            }
-          }}
-        >
-          {t("preview")}
-        </button>
-        {!privateDenied && preview && (
-          <div className="space-y-3 rounded-lg bg-slate-50 p-3">
-            <p className="text-sm">
-              {t("previewSummary", {
-                name: preview.record.name,
-                count: preview.record.sessions,
-                account: preview.account.name ?? preview.account.email,
-              })}
-            </p>
-            {preview.currentConflict ? (
-              <HistoryError message="HISTORY_USE_MERGE" />
-            ) : preview.conflict && !isHead ? (
-              <HistoryError message="HISTORY_HEAD_REQUIRED" />
-            ) : (
-              <>
-                {preview.conflict && (
-                  <>
-                    <p className="text-sm text-amber-800">
-                      {t("headCorrection")}
-                    </p>
-                    <label className="block">
-                      <span className="label">{t("password")}</span>
-                      <input
-                        className="input w-full"
-                        type="password"
-                        disabled={pending}
-                        autoComplete="current-password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                      />
-                    </label>
-                  </>
-                )}
-                <label className="flex min-h-11 items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    disabled={pending}
-                    checked={acknowledged}
-                    onChange={(e) => setAcknowledged(e.target.checked)}
-                  />
-                  {t("confirmIdentity")}
-                </label>
-                <button
-                  className="btn-primary min-h-11 lg:min-h-10"
-                  disabled={
-                    pending ||
-                    !acknowledged ||
-                    reason.trim().length < 10 ||
-                    (preview.conflict && !password)
-                  }
-                  onClick={() => {
-                    if (
+              {t("search")}
+            </button>
+          </form>
+          {candidates.isFetching && <p role="status">{t("loading")}</p>}
+          {candidates.error && (
+            <HistoryError message={candidates.error.message} />
+          )}
+          {!privateDenied && candidates.data && (
+            <label className="block">
+              <span className="label">{t("chooseAccount")}</span>
+              <select
+                className="select w-full"
+                disabled={pending}
+                value={userId}
+                onChange={(e) => {
+                  setUserId(e.target.value);
+                  setPreview(null);
+                  setAcknowledged(false);
+                  setError(null);
+                }}
+              >
+                <option value="">{t("chooseAccount")}</option>
+                {candidates.data.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name ?? account.username ?? account.email} ·{" "}
+                    {account.email}
+                  </option>
+                ))}
+              </select>
+              {!candidates.data.length && (
+                <p className="muted text-sm">{t("noAccounts")}</p>
+              )}
+            </label>
+          )}
+          <button
+            className="btn-secondary min-h-11 lg:min-h-9"
+            disabled={!userId || pending}
+            onClick={async () => {
+              if (
+                pending ||
+                submitting.current ||
+                reviewPending.current ||
+                !userId
+              )
+                return;
+              reviewPending.current = true;
+              setReviewing(true);
+              setError(null);
+              setAcknowledged(false);
+              try {
+                setPreview(
+                  await utils.tuteeHistory.preview.fetch(
+                    { tuteeId: row.id, userId },
+                    { staleTime: 0 },
+                  ),
+                );
+              } catch (e) {
+                setError(e instanceof Error ? e.message : "HISTORY_STALE");
+                if (historyAccessDenied(e)) setPermissionLost(true);
+              } finally {
+                reviewPending.current = false;
+                setReviewing(false);
+              }
+            }}
+          >
+            {t("preview")}
+          </button>
+          {!privateDenied && preview && (
+            <div className="space-y-3 rounded-lg bg-slate-50 p-3">
+              <p className="text-sm">
+                {t("previewSummary", {
+                  name: preview.record.name,
+                  count: preview.record.sessions,
+                  account: preview.account.name ?? preview.account.email,
+                })}
+              </p>
+              {preview.currentConflict ? (
+                <HistoryError message="HISTORY_USE_MERGE" />
+              ) : preview.conflict && !isHead ? (
+                <HistoryError message="HISTORY_HEAD_REQUIRED" />
+              ) : (
+                <>
+                  {preview.conflict && (
+                    <>
+                      <p className="text-sm text-amber-800">
+                        {t("headCorrection")}
+                      </p>
+                      <label className="block">
+                        <span className="label">{t("password")}</span>
+                        <input
+                          className="input w-full"
+                          type="password"
+                          disabled={pending}
+                          autoComplete="current-password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                        />
+                      </label>
+                    </>
+                  )}
+                  <label className="flex min-h-11 items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      disabled={pending}
+                      checked={acknowledged}
+                      onChange={(e) => setAcknowledged(e.target.checked)}
+                    />
+                    {t("confirmIdentity")}
+                  </label>
+                  <button
+                    className="btn-primary min-h-11 lg:min-h-10"
+                    disabled={
                       pending ||
-                      submitting.current ||
-                      reviewPending.current ||
                       !acknowledged ||
                       reason.trim().length < 10 ||
-                      !userId ||
-                      preview.currentConflict ||
-                      (preview.conflict && (!isHead || !password))
-                    )
-                      return;
-                    submitting.current = true;
-                    setError(null);
-                    link.mutate({
-                      tuteeId: row.id,
-                      userId,
-                      fingerprint: preview.fingerprint,
-                      reason,
-                      ...(preview.conflict
-                        ? { confirmPassword: password }
-                        : {}),
-                    });
-                  }}
-                >
-                  {t("link")}
-                </button>
-              </>
-            )}
-          </div>
-        )}
-      </section>
+                      (preview.conflict && !password)
+                    }
+                    onClick={() => {
+                      if (
+                        pending ||
+                        submitting.current ||
+                        linkCommitted.current ||
+                        reviewPending.current ||
+                        !acknowledged ||
+                        reason.trim().length < 10 ||
+                        !userId ||
+                        preview.currentConflict ||
+                        (preview.conflict && (!isHead || !password))
+                      )
+                        return;
+                      submitting.current = true;
+                      setError(null);
+                      link.mutate({
+                        tuteeId: row.id,
+                        userId,
+                        fingerprint: preview.fingerprint,
+                        reason,
+                        acknowledged: true,
+                        ...(preview.conflict
+                          ? { confirmPassword: password }
+                          : {}),
+                      });
+                    }}
+                  >
+                    {t("link")}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </section>
+      )}
       {!row.owner && !row.user && (
         <section className="space-y-3 rounded-xl border border-slate-200 p-4">
           <h3 className="font-semibold">{t("invitation")}</h3>

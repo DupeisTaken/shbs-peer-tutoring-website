@@ -1,6 +1,16 @@
-import { allocateAndPersistRoomUnit, roomUnitInclude } from "~/server/room-allocation";
-import { meetingPeriodInput, meetingPeriods, meetingScope } from "~/server/meeting-periods";
-import { autoAssignUnassignedRooms, bulkRoomAllocationInput } from "~/server/bulk-room-allocation";
+import {
+  allocateAndPersistRoomUnit,
+  roomUnitInclude,
+} from "~/server/room-allocation";
+import {
+  autoAssignUnassignedRooms,
+  bulkRoomAllocationInput,
+} from "~/server/bulk-room-allocation";
+import {
+  meetingPeriodInput,
+  meetingPeriods,
+  meetingScope,
+} from "~/server/meeting-periods";
 import { roomReference } from "~/lib/room-reference";
 import {
   deleteAccount,
@@ -38,7 +48,10 @@ import {
 import { synchronizeStudentSignupAnswers } from "~/server/student-signup-revisions";
 import { assertHeadDiscretionarySignupChange } from "~/server/student-signup-management";
 import { hasReadyCredentials } from "~/lib/account-readiness";
-import { accountDirectoryDetails } from "~/server/account-directory";
+import {
+  accountDirectoryDetails,
+  groupDirectoryRows,
+} from "~/server/account-directory";
 import {
   changeSchoolDeparture,
   requireSchoolParticipation,
@@ -174,7 +187,13 @@ import {
 } from "~/server/program/features";
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
-import { allocateRoom, allocationData, allocateSlotCohort, assertRoomVersion, notifyRoomShortage } from "~/server/room-allocation";
+import {
+  allocateRoom,
+  allocationData,
+  allocateSlotCohort,
+  assertRoomVersion,
+  notifyRoomShortage,
+} from "~/server/room-allocation";
 import { assertPairingGroupsRemainEligible } from "~/server/tutor-scheduling";
 import { pairingCreationReceipt } from "~/server/pairing-creation";
 import {
@@ -947,7 +966,11 @@ export const adminRouter = createTRPCRouter({
       const data = { tutorId, roomId, timeSlotId, subject };
       return inTransaction(ctx.db, async (tx) => {
         await lockEntity(tx, "program:period");
-        const receipt = await pairingCreationReceipt(tx, ctx.session.user.id, input);
+        const receipt = await pairingCreationReceipt(
+          tx,
+          ctx.session.user.id,
+          input,
+        );
         if (receipt?.replay) return receipt.replay;
         await enforceAssignmentQualification(
           tx,
@@ -962,13 +985,19 @@ export const adminRouter = createTRPCRouter({
           resolveSlot(tx, input.timeSlotId),
           getActivePeriod(tx),
         ]);
-        const allocation = await allocateRoom(tx, {
-          termId: period.termId,
-          tutorId, tuteeIds, scheduleConfirmed: true,
-          dayOfWeek: slot.dayOfWeek,
-          startMin: slot.startMin,
-          endMin: slot.endMin,
-        }, input);
+        const allocation = await allocateRoom(
+          tx,
+          {
+            termId: period.termId,
+            tutorId,
+            tuteeIds,
+            scheduleConfirmed: true,
+            dayOfWeek: slot.dayOfWeek,
+            startMin: slot.startMin,
+            endMin: slot.endMin,
+          },
+          input,
+        );
         // Generic roster tools share the same request lock and first-assignment clock.
         for (const tuteeId of [...tuteeIds].sort())
           await assertStudentRequestAssignable(tx, tuteeId);
@@ -987,11 +1016,22 @@ export const adminRouter = createTRPCRouter({
         for (const tuteeId of tuteeIds)
           await stampStudentAssignment(tx, tuteeId);
         await notifyRoomShortage(tx, pairing.id, allocation);
-        if (receipt) await tx.pairingCreationRequest.create({ data: {
-          actorId: receipt.actorId, clientKey: receipt.clientKey, payloadHash: receipt.payloadHash, pairingId: pairing.id,
-        } });
+        if (receipt)
+          await tx.pairingCreationRequest.create({
+            data: {
+              actorId: receipt.actorId,
+              clientKey: receipt.clientKey,
+              payloadHash: receipt.payloadHash,
+              pairingId: pairing.id,
+            },
+          });
         // Nested roster writes advance the independent schedule snapshot in the database.
-        return { ...await tx.pairing.findUniqueOrThrow({ where: { id: pairing.id } }), roomOutcome: allocation.roomOutcome };
+        return {
+          ...(await tx.pairing.findUniqueOrThrow({
+            where: { id: pairing.id },
+          })),
+          roomOutcome: allocation.roomOutcome,
+        };
       });
     }),
 
@@ -1041,20 +1081,41 @@ export const adminRouter = createTRPCRouter({
         assertRoomVersion(current, input.expectedRoomVersion);
         // Retained roster/subject edits preserve an explicit group. Independent
         // tutor, schedule or room-intent edits keep the existing member-detach rule.
-        const requestedMode = input.roomMode ?? (input.roomId ? "FIXED" : input.roomId === null ? "NONE" : current.roomMode);
-        const retainGroup = current.groupId && tutorId === current.tutorId &&
-          timeSlotId === current.timeSlotId && requestedMode === current.roomMode &&
-          (requestedMode !== "FIXED" || input.roomId === undefined || input.roomId === current.roomId);
-        await assertPairingGroupsRemainEligible(tx, { replacement: {
-          id, subject, tuteeIds, detach: !retainGroup,
-        } });
-        const allocation = retainGroup ? { ...current, roomOutcome: "RETAINED" as const } : await allocateRoom(tx, {
-          id, tutorId, tuteeIds, scheduleConfirmed: true,
-          termId: current.termId,
-          dayOfWeek: slot.dayOfWeek,
-          startMin: slot.startMin,
-          endMin: slot.endMin,
-        }, input, current);
+        const requestedMode =
+          input.roomMode ??
+          (input.roomId
+            ? "FIXED"
+            : input.roomId === null
+              ? "NONE"
+              : current.roomMode);
+        const retainGroup =
+          current.groupId &&
+          tutorId === current.tutorId &&
+          timeSlotId === current.timeSlotId &&
+          requestedMode === current.roomMode &&
+          (requestedMode !== "FIXED" ||
+            input.roomId === undefined ||
+            input.roomId === current.roomId);
+        await assertPairingGroupsRemainEligible(tx, {
+          replacement: { id, subject, tuteeIds, detach: !retainGroup },
+        });
+        const allocation = retainGroup
+          ? { ...current, roomOutcome: "RETAINED" as const }
+          : await allocateRoom(
+              tx,
+              {
+                id,
+                tutorId,
+                tuteeIds,
+                scheduleConfirmed: true,
+                termId: current.termId,
+                dayOfWeek: slot.dayOfWeek,
+                startMin: slot.startMin,
+                endMin: slot.endMin,
+              },
+              input,
+              current,
+            );
         for (const tuteeId of [...tuteeIds].sort())
           await assertStudentRequestAssignable(tx, tuteeId);
         await tx.pairingTutee.deleteMany({ where: { pairingId: id } });
@@ -1075,38 +1136,90 @@ export const adminRouter = createTRPCRouter({
         for (const tuteeId of tuteeIds)
           await stampStudentAssignment(tx, tuteeId);
         if (retainGroup) {
-          const selected = await tx.pairing.findUniqueOrThrow({ where: { id }, include: roomUnitInclude });
-          return allocateAndPersistRoomUnit(tx, selected, { ...input, expectedRoomVersion: undefined });
+          const selected = await tx.pairing.findUniqueOrThrow({
+            where: { id },
+            include: roomUnitInclude,
+          });
+          return allocateAndPersistRoomUnit(tx, selected, {
+            ...input,
+            expectedRoomVersion: undefined,
+          });
         }
-        await notifyRoomShortage(tx, pairing.id, allocation, current.roomShortageKey);
-        return { ...await tx.pairing.findUniqueOrThrow({ where: { id: pairing.id } }), roomOutcome: allocation.roomOutcome };
+        await notifyRoomShortage(
+          tx,
+          pairing.id,
+          allocation,
+          current.roomShortageKey,
+        );
+        return {
+          ...(await tx.pairing.findUniqueOrThrow({
+            where: { id: pairing.id },
+          })),
+          roomOutcome: allocation.roomOutcome,
+        };
       });
     }),
 
   /** Room intent is its own save scope: never replace a roster or consume an assignment ticket. */
   setPairingRoom: adminProcedure
-    .input(z.object({ id: cuid, expectedRoomVersion: z.number().int().nonnegative(), roomMode: z.enum(["AUTO", "FIXED", "NONE"]), roomId: roomReference.nullable().optional(), releaseRoomToAuto: z.boolean().optional() }))
-    .mutation(({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
-      await lockEntity(tx, "program:period");
-      await lockPlannedRoomSchedule(tx);
-      const pairing = await tx.pairing.findFirst({ where: { id: input.id, term: { active: true } }, include: roomUnitInclude });
-      if (!pairing) throw new TRPCError({ code: "NOT_FOUND", message: "Current pairing not found." });
-      return allocateAndPersistRoomUnit(tx, pairing, input);
-    })),
+    .input(
+      z.object({
+        id: cuid,
+        expectedRoomVersion: z.number().int().nonnegative(),
+        roomMode: z.enum(["AUTO", "FIXED", "NONE"]),
+        roomId: roomReference.nullable().optional(),
+        releaseRoomToAuto: z.boolean().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await lockPlannedRoomSchedule(tx);
+        const pairing = await tx.pairing.findFirst({
+          where: { id: input.id, term: { active: true } },
+          include: roomUnitInclude,
+        });
+        if (!pairing)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Current pairing not found.",
+          });
+        return allocateAndPersistRoomUnit(tx, pairing, input);
+      }),
+    ),
 
   /** Room-only recovery deliberately leaves roster and qualification/ticket evidence alone. */
   retryRoomAllocation: adminProcedure
-    .input(z.object({ id: cuid, expectedRoomVersion: z.number().int().nonnegative() }))
-    .mutation(({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
-      await lockEntity(tx, "program:period");
-      await lockPlannedRoomSchedule(tx);
-      const pairing = await tx.pairing.findFirst({ where: { id: input.id, term: { active: true } }, include: roomUnitInclude });
-      if (!pairing) throw new TRPCError({ code: "NOT_FOUND", message: "Current pairing not found." });
-      assertRoomVersion(pairing, input.expectedRoomVersion);
-      if (pairing.roomMode !== "AUTO" || !pairing.roomNeedsAssignment)
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Only an automatic room shortage can be retried." });
-      return allocateAndPersistRoomUnit(tx, pairing, { expectedRoomVersion: input.expectedRoomVersion });
-    })),
+    .input(
+      z.object({
+        id: cuid,
+        expectedRoomVersion: z.number().int().nonnegative(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await lockPlannedRoomSchedule(tx);
+        const pairing = await tx.pairing.findFirst({
+          where: { id: input.id, term: { active: true } },
+          include: roomUnitInclude,
+        });
+        if (!pairing)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Current pairing not found.",
+          });
+        assertRoomVersion(pairing, input.expectedRoomVersion);
+        if (pairing.roomMode !== "AUTO" || !pairing.roomNeedsAssignment)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Only an automatic room shortage can be retried.",
+          });
+        return allocateAndPersistRoomUnit(tx, pairing, {
+          expectedRoomVersion: input.expectedRoomVersion,
+        });
+      }),
+    ),
 
   /** One reviewed batch owns complete reservation units; never move assigned rooms. */
   autoAssignUnassignedRooms: adminProcedure
@@ -1874,7 +1987,11 @@ export const adminRouter = createTRPCRouter({
       // or borrowing a linked account's current grade. A preserved null is meaningful.
       const signupAcademics = signups.length
         ? await ctx.db.historicalAcademicRecord.findMany({
-            where: { id: { in: signups.map((s) => legacyAcademicRecordId("TUTEE", s.id)) } },
+            where: {
+              id: {
+                in: signups.map((s) => legacyAcademicRecordId("TUTEE", s.id)),
+              },
+            },
             select: {
               tuteeId: true,
               rawGrade: true,
@@ -1886,10 +2003,14 @@ export const adminRouter = createTRPCRouter({
             },
           })
         : [];
-      const signupGrades = new Map(signupAcademics.map((record) => [
-        record.tuteeId,
-        record.corrections[0] ? record.corrections[0].rawGrade : record.rawGrade,
-      ]));
+      const signupGrades = new Map(
+        signupAcademics.map((record) => [
+          record.tuteeId,
+          record.corrections[0]
+            ? record.corrections[0].rawGrade
+            : record.rawGrade,
+        ]),
+      );
 
       return {
         ...detailed,
@@ -1904,7 +2025,9 @@ export const adminRouter = createTRPCRouter({
           id: s.id,
           date: s.createdAt,
           name: s.englishName,
-          grade: signupGrades.has(s.id) ? signupGrades.get(s.id)! : s.gradeLevel,
+          grade: signupGrades.has(s.id)
+            ? signupGrades.get(s.id)!
+            : s.gradeLevel,
           status: s.status,
           firstChoice: s.firstChoice?.name ?? null,
           secondChoice: s.secondChoice?.name ?? null,
@@ -3426,27 +3549,30 @@ export const adminRouter = createTRPCRouter({
 
   deleteRoom: adminProcedure
     .input(z.object({ id: cuid }))
-    .mutation(({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
-      // Serialize catalog membership with room reorder drafts before reservation checks.
-      await lockProgramRooms(tx);
-      // Do not race an allocator or erase retained actual attendance location evidence.
-      await lockPlannedRoomSchedule(tx);
-      // Attendance writers acquire this row's FK key-share lock without the
-      // planned-room advisory lock. Wait for them before counting references;
-      // otherwise ON DELETE SET NULL could erase a concurrently committed room.
-      await tx.$queryRaw`SELECT id FROM "Room" WHERE id = ${input.id} FOR UPDATE`;
-      const [used, actual] = await Promise.all([
-        tx.pairing.count({ where: { roomId: input.id } }),
-        tx.session.count({ where: { actualRoomId: input.id } }),
-      ]);
-      if (used > 0 || actual > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Room is in use by a pairing or retained attendance record.",
-        });
-      }
-      return tx.room.delete({ where: { id: input.id } });
-    })),
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // Serialize catalog membership with room reorder drafts before reservation checks.
+        await lockProgramRooms(tx);
+        // Do not race an allocator or erase retained actual attendance location evidence.
+        await lockPlannedRoomSchedule(tx);
+        // Attendance writers acquire this row's FK key-share lock without the
+        // planned-room advisory lock. Wait for them before counting references;
+        // otherwise ON DELETE SET NULL could erase a concurrently committed room.
+        await tx.$queryRaw`SELECT id FROM "Room" WHERE id = ${input.id} FOR UPDATE`;
+        const [used, actual] = await Promise.all([
+          tx.pairing.count({ where: { roomId: input.id } }),
+          tx.session.count({ where: { actualRoomId: input.id } }),
+        ]);
+        if (used > 0 || actual > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Room is in use by a pairing or retained attendance record.",
+          });
+        }
+        return tx.room.delete({ where: { id: input.id } });
+      }),
+    ),
 
   // --------------------------------------------------------------------------
   // Room unavailability (recurring weekly blackout periods, shown on the grid)
@@ -5029,8 +5155,38 @@ export const adminRouter = createTRPCRouter({
     .mutation(({ input }) => issueAccountVerification(input.userId)),
 
   accountDetails: adminProcedure
-    .input(z.union([z.object({ userId: cuid }), z.object({ tutorId: cuid })]))
+    .input(
+      z.union([
+        z.object({ userId: cuid }),
+        z.object({ tutorId: cuid }),
+        z.object({ tuteeId: cuid }),
+      ]),
+    )
     .query(({ ctx, input }) => accountDirectoryDetails(ctx.db, input)),
+
+  // A grouped live login can be edited independently of the directory's chosen
+  // representative. Returning its exact version keeps conflict reload explicit.
+  accountProfile: adminProcedure
+    .input(z.object({ userId: cuid }))
+    .query(async ({ ctx, input }) => {
+      const row = await ctx.db.user.findUnique({
+        where: { id: input.userId, mergedIntoId: null },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          username: true,
+          firstName: true,
+          lastName: true,
+          preferredName: true,
+          legacyName: true,
+          alternativeNames: true,
+          profileVersion: true,
+        },
+      });
+      if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+      return { ...row, userId: row.id, name: row.name ?? row.email };
+    }),
 
   accounts: adminProcedure.query(async ({ ctx }) => {
     const now = new Date();
@@ -5053,6 +5209,7 @@ export const adminRouter = createTRPCRouter({
             alternativeNames: true,
             profileVersion: true,
             academicProfile: true,
+            personId: true,
             email: true,
             username: true,
             role: true,
@@ -5066,6 +5223,13 @@ export const adminRouter = createTRPCRouter({
             passwordHash: true,
             mustChangePassword: true,
             student: { select: { status: true, intakeTermId: true } },
+            retainedTutorProfiles: { select: { tutorId: true } },
+            combinedAccounts: {
+              select: {
+                id: true,
+                retainedTutorProfiles: { select: { tutorId: true } },
+              },
+            },
             tutorId: true,
             tutor: {
               select: {
@@ -5080,7 +5244,9 @@ export const adminRouter = createTRPCRouter({
           },
         }),
         ctx.db.tutor.findMany({
-          where: { user: { is: null } },
+          // A retained archive is represented by its owner's account row and Details.
+          // Keep the original roster record; only genuinely unowned records need a row here.
+          where: { user: { is: null }, retainedOwner: { is: null } },
           orderBy: { englishName: "asc" },
           select: {
             id: true,
@@ -5088,8 +5254,10 @@ export const adminRouter = createTRPCRouter({
             status: true,
             username: true,
             gradeLevel: true,
+            gradeSchoolYear: true,
             academicallyGraduated: true,
             email: true,
+            personId: true,
           },
         }),
         // Outstanding (unused, unexpired) registration codes — used to flag "invited" accounts.
@@ -5098,8 +5266,7 @@ export const adminRouter = createTRPCRouter({
           select: { tutorId: true, email: true },
         }),
         ctx.db.studentProfileOwnership.findMany({
-          select: { userId: true },
-          distinct: ["userId"],
+          select: { userId: true, tuteeId: true },
         }),
       ]);
 
@@ -5144,6 +5311,8 @@ export const adminRouter = createTRPCRouter({
     );
     const userRows = users.map((u) => ({
       userId: u.id,
+      personId: u.personId,
+      tuteeId: null as string | null,
       name: u.name ?? u.email,
       firstName: u.firstName,
       lastName: u.lastName,
@@ -5166,7 +5335,15 @@ export const adminRouter = createTRPCRouter({
       tuteeMember: u.tuteeMember,
       hasTuteeHistory:
         historicalOwnerIds.has(u.id) ||
+        u.combinedAccounts.some((account) =>
+          historicalOwnerIds.has(account.id),
+        ) ||
         (!!u.student && isHistoricalTutee(u.student, term?.id ?? null)),
+      hasTutorHistory:
+        u.retainedTutorProfiles.length > 0 ||
+        u.combinedAccounts.some(
+          (account) => account.retainedTutorProfiles.length > 0,
+        ),
       currentTutee:
         u.tuteeMember &&
         !!u.student &&
@@ -5184,6 +5361,8 @@ export const adminRouter = createTRPCRouter({
 
     const tutorRows = unlinkedTutors.map((tu) => ({
       userId: null,
+      personId: tu.personId,
+      tuteeId: null as string | null,
       name: tu.englishName,
       firstName: null,
       lastName: null,
@@ -5207,13 +5386,17 @@ export const adminRouter = createTRPCRouter({
       tutorStatus: tu.status,
       classOf: null,
       academic: academicSummary(
-        legacyAcademic(tu.gradeLevel, tu.academicallyGraduated),
-        term?.schoolYear,
+        {
+          ...legacyAcademic(tu.gradeLevel, tu.academicallyGraduated),
+          schoolYear: tu.gradeSchoolYear,
+        },
+        tu.gradeSchoolYear,
       ),
       canTranslate: false,
       tuteeMember: false,
       currentTutee: false,
       hasTuteeHistory: false,
+      hasTutorHistory: false,
       tutorAccessRevoked: false,
       crewStatus: null,
       tutorHasEmail: !!tu.email,
@@ -5223,9 +5406,76 @@ export const adminRouter = createTRPCRouter({
       account: hasOpenCode(tu.id, tu.email) ? "invited" : "none",
     }));
 
+    // Accountless tutees are real participant records too. A retained or current
+    // owner already represents them; names and email addresses never hide a row.
+    const unlinkedTutees = await ctx.db.tutee.findMany({
+      where: {
+        user: { is: null },
+        id: { notIn: historyOwners.map((owner) => owner.tuteeId) },
+      },
+      orderBy: [{ englishName: "asc" }, { id: "asc" }],
+    });
+    const tuteePeriods = new Map(
+      (
+        await ctx.db.term.findMany({
+          where: {
+            id: {
+              in: unlinkedTutees.flatMap((row) =>
+                row.intakeTermId ? [row.intakeTermId] : [],
+              ),
+            },
+          },
+          select: { id: true, schoolYear: true },
+        })
+      ).map((period) => [period.id, period.schoolYear]),
+    );
+    const tuteeRows = unlinkedTutees.map((student) => ({
+      userId: null,
+      personId: student.personId,
+      tuteeId: student.id,
+      name: student.englishName,
+      firstName: null,
+      lastName: null,
+      preferredName: null,
+      legacyName: student.englishName,
+      alternativeNames: null,
+      profileVersion: null,
+      emailVerifiedAt: null,
+      email: student.email,
+      username: null,
+      role: null,
+      isSelf: false,
+      tutorId: null,
+      tutor: null,
+      tutorStatus: null,
+      classOf: null,
+      academic: academicSummary(
+        {
+          ...legacyAcademic(student.gradeLevel, student.academicallyGraduated),
+          schoolYear: tuteePeriods.get(student.intakeTermId ?? "") ?? null,
+        },
+        tuteePeriods.get(student.intakeTermId ?? ""),
+      ),
+      canTranslate: false,
+      tuteeMember: false,
+      currentTutee: !isHistoricalTutee(student, term?.id ?? null),
+      hasTuteeHistory: isHistoricalTutee(student, term?.id ?? null),
+      hasTutorHistory: false,
+      tutorAccessRevoked: false,
+      crewStatus: null,
+      tutorHasEmail: false,
+      affiliation: null,
+      suspended: false,
+      account: "none",
+    }));
+
     return {
       caller: { id: ctx.session.user.id, role: ctx.session.role },
-      rows: [...userRows, ...tutorRows],
+      rows: await groupDirectoryRows(ctx.db, [
+        ...userRows,
+        ...tutorRows,
+        ...tuteeRows,
+      ]),
     };
   }),
 

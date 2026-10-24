@@ -101,6 +101,25 @@ vi.mock("~/trpc/react", async () => {
   };
   return {
     api: {
+      personCombine: {
+        candidates: {
+          useQuery: () => ({
+            data: [],
+            isSuccess: true,
+            isFetching: false,
+            refetch: async () => ({ data: [] }),
+          }),
+        },
+        combine: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+      },
+      tutorHistory: {
+        permissions: {
+          useQuery: () => ({
+            data: { canLink: true, isHead: true },
+            isFetching: false,
+          }),
+        },
+      },
       useUtils: () => {
         const queryClient = useQueryClient();
         const invalidate = async (
@@ -125,6 +144,7 @@ vi.mock("~/trpc/react", async () => {
           invalidate: () => invalidate("*"),
           admin: {
             accounts: { ...target("admin.accounts"), fetch: mock.refetch },
+            accountDetails: target("admin.accountDetails"),
             tutors: target("admin.tutors"),
             tutees: target("admin.tutees"),
             tuteeStats: target("admin.tuteeStats"),
@@ -484,9 +504,11 @@ async function prepare(
     };
   }
   if (operation === "link") {
-    screen
-      .getByText(labels.tuteeHistory.linkTitle, { selector: "summary" })
-      .closest("details")!.open = true;
+    const disclosure = screen
+      .getByText(labels.combineRecords.correctOwner, { selector: "summary" })
+      .closest("details")!;
+    disclosure.open = true;
+    fireEvent(disclosure, new Event("toggle"));
     const field = screen.getByLabelText<HTMLTextAreaElement>(
       labels.tuteeHistory.evidence,
     );

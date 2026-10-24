@@ -268,6 +268,18 @@ The management read-only context includes both Viewers and departure observers. 
 
 `admin.accountDetails` is an on-demand, `adminProcedure`-protected read. Its feature-owned projection in `account-directory.ts` separates direct participant attachments from retained Tutor/Student ownership (including the recorded account-combination family). It never matches ownership by names/email, creates accounts, changes membership or returns credential hashes/invitation tokens. Original academic snapshots preserve their enrollment year and nulls, independent of an owner's current profile. Preserved tutor originals are also used by the existing Tutor Details dialog after archive reactivation. Viewing details does not materialize historical evidence.
 
+`admin.accounts` projects one directory row per explicit Person group, including
+accountless Tutor and Tutee sources. The representative's role badges and access
+remain its own. Filtering evaluates the complete search and filter expression
+against each independent member; it never unions privileges or combines facts
+from different members into a match. Source-name aliases keep every grouped
+record findable. Account details retain the original participant records and
+individual live login actions. Unowned sources remain separate until explicitly
+grouped. `hasTutorHistory` and `hasTuteeHistory` preserve historical visibility,
+while separate current participation can keep a group visible. Grouping changes
+no original roster evidence. Successful writes invalidate directory, detail and
+history reads; failed synchronization retries reads without repeating the write.
+
 The Users & Roles page composes existing table actions, `ProfileDialog`, `TableDetails`, academic and policy displays. Detail queries and mutation observers mount only on opening. Each opening refreshes the authoritative detail read, even within the shared query cache freshness window, so independent membership, suspension and profile editors cannot leave reopened details stale. Failed background reads retain cached details with read-only Retry. Badge colors are local presentation, independent of the six accent palettes: management indigo, participation teal, Translator amber and Viewer slate. Summary badge suppression and all filtering logic remain in their existing domain helpers; the detail display adds the underlying accepted Tutee membership. The read-only context hides the private entry, and server authorization independently refuses observers and participants, including stale elevated sessions.
 
 Focused regressions live in `src/app/(admin)/admin/users`, `src/lib/user-filters.test.ts`, `src/lib/account-membership.test.ts` and `src/server/account-directory.test.ts`. Include `src/server/tutor-details.test.ts` for the preserved-academics boundary. Browser verification must use the actual Users & Roles page and native nested dialogs in both languages, then measure badge contrast and control bounds; screenshots and HTML evidence belong in ignored `outputs/`.
@@ -897,16 +909,21 @@ The [user filter helpers](../../src/lib/user-filters.ts) match composable member
 
 Account names synchronize only to explicitly linked current profiles. Shared profile writers lock the account before roster rows and reject stale versions. Signed agreements, submitted survey names and historical snapshots remain evidence of what was submitted.
 
-Head-only [account combination](../../src/server/combine-accounts.ts) requires a preview, identity acknowledgement and the Head's password. `User.mergedIntoId` retains the duplicate as historical identity while live authorization and database guards retire its credentials and reserve its identifiers. Ownership-aware reads include retained history without rewriting original actors. Departure history and incompatible account state block this generic workflow; see [identity retention and migration limits](../guides/deployment.md#combined-account-identity-retention) and the [operator procedure](../guides/user-guide.md#combine-duplicate-accounts-head-only).
+[Unified record combination](../../src/server/person-combine.ts) plans explicit User/Tutor/Tutee groups through [person identity resolution](../../src/server/person-identity.ts). A `Person` may have no login; its versioned associations are directory metadata, never an authorization principal. Admin may approve unowned historical records. Multiple logins, active unowned records and restricted identities require Head review and current password confirmation. The planner can persist `REVIEW_REQUIRED` while keeping current work and private login access separate. Exact compatible login retirement is an explicit choice; it preserves survivor capabilities instead of unioning privileges. `User.mergedIntoId` retains original actors and retires credentials. [History resolution](../../src/server/account-history.ts) traverses only immutable retirement edges, not the Person group, including repeated combinations. The [legacy combine service](../../src/server/combine-accounts.ts) remains compatible and synchronizes directory identity. See [retention limits](../guides/deployment.md#combined-account-identity-retention) and the [operator procedure](../guides/user-guide.md#combine-records-admin-and-head).
 
-The combine component intersects its server candidates with actual login IDs in
-the displayed Users & Roles table. Existing filters and search remain authoritative
-for this presentation, including default unverified/history visibility. It adds no
-signup classification. Hidden selections invalidate the local review generation,
-so a late preview response cannot restore private evidence or an old pair. Once
-submitted, the captured pair keeps its pending/result owner; page filters are
-disabled until settlement. Both zero-signup and signup-bearing logins retain the
-same server conflict, survivor-readiness and retirement safeguards.
+The person migration backfills only current profile pointers, retained ownership and recorded login retirement. Contradictory or orphaned retained ownership stops migration for staff review; names/email never infer a relationship. Imported source rows can have no person metadata until an authorized grouping or ownership write. Archive CSVs exclude person IDs and combination receipts. Grouped identities are protected from ordinary deletion; a lone unreviewed account may still use the existing deletion workflow. Combination receipts bind actor, operation UUID and reviewed intent without storing passwords; accepted retries return the receipt. Preview fingerprints cover source/group revisions, credentials and the exact operational plan. Existing history claims and ownership corrections synchronize metadata without changing original roster edit timestamps or granting sibling records' history access.
+
+The [unified combination component](../../src/app/_components/combine-records.tsx)
+searches authorized login and participant records independently of the directory's
+filters. Selected source IDs survive subsequent searches; a fresh preview expands
+every affected group and owns the retained-login and retirement choices. Changed
+selection or login choices discard the old preview. Same-turn admission prevents
+duplicate submissions. Accepted operations retain their receipt through read-only
+refresh recovery. Unknown outcomes retain their operation UUID and block parent
+dismissal while receipt lookup or exact idempotent retry remains available.
+Transient parent permission-read failures retain the workflow and drafts; an
+authoritative denial conceals private evidence without discarding the receipt.
+Head-only exact-owner correction remains separate from identity grouping.
 
 [Historical tutor linking](../../src/server/tutor-history.ts) records a separate
 `TutorProfileOwnership` read grant rather than replacing `User.tutorId`. Admin/Head
@@ -1185,6 +1202,10 @@ gates require that revision separately. SQL migration
 and binds operational retry receipts to these transactions.
 
 [Historical linking and invitations](../guides/historical-participant-transition.md) add retained ownership after staff review or an explicit claim by the invited verified account. They preserve original enrollment academics, current membership and recorded attendance. Accountless tutees remain roster records; personal `/history` reads require ownership, while general observer access never grants private history. See the guide's [technical map](../guides/historical-participant-transition.md#technical-map) for endpoints and shared cache invalidation.
+
+Tutee link fingerprints include the target email/verification state and `StudentProfileOwnership.revision`, in addition to the record, current link and profile version. Transfers increment the ownership revision, including account combination, so an A→B→A correction cannot reuse an earlier review. Apply the additive `20261021010000_tutee_ownership_revision` migration before deploying this reader/writer contract; existing ownership rows start at revision 1 without changing owners or evidence.
+
+Personal history presents separate tutee and tutor summaries with stable record IDs. Tutee periods come from the original intake term; tutor periods and stored session-hour sums come from owned session evidence. No current account year or recalculated duration replaces those values. Tutor details recheck exact-record ownership, return independent session/meeting/amendment page indicators and retain the legacy `page` fallback for older callers. The UI opens details on demand with a fresh read and uses independent cursors. Transient background failures retain cached content beside read-only recovery. Authoritative detail denial conceals private evidence; a successful complete ownership list that excludes the selected record closes its detail, even if the detail read is offline.
 
 History-only account setup reuses the exact-record invitation and shared email-claim registry. A separate HMAC email code and purpose-bound completion proof open the shared receipt popup, whose optional email and prefilled link hand off to credential review at `/register`; invitation expiry/cancellation, record freshness and issuer authority are checked inside the identity transaction at every step. A neutral STUDENT rank with no participation links/memberships does not grant observer or current tutoring access. The receipt supports a lost-response retry without overwriting credentials. The explicit signed-in claim still establishes ownership separately. Personal tutor history reads current and retained tutor ownership across the account-combination family, without invoking participation, profile synchronization or hour recalculation.
 
