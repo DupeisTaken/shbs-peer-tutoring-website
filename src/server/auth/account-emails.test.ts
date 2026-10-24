@@ -107,7 +107,34 @@ beforeEach(async () => {
   });
 });
 afterAll(async () => {
-  await db.user.deleteMany({ where: { id: { startsWith: "email54-" } } });
+  await db.$transaction(async (tx) => {
+    const fixtureUsers = { id: { startsWith: "email54-" } };
+    const fixturePeople = await tx.person.findMany({
+      where: { primaryUserId: { startsWith: "email54-" } },
+      select: { id: true },
+    });
+    const personIds = fixturePeople.map(({ id }) => id);
+    // Profile writes create a restricted primary-account FK. Release only this
+    // suite's references; production deletion must retain its RESTRICT boundary.
+    await tx.person.updateMany({
+      where: { id: { in: personIds } },
+      data: { primaryUserId: null },
+    });
+    await tx.user.deleteMany({ where: fixtureUsers });
+    // Delete only exclusive fixture metadata after its accounts are gone. Any
+    // surviving participant, receipt or grouped identity keeps its Person row.
+    await tx.person.deleteMany({
+      where: {
+        id: { in: personIds },
+        users: { none: {} },
+        tutors: { none: {} },
+        tutees: { none: {} },
+        receipts: { none: {} },
+        mergedGroups: { none: {} },
+        mergedIntoId: null,
+      },
+    });
+  });
   await db.$disconnect();
 });
 

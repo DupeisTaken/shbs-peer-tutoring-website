@@ -4265,7 +4265,7 @@
     "actionsHeading": "Actions",
     "recordedPeriods": "Recorded periods",
     "periodRange": "{first} – {last}",
-    "sessionHoursHeading": "Recorded session hours",
+    "sessionHoursHeading": "Recorded Session Hours",
     "sessionHoursHelp": "Session hours are the stored credits for these sessions. Meeting attendance and hour amendments are shown separately; these figures are not a recalculated service-hour total.",
     "historyCounts": "{sessions} sessions · {meetings} meeting records · {amendments} hour amendments",
     "noMeetings": "No meeting attendance is recorded on this page.",
@@ -5496,7 +5496,7 @@
     "accessDenied": "Interview access is no longer available. Reload to check your current permissions."
   },
   "combineRecords": {
-    "title": "Combine records",
+    "title": "Combine Records",
     "intro": "Bring together accounts and participant records belonging to the same person.",
     "open": "Combine records",
     "close": "Close",

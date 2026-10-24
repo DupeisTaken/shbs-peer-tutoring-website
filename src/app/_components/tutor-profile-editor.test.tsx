@@ -42,8 +42,18 @@ vi.mock("./profile-dialog", () => ({
 }));
 vi.mock("./academic-profile", () => ({ AcademicPanel: () => null }));
 vi.mock("./tutor-history-link", () => ({
-  TutorHistorySection: ({ tutorId }: { tutorId: string }) => (
-    <div>History linking: {tutorId}</div>
+  TutorHistorySection: ({
+    tutorId,
+    unified,
+    historical,
+  }: {
+    tutorId: string;
+    unified?: boolean;
+    historical?: boolean;
+  }) => (
+    <div data-unified={unified} data-historical={historical}>
+      History linking: {tutorId}
+    </div>
   ),
 }));
 const row = {
@@ -71,13 +81,23 @@ beforeEach(() => {
   state.error = null;
 });
 afterEach(cleanup);
-it("offers historical linking only for archived, graduated and transferred tutors", () => {
-  mount();
-  expect(screen.getByText("History linking: past-tutor")).toBeTruthy();
-  cleanup();
-  mount(true, { ...row, status: "ACTIVE" });
-  expect(screen.queryByText("History linking: past-tutor")).toBeNull();
-});
+it.each([
+  ["ACTIVE", false],
+  ["ARCHIVED", true],
+  ["GRADUATED", true],
+  ["TRANSFERRED", true],
+] as const)(
+  "offers unified grouping for %s tutors with historical correction scoped separately",
+  (status, historical) => {
+    mount(true, { ...row, status });
+    const entry = screen.getByText("History linking: past-tutor");
+    expect(entry.dataset.unified).toBe("true");
+    // TutorHistorySection owns the additional live Head permission check; its
+    // integration suite verifies that current profiles cannot correct ownership.
+    expect(entry.dataset.historical).toBe(String(historical));
+    expect(state.save).not.toHaveBeenCalled();
+  },
+);
 it("saves an archived unlinked correction without an email and preserves status", () => {
   mount();
   fireEvent.change(screen.getByLabelText("First Name Required"), {
