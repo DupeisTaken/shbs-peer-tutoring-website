@@ -14,7 +14,7 @@ import { z } from "zod";
 
 export const LANDING_OWNER = "landing";
 
-const localized = z.record(z.string());
+const localized = z.record(z.string(), z.string());
 
 const buttonSchema = z.object({
   label: localized,

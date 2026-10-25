@@ -12,7 +12,9 @@ import { normalizeGrade } from "~/lib/academics";
 const scalar = z
   .union([z.string(), z.number(), z.boolean(), z.date()])
   .nullish();
-const hidden = z.unknown().transform(() => null);
+// Projection emits null even when a source omitted the private field. Zod 4
+// requires unknown-valued keys unless their absence is explicitly accepted.
+const hidden = z.unknown().optional().transform(() => null);
 function summary(fields: string, relations: z.ZodRawShape = {}, redacted = "") {
   return z.object({
     ...Object.fromEntries(
@@ -231,6 +233,7 @@ const report = summary("", {
 export const managementReadModels = {
   "admin.tutors": list(tutor),
   "admin.tuteeStats": z.record(
+    z.string(),
     summary(
       `sessions ${attendanceCounts} validYellow validRed effectiveReds removalPending`,
     ),
