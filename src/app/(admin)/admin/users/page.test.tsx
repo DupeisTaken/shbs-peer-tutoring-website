@@ -47,41 +47,57 @@ type DeleteCallbacks = {
   onError: (error: { message: string }) => void;
   onSettled: () => void;
 };
-const fixture = vi.hoisted(() => ({
-  viewerId: "synthetic-head",
-  role: "HEAD",
-  targetSelf: false,
-  targetRole: "ADMIN",
-  accountsError: null as { message: string; data?: { code?: string } } | null,
-  accountsRefetch: vi.fn<() => Promise<void>>(),
-  delete:
-    vi.fn<
-      (input: {
-        userId: string;
-        fingerprint: string;
-        confirmPassword: string;
-      }) => void
-    >(),
-  deleteCallbacks: undefined as DeleteCallbacks | undefined,
-  assign: vi.fn(),
-  confirm: vi.fn().mockResolvedValue(true),
-  appeals: [] as {
-    id: string;
-    name: string;
-    message: string;
-    affiliation: string | null;
-    createdAt: Date;
-    userId: string;
-  }[],
-  appealError: null as null | { message: string; data?: { code?: string } },
-  decisionError: null as null | { message: string },
-  decisionPending: false,
-  decision: vi.fn(),
-  refresh: vi.fn<() => Promise<void>>(),
-  refetch: vi.fn(),
-  completion: undefined as undefined | (() => Promise<void>),
-  combineRows: vi.fn(),
-}));
+const fixture = vi.hoisted(() => {
+  const navigation: {
+    accountsError: { message: string; data?: { code?: string } } | null;
+    combinedUserId: string | null;
+    combinedVerified: Date | null;
+    sendSetupError: { message: string } | null;
+  } = {
+    accountsError: null,
+    combinedUserId: "synthetic-combined",
+    combinedVerified: new Date("2026-09-01"),
+    sendSetupError: null,
+  };
+  return {
+    ...navigation,
+    viewerId: "synthetic-head",
+    role: "HEAD",
+    targetSelf: false,
+    targetRole: "ADMIN",
+    accountsLoading: false,
+    combinedAccount: "registered",
+    sendSetup: vi.fn(),
+    accountsRefetch: vi.fn<() => Promise<void>>(),
+    delete:
+      vi.fn<
+        (input: {
+          userId: string;
+          fingerprint: string;
+          confirmPassword: string;
+        }) => void
+      >(),
+    deleteCallbacks: undefined as DeleteCallbacks | undefined,
+    assign: vi.fn(),
+    confirm: vi.fn().mockResolvedValue(true),
+    appeals: [] as {
+      id: string;
+      name: string;
+      message: string;
+      affiliation: string | null;
+      createdAt: Date;
+      userId: string;
+    }[],
+    appealError: null as null | { message: string; data?: { code?: string } },
+    decisionError: null as null | { message: string },
+    decisionPending: false,
+    decision: vi.fn(),
+    refresh: vi.fn<() => Promise<void>>(),
+    refetch: vi.fn(),
+    completion: undefined as undefined | (() => Promise<void>),
+    combineRows: vi.fn(),
+  };
+});
 vi.mock("@trpc/react-query", () => ({ getQueryKey: () => ["appeal-test"] }));
 vi.mock("~/trpc/react", () => {
   const mutation = {
@@ -124,86 +140,93 @@ vi.mock("~/trpc/react", () => {
         accounts: {
           useQuery: () => ({
             error: fixture.accountsError,
-            isSuccess: !fixture.accountsError,
+            isSuccess: !fixture.accountsError && !fixture.accountsLoading,
             refetch: fixture.accountsRefetch,
-            isFetching: false,
-            data: {
-              caller: { id: fixture.viewerId, role: fixture.role },
-              rows: [
-                {
-                  userId: null,
-                  name: "Past tutor",
-                  role: null,
-                  tutorId: "archived",
-                  tutorStatus: "ARCHIVED",
-                  tuteeMember: false,
-                  tutorAccessRevoked: false,
-                  account: "none",
-                  tutorHasEmail: false,
-                  tutor: { englishName: "Past tutor", username: "pasttutor" },
-                  academic: {},
+            isFetching: fixture.accountsLoading,
+            data: fixture.accountsLoading
+              ? undefined
+              : {
+                  caller: { id: fixture.viewerId, role: fixture.role },
+                  rows: [
+                    {
+                      userId: null,
+                      name: "Past tutor",
+                      role: null,
+                      tutorId: "archived",
+                      tutorStatus: "ARCHIVED",
+                      tuteeMember: false,
+                      tutorAccessRevoked: false,
+                      account: "none",
+                      tutorHasEmail: false,
+                      tutor: {
+                        englishName: "Past tutor",
+                        username: "pasttutor",
+                      },
+                      academic: {},
+                    },
+                    {
+                      userId: fixture.combinedUserId,
+                      name: "Combined account",
+                      role: "ADMIN",
+                      tutorId: "synthetic-tutor",
+                      tutorStatus: "ACTIVE",
+                      tuteeMember: false,
+                      tutorAccessRevoked: false,
+                      account: fixture.combinedAccount,
+                      tutorHasEmail: true,
+                      emailVerifiedAt: fixture.combinedVerified,
+                      tutor: null,
+                      academic: {
+                        status: "REPORTED",
+                        gradeLevel: 10,
+                        schoolYear: "26-27",
+                        expectedGraduationYear: 2029,
+                        needsConfirmation: false,
+                      },
+                    },
+                    {
+                      userId: "synthetic-management",
+                      name: "Management account",
+                      isSelf: fixture.targetSelf,
+                      role: fixture.targetRole,
+                      tutorId: null,
+                      tutorStatus: null,
+                      tuteeMember: false,
+                      tutorAccessRevoked: false,
+                      account: "registered",
+                      tutor: null,
+                      academic: {
+                        status: "REPORTED",
+                        gradeLevel: 8,
+                        schoolYear: "26-27",
+                        expectedGraduationYear: 2031,
+                        needsConfirmation: true,
+                      },
+                    },
+                    {
+                      userId: "synthetic-student",
+                      name: "Verified student",
+                      role: "STUDENT",
+                      username: null,
+                      emailVerifiedAt: new Date(),
+                      tutorId: null,
+                      tuteeMember: true,
+                      account: "registered",
+                      tutor: null,
+                    },
+                    {
+                      userId: "synthetic-unverified",
+                      name: "Unverified student",
+                      role: "STUDENT",
+                      username: null,
+                      emailVerifiedAt: null,
+                      tutorId: null,
+                      tuteeMember: true,
+                      account: "registered",
+                      tutor: null,
+                    },
+                  ],
                 },
-                {
-                  userId: "synthetic-combined",
-                  name: "Combined account",
-                  role: "ADMIN",
-                  tutorId: "synthetic-tutor",
-                  tutorStatus: "ACTIVE",
-                  tuteeMember: false,
-                  tutorAccessRevoked: false,
-                  account: "registered",
-                  tutor: null,
-                  academic: {
-                    status: "REPORTED",
-                    gradeLevel: 10,
-                    schoolYear: "26-27",
-                    expectedGraduationYear: 2029,
-                    needsConfirmation: false,
-                  },
-                },
-                {
-                  userId: "synthetic-management",
-                  name: "Management account",
-                  isSelf: fixture.targetSelf,
-                  role: fixture.targetRole,
-                  tutorId: null,
-                  tutorStatus: null,
-                  tuteeMember: false,
-                  tutorAccessRevoked: false,
-                  account: "registered",
-                  tutor: null,
-                  academic: {
-                    status: "REPORTED",
-                    gradeLevel: 8,
-                    schoolYear: "26-27",
-                    expectedGraduationYear: 2031,
-                    needsConfirmation: true,
-                  },
-                },
-                {
-                  userId: "synthetic-student",
-                  name: "Verified student",
-                  role: "STUDENT",
-                  username: null,
-                  emailVerifiedAt: new Date(),
-                  tutorId: null,
-                  tuteeMember: true,
-                  account: "registered",
-                  tutor: null,
-                },
-                {
-                  userId: "synthetic-unverified",
-                  name: "Unverified student",
-                  role: "STUDENT",
-                  username: null,
-                  emailVerifiedAt: null,
-                  tutorId: null,
-                  tuteeMember: true,
-                  account: "registered",
-                  tutor: null,
-                },
-              ],
-            },
           }),
         },
         appeals: {
@@ -246,7 +269,13 @@ vi.mock("~/trpc/react", () => {
             reset: vi.fn(),
           }),
         },
-        sendTutorSetup: mutation,
+        sendTutorSetup: {
+          useMutation: () => ({
+            mutate: fixture.sendSetup,
+            isPending: false,
+            error: fixture.sendSetupError,
+          }),
+        },
       },
     },
   };
@@ -320,9 +349,16 @@ beforeEach(() => {
   });
   localStorage.clear();
   sessionStorage.clear();
+  window.history.replaceState(null, "", "/admin/users");
   fixture.viewerId = "synthetic-head";
   fixture.role = "HEAD";
   fixture.accountsError = null;
+  fixture.accountsLoading = false;
+  fixture.combinedUserId = "synthetic-combined";
+  fixture.combinedAccount = "registered";
+  fixture.combinedVerified = new Date("2026-09-01");
+  fixture.sendSetup.mockClear();
+  fixture.sendSetupError = null;
   fixture.accountsRefetch.mockReset().mockResolvedValue(undefined);
   fixture.targetSelf = false;
   fixture.targetRole = "ADMIN";
@@ -355,6 +391,199 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+});
+
+const directoryArrival = (tutorId: string) => {
+  window.history.replaceState(
+    null,
+    "",
+    `/admin/users#tutor-${encodeURIComponent(tutorId)}`,
+  );
+  window.dispatchEvent(new HashChangeEvent("hashchange"));
+};
+const visibleDirectoryRecords = () => {
+  vi.spyOn(Element.prototype, "getClientRects").mockReturnValue({
+    length: 1,
+  } as DOMRectList);
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    configurable: true,
+    value: vi.fn(),
+  });
+};
+
+it("reveals the exact linked tutor through conflicting saved filters and restores those choices on return", () => {
+  const saved = emptyUserFilters();
+  saved.role.include = ["STUDENT"];
+  saved.account.include = ["registered"];
+  writeViewState(
+    sessionStorage,
+    storageKey,
+    userDirectoryView(saved, "Verified"),
+  );
+  visibleDirectoryRecords();
+  directoryArrival("archived");
+  mount();
+  const row = document.getElementById("tutor-archived");
+  expect(row).not.toBeNull();
+  expect(document.activeElement).toBe(row);
+  expect(screen.getByRole("table").textContent).toContain("Past tutor");
+  expect(screen.getByRole("table").textContent).not.toContain(
+    "Verified student",
+  );
+  expect(storedFilters()).toEqual(saved);
+  expect(screen.queryByRole("searchbox")).toBeNull();
+  expect(
+    (JSON.parse(sessionStorage.getItem(storageKey)!) as UserDirectoryView)
+      .search,
+  ).toBe("Verified");
+  expect(fixture.sendSetup).not.toHaveBeenCalled();
+
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.usersDirectory.showAll }),
+  );
+  expect(window.location.hash).toBe("");
+  expect(screen.queryByText("@pasttutor")).toBeNull();
+  expect(screen.getByRole("table").textContent).toContain("Verified student");
+  expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe(
+    "Verified",
+  );
+  expect(storedFilters()).toEqual(saved);
+});
+
+it("keeps a tutor destination stable when an invited roster gains an unverified login", () => {
+  fixture.combinedUserId = null;
+  fixture.combinedAccount = "invited";
+  fixture.combinedVerified = null;
+  visibleDirectoryRecords();
+  directoryArrival("synthetic-tutor");
+  const page = mount();
+  const firstRow = document.getElementById("tutor-synthetic-tutor")!;
+  expect(firstRow).toBe(document.activeElement);
+  expect(
+    within(firstRow).queryByRole("button", {
+      name: messages.admin.tutors.account.sendSetup,
+    }),
+  ).toBeNull();
+
+  fixture.combinedUserId = "new-login";
+  fixture.combinedAccount = "setup";
+  page.rerender(<UsersPage />);
+  const linkedRow = document.getElementById("tutor-synthetic-tutor")!;
+  expect(linkedRow).not.toBeNull();
+  expect(
+    within(linkedRow).getByRole("button", {
+      name: messages.admin.tutors.account.sendSetup,
+    }),
+  ).toBeTruthy();
+  expect(fixture.sendSetup).not.toHaveBeenCalled();
+});
+
+it("waits for the authorized directory before declaring a destination unavailable", () => {
+  fixture.accountsLoading = true;
+  directoryArrival("Combined account");
+  const page = mount();
+  expect(
+    screen.queryByText(messages.usersDirectory.targetUnavailable),
+  ).toBeNull();
+  fixture.accountsLoading = false;
+  page.rerender(<UsersPage />);
+  // The same display name is present, but an incoming ID must never match by name.
+  expect(
+    screen.getByText(messages.usersDirectory.targetUnavailable),
+  ).toBeTruthy();
+  expect(screen.getByRole("table").textContent).not.toContain(
+    "Combined account",
+  );
+  expect(document.querySelector("tr[id^='tutor-']")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.uiPatterns.retry }),
+  );
+  expect(fixture.accountsRefetch).toHaveBeenCalledOnce();
+  expect(fixture.sendSetup).not.toHaveBeenCalled();
+});
+
+it("focuses a delayed target, preserves user focus on refresh, and handles the same destination again", () => {
+  fixture.accountsLoading = true;
+  visibleDirectoryRecords();
+  directoryArrival("synthetic-tutor");
+  const page = mount();
+  expect(document.getElementById("tutor-synthetic-tutor")).toBeNull();
+  fixture.accountsLoading = false;
+  page.rerender(<UsersPage />);
+  const row = document.getElementById("tutor-synthetic-tutor")!;
+  expect(document.activeElement).toBe(row);
+  const details = within(row).getByRole("button", { name: "User details" });
+  details.focus();
+  page.rerender(<UsersPage />);
+  expect(document.activeElement).toBe(details);
+  act(() => directoryArrival("synthetic-tutor"));
+  expect(document.activeElement).toBe(row);
+});
+
+it("retains the explicit destination across a failed read without exposing denied cached rows", () => {
+  directoryArrival("synthetic-tutor");
+  fixture.accountsError = { message: "Denied", data: { code: "FORBIDDEN" } };
+  const page = mount();
+  expect(screen.queryByRole("table")).toBeNull();
+  expect(screen.queryByText("Combined account")).toBeNull();
+  fixture.accountsError = { message: "Network failure" };
+  page.rerender(<UsersPage />);
+  expect(screen.queryByRole("table")).toBeNull();
+  fixture.accountsError = null;
+  page.rerender(<UsersPage />);
+  expect(document.getElementById("tutor-synthetic-tutor")).not.toBeNull();
+  expect(fixture.sendSetup).not.toHaveBeenCalled();
+});
+
+it.each(["ADMIN", "COORDINATOR"])(
+  "explains Head-only accountless provisioning to %s while preserving existing setup resends",
+  (role) => {
+    fixture.role = role;
+    fixture.combinedUserId = null;
+    fixture.combinedAccount = "none";
+    directoryArrival("synthetic-tutor");
+    const page = mount();
+    expect(
+      screen.getByText(messages.usersDirectory.setupHeadRequired),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", {
+        name: messages.admin.tutors.account.sendSetup,
+      }),
+    ).toBeNull();
+    fixture.combinedUserId = "existing-login";
+    fixture.combinedAccount = "setup";
+    page.rerender(<UsersPage />);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.admin.tutors.account.sendSetup,
+      }),
+    );
+    expect(fixture.sendSetup).toHaveBeenCalledExactlyOnceWith({
+      tutorId: "synthetic-tutor",
+    });
+  },
+);
+
+it("lets Head deliberately start accountless setup and retains the target beside a visible failure", () => {
+  fixture.combinedUserId = null;
+  fixture.combinedAccount = "none";
+  directoryArrival("synthetic-tutor");
+  const page = mount();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.admin.tutors.account.sendSetup,
+    }),
+  );
+  expect(fixture.sendSetup).toHaveBeenCalledExactlyOnceWith({
+    tutorId: "synthetic-tutor",
+  });
+  fixture.sendSetupError = { message: "Synthetic setup delivery failed." };
+  page.rerender(<UsersPage />);
+  expect(screen.getByRole("alert").textContent).toContain(
+    fixture.sendSetupError.message,
+  );
+  expect(document.getElementById("tutor-synthetic-tutor")).not.toBeNull();
 });
 
 const fullAppeal =

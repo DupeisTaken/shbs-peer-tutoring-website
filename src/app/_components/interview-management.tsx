@@ -2,8 +2,9 @@
 import { participantNameLabel } from "./participant-name";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { navigateNotificationFragment } from "~/lib/notification-navigation";
 import { useTranslations, useFormatter } from "next-intl";
-import { InlineNotice } from "./ui/patterns";
+import { FilterToolbar, InlineNotice } from "./ui/patterns";
 import { Button } from "./ui/button";
 import {
   InterviewCompletionReview,
@@ -62,12 +63,10 @@ function InterviewDisclosure({
 export function InterviewManagement({
   enabled = true,
   hoursEnabled = true,
-  onManageApplicant,
   onViewReadyChange,
 }: {
   enabled?: boolean;
   hoursEnabled?: boolean;
-  onManageApplicant?: () => void;
   onViewReadyChange?: (ready: boolean, scope: string, denied: boolean) => void;
 }) {
   const t = useTranslations("workflows");
@@ -109,10 +108,38 @@ export function InterviewManagement({
     parse: viewEnum(["OPEN", "COMPLETED", "ALL"]),
     enabled: !accessDenied,
   });
+  const [status, setStatus] = useSessionViewState({
+    id: "interviews.status.v1",
+    initialState: "",
+    parse: viewEnum([
+      "",
+      "PENDING",
+      "INTERVIEW",
+      "ACCEPTED",
+      "REJECTED",
+      "RECALLED",
+    ]),
+    enabled: !accessDenied,
+  });
+  const [sort, setSort] = useSessionViewState({
+    id: "interviews.sort.v1",
+    initialState: "CREATED_DESC",
+    parse: viewEnum([
+      "COMPLETED_DESC",
+      "COMPLETED_ASC",
+      "CREATED_DESC",
+      "CREATED_ASC",
+      "NAME_ASC",
+      "NAME_DESC",
+    ]),
+    enabled: !accessDenied,
+  });
   const data = api.interviewManagement.options.useQuery({
     page,
     search,
     completion,
+    status,
+    sort,
   });
   const denied = useSessionAccessDenied(data);
   // The parent Applications page owns viewport position; nested history owns only its read controls.
@@ -122,7 +149,7 @@ export function InterviewManagement({
   useEffect(() => {
     onViewReadyChange?.(
       !!data.data && !accessDenied,
-      JSON.stringify([page, search, completion]),
+      JSON.stringify([page, search, completion, status, sort]),
       denied || accessDenied,
     );
   }, [
@@ -130,6 +157,8 @@ export function InterviewManagement({
     page,
     search,
     completion,
+    status,
+    sort,
     denied,
     accessDenied,
     onViewReadyChange,
@@ -208,43 +237,148 @@ export function InterviewManagement({
         <h2 id="interview-heading" tabIndex={-1} className="section-title">
           {t("interviewRecords")}
         </h2>
-        <div className="card grid items-end gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="card p-4">
           <form
-            className="flex w-full min-w-0 flex-wrap items-end gap-2"
             onSubmit={(event) => {
               event.preventDefault();
               setPage(0);
               setSearch(searchDraft.trim());
             }}
           >
-            <label className="min-w-0 flex-1">
-              <span className="label">{t("interviewSearch")}</span>
-              <input
-                className="input w-full"
-                maxLength={100}
-                value={searchDraft}
-                onChange={(event) => setSearchDraft(event.target.value)}
-              />
-            </label>
-            <button className="btn-secondary" type="submit">
-              {t("searchInterviews")}
-            </button>
-          </form>
-          <label>
-            <span className="label">{t("interviewFilter")}</span>
-            <select
-              className="select w-full"
-              value={completion}
-              onChange={(event) => {
-                setPage(0);
-                setCompletion(event.target.value as typeof completion);
-              }}
+            <FilterToolbar
+              label={t("interviewFilters")}
+              summary={
+                <p role="status">
+                  {t("interviewCount", {
+                    first,
+                    last,
+                    total: applications.total,
+                  })}
+                </p>
+              }
+              actions={
+                <Button
+                  variant="ghost"
+                  size="compact"
+                  disabled={
+                    !search &&
+                    !searchDraft &&
+                    completion === "OPEN" &&
+                    !status &&
+                    sort === "CREATED_DESC"
+                  }
+                  onClick={() => {
+                    // Reset only the read controls. Expanded records and pending
+                    // completion drafts retain their independent lifetimes.
+                    setPage(0);
+                    setSearch("");
+                    setSearchDraft("");
+                    setCompletion("OPEN");
+                    setStatus("");
+                    setSort("CREATED_DESC");
+                  }}
+                >
+                  {allT("admin.applications.filters.reset")}
+                </Button>
+              }
             >
-              <option value="OPEN">{t("interviewOpen")}</option>
-              <option value="COMPLETED">{t("interviewCompleted")}</option>
-              <option value="ALL">{t("interviewAll")}</option>
-            </select>
-          </label>
+              <label className="min-w-0 flex-[2_1_20rem]">
+                <span className="label">{t("interviewSearch")}</span>
+                {/* Native controls explicitly retain the toolbar's 32 px desktop
+                    baseline; their default 44 px touch target stays intact. */}
+                <input
+                  type="search"
+                  className="input control-compact mt-1 min-h-11 w-full lg:min-h-8 lg:py-1"
+                  maxLength={100}
+                  value={searchDraft}
+                  onChange={(event) => setSearchDraft(event.target.value)}
+                />
+              </label>
+              <label className="min-w-0 flex-[1_1_12rem]">
+                <span className="label">{t("interviewFilter")}</span>
+                <select
+                  className="input control-compact mt-1 min-h-11 w-full lg:min-h-8 lg:py-1"
+                  value={completion}
+                  onChange={(event) => {
+                    setPage(0);
+                    setCompletion(event.target.value as typeof completion);
+                    // The completed view opens on recent interviews instead of application age.
+                    if (
+                      event.target.value === "COMPLETED" &&
+                      sort === "CREATED_DESC"
+                    )
+                      setSort("COMPLETED_DESC");
+                  }}
+                >
+                  <option value="OPEN">{t("interviewOpen")}</option>
+                  <option value="COMPLETED">{t("interviewCompleted")}</option>
+                  <option value="ALL">{t("interviewAll")}</option>
+                </select>
+              </label>
+              <label className="min-w-0 flex-[1_1_12rem]">
+                <span className="label">
+                  {allT("admin.applications.filters.status")}
+                </span>
+                <select
+                  className="input control-compact mt-1 min-h-11 w-full lg:min-h-8 lg:py-1"
+                  value={status}
+                  onChange={(event) => {
+                    setPage(0);
+                    setStatus(event.target.value as typeof status);
+                  }}
+                >
+                  <option value="">
+                    {allT("admin.applications.filters.allStatuses")}
+                  </option>
+                  {(
+                    [
+                      "PENDING",
+                      "INTERVIEW",
+                      "ACCEPTED",
+                      "REJECTED",
+                      "RECALLED",
+                    ] as const
+                  ).map((choice) => (
+                    <option key={choice} value={choice}>
+                      {allT(`admin.applications.status.${choice}`)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="min-w-0 flex-[1_1_14rem]">
+                <span className="label">
+                  {allT("admin.applications.filters.sort")}
+                </span>
+                <select
+                  className="input control-compact mt-1 min-h-11 w-full lg:min-h-8 lg:py-1"
+                  value={sort}
+                  onChange={(event) => {
+                    // Read preferences never replace the unsubmitted search or completion drafts.
+                    setPage(0);
+                    setSort(event.target.value as typeof sort);
+                  }}
+                >
+                  {(
+                    [
+                      "CREATED_DESC",
+                      "CREATED_ASC",
+                      "COMPLETED_DESC",
+                      "COMPLETED_ASC",
+                      "NAME_ASC",
+                      "NAME_DESC",
+                    ] as const
+                  ).map((choice) => (
+                    <option key={choice} value={choice}>
+                      {allT(`admin.applications.filters.sortOptions.${choice}`)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button size="compact" type="submit">
+                {t("searchInterviews")}
+              </Button>
+            </FilterToolbar>
+          </form>
         </div>
         {applications.rows.map((a) => {
           // Application identity keeps unrelated people with matching names separate.
@@ -327,7 +461,15 @@ export function InterviewManagement({
             >
               <Link
                 href={`/admin/applications#application-${a.id}`}
-                onClick={onManageApplicant}
+                scroll={false}
+                // Next changes fragments without hashchange. Reuse the record
+                // adapter handoff, including repeated fragments and native modifiers.
+                onNavigate={(event) =>
+                  navigateNotificationFragment(
+                    `/admin/applications#application-${a.id}`,
+                    event,
+                  )
+                }
                 className="link inline-flex min-h-11 items-center text-sm lg:min-h-8"
               >
                 {t("manageApplicantPanel")}
@@ -362,25 +504,20 @@ export function InterviewManagement({
           <p className="muted card p-6 text-center">{t("interviewEmpty")}</p>
         )}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <button
-            type="button"
-            className="btn-secondary btn-sm"
+          <Button
+            size="compact"
             disabled={page === 0}
             onClick={() => setPage((p) => Math.max(0, p - 1))}
           >
             {t("previous")}
-          </button>
-          <span className="muted text-sm">
-            {t("interviewCount", { first, last, total: applications.total })}
-          </span>
-          <button
-            type="button"
-            className="btn-secondary btn-sm"
+          </Button>
+          <Button
+            size="compact"
             disabled={last >= applications.total}
             onClick={() => setPage((p) => p + 1)}
           >
             {t("next")}
-          </button>
+          </Button>
         </div>
       </section>
       {Object.entries(drafts)

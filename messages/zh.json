@@ -1334,20 +1334,38 @@
         "allSubjects": "所有申请科目",
         "count": "显示 {count} / {total} 份申请",
         "reset": "重置筛选",
-        "noMatches": "没有符合筛选条件的申请。请尝试其他搜索或重置筛选。"
+        "noMatches": "没有符合筛选条件的申请。请尝试其他搜索或重置筛选。",
+        "completion": "面试完成情况",
+        "completionOptions": {
+          "ALL": "全部完成情况",
+          "COMPLETED": "已完成面试",
+          "NOT_COMPLETED": "尚未记录完成"
+        },
+        "sort": "排序方式",
+        "sortOptions": {
+          "DEFAULT": "默认顺序",
+          "COMPLETED_DESC": "完成日期：从新到旧",
+          "COMPLETED_ASC": "完成日期：从旧到新",
+          "CREATED_DESC": "申请日期：从新到旧",
+          "CREATED_ASC": "申请日期：从旧到新",
+          "NAME_ASC": "申请人姓名：正序",
+          "NAME_DESC": "申请人姓名：倒序"
+        },
+        "completedOn": "面试完成日期：{date}"
       },
       "picker": {
         "subjectFocus": "按科目分组面试成员",
         "anySubject": "任一申请科目",
         "qualified": "具备所选科目资格",
         "unqualified": "其他可选辅导伙伴",
-        "help": "资格以已批准的记录为准。面试小组至少需要一位具备申请科目资格的辅导伙伴，并由管理级别最高的成员担任主席。切换科目只会重新分组选项。",
+        "help": "资格以已批准的记录为准。面试小组至少需要一位具备申请科目资格的辅导伙伴；主席须为管理员或负责人，无需是小组中职级最高的成员。切换科目只会重新分组选项。",
         "loading": "正在加载科目资格…",
         "loadError": "无法加载科目资格。请重试后再选择或保存面试小组。",
         "retry": "重新加载资格",
         "unavailable": "{name}（不可用，请替换）",
         "chairSlot": "选择第 {n} 位面试成员为主席"
-      }
+      },
+      "setupTargetUnavailable": "关联的辅导伙伴记录不可用。请先刷新此申请，再设置账户。"
     },
     "cards": {
       "title": "学习伙伴纪律",
@@ -2730,7 +2748,7 @@
     "reapply": "申请参加本期项目",
     "settings": "账户设置",
     "draft": "草稿",
-    "allVotes": "至少需要三名评审，包括管理人员和具备该学科资质的辅导伙伴。多数票决定结果；平票时由职级最高的主持人员裁决。",
+    "allVotes": "至少需要三名评审，包括具备该学科资质的辅导伙伴，主席须为管理员或负责人。多数票决定结果；平票时由所选主席裁决。",
     "calendar": "学校日历",
     "schoolDay": "上课日（假期请取消勾选）",
     "calendarHelp": "除非在此调整，工作日均视为上课日。请记录假期和补课日，以准确计算申诉截止时间。",
@@ -2779,7 +2797,8 @@
     "feedbackVisibilityUnavailable": "无法确认哪些人可以查看反馈。请重试以确认可见范围。",
     "pagination": "分页",
     "page": "第 {page} 页",
-    "calendarDestination": "在项目设置中管理学校日历"
+    "calendarDestination": "在项目设置中管理学校日历",
+    "interviewFilters": "筛选面试"
   },
   "survey": {
     "intro": "报名开放后，请提交辅导报名问卷。较早提交的同学将获得优先安排。随后请查收邮件，确认申请并创建学习伙伴账户。",
@@ -4507,7 +4526,11 @@
     "combinedPersonHelp": "这些记录共用一个目录身份。登录权限与当前参与状态分别审核。",
     "participationReviewRequired": "当前参与状态或登录账号仍需审核",
     "groupLogins": "登录账号",
-    "groupRecords": "参与记录"
+    "groupRecords": "参与记录",
+    "targetFound": "正在显示 {name} 的账户记录。已暂时忽略目录筛选条件。",
+    "targetUnavailable": "找不到此链接对应的辅导伙伴记录，或您无权查看。请刷新或返回目录。",
+    "showAll": "返回目录",
+    "setupHeadRequired": "此辅导伙伴尚无账户。请由负责人发送账户设置邀请。"
   },
   "actionReview": {
     "cancel": "取消",
@@ -5214,6 +5237,11 @@
       "title": "无效申请已关闭",
       "body": "申诉未获接受。此申请已关闭并移除排队优先顺序；您可以重新提交申请。",
       "action": "查看申请记录"
+    },
+    "interview_approved": {
+      "title": "面试已通过",
+      "body": "指定主席已批准面试并记录评审组服务时数。请查看申请结果。",
+      "action": "查看申请"
     }
   },
   "requestAppeal": {
@@ -5493,7 +5521,45 @@
     },
     "reloadEvidence": "重新加载当前凭据（替换草稿）",
     "historyFollowups": "{count} 场已作决定的面试仍需管理人员记录完成与服务时数。",
-    "accessDenied": "面试访问权限当前不可用。请重新加载以核实当前权限。"
+    "accessDenied": "面试访问权限当前不可用。请重新加载以核实当前权限。",
+    "chairNeedsUpdate": "此小组需要由管理员或负责人担任主席。请联系管理团队更新小组。"
+  },
+  "applicationAccountSetup": {
+    "title": "账号设置 · {name}",
+    "loading": "正在加载账号设置…",
+    "error": "无法加载账号设置，请重试。",
+    "denied": "您已无权查看此账号设置信息。",
+    "refresh": "刷新状态",
+    "active": "请将此注册码提供给已获录取的申请者。此码也可在“注册码”页面中查看。",
+    "linked": "此辅导伙伴已关联账号，无需注册码。",
+    "accountPending": "账号已关联，但邮箱尚未验证。请在“用户与角色”中查看。",
+    "accountRestricted": "账号已关联，但访问权限受限。请在“用户与角色”中查看。",
+    "expired": "注册码已过期。请在“注册码”页面中核对申请者，再签发新码。",
+    "used": "注册码已使用，但暂时无法确认关联账号。请查看“用户与角色”。",
+    "missing": "此申请暂无有效注册码或关联账号。请查看“用户与角色”或“注册码”。",
+    "conflict": "已保存的注册记录指向不同的辅导伙伴。管理人员须先核对记录，再提供注册码。",
+    "notEligible": "仅已录取且有效的首次辅导伙伴申请可设置账号。",
+    "openUser": "打开用户与角色",
+    "openCodes": "打开注册码",
+    "copied": "已复制注册码。",
+    "copyFailed": "复制失败，请选择并复制所显示的注册码。"
+  },
+  "interviewApproval": {
+    "tutoringAccessRevoked": "此账号的辅导伙伴权限已被撤销。请先由总负责人恢复辅导伙伴权限，再批准此申请。你填写的面试凭据已保留。",
+    "title": "批准面试 · {name}",
+    "help": "批准前请记录实际面试出席情况和时长。",
+    "attendanceHelp": "仅选择实际出席的评审。投票不代表出席。",
+    "hours": "{minutes} 分钟 = 每名出席评审 {hours} 小时。",
+    "recorded": "将沿用已记录的完成时间和出席情况，不重复计入时长。如需更正，请先联系管理人员。",
+    "review": "核对批准与时长",
+    "confirm": "批准并计入时长",
+    "effectsInitial": "批准后立即录取此申请、记录面试时长、通过注册码或已有的关联账号完成注册衔接，并通知 Admin 和 Head，无须再次审批。",
+    "effectsQualification": "批准后立即授予所申请的资格、记录面试时长，并通知 Admin 和 Head，不发放注册码。",
+    "saved": "面试已批准，服务时长已记录。",
+    "reload": "重新加载面试（替换草稿）",
+    "unavailable": "你已无法批准此面试。",
+    "waitingVotes": "所有评审均须投票后才能批准。",
+    "changed": "面试资料已更改，请重新加载并核对最新信息。"
   },
   "combineRecords": {
     "title": "合并记录",

@@ -17,6 +17,7 @@ import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 import { notifyUsers } from "~/server/notifications/create";
 import { qualificationSnapshot } from "~/lib/qualification-applications";
 import { courseChoices } from "~/server/course-choices";
+import { interviewServiceInput } from "~/server/interview-hours";
 
 export const qualificationApplicationRouter = createTRPCRouter({
   mine: tutorProcedure.query(async ({ ctx }) => {
@@ -221,6 +222,7 @@ export const qualificationApplicationRouter = createTRPCRouter({
         accept: z.boolean(),
         comment: z.string().trim().min(1).max(500),
         expectedUpdatedAt,
+        completion: interviewServiceInput.optional(),
       }),
     )
     .mutation(({ ctx, input }) =>

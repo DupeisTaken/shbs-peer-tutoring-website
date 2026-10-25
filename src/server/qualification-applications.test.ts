@@ -29,12 +29,17 @@ const request = (subjectId = "history-ap", id = "applicant") =>
     reason: "Synthetic qualification evidence",
   });
 async function decide(id: string, accept = true, reviewer = "admin") {
-  const app = await db.tutorApplication.findUniqueOrThrow({ where: { id } });
+  const app = await db.tutorApplication.findUniqueOrThrow({ where: { id }, include: { interviewers: true } });
   return caller(reviewer).qualificationApplication.decide({
     id,
     accept,
     comment: "Reviewed synthetic evidence",
     expectedUpdatedAt: app.updatedAt,
+    ...(accept && app.interviewers.length ? { completion: {
+      completedAt: app.interviewCompletedAt ?? new Date("2026-09-15T04:00:00Z"),
+      durationMin: app.interviewDurationMin ?? 30,
+      attendedTutorIds: app.interviewers.filter((person) => !app.interviewCompletedAt || person.attended).map((person) => person.tutorId),
+    } } : {}),
   });
 }
 async function panel(id: string, chair = "admin-tutor") {
@@ -61,6 +66,7 @@ beforeEach(async () => {
         .join(",") +
       " CASCADE",
   );
+  await db.term.create({ data: { name: "Test Q1", schoolYear: "26-27", quarter: "Q1", active: true } });
   for (const [id, role] of [
     ["applicant", "TUTOR"],
     ["other", "TUTOR"],
@@ -516,19 +522,35 @@ it("rejects Coordinator decisions and legacy entry points before queuing any pro
   ).toBe("PENDING");
 });
 
-it.each([true, false])(
-  "retains interview records on decision %s and requires every vote, the majority and an Admin/Head chair",
-  async (accept) => {
+it.each(
+  [false, true].flatMap((higher) =>
+    [false, true].map((accept) => ({ higher, accept })),
+  ),
+)(
+  "retains qualification interview evidence with an Admin chair and Head panelist (higher=$higher, accept=$accept)",
+  async ({ higher, accept }) => {
+    if (higher)
+      await db.$transaction((tx) =>
+        approveQualification(tx, "applicant-tutor", "history-standard", "head"),
+      );
     const { id } = await request();
     await expect(panel(id, "coordinator-tutor")).rejects.toMatchObject({
       code: "BAD_REQUEST",
     });
-    await panel(id);
+    const application = await db.tutorApplication.findUniqueOrThrow({
+      where: { id },
+    });
+    await caller("admin").admin.assignInterviewers({
+      applicationId: id,
+      tutorIds: ["admin-tutor", "head-tutor", "panel-a-tutor"],
+      headTutorId: "admin-tutor",
+      expectedUpdatedAt: application.updatedAt,
+    });
     expect(await caller("panel-a").tutor.myInterviews()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id,
-          type: "ADDITIONAL_SUBJECT",
+          type: higher ? "HIGHER_LEVEL" : "ADDITIONAL_SUBJECT",
           qualificationReason: "Synthetic qualification evidence",
         }),
       ]),
@@ -536,7 +558,7 @@ it.each([true, false])(
     await expect(decide(id, accept)).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
     });
-    for (const voter of ["admin", "panel-a", "panel-b"])
+    for (const voter of ["admin", "head", "panel-a"])
       await caller(voter).tutor.castInterviewVote({
         applicationId: id,
         accept,
@@ -549,6 +571,18 @@ it.each([true, false])(
       code: "FORBIDDEN",
     });
     await decide(id, accept);
+    const service = await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } });
+    expect(service).toHaveLength(accept ? 3 : 0);
+    if (accept) {
+      expect(service.every((row) => row.amount === 0.5 && row.schoolYear === "26-27" && row.quarter === "Q1")).toBe(true);
+      const notices = await db.notification.findMany({ where: { event: "interview_approved" }, orderBy: { userId: "asc" } });
+      expect(notices.map((row) => row.userId)).toEqual(["admin", "head"]);
+      expect(notices.every((row) => row.inAppOnly)).toBe(true);
+      await decide(id, accept);
+      expect(await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } })).toEqual(service);
+      expect(await db.notification.findMany({ where: { event: "interview_approved" }, orderBy: { userId: "asc" } })).toEqual(notices);
+    }
+    expect(await db.registrationCode.count()).toBe(0);
     expect(
       await db.interviewAssignment.count({ where: { applicationId: id } }),
     ).toBe(3);
