@@ -402,7 +402,7 @@ export async function proposalTargets(
   const input: unknown = superjson.deserialize(
     payload as Parameters<typeof superjson.deserialize>[0],
   );
-  const fields = z.record(z.unknown()).parse(input);
+  const fields = z.record(z.string(), z.unknown()).parse(input);
   if (operation === "program.prepareNextRecruitment") {
     const proposal = prepareNextRecruitmentSchema.parse(input);
     const evidence = await validateNextRecruitmentWrite(client, proposal);
