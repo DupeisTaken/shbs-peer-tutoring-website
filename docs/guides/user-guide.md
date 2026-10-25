@@ -290,6 +290,9 @@ final rejection closes the active request and ends that priority, while preservi
 its history and decision evidence. A later eligible submission starts a new request
 with a new priority. Appeals do not extend a fixed verification deadline.
 
+On the emailed appeal page, **Appeal submitted** is a receipt. Check the separate
+pending, declined or cleared decision before assuming the invalid flag has changed.
+
 Confirmation waits depend on the action:
 
 | Action                                    | Wait      | What you review                                                              |
@@ -539,7 +542,17 @@ Opening or cancelling a group review writes nothing. Failed saves retain the dra
 
 In **My Availability**, select your time slots and choose **Save Availability**, or **Cancel** to restore the last loaded selection. Choices stay fixed during saving. If the save succeeds but refreshing the result fails, use **Retry** to load the accepted selection before editing again; it does not submit another save. A failed save keeps your draft available for correction.
 
-An active tutor can request opt-out and recall a pending request. Participation continues until staff approval, which is allowed only after seven days. An opted-out tutor can request reentry without another waiting period, but approval is still required. Only one pending membership request is allowed. At a semester refresh, continuing active tutors become pending and choose whether they are available or opting out; check your status before teaching in the new period.
+An active tutor can request opt-out in **Settings**. Enter an optional reason, open
+the review and confirm the named request. **Cancel** or Escape before submission
+writes nothing and keeps the reason. Participation continues until staff approval,
+which is allowed only after seven days; the submission receipt does not end it.
+If the accepted request fails to refresh, use its retry action to reload records
+without submitting again. You can recall a pending request through its separate
+recall control. An opted-out tutor can request reentry without another waiting
+period, but approval is still required. Only one pending membership request is
+allowed. At a semester refresh, continuing active tutors become pending and choose
+whether they are available or opting out; this choice applies directly. Check your
+status before teaching in the new period.
 
 For a student enrolled outside the survey flow, the tutor can relay the student's request to leave their current active assignment. The seven-day recall window ends in automatic processing unless recalled or cancelled by staff. If the program refreshes or the originating assignment is removed before processing, the outdated relay is cancelled and does not remove a new enrollment. Survey students instead request whole-period withdrawal in their own workspace. Use schedule rejection for an assignment conflict.
 

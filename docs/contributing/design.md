@@ -13,6 +13,20 @@ use `accent-*` utilities backed by the six palettes in
 Keep semantic error, warning and success colors independent of the selected accent.
 Reuse existing utilities and components before adding tokens.
 
+### Accessible controls
+
+Give form controls persistent visible labels, using `htmlFor`/`id` or a wrapping
+label, and associate helper/error text with `aria-describedby`. A placeholder does
+not replace a label. Disclosure buttons expose `aria-expanded` and identify their
+controlled region; follow the [disclosure lifetime rules](interaction-patterns.md#drafts-pending-writes-and-nested-dialogs).
+Measure the interactive target separately from its artwork against the
+[control-height hierarchy](#control-height-hierarchy), including 44 px narrow-screen
+targets. Normal-size text needs at least 4.5:1 contrast against its actual rendered
+background, including muted metadata, inactive records and zero values. Check the
+painted leaf rather than assuming a parent color applies. Translate every rendered
+enum/status value in every bundled catalog, including hidden languages; follow the
+[catalog checks](verification.md#required-checks) and verify the displayed states.
+
 ## Compose a page by its purpose
 
 Choose a frame for the task before adjusting individual cards. These are composition
