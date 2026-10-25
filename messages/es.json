@@ -5591,6 +5591,7 @@
     "copyFailed": "Copy failed. Select and copy the displayed code."
   },
   "interviewApproval": {
+    "tutoringAccessRevoked": "Se revocó el acceso como tutor. Pide a la dirección que lo restablezca antes de aprobar esta solicitud. Se conservan los datos de la entrevista.",
     "title": "Approve Interview · {name}",
     "help": "Record the actual interview attendance and duration before approval.",
     "attendanceHelp": "Select only panelists who attended. Voting does not confirm attendance.",

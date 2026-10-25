@@ -1031,6 +1031,24 @@ Adding an approval operation requires an authored review title and an explicit c
 
 Use [database scope](../../src/server/db-scope.ts) so helpers participate in the enclosing transaction. An independent client escapes rollback.
 
+Initial-applicant promotion preserves independent account restrictions. The shared
+[promotion helper](../../src/server/tutors/promote.ts) locks the username namespace,
+then the resolved account profiles and User rows before changing the roster,
+application binding, account or registration code. It rereads both the email-matched
+account and the current owner of an existing Tutor record under those locks.
+Verified aliases, legacy email case and retained roster ownership are checked as
+negative restriction evidence; they never authorize a new identity link.
+Head-revoked tutoring access requires explicit Head restoration in Users & Roles;
+an Admin or Head chair decision, legacy reviewed acceptance, interview-disabled
+acceptance, same-status reconciliation or audit undo cannot restore it implicitly.
+A denied promotion rolls back its enclosing decision and service-hour transaction.
+An archived roster record without an authoritative restriction can still return.
+As in registration, a current tutor link distinguishes revoked membership from
+the no-membership flag used by historical-only accounts. A first admission may
+initialize missing membership after all other restrictions are checked.
+An identical retry of an already committed interview approval remains read-only,
+including after a subsequent revocation.
+
 Tutor Applications owns its discovery controls rather than enabling generic table sorting. The complete authorized application projection is filtered locally by search, status, type, subject and recorded completion, then sorted by application/completion date or locale-aware name. Absent completion evidence is independent of acceptance/rejection and sorts last in either date direction. Stable application keys and the retained active-approval union preserve open approval drafts through reordering or filtering. Session preferences accept legacy views without the new keys, reject unsupported choices, and exact application links clear filters before revealing their target. Interview Records uses a separate staff-only query: status intersects the existing completion/search scope, and the server applies explicit date/name ordering with an ID tie-break before its 20-row pagination. Both completed views start with completion-date descending when selected from their default sort. These read controls do not change workflow authorization, completion evidence or writes.
 
 Interview acceptance revalidates panel membership, qualifications, votes and the current chair, then records service hours and admission in one transaction. Admin/Head chair acceptance applies directly; initial-application rejection by an Admin chair retains Head review and chair authorship. Previously queued legacy acceptance remains a Head-reviewed decision-only path. Exact approval retries reuse the committed receipt; terminal applications do not display stale pending-decision proposals as their current outcome. The shared [chair role predicate](../../src/lib/interview-chair.ts) accepts only ADMIN or HEAD, independently of other panelists' rank; Coordinators may participate and vote. [Panel validation](../../src/server/interviews.ts) applies that rule to initial, additional-subject and higher-level interviews, including new decisions and first completion. Scheduling checks the selected assignment, current account role and tutor link under the same lock as panel replacement; it does not require the rest of the panel to remain eligible merely to change the schedule. `myInterviews` preserves historical `isHead` assignment while projecting current `canChair` authority for tutor actions. A missing or demoted legacy chair requires a valid Admin/Head chair assignment before scheduling, new decisions or first completion, without automatically deleting history or other panelists' voting access. Already completed interviews use `chairEligibility: "recorded"` for hour corrections and idempotent retries: the recorded chair must still belong to the panel, but today's ADMIN/HEAD role check is skipped. All other current panel/qualification requirements and correction approvals remain; this exception does not authorize a new decision, replace the historical panel or reopen admission. Interview history and completion live in Tutor Applications; legacy interview routes redirect there.

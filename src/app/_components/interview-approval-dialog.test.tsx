@@ -12,6 +12,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
+import { TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE } from "~/lib/tutor-promotion";
 import {
   InterviewApprovalDialog,
   type InterviewApprovalEvidence,
@@ -311,6 +312,86 @@ it("reuses exact recorded completion including seconds and attendance without of
     ),
   );
 });
+
+it.each([
+  ["en", en],
+  ["zh", zh],
+] as const)(
+  "explains independent tutoring restoration in %s and retains the entire failed approval draft",
+  async (locale, catalog) => {
+    commit.mockRejectedValue(new Error(TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE));
+    render(element(record, true, true, locale));
+    fireEvent.change(
+      screen.getByLabelText(catalog.workflows.interviewComplete),
+      {
+        target: { value: "2026-09-01T10:00" },
+      },
+    );
+    fireEvent.change(screen.getByLabelText(catalog.workflows.duration), {
+      target: { value: "45" },
+    });
+    fireEvent.click(screen.getByLabelText("Admin Chair"));
+    fireEvent.click(screen.getByLabelText("Panelist Two"));
+    fireEvent.change(
+      screen.getByLabelText(catalog.qualificationRequests.decisionNote),
+      { target: { value: "Retain this reviewed evidence" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: catalog.interviewApproval.review }),
+    );
+    fireEvent.click(
+      within(confirmation()).getByRole("button", {
+        name: catalog.interviewApproval.confirm,
+      }),
+    );
+    const refusal = await screen.findByRole("alert");
+    expect(refusal.textContent).toContain(
+      catalog.interviewApproval.tutoringAccessRevoked,
+    );
+    expect(refresh).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+    expect(screen.queryByText(catalog.interviewApproval.saved)).toBeNull();
+    fireEvent.click(
+      within(confirmation()).getByRole("button", {
+        name: catalog.actionReview.cancel,
+      }),
+    );
+    expect(
+      screen.getByLabelText<HTMLInputElement>(
+        catalog.workflows.interviewComplete,
+      ).value,
+    ).toBe("2026-09-01T10:00");
+    expect(
+      screen.getByLabelText<HTMLInputElement>(catalog.workflows.duration).value,
+    ).toBe("45");
+    expect(screen.getByLabelText<HTMLInputElement>("Admin Chair").checked).toBe(
+      true,
+    );
+    expect(
+      screen.getByLabelText<HTMLInputElement>("Panelist One").checked,
+    ).toBe(false);
+    expect(
+      screen.getByLabelText<HTMLInputElement>("Panelist Two").checked,
+    ).toBe(true);
+    expect(
+      screen.getByLabelText<HTMLTextAreaElement>(
+        catalog.qualificationRequests.decisionNote,
+      ).value,
+    ).toBe("Retain this reviewed evidence");
+    fireEvent.click(
+      screen.getByRole("button", { name: catalog.common.cancel }),
+    );
+    expect(close).toHaveBeenCalledExactlyOnceWith({
+      evidence: record,
+      date: "2026-09-01T10:00",
+      duration: "45",
+      attended: ["chair", "two"],
+      comment: "Retain this reviewed evidence",
+    });
+    expect(commit).toHaveBeenCalledTimes(1);
+  },
+);
 
 it("replays only the exact submitted payload after a lost response and an accepted background update", async () => {
   commit.mockRejectedValueOnce(new Error("Response lost"));

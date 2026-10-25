@@ -476,6 +476,96 @@ it.each(["Other", null])("preserves alternate-only or nameless returning identit
   expect((await applicationIdentitySnapshot(db, app.id)).current.firstName).toBe("Xiaoming");
 });
 
+it("corrected application readiness cannot restore Head-revoked access and explicit restoration keeps canonical identity", async () => {
+  await db.term.create({ data: { name: "Correction Q1", schoolYear: "26-27", quarter: "Q1", active: true } });
+  const panel = [head.id, "identity-admin", "identity-tutor"];
+  for (const id of panel) {
+    await db.tutor.create({ data: { id: `${id}-tutor`, englishName: "Synthetic Panelist" } });
+    await db.user.update({ where: { id }, data: { tutorId: `${id}-tutor` } });
+  }
+  await db.subject.create({ data: { id: "identity-math", name: "Synthetic Mathematics" } });
+  await db.tutorQualification.create({ data: { tutorId: "identity-tutor-tutor", subjectId: "identity-math",
+    approvedById: head.id, grants: { create: { subjectId: "identity-math" } } } });
+  const app = await db.tutorApplication.create({ data: { name: "王小明", email: "candidate@example.test", status: "INTERVIEW",
+    policyRevision: "signed-policy", policySnapshot: { body: "Signed original" }, policyAcceptedAt: acceptedAt,
+    subjectIntents: { create: { subjectId: "identity-math", taken: true, grade: "A" } },
+    interviewers: { create: panel.map((id) => ({ tutorId: `${id}-tutor`, isHead: id === head.id })) },
+    votes: { create: panel.map((id) => ({ tutorId: `${id}-tutor`, accept: true, comment: "Original vote" })) },
+  } });
+  const canonicalNames = { firstName: "Canonical", lastName: "Owner", preferredName: "Cano",
+    alternativeNames: "原有姓名", username: "retainedowner" };
+  const roster = await db.tutor.create({ data: { ...canonicalNames, englishName: "Canonical Owner", email: app.email } });
+  const account = await db.user.create({ data: { ...canonicalNames, name: "Canonical Owner", email: app.email,
+    role: "TUTOR", tutorId: roster.id, emailVerifiedAt: new Date() } });
+  const session: Session = { user: { id: head.id, name: "Synthetic HEAD", email: "head@example.test" },
+    role: "HEAD", tutorId: `${head.id}-tutor`, expires: "2099-01-01" };
+  const caller = createCaller({ db, headers: new Headers(), session });
+  const input = correction(app, { firstName: "Mary Jane", lastName: "Watson", preferredName: "MJ" });
+  const receipt = await correctApplicationIdentity(db, input, head);
+  await caller.admin.setUserCanTutor({ userId: account.id, canTutor: false });
+  const corrected = await fetchApplication(app.id);
+  expect(await applicationPromotionReadiness(db, corrected)).toMatchObject({ ready: true,
+    source: "VERIFIED_ACCOUNT", identity: { firstName: "Canonical", lastName: "Owner" } });
+
+  // Name readiness is independent from Head's membership restriction. Even a Head
+  // chair cannot turn a valid request-local correction into implicit restoration.
+  const decision = { applicationId: app.id, accept: true, comment: "Panel admission",
+    expectedUpdatedAt: corrected.updatedAt, completion: { completedAt: new Date("2026-09-15T04:00:00Z"),
+      durationMin: 45, attendedTutorIds: panel.map((id) => `${id}-tutor`) } };
+  const persistedState = async () => ({
+    app: await fetchApplication(app.id),
+    account: await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+    tutors: await db.tutor.findMany({ orderBy: { id: "asc" } }),
+    votes: await db.interviewVote.findMany({ where: { applicationId: app.id }, orderBy: { tutorId: "asc" } }),
+    codes: await db.registrationCode.findMany({ orderBy: { id: "asc" } }),
+    notices: await db.notification.findMany({ orderBy: { id: "asc" } }),
+    hours: await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
+    academics: await db.academicProfile.findMany({ orderBy: { userId: "asc" } }),
+    history: await db.historicalAcademicRecord.findMany({ orderBy: { id: "asc" } }),
+    original: await db.applicationIdentityOriginal.findUniqueOrThrow({ where: { applicationId: app.id } }),
+    corrections: await db.applicationIdentityCorrection.findMany({ where: { applicationId: app.id }, orderBy: { revision: "asc" } }),
+    correctionAudit: await db.auditLog.findMany({ where: { operation: "admin.correctApplicationIdentity", entityId: app.id },
+      orderBy: { id: "asc" } }),
+  });
+  const before = await persistedState();
+  expect(before.account).toMatchObject({ ...canonicalNames, tutorId: roster.id, tutorAccessRevoked: true });
+  expect(before.tutors.find((tutor) => tutor.id === roster.id)).toMatchObject({ ...canonicalNames, status: "ARCHIVED" });
+  expect(before.app).toMatchObject({ status: "INTERVIEW", promotedTutorId: null, interviewCompletedAt: null });
+  expect(before.codes).toEqual([]);
+  expect(before.notices).toEqual([]);
+  expect(before.hours).toEqual([]);
+  await expect(caller.tutor.decideInterview(decision)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await persistedState()).toEqual(before);
+  await expect(correctApplicationIdentity(db, input, head)).resolves.toEqual({ ...receipt, replayed: true });
+
+  // Only the separate Head action restores membership. Fresh approval then keeps
+  // the established account/roster identity while preserving the corrected request.
+  await caller.admin.setUserCanTutor({ userId: account.id, canTutor: true });
+  const current = await fetchApplication(app.id);
+  await expect(caller.tutor.decideInterview({ ...decision, expectedUpdatedAt: current.updatedAt }))
+    .resolves.toEqual({ ok: true });
+  expect(await fetchApplication(app.id)).toMatchObject({ status: "ACCEPTED", promotedTutorId: roster.id,
+    firstName: "Mary Jane", lastName: "Watson", preferredName: "MJ", identityRevision: 1,
+    policyRevision: app.policyRevision, policySnapshot: app.policySnapshot, policyAcceptedAt: acceptedAt });
+  expect(await db.user.findUniqueOrThrow({ where: { id: account.id } })).toMatchObject({
+    ...canonicalNames, tutorId: roster.id, tutorAccessRevoked: false });
+  expect(await db.tutor.findUniqueOrThrow({ where: { id: roster.id } })).toMatchObject({
+    ...canonicalNames, status: "ACTIVE" });
+  expect(await db.tutor.count()).toBe(4);
+  expect(await db.registrationCode.count()).toBe(0);
+  expect(await db.serviceHourAdjustment.count()).toBe(3);
+  const after = await persistedState();
+  expect(after.original).toEqual(before.original);
+  expect(after.corrections).toEqual(before.corrections);
+  expect(after.correctionAudit).toEqual(before.correctionAudit);
+  const snapshot = await applicationIdentitySnapshot(db, app.id);
+  expect(snapshot.original.name).toBe("王小明");
+  expect(snapshot.history).toHaveLength(1);
+  expect(snapshot.history[0]).toMatchObject({ before: { name: "王小明" },
+    after: { firstName: "Mary Jane", lastName: "Watson" } });
+  await expect(correctApplicationIdentity(db, input, head)).resolves.toEqual({ ...receipt, replayed: true });
+});
+
 it("normal chair approval uses corrected explicit names for roster and invitation and keeps atomic service", async () => {
   await db.term.create({ data: { name: "Correction Q1", schoolYear: "26-27", quarter: "Q1", active: true } });
   const panel = [head.id, "identity-admin", "identity-tutor"];

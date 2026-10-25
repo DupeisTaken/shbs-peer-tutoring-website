@@ -5591,6 +5591,7 @@
     "copyFailed": "Copy failed. Select and copy the displayed code."
   },
   "interviewApproval": {
+    "tutoringAccessRevoked": "Η πρόσβαση ως εκπαιδευτή έχει ανακληθεί. Ζητήστε από τον επικεφαλής να την επαναφέρει πριν εγκρίνετε αυτή την αίτηση. Τα στοιχεία της συνέντευξης διατηρούνται.",
     "title": "Approve Interview · {name}",
     "help": "Record the actual interview attendance and duration before approval.",
     "attendanceHelp": "Select only panelists who attended. Voting does not confirm attendance.",

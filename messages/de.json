@@ -5591,6 +5591,7 @@
     "copyFailed": "Copy failed. Select and copy the displayed code."
   },
   "interviewApproval": {
+    "tutoringAccessRevoked": "Der Tutorenzugang wurde entzogen. Bitte die Leitung, den Tutorenzugang wiederherzustellen, bevor du diese Bewerbung genehmigst. Deine Interviewangaben bleiben erhalten.",
     "title": "Approve Interview · {name}",
     "help": "Record the actual interview attendance and duration before approval.",
     "attendanceHelp": "Select only panelists who attended. Voting does not confirm attendance.",

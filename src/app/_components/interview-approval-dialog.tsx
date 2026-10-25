@@ -3,6 +3,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useFormatter, useTimeZone, useTranslations } from "next-intl";
 import { parseProgramDateTime, programDateTimeInput } from "~/lib/program-time";
+import { TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE } from "~/lib/tutor-promotion";
 import { Button } from "./ui/button";
 import { Modal, useDialogPending } from "./ui/modal";
 import { FormSection, InlineNotice } from "./ui/patterns";
@@ -280,6 +281,12 @@ export function InterviewApprovalDialog({
           }
         },
         renderResult: () => <p>{t("saved")}</p>,
+        // This refusal belongs to promotion, not the review framework. Keep the
+        // failed evidence editable while explaining the independent Head action.
+        renderError: (message) =>
+          message === TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE
+            ? t("tutoringAccessRevoked")
+            : message,
       });
     } catch (caught) {
       setError(

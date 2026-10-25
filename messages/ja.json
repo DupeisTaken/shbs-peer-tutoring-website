@@ -5591,6 +5591,7 @@
     "copyFailed": "Copy failed. Select and copy the displayed code."
   },
   "interviewApproval": {
+    "tutoringAccessRevoked": "チューター権限が取り消されています。この申請を承認する前に、責任者にチューター権限の復元を依頼してください。入力した面接記録は保持されています。",
     "title": "Approve Interview · {name}",
     "help": "Record the actual interview attendance and duration before approval.",
     "attendanceHelp": "Select only panelists who attended. Voting does not confirm attendance.",
