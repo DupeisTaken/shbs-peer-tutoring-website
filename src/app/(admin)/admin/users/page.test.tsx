@@ -69,6 +69,8 @@ const fixture = vi.hoisted(() => {
     accountsLoading: false,
     combinedAccount: "registered",
     realDetails: false,
+    realTutorDetails: false,
+    tutorDetailRead: vi.fn(),
     profileWrite: vi.fn(),
     rejectProfileWrite: undefined as undefined | (() => void),
     extraTutorDestinations: [] as {
@@ -115,13 +117,22 @@ const fixture = vi.hoisted(() => {
 vi.mock("@trpc/react-query", () => ({ getQueryKey: () => ["appeal-test"] }));
 vi.mock("~/trpc/react", async () => {
   const { useMutation } = await import("@tanstack/react-query");
-  const { nameFieldPolicyQueries } = await import("~/test/name-field-policy-fixtures");
+  const { nameFieldPolicyQueries } =
+    await import("~/test/name-field-policy-fixtures");
   const mutation = {
     useMutation: () => ({ mutate: vi.fn(), isPending: false }),
   };
   return {
     api: {
       program: nameFieldPolicyQueries(),
+      tutorDetails: {
+        get: {
+          useQuery: (input: { tutorId: string }) => {
+            fixture.tutorDetailRead(input);
+            return { data: undefined, error: null };
+          },
+        },
+      },
       useUtils: () => ({
         account: { me: { invalidate: vi.fn() } },
         admin: {
@@ -385,30 +396,50 @@ vi.mock("./user-details", async (importOriginal) => {
 vi.mock("~/app/_components/acceptance-records", () => ({
   AcceptanceRecords: () => null,
 }));
-vi.mock("~/app/_components/tutor-details", () => ({
-  TutorDetailsButton: ({
-    tutorId,
-    name,
-  }: {
-    tutorId: string;
-    name: string;
-  }) => <button data-tutor-id={tutorId}>Tutor details: {name}</button>,
-}));
-vi.mock("~/app/_components/account-profile-editor", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("~/app/_components/account-profile-editor")>();
+vi.mock("~/app/_components/tutor-details", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("~/app/_components/tutor-details")>();
   return {
-    AccountProfileEditor: (props: ComponentProps<typeof actual.AccountProfileEditor>) =>
+    TutorDetailsButton: (
+      props: ComponentProps<typeof actual.TutorDetailsButton>,
+    ) =>
+      fixture.realTutorDetails ? (
+        <actual.TutorDetailsButton {...props} />
+      ) : (
+        <button data-tutor-id={props.tutorId}>
+          Tutor details: {props.name}
+        </button>
+      ),
+  };
+});
+vi.mock("~/app/_components/account-profile-editor", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("~/app/_components/account-profile-editor")
+    >();
+  return {
+    AccountProfileEditor: (
+      props: ComponentProps<typeof actual.AccountProfileEditor>,
+    ) =>
       fixture.realDetails ? <actual.AccountProfileEditor {...props} /> : null,
   };
 });
 // Independent profile sections are outside this name-draft/navigation contract.
 vi.mock("~/app/_components/academic-profile", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("~/app/_components/academic-profile")>()),
+  ...(await importOriginal<
+    typeof import("~/app/_components/academic-profile")
+  >()),
   AcademicPanel: () => null,
 }));
-vi.mock("~/app/_components/school-departure", () => ({ SchoolDeparturePanel: () => null }));
-vi.mock("~/app/_components/membership-editor", () => ({ MembershipEditor: () => null }));
-vi.mock("~/app/_components/account-username-editor", () => ({ AccountUsernameEditor: () => null }));
+vi.mock("~/app/_components/school-departure", () => ({
+  SchoolDeparturePanel: () => null,
+}));
+vi.mock("~/app/_components/membership-editor", () => ({
+  MembershipEditor: () => null,
+}));
+vi.mock("~/app/_components/account-username-editor", () => ({
+  AccountUsernameEditor: () => null,
+}));
 vi.mock("~/app/_components/tutor-profile-editor", () => ({
   TutorProfileEditor: ({ row }: { row: { id: string } }) => (
     <div role="dialog">Editing tutor {row.id}</div>
@@ -478,6 +509,8 @@ beforeEach(() => {
   fixture.combinedUserId = "synthetic-combined";
   fixture.combinedAccount = "registered";
   fixture.realDetails = false;
+  fixture.realTutorDetails = false;
+  fixture.tutorDetailRead.mockClear();
   fixture.profileWrite.mockClear();
   fixture.rejectProfileWrite = undefined;
   fixture.extraTutorDestinations = [];
@@ -677,7 +710,9 @@ it.each(["setup", "registered"])(
       expect(fixture.sendSetup).not.toHaveBeenCalled();
     }
     expect(row.textContent).not.toContain("Retained historical owner:");
-    expect(within(row).queryByRole("button", { name: "User details" })).toBeNull();
+    expect(
+      within(row).queryByRole("button", { name: "User details" }),
+    ).toBeNull();
   },
 );
 
@@ -714,6 +749,82 @@ it("reveals retained historical sources without offering accountless setup or re
   expect(screen.queryByRole("button", { name: "User details" })).toBeNull();
   expect(fixture.sendSetup).not.toHaveBeenCalled();
 });
+
+it.each(["second-source", null])(
+  "keeps the real read-only source reader on refetch, then dismisses it when history selects %s",
+  async (destination) => {
+    fixture.realTutorDetails = true;
+    fixture.extraTutorDestinations = [
+      {
+        tutorId: "second-source",
+        name: "Other source",
+        username: null,
+        status: "ACTIVE",
+        account: "registered",
+        hasEmail: true,
+        suspended: false,
+        retainedOwnerName: null,
+      },
+    ];
+    visibleDirectoryRecords();
+    directoryArrival("synthetic-tutor");
+    const page = mount();
+    const opener = screen.getByRole("button", {
+      name: "View user details for Combined account",
+    });
+    opener.focus();
+    fireEvent.click(opener);
+    const reader = screen.getByRole("dialog", {
+      name: "User Details · Combined account",
+    });
+    const close = within(reader).getByRole("button", {
+      name: messages.accountProfile.close,
+    });
+    close.focus();
+    page.rerender(<UsersPage />);
+    expect(screen.getByRole("dialog")).toBe(reader);
+    expect(document.activeElement).toBe(close);
+    expect(fixture.tutorDetailRead).toHaveBeenLastCalledWith({
+      tutorId: "synthetic-tutor",
+    });
+    const oldFocus = vi.spyOn(opener, "focus");
+    act(() => {
+      window.history.replaceState(
+        null,
+        "",
+        `/admin/users${destination ? `#tutor-${destination}` : ""}`,
+      );
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(opener.isConnected).toBe(false);
+    expect(oldFocus).not.toHaveBeenCalled();
+    expect(fixture.tutorDetailRead).not.toHaveBeenCalledWith({
+      tutorId: "second-source",
+    });
+    if (destination) {
+      expect(document.activeElement).toBe(
+        document.getElementById("tutor-second-source"),
+      );
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "View user details for Other source",
+        }),
+      );
+      expect(
+        screen.getByRole("dialog", { name: "User Details · Other source" }),
+      ).not.toBe(reader);
+      expect(fixture.tutorDetailRead).toHaveBeenLastCalledWith({
+        tutorId: "second-source",
+      });
+    }
+    expect(fixture.sendSetup).not.toHaveBeenCalled();
+    expect(fixture.profileWrite).not.toHaveBeenCalled();
+  },
+);
 
 it("waits for the authorized directory before declaring a destination unavailable", () => {
   fixture.accountsLoading = true;
@@ -807,9 +918,11 @@ it.each([false, true])(
         name: messages.accountProfile.editProfile,
       }),
     );
-    const editor = screen.getByRole("dialog", { name: messages.accountProfile.editProfile });
+    const editor = screen.getByRole("dialog", {
+      name: messages.accountProfile.editProfile,
+    });
     const draft = within(editor).getByRole<HTMLInputElement>("textbox", {
-      name: /First name/,
+      name: /First Name/,
     });
     fireEvent.change(draft, {
       target: { value: "Unsaved secondary identity" },
@@ -817,10 +930,14 @@ it.each([false, true])(
     draft.focus();
     if (pending) {
       fireEvent.click(
-        within(editor).getByRole("button", { name: messages.accountProfile.save }),
+        within(editor).getByRole("button", {
+          name: messages.accountProfile.save,
+        }),
       );
-      await waitFor(() => expect(fixture.profileWrite).toHaveBeenCalledTimes(1));
-      await waitFor(() => expect(draft.disabled).toBe(true));
+      await waitFor(() =>
+        expect(fixture.profileWrite).toHaveBeenCalledTimes(1),
+      );
+      await waitFor(() => expect(draft.matches(":disabled")).toBe(true));
     }
     const travel = (hash: string) =>
       act(() => {
@@ -829,19 +946,19 @@ it.each([false, true])(
       });
     travel("#tutor-synthetic-tutor");
     expect(document.getElementById("tutor-synthetic-tutor")).not.toBeNull();
-    expect(screen.getByRole("dialog", { name: messages.accountProfile.editProfile })).toBe(
-      editor,
-    );
     expect(
-      within(editor).getByRole("textbox", { name: /First name/ }),
-    ).toBe(draft);
+      screen.getByRole("dialog", { name: messages.accountProfile.editProfile }),
+    ).toBe(editor);
+    expect(within(editor).getByRole("textbox", { name: /First Name/ })).toBe(
+      draft,
+    );
     expect(draft.value).toBe("Unsaved secondary identity");
     if (!pending) expect(document.activeElement).toBe(draft);
     travel("");
     travel("#tutor-synthetic-tutor");
-    expect(screen.getByRole("dialog", { name: messages.accountProfile.editProfile })).toBe(
-      editor,
-    );
+    expect(
+      screen.getByRole("dialog", { name: messages.accountProfile.editProfile }),
+    ).toBe(editor);
     expect(draft.value).toBe("Unsaved secondary identity");
     if (pending) {
       expect(
@@ -868,7 +985,9 @@ it.each([false, true])(
     fixture.accountsError = { message: "Denied", data: { code: "FORBIDDEN" } };
     page.rerender(<UsersPage />);
     expect(
-      screen.queryByRole("dialog", { name: messages.accountProfile.editProfile }),
+      screen.queryByRole("dialog", {
+        name: messages.accountProfile.editProfile,
+      }),
     ).toBeNull();
   },
 );
@@ -893,9 +1012,11 @@ it("returns from nested editing to the selected Tutor without restarting a cance
   });
   edit.focus();
   fireEvent.click(edit);
-  const editor = screen.getByRole("dialog", { name: messages.accountProfile.editProfile });
+  const editor = screen.getByRole("dialog", {
+    name: messages.accountProfile.editProfile,
+  });
   const draft = within(editor).getByRole("textbox", {
-    name: /First name/,
+    name: /First Name/,
   });
   draft.focus();
   act(() => directoryArrival("synthetic-tutor"));
@@ -936,7 +1057,10 @@ it.each(["missing source", "no hash", "denied", "another dialog"])(
     }
     try {
       if (state === "denied") {
-        fixture.accountsError = { message: "Denied", data: { code: "FORBIDDEN" } };
+        fixture.accountsError = {
+          message: "Denied",
+          data: { code: "FORBIDDEN" },
+        };
         page.rerender(<UsersPage />);
       } else
         fireEvent(

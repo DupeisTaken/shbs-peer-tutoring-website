@@ -320,6 +320,9 @@ lost focus returns to the still-authorized visible source without scrolling or
 restarting a gesture-cancelled arrival. Existing usable focus and other open
 dialogs retain ownership; missing targets and access denial receive no fallback.
 Authoritative access denial still unmounts private readers.
+The separate read-only Tutor Details reader stays open on refresh, but closes
+when history selects another source or returns to the directory. Open the new
+source explicitly to read its details.
 
 Focused regressions live in `src/app/(admin)/admin/users`, `src/lib/tutor-directory-link.test.ts`, `src/lib/user-filters.test.ts`, `src/lib/account-membership.test.ts` and `src/server/account-directory.test.ts`. Include `src/server/tutor-details.test.ts` for the preserved-academics boundary. Browser verification must use the actual Users & Roles page and native nested dialogs in both languages, then measure badge contrast and control bounds; screenshots and HTML evidence belong in ignored `outputs/`.
 

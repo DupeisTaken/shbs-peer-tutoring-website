@@ -734,6 +734,9 @@ An accepted initial application’s **Set up account** action opens a read-only 
 If browser Back or Forward selects a tutor while a grouped-login editor is
 already open, finish or close that editor first. Its draft and any pending save
 stay available; changing the hash does not cancel the edit.
+The separate read-only Tutor Details reader stays open on refresh, but closes
+when history selects another source or returns to the directory. Open the new
+source explicitly to read its details.
 
 Use **Edit profile** to edit the independent Tutor, Tutee, Translator and Crew badges and exact management rank, or transfer leadership with **Make Head**. Only Head applies badge and management-rank changes; Admin can submit proposals and Coordinators cannot submit them. Participants with no management rank can request their own participation badges from Account settings; those requests cannot grant a management rank. Staff use Users & Roles for permitted changes. Viewer is exclusive of every other badge. Removing participation and assigning sole Viewer preserves historical identity links while revoking participant access. Tutor membership suppresses the redundant Tutee badge without discarding consent. Use **Edit profile** to update linked current names and **Show email** to inspect/copy the contact and its verification state. Opening the dialog sends no email. Verification/setup requires an explicit action; sending a link does not itself verify an account. **Account setup required** identifies contacts without a linked login. Verified account email changes use the account holder's verification flow.
 

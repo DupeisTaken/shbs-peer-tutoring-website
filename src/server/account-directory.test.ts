@@ -224,7 +224,9 @@ it.each([false, true])(
       hasEmail: true,
     });
     expect(
-      await db.tutorProfileOwnership.findUnique({ where: { tutorId: "direct" } }),
+      await db.tutorProfileOwnership.findUnique({
+        where: { tutorId: "direct" },
+      }),
     ).toMatchObject({ userId: "person" });
     expect(await db.registrationCode.count()).toBe(0);
   },

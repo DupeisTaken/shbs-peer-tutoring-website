@@ -360,7 +360,9 @@ export default function UsersPage() {
         active.getClientRects().length
       )
         return;
-      const target = document.getElementById(tutorDirectoryAnchor(linkedTutorId));
+      const target = document.getElementById(
+        tutorDirectoryAnchor(linkedTutorId),
+      );
       if (
         !target?.getClientRects().length ||
         target.closest("[hidden], [inert]")
@@ -944,7 +946,10 @@ export default function UsersPage() {
                   </span>
                 </td>
                 <TableActions>
+                  {/* A read-only source reader belongs to one exact selection;
+                      history navigation dismisses it rather than replacing its subject. */}
                   <TutorDetailsButton
+                    key={linkedTutor.tutorId}
                     tutorId={linkedTutor.tutorId}
                     name={linkedTutor.name}
                     username={linkedTutor.username}
