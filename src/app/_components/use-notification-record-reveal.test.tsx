@@ -154,6 +154,89 @@ it("retains mobile document-native reveal even with an overflow-auto positive-he
   expect(document.activeElement).toBe(screen.getByText("Exact request"));
 });
 
+it.each([
+  { headerHeight: 200, recordHeight: 1350 },
+  { headerHeight: 280, recordHeight: 1350 },
+  // This record fits below the header but full-viewport centering still hides
+  // its name. The guard must consider the centered position, not height alone.
+  { headerHeight: 200, recordHeight: 560 },
+  { headerHeight: 0, recordHeight: 1000 },
+])(
+  "reveals a $recordHeight px mobile record below its $headerHeight px header",
+  ({ headerHeight, recordHeight }) => {
+    vi.stubGlobal("innerWidth", 390);
+    vi.stubGlobal("innerHeight", 900);
+    let recordTop = 1400;
+    const documentScroll = vi
+      .spyOn(window, "scrollBy")
+      .mockImplementation((options?: ScrollToOptions | number, y?: number) => {
+        recordTop -= typeof options === "number" ? (y ?? 0) : (options?.top ?? 0);
+      });
+    function TallMobilePage() {
+      const header = useRef<HTMLElement>(null);
+      const record = useRef<HTMLElement>(null);
+      useLayoutEffect(() => {
+        // Recorded browser geometry is explicit: JSDOM provides lifecycle and
+        // focus only, while the real EN/ZH mobile flow verifies actual layout.
+        vi.spyOn(header.current!, "getBoundingClientRect").mockReturnValue(
+          new DOMRect(0, 0, 390, headerHeight),
+        );
+        vi.spyOn(record.current!, "getBoundingClientRect").mockImplementation(
+          () => new DOMRect(16, recordTop, 358, recordHeight),
+        );
+      }, []);
+      useNotificationRecordReveal(first, true, cancel);
+      return (
+        <>
+          <header ref={header} data-sticky-header>
+            Workspace
+          </header>
+          <main id="admin-content">
+            <article ref={record} id="request-signup-123">
+              Exact request
+            </article>
+          </main>
+        </>
+      );
+    }
+    render(<TallMobilePage />);
+    const record = screen.getByText("Exact request");
+    expect(record.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      headerHeight + 16,
+    );
+    expect(record.getBoundingClientRect().top).toBeLessThan(
+      window.innerHeight - 44,
+    );
+    expect(document.activeElement).toBe(record);
+    expect(screen.getByRole("main").scrollTop).toBe(0);
+    expect(documentScroll).toHaveBeenCalledOnce();
+    expect(scroll).not.toHaveBeenCalled();
+    expect(cancel).not.toHaveBeenCalled();
+  },
+);
+
+it("keeps a short mobile record centered when its name clears the sticky header", () => {
+  vi.stubGlobal("innerWidth", 390);
+  vi.stubGlobal("innerHeight", 900);
+  const documentScroll = vi.spyOn(window, "scrollBy").mockImplementation(vi.fn());
+  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+    function (this: Element) {
+      return this.hasAttribute("data-sticky-header")
+        ? new DOMRect(0, 0, 390, 200)
+        : new DOMRect(16, 1400, 358, 240);
+    },
+  );
+  render(
+    <>
+      <header data-sticky-header>Workspace</header>
+      <Page />
+    </>,
+  );
+  expect(scroll).toHaveBeenCalledExactlyOnceWith({ block: "center" });
+  expect(documentScroll).not.toHaveBeenCalled();
+  expect(document.activeElement).toBe(screen.getByText("Exact request"));
+});
+
 it("waits for both the authorized read and a later actual DOM mount, then yields to subsequent scrolling", async () => {
   const page = render(<Page ready={false} mounted={false} />);
   expect(scroll).not.toHaveBeenCalled();

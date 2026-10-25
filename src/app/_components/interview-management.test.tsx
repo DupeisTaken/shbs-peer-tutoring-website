@@ -12,6 +12,34 @@ import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { InterviewManagement } from "./interview-management";
+import type { ComponentProps } from "react";
+import type Link from "next/link";
+// Match Next Link's onNavigate boundary: modified/new-tab clicks retain native handling.
+vi.mock("next/link", () => ({
+  default: ({
+    href,
+    onNavigate,
+    scroll: _scroll,
+    ...props
+  }: ComponentProps<typeof Link>) => (
+    <a
+      {...props}
+      href={typeof href === "string" ? href : (href.pathname ?? "")}
+      onClick={(event) => {
+        props.onClick?.(event);
+        if (
+          !event.defaultPrevented &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.shiftKey &&
+          !event.altKey &&
+          event.button === 0
+        )
+          onNavigate?.({ preventDefault: () => event.preventDefault() });
+      }}
+    />
+  ),
+}));
 const mocks = vi.hoisted(() => ({
   options: vi.fn(),
   qualify: vi.fn(),
@@ -100,6 +128,34 @@ const show = (locale = "en") =>
       <InterviewManagement />
     </NextIntlClientProvider>,
   );
+it("hands history links to the existing same-page record observer, including repeated fragments", () => {
+  window.history.replaceState({ retained: true }, "", "/admin/applications");
+  show();
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  const link = screen.getByRole("link", {
+    name: en.workflows.manageApplicantPanel,
+  });
+  const observed = vi.fn();
+  window.addEventListener("hashchange", observed);
+  try {
+    // Prevent jsdom's native navigation after observing that modifiers never enter the adapter.
+    const nativeClick = (event: MouseEvent) => event.preventDefault();
+    window.addEventListener("click", nativeClick, { once: true });
+    fireEvent.click(link, { ctrlKey: true });
+    expect(window.location.hash).toBe("");
+    expect(observed).not.toHaveBeenCalled();
+    fireEvent.click(link);
+    expect(window.location.hash).toBe("#application-candidate");
+    expect(window.history.state).toEqual({ retained: true });
+    expect(observed).toHaveBeenCalledTimes(1);
+    fireEvent.click(link);
+    expect(observed).toHaveBeenCalledTimes(2);
+  } finally {
+    window.removeEventListener("hashchange", observed);
+    window.history.replaceState(null, "", "/");
+  }
+});
+
 it("shows panel/chair/schedule/completion without expansion and deep-links the existing panel editor", async () => {
   show();
   expect(screen.getByText("Chair: Alice Long Tutor Name")).toBeTruthy();
@@ -144,10 +200,132 @@ it("shows panel/chair/schedule/completion without expansion and deep-links the e
     ).toBe(false),
   );
 });
+it("preserves an explicit completion date sort when changing completion scope", () => {
+  show();
+  fireEvent.change(
+    screen.getByRole("combobox", { name: en.admin.applications.filters.sort }),
+    {
+      target: { value: "COMPLETED_ASC" },
+    },
+  );
+  fireEvent.change(
+    screen.getByRole("combobox", { name: en.workflows.interviewFilter }),
+    {
+      target: { value: "COMPLETED" },
+    },
+  );
+  expect(mocks.options).toHaveBeenLastCalledWith({
+    page: 0,
+    search: "",
+    completion: "COMPLETED",
+    status: "",
+    sort: "COMPLETED_ASC",
+  });
+});
+
+it.each(["sort", "status"] as const)(
+  "retains read controls and a saved completion draft through an uncached %s request and retry",
+  (field) => {
+    let state: "ready" | "loading" | "error" = "ready";
+    let switched = false;
+    mocks.options.mockImplementation(
+      (input: { sort: string; status: string }) => {
+        switched =
+          field === "sort"
+            ? input.sort === "COMPLETED_ASC"
+            : input.status === "INTERVIEW";
+        return !switched || state === "ready"
+          ? { data: fixture(), refetch: mocks.refetch }
+          : state === "loading"
+            ? { data: undefined, refetch: mocks.refetch }
+            : {
+                data: undefined,
+                error: new Error("Uncached records failed"),
+                refetch: mocks.refetch,
+              };
+      },
+    );
+    const tree = () => (
+      <NextIntlClientProvider
+        locale="en"
+        messages={en}
+        timeZone="Asia/Shanghai"
+      >
+        <InterviewManagement />
+      </NextIntlClientProvider>
+    );
+    const page = render(tree());
+    fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: en.interviewReview.record }),
+    );
+    const form = document.getElementById("interview-completion-editor")!;
+    fireEvent.change(within(form).getByLabelText(en.interviewReview.reason), {
+      target: { value: "Retained attendance evidence" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: en.common.cancel }));
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: en.workflows.interviewSearch }),
+      { target: { value: " Unsubmitted " } },
+    );
+    state = "loading";
+    fireEvent.change(
+      screen.getByRole("combobox", {
+        name:
+          field === "sort"
+            ? en.admin.applications.filters.sort
+            : en.admin.applications.filters.status,
+      }),
+      {
+        target: { value: field === "sort" ? "COMPLETED_ASC" : "INTERVIEW" },
+      },
+    );
+    expect(switched).toBe(true);
+    expect(screen.getByText(en.workflows.loading)).toBeTruthy();
+    expect(screen.queryByRole("searchbox")).toBeNull();
+    state = "error";
+    page.rerender(tree());
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Uncached records failed",
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: en.interviewReview.refreshOnly }),
+    );
+    expect(mocks.refetch).toHaveBeenCalled();
+    state = "ready";
+    page.rerender(tree());
+    expect(
+      screen.getByRole<HTMLInputElement>("searchbox", {
+        name: en.workflows.interviewSearch,
+      }).value,
+    ).toBe(" Unsubmitted ");
+    expect(
+      screen
+        .getByRole("button", { name: /Candidate One/ })
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+    expect(
+      screen.getByRole<HTMLSelectElement>("combobox", {
+        name:
+          field === "sort"
+            ? en.admin.applications.filters.sort
+            : en.admin.applications.filters.status,
+      }).value,
+    ).toBe(field === "sort" ? "COMPLETED_ASC" : "INTERVIEW");
+    fireEvent.click(
+      screen.getByRole("button", { name: en.interviewReview.record }),
+    );
+    expect(
+      screen.getByDisplayValue("Retained attendance evidence"),
+    ).toBeTruthy();
+    expect(mocks.complete).not.toHaveBeenCalled();
+  },
+);
+
 it("submits interview search and completed filters to the paginated API", () => {
   show();
   fireEvent.change(
-    screen.getByRole("textbox", {
+    screen.getByRole("searchbox", {
       name: "Search applicants, panelists or subjects",
     }),
     { target: { value: " Math " } },
@@ -163,8 +341,155 @@ it("submits interview search and completed filters to the paginated API", () => 
     page: 0,
     search: "Math",
     completion: "COMPLETED",
+    status: "",
+    sort: "COMPLETED_DESC",
   });
 });
+it("applies completion immediately while retaining an unsubmitted search draft", () => {
+  show();
+  const search = screen.getByRole<HTMLInputElement>("searchbox", {
+    name: en.workflows.interviewSearch,
+  });
+  fireEvent.change(search, { target: { value: " Math " } });
+  expect(mocks.options).toHaveBeenLastCalledWith({
+    page: 0,
+    search: "",
+    completion: "OPEN",
+    status: "",
+    sort: "CREATED_DESC",
+  });
+  fireEvent.change(
+    screen.getByRole("combobox", { name: en.workflows.interviewFilter }),
+    { target: { value: "COMPLETED" } },
+  );
+  expect(search.value).toBe(" Math ");
+  expect(mocks.options).toHaveBeenLastCalledWith({
+    page: 0,
+    search: "",
+    completion: "COMPLETED",
+    status: "",
+    sort: "COMPLETED_DESC",
+  });
+  fireEvent.submit(search.closest("form")!);
+  expect(mocks.options).toHaveBeenLastCalledWith({
+    page: 0,
+    search: "Math",
+    completion: "COMPLETED",
+    status: "",
+    sort: "COMPLETED_DESC",
+  });
+});
+it.each(["en", "zh"] as const)(
+  "changes %s status and sort immediately, resetting pages but retaining drafts and disclosures",
+  (locale) => {
+    const data = fixture();
+    data.applications.total = 45;
+    mocks.options.mockReturnValue({ data, refetch: mocks.refetch });
+    const messages = locale === "zh" ? zh : en;
+    show(locale);
+    const search = screen.getByRole<HTMLInputElement>("searchbox", {
+      name: messages.workflows.interviewSearch,
+    });
+    const record = screen.getByRole("button", { name: /Candidate One/ });
+    fireEvent.click(record);
+    fireEvent.change(search, { target: { value: " Unsubmitted " } });
+    const status = screen.getByRole<HTMLSelectElement>("combobox", {
+      name: messages.admin.applications.filters.status,
+    });
+    const sort = screen.getByRole<HTMLSelectElement>("combobox", {
+      name: messages.admin.applications.filters.sort,
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.workflows.next }),
+    );
+    fireEvent.change(status, { target: { value: "ACCEPTED" } });
+    expect(mocks.options).toHaveBeenLastCalledWith({
+      page: 0,
+      search: "",
+      completion: "OPEN",
+      status: "ACCEPTED",
+      sort: "CREATED_DESC",
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.workflows.next }),
+    );
+    fireEvent.change(sort, { target: { value: "COMPLETED_DESC" } });
+    expect(mocks.options).toHaveBeenLastCalledWith({
+      page: 0,
+      search: "",
+      completion: "OPEN",
+      status: "ACCEPTED",
+      sort: "COMPLETED_DESC",
+    });
+    expect(search.value).toBe(" Unsubmitted ");
+    expect(record.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: messages.admin.applications.filters.reset,
+      }),
+    );
+    expect(status.value).toBe("");
+    expect(sort.value).toBe("CREATED_DESC");
+    expect(search.value).toBe("");
+    expect(record.getAttribute("aria-expanded")).toBe("true");
+    expect(mocks.complete).not.toHaveBeenCalled();
+  },
+);
+it.each(["en", "zh"] as const)(
+  "resets %s interview search, draft, completion and page without collapsing a record",
+  (locale) => {
+    const data = fixture();
+    data.applications.total = 45;
+    mocks.options.mockReturnValue({ data, refetch: mocks.refetch });
+    const messages = locale === "zh" ? zh : en;
+    show(locale);
+    const search = screen.getByRole<HTMLInputElement>("searchbox", {
+      name: messages.workflows.interviewSearch,
+    });
+    const completion = screen.getByRole<HTMLSelectElement>("combobox", {
+      name: messages.workflows.interviewFilter,
+    });
+    const reset = screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.admin.applications.filters.reset,
+    });
+    expect(reset.disabled).toBe(true);
+    const record = screen.getByRole("button", { name: /Candidate One/ });
+    fireEvent.click(record);
+    fireEvent.change(search, { target: { value: " Math " } });
+    fireEvent.submit(search.closest("form")!);
+    fireEvent.change(completion, { target: { value: "ALL" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.workflows.next }),
+    );
+    expect(mocks.options).toHaveBeenLastCalledWith({
+      page: 1,
+      search: "Math",
+      completion: "ALL",
+      status: "",
+      sort: "CREATED_DESC",
+    });
+    fireEvent.change(search, { target: { value: "Unsubmitted search" } });
+    fireEvent.click(reset);
+    expect(mocks.options).toHaveBeenLastCalledWith({
+      page: 0,
+      search: "",
+      completion: "OPEN",
+      status: "",
+      sort: "CREATED_DESC",
+    });
+    expect(search.value).toBe("");
+    expect(completion.value).toBe("OPEN");
+    expect(reset.disabled).toBe(true);
+    expect(record.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("status").textContent).toBe(
+      messages.workflows.interviewCount
+        .replace("{first}", "1")
+        .replace("{last}", "20")
+        .replace("{total}", "45"),
+    );
+    expect(mocks.complete).not.toHaveBeenCalled();
+  },
+);
 
 it("retains invalid interview history without offering completion writes", () => {
   const data = fixture();

@@ -69,7 +69,26 @@ export function useNotificationRecordReveal(
           pane.getBoundingClientRect().top -
           pane.clientTop -
           Math.max(0, (pane.clientHeight - record.height) / 2);
-      } else target.scrollIntoView({ block: "center" });
+      } else {
+        const record = target.getBoundingClientRect();
+        const headerBottom = Math.max(
+          0,
+          ...Array.from(
+            document.querySelectorAll<HTMLElement>("[data-sticky-header]"),
+            (header) => header.getBoundingClientRect().bottom,
+          ),
+        );
+        // Centering a tall expanded record can put its identity behind a
+        // wrapped mobile header (or above the viewport entirely). Reveal its
+        // beginning instead, using the actual header rather than a fixed offset.
+        // Keep native centering for shorter records that remain fully visible.
+        if ((window.innerHeight - record.height) / 2 < headerBottom + 16) {
+          window.scrollBy({
+            top: record.top - headerBottom - 16,
+            behavior: "instant",
+          });
+        } else target.scrollIntoView({ block: "center" });
+      }
       // Programmatic record focus adds no sequential keyboard stop and does not
       // start a second scroll in either the document or desktop admin pane.
       if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
