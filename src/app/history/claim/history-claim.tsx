@@ -148,7 +148,8 @@ export function HistoryClaim({
           </button>
         </>
       )}
-      <Link className="link inline-flex min-h-11 items-center" href="/history">
+      {/* Keep the secondary destination on its own row when the claim action is shown. */}
+      <Link className="link flex min-h-11 w-fit items-center" href="/history">
         {t("myHistory")}
       </Link>
     </section>
