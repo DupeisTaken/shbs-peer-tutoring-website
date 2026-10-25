@@ -16,6 +16,8 @@ export SMTP_PASSWORD='smoke-private-smtp-sentinel'
 export EMAIL_FROM='smoke-private-sender@example.test'
 export EMAIL_FROM_NAME='Smoke Private Mail Sender'
 export TEST_BASE_URL='http://127.0.0.1:3100'
+# Public exports must encode the configured HTTPS origin, never the test host.
+export AUTH_URL='https://tutoring.example.test'
 # The first boot has no branding overrides, including no build-time public env values.
 unset APP_TITLE TEAM_TITLE ORG_NAME SUPPORT_EMAIL PROGRAM_TERM_LABEL
 start_app() {
@@ -23,7 +25,7 @@ start_app() {
     -e DATABASE_URL -e AUTH_SECRET -e AUTH_TRUST_HOST=true \
     -e SMTP_PASSWORD -e EMAIL_FROM -e EMAIL_FROM_NAME \
     -e APP_TITLE -e TEAM_TITLE -e ORG_NAME -e SUPPORT_EMAIL -e PROGRAM_TERM_LABEL \
-    -e AUTH_URL=http://127.0.0.1:3100 -e PORT=3100 "$image" >/dev/null
+    -e AUTH_URL -e PORT=3100 "$image" >/dev/null
   local ready=false
   for attempt in $(seq 1 60); do
     if curl --fail --silent "$TEST_BASE_URL/api/trpc/health" > "$health_file"; then ready=true; break; fi
@@ -33,7 +35,7 @@ start_app() {
   node -e 'const fs=require("fs"); const r=JSON.parse(fs.readFileSync(process.argv[1]));if(r.result?.data?.json?.ok!==true)process.exit(1)' "$health_file"
 }
 start_app
-node --test scripts/test-runtime-branding.mjs scripts/test-tab-icon.mjs
+node --test scripts/test-runtime-branding.mjs scripts/test-tab-icon.mjs scripts/test-public-qr.mjs
 # Running twice is deliberate: recovery must preserve the singleton HEAD and initial period.
 for attempt in 1 2; do
   docker exec -e BOOTSTRAP_ADMIN_EMAIL=smoke@example.test \
@@ -77,7 +79,7 @@ export ORG_NAME='Runtime School'
 export SUPPORT_EMAIL='support@example.test'
 export PROGRAM_TERM_LABEL='2026–27'
 start_app
-node --test scripts/test-runtime-branding.mjs scripts/test-tab-icon.mjs
+node --test scripts/test-runtime-branding.mjs scripts/test-tab-icon.mjs scripts/test-public-qr.mjs
 docker exec -i "$name" node --input-type=module <<'JS'
 import pg from 'pg';
 const c = new pg.Client({ connectionString: process.env.DATABASE_URL });

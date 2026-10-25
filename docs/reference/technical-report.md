@@ -248,8 +248,10 @@ transparent canvas at an integer module scale, with transparent light modules
 and a clear four-module quiet zone. The destination label and full absolute URL
 sit outside it. Exports retain their alpha channel; scanner tests composite the
 final PNG over white and pale backgrounds before full/half-size decoding.
-Locally packaged EN/ZH font glyphs avoid runtime
-font downloads or host font dependencies. Long URLs wrap without changing the
+Latin labels and URLs use the website's Geist Sans from the installed `geist`
+package; locally packaged Noto Sans SC supplies the Chinese glyph fallback.
+Both font files are traced into standalone output, avoiding runtime font downloads
+or host font dependencies. Long URLs wrap without changing the
 encoded URL. The Program recruitment panel's native download links are outside
 settings forms and disabled fieldsets; they neither mutate settings nor gate
 public entrypoints. Other UI locales use English PNG labels. The existing

@@ -27,14 +27,24 @@ const qrTop = 128;
 const qrMaximumWidth = 640;
 const quietZoneModules = 4;
 const urlLineHeight = 32;
-let packagedFont: Promise<ArrayBuffer> | undefined;
+let packagedFonts: Promise<[ArrayBuffer, ArrayBuffer]> | undefined;
 
-function loadPackagedFont(): Promise<ArrayBuffer> {
+function fontBytes(path: string): Promise<ArrayBuffer> {
+  return readFile(join(process.cwd(), path)).then(
+    (font) => new Uint8Array(font).buffer,
+  );
+}
+
+function loadPackagedFonts(): Promise<[ArrayBuffer, ArrayBuffer]> {
   // Only immutable font bytes are cached. URLs and output images must always use
   // the current canonical origin, including after a deployment/domain change.
-  return (packagedFont ??= readFile(
-    join(process.cwd(), "public/fonts/public-qr/shbs-public-qr.otf"),
-  ).then((font) => new Uint8Array(font).buffer));
+  // Use the same Geist dependency as RootLayout, in next/og's supported static
+  // TTF format. Geist lacks CJK glyphs; keep a portable, locally packaged fallback
+  // instead of relying on whichever system fonts happen to be installed.
+  return (packagedFonts ??= Promise.all([
+    fontBytes("node_modules/geist/dist/fonts/geist-sans/Geist-Regular.ttf"),
+    fontBytes("public/fonts/public-qr/shbs-public-qr.otf"),
+  ]));
 }
 
 /** Compose a locally rendered label and complete URL around one unscaled QR. */
@@ -73,7 +83,7 @@ export async function renderPublicQrPng({
   const urlLines = publicQrUrlLines(url);
   const urlTop = qrTop + qrWidth + 24;
   const imageHeight = urlTop + urlLines.length * urlLineHeight + 40;
-  const font = await loadPackagedFont();
+  const [geistFont, chineseFont] = await loadPackagedFonts();
   const image = new ImageResponse(
     <div
       style={{
@@ -83,7 +93,7 @@ export async function renderPublicQrPng({
         position: "relative",
         backgroundColor: "transparent",
         color: "#000000",
-        fontFamily: "Public QR",
+        fontFamily: "Geist Sans, Public QR CJK",
         fontWeight: 400,
       }}
     >
@@ -143,7 +153,15 @@ export async function renderPublicQrPng({
     {
       width: imageWidth,
       height: imageHeight,
-      fonts: [{ name: "Public QR", data: font, style: "normal", weight: 400 }],
+      fonts: [
+        { name: "Geist Sans", data: geistFont, style: "normal", weight: 400 },
+        {
+          name: "Public QR CJK",
+          data: chineseFont,
+          style: "normal",
+          weight: 400,
+        },
+      ],
     },
   );
   // Consume the renderer stream here so failures are caught by the route before

@@ -1,4 +1,16 @@
-# Public QR export font
+# Public QR export fonts
+
+Latin labels and all URL text use **Geist Sans Regular** from the same installed
+`geist` dependency used by `RootLayout` and the website's `--font-sans` stack.
+The renderer reads `geist/dist/fonts/geist-sans/Geist-Regular.ttf` locally:
+`next/og` supports static TTF, whereas the browser uses the variable WOFF2.
+There is no separately copied Geist binary to drift from dependency upgrades.
+Geist's license is included in its installed package as `LICENSE.txt`.
+
+Geist has no Chinese glyphs. The website falls back to device-installed sans-serif
+fonts for Chinese, so no single Chinese face is guaranteed across browsers.
+The PNG uses the following packaged Noto Sans SC subset for those glyphs to stay
+portable across servers. It is a deliberate CJK fallback, not the Latin face.
 
 `shbs-public-qr.otf` is a static subset of Noto Sans SC Regular 2.004,
 distributed under the SIL Open Font License 1.1 in `OFL.txt`. The original
@@ -26,7 +38,8 @@ isolated environment (FontTools 4.60.1 was used), run from the repository root:
 python -m fontTools.subset /path/to/NotoSansSC-Regular.otf --unicodes=U+0020-007E --text=同伴辅导伙伴报名学习巡查队网站首页 --no-ignore-missing-unicodes --name-IDs='*' --output-file=public/fonts/public-qr/shbs-public-qr.otf
 ```
 
-The source font and FontTools are authoring inputs only. The application reads
-the committed OTF through `node:fs` and passes its bytes to `next/og`; it does not
-load machine fonts or download fonts while handling a request. Keeping the asset
-in `public/` also includes it in the existing standalone Docker runtime copy.
+The Noto source font and FontTools are authoring inputs only. The application reads
+the installed Geist TTF and committed Noto OTF through `node:fs` and passes their
+bytes to `next/og`; it does not load machine fonts or download fonts while handling
+a request. Both files are explicitly included in the `/api/public-qr` standalone
+trace. Docker also copies production dependencies and the public assets.

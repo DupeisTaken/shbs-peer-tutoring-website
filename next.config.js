@@ -45,6 +45,14 @@ const config = {
   // Pin the output file-tracing root to this project (good hygiene for standalone output and
   // to keep the tracer from wandering above the project directory).
   outputFileTracingRoot: workspaceRoot,
+  // QR text uses the website's Geist package plus its portable Chinese fallback.
+  // Include both explicitly for standalone deployments as well as Docker.
+  outputFileTracingIncludes: {
+    "/api/public-qr": [
+      "./node_modules/geist/dist/fonts/geist-sans/Geist-Regular.ttf",
+      "./public/fonts/public-qr/shbs-public-qr.otf",
+    ],
+  },
   turbopack: { root: workspaceRoot },
   // Local validation can use one worker on machines that are also running the app.
   experimental: {

@@ -149,7 +149,9 @@ function verifyQuietZoneAndSingleCode(png: PNG, decoded: QRCode) {
     labelPixelCount,
     "the exported raster includes visible labels",
   ).toBeGreaterThan(100);
-  expect(decode({ ...png, data: remainder })).toBeNull();
+  // jsQR can report an empty version-1 candidate from text alone. There must be
+  // no second payload; the real code's complete URL is asserted independently.
+  expect(decode({ ...png, data: remainder })?.data ?? "").toBe("");
 }
 
 it.each(
