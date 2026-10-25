@@ -8,7 +8,9 @@ import { formatTRPCErrorShape, validationSummary } from "./trpc";
 
 it("summarizes repeated field validation failures without exposing paths", () => {
   const schema = z.object({
-    observations: z.array(z.object({ roomId: z.string().cuid() })),
+    observations: z.array(
+      z.object({ roomId: z.string().cuid("Invalid room identifier") }),
+    ),
   });
   let error: ZodError;
   try {
@@ -22,7 +24,9 @@ it("summarizes repeated field validation failures without exposing paths", () =>
   }
 
   const summary = validationSummary(error);
-  expect(summary).toBe("Please correct the highlighted field: Invalid cuid.");
+  expect(summary).toBe(
+    "Please correct the highlighted field: Invalid room identifier.",
+  );
   expect(summary).not.toContain("room-a101");
   expect(summary).not.toContain("observations");
 });

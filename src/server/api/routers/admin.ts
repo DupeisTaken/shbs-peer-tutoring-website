@@ -6166,7 +6166,9 @@ export const adminRouter = createTRPCRouter({
         title: z.string().trim().min(1).max(200),
         body: z.string().trim().min(1).max(5000),
         pinned: z.boolean().default(false),
-        audience: announcementAudienceSchema.default({}),
+        // Parse an omitted audience through its nested defaults; Zod 4's
+        // default({}) would return the unparsed empty object immediately.
+        audience: announcementAudienceSchema.prefault({}),
       }),
     )
     .mutation(async ({ ctx, input }) => {

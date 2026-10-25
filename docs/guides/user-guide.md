@@ -101,6 +101,11 @@ A staff-visible key or a copied invitation code alone cannot sign in as its reci
 | Historical tutee invitation | Verify the exact invited email, then continue from the invitation receipt popup to `/register-account`. | Create/use credentials, then separately review and choose **Link My History** for the exact record. No current participation is added. |
 | Accountless tutor setup sent by Head | Receive a Tutor invitation. | The roster remains accountless until its recipient accepts; no placeholder login is created by sending mail. |
 
+A tutor archive with retained historical ownership uses its existing owner's
+account recovery. It cannot receive a new accountless setup invitation. If a
+login is attached while setup is being sent, refresh the record before trying
+again. Invitations use the tutor's current contact address when the action commits.
+
 The invitation page opens with one centered code field and a full-width **Continue** button.
 New **Invitation codes** and staff registration codes contain **5 letters and numbers**
 and use a green box background. **Email verification codes** contain **4 digits**

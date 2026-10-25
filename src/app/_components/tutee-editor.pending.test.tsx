@@ -163,9 +163,9 @@ vi.mock("~/trpc/react", async () => {
           useQuery: () => ({
             data: [
               {
-                id: "owner",
-                name: "Verified Alumnus",
-                email: "alumni@example.test",
+                id: "linked",
+                name: "Current Account",
+                email: "linked@example.test",
               },
             ],
           }),
@@ -203,8 +203,8 @@ let renderedRow = row;
 const preview = {
   fingerprint: "b".repeat(64),
   record: { name: "Alex Lin", sessions: 3 },
-  account: { name: "Verified Alumnus" },
-  conflict: false,
+  account: { id: "linked", name: "Current Account" },
+  conflict: true,
   currentConflict: false,
 };
 const combineCandidate = {
@@ -367,7 +367,7 @@ function mount() {
 async function selectOwner() {
   fireEvent.change(
     screen.getByRole("combobox", { name: en.tuteeHistory.chooseAccount }),
-    { target: { value: "owner" } },
+    { target: { value: "linked" } },
   );
   fireEvent.click(
     screen.getByRole("button", { name: en.tuteeHistory.preview }),
@@ -375,7 +375,24 @@ async function selectOwner() {
   const confirmation = await screen.findByRole("checkbox", {
     name: en.tuteeHistory.confirmIdentity,
   });
+  expect(mock.preview).toHaveBeenLastCalledWith(
+    { tuteeId: "archive", userId: "linked" },
+    { staleTime: 0 },
+  );
   fireEvent.click(confirmation);
+  expect(
+    screen
+      .getByRole("button", { name: en.tuteeHistory.link })
+      .matches(":disabled"),
+  ).toBe(true);
+  fireEvent.change(screen.getByLabelText(en.tuteeHistory.password), {
+    target: { value: "SyntheticHeadConfirmation" },
+  });
+  expect(
+    screen
+      .getByRole("button", { name: en.tuteeHistory.link })
+      .matches(":disabled"),
+  ).toBe(false);
 }
 async function selectCombinedOwner() {
   fireEvent.click(screen.getByRole("button", { name: en.combineRecords.open }));
@@ -508,7 +525,7 @@ it("keeps an ownership-correction preview dismissible while freezing its local d
   const ui = mountLinked();
   fireEvent.change(
     screen.getByRole("combobox", { name: en.tuteeHistory.chooseAccount }),
-    { target: { value: "owner" } },
+    { target: { value: "linked" } },
   );
   const work = deferred();
   mock.preview.mockReturnValueOnce(work.promise);
@@ -548,7 +565,7 @@ it("ignores a late identity preview after deliberate dismissal without starting 
   fireEvent.change(
     screen.getByRole("combobox", { name: en.tuteeHistory.chooseAccount }),
     {
-      target: { value: "owner" },
+      target: { value: "linked" },
     },
   );
   const work = deferred();
@@ -669,6 +686,9 @@ function mountLinked(unmountOnClose = false) {
     {
       ...row,
       user: { id: "linked", email: "linked@example.test" },
+      // Correct a retained owner to the current login. A different current
+      // login must go through Combine Records, not the Head correction action.
+      owner: { id: "previous-owner", email: "past@example.test" },
     } as typeof row,
     unmountOnClose,
     true,
@@ -836,6 +856,14 @@ it("blocks linked academic submission during a historical link and restores it o
   mock.link.mockReturnValueOnce(work.promise);
   fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.link }));
   await waitFor(() => expect(ui.academicSave.disabled).toBe(true));
+  expect(mock.link).toHaveBeenCalledWith({
+    tuteeId: "archive",
+    userId: "linked",
+    fingerprint: preview.fingerprint,
+    reason: "Verified retained enrollment identity",
+    acknowledged: true,
+    confirmPassword: "SyntheticHeadConfirmation",
+  });
   expectDismissalBlocked(ui.close);
   fireEvent.submit(ui.academicForm);
   fireEvent.submit(ui.profileForm);
