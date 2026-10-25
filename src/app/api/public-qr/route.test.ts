@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import jsQR, { type QRCode } from "jsqr";
 import { PNG } from "pngjs";
+import { compositePng } from "~/test/composite-png";
 import * as publicQrRenderer from "~/server/public-qr/render";
 import { GET } from "./route";
 
@@ -57,12 +58,13 @@ async function readPng(response: Response) {
 }
 
 function decode(png: Pick<PNG, "data" | "width" | "height">) {
-  return jsQR(new Uint8ClampedArray(png.data), png.width, png.height);
+  const surface = compositePng(png);
+  return jsQR(new Uint8ClampedArray(surface.data), png.width, png.height);
 }
 
 /** Average each 2x2 pixel area: verify the final image after a real reduction,
  * rather than decoding qrcode's pre-composition source or a separate SVG. */
-function halfSize(png: PNG) {
+function halfSize(png: Pick<PNG, "data" | "width" | "height">) {
   const reduced = new PNG({
     width: Math.floor(png.width / 2),
     height: Math.floor(png.height / 2),
@@ -107,7 +109,9 @@ function verifyQuietZoneAndSingleCode(png: PNG, decoded: QRCode) {
   expect(right + quietZone).toBeLessThanOrEqual(png.width);
   expect(bottom + quietZone).toBeLessThanOrEqual(png.height);
   const remainder = Buffer.from(png.data);
-  let quietPixelsWhite = true;
+  let quietPixelsTransparent = true;
+  let transparentPixels = 0;
+  let onlyBlackInk = true;
   let labelPixelCount = 0;
   for (let y = 0; y < png.height; y++) {
     for (let x = 0; x < png.width; x++) {
@@ -118,21 +122,29 @@ function verifyQuietZoneAndSingleCode(png: PNG, decoded: QRCode) {
         x < right + quietZone &&
         y >= top - quietZone &&
         y < bottom + quietZone;
-      if (insideQuietZone && !insideCode) {
-        quietPixelsWhite &&=
-          png.data[offset] === 255 &&
-          png.data[offset + 1] === 255 &&
-          png.data[offset + 2] === 255 &&
-          png.data[offset + 3] === 255;
-      }
-      if (insideCode) remainder.fill(255, offset, offset + 4);
+      const alpha = png.data[offset + 3]!;
+      if (alpha === 0) transparentPixels++;
+      else
+        onlyBlackInk &&=
+          png.data[offset] === 0 &&
+          png.data[offset + 1] === 0 &&
+          png.data[offset + 2] === 0;
+      if (insideQuietZone && !insideCode)
+        quietPixelsTransparent &&= alpha === 0;
+      if (insideCode) remainder.fill(0, offset, offset + 4);
       else if (png.data[offset]! < 128 && png.data[offset + 3] === 255)
         labelPixelCount++;
     }
   }
-  expect(quietPixelsWhite, "all four module quiet-zone bands stay intact").toBe(
+  expect(
+    quietPixelsTransparent,
+    "all four module quiet-zone bands stay clear",
+  ).toBe(true);
+  expect(onlyBlackInk, "no white plate remains under the QR or text").toBe(
     true,
   );
+  expect(transparentPixels).toBeGreaterThan((png.width * png.height) / 2);
+  expect(png.data[3], "outer canvas is transparent").toBe(0);
   expect(
     labelPixelCount,
     "the exported raster includes visible labels",
@@ -145,7 +157,7 @@ it.each(
     ["en", "zh"].map((locale) => ({ destination, path, locale })),
   ),
 )(
-  "exports one labeled $locale $destination PNG that still scans at half size",
+  "exports one transparent labeled $locale $destination PNG that scans on light surfaces at half size",
   async ({ destination, path, locale }) => {
     const response = await GET(
       request(`destination=${destination}&locale=${locale}&download=1`, {
@@ -165,7 +177,18 @@ it.each(
     const decoded = decode(png);
     expect(decoded?.data).toBe(`${origin}${path}`);
     verifyQuietZoneAndSingleCode(png, decoded!);
-    expect(decode(halfSize(png))?.data).toBe(`${origin}${path}`);
+    // Verify the actual composed export on common poster surfaces, at both
+    // sizes. Transparent pixels must reveal the surface rather than carry a
+    // baked-in white QR plate; raw alpha is checked separately above.
+    for (const background of [
+      [255, 255, 255],
+      [247, 240, 224],
+      [226, 239, 249],
+    ] as const) {
+      const surface = compositePng(png, background);
+      expect(decode(surface)?.data).toBe(`${origin}${path}`);
+      expect(decode(halfSize(surface))?.data).toBe(`${origin}${path}`);
+    }
   },
   20_000,
 );

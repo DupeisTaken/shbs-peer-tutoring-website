@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import jsQR from "jsqr";
 import { PNG } from "pngjs";
+import { compositePng } from "~/test/composite-png";
 import { GET } from "./route";
 
 // next/og initializes CSS parsing for the process mode. Keep development renders
@@ -19,7 +20,9 @@ it.each([
       new Request("http://spoofed.internal/api/public-qr?destination=crew"),
     );
     expect(response.status).toBe(200);
-    const png = PNG.sync.read(Buffer.from(await response.arrayBuffer()));
+    const png = compositePng(
+      PNG.sync.read(Buffer.from(await response.arrayBuffer())),
+    );
     expect(
       jsQR(new Uint8ClampedArray(png.data), png.width, png.height)?.data,
     ).toBe(expected);

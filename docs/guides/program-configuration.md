@@ -513,7 +513,8 @@ Translations cover interface strings and supported public text such as news, sec
 Open **Program Settings → Recruitment and Refresh → Share Signup Links** to
 download separate labeled PNGs for **Tutor signup**, **Tutee signup**, **Crew
 signup** and the **Website home**. Each image contains one QR code, its destination
-name and the full published URL. The paths are `/tutor`, `/tutee`, `/crew` and `/`.
+name and the full published URL on a transparent background. The paths are
+`/tutor`, `/tutee`, `/crew` and `/`.
 Chinese interface users receive Chinese image labels; other interface languages
 receive English image labels. Filenames identify the destination and image language.
 
@@ -527,8 +528,9 @@ The deployment's configured public address determines the encoded domain, even
 when management is opened through an internal address. See the
 [deployment guidance](deployment.md#public-qr-domain-and-regeneration) if a download
 reports a configuration error or the public domain changes. Regenerate distributed
-images after a domain change. Keep the white border around each QR intact when
-placing it on a poster; verify the finished print or shared image with a scanner.
+images after a domain change. Place the black QR and text over a plain, light
+background, keeping the clear border around the QR free of other artwork.
+Verify the finished print or shared image with a scanner.
 
 ### Configure recruitment windows
 

@@ -62,7 +62,9 @@ export async function renderPublicQrPng({
     scale,
     margin: quietZoneModules,
     errorCorrectionLevel: "M",
-    color: { dark: "#000000ff", light: "#ffffffff" },
+    // Both the QR's light modules/quiet zone and the outer canvas stay clear,
+    // so placing the PNG on a light poster does not leave a white rectangle.
+    color: { dark: "#000000ff", light: "#ffffff00" },
   });
 
   // Canonical URL serialization uses ASCII (including punycode). Fixed short
@@ -79,7 +81,7 @@ export async function renderPublicQrPng({
         width: imageWidth,
         height: imageHeight,
         position: "relative",
-        backgroundColor: "#ffffff",
+        backgroundColor: "transparent",
         color: "#000000",
         fontFamily: "Public QR",
         fontWeight: 400,

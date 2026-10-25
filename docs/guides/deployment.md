@@ -784,8 +784,10 @@ distributed assets. Responses use `Cache-Control: no-store`; downloaded files an
 printed posters cannot update automatically. Decode each replacement and confirm
 the expected origin and `/tutor`, `/tutee`, `/crew` or `/` path. Then follow the
 short links to verify current recruitment and Crew availability on the deployment.
-Images use packaged local fonts and require no external font service. Keep their
-white quiet zones intact when resizing or printing.
+Images use packaged local fonts and require no external font service. The PNG
+background, light modules and four-module quiet zone are transparent. Place them
+over a plain, light surface and keep the quiet zone free of other artwork when
+resizing or printing.
 
 The existing sign-in QR download remains a separate interface. These exports
 do not enable recruitment, modify settings or bypass verification/access checks.
