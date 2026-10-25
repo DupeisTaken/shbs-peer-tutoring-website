@@ -17,7 +17,7 @@ export async function proposeTranslation(
 ) {
   if (["HEAD", "ADMIN"].includes(session.role)) return false;
   await withTranslationWrite(db, async (tx) => {
-    const fields = z.record(z.unknown()).parse(payload);
+    const fields = z.record(z.string(), z.unknown()).parse(payload);
     const baseline = await translationBaseline(tx, operation, fields);
     await tx.translationDraft.create({
       data: {

@@ -70,6 +70,20 @@ function fixture(
 
 beforeEach(() => vi.clearAllMocks());
 describe("announcement publication and access", () => {
+  it("parses an omitted audience through the established all-tutors defaults", async () => {
+    const { caller, mock } = fixture();
+    const result = await caller.admin.createAnnouncement({
+      title: "Program news",
+      body: "Public announcement",
+    });
+    expect(result).toMatchObject({
+      pinned: false,
+      audienceRestricted: true,
+      recipientTutorIds: ["a", "b"],
+    });
+    expect(mock.announcement.create).toHaveBeenCalledOnce();
+    expect(mock.notification.createMany).toHaveBeenCalledOnce();
+  });
   it("persists the server-resolved snapshot and limits notification queries", async () => {
     const { caller, mock } = fixture();
     const result = await caller.admin.createAnnouncement({

@@ -2,6 +2,36 @@ import { createServer, Socket } from "node:net";
 import nodemailer from "nodemailer";
 import { expect, it } from "vitest";
 
+it.each([
+  ["Recipient <recipient@example.test>", ["recipient@example.test"]],
+  [
+    "Recipient (outer(inner) <intruder@example.test>) <recipient@example.test>",
+    ["recipient@example.test"],
+  ],
+  [
+    'Team: "Visible; label" <recipient@example.test>;',
+    ["recipient@example.test"],
+  ],
+])("preserves the intended envelope recipient for %s", async (to, expected) => {
+  // Use the public runtime boundary with in-memory output: no SMTP connection or
+  // external delivery. Comments/display names must not become extra recipients.
+  const transport = nodemailer.createTransport({
+    streamTransport: true,
+    buffer: true,
+  });
+  try {
+    const result = await transport.sendMail({
+      from: "sender@example.test",
+      to,
+      subject: "Parser regression",
+      text: "Synthetic only",
+    });
+    expect(result.envelope.to).toEqual(expected);
+  } finally {
+    transport.close();
+  }
+});
+
 it("delivers through a caller-owned socket with the installed SMTP runtime", async () => {
   // Loopback-only SMTP fixture: exercise the real dependency, without credentials,
   // external delivery or TLS exceptions in application configuration.

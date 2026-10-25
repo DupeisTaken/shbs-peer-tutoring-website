@@ -389,7 +389,7 @@ export async function proposalTargets(
   const input: unknown = superjson.deserialize(
     payload as Parameters<typeof superjson.deserialize>[0],
   );
-  const fields = z.record(z.unknown()).parse(input);
+  const fields = z.record(z.string(), z.unknown()).parse(input);
   // An automatic proposal approves the scheduling intent, not a previewed candidate room.
   // The slot itself and the edited pairing remain immutable review evidence.
   const automaticRoomIntent = ["admin.createPairing", "admin.updatePairing", "admin.setPairingRoom"].includes(operation) && fields.roomMode === "AUTO";

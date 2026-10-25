@@ -16,7 +16,7 @@ const answerFields = [
   "secondChoiceId",
   "slotIds",
 ] as const;
-const answerObject = z.record(z.unknown());
+const answerObject = z.record(z.string(), z.unknown());
 
 /** Current payloads are complete normalized answer snapshots, not patches: omission clears
  * optional/hidden answers instead of resurrecting the original value. Domain callers still
