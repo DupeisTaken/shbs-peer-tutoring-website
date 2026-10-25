@@ -64,6 +64,8 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+// Controls hold raw values; the resolver coerces ratings before submission.
+type FormInputs = z.input<typeof formSchema>;
 
 type CardColor = "" | "YELLOW" | "RED";
 type CardEntry = { color: CardColor; reason: string };
@@ -158,7 +160,7 @@ export function AttendanceForm() {
     setValue,
     reset,
     formState: { errors },
-  } = useForm<FormValues>({
+  } = useForm<FormInputs, unknown, FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { date: todayIso(), tutorStatus: "PRESENT", comments: "" },
   });

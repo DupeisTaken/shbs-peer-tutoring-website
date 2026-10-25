@@ -24,6 +24,31 @@ import {
 } from "~/test/management-read-fixtures";
 
 type Access = "VIEWER" | "observer" | "ADMIN" | "COORDINATOR" | "HEAD";
+it("redacts omitted and present private fields without rejecting sparse source rows", () => {
+  const source = [
+    {
+      id: "sparse",
+      title: "Policy",
+      body: "Published",
+      updatedBy: { name: "Staff" },
+    },
+    {
+      id: "private",
+      title: "Policy",
+      body: "Published",
+      updatedBy: { name: "Staff", email: PRIVATE, secret: PRIVATE },
+    },
+  ];
+  expect(projectManagementRead("admin.policies", source)).toMatchObject([
+    { id: "sparse", updatedBy: { name: "Staff", email: null } },
+    { id: "private", updatedBy: { name: "Staff", email: null } },
+  ]);
+  expect(
+    JSON.stringify(projectManagementRead("admin.policies", source)),
+  ).not.toContain(PRIVATE);
+  expect(source[0]!.updatedBy).not.toHaveProperty("email");
+});
+
 function fixture(access: Access = "VIEWER") {
   const role = access === "observer" ? "TUTOR" : access;
   const actor = {
