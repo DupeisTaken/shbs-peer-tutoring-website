@@ -409,7 +409,8 @@ it("freezes only the pending feedback draft, retains rejected text and clears an
     remote.feedback.mock.calls[1]?.[0],
   );
   fireEvent.change(first!, { target: { value: "A new unsaved draft" } });
-  expect(screen.queryByText(en.workflows.saved)).toBeNull();
+  // React Query batches mutation reset notifications; observe the rendered result.
+  await waitFor(() => expect(screen.queryByText(en.workflows.saved)).toBeNull());
   expect(second!.value).toBe("Other draft stays editable");
 });
 it("shows initial failure with a read-only retry and no invented empty records", async () => {

@@ -11,7 +11,7 @@ import {
   unsplitLegacyName,
 } from "~/lib/person-name";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api, type RouterOutputs } from "~/trpc/react";
@@ -290,9 +290,9 @@ export default function SettingsPage() {
     !me.data ||
     statusReq.data === undefined;
   const optOutAllowedNow = useRef(false);
-  const membershipIdentityNow = useRef(me.data?.id);
-  membershipIdentityNow.current = me.data?.id;
-  optOutAllowedNow.current =
+  const membershipIdentity = me.data?.id;
+  const membershipIdentityNow = useRef(membershipIdentity);
+  const optOutAllowed =
     !membershipBusy &&
     !me.error &&
     !statusReq.error &&
@@ -300,6 +300,12 @@ export default function SettingsPage() {
     !statusReq.isFetching &&
     me.data?.status === "ACTIVE" &&
     statusReq.data === null;
+  useLayoutEffect(() => {
+    // Retained review callbacks read the latest committed authorization before
+    // browser interaction; an abandoned render must not change their admission.
+    membershipIdentityNow.current = membershipIdentity;
+    optOutAllowedNow.current = optOutAllowed;
+  }, [membershipIdentity, optOutAllowed]);
   const membershipDenied = [me.error, statusReq.error].some(
     (error) =>
       error?.data?.code === "FORBIDDEN" || error?.data?.code === "UNAUTHORIZED",

@@ -667,7 +667,10 @@ it("labels the opt-out reason and reviews the named request without writing on C
   );
   expect(reason.value).toBe("Time for exams");
   openOptOut();
-  fireEvent.cancel(screen.getByRole("dialog"));
+  fireEvent(
+    screen.getByRole("dialog"),
+    new Event("cancel", { cancelable: true }),
+  );
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(reason.value).toBe("Time for exams");
   expect(state.optOut).not.toHaveBeenCalled();
@@ -696,7 +699,10 @@ it("admits one opt-out write, freezes its own draft while pending, and preserves
   expect(screen.getByLabelText("Academic draft").matches(":disabled")).toBe(
     false,
   );
-  fireEvent.cancel(screen.getByRole("dialog"));
+  fireEvent(
+    screen.getByRole("dialog"),
+    new Event("cancel", { cancelable: true }),
+  );
   expect(screen.getByRole("dialog")).toBeTruthy();
   await act(async () => {
     reject(new Error("Synthetic request failed"));

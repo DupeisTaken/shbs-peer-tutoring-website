@@ -14,8 +14,14 @@ import en from "../../../../messages/en.json";
 import zh from "../../../../messages/zh.json";
 import { HistoryClaim } from "./history-claim";
 
+type ClaimInspection = {
+  name: string;
+  sessions: number;
+  expiresAt: Date;
+};
+
 const remote = vi.hoisted(() => ({
-  inspect: vi.fn(),
+  inspect: vi.fn<() => Promise<ClaimInspection>>(),
   claim: vi.fn(),
   invalidate: vi.fn(),
 }));
