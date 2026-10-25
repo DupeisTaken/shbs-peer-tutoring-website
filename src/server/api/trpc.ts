@@ -38,7 +38,11 @@ export function validationSummary(error: ZodError): string {
     ...flattened.formErrors,
     ...Object.values(flattened.fieldErrors).flatMap((items) => items ?? []),
   ];
-  const unique = [...new Set(messages)].filter(Boolean);
+  // Zod 4 leaves a generic field-error map unknown. Only message strings belong
+  // in the public summary; never stringify a field object or submitted value.
+  const unique = [...new Set(messages)].filter(
+    (message): message is string => typeof message === "string" && message.length > 0,
+  );
   if (!unique.length) return "Please review the submitted values.";
   // Preserve a shared translation key for name validation instead of embedding a raw
   // server code inside Zod's English summary. Field details remain available below.
