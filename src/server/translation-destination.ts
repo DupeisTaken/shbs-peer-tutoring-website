@@ -52,7 +52,7 @@ async function destination(
   operation: string,
   payload: unknown,
 ) {
-  const fields = z.record(z.unknown()).parse(payload);
+  const fields = z.record(z.string(), z.unknown()).parse(payload);
   const locale = z.string().parse(fields.locale);
   switch (operation) {
     case "localization.setString": {
@@ -139,7 +139,7 @@ export async function assertTranslationCurrent(
   operation: string,
   payload: unknown,
 ) {
-  const fields = z.record(z.unknown()).parse(payload);
+  const fields = z.record(z.string(), z.unknown()).parse(payload);
   const baseline = baselineSchema.safeParse(fields[TRANSLATION_BASELINE]);
   if (!baseline.success)
     throw new TRPCError({
@@ -159,7 +159,7 @@ export async function assertTranslationCurrent(
 
 /** Fingerprints are internal concurrency evidence, not content displayed in the review UI. */
 export function visibleTranslationPayload(payload: unknown) {
-  const fields = z.record(z.unknown()).parse(payload);
+  const fields = z.record(z.string(), z.unknown()).parse(payload);
   const { [TRANSLATION_BASELINE]: baseline, ...visible } = fields;
   return {
     payload: visible,

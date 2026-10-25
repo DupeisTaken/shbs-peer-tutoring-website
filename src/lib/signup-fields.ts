@@ -55,7 +55,9 @@ export type SignupSettings = Record<SignupFormKind, FieldSettings>;
 
 /** Only known fields can be configured; essentials also survive invalid legacy JSON. */
 export function signupSettings(value: unknown): SignupSettings {
-  const stored = z.record(z.record(fieldStateSchema)).safeParse(value);
+  const stored = z
+    .record(z.string(), z.record(z.string(), fieldStateSchema))
+    .safeParse(value);
   return Object.fromEntries(
     (["tutee", "tutor"] as const).map((form) => [
       form,
