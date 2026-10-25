@@ -382,12 +382,15 @@ export function classifyApproval(
       (value.kind === undefined ||
         value.kind === "TUTOR" ||
         value.kind === "CREW");
+    // This only removes the extra reviewer: the resolver still requires the
+    // current assigned Admin/Head chair, all votes and atomic service evidence.
+    const chairApproval = operation === "tutor.decideInterview" && value.accept === true;
     return {
       category: "ACCOUNT_ACCESS",
-      directRoles: participationCode ? ["ADMIN", "HEAD"] : ["HEAD"],
+      directRoles: participationCode || chairApproval ? ["ADMIN", "HEAD"] : ["HEAD"],
       requesterRoles: managementCode
         ? ["ADMIN", "HEAD"]
-        : operation === "tutor.decideInterview"
+        : chairApproval ? ["ADMIN", "HEAD"] : operation === "tutor.decideInterview"
           ? ["TUTOR", "COORDINATOR", "ADMIN", "HEAD"]
           : ["COORDINATOR", "ADMIN", "HEAD"],
       reviewerRoles: ["HEAD"],
