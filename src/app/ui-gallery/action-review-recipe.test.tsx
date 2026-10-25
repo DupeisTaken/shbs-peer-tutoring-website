@@ -25,6 +25,17 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+it("shows a request receipt without claiming the eventual change was applied", async () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <ActionReviewRecipe />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: messages.tutor.settings.optOutBtn }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: messages.tutor.settings.optOutBtn }));
+  await screen.findByText(messages.tutor.settings.optOutSubmitted);
+  expect(screen.queryByText(messages.actionReview.applied)).toBeNull();
+});
 it("conceals revoked example evidence and permits a fresh review after restored access", () => {
   render(
     <NextIntlClientProvider locale="en" messages={messages}>

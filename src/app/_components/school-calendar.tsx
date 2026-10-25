@@ -34,17 +34,18 @@ export function SchoolCalendar() {
       >
         <label>
           <span className="label">{t("date")}</span>
-          <input className="input block" type="date" name="date" required />
+          <input className="input control-standard block lg:min-h-10" type="date" name="date" required />
         </label>
         <label>
           <span className="label">{t("note")}</span>
-          <input className="input block" name="note" maxLength={300} />
+          <input className="input control-standard block lg:min-h-10" name="note" maxLength={300} />
         </label>
-        <label className="flex items-center gap-2">
+        {/* Match the input box, not its label, while retaining native checkbox artwork. */}
+        <label className="control-standard flex items-center gap-2">
           <input type="checkbox" name="schoolDay" />
           {t("schoolDay")}
         </label>
-        <button className="btn-primary" disabled={save.isPending}>
+        <button className="btn-primary control-standard" disabled={save.isPending}>
           {canApply ? t("save") : approvals("requestHead")}
         </button>
       </form>

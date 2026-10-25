@@ -10,7 +10,8 @@ import { useDialog } from "./confirm-dialog";
 export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
   const t = useTranslations();
   const identity = api.account.me.useQuery();
-  const eligible = !identity.error && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
+  const eligible =
+    !identity.error && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
   const { confirm, dialog } = useDialog();
   const utils = api.useUtils();
   const languages = api.i18n.managedLanguages.useQuery();
@@ -90,11 +91,11 @@ export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
                 {t("localization.required")}
               </span>
             )}
-            {(canManage.data && eligible) && (
+            {canManage.data && eligible && (
               <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-1 sm:w-auto">
                 <button
                   type="button"
-                  className="btn-secondary btn-sm min-w-11 lg:min-w-9"
+                  className="btn-secondary control-compact min-w-11 lg:min-w-9"
                   disabled={l.code === "en" || busy}
                   onClick={() =>
                     setEnabled.mutate({ code: l.code, enabled: !l.enabled })
@@ -106,7 +107,7 @@ export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
                 </button>
                 <button
                   type="button"
-                  className="btn-secondary btn-sm min-w-11 lg:min-w-9"
+                  className="btn-secondary control-compact min-w-11 lg:min-w-9"
                   aria-label={t("localization.moveUp")}
                   disabled={i === 0 || busy}
                   onClick={() => move(i, -1)}
@@ -115,7 +116,7 @@ export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
                 </button>
                 <button
                   type="button"
-                  className="btn-secondary btn-sm min-w-11 lg:min-w-9"
+                  className="btn-secondary control-compact min-w-11 lg:min-w-9"
                   aria-label={t("localization.moveDown")}
                   disabled={i === list.length - 1 || busy}
                   onClick={() => move(i, 1)}
@@ -125,7 +126,7 @@ export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
                 {!l.builtIn && (
                   <button
                     type="button"
-                    className="link-danger text-xs"
+                    className="link-danger control-compact text-xs"
                     disabled={busy}
                     onClick={async () => {
                       if (
@@ -161,22 +162,25 @@ export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
                 add.mutate({ code: code.trim(), label: label.trim() });
             }}
           >
-            <input
-              className="input field-auto min-w-28"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              aria-label={t("localization.addLanguageCode")}
-              placeholder={t("localization.addLanguageCode")}
-            />
-            <input
-              className="input field-auto min-w-40"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              aria-label={t("localization.addLanguageName")}
-              placeholder={t("localization.addLanguageName")}
-            />
+            {/* Names stay visible after typing; the row aligns the actual input boxes. */}
+            <label className="block w-36 max-w-full space-y-1">
+              <span className="label">{t("localization.addLanguageCode")}</span>
+              <input
+                className="input lg:min-h-10"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+              />
+            </label>
+            <label className="block w-56 max-w-full space-y-1">
+              <span className="label">{t("localization.addLanguageName")}</span>
+              <input
+                className="input lg:min-h-10"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+              />
+            </label>
             <button
-              className="btn-secondary btn-sm"
+              className="btn-secondary control-standard"
               disabled={!code.trim() || !label.trim() || add.isPending}
             >
               {t("localization.addLanguageBtn")}
@@ -185,11 +189,25 @@ export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
           <p className="muted text-xs">{t("localization.newLanguageHint")}</p>
         </>
       )}
-      {[add.error, reorder.error, del.error, setEnabled.error].some((error) => error?.data?.approvalId) && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
-      {add.error && !add.error.data?.approvalId && <p className="text-sm text-red-600">{add.error.message}</p>}
-      {([reorder.error, del.error, setEnabled.error].find((error) => error && !error.data?.approvalId)) && (
+      {[add.error, reorder.error, del.error, setEnabled.error].some(
+        (error) => error?.data?.approvalId,
+      ) && (
+        <InlineNotice tone="warning" announcement="status">
+          {t("approvals.queuedBody")}
+        </InlineNotice>
+      )}
+      {add.error && !add.error.data?.approvalId && (
+        <p className="text-sm text-red-600">{add.error.message}</p>
+      )}
+      {[reorder.error, del.error, setEnabled.error].find(
+        (error) => error && !error.data?.approvalId,
+      ) && (
         <p className="text-sm text-red-600">
-          {([reorder.error, del.error, setEnabled.error].find((error) => error && !error.data?.approvalId))?.message}
+          {
+            [reorder.error, del.error, setEnabled.error].find(
+              (error) => error && !error.data?.approvalId,
+            )?.message
+          }
         </p>
       )}
       {dialog}

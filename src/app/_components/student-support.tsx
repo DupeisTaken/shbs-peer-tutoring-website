@@ -132,7 +132,7 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
                 label={t("shareFeedback")}
                 description={t("sharingHelp")}
                 control={
-                  <label className="flex items-center gap-3">
+                  <label className="flex min-h-11 items-center gap-3 lg:min-h-10">
                     <input
                       type="checkbox"
                       checked={setting.data ?? false}

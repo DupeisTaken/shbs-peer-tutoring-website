@@ -384,7 +384,12 @@ function FeedbackForm({
   readBlocked: boolean;
 }) {
   const t = useTranslations("workflows");
-  const save = api.student.feedback.useMutation();
+  const submitting = useRef(false);
+  const save = api.student.feedback.useMutation({
+    onSettled: () => {
+      submitting.current = false;
+    },
+  });
   return (
     <details className="mt-3">
       <summary className="link cursor-pointer">{t("feedback")}</summary>
@@ -392,8 +397,9 @@ function FeedbackForm({
         className="mt-3 space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
-          if (readBlocked || save.isPending) return;
+          if (readBlocked || save.isPending || submitting.current) return;
           const d = new FormData(e.currentTarget);
+          submitting.current = true;
           save.mutate({
             sessionId,
             rating: Number(d.get("rating")),
@@ -401,34 +407,45 @@ function FeedbackForm({
           });
         }}
       >
-        <label className="block">
-          <span className="label">{t("rating")}</span>
-          <input
-            className="input w-24"
-            type="number"
-            name="rating"
-            min={1}
-            max={5}
-            required
-            defaultValue={initial?.rating ?? 4}
-          />
-        </label>
-        <label className="block">
-          <span className="label">{t("body")}</span>
-          <textarea
-            name="body"
-            defaultValue={initial?.body ?? ""}
-            className="input w-full"
-            maxLength={2000}
-            required
-          />
-        </label>
-        <button
-          className="btn-primary"
+        {/* Freeze only this session's draft; uncontrolled fields survive failed saves and reads. */}
+        <fieldset
           disabled={readBlocked || save.isPending}
+          aria-busy={save.isPending}
+          className="min-w-0 space-y-3"
+          onChange={() => {
+            // A receipt describes the submitted draft, not a later edit of these retained fields.
+            if (!save.isPending && (save.isSuccess || save.error)) save.reset();
+          }}
         >
-          {t("save")}
-        </button>
+          <label className="block">
+            <span className="label">{t("rating")}</span>
+            <input
+              className="input w-24"
+              type="number"
+              name="rating"
+              min={1}
+              max={5}
+              required
+              defaultValue={initial?.rating ?? 4}
+            />
+          </label>
+          <label className="block">
+            <span className="label">{t("body")}</span>
+            <textarea
+              name="body"
+              defaultValue={initial?.body ?? ""}
+              className="input w-full"
+              maxLength={2000}
+              required
+            />
+          </label>
+          <button
+            className="btn-primary"
+            disabled={readBlocked || save.isPending}
+          >
+            {t("save")}
+          </button>
+        </fieldset>
         {save.isSuccess && <p role="status">{t("saved")}</p>}
         {save.error && <p role="alert">{save.error.message}</p>}
       </form>

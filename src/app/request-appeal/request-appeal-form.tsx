@@ -4,7 +4,6 @@ import { useLocale, useTranslations } from "next-intl";
 import { Button } from "~/app/_components/ui/button";
 import {
   FormActions,
-  FormSection,
   InlineNotice,
   StatePanel,
 } from "~/app/_components/ui/patterns";
@@ -187,21 +186,33 @@ function RequestAppealDraft({ token }: { token?: string }) {
         </p>
       </div>
       {accepted && (
-        <InlineNotice tone="success" announcement="status">
+        <InlineNotice announcement="status">
           <p className="font-semibold">{t("submitted")}</p>
           <p className="mt-1">{t("submittedHelp")}</p>
           {alreadyRecorded && <p className="mt-2">{t("existing")}</p>}
-          {state.appealStatus && (
-            <p className="mt-2 font-medium">
-              {t(
-                state.appealStatus === "DECLINED"
-                  ? "statusDeclined"
-                  : state.appealStatus === "CLEARED"
-                    ? "statusCleared"
-                    : "statusPending",
-              )}
-            </p>
-          )}
+        </InlineNotice>
+      )}
+      {/* A receipt confirms submission; only the separate review outcome conveys approval. */}
+      {accepted && state.appealStatus && (
+        <InlineNotice
+          tone={
+            state.appealStatus === "DECLINED"
+              ? "warning"
+              : state.appealStatus === "CLEARED"
+                ? "success"
+                : "info"
+          }
+          announcement="status"
+        >
+          <p className="font-medium">
+            {t(
+              state.appealStatus === "DECLINED"
+                ? "statusDeclined"
+                : state.appealStatus === "CLEARED"
+                  ? "statusCleared"
+                  : "statusPending",
+            )}
+          </p>
         </InlineNotice>
       )}
       {readFailed && (
@@ -223,7 +234,7 @@ function RequestAppealDraft({ token }: { token?: string }) {
             void submit();
           }}
         >
-          <FormSection title={t("body")} busy={pending}>
+          <fieldset disabled={pending} aria-busy={pending} className="min-w-0">
             <label
               className="block text-sm font-medium"
               htmlFor="request-appeal-body"
@@ -243,7 +254,7 @@ function RequestAppealDraft({ token }: { token?: string }) {
             <p id="request-appeal-help" className="mt-2 text-sm text-slate-600">
               {t("bodyHelp")}
             </p>
-          </FormSection>
+          </fieldset>
           {error && (
             <InlineNotice tone="error" announcement="alert">
               {t("failed")}

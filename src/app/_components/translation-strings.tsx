@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -40,6 +40,7 @@ function StringRow({
   canPublish,
   draft,
   onDraftChange,
+  saveHelpId,
 }: {
   locale: string;
   item: StringRowData;
@@ -48,6 +49,7 @@ function StringRow({
   canPublish: boolean;
   draft: StringDraft | undefined;
   onDraftChange: (update: Partial<StringDraft>) => void;
+  saveHelpId: string;
 }) {
   const t = useTranslations();
   const current = item.override ?? item.base;
@@ -89,7 +91,7 @@ function StringRow({
   return (
     <div className="border-b border-slate-100 py-2.5 last:border-0">
       <div className="flex flex-wrap items-center gap-2">
-        <code className="text-[11px] text-slate-400">{item.key}</code>
+        <code className="text-[11px] text-slate-600">{item.key}</code>
         {overridden && (
           <span className="badge-amber">{t("localization.overridden")}</span>
         )}
@@ -105,7 +107,7 @@ function StringRow({
         {overridden && (
           <button
             type="button"
-            className="link text-xs"
+            className="link control-compact inline-flex items-center text-xs"
             disabled={pending || draft?.refreshFailed}
             onClick={() => {
               onDraftChange({ value: item.base });
@@ -132,6 +134,7 @@ function StringRow({
         disabled={pending || draft?.refreshFailed}
         lang={locale}
         aria-label={item.key}
+        aria-describedby={saveHelpId}
         onChange={(e) =>
           onDraftChange({ value: e.target.value, success: false })
         }
@@ -167,6 +170,8 @@ function StringRow({
 
 export function TranslationStrings() {
   const t = useTranslations();
+  const scopeId = useId();
+  const saveHelpId = `${scopeId}-save-help`;
   const me = api.account.me.useQuery();
   const access = translationAccess(me.data);
   const displayLocale = useLocale();
@@ -243,10 +248,10 @@ export function TranslationStrings() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="section-title">{t("translationEditor.strings")}</h2>
-
-        <p className="muted mt-1">{t("localization.subtitle")}</p>
-        <p className="muted mt-2 text-sm">{t("saveBoundary.blur")}</p>
+        <p className="muted">{t("localization.subtitle")}</p>
+        <p id={saveHelpId} className="muted mt-2 text-sm">
+          {t("saveBoundary.blur")}
+        </p>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -317,14 +322,14 @@ export function TranslationStrings() {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  className="link text-xs"
+                  className="link control-compact inline-flex items-center text-xs"
                   onClick={() => setExpanded(new Set(groups.map((g) => g.ns)))}
                 >
                   {t("localization.expandAll")}
                 </button>
                 <button
                   type="button"
-                  className="link text-xs"
+                  className="link control-compact inline-flex items-center text-xs"
                   onClick={() => setExpanded(new Set())}
                 >
                   {t("localization.collapseAll")}
@@ -341,10 +346,13 @@ export function TranslationStrings() {
             {view.map(({ ns, rows, shownRows }) => {
               const open = !!needle || expanded.has(ns);
               const edited = rows.filter((r) => r.override !== null).length;
+              const panelId = `${scopeId}-namespace-${encodeURIComponent(ns)}`;
               return (
                 <div key={ns} className="card overflow-hidden">
                   <button
                     type="button"
+                    aria-expanded={open}
+                    aria-controls={panelId}
                     className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-slate-50"
                     onClick={() => {
                       if (!needle) toggle(ns);
@@ -365,7 +373,10 @@ export function TranslationStrings() {
                     </span>
                   </button>
                   {open && (
-                    <div className="border-t border-slate-100 px-4 pb-1">
+                    <div
+                      id={panelId}
+                      className="border-t border-slate-100 px-4 pb-1"
+                    >
                       {shownRows.slice(0, MAX_ROWS_PER_GROUP).map((item) => (
                         <StringRow
                           key={`${locale}:${item.key}`}
@@ -374,6 +385,7 @@ export function TranslationStrings() {
                           labelFor={labelFor}
                           onSaved={onSaved}
                           canPublish={access.publish}
+                          saveHelpId={saveHelpId}
                           draft={drafts[draftKey(locale, item.key)]}
                           onDraftChange={(update) => {
                             const key = draftKey(locale, item.key);

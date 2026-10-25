@@ -524,7 +524,7 @@ export default function ReportsPage() {
               {r.tutors.map((x) => (
                 <tr
                   key={x.tutorId}
-                  className={x.active ? "" : "text-slate-400"}
+                  className="text-slate-700"
                 >
                   <td>
                     {x.englishName}
@@ -701,10 +701,10 @@ export default function ReportsPage() {
                           {d(m.date)}
                         </td>
                         <td>{m.title}</td>
-                        <td className="text-right text-green-600">
+                        <td className="text-right text-green-700">
                           {m.present}
                         </td>
-                        <td className="text-right text-amber-600">
+                        <td className="text-right text-amber-700">
                           {m.excused}
                         </td>
                         <td className="text-right text-red-600">
@@ -749,17 +749,17 @@ export default function ReportsPage() {
                     {r.meetingStats.map((x) => (
                       <tr key={x.tutorId}>
                         <td className="whitespace-nowrap">{x.tutor}</td>
-                        <td className="text-right text-green-600">
+                        <td className="text-right text-green-700">
                           {x.present}
                         </td>
                         <td
-                          className={`text-right ${x.excused > 0 ? "text-amber-600" : "text-slate-300"}`}
+                          className={`text-right ${x.excused > 0 ? "text-amber-700" : "text-slate-600"}`}
                         >
                           {x.excused}
                         </td>
                         <td
                           className={`text-right font-semibold ${
-                            x.unexcused > 0 ? "text-red-600" : "text-slate-300"
+                            x.unexcused > 0 ? "text-red-700" : "text-slate-600"
                           }`}
                         >
                           {x.unexcused}

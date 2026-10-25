@@ -477,7 +477,7 @@ export default function CardsPage() {
       {/* Full history (collapsed by default) */}
       <section className="card p-5">
         <details className="group">
-          <summary className="flex cursor-pointer items-center gap-2 [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-11 cursor-pointer items-center gap-2 lg:min-h-8 [&::-webkit-details-marker]:hidden">
             <NativeDisclosureIcon />
             <h2 className="section-title">{t("admin.cards.historyHeading")}</h2>
             <span className="badge-slate">{all.length}</span>

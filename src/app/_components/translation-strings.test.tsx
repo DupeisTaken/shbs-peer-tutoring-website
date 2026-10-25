@@ -95,6 +95,30 @@ const field = () =>
 const toggle = () =>
   fireEvent.click(screen.getByRole("button", { name: /^Common/ }));
 
+it("exposes namespace expansion and associates each editor with its save boundary", () => {
+  render(<TranslationStrings />);
+  const namespace = screen.getByRole("button", { name: /^Common/ });
+  expect(namespace.getAttribute("aria-expanded")).toBe("false");
+  const panelId = namespace.getAttribute("aria-controls")!;
+  toggle();
+  expect(namespace.getAttribute("aria-expanded")).toBe("true");
+  expect(document.getElementById(panelId)?.contains(field())).toBe(true);
+  const helpId = field().getAttribute("aria-describedby")!;
+  expect(document.getElementById(helpId)?.textContent).toBe(
+    "saveBoundary.blur",
+  );
+  toggle();
+  expect(namespace.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.change(
+    screen.getByRole("textbox", { name: "localization.searchLabel" }),
+    { target: { value: "common" } },
+  );
+  expect(namespace.getAttribute("aria-expanded")).toBe("true");
+  expect(namespace.getAttribute("aria-controls")).toBe(panelId);
+  expect(document.getElementById(panelId)?.contains(field())).toBe(true);
+  expect(state.write).not.toHaveBeenCalled();
+});
+
 it("retains a failed string draft across namespace, search and locale changes", async () => {
   render(<TranslationStrings />);
   toggle();

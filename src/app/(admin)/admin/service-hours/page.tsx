@@ -149,7 +149,7 @@ export default function SummaryPage() {
               {(summary.data?.rows ?? []).map((r) => (
                 <tr
                   key={r.tutorId}
-                  className={r.active ? "" : "text-slate-400"}
+                  className="text-slate-700"
                 >
                   <td data-sort-value={r.englishName ?? ""}>
                     <ParticipantName name={r.englishName} />

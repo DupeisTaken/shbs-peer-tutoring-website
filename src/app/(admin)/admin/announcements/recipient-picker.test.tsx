@@ -4,6 +4,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
+import zh from "../../../../../messages/zh.json";
+import de from "../../../../../messages/de.json";
+import el from "../../../../../messages/el.json";
+import es from "../../../../../messages/es.json";
+import fr from "../../../../../messages/fr.json";
+import ja from "../../../../../messages/ja.json";
+import ko from "../../../../../messages/ko.json";
+import { TutorStatus } from "../../../../../generated/prisma";
 import { RecipientPicker } from "./recipient-picker";
 import { defaultAnnouncementAudience } from "~/lib/announcement-recipients";
 
@@ -40,6 +48,27 @@ function Harness() {
 }
 afterEach(cleanup);
 describe("announcement recipient interaction", () => {
+  it.each(Object.entries({ en, zh, de, el, es, fr, ja, ko }))(
+    "renders a translated filter for every persisted status in %s",
+    (locale, messages) => {
+      render(
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <RecipientPicker
+            candidates={candidates}
+            audience={{ ...defaultAnnouncementAudience(), mode: "filtered" }}
+            onChange={() => undefined}
+            loading={false}
+          />
+        </NextIntlClientProvider>,
+      );
+      fireEvent.click(screen.getByRole("button"));
+      for (const status of Object.values(TutorStatus))
+        expect(
+          screen.getByRole("checkbox", { name: messages.tutor.status[status] }),
+        ).toBeTruthy();
+      expect(document.body.textContent).not.toContain("recipients.status.");
+    },
+  );
   it("opens a filtered preview and applies individual overrides", () => {
     render(<Harness />);
     fireEvent.click(

@@ -355,7 +355,8 @@ export function CrewSignupForm() {
             {t("sent", { email: challengeEmail })}
           </p>
           <p className="muted text-sm">{t("verifyHint")}</p>
-          <FormSection title={t("emailCode")} busy={busy}>
+          {/* CodeInput supplies the visible label; this fieldset owns pending protection only. */}
+          <fieldset disabled={busy} aria-busy={busy} className="min-w-0">
             <div>
               <CodeInput
                 id="crew-code"
@@ -366,7 +367,7 @@ export function CrewSignupForm() {
                 aria-describedby={error ? "crew-verification-error" : undefined}
               />
             </div>
-          </FormSection>
+          </fieldset>
           <FormActions>
             <Button
               type="submit"

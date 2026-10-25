@@ -11,6 +11,7 @@ import { FormActions, StatePanel } from "~/app/_components/ui/patterns";
 export function ActionReviewRecipe() {
   const t = useTranslations("actionReview");
   const room = useTranslations("roomAllocation");
+  const membership = useTranslations("tutor.settings");
   const review = useActionReview();
   const [sequence, setSequence] = useState(0);
   const [revoked, setRevoked] = useState(false);
@@ -22,6 +23,25 @@ export function ActionReviewRecipe() {
         useActionReview + Modal + InlineNotice
       </code>
       <FormActions>
+        <Button
+          disabled={revoked || review.blocked(`membership-${sequence}`)}
+          onClick={() => {
+            setSequence((value) => value + 1);
+            review.open({
+              key: `membership-${sequence}`,
+              title: membership("optOutBtn"),
+              description: membership("optOutReviewHelp"),
+              confirmLabel: membership("optOutBtn"),
+              successMessage: membership("optOutSubmitted"),
+              details: <p>{t("galleryRecord")}</p>,
+              // A receipt can acknowledge a request without claiming its effect happened.
+              commit: async () => undefined,
+              refresh: async () => undefined,
+            });
+          }}
+        >
+          {membership("optOutBtn")}
+        </Button>
         <Button
           disabled={revoked || review.blocked(`allocation-${sequence}`)}
           onClick={() => {

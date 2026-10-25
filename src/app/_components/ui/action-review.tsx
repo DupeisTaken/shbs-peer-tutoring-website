@@ -16,6 +16,8 @@ export type ReviewedAction = {
   confirmVariant?: "primary" | "danger";
   /** Optional feature-owned summary of a completed write, separate from read recovery. */
   renderResult?: (result: unknown) => ReactNode;
+  /** A successful request may queue work without applying the eventual change. */
+  successMessage?: string;
   details?: ReactNode;
   /** The feature supplies an authorized mutation with its original payload. */
   commit: () => Promise<unknown>;
@@ -189,7 +191,11 @@ function ActionReview({
       }
     >
       <p>
-        {t(approvalId ? "queued" : refreshFailed ? "refreshFailed" : "applied")}
+        {approvalId
+          ? t("queued")
+          : refreshFailed
+            ? t("refreshFailed")
+            : (action.successMessage ?? t("applied"))}
       </p>
       {!approvalId && action.renderResult?.(writeResult)}
       {approvalId && (

@@ -9,6 +9,7 @@ import {
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 import { MessageAdmin, MessagePermissions } from "./message-admin";
 import { SessionViewProvider } from "./session-view-state";
 import { viewStateKey, writeViewState } from "~/lib/session-view-state";
@@ -22,29 +23,34 @@ const mocks = vi.hoisted(() => ({
   opened: false,
   more: false,
   supervision: vi.fn(),
+  people: vi.fn(),
+  peopleMore: false,
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
     account: { me: { useQuery: () => ({ data: { role: mocks.role } }) } },
     messaging: {
       supervision: {
-        useQuery: (input: unknown) => { mocks.supervision(input); return ({
-          data: {
-            more: mocks.more,
-            rows: [
-              {
-                id: "m1",
-                senderId: "a",
-                recipientId: "b",
-                sender: { name: "Sender", username: "sender" },
-                recipient: { name: "Recipient", username: "recipient" },
-                createdAt: new Date("2026-09-13T01:00:00Z"),
-                hiddenAt: null,
-              },
-            ],
-          },
-          refetch: vi.fn(),
-        }); },
+        useQuery: (input: unknown) => {
+          mocks.supervision(input);
+          return {
+            data: {
+              more: mocks.more,
+              rows: [
+                {
+                  id: "m1",
+                  senderId: "a",
+                  recipientId: "b",
+                  sender: { name: "Sender", username: "sender" },
+                  recipient: { name: "Recipient", username: "recipient" },
+                  createdAt: new Date("2026-09-13T01:00:00Z"),
+                  hiddenAt: null,
+                },
+              ],
+            },
+            refetch: vi.fn(),
+          };
+        },
       },
       review: {
         useMutation: () => ({
@@ -66,14 +72,17 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
       permissionUsers: {
-        useQuery: () => ({
-          data: {
-            people: [
-              { id: "a", name: "Alex", username: "alex", role: "STUDENT" },
-            ],
-            more: false,
-          },
-        }),
+        useQuery: (input: unknown) => {
+          mocks.people(input);
+          return {
+            data: {
+              people: [
+                { id: "a", name: "Alex", username: "alex", role: "STUDENT" },
+              ],
+              more: mocks.peopleMore,
+            },
+          };
+        },
       },
       userPermission: {
         useQuery: () => ({
@@ -91,6 +100,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.opened = false;
   mocks.more = false;
+  mocks.peopleMore = false;
 });
 afterEach(cleanup);
 const ui = () => (
@@ -99,24 +109,129 @@ const ui = () => (
   </NextIntlClientProvider>
 );
 
+it.each(["en", "zh"] as const)(
+  "names each %s pager, preserves independent positions and resets only the searched list",
+  (locale) => {
+    const messages = locale === "en" ? en : zh;
+    mocks.more = true;
+    mocks.peopleMore = true;
+    const tree = () => (
+      <NextIntlClientProvider
+        locale={locale}
+        messages={messages}
+        timeZone="Asia/Shanghai"
+      >
+        <MessageAdmin />
+        <MessagePermissions />
+      </NextIntlClientProvider>
+    );
+    const view = render(tree());
+    const supervision = screen.getByRole("navigation", {
+      name: messages.messaging.supervision,
+    });
+    const people = screen.getByRole("navigation", {
+      name: messages.messaging.userOverrides,
+    });
+    expect(within(supervision).getByRole("status").textContent).toContain("1");
+    expect(within(people).getByRole("status").textContent).toContain("1");
+    fireEvent.click(
+      within(supervision).getByRole("button", {
+        name: messages.workflows.next,
+      }),
+    );
+    expect(mocks.supervision).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1 }),
+    );
+    expect(mocks.people).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 0 }),
+    );
+    expect(mocks.reset).toHaveBeenCalled();
+    fireEvent.click(
+      within(people).getByRole("button", { name: messages.workflows.next }),
+    );
+    expect(mocks.people).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1 }),
+    );
+    fireEvent.change(
+      screen.getByRole("textbox", { name: messages.messaging.findUser }),
+      { target: { value: "Alex" } },
+    );
+    expect(mocks.people).toHaveBeenLastCalledWith({ search: "Alex", page: 0 });
+    expect(mocks.supervision).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1 }),
+    );
+    mocks.peopleMore = false;
+    view.rerender(tree());
+    expect(
+      within(people).getByRole<HTMLButtonElement>("button", {
+        name: messages.workflows.next,
+      }).disabled,
+    ).toBe(true);
+    expect(
+      within(supervision).getByRole<HTMLButtonElement>("button", {
+        name: messages.workflows.next,
+      }).disabled,
+    ).toBe(false);
+    expect(people.textContent).not.toMatch(/of|共/);
+  },
+);
+
 it("restores visibility and public-list pagination while private message search pages and reasons stay transient", () => {
-  const key = viewStateKey("head", "/admin/messages/supervision", "message-supervision.page.v1", "");
+  const key = viewStateKey(
+    "head",
+    "/admin/messages/supervision",
+    "message-supervision.page.v1",
+    "",
+  );
   writeViewState(window.sessionStorage, key, 2);
-  writeViewState(window.sessionStorage, viewStateKey("head", "/admin/messages/supervision", "message-supervision.visibility.v1", ""), "HIDDEN");
-  const tree = () => <SessionViewProvider identity="head" pathname="/admin/messages/supervision" verified>{ui()}</SessionViewProvider>;
+  writeViewState(
+    window.sessionStorage,
+    viewStateKey(
+      "head",
+      "/admin/messages/supervision",
+      "message-supervision.visibility.v1",
+      "",
+    ),
+    "HIDDEN",
+  );
+  const tree = () => (
+    <SessionViewProvider
+      identity="head"
+      pathname="/admin/messages/supervision"
+      verified
+    >
+      {ui()}
+    </SessionViewProvider>
+  );
   mocks.more = true;
   const page = render(tree());
-  expect(mocks.supervision).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, visibility: "HIDDEN", search: "" }));
-  fireEvent.change(screen.getByRole("textbox", { name: en.messaging.supervisionSearch }), { target: { value: "Private report text" } });
-  fireEvent.change(screen.getByRole("textbox", { name: en.messaging.reason }), { target: { value: "Private moderation reason" } });
+  expect(mocks.supervision).toHaveBeenLastCalledWith(
+    expect.objectContaining({ page: 2, visibility: "HIDDEN", search: "" }),
+  );
+  fireEvent.change(
+    screen.getByRole("textbox", { name: en.messaging.supervisionSearch }),
+    { target: { value: "Private report text" } },
+  );
+  fireEvent.change(screen.getByRole("textbox", { name: en.messaging.reason }), {
+    target: { value: "Private moderation reason" },
+  });
   fireEvent.click(screen.getByRole("button", { name: en.messaging.next }));
-  expect(mocks.supervision).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, search: "Private report text" }));
+  expect(mocks.supervision).toHaveBeenLastCalledWith(
+    expect.objectContaining({ page: 1, search: "Private report text" }),
+  );
   expect(window.sessionStorage.getItem(key)).toBe("0");
-  expect(JSON.stringify(window.sessionStorage)).not.toMatch(/Private report text|Private moderation reason/);
+  expect(JSON.stringify(window.sessionStorage)).not.toMatch(
+    /Private report text|Private moderation reason/,
+  );
   page.unmount();
   render(tree());
-  expect(mocks.supervision).toHaveBeenLastCalledWith(expect.objectContaining({ page: 0, visibility: "HIDDEN", search: "" }));
-  expect(screen.getByRole<HTMLInputElement>("textbox", { name: en.messaging.reason }).value).toBe("");
+  expect(mocks.supervision).toHaveBeenLastCalledWith(
+    expect.objectContaining({ page: 0, visibility: "HIDDEN", search: "" }),
+  );
+  expect(
+    screen.getByRole<HTMLInputElement>("textbox", { name: en.messaging.reason })
+      .value,
+  ).toBe("");
 });
 it("requires a reason to inspect content and sends moderation as a separate audited action", () => {
   const rendered = render(ui());

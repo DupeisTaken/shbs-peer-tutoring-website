@@ -61,7 +61,10 @@ vi.mock("~/trpc/react", async () => {
         calendar: { useQuery: () => ({ data: [] }) },
         profilePolicy: read(["program", "profilePolicy"], remote.profile),
         nameFieldPolicy: read(["program", "nameFieldPolicy"], remote.names),
-        nameFieldsForProfile: read(["program", "nameFieldsForProfile"], remote.names),
+        nameFieldsForProfile: read(
+          ["program", "nameFieldsForProfile"],
+          remote.names,
+        ),
       },
       tutor: {
         myTuteeDiscipline: read(
@@ -71,11 +74,19 @@ vi.mock("~/trpc/react", async () => {
       },
       useUtils: () => ({
         studentWorkflow: {
-          mine: { invalidate: () => client.invalidateQueries({ queryKey: [["studentWorkflow", "mine"]] }) },
+          mine: {
+            invalidate: () =>
+              client.invalidateQueries({
+                queryKey: [["studentWorkflow", "mine"]],
+              }),
+          },
           legacyParticipation: { invalidate: vi.fn() },
           adminRequests: { invalidate: vi.fn() },
         },
-        admin: { tutees: { invalidate: vi.fn() }, pairings: { invalidate: vi.fn() } },
+        admin: {
+          tutees: { invalidate: vi.fn() },
+          pairings: { invalidate: vi.fn() },
+        },
       }),
       student: {
         me: read(["student", "me"], remote.me),
@@ -93,7 +104,10 @@ vi.mock("~/trpc/react", async () => {
           remote.legacy,
         ),
         signup: read(["studentWorkflow", "signup"], remote.signup),
-        managedSignup: read(["studentWorkflow", "managedSignup"], remote.signup),
+        managedSignup: read(
+          ["studentWorkflow", "managedSignup"],
+          remote.signup,
+        ),
         editSignup: write(remote.edit),
         headEditSignup: write(remote.headEdit),
         recall: write(remote.withdraw),
@@ -149,16 +163,31 @@ const request = {
   reviews: [],
 };
 const signup = (version = 0) => ({
-  id: request.id, version, editable: true, email: "owner@example.test", state: "OPEN",
+  id: request.id,
+  version,
+  editable: true,
+  email: "owner@example.test",
+  state: "OPEN",
   submittedAt: request.submittedAt,
   answers: {
-    firstName: "Original", lastName: "Name", englishName: "Original Name",
-    preferredContact: "Original contact", firstChoiceId: "math", slotIds: ["mon"],
+    firstName: "Original",
+    lastName: "Name",
+    englishName: "Original Name",
+    preferredContact: "Original contact",
+    firstChoiceId: "math",
+    slotIds: ["mon"],
   },
-  originalSignature: "Original Signature", originalPolicyRevision: "original-policy",
-  assignedSubjectIds: ["math"], assignmentsUnresolved: false, subjectEditingBlocked: false,
-  persistedSubjects: [], persistedSlots: [], isInvalid: false, invalidityVersion: 0,
-  canAppeal: false, appeal: null,
+  originalSignature: "Original Signature",
+  originalPolicyRevision: "original-policy",
+  assignedSubjectIds: ["math"],
+  assignmentsUnresolved: false,
+  subjectEditingBlocked: false,
+  persistedSubjects: [],
+  persistedSlots: [],
+  isInvalid: false,
+  invalidityVersion: 0,
+  canAppeal: false,
+  appeal: null,
 });
 const legacy = [
   {
@@ -237,12 +266,18 @@ beforeEach(() => {
   remote.mine.mockResolvedValue([request]);
   remote.legacy.mockResolvedValue([]);
   remote.options.mockResolvedValue({
-    subjects: [{ id: "math", name: "Math" }, { id: "science", name: "Science" }],
+    subjects: [
+      { id: "math", name: "Math" },
+      { id: "science", name: "Science" },
+    ],
     slots: [slot, { ...slot, id: "tue", dayOfWeek: 2 }],
   });
   remote.signup.mockResolvedValue(signup());
   remote.profile.mockResolvedValue({ offeredGrades: [9, 10, 11, 12] });
-  remote.names.mockResolvedValue({ policies: { STUDENT: DEFAULT_NAME_FIELDS }, states: DEFAULT_NAME_FIELDS });
+  remote.names.mockResolvedValue({
+    policies: { STUDENT: DEFAULT_NAME_FIELDS },
+    states: DEFAULT_NAME_FIELDS,
+  });
   remote.edit.mockResolvedValue({ ok: true, version: 1 });
   remote.headEdit.mockResolvedValue({ ok: true, version: 1 });
   remote.appeal.mockResolvedValue({});
@@ -306,6 +341,7 @@ it("keeps feedback text through cached failure and restores write access only af
   await screen.findAllByText(en.participantRecovery.refreshFailed);
   expect(input.isConnected).toBe(true);
   expect(input.value).toBe("Unsaved feedback");
+  expect(input.closest("fieldset")?.disabled).toBe(true);
   expect(
     screen.getByRole<HTMLButtonElement>("button", {
       name: en.workflows.save,
@@ -325,6 +361,56 @@ it("keeps feedback text through cached failure and restores write access only af
     ).toBe(false),
   );
   expect(input.value).toBe("Unsaved feedback");
+  expect(input.closest("fieldset")?.disabled).toBe(false);
+});
+
+it("freezes only the pending feedback draft, retains rejected text and clears an obsolete saved receipt on edit", async () => {
+  remote.me.mockResolvedValue({
+    ...personal,
+    sessions: [
+      personal.sessions[0],
+      {
+        ...personal.sessions[0],
+        session: { ...personal.sessions[0]!.session, id: "other-session" },
+      },
+    ],
+  });
+  let reject!: (error: Error) => void;
+  remote.feedback.mockImplementationOnce(
+    () =>
+      new Promise((_resolve, fail) => {
+        reject = fail;
+      }),
+  );
+  mount(<StudentPortal view="attendance" />);
+  for (const summary of await screen.findAllByText(en.workflows.feedback))
+    fireEvent.click(summary);
+  const [first, second] = screen.getAllByRole<HTMLTextAreaElement>("textbox", {
+    name: en.workflows.body,
+  });
+  fireEvent.change(first!, { target: { value: "First independent draft" } });
+  fireEvent.change(second!, { target: { value: "Other independent draft" } });
+  fireEvent.submit(first!.closest("form")!);
+  fireEvent.submit(first!.closest("form")!);
+  await waitFor(() => expect(remote.feedback).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(first!.closest("fieldset")?.disabled).toBe(true));
+  expect(second!.closest("fieldset")?.disabled).toBe(false);
+  fireEvent.change(second!, {
+    target: { value: "Other draft stays editable" },
+  });
+  await act(async () => reject(new Error("Synthetic failed feedback")));
+  await screen.findByText("Synthetic failed feedback");
+  expect(first!.value).toBe("First independent draft");
+  expect(second!.value).toBe("Other draft stays editable");
+  expect(first!.closest("fieldset")?.disabled).toBe(false);
+  fireEvent.submit(first!.closest("form")!);
+  await screen.findByText(en.workflows.saved);
+  expect(remote.feedback.mock.calls[0]?.[0]).toEqual(
+    remote.feedback.mock.calls[1]?.[0],
+  );
+  fireEvent.change(first!, { target: { value: "A new unsaved draft" } });
+  expect(screen.queryByText(en.workflows.saved)).toBeNull();
+  expect(second!.value).toBe("Other draft stays editable");
 });
 it("shows initial failure with a read-only retry and no invented empty records", async () => {
   remote.me.mockRejectedValue(new Error("Offline"));
@@ -472,27 +558,55 @@ it("retains selected availability on background failure and localizes the stored
 
 it("keeps a saved signup draft read-only through refresh failure and recovers without duplicating the accepted write", async () => {
   mount(<StudentWorkspace />);
-  fireEvent.click(await screen.findByRole("button", { name: en.signupEditing.edit }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: en.signupEditing.edit }),
+  );
   const dialog = screen.getByRole("dialog");
   const choices = await within(dialog).findAllByRole("checkbox");
   fireEvent.click(choices[1]!);
-  await waitFor(() => expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: en.signupEditing.save }).disabled).toBe(false));
+  await waitFor(() =>
+    expect(
+      within(dialog).getByRole<HTMLButtonElement>("button", {
+        name: en.signupEditing.save,
+      }).disabled,
+    ).toBe(false),
+  );
   let finish!: (value: { ok: boolean; version: number }) => void;
-  remote.edit.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+  remote.edit.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
   const form = choices[1]!.closest("form")!;
   fireEvent.submit(form);
   fireEvent.submit(form);
   await waitFor(() => expect(remote.edit).toHaveBeenCalledTimes(1));
-  expect(remote.edit.mock.calls[0]?.[0]).toMatchObject({ id: request.id, expectedVersion: 0, answers: { slotIds: ["mon", "tue"] } });
-  remote.signup.mockRejectedValue(new Error("Read failed after the write was accepted"));
+  expect(remote.edit.mock.calls[0]?.[0]).toMatchObject({
+    id: request.id,
+    expectedVersion: 0,
+    answers: { slotIds: ["mon", "tue"] },
+  });
+  remote.signup.mockRejectedValue(
+    new Error("Read failed after the write was accepted"),
+  );
   await act(async () => finish({ ok: true, version: 1 }));
   await within(dialog).findByText(en.signupEditing.savedRefresh);
   expect((choices[1] as HTMLInputElement).checked).toBe(true);
-  expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: en.signupEditing.save }).disabled).toBe(true);
+  expect(
+    within(dialog).getByRole<HTMLButtonElement>("button", {
+      name: en.signupEditing.save,
+    }).disabled,
+  ).toBe(true);
   fireEvent.submit(form);
   expect(remote.edit).toHaveBeenCalledTimes(1);
-  remote.signup.mockResolvedValue({ ...signup(1), answers: { ...signup(1).answers, slotIds: ["mon", "tue"] } });
-  fireEvent.click(within(dialog).getByRole("button", { name: en.signupEditing.retryRefresh }));
+  remote.signup.mockResolvedValue({
+    ...signup(1),
+    answers: { ...signup(1).answers, slotIds: ["mon", "tue"] },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: en.signupEditing.retryRefresh }),
+  );
   await within(dialog).findByText(en.signupEditing.saved);
   expect((choices[1] as HTMLInputElement).checked).toBe(true);
   expect(remote.edit).toHaveBeenCalledTimes(1);

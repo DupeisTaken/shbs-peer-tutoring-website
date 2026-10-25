@@ -311,8 +311,8 @@ function MeetingPeriodPanel({
       {meetings.data?.length === 0 && (
         <p className="muted">{t("meetingPeriods.empty")}</p>
       )}
-      <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-5">
-        <div className="card min-w-0 overflow-hidden lg:col-span-3">
+      <div className="grid min-w-0 grid-cols-1 items-start gap-6 2xl:grid-cols-2">
+        <div className="card min-w-0 overflow-hidden">
           <ul className="divide-y divide-slate-100">
             {(meetings.data ?? []).map((m) => (
               <li key={m.id} className="px-4 py-3">
@@ -425,7 +425,7 @@ function MeetingPeriodPanel({
         </div>
 
         {/* Per-tutor meeting attendance summary, alongside the list. */}
-        <div className="min-w-0 lg:col-span-2">
+        <div className="min-w-0">
           <TutorMeetingStats
             meetings={meetings.data ?? []}
             tutors={tutorOpts}
@@ -519,7 +519,7 @@ function TutorMeetingStats({
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.id} className={r.active ? "" : "text-slate-400"}>
+              <tr key={r.id} className="text-slate-700">
                 <td
                   data-sort-value={participantNameLabel(
                     r.englishName,
@@ -529,22 +529,28 @@ function TutorMeetingStats({
                   className="font-medium whitespace-nowrap text-slate-700"
                 >
                   <ParticipantName name={r.englishName} username={r.username} />
+                  {!r.active && (
+                    <span className="badge-slate ml-2">
+                      {t("admin.summary.inactive")}
+                    </span>
+                  )}
                 </td>
-                <td className="text-right text-green-600">{r.present}</td>
+                <td className="text-right text-green-700">{r.present}</td>
                 <td
-                  className={`text-right ${r.excused > 0 ? "text-amber-600" : "text-slate-300"}`}
+                  className={`text-right ${r.excused > 0 ? "text-amber-700" : "text-slate-600"}`}
                 >
                   {r.excused}
                 </td>
                 <td
                   className={`text-right font-semibold ${
-                    r.unexcused > 0 ? "text-red-600" : "text-slate-300"
+                    r.unexcused > 0 ? "text-red-700" : "text-slate-600"
                   }`}
                 >
                   {r.unexcused}
                 </td>
                 <TableActions>
                   <TableDetails
+                    longReader
                     title={participantNameLabel(
                       r.englishName,
                       r.username,
@@ -591,29 +597,29 @@ function MeetingSummary({
       case "EXEMPT":
         return {
           text: "X",
-          cls: "text-slate-400",
+          cls: "text-slate-600",
           title: t("admin.meetings.exempt"),
         };
       case "PRESENT":
         return {
           text: "P",
-          cls: "text-green-600",
+          cls: "text-green-700",
           title: t("admin.meetings.status.present"),
         };
       case "EXCUSED_ABSENT":
         return {
           text: "EA",
-          cls: "text-amber-600",
+          cls: "text-amber-700",
           title: t("admin.meetings.status.excusedAbsent"),
         };
       case "UNEXCUSED_ABSENT":
         return {
           text: "UA",
-          cls: "text-red-600",
+          cls: "text-red-700",
           title: t("admin.meetings.status.unexcusedAbsent"),
         };
       default:
-        return { text: "·", cls: "text-slate-300", title: "—" };
+        return { text: "·", cls: "text-slate-600", title: "—" };
     }
   };
 
@@ -643,7 +649,7 @@ function MeetingSummary({
         </thead>
         <tbody>
           {tutors.map((tu) => (
-            <tr key={tu.id} className={tu.active ? "" : "text-slate-400"}>
+            <tr key={tu.id} className="text-slate-700">
               <th
                 data-sort-value={participantNameLabel(
                   tu.englishName,
@@ -654,6 +660,11 @@ function MeetingSummary({
                 className="sticky left-0 z-10 bg-white text-left font-medium whitespace-nowrap text-slate-700"
               >
                 <ParticipantName name={tu.englishName} username={tu.username} />
+                {!tu.active && (
+                  <span className="badge-slate ml-2">
+                    {t("admin.summary.inactive")}
+                  </span>
+                )}
               </th>
               {meetings.map((m) => {
                 const c = cell(byMeeting.get(m.id)?.get(tu.id));
@@ -669,6 +680,7 @@ function MeetingSummary({
               })}
               <TableActions>
                 <TableDetails
+                  longReader
                   title={participantNameLabel(
                     tu.englishName,
                     tu.username,
@@ -815,12 +827,12 @@ function AttendanceEditor({
           without clipping. Desktop keeps the compact name/choices arrangement. */}
       <div className="space-y-3 lg:space-y-1.5">
         {tutors.map((tu) => {
-          // Inactive (unavailable) tutors are exempt (X) — shown grayed and not editable.
+          // Inactive tutors are read-only; the explicit badge carries status without fading names.
           if (!tu.active) {
             return (
               <div
                 key={tu.id}
-                className="flex min-h-11 min-w-0 flex-col items-start justify-between gap-2 text-sm text-slate-400 sm:flex-row sm:items-center lg:min-h-8"
+                className="flex min-h-11 min-w-0 flex-col items-start justify-between gap-2 text-sm text-slate-600 sm:flex-row sm:items-center lg:min-h-8"
               >
                 <span className="min-w-0 [overflow-wrap:anywhere]">
                   <ParticipantName

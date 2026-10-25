@@ -155,7 +155,6 @@ function ProgramSettingsPage() {
     <div className="max-w-4xl space-y-6">
       <div>
         <h1 className="page-title">{t("admin.program.title")}</h1>
-        <p className="muted mt-1">{t("admin.program.subtitle")}</p>
       </div>
 
       {current.isLoading ? (

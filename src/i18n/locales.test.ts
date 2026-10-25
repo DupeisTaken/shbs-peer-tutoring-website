@@ -15,6 +15,7 @@ import {
 } from "@formatjs/icu-messageformat-parser";
 
 import { DEFAULT_LOCALE, LOCALE_LABELS, LOCALES } from "./config";
+import { TutorStatus } from "../../generated/prisma";
 
 const messagesDir = fileURLToPath(new URL("../../messages/", import.meta.url));
 
@@ -75,6 +76,16 @@ describe("locale parity", () => {
   });
 
   for (const loc of LOCALES) {
+    it(`${loc} labels every selectable membership status`, () => {
+      // Equal key sets alone miss a status omitted in every locale. The
+      // recipient picker consumes this canonical enum vocabulary directly.
+      const messages = load(loc);
+      for (const status of Object.values(TutorStatus))
+        expect(
+          messages[`tutor.status.${status}`]?.trim(),
+          `${loc}:${status}`,
+        ).toBeTruthy();
+    });
     it(`${loc} contains valid ICU messages`, () => {
       for (const [key, value] of Object.entries(load(loc))) {
         expect(() => parse(value), `${loc}:${key}`).not.toThrow();

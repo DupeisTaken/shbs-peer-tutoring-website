@@ -12,6 +12,7 @@ import { InlineNotice, FormActions } from "./ui/patterns";
 import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterInputs } from "~/trpc/react";
 import { MessageGroupChoices } from "./message-inbox";
+import { Pager } from "./student-portal";
 import Link from "next/link";
 
 export function MessageAdmin() {
@@ -252,7 +253,7 @@ function Supervision() {
                 {t(row.hiddenAt ? "restore" : "hide")}
               </button>
               <details>
-                <summary className="cursor-pointer text-sm font-medium">
+                <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium lg:min-h-8 lg:py-1.5">
                   {t("auditHistory")}
                 </summary>
                 <ul className="mt-3 space-y-2 text-xs">
@@ -278,33 +279,15 @@ function Supervision() {
           )}
         </article>
       ))}
-      <div className="flex gap-3">
-        <button
-          type="button"
-          className="btn-secondary btn-sm"
-          disabled={page === 0}
-          onClick={() => {
-            setPage((p) => p - 1);
-            review.reset();
-          }}
-        >
-          {t("previous")}
-        </button>
-        <span className="muted self-center text-sm">
-          {t("page", { page: page + 1 })}
-        </span>
-        <button
-          type="button"
-          className="btn-secondary btn-sm"
-          disabled={!rows.data?.more}
-          onClick={() => {
-            setPage((p) => p + 1);
-            review.reset();
-          }}
-        >
-          {t("next")}
-        </button>
-      </div>
+      <Pager
+        label={t("supervision")}
+        page={page}
+        more={!!rows.data?.more}
+        setPage={(next) => {
+          setPage(next);
+          review.reset();
+        }}
+      />
     </div>
   );
 }
@@ -373,24 +356,12 @@ export function MessagePermissions() {
         {people.data?.people.length === 0 && (
           <p role="status">{t("noMatches")}</p>
         )}
-        <div className="flex gap-3">
-          <button
-            type="button"
-            className="btn-secondary btn-sm"
-            disabled={page === 0}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            {t("previous")}
-          </button>
-          <button
-            type="button"
-            className="btn-secondary btn-sm"
-            disabled={!people.data?.more}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            {t("next")}
-          </button>
-        </div>
+        <Pager
+          label={t("userOverrides")}
+          page={page}
+          more={!!people.data?.more}
+          setPage={setPage}
+        />
         {user && <UserPermission key={user.id} user={user} />}
       </section>
     </div>

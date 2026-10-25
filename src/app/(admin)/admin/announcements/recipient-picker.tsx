@@ -21,6 +21,9 @@ export function RecipientPicker({
   loading: boolean;
 }) {
   const t = useTranslations("admin.announcements.recipients");
+  // Membership labels share the complete domain vocabulary instead of a
+  // recipient-only copy that can silently omit a newly supported status.
+  const statusLabel = useTranslations("tutor.status");
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const recipients = selectAnnouncementRecipients(candidates, audience);
@@ -39,7 +42,8 @@ export function RecipientPicker({
     "ACTIVE",
     "PENDING",
     "OPTED_OUT",
-    "GRADUATED", "TRANSFERRED",
+    "GRADUATED",
+    "TRANSFERRED",
     "ARCHIVED",
   ] as const;
   const toggle = <T,>(values: T[], value: T) =>
@@ -100,7 +104,7 @@ export function RecipientPicker({
                   {grades.map((grade) => (
                     <label
                       key={grade}
-                      className="flex items-center gap-1 text-sm"
+                      className="flex min-h-11 min-w-11 items-center gap-2 text-sm lg:min-h-8 lg:min-w-0"
                     >
                       <input
                         type="checkbox"
@@ -125,7 +129,7 @@ export function RecipientPicker({
                   {statuses.map((status) => (
                     <label
                       key={status}
-                      className="flex items-center gap-1 text-sm"
+                      className="flex min-h-11 min-w-11 items-center gap-2 text-sm lg:min-h-8 lg:min-w-0"
                     >
                       <input
                         type="checkbox"
@@ -137,7 +141,7 @@ export function RecipientPicker({
                           })
                         }
                       />
-                      {t(`status.${status}`)}
+                      {statusLabel(status)}
                     </label>
                   ))}
                 </div>
@@ -150,7 +154,7 @@ export function RecipientPicker({
                   {subjects.map((subject) => (
                     <label
                       key={subject}
-                      className="flex items-center gap-1 text-sm"
+                      className="flex min-h-11 min-w-11 items-center gap-2 text-sm lg:min-h-8 lg:min-w-0"
                     >
                       <input
                         type="checkbox"

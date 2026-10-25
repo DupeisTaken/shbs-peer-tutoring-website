@@ -587,7 +587,6 @@ export default function RequestsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="page-title">{t("admin.requests.title")}</h1>
-        <p className="muted mt-1">{t("admin.requests.help")}</p>
       </div>
       <DisclosureSection title={t("workflow.sourceGuide")} lifetime="lazy">
         <p className="muted text-sm">{t("workflow.sourceHelp")}</p>

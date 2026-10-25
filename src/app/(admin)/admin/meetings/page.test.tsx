@@ -477,6 +477,125 @@ it("keeps all past tutors in the summary independently of the editor visibility 
   expect(within(editor).queryByText("Past Tutor")).toBeNull();
 });
 
+it.each(["stats", "summary"] as const)(
+  "opens the %s tutor reader on demand with header Close and retained attendance evidence",
+  (entryPoint) => {
+    const reason =
+      "Recorded medical appointment; retain this historical reason";
+    state.attendances = [
+      {
+        tutorId: "recorded-past",
+        status: "EXCUSED_ABSENT",
+        excusedAt: new Date("2026-09-28T04:00:00Z"),
+        reason,
+        tutor: { englishName: "Recorded Graduate" },
+      },
+    ];
+    render(sessionMeetingPage());
+    if (entryPoint === "summary") {
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: messages.admin.meetings.summary.show,
+        }),
+      );
+    }
+    const table = screen.getByRole("table", {
+      name:
+        entryPoint === "stats"
+          ? messages.admin.meetings.stats.title
+          : messages.admin.meetings.summary.show,
+    });
+    const row = within(table).getByText("Recorded Graduate").closest("tr")!;
+    expect(within(row).getByText(messages.admin.summary.inactive)).toBeTruthy();
+    // Zero totals and missing evidence keep their meaning after the presentation migration.
+    const cells = [...row.querySelectorAll("td")].map(
+      (cell) => cell.textContent,
+    );
+    expect(
+      entryPoint === "stats" ? cells.slice(1, 4) : cells.slice(0, 2),
+    ).toEqual(entryPoint === "stats" ? ["0", "1", "0"] : ["EA", "·"]);
+    expect(screen.queryByText(reason, { exact: false })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    const trigger = within(row).getByRole("button", {
+      name: `${messages.tablePatterns.details}: Recorded Graduate`,
+    });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Recorded Graduate" });
+    const close = within(dialog).getByRole("button", {
+      name: messages.accountProfile.close,
+    });
+    // The same header owns the title and the first focused Close control.
+    expect(
+      within(close.parentElement!).getByRole("heading", {
+        name: "Recorded Graduate",
+      }),
+    ).toBeTruthy();
+    expect(document.activeElement).toBe(close);
+    const recorded = within(dialog)
+      .getByRole("heading", {
+        name: "Synthetic briefing",
+      })
+      .closest("li")!;
+    expect(
+      within(recorded).getByText(messages.admin.meetings.status.excusedAbsent),
+    ).toBeTruthy();
+    expect(within(recorded).getByText(reason, { exact: false })).toBeTruthy();
+    const missing = within(dialog)
+      .getByRole("heading", {
+        name: "Other briefing",
+      })
+      .closest("li")!;
+    expect(within(missing).getByText("—")).toBeTruthy();
+    expect(
+      within(missing).queryByText(
+        messages.admin.meetings.status.unexcusedAbsent,
+      ),
+    ).toBeNull();
+    fireEvent.click(close);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText(reason, { exact: false })).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+    fireEvent.click(trigger);
+    expect(
+      within(
+        screen.getByRole("dialog", { name: "Recorded Graduate" }),
+      ).getByText(reason, { exact: false }),
+    ).toBeTruthy();
+    expect(state.save).not.toHaveBeenCalled();
+  },
+);
+
+it("keeps an unrecorded past tutor available in summary details without inventing absence evidence", () => {
+  render(sessionMeetingPage());
+  expect(screen.getByText(messages.admin.meetings.stats.empty)).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.admin.meetings.summary.show,
+    }),
+  );
+  const summary = screen.getByRole("table", {
+    name: messages.admin.meetings.summary.show,
+  });
+  const row = within(summary).getByText("Past Tutor").closest("tr")!;
+  expect(within(row).getAllByTitle("—")).toHaveLength(2);
+  fireEvent.click(
+    within(row).getByRole("button", {
+      name: `${messages.tablePatterns.details}: Past Tutor`,
+    }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Past Tutor" });
+  expect(within(dialog).getAllByText("—")).toHaveLength(2);
+  expect(
+    within(dialog).queryByText(messages.admin.meetings.status.unexcusedAbsent),
+  ).toBeNull();
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: messages.accountProfile.close }),
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(state.save).not.toHaveBeenCalled();
+});
+
 it("identifies a recorded attendance correction and keeps queued changes out of saved state", () => {
   state.attendances = [
     {
