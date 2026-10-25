@@ -57,6 +57,28 @@ commands do not require an application build or integration-test database.
 
 After pulling schema changes, confirm the intended local database, run `npm run db:migrate` and `npx prisma generate`, then restart the app. Apply the complete migration chain; do not reset an existing database just to upgrade it. See the [technical guide](../reference/technical-report.md) for code responsibilities and the [program reference](../guides/program-configuration.md) for configuration.
 
+### Dependency compatibility checks
+
+Keep `next` and `eslint-config-next` on the same release. Preserve the repository's
+local lint-glob package and deliberate overrides when updating the lockfile.
+Run `npm audit` with the complete dependency tree; development-only findings are
+still part of the required CI gate. Prefer supported patch/minor updates and make
+major migrations explicit rather than applying an unreviewed forced audit fix.
+
+The application uses Zod 4. Dictionary schemas declare string keys explicitly;
+an omitted announcement audience uses `prefault({})` so its nested defaults are
+parsed. Observer projections accept missing private fields before transforming
+them to `null`. Attendance forms distinguish raw schema input from parsed numeric
+ratings. Preserve these contracts when changing validation dependencies.
+
+[Intake validation tests](../../src/lib/student-signup.test.ts) exercise bounded
+oversized collections and legitimate inputs through the real shared schema.
+[SMTP runtime tests](../../src/server/email/smtp-runtime.test.ts) exercise the
+installed mail parser and caller-owned sockets without external delivery. Run
+these together with announcement, observer-projection, transport-error, signup,
+translation and attendance tests after validation/mail upgrades, then complete
+the full suite, production build and actual-page browser checks.
+
 On Windows, create disposable test/demo databases with UTF-8 encoding rather than
 inheriting a WIN1252 template. The application stores Chinese text and emoji. A new
 database can use `TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C'`.
