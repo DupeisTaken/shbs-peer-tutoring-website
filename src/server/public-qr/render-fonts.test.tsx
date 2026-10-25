@@ -103,9 +103,48 @@ it.each(["en", "zh"] as const)(
       png,
       "https://tutoring.example.edu/",
       png.height - 104,
-      32,
-      22,
+      36,
+      26,
     );
-    await expectWebsiteText(png, "tutor", png.height - 72, 32, 22);
+    await expectWebsiteText(png, "tutor", png.height - 68, 36, 26);
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "keeps the enlarged %s URL inside clear side gutters with a maximum-length wide hostname",
+  async (locale) => {
+    // Wide lowercase glyphs stress the actual font, unlike a long run of narrow
+    // letters. Every URL row must have visible ink and retain both side gutters.
+    const hostname = [
+      "m".repeat(63),
+      "w".repeat(63),
+      "m".repeat(63),
+      "w".repeat(57),
+      "edu",
+    ].join(".");
+    expect(hostname).toHaveLength(253);
+    const png = PNG.sync.read(
+      Buffer.from(
+        await renderPublicQrPng({
+          destination: "tutor",
+          locale,
+          url: `https://${hostname}/tutor`,
+        }),
+      ),
+    );
+    let clearGutters = true;
+    let footerInk = 0;
+    for (let y = 0; y < png.height; y++) {
+      for (let x = 0; x < png.width; x++) {
+        const alpha = png.data[(y * png.width + x) * 4 + 3]!;
+        if (x < 32 || x >= png.width - 32) clearGutters &&= alpha === 0;
+        if (y >= png.height - 104 && alpha > 0) footerInk++;
+      }
+    }
+    expect(
+      clearGutters,
+      "wide URL glyphs never clip into the 32px side gutters",
+    ).toBe(true);
+    expect(footerInk, "complete footer remains visible").toBeGreaterThan(100);
   },
 );

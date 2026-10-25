@@ -23,10 +23,10 @@ const labels: Record<PublicQrLocale, Record<PublicQrDestination, string>> = {
 };
 
 const imageWidth = 800;
-const qrTop = 128;
+const qrTop = 112;
 const qrMaximumWidth = 640;
 const quietZoneModules = 4;
-const urlLineHeight = 32;
+const urlLineHeight = 36;
 let packagedFonts: Promise<[ArrayBuffer, ArrayBuffer]> | undefined;
 
 function fontBytes(path: string): Promise<ArrayBuffer> {
@@ -81,8 +81,10 @@ export async function renderPublicQrPng({
   // lines keep even a 253-character hostname intact without shrinking or
   // clipping text; joining the rows recovers the exact URL encoded in the QR.
   const urlLines = publicQrUrlLines(url);
-  const urlTop = qrTop + qrWidth + 24;
-  const imageHeight = urlTop + urlLines.length * urlLineHeight + 40;
+  // The embedded raster already includes its full quiet zone. Keep only a small
+  // extra gap around it so the readable footer feels attached to the code.
+  const urlTop = qrTop + qrWidth + 8;
+  const imageHeight = urlTop + urlLines.length * urlLineHeight + 32;
   const [geistFont, chineseFont] = await loadPackagedFonts();
   const image = new ImageResponse(
     <div
@@ -141,7 +143,7 @@ export async function renderPublicQrPng({
             height: urlLineHeight,
             alignItems: "center",
             justifyContent: "center",
-            fontSize: 22,
+            fontSize: 26,
             lineHeight: 1.3,
             whiteSpace: "nowrap",
           }}

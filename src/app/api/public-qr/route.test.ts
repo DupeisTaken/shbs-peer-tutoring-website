@@ -218,10 +218,10 @@ it.each(["en", "zh"])(
   "retains a long valid host in the final %s PNG and its half-size copy",
   async (locale) => {
     const hostname = [
-      "a".repeat(63),
-      "b".repeat(63),
-      "c".repeat(63),
-      "d".repeat(57),
+      "m".repeat(63),
+      "w".repeat(63),
+      "m".repeat(63),
+      "w".repeat(57),
       "edu",
     ].join(".");
     expect(hostname.length).toBe(253);
