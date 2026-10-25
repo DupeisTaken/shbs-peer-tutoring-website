@@ -282,7 +282,44 @@ history reads; failed synchronization retries reads without repeating the write.
 
 The Users & Roles page composes existing table actions, `ProfileDialog`, `TableDetails`, academic and policy displays. Detail queries and mutation observers mount only on opening. Each opening refreshes the authoritative detail read, even within the shared query cache freshness window, so independent membership, suspension and profile editors cannot leave reopened details stale. Failed background reads retain cached details with read-only Retry. Badge colors are local presentation, independent of the six accent palettes: management indigo, participation teal, Translator amber and Viewer slate. Summary badge suppression and all filtering logic remain in their existing domain helpers; the detail display adds the underlying accepted Tutee membership. The read-only context hides the private entry, and server authorization independently refuses observers and participants, including stale elevated sessions.
 
-The on-demand `admin.applicationAccountSetup` read powers the application’s **Set up account** popup. It exposes an existing active application-bound code or a safe linked/pending/restricted account state, with explicit expired/used/missing/conflicting outcomes. It never issues codes or sends email, and observers/participants cannot read it. Optional directory links use [tutor-directory-link.ts](../../src/lib/tutor-directory-link.ts) to address `/admin/users#tutor-<encoded tutor ID>`. The stable roster ID survives account creation. The target comes from `promotedTutorId`, or, when absent, an unambiguous tutor ID on the application's own registration codes; ambiguous references do not produce an inferred target. Users & Roles resolves only an exact `tutorId` in its authorized `admin.accounts` response; it never falls back to a name/email match. While the target is selected, saved search, role/account and historical/unverified filters are bypassed without replacing their stored state, and filter controls are hidden. The row is highlighted and revealed using the existing record-navigation focus behavior. **Return to directory** removes the selection/hash and restores the saved view. A completed read with no exact row shows an unavailable notice; a failed read offers read-only Retry. Access denial keeps the protected directory hidden. Following the link performs no account provisioning, code issuance or email delivery.
+The on-demand `admin.applicationAccountSetup` read powers the application’s **Set up account** popup. It exposes an existing active application-bound code or a safe linked/pending/restricted account state, with explicit expired/used/missing/conflicting outcomes. It never issues codes or sends email, and observers/participants cannot read it. Optional directory links use [tutor-directory-link.ts](../../src/lib/tutor-directory-link.ts) to address `/admin/users#tutor-<encoded tutor ID>`. The stable roster ID survives account creation. The target comes from `promotedTutorId`, or, when absent, an unambiguous tutor ID on the application's own registration codes; ambiguous references do not produce an inferred target.
+
+Users & Roles resolves the exact `tutorId` from each authorized group's sanitized
+`tutorDestinations`. This projection includes nonrepresentative and retained
+historical Tutor sources, using explicit Person, direct ownership and retained
+ownership edges. It does not turn filter-only `directoryMembers` into action
+rows or infer ownership from names/emails. The focused source shows its original
+name, username, lifecycle and direct-login setup state. Its Tutor Details and
+setup actions use that source ID; representative account privileges, profile
+editors, deletion and combination actions are absent. Retained historical
+ownership is shown separately and cannot offer accountless setup; the setup
+procedure also rejects an already retained source before issuing an invitation.
+An actual direct login retains its own readiness and canonical-mailbox recovery;
+recovery changes neither retained ownership nor participation and issues no new
+account invitation. Database guards continue to reject differing direct and
+retained account owners.
+The issuance helper rechecks retained ownership and direct login attachment
+under the shared namespace, actor-account and Tutor-row locks, then uses the
+locked current contact. A historical link committed after preflight cannot
+turn into an accountless invitation.
+Source invitation state requires a code bound to the exact Tutor ID.
+
+While the target is selected, saved search, role/account and historical/unverified
+filters are bypassed without replacing their stored state, and filter controls
+are hidden. The source row is highlighted and revealed using the existing
+record-navigation focus behavior. **Return to directory** removes the
+selection/hash and restores the saved view. A completed read with no exact
+source shows an unavailable notice; a failed read offers read-only Retry and
+disables setup. Access denial keeps the protected directory hidden. Following
+the link performs no account provisioning, code issuance or email delivery.
+The browsing table remains mounted while hidden, preserving open grouped-login
+editors, drafts and pending writes across hash history. An already-open native
+dialog remains available until deliberately closed; source reveal does not
+take its focus. When the outer reader closes with its browsing opener hidden,
+lost focus returns to the still-authorized visible source without scrolling or
+restarting a gesture-cancelled arrival. Existing usable focus and other open
+dialogs retain ownership; missing targets and access denial receive no fallback.
+Authoritative access denial still unmounts private readers.
 
 Focused regressions live in `src/app/(admin)/admin/users`, `src/lib/tutor-directory-link.test.ts`, `src/lib/user-filters.test.ts`, `src/lib/account-membership.test.ts` and `src/server/account-directory.test.ts`. Include `src/server/tutor-details.test.ts` for the preserved-academics boundary. Browser verification must use the actual Users & Roles page and native nested dialogs in both languages, then measure badge contrast and control bounds; screenshots and HTML evidence belong in ignored `outputs/`.
 

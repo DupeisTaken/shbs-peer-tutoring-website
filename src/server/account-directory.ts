@@ -11,6 +11,24 @@ import { historicalAcademicSnapshot } from "./historical-academics";
 import type { DomainDb } from "./transactions";
 import type { UserFilterMember } from "~/lib/user-filters";
 
+/** Internal routing facts are kept separate from both filter members and login
+ * actions. Only the exact source's sanitized destination is sent to the client. */
+export type TutorDirectorySource = {
+  personId: string | null;
+  userId: string | null;
+  retainedOwnerId: string | null;
+  destination: {
+    tutorId: string;
+    name: string;
+    username: string | null;
+    status: NonNullable<UserFilterMember["tutorStatus"]>;
+    account: "registered" | "setup" | "invited" | "none" | null;
+    hasEmail: boolean;
+    suspended: boolean;
+    retainedOwnerName: string | null;
+  };
+};
+
 /** A directory row is a presentation choice, not an authorization or membership
  * union. Keep all original logins/participations reachable through staff details. */
 export async function groupDirectoryRows<
@@ -23,7 +41,7 @@ export async function groupDirectoryRows<
     email: string | null;
     username: string | null;
   },
->(db: DomainDb, rows: T[]) {
+>(db: DomainDb, rows: T[], tutorSources: TutorDirectorySource[]) {
   const people = await db.person.findMany({
     where: {
       id: {
@@ -89,6 +107,16 @@ export async function groupDirectoryRows<
   }
   return [...grouped.entries()].map(([key, members]) => {
     const person = byPerson.get(key);
+    const family = new Set(
+      members.flatMap((row) => (row.userId ? [row.userId] : [])),
+    );
+    let familySize = -1;
+    while (familySize !== family.size) {
+      familySize = family.size;
+      for (const account of person?.users ?? [])
+        if (account.mergedIntoId && family.has(account.mergedIntoId))
+          family.add(account.id);
+    }
     const representative =
       members.find(
         (row) => row.userId && row.userId === person?.primaryUserId,
@@ -97,6 +125,19 @@ export async function groupDirectoryRows<
       members[0]!;
     return {
       ...representative,
+      // A retained archive may have no directory member. Resolve it by explicit
+      // Person/ownership edges, never by the representative's name or privileges.
+      tutorDestinations: tutorSources
+        .filter((source) =>
+          source.personId && grouped.has(source.personId)
+            ? source.personId === key
+            : members.some(
+                (row) => row.tutorId === source.destination.tutorId,
+              ) ||
+              family.has(source.userId ?? "") ||
+              family.has(source.retainedOwnerId ?? ""),
+        )
+        .map((source) => source.destination),
       // Preserve each member's complete filter facts. Display badges and actions
       // continue to use the representative; this array grants no capabilities.
       directoryMembers: members.map((row): UserFilterMember => {

@@ -51,6 +51,7 @@ import { hasReadyCredentials } from "~/lib/account-readiness";
 import {
   accountDirectoryDetails,
   groupDirectoryRows,
+  type TutorDirectorySource,
 } from "~/server/account-directory";
 import {
   changeSchoolDeparture,
@@ -5236,7 +5237,7 @@ export const adminRouter = createTRPCRouter({
 
   accounts: adminProcedure.query(async ({ ctx }) => {
     const now = new Date();
-    const [term, users, unlinkedTutors, openCodes, historyOwners] =
+    const [term, users, tutorSources, openCodes, historyOwners] =
       await Promise.all([
         ctx.db.term.findFirst({
           where: { active: true },
@@ -5290,9 +5291,8 @@ export const adminRouter = createTRPCRouter({
           },
         }),
         ctx.db.tutor.findMany({
-          // A retained archive is represented by its owner's account row and Details.
-          // Keep the original roster record; only genuinely unowned records need a row here.
-          where: { user: { is: null }, retainedOwner: { is: null } },
+          // Read exact destinations alongside accountless rows. Retained and
+          // grouped sources must stay addressable without becoming login rows.
           orderBy: { englishName: "asc" },
           select: {
             id: true,
@@ -5304,6 +5304,22 @@ export const adminRouter = createTRPCRouter({
             academicallyGraduated: true,
             email: true,
             personId: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                passwordHash: true,
+                emailVerifiedAt: true,
+                mustChangePassword: true,
+                suspendedAt: true,
+              },
+            },
+            retainedOwner: {
+              select: {
+                userId: true,
+                user: { select: { name: true, username: true } },
+              },
+            },
           },
         }),
         // Outstanding (unused, unexpired) registration codes — used to flag "invited" accounts.
@@ -5405,52 +5421,54 @@ export const adminRouter = createTRPCRouter({
       account: hasReadyCredentials(u) ? "registered" : "setup",
     }));
 
-    const tutorRows = unlinkedTutors.map((tu) => ({
-      userId: null,
-      personId: tu.personId,
-      tuteeId: null as string | null,
-      name: tu.englishName,
-      firstName: null,
-      lastName: null,
-      preferredName: null,
-      legacyName: tu.englishName,
-      alternativeNames: null,
-      profileVersion: null,
-      emailVerifiedAt: null,
-      email: tu.email,
-      username: tu.username,
-      role: null,
-      isSelf: false,
-      tutorId: tu.id,
-      tutor: {
-        englishName: tu.englishName,
-        status: tu.status,
-        username: tu.username,
-        gradeLevel: tu.gradeLevel,
+    const tutorRows = tutorSources
+      .filter((tu) => !tu.user && !tu.retainedOwner)
+      .map((tu) => ({
+        userId: null,
+        personId: tu.personId,
+        tuteeId: null as string | null,
+        name: tu.englishName,
+        firstName: null,
+        lastName: null,
+        preferredName: null,
+        legacyName: tu.englishName,
+        alternativeNames: null,
+        profileVersion: null,
+        emailVerifiedAt: null,
         email: tu.email,
-      },
-      tutorStatus: tu.status,
-      classOf: null,
-      academic: academicSummary(
-        {
-          ...legacyAcademic(tu.gradeLevel, tu.academicallyGraduated),
-          schoolYear: tu.gradeSchoolYear,
+        username: tu.username,
+        role: null,
+        isSelf: false,
+        tutorId: tu.id,
+        tutor: {
+          englishName: tu.englishName,
+          status: tu.status,
+          username: tu.username,
+          gradeLevel: tu.gradeLevel,
+          email: tu.email,
         },
-        tu.gradeSchoolYear,
-      ),
-      canTranslate: false,
-      tuteeMember: false,
-      currentTutee: false,
-      hasTuteeHistory: false,
-      hasTutorHistory: false,
-      tutorAccessRevoked: false,
-      crewStatus: null,
-      tutorHasEmail: !!tu.email,
-      affiliation: null,
-      suspended: false,
-      // invited = a registration code is outstanding; none = no login and no code.
-      account: hasOpenCode(tu.id, tu.email) ? "invited" : "none",
-    }));
+        tutorStatus: tu.status,
+        classOf: null,
+        academic: academicSummary(
+          {
+            ...legacyAcademic(tu.gradeLevel, tu.academicallyGraduated),
+            schoolYear: tu.gradeSchoolYear,
+          },
+          tu.gradeSchoolYear,
+        ),
+        canTranslate: false,
+        tuteeMember: false,
+        currentTutee: false,
+        hasTuteeHistory: false,
+        hasTutorHistory: false,
+        tutorAccessRevoked: false,
+        crewStatus: null,
+        tutorHasEmail: !!tu.email,
+        affiliation: null,
+        suspended: false,
+        // invited = a registration code is outstanding; none = no login and no code.
+        account: hasOpenCode(tu.id, tu.email) ? "invited" : "none",
+      }));
 
     // Accountless tutees are real participant records too. A retained or current
     // owner already represents them; names and email addresses never hide a row.
@@ -5517,11 +5535,39 @@ export const adminRouter = createTRPCRouter({
 
     return {
       caller: { id: ctx.session.user.id, role: ctx.session.role },
-      rows: await groupDirectoryRows(ctx.db, [
-        ...userRows,
-        ...tutorRows,
-        ...tuteeRows,
-      ]),
+      rows: await groupDirectoryRows(
+        ctx.db,
+        [...userRows, ...tutorRows, ...tuteeRows],
+        tutorSources.map((source): TutorDirectorySource => ({
+          personId: source.personId,
+          userId: source.user?.id ?? null,
+          retainedOwnerId: source.retainedOwner?.userId ?? null,
+          destination: {
+            tutorId: source.id,
+            name: source.englishName,
+            username: source.username,
+            status: source.status,
+            // Readiness belongs to this direct login only. An invitation requires
+            // the exact source ID; an email match never supplies destination state.
+            account: source.user
+              ? hasReadyCredentials(source.user)
+                ? "registered"
+                : "setup"
+              : source.retainedOwner
+                ? null
+                : codedTutorIds.has(source.id)
+                  ? "invited"
+                  : "none",
+            hasEmail: !!(source.user?.email ?? source.email),
+            suspended: !!source.user?.suspendedAt,
+            retainedOwnerName: source.retainedOwner
+              ? (source.retainedOwner.user.name ??
+                source.retainedOwner.user.username ??
+                "")
+              : null,
+          },
+        })),
+      ),
     };
   }),
 
