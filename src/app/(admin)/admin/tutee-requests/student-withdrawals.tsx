@@ -224,7 +224,7 @@ export function StudentWithdrawals({
           )}
           {!!completed.length && (
             <details>
-              <summary className="cursor-pointer text-sm font-medium">
+              <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium lg:min-h-0 lg:py-0">
                 {t("studentHistory")} ({completed.length})
               </summary>
               <div className="mt-3 space-y-2">

@@ -11,11 +11,12 @@ import {
   unsplitLegacyName,
 } from "~/lib/person-name";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api, type RouterOutputs } from "~/trpc/react";
 import { Button } from "~/app/_components/ui/button";
+import { useActionReview } from "~/app/_components/ui/action-review";
 import {
   FormSection,
   FormActions,
@@ -55,6 +56,8 @@ export default function SettingsPage() {
   const profileAdmission = useRef(false);
   const passwordAdmission = useRef(false);
   const membershipAdmission = useRef(false);
+  const optOutReview = useActionReview();
+  const optOutKey = `tutor-membership:${me.data?.id ?? "unknown"}:opt-out`;
   const [profileReloading, setProfileReloading] = useState(false);
   const [profileCommitted, setProfileCommitted] = useState(false);
   const [profileSyncError, setProfileSyncError] = useState(false);
@@ -93,12 +96,9 @@ export default function SettingsPage() {
       utils.tutor.myStatusRequest.invalidate(),
     ]);
   };
-  const optOut = api.tutor.requestOptOut.useMutation({
-    onSuccess: refreshMembership,
-    onSettled: () => {
-      membershipAdmission.current = false;
-    },
-  });
+  // The review owns synchronization: an accepted request must never become a
+  // retryable write merely because the following membership reads fail.
+  const optOut = api.tutor.requestOptOut.useMutation();
   const reentry = api.tutor.requestReentry.useMutation({
     onSuccess: refreshMembership,
     onSettled: () => {
@@ -284,10 +284,104 @@ export default function SettingsPage() {
     optOut.isPending || reentry.isPending || recall.isPending;
   const membershipBlocked =
     membershipBusy ||
+    optOutReview.blocked(optOutKey) ||
     !!me.error ||
     !!statusReq.error ||
     !me.data ||
     statusReq.data === undefined;
+  const optOutAllowedNow = useRef(false);
+  const membershipIdentity = me.data?.id;
+  const membershipIdentityNow = useRef(membershipIdentity);
+  const optOutAllowed =
+    !membershipBusy &&
+    !me.error &&
+    !statusReq.error &&
+    !me.isFetching &&
+    !statusReq.isFetching &&
+    me.data?.status === "ACTIVE" &&
+    statusReq.data === null;
+  useLayoutEffect(() => {
+    // Retained review callbacks read the latest committed authorization before
+    // browser interaction; an abandoned render must not change their admission.
+    membershipIdentityNow.current = membershipIdentity;
+    optOutAllowedNow.current = optOutAllowed;
+  }, [membershipIdentity, optOutAllowed]);
+  const membershipDenied = [me.error, statusReq.error].some(
+    (error) =>
+      error?.data?.code === "FORBIDDEN" || error?.data?.code === "UNAUTHORIZED",
+  );
+  useEffect(() => {
+    if (membershipDenied) optOutReview.revoke();
+  }, [membershipDenied, optOutReview.revoke]);
+  const reviewOptOut = () => {
+    if (
+      membershipBlocked ||
+      membershipAdmission.current ||
+      !optOutAllowedNow.current
+    )
+      return;
+    const tutor = me.data;
+    if (!tutor) return;
+    const reason = optOutReason.trim();
+    optOutReview.open({
+      key: optOutKey,
+      title: t("tutor.settings.optOutBtn"),
+      description: t("tutor.settings.optOutReviewHelp"),
+      confirmLabel: t("tutor.settings.optOutBtn"),
+      confirmVariant: "primary",
+      successMessage: t("tutor.settings.optOutSubmitted"),
+      details: (
+        <div className="space-y-1">
+          <p className="font-medium text-slate-900">{tutor.englishName}</p>
+          {reason && (
+            <>
+              <p className="label">{t("tutor.settings.optOutReasonLabel")}</p>
+              <p className="text-sm wrap-anywhere whitespace-pre-wrap">
+                {reason}
+              </p>
+            </>
+          )}
+        </div>
+      ),
+      // The opening captures the reviewed reason, while final admission uses
+      // current reads so a status/error change cannot submit a stale review.
+      commit: async () => {
+        if (
+          !optOutAllowedNow.current ||
+          membershipIdentityNow.current !== tutor.id ||
+          membershipAdmission.current
+        )
+          throw new Error(recovery("loadFailed"));
+        membershipAdmission.current = true;
+        try {
+          return await optOut.mutateAsync({ reason: reason || undefined });
+        } finally {
+          membershipAdmission.current = false;
+        }
+      },
+      refresh: () =>
+        settleRefreshes([
+          () => invalidateAndReport(utils.tutor.me),
+          () => invalidateAndReport(utils.tutor.myStatusRequest),
+        ]),
+      renderResult: (result) => {
+        const request = result as RouterOutputs["tutor"]["requestOptOut"];
+        return (
+          <p>
+            {request.eligibleAt
+              ? t("tutor.settings.optOutPending", {
+                  date: programFormat.dateTime(new Date(request.eligibleAt), {
+                    dateStyle: "medium",
+                  }),
+                })
+              : t("tutor.settings.optOutPendingNoDate")}
+          </p>
+        );
+      },
+      // A fresh request may be meaningful after the existing recall flow.
+      repeatAfterRefresh: true,
+    });
+  };
 
   return (
     <main className="mx-auto max-w-2xl space-y-8 px-4 py-8">
@@ -526,7 +620,7 @@ export default function SettingsPage() {
                   pwError ?? changePassword.error ?? requestCode.error,
                 )}
                 aria-describedby={
-                  pwError ?? changePassword.error ?? requestCode.error
+                  (pwError ?? changePassword.error ?? requestCode.error)
                     ? "tutor-password-error"
                     : undefined
                 }
@@ -670,29 +764,31 @@ export default function SettingsPage() {
         ) : me.data?.status === "ACTIVE" ? (
           // Active tutor — offer opt-out (with optional reason).
           <div className="space-y-3">
-            <p className="muted text-sm">{t("tutor.settings.optOutHelp")}</p>
-            <textarea
-              disabled={membershipBlocked}
-              value={optOutReason}
-              onChange={(e) => setOptOutReason(e.target.value)}
-              placeholder={t("tutor.settings.optOutReasonPlaceholder")}
-              className="textarea w-full"
-              rows={2}
-            />
+            <p id="tutor-opt-out-help" className="muted text-sm">
+              {t("tutor.settings.optOutHelp")}
+            </p>
+            <label className="block space-y-1" htmlFor="tutor-opt-out-reason">
+              <span className="label">
+                {t("tutor.settings.optOutReasonLabel")}
+              </span>
+              <textarea
+                id="tutor-opt-out-reason"
+                aria-describedby="tutor-opt-out-help"
+                disabled={membershipBlocked}
+                value={optOutReason}
+                onChange={(e) => setOptOutReason(e.target.value)}
+                className="textarea w-full"
+                rows={2}
+                maxLength={1000}
+              />
+            </label>
             <button
               className="btn-secondary"
               disabled={membershipBlocked}
-              onClick={() => {
-                if (membershipBlocked || membershipAdmission.current) return;
-                membershipAdmission.current = true;
-                optOut.mutate({ reason: optOutReason.trim() || undefined });
-              }}
+              onClick={reviewOptOut}
             >
               {t("tutor.settings.optOutBtn")}
             </button>
-            {optOut.error && (
-              <p className="text-sm text-red-600">{optOut.error.message}</p>
-            )}
           </div>
         ) : me.data?.status === "OPTED_OUT" ? (
           // Opted out — offer reentry.
@@ -724,6 +820,7 @@ export default function SettingsPage() {
           </p>
         )}
       </section>
+      {!membershipDenied && optOutReview.dialog}
     </main>
   );
 }

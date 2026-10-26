@@ -477,7 +477,7 @@ export function SignupForm() {
                 <div className="mt-2 space-y-3">
                   {slotsByDay.map(([day, daySlots]) => (
                     <div key={day}>
-                      <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+                      <p className="text-xs font-semibold tracking-wide text-slate-600 uppercase">
                         {formatWeekday(day, locale)}
                       </p>
                       <div className="mt-1 flex flex-wrap gap-2">
@@ -499,7 +499,7 @@ export function SignupForm() {
                                 onChange={() => toggleSlot(s.id)}
                               />
                               {s.label}{" "}
-                              <span className="text-slate-400">
+                              <span className="text-slate-600">
                                 ({minToHm(s.startMin)}–{minToHm(s.endMin)})
                               </span>
                             </label>

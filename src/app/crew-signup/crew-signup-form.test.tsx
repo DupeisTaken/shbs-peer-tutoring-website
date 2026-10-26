@@ -184,6 +184,16 @@ it("stages all four-part names and answers behind CAPTCHA without showing status
   render(view());
   fillDraft();
   await sent();
+  const code = screen.getByRole("textbox", {
+    name: new RegExp(en.codes.emailLabel),
+  });
+  expect(code.closest("fieldset")).toBeTruthy();
+  expect(
+    screen
+      .getAllByText(en.codes.emailLabel, { exact: false })
+      .filter((node) => node.tagName === "LABEL"),
+  ).toHaveLength(1);
+  expect(code.closest("fieldset")?.querySelector("legend")).toBeNull();
   expect(state.apply).toHaveBeenCalledWith({
     firstName: "Crew",
     lastName: "Person",

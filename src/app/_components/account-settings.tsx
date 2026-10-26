@@ -278,7 +278,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
             onClick={() => router.back()}
             aria-label={t("common.close")}
             title={t("common.close")}
-            className="focus-visible:ring-accent-500 -mr-1 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:outline-none"
+            className="switch-control -mr-1 p-1.5 text-slate-600 transition hover:bg-slate-100 hover:text-slate-700"
           >
             <span aria-hidden className="text-lg leading-none">
               {SYMBOLS.close}

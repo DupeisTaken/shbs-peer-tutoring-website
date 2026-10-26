@@ -199,7 +199,7 @@ export function AttendanceCorrection({ id }: { id: string }) {
                 defaultValue={primary.tutorAbsentReason ?? ""}
               />
             </label>
-            <label className="flex items-center gap-2 self-start">
+            <label className="flex min-h-11 items-center gap-2 self-start lg:min-h-10">
               <input
                 type="checkbox"
                 name="online"

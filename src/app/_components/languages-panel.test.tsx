@@ -144,6 +144,13 @@ it("lets a translator add a catalog without exposing management controls", () =>
     screen.getByRole("textbox", { name: "localization.addLanguageName" }),
     { target: { value: "Italiano" } },
   );
+  // The field purpose remains visible and associated after its placeholder would disappear.
+  expect(screen.getByText("localization.addLanguageCode").closest("label")?.contains(
+    screen.getByRole("textbox", { name: "localization.addLanguageCode" }),
+  )).toBe(true);
+  expect(screen.getByText("localization.addLanguageName").closest("label")?.contains(
+    screen.getByRole("textbox", { name: "localization.addLanguageName" }),
+  )).toBe(true);
   fireEvent.click(
     screen.getByRole("button", { name: "localization.addLanguageBtn" }),
   );

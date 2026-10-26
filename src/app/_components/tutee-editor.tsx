@@ -359,7 +359,10 @@ function TuteeProfileForm({
               {slots.data
                 ?.filter((s) => s.active)
                 .map((s) => (
-                  <label className="flex items-center gap-2" key={s.id}>
+                  <label
+                    className="flex min-h-11 items-center gap-2 lg:min-h-8"
+                    key={s.id}
+                  >
                     <input
                       type="checkbox"
                       name="slot"

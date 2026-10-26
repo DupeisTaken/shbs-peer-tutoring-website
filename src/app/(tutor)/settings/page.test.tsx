@@ -47,8 +47,11 @@ const state = vi.hoisted(() => {
     password: vi.fn(),
     code: vi.fn(),
     optOut: vi.fn(),
+    refreshMembership: vi.fn<() => Promise<void>>(),
+    refreshRequest: vi.fn<() => Promise<void>>(),
     reentry: vi.fn(),
     recall: vi.fn(),
+    recallSettled: undefined as undefined | (() => void),
     pending: false,
     success: false,
     error: null as null | { message: string; data?: { code: string } },
@@ -65,6 +68,11 @@ const state = vi.hoisted(() => {
       onSettled: (): void => undefined,
     },
     status: "ACTIVE",
+    tutorId: "tutor-1",
+    membershipError: null as null | {
+      message: string;
+      data?: { code: string };
+    },
     request: null as
       null | undefined | { id: string; kind: string; eligibleAt: null },
     requestError: null as null | Error,
@@ -123,8 +131,8 @@ vi.mock("~/trpc/react", async () => {
                 staleTime: 0,
               }),
           },
-          me: { invalidate: async () => undefined },
-          myStatusRequest: { invalidate: async () => undefined },
+          me: { invalidate: state.refreshMembership },
+          myStatusRequest: { invalidate: state.refreshRequest },
         },
       }),
       program: {
@@ -155,7 +163,12 @@ vi.mock("~/trpc/react", async () => {
         },
         me: {
           useQuery: () => ({
-            data: { status: state.status },
+            data: {
+              id: state.tutorId,
+              englishName: "Original Person",
+              status: state.status,
+            },
+            error: state.membershipError,
             refetch: vi.fn(),
           }),
         },
@@ -191,13 +204,16 @@ vi.mock("~/trpc/react", async () => {
           },
         },
         requestOptOut: {
-          useMutation: () => ({ mutate: state.optOut, isPending: false }),
+          useMutation: () => ({ mutateAsync: state.optOut, isPending: false }),
         },
         requestReentry: {
           useMutation: () => ({ mutate: state.reentry, isPending: false }),
         },
         recallStatusRequest: {
-          useMutation: () => ({ mutate: state.recall, isPending: false }),
+          useMutation: (options: { onSettled: () => void }) => {
+            state.recallSettled = options.onSettled;
+            return { mutate: state.recall, isPending: false };
+          },
         },
       },
     },
@@ -223,6 +239,18 @@ function save() {
   return screen.getByRole("button", { name: messages.tutor.settings.save });
 }
 beforeEach(() => {
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    },
+  });
   state.nameStates = undefined;
   state.profile = {
     firstName: "Original",
@@ -253,11 +281,21 @@ beforeEach(() => {
   state.success = false;
   state.error = null;
   state.status = "ACTIVE";
+  state.tutorId = "tutor-1";
+  state.membershipError = null;
   state.request = null;
   state.requestError = null;
   state.feature = false;
   state.secondSubscriber = false;
   state.passwordPending = false;
+  state.recallSettled = undefined;
+  state.optOut.mockResolvedValue({
+    ok: true,
+    id: "request-1",
+    eligibleAt: new Date("2026-11-01T00:00:00Z"),
+  });
+  state.refreshMembership.mockReset().mockResolvedValue(undefined);
+  state.refreshRequest.mockReset().mockResolvedValue(undefined);
   state.secondSubscriber = false;
 });
 afterEach(() => {
@@ -590,4 +628,207 @@ it("evicts a denied shared query once per episode with an enabled sibling subscr
   expect(evict).toHaveBeenCalledTimes(2);
   expect(screen.queryByLabelText("First Name Required")).toBeNull();
   expect(state.save).not.toHaveBeenCalled();
+});
+
+const optOutReason = () =>
+  screen.getByRole<HTMLTextAreaElement>("textbox", {
+    name: messages.tutor.settings.optOutReasonLabel,
+  });
+function openOptOut() {
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.tutor.settings.optOutBtn }),
+  );
+  return within(
+    screen.getByRole("dialog", { name: messages.tutor.settings.optOutBtn }),
+  );
+}
+function confirmOptOut() {
+  return within(screen.getByRole("dialog")).getByRole("button", {
+    name: messages.tutor.settings.optOutBtn,
+  });
+}
+
+it("labels the opt-out reason and reviews the named request without writing on Cancel or Escape", () => {
+  render(ui());
+  const reason = optOutReason();
+  expect(
+    document.getElementById(reason.getAttribute("aria-describedby")!)
+      ?.textContent,
+  ).toBe(messages.tutor.settings.optOutHelp);
+  fireEvent.change(reason, { target: { value: "Time for exams" } });
+  const review = openOptOut();
+  expect(review.getByText("Original Person")).toBeTruthy();
+  expect(review.getByText("Time for exams")).toBeTruthy();
+  expect(
+    review.getByText(messages.tutor.settings.optOutReviewHelp),
+  ).toBeTruthy();
+  fireEvent.click(
+    review.getByRole("button", { name: messages.actionReview.cancel }),
+  );
+  expect(reason.value).toBe("Time for exams");
+  openOptOut();
+  fireEvent(
+    screen.getByRole("dialog"),
+    new Event("cancel", { cancelable: true }),
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(reason.value).toBe("Time for exams");
+  expect(state.optOut).not.toHaveBeenCalled();
+});
+
+it("admits one opt-out write, freezes its own draft while pending, and preserves a rejected reason", async () => {
+  let reject!: (error: Error) => void;
+  state.optOut.mockImplementationOnce(
+    () =>
+      new Promise((_resolve, fail) => {
+        reject = fail;
+      }),
+  );
+  render(ui());
+  fireEvent.change(optOutReason(), {
+    target: { value: "  Retained reason  " },
+  });
+  openOptOut();
+  const confirm = confirmOptOut();
+  fireEvent.click(confirm);
+  fireEvent.click(confirm);
+  expect(state.optOut).toHaveBeenCalledExactlyOnceWith({
+    reason: "Retained reason",
+  });
+  expect(optOutReason().disabled).toBe(true);
+  expect(screen.getByLabelText("Academic draft").matches(":disabled")).toBe(
+    false,
+  );
+  fireEvent(
+    screen.getByRole("dialog"),
+    new Event("cancel", { cancelable: true }),
+  );
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  await act(async () => {
+    reject(new Error("Synthetic request failed"));
+  });
+  expect(screen.getByRole("alert").textContent).toContain(
+    "Synthetic request failed",
+  );
+  expect(state.refreshMembership).not.toHaveBeenCalled();
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: messages.actionReview.cancel,
+    }),
+  );
+  expect(optOutReason().value).toBe("  Retained reason  ");
+  expect(optOutReason().disabled).toBe(false);
+});
+
+it("keeps an accepted queued request through failed refresh and retries only reads after Close", async () => {
+  let finishSibling!: () => void;
+  state.refreshMembership.mockRejectedValue(new Error("Read unavailable"));
+  state.refreshRequest.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finishSibling = resolve;
+      }),
+  );
+  render(ui());
+  openOptOut();
+  fireEvent.click(confirmOptOut());
+  await waitFor(() => expect(state.refreshRequest).toHaveBeenCalledOnce());
+  expect(optOutReason().disabled).toBe(true);
+  expect(
+    within(screen.getByRole("dialog"))
+      .getByRole("button", { name: messages.actionReview.close })
+      .matches(":disabled"),
+  ).toBe(true);
+  await act(async () => {
+    finishSibling();
+  });
+  expect(screen.getByText(messages.actionReview.refreshFailed)).toBeTruthy();
+  expect(screen.getByRole("dialog").textContent).toContain("Nov 1, 2026");
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: messages.actionReview.close,
+    }),
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(optOutReason().disabled).toBe(true);
+  state.refreshMembership.mockResolvedValue(undefined);
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.actionReview.retry }),
+  );
+  await screen.findByText(messages.tutor.settings.optOutSubmitted);
+  expect(state.optOut).toHaveBeenCalledExactlyOnceWith({ reason: undefined });
+  expect(state.refreshMembership).toHaveBeenCalledTimes(2);
+  expect(state.refreshRequest).toHaveBeenCalledTimes(2);
+});
+
+it.each(["status", "request", "read error", "identity"])(
+  "rechecks live opt-out admission after a changed %s",
+  async (change) => {
+    const view = render(ui());
+    openOptOut();
+    if (change === "status") state.status = "OPTED_OUT";
+    if (change === "request")
+      state.request = { id: "other", kind: "OPT_OUT", eligibleAt: null };
+    if (change === "read error") state.requestError = new Error("Unavailable");
+    if (change === "identity") state.tutorId = "another-tutor";
+    view.rerender(ui());
+    fireEvent.click(confirmOptOut());
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("dialog")).getByRole("alert").textContent,
+      ).toContain(messages.participantRecovery.loadFailed),
+    );
+    expect(state.optOut).not.toHaveBeenCalled();
+  },
+);
+
+it("conceals an opt-out review after authoritative access denial", () => {
+  const view = render(ui());
+  fireEvent.change(optOutReason(), { target: { value: "Private reason" } });
+  openOptOut();
+  state.membershipError = {
+    message: "Access denied",
+    data: { code: "FORBIDDEN" },
+  };
+  view.rerender(ui());
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(state.optOut).not.toHaveBeenCalled();
+});
+
+it("shows a fresh pending request, preserves Recall, and permits a new deliberate request after recall", async () => {
+  state.refreshRequest.mockImplementationOnce(async () => {
+    state.request = { id: "request-1", kind: "OPT_OUT", eligibleAt: null };
+  });
+  const view = render(ui());
+  openOptOut();
+  fireEvent.click(confirmOptOut());
+  await screen.findByText(messages.tutor.settings.optOutSubmitted);
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: messages.actionReview.close,
+    }),
+  );
+  expect(
+    screen.getByText(messages.tutor.settings.optOutPendingNoDate),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: messages.tutor.settings.optOutBtn }),
+  ).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: messages.tutor.settings.recall }),
+  );
+  expect(state.recall).toHaveBeenCalledExactlyOnceWith({
+    requestId: "request-1",
+  });
+  // Model the existing recall's settled mutation and authoritative cleared read.
+  act(() => {
+    state.request = null;
+    state.recallSettled?.();
+  });
+  view.rerender(ui());
+  openOptOut();
+  expect(state.optOut).toHaveBeenCalledOnce();
+  fireEvent.click(confirmOptOut());
+  await waitFor(() => expect(state.optOut).toHaveBeenCalledTimes(2));
+  await screen.findByText(messages.tutor.settings.optOutSubmitted);
 });

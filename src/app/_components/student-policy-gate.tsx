@@ -294,7 +294,7 @@ function PolicyReview({
           {t("policyScrollHint")}
         </p>
       )}
-      <label className="flex items-start gap-3 text-sm">
+      <label className="flex min-h-11 items-start gap-3 text-sm">
         <input
           type="checkbox"
           checked={agreed}

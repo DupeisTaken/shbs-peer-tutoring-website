@@ -50,7 +50,7 @@ export function TranslationEditor({
     );
   if (!access.enter) return <p role="alert">{t("noAccess")}</p>;
   return (
-    <div className="space-y-6 [&_button:not([role=tab])]:min-h-11 lg:[&_button:not([role=tab])]:min-h-10 [&_input:not([type=checkbox])]:min-h-11 lg:[&_input:not([type=checkbox])]:min-h-9 [&_select]:min-h-11 lg:[&_select]:min-h-9">
+    <div className="space-y-6">
       <header className="space-y-2 border-b border-slate-200 pb-5">
         <p className="text-accent-700 text-xs font-semibold tracking-widest uppercase">
           {t("workspace")}

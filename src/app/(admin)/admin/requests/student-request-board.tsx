@@ -787,7 +787,7 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
       )}
       {row.reviews.some((r) => r.state !== "PENDING") && (
         <details className="text-sm">
-          <summary className="cursor-pointer text-slate-600">
+          <summary className="min-h-11 cursor-pointer py-3 text-slate-600 lg:min-h-0 lg:py-0">
             {t("reviewHistory")}
           </summary>
           <ul className="mt-3 space-y-2">

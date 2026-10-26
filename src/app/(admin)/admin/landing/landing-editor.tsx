@@ -354,10 +354,13 @@ function ContentLocaleEditor({
             <h2 className="section-title">
               {t(`admin.landing.groups.${group.key}.title`)}
             </h2>
-            <p className="muted mt-0.5 mb-3 text-sm">
-              {t(`admin.landing.groups.${group.key}.desc`)}
-            </p>
-            <div className="divide-y divide-slate-100">
+            {/* Retain placement guidance only where field labels do not explain the group. */}
+            {group.key !== "buttons" && group.key !== "footer" && (
+              <p className="muted mt-0.5 mb-3 text-sm">
+                {t(`admin.landing.groups.${group.key}.desc`)}
+              </p>
+            )}
+            <div className="mt-3 divide-y divide-slate-100">
               {group.fields.map((key) => {
                 const field = byKey.get(key);
                 if (!field) return null;
@@ -1580,7 +1583,7 @@ function SectionCard({
                 : t("admin.landing.sections.actions.show")}
             </button>
             {section.mode === "INLINE" && (
-              <label className="flex items-center gap-1.5 text-xs text-slate-600">
+              <label className="flex min-h-11 items-center gap-1.5 text-xs text-slate-600 lg:min-h-8">
                 <input
                   type="checkbox"
                   checked={section.openByDefault}
@@ -2218,7 +2221,7 @@ function ColumnsBlockEditor({
 
   return (
     <div className="space-y-3">
-      <label className="flex items-center gap-1.5 text-xs text-slate-600">
+      <label className="flex min-h-11 items-center gap-1.5 text-xs text-slate-600 lg:min-h-8">
         <input
           type="checkbox"
           checked={block.card ?? false}
@@ -2825,7 +2828,7 @@ function PageCard({
           </label>
           <PageTitleField page={page} locale={locale} setTitle={setTitle} />
           <PageSlugField page={page} update={update} />
-          <label className="flex items-center gap-1.5">
+          <label className="flex min-h-11 items-center gap-1.5 lg:min-h-10">
             <input
               type="checkbox"
               checked={page.showInNav}

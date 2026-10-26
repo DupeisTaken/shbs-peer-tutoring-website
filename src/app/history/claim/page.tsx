@@ -17,6 +17,11 @@ export default async function HistoryClaimPage({
   const params = await searchParams;
   const token = params.token ?? "";
   const invitationId = params.invitation;
+  // Match inspection precedence so a different capability owns a fresh client
+  // controller, including its confirmation, pending work and completion receipt.
+  const capabilityKey = invitationId
+    ? `invitation:${invitationId}`
+    : `token:${token}`;
   // Keep the exact claim through the existing two-step sign-in flow. The token is
   // data in a fixed local route, never an arbitrary redirect destination.
   const destination = invitationId
@@ -29,57 +34,63 @@ export default async function HistoryClaimPage({
       backLabel={t("back")}
       wide
     >
-      <div className="flex flex-wrap justify-end gap-2">
+      {/* Separate independent claim, account-setup and support sections at the feature boundary. */}
+      <div className="space-y-6">
         {session?.user && (
-          <form action={switchHistoryAccount.bind(null, token, invitationId)}>
-            <button className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0">
-              {t("switchAccount")}
-            </button>
-          </form>
+          <div className="flex flex-wrap justify-end gap-2">
+            <form action={switchHistoryAccount.bind(null, token, invitationId)}>
+              <button className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0">
+                {t("switchAccount")}
+              </button>
+            </form>
+          </div>
         )}
-      </div>
-      {session?.user ? (
-        <HistoryClaim
-          key={token || invitationId}
-          token={token}
-          invitationId={invitationId}
-        />
-      ) : (
-        <>
-          <section className="card space-y-4 p-5">
-            <p>{t("signInHelp")}</p>
-            <div className="flex flex-wrap gap-3">
-              <Link
-                className="btn-primary min-h-11"
-                href={`/signin?callbackUrl=${encodeURIComponent(destination)}`}
-              >
-                {t("signIn")}
-              </Link>
-              <Link className="btn-secondary min-h-11" href="/forgot-password">
-                {t("recoverAccount")}
-              </Link>
-            </div>
-          </section>
-          {!invitationId && <HistoryAccountSetup key={token} token={token} />}
-        </>
-      )}
-      <aside className="space-y-2 border-t border-slate-200 pt-4 text-sm">
-        <p>{t("historySupport")}</p>
-        {SUPPORT_EMAIL && (
-          <a
-            className="link inline-flex min-h-11 items-center break-all"
-            href={`mailto:${SUPPORT_EMAIL}`}
+        {session?.user ? (
+          <HistoryClaim
+            key={capabilityKey}
+            token={token}
+            invitationId={invitationId}
+          />
+        ) : (
+          <>
+            <section className="card space-y-4 p-5">
+              <p>{t("signInHelp")}</p>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  className="btn-primary min-h-11"
+                  href={`/signin?callbackUrl=${encodeURIComponent(destination)}`}
+                >
+                  {t("signIn")}
+                </Link>
+                <Link
+                  className="btn-secondary min-h-11"
+                  href="/forgot-password"
+                >
+                  {t("recoverAccount")}
+                </Link>
+              </div>
+            </section>
+            {!invitationId && <HistoryAccountSetup key={token} token={token} />}
+          </>
+        )}
+        <aside className="space-y-2 border-t border-slate-200 pt-4 text-sm">
+          <p>{t("historySupport")}</p>
+          {SUPPORT_EMAIL && (
+            <a
+              className="link inline-flex min-h-11 items-center break-all"
+              href={`mailto:${SUPPORT_EMAIL}`}
+            >
+              {SUPPORT_EMAIL}
+            </a>
+          )}
+          <Link
+            className="link inline-flex min-h-11 items-center"
+            href="/privacy"
           >
-            {SUPPORT_EMAIL}
-          </a>
-        )}
-        <Link
-          className="link inline-flex min-h-11 items-center"
-          href="/privacy"
-        >
-          {t("privacy")}
-        </Link>
-      </aside>
+            {t("privacy")}
+          </Link>
+        </aside>
+      </div>
     </PublicFormPage>
   );
 }

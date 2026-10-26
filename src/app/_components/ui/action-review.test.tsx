@@ -22,9 +22,11 @@ let revokeCurrent: () => void;
 function Example({
   repeat = false,
   primary = false,
+  successMessage,
 }: {
   repeat?: boolean;
   primary?: boolean;
+  successMessage?: string;
 }) {
   const review = useActionReview();
   useEffect(() => {
@@ -41,6 +43,7 @@ function Example({
             description: "The record will be permanently removed.",
             confirmLabel: "Delete record",
             confirmVariant: primary ? "primary" : undefined,
+            successMessage,
             renderResult: primary
               ? (result) =>
                   typeof result === "string" ? <p>{result}</p> : null
@@ -109,6 +112,24 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+
+it("describes a submitted request separately from its eventual effect and preserves read recovery", async () => {
+  refresh.mockRejectedValueOnce(new Error("Read failed"));
+  render(
+    <NextIntlClientProvider locale="en" timeZone="UTC" messages={en}>
+      <Example successMessage="Request submitted; membership remains active." />
+    </NextIntlClientProvider>,
+  );
+  open();
+  fireEvent.click(screen.getByRole("button", { name: "Delete record" }));
+  await screen.findByText(en.actionReview.refreshFailed);
+  expect(screen.queryByText("Request submitted; membership remains active.")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: en.actionReview.retry }));
+  await screen.findByText("Request submitted; membership remains active.");
+  expect(screen.queryByText(en.actionReview.applied)).toBeNull();
+  expect(commit).toHaveBeenCalledOnce();
+  expect(refresh).toHaveBeenCalledTimes(2);
+});
 
 it("revokes unsubmitted evidence and allows a fresh authorized review without a write", () => {
   show();

@@ -161,6 +161,45 @@ it("shows an existing appeal as already recorded after a fresh GET", async () =>
     fetchMock.mock.calls.some(([, options]) => options?.method === "POST"),
   ).toBe(false);
 });
+it.each(["en", "zh"] as const)(
+  "separates the submission receipt from each %s review outcome",
+  async (locale) => {
+    const messages = locale === "en" ? en : zh;
+    for (const [appealStatus, text, color] of [
+      ["DECLINED", messages.requestAppeal.statusDeclined, "bg-amber-50"],
+      ["PENDING", messages.requestAppeal.statusPending, "bg-slate-50"],
+      ["CLEARED", messages.requestAppeal.statusCleared, "bg-emerald-50"],
+    ]) {
+      fetchMock.mockImplementation(() => response({ ...ready, appealStatus }));
+      const page = render(ui("synthetic-capability", locale));
+      const decision = await screen.findByText(text!);
+      const receipt = screen
+        .getByText(messages.requestAppeal.submitted)
+        .closest('[role="status"]');
+      expect(decision.closest('[role="status"]')).not.toBe(receipt);
+      expect(
+        decision.closest('[role="status"]')?.classList.contains(color!),
+      ).toBe(true);
+      expect(receipt?.classList.contains("bg-slate-50")).toBe(true);
+      expect(screen.queryByRole("textbox")).toBeNull();
+      page.unmount();
+    }
+    expect(
+      fetchMock.mock.calls.some(([, options]) => options?.method === "POST"),
+    ).toBe(false);
+  },
+);
+
+it("labels the appeal once while preserving its guidance and pending fieldset", async () => {
+  fetchMock.mockImplementation(() => response(ready));
+  render(ui());
+  const input = await screen.findByRole("textbox", {
+    name: en.requestAppeal.body,
+  });
+  expect(screen.getAllByText(en.requestAppeal.body)).toHaveLength(1);
+  expect(input.getAttribute("aria-describedby")).toBe("request-appeal-help");
+  expect(input.closest("fieldset")).toBeTruthy();
+});
 it("treats throttling as recoverable instead of invalidating the capability", async () => {
   fetchMock
     .mockImplementationOnce(() => response({ status: "throttled" }, false))

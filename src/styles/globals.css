@@ -233,7 +233,8 @@
 
   /* Inline text links (table actions etc.) -------------------------------- */
   .link {
-    @apply text-accent-600 hover:text-accent-700 font-medium hover:underline;
+    /* Text links need readable contrast even in the lighter accent palettes. */
+    @apply text-accent-700 hover:text-accent-800 font-medium hover:underline;
   }
   .link-danger {
     /* Destructive text actions stay visibly red and unboxed, including on hover.
