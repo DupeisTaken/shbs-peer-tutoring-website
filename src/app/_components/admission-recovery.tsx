@@ -293,39 +293,41 @@ function RecoveryPlan({
           <pre className="overflow-x-auto rounded bg-slate-50 p-3 text-xs">
             {inspectCommand}
           </pre>
-          <Button
-            size="compact"
-            onClick={() => {
-              void (async () => {
-                try {
-                  await navigator.clipboard.writeText(
-                    JSON.stringify({ actionId: plan.actionId }),
-                  );
-                  setCopy("copied");
-                } catch {
-                  setCopy("failed");
-                }
-              })();
-            }}
-          >
-            {t("copyReference")}
-          </Button>
-          <Button
-            size="compact"
-            disabled={!copyCommandSafe}
-            onClick={() => {
-              void (async () => {
-                try {
-                  await navigator.clipboard.writeText(inspectCommand);
-                  setCopy("command");
-                } catch {
-                  setCopy("failed");
-                }
-              })();
-            }}
-          >
-            {t("copyCommand")}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="compact"
+              onClick={() => {
+                void (async () => {
+                  try {
+                    await navigator.clipboard.writeText(
+                      JSON.stringify({ actionId: plan.actionId }),
+                    );
+                    setCopy("copied");
+                  } catch {
+                    setCopy("failed");
+                  }
+                })();
+              }}
+            >
+              {t("copyReference")}
+            </Button>
+            <Button
+              size="compact"
+              disabled={!copyCommandSafe}
+              onClick={() => {
+                void (async () => {
+                  try {
+                    await navigator.clipboard.writeText(inspectCommand);
+                    setCopy("command");
+                  } catch {
+                    setCopy("failed");
+                  }
+                })();
+              }}
+            >
+              {t("copyCommand")}
+            </Button>
+          </div>
           {copy !== "ready" && (
             <p role="status">
               {t(
