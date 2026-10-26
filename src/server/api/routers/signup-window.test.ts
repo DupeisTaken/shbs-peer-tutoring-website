@@ -45,29 +45,32 @@ const coordinatorSession: Session = {
 };
 
 function context(db: unknown, session: Session | null) {
+  const actor = session ? {
+    id: session.user.id,
+    role: session.role,
+    tutorId: session.tutorId,
+    suspendedAt: null,
+    mergedIntoId: null,
+    name: session.user.name,
+    username: null,
+  } : null;
+  const findUser = vi.fn().mockResolvedValue(actor);
+  const lockActor = vi.fn().mockResolvedValue(actor ? [{ id: actor.id }] : []);
   return {
     db: {
       $executeRaw: vi.fn(),
+      // Window saves retain the actor row after the period barrier. Return the
+      // locked row identity, then let the separate User read supply live authority.
+      $queryRaw: lockActor,
       studentSignupIntent: { findUnique: vi.fn().mockResolvedValue(null) },
       signupLease: { findFirst: vi.fn().mockResolvedValue(null) },
       ...(db as object),
-      user: {
-        findUnique: vi.fn().mockResolvedValue(
-          session
-            ? {
-                role: session.role,
-                tutorId: session.tutorId,
-                suspendedAt: null,
-                name: session.user.name,
-                username: null,
-              }
-            : null,
-        ),
-      },
+      user: { findUnique: findUser },
       auditLog: { create: vi.fn().mockResolvedValue({}) },
     } as unknown as PrismaClient,
     session,
     headers: new Headers(),
+    fixtures: { actor, findUser, lockActor },
   };
 }
 
@@ -113,25 +116,24 @@ describe("tutee signup window procedures", () => {
     expect(findFirst).toHaveBeenCalledOnce();
   });
 
-  it("lets Head save the active quarter's opening time and preview link", async () => {
+  it.each(["ADMIN", "HEAD"] as const)("lets %s save the active quarter's opening time and preview link", async (role) => {
     const opensAt = new Date("2026-09-01T00:00:00Z");
     const update = vi.fn().mockResolvedValue({
       signupOpensAt: opensAt,
       signupPreviewUrl: "https://example.com/preview",
     });
-    const caller = createProgramCaller(
-      context(
-        {
-          term: {
-            findFirst: vi
-              .fn()
-              .mockResolvedValue({ id: "term-q3", quarter: "Q3" }),
-            update,
-          },
+    const ctx = context(
+      {
+        term: {
+          findFirst: vi
+            .fn()
+            .mockResolvedValue({ id: "term-q3", quarter: "Q3" }),
+          update,
         },
-        headSession,
-      ),
+      },
+      { ...headSession, role },
     );
+    const caller = createProgramCaller(ctx);
 
     await expect(
       caller.setSignupWindow({
@@ -151,9 +153,20 @@ describe("tutee signup window procedures", () => {
         },
       }),
     );
+    expect(ctx.db.$queryRaw).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.stringContaining("FOR SHARE")]),
+      headSession.user.id,
+    );
+    expect(ctx.db.user.findUnique).toHaveBeenCalledWith({
+      where: { id: headSession.user.id },
+      select: { id: true, name: true, username: true, role: true, suspendedAt: true, mergedIntoId: true },
+    });
+    expect(ctx.fixtures.lockActor.mock.invocationCallOrder[0]).toBeLessThan(
+      ctx.fixtures.findUser.mock.invocationCallOrder[1]!,
+    );
   });
 
-  it("allows scheduling without an external preview link", async () => {
+  it.each(["ADMIN", "HEAD"] as const)("allows %s to schedule without an external preview link", async (role) => {
     const update = vi.fn().mockResolvedValue({ id: "term" });
     const caller = createProgramCaller(
       context(
@@ -163,7 +176,7 @@ describe("tutee signup window procedures", () => {
             update,
           },
         },
-        headSession,
+        { ...headSession, role },
       ),
     );
     await caller.setSignupWindow({
@@ -181,6 +194,33 @@ describe("tutee signup window procedures", () => {
       caller.setSignupWindow({ opensAt: null, previewUrl: null }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+
+  it.each(["demoted", "suspended", "retired", "deleted"] as const)(
+    "rejects an admitted Admin whose current account becomes %s before the actor lock",
+    async (state) => {
+      const findFirst = vi.fn().mockResolvedValue({ id: "current" });
+      const update = vi.fn();
+      const ctx = context({ term: { findFirst, update } }, { ...headSession, role: "ADMIN" });
+      // Model a change committed during the barrier wait. Admission still sees
+      // the original Admin; the real post-lock User read must reject the new state.
+      ctx.fixtures.lockActor.mockImplementationOnce(() => {
+        const current = state === "deleted" ? null : {
+          ...ctx.fixtures.actor,
+          ...(state === "demoted" ? { role: "COORDINATOR" } : {}),
+          ...(state === "suspended" ? { suspendedAt: new Date() } : {}),
+          ...(state === "retired" ? { mergedIntoId: "surviving-login" } : {}),
+        };
+        ctx.fixtures.findUser.mockResolvedValue(current);
+        return Promise.resolve(current ? [{ id: headSession.user.id }] : []);
+      });
+      await expect(createProgramCaller(ctx).setSignupWindow({
+        audience: "tutee", expectedTermId: "current", opensAt: null, previewUrl: null,
+      })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect(ctx.fixtures.lockActor).toHaveBeenCalledOnce();
+      expect(findFirst).not.toHaveBeenCalled();
+      expect(update).not.toHaveBeenCalled();
+    },
+  );
 });
 
 const createTutorCaller = createCallerFactory(applicationRouter);
@@ -234,9 +274,11 @@ it.each(["paused", "scheduled", "ended", "no-period"])(
     expect(create).not.toHaveBeenCalled();
   },
 );
-it.each(["tutor", "tutee"] as const)(
-  "saves only the %s schedule and prevents invalid/stale writes",
-  async (audience) => {
+it.each((["ADMIN", "HEAD"] as const).flatMap((role) =>
+  (["tutor", "tutee"] as const).map((audience) => ({ role, audience })),
+))(
+  "lets $role save only the $audience schedule and prevents invalid/stale writes",
+  async ({ role, audience }) => {
     const update = vi.fn().mockResolvedValue({ id: "current" });
     const caller = createProgramCaller(
       context(
@@ -246,7 +288,7 @@ it.each(["tutor", "tutee"] as const)(
             update,
           },
         },
-        headSession,
+        { ...headSession, role },
       ),
     );
     const input = {

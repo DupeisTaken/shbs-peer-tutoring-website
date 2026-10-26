@@ -72,6 +72,7 @@ const fixture = vi.hoisted(() => {
     realTutorDetails: false,
     tutorDetailRead: vi.fn(),
     profileWrite: vi.fn(),
+    membershipEditor: vi.fn(),
     rejectProfileWrite: undefined as undefined | (() => void),
     extraTutorDestinations: [] as {
       tutorId: string;
@@ -435,7 +436,7 @@ vi.mock("~/app/_components/school-departure", () => ({
   SchoolDeparturePanel: () => null,
 }));
 vi.mock("~/app/_components/membership-editor", () => ({
-  MembershipEditor: () => null,
+  MembershipEditor: (props: { isHead?: boolean; canApply?: boolean }) => { fixture.membershipEditor(props); return null; },
 }));
 vi.mock("~/app/_components/account-username-editor", () => ({
   AccountUsernameEditor: () => null,
@@ -512,6 +513,7 @@ beforeEach(() => {
   fixture.realTutorDetails = false;
   fixture.tutorDetailRead.mockClear();
   fixture.profileWrite.mockClear();
+  fixture.membershipEditor.mockClear();
   fixture.rejectProfileWrite = undefined;
   fixture.extraTutorDestinations = [];
   fixture.combinedVerified = new Date("2026-09-01");
@@ -1097,10 +1099,10 @@ it("preserves a usable focus target chosen as the directory reader closes", asyn
   expect(focus).not.toHaveBeenCalled();
 });
 
-it.each(["ADMIN", "COORDINATOR"])(
-  "explains Head-only accountless provisioning to %s while preserving existing setup resends",
-  (role) => {
-    fixture.role = role;
+it(
+  "withholds initial accountless provisioning from Coordinators while preserving existing setup resends",
+  () => {
+    fixture.role = "COORDINATOR";
     fixture.combinedUserId = null;
     fixture.combinedAccount = "none";
     directoryArrival("synthetic-tutor");
@@ -1136,7 +1138,8 @@ it.each(["ADMIN", "COORDINATOR"])(
   },
 );
 
-it("lets Head deliberately start accountless setup and retains the target beside a visible failure", () => {
+it.each(["HEAD", "ADMIN"])("lets %s deliberately start accountless setup and retains the target beside a visible failure", (role) => {
+  fixture.role = role;
   fixture.combinedUserId = null;
   fixture.combinedAccount = "none";
   directoryArrival("synthetic-tutor");
@@ -1490,15 +1493,27 @@ it("releases the filter restriction when a role change removes pending combine c
   expect(screen.getByRole("searchbox").matches(":disabled")).toBe(false);
 });
 
-it("keeps account profiles and ranks out of Coordinator edit actions", () => {
-  fixture.role = "COORDINATOR";
+it.each(["HEAD", "ADMIN", "COORDINATOR"])("offers %s the permitted profile action while preserving management-rank authority", (role) => {
+  fixture.role = role;
+  fixture.realDetails = true;
   mount();
   const management = screen.getByText("Management account").closest("tr")!;
-  expect(
-    within(management).queryByRole("button", {
-      name: messages.accountProfile.editProfile,
-    }),
-  ).toBeNull();
+  fireEvent.click(within(management).getByRole("button", { name: messages.accountProfile.editProfile }));
+  const dialog = within(screen.getByRole("dialog", { name: messages.accountProfile.editProfile }));
+  expect(dialog.getByRole("button", {
+    name: role === "COORDINATOR" ? messages.approvals.requestAdmin : messages.accountProfile.save,
+  })).toBeTruthy();
+  if (role === "COORDINATOR") {
+    // The production profile form suppresses membership editing for an existing
+    // management rank; opening identity evidence never grants role authority.
+    expect(fixture.membershipEditor).not.toHaveBeenCalled();
+  } else {
+    expect(fixture.membershipEditor).toHaveBeenCalledWith(expect.objectContaining({
+      canApply: true, isHead: role === "HEAD",
+    }));
+  }
+  expect(fixture.profileWrite).not.toHaveBeenCalled();
+  expect(fixture.delete).not.toHaveBeenCalled();
 });
 
 it("composes saved identity search with existing roster scope and restores it on clear", () => {
@@ -1621,7 +1636,7 @@ it("closes accepted deletion and refreshes once without replaying the write", as
   expect(fixture.refresh).toHaveBeenCalledTimes(1);
   expect(fixture.delete).toHaveBeenCalledTimes(1);
 });
-it.each(["ADMIN", "COORDINATOR", "VIEWER"])(
+it.each(["COORDINATOR", "VIEWER"])(
   "offers no account deletion to %s",
   (role) => {
     fixture.role = role;
@@ -1631,9 +1646,19 @@ it.each(["ADMIN", "COORDINATOR", "VIEWER"])(
     ).toBeNull();
   },
 );
-it.each(["self", "head"])(
-  "withholds account deletion for a %s target",
-  (kind) => {
+it.each(["HEAD", "ADMIN"])("lets %s review account deletion while requiring a fresh password before any write", (role) => {
+  fixture.role = role;
+  mount();
+  openDeletion();
+  const dialog = within(screen.getByRole("dialog", { name: messages.admin.users.confirm.deleteTitle }));
+  expect(dialog.getByRole<HTMLButtonElement>("button", { name: messages.admin.users.delete }).disabled).toBe(true);
+  expect(dialog.getByLabelText<HTMLInputElement>(messages.admin.users.confirm.passwordLabel).value).toBe("");
+  expect(fixture.delete).not.toHaveBeenCalled();
+});
+it.each([["HEAD", "self"], ["HEAD", "head"], ["ADMIN", "self"], ["ADMIN", "head"]])(
+  "withholds %s account deletion for a %s target",
+  (role, kind) => {
+    fixture.role = role;
     fixture.targetSelf = kind === "self";
     fixture.targetRole = kind === "head" ? "HEAD" : "ADMIN";
     mount();
