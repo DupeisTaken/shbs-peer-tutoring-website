@@ -326,7 +326,7 @@ it("uses Chinese copy and keyboard Escape returns cancellation without saving", 
   expect(state.save).not.toHaveBeenCalled();
 });
 
-it("blocks an allowed registration destination through both a deferred write and deferred refresh", async () => {
+it("blocks the account setup popup through both a deferred write and deferred refresh", async () => {
   let finishWrite!: (result: unknown) => void;
   let finishRefresh!: () => void;
   state.save.mockImplementationOnce(
@@ -352,9 +352,9 @@ it("blocks an allowed registration destination through both a deferred write and
   );
   expect(
     screen
-      .getByRole("link", { name: en.interviewReview.registrationAction })
-      .getAttribute("href"),
-  ).toBe(href);
+      .getByRole("button", { name: en.interviewReview.registrationAction })
+      .hasAttribute("disabled"),
+  ).toBe(false);
   edit();
   fireEvent.click(
     screen.getByRole("button", { name: en.interviewReview.review }),
@@ -362,26 +362,25 @@ it("blocks an allowed registration destination through both a deferred write and
   fireEvent.click(
     screen.getByRole("button", { name: en.interviewReview.confirmAward }),
   );
-  const pendingLink = screen.getByRole("link", {
+  const pendingLink = screen.getByRole("button", {
     name: en.interviewReview.registrationAction,
   });
-  expect(pendingLink.getAttribute("aria-disabled")).toBe("true");
-  expect(pendingLink.getAttribute("href")).toBeNull();
+  expect(pendingLink.hasAttribute("disabled")).toBe(true);
   fireEvent.click(pendingLink);
   finishWrite({ ok: true });
   await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
   expect(
     screen
-      .getByRole("link", { name: en.interviewReview.registrationAction })
-      .getAttribute("aria-disabled"),
-  ).toBe("true");
+      .getByRole("button", { name: en.interviewReview.registrationAction })
+      .hasAttribute("disabled"),
+  ).toBe(true);
   finishRefresh();
   await waitFor(() =>
     expect(
       screen
-        .getByRole("link", { name: en.interviewReview.registrationAction })
-        .getAttribute("href"),
-    ).toBe(href),
+        .getByRole("button", { name: en.interviewReview.registrationAction })
+        .hasAttribute("disabled"),
+    ).toBe(false),
   );
   expect(state.save).toHaveBeenCalledTimes(1);
 });

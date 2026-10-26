@@ -9,7 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import UsersPage from "../(admin)/admin/users/page";
 import TutorsPage from "../(admin)/admin/tutors/page";
@@ -31,6 +31,10 @@ const state = vi.hoisted(() => ({
   tuteeHistory: vi.fn(),
   personalHistory: vi.fn(),
   accountDetails: vi.fn(),
+  combineCandidates: vi.fn(),
+  combine: vi.fn(),
+  combinePreview: vi.fn(),
+  combineReceipt: vi.fn(),
   tutors: [
     {
       id: "tutor",
@@ -148,6 +152,12 @@ vi.mock("~/trpc/react", async () => ({
         { get: () => ({ invalidate: async () => undefined }) },
       ),
       tuteeHistory: { invalidate: async () => undefined },
+      historicalAcademics: { invalidate: async () => undefined },
+      personCombine: {
+        candidates: { invalidate: async () => undefined },
+        preview: { fetch: state.combinePreview },
+        receipt: { fetch: state.combineReceipt },
+      },
     }),
     program: {
       ...(
@@ -171,9 +181,19 @@ vi.mock("~/trpc/react", async () => ({
         }),
       },
     },
-    accountCombine: {
-      candidates: { useQuery: () => ({ data: [] }) },
-      combine: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+    personCombine: {
+      candidates: {
+        useQuery: (input: unknown, options: { enabled: boolean }) =>
+          useQuery({
+            queryKey: ["personCombine.candidates", input],
+            queryFn: async () =>
+              (await state.combineCandidates(input)) as unknown[],
+            ...options,
+          }),
+      },
+      combine: {
+        useMutation: () => ({ mutate: state.combine, isPending: false }),
+      },
     },
     admin: {
       previewDeleteUser: {
@@ -323,6 +343,8 @@ beforeEach(() => {
   state.callerRole = "HEAD";
   localStorage.clear();
   vi.clearAllMocks();
+  state.combineCandidates.mockResolvedValue([]);
+  state.combineReceipt.mockResolvedValue(null);
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
     configurable: true,
     value: function (this: HTMLDialogElement) {
@@ -368,7 +390,10 @@ beforeEach(() => {
     data: { attached: [], retained: [], membership: null },
   });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  queryClient.clear();
+});
 
 /** A behavioral layout contract: an unfamiliar row has one predictable place for every action. */
 function expectTrailingActions(table: HTMLElement) {
@@ -389,6 +414,22 @@ function rowFor(table: HTMLElement, name: string) {
 }
 
 describe("people summary tables", () => {
+  it("keeps the real Users grouping query idle until opened and never writes while browsing", async () => {
+    render(<UsersPage />, { wrapper });
+    const open = screen.getByRole("button", { name: en.combineRecords.open });
+    expect(open.getAttribute("aria-expanded")).toBe("false");
+    expect(state.combineCandidates).not.toHaveBeenCalled();
+    expect(state.combine).not.toHaveBeenCalled();
+    fireEvent.click(open);
+    await screen.findByText(en.combineRecords.noResults);
+    expect(state.combineCandidates).toHaveBeenCalledOnce();
+    expect(state.combineCandidates).toHaveBeenCalledWith({ search: "" });
+    fireEvent.click(screen.getByRole("button", { name: en.combineRecords.close }));
+    expect(state.combine).not.toHaveBeenCalled();
+    expect(state.combinePreview).not.toHaveBeenCalled();
+    expect(state.combineReceipt).not.toHaveBeenCalled();
+  });
+
   it("reviews tutee deletion with the participant name and preserves cancellation", async () => {
     render(<TuteesPage />, { wrapper });
     const table = screen.getByRole("table", {

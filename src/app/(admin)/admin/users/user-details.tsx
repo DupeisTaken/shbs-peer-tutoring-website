@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import {
@@ -20,11 +20,20 @@ import { useReadOnly } from "~/app/_components/read-only";
 import { LoginSetup, MembershipBadges } from "./presentation";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { participantNameLabel } from "~/app/_components/participant-name";
+import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
+import { accountMembership } from "~/lib/account-membership";
 
-type AccountRow = RouterOutputs["admin"]["accounts"]["rows"][number];
+type DirectoryRow = RouterOutputs["admin"]["accounts"]["rows"][number];
+type AccountRow = { [Key in keyof DirectoryRow]: DirectoryRow[Key] };
 type Profile = RouterOutputs["admin"]["accountDetails"]["attached"][number];
 
-export function UserDetails({ row }: { row: AccountRow }) {
+export function UserDetails({
+  row,
+  onOpenChange,
+}: {
+  row: AccountRow;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const t = useTranslations();
   const displayName = participantNameLabel(
     row.name,
@@ -33,6 +42,13 @@ export function UserDetails({ row }: { row: AccountRow }) {
   );
   const readOnly = useReadOnly();
   const [open, setOpen] = useState(false);
+  // An already-open reader/editor owns focus even if browser history selects a
+  // different source behind it. Closing or access-driven unmount releases it.
+  useEffect(() => {
+    if (!open) return;
+    onOpenChange?.(true);
+    return () => onOpenChange?.(false);
+  }, [open, onOpenChange]);
   if (readOnly) return null;
   return (
     <>
@@ -80,10 +96,17 @@ function DetailSection({
 function UserDetailContent({ row }: { row: AccountRow }) {
   const t = useTranslations();
   const query = api.admin.accountDetails.useQuery(
-    row.userId ? { userId: row.userId } : { tutorId: row.tutorId! },
+    row.userId
+      ? { userId: row.userId }
+      : row.tutorId
+        ? { tutorId: row.tutorId }
+        : { tuteeId: row.tuteeId! },
     { refetchOnMount: "always" },
   );
   const data = query.data;
+  const denied =
+    query.error?.data?.code === "FORBIDDEN" ||
+    query.error?.data?.code === "UNAUTHORIZED";
   return (
     <div className="space-y-5">
       {query.error && (
@@ -104,13 +127,18 @@ function UserDetailContent({ row }: { row: AccountRow }) {
       {!data && !query.error && (
         <StatePanel kind="loading" title={t("common.loading")} />
       )}
-      {data && query.isFetching && (
+      {!denied && data && query.isFetching && (
         <p role="status" className="muted text-sm">
           {t("common.loading")}
         </p>
       )}
-      {data && (
+      {!denied && data && (
         <>
+          {data.group &&
+            data.group.users.length +
+              data.group.tutors.length +
+              data.group.tutees.length >
+              1 && <CombinedPersonDetails group={data.group} />}
           <DetailSection title={t("usersDirectory.login")}>
             <LoginSetup account={row.account} suspended={!!data.suspendedAt} />
             <p className="muted">
@@ -221,6 +249,124 @@ function UserDetailContent({ row }: { row: AccountRow }) {
         </>
       )}
     </div>
+  );
+}
+
+/** Group details keep every live profile reachable without treating directory
+ * consolidation as shared login access or replacing original participation. */
+function CombinedPersonDetails({
+  group,
+}: {
+  group: NonNullable<RouterOutputs["admin"]["accountDetails"]["group"]>;
+}) {
+  const t = useTranslations();
+  const directory = api.admin.accounts.useQuery();
+  const canEdit = ["HEAD", "ADMIN"].includes(directory.data?.caller.role ?? "");
+  const [editing, setEditing] = useState<string | null>(null);
+  const [student, setStudent] = useState<string | null>(null);
+  const login = group.users.find((user) => user.id === editing);
+  return (
+    <DetailSection title={t("usersDirectory.combinedPerson")}>
+      <p className="muted">{t("usersDirectory.combinedPersonHelp")}</p>
+      {group.resolutionState === "REVIEW_REQUIRED" && (
+        <p role="status" className="rounded-lg bg-amber-50 p-3 text-amber-900">
+          {t("usersDirectory.participationReviewRequired")}
+        </p>
+      )}
+      {!!group.users.length && (
+        <SummaryTable label={t("usersDirectory.groupLogins")}>
+          <thead>
+            <tr>
+              <th>{t("usersDirectory.groupLogins")}</th>
+              <th>{t("tablePatterns.actions")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {group.users.map((user) => (
+              <tr key={user.id}>
+                <td>
+                  <p className="font-medium">{user.name ?? user.email}</p>
+                  <p className="muted text-xs break-all">{user.email}</p>
+                </td>
+                <TableActions>
+                  {canEdit && (
+                    <TableAction onClick={() => setEditing(user.id)}>
+                      {t("accountProfile.editProfile")}
+                    </TableAction>
+                  )}
+                </TableActions>
+              </tr>
+            ))}
+          </tbody>
+        </SummaryTable>
+      )}
+      <SummaryTable label={t("usersDirectory.groupRecords")}>
+        <thead>
+          <tr>
+            <th>{t("usersDirectory.groupRecords")}</th>
+            <th>{t("usersDirectory.lifecycle")}</th>
+            <th>{t("tablePatterns.actions")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {group.tutors.map((tutor) => (
+            <tr key={`tutor:${tutor.id}`}>
+              <td>
+                <p className="font-medium">{tutor.englishName}</p>
+                <p className="muted text-xs break-all">
+                  {t("admin.users.roles.TUTOR")} · {tutor.id}
+                </p>
+              </td>
+              <td>{t(`usersDirectory.status.${tutor.status}`)}</td>
+              <TableActions>
+                <TutorDetailsButton
+                  tutorId={tutor.id}
+                  name={tutor.englishName}
+                />
+              </TableActions>
+            </tr>
+          ))}
+          {group.tutees.map((tutee) => (
+            <tr key={`tutee:${tutee.id}`}>
+              <td>
+                <p className="font-medium">{tutee.englishName}</p>
+                <p className="muted text-xs break-all">
+                  {t("admin.users.roles.STUDENT")} · {tutee.id}
+                </p>
+              </td>
+              <td>{t(`usersDirectory.status.${tutee.status}`)}</td>
+              <TableActions>
+                <TableAction onClick={() => setStudent(tutee.id)}>
+                  {t("tuteeHistory.details")}
+                </TableAction>
+              </TableActions>
+            </tr>
+          ))}
+        </tbody>
+      </SummaryTable>
+      {canEdit && login && (
+        <AccountProfileEditor
+          profile={{
+            ...login,
+            userId: login.id,
+            name: login.name ?? login.email,
+          }}
+          membership={accountMembership({
+            ...login,
+            tutorStatus: login.tutor?.status,
+          })}
+          isHead={directory.data?.caller.role === "HEAD"}
+          canRequestHead={directory.data?.caller.role === "ADMIN"}
+          onClose={() => setEditing(null)}
+        />
+      )}
+      {student && (
+        <TuteeHistoryDialog
+          tuteeId={student}
+          onClose={() => setStudent(null)}
+        />
+      )}
+    </DetailSection>
   );
 }
 

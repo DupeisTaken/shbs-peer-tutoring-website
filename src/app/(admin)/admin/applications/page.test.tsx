@@ -18,23 +18,36 @@ import { ReadOnlyProvider } from "~/app/_components/read-only";
 import { projectManagementRead } from "~/server/management-read-models";
 import { applicationRow, PRIVATE } from "~/test/management-read-fixtures";
 
-const mocks = vi.hoisted(() => ({
-  enabled: true,
-  history: vi.fn(),
-  invalidate: vi.fn(),
-  additional: false,
-  role: "HEAD",
-  decide: vi.fn(),
-  minimized: false,
-  invalid: false,
-  name: "Candidate One",
-  changeInvalidity: vi.fn(),
-  fetchApplications: vi.fn(),
-  success: undefined as undefined | (() => Promise<void>),
-  invalidateApplications: vi.fn<InvalidationTarget["invalidate"]>(),
-  invalidateOptions: vi.fn<InvalidationTarget["invalidate"]>(),
-  invalidateInterviews: vi.fn<InvalidationTarget["invalidate"]>(),
-}));
+const mocks = vi.hoisted(() => {
+  const navigation: {
+    promotedTutorId: string | null;
+    setupTutorId: string | null;
+  } = {
+    promotedTutorId: "promoted-tutor",
+    setupTutorId: "promoted-tutor",
+  };
+  return {
+    ...navigation,
+    enabled: true,
+    history: vi.fn(),
+    invalidate: vi.fn(),
+    additional: false,
+    interview: false,
+    role: "HEAD",
+    decide: vi.fn(),
+    minimized: false,
+    invalid: false,
+    name: "Candidate One",
+    setupRead: vi.fn(),
+    setupState: "active",
+    changeInvalidity: vi.fn(),
+    fetchApplications: vi.fn(),
+    success: undefined as undefined | (() => Promise<void>),
+    invalidateApplications: vi.fn<InvalidationTarget["invalidate"]>(),
+    invalidateOptions: vi.fn<InvalidationTarget["invalidate"]>(),
+    invalidateInterviews: vi.fn<InvalidationTarget["invalidate"]>(),
+  };
+});
 vi.mock("~/app/_components/confirm-dialog", () => ({
   useDialog: () => ({ confirm: vi.fn(), dialog: null }),
 }));
@@ -98,6 +111,30 @@ vi.mock("~/trpc/react", () => ({
       features: { useQuery: () => ({ data: { INTERVIEWS: mocks.enabled } }) },
     },
     admin: {
+      applicationAccountSetup: {
+        useQuery: (input: { applicationId: string }) => {
+          mocks.setupRead(input);
+          return {
+            data: {
+              state: mocks.setupState,
+              tutorId: mocks.setupTutorId,
+              account: null,
+              invitation:
+                mocks.setupState === "active"
+                  ? {
+                      id: "existing-code",
+                      code: "ABCDE",
+                      expiresAt: new Date("2099-01-01"),
+                    }
+                  : null,
+            },
+            isSuccess: true,
+            isFetching: false,
+            error: null,
+            refetch: vi.fn(),
+          };
+        },
+      },
       tutorApplications: {
         useQuery: () => ({
           data: mocks.minimized
@@ -116,6 +153,8 @@ vi.mock("~/trpc/react", () => ({
                   invalidityVersion: mocks.invalid ? 1 : 0,
                   type: mocks.additional ? "ADDITIONAL_SUBJECT" : "INITIAL",
                   requestedTutorId: mocks.additional ? "candidate-tutor" : null,
+                  promotedTutorId: mocks.promotedTutorId,
+                  setupTutorId: mocks.setupTutorId,
                   qualificationReason: mocks.additional
                     ? "New subject evidence"
                     : null,
@@ -123,9 +162,15 @@ vi.mock("~/trpc/react", () => ({
                   name: mocks.name,
                   email: "candidate@example.test",
                   preferredContact: null,
-                  status: mocks.additional ? "PENDING" : "ACCEPTED",
+                  status: mocks.interview
+                    ? "INTERVIEW"
+                    : mocks.additional
+                      ? "PENDING"
+                      : "ACCEPTED",
                   updatedAt: new Date("2026-09-01"),
                   interviewAt: null,
+                  interviewCompletedAt: null,
+                  interviewDurationMin: null,
                   subjectIntents: mocks.additional
                     ? [
                         {
@@ -143,23 +188,35 @@ vi.mock("~/trpc/react", () => ({
                         },
                       ]
                     : [],
-                  interviewers: mocks.additional
-                    ? []
-                    : [
-                        {
-                          isHead: true,
-                          tutor: { id: "chair", englishName: "Panel Chair" },
-                        },
-                      ],
-                  votes: mocks.additional
-                    ? []
-                    : [
-                        {
-                          accept: true,
-                          comment: "Preserved vote",
-                          tutor: { englishName: "Panel Chair" },
-                        },
-                      ],
+                  interviewers: mocks.interview
+                    ? ["chair", "second", "third"].map((id) => ({
+                        isHead: id === "chair",
+                        attended: false,
+                        tutor: { id, englishName: id },
+                      }))
+                    : mocks.additional
+                      ? []
+                      : [
+                          {
+                            isHead: true,
+                            tutor: { id: "chair", englishName: "Panel Chair" },
+                          },
+                        ],
+                  votes: mocks.interview
+                    ? ["chair", "second", "third"].map((id) => ({
+                        accept: true,
+                        comment: "Reviewed",
+                        tutor: { englishName: id },
+                      }))
+                    : mocks.additional
+                      ? []
+                      : [
+                          {
+                            accept: true,
+                            comment: "Preserved vote",
+                            tutor: { englishName: "Panel Chair" },
+                          },
+                        ],
                   decisionComment: mocks.additional
                     ? null
                     : "Preserved decision",
@@ -201,10 +258,14 @@ beforeEach(() => {
   ]);
   mocks.enabled = true;
   mocks.additional = false;
+  mocks.interview = false;
   mocks.role = "HEAD";
   mocks.minimized = false;
   mocks.invalid = false;
   mocks.name = "Candidate One";
+  mocks.promotedTutorId = "promoted-tutor";
+  mocks.setupTutorId = "promoted-tutor";
+  mocks.setupState = "active";
 });
 afterEach(cleanup);
 it("presents an accountless blank-name application without treating its label as searchable intake data", () => {
@@ -232,9 +293,9 @@ const show = (viewer = false) => {
   return view;
 };
 
-it("puts account navigation before boxed decisions and Delete last in keyboard order", () => {
+it("puts the account popup action before boxed decisions and Delete last in keyboard order", () => {
   show();
-  const setup = screen.getByRole("link", {
+  const setup = screen.getByRole("button", {
     name: en.admin.applications.setupAccount,
   });
   const actions = setup.parentElement!;
@@ -248,7 +309,45 @@ it("puts account navigation before boxed decisions and Delete last in keyboard o
     en.requestInvalidity.flag,
     en.admin.applications.delete,
   ]);
-  expect(setup.getAttribute("href")).toBe("/admin/users");
+  expect(setup.getAttribute("aria-haspopup")).toBe("dialog");
+  expect(mocks.setupRead).not.toHaveBeenCalled();
+});
+
+it("opens the exact application popup even when no tutor link exists", () => {
+  mocks.promotedTutorId = null;
+  mocks.setupTutorId = null;
+  mocks.setupState = "missing";
+  show();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.applications.setupAccount }),
+  );
+  expect(mocks.setupRead).toHaveBeenCalledWith({ applicationId: "candidate" });
+  expect(screen.getByText(en.applicationAccountSetup.missing)).toBeTruthy();
+  expect(screen.queryByText("ABCDE")).toBeNull();
+});
+
+it("shows the existing application code when the promotion column is empty", () => {
+  mocks.promotedTutorId = null;
+  mocks.setupTutorId = "legacy-code-tutor";
+  show();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.applications.setupAccount }),
+  );
+  expect(mocks.setupRead).toHaveBeenCalledWith({ applicationId: "candidate" });
+  expect(screen.getByText("ABCDE")).toBeTruthy();
+});
+
+it("withholds account setup navigation from read-only application observers", () => {
+  show(true);
+  expect(
+    screen.queryByRole("button", {
+      name: en.admin.applications.setupAccount,
+    }),
+  ).toBeNull();
+  expect(mocks.setupRead).not.toHaveBeenCalled();
+  expect(
+    screen.queryByText(en.admin.applications.setupTargetUnavailable),
+  ).toBeNull();
 });
 
 it("retains an open invalidity draft and its version when a background flag removes the application from its filter", async () => {
@@ -413,7 +512,7 @@ it("keeps flagged interview evidence visible while hiding panel processing contr
   expect(screen.queryByText("Private duplicate reason")).toBeNull();
   expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
   expect(
-    screen.queryByRole("link", { name: en.admin.applications.setupAccount }),
+    screen.queryByRole("button", { name: en.admin.applications.setupAccount }),
   ).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
   expect(screen.queryByRole("button", { name: "Add Interviewer" })).toBeNull();
@@ -489,6 +588,55 @@ it("does not expose additional request decisions or panel setup to Coordinators"
   expect(
     screen.getByText("Another Admin or Head must review this request."),
   ).toBeTruthy();
+});
+
+it("keeps an open interview approval draft mounted when its application leaves the current filter", () => {
+  mocks.additional = true;
+  mocks.interview = true;
+  show();
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  fireEvent.change(screen.getByLabelText("Decision note"), {
+    target: { value: "Ready for the next subject" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Approve qualification" }),
+  );
+  const dialog = screen.getByRole("dialog", {
+    name: "Approve Interview · Candidate One",
+  });
+  expect(dialog).toBeTruthy();
+  // A filter change (or equivalent background status transition) cannot discard
+  // the open form's captured evidence before its own cancellation/close boundary.
+  fireEvent.change(screen.getByRole("combobox", { name: "Sort by" }), {
+    target: { value: "COMPLETED_DESC" },
+  });
+  fireEvent.change(
+    screen.getByRole("combobox", { name: "Interview completion" }),
+    {
+      target: { value: "COMPLETED" },
+    },
+  );
+  expect(
+    screen.getByRole("dialog", { name: "Approve Interview · Candidate One" }),
+  ).toBe(dialog);
+  expect(
+    within(dialog).getByDisplayValue("Ready for the next subject"),
+  ).toBeTruthy();
+  fireEvent.change(screen.getByRole("searchbox", { name: "Name or email" }), {
+    target: { value: "No matching name" },
+  });
+  expect(
+    screen.getByRole("dialog", { name: "Approve Interview · Candidate One" }),
+  ).toBe(dialog);
+  expect(
+    within(dialog).getByDisplayValue("Ready for the next subject"),
+  ).toBeTruthy();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  expect(
+    screen.queryByRole("dialog", { name: "Approve Interview · Candidate One" }),
+  ).toBeNull();
+  expect(screen.queryByRole("button", { name: /Candidate One/ })).toBeNull();
+  expect(mocks.decide).not.toHaveBeenCalled();
 });
 
 it.each([

@@ -12,6 +12,8 @@ vi.mock("~/server/email/sender", () => ({
 import { createCaller } from "../root";
 import { db } from "~/server/db";
 import { hashPassword } from "~/server/auth/password";
+import { promoteEmail } from "~/server/auth/account-emails";
+import { lockAccountProfile } from "~/server/account-profile";
 import { recordCsv } from "~/lib/record-transfer";
 const password = "Synthetic-Head-Password-2026!";
 const caller = (id = "admin", role: Session["role"] = "ADMIN") =>
@@ -110,6 +112,11 @@ const files = () => [
   ]),
 ];
 beforeEach(async () => {
+  // Each database fixture recreates the same actors; request budgets belong to
+  // that fixture too, rather than accumulating across unrelated link scenarios.
+  (
+    globalThis as { rateLimitStore?: Map<string, unknown> }
+  ).rateLimitStore?.clear();
   // Invitations require an origin even when delivery is mocked. Never rely on a
   // developer's .env: CI intentionally starts without an application origin.
   vi.stubEnv("AUTH_URL", "https://history.example.test");
@@ -175,6 +182,7 @@ const link = async (id = "admin", userId = "student") => {
   const input = { tuteeId: "past", userId };
   const preview = await caller(id).tuteeHistory.preview(input);
   return caller(id).tuteeHistory.link({
+    acknowledged: true,
     ...input,
     fingerprint: preview.fingerprint,
     reason,
@@ -199,6 +207,31 @@ const invite = async (email = "student@example.test") => {
   const text = message.text;
   return /token=([a-f0-9]{64})/.exec(text)![1]!;
 };
+
+it("rejects an invitation claim when the unowned record was subsequently grouped with another live login", async () => {
+  const token = await invite();
+  const record = await db.tutee.findUniqueOrThrow({ where: { id: "past" } });
+  const person = await db.person.create({ data: { primaryUserId: "other" } });
+  await db.user.update({
+    where: { id: "other" },
+    data: { personId: person.id },
+  });
+  // Grouping is metadata: do not make this test pass merely by invalidating the
+  // invitation's original roster timestamp.
+  await db.$executeRaw`UPDATE "Tutee" SET "personId"=${person.id} WHERE id='past'`;
+  await expect(
+    caller("student", "STUDENT").tuteeHistory.claim({ token }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await db.studentProfileOwnership.count()).toBe(0);
+  expect(await db.tutee.findUnique({ where: { id: "past" } })).toMatchObject({
+    personId: person.id,
+    updatedAt: record.updatedAt,
+  });
+  expect(await db.user.findUnique({ where: { id: "student" } })).toMatchObject({
+    personId: null,
+  });
+});
+
 it("imports all historical record families without participant logins and preserves them through linking and reimport", async () => {
   expect(await db.user.count()).toBe(6);
   expect(
@@ -213,14 +246,17 @@ it("imports all historical record families without participant logins and preser
   expect(preview.record.sessions).toBe(1);
   expect(await db.studentProfileOwnership.count()).toBe(0);
   await caller().tuteeHistory.link({
+    acknowledged: true,
     ...pair,
     fingerprint: preview.fingerprint,
     reason,
   });
   expect(await events()).toEqual(before);
-  expect(await db.user.findUnique({ where: { id: "student" } })).toEqual(
-    account,
-  );
+  const linkedAccount = await db.user.findUniqueOrThrow({
+    where: { id: "student" },
+  });
+  expect(linkedAccount.personId).toEqual(expect.any(String));
+  expect({ ...linkedAccount, personId: account?.personId }).toEqual(account);
   expect(
     await db.studentProfileOwnership.findUnique({ where: { tuteeId: "past" } }),
   ).toMatchObject({ userId: "student" });
@@ -259,6 +295,7 @@ it("rejects stale previews, active enrollment, unverified and suspended targets"
   });
   await expect(
     caller().tuteeHistory.link({
+      acknowledged: true,
       ...pair,
       fingerprint: preview.fingerprint,
       reason,
@@ -287,12 +324,118 @@ it("rejects stale previews, active enrollment, unverified and suspended targets"
   }
   expect(await db.studentProfileOwnership.count()).toBe(0);
 });
+it("rejects a reviewed target after its verified primary email changes", async () => {
+  const preview = await caller().tuteeHistory.preview(pair);
+  const before = await db.user.findUniqueOrThrow({
+    where: { id: pair.userId },
+  });
+  await db.accountEmail.create({
+    data: {
+      userId: pair.userId,
+      email: "new-primary@example.test",
+      verifiedAt: new Date(),
+    },
+  });
+  // Exercise the real email writer: primary-address changes intentionally leave
+  // the independent name-profile version unchanged.
+  await db.$transaction(async (tx) => {
+    await lockAccountProfile(tx, pair.userId);
+    await promoteEmail(tx, pair.userId, "new-primary@example.test");
+  });
+  expect(
+    await db.user.findUnique({ where: { id: pair.userId } }),
+  ).toMatchObject({
+    email: "new-primary@example.test",
+    profileVersion: before.profileVersion,
+  });
+  await expect(
+    caller().tuteeHistory.link({
+      ...pair,
+      fingerprint: preview.fingerprint,
+      acknowledged: true,
+      reason,
+    }),
+  ).rejects.toThrow("HISTORY_STALE");
+  expect(await db.studentProfileOwnership.count()).toBe(0);
+  const fresh = await caller().tuteeHistory.preview(pair);
+  expect(fresh.account.email).toBe("new-primary@example.test");
+  await caller().tuteeHistory.link({
+    ...pair,
+    fingerprint: fresh.fingerprint,
+    acknowledged: true,
+    reason,
+  });
+  expect(
+    await db.studentProfileOwnership.findUnique({
+      where: { tuteeId: pair.tuteeId },
+    }),
+  ).toMatchObject({ userId: pair.userId, revision: 1 });
+});
+
+it("does not revive an old correction after ownership returns to its original account", async () => {
+  await link();
+  const correctionPair = { tuteeId: pair.tuteeId, userId: "other" };
+  const preview = await caller("head", "HEAD").tuteeHistory.preview(
+    correctionPair,
+  );
+  const oldCorrection = {
+    ...correctionPair,
+    fingerprint: preview.fingerprint,
+    acknowledged: true as const,
+    confirmPassword: password,
+    reason,
+  };
+  await caller("head", "HEAD").tuteeHistory.link(oldCorrection);
+  const returnPreview = await caller("head", "HEAD").tuteeHistory.preview(pair);
+  await caller("head", "HEAD").tuteeHistory.link({
+    ...pair,
+    fingerprint: returnPreview.fingerprint,
+    acknowledged: true,
+    confirmPassword: password,
+    reason,
+  });
+  await expect(
+    caller("head", "HEAD").tuteeHistory.link(oldCorrection),
+  ).rejects.toThrow("HISTORY_STALE");
+  expect(
+    await db.studentProfileOwnership.findUnique({
+      where: { tuteeId: pair.tuteeId },
+    }),
+  ).toMatchObject({ userId: pair.userId, revision: 3 });
+  expect(
+    await caller("other", "STUDENT").tuteeHistory.myRecords(),
+  ).toHaveLength(0);
+  expect(
+    await db.auditLog.count({
+      where: {
+        operation: "tuteeHistory.link",
+        action: "Linked historical tutee records",
+      },
+    }),
+  ).toBe(3);
+});
+
+it("requires explicit identity acknowledgement through the API", async () => {
+  const preview = await caller().tuteeHistory.preview(pair);
+  await expect(
+    caller().tuteeHistory.link({
+      ...pair,
+      fingerprint: preview.fingerprint,
+      // A runtime caller must not bypass the UI's identity review checkbox.
+      acknowledged: false as unknown as true,
+      reason,
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.studentProfileOwnership.count()).toBe(0);
+});
+
 it("requires Head password for retained ownership conflicts and routes current account conflicts to Merge", async () => {
   await link();
   const input = { tuteeId: "past", userId: "other" };
   const preview = await caller().tuteeHistory.preview(input);
   await expect(
     caller().tuteeHistory.link({
+      acknowledged: true,
       ...input,
       fingerprint: preview.fingerprint,
       reason,
@@ -300,6 +443,7 @@ it("requires Head password for retained ownership conflicts and routes current a
   ).rejects.toThrow("HISTORY_HEAD_REQUIRED");
   await expect(
     caller("head", "HEAD").tuteeHistory.link({
+      acknowledged: true,
       ...input,
       fingerprint: preview.fingerprint,
       reason,
@@ -307,6 +451,7 @@ it("requires Head password for retained ownership conflicts and routes current a
     }),
   ).rejects.toThrow("password");
   await caller("head", "HEAD").tuteeHistory.link({
+    acknowledged: true,
     ...input,
     fingerprint: preview.fingerprint,
     reason,
@@ -319,6 +464,7 @@ it("requires Head password for retained ownership conflicts and routes current a
   const current = await caller().tuteeHistory.preview(pair);
   await expect(
     caller("head", "HEAD").tuteeHistory.link({
+      acknowledged: true,
       ...pair,
       fingerprint: current.fingerprint,
       reason,
@@ -336,6 +482,7 @@ it.each([
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
   await expect(
     caller(id, role).tuteeHistory.link({
+      acknowledged: true,
       ...pair,
       fingerprint: "0".repeat(64),
       reason,
@@ -463,9 +610,11 @@ it.each(["GRADUATED", "TRANSFERRED"])(
     expect(
       await db.schoolDeparture.findUnique({ where: { userId: "student" } }),
     ).toEqual(departure);
-    expect(
-      await db.user.findUniqueOrThrow({ where: { id: "student" } }),
-    ).toEqual(account);
+    const linkedAccount = await db.user.findUniqueOrThrow({
+      where: { id: "student" },
+    });
+    expect(linkedAccount.personId).toEqual(expect.any(String));
+    expect({ ...linkedAccount, personId: account.personId }).toEqual(account);
     expect(await events()).toEqual(before);
     expect(
       await caller("student", "STUDENT").tuteeHistory.myDetails({

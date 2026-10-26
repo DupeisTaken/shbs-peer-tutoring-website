@@ -226,11 +226,7 @@ it("distinguishes accountless records with retained owners from ownerless record
       ],
     },
   });
-  mount(
-    <UserDetails
-      row={{ ...row, userId: null, account: "invited" } as typeof row}
-    />,
-  );
+  mount(<UserDetails row={{ ...row, userId: null, account: "invited" }} />);
   open();
   expect(fixture.query).toHaveBeenCalledWith(
     { tutorId: "tutor" },

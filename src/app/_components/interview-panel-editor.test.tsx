@@ -53,7 +53,11 @@ const tutors: PanelTutor[] = ["a", "b", "c", "d", "e", "f", "g", "h", "i"].map(
     id,
     englishName: `Tutor ${id.toUpperCase()}`,
     status: "ACTIVE",
-    user: { tutorAccessRevoked: false, suspendedAt: null },
+    user: {
+      role: id === "a" ? "HEAD" : id === "c" ? "ADMIN" : "TUTOR",
+      tutorAccessRevoked: false,
+      suspendedAt: null,
+    },
   }),
 );
 const updatedAt = new Date("2026-09-01");
@@ -135,6 +139,62 @@ it("requires three distinct panelists and a chair and sends the original concurr
   fireEvent.change(slot(3), { target: { value: "d" } });
   expect(save().disabled).toBe(true);
 });
+it("allows an Admin chair alongside Head while keeping Coordinators as ordinary panelists", () => {
+  show({
+    tutors: tutors.map((tutor) =>
+      tutor.id === "b"
+        ? { ...tutor, user: { ...tutor.user!, role: "COORDINATOR" } }
+        : tutor,
+    ),
+  });
+  ["a", "b", "c"].forEach((id, index) =>
+    fireEvent.change(slot(index + 1), { target: { value: id } }),
+  );
+  const headChair = screen.getByRole<HTMLInputElement>("radio", {
+    name: "Choose panelist 1 as chair",
+  });
+  const coordinatorChair = screen.getByRole<HTMLInputElement>("radio", {
+    name: "Choose panelist 2 as chair",
+  });
+  const adminChair = screen.getByRole<HTMLInputElement>("radio", {
+    name: "Choose panelist 3 as chair",
+  });
+  expect(headChair.disabled).toBe(false);
+  expect(coordinatorChair.disabled).toBe(true);
+  expect(adminChair.disabled).toBe(false);
+  fireEvent.click(coordinatorChair);
+  expect(save().disabled).toBe(true);
+  expect(mocks.mutate).not.toHaveBeenCalled();
+  fireEvent.click(adminChair);
+  expect(save().disabled).toBe(false);
+  fireEvent.click(save());
+  expect(mocks.mutate).toHaveBeenCalledWith({
+    applicationId: "app",
+    tutorIds: ["a", "b", "c"],
+    headTutorId: "c",
+    expectedUpdatedAt: updatedAt,
+  });
+});
+it("retains a former non-management chair without permitting the old chair assignment to be saved", () => {
+  show({
+    interviewers: tutors.slice(0, 3).map((tutor) => ({
+      tutor,
+      isHead: tutor.id === "b",
+    })),
+  });
+  const formerChair = screen.getByRole<HTMLInputElement>("radio", {
+    name: "Choose panelist 2 as chair",
+  });
+  expect((slot(2) as HTMLSelectElement).value).toBe("b");
+  expect(formerChair.checked).toBe(true);
+  expect(formerChair.disabled).toBe(true);
+  expect(save().disabled).toBe(true);
+  fireEvent.click(
+    screen.getByRole("radio", { name: "Choose panelist 3 as chair" }),
+  );
+  expect(save().disabled).toBe(false);
+  expect((slot(2) as HTMLSelectElement).value).toBe("b");
+});
 it("uses a standard commit action while retaining compact panel-slot tools", () => {
   show();
   expect(save().classList.contains("control-standard")).toBe(true);
@@ -168,10 +228,17 @@ it("excludes inactive, revoked, suspended and accountless tutors", () => {
     tutors: [
       { ...tutors[0]!, status: "GRADUATED" },
       { ...tutors[1]!, user: null },
-      { ...tutors[2]!, user: { tutorAccessRevoked: true, suspendedAt: null } },
+      {
+        ...tutors[2]!,
+        user: { role: "ADMIN", tutorAccessRevoked: true, suspendedAt: null },
+      },
       {
         ...tutors[3]!,
-        user: { tutorAccessRevoked: false, suspendedAt: new Date() },
+        user: {
+          role: "HEAD",
+          tutorAccessRevoked: false,
+          suspendedAt: new Date(),
+        },
       },
       tutors[4]!,
     ],

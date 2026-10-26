@@ -309,9 +309,63 @@ The management read-only context includes both Viewers and departure observers. 
 
 `admin.accountDetails` is an on-demand, `adminProcedure`-protected read. Its feature-owned projection in `account-directory.ts` separates direct participant attachments from retained Tutor/Student ownership (including the recorded account-combination family). It never matches ownership by names/email, creates accounts, changes membership or returns credential hashes/invitation tokens. Original academic snapshots preserve their enrollment year and nulls, independent of an owner's current profile. Preserved tutor originals are also used by the existing Tutor Details dialog after archive reactivation. Viewing details does not materialize historical evidence.
 
+`admin.accounts` projects one directory row per explicit Person group, including
+accountless Tutor and Tutee sources. The representative's role badges and access
+remain its own. Filtering evaluates the complete search and filter expression
+against each independent member; it never unions privileges or combines facts
+from different members into a match. Source-name aliases keep every grouped
+record findable. Account details retain the original participant records and
+individual live login actions. Unowned sources remain separate until explicitly
+grouped. `hasTutorHistory` and `hasTuteeHistory` preserve historical visibility,
+while separate current participation can keep a group visible. Grouping changes
+no original roster evidence. Successful writes invalidate directory, detail and
+history reads; failed synchronization retries reads without repeating the write.
+
 The Users & Roles page composes existing table actions, `ProfileDialog`, `TableDetails`, academic and policy displays. Detail queries and mutation observers mount only on opening. Each opening refreshes the authoritative detail read, even within the shared query cache freshness window, so independent membership, suspension and profile editors cannot leave reopened details stale. Failed background reads retain cached details with read-only Retry. Badge colors are local presentation, independent of the six accent palettes: management indigo, participation teal, Translator amber and Viewer slate. Summary badge suppression and all filtering logic remain in their existing domain helpers; the detail display adds the underlying accepted Tutee membership. The read-only context hides the private entry, and server authorization independently refuses observers and participants, including stale elevated sessions.
 
-Focused regressions live in `src/app/(admin)/admin/users`, `src/lib/user-filters.test.ts`, `src/lib/account-membership.test.ts` and `src/server/account-directory.test.ts`. Include `src/server/tutor-details.test.ts` for the preserved-academics boundary. Browser verification must use the actual Users & Roles page and native nested dialogs in both languages, then measure badge contrast and control bounds; screenshots and HTML evidence belong in ignored `outputs/`.
+The on-demand `admin.applicationAccountSetup` read powers the application’s **Set up account** popup. It exposes an existing active application-bound code or a safe linked/pending/restricted account state, with explicit expired/used/missing/conflicting outcomes. It never issues codes or sends email, and observers/participants cannot read it. Optional directory links use [tutor-directory-link.ts](../../src/lib/tutor-directory-link.ts) to address `/admin/users#tutor-<encoded tutor ID>`. The stable roster ID survives account creation. The target comes from `promotedTutorId`, or, when absent, an unambiguous tutor ID on the application's own registration codes; ambiguous references do not produce an inferred target.
+
+Users & Roles resolves the exact `tutorId` from each authorized group's sanitized
+`tutorDestinations`. This projection includes nonrepresentative and retained
+historical Tutor sources, using explicit Person, direct ownership and retained
+ownership edges. It does not turn filter-only `directoryMembers` into action
+rows or infer ownership from names/emails. The focused source shows its original
+name, username, lifecycle and direct-login setup state. Its Tutor Details and
+setup actions use that source ID; representative account privileges, profile
+editors, deletion and combination actions are absent. Retained historical
+ownership is shown separately and cannot offer accountless setup; the setup
+procedure also rejects an already retained source before issuing an invitation.
+An actual direct login retains its own readiness and canonical-mailbox recovery;
+recovery changes neither retained ownership nor participation and issues no new
+account invitation. Database guards continue to reject differing direct and
+retained account owners.
+The issuance helper rechecks retained ownership and direct login attachment
+under the shared namespace, actor-account and Tutor-row locks, then uses the
+locked current contact. A historical link committed after preflight cannot
+turn into an accountless invitation.
+Source invitation state requires a code bound to the exact Tutor ID.
+
+While the target is selected, saved search, role/account and historical/unverified
+filters are bypassed without replacing their stored state, and filter controls
+are hidden. The source row is highlighted and revealed using the existing
+record-navigation focus behavior. **Return to directory** removes the
+selection/hash and restores the saved view. A completed read with no exact
+source shows an unavailable notice; a failed read offers read-only Retry and
+disables setup. Access denial keeps the protected directory hidden. Following
+the link performs no account provisioning, code issuance or email delivery.
+The browsing table remains mounted while hidden, preserving open grouped-login
+editors, drafts and pending writes across hash history. An already-open native
+dialog remains available until deliberately closed; source reveal does not
+take its focus. When the outer reader closes with its browsing opener hidden,
+lost focus returns to the still-authorized visible source without scrolling or
+restarting a gesture-cancelled arrival. Existing usable focus and other open
+dialogs retain ownership; missing targets and access denial receive no fallback.
+Authoritative access denial still unmounts private readers.
+The separate read-only Tutor Details reader stays open on refresh, but closes
+when history selects another source or returns to the directory. Open the new
+source explicitly to read its details.
+
+Focused regressions live in `src/app/(admin)/admin/users`, `src/lib/tutor-directory-link.test.ts`, `src/lib/user-filters.test.ts`, `src/lib/account-membership.test.ts` and `src/server/account-directory.test.ts`. Include `src/server/tutor-details.test.ts` for the preserved-academics boundary. Browser verification must use the actual Users & Roles page and native nested dialogs in both languages, then measure badge contrast and control bounds; screenshots and HTML evidence belong in ignored `outputs/`.
 
 ### Management review summaries
 
@@ -938,16 +992,21 @@ The [user filter helpers](../../src/lib/user-filters.ts) match composable member
 
 Account names synchronize only to explicitly linked current profiles. Shared profile writers lock the account before roster rows and reject stale versions. Signed agreements, submitted survey names and historical snapshots remain evidence of what was submitted.
 
-Head-only [account combination](../../src/server/combine-accounts.ts) requires a preview, identity acknowledgement and the Head's password. `User.mergedIntoId` retains the duplicate as historical identity while live authorization and database guards retire its credentials and reserve its identifiers. Ownership-aware reads include retained history without rewriting original actors. Departure history and incompatible account state block this generic workflow; see [identity retention and migration limits](../guides/deployment.md#combined-account-identity-retention) and the [operator procedure](../guides/user-guide.md#combine-duplicate-accounts-head-only).
+[Unified record combination](../../src/server/person-combine.ts) plans explicit User/Tutor/Tutee groups through [person identity resolution](../../src/server/person-identity.ts). A `Person` may have no login; its versioned associations are directory metadata, never an authorization principal. Admin may approve unowned historical records. Multiple logins, active unowned records and restricted identities require Head review and current password confirmation. The planner can persist `REVIEW_REQUIRED` while keeping current work and private login access separate. Exact compatible login retirement is an explicit choice; it preserves survivor capabilities instead of unioning privileges. `User.mergedIntoId` retains original actors and retires credentials. [History resolution](../../src/server/account-history.ts) traverses only immutable retirement edges, not the Person group, including repeated combinations. The [legacy combine service](../../src/server/combine-accounts.ts) remains compatible and synchronizes directory identity. See [retention limits](../guides/deployment.md#combined-account-identity-retention) and the [operator procedure](../guides/user-guide.md#combine-records-admin-and-head).
 
-The combine component intersects its server candidates with actual login IDs in
-the displayed Users & Roles table. Existing filters and search remain authoritative
-for this presentation, including default unverified/history visibility. It adds no
-signup classification. Hidden selections invalidate the local review generation,
-so a late preview response cannot restore private evidence or an old pair. Once
-submitted, the captured pair keeps its pending/result owner; page filters are
-disabled until settlement. Both zero-signup and signup-bearing logins retain the
-same server conflict, survivor-readiness and retirement safeguards.
+The person migration backfills only current profile pointers, retained ownership and recorded login retirement. Contradictory or orphaned retained ownership stops migration for staff review; names/email never infer a relationship. Imported source rows can have no person metadata until an authorized grouping or ownership write. Archive CSVs exclude person IDs and combination receipts. Grouped identities are protected from ordinary deletion; a lone unreviewed account may still use the existing deletion workflow. Combination receipts bind actor, operation UUID and reviewed intent without storing passwords; accepted retries return the receipt. Preview fingerprints cover source/group revisions, credentials and the exact operational plan. Existing history claims and ownership corrections synchronize metadata without changing original roster edit timestamps or granting sibling records' history access.
+
+The [unified combination component](../../src/app/_components/combine-records.tsx)
+searches authorized login and participant records independently of the directory's
+filters. Selected source IDs survive subsequent searches; a fresh preview expands
+every affected group and owns the retained-login and retirement choices. Changed
+selection or login choices discard the old preview. Same-turn admission prevents
+duplicate submissions. Accepted operations retain their receipt through read-only
+refresh recovery. Unknown outcomes retain their operation UUID and block parent
+dismissal while receipt lookup or exact idempotent retry remains available.
+Transient parent permission-read failures retain the workflow and drafts; an
+authoritative denial conceals private evidence without discarding the receipt.
+Head-only exact-owner correction remains separate from identity grouping.
 
 [Historical tutor linking](../../src/server/tutor-history.ts) records a separate
 `TutorProfileOwnership` read grant rather than replacing `User.tutorId`. Admin/Head
@@ -1068,7 +1127,31 @@ The [approval review presentation model](../../src/lib/approval-review.ts) reads
 
 Adding an approval operation requires an authored review title and an explicit choice about whether its input represents direct field updates or action parameters. Do not infer resulting database state from a decision input, fill historical gaps with live queries, or change proposal fingerprints for presentation. Regression coverage is in [model tests](../../src/lib/approval-review.test.ts), [details tests](../../src/app/_components/approval-review-details.test.tsx), and [queue tests](../../src/app/_components/management-actions.test.tsx), alongside the existing server approval and confirmation tests.
 
-Use [database scope](../../src/server/db-scope.ts) so helpers participate in the enclosing transaction. An independent client escapes rollback. Interview review revalidates panel membership, qualifications and votes while preserving the coordinator chair's result and authorship. Scheduling checks the current chair under the same lock as panel replacement. Interview history and completion live in Tutor Applications; legacy interview routes redirect there. Subject Availability has a separate staff route and management procedures, plus self-scoped tutor procedures, independent of interview enablement. `TutorSubjectWillingness` records explicit per-variant intent with no inferred migration backfill: an absent row means not recorded. Admin/Head apply staff willingness changes directly; Coordinators submit them for review. Active tutors can update only their own willingness. `availableSubjectIds` intersects explicit willingness with stored approved qualification grants and active subjects, excluding inactive or access-revoked tutors. Callers must still enforce timetable and capacity constraints. Changing willingness never edits approvals, grants or interview records.
+Use [database scope](../../src/server/db-scope.ts) so helpers participate in the enclosing transaction. An independent client escapes rollback.
+
+Initial-applicant promotion preserves independent account restrictions. The shared
+[promotion helper](../../src/server/tutors/promote.ts) locks the username namespace,
+then the resolved account profiles and User rows before changing the roster,
+application binding, account or registration code. It rereads both the email-matched
+account and the current owner of an existing Tutor record under those locks.
+Verified aliases, legacy email case and retained roster ownership are checked as
+negative restriction evidence; they never authorize a new identity link.
+Head-revoked tutoring access requires explicit Head restoration in Users & Roles;
+an Admin or Head chair decision, legacy reviewed acceptance, interview-disabled
+acceptance, same-status reconciliation or audit undo cannot restore it implicitly.
+A denied promotion rolls back its enclosing decision and service-hour transaction.
+An archived roster record without an authoritative restriction can still return.
+As in registration, a current tutor link distinguishes revoked membership from
+the no-membership flag used by historical-only accounts. A first admission may
+initialize missing membership after all other restrictions are checked.
+An identical retry of an already committed interview approval remains read-only,
+including after a subsequent revocation.
+
+Tutor Applications owns its discovery controls rather than enabling generic table sorting. The complete authorized application projection is filtered locally by search, status, type, subject and recorded completion, then sorted by application/completion date or locale-aware name. Absent completion evidence is independent of acceptance/rejection and sorts last in either date direction. Stable application keys and the retained active-approval union preserve open approval drafts through reordering or filtering. Session preferences accept legacy views without the new keys, reject unsupported choices, and exact application links clear filters before revealing their target. Interview Records uses a separate staff-only query: status intersects the existing completion/search scope, and the server applies explicit date/name ordering with an ID tie-break before its 20-row pagination. Both completed views start with completion-date descending when selected from their default sort. These read controls do not change workflow authorization, completion evidence or writes.
+
+Interview acceptance revalidates panel membership, qualifications, votes and the current chair, then records service hours and admission in one transaction. Admin/Head chair acceptance applies directly; initial-application rejection by an Admin chair retains Head review and chair authorship. Previously queued legacy acceptance remains a Head-reviewed decision-only path. Exact approval retries reuse the committed receipt; terminal applications do not display stale pending-decision proposals as their current outcome. The shared [chair role predicate](../../src/lib/interview-chair.ts) accepts only ADMIN or HEAD, independently of other panelists' rank; Coordinators may participate and vote. [Panel validation](../../src/server/interviews.ts) applies that rule to initial, additional-subject and higher-level interviews, including new decisions and first completion. Scheduling checks the selected assignment, current account role and tutor link under the same lock as panel replacement; it does not require the rest of the panel to remain eligible merely to change the schedule. `myInterviews` preserves historical `isHead` assignment while projecting current `canChair` authority for tutor actions. A missing or demoted legacy chair requires a valid Admin/Head chair assignment before scheduling, new decisions or first completion, without automatically deleting history or other panelists' voting access. Already completed interviews use `chairEligibility: "recorded"` for hour corrections and idempotent retries: the recorded chair must still belong to the panel, but today's ADMIN/HEAD role check is skipped. All other current panel/qualification requirements and correction approvals remain; this exception does not authorize a new decision, replace the historical panel or reopen admission. Interview history and completion live in Tutor Applications; legacy interview routes redirect there.
+
+Subject Availability has a separate staff route and management procedures, plus self-scoped tutor procedures, independent of interview enablement. `TutorSubjectWillingness` records explicit per-variant intent with no inferred migration backfill: an absent row means not recorded. Admin/Head apply staff willingness changes directly; Coordinators submit them for review. Active tutors can update only their own willingness. `availableSubjectIds` intersects explicit willingness with stored approved qualification grants and active subjects, excluding inactive or access-revoked tutors. Callers must still enforce timetable and capacity constraints. Changing willingness never edits approvals, grants or interview records.
 
 Subject willingness UI: `subjectAvailability.mySubjects` loads on dialog open and scopes qualifications, saved grants and intent to the authenticated tutor. Only subjects backed by approved saved grants (direct or inherited) are returned; unqualified or pending-only subjects are hidden without deleting their historical intent. Staff retains the complete catalogue. The tutor editor uses two mutually exclusive pressed-state buttons; absent intent selects neither, and clicking a confirmed choice does not clear it. Aligned subject rows use paired controls with a checkmark as well as theme colour for selection. The dialog opts into a wider layout; existing profile dialogs keep their default width. On narrow screens, choices stack below each subject and retain equal touch-target heights. Save feedback occupies a stable footer slot. `setMine` retains fresh authorization and cannot accept another tutor ID. Confirmed values are refreshed after immediate saves, including staff/detail caches; failed saves do not present optimistic success. The editor registers only its own mutation with `useDialogPending` before query-state returns, keeping dismissal and controls locked until the write and successful refresh work settle. A same-tick submission guard prevents duplicate writes; failure retains the search and confirmed per-subject choices for retry, and inherited dialog work does not latch the editor's busy state. Management card filters use one nullable selection per tutor and mount only inside expanded cards. Pending Review includes open qualification applications without converting them to grants.
 
@@ -1226,6 +1309,10 @@ gates require that revision separately. SQL migration
 and binds operational retry receipts to these transactions.
 
 [Historical linking and invitations](../guides/historical-participant-transition.md) add retained ownership after staff review or an explicit claim by the invited verified account. They preserve original enrollment academics, current membership and recorded attendance. Accountless tutees remain roster records; personal `/history` reads require ownership, while general observer access never grants private history. See the guide's [technical map](../guides/historical-participant-transition.md#technical-map) for endpoints and shared cache invalidation.
+
+Tutee link fingerprints include the target email/verification state and `StudentProfileOwnership.revision`, in addition to the record, current link and profile version. Transfers increment the ownership revision, including account combination, so an A→B→A correction cannot reuse an earlier review. Apply the additive `20261021010000_tutee_ownership_revision` migration before deploying this reader/writer contract; existing ownership rows start at revision 1 without changing owners or evidence.
+
+Personal history presents separate tutee and tutor summaries with stable record IDs. Tutee periods come from the original intake term; tutor periods and stored session-hour sums come from owned session evidence. No current account year or recalculated duration replaces those values. Tutor details recheck exact-record ownership, return independent session/meeting/amendment page indicators and retain the legacy `page` fallback for older callers. The UI opens details on demand with a fresh read and uses independent cursors. Transient background failures retain cached content beside read-only recovery. Authoritative detail denial conceals private evidence; a successful complete ownership list that excludes the selected record closes its detail, even if the detail read is offline.
 
 History-only account setup reuses the exact-record invitation and shared email-claim registry. A separate HMAC email code and purpose-bound completion proof open the shared receipt popup, whose optional email and prefilled link hand off to credential review at `/register`; invitation expiry/cancellation, record freshness and issuer authority are checked inside the identity transaction at every step. A neutral STUDENT rank with no participation links/memberships does not grant observer or current tutoring access. The receipt supports a lost-response retry without overwriting credentials. The explicit signed-in claim still establishes ownership separately. Personal tutor history reads current and retained tutor ownership across the account-combination family, without invoking participation, profile synchronization or hour recalculation.
 
@@ -1498,9 +1585,7 @@ already-applied evidence is idempotent; panel replacement uses the same source b
 Corrections preserve original school year/quarter while the completion month follows
 the recorded actual datetime. Unrelated manual credits are never prefix-deleted.
 
-Management reads project existing application-linked invitation state and verified tutor
-setup without issuing or revealing codes. Applied acceptance retains existing reconciliation
-and timing; completion never triggers admission or provision. Pending decision/completion
+Management summary reads project application-linked invitation state without revealing codes. The authorized on-demand setup popup can reveal the existing active code. Combined chair acceptance records completion and service credits, reconciles initial admission/code issuance and creates an in-app Admin/Head notification in one transaction. Interviewed qualification approval uses the same completion rules without initial-signup reconciliation. Existing exact completion is reused; changed completion must use the correction route. Standalone completion never triggers admission or provision. Pending decision/completion
 approval metadata is separate from applied evidence. Tutor reads expose completion and
 only the caller’s actual source credit, with no invitation/setup data. The shared
 [interview ordering](../../src/lib/interview-order.ts) helper copies query results and sorts
