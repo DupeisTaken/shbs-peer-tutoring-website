@@ -232,6 +232,74 @@ content, query strings, fragments, external URLs and private destinations intact
 Seed buttons and editor defaults use the same published convention. Absolute URLs
 in stored content retain their explicit origin and destination.
 
+Public QR downloads use [the allowlisted endpoint](../../src/app/api/public-qr/route.ts)
+with `destination=tutor|tutee|crew|site`, optional `locale=en|zh` (default `en`),
+and optional `download=1` (otherwise inline). Missing/invalid destinations,
+unsupported values, unknown parameters and duplicate parameters are rejected.
+Only `/tutor`, `/tutee`, `/crew` and `/` can be encoded; callers cannot supply a
+URL, filename, invitation, participant data or verification proof. The endpoint
+uses the validated `AUTH_URL` origin independently of request/forwarded headers,
+returns `no-store` PNG responses with `nosniff`, and names files
+`shbs-{destination}-qr-{locale}.png`. Invalid canonical configuration returns an
+actionable generic 503 without echoing its value.
+
+[The renderer](../../src/server/public-qr/render.tsx) composes one black QR on a
+transparent canvas at an integer module scale, with transparent light modules
+and a clear four-module quiet zone. The destination label and full absolute URL
+sit outside it. Exports retain their alpha channel; scanner tests composite the
+final PNG over white and pale backgrounds before full/half-size decoding.
+Latin labels and URLs use the website's Geist Sans from the installed `geist`
+package; locally packaged Noto Sans SC supplies the Chinese glyph fallback.
+Both font files are traced into standalone output, avoiding runtime font downloads
+or host font dependencies. The 44 px title and 26 px URL establish a clear type
+hierarchy; compact gaps outside the embedded quiet zone connect the footer to
+the code. Long URLs wrap without changing the
+encoded URL. The Program recruitment panel's native download links are outside
+settings forms and disabled fieldsets; they neither mutate settings nor gate
+public entrypoints. Other UI locales use English PNG labels. The existing
+`/api/signin-qr` interface and signup availability/access checks are unchanged.
+
+## Next-period recruitment preparation
+
+[`next-recruitment.ts`](../../src/server/program/next-recruitment.ts) owns the typed
+preparation and exact target contract shared by Program Settings, proposal capture
+and official refresh. `NextRecruitmentPreparation` is separate from `Term`, keyed
+by source term and audience, with a monotonically increasing version, UTC opening
+instant, timezone evidence, destination, effective mode revision and actor metadata.
+No row means preserve the destination opening; a row with a null opening is an
+explicit clear. Preparations never create an inactive period or change live intake.
+
+`program.prepareNextRecruitment` requires the source/destination/mode target,
+audience version and timezone. Head applies; Admin queues for Head; lower roles
+cannot submit. Proposal capture and execution repeat the same locked checks. Save
+evidence contains only the selected audience, so independently reviewed Tutor and
+Tutee proposals can both apply. Refresh evidence includes both preparations and
+the reused destination's switches, bounds and preview links. Legacy queued refresh
+payloads lacking this evidence require new review.
+
+The lock order is `program:period`, active-source row, then `program-timezone`.
+Refresh then locks the username namespace before touching participant rows; its
+graduation path and intake writers use compatible period-before-identity ordering.
+Preparation and refresh lock and recheck the actor after the period wait, while
+approval replay also locks and rechecks the requester and reviewer.
+The source transaction fence prevents a pre-lock Serializable snapshot from
+accepting stale absent rows or mode evidence. Quarter System staging shares the
+period barrier and advances its revision even across an away-and-back change.
+Every changed feature staging and timezone write advances the source fence too.
+`admin.refresh` validates reviewed evidence before any archive or activation,
+then applies only opening overrides in its destination upsert. Submission writers
+use the same period barrier and observe either the previous active period or the
+fully configured destination. Rollback retains preparations and history; the old
+source ID rejects repeated activation. Existing switches, closing bounds, preview
+links and participant-history semantics remain unchanged.
+
+Saved instants are never converted again after a timezone change. Editing requires
+current timezone evidence, and refresh reviews both the program zone and stored
+preparation zone. Closing validation applies to reused destinations. Elapsed
+openings are allowed; the inclusive opening boundary still composes with acceptance,
+exclusive closing and normal signup prerequisites. Operator behavior is documented
+in [next-period openings](../guides/program-configuration.md#prepare-next-period-openings).
+
 ## Architecture
 
 Tutor Roster details use the read-only `tutorDetails.get` procedure, guarded by the same management permission as account policy history. Its explicit field selection excludes authentication secrets; the UI mounts the query only after a staff member opens a tutor. Subject grouping reads concrete grants from approved qualification sources, never recalculating inheritance from current level ranks. Willingness remains a separate three-state value (true, false, or no record). Policy history uses the linked account ID through `student.acceptanceRecords`; neither matching contact data nor viewing a record grants account or role-edit access.
@@ -1999,6 +2067,54 @@ The new migration follows the historical `program_profile_policy` and `legal_nam
 migrations. New grade reports must still use an offered grade.
 
 See [name-field wording and behavior](name-fields.md) for labels and display examples.
+
+### Initial application name corrections
+
+[`application-identity.ts`](../../src/server/tutors/application-identity.ts) owns
+request-local corrections before promotion. `admin.correctApplicationIdentity`
+is explicitly classified: Head applies, Admin proposes to Head, and Coordinator
+is denied before approval interception. It accepts only four name fields, a reason,
+the observed application version and a retry key. Contact/qualification answers,
+submission order and signed policy revision/snapshot/acceptance time are retained.
+
+The additive migration preserves submitted names independently of the application
+row and stores append-only correction evidence. Original and correction evidence
+survive the existing source-deletion workflow. Effective names are materialized
+into the existing application columns so queue search, panel review, promotion and
+invitation prefill agree; this projection is never a linked account-profile write.
+
+Both proposal capture and application recheck current actor authority, current
+Tutor name policy, eligibility and version while holding the username namespace
+then application-review locks. Only INITIAL requests in PENDING/INTERVIEW without
+a final decision, recorded completion, promotion or issued invitation are editable.
+Names-only changes on an invalid open request preserve its flag and all processing
+restrictions. A correction advances the application version and identity revision,
+staling prepared decisions and proposals; untouched revision-zero records keep
+compatible legacy approval fingerprints.
+
+The transaction commits the correction, projection, audit evidence and retry
+receipt together. An identical response-loss retry returns the recorded result;
+a reused key with different contents conflicts. Saving grants no membership,
+issues no invitation and sends no acceptance notification. Approval replay retains
+the originating requester and records the reviewing Head separately.
+
+Promotion readiness uses verified-account, existing-roster and then application
+identity precedence. Existing identities are not overwritten. Explicit corrected
+parts transfer to a new roster without splitting a display name. Invitation
+prefill and completion both consume the invitation-bound roster: a new roster
+carries the accepted correction, while a returning roster retains its established
+identity and handle. An existing verified account remains authoritative. Latin accents and Unicode
+alternate names follow the shared configured name policy. Unchanged legacy fields
+retain null rather than invented parts, even when a names-only correction leaves
+newly required components unresolved. An unsplit Latin label is not by itself an
+invalid identity. Readiness reports identity requirements only, not acceptance,
+invalidity clearance, interview eligibility or restored tutoring access.
+
+The feature editor retains its draft/version across rejected saves and failed
+reads. Explicit Reload adopts fresh evidence only after the required reads succeed.
+Accepted writes and queued proposals enter read-only synchronization recovery;
+retrying that recovery cannot repeat the write. The current queue and immutable
+correction history remain separate from the signed original submission.
 
 Self-service writes own the current authenticated account. Head applies staff corrections to other
 accounts; Admin submits corrections for Head review. Coordinators cannot submit staff profile or

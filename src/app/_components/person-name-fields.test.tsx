@@ -143,6 +143,22 @@ it.each([en, zh])(
   },
 );
 
+it("opts only audited application corrections into retaining required legacy Last/Preferred fields", () => {
+  function Form() {
+    const [value, setValue] = useState(nameDraft());
+    return <form><PersonNameFields value={value} originalValue={nameDraft()} legacyName="张小明" onChange={setValue} preserveLegacyRequiredFields states={{ ...DEFAULT_NAME_FIELDS, lastName: "required", preferredName: "required" }} /></form>;
+  }
+  const { container } = render(<NextIntlClientProvider locale="en" messages={en}><Form /></NextIntlClientProvider>);
+  const form = container.querySelector("form")!;
+  expect(form.checkValidity()).toBe(true);
+  fireEvent.change(container.querySelector('[name="alternativeNames"]')!, { target: { value: "小明" } });
+  expect(form.checkValidity()).toBe(true);
+  fireEvent.change(container.querySelector('[name="firstName"]')!, { target: { value: "Xiaoming" } });
+  expect(form.checkValidity()).toBe(false);
+  expect(container.querySelector<HTMLInputElement>('[name="lastName"]')!.required).toBe(true);
+  expect(container.querySelector<HTMLInputElement>('[name="preferredName"]')!.required).toBe(true);
+});
+
 it.each([false, true])(
   "labels all four fields and preserves requirement semantics (Chinese=%s)",
   (chinese) => {

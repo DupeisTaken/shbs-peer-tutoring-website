@@ -133,6 +133,9 @@ function fixture(access: Access = "VIEWER") {
     policyArchive: empty(),
     announcement: empty(),
     programFeature: { ...empty(), findUnique: vi.fn().mockResolvedValue(null) },
+    // Private application summaries now evaluate current name readiness. The
+    // observer projection still exits before reading that policy or identity.
+    programSettings: { findUnique: vi.fn().mockResolvedValue(null) },
     $executeRaw: vi.fn().mockResolvedValue(0),
     $transaction: vi
       .fn()
@@ -505,7 +508,7 @@ it.each<Access>(["HEAD", "ADMIN", "COORDINATOR"])(
       sessionRow,
     ]);
     expect(await caller.admin.tutorApplications()).toEqual([
-      { ...applicationRow, isInvalid: true, setupTutorId: null },
+      { ...applicationRow, isInvalid: true, setupTutorId: null, identityNeedsReview: false },
     ]);
     expect(await caller.admin.auditLog({ search: PRIVATE })).toEqual([
       auditRow,

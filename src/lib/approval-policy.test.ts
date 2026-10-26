@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { classifyApproval } from "./approval-policy";
+import {
+  APPROVAL_OPERATIONS,
+  HEAD_APPROVAL_OPERATIONS,
+  classifyApproval,
+} from "./approval-policy";
 
 describe("management authority by effect", () => {
   it("applies chair acceptance directly while rejection retains Head review", () => {
@@ -22,7 +26,7 @@ describe("management authority by effect", () => {
     expect(classifyApproval(operation, {}, { restoresArchivedRecord: false })?.directRoles).toEqual(["ADMIN", "HEAD"]);
   });
   it.each([
-    "program.setSignupWindow", "program.setFeaturePending", "program.setTimeZone",
+    "program.setSignupWindow", "program.prepareNextRecruitment", "program.setFeaturePending", "program.setTimeZone",
     "program.setCaptcha", "program.setProfilePolicy", "program.setSignupField",
     "program.setEmailNotifications", "program.setSecondaryEmailBinding", "admin.refresh",
     "student.setCalendarDay", "student.setFeedbackSettings", "admin.upsertPolicy",
@@ -30,11 +34,27 @@ describe("management authority by effect", () => {
     "i18n.reorderLanguages", "messaging.setPermission", "admin.updateAccountProfile",
     "admin.updateAccountAcademics", "admin.updateAccountUsername", "admin.setUserRole", "admin.setMemberships",
     "admin.updateTutor", "admin.updateTutee", "admin.setUserCanTutor", "admin.setCrewStatus",
+    "admin.correctApplicationIdentity",
   ])("limits %s to Admin requests and Head application", (operation) => {
     const authority = classifyApproval(operation);
     expect(authority?.directRoles).toEqual(["HEAD"]);
     expect(authority?.requesterRoles).toEqual(["ADMIN", "HEAD"]);
     expect(authority?.reviewerRoles).toEqual(["HEAD"]);
+  });
+
+  it.each(["tutor", "tutee"])("keeps %s preparation and clearing in the same Head review boundary", (audience) => {
+    expect(APPROVAL_OPERATIONS["program.prepareNextRecruitment"])
+      .toBe("NextRecruitmentPreparation");
+    expect(HEAD_APPROVAL_OPERATIONS.has("program.prepareNextRecruitment"))
+      .toBe(true);
+    for (const opensAt of [null, new Date("2027-01-01T00:00:00Z")])
+      expect(classifyApproval("program.prepareNextRecruitment", { audience, opensAt }))
+        .toEqual({
+          category: "SIGNIFICANT_SETTING",
+          directRoles: ["HEAD"],
+          requesterRoles: ["ADMIN", "HEAD"],
+          reviewerRoles: ["HEAD"],
+        });
   });
 
   it.each(["admin.undoAudit", "admin.reinstateUser", "admin.reinstateTutee", "admin.deleteAdjustment",

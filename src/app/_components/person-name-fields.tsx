@@ -24,6 +24,7 @@ export function PersonNameFields({
   requireLastName = false,
   states = DEFAULT_NAME_FIELDS,
   showHidden = false,
+  preserveLegacyRequiredFields = false,
   disabled = false,
 }: {
   value: PersonNameDraft;
@@ -34,6 +35,9 @@ export function PersonNameFields({
   states?: NameFieldStates;
   /** Authorized staff edit retained originals, even when the participant field is hidden. */
   showHidden?: boolean;
+  /** Audited application corrections may retain all unsplit Latin originals;
+   * promotion readiness is checked separately. Other editors keep their policy. */
+  preserveLegacyRequiredFields?: boolean;
   disabled?: boolean;
 }) {
   const t = useTranslations("personName");
@@ -60,7 +64,8 @@ export function PersonNameFields({
       ).map((key) => {
         if (states[key] === "hidden" && !showHidden) return null;
         const required =
-          !(preserved && key === "firstName") &&
+          !(preserved && (key === "firstName" ||
+            (preserveLegacyRequiredFields && key !== "alternativeNames"))) &&
           (states[key] === "required" ||
             (key === "lastName" && requireLastName));
         const invalid =

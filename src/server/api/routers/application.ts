@@ -90,9 +90,10 @@ export const applicationRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       await inTransaction(ctx.db, async (tx) => {
-        await lockUsernameNamespace(tx);
         // Serialize schedule edits and period refresh with accepting an application.
+        // Refresh can graduate tutors, so it and signup take period before identity locks.
         await lockEntity(tx, "program:period");
+        await lockUsernameNamespace(tx);
         if (recruitmentStatus(await getRecruitment(tx, "tutor")) !== "open")
           throw new TRPCError({
             code: "PRECONDITION_FAILED",

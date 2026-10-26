@@ -1,7 +1,7 @@
 "use client";
 
 import { ProgramCaptchaSettings } from "~/app/_components/program-captcha-settings";
-import { Suspense, useEffect, useId, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useSessionAccessDenied,
@@ -16,23 +16,18 @@ import { useTranslations } from "next-intl";
 
 import { ProgramTimeZoneSettings } from "~/app/_components/program-time-zone-settings";
 import { RecruitmentSettings } from "~/app/_components/recruitment-settings";
+import { ProgramPublicQrLinks } from "~/app/_components/program-public-qr-links";
+import { NextRecruitmentSettings } from "~/app/_components/next-recruitment-settings";
+import { ProgramRefresh } from "~/app/_components/program-refresh";
 import { SchoolCalendar } from "~/app/_components/school-calendar";
 import { ProgramCalendarSettings } from "~/app/_components/program-calendar";
 import { MessagePermissions } from "~/app/_components/message-admin";
 import { ProgramNameSettings } from "~/app/_components/program-name-settings";
-import { api } from "~/trpc/react";
-import { InlineNotice, StatePanel } from "~/app/_components/ui/patterns";
+import { api, type RouterOutputs } from "~/trpc/react";
+import { StatePanel } from "~/app/_components/ui/patterns";
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import { FeatureToggles } from "~/app/_components/program-feature-settings";
 import { useReadOnly } from "~/app/_components/read-only";
-
-type RefreshResult = {
-  name: string;
-  archivedTutees: number;
-  graduatedTutors: number;
-  agedTutors: number;
-  pendingTutors: number;
-};
 
 export default function ProgramPage() {
   const t = useTranslations();
@@ -49,9 +44,7 @@ export default function ProgramPage() {
 const programPanels = ["period", "people", "communication", "access"] as const;
 type ProgramPanel = (typeof programPanels)[number];
 function ProgramSettingsPage() {
-  const confirmationId = useId();
   const t = useTranslations();
-  const utils = api.useUtils();
   const current = api.admin.currentPeriod.useQuery();
   const account = api.account.me.useQuery();
   const denied = useSessionAccessDenied(current, account);
@@ -97,22 +90,13 @@ function ProgramSettingsPage() {
     !account.error &&
     ["HEAD", "ADMIN", "COORDINATOR"].includes(account.data?.role ?? "");
 
-  const [confirm, setConfirm] = useState("");
-  const [done, setDone] = useState<RefreshResult | null>(null);
-
-  const refresh = api.admin.refresh.useMutation({
-    onSuccess: async (res) => {
-      setConfirm("");
-      setDone(res);
-      await utils.admin.invalidate();
-    },
-  });
-
   const period = current.data;
-  const canEditPeriod = canReadSettings && !current.error && !!period?.canEdit;
+  // Only our accepted refresh replaces current-editor drafts automatically.
+  // A remote period change remains an explicit Reload decision for each editor.
+  const [activatedPeriod, setActivatedPeriod] = useState<RouterOutputs["admin"]["currentPeriod"]>(null);
+  const canEditPeriod = canReadSettings && ["HEAD", "ADMIN"].includes(account.data?.role ?? "") && !current.error && !!period?.canEdit;
   const canApplyPeriod =
     canEditPeriod && account.data?.role === "HEAD" && !!period?.canApply;
-  const confirmOk = confirm.trim().toUpperCase() === "REFRESH";
   // The panel owns feedback; denied/unknown identities never mount private query children.
   const privatePanelState = (key: "people" | "communication" | "access") => {
     const section = t(`admin.program.panels.${key}`);
@@ -196,104 +180,18 @@ function ProgramSettingsPage() {
             <>
               {(["tutee", "tutor"] as const).map((audience) => (
                 <RecruitmentSettings
-                  key={audience}
-                  termId={period.termId}
+                  key={`${activatedPeriod?.termId ?? "current"}:${audience}`}
+                  termId={activatedPeriod?.termId ?? period.termId}
                   audience={audience}
-                  window={period.recruitment[audience]}
+                  window={(activatedPeriod ?? period).recruitment[audience]}
                   canEdit={canEditPeriod}
                   canApply={canApplyPeriod}
                 />
               ))}
 
-              <section className="card border-amber-200 p-5">
-                <h2 className="section-title">
-                  {t("admin.program.refreshHeading")}
-                </h2>
-                <p className="muted mt-1">
-                  {t("admin.program.advancesTo", { name: period.next.name })}
-                </p>
+              <ProgramPublicQrLinks />
 
-                <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
-                  <li>{t("admin.program.effectTutees")}</li>
-                  <li>{t("admin.program.effectPairings")}</li>
-                  {period.next.crossesSemester && (
-                    <li>{t("admin.program.effectReactivate")}</li>
-                  )}
-                  {period.next.graduates && (
-                    <li>{t("admin.program.effectGraduate")}</li>
-                  )}
-                  {period.next.crossesYear && (
-                    <li>{t("admin.program.effectAgeUp")}</li>
-                  )}
-                  <li>
-                    {period.next.crossesSemester
-                      ? t("admin.program.effectHoursReset", {
-                          semester: period.next.semester,
-                        })
-                      : t("admin.program.effectHoursKeep")}
-                  </li>
-                </ul>
-
-                <div className="mt-4 space-y-2">
-                  <label className="label" htmlFor={confirmationId}>
-                    {t("admin.program.confirmLabel")}
-                  </label>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input
-                      id={confirmationId}
-                      value={confirm}
-                      disabled={!canEditPeriod || refresh.isPending}
-                      onChange={(e) => setConfirm(e.target.value)}
-                      placeholder={t("admin.program.confirmPlaceholder")}
-                      className="input field-auto min-w-44"
-                    />
-                    <button
-                      className="btn-danger"
-                      disabled={
-                        !canEditPeriod || !confirmOk || refresh.isPending
-                      }
-                      onClick={() => {
-                        if (!canEditPeriod || refresh.isPending) return;
-                        setDone(null);
-                        refresh.mutate({
-                          confirm,
-                          expectedTermId: period.termId,
-                        });
-                      }}
-                    >
-                      {refresh.isPending
-                        ? t("admin.program.refreshing")
-                        : !canApplyPeriod
-                          ? t("approvals.requestHead")
-                          : t("admin.program.refreshButton", {
-                              name: period.next.name,
-                            })}
-                    </button>
-                  </div>
-                  {refresh.error?.data?.approvalId && (
-                    <InlineNotice tone="warning" announcement="status">
-                      {t("approvals.queuedBody")}
-                    </InlineNotice>
-                  )}
-                  {refresh.error && !refresh.error.data?.approvalId && (
-                    <p className="mt-2 text-sm text-red-600">
-                      {refresh.error.message}
-                    </p>
-                  )}
-                  {done && (
-                    <p className="mt-2 text-sm text-green-700">
-                      {t("admin.program.done", {
-                        name: done.name,
-                        count: done.archivedTutees,
-                      })}
-                      {(done.graduatedTutors > 0 || done.agedTutors > 0) &&
-                        ` ${t("admin.program.doneGrad", { graduated: done.graduatedTutors, aged: done.agedTutors })}`}
-                      {done.pendingTutors > 0 &&
-                        ` ${t("admin.program.donePending", { count: done.pendingTutors })}`}
-                    </p>
-                  )}
-                </div>
-              </section>
+              {canReadSettings && <><NextRecruitmentSettings /><ProgramRefresh period={period} canEdit={canEditPeriod} canApply={canApplyPeriod} onActivated={setActivatedPeriod} /></>}
             </>
           )}
         </div>

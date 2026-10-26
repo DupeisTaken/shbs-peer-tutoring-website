@@ -216,6 +216,8 @@ model ProgramFeature {
   key            ProgramFeatureKey @id
   enabled        Boolean           @default(true)
   pendingEnabled Boolean?
+  /// Monotonic staging evidence: changing away and back cannot revive an old period review.
+  revision       Int               @default(0)
   updatedByName  String?
   updatedAt      DateTime          @updatedAt
 }
@@ -439,13 +441,47 @@ model Term {
   /// Optional read-only sheet applicants can preview while the signup gate is closed.
   signupPreviewUrl String?
   active     Boolean        @default(false)
+  /// Transaction fence for preparation/mode/timezone writes; independent audience versions remain separate.
+  nextRecruitmentRevision Int @default(0)
   pairings   Pairing[]
   pairingGroups PairingGroup[]
   meetings   TutorMeeting[]
   patrols    Patrol[]
+  nextRecruitmentPreparations NextRecruitmentPreparation[]
   createdAt  DateTime       @default(now())
 
   @@unique([schoolYear, quarter])
+}
+
+enum RecruitmentAudience {
+  tutor
+  tutee
+}
+
+/// Opening-only preparation never creates a historical Term or changes current intake.
+/// A missing row preserves destination defaults; a row with opensAt=null explicitly clears it.
+/// Source/audience identity retains versions while a changed mode is deliberately re-reviewed.
+model NextRecruitmentPreparation {
+  sourceTermId          String
+  sourceTerm            Term @relation(fields: [sourceTermId], references: [id], onDelete: Restrict)
+  audience              RecruitmentAudience
+  sourceSchoolYear      String
+  sourceQuarter         Quarter
+  destinationSchoolYear String
+  destinationQuarter    Quarter
+  semesterMode          Boolean
+  modeRevision          Int
+  opensAt               DateTime?
+  /// Zone used to interpret the entered wall clock; stored instants never reinterpret later.
+  timeZone              String
+  version               Int @default(1)
+  createdById           String
+  updatedById           String
+  updatedByName         String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @default(now()) @updatedAt
+
+  @@id([sourceTermId, audience])
 }
 
 model Tutor {
@@ -1309,6 +1345,8 @@ enum TutorApplicationType {
 }
 
 model TutorApplication {
+  /// Advances only for audited name corrections; zero keeps untouched review fingerprints compatible.
+  identityRevision Int @default(0)
   /// Reversible staff screening metadata; never an interview outcome or membership change.
   invalidReason String?
   invalidatedAt DateTime?
@@ -1368,6 +1406,41 @@ model TutorApplication {
 
   @@index([status])
   @@index([requestedTutorId, createdAt])
+}
+
+/// Immutable intake identity survives deleting the operational application. Database insertion
+/// captures all future originals; the additive migration preserves existing rows without inference.
+model ApplicationIdentityOriginal {
+  applicationId String @id
+  original Json
+  submittedAt DateTime
+  corrections ApplicationIdentityCorrection[]
+}
+
+/// Append-only application-local name evidence and a durable same-intent retry receipt.
+/// No relation to TutorApplication: deletion must not erase original or corrected evidence.
+model ApplicationIdentityCorrection {
+  id String @id @default(cuid())
+  applicationId String
+  original ApplicationIdentityOriginal @relation(fields: [applicationId], references: [applicationId], onDelete: Restrict, onUpdate: Restrict)
+  revision Int
+  actorId String
+  actorName String
+  reason String
+  before Json
+  after Json
+  policy Json
+  approvalId String?
+  /// Direct actor or exact approval request; two Admin drafts reviewed by one Head cannot collide.
+  receiptOwner String
+  clientKey String @db.Uuid
+  inputHash String
+  appliedUpdatedAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([applicationId, revision])
+  @@unique([receiptOwner, clientKey])
+  @@index([applicationId, createdAt])
 }
 
 /// One intended tutoring course on an application (max 3 enforced in the form/mutation),

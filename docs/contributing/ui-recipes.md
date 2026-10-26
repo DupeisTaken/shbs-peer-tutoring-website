@@ -33,6 +33,17 @@ The receipt acknowledges submission; membership remains active until the separat
 staff decision. Follow the [consequential action inventory](implementation.md#consequential-action-inventory)
 for the activation/request distinction and stronger domain safeguards.
 
+The participant form's **Name requirement example → Application correction: retain
+legacy names** case demonstrates the scoped `preserveLegacyRequiredFields` option.
+An unchanged unsplit identity permits an alternate-language-only correction even
+when current policy requires Last or Preferred Name. Editing a Latin name field
+restores the complete configured requirements. Other profile forms retain their
+existing requirements. The real [application correction editor](../../src/app/_components/application-identity-correction.tsx)
+owns permission checks, captured versions, approval and read-only recovery;
+the gallery performs no write and does not establish promotion readiness. Verify
+the gallery case and the actual Applications page in English and Chinese at
+desktop and mobile widths.
+
 For a recipe migration, link its feature issue and the corresponding running-page
 and gallery screenshots in the local verification report. Record language, viewport,
 role and state for each capture; keep the images and report in ignored `outputs/`.

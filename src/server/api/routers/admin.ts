@@ -143,6 +143,12 @@ import {
   propagateSlotAttendance,
 } from "~/server/attendance-schedule";
 import { recruitmentStatus, recruitmentWindow } from "~/lib/recruitment";
+import { nextRecruitmentRefreshEvidenceSchema } from "~/lib/next-recruitment";
+import {
+  assertNextRecruitmentActor,
+  validateNextRecruitmentRefresh,
+} from "~/server/program/next-recruitment";
+import { isSerializationFailure } from "~/server/auth/username-snapshot";
 import {
   defaultUsername,
   ensureUniqueUsername,
@@ -159,6 +165,12 @@ import {
 } from "~/server/auth/password-reset";
 import { issueRegistrationCode } from "~/server/auth/registration";
 import { applicationAccountSetup } from "~/server/application-account-setup";
+import {
+  applicationIdentityCorrectionInput,
+  applicationIdentitySnapshot,
+  applicationIdentitySummaries,
+  correctApplicationIdentity,
+} from "~/server/tutors/application-identity";
 import { decideCrewApplication } from "~/server/crew/signup";
 import { reconcileApplication } from "~/server/tutors/application-status";
 import {
@@ -2054,41 +2066,76 @@ export const adminRouter = createTRPCRouter({
     }),
 
   /**
-   * Refresh the program: advance to the next quarter (Q4 -> next year's Q1), clear the current
-   * pairings (the new term starts empty; past pairings + their attendance stay for history), and
-   * archive every pending/active tutee to INACTIVE so they must sign up again to continue. Service
-   * hours / attendance are period-stamped and untouched — the "this semester" total just rolls over
+   * Refresh the program: advance to the next configured period and switch the pairings board
+   * to that destination (new terms start empty; reused terms retain their pairings), and
+   * archive every pending/active tutee to INACTIVE so they must sign up again to continue. Existing
+   * pairings, hours and attendance remain in history — the "this semester" total just rolls over
    * when the refresh crosses a semester boundary. On a semester crossing, continuing ACTIVE tutors
    * are set to PENDING: each must reactivate from their own page (choosing available or opt-out)
    * for the new semester — so the crew no longer pre-marks availability here. Requires typing
    * REFRESH to confirm.
    */
-  // ADMIN only — a refresh is destructive and program-wide (coordinators can view but not run it).
+  // Head applies directly; Admin submits for Head review. Other roles only view.
   refresh: adminOnlyProcedure
-    .input(z.object({ confirm: z.string(), expectedTermId: z.string() }))
+    .input(
+      z.object({
+        confirm: z.string().refine(
+          (value) => value.trim().toUpperCase() === "REFRESH",
+          { message: "Type REFRESH to confirm." },
+        ),
+        expectedTermId: z.string(),
+        // Required even without overrides: old clients/queued approvals must reload
+        // the exact destination, mode revision and both audience preparations.
+        expectedPreparation: nextRecruitmentRefreshEvidenceSchema,
+      }),
+    )
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
-        if (input.confirm.trim().toUpperCase() !== "REFRESH") {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Type REFRESH to confirm.",
-          });
+        const preparation = await validateNextRecruitmentRefresh(
+          tx,
+          input.expectedPreparation,
+        );
+        // Graduation later acquires account/identity locks. Take the namespace
+        // before any roster row is updated, matching intake's period -> identity
+        // order and avoiding a cycle with concurrent name/profile writers.
+        try {
+          await lockUsernameNamespace(tx);
+        } catch (cause) {
+          // Review replays may have waited behind an identity writer. No refresh
+          // write has run yet; require a fresh review instead of hiding the conflict.
+          if (isSerializationFailure(cause))
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "NEXT_RECRUITMENT_CHANGED",
+              cause,
+            });
+          throw cause;
         }
-        await lockEntity(tx, "program:period");
+        await assertNextRecruitmentActor(tx, ctx.session.user.id);
         const active = await getActivePeriod(tx);
         if (active.termId !== input.expectedTermId) staleConflict();
         const from = { schoolYear: active.schoolYear, quarter: active.quarter };
-        // A staged Quarter System change activates at THIS refresh (applyPendingFeatures runs first),
-        // so the advance granularity uses the about-to-apply value: off => step a whole semester.
-        const qs = await tx.programFeature.findUnique({
-          where: { key: "QUARTER_SYSTEM" },
-          select: { enabled: true, pendingEnabled: true },
-        });
-        const semesterMode = !(qs?.pendingEnabled ?? qs?.enabled ?? true);
-        const np = nextPeriod(from, semesterMode);
+        // Validation owns the same period lock as preparation/mode writes. Apply
+        // exactly the reviewed target, including change-away-and-back revisions.
+        const semesterMode = preparation.target.semesterMode;
+        const np = {
+          schoolYear: preparation.target.destinationSchoolYear,
+          quarter: preparation.target.destinationQuarter,
+        };
         const name = periodLabel(np, semesterMode);
         const semesterCross = crossesSemester(from, np);
         const yearCross = crossesYear(from, np);
+        // A missing row preserves the destination/default opening; a row with
+        // null explicitly clears it. Switches, closing bounds and preview URLs
+        // remain owned by the normal window editor, including a reused term.
+        const openingOverrides = {
+          ...(preparation.preparations.tutor
+            ? { tutorSignupOpensAt: preparation.preparations.tutor.opensAt }
+            : {}),
+          ...(preparation.preparations.tutee
+            ? { signupOpensAt: preparation.preparations.tutee.opensAt }
+            : {}),
+        };
 
         const out = await (async () => {
           // Activate any HEAD-staged optional-module toggles at this period boundary.
@@ -2104,12 +2151,13 @@ export const adminRouter = createTRPCRouter({
                 quarter: np.quarter,
               },
             },
-            update: { active: true },
+            update: { active: true, ...openingOverrides },
             create: {
               schoolYear: np.schoolYear,
               quarter: np.quarter,
               name,
               active: true,
+              ...openingOverrides,
             },
           });
           const tutees = await tx.tutee.updateMany({
@@ -2213,9 +2261,15 @@ export const adminRouter = createTRPCRouter({
               (out.graduated ? `, graduated ${out.graduated} tutor(s)` : "") +
               (out.aged ? `, aged up ${out.aged}` : "") +
               (out.pending ? `, ${out.pending} tutor(s) must reactivate` : "") +
-              "; cleared current pairings",
+              "; switched pairings board to the destination period; prior history retained",
             entity: "Term",
             entityId: out.termId,
+            operation: "admin.refresh",
+            // Keep the exact reviewed openings, source/mode and time zone as
+            // immutable evidence even after the new current window is edited.
+            effects: JSON.parse(JSON.stringify({
+              nextRecruitment: preparation.refreshEvidence,
+            })) as Prisma.InputJsonValue,
           },
           tx,
         );
@@ -3807,6 +3861,21 @@ export const adminRouter = createTRPCRouter({
     .input(z.object({ applicationId: cuid }))
     .query(({ ctx, input }) => applicationAccountSetup(ctx.db, input.applicationId)),
 
+  /** Read submitted evidence and the effective promotion identity without changing either. */
+  applicationIdentity: adminProcedure
+    .input(z.object({ applicationId: cuid }))
+    .query(({ ctx, input }) =>
+      applicationIdentitySnapshot(ctx.db, input.applicationId),
+    ),
+
+  // Classification denies Coordinator before proposal interception. The domain helper
+  // rechecks the live Head under the same locks used by promotion and review replay.
+  correctApplicationIdentity: adminOnlyProcedure
+    .input(applicationIdentityCorrectionInput)
+    .mutation(({ ctx, input }) =>
+      correctApplicationIdentity(ctx.db, input, { id: ctx.session.user.id }),
+    ),
+
   tutorApplications: viewerProcedure.query(async ({ ctx }) => {
     const isViewer = ctx.portalAccess.maskManagementData;
     const apps = await ctx.db.tutorApplication.findMany({
@@ -3833,6 +3902,10 @@ export const adminRouter = createTRPCRouter({
       },
     });
     if (!isViewer) {
+      const identitySummaries = await applicationIdentitySummaries(
+        ctx.db,
+        apps.filter((app) => app.type === "INITIAL" && ["PENDING", "INTERVIEW"].includes(app.status)),
+      );
       // Legacy accepted applications predate promotedTutorId. Only their own
       // code provenance may recover the roster link; names/emails are not identity.
       const legacyIds = apps
@@ -3869,6 +3942,7 @@ export const adminRouter = createTRPCRouter({
           ...app,
           ...requestInvalidity(app),
           setupTutorId: app.promotedTutorId ?? legacyTutorId,
+          identityNeedsReview: identitySummaries.get(app.id)?.needsReview ?? false,
         };
       });
     }
@@ -3877,6 +3951,7 @@ export const adminRouter = createTRPCRouter({
       ...a,
       ...requestInvalidity(a, false),
       setupTutorId: null,
+      identityNeedsReview: false,
       votes: a.votes.map((v) => ({ ...v, comment: null })),
     }));
   }),
