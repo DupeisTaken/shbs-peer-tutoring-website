@@ -71,14 +71,18 @@ rebuild. PR runs skip the image archive/upload. Image-transfer costs and GitHub
 runner queues still affect total latency; compare successful runs at the same
 scope rather than treating a failed early exit as a speed improvement.
 
-The separate `image-storage` job detects changes to the Dockerfile or runtime
-packaging/measurement helpers. Unrelated changes finish successfully after scope
+The separate `image-storage` job detects changes to the Dockerfile, build-context
+exclusions, workflow or runtime packaging/measurement helpers. Unrelated changes finish successfully after scope
 detection without another image build. Relevant changes compare the baseline
 Dockerfile from an immutable base revision with the candidate Dockerfile, both
 using the candidate source and the same pinned Linux/amd64 Node base. A common
 cached Next build supplies both layouts; an inert comment added to the built
 `server.js` supplies a controlled second release for each layout, making four
 final images without four independent application builds.
+Manual workflow runs default to the checked revision's first parent, or accept an
+explicit full commit SHA in `storage-baseline`. The CLI cache imports receive
+masked runtime credentials through an action step; no credential is included in
+the measurement artifacts.
 
 The comparison requires identical `/app` inventories (paths, types, modes,
 UID/GID, literal symlink targets and file sizes/hashes) between corresponding

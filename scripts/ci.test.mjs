@@ -50,9 +50,13 @@ test("packaging comparison is independently bounded, scoped and required by veri
   assert.equal(storage["timeout-minutes"], 9);
   assert.equal(
     storage.env.STORAGE_BASE_REF,
-    "${{ github.event.pull_request.base.sha || github.event.before || github.sha }}",
+    "${{ inputs.storage-baseline || github.event.pull_request.base.sha || github.event.before }}",
   );
   assert.equal(storage.steps[0].with["fetch-depth"], 0);
+  assert.equal(
+    workflow.on.workflow_dispatch.inputs["storage-baseline"].required,
+    false,
+  );
   const scope = storage.steps.find((step) => step.id === "scope");
   assert.equal(scope.run, "node scripts/compare-runtime-images.mjs scope");
   const comparison = storage.steps.find(
@@ -70,6 +74,36 @@ test("packaging comparison is independently bounded, scoped and required by veri
     checks.steps.some(
       (step) => step.run === "python3 scripts/test_image_storage_metrics.py",
     ),
+  );
+});
+
+test("inline comparison builds receive masked runtime cache authentication", () => {
+  const step = workflow.jobs["image-storage"].steps.find(
+    (item) =>
+      item.name === "Expose cache authentication to the comparison build",
+  );
+  assert.equal(step.if, "steps.scope.outputs.compare == 'true'");
+  assert.equal(step.uses, "actions/github-script@v7");
+  const env = {
+    ACTIONS_RUNTIME_TOKEN: "synthetic-test-token",
+    ACTIONS_RESULTS_URL: "https://example.invalid/cache",
+    ACTIONS_CACHE_SERVICE_V2: "true",
+  };
+  const exported = {};
+  const masked = [];
+  vm.runInNewContext(step.with.script, {
+    process: { env },
+    core: {
+      setSecret: (value) => masked.push(value),
+      exportVariable: (name, value) => {
+        exported[name] = value;
+      },
+    },
+  });
+  assert.deepEqual(exported, env);
+  assert.deepEqual(masked, [env.ACTIONS_RUNTIME_TOKEN]);
+  assert.throws(() =>
+    vm.runInNewContext(step.with.script, { process: { env: {} } }),
   );
 });
 

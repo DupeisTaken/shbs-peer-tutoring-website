@@ -27,7 +27,12 @@ const sha = (value) =>
 export function needsStorageComparison(files) {
   return files.some(
     (file) =>
-      file === "Dockerfile" ||
+      [
+        "Dockerfile",
+        ".dockerignore",
+        ".github/workflows/docker-build.yml",
+        "scripts/test_image_storage_metrics.py",
+      ].includes(file) ||
       /^scripts\/(assemble-runtime|runtime-file-inventory|compare-runtime-images|image_storage_metrics)(\.|_)/.test(
         file,
       ),
@@ -99,15 +104,20 @@ export function compareInventories(baseline, candidate) {
   return differences.sort();
 }
 
-function baselineRevision() {
-  const revision = process.env.STORAGE_BASE_REF;
+export function baselineRevision(
+  requested = process.env.STORAGE_BASE_REF,
+  git = (args) => run("git", args),
+) {
+  // Manual runs have no event.before; compare against the actual first parent
+  // instead of HEAD itself, which would silently skip every packaging change.
+  const revision = requested || git(["rev-parse", "HEAD^"]).trim();
   assert.match(revision ?? "", /^[a-f0-9]{40}$/);
   assert.notEqual(
     revision,
     "0".repeat(40),
     "A real baseline commit is required",
   );
-  run("git", ["cat-file", "-e", `${revision}^{commit}`]);
+  git(["cat-file", "-e", `${revision}^{commit}`]);
   return revision;
 }
 

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  baselineRevision,
   compareInventories,
   needsStorageComparison,
   pinBase,
@@ -10,6 +11,29 @@ import {
 
 const dockerfile =
   "FROM node:22-alpine AS deps\nFROM deps AS runtime-deps\nFROM node:22-alpine AS build\nRUN npm run build\nFROM node:22-alpine AS runner\n";
+test("manual comparisons use the first parent or an explicit immutable baseline", () => {
+  const revision = "b".repeat(40);
+  const calls = [];
+  const git = (args) => {
+    calls.push(args);
+    return `${revision}\n`;
+  };
+  assert.equal(baselineRevision("", git), revision);
+  assert.deepEqual(calls, [
+    ["rev-parse", "HEAD^"],
+    ["cat-file", "-e", `${revision}^{commit}`],
+  ]);
+  calls.length = 0;
+  assert.equal(baselineRevision(revision, git), revision);
+  assert.deepEqual(calls, [["cat-file", "-e", `${revision}^{commit}`]]);
+  assert.throws(() => baselineRevision("HEAD", git));
+  assert.throws(() => baselineRevision("0".repeat(40), git));
+  assert.throws(() =>
+    baselineRevision(revision, () => {
+      throw new Error("missing commit");
+    }),
+  );
+});
 test("comparisons share an explicit base and change only an inert post-build app file", () => {
   const digest = `sha256:${"a".repeat(64)}`;
   const pinned = pinBase(dockerfile, digest);
@@ -81,6 +105,9 @@ test("application-only edits skip duplicate packaging comparison while packaging
   );
   for (const file of [
     "Dockerfile",
+    ".dockerignore",
+    ".github/workflows/docker-build.yml",
+    "scripts/test_image_storage_metrics.py",
     "scripts/assemble-runtime.mjs",
     "scripts/runtime-file-inventory.test.mjs",
     "scripts/image_storage_metrics.py",
