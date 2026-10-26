@@ -1980,6 +1980,10 @@ stored on that request; pre-upgrade fingerprints retain their original projectio
 Combined attendance compares the captured primary and sibling sessions without
 claiming roster additions from incomplete historical evidence. Patrol timestamp
 equality normalizes only its schema-owned instant; displayed raw values stay exact.
+PostgreSQL JSON omits the zone on UTC timestamp columns. The review reader treats
+those offset-free timestamp values as UTC for date comparisons and localized
+display, matching restored request dates independently of the browser's zone.
+Calendar-date strings, arbitrary text, raw evidence and fingerprints stay unchanged.
 
 Feature reviews distinguish effective values, pending overrides and the requested
 stage/replace/clear intent. New snapshots identify whether the effective value came

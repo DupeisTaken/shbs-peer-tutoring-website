@@ -14,6 +14,21 @@ import { ApprovalReviewDetails } from "./approval-review-details";
 
 afterEach(cleanup);
 it.each(["en", "zh"])(
+  "renders offset-free captured UTC dates in the program zone (%s)",
+  (locale) => {
+    show(
+      "corrections.correctAttendance",
+      { id: "session", date: new Date("2026-10-25T01:00:00Z") },
+      { Session: [{ id: "session", date: "2026-10-25T00:00:00" }] },
+      locale,
+    );
+    expect(screen.getAllByText(/8:00/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/9:00/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/12:00 AM/)).toBeNull();
+  },
+);
+
+it.each(["en", "zh"])(
   "does not show unchanged restored patrol timestamps as changed fields (%s)",
   (locale) => {
     const copy = locale === "en" ? en : zh;

@@ -1,6 +1,7 @@
 import { APPROVAL_OPERATIONS } from "./approval-policy";
 import { z } from "zod";
 import { reviewCollection } from "./approval-review-collections";
+import { reviewInstantValue } from "./review-instant";
 import {
   nextRecruitmentTargetSchema,
   sameNextRecruitmentTarget,
@@ -38,6 +39,7 @@ export const reviewTechnicalFields = new Set([
   "invalidatedById",
   "expectedRevision",
   "expectedProfileVersion",
+  "expectedRoomVersion",
   "expectedVersion",
   "expectedIds",
   "expectedPolicy",
@@ -526,7 +528,9 @@ export function approvalReview(
               String(record(right)?.[child.identity] ?? right),
             ),
           )
-        : value;
+        : /(?:At|date|Date)$/.test(key)
+          ? reviewInstantValue(value)
+          : value;
     (hasBefore &&
     (field.collection
       ? field.collection.rows.every((row) => row.state === "unchanged")

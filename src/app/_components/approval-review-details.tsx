@@ -10,6 +10,7 @@ import {
 import { approvalPresentation } from "~/lib/approval-presentation";
 import { reviewCollectionFieldEqual } from "~/lib/approval-review-collections";
 import { ReviewDisclosure } from "./review-disclosure";
+import { reviewInstant } from "~/lib/review-instant";
 import { NextRecruitmentReview } from "./next-recruitment-review";
 import { ProgramRefreshEffects } from "./program-refresh-effects";
 import { minToHm } from "~/lib/time";
@@ -135,7 +136,7 @@ export function ApprovalReviewDetails({
         /(?:At|date|Date)$/.test(key) &&
         /^\d{4}-\d{2}-\d{2}T/.test(value))
     ) {
-      const date = new Date(value);
+      const date = reviewInstant(value);
       if (operation === "program.setSignupWindow" && !model.timeZone)
         return Number.isFinite(date.getTime())
           ? date.toISOString()

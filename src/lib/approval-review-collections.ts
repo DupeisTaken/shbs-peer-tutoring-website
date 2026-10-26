@@ -1,4 +1,5 @@
 import { recordedEvidenceDiff } from "./recorded-evidence-diff";
+import { reviewInstantValue } from "./review-instant";
 
 export type ReviewCollectionRow = {
   id: string;
@@ -23,8 +24,7 @@ export function reviewCollectionFieldEqual(
       (typeof value !== "string" && !(value instanceof Date))
     )
       return value;
-    const date = new Date(value);
-    return Number.isFinite(date.getTime()) ? date.toISOString() : value;
+    return reviewInstantValue(value);
   };
   return !recordedEvidenceDiff(
     instant(before),

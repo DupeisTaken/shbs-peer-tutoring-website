@@ -5,6 +5,7 @@ import {
 } from "./approval-review";
 import { isProgramTimeZone } from "./program-time";
 import { recordedEvidenceDiff } from "./recorded-evidence-diff";
+import { reviewInstantValue } from "./review-instant";
 
 const record = (value: unknown): ReviewRecord | undefined =>
   value !== null && typeof value === "object" && !Array.isArray(value)
@@ -37,8 +38,7 @@ const comparisonValue = (value: unknown, key: string) => {
     (typeof value !== "string" && !(value instanceof Date))
   )
     return value;
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date.toISOString() : value;
+  return reviewInstantValue(value);
 };
 
 /** Operation adapters only project captured evidence. In particular a missing
