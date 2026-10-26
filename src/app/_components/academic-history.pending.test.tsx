@@ -79,6 +79,7 @@ vi.mock("~/trpc/react", async () => {
   return {
     api: {
       personCombine: {
+        finalize: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
         candidates: {
           useQuery: () => ({
             data: [],

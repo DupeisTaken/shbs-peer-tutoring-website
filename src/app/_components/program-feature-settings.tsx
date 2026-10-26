@@ -18,8 +18,10 @@ export function FeatureToggles() {
   const t = useTranslations();
   const settings = api.program.featureSettings.useQuery();
   const setPending = api.program.setFeaturePending.useMutation();
+  const utils = api.useUtils();
   const denied = useSessionAccessDenied(settings);
   const admitted = useRef(false);
+  const modeReadPending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
   const [accepted, setAccepted] = useState(false);
@@ -29,8 +31,29 @@ export function FeatureToggles() {
   async function reload() {
     setBusy(true);
     try {
-      const result = await settings.refetch();
-      if (!result.isSuccess) throw new Error("Feature settings refresh failed");
+      // A staged mode changes both next-period identities. Refresh their live
+      // evidence without replacing frozen recruitment drafts or review snapshots.
+      // Keep failed accepted-save recovery here so Retry never repeats the write.
+      const [settingsResult, ...relatedResults] = await Promise.allSettled([
+        settings.refetch(),
+        ...(modeReadPending.current
+          ? [
+              utils.program.nextRecruitment.invalidate(undefined, undefined, {
+                throwOnError: true,
+              }),
+              utils.admin.currentPeriod.invalidate(undefined, undefined, {
+                throwOnError: true,
+              }),
+            ]
+          : []),
+      ] as const);
+      if (
+        settingsResult.status === "rejected" ||
+        !settingsResult.value.isSuccess ||
+        relatedResults.some((result) => result.status === "rejected")
+      )
+        throw new Error("Feature settings refresh failed");
+      modeReadPending.current = false;
       setRefreshFailed(false);
     } catch {
       setRefreshFailed(true);
@@ -55,6 +78,7 @@ export function FeatureToggles() {
     try {
       await setPending.mutateAsync({ key, enabled });
       setAccepted(true);
+      modeReadPending.current = key === "QUARTER_SYSTEM";
       await reload();
     } catch {
       // Mutation errors (including queued approval) remain owned by the mutation.

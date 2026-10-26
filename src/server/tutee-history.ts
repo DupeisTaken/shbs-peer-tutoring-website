@@ -643,6 +643,9 @@ export async function inspectHistoryClaim(
   token: string,
   tokenIsDigest = false,
 ) {
+  const { inspectExactHistoryClaim } = await import("./exact-history-invitations");
+  const exact = await inspectExactHistoryClaim(db, userId, tokenIsDigest ? token : digest(token));
+  if (exact) return exact;
   const { invite, value } = await claimSnapshot(
     db,
     userId,
@@ -653,6 +656,8 @@ export async function inspectHistoryClaim(
     name: value.record.englishName,
     sessions: value.record._count.sessions,
     expiresAt: invite.expiresAt,
+    sources: [{ kind: "TUTEE" as const, id: value.record.id, name: value.record.englishName }],
+    claimed: false,
   };
 }
 export async function claimTuteeHistory(
@@ -661,6 +666,9 @@ export async function claimTuteeHistory(
   token: string,
   tokenIsDigest = false,
 ) {
+  const { claimExactHistory } = await import("./exact-history-invitations");
+  const exact = await claimExactHistory(db, userId, tokenIsDigest ? token : digest(token));
+  if (exact) return exact;
   return inTransaction(db, async (tx) => {
     await lockUsernameNamespace(tx);
     await lockAccountProfile(tx, userId);
@@ -668,6 +676,14 @@ export async function claimTuteeHistory(
     await lockEntity(tx, `tutee:${invite.tuteeId}`);
     await tx.$queryRaw`SELECT id FROM "Tutee" WHERE id = ${invite.tuteeId} FOR UPDATE`;
     const current = await claimSnapshot(tx, userId, token, tokenIsDigest);
+    const { writeHistoricalClaimReceipt } = await import("./exact-history-invitations");
+    await writeHistoricalClaimReceipt(tx, {
+      tokenHash: current.invite.tokenHash,
+      sources: [{ kind: "TUTEE", id: invite.tuteeId }],
+      userId,
+      email: current.invite.email,
+      expiresAt: current.invite.expiresAt,
+    });
     await writeOwnership(
       tx,
       invite.tuteeId,

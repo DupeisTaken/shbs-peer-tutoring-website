@@ -484,6 +484,7 @@ it("cannot bank grants to bypass the actual send cooldown and preserves settings
   await caller("HEAD").admin.refresh({
     confirm: "REFRESH",
     expectedTermId: term.id,
+    expectedPreparation: (await caller("HEAD").program.nextRecruitment()).refreshEvidence,
   });
   await db.$disconnect();
   expect(await caller().program.captchaPublic()).toMatchObject({

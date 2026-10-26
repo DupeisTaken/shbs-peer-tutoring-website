@@ -69,6 +69,7 @@ import { needsAcademicConfirmationForParticipation } from "~/lib/academics";
 import { graduationYear } from "~/lib/period";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import { getFeatures } from "~/server/program/features";
+import { initializePersonSource } from "~/server/person-source-initialization";
 
 /** Registration codes stay valid for one week — long enough to distribute and use. */
 export const CODE_TTL_DAYS = 7;
@@ -821,6 +822,7 @@ async function completeRegistrationLocked(
           mustChangePassword: false,
         },
       });
+      await initializePersonSource(tx, { kind: "USER", id: user.id });
       await applyAcademicIntake(
         tx,
         user.id,
@@ -977,6 +979,7 @@ async function completeRegistrationLocked(
         },
         select: { id: true },
       });
+      await initializePersonSource(tx, { kind: "USER", id: created.id });
       await tx.registrationCode.update({
         where: { id: row.id },
         data: { usedAt: new Date(), usedByUserId: created.id },

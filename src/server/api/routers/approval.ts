@@ -1,5 +1,5 @@
 import { lockUsernameNamespace } from "~/server/auth/username";
-import { retryUsernameSnapshot } from "~/server/auth/username-snapshot";
+import { isSerializationFailure, retryUsernameSnapshot } from "~/server/auth/username-snapshot";
 import { isAssignmentOperation } from "~/lib/assignment-qualification";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -12,6 +12,7 @@ import {
 import { db } from "~/server/db";
 import { databaseScope, approvalScope } from "~/server/db-scope";
 import { lockEntity } from "~/server/transactions";
+import { lockNextRecruitment } from "~/server/program/next-recruitment";
 import {
   parseProposal,
   fingerprint,
@@ -177,11 +178,37 @@ export const approvalRouter = createTRPCRouter({
           "program.setProfilePolicy",
           "program.setNameFields",
         ].includes(initial.operation);
+      const periodIdentityApproval = !!initial && [
+        "admin.updateTutor", "admin.updateTutee", "admin.updateAccountAcademics",
+      ].includes(initial.operation);
+      const nextRecruitmentApproval = !!initial && [
+        "program.prepareNextRecruitment", "admin.refresh",
+      ].includes(initial.operation);
       const runDecision = () =>
         ctx.db.$transaction(
           async (tx) =>
             databaseScope.run(tx, () =>
               approvalScope.run(input.id, async () => {
+                // These identity callbacks reenter the period barrier. Match signup
+                // and refresh order so an approval cannot invert namespace/period.
+                if (periodIdentityApproval) await lockEntity(tx, "program:period");
+                if (nextRecruitmentApproval) {
+                  await lockNextRecruitment(tx);
+                  try {
+                    // Both reviewers lock two actors. Leadership transfer holds
+                    // the namespace while changing Head then Admin, so take it
+                    // before sorted SHARE locks to avoid opposing actor order.
+                    await lockUsernameNamespace(tx);
+                    // Read authority only after the period wait. SHARE also rejects
+                    // an older Serializable snapshot when a role changed meanwhile.
+                    for (const id of [...new Set([ctx.session.user.id, initial.requesterId])].sort())
+                      await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${id} FOR SHARE`;
+                  } catch (cause) {
+                    if (isSerializationFailure(cause))
+                      throw new TRPCError({ code: "CONFLICT", message: "NEXT_RECRUITMENT_CHANGED", cause });
+                    throw cause;
+                  }
+                }
                 if (identityApproval) await lockUsernameNamespace(tx);
                 if (attendanceApproval)
                   await lockAttendanceApproval(tx, initial.operation, [

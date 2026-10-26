@@ -112,6 +112,10 @@ it("persists graduated on provisional rosters and carries it into a linked accou
     englishName: "Graduate Tutee",
     academicallyGraduated: true,
   });
+  expect(tutor.personId).toBeTruthy();
+  expect(tutee.personId).toBeTruthy();
+  expect(tutor.personId).not.toBe(tutee.personId);
+  expect(await db.user.count({ where: { OR: [{ tutorId: tutor.id }, { studentId: tutee.id }] } })).toBe(0);
   expect(
     (await staff.admin.tutors()).find((row) => row.id === tutor.id)?.academic
       .status,
@@ -405,6 +409,7 @@ it.each(["ACTIVE", "PENDING", "OPTED_OUT", "ARCHIVED", "GRADUATED"] as const)(
     await caller("academic-head", "HEAD").admin.refresh({
       confirm: "REFRESH",
       expectedTermId: "academic-term",
+      expectedPreparation: (await caller("academic-head", "HEAD").program.nextRecruitment()).refreshEvidence,
     });
     expect(
       (await db.tutor.findUniqueOrThrow({ where: { id: "academic-tutor" } }))
@@ -439,6 +444,7 @@ it("graduates confirmed current-year G12, preserving stale G12 until correction"
   await caller("academic-head", "HEAD").admin.refresh({
     confirm: "REFRESH",
     expectedTermId: "academic-term",
+    expectedPreparation: (await caller("academic-head", "HEAD").program.nextRecruitment()).refreshEvidence,
   });
   expect(
     (await db.tutor.findUniqueOrThrow({ where: { id: "academic-tutor" } }))

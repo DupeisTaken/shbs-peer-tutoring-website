@@ -13,6 +13,8 @@ vi.mock("~/server/email/sender", () => ({
 import { db } from "~/server/db";
 import { createCaller } from "~/server/api/root";
 import { combineAccounts, previewCombine } from "./combine-accounts";
+import { combinePersonRecords, previewPersonCombine } from "./person-combine";
+import { reviewedLoginRetirement } from "~/test/person-combine-fixture";
 import { hashPassword } from "./auth/password";
 import { isSessionCurrent } from "./auth/session-version";
 import { verifySigninPassword } from "./auth/credentials";
@@ -45,12 +47,7 @@ function caller(id: string, role: Session["role"] = "HEAD") {
 }
 const pair = () => ({ survivorId, duplicateId });
 async function combine() {
-  const preview = await previewCombine(db, pair());
-  return caller(headId).accountCombine.combine({
-    ...pair(),
-    fingerprint: preview.fingerprint,
-    confirmPassword: password,
-  });
+  return caller(headId).personCombine.combine(await reviewedLoginRetirement(db, pair(), password));
 }
 beforeEach(async () => {
   mail375.send.mockReset().mockResolvedValue(undefined);
@@ -146,7 +143,7 @@ it.each(["password", "email", "required-change"])(
 );
 
 it.each(["survivor", "duplicate"])(
-  "combines a zero-signup login with a signup-bearing %s without losing original ownership",
+  "requires existing-domain membership resolution for a signup-bearing %s without losing original ownership",
   async (direction) => {
     const ownerId = direction === "survivor" ? survivorId : duplicateId;
     const student = await db.tutee.create({
@@ -175,18 +172,22 @@ it.each(["survivor", "duplicate"])(
         expiresAt: new Date(Date.now() + 60000),
       },
     });
-    expect((await previewCombine(db, pair())).conflicts).toEqual([]);
-    await combine();
+    const reviewed = await reviewedLoginRetirement(db, pair(), password);
+    const preview = await previewPersonCombine(db, reviewed);
+    expect(preview.blockers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ reason: "CAPABILITY_DIFFERENCE", field: "tuteeMember", blocksRetirement: true }),
+    ]));
+    await expect(combine()).rejects.toMatchObject({ code: "CONFLICT" });
     expect(
       await db.user.findUnique({ where: { id: survivorId } }),
-    ).toMatchObject({ studentId: student.id, tuteeMember: true });
+    ).toMatchObject({ studentId: direction === "survivor" ? student.id : null, tuteeMember: direction === "survivor" });
     expect(
       await db.studentProfileOwnership.findUnique({
         where: { tuteeId: student.id },
       }),
     ).toMatchObject({
-      userId: survivorId,
-      revision: direction === "duplicate" ? 2 : 1,
+      userId: ownerId,
+      revision: 1,
     });
     expect(
       await db.studentSurvey.findUnique({ where: { id: survey.id } }),
@@ -213,7 +214,7 @@ it("invalidates an already verified invitation proof and login exchange when the
 });
 
 it("rejects zero-signup review after an in-flight signup creates ownership", async () => {
-  const preview = await previewCombine(db, pair());
+  const reviewed = await reviewedLoginRetirement(db, pair(), password);
   let release!: () => void;
   let locked!: () => void;
   const gate = new Promise<void>((resolve) => {
@@ -242,11 +243,7 @@ it("rejects zero-signup review after an in-flight signup creates ownership", asy
     { timeout: 10000 },
   );
   await entered;
-  const merging = combineAccounts(db, headId, {
-    ...pair(),
-    fingerprint: preview.fingerprint,
-    confirmPassword: password,
-  }).then(
+  const merging = combinePersonRecords(db, headId, reviewed).then(
     () => null,
     (error: unknown) => error,
   );
@@ -276,7 +273,7 @@ it("rejects zero-signup review after an in-flight signup creates ownership", asy
 it.each(["GRADUATED", "TRANSFERRED", null])(
   "preserves departure history and revocation across a rejected combine (%s)",
   async (reason) => {
-    const preview = await previewCombine(db, pair());
+    const reviewed = await reviewedLoginRetirement(db, pair(), password);
     await db.schoolDeparture.create({
       data: {
         userId: duplicateId,
@@ -289,11 +286,7 @@ it.each(["GRADUATED", "TRANSFERRED", null])(
       "school-departure history",
     );
     await expect(
-      caller(headId).accountCombine.combine({
-        ...pair(),
-        fingerprint: preview.fingerprint,
-        confirmPassword: password,
-      }),
+      caller(headId).personCombine.combine(reviewed),
     ).rejects.toMatchObject({ code: "CONFLICT" });
     expect(
       (await db.user.findUniqueOrThrow({ where: { id: duplicateId } }))
@@ -309,13 +302,13 @@ it.each(["GRADUATED", "TRANSFERRED", null])(
   },
 );
 
-it("combines links and delivery ownership, preserves immutable evidence, and revokes the duplicate", async () => {
+it("combines historical read and delivery ownership, preserves immutable evidence, and revokes the duplicate", async () => {
   const student = await db.tutee.create({
-    data: { englishName: "Combined student", status: "ACTIVE" },
+    data: { englishName: "Combined student", status: "INACTIVE" },
   });
   await db.user.update({
     where: { id: survivorId },
-    data: { name: "Retained Person", alternativeNames: "保留姓名" },
+    data: { name: "Retained Person", alternativeNames: "保留姓名", tuteeMember: true },
   });
   await db.user.update({
     where: { id: duplicateId },
@@ -393,7 +386,7 @@ it("combines links and delivery ownership, preserves immutable evidence, and rev
   expect(
     await db.user.findUniqueOrThrow({ where: { id: survivorId } }),
   ).toMatchObject({
-    studentId: student.id,
+    studentId: null,
     tuteeMember: true,
     username: "keep190",
     email: "keep190@example.test",
@@ -401,8 +394,8 @@ it("combines links and delivery ownership, preserves immutable evidence, and rev
   expect(
     await db.tutee.findUniqueOrThrow({ where: { id: student.id } }),
   ).toMatchObject({
-    englishName: "Retained Person",
-    alternativeNames: "保留姓名",
+    englishName: "Combined student",
+    alternativeNames: null,
   });
   expect(
     await db.user.findUniqueOrThrow({ where: { id: duplicateId } }),
@@ -475,9 +468,9 @@ it("combines links and delivery ownership, preserves immutable evidence, and rev
   ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   expect(
     await db.auditLog.findFirst({
-      where: { operation: "accountCombine.combine" },
+      where: { operation: "personCombine.combine" },
     }),
-  ).toMatchObject({ userId: headId, entityId: survivorId });
+  ).toMatchObject({ userId: headId, entity: "Person" });
   expect(
     await db.accountEmail.findUnique({
       where: { email: "old-alias@example.test" },
@@ -525,6 +518,22 @@ it("rechecks the live Head and password inside the transaction", async () => {
       confirmPassword: password,
     }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
+});
+it("rejects authenticated legacy fingerprints with an actionable fresh-review precondition and no identity writes", async () => {
+  const oldReview = await previewCombine(db, pair());
+  const before = await db.user.findMany({ orderBy: { id: "asc" } });
+  await expect(caller(headId).accountCombine.combine({
+    ...pair(), fingerprint: oldReview.fingerprint, confirmPassword: password,
+  })).rejects.toMatchObject({ code: "PRECONDITION_FAILED", message: expect.stringContaining("Combine Records") as unknown });
+  expect(await db.user.findMany({ orderBy: { id: "asc" } })).toEqual(before);
+  expect(await db.personCombineReceipt.count()).toBe(0);
+  // Rejection is still auditable through the router's standard attempt recorder.
+  expect(await db.auditLog.findMany()).toMatchObject([{
+    kind: "ATTEMPT", operation: "accountCombine.combine",
+    details: { applied: false, outcome: "FAILED", errorCode: "PRECONDITION_FAILED" },
+  }]);
+  await combine();
+  expect((await db.user.findUniqueOrThrow({ where: { id: duplicateId } })).mergedIntoId).toBe(survivorId);
 });
 it("blocks retiring Head, conflicting ranks and current profile links", async () => {
   expect(
@@ -591,22 +600,20 @@ it("blocks unconfirmed intake that would lose its email-bound confirmation route
   );
   await expect(combine()).rejects.toMatchObject({ code: "CONFLICT" });
 });
-it("rejects stale preview, self merge, reused merge families and credential revival", async () => {
+it("rejects stale preview, self merge and credential revival while preserving retired families", async () => {
   await expect(
     previewCombine(db, { survivorId, duplicateId: survivorId }),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  const preview = await previewCombine(db, pair());
+  const reviewed = await reviewedLoginRetirement(db, pair(), password);
   await db.user.update({
     where: { id: duplicateId },
     data: { canTranslate: true },
   });
   await expect(
-    caller(headId).accountCombine.combine({
-      ...pair(),
-      fingerprint: preview.fingerprint,
-      confirmPassword: password,
-    }),
+    caller(headId).personCombine.combine(reviewed),
   ).rejects.toMatchObject({ code: "CONFLICT" });
+  await expect(combine()).rejects.toMatchObject({ code: "CONFLICT" });
+  await db.user.update({ where: { id: duplicateId }, data: { canTranslate: false } });
   await combine();
   expect(
     (
@@ -647,7 +654,7 @@ it("rolls back links, retirement and ownership when the final audit write fails"
     where: { id: duplicateId },
   });
   await db.$executeRawUnsafe(
-    `CREATE FUNCTION fail_combine_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation = 'accountCombine.combine' THEN RAISE EXCEPTION 'test audit failure'; END IF; RETURN NEW; END $$`,
+    `CREATE FUNCTION fail_combine_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation = 'personCombine.combine' THEN RAISE EXCEPTION 'test audit failure'; END IF; RETURN NEW; END $$`,
   );
   await db.$executeRawUnsafe(
     `CREATE TRIGGER fail_combine_audit BEFORE INSERT ON "AuditLog" FOR EACH ROW EXECUTE FUNCTION fail_combine_audit()`,
@@ -662,31 +669,24 @@ it("rolls back links, retirement and ownership when the final audit write fails"
     original,
   );
   expect(
-    await db.auditLog.count({ where: { operation: "accountCombine.combine" } }),
+    await db.auditLog.count({ where: { operation: "personCombine.combine" } }),
   ).toBe(0);
 });
 
-it("serializes two confirmations so the same preview executes exactly once", async () => {
-  const preview = await previewCombine(db, pair());
-  const input = {
-    ...pair(),
-    fingerprint: preview.fingerprint,
-    confirmPassword: password,
-  };
-  const results = await Promise.allSettled([
-    combineAccounts(db, headId, input),
-    combineAccounts(db, headId, input),
+it("serializes two identical reviewed intents into one write and the same durable receipt", async () => {
+  const input = await reviewedLoginRetirement(db, pair(), password);
+  const results = await Promise.all([
+    combinePersonRecords(db, headId, input),
+    combinePersonRecords(db, headId, input),
   ]);
+  expect(results[0]).toEqual(results[1]);
   expect(
-    results.filter((result) => result.status === "fulfilled"),
-  ).toHaveLength(1);
-  expect(
-    await db.auditLog.count({ where: { operation: "accountCombine.combine" } }),
+    await db.auditLog.count({ where: { operation: "personCombine.combine" } }),
   ).toBe(1);
 });
 
 it("waits for an in-flight profile writer without lock inversion and rejects its stale preview", async () => {
-  const preview = await previewCombine(db, pair());
+  const reviewed = await reviewedLoginRetirement(db, pair(), password);
   let releaseWriter!: () => void;
   let signalLocked!: () => void;
   const release = new Promise<void>((resolve) => {
@@ -708,11 +708,7 @@ it("waits for an in-flight profile writer without lock inversion and rejects its
     { timeout: 5000 },
   );
   await locked;
-  const merging = combineAccounts(db, headId, {
-    ...pair(),
-    fingerprint: preview.fingerprint,
-    confirmPassword: password,
-  });
+  const merging = combinePersonRecords(db, headId, reviewed);
   // Observe the real database wait, rather than assume scheduling from a fixed sleep.
   let observed = false;
   try {
@@ -741,6 +737,10 @@ it("waits for an in-flight profile writer without lock inversion and rejects its
 it("retains academic evidence and exposes only the verified merge family's private history", async () => {
   await db.academicProfile.create({
     data: { userId: duplicateId, status: "REPORTED", gradeLevel: 10 },
+  });
+  // Existing academic correction must establish agreement; combine never copies it.
+  await db.academicProfile.create({
+    data: { userId: survivorId, status: "REPORTED", gradeLevel: 10 },
   });
   const evidence = await db.academicConfirmation.create({
     data: {

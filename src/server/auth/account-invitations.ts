@@ -410,6 +410,9 @@ export async function deliverAccountInvitation(
       message: "SIGNUP_MAIL_FAILED",
     });
   return inTransaction(client, async (tx) => {
+    // Historical scopes bind the active period. Other source writers may already
+    // own the namespace, so do not introduce a new period lock into those flows.
+    if (input.source.type === "history") await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
     await lockEntity(tx, `account-invitation:${input.sourceKey}`);
     const email = input.email.trim().toLowerCase();
@@ -611,6 +614,7 @@ export async function enterDisplayedInvitation(
   input: { code: string; proof?: string; userId?: string },
 ) {
   return inTransaction(client, async (tx) => {
+    await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
     const code = normalizeRegCode(input.code);
     const staff = await tx.registrationCode.findUnique({ where: { code } });
@@ -720,6 +724,7 @@ export async function sendInvitationVerification(
       message: "SIGNUP_MAIL_FAILED",
     });
   return inTransaction(client, async (tx) => {
+    await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
     await lockEntity(tx, `account-invitation-id:${input.invitationId}`);
     const row = await tx.accountInvitation.findUnique({
@@ -770,6 +775,7 @@ export async function inspectAccountInvitation(
   },
 ) {
   return inTransaction(client, async (tx) => {
+    await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
     const row = await tx.accountInvitation.findUnique({
       where: { id: input.invitationId },
@@ -931,6 +937,7 @@ export async function verifyAccountInvitation(
   },
 ) {
   const result = await inTransaction(client, async (tx) => {
+    await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
     await lockEntity(tx, `account-invitation-id:${input.invitationId}`);
     const row = await tx.accountInvitation.findUnique({
@@ -1000,6 +1007,7 @@ export async function consumeInvitationLogin(
   proof: string,
 ) {
   return db.$transaction(async (tx) => {
+    await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
     await lockEntity(tx, `account-invitation-id:${invitationId}`);
     const row = await tx.accountInvitation.findUnique({

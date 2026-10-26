@@ -33,7 +33,9 @@ const state = vi.hoisted(() => ({
   accountDetails: vi.fn(),
   combineCandidates: vi.fn(),
   combine: vi.fn(),
+  finalize: vi.fn(),
   combinePreview: vi.fn(),
+  combineReview: vi.fn(),
   combineReceipt: vi.fn(),
   tutors: [
     {
@@ -156,6 +158,7 @@ vi.mock("~/trpc/react", async () => ({
       personCombine: {
         candidates: { invalidate: async () => undefined },
         preview: { fetch: state.combinePreview },
+        review: { fetch: state.combineReview },
         receipt: { fetch: state.combineReceipt },
       },
     }),
@@ -193,6 +196,10 @@ vi.mock("~/trpc/react", async () => ({
       },
       combine: {
         useMutation: () => ({ mutate: state.combine, isPending: false }),
+      },
+      // The shared controller registers both write hooks before choosing its mode.
+      finalize: {
+        useMutation: () => ({ mutate: state.finalize, isPending: false }),
       },
     },
     admin: {

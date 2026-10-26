@@ -2,7 +2,9 @@
 
 import { useFormatter, useTranslations } from "next-intl";
 import { humanizeOperation } from "~/lib/approval-policy";
-import { approvalReview, reviewTechnicalFields } from "~/lib/approval-review";
+import { approvalReview, nextRecruitmentApprovalReview, reviewTechnicalFields } from "~/lib/approval-review";
+import { NextRecruitmentReview } from "./next-recruitment-review";
+import { ProgramRefreshEffects } from "./program-refresh-effects";
 import { minToHm } from "~/lib/time";
 import { roomBlockReview } from "~/lib/room-block-review";
 import { RoomBlockReview } from "./room-block-review";
@@ -37,6 +39,10 @@ export function ApprovalReviewDetails({
   const rolesText = useTranslations("admin.users.roles");
   const roomOrderText = useTranslations("roomOrder");
   const format = useFormatter();
+  if (operation === "program.prepareNextRecruitment" || operation === "admin.refresh") {
+    const review = nextRecruitmentApprovalReview(operation, payload, targets);
+    return review ? <div className="space-y-4"><NextRecruitmentReview {...review} />{operation === "admin.refresh" && <ProgramRefreshEffects target={review.snapshot.target} />}</div> : <p className="text-sm text-slate-600">{t("unavailable")}</p>;
+  }
   if (
     operation === "historicalAcademics.correctBatch" &&
     targets &&

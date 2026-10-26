@@ -2,6 +2,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
@@ -28,11 +29,20 @@ const state = vi.hoisted(() => ({
     data: { approvalId?: string; code?: string };
   },
   refetch: vi.fn(),
+  timeZoneInvalidate: vi.fn(),
+  nextRecruitmentInvalidate: vi.fn(),
+  routerRefresh: vi.fn(),
+  onSuccess: undefined as undefined | (() => Promise<void>),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: state.routerRefresh }) }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    useUtils: () => ({}),
+    useUtils: () => ({
+      program: {
+        timeZoneSettings: { invalidate: state.timeZoneInvalidate },
+        nextRecruitment: { invalidate: state.nextRecruitmentInvalidate },
+      },
+    }),
     program: {
       timeZoneSettings: {
         useQuery: () => ({
@@ -42,7 +52,10 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
       setTimeZone: {
-        useMutation: () => ({ mutate, isPending: false, error: state.error }),
+        useMutation: (options: { onSuccess: () => Promise<void> }) => {
+          state.onSuccess = options.onSuccess;
+          return { mutate, isPending: false, error: state.error };
+        },
       },
     },
   },
@@ -64,6 +77,7 @@ afterEach(() => {
   state.settings.timeZone = "Asia/Shanghai";
   state.queryError = null;
   state.error = null;
+  state.onSuccess = undefined;
 });
 it("offers only selection, requires confirmation, and clears confirmation when the selection changes", () => {
   render(<TimeZoneEditor {...props} />, { wrapper });
@@ -87,6 +101,20 @@ it("keeps the dropdown disabled for a coordinator without permission", () => {
   render(<TimeZoneEditor {...props} canEdit={false} />, { wrapper });
   expect(screen.getByRole<HTMLSelectElement>("combobox").disabled).toBe(true);
   expect(screen.queryByRole("button")).toBeNull();
+});
+
+it("invalidates next-period conversion evidence after an accepted timezone save", async () => {
+  render(<TimeZoneEditor {...props} />, { wrapper });
+  fireEvent.change(screen.getByRole("combobox"), { target: { value: "America/New_York" } });
+  fireEvent.click(screen.getByRole("checkbox"));
+  fireEvent.click(screen.getByRole("button", { name: messages.programTimeZone.save }));
+  expect(state.nextRecruitmentInvalidate).not.toHaveBeenCalled();
+  await act(async () => { await state.onSuccess?.(); });
+  expect(state.timeZoneInvalidate).toHaveBeenCalledOnce();
+  expect(state.nextRecruitmentInvalidate).toHaveBeenCalledOnce();
+  expect(state.routerRefresh).toHaveBeenCalledOnce();
+  expect(screen.getByText(messages.programTimeZone.saved)).toBeTruthy();
+  expect(mutate).toHaveBeenCalledOnce();
 });
 
 it("previews winter and summer offsets without changing saved IANA values", () => {

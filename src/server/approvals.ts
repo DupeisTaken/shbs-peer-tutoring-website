@@ -34,6 +34,15 @@ import {
   announcementAudienceSchema,
   selectAnnouncementRecipients,
 } from "~/lib/announcement-recipients";
+import {
+  nextRecruitmentRefreshEvidenceSchema,
+  prepareNextRecruitmentSchema,
+} from "~/lib/next-recruitment";
+import {
+  assertNextRecruitmentActor,
+  validateNextRecruitmentRefresh,
+  validateNextRecruitmentWrite,
+} from "./program/next-recruitment";
 
 export class ApprovalQueued extends Error {
   constructor(public readonly approvalId: string) {
@@ -372,10 +381,14 @@ async function authoritySnapshot(client: TransactionDb) {
     }),
     programFeatures: await client.programFeature.findMany({
       orderBy: { key: "asc" },
+      // Exact next-period evidence owns this additive revision. Keep unrelated
+      // immutable pre-migration requests on their original snapshot shape.
+      omit: { revision: true },
     }),
     term: await client.term.findFirst({
       where: { active: true },
       orderBy: { createdAt: "desc" },
+      omit: { nextRecruitmentRevision: true },
     }),
   };
 }
@@ -426,6 +439,41 @@ export async function proposalTargets(
           readiness: identity.readiness,
           provisioning: identity.provisioning,
         },
+        ...(includeAuthorityContext
+          ? { authorityContext: await authoritySnapshot(client) }
+          : {}),
+      }),
+    ) as Record<string, Prisma.InputJsonValue>;
+  }
+  if (operation === "program.prepareNextRecruitment") {
+    const proposal = prepareNextRecruitmentSchema.parse(input);
+    const evidence = await validateNextRecruitmentWrite(client, proposal);
+    // The shared target and this audience's version/closing bound own the review.
+    // A separate Tutor/Tutee proposal or current-window edit must not invalidate it.
+    // The marker distinguishes exact modern evidence from legacy review payloads;
+    // live requester/reviewer authority is rechecked by the approval transaction.
+    return JSON.parse(
+      JSON.stringify({
+        nextRecruitment: { audience: proposal.audience, ...evidence },
+        ...(includeAuthorityContext ? { authorityContext: { version: 2 } } : {}),
+      }),
+    ) as Record<string, Prisma.InputJsonValue>;
+  }
+  if (operation === "admin.refresh") {
+    const expected = nextRecruitmentRefreshEvidenceSchema.parse(
+      fields.expectedPreparation,
+    );
+    if (fields.expectedTermId !== expected.target.sourceTermId)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "NEXT_RECRUITMENT_TARGET_CHANGED",
+      });
+    // Validate while capturing, not only while replaying: queue middleware runs
+    // before the resolver. An already stale/invalid refresh never enters review.
+    const evidence = await validateNextRecruitmentRefresh(client, expected);
+    return JSON.parse(
+      JSON.stringify({
+        nextRecruitment: evidence,
         ...(includeAuthorityContext
           ? { authorityContext: await authoritySnapshot(client) }
           : {}),
@@ -675,11 +723,13 @@ export async function proposalTargets(
   if (primary === "ProgramFeature")
     targets.programFeature = await client.programFeature.findMany({
       where: { key: z.nativeEnum(ProgramFeatureKey).parse(fields.key) },
+      omit: { revision: true },
     });
   if (primary === "Term")
     targets.term = await client.term.findFirst({
       where: { active: true },
       orderBy: { createdAt: "desc" },
+      omit: { nextRecruitmentRevision: true },
     });
   if (operation === "messaging.restrict")
     targets.restriction = await client.messageRestriction.findUnique({
@@ -973,7 +1023,7 @@ export async function queueProposal(
       await lockAttendanceApproval(tx, operation, [session.user.id]);
       await lockAttendanceApprovalTarget(tx, operation, value);
     }
-    const actor = await tx.user.findUniqueOrThrow({
+    let actor = await tx.user.findUniqueOrThrow({
       where: { id: session.user.id },
       select: {
         name: true,
@@ -1022,6 +1072,15 @@ export async function queueProposal(
     }
     await validateRoomBlockProposal(tx, operation, value);
     const targets = await proposalTargets(tx, operation, payload, true, true, session.user.id);
+    if (["program.prepareNextRecruitment", "admin.refresh"].includes(operation)) {
+      // Capturing evidence may wait behind a refresh or mode edit. Retain the
+      // requester's live authority under a row lock until the proposal commits.
+      actor = await assertNextRecruitmentActor(
+        tx,
+        session.user.id,
+        authority.requesterRoles,
+      );
+    }
     if (targets && typeof targets === "object" && !Array.isArray(targets))
       targets.reviewAuthority = JSON.parse(
         JSON.stringify(authority),

@@ -37,7 +37,7 @@ separately. Staff-visible `RegistrationCode` keys never authenticate an existing
 | Tutee request | Full submitted application and policy evidence precede exact-submission mailbox verification; staged replacements leave the live survey proof usable | Recipient review confirms new demand or applies the independently staged answers to its owned current OPEN request | One email owner/account, original priority, fixed deadline, source consent and recorded assignments/sessions remain separate. |
 | Viewer request | Initial mailbox verification issues a distinct invitation and verified-browser proof | Receipt popup hands off to new Viewer credentials, or sign-in-only for an existing account | Viewer exclusivity and the public signup feature gate remain authoritative. |
 | Public Crew application | Mailbox verification creates a pending application; staff approval and fresh mailbox verification authorize invitation retrieval | The approved staff source issues the shared receipt for explicit new-account or additive Crew review | No Crew access before staff approval and account review; revocation and the Crew feature gate remain authoritative. |
-| Historical tutee invitation | Exact staff-reviewed record, source revision and mailbox proof | Receipt popup hands off to neutral history-only credentials and an envelope receipt | The signed-in owner must separately claim the original historical record. |
+| Historical participant invitation | Exact staff-reviewed Tutor/Tutee sources, ownership generations and mailbox proof; legacy Tutee invitations remain compatible | Receipt popup hands off to neutral history-only credentials and an envelope receipt | The signed-in owner separately claims the frozen sources; an ownership-checked receipt recovers a lost response. |
 | Head tutor setup | Head authorizes a Tutor invitation to the roster contact | No login before recipient redemption | Existing login recovery is delivered to its canonical address; staff never receive recovery secrets. |
 
 An invitation's displayed entry code authorizes inspection but never authenticates its recipient.
@@ -232,6 +232,47 @@ content, query strings, fragments, external URLs and private destinations intact
 Seed buttons and editor defaults use the same published convention. Absolute URLs
 in stored content retain their explicit origin and destination.
 
+## Next-period recruitment preparation
+
+[`next-recruitment.ts`](../../src/server/program/next-recruitment.ts) owns the typed
+preparation and exact target contract shared by Program Settings, proposal capture
+and official refresh. `NextRecruitmentPreparation` is separate from `Term`, keyed
+by source term and audience, with a monotonically increasing version, UTC opening
+instant, timezone evidence, destination, effective mode revision and actor metadata.
+No row means preserve the destination opening; a row with a null opening is an
+explicit clear. Preparations never create an inactive period or change live intake.
+
+`program.prepareNextRecruitment` requires the source/destination/mode target,
+audience version and timezone. Head applies; Admin queues for Head; lower roles
+cannot submit. Proposal capture and execution repeat the same locked checks. Save
+evidence contains only the selected audience, so independently reviewed Tutor and
+Tutee proposals can both apply. Refresh evidence includes both preparations and
+the reused destination's switches, bounds and preview links. Legacy queued refresh
+payloads lacking this evidence require new review.
+
+The lock order is `program:period`, active-source row, then `program-timezone`.
+Refresh then locks the username namespace before touching participant rows; its
+graduation path and intake writers use compatible period-before-identity ordering.
+Preparation and refresh lock and recheck the actor after the period wait, while
+approval replay also locks and rechecks the requester and reviewer.
+The source transaction fence prevents a pre-lock Serializable snapshot from
+accepting stale absent rows or mode evidence. Quarter System staging shares the
+period barrier and advances its revision even across an away-and-back change.
+Every changed feature staging and timezone write advances the source fence too.
+`admin.refresh` validates reviewed evidence before any archive or activation,
+then applies only opening overrides in its destination upsert. Submission writers
+use the same period barrier and observe either the previous active period or the
+fully configured destination. Rollback retains preparations and history; the old
+source ID rejects repeated activation. Existing switches, closing bounds, preview
+links and participant-history semantics remain unchanged.
+
+Saved instants are never converted again after a timezone change. Editing requires
+current timezone evidence, and refresh reviews both the program zone and stored
+preparation zone. Closing validation applies to reused destinations. Elapsed
+openings are allowed; the inclusive opening boundary still composes with acceptance,
+exclusive closing and normal signup prerequisites. Operator behavior is documented
+in [next-period openings](../guides/program-configuration.md#prepare-next-period-openings).
+
 ## Architecture
 
 Tutor Roster details use the read-only `tutorDetails.get` procedure, guarded by the same management permission as account policy history. Its explicit field selection excludes authentication secrets; the UI mounts the query only after a staff member opens a tutor. Subject grouping reads concrete grants from approved qualification sources, never recalculating inheritance from current level ranks. Willingness remains a separate three-state value (true, false, or no record). Policy history uses the linked account ID through `student.acceptanceRecords`; neither matching contact data nor viewing a record grants account or role-edit access.
@@ -279,6 +320,11 @@ grouped. `hasTutorHistory` and `hasTuteeHistory` preserve historical visibility,
 while separate current participation can keep a group visible. Grouping changes
 no original roster evidence. Successful writes invalidate directory, detail and
 history reads; failed synchronization retries reads without repeating the write.
+
+The maintained [identity lifecycle inventory](identity-lifecycle.md) maps source
+writers and private readers to their actual authority, documents transaction-owned
+missing-source initialization, and defines the read-only reconciliation command
+and cutover/rollback comparison. Directory metadata is excluded from archives.
 
 The Users & Roles page composes existing table actions, `ProfileDialog`, `TableDetails`, academic and policy displays. Detail queries and mutation observers mount only on opening. Each opening refreshes the authoritative detail read, even within the shared query cache freshness window, so independent membership, suspension and profile editors cannot leave reopened details stale. Failed background reads retain cached details with read-only Retry. Badge colors are local presentation, independent of the six accent palettes: management indigo, participation teal, Translator amber and Viewer slate. Summary badge suppression and all filtering logic remain in their existing domain helpers; the detail display adds the underlying accepted Tutee membership. The read-only context hides the private entry, and server authorization independently refuses observers and participants, including stale elevated sessions.
 
@@ -951,9 +997,9 @@ The [user filter helpers](../../src/lib/user-filters.ts) match composable member
 
 Account names synchronize only to explicitly linked current profiles. Shared profile writers lock the account before roster rows and reject stale versions. Signed agreements, submitted survey names and historical snapshots remain evidence of what was submitted.
 
-[Unified record combination](../../src/server/person-combine.ts) plans explicit User/Tutor/Tutee groups through [person identity resolution](../../src/server/person-identity.ts). A `Person` may have no login; its versioned associations are directory metadata, never an authorization principal. Admin may approve unowned historical records. Multiple logins, active unowned records and restricted identities require Head review and current password confirmation. The planner can persist `REVIEW_REQUIRED` while keeping current work and private login access separate. Exact compatible login retirement is an explicit choice; it preserves survivor capabilities instead of unioning privileges. `User.mergedIntoId` retains original actors and retires credentials. [History resolution](../../src/server/account-history.ts) traverses only immutable retirement edges, not the Person group, including repeated combinations. The [legacy combine service](../../src/server/combine-accounts.ts) remains compatible and synchronizes directory identity. See [retention limits](../guides/deployment.md#combined-account-identity-retention) and the [operator procedure](../guides/user-guide.md#combine-records-admin-and-head).
+[Unified record combination](../../src/server/person-combine.ts) plans explicit User/Tutor/Tutee groups through [person identity resolution](../../src/server/person-identity.ts). A `Person` may have no login; its versioned associations are directory metadata, never an authorization principal. Admin may approve unowned historical records. Multiple logins, active unowned records and restricted identities require Head review and current password confirmation. The planner can persist `REVIEW_REQUIRED` while keeping current work and private login access separate. Exact compatible login retirement is an explicit choice; it preserves survivor capabilities instead of unioning privileges. `User.mergedIntoId` retains original actors and retires credentials. [History resolution](../../src/server/account-history.ts) traverses only immutable retirement edges, not the Person group, including repeated combinations. The [legacy combine service](../../src/server/combine-accounts.ts) preserves its authorization/password checks but refuses writes and requires a fresh Combine Records review; an old fingerprint cannot authorize the unified plan. See [retention limits](../guides/deployment.md#combined-account-identity-retention) and the [operator procedure](../guides/user-guide.md#combine-records-admin-and-head).
 
-The person migration backfills only current profile pointers, retained ownership and recorded login retirement. Contradictory or orphaned retained ownership stops migration for staff review; names/email never infer a relationship. Imported source rows can have no person metadata until an authorized grouping or ownership write. Archive CSVs exclude person IDs and combination receipts. Grouped identities are protected from ordinary deletion; a lone unreviewed account may still use the existing deletion workflow. Combination receipts bind actor, operation UUID and reviewed intent without storing passwords; accepted retries return the receipt. Preview fingerprints cover source/group revisions, credentials and the exact operational plan. Existing history claims and ownership corrections synchronize metadata without changing original roster edit timestamps or granting sibling records' history access.
+The person migration backfills only current profile pointers, retained ownership and recorded login retirement. Contradictory or orphaned retained ownership stops migration for staff review; names/email never infer a relationship. Production provisioning and validated Program Records imports initialize missing source metadata in their existing transaction, preserving explicit ownership, established groups and original source timestamps. The [identity lifecycle inventory](identity-lifecycle.md) identifies covered writers and private readers; its read-only reconciliation command reports older omissions or conflicts without repairing them. Archive CSVs exclude person IDs and combination receipts. Grouped identities are protected from ordinary deletion; a lone unreviewed account may still use the existing deletion workflow. Combination receipts bind actor, operation UUID and reviewed intent without storing passwords; accepted retries return the receipt. Preview fingerprints cover source/group revisions, credentials and the exact operational plan. Existing history claims and ownership corrections synchronize metadata without changing original roster edit timestamps or granting sibling records' history access.
 
 The [unified combination component](../../src/app/_components/combine-records.tsx)
 searches authorized login and participant records independently of the directory's
@@ -1273,7 +1319,7 @@ Tutee link fingerprints include the target email/verification state and `Student
 
 Personal history presents separate tutee and tutor summaries with stable record IDs. Tutee periods come from the original intake term; tutor periods and stored session-hour sums come from owned session evidence. No current account year or recalculated duration replaces those values. Tutor details recheck exact-record ownership, return independent session/meeting/amendment page indicators and retain the legacy `page` fallback for older callers. The UI opens details on demand with a fresh read and uses independent cursors. Transient background failures retain cached content beside read-only recovery. Authoritative detail denial conceals private evidence; a successful complete ownership list that excludes the selected record closes its detail, even if the detail read is offline.
 
-History-only account setup reuses the exact-record invitation and shared email-claim registry. A separate HMAC email code and purpose-bound completion proof open the shared receipt popup, whose optional email and prefilled link hand off to credential review at `/register`; invitation expiry/cancellation, record freshness and issuer authority are checked inside the identity transaction at every step. A neutral STUDENT rank with no participation links/memberships does not grant observer or current tutoring access. The receipt supports a lost-response retry without overwriting credentials. The explicit signed-in claim still establishes ownership separately. Personal tutor history reads current and retained tutor ownership across the account-combination family, without invoking participation, profile synchronization or hour recalculation.
+History-only account setup reuses the exact-record invitation and shared email-claim registry. It supports a historical Tutor, a reviewed frozen Tutor/Tutee source list, and existing Tutee invitations through an explicit adapter. A separate HMAC email code and purpose-bound completion proof open the shared receipt popup, whose optional email and prefilled link hand off to credential review at `/register`; invitation expiry/cancellation, record freshness and issuer authority are checked inside the identity transaction at every step. A neutral STUDENT rank with no participation links/memberships does not grant observer or current tutoring access. The setup receipt supports a lost-response retry without overwriting credentials. The explicit signed-in claim still establishes ownership separately, with an atomic claim receipt for read-only recovery that rechecks exact retained ownership and credential generation. Later group members never expand the invitation. Personal tutor history reads current and retained tutor ownership across the account-combination family, without invoking participation, profile synchronization or hour recalculation. See the [identity lifecycle inventory](identity-lifecycle.md#frozen-historical-invitations-and-claim-receipts) for delivery publication, source-generation and correction boundaries.
 
 Historical invitation replacement separates durable delivery admission from publication.
 `TuteeHistoryInvitationAttempt` stores an inert hashed candidate, reviewed record

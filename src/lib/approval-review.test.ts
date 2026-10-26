@@ -2,7 +2,21 @@ import { describe, expect, it } from "vitest";
 import en from "../../messages/en.json";
 import zh from "../../messages/zh.json";
 import { APPROVAL_OPERATIONS } from "./approval-policy";
-import { approvalReview } from "./approval-review";
+import { approvalReview, nextRecruitmentApprovalReview } from "./approval-review";
+
+it("restores recorded preparation instants without conflating absent preparation and an explicit clear", () => {
+  const target = { sourceTermId: "term", sourceSchoolYear: "26-27", sourceQuarter: "Q1", destinationSchoolYear: "26-27", destinationQuarter: "Q2", semesterMode: false, modeRevision: 1 };
+  const payload = { audience: "tutor", expectedTarget: target, opensAt: null };
+  const evidence = { currentName: "26-27 Q1", nextName: "26-27 Q2", target, timeZone: "Asia/Shanghai", preparation: null };
+  const empty = nextRecruitmentApprovalReview("program.prepareNextRecruitment", payload, { nextRecruitment: evidence });
+  expect(empty?.snapshot.preparations.tutor).toBeNull();
+  expect(empty).toHaveProperty("proposedOpening", null);
+  const saved = nextRecruitmentApprovalReview("program.prepareNextRecruitment", { ...payload, opensAt: "2026-11-01T01:00:00.000Z" }, { nextRecruitment: { ...evidence, preparation: { target, version: 1, opensAt: null, timeZone: "Asia/Shanghai" } } });
+  expect(saved?.snapshot.preparations.tutor).toMatchObject({ opensAt: null, version: 1, matchesTarget: true });
+  expect(saved).toHaveProperty("proposedOpening", new Date("2026-11-01T01:00:00.000Z"));
+  expect(nextRecruitmentApprovalReview("program.prepareNextRecruitment", { ...payload, expectedTarget: { ...target, modeRevision: 2 } }, { nextRecruitment: evidence })).toBeNull();
+  expect(nextRecruitmentApprovalReview("admin.refresh", {}, {})).toBeNull();
+});
 
 describe("immutable approval presentation", () => {
   it("compares corrected names with submission-time values and separates the explanation", () => {
