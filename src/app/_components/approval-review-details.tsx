@@ -2,7 +2,14 @@
 
 import { useFormatter, useTranslations } from "next-intl";
 import { humanizeOperation } from "~/lib/approval-policy";
-import { approvalReview, nextRecruitmentApprovalReview, reviewTechnicalFields } from "~/lib/approval-review";
+import {
+  nextRecruitmentApprovalReview,
+  reviewTechnicalFields,
+  type ReviewField,
+} from "~/lib/approval-review";
+import { approvalPresentation } from "~/lib/approval-presentation";
+import { reviewCollectionFieldEqual } from "~/lib/approval-review-collections";
+import { ReviewDisclosure } from "./review-disclosure";
 import { NextRecruitmentReview } from "./next-recruitment-review";
 import { ProgramRefreshEffects } from "./program-refresh-effects";
 import { minToHm } from "~/lib/time";
@@ -25,11 +32,17 @@ export function ApprovalReviewDetails({
   payload,
   targets,
   compact = false,
+  summaryOnly = false,
+  hideSummary = false,
+  busy = false,
 }: {
   operation: string;
   payload: unknown;
   targets: unknown;
   compact?: boolean;
+  summaryOnly?: boolean;
+  hideSummary?: boolean;
+  busy?: boolean;
 }) {
   const t = useTranslations("approvals.review");
   const departureText = useTranslations("schoolDeparture");
@@ -38,10 +51,32 @@ export function ApprovalReviewDetails({
   const namesText = useTranslations("personName");
   const rolesText = useTranslations("admin.users.roles");
   const roomOrderText = useTranslations("roomOrder");
+  const featureText = useTranslations("admin.program.features");
+  const recruitmentText = useTranslations("nextRecruitment");
   const format = useFormatter();
-  if (operation === "program.prepareNextRecruitment" || operation === "admin.refresh") {
+  if (
+    operation === "program.prepareNextRecruitment" ||
+    operation === "admin.refresh"
+  ) {
     const review = nextRecruitmentApprovalReview(operation, payload, targets);
-    return review ? <div className="space-y-4"><NextRecruitmentReview {...review} />{operation === "admin.refresh" && <ProgramRefreshEffects target={review.snapshot.target} />}</div> : <p className="text-sm text-slate-600">{t("unavailable")}</p>;
+    if (summaryOnly)
+      return (
+        <p className="text-sm text-slate-800">
+          {review
+            ? `${review.snapshot.currentName} → ${review.snapshot.nextName}`
+            : t("unavailable")}
+        </p>
+      );
+    return review ? (
+      <div className="space-y-4">
+        <NextRecruitmentReview {...review} />
+        {operation === "admin.refresh" && (
+          <ProgramRefreshEffects target={review.snapshot.target} />
+        )}
+      </div>
+    ) : (
+      <p className="text-sm text-slate-600">{t("unavailable")}</p>
+    );
   }
   if (
     operation === "historicalAcademics.correctBatch" &&
@@ -52,30 +87,47 @@ export function ApprovalReviewDetails({
     const review = historicalReviewRecords.safeParse(
       targets.historicalAcademics,
     );
+    if (summaryOnly)
+      return <p className="text-sm text-slate-800">{t("updateHelp")}</p>;
     if (review.success)
       return <HistoricalCorrectionReview records={review.data} />;
   }
-  const model = approvalReview(operation, payload, targets);
+  const model = approvalPresentation(operation, payload, targets);
   const block = roomBlockReview(operation, payload, targets);
   const departureAction =
     operation === "departure.setState"
       ? model.changes.find((field) => field.key === "action")?.requested
       : undefined;
   const label = (key: string) =>
-    operation === "program.setNameFields" && key === "states"
-      ? nameFieldsText("title")
-      : operation === "program.setNameFields" && key === "accountType"
-        ? nameFieldsText("accountType")
-        : ["program.setNameFields", "admin.correctApplicationIdentity"].includes(operation) &&
-            NAME_FIELD_KEYS.includes(key as (typeof NAME_FIELD_KEYS)[number])
-          ? namesText(key)
-          : operation === "admin.reorderRooms" && key === "roomOrder"
-            ? roomOrderText("title")
-            : t.has(`fields.${key}`)
-              ? t(`fields.${key}`)
-              : humanizeOperation(key.replace(/Ids?$/, ""));
+    key === "requestedFeature"
+      ? t("after")
+      : operation === "program.setNameFields" && key === "states"
+        ? nameFieldsText("title")
+        : operation === "program.setNameFields" && key === "accountType"
+          ? nameFieldsText("accountType")
+          : [
+                "program.setNameFields",
+                "admin.correctApplicationIdentity",
+                "admin.updateAccountProfile",
+                "admin.updateTutor",
+                "admin.updateTutee",
+              ].includes(operation) &&
+              NAME_FIELD_KEYS.includes(key as (typeof NAME_FIELD_KEYS)[number])
+            ? namesText(key)
+            : operation === "admin.reorderRooms" && key === "roomOrder"
+              ? roomOrderText("title")
+              : t.has(`fields.${key}`)
+                ? t(`fields.${key}`)
+                : humanizeOperation(key.replace(/Ids?$/, ""));
   const display = (value: unknown, key = ""): React.ReactNode => {
-    if (value === null || value === undefined || value === "")
+    if (value === undefined)
+      return <span className="text-slate-600">{t("unavailable")}</span>;
+    if (
+      ["pending", "pendingOverride", "requestedFeature"].includes(key) &&
+      value === null
+    )
+      return t("noPending");
+    if (value === null || value === "")
       return <span className="text-slate-500">{t("emptyValue")}</span>;
     if (
       value instanceof Date ||
@@ -84,13 +136,27 @@ export function ApprovalReviewDetails({
         /^\d{4}-\d{2}-\d{2}T/.test(value))
     ) {
       const date = new Date(value);
+      if (operation === "program.setSignupWindow" && !model.timeZone)
+        return Number.isFinite(date.getTime())
+          ? date.toISOString()
+          : String(value);
       if (Number.isFinite(date.getTime()))
         return format.dateTime(date, {
           dateStyle: "medium",
           timeStyle: "short",
+          ...(model.timeZone ? { timeZone: model.timeZone } : {}),
         });
     }
     if (typeof value === "boolean") {
+      if (
+        [
+          "effective",
+          "pending",
+          "pendingOverride",
+          "requestedFeature",
+        ].includes(key)
+      )
+        return featureText(value ? "on" : "off");
       if (key === "approve" || key === "accept")
         return t(value ? "approveUnderlying" : "rejectUnderlying");
       if (key === "overturn") return t(value ? "overturn" : "uphold");
@@ -106,6 +172,10 @@ export function ApprovalReviewDetails({
       return format.number(value);
     }
     if (typeof value === "string") {
+      if (key === "feature" && featureText.has(`name.${value}`))
+        return featureText(`name.${value}`);
+      if (key === "recruitmentAudience" && ["tutor", "tutee"].includes(value))
+        return recruitmentText(value);
       // Translate only schema-owned states/roles. Captured names and other
       // user-authored evidence remain exactly as supplied at submission.
       if (operation === "program.setNameFields") {
@@ -221,100 +291,192 @@ export function ApprovalReviewDetails({
       ))}
     </dl>
   );
+  const summary = (
+    <section aria-label={t("affected")} className="space-y-3">
+      {!!model.facts.length &&
+        values(model.facts.map(({ key, value }) => [key, value]))}
+      <p className="text-sm font-medium text-slate-900">{t(model.outcome)}</p>
+      {model.feature && (
+        <p className="text-sm text-slate-600">
+          {t(`featureSource.${model.feature.source}`)}
+        </p>
+      )}
+    </section>
+  );
+  if (summaryOnly) return summary;
+
+  const comparison = (field: ReviewField) => (
+    <div className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)]">
+      <h4 className="text-sm font-semibold text-slate-800">
+        {label(field.key)}
+      </h4>
+      {model.comparison && (
+        <div className="min-w-0">
+          <p className="mb-1 text-xs font-medium text-slate-600">
+            {t("before")}
+          </p>
+          <div className="text-sm break-words whitespace-pre-wrap text-slate-700">
+            {field.hasBefore
+              ? display(field.before, field.key)
+              : t("unavailable")}
+          </div>
+        </div>
+      )}
+      <div
+        className={`bg-accent-50 min-w-0 rounded-md px-3 py-2 ${model.comparison ? "" : "sm:col-span-2"}`}
+      >
+        <p className="text-accent-800 mb-1 text-xs font-medium">{t("after")}</p>
+        <div className="text-sm break-words whitespace-pre-wrap text-slate-900">
+          {display(field.requested, field.key)}
+        </div>
+      </div>
+    </div>
+  );
+  const change = (field: ReviewField) => {
+    const collection = field.collection;
+    if (!collection) return comparison(field);
+    return (
+      <section className="space-y-3 py-3" aria-label={label(field.key)}>
+        <h4 className="text-sm font-semibold text-slate-800">
+          {label(field.key)}
+        </h4>
+        <p className="text-sm text-slate-600">
+          {t("collectionCounts", collection.counts)}
+        </p>
+        {collection.rows
+          .filter((row) => row.state !== "unchanged")
+          .map((row) => {
+            const left =
+              row.before && typeof row.before === "object"
+                ? (row.before as Record<string, unknown>)
+                : undefined;
+            const right =
+              row.requested && typeof row.requested === "object"
+                ? (row.requested as Record<string, unknown>)
+                : undefined;
+            const fields = [
+              ...new Set([
+                ...Object.keys(left ?? {}),
+                ...Object.keys(right ?? {}),
+              ]),
+            ]
+              .filter(
+                (key) =>
+                  key !== collection.identity &&
+                  !reviewTechnicalFields.has(key),
+              )
+              .filter(
+                (key) =>
+                  !reviewCollectionFieldEqual(
+                    left?.[key],
+                    right?.[key],
+                    key,
+                    collection.dateFields,
+                    !!left && Object.hasOwn(left, key),
+                    !!right && Object.hasOwn(right, key),
+                  ),
+              );
+            return (
+              <div key={row.id} className="border-t border-slate-200 pt-3">
+                <p className="text-sm font-semibold text-slate-900">
+                  {display(row.id, collection.identity)}{" "}
+                  <span className="ml-2 text-xs font-medium text-slate-600">
+                    {t(`collectionState.${row.state}`)}
+                  </span>
+                </p>
+                {fields.length
+                  ? fields.map((key) => (
+                      <div key={key}>
+                        {comparison({
+                          key,
+                          before: left?.[key],
+                          requested: right?.[key],
+                          hasBefore: !!left && Object.hasOwn(left, key),
+                        })}
+                      </div>
+                    ))
+                  : row.state === "changed"
+                    ? comparison({
+                        ...field,
+                        key: collection.identity,
+                        before: row.before,
+                        requested: row.requested,
+                      })
+                    : null}
+              </div>
+            );
+          })}
+        {!!collection.counts.unchanged && (
+          <ReviewDisclosure
+            title={t("unchangedRows", { count: collection.counts.unchanged })}
+            defaultOpen={false}
+            busy={busy}
+          >
+            {collection.rows
+              .filter((row) => row.state === "unchanged")
+              .map((row) => (
+                <div className="text-sm whitespace-pre-wrap" key={row.id}>
+                  {display(row.requested, field.key)}
+                </div>
+              ))}
+          </ReviewDisclosure>
+        )}
+      </section>
+    );
+  };
   return (
     <div className="space-y-4">
-      {!!model.context.length && (
-        <section
-          aria-label={t("affected")}
-          className="rounded-lg bg-slate-50 p-4"
-        >
-          <h3 className="mb-3 text-sm font-semibold text-slate-800">
-            {t("affected")}
-          </h3>
-          {values(model.context.map(({ key, value }) => [key, value]))}
-        </section>
-      )}
-      <section aria-label={t("requested")} className="space-y-3">
-        <h3 className="text-sm font-semibold text-slate-800">
-          {t("requested")}
-        </h3>
-        {operation === "departure.setState" && (
-          <div className="space-y-2 rounded-lg border border-teal-200 bg-teal-50 p-4 text-sm text-slate-800">
-            <p>
-              {departureText(
-                departureAction === "RETURN"
-                  ? "returnHelp"
-                  : departureAction === "REVOKE" ||
-                      departureAction === "RESTORE"
-                    ? "accessHelp"
-                    : "consequences",
-              )}
-            </p>
-            <p>{departureText("retained")}</p>
-          </div>
-        )}
-        {block ? (
-          <RoomBlockReview summary={block} />
-        ) : model.kind === "delete" ? (
-          <div className="space-y-3 rounded-lg border border-red-200 bg-red-50 p-4">
-            <p className="text-sm font-medium text-red-900">
-              {t("deleteHelp")}
-            </p>
-            {model.hasRemovalSnapshot ? (
-              values(model.removed)
-            ) : (
-              <p className="text-sm text-slate-600">{t("unavailable")}</p>
-            )}
-            {!!model.changes.length &&
-              values(
-                model.changes.map((field) => [field.key, field.requested]),
-              )}
-          </div>
-        ) : (
-          <>
-            <p className="text-sm text-slate-500">{t(`${model.kind}Help`)}</p>
-            {model.changes.length ? (
-              <div className="divide-y divide-slate-200 rounded-lg border border-slate-200">
-                {model.changes.map((field) => (
-                  <div
-                    key={field.key}
-                    className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)]"
-                  >
-                    <h4 className="text-sm font-semibold text-slate-800">
-                      {label(field.key)}
-                    </h4>
-                    {model.kind === "update" && (
-                      <div className="min-w-0">
-                        <p className="mb-1 text-xs font-medium text-slate-500">
-                          {t("before")}
-                        </p>
-                        <div className="text-sm break-words whitespace-pre-wrap text-slate-600">
-                          {field.hasBefore
-                            ? display(field.before, field.key)
-                            : t("unavailable")}
-                        </div>
-                      </div>
-                    )}
-                    <div
-                      className={`min-w-0 rounded-md bg-blue-50 px-3 py-2 ${model.kind === "update" ? "" : "sm:col-span-2"}`}
-                    >
-                      <p className="mb-1 text-xs font-medium text-blue-800">
-                        {t("after")}
-                      </p>
-                      <div className="text-sm break-words whitespace-pre-wrap text-slate-900">
-                        {display(field.requested, field.key)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
-                {t(model.unchanged.length ? "noFieldChanges" : "noFields")}
+      {!hideSummary && summary}
+      <section aria-label={t("requested")}>
+        <ReviewDisclosure title={t("requested")} busy={busy}>
+          {operation === "departure.setState" && (
+            <div className="space-y-2 rounded-lg border border-teal-200 bg-teal-50 p-4 text-sm text-slate-800">
+              <p>
+                {departureText(
+                  departureAction === "RETURN"
+                    ? "returnHelp"
+                    : departureAction === "REVOKE" ||
+                        departureAction === "RESTORE"
+                      ? "accessHelp"
+                      : "consequences",
+                )}
               </p>
-            )}
-          </>
-        )}
+              <p>{departureText("retained")}</p>
+            </div>
+          )}
+          {block ? (
+            <RoomBlockReview summary={block} />
+          ) : model.kind === "delete" ? (
+            <div className="space-y-3 rounded-lg border border-red-200 bg-red-50 p-4">
+              <p className="text-sm font-medium text-red-900">
+                {t("deleteHelp")}
+              </p>
+              {model.hasRemovalSnapshot ? (
+                values(model.removed)
+              ) : (
+                <p className="text-sm text-slate-600">{t("unavailable")}</p>
+              )}
+              {!!model.changes.length &&
+                values(
+                  model.changes.map((field) => [field.key, field.requested]),
+                )}
+            </div>
+          ) : (
+            <>
+              {model.changes.length ? (
+                <div className="divide-y divide-slate-200">
+                  {model.changes.map((field) => (
+                    <div key={field.key}>{change(field)}</div>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
+                  {t(model.unchanged.length ? "noFieldChanges" : "noFields")}
+                </p>
+              )}
+            </>
+          )}
+        </ReviewDisclosure>
       </section>
       {!!model.unchanged.length && (
         <details className="rounded-lg border border-slate-200 px-4">

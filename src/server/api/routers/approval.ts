@@ -351,6 +351,12 @@ export const approvalRouter = createTRPCRouter({
                       "authorityContext",
                     ),
                     request.requesterId,
+                    // Capture versions are chosen from stored evidence, never from
+                    // today's schema: pending pre-upgrade proposals stay compatible.
+                    !!evidence.reviewPresentation &&
+                      typeof evidence.reviewPresentation === "object" &&
+                      "version" in evidence.reviewPresentation &&
+                      evidence.reviewPresentation.version === 1,
                   );
                   if (
                     targets &&

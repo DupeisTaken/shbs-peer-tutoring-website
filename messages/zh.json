@@ -3317,7 +3317,15 @@
         "target": "消息权限对象",
         "groups": "允许发送消息的群组",
         "hide": "隐藏消息",
-        "restricted": "限制消息功能"
+        "restricted": "限制消息功能",
+        "feature": "项目功能",
+        "effective": "提交时生效值",
+        "pending": "提交时待生效值",
+        "recruitmentAudience": "招募对象",
+        "periodName": "项目学期",
+        "participant": "参与者",
+        "textDestination": "文字发布位置",
+        "pendingOverride": "待生效设置"
       },
       "values": {
         "ACTIVE": "参与中",
@@ -3371,7 +3379,8 @@
         "RESTORE": "恢复观察员权限",
         "REPORTED": "已填报年级",
         "UNKNOWN": "未知",
-        "NOT_APPLICABLE": "不适用"
+        "NOT_APPLICABLE": "不适用",
+        "STUDENT_ABORT": "退出整个同伴辅导项目"
       },
       "entities": {
         "Room": "教室",
@@ -3531,7 +3540,36 @@
         "admin_correctApplicationIdentity": "更正待处理申请姓名"
       },
       "decisionRequestHelp": "“批准并执行”将执行申请的操作，包括申请中要求的拒绝决定。“拒绝并反馈”只拒绝此申请，不做任何更改。两种决定都需要说明。",
-      "confirmPassword": "确认负责人账户密码"
+      "confirmPassword": "确认负责人账户密码",
+      "noPending": "无待生效设置",
+      "collectionCounts": "已更改 {changed} 行 · 已添加 {added} 行 · 已移除 {removed} 行 · 未更改 {unchanged} 行",
+      "collectionState": {
+        "added": "已添加",
+        "removed": "已移除",
+        "changed": "已更改"
+      },
+      "unchangedRows": "未更改的行（{count}）",
+      "collapse": "收起",
+      "expand": "展开",
+      "reviewDetails": "审阅详情与决定",
+      "featureApplied": "此审批已更新待生效设置。这是历史审批记录，并不表示功能已生效；功能须在项目刷新时生效。",
+      "featureOutcome": {
+        "stage": "将请求值设为待生效值，在下次项目刷新时生效。",
+        "replace": "替换待生效值，在下次项目刷新时生效。",
+        "clear": "清除待生效设置，保留当前生效值。",
+        "unchanged": "保持提交时记录的待生效设置不变。",
+        "unknown": "请求更改待生效设置；提交时的生效状态未被记录。"
+      },
+      "featureSource": {
+        "default": "提交时尚无功能记录；生效值取自当时的默认值。",
+        "stored": "生效值和待生效值均为提交时的记录，并非当前实时设置。",
+        "uncapturedDefault": "提交时尚无功能记录，且未记录当时生效的默认值。",
+        "missing": "此请求未记录生效状态与待生效状态。"
+      },
+      "recruitmentOutcome": "批准后应用请求的招募时间安排。",
+      "publishOutcome": "批准此提案后，发布所示原文。",
+      "rejectPublicationOutcome": "批准此提案后，拒绝对应的翻译发布草稿，不发布任何文字。",
+      "attendanceOutcome": "应用此次考勤更正，保留记录中的参与者名单。"
     },
     "requestHead": "申请负责人审批",
     "sensitiveHelp": "负责人可直接执行这些更改。管理员提交请求由负责人审批；协调员仅可查看。待审批请求不会更改现有设置。",
@@ -3579,7 +3617,16 @@
       "added": "新增",
       "removed": "移除",
       "changed": "更改"
-    }
+    },
+    "summaryTitle": "记录的变更",
+    "summaryCounts": "值的变更：已更改 {changed} 项 · 已添加 {added} 项 · 已移除 {removed} 项",
+    "positionalSummary": "数组按记录中的位置比较，不按人员或记录身份匹配。数量表示值的变更数，不是不重复的记录数。",
+    "noRecordedChanges": "记录的值没有差异。",
+    "comparisonNumber": "比较 {number}",
+    "recordedIds": "记录的标识：{before} → {after}",
+    "wholeValue": "完整值",
+    "fullEvidence": "完整记录证据",
+    "recordedPosition": "记录位置 {number}"
   },
   "auditFilters": {
     "subtitle": "按用户追踪项目中的操作、提案和决定。",

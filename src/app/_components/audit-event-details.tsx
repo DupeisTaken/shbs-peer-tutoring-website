@@ -13,6 +13,8 @@ import {
 } from "~/lib/recorded-evidence-diff";
 import { Button } from "./ui/button";
 import { DisclosureSection } from "./ui/disclosure-section";
+import { ReviewDisclosure } from "./review-disclosure";
+import { auditChangeSummary } from "~/lib/audit-change-summary";
 import { InlineNotice, StatePanel } from "./ui/patterns";
 
 /** Preserve JSON types and escaping on demand; never serialize the event's
@@ -175,6 +177,85 @@ function EvidenceContent({
   );
 }
 
+/** The summary decorates known stored envelopes. The original reader below stays
+ * available for unknown keys, complete context, and exact JSON. */
+export function AuditChangeSummary({
+  summary,
+}: {
+  summary: ReturnType<typeof auditChangeSummary>;
+}) {
+  const t = useTranslations("auditEventDetails");
+  const review = useTranslations("approvals.review");
+  if (!summary) return null;
+  return (
+    <section aria-label={t("summaryTitle")} className="space-y-3">
+      <h3 className="text-base font-semibold text-slate-900">
+        {t("summaryTitle")}
+      </h3>
+      <p className="text-sm text-slate-700">
+        {t("summaryCounts", summary.counts)}
+      </p>
+      {summary.positional && (
+        <p className="text-sm text-slate-600">{t("positionalSummary")}</p>
+      )}
+      {!summary.comparisons.length && <p>{t("noRecordedChanges")}</p>}
+      {summary.comparisons.map((comparison, index) => (
+        <ReviewDisclosure
+          key={index}
+          defaultOpen={summary.comparisons.length === 1}
+          title={`${comparison.entity && review.has(`entities.${comparison.entity}`) ? review(`entities.${comparison.entity}`) : (comparison.entity ?? t("evidence"))} · ${t("comparisonNumber", { number: index + 1 })}`}
+        >
+          {comparison.position !== undefined && (
+            <p className="text-xs text-slate-600">
+              {t("recordedPosition", { number: comparison.position })}
+            </p>
+          )}
+          {(comparison.beforeId !== undefined ||
+            comparison.afterId !== undefined) && (
+            <p className="text-xs text-slate-600">
+              {t("recordedIds", {
+                before: comparison.beforeId ?? t("notRecorded"),
+                after: comparison.afterId ?? t("notRecorded"),
+              })}
+            </p>
+          )}
+          <div className="divide-y divide-slate-200">
+            {comparison.fields.map((field) => (
+              <div
+                key={field.path}
+                className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)]"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium [overflow-wrap:anywhere]">
+                    {field.path || t("wholeValue")}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    {t(`difference.${field.change}`)}
+                  </p>
+                </div>
+                {(["before", "after"] as const).map((side) => (
+                  <div key={side} className="min-w-0">
+                    <p className="mb-1 text-xs font-medium text-slate-600">
+                      {t(side)}
+                    </p>
+                    <div className="whitespace-pre-wrap">
+                      <EvidenceValue
+                        value={
+                          field[side].present ? field[side].value : undefined
+                        }
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </ReviewDisclosure>
+      ))}
+    </section>
+  );
+}
+
 function Metadata({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
@@ -261,6 +342,9 @@ export function AuditEventDetails({ id }: { id: string }) {
     );
   };
   const details = event.details;
+  // Derive once from this immutable event; no present-day record reads or ID
+  // matching participate in either the summary or the full evidence reader.
+  const summary = auditChangeSummary(details);
   const evidence =
     details && typeof details === "object" && !Array.isArray(details)
       ? details
@@ -326,6 +410,7 @@ export function AuditEventDetails({ id }: { id: string }) {
           <Metadata label={t("undoneAt")}>{timestamp(event.undoneAt)}</Metadata>
         </dl>
       </section>
+      <AuditChangeSummary summary={summary} />
       <section
         aria-label={t("evidence")}
         className="space-y-4 border-t border-slate-200 pt-5"
@@ -336,50 +421,52 @@ export function AuditEventDetails({ id }: { id: string }) {
           </h3>
           <p className="mt-1 text-sm text-slate-500">{t("evidenceHelp")}</p>
         </div>
-        {details === null ? (
-          <p className="rounded-lg bg-slate-50 p-4 text-slate-600">
-            {t("noEvidence")}
-          </p>
-        ) : hasComparison ? (
-          <>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(["before", "after"] as const).map((side) => (
-                <section
-                  key={side}
-                  aria-label={t(side)}
-                  className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-4"
-                >
-                  <h4 className="mb-3 text-sm font-semibold text-slate-700">
-                    {t(side)}
-                  </h4>
-                  <div className="whitespace-pre-wrap">
-                    <EvidenceValue
-                      value={evidence[side]}
-                      changes={differences}
-                    />
-                  </div>
-                </section>
-              ))}
-            </div>
-            {context && Object.keys(context).length > 0 && (
-              <div className="min-w-0 whitespace-pre-wrap">
-                <EvidenceValue value={context} />
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="min-w-0 rounded-lg bg-slate-50 p-4 whitespace-pre-wrap">
-            <EvidenceValue value={details} />
-          </div>
-        )}
-        {details !== null && (
-          <DisclosureSection title={t("rawEvidence")} lifetime="lazy">
-            <p className="mb-3 text-sm text-slate-500">
-              {t("rawEvidenceHelp")}
+        <ReviewDisclosure title={t("fullEvidence")} defaultOpen={!summary}>
+          {details === null ? (
+            <p className="rounded-lg bg-slate-50 p-4 text-slate-600">
+              {t("noEvidence")}
             </p>
-            <StoredEvidenceJson value={details} />
-          </DisclosureSection>
-        )}
+          ) : hasComparison ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(["before", "after"] as const).map((side) => (
+                  <section
+                    key={side}
+                    aria-label={t(side)}
+                    className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <h4 className="mb-3 text-sm font-semibold text-slate-700">
+                      {t(side)}
+                    </h4>
+                    <div className="whitespace-pre-wrap">
+                      <EvidenceValue
+                        value={evidence[side]}
+                        changes={differences}
+                      />
+                    </div>
+                  </section>
+                ))}
+              </div>
+              {context && Object.keys(context).length > 0 && (
+                <div className="min-w-0 whitespace-pre-wrap">
+                  <EvidenceValue value={context} />
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="min-w-0 rounded-lg bg-slate-50 p-4 whitespace-pre-wrap">
+              <EvidenceValue value={details} />
+            </div>
+          )}
+          {details !== null && (
+            <DisclosureSection title={t("rawEvidence")} lifetime="lazy">
+              <p className="mb-3 text-sm text-slate-500">
+                {t("rawEvidenceHelp")}
+              </p>
+              <StoredEvidenceJson value={details} />
+            </DisclosureSection>
+          )}
+        </ReviewDisclosure>
       </section>
     </div>
   );

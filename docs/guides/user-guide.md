@@ -621,7 +621,6 @@ For a student enrolled outside the survey flow, the tutor can relay the student'
 - On an interview panel, review the application and submit your own vote. Every panelist must vote before a final decision. The majority decides; a tie is resolved by the selected Admin or Head chair, regardless of other panelists' rank.
 - On approval, the Admin or Head chair records actual duration and attendance and confirms the combined decision. Acceptance, service hours and initial registration setup apply immediately, and active Admin/Head accounts receive a notification. Rejection by an Admin chair retains Head review. Scheduling or voting alone never earns hours.
 
-
 The tutor workspace shows completed and upcoming meetings in the current program
 period. Open **Meeting history**, then a school-year/quarter group, to read your
 recorded attendance. Semester mode groups both quarters of a semester together.
@@ -674,6 +673,26 @@ If records change while a proposal is pending, the reviewer must reject it and r
 **At submission** and **Supporting records from submission** show saved historical evidence, including when reading an approved request. They do not claim to show today's live records. **Not recorded in this request** means the old evidence is unavailable; **Not set** means an available field was empty. Deletions identify the record to remove, and additions show the values to create.
 
 Reviewers enter **Your decision note (required)** before either decision. **Approve and Apply** executes the action being requested. If that action is **Reject the underlying request**, approving the proposal applies that rejection. **Reject with Feedback** declines the management proposal without applying it. Head-only and own-request restrictions are explained beside the request; the existing consequence and qualification confirmations still apply.
+
+Use **Review details and decision** to collapse or reopen a request. Its action,
+requester, state, affected record and requested outcome stay visible. Reopening
+retains your unfinished decision note and the independent open/closed state of
+the change sections. Request collapse is unavailable while a decision or its
+confirmation is pending. Collapsing is a reading action and submits nothing.
+
+Attendance corrections emphasize changed students and their status/reason;
+expand **Unchanged rows** to inspect the rest of the captured roster. Withdrawal
+reviews name the linked tutee and retain the original request reason. Publication
+reviews show the destination language and exact proposed text, including multiline
+text in the final confirmation. A feature review distinguishes staging or replacing
+an override from clearing it: approval changes the pending configuration, and
+activation still requires program refresh. Historical defaults that were not
+captured remain explicitly unknown.
+
+Audit details begin with recorded value changes when before/after evidence is
+available. Collapse each comparison independently; expand the original evidence
+or exact JSON for the complete saved context. These historical values describe
+what was recorded for that event, rather than today's live record.
 
 ## Administrators
 
@@ -945,6 +964,7 @@ If the applied quarter/semester mode changes during your visit, a notice identif
 the previous grouping and retains opened drafts and save recovery. **Reload groups**
 requires confirmation before discarding unsaved drafts and is unavailable while a
 save or its refresh is running. Create new meetings after reloading the groups.
+
 - In **Landing Editor**, use the section tabs to move between layout, fixed content, sections, news, pages and images. With a keyboard, arrow keys move between tab labels; Enter or Space opens the focused tab. Switching an opened tab or language preserves its independent unsaved draft during this visit; switching does not save it. If your role lacks editing access, the page explains this and offers a return to management. A failed load shows an error and retry action instead of an indefinite loading state. Editor access follows the same permission rule as landing preview.
 
 Invitation and hour-adjustment field labels stay visible after typing. In invitation

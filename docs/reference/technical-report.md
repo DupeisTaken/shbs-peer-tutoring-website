@@ -1961,6 +1961,43 @@ legacy immutable requests retain their original evidence algorithm. Changed evid
 closed. Legacy role-change input strips the original password before persistence and requires
 the Head reviewer's fresh password during replay.
 
+Management Actions composes a single review sheet using
+[`ApprovalReviewDetails`](../../src/app/_components/approval-review-details.tsx)
+and [`approvalPresentation`](../../src/lib/approval-presentation.ts). The persistent
+summary identifies the captured target and requested outcome; request and
+change-section disclosures retain mounted drafts and independent expanded state.
+The request disclosure cannot close during a decision write or a consequence or
+qualification confirmation. Identity labels use the shared person-name catalog.
+Adapters read only immutable targets: whole-program withdrawal reviews expose the
+linked tutee, request kind and original reason; translation decisions show the
+exact proposed destination text and locale even in the compact confirmation.
+Missing original evidence remains distinct from a recorded empty value.
+
+The `reviewPresentation.version = 1` capture marker selects the new safe original
+fields for account names/usernames, captured feature defaults and recruitment
+time zones, and the complete combined attendance block. Replay uses the marker
+stored on that request; pre-upgrade fingerprints retain their original projection.
+Combined attendance compares the captured primary and sibling sessions without
+claiming roster additions from incomplete historical evidence. Patrol timestamp
+equality normalizes only its schema-owned instant; displayed raw values stay exact.
+
+Feature reviews distinguish effective values, pending overrides and the requested
+stage/replace/clear intent. New snapshots identify whether the effective value came
+from a stored row or a captured default; historical absent-row evidence does not
+invent the default that existed then. Approval applies pending configuration and
+does not establish activation, which requires program refresh. Attendance child
+comparisons match the captured participant IDs, promote changed status/reason
+fields and retain the unchanged roster behind its own disclosure. A known empty
+child collection differs from an uncaptured collection.
+
+[`AuditChangeSummary`](../../src/app/_components/audit-event-details.tsx) adds a
+changed-value reading order for recognized recorded before/after envelopes. Each
+comparison can collapse independently. Arrays retain the established positional
+comparison; recorded IDs label the evidence without rematching it. The complete
+original reader and exact JSON remain available, including unknown historical
+envelopes. These readers perform no writes and do not replace request permissions,
+stale-evidence checks, private-evidence allowlists or transactional replay.
+
 The audit boundary composes database writes and safe before/after evidence in one transaction,
 including helpers that import the shared database. Database-owned workflows retain their
 existing isolation and retry boundaries. Bulk writes retain every captured affected record

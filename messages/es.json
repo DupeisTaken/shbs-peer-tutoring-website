@@ -3317,7 +3317,15 @@
         "isInvalid": "Entrada no válida",
         "invalidReason": "Motivo de la marca de invalidez",
         "invalidatedAt": "Fecha de registro de la marca",
-        "invalidatedByName": "Marca registrada por"
+        "invalidatedByName": "Marca registrada por",
+        "feature": "Función del programa",
+        "effective": "Efectivo al enviar",
+        "pending": "Pendiente al enviar",
+        "recruitmentAudience": "Inscripción para",
+        "periodName": "Periodo del programa",
+        "participant": "Participante",
+        "textDestination": "Destino del texto",
+        "pendingOverride": "Cambio pendiente"
       },
       "values": {
         "ACTIVE": "Active",
@@ -3371,7 +3379,8 @@
         "RESTORE": "Restore viewer access",
         "REPORTED": "Grade reported",
         "UNKNOWN": "Unknown",
-        "NOT_APPLICABLE": "Not applicable"
+        "NOT_APPLICABLE": "Not applicable",
+        "STUDENT_ABORT": "Abandonar todo el programa de tutoría"
       },
       "entities": {
         "Room": "Rooms",
@@ -3531,7 +3540,36 @@
         "admin_correctApplicationIdentity": "Corregir nombres de una solicitud pendiente"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
-      "confirmPassword": "Confirm your Head account password"
+      "confirmPassword": "Confirm your Head account password",
+      "noPending": "Sin cambio pendiente",
+      "collectionCounts": "{changed} modificadas · {added} añadidas · {removed} eliminadas · {unchanged} filas sin cambios",
+      "collectionState": {
+        "added": "Añadida",
+        "removed": "Eliminada",
+        "changed": "Modificada"
+      },
+      "unchangedRows": "Filas sin cambios ({count})",
+      "collapse": "Contraer",
+      "expand": "Expandir",
+      "reviewDetails": "Detalles y decisión",
+      "featureApplied": "La aprobación aplicó la configuración pendiente. Este registro histórico no confirma la activación; esta requiere una actualización del programa.",
+      "featureOutcome": {
+        "stage": "Preparar el valor solicitado para la próxima actualización del programa.",
+        "replace": "Sustituir el valor pendiente para la próxima actualización del programa.",
+        "clear": "Borrar el cambio pendiente y conservar el valor efectivo.",
+        "unchanged": "Mantener la configuración pendiente registrada.",
+        "unknown": "Solicitar un cambio pendiente; el estado efectivo registrado no está disponible."
+      },
+      "featureSource": {
+        "default": "Valor efectivo capturado del predeterminado; no existía un registro de función al enviar.",
+        "stored": "Los valores efectivos y pendientes proceden del envío, no de los ajustes actuales.",
+        "uncapturedDefault": "No se registró ninguna fila de función. No se capturó el valor predeterminado efectivo.",
+        "missing": "No se registraron los estados efectivo y pendiente."
+      },
+      "recruitmentOutcome": "Aplicar el periodo de inscripción solicitado al aprobar.",
+      "publishOutcome": "Publicar el texto propuesto exacto al aprobar esta propuesta.",
+      "rejectPublicationOutcome": "Rechazar el borrador de publicación al aprobar esta propuesta; no publicar texto.",
+      "attendanceOutcome": "Aplicar esta corrección de asistencia. Mantener la lista registrada de participantes."
     },
     "requestHead": "Request Head Approval",
     "sensitiveHelp": "Head applies these changes directly. Admin submits requests for Head review; Coordinators have read-only access. Pending requests do not change live settings.",
@@ -3579,7 +3617,16 @@
       "added": "Añadido",
       "removed": "Eliminado",
       "changed": "Modificado"
-    }
+    },
+    "summaryTitle": "Cambios registrados",
+    "summaryCounts": "Valores: {changed} modificados · {added} añadidos · {removed} eliminados",
+    "positionalSummary": "Los arrays comparan posiciones registradas, no personas ni registros emparejados. Los recuentos corresponden a valores, no a registros únicos.",
+    "noRecordedChanges": "Sin diferencias en los valores registrados.",
+    "comparisonNumber": "Comparación {number}",
+    "recordedIds": "Identificadores registrados: {before} → {after}",
+    "wholeValue": "Valor completo",
+    "fullEvidence": "Evidencia registrada completa",
+    "recordedPosition": "Posición registrada {number}"
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
