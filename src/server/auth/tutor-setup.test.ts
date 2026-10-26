@@ -15,6 +15,8 @@ import { db } from "~/server/db";
 import { createCaller } from "~/server/api/root";
 import { issueTutorSetupLink, resetPassword } from "./password-reset";
 import { hashPassword, verifyPassword } from "./password";
+import { lockUsernameNamespace } from "./username";
+import { linkTutorHistory, previewTutorHistory } from "../tutor-history";
 
 const password = "OriginalPassword123!";
 const caller = (role: Session["role"]) =>
@@ -49,6 +51,63 @@ beforeEach(async () => {
   mail.available = true;
 });
 afterAll(() => db.$disconnect());
+
+it(
+  "preserves direct-login recovery while rejecting a different retained owner",
+  async () => {
+    const tutor = await db.tutor.create({
+      data: {
+        englishName: "Archived Tutor",
+        email: "old@example.test",
+        status: "ARCHIVED",
+      },
+    });
+    await db.user.createMany({
+      data: [
+        { id: "actor", email: "head@example.test", role: "HEAD" },
+        {
+          id: "owner",
+          email: "current@example.test",
+          role: "STUDENT",
+          tutorId: tutor.id,
+          passwordHash: hashPassword(password),
+          emailVerifiedAt: new Date(),
+        },
+      ],
+    });
+    await db.user.create({
+      data: {
+        id: "previous-owner",
+        email: "previous-owner@example.test",
+        role: "STUDENT",
+      },
+    });
+    // The database rejects conflicting owners; recovery never repairs or
+    // bypasses that invariant. Same-owner retained/direct links remain valid.
+    await expect(
+      db.tutorProfileOwnership.create({
+        data: { tutorId: tutor.id, userId: "previous-owner" },
+      }),
+    ).rejects.toThrow("Tutor has another current login; use account combination");
+    await db.tutorProfileOwnership.create({
+      data: { tutorId: tutor.id, userId: "owner" },
+    });
+    expect(
+      await caller("HEAD").admin.sendTutorSetup({ tutorId: tutor.id }),
+    ).toEqual({ emailed: true });
+    expect(mail.send.mock.calls[0]![0].to).toBe("current@example.test");
+    expect(await db.registrationCode.count()).toBe(0);
+    expect(await db.accountInvitation.count()).toBe(0);
+    expect(await db.passwordResetToken.count()).toBe(1);
+    expect(
+      await db.tutorProfileOwnership.findUnique({ where: { tutorId: tutor.id } }),
+    ).toMatchObject({ userId: "owner" });
+    expect(await db.user.findUnique({ where: { id: "owner" } })).toMatchObject({
+      tutorId: tutor.id,
+      role: "STUDENT",
+    });
+  },
+);
 
 it.each([
   ["COORDINATOR", "HEAD"],
@@ -149,3 +208,185 @@ it("fails before provisioning or issuing grants when email delivery is unavailab
   expect(await db.passwordResetToken.count()).toBe(0);
   expect(mail.send).not.toHaveBeenCalled();
 });
+
+it("rechecks retained ownership after setup waits behind a historical-link transaction", async () => {
+  const tutor = await db.tutor.create({
+    data: {
+      englishName: "Historical source",
+      email: "archive@example.test",
+      status: "ARCHIVED",
+    },
+  });
+  await db.user.createMany({
+    data: [
+      { id: "actor", email: "actor@example.test", role: "HEAD" },
+      {
+        id: "history-owner",
+        name: "Historical owner",
+        email: "owner@example.test",
+        role: "STUDENT",
+        passwordHash: hashPassword(password),
+        emailVerifiedAt: new Date(),
+      },
+    ],
+  });
+  const input = { tutorId: tutor.id, userId: "history-owner" };
+  const preview = await previewTutorHistory(db, input);
+  let releaseOwnership!: () => void;
+  let ownershipCreated!: () => void;
+  const release = new Promise<void>((resolve) => {
+    releaseOwnership = resolve;
+  });
+  const created = new Promise<void>((resolve) => {
+    ownershipCreated = resolve;
+  });
+  const ownership = db.$transaction(
+    async (tx) => {
+      await linkTutorHistory(tx, "actor", {
+        ...input,
+        fingerprint: preview.fingerprint,
+        reason: "Verified original historical identity",
+        acknowledged: true,
+      });
+      ownershipCreated();
+      await release;
+    },
+    { timeout: 10000 },
+  );
+  await Promise.race([created, ownership]);
+  // The uncommitted owner is invisible to both setup preflights. The shared
+  // namespace must hold issuance until ownership commits, then reject the write.
+  const setup = caller("HEAD").admin.sendTutorSetup({ tutorId: tutor.id });
+  const rejected = expect(setup).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+    message:
+      "This tutor record has a retained historical owner. Use existing account recovery.",
+  });
+  try {
+    await vi.waitFor(
+      async () => {
+        const waiting = await db.$queryRaw<{ count: bigint }[]>`
+        SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted
+        AND database = (SELECT oid FROM pg_database WHERE datname = current_database())`;
+        expect(Number(waiting[0]?.count)).toBeGreaterThan(0);
+      },
+      { timeout: 3000, interval: 25 },
+    );
+  } finally {
+    releaseOwnership();
+    await ownership;
+    await rejected;
+  }
+  expect(
+    await db.tutorProfileOwnership.findUnique({ where: { tutorId: tutor.id } }),
+  ).toMatchObject({ userId: "history-owner" });
+  expect(await db.registrationCode.count()).toBe(0);
+  expect(await db.accountInvitation.count()).toBe(0);
+  expect(await db.passwordResetToken.count()).toBe(0);
+  expect(mail.send).not.toHaveBeenCalled();
+});
+
+it.each([
+  "attached-login",
+  "changed-email",
+  "missing-email",
+  "deleted-tutor",
+] as const)(
+  "rechecks %s committed after accountless setup preflight",
+  async (change) => {
+    const tutor = await db.tutor.create({
+      data: { englishName: "Setup target", email: "original@example.test" },
+    });
+    await db.user.create({
+      data: { id: "actor", email: "actor@example.test", role: "HEAD" },
+    });
+    let releaseChange!: () => void;
+    let changePrepared!: () => void;
+    const release = new Promise<void>((resolve) => {
+      releaseChange = resolve;
+    });
+    const prepared = new Promise<void>((resolve) => {
+      changePrepared = resolve;
+    });
+    // Keep the authoritative change uncommitted while setup reads its original
+    // preflight. The real namespace fence admits issuance only after this commits.
+    const update = db.$transaction(
+      async (tx) => {
+        await lockUsernameNamespace(tx);
+        if (change === "attached-login")
+          await tx.user.create({
+            data: {
+              id: "new-owner",
+              email: "owner@example.test",
+              role: "TUTOR",
+              tutorId: tutor.id,
+            },
+          });
+        else if (change === "deleted-tutor")
+          await tx.tutor.delete({ where: { id: tutor.id } });
+        else
+          await tx.tutor.update({
+            where: { id: tutor.id },
+            data: {
+              email: change === "changed-email" ? "current@example.test" : null,
+            },
+          });
+        changePrepared();
+        await release;
+      },
+      { timeout: 10000 },
+    );
+    await Promise.race([prepared, update]);
+    // Observe rejection immediately so a broken fence cannot create an unhandled
+    // rejection while the test waits to inspect its transactional result.
+    const setup = caller("HEAD").admin.sendTutorSetup({ tutorId: tutor.id }).then(
+      (value) => ({ ok: true as const, value }),
+      (error: unknown) => ({ ok: false as const, error }),
+    );
+    try {
+      await vi.waitFor(
+        async () => {
+          const waiting = await db.$queryRaw<{ count: bigint }[]>`
+          SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted
+          AND database = (SELECT oid FROM pg_database WHERE datname = current_database())`;
+          expect(Number(waiting[0]?.count)).toBeGreaterThan(0);
+        },
+        { timeout: 3000, interval: 25 },
+      );
+    } finally {
+      releaseChange();
+      await update;
+      await setup;
+    }
+    const result = await setup;
+    if (change === "changed-email") {
+      expect(result).toEqual({ ok: true, value: { emailed: true } });
+      expect(
+        await db.registrationCode.findFirst({ where: { tutorId: tutor.id } }),
+      ).toMatchObject({ email: "current@example.test", usedAt: null });
+      expect(await db.accountInvitation.findMany()).toEqual([
+        expect.objectContaining({ email: "current@example.test", kind: "TUTOR" }),
+      ]);
+      expect(mail.send).toHaveBeenCalledOnce();
+      expect(mail.send.mock.calls[0]![0].to).toBe("current@example.test");
+    } else {
+      const expected = {
+        "attached-login": {
+          code: "CONFLICT",
+          message:
+            "This tutor now has an attached login. Refresh before sending setup.",
+        },
+        "missing-email": {
+          code: "BAD_REQUEST",
+          message: "Add an email for this tutor before sending a setup link.",
+        },
+        "deleted-tutor": { code: "NOT_FOUND", message: "Tutor not found." },
+      }[change];
+      expect(result).toMatchObject({ ok: false, error: expected });
+      expect(await db.registrationCode.count()).toBe(0);
+      expect(await db.accountInvitation.count()).toBe(0);
+      expect(mail.send).not.toHaveBeenCalled();
+    }
+    expect(await db.passwordResetToken.count()).toBe(0);
+  },
+);

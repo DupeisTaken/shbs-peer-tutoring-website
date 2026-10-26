@@ -354,18 +354,19 @@ export function InterviewApprovalDialog({
             (attempted ||
               draft.evidence.updatedAt.getTime() !==
                 evidence.updatedAt.getTime()) && (
-              <InlineNotice
-                tone="warning"
-                action={
+              <InlineNotice tone="warning">
+                {/* Keep the explicit replace-draft action from squeezing long
+                    translated recovery guidance into a narrow mobile column. */}
+                <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="min-w-0 sm:flex-1">{t("changed")}</p>
                   <Button
+                    className="max-w-full whitespace-normal sm:shrink-0"
                     disabled={reloading}
                     onClick={() => void reloadDraft()}
                   >
                     {t("reload")}
                   </Button>
-                }
-              >
-                {t("changed")}
+                </div>
               </InlineNotice>
             )}
           {error && (

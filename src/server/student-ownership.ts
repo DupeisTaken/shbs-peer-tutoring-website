@@ -1,5 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import type { DomainDb, TransactionDb } from "./transactions";
+import { syncParticipantPerson } from "./person-identity";
+import { lockUsernameNamespace } from "./auth/username";
 
 /** Account IDs are stable; emails and the current-intake pointer are not ownership evidence. */
 export async function ownedStudentIds(db: DomainDb, userId: string) {
@@ -25,6 +27,7 @@ export async function retainStudentOwnership(
   userId: string,
   tuteeId: string,
 ) {
+  await lockUsernameNamespace(tx);
   const owner = await tx.studentProfileOwnership.upsert({
     where: { tuteeId },
     update: {},
@@ -35,4 +38,5 @@ export async function retainStudentOwnership(
       code: "CONFLICT",
       message: "This tutee profile is already linked to another account.",
     });
+  await syncParticipantPerson(tx, "TUTEE", tuteeId, userId);
 }

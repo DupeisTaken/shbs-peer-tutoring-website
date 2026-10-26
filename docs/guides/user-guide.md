@@ -101,6 +101,13 @@ A staff-visible key or a copied invitation code alone cannot sign in as its reci
 | Historical tutee invitation | Verify the exact invited email, then continue from the invitation receipt popup to `/register-account`. | Create/use credentials, then separately review and choose **Link My History** for the exact record. No current participation is added. |
 | Accountless tutor setup sent by Head | Receive a Tutor invitation. | The roster remains accountless until its recipient accepts; no placeholder login is created by sending mail. |
 
+A tutor archive with retained historical ownership and no direct login uses its
+existing owner's account recovery. It cannot receive a new accountless setup
+invitation. A direct login instead recovers through its own canonical mailbox,
+leaving recorded historical ownership unchanged. If a
+login is attached while setup is being sent, refresh the record before trying
+again. Invitations use the tutor's current contact address when the action commits.
+
 The invitation page opens with one centered code field and a full-width **Continue** button.
 New **Invitation codes** and staff registration codes contain **5 letters and numbers**
 and use a green box background. **Email verification codes** contain **4 digits**
@@ -334,6 +341,8 @@ disabled. If sending succeeds but refreshing fails, retry the read rather than
 submitting the same appeal again.
 
 For imported or earlier enrollments, open **My Tutoring History** in the account menu, then **View History**. This includes retained tutor evidence already owned by your account, even when participation access is revoked. If records are missing, ask staff to review the exact record. Accountless alumni can use a staff-reviewed historical tutee invitation: **Create history-only account → verify email code → invitation popup → shared account review at `/register-account` → Link My History**. The popup supports copying the code, optional email delivery and a prefilled continuation link. No current tutoring request, grade or participation agreement is required to read owned history. Existing logins use sign-in/password recovery; unavailable old email requires staff identity review and a replacement invitation. Head handles ownership conflicts and genuine duplicate accounts. See [historical record access](historical-participant-transition.md#invite-an-alumnus-without-a-login).
+
+The page separates tutoring received from tutoring provided. Each summary identifies the original record, recorded period and session count; tutor records also show stored session hours, excluding separate hour amendments. Open the rightmost **View History** action for attendance and evidence. Tutor sessions, meetings and amendments have independent page controls. Failed background reads retain loaded content with **Retry**; retrying reads does not repeat a link or change recorded credit.
 
 - Submit feedback for one of your recorded sessions. The portal explains whether management has enabled sharing with that session’s tutor. Feedback is management-only by default; a later visibility change also affects earlier feedback.
 - Appeal your own card once, by the end of the **fifth school day** after its recorded issue date in the program timezone. Holidays and make-up days follow the school calendar maintained by staff. A pending appeal does not invalidate the card or suspend its effects.
@@ -745,13 +754,22 @@ Management badges (Head/Admin/Coordinator) use indigo, participation (Tutor/Tute
 
 **User details** loads only when opened and separates Login, Permissions and memberships, Attached participant profiles and Historical records. Current account academics and each participant record's academics remain separate. Historical grades and class years use the original enrollment period, including preserved evidence for reactivated profiles. Several retained archives can sit beside a direct profile. A tutor record without a direct login can still display its retained historical owner. Authorized tutor details and tutee history remain available from each record's rightmost Actions column. Historical linking stays in **Edit profile**.
 
-This is a mixed account/tutor list, not a complete person directory: accountless tutees remain in **Tutee List**. The count states how many source records match and how many are hidden by filters. **Which account pathway should I use?** explains tutee request/email confirmation/setup; Tutor/Crew application and invitation; management invitations; public Viewer signup when enabled; existing-account membership/policy acceptance; unfinished setup versus Forgot password; exact-record history claims and historical tutee account setup; and Head-reviewed Combine accounts. Existing-account invitations preserve credentials and existing access; only the authorized participation or management upgrade is added after explicit review.
+This directory includes login accounts and accountless tutor/tutee records, with one row per explicitly combined person. Counts describe matching directory identities and those hidden by filters. Original participant records also remain in the Tutors and Tutee List rosters. **Which account pathway should I use?** explains tutee request/email confirmation/setup; Tutor/Crew application and invitation; management invitations; public Viewer signup when enabled; existing-account membership/policy acceptance; unfinished setup versus Forgot password; exact-record history claims and historical tutee account setup; and reviewed Combine records. Existing-account invitations preserve credentials and existing access; only the authorized participation or management upgrade is added after explicit review.
+
+After an accountless tutor archive is linked, its separate Users & Roles row disappears and its history sits under the owner's **User details → Historical records**. Several archives can belong to one account alongside its current tutor/tutee profile. Original tutor and tutee roster records remain available; this directory consolidation neither deletes source evidence nor retires a login. Unowned tutor records keep their separate directory rows.
 
 In **Users & Roles**, combine Role and Account filters. **Tutor Status** appears only when Tutor is the sole included role and Tutor is not excluded. Selecting multiple roles, removing Tutor, or excluding Tutor clears the status selection; a hidden or previously saved status never narrows those results. A person with Admin and Tutor badges still matches a Tutor-only selection, unless another selected exclusion removes them. Historical tutor links with revoked access or archived tutors do not grant a Tutor badge. Alternatives within one filter match any included value; every applicable filter must match, and exclusions win. **No account role** identifies records without displayed role badges.
 
-**Show historical records / Hide historical records** controls Archived/Graduated tutors and historical-only tutee accounts. Verified accounts with another current management, viewer, crew, translator, tutor or tutee capability remain visible. Unverified logins are hidden separately; use **Show unverified accounts** or an explicit account-setup filter to find them. An explicit Tutor Status include for Archived or Graduated reveals those historical records even without a current Tutor badge, but does not override the unverified filter. **Clear filters** restores both visibility defaults. Filters are remembered for the signed-in account in the current browser, with inapplicable status selections removed on restoration. Account data remains available only to Head, administrators and coordinators; filter selections do not grant access.
+**Show historical records / Hide historical records** controls Archived/Graduated tutors and accounts with only retained tutor or tutee history. Verified accounts with another current management, viewer, crew, translator, tutor or tutee capability remain visible. Unverified logins are hidden separately; use **Show unverified accounts** or an explicit account-setup filter to find them. An explicit Tutor Status include for Archived or Graduated reveals those historical records even without a current Tutor badge, but does not override the unverified filter. **Clear filters** restores both visibility defaults. Filters are remembered for the signed-in account in the current browser, with inapplicable status selections removed on restoration. Account data remains available only to Head, administrators and coordinators; filter selections do not grant access.
 
-An accepted initial application’s **Set up account** action opens a read-only popup showing its active registration code or an explicit linked-account status. Pending verification, restricted accounts, expired/used codes, missing records and conflicting tutor references have separate messages. Opening or refreshing this popup does not issue a code or send email. Its **Open Users & Roles** link selects the exact tutor by its saved record ID. It temporarily shows only that authorized row, even when search, role/account filters or historical/unverified visibility would hide it. The row is highlighted and the filter controls are hidden; **Return to directory** restores your saved search and filters. If the record is missing or inaccessible, the page shows an unavailable message instead of matching a similar name or email. Retry refreshes the directory. Opening the link does not create a login, issue a code or send an invitation.
+An accepted initial application’s **Set up account** action opens a read-only popup showing its active registration code or an explicit linked-account status. Pending verification, restricted accounts, expired/used codes, missing records and conflicting tutor references have separate messages. Opening or refreshing this popup does not issue a code or send email. Its **Open Users & Roles** link selects the exact tutor by its saved record ID, including a secondary or historical record within combined records. It shows that source's name, username, lifecycle and setup state, with details and eligible setup actions for that source only. A retained historical owner is shown separately and does not receive an accountless setup action. The source row is highlighted even when search, role/account filters or historical/unverified visibility would hide it. Filter controls and unrelated account actions are hidden; **Return to directory** restores your saved search and filters. If the record is missing or inaccessible, the page shows an unavailable message instead of matching a similar name or email. Retry refreshes the directory. Opening the link does not create a login, issue a code or send an invitation.
+
+If browser Back or Forward selects a tutor while a grouped-login editor is
+already open, finish or close that editor first. Its draft and any pending save
+stay available; changing the hash does not cancel the edit.
+The separate read-only Tutor Details reader stays open on refresh, but closes
+when history selects another source or returns to the directory. Open the new
+source explicitly to read its details.
 
 Use **Edit profile** to edit the independent Tutor, Tutee, Translator and Crew badges and exact management rank, or transfer leadership with **Make Head**. Only Head applies badge and management-rank changes; Admin can submit proposals and Coordinators cannot submit them. Participants with no management rank can request their own participation badges from Account settings; those requests cannot grant a management rank. Staff use Users & Roles for permitted changes. Viewer is exclusive of every other badge. Removing participation and assigning sole Viewer preserves historical identity links while revoking participant access. Tutor membership suppresses the redundant Tutee badge without discarding consent. Use **Edit profile** to update linked current names and **Show email** to inspect/copy the contact and its verification state. Opening the dialog sends no email. Verification/setup requires an explicit action; sending a link does not itself verify an account. **Account setup required** identifies contacts without a linked login. Verified account email changes use the account holder's verification flow.
 
@@ -774,47 +792,58 @@ a new confirmation starts with a blank password.
 Changed accounts or dependencies require **Reload deletion review** and another
 review; Reload performs no deletion. Combined identities and retained Tutor/Tutee
 ownership cannot be deleted through this action. Review historical ownership first,
-or use Combine accounts instead to retire a genuine duplicate while retaining access.
+or use Combine records instead to retire a genuine duplicate while retaining access.
 Complete or withdraw unconfirmed tutee intake before deleting its login. If deletion
 succeeds but the list fails to refresh, retry the read; the saved deletion cannot run again.
 
-### Combine duplicate accounts (Head only)
+### Combine records (Admin and Head)
 
-In **Users & Roles → Combine accounts**, select the **Login to keep** and the
-**Duplicate login to retire**. Use this only after independently confirming they
-belong to the same person. Matching names or addresses never combine accounts.
-The selection boxes contain only actual logins displayed by the table's current
-filters and search. Existing visibility defaults remain unchanged: reveal unverified
-or historical accounts through their existing filters when needed. Roster records
-without a login are excluded. A login can be reviewed regardless of signup history;
-the survivor must have completed password setup and email verification, while an
-unfinished login can be retired subject to the other blockers. Hiding a selected
-login clears both selections and their review. Filters stay fixed during a submitted
-combine; a saved combine with failed synchronization offers a read-only retry.
-Choose **Preview combine** to review the retained email/username, membership,
-linked profiles, counts of retained history, and blocking conflicts. Confirm the
-review checkbox and enter your own Head password to perform the combine.
+**Combine records** in Users & Roles now covers login accounts, tutor and tutee
+records, archived participants and records without logins. Historical profile
+editors open the same workflow. Login consolidation and conflicts require Head
+approval; Admin can approve unowned historical records.
 
-The retained account’s First Name, Last Name, Preferred Name and Name in Another Language
-become the linked current tutor/tutee profile names. Original intake and signature snapshots stay unchanged. The retained
-account keeps its password, primary address, verified secondary
-addresses and security preferences. Duplicate identifiers remain reserved for
-historical identity; they cannot sign in or recover the retained account. Its
-sessions and recovery/verification links are revoked. Original messages, policy
-signatures, academic confirmations, patrol authorship and audit evidence retain
-their original account IDs; the retained login can access that history. Notifications
-and tutee ownership pointers move to the retained account. The combine records the
-Head and both identities in the audit log in the same transaction.
+1. Search within Combine records and select the exact records. Its search is
+   independent of the directory filters. Confirm identity from reviewed evidence;
+   names and email addresses are search aids, not proof.
+2. Preview the complete group and its source records. With no login, the result
+   remains a person without credentials. With one ready login, unowned historical
+   records can be retained by that account without enrolling or reactivating it.
+3. If there are multiple logins, choose the login to retain. Retiring the others
+   is a separate explicit choice, available only when the preview's conflicts
+   have been resolved. The retained login keeps its credentials and capabilities.
+4. Record identity evidence and acknowledge the review. Admin can approve unowned
+   historical records. Head approval and the Head's current password are required
+   for multiple logins, ownership conflicts, active unowned participation or
+   restricted accounts.
 
-Conflicting management/Viewer ranks, tutor or current tutee links, academic details,
-crew states, messaging permissions/restrictions, suspensions, and pending requests
-must be resolved explicitly first. Participant memberships can be consolidated only
-as shown in the preview. Leadership must be transferred before retiring a Head.
-Changed account details require a fresh preview. Combined identity records cannot
-be deleted or restored; combining an already combined account requires a reviewed
-data migration. Accounts with school-departure history, including reviewed returns,
-also require a reviewed data migration that preserves departure decisions and access
-revocations. Original identifiers are never assigned to another person.
+The directory shows one person after grouping. **User details → Combined records**
+keeps the original participant records and live logins reachable. Source names,
+enrollment grades, sessions, signatures and stored credit are preserved. A person
+may retain both tutor and tutee history and receive further records later.
+Directory filters consider each member of the combined person. At least one member
+must satisfy the complete search and filter combination; different members cannot
+supply separate facts to create a match. An archived source does not hide a separately
+current participant. The displayed account's roles remain its own; filtering does
+not combine permissions.
+
+**Current participation or login review required** means identity grouping saved
+but operational work remains. Existing logins retain their separate access and
+assignments. Resolve membership, academic, messaging, pending-request or lifecycle
+conflicts through their existing reviewed workflows, then reopen the combination.
+The tool does not silently transfer current assignments, restore suspended or
+departed access, grant roles, or fabricate consent. Departure-history conflicts
+still require a supported reviewed resolution before login retirement.
+
+When retirement is explicitly approved, duplicate sessions and recovery grants
+are invalidated and identifiers remain reserved. Original account IDs continue
+to identify authorship; the retained login's history includes earlier retirement
+chains. Combining identity never automatically deduplicates recorded events.
+
+Changed evidence requires a fresh preview. A saved operation returns a receipt;
+if refresh fails, retry only the read. If the response is interrupted, check the
+receipt before retrying the identical intent. Reviewed groups cannot be deleted
+as ordinary accounts, and retired credentials are never automatically restored.
 
 ### Past tutor records and unlinked profiles
 
@@ -825,7 +854,7 @@ In **Users & Roles**, use **Show historical records** and choose **Edit profile*
 ### Link historical tutor records
 
 For an accountless archived tutor, use **Tutors → Show past tutors → Edit Profile →
-Link Historical Records**. Admin or Head reviews an existing verified account and
+Combine records**. Admin or Head reviews an existing verified account and
 identity evidence before confirming. Several archived tutor records may belong to
 one login without replacing its current tutor profile or reactivating the archives.
 Head password confirmation is required to correct a retained owner. See the

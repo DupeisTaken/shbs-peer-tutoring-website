@@ -8,10 +8,16 @@ import {
   legacyAcademicRecordId,
   type HistoricalCorrectionInput,
 } from "~/lib/historical-academics";
-import { historicalAcademicSnapshot, preserveHistoricalAcademics } from "~/server/historical-academics";
+import {
+  historicalAcademicSnapshot,
+  preserveHistoricalAcademics,
+} from "~/server/historical-academics";
 import { ApprovalQueued } from "~/server/approvals";
 import { synchronizeAcademicMirrors } from "~/server/academics";
-import { lockAccountProfile, updateAccountProfile } from "~/server/account-profile";
+import {
+  lockAccountProfile,
+  updateAccountProfile,
+} from "~/server/account-profile";
 import { lockUsernameNamespace } from "~/server/auth/username";
 import { applyRecords } from "~/server/record-transfer";
 import {
@@ -44,9 +50,17 @@ const caller = (role: Session["role"] = "HEAD") =>
 const key = (id: string) => legacyAcademicRecordId("TUTEE", id);
 const file = (name: string, rows: Record<string, unknown>[]) => ({
   name: `${name}.csv`,
-  text: recordCsv(Object.keys(rows[0]!), rows.map((row) => Object.fromEntries(
-    Object.entries(row).map(([key, value]) => [key, value instanceof Date ? value.toISOString() : value]),
-  ))),
+  text: recordCsv(
+    Object.keys(rows[0]!),
+    rows.map((row) =>
+      Object.fromEntries(
+        Object.entries(row).map(([key, value]) => [
+          key,
+          value instanceof Date ? value.toISOString() : value,
+        ]),
+      ),
+    ),
+  ),
 });
 
 async function reset() {
@@ -189,7 +203,9 @@ it.each(["WEBSITE", "CSV"] as const)(
     const value = await input([key("a"), key("b")], method);
     value.rows[1] = { ...value.rows[1]!, rawGrade: null, schoolYear: "23-24" };
     expect(
-      await caller("HEAD").historicalAcademics.correctBatch(await prepared(value)),
+      await caller("HEAD").historicalAcademics.correctBatch(
+        await prepared(value),
+      ),
     ).toEqual({ count: 2 });
     expect(await db.tutee.findMany({ orderBy: { id: "asc" } })).toEqual(
       initial,
@@ -235,9 +251,9 @@ it("retains every correction revision and rejects replay or altered preview cont
     }),
   ).rejects.toThrow("HISTORICAL_PREVIEW_REQUIRED");
   await caller().historicalAcademics.correctBatch(first);
-  await expect(caller().historicalAcademics.correctBatch(first)).rejects.toThrow(
-    "HISTORICAL_STALE",
-  );
+  await expect(
+    caller().historicalAcademics.correctBatch(first),
+  ).rejects.toThrow("HISTORICAL_STALE");
   const second = await input();
   second.rows[0]!.rawGrade = "Year 13";
   await caller().historicalAcademics.correctBatch(await prepared(second));
@@ -262,9 +278,18 @@ it("retains every correction revision and rejects replay or altered preview cont
 // A freshly generated report is an effective historical summary; correcting an
 // enrollment must not leave its table/CSV reading the superseded source mirror.
 async function prepareReportPeriod() {
-  await db.term.update({ where: { id: "old" }, data: { createdAt: new Date("2024-09-01T00:00:00Z") } });
-  await db.term.update({ where: { id: "current" }, data: { createdAt: new Date("2026-09-01T00:00:00Z") } });
-  await db.tutee.update({ where: { id: "a" }, data: { createdAt: new Date("2024-10-01T00:00:00Z") } });
+  await db.term.update({
+    where: { id: "old" },
+    data: { createdAt: new Date("2024-09-01T00:00:00Z") },
+  });
+  await db.term.update({
+    where: { id: "current" },
+    data: { createdAt: new Date("2026-09-01T00:00:00Z") },
+  });
+  await db.tutee.update({
+    where: { id: "a" },
+    data: { createdAt: new Date("2024-10-01T00:00:00Z") },
+  });
 }
 
 it("uses the corrected enrollment grade in a newly generated period report", async () => {
@@ -274,25 +299,48 @@ it("uses the corrected enrollment grade in a newly generated period report", asy
   const snapshot = await historicalAcademicSnapshot(db, key("a"));
   expect(snapshot.current.rawGrade).toBe("G8");
   expect(snapshot.original.rawGrade).toBeNull();
-  const report = await caller().admin.periodReport({ schoolYear: "24-25", depth: "full" });
+  const report = await caller().admin.periodReport({
+    schoolYear: "24-25",
+    depth: "full",
+  });
   expect(report.signups.find((signup) => signup.id === "a")?.grade).toBe("G8");
 });
 
-it.each([null, "G8"])("reports preserved enrollment grade %s after a roster mirror changes", async (rawGrade) => {
-  await prepareReportPeriod();
-  await db.tutee.update({ where: { id: "a" }, data: { gradeLevel: rawGrade } });
-  await db.$transaction((tx) => preserveHistoricalAcademics(tx, "TUTEE", "a"));
-  await db.tutee.update({ where: { id: "a" }, data: { gradeLevel: "G12" } });
-  const report = await caller().admin.periodReport({ schoolYear: "24-25", depth: "full" });
-  expect(report.signups.find((signup) => signup.id === "a")?.grade).toBe(rawGrade);
-  expect((await historicalAcademicSnapshot(db, key("a"))).original.rawGrade).toBe(rawGrade);
-});
+it.each([null, "G8"])(
+  "reports preserved enrollment grade %s after a roster mirror changes",
+  async (rawGrade) => {
+    await prepareReportPeriod();
+    await db.tutee.update({
+      where: { id: "a" },
+      data: { gradeLevel: rawGrade },
+    });
+    await db.$transaction((tx) =>
+      preserveHistoricalAcademics(tx, "TUTEE", "a"),
+    );
+    await db.tutee.update({ where: { id: "a" }, data: { gradeLevel: "G12" } });
+    const report = await caller().admin.periodReport({
+      schoolYear: "24-25",
+      depth: "full",
+    });
+    expect(report.signups.find((signup) => signup.id === "a")?.grade).toBe(
+      rawGrade,
+    );
+    expect(
+      (await historicalAcademicSnapshot(db, key("a"))).original.rawGrade,
+    ).toBe(rawGrade);
+  },
+);
 
 it("reports legacy enrollment grades without creating historical evidence", async () => {
   await prepareReportPeriod();
   await db.tutee.update({ where: { id: "a" }, data: { gradeLevel: "初三" } });
-  const report = await caller().admin.periodReport({ schoolYear: "24-25", depth: "full" });
-  expect(report.signups.find((signup) => signup.id === "a")?.grade).toBe("初三");
+  const report = await caller().admin.periodReport({
+    schoolYear: "24-25",
+    depth: "full",
+  });
+  expect(report.signups.find((signup) => signup.id === "a")?.grade).toBe(
+    "初三",
+  );
   expect(await db.historicalAcademicRecord.count()).toBe(0);
 });
 
@@ -301,7 +349,9 @@ it("preserves recorded graduation as original evidence without changing particip
     where: { id: "a" },
     data: { academicallyGraduated: true },
   });
-  await caller().historicalAcademics.correctBatch(await prepared(await input()));
+  await caller().historicalAcademics.correctBatch(
+    await prepared(await input()),
+  );
   expect(
     await db.historicalAcademicRecord.findUnique({ where: { id: key("a") } }),
   ).toMatchObject({
@@ -321,14 +371,14 @@ it("rejects the entire batch after a roster edit or deletion", async () => {
     where: { id: "b" },
     data: { notes: "Concurrent staff edit" },
   });
-  await expect(caller().historicalAcademics.correctBatch(value)).rejects.toThrow(
-    "HISTORICAL_STALE",
-  );
+  await expect(
+    caller().historicalAcademics.correctBatch(value),
+  ).rejects.toThrow("HISTORICAL_STALE");
   expect(await db.historicalAcademicCorrection.count()).toBe(0);
   await db.tutee.delete({ where: { id: "b" } });
-  await expect(caller().historicalAcademics.correctBatch(value)).rejects.toThrow(
-    "HISTORICAL_NOT_FOUND",
-  );
+  await expect(
+    caller().historicalAcademics.correctBatch(value),
+  ).rejects.toThrow("HISTORICAL_NOT_FOUND");
   expect(await db.historicalAcademicRecord.count()).toBe(0);
 });
 
@@ -356,8 +406,12 @@ it.each(["direct", "approval"])(
       ).rejects.toThrow();
       expect(await db.historicalAcademicRecord.count()).toBe(0);
       expect(await db.historicalAcademicCorrection.count()).toBe(0);
-      expect(await db.auditLog.count({ where: { kind: { not: "ATTEMPT" } } })).toBe(auditCount);
-      expect(await db.auditLog.findFirst({ where: { kind: "ATTEMPT" } })).toMatchObject({
+      expect(
+        await db.auditLog.count({ where: { kind: { not: "ATTEMPT" } } }),
+      ).toBe(auditCount);
+      expect(
+        await db.auditLog.findFirst({ where: { kind: "ATTEMPT" } }),
+      ).toMatchObject({
         details: { outcome: "FAILED", applied: false },
       });
       if (request)
@@ -407,15 +461,18 @@ it("preserves newer account academics on explicit linking and detects ownership 
     userId: "STUDENT",
   });
   await caller("ADMIN").tuteeHistory.link({
+    acknowledged: true,
     tuteeId: "a",
     userId: "STUDENT",
     fingerprint: link.fingerprint,
     reason: "Synthetic register confirms this exact participant",
   });
-  await expect(caller().historicalAcademics.correctBatch(stale)).rejects.toThrow(
-    "HISTORICAL_STALE",
+  await expect(
+    caller().historicalAcademics.correctBatch(stale),
+  ).rejects.toThrow("HISTORICAL_STALE");
+  await caller().historicalAcademics.correctBatch(
+    await prepared(await input()),
   );
-  await caller().historicalAcademics.correctBatch(await prepared(await input()));
   expect(
     await db.academicProfile.findUnique({ where: { userId: "STUDENT" } }),
   ).toEqual(academic);
@@ -433,17 +490,22 @@ it("preserves newer account academics on explicit linking and detects ownership 
 });
 
 it("queues an Admin batch without live changes and applies all rows only after Head review", async () => {
-  const value = await prepared(
-    await input([key("a"), key("b")]),
-    "ADMIN",
-  );
+  const value = await prepared(await input([key("a"), key("b")]), "ADMIN");
   const request = await queue(value);
   expect(await db.historicalAcademicRecord.count()).toBe(0);
   expect(await db.historicalAcademicCorrection.count()).toBe(0);
   expect(request.targets).toHaveProperty("historicalAcademics");
-  await expect(caller("COORDINATOR").historicalAcademics.correctBatch(value)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(
+    caller("COORDINATOR").historicalAcademics.correctBatch(value),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.approvalRequest.count()).toBe(1);
-  await expect(caller("ADMIN").approval.decide({ id: request.id, approve: true, note: "Admin cannot apply" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(
+    caller("ADMIN").approval.decide({
+      id: request.id,
+      approve: true,
+      note: "Admin cannot apply",
+    }),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
   await caller("HEAD").approval.decide({
     id: request.id,
     approve: true,
@@ -518,7 +580,9 @@ it("rejects suspended managers, forged role cookies and anonymous access", async
     where: { id: "HEAD" },
     data: { suspendedAt: new Date() },
   });
-  await expect(caller().historicalAcademics.correctBatch(ready)).rejects.toThrow();
+  await expect(
+    caller().historicalAcademics.correctBatch(ready),
+  ).rejects.toThrow();
   await db.user.update({ where: { id: "ADMIN" }, data: { role: "VIEWER" } });
   await expect(
     caller("ADMIN").historicalAcademics.preview(await input()),
@@ -546,14 +610,16 @@ it("requires fresh review when a linked current academic report changes", async 
     where: { id: "STUDENT" },
     data: { profileVersion: { increment: 1 } },
   });
-  await expect(caller().historicalAcademics.correctBatch(ready)).rejects.toThrow(
-    "HISTORICAL_STALE",
-  );
+  await expect(
+    caller().historicalAcademics.correctBatch(ready),
+  ).rejects.toThrow("HISTORICAL_STALE");
   expect(await db.historicalAcademicCorrection.count()).toBe(0);
 });
 
 it("retains corrected accountless evidence when linking later to a newer account report", async () => {
-  await caller().historicalAcademics.correctBatch(await prepared(await input()));
+  await caller().historicalAcademics.correctBatch(
+    await prepared(await input()),
+  );
   const corrections = await db.historicalAcademicCorrection.findMany();
   await db.academicProfile.create({
     data: {
@@ -570,6 +636,7 @@ it("retains corrected accountless evidence when linking later to a newer account
     userId: "STUDENT",
   });
   await caller("ADMIN").tuteeHistory.link({
+    acknowledged: true,
     tuteeId: "a",
     userId: "STUDENT",
     fingerprint: link.fingerprint,
@@ -687,7 +754,9 @@ it.each([
   },
 );
 
-async function legacyTutor(status: "ACTIVE" | "ARCHIVED" | "GRADUATED" | "TRANSFERRED" = "ARCHIVED") {
+async function legacyTutor(
+  status: "ACTIVE" | "ARCHIVED" | "GRADUATED" | "TRANSFERRED" = "ARCHIVED",
+) {
   return db.tutor.create({
     data: {
       id: "legacy-tutor",
@@ -703,26 +772,44 @@ async function legacyTutor(status: "ACTIVE" | "ARCHIVED" | "GRADUATED" | "TRANSF
 it.each(["TUTEE", "TUTOR"] as const)(
   "rejects a reserved %s archive original that replaces an unmaterialized baseline",
   async (kind) => {
-    const participant = kind === "TUTEE"
-      ? await db.tutee.update({ where: { id: "a" }, data: { gradeLevel: "9" } })
-      : await legacyTutor();
+    const participant =
+      kind === "TUTEE"
+        ? await db.tutee.update({
+            where: { id: "a" },
+            data: { gradeLevel: "9" },
+          })
+        : await legacyTutor();
     const recordId = legacyAcademicRecordId(kind, participant.id);
     const original = await historicalAcademicSnapshot(db, recordId);
-    const files = [file("HistoricalAcademicRecord", [{
-      id: recordId,
-      ...(kind === "TUTEE" ? { tuteeId: participant.id } : { tutorId: participant.id }),
-      rawGrade: "12",
-      schoolYear: "25-26",
-      source: "Arbitrary replacement evidence",
-    }])];
-    await expect(caller().recordTransfer.preview({ files })).rejects.toThrow("Reserved legacy academic evidence must match");
+    const files = [
+      file("HistoricalAcademicRecord", [
+        {
+          id: recordId,
+          ...(kind === "TUTEE"
+            ? { tuteeId: participant.id }
+            : { tutorId: participant.id }),
+          rawGrade: "12",
+          schoolYear: "25-26",
+          source: "Arbitrary replacement evidence",
+        },
+      ]),
+    ];
+    await expect(caller().recordTransfer.preview({ files })).rejects.toThrow(
+      "Reserved legacy academic evidence must match",
+    );
     expect(await historicalAcademicSnapshot(db, recordId)).toEqual(original);
     expect(await db.historicalAcademicRecord.count()).toBe(0);
     expect(await db.historicalAcademicCorrection.count()).toBe(0);
   },
 );
 
-it.each(["rawGrade", "schoolYear", "source", "academicallyGraduated", "originalConfirmedAt"] as const)(
+it.each([
+  "rawGrade",
+  "schoolYear",
+  "source",
+  "academicallyGraduated",
+  "originalConfirmedAt",
+] as const)(
   "checks the reserved legacy original's %s independently",
   async (field) => {
     const tutor = await legacyTutor();
@@ -735,9 +822,20 @@ it.each(["rawGrade", "schoolYear", "source", "academicallyGraduated", "originalC
       academicallyGraduated: true,
       originalConfirmedAt: new Date("2024-11-01T00:00:00Z"),
     };
-    await expect(caller().recordTransfer.preview({
-      files: [file("HistoricalAcademicRecord", [{ id: recordId, tutorId: tutor.id, ...original, [field]: changed[field] }])],
-    })).rejects.toThrow("Reserved legacy academic evidence must match");
+    await expect(
+      caller().recordTransfer.preview({
+        files: [
+          file("HistoricalAcademicRecord", [
+            {
+              id: recordId,
+              tutorId: tutor.id,
+              ...original,
+              [field]: changed[field],
+            },
+          ]),
+        ],
+      }),
+    ).rejects.toThrow("Reserved legacy academic evidence must match");
   },
 );
 
@@ -747,13 +845,34 @@ it.each(["ARCHIVED", "GRADUATED", "TRANSFERRED", "corrected"] as const)(
     const tutor = await legacyTutor(status === "corrected" ? "ACTIVE" : status);
     const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
     if (status === "corrected")
-      await caller().historicalAcademics.correctBatch(await prepared(await input([recordId])));
+      await caller().historicalAcademics.correctBatch(
+        await prepared(await input([recordId])),
+      );
     const original = await historicalAcademicSnapshot(db, recordId);
-    const fields = { id: tutor.id, expectedUpdatedAt: tutor.updatedAt, status: tutor.status };
-    await expect(caller().admin.updateTutor({ ...fields, gradeLevel: 10 })).rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
-    await expect(caller().admin.updateTutor({ ...fields, gradeLevel: null, academicallyGraduated: true })).rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
-    await caller().admin.updateTutor({ ...fields, firstName: "Historical", lastName: "Tutor", email: "archive-contact@example.test" });
-    expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({
+    const fields = {
+      id: tutor.id,
+      expectedUpdatedAt: tutor.updatedAt,
+      status: tutor.status,
+    };
+    await expect(
+      caller().admin.updateTutor({ ...fields, gradeLevel: 10 }),
+    ).rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
+    await expect(
+      caller().admin.updateTutor({
+        ...fields,
+        gradeLevel: null,
+        academicallyGraduated: true,
+      }),
+    ).rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
+    await caller().admin.updateTutor({
+      ...fields,
+      firstName: "Historical",
+      lastName: "Tutor",
+      email: "archive-contact@example.test",
+    });
+    expect(
+      await db.tutor.findUnique({ where: { id: tutor.id } }),
+    ).toMatchObject({
       gradeLevel: 9,
       gradeSchoolYear: "24-25",
       gradeConfirmedAt: tutor.gradeConfirmedAt,
@@ -761,38 +880,62 @@ it.each(["ARCHIVED", "GRADUATED", "TRANSFERRED", "corrected"] as const)(
       lastName: "Tutor",
       email: "archive-contact@example.test",
     });
-    expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original.original);
-    expect((await caller().admin.tutors()).find((row) => row.id === tutor.id)).toMatchObject({ historicalGrade: true });
+    expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(
+      original.original,
+    );
+    expect(
+      (await caller().admin.tutors()).find((row) => row.id === tutor.id),
+    ).toMatchObject({ historicalGrade: true });
   },
 );
 
 it("preserves ordinary current accountless tutor grade editing", async () => {
   const tutor = await legacyTutor("ACTIVE");
-  await caller().admin.updateTutor({ id: tutor.id, expectedUpdatedAt: tutor.updatedAt, status: tutor.status, gradeLevel: 10 });
-  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ gradeLevel: 10, gradeSchoolYear: null, gradeConfirmedAt: null });
+  await caller().admin.updateTutor({
+    id: tutor.id,
+    expectedUpdatedAt: tutor.updatedAt,
+    status: tutor.status,
+    gradeLevel: 10,
+  });
+  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({
+    gradeLevel: 10,
+    gradeSchoolYear: null,
+    gradeConfirmedAt: null,
+  });
   expect(await db.historicalAcademicRecord.count()).toBe(0);
 });
 
 it.each(["TUTEE", "TUTOR"] as const)(
   "accepts exact reserved %s evidence and preserves correction overlays on archive retry",
   async (kind) => {
-    const participant = kind === "TUTEE"
-      ? await db.tutee.findUniqueOrThrow({ where: { id: "a" } })
-      : await legacyTutor();
+    const participant =
+      kind === "TUTEE"
+        ? await db.tutee.findUniqueOrThrow({ where: { id: "a" } })
+        : await legacyTutor();
     const recordId = legacyAcademicRecordId(kind, participant.id);
     const { original } = await historicalAcademicSnapshot(db, recordId);
-    const files = [file("HistoricalAcademicRecord", [{
-      id: recordId,
-      ...(kind === "TUTEE" ? { tuteeId: participant.id } : { tutorId: participant.id }),
-      ...original,
-    }])];
+    const files = [
+      file("HistoricalAcademicRecord", [
+        {
+          id: recordId,
+          ...(kind === "TUTEE"
+            ? { tuteeId: participant.id }
+            : { tutorId: participant.id }),
+          ...original,
+        },
+      ]),
+    ];
     const preview = await caller().recordTransfer.preview({ files });
     expect(await db.historicalAcademicRecord.count()).toBe(0);
     await caller().recordTransfer.import({ files, ticket: preview.ticket });
-    await caller().historicalAcademics.correctBatch(await prepared(await input([recordId])));
+    await caller().historicalAcademics.correctBatch(
+      await prepared(await input([recordId])),
+    );
     const snapshot = await historicalAcademicSnapshot(db, recordId);
     const retry = await caller().recordTransfer.preview({ files });
-    expect(retry.summary).toEqual([{ table: "HistoricalAcademicRecord", created: 0, skipped: 1 }]);
+    expect(retry.summary).toEqual([
+      { table: "HistoricalAcademicRecord", created: 0, skipped: 1 },
+    ]);
     await caller().recordTransfer.import({ files, ticket: retry.ticket });
     expect(await historicalAcademicSnapshot(db, recordId)).toEqual(snapshot);
     expect(snapshot.original).toEqual(original);
@@ -803,18 +946,30 @@ it.each(["TUTEE", "TUTOR"] as const)(
 it("restores a new participant and its preserved original together even after roster mirrors advanced", async () => {
   const tutor = await legacyTutor("ACTIVE");
   const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
-  await caller().historicalAcademics.correctBatch(await prepared(await input([recordId])));
-  await db.tutor.update({ where: { id: tutor.id }, data: { gradeLevel: 11, gradeSchoolYear: "26-27" } });
+  await caller().historicalAcademics.correctBatch(
+    await prepared(await input([recordId])),
+  );
+  await db.tutor.update({
+    where: { id: tutor.id },
+    data: { gradeLevel: 11, gradeSchoolYear: "26-27" },
+  });
   const archive = await caller().recordTransfer.export({});
-  const files = archive.files.filter((row) => ["Tutor.csv", "HistoricalAcademicRecord.csv"].includes(row.name));
+  const files = archive.files.filter((row) =>
+    ["Tutor.csv", "HistoricalAcademicRecord.csv"].includes(row.name),
+  );
   const original = (await historicalAcademicSnapshot(db, recordId)).original;
   await db.historicalAcademicCorrection.deleteMany();
   await db.historicalAcademicRecord.deleteMany();
   await db.tutor.deleteMany();
   const preview = await caller().recordTransfer.preview({ files });
   await caller().recordTransfer.import({ files, ticket: preview.ticket });
-  expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original);
-  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ gradeLevel: 11, gradeSchoolYear: "26-27" });
+  expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(
+    original,
+  );
+  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({
+    gradeLevel: 11,
+    gradeSchoolYear: "26-27",
+  });
   expect(await db.historicalAcademicCorrection.count()).toBe(0);
 });
 
@@ -822,16 +977,28 @@ it("rechecks reserved baselines at import and atomically rolls back earlier arch
   const { original } = await historicalAcademicSnapshot(db, key("a"));
   const files = [
     file("SubjectLevel", [{ id: "atomic-level", name: "Earlier archive row" }]),
-    file("HistoricalAcademicRecord", [{ id: key("a"), tuteeId: "a", ...original }]),
+    file("HistoricalAcademicRecord", [
+      { id: key("a"), tuteeId: "a", ...original },
+    ]),
   ];
   const preview = await caller().recordTransfer.preview({ files });
   await db.tutee.update({ where: { id: "a" }, data: { gradeLevel: "9" } });
   const audits = await db.auditLog.count();
-  await expect(caller().recordTransfer.import({ files, ticket: preview.ticket })).rejects.toThrow("Reserved legacy academic evidence must match");
-  expect(await db.subjectLevel.count({ where: { id: "atomic-level" } })).toBe(0);
+  await expect(
+    caller().recordTransfer.import({ files, ticket: preview.ticket }),
+  ).rejects.toThrow("Reserved legacy academic evidence must match");
+  expect(await db.subjectLevel.count({ where: { id: "atomic-level" } })).toBe(
+    0,
+  );
   expect(await db.historicalAcademicRecord.count()).toBe(0);
-  expect(await db.auditLog.count({ where: { kind: { not: "ATTEMPT" } } })).toBe(audits);
-  expect(await db.auditLog.findFirst({ where: { kind: "ATTEMPT", operation: "recordTransfer.import" } })).toMatchObject({
+  expect(await db.auditLog.count({ where: { kind: { not: "ATTEMPT" } } })).toBe(
+    audits,
+  );
+  expect(
+    await db.auditLog.findFirst({
+      where: { kind: "ATTEMPT", operation: "recordTransfer.import" },
+    }),
+  ).toMatchObject({
     details: { outcome: "FAILED", applied: false },
   });
 });
@@ -840,13 +1007,25 @@ it("preserves tutor originals across status-only reactivation and subsequent pro
   const tutor = await legacyTutor();
   const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
   const { original } = await historicalAcademicSnapshot(db, recordId);
-  await caller().admin.updateTutor({ id: tutor.id, expectedUpdatedAt: tutor.updatedAt, status: "ACTIVE" });
+  await caller().admin.updateTutor({
+    id: tutor.id,
+    expectedUpdatedAt: tutor.updatedAt,
+    status: "ACTIVE",
+  });
   const current = await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } });
-  await expect(caller().admin.updateTutor({ id: tutor.id, expectedUpdatedAt: current.updatedAt, status: "ACTIVE", gradeLevel: 10 })).rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
-  expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original);
+  await expect(
+    caller().admin.updateTutor({
+      id: tutor.id,
+      expectedUpdatedAt: current.updatedAt,
+      status: "ACTIVE",
+      gradeLevel: 10,
+    }),
+  ).rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
+  expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(
+    original,
+  );
   expect(await db.historicalAcademicCorrection.count()).toBe(0);
 });
-
 
 // Exercise the real acceptance route, including invitation creation and status reconciliation.
 it.each(["ARCHIVED", "GRADUATED", "TRANSFERRED"] as const)(
@@ -854,24 +1033,57 @@ it.each(["ARCHIVED", "GRADUATED", "TRANSFERRED"] as const)(
   async (status) => {
     const seeded = await legacyTutor(status);
     const email = "returning-archive@example.test";
-    const tutor = await db.tutor.update({ where: { id: seeded.id }, data: { email } });
+    const tutor = await db.tutor.update({
+      where: { id: seeded.id },
+      data: { email },
+    });
     const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
     const { original } = await historicalAcademicSnapshot(db, recordId);
-    await db.programFeature.create({ data: { key: "INTERVIEWS", enabled: false } });
-    const app = await db.tutorApplication.create({ data: { name: "Historical Tutor", email, type: "INITIAL" } });
-    await caller().admin.setApplicationStatus({ id: app.id, expectedUpdatedAt: app.updatedAt, status: "ACCEPTED" });
-    const current = await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } });
+    await db.programFeature.create({
+      data: { key: "INTERVIEWS", enabled: false },
+    });
+    const app = await db.tutorApplication.create({
+      data: { name: "Historical Tutor", email, type: "INITIAL" },
+    });
+    await caller().admin.setApplicationStatus({
+      id: app.id,
+      expectedUpdatedAt: app.updatedAt,
+      status: "ACCEPTED",
+    });
+    const current = await db.tutor.findUniqueOrThrow({
+      where: { id: tutor.id },
+    });
     expect(current.status).toBe("ACTIVE");
     expect(await db.user.count({ where: { tutorId: tutor.id } })).toBe(0);
-    await expect(caller().admin.updateTutor({ id: tutor.id, expectedUpdatedAt: current.updatedAt, status: "ACTIVE", gradeLevel: 10 }))
-      .rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
-    expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original);
+    await expect(
+      caller().admin.updateTutor({
+        id: tutor.id,
+        expectedUpdatedAt: current.updatedAt,
+        status: "ACTIVE",
+        gradeLevel: 10,
+      }),
+    ).rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
+    expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(
+      original,
+    );
     expect(await db.historicalAcademicCorrection.count()).toBe(0);
-    const preserved = await db.historicalAcademicRecord.findUniqueOrThrow({ where: { id: recordId } });
-    const accepted = await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } });
-    await caller().admin.setApplicationStatus({ id: app.id, expectedUpdatedAt: accepted.updatedAt, status: "ACCEPTED" });
-    expect(await db.historicalAcademicRecord.findUnique({ where: { id: recordId } })).toEqual(preserved);
-    expect(await db.registrationCode.count({ where: { applicationId: app.id } })).toBe(1);
+    const preserved = await db.historicalAcademicRecord.findUniqueOrThrow({
+      where: { id: recordId },
+    });
+    const accepted = await db.tutorApplication.findUniqueOrThrow({
+      where: { id: app.id },
+    });
+    await caller().admin.setApplicationStatus({
+      id: app.id,
+      expectedUpdatedAt: accepted.updatedAt,
+      status: "ACCEPTED",
+    });
+    expect(
+      await db.historicalAcademicRecord.findUnique({ where: { id: recordId } }),
+    ).toEqual(preserved);
+    expect(
+      await db.registrationCode.count({ where: { applicationId: app.id } }),
+    ).toBe(1);
   },
 );
 
@@ -881,261 +1093,669 @@ it("keeps linked current academic saves separate from an unmaterialized archived
   const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
   const { original } = await historicalAcademicSnapshot(db, recordId);
   const account = await db.user.findUniqueOrThrow({ where: { id: "HEAD" } });
-  await caller().admin.updateAccountAcademics({ userId: account.id, expectedProfileVersion: account.profileVersion, expectedSchoolYear: "26-27", status: "REPORTED", gradeLevel: 10, reason: "Synthetic current report" });
-  expect(await db.academicProfile.findUnique({ where: { userId: account.id } })).toMatchObject({ gradeLevel: 10, schoolYear: "26-27" });
-  expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original);
+  await caller().admin.updateAccountAcademics({
+    userId: account.id,
+    expectedProfileVersion: account.profileVersion,
+    expectedSchoolYear: "26-27",
+    status: "REPORTED",
+    gradeLevel: 10,
+    reason: "Synthetic current report",
+  });
+  expect(
+    await db.academicProfile.findUnique({ where: { userId: account.id } }),
+  ).toMatchObject({ gradeLevel: 10, schoolYear: "26-27" });
+  expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(
+    original,
+  );
   expect(await db.historicalAcademicCorrection.count()).toBe(0);
 });
-
 
 it("keeps current academic graduation separate from an unmaterialized historical tutee original", async () => {
   await db.user.update({ where: { id: "HEAD" }, data: { studentId: "a" } });
   const { original } = await historicalAcademicSnapshot(db, key("a"));
   const account = await db.user.findUniqueOrThrow({ where: { id: "HEAD" } });
-  await caller().admin.updateAccountAcademics({ userId: account.id, expectedProfileVersion: account.profileVersion, expectedSchoolYear: "26-27", status: "GRADUATED", gradeLevel: null, reason: "Synthetic current graduation" });
-  expect(await db.academicProfile.findUnique({ where: { userId: account.id } })).toMatchObject({ status: "GRADUATED", gradeLevel: null });
-  expect((await historicalAcademicSnapshot(db, key("a"))).original).toEqual(original);
+  await caller().admin.updateAccountAcademics({
+    userId: account.id,
+    expectedProfileVersion: account.profileVersion,
+    expectedSchoolYear: "26-27",
+    status: "GRADUATED",
+    gradeLevel: null,
+    reason: "Synthetic current graduation",
+  });
+  expect(
+    await db.academicProfile.findUnique({ where: { userId: account.id } }),
+  ).toMatchObject({ status: "GRADUATED", gradeLevel: null });
+  expect((await historicalAcademicSnapshot(db, key("a"))).original).toEqual(
+    original,
+  );
   expect(await db.historicalAcademicCorrection.count()).toBe(0);
 });
-
 
 it.each([
   { status: "INACTIVE", intakeTermId: "old" },
   { status: "INACTIVE", intakeTermId: null },
   { status: "ACTIVE", intakeTermId: "old" },
-] as const)("keeps current graduation separate from historical tutee evidence ($status/$intakeTermId)", async (history) => {
-  await db.tutee.update({ where: { id: "a" }, data: history });
-  await db.user.update({ where: { id: "HEAD" }, data: { studentId: "a" } });
-  const { original } = await historicalAcademicSnapshot(db, key("a"));
-  const account = await db.user.findUniqueOrThrow({ where: { id: "HEAD" } });
-  await caller().admin.updateAccountAcademics({ userId: account.id, expectedProfileVersion: account.profileVersion, expectedSchoolYear: "26-27", status: "GRADUATED", gradeLevel: null, reason: "Synthetic current graduation" });
-  expect(await db.academicProfile.findUnique({ where: { userId: account.id } })).toMatchObject({ status: "GRADUATED", gradeLevel: null });
-  expect(await db.tutee.findUnique({ where: { id: "a" } })).toMatchObject({ academicallyGraduated: true });
-  expect((await historicalAcademicSnapshot(db, key("a"))).original).toEqual(original);
-  // Exercise the read paths as well as storage: the original panel and compact roster
-  // must not label historical attendance with the account's new graduation choice.
-  const roster = (await caller().admin.tutees()).find((row) => row.id === "a");
-  expect(roster).toMatchObject({
-    historical: true,
-    enrollmentOriginal: {
-      rawGrade: original.rawGrade,
-      schoolYear: original.schoolYear,
+] as const)(
+  "keeps current graduation separate from historical tutee evidence ($status/$intakeTermId)",
+  async (history) => {
+    await db.tutee.update({ where: { id: "a" }, data: history });
+    await db.user.update({ where: { id: "HEAD" }, data: { studentId: "a" } });
+    const { original } = await historicalAcademicSnapshot(db, key("a"));
+    const account = await db.user.findUniqueOrThrow({ where: { id: "HEAD" } });
+    await caller().admin.updateAccountAcademics({
+      userId: account.id,
+      expectedProfileVersion: account.profileVersion,
+      expectedSchoolYear: "26-27",
+      status: "GRADUATED",
+      gradeLevel: null,
+      reason: "Synthetic current graduation",
+    });
+    expect(
+      await db.academicProfile.findUnique({ where: { userId: account.id } }),
+    ).toMatchObject({ status: "GRADUATED", gradeLevel: null });
+    expect(await db.tutee.findUnique({ where: { id: "a" } })).toMatchObject({
+      academicallyGraduated: true,
+    });
+    expect((await historicalAcademicSnapshot(db, key("a"))).original).toEqual(
+      original,
+    );
+    // Exercise the read paths as well as storage: the original panel and compact roster
+    // must not label historical attendance with the account's new graduation choice.
+    const roster = (await caller().admin.tutees()).find(
+      (row) => row.id === "a",
+    );
+    expect(roster).toMatchObject({
+      historical: true,
+      enrollmentOriginal: {
+        rawGrade: original.rawGrade,
+        schoolYear: original.schoolYear,
+        academicallyGraduated: false,
+      },
+      enrollmentCorrection: null,
+    });
+    const details = await caller().tuteeHistory.myDetails({ tuteeId: "a" });
+    expect(details.record).toMatchObject({
+      gradeLevel: original.rawGrade,
       academicallyGraduated: false,
-    },
-    enrollmentCorrection: null,
-  });
-  const details = await caller().tuteeHistory.myDetails({ tuteeId: "a" });
-  expect(details.record).toMatchObject({ gradeLevel: original.rawGrade, academicallyGraduated: false });
-  expect(details.owner?.academic.status).toBe("GRADUATED");
-  expect(await db.historicalAcademicCorrection.count()).toBe(0);
-});
+    });
+    expect(details.owner?.academic.status).toBe("GRADUATED");
+    expect(await db.historicalAcademicCorrection.count()).toBe(0);
+  },
+);
 
 it("shows a restored reserved original separately from newer enrollment mirrors", async () => {
   // Archive writes use SQL, so Prisma's client-managed updatedAt has to be supplied.
   // This roster timestamp is independent of the original academic confirmation date.
   const files = [
-    file("Tutee", [{ id: "restored", englishName: "Restored Learner", gradeLevel: "12", academicallyGraduated: true, status: "INACTIVE", intakeTermId: "current", updatedAt: new Date("2026-09-01T00:00:00Z") }]),
-    file("HistoricalAcademicRecord", [{ id: key("restored"), tuteeId: "restored", rawGrade: null, schoolYear: "23-24", academicallyGraduated: false, source: "LEGACY_TUTEE", originalConfirmedAt: null }]),
+    file("Tutee", [
+      {
+        id: "restored",
+        englishName: "Restored Learner",
+        gradeLevel: "12",
+        academicallyGraduated: true,
+        status: "INACTIVE",
+        intakeTermId: "current",
+        updatedAt: new Date("2026-09-01T00:00:00Z"),
+      },
+    ]),
+    file("HistoricalAcademicRecord", [
+      {
+        id: key("restored"),
+        tuteeId: "restored",
+        rawGrade: null,
+        schoolYear: "23-24",
+        academicallyGraduated: false,
+        source: "LEGACY_TUTEE",
+        originalConfirmedAt: null,
+      },
+    ]),
   ];
   const preview = await caller().recordTransfer.preview({ files });
   await caller().recordTransfer.import({ files, ticket: preview.ticket });
-  const row = (await caller().admin.tutees()).find((entry) => entry.id === "restored");
+  const row = (await caller().admin.tutees()).find(
+    (entry) => entry.id === "restored",
+  );
   expect(row).toMatchObject({
     gradeLevel: "12",
-    enrollmentOriginal: { rawGrade: null, schoolYear: "23-24", academicallyGraduated: false },
+    enrollmentOriginal: {
+      rawGrade: null,
+      schoolYear: "23-24",
+      academicallyGraduated: false,
+    },
     enrollmentCorrection: null,
   });
   const details = await caller().tuteeHistory.details({ tuteeId: "restored" });
-  expect(details.record).toMatchObject({ gradeLevel: null, academicallyGraduated: false });
-  expect(details.historicalAcademics[0]?.original).toMatchObject({ schoolYear: "23-24", originalConfirmedAt: null });
+  expect(details.record).toMatchObject({
+    gradeLevel: null,
+    academicallyGraduated: false,
+  });
+  expect(details.historicalAcademics[0]?.original).toMatchObject({
+    schoolYear: "23-24",
+    originalConfirmedAt: null,
+  });
 });
 
-it.each([false, true])("preserves originals before tutoring access links/synchronizes a historical tutor (linked=%s)", async (linked) => {
-  const tutor = await legacyTutor();
-  await db.tutor.update({ where: { id: tutor.id }, data: { email: "head@example.test" } });
-  if (linked) await db.user.update({ where: { id: "HEAD" }, data: { tutorId: tutor.id } });
-  await db.academicProfile.create({ data: { userId: "HEAD", status: "REPORTED", gradeLevel: 11, schoolYear: "26-27", confirmedAt: new Date("2026-09-01"), reconfirmRequired: false } });
-  const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
-  const { original } = await historicalAcademicSnapshot(db, recordId);
-  expect(await caller().admin.setUserCanTutor({ userId: "HEAD", canTutor: true })).toMatchObject({ linked: true });
-  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ status: "ACTIVE", gradeLevel: 11, gradeSchoolYear: "26-27" });
-  expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original);
-  expect(await db.historicalAcademicCorrection.count()).toBe(0);
-});
+it.each([false, true])(
+  "preserves originals before tutoring access links/synchronizes a historical tutor (linked=%s)",
+  async (linked) => {
+    const tutor = await legacyTutor();
+    await db.tutor.update({
+      where: { id: tutor.id },
+      data: { email: "head@example.test" },
+    });
+    if (linked)
+      await db.user.update({
+        where: { id: "HEAD" },
+        data: { tutorId: tutor.id },
+      });
+    await db.academicProfile.create({
+      data: {
+        userId: "HEAD",
+        status: "REPORTED",
+        gradeLevel: 11,
+        schoolYear: "26-27",
+        confirmedAt: new Date("2026-09-01"),
+        reconfirmRequired: false,
+      },
+    });
+    const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
+    const { original } = await historicalAcademicSnapshot(db, recordId);
+    expect(
+      await caller().admin.setUserCanTutor({ userId: "HEAD", canTutor: true }),
+    ).toMatchObject({ linked: true });
+    expect(
+      await db.tutor.findUnique({ where: { id: tutor.id } }),
+    ).toMatchObject({
+      status: "ACTIVE",
+      gradeLevel: 11,
+      gradeSchoolYear: "26-27",
+    });
+    expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(
+      original,
+    );
+    expect(await db.historicalAcademicCorrection.count()).toBe(0);
+  },
+);
 
-it.each(["GRADUATED", "TRANSFERRED"] as const)("preserves originals on a reviewed %s school return", async (reason) => {
-  const tutor = await legacyTutor(reason);
-  await db.user.update({ where: { id: "HEAD" }, data: { tutorId: tutor.id } });
-  await db.schoolDeparture.create({ data: { userId: "HEAD", reason, source: "HEAD", revision: 1 } });
-  const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
-  const { original } = await historicalAcademicSnapshot(db, recordId);
-  await caller().departure.setState({ userId: "HEAD", action: "RETURN", expectedRevision: 1, explanation: "Reviewed return to school" });
-  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ status: "PENDING" });
-  expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original);
-  expect(await db.historicalAcademicCorrection.count()).toBe(0);
-});
+it.each(["GRADUATED", "TRANSFERRED"] as const)(
+  "preserves originals on a reviewed %s school return",
+  async (reason) => {
+    const tutor = await legacyTutor(reason);
+    await db.user.update({
+      where: { id: "HEAD" },
+      data: { tutorId: tutor.id },
+    });
+    await db.schoolDeparture.create({
+      data: { userId: "HEAD", reason, source: "HEAD", revision: 1 },
+    });
+    const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
+    const { original } = await historicalAcademicSnapshot(db, recordId);
+    await caller().departure.setState({
+      userId: "HEAD",
+      action: "RETURN",
+      expectedRevision: 1,
+      explanation: "Reviewed return to school",
+    });
+    expect(
+      await db.tutor.findUnique({ where: { id: tutor.id } }),
+    ).toMatchObject({ status: "PENDING" });
+    expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(
+      original,
+    );
+    expect(await db.historicalAcademicCorrection.count()).toBe(0);
+  },
+);
 
-it.each([false, true])("preserves originals and archived status when registration reuses a historical tutor (bound=%s)", async (bound) => {
-  const tutor = await legacyTutor();
-  const email = "returning-registration@example.test";
-  await db.tutor.update({ where: { id: tutor.id }, data: { email } });
-  const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
-  const { original } = await historicalAcademicSnapshot(db, recordId);
-  const issued = await issueRegistrationCode({ email, tutorId: bound ? tutor.id : undefined });
-  let row = await db.registrationCode.findUniqueOrThrow({ where: { id: issued.id } });
-  const challenge = await setEmailVerification(row, email);
-  if (!challenge.ok) throw new Error("Expected verification challenge");
-  row = await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } });
-  const verified = await confirmEmailCode(row, challenge.emailCode);
-  if (!verified.ok) throw new Error("Expected verified invitation");
-  row = await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } });
-  expect(await completeRegistration(row, { firstName: "Historical", lastName: "Tutor", gradeLevel: 11, password: "Synthetic-password-123!", completionProof: verified.completionProof })).toMatchObject({ ok: true });
-  // Creating credentials updates the current academic mirror without reversing
-  // the archived participation decision; restoration belongs to Head review.
-  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ status: "ARCHIVED", gradeLevel: 11, gradeSchoolYear: "26-27" });
-  expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original);
-  expect(await db.historicalAcademicCorrection.count()).toBe(0);
-});
+it.each([false, true])(
+  "preserves originals and archived status when registration reuses a historical tutor (bound=%s)",
+  async (bound) => {
+    const tutor = await legacyTutor();
+    const email = "returning-registration@example.test";
+    await db.tutor.update({ where: { id: tutor.id }, data: { email } });
+    const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
+    const { original } = await historicalAcademicSnapshot(db, recordId);
+    const issued = await issueRegistrationCode({
+      email,
+      tutorId: bound ? tutor.id : undefined,
+    });
+    let row = await db.registrationCode.findUniqueOrThrow({
+      where: { id: issued.id },
+    });
+    const challenge = await setEmailVerification(row, email);
+    if (!challenge.ok) throw new Error("Expected verification challenge");
+    row = await db.registrationCode.findUniqueOrThrow({
+      where: { id: row.id },
+    });
+    const verified = await confirmEmailCode(row, challenge.emailCode);
+    if (!verified.ok) throw new Error("Expected verified invitation");
+    row = await db.registrationCode.findUniqueOrThrow({
+      where: { id: row.id },
+    });
+    expect(
+      await completeRegistration(row, {
+        firstName: "Historical",
+        lastName: "Tutor",
+        gradeLevel: 11,
+        password: "Synthetic-password-123!",
+        completionProof: verified.completionProof,
+      }),
+    ).toMatchObject({ ok: true });
+    // Creating credentials updates the current academic mirror without reversing
+    // the archived participation decision; restoration belongs to Head review.
+    expect(
+      await db.tutor.findUnique({ where: { id: tutor.id } }),
+    ).toMatchObject({
+      status: "ARCHIVED",
+      gradeLevel: 11,
+      gradeSchoolYear: "26-27",
+    });
+    expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(
+      original,
+    );
+    expect(await db.historicalAcademicCorrection.count()).toBe(0);
+  },
+);
 
-it.each(["TUTEE", "TUTOR"] as const)("preserves unknown and already corrected %s originals when synchronizing current academic mirrors", async (kind) => {
-  const participant = kind === "TUTOR" ? await legacyTutor() : await db.tutee.findUniqueOrThrow({ where: { id: "a" } });
-  if (kind === "TUTOR") await db.tutor.update({ where: { id: participant.id }, data: { gradeLevel: null, gradeSchoolYear: null, gradeConfirmedAt: null, academicallyGraduated: true } });
-  await db.user.update({ where: { id: "HEAD" }, data: kind === "TUTOR" ? { tutorId: participant.id } : { studentId: participant.id } });
-  const recordId = legacyAcademicRecordId(kind, participant.id);
-  const { original } = await historicalAcademicSnapshot(db, recordId);
-  await db.academicProfile.create({ data: { userId: "HEAD", status: "REPORTED", gradeLevel: 10, schoolYear: "26-27", confirmedAt: new Date("2026-09-01"), reconfirmRequired: false } });
-  await synchronizeAcademicMirrors(db, "HEAD");
-  expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original);
-  await caller().historicalAcademics.correctBatch(await prepared(await input([recordId])));
-  const preserved = await db.historicalAcademicRecord.findUniqueOrThrow({ where: { id: recordId }, include: { corrections: true } });
-  await db.academicProfile.update({ where: { userId: "HEAD" }, data: { status: "GRADUATED", gradeLevel: null, schoolYear: null } });
-  await synchronizeAcademicMirrors(db, "HEAD");
-  expect(await db.historicalAcademicRecord.findUnique({ where: { id: recordId }, include: { corrections: true } })).toEqual(preserved);
-  expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original);
-});
+it.each(["TUTEE", "TUTOR"] as const)(
+  "preserves unknown and already corrected %s originals when synchronizing current academic mirrors",
+  async (kind) => {
+    const participant =
+      kind === "TUTOR"
+        ? await legacyTutor()
+        : await db.tutee.findUniqueOrThrow({ where: { id: "a" } });
+    if (kind === "TUTOR")
+      await db.tutor.update({
+        where: { id: participant.id },
+        data: {
+          gradeLevel: null,
+          gradeSchoolYear: null,
+          gradeConfirmedAt: null,
+          academicallyGraduated: true,
+        },
+      });
+    await db.user.update({
+      where: { id: "HEAD" },
+      data:
+        kind === "TUTOR"
+          ? { tutorId: participant.id }
+          : { studentId: participant.id },
+    });
+    const recordId = legacyAcademicRecordId(kind, participant.id);
+    const { original } = await historicalAcademicSnapshot(db, recordId);
+    await db.academicProfile.create({
+      data: {
+        userId: "HEAD",
+        status: "REPORTED",
+        gradeLevel: 10,
+        schoolYear: "26-27",
+        confirmedAt: new Date("2026-09-01"),
+        reconfirmRequired: false,
+      },
+    });
+    await synchronizeAcademicMirrors(db, "HEAD");
+    expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(
+      original,
+    );
+    await caller().historicalAcademics.correctBatch(
+      await prepared(await input([recordId])),
+    );
+    const preserved = await db.historicalAcademicRecord.findUniqueOrThrow({
+      where: { id: recordId },
+      include: { corrections: true },
+    });
+    await db.academicProfile.update({
+      where: { userId: "HEAD" },
+      data: { status: "GRADUATED", gradeLevel: null, schoolYear: null },
+    });
+    await synchronizeAcademicMirrors(db, "HEAD");
+    expect(
+      await db.historicalAcademicRecord.findUnique({
+        where: { id: recordId },
+        include: { corrections: true },
+      }),
+    ).toEqual(preserved);
+    expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(
+      original,
+    );
+  },
+);
 
-it.each(["profile", "status", "reinstate", "undo"] as const)("preserves an undated historical tutee through %s restoration", async (path) => {
-  const tutee = await db.tutee.update({ where: { id: "a" }, data: { intakeTermId: null } });
-  const { original } = await historicalAcademicSnapshot(db, key(tutee.id));
-  if (path === "profile") await caller().admin.updateTutee({ id: tutee.id, expectedUpdatedAt: tutee.updatedAt, englishName: tutee.englishName, status: "ACTIVE" });
-  else if (path === "status") await caller().admin.setTuteeStatus({ id: tutee.id, expectedUpdatedAt: tutee.updatedAt, status: "ACTIVE" });
-  else if (path === "reinstate") {
-    const removal = await db.tuteeRemovalRequest.create({ data: { tuteeId: tutee.id, state: "APPROVED" } });
-    await caller().admin.reinstateTutee({ requestId: removal.id });
-  } else {
-    const entry = await db.auditLog.create({ data: { action: "Synthetic status change", entity: "Tutee", undoData: { kind: "tutee.status", payload: { id: tutee.id, status: "ACTIVE" } } } });
-    await caller().admin.undoAudit({ id: entry.id });
-  }
-  const current = await db.tutee.findUniqueOrThrow({ where: { id: tutee.id } });
-  expect(current.status).toBe(path === "reinstate" ? "PENDING" : "ACTIVE");
-  expect((await caller().admin.tutees()).find((row) => row.id === tutee.id)).toMatchObject({ historical: false, historicalGrade: true, enrollmentCorrection: null });
-  await expect(caller().admin.updateTutee({ id: tutee.id, expectedUpdatedAt: current.updatedAt, englishName: current.englishName, status: current.status, gradeLevel: "10" })).rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
-  expect((await historicalAcademicSnapshot(db, key(tutee.id))).original).toEqual(original);
-  expect(await db.historicalAcademicCorrection.count()).toBe(0);
-});
-
+it.each(["profile", "status", "reinstate", "undo"] as const)(
+  "preserves an undated historical tutee through %s restoration",
+  async (path) => {
+    const tutee = await db.tutee.update({
+      where: { id: "a" },
+      data: { intakeTermId: null },
+    });
+    const { original } = await historicalAcademicSnapshot(db, key(tutee.id));
+    if (path === "profile")
+      await caller().admin.updateTutee({
+        id: tutee.id,
+        expectedUpdatedAt: tutee.updatedAt,
+        englishName: tutee.englishName,
+        status: "ACTIVE",
+      });
+    else if (path === "status")
+      await caller().admin.setTuteeStatus({
+        id: tutee.id,
+        expectedUpdatedAt: tutee.updatedAt,
+        status: "ACTIVE",
+      });
+    else if (path === "reinstate") {
+      const removal = await db.tuteeRemovalRequest.create({
+        data: { tuteeId: tutee.id, state: "APPROVED" },
+      });
+      await caller().admin.reinstateTutee({ requestId: removal.id });
+    } else {
+      const entry = await db.auditLog.create({
+        data: {
+          action: "Synthetic status change",
+          entity: "Tutee",
+          undoData: {
+            kind: "tutee.status",
+            payload: { id: tutee.id, status: "ACTIVE" },
+          },
+        },
+      });
+      await caller().admin.undoAudit({ id: entry.id });
+    }
+    const current = await db.tutee.findUniqueOrThrow({
+      where: { id: tutee.id },
+    });
+    expect(current.status).toBe(path === "reinstate" ? "PENDING" : "ACTIVE");
+    expect(
+      (await caller().admin.tutees()).find((row) => row.id === tutee.id),
+    ).toMatchObject({
+      historical: false,
+      historicalGrade: true,
+      enrollmentCorrection: null,
+    });
+    await expect(
+      caller().admin.updateTutee({
+        id: tutee.id,
+        expectedUpdatedAt: current.updatedAt,
+        englishName: current.englishName,
+        status: current.status,
+        gradeLevel: "10",
+      }),
+    ).rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
+    expect(
+      (await historicalAcademicSnapshot(db, key(tutee.id))).original,
+    ).toEqual(original);
+    expect(await db.historicalAcademicCorrection.count()).toBe(0);
+  },
+);
 
 it("preserves originals when a card correction reinstates an undated tutee", async () => {
-  const tutee = await db.tutee.update({ where: { id: "a" }, data: { intakeTermId: null } });
+  const tutee = await db.tutee.update({
+    where: { id: "a" },
+    data: { intakeTermId: null },
+  });
   const { original } = await historicalAcademicSnapshot(db, key(tutee.id));
-  await db.tuteeRemovalRequest.create({ data: { tuteeId: tutee.id, kind: "PUNISHMENT", state: "APPROVED", resolvedAt: tutee.updatedAt, pairingSnapshot: { pairingIds: [], status: "ACTIVE" } } });
-  const card = await db.disciplinaryCard.create({ data: { tuteeId: tutee.id, color: "RED", reviewStatus: "VALID" } });
-  await caller().admin.reviewCard({ id: card.id, expectedUpdatedAt: card.updatedAt, reviewStatus: "INVALID", reviewNote: "Verified original attendance" });
-  expect(await db.tutee.findUnique({ where: { id: tutee.id } })).toMatchObject({ status: "PENDING" });
-  expect((await historicalAcademicSnapshot(db, key(tutee.id))).original).toEqual(original);
-  expect(await db.historicalAcademicRecord.count({ where: { id: key(tutee.id) } })).toBe(1);
+  await db.tuteeRemovalRequest.create({
+    data: {
+      tuteeId: tutee.id,
+      kind: "PUNISHMENT",
+      state: "APPROVED",
+      resolvedAt: tutee.updatedAt,
+      pairingSnapshot: { pairingIds: [], status: "ACTIVE" },
+    },
+  });
+  const card = await db.disciplinaryCard.create({
+    data: { tuteeId: tutee.id, color: "RED", reviewStatus: "VALID" },
+  });
+  await caller().admin.reviewCard({
+    id: card.id,
+    expectedUpdatedAt: card.updatedAt,
+    reviewStatus: "INVALID",
+    reviewNote: "Verified original attendance",
+  });
+  expect(await db.tutee.findUnique({ where: { id: tutee.id } })).toMatchObject({
+    status: "PENDING",
+  });
+  expect(
+    (await historicalAcademicSnapshot(db, key(tutee.id))).original,
+  ).toEqual(original);
+  expect(
+    await db.historicalAcademicRecord.count({ where: { id: key(tutee.id) } }),
+  ).toBe(1);
 });
 
-it.each(["direct", "survey"] as const)("preserves originals on %s assignment of an inactive tutee", async (path) => {
-  const tutee = await db.tutee.update({ where: { id: "a" }, data: { intakeTermId: "current" } });
-  const { original } = await historicalAcademicSnapshot(db, key(tutee.id));
-  const tutor = await db.tutor.create({ data: { englishName: "Current Tutor", status: "ACTIVE" } });
-  const subject = await db.subject.create({ data: { name: "Synthetic Mathematics" } });
-  await db.tutorQualification.create({ data: { tutorId: tutor.id, subjectId: subject.id, approvedById: "HEAD", grants: { create: { subjectId: subject.id } } } });
-  if (path === "direct") {
-    await caller().admin.assignTuteeToTutor({ tuteeId: tutee.id, tutorId: tutor.id, termId: "current", subject: subject.name });
-  } else {
-    const survey = await db.studentSurvey.create({ data: { tuteeId: tutee.id, email: "historical-survey@example.test", intakeTermId: "current", tokenHash: "synthetic-historical-token", expiresAt: new Date("2099-01-01"), confirmedAt: new Date(), policyRevision: "synthetic-test-revision", policySnapshot: [], payload: { englishName: tutee.englishName, email: "historical-survey@example.test", preferredContact: "historical-survey@example.test", firstChoiceId: subject.id, slotIds: ["synthetic-slot"], signatureName: tutee.englishName, agreed: true, policyRevision: "synthetic-test-revision" } } });
-    const ticket = await caller().studentWorkflow.prepareAction({ action: "ASSIGN", target: survey.id });
-    await db.studentActionConfirmation.update({ where: { id: ticket.id }, data: { readyAt: new Date(0) } });
-    await caller().studentWorkflow.assign({ id: survey.id, ticket: ticket.id, subjectId: subject.id, tutorId: tutor.id });
-  }
-  const current = await db.tutee.findUniqueOrThrow({ where: { id: tutee.id } });
-  expect(current.status).toBe("ACTIVE");
-  expect(await db.pairingTutee.count({ where: { tuteeId: tutee.id } })).toBe(1);
-  await expect(caller().admin.updateTutee({ id: tutee.id, expectedUpdatedAt: current.updatedAt, englishName: current.englishName, status: current.status, gradeLevel: "10" })).rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
-  expect((await historicalAcademicSnapshot(db, key(tutee.id))).original).toEqual(original);
-});
+it.each(["direct", "survey"] as const)(
+  "preserves originals on %s assignment of an inactive tutee",
+  async (path) => {
+    const tutee = await db.tutee.update({
+      where: { id: "a" },
+      data: { intakeTermId: "current" },
+    });
+    const { original } = await historicalAcademicSnapshot(db, key(tutee.id));
+    const tutor = await db.tutor.create({
+      data: { englishName: "Current Tutor", status: "ACTIVE" },
+    });
+    const subject = await db.subject.create({
+      data: { name: "Synthetic Mathematics" },
+    });
+    await db.tutorQualification.create({
+      data: {
+        tutorId: tutor.id,
+        subjectId: subject.id,
+        approvedById: "HEAD",
+        grants: { create: { subjectId: subject.id } },
+      },
+    });
+    if (path === "direct") {
+      await caller().admin.assignTuteeToTutor({
+        tuteeId: tutee.id,
+        tutorId: tutor.id,
+        termId: "current",
+        subject: subject.name,
+      });
+    } else {
+      const survey = await db.studentSurvey.create({
+        data: {
+          tuteeId: tutee.id,
+          email: "historical-survey@example.test",
+          intakeTermId: "current",
+          tokenHash: "synthetic-historical-token",
+          expiresAt: new Date("2099-01-01"),
+          confirmedAt: new Date(),
+          policyRevision: "synthetic-test-revision",
+          policySnapshot: [],
+          payload: {
+            englishName: tutee.englishName,
+            email: "historical-survey@example.test",
+            preferredContact: "historical-survey@example.test",
+            firstChoiceId: subject.id,
+            slotIds: ["synthetic-slot"],
+            signatureName: tutee.englishName,
+            agreed: true,
+            policyRevision: "synthetic-test-revision",
+          },
+        },
+      });
+      const ticket = await caller().studentWorkflow.prepareAction({
+        action: "ASSIGN",
+        target: survey.id,
+      });
+      await db.studentActionConfirmation.update({
+        where: { id: ticket.id },
+        data: { readyAt: new Date(0) },
+      });
+      await caller().studentWorkflow.assign({
+        id: survey.id,
+        ticket: ticket.id,
+        subjectId: subject.id,
+        tutorId: tutor.id,
+      });
+    }
+    const current = await db.tutee.findUniqueOrThrow({
+      where: { id: tutee.id },
+    });
+    expect(current.status).toBe("ACTIVE");
+    expect(await db.pairingTutee.count({ where: { tuteeId: tutee.id } })).toBe(
+      1,
+    );
+    await expect(
+      caller().admin.updateTutee({
+        id: tutee.id,
+        expectedUpdatedAt: current.updatedAt,
+        englishName: current.englishName,
+        status: current.status,
+        gradeLevel: "10",
+      }),
+    ).rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
+    expect(
+      (await historicalAcademicSnapshot(db, key(tutee.id))).original,
+    ).toEqual(original);
+  },
+);
 
 it("rolls original preservation back when application promotion cannot link the account", async () => {
   const tutor = await legacyTutor();
-  await db.tutor.update({ where: { id: tutor.id }, data: { email: "head@example.test" } });
-  const other = await db.tutor.create({ data: { englishName: "Another Tutor" } });
+  await db.tutor.update({
+    where: { id: tutor.id },
+    data: { email: "head@example.test" },
+  });
+  const other = await db.tutor.create({
+    data: { englishName: "Another Tutor" },
+  });
   await db.user.update({ where: { id: "HEAD" }, data: { tutorId: other.id } });
-  await db.programFeature.create({ data: { key: "INTERVIEWS", enabled: false } });
-  const app = await db.tutorApplication.create({ data: { name: "Historical Tutor", email: "head@example.test", type: "INITIAL" } });
-  await expect(caller().admin.setApplicationStatus({ id: app.id, expectedUpdatedAt: app.updatedAt, status: "ACCEPTED" })).rejects.toThrow("Account already belongs to another tutor.");
-  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ status: "ARCHIVED", gradeLevel: 9, gradeSchoolYear: "24-25" });
-  expect(await db.tutorApplication.findUnique({ where: { id: app.id } })).toMatchObject({ status: "PENDING", promotedTutorId: null });
+  await db.programFeature.create({
+    data: { key: "INTERVIEWS", enabled: false },
+  });
+  const app = await db.tutorApplication.create({
+    data: {
+      name: "Historical Tutor",
+      email: "head@example.test",
+      type: "INITIAL",
+    },
+  });
+  await expect(
+    caller().admin.setApplicationStatus({
+      id: app.id,
+      expectedUpdatedAt: app.updatedAt,
+      status: "ACCEPTED",
+    }),
+  ).rejects.toThrow("Account already belongs to another tutor.");
+  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({
+    status: "ARCHIVED",
+    gradeLevel: 9,
+    gradeSchoolYear: "24-25",
+  });
+  expect(
+    await db.tutorApplication.findUnique({ where: { id: app.id } }),
+  ).toMatchObject({ status: "PENDING", promotedTutorId: null });
   expect(await db.historicalAcademicRecord.count()).toBe(0);
   expect(await db.registrationCode.count()).toBe(0);
 });
 
-it.each([false, true])("serializes a historical correction with a current academic save (correction first=%s)", async (correctionFirst) => {
-  const tutor = await legacyTutor();
-  await db.user.update({ where: { id: "HEAD" }, data: { tutorId: tutor.id } });
-  const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
-  const { original } = await historicalAcademicSnapshot(db, recordId);
-  const ready = await prepared(await input([recordId]));
-  const account = await db.user.findUniqueOrThrow({ where: { id: "HEAD" } });
-  const save = () => caller().admin.updateAccountAcademics({ userId: "HEAD", expectedProfileVersion: account.profileVersion, expectedSchoolYear: "26-27", status: "REPORTED", gradeLevel: 11, reason: "Current confirmed report" });
-  const correct = () => caller().historicalAcademics.correctBatch(ready);
-  const results = await Promise.allSettled(correctionFirst ? [correct(), save()] : [save(), correct()]);
-  expect(results[correctionFirst ? 1 : 0].status).toBe("fulfilled");
-  const correction = results[correctionFirst ? 0 : 1];
-  if (correction.status === "rejected") expect(correction.reason).toMatchObject({ message: "HISTORICAL_STALE" });
-  expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original);
-  expect(await db.academicProfile.findUnique({ where: { userId: "HEAD" } })).toMatchObject({ gradeLevel: 11, schoolYear: "26-27" });
-});
-
-
-it.each(["TUTEE", "TUTOR"] as const)("preservation locks %s evidence without blocking assignment foreign-key reads", async (kind) => {
-  const tutor = await legacyTutor();
-  const participantId = kind === "TUTOR" ? tutor.id : "a";
-  let release!: () => void;
-  let acquired!: () => void;
-  const hold = new Promise<void>((resolve) => { release = resolve; });
-  const ready = new Promise<void>((resolve) => { acquired = resolve; });
-  const preserving = db.$transaction(async (tx) => {
-    await preserveHistoricalAcademics(tx, kind, participantId);
-    acquired();
-    await hold;
-  });
-  try {
-    await Promise.race([ready, preserving]);
-    await db.$transaction(async (tx) => {
-      // A pairing needs KEY SHARE on the stable participant IDs. The evidence fence
-      // must block academic/status updates without adding a cross-participant FK cycle.
-      await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '1s'");
-      await tx.pairing.create({ data: { tutorId: tutor.id, termId: "current", subject: "Synthetic Mathematics", dayOfWeek: 1, startMin: 900, endMin: 960, tutees: { create: { tuteeId: "a" } } } });
+it.each([false, true])(
+  "serializes a historical correction with a current academic save (correction first=%s)",
+  async (correctionFirst) => {
+    const tutor = await legacyTutor();
+    await db.user.update({
+      where: { id: "HEAD" },
+      data: { tutorId: tutor.id },
     });
-  } finally {
-    release();
-    await preserving;
-  }
-  expect(await db.pairingTutee.count({ where: { tuteeId: "a" } })).toBe(1);
-});
+    const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
+    const { original } = await historicalAcademicSnapshot(db, recordId);
+    const ready = await prepared(await input([recordId]));
+    const account = await db.user.findUniqueOrThrow({ where: { id: "HEAD" } });
+    const save = () =>
+      caller().admin.updateAccountAcademics({
+        userId: "HEAD",
+        expectedProfileVersion: account.profileVersion,
+        expectedSchoolYear: "26-27",
+        status: "REPORTED",
+        gradeLevel: 11,
+        reason: "Current confirmed report",
+      });
+    const correct = () => caller().historicalAcademics.correctBatch(ready);
+    const results = await Promise.allSettled(
+      correctionFirst ? [correct(), save()] : [save(), correct()],
+    );
+    expect(results[correctionFirst ? 1 : 0].status).toBe("fulfilled");
+    const correction = results[correctionFirst ? 0 : 1];
+    if (correction.status === "rejected")
+      expect(correction.reason).toMatchObject({ message: "HISTORICAL_STALE" });
+    expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(
+      original,
+    );
+    expect(
+      await db.academicProfile.findUnique({ where: { userId: "HEAD" } }),
+    ).toMatchObject({ gradeLevel: 11, schoolYear: "26-27" });
+  },
+);
 
+it.each(["TUTEE", "TUTOR"] as const)(
+  "preservation locks %s evidence without blocking assignment foreign-key reads",
+  async (kind) => {
+    const tutor = await legacyTutor();
+    const participantId = kind === "TUTOR" ? tutor.id : "a";
+    let release!: () => void;
+    let acquired!: () => void;
+    const hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const ready = new Promise<void>((resolve) => {
+      acquired = resolve;
+    });
+    const preserving = db.$transaction(async (tx) => {
+      await preserveHistoricalAcademics(tx, kind, participantId);
+      acquired();
+      await hold;
+    });
+    try {
+      await Promise.race([ready, preserving]);
+      await db.$transaction(async (tx) => {
+        // A pairing needs KEY SHARE on the stable participant IDs. The evidence fence
+        // must block academic/status updates without adding a cross-participant FK cycle.
+        await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '1s'");
+        await tx.pairing.create({
+          data: {
+            tutorId: tutor.id,
+            termId: "current",
+            subject: "Synthetic Mathematics",
+            dayOfWeek: 1,
+            startMin: 900,
+            endMin: 960,
+            tutees: { create: { tuteeId: "a" } },
+          },
+        });
+      });
+    } finally {
+      release();
+      await preserving;
+    }
+    expect(await db.pairingTutee.count({ where: { tuteeId: "a" } })).toBe(1);
+  },
+);
 
 it("allows paired academic mirrors and tutee reassignment to finish in opposite participant order", async () => {
   const tutor = await legacyTutor("ACTIVE");
-  await db.user.update({ where: { id: "HEAD" }, data: { tutorId: tutor.id, studentId: "a" } });
-  await db.academicProfile.create({ data: { userId: "HEAD", status: "REPORTED", gradeLevel: 11, schoolYear: "26-27", confirmedAt: new Date("2026-09-01"), reconfirmRequired: false } });
+  await db.user.update({
+    where: { id: "HEAD" },
+    data: { tutorId: tutor.id, studentId: "a" },
+  });
+  await db.academicProfile.create({
+    data: {
+      userId: "HEAD",
+      status: "REPORTED",
+      gradeLevel: 11,
+      schoolYear: "26-27",
+      confirmedAt: new Date("2026-09-01"),
+      reconfirmRequired: false,
+    },
+  });
   const { original } = await historicalAcademicSnapshot(db, key("a"));
   let release!: () => void;
   let acquired!: () => void;
-  const hold = new Promise<void>((resolve) => { release = resolve; });
-  const ready = new Promise<void>((resolve) => { acquired = resolve; });
+  const hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const ready = new Promise<void>((resolve) => {
+    acquired = resolve;
+  });
   const mirroring = db.$transaction(async (tx) => {
     // Pause after the real mirror path's account→Tutor prefix. Its remaining Tutee
     // write must coexist with assignment's Tutee→Tutor foreign-key lock order.
@@ -1150,114 +1770,214 @@ it("allows paired academic mirrors and tutee reassignment to finish in opposite 
     await db.$transaction(async (tx) => {
       await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '1s'");
       await preserveHistoricalAcademics(tx, "TUTEE", "a");
-      await tx.pairing.create({ data: { tutorId: tutor.id, termId: "current", subject: "Synthetic Mathematics", dayOfWeek: 1, startMin: 900, endMin: 960, tutees: { create: { tuteeId: "a" } } } });
+      await tx.pairing.create({
+        data: {
+          tutorId: tutor.id,
+          termId: "current",
+          subject: "Synthetic Mathematics",
+          dayOfWeek: 1,
+          startMin: 900,
+          endMin: 960,
+          tutees: { create: { tuteeId: "a" } },
+        },
+      });
       await tx.tutee.update({ where: { id: "a" }, data: { status: "ACTIVE" } });
     });
   } finally {
     release();
     await mirroring;
   }
-  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ gradeLevel: 11, gradeSchoolYear: "26-27" });
-  expect(await db.tutee.findUnique({ where: { id: "a" } })).toMatchObject({ status: "ACTIVE" });
-  expect((await historicalAcademicSnapshot(db, key("a"))).original).toEqual(original);
+  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({
+    gradeLevel: 11,
+    gradeSchoolYear: "26-27",
+  });
+  expect(await db.tutee.findUnique({ where: { id: "a" } })).toMatchObject({
+    status: "ACTIVE",
+  });
+  expect((await historicalAcademicSnapshot(db, key("a"))).original).toEqual(
+    original,
+  );
 });
-
 
 it("orders reserved archive participant locks before a dual-linked academic mirror can wait on them", async () => {
   const tutor = await legacyTutor();
-  await db.user.update({ where: { id: "STUDENT" }, data: { tutorId: tutor.id, studentId: "a" } });
-  await db.academicProfile.create({ data: { userId: "STUDENT", status: "REPORTED", gradeLevel: 11, schoolYear: "26-27", confirmedAt: new Date("2026-09-01"), reconfirmRequired: false } });
+  await db.user.update({
+    where: { id: "STUDENT" },
+    data: { tutorId: tutor.id, studentId: "a" },
+  });
+  await db.academicProfile.create({
+    data: {
+      userId: "STUDENT",
+      status: "REPORTED",
+      gradeLevel: 11,
+      schoolYear: "26-27",
+      confirmedAt: new Date("2026-09-01"),
+      reconfirmRequired: false,
+    },
+  });
   const tutorKey = legacyAcademicRecordId("TUTOR", tutor.id);
-  const tuteeOriginal = (await historicalAcademicSnapshot(db, key("a"))).original;
-  const tutorOriginal = (await historicalAcademicSnapshot(db, tutorKey)).original;
+  const tuteeOriginal = (await historicalAcademicSnapshot(db, key("a")))
+    .original;
+  const tutorOriginal = (await historicalAcademicSnapshot(db, tutorKey))
+    .original;
   // Deliberately reverse the mirror's participant order in a valid archive.
-  const files = [file("HistoricalAcademicRecord", [
-    { id: key("a"), tuteeId: "a", tutorId: null, ...tuteeOriginal },
-    { id: tutorKey, tuteeId: null, tutorId: tutor.id, ...tutorOriginal },
-  ])];
+  const files = [
+    file("HistoricalAcademicRecord", [
+      { id: key("a"), tuteeId: "a", tutorId: null, ...tuteeOriginal },
+      { id: tutorKey, tuteeId: null, tutorId: tutor.id, ...tutorOriginal },
+    ]),
+  ];
   let acquired!: () => void;
   let started!: (pid: number) => void;
-  const ready = new Promise<void>((resolve) => { acquired = resolve; });
-  const importingPid = new Promise<number>((resolve) => { started = resolve; });
-  const mirroring = db.$transaction(async (tx) => {
-    await lockAccountProfile(tx, "STUDENT");
-    await preserveHistoricalAcademics(tx, "TUTOR", tutor.id);
-    acquired();
-    const pid = await importingPid;
-    await vi.waitUntil(async () => {
-      const [row] = await tx.$queryRaw<{ waiting: boolean }[]>`SELECT EXISTS(SELECT 1 FROM pg_locks WHERE pid=${pid} AND locktype='advisory' AND NOT granted) AS waiting`;
-      return row?.waiting;
-    }, { timeout: 2000, interval: 10 });
-    await synchronizeAcademicMirrors(tx, "STUDENT");
-  }, { timeout: 15000 });
+  const ready = new Promise<void>((resolve) => {
+    acquired = resolve;
+  });
+  const importingPid = new Promise<number>((resolve) => {
+    started = resolve;
+  });
+  const mirroring = db.$transaction(
+    async (tx) => {
+      await lockAccountProfile(tx, "STUDENT");
+      await preserveHistoricalAcademics(tx, "TUTOR", tutor.id);
+      acquired();
+      const pid = await importingPid;
+      await vi.waitUntil(
+        async () => {
+          const [row] = await tx.$queryRaw<
+            { waiting: boolean }[]
+          >`SELECT EXISTS(SELECT 1 FROM pg_locks WHERE pid=${pid} AND locktype='advisory' AND NOT granted) AS waiting`;
+          return row?.waiting;
+        },
+        { timeout: 2000, interval: 10 },
+      );
+      await synchronizeAcademicMirrors(tx, "STUDENT");
+    },
+    { timeout: 15000 },
+  );
   await Promise.race([ready, mirroring]);
-  const importing = db.$transaction(async (tx) => {
-    // Announce before namespace acquisition so the test observes the real lock wait.
-    const [backend] = await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
-    started(backend!.pid);
-    await lockUsernameNamespace(tx);
-    // A different Head actor must not accidentally serialize on the mirrored account.
-    await tx.$queryRaw`SELECT id FROM "User" WHERE id='HEAD' FOR SHARE`;
-    return applyRecords(tx, files);
-  }, { timeout: 15000 });
+  const importing = db.$transaction(
+    async (tx) => {
+      // Announce before namespace acquisition so the test observes the real lock wait.
+      const [backend] = await tx.$queryRaw<
+        { pid: number }[]
+      >`SELECT pg_backend_pid() AS pid`;
+      started(backend!.pid);
+      await lockUsernameNamespace(tx);
+      // A different Head actor must not accidentally serialize on the mirrored account.
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id='HEAD' FOR SHARE`;
+      return applyRecords(tx, files);
+    },
+    { timeout: 15000 },
+  );
   const results = await Promise.allSettled([mirroring, importing]);
-  expect(results.map((result) => result.status)).toEqual(["fulfilled", "fulfilled"]);
-  expect((await historicalAcademicSnapshot(db, key("a"))).original).toEqual(tuteeOriginal);
-  expect((await historicalAcademicSnapshot(db, tutorKey)).original).toEqual(tutorOriginal);
-  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ gradeLevel: 11, gradeSchoolYear: "26-27" });
+  expect(results.map((result) => result.status)).toEqual([
+    "fulfilled",
+    "fulfilled",
+  ]);
+  expect((await historicalAcademicSnapshot(db, key("a"))).original).toEqual(
+    tuteeOriginal,
+  );
+  expect((await historicalAcademicSnapshot(db, tutorKey)).original).toEqual(
+    tutorOriginal,
+  );
+  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({
+    gradeLevel: 11,
+    gradeSchoolYear: "26-27",
+  });
 });
-
 
 it("orders reserved archive row locks with a dual-linked account name writer", async () => {
   const tutor = await legacyTutor();
-  await db.user.update({ where: { id: "STUDENT" }, data: { tutorId: tutor.id, studentId: "a" } });
+  await db.user.update({
+    where: { id: "STUDENT" },
+    data: { tutorId: tutor.id, studentId: "a" },
+  });
   const tutorKey = legacyAcademicRecordId("TUTOR", tutor.id);
-  const tuteeOriginal = (await historicalAcademicSnapshot(db, key("a"))).original;
-  const tutorOriginal = (await historicalAcademicSnapshot(db, tutorKey)).original;
-  const files = [file("HistoricalAcademicRecord", [
-    { id: key("a"), tuteeId: "a", tutorId: null, ...tuteeOriginal },
-    { id: tutorKey, tuteeId: null, tutorId: tutor.id, ...tutorOriginal },
-  ])];
+  const tuteeOriginal = (await historicalAcademicSnapshot(db, key("a")))
+    .original;
+  const tutorOriginal = (await historicalAcademicSnapshot(db, tutorKey))
+    .original;
+  const files = [
+    file("HistoricalAcademicRecord", [
+      { id: key("a"), tuteeId: "a", tutorId: null, ...tuteeOriginal },
+      { id: tutorKey, tuteeId: null, tutorId: tutor.id, ...tutorOriginal },
+    ]),
+  ];
   let acquired!: () => void;
   let started!: (pid: number) => void;
-  const ready = new Promise<void>((resolve) => { acquired = resolve; });
-  const importingPid = new Promise<number>((resolve) => { started = resolve; });
-  const renaming = db.$transaction(async (tx) => {
-    await lockAccountProfile(tx, "STUDENT");
-    // Name writers use ordinary row updates, with no participant advisory lock.
-    await tx.tutor.update({ where: { id: tutor.id }, data: { englishName: "Updated Person" } });
-    acquired();
-    const pid = await importingPid;
-    await vi.waitUntil(async () => {
-      const [row] = await tx.$queryRaw<{ waiting: boolean }[]>`SELECT cardinality(pg_blocking_pids(${pid})) > 0 AS waiting`;
-      return row?.waiting;
-    }, { timeout: 2000, interval: 10 });
-    await updateAccountProfile(tx, "STUDENT", { name: "Updated Person" });
-  }, { timeout: 15000 });
+  const ready = new Promise<void>((resolve) => {
+    acquired = resolve;
+  });
+  const importingPid = new Promise<number>((resolve) => {
+    started = resolve;
+  });
+  const renaming = db.$transaction(
+    async (tx) => {
+      await lockAccountProfile(tx, "STUDENT");
+      // Name writers use ordinary row updates, with no participant advisory lock.
+      await tx.tutor.update({
+        where: { id: tutor.id },
+        data: { englishName: "Updated Person" },
+      });
+      acquired();
+      const pid = await importingPid;
+      await vi.waitUntil(
+        async () => {
+          const [row] = await tx.$queryRaw<
+            { waiting: boolean }[]
+          >`SELECT cardinality(pg_blocking_pids(${pid})) > 0 AS waiting`;
+          return row?.waiting;
+        },
+        { timeout: 2000, interval: 10 },
+      );
+      await updateAccountProfile(tx, "STUDENT", { name: "Updated Person" });
+    },
+    { timeout: 15000 },
+  );
   await Promise.race([ready, renaming]);
-  const importing = db.$transaction(async (tx) => {
-    // Announce before namespace acquisition so the test observes the real lock wait.
-    const [backend] = await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
-    started(backend!.pid);
-    await lockUsernameNamespace(tx);
-    await tx.$queryRaw`SELECT id FROM "User" WHERE id='HEAD' FOR SHARE`;
-    return applyRecords(tx, files);
-  }, { timeout: 15000 });
+  const importing = db.$transaction(
+    async (tx) => {
+      // Announce before namespace acquisition so the test observes the real lock wait.
+      const [backend] = await tx.$queryRaw<
+        { pid: number }[]
+      >`SELECT pg_backend_pid() AS pid`;
+      started(backend!.pid);
+      await lockUsernameNamespace(tx);
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id='HEAD' FOR SHARE`;
+      return applyRecords(tx, files);
+    },
+    { timeout: 15000 },
+  );
   const results = await Promise.allSettled([renaming, importing]);
-  expect(results.map((result) => result.status)).toEqual(["fulfilled", "fulfilled"]);
-  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ englishName: "Updated Person" });
-  expect(await db.tutee.findUnique({ where: { id: "a" } })).toMatchObject({ englishName: "Updated Person" });
-  expect((await historicalAcademicSnapshot(db, key("a"))).original).toEqual(tuteeOriginal);
-  expect((await historicalAcademicSnapshot(db, tutorKey)).original).toEqual(tutorOriginal);
+  expect(results.map((result) => result.status)).toEqual([
+    "fulfilled",
+    "fulfilled",
+  ]);
+  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({
+    englishName: "Updated Person",
+  });
+  expect(await db.tutee.findUnique({ where: { id: "a" } })).toMatchObject({
+    englishName: "Updated Person",
+  });
+  expect((await historicalAcademicSnapshot(db, key("a"))).original).toEqual(
+    tuteeOriginal,
+  );
+  expect((await historicalAcademicSnapshot(db, tutorKey)).original).toEqual(
+    tutorOriginal,
+  );
 });
 
 it("retains original CSV row diagnostics when reserved participant locks are reordered", async () => {
   const first = (await historicalAcademicSnapshot(db, key("a"))).original;
   const second = (await historicalAcademicSnapshot(db, key("b"))).original;
-  const files = [file("HistoricalAcademicRecord", [
-    { id: key("a"), tuteeId: "a", ...first },
-    { id: key("b"), tuteeId: "b", ...second, schoolYear: "24-27" },
-  ])];
-  await expect(caller().recordTransfer.preview({ files })).rejects.toThrow("HistoricalAcademicRecord.csv, row 3: Historical schoolYear must be an adjacent reference year or null.");
+  const files = [
+    file("HistoricalAcademicRecord", [
+      { id: key("a"), tuteeId: "a", ...first },
+      { id: key("b"), tuteeId: "b", ...second, schoolYear: "24-27" },
+    ]),
+  ];
+  await expect(caller().recordTransfer.preview({ files })).rejects.toThrow(
+    "HistoricalAcademicRecord.csv, row 3: Historical schoolYear must be an adjacent reference year or null.",
+  );
   expect(await db.historicalAcademicRecord.count()).toBe(0);
 });

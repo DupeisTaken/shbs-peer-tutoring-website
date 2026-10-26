@@ -125,4 +125,3 @@ export function sortApplications<
     })
     .map(({ application }) => application);
 }
-
