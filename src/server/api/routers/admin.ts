@@ -2331,6 +2331,8 @@ export const adminRouter = createTRPCRouter({
         );
         return await tx.tutor.create({
           data: {
+            // Standalone roster identity has no login or ownership grant.
+            personId: (await tx.person.create({ data: {} })).id,
             preferredName: input.preferredName,
             nameFieldsConfirmed: true,
             firstName: input.firstName,
@@ -2763,6 +2765,7 @@ export const adminRouter = createTRPCRouter({
         );
         return tx.tutee.create({
           data: {
+            personId: (await tx.person.create({ data: {} })).id,
             // Persist entry provenance at creation; subsequent edits/links retain it.
             signupSource: "STAFF",
             firstName: input.firstName,

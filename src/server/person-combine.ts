@@ -12,6 +12,7 @@ import { inTransaction, lockEntity, type DomainDb } from "./transactions";
 import { lockUsernameNamespace } from "./auth/username";
 import { verifyPasswordConfirmation } from "./auth/password-confirmation";
 import { previewCombine } from "./combine-accounts";
+import { accountSafetyReason, personReviewItem, type PersonReviewItem } from "./person-operational-review";
 import { linkTutorHistory, previewTutorHistory } from "./tutor-history";
 import { linkTuteeHistory, previewHistoryLink } from "./tutee-history";
 
@@ -35,6 +36,12 @@ export const personCombineInput = personCombineSelection.extend({
   operationId: z.string().uuid(),
   confirmPassword: z.string().max(1024).optional(),
 });
+export const personReviewSelection = personCombineSelection
+  .omit({ sources: true })
+  .extend({ personId: z.string().min(1).max(128) });
+export const personFinalizeInput = personReviewSelection.extend(
+  personCombineInput.omit({ sources: true, retainedUserId: true, retireDuplicateLogins: true }).shape,
+);
 type Selection = z.input<typeof personCombineSelection>;
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -48,8 +55,12 @@ const legacyMirrorRewriteConflicts = new Set([
 
 /** A review covers the whole explicit identity group, but access remains attached
  * to individual accounts. Neither equal names nor equal emails create an edge. */
-async function plan(db: DomainDb, raw: Selection) {
-  const input = personCombineSelection.parse(raw);
+async function plan(db: DomainDb, raw: Selection, reviewingGroup = false) {
+  // A reviewed group can have one remaining source after an authorized deletion.
+  // The public combine selector still requires two distinct records.
+  const input = reviewingGroup
+    ? personCombineSelection.extend({ sources: z.array(personSource).min(1) }).parse(raw)
+    : personCombineSelection.parse(raw);
   const graph = await personGraph(db, input.sources);
   const term = await db.term.findFirst({
     where: { active: true },
@@ -78,6 +89,8 @@ async function plan(db: DomainDb, raw: Selection) {
     (r) => r.suspendedAt !== null || r.schoolDeparture !== null,
   );
   const conflicts: string[] = [];
+  const blockers: PersonReviewItem[] = [];
+  const userSource = (id: string) => ({ kind: "USER" as const, id });
   const retirementReviews = [];
   const pendingTutorRequests = await db.tutorStatusRequest.findMany({
     where: { tutorId: { in: graph.tutors.map((r) => r.id) }, state: "PENDING" },
@@ -94,7 +107,7 @@ async function plan(db: DomainDb, raw: Selection) {
       state: "OPEN",
       confirmedAt: null,
     },
-    select: { id: true, email: true },
+    select: { id: true, email: true, tuteeId: true, submittedAt: true, verificationDueAt: true, expiresAt: true },
     orderBy: { id: "asc" },
   });
   // An archived label alone is insufficient if a recurring assignment still
@@ -124,6 +137,66 @@ async function plan(db: DomainDb, raw: Selection) {
         graph.tutees.some((row) => row.id === member.tuteeId && !row.user),
       ),
   );
+  for (const row of graph.tutors.filter((r) => !r.user && !isHistoricalTutor(r)))
+    blockers.push(personReviewItem("ACTIVE_UNOWNED_PROFILE", [{ kind: "TUTOR", id: row.id }], "/admin/tutors"));
+  for (const row of graph.tutees.filter((r) => !r.user && !historicalTutee(r)))
+    blockers.push(personReviewItem("ACTIVE_UNOWNED_PROFILE", [{ kind: "TUTEE", id: row.id }], "/admin/tutees"));
+  for (const row of live) {
+    if (row.suspendedAt) blockers.push(personReviewItem("ACCOUNT_SUSPENDED", [userSource(row.id)], "/admin/users"));
+    if (row.schoolDeparture) blockers.push(personReviewItem("SCHOOL_DEPARTURE", [userSource(row.id)], "/admin/users"));
+    if (!ready(row))
+      blockers.push(personReviewItem("CREDENTIAL_SETUP_REQUIRED", [userSource(row.id)], "/admin/users", { blocksFinalization: row.id === retained?.id, blocksRetirement: row.id === retained?.id }));
+  }
+  for (const assignment of currentAssignments) {
+    const sources = [
+      ...graph.tutors.filter((r) => r.id === assignment.tutorId).map((r) => ({ kind: "TUTOR" as const, id: r.id })),
+      ...graph.tutees.filter((r) => assignment.tutees.some((t) => t.tuteeId === r.id)).map((r) => ({ kind: "TUTEE" as const, id: r.id })),
+    ];
+    const unowned = sources.some((s) => s.kind === "TUTOR"
+      ? !graph.tutors.find((r) => r.id === s.id)?.user
+      : !graph.tutees.find((r) => r.id === s.id)?.user);
+    const duplicateOwned = sources.some((s) => s.kind === "TUTOR"
+      ? graph.tutors.some((r) => r.id === s.id && (r.user?.id ?? r.retainedOwner?.userId) !== retained?.id)
+      : graph.tutees.some((r) => r.id === s.id && (r.user?.id ?? graph.ownership.find((o) => o.tuteeId === r.id)?.userId) !== retained?.id));
+    blockers.push(personReviewItem("CURRENT_ASSIGNMENT", sources, "/admin/pairings", {
+      work: [{ kind: "PAIRING", id: assignment.id, dueAt: null }],
+      blocksFinalization: unowned || (input.retireDuplicateLogins && duplicateOwned),
+      blocksRetirement: unowned || duplicateOwned,
+    }));
+  }
+  // Pending work stays with its original domain. This projection contains IDs
+  // and deadlines, never application answers, message bodies or proof material.
+  const [approvals, crewRequests, studentRequests, historyInvitations, recordInvitations] = await Promise.all([
+    db.approvalRequest.findMany({ where: { state: "PENDING" }, select: { id: true, requesterId: true, payload: true }, orderBy: { id: "asc" } }),
+    db.crewStatusRequest.findMany({ where: { userId: { in: live.map((r) => r.id) }, state: "PENDING" }, select: { id: true, userId: true, eligibleAt: true }, orderBy: { id: "asc" } }),
+    db.studentRequestReview.findMany({ where: { state: "PENDING", OR: [{ requestedByUserId: { in: live.map((r) => r.id) } }, { legacyTuteeId: { in: graph.tutees.map((r) => r.id) } }] }, select: { id: true, requestedByUserId: true, legacyTuteeId: true }, orderBy: { id: "asc" } }),
+    db.tuteeHistoryInvitation.findMany({ where: { tuteeId: { in: graph.tutees.map((r) => r.id) }, expiresAt: { gt: new Date() } }, select: { tuteeId: true, expiresAt: true }, orderBy: { tuteeId: "asc" } }),
+    db.historicalRecordInvitation.findMany({ where: { claimedAt: null, expiresAt: { gt: new Date() }, OR: [...graph.tutors.map((r) => ({ sources: { array_contains: [{ kind: "TUTOR", id: r.id }] } })), ...graph.tutees.map((r) => ({ sources: { array_contains: [{ kind: "TUTEE", id: r.id }] } }))] }, select: { scopeKey: true, sources: true, expiresAt: true }, orderBy: { scopeKey: "asc" } }),
+  ]);
+  for (const request of pendingTutorRequests) {
+    const source = graph.tutors.find((row) => row.id === request.tutorId);
+    const affectsRetirement = (source?.user?.id ?? source?.retainedOwner?.userId) !== retained?.id;
+    blockers.push(personReviewItem("PENDING_TUTOR_REQUEST", [{ kind: "TUTOR", id: request.tutorId }], "/admin/tutor-requests", { work: [{ kind: "TUTOR_REQUEST", id: request.id, dueAt: null, availableAt: request.eligibleAt }], blocksFinalization: input.retireDuplicateLogins && affectsRetirement, blocksRetirement: affectsRetirement }));
+  }
+  for (const request of crewRequests)
+    blockers.push(personReviewItem("PENDING_CREW_REQUEST", [userSource(request.userId)], "/admin/crew", { work: [{ kind: "CREW_REQUEST", id: request.id, dueAt: null, availableAt: request.eligibleAt }], blocksFinalization: input.retireDuplicateLogins }));
+  for (const request of studentRequests)
+    blockers.push(personReviewItem("PENDING_STUDENT_REQUEST", [userSource(request.requestedByUserId), ...(request.legacyTuteeId ? [{ kind: "TUTEE" as const, id: request.legacyTuteeId }] : [])], "/admin/tutee-requests", { work: [{ kind: "STUDENT_REQUEST", id: request.id, dueAt: null }], blocksFinalization: input.retireDuplicateLogins }));
+  for (const request of approvals) {
+    const sources = live.filter((r) => request.requesterId === r.id || JSON.stringify(request.payload).includes(r.id)).map((r) => userSource(r.id));
+    if (sources.length) blockers.push(personReviewItem("PENDING_APPROVAL", sources, "/admin/approvals", { work: [{ kind: "APPROVAL", id: request.id, dueAt: null }], blocksFinalization: input.retireDuplicateLogins }));
+  }
+  for (const survey of openIntakes) {
+    const sources = live.filter((r) => [r.email, ...r.emails.map((e) => e.email)].includes(survey.email)).map((r) => userSource(r.id));
+    const affectsRetirement = sources.some((s) => s.id !== retained?.id);
+    blockers.push(personReviewItem("UNCONFIRMED_INTAKE", sources, "/admin/requests", { work: [{ kind: "STUDENT_SURVEY", id: survey.id, dueAt: survey.verificationDueAt ?? survey.expiresAt }], blocksFinalization: input.retireDuplicateLogins && affectsRetirement, blocksRetirement: affectsRetirement }));
+  }
+  for (const invitation of historyInvitations)
+    blockers.push(personReviewItem("PENDING_HISTORY_INVITATION", [{ kind: "TUTEE", id: invitation.tuteeId }], "/admin/tutees", { work: [{ kind: "TUTEE_HISTORY_INVITATION", id: invitation.tuteeId, dueAt: invitation.expiresAt }] }));
+  for (const invitation of recordInvitations) {
+    const parsed = z.array(personSource).safeParse(invitation.sources);
+    if (parsed.success) blockers.push(personReviewItem("PENDING_HISTORY_INVITATION", parsed.data, "/admin/users", { work: [{ kind: "HISTORICAL_RECORD_INVITATION", id: invitation.scopeKey, dueAt: invitation.expiresAt }] }));
+  }
   const requiresHead =
     live.length > 1 || activeUnowned || unownedAssignment || restricted;
   if (live.length > 1) {
@@ -193,8 +266,7 @@ async function plan(db: DomainDb, raw: Selection) {
           duplicateId: duplicate.id,
         });
         retirementReviews.push(review);
-        conflicts.push(
-          ...review.conflicts.filter((text) => {
+        const safetyConflicts = review.conflicts.filter((text) => {
             if (
               text.includes("already holds combined history") ||
               legacyMirrorRewriteConflicts.has(text)
@@ -219,8 +291,16 @@ async function plan(db: DomainDb, raw: Selection) {
             )
               return false;
             return true;
-          }),
-        );
+          });
+        conflicts.push(...safetyConflicts);
+        // Requests, credentials, academics and capabilities have exact typed
+        // projections above/below. Only carry legacy-only safety rules here so
+        // the UI does not show a second, workless copy of the same issue.
+        for (const message of safetyConflicts) {
+          const reason = accountSafetyReason(message);
+          if (["HEAD_ACCOUNT", "MESSAGING_DIFFERENCE", "ACCOUNT_RETIRED", "ACCOUNT_SAFETY_REVIEW"].includes(reason))
+            blockers.push(personReviewItem(reason, [userSource(retained.id), userSource(duplicate.id)], "/admin/users", { blocksFinalization: input.retireDuplicateLogins }));
+        }
         // The legacy flow can union memberships. This flow requires an explicit
         // resolution first, keeping the surviving account's authority unchanged.
         for (const field of [
@@ -230,29 +310,35 @@ async function plan(db: DomainDb, raw: Selection) {
           "crewStatus",
           "tutorAccessRevoked",
         ] as const) {
-          if (retained[field] !== duplicate[field])
+          if (retained[field] !== duplicate[field]) {
             conflicts.push(
               `Resolve differing ${field} decisions before retiring logins.`,
             );
+            blockers.push(personReviewItem("CAPABILITY_DIFFERENCE", [userSource(retained.id), userSource(duplicate.id)], "/admin/users", { field, blocksFinalization: input.retireDuplicateLogins }));
+          }
         }
         if (
           duplicate.tutorId &&
           !isHistoricalTutor(
             graph.tutors.find((r) => r.id === duplicate.tutorId)!,
           )
-        )
+        ) {
           conflicts.push(
             "A duplicate login still owns a current tutor profile.",
           );
+          blockers.push(personReviewItem("CURRENT_TUTOR_PROFILE", [userSource(duplicate.id), { kind: "TUTOR", id: duplicate.tutorId }], "/admin/tutors", { blocksFinalization: input.retireDuplicateLogins }));
+        }
         if (
           duplicate.studentId &&
           !historicalTutee(
             graph.tutees.find((r) => r.id === duplicate.studentId)!,
           )
-        )
+        ) {
           conflicts.push(
             "A duplicate login still owns a current tutee enrollment.",
           );
+          blockers.push(personReviewItem("CURRENT_TUTEE_ENROLLMENT", [userSource(duplicate.id), { kind: "TUTEE", id: duplicate.studentId }], "/admin/tutees", { blocksFinalization: input.retireDuplicateLogins }));
+        }
         const academic = (r: typeof retained) =>
           r.academicProfile
             ? {
@@ -266,16 +352,24 @@ async function plan(db: DomainDb, raw: Selection) {
         if (
           JSON.stringify(academic(retained)) !==
           JSON.stringify(academic(duplicate))
-        )
+        ) {
           conflicts.push(
             "Resolve canonical academic profiles before retiring logins.",
           );
+          blockers.push(personReviewItem("ACADEMIC_DIFFERENCE", [userSource(retained.id), userSource(duplicate.id)], "/admin/academic-corrections", { blocksFinalization: input.retireDuplicateLogins }));
+        }
       }
     }
   }
   const canRetireLogins =
-    live.length > 1 && !!retained && conflicts.length === 0;
+    live.length > 1 && !!retained && conflicts.length === 0 && !blockers.some((item) => item.blocksRetirement);
+  if (live.length > 1) blockers.push(personReviewItem(
+    retained ? "MULTIPLE_LIVE_LOGINS" : "RETAINED_LOGIN_REQUIRED",
+    live.map((r) => userSource(r.id)), "/admin/users",
+    { blocksFinalization: !(input.retireDuplicateLogins && canRetireLogins), blocksRetirement: !retained },
+  ));
   const outcome =
+    blockers.some((item) => item.blocksFinalization) ||
     activeUnowned ||
     unownedAssignment ||
     restricted ||
@@ -331,6 +425,7 @@ async function plan(db: DomainDb, raw: Selection) {
       pendingTutorRequests,
       openIntakes,
       currentAssignments,
+      blockers,
     }),
     sources: sourceRows,
     accounts: live.map((r) => ({
@@ -343,6 +438,7 @@ async function plan(db: DomainDb, raw: Selection) {
     requiresHead,
     alreadyTogether: personIds.size === 1 && !personIds.has(null),
     conflicts: [...new Set(conflicts)],
+    blockers: [...new Map(blockers.map((item) => [item.id, item])).values()],
     warnings:
       outcome === "REVIEW_REQUIRED"
         ? [
@@ -368,6 +464,43 @@ export async function previewPersonCombine(db: DomainDb, input: Selection) {
   return (await plan(db, input)).preview;
 }
 
+/** Review existing directory membership only. Reading this projection neither
+ * advances revisions nor grants ownership, retires logins or clears review. */
+async function planReview(db: DomainDb, raw: z.input<typeof personReviewSelection>) {
+  const input = personReviewSelection.parse(raw);
+  const person = await db.person.findUnique({ where: { id: input.personId } });
+  if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "This identity group no longer exists." });
+  if (person.mergedIntoId) throw new TRPCError({ code: "CONFLICT", message: "This group changed. Open its current directory entry and review again." });
+  const [users, tutors, tutees] = await Promise.all([
+    db.user.findMany({ where: { personId: person.id }, select: { id: true }, orderBy: { id: "asc" } }),
+    db.tutor.findMany({ where: { personId: person.id }, select: { id: true }, orderBy: { id: "asc" } }),
+    db.tutee.findMany({ where: { personId: person.id }, select: { id: true }, orderBy: { id: "asc" } }),
+  ]);
+  const sources = [
+    ...users.map((r) => ({ kind: "USER" as const, id: r.id })),
+    ...tutors.map((r) => ({ kind: "TUTOR" as const, id: r.id })),
+    ...tutees.map((r) => ({ kind: "TUTEE" as const, id: r.id })),
+  ];
+  if (!sources.length) throw new TRPCError({ code: "CONFLICT", message: "This identity group has no remaining sources to review." });
+  const planned = await plan(db, { ...input, sources }, true);
+  if (planned.preview.sources.some((row) => row.personId !== person.id))
+    throw new TRPCError({ code: "CONFLICT", message: "Source ownership crosses another identity group. Review Combine Records before finalizing." });
+  return {
+    ...planned,
+    person,
+    preview: {
+      ...planned.preview,
+      personId: person.id,
+      // A grouping review must never authorize a finalization, or vice versa.
+      fingerprint: hash({ action: "finalize", personId: person.id, snapshot: planned.preview.fingerprint }),
+    },
+  };
+}
+
+export async function reviewPersonParticipation(db: DomainDb, input: z.input<typeof personReviewSelection>) {
+  return (await planReview(db, input)).preview;
+}
+
 export function personCombineReceiptResult(receipt: {
   id: string;
   personId: string;
@@ -390,7 +523,23 @@ export async function combinePersonRecords(
   actorId: string,
   raw: z.input<typeof personCombineInput>,
 ) {
-  const input = personCombineInput.parse(raw);
+  return commitPersonReview(db, actorId, personCombineInput.parse(raw));
+}
+
+export async function finalizePersonParticipation(
+  db: DomainDb,
+  actorId: string,
+  raw: z.input<typeof personFinalizeInput>,
+) {
+  return commitPersonReview(db, actorId, personFinalizeInput.parse(raw));
+}
+
+async function commitPersonReview(
+  db: DomainDb,
+  actorId: string,
+  reviewedInput: z.output<typeof personCombineInput> | z.output<typeof personFinalizeInput>,
+) {
+  const input = reviewedInput;
   const { confirmPassword: _password, ...intent } = input;
   void _password;
   const inputHash = hash(intent);
@@ -423,14 +572,17 @@ export async function combinePersonRecords(
         });
       return personCombineReceiptResult(saved);
     }
-    const initial = await personGraph(tx, input.sources);
+    const finalizingPersonId = "personId" in input ? input.personId : null;
+    const initial = "personId" in input
+      ? (await planReview(tx, input)).graph
+      : await personGraph(tx, input.sources);
     for (const id of [
       ...new Set([actorId, ...initial.users.map((r) => r.id)]),
     ].sort())
       await lockEntity(tx, `account-profile:${id}`);
     // Match the existing account-combine lock order; fence independent roster,
     // authority and ownership writers before validating the review snapshot.
-    await tx.$executeRaw`LOCK TABLE "User", "Tutor", "Tutee", "Person", "AcademicProfile", "AccountEmail", "MessagePermission", "MessageRestriction", "StudentProfileOwnership", "TutorProfileOwnership", "PolicyAcceptance", "ApprovalRequest", "CrewStatusRequest", "StudentRequestReview", "StudentSurvey", "TutorStatusRequest", "Term", "SchoolDeparture", "Pairing", "PairingTutee" IN SHARE ROW EXCLUSIVE MODE`;
+    await tx.$executeRaw`LOCK TABLE "User", "Tutor", "Tutee", "Person", "AcademicProfile", "AccountEmail", "MessagePermission", "MessageRestriction", "StudentProfileOwnership", "TutorProfileOwnership", "PolicyAcceptance", "ApprovalRequest", "CrewStatusRequest", "StudentRequestReview", "StudentSurvey", "TutorStatusRequest", "Term", "SchoolDeparture", "Pairing", "PairingTutee", "TuteeHistoryInvitation", "HistoricalRecordInvitation" IN SHARE ROW EXCLUSIVE MODE`;
     const actor = await tx.user.findUnique({ where: { id: actorId } });
     if (
       !actor ||
@@ -439,8 +591,8 @@ export async function combinePersonRecords(
       actor.suspendedAt
     )
       throw new TRPCError({ code: "FORBIDDEN" });
-    const { graph, live, retained, ready, historicalTutee, preview } =
-      await plan(tx, input);
+    const planned = "personId" in input ? await planReview(tx, input) : await plan(tx, input);
+    const { graph, live, retained, ready, historicalTutee, preview } = planned;
     if (preview.requiresHead) {
       if (actor.role !== "HEAD")
         throw new TRPCError({
@@ -465,6 +617,13 @@ export async function combinePersonRecords(
         code: "CONFLICT",
         message: "Records changed. Reload and review the combination again.",
       });
+    if (finalizingPersonId && (
+      graph.persons.find((row) => row.id === finalizingPersonId)?.resolutionState !== "REVIEW_REQUIRED" ||
+      preview.outcome !== "GROUPED"
+    )) throw new TRPCError({
+      code: "CONFLICT",
+      message: "Resolve the remaining participation review items in their existing workflows, then refresh this review before finalizing.",
+    });
     if (input.retireDuplicateLogins && !preview.canRetireLogins)
       throw new TRPCError({
         code: "CONFLICT",
@@ -621,10 +780,11 @@ export async function combinePersonRecords(
         userName: actor.name ?? actor.username,
         entity: "Person",
         entityId: person.id,
-        operation: "personCombine.combine",
-        action: "Combined person records",
+        operation: finalizingPersonId ? "personCombine.finalize" : "personCombine.combine",
+        action: finalizingPersonId ? "Finalized person participation review" : "Combined person records",
         details: {
-          sources: input.sources,
+          sources: planned.input.sources,
+          ...(finalizingPersonId ? { reviewedPersonId: finalizingPersonId } : {}),
           reason: input.reason,
           fingerprint: input.fingerprint,
           outcome: preview.outcome,

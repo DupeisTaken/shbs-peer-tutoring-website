@@ -22,6 +22,9 @@ import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { participantNameLabel } from "~/app/_components/participant-name";
 import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
 import { accountMembership } from "~/lib/account-membership";
+import { CombineRecords } from "~/app/_components/combine-records";
+import { HistoricalRecordInvitation } from "~/app/_components/historical-record-invitation";
+import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 
 type DirectoryRow = RouterOutputs["admin"]["accounts"]["rows"][number];
 type AccountRow = { [Key in keyof DirectoryRow]: DirectoryRow[Key] };
@@ -42,6 +45,9 @@ export function UserDetails({
   );
   const readOnly = useReadOnly();
   const [open, setOpen] = useState(false);
+  // Keep denial across closing/reopening so a cached success cannot briefly
+  // expose private details before the mandatory fresh read completes.
+  const [detailsAccessLost, setDetailsAccessLost] = useState(false);
   // An already-open reader/editor owns focus even if browser history selects a
   // different source behind it. Closing or access-driven unmount releases it.
   useEffect(() => {
@@ -65,7 +71,7 @@ export function UserDetails({
           onClose={() => setOpen(false)}
           size="wide"
         >
-          <UserDetailContent row={row} />
+          <UserDetailContent row={row} accessLost={detailsAccessLost} onAccessLostChange={setDetailsAccessLost} />
         </ProfileDialog>
       )}
     </>
@@ -93,7 +99,11 @@ function DetailSection({
 /** Mount only after staff open the row. Every opening rechecks the server because
  * membership, moderation and historical-link editors have independent save scopes.
  * Keep the last successful read during refresh/recovery; never replay a write. */
-function UserDetailContent({ row }: { row: AccountRow }) {
+function UserDetailContent({ row, accessLost, onAccessLostChange }: {
+  row: AccountRow;
+  accessLost: boolean;
+  onAccessLostChange: (lost: boolean) => void;
+}) {
   const t = useTranslations();
   const query = api.admin.accountDetails.useQuery(
     row.userId
@@ -104,9 +114,14 @@ function UserDetailContent({ row }: { row: AccountRow }) {
     { refetchOnMount: "always" },
   );
   const data = query.data;
-  const denied =
+  const readDenied =
     query.error?.data?.code === "FORBIDDEN" ||
     query.error?.data?.code === "UNAUTHORIZED";
+  useEffect(() => {
+    if (readDenied) onAccessLostChange(true);
+    else if (query.isSuccess && !query.isFetching && !query.error) onAccessLostChange(false);
+  }, [readDenied, query.isSuccess, query.isFetching, query.error, onAccessLostChange]);
+  const denied = readDenied || accessLost;
   return (
     <div className="space-y-5">
       {query.error && (
@@ -132,13 +147,11 @@ function UserDetailContent({ row }: { row: AccountRow }) {
           {t("common.loading")}
         </p>
       )}
+      {data?.group && <CombinedPersonDetails group={data.group}
+        unavailable={!!query.error || query.isFetching}
+        accessDenied={denied} />}
       {!denied && data && (
         <>
-          {data.group &&
-            data.group.users.length +
-              data.group.tutors.length +
-              data.group.tutees.length >
-              1 && <CombinedPersonDetails group={data.group} />}
           <DetailSection title={t("usersDirectory.login")}>
             <LoginSetup account={row.account} suspended={!!data.suspendedAt} />
             <p className="muted">
@@ -256,23 +269,73 @@ function UserDetailContent({ row }: { row: AccountRow }) {
  * consolidation as shared login access or replacing original participation. */
 function CombinedPersonDetails({
   group,
+  unavailable = false,
+  accessDenied = false,
 }: {
   group: NonNullable<RouterOutputs["admin"]["accountDetails"]["group"]>;
+  unavailable?: boolean;
+  accessDenied?: boolean;
 }) {
   const t = useTranslations();
   const directory = api.admin.accounts.useQuery();
   const canEdit = ["HEAD", "ADMIN"].includes(directory.data?.caller.role ?? "");
+  const [wasEditable, setWasEditable] = useState(canEdit);
+  const [directoryAccessLost, setDirectoryAccessLost] = useState(false);
+  const directoryDenied = ["FORBIDDEN", "UNAUTHORIZED"].includes(directory.error?.data?.code ?? "");
   const [editing, setEditing] = useState<string | null>(null);
   const [student, setStudent] = useState<string | null>(null);
+  // Preserve the accepted review and its read recovery when the directory changes.
+  const [hadReview, setHadReview] = useState(group.resolutionState === "REVIEW_REQUIRED");
+  const needsReview = hadReview || group.resolutionState === "REVIEW_REQUIRED";
+  const invitationEligible = group.resolutionState === "GROUPED" && (group.tutors.length > 0 || group.tutees.length > 1);
+  const [hadInvitation, setHadInvitation] = useState(invitationEligible);
+  useEffect(() => {
+    if (canEdit) setWasEditable(true);
+    if (group.resolutionState === "REVIEW_REQUIRED") setHadReview(true);
+    if (invitationEligible) setHadInvitation(true);
+  }, [canEdit, group.resolutionState, invitationEligible]);
+  useEffect(() => {
+    if (directoryDenied) setDirectoryAccessLost(true);
+    else if (directory.isSuccess && !directory.isFetching && !directory.error) setDirectoryAccessLost(false);
+  }, [directoryDenied, directory.isSuccess, directory.isFetching, directory.error]);
+  const denied = accessDenied || directoryDenied || directoryAccessLost;
+  const editorDenied = denied || (!!directory.data && !canEdit);
+  const controlsUnavailable = unavailable || !!directory.error || directory.isFetching;
   const login = group.users.find((user) => user.id === editing);
+  // The controller stays mounted when successful retirement leaves one live
+  // source. Its receipt/read recovery must outlive the directory's row count.
+  const displayGroup = group.users.length + group.tutors.length + group.tutees.length > 1 || needsReview ||
+    group.tutors.some((source) => ["ARCHIVED", "GRADUATED", "TRANSFERRED"].includes(source.status));
+  if (!displayGroup) return null;
   return (
     <DetailSection title={t("usersDirectory.combinedPerson")}>
       <p className="muted">{t("usersDirectory.combinedPersonHelp")}</p>
-      {group.resolutionState === "REVIEW_REQUIRED" && (
+      {directory.error && <StatePanel kind="error" title={t("uiPatterns.loadFailed")}
+        action={<Button disabled={directory.isFetching} onClick={() => void directory.refetch()}>{t("uiPatterns.retry")}</Button>} />}
+      {!denied && group.resolutionState === "REVIEW_REQUIRED" && (
         <p role="status" className="rounded-lg bg-amber-50 p-3 text-amber-900">
           {t("usersDirectory.participationReviewRequired")}
         </p>
       )}
+      {(canEdit || wasEditable) && needsReview && <CombineRecords
+        reviewPersonId={group.id}
+        isHead={directory.data?.caller.role === "HEAD"}
+        unavailable={controlsUnavailable}
+        accessDenied={editorDenied}
+      />}
+      {(canEdit || wasEditable) && (invitationEligible || hadInvitation) && (
+        <DisclosureSection title={t("combineRecords.historySetup")} lifetime="retained">
+          <HistoricalRecordInvitation
+            sources={[
+              ...group.tutors.map((source) => ({ kind: "TUTOR" as const, id: source.id })),
+              ...group.tutees.map((source) => ({ kind: "TUTEE" as const, id: source.id })),
+            ]}
+            unavailable={controlsUnavailable || !invitationEligible}
+            accessDenied={editorDenied}
+          />
+        </DisclosureSection>
+      )}
+      {!denied && <>
       {!!group.users.length && (
         <SummaryTable label={t("usersDirectory.groupLogins")}>
           <thead>
@@ -290,7 +353,7 @@ function CombinedPersonDetails({
                 </td>
                 <TableActions>
                   {canEdit && (
-                    <TableAction onClick={() => setEditing(user.id)}>
+                    <TableAction disabled={controlsUnavailable} onClick={() => setEditing(user.id)}>
                       {t("accountProfile.editProfile")}
                     </TableAction>
                   )}
@@ -366,6 +429,7 @@ function CombinedPersonDetails({
           onClose={() => setStudent(null)}
         />
       )}
+      </>}
     </DetailSection>
   );
 }

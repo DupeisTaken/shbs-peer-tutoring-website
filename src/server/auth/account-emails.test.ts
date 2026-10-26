@@ -285,7 +285,26 @@ it.each([false, true])(
         (await caller().account.emailSettings()).emails,
       ).not.toContainEqual({ email, verifiedAt: null });
     } finally {
-      await db.user.delete({ where: { id: owner.id } });
+      // Signup creates restricted primary-account metadata. Release only this
+      // fixture's reference before deleting its account and exclusive Person.
+      await db.$transaction(async (tx) => {
+        await tx.person.updateMany({
+          where: { primaryUserId: owner.id },
+          data: { primaryUserId: null },
+        });
+        await tx.user.delete({ where: { id: owner.id } });
+        if (owner.personId) await tx.person.deleteMany({
+          where: {
+            id: owner.personId,
+            users: { none: {} },
+            tutors: { none: {} },
+            tutees: { none: {} },
+            receipts: { none: {} },
+            mergedGroups: { none: {} },
+            mergedIntoId: null,
+          },
+        });
+      });
       await db.viewerSignup.deleteMany({ where: { email } });
     }
   },

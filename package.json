@@ -6,6 +6,7 @@
   "scripts": {
     "build": "next build --turbopack",
     "admin:create": "tsx scripts/create-admin.ts",
+    "identity:reconcile": "tsx scripts/reconcile-person-sources.ts",
     "check": "next typegen && eslint . && tsc --noEmit",
     "db:generate": "prisma migrate dev",
     "db:migrate": "prisma migrate deploy",

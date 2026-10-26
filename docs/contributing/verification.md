@@ -68,6 +68,13 @@ rebuild. PR runs skip the image archive/upload. Image-transfer costs and GitHub
 runner queues still affect total latency; compare successful runs at the same
 scope rather than treating a failed early exit as a speed improvement.
 
+Operator CLIs run outside Next's bundled server. When changing their imports,
+keep the runtime stage's explicit source copies complete. `npm run test:deployment`
+traverses both CLI dependency graphs and verifies production packages without
+importing application code. Image smoke runs administrator bootstrap twice and
+reconciliation with clean/findings exit statuses, using only each CLI's required
+environment; a successful web-server boot alone does not validate CLI packaging.
+
 The `@next/eslint-plugin-next` override replaces only its `fast-glob` dependency
 with the local adapter in `tools/next-lint-glob`, backed by `tinyglobby` 0.2.17.
 It implements only Next's CommonJS `globSync` call with `onlyDirectories`,

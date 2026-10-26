@@ -63,6 +63,73 @@
       "NEXT_RECRUITMENT_CLOSING_CONFLICT": "開始時刻は対象期間の既存の締切時刻より前である必要があります。"
     }
   },
+  "historicalInvitation": {
+    "claimUncertain": "The claim result is unknown. Read the invitation again to check its result; do not repeat the claim.",
+    "title": "Set Up Historical Access",
+    "help": "Review the recipient and exact original records before sending a history-only invitation. The recipient must verify their mailbox and claim these records.",
+    "recipient": "Recipient and identity evidence",
+    "review": "Review invitation",
+    "reviewTitle": "Review Exact History Access",
+    "exactSources": "Records included in this invitation",
+    "consequences": "Only the listed records can be claimed. Later group additions are excluded. Setup does not enroll the recipient, grant current roles or record policy consent.",
+    "acknowledge": "I verified the recipient and every listed original record.",
+    "checkReceipt": "Check delivery receipt",
+    "uncertain": "The delivery result is unknown. Check its saved receipt before starting another invitation.",
+    "notRecorded": "No completed receipt is available yet. Wait, then check again; sending again could duplicate an in-flight delivery.",
+    "blocked": {
+      "GROUP_REVIEW_REQUIRED": "Complete current participation review before inviting.",
+      "NOT_HISTORICAL": "Every selected record must be historical.",
+      "CURRENT_WORK": "Resolve current participation in its existing workflow before inviting.",
+      "ACCOUNT_CONFLICT": "Ownership conflicts require Head-reviewed correction or combination.",
+      "ACCOUNT_NOT_READY": "The existing owner must complete verified setup or recovery first.",
+      "UNKNOWN": "Further review is required before sending."
+    }
+  },
+  "personParticipation": {
+    "availableAt": "Earliest review: {date}",
+    "title": "Current Participation Review",
+    "help": "Resolve each item in its existing workflow, then get a fresh review. Refresh does not change access or clear the review state.",
+    "clear": "No remaining participation blockers were found. Finalization rechecks the live records.",
+    "workReference": "Work reference: {id}",
+    "deadline": "Original deadline: {date}",
+    "blocksFinalization": "Resolve before finalizing this group.",
+    "blocksRetirement": "Resolve before retiring duplicate logins.",
+    "reason": {
+      "MULTIPLE_LIVE_LOGINS": "Multiple live logins need an explicit retained-login and safe-retirement review.",
+      "RETAINED_LOGIN_REQUIRED": "Choose the login that will retain access.",
+      "ACTIVE_UNOWNED_PROFILE": "An accountless profile has current participation.",
+      "CURRENT_ASSIGNMENT": "Resolve current assignments in their original workflow.",
+      "ACCOUNT_SUSPENDED": "Review account restrictions; grouping does not remove them.",
+      "SCHOOL_DEPARTURE": "A departure decision remains in force.",
+      "CREDENTIAL_SETUP_REQUIRED": "Verified account setup or recovery is incomplete.",
+      "CAPABILITY_DIFFERENCE": "Permissions or memberships differ.",
+      "ACADEMIC_DIFFERENCE": "Current academic profiles differ.",
+      "CURRENT_TUTOR_PROFILE": "Separate current Tutor profiles need review.",
+      "CURRENT_TUTEE_ENROLLMENT": "Separate current Tutee enrollments need review.",
+      "PENDING_TUTOR_REQUEST": "A Tutor request is pending.",
+      "PENDING_CREW_REQUEST": "A Crew request is pending.",
+      "PENDING_STUDENT_REQUEST": "A Tutee request is pending.",
+      "PENDING_APPROVAL": "An approval is pending.",
+      "UNCONFIRMED_INTAKE": "An original intake awaits confirmation.",
+      "PENDING_HISTORY_INVITATION": "A historical invitation is pending.",
+      "HEAD_ACCOUNT": "Resolve leadership in its existing workflow.",
+      "MESSAGING_DIFFERENCE": "Messaging permissions differ.",
+      "ACCOUNT_RETIRED": "Grouping cannot revive a retired account.",
+      "ACCOUNT_SAFETY_REVIEW": "An account safety condition needs review."
+    },
+    "destination": {
+      "tutor-requests": "Open Tutor Requests",
+      "tutee-requests": "Open Tutee Requests",
+      "users": "Open Users & Roles",
+      "tutors": "Open Tutor Roster",
+      "tutees": "Open Tutee List",
+      "pairings": "Open Pairings",
+      "crew": "Open Crew",
+      "requests": "Open Requests",
+      "approvals": "Open Approvals",
+      "academic-corrections": "Open Academic Corrections"
+    }
+  },
   "uiPatterns": {
     "meetingDate": "会議日",
     "profile": "プロフィール",
@@ -5627,6 +5694,14 @@
     "changed": "Interview evidence changed. Reload to review current information."
   },
   "combineRecords": {
+    "participationTitle": "Review Current Participation",
+    "participationIntro": "Check current work and access before explicitly completing this group's review.",
+    "reviewParticipation": "Review current participation",
+    "refreshParticipation": "Get fresh participation review",
+    "finalizeParticipation": "Finalize reviewed group",
+    "historySetup": "Set up historical access",
+    "pendingInvitation": "Review pending history invitation",
+    "pendingInvitationHelp": "This invitation covers only the original records below. Cancel it if it is no longer needed, then refresh the participation review.",
     "title": "Combine records",
     "intro": "Bring together accounts and participant records belonging to the same person.",
     "open": "Combine records",

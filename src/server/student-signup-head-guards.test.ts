@@ -105,7 +105,11 @@ async function fixture(options: { attendance?: boolean; secondAssignment?: boole
     month: "2026-10", schoolYear: "26-27", quarter: "Q1", durationMin: 60, shFactor: 1, shCount: 1,
     tutees: { create: { tuteeId: tutee.id } },
   } });
-  return { user, tutor, tutee, survey, payload, pairing, history, second, session };
+  // Current and retained ownership are legitimate setup writes which advance the
+  // source's identity fence. Capture the completed fixture so rejected/proposed
+  // operations must still preserve every stored field, including that revision.
+  const settledTutee = await db.tutee.findUniqueOrThrow({ where: { id: tutee.id } });
+  return { user, tutor, tutee: settledTutee, survey, payload, pairing, history, second, session };
 }
 
 async function readyTicket(userId: string, action: "SIGNUP_EDIT" | "SIGNUP_UNASSIGN" | "ASSIGN", target: string) {

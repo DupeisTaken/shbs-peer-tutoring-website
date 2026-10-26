@@ -63,6 +63,73 @@
       "NEXT_RECRUITMENT_CLOSING_CONFLICT": "开放时间必须早于目标周期已有的截止时间。"
     }
   },
+  "historicalInvitation": {
+    "claimUncertain": "认领结果尚未确定。请重新读取邀请以查询结果；不要重复提交。",
+    "title": "设置历史访问权限",
+    "help": "发送仅用于历史记录的邀请前，请审核收件人及确切的原始记录。收件人必须验证邮箱并认领这些记录。",
+    "recipient": "收件人与身份依据",
+    "review": "审核邀请",
+    "reviewTitle": "审核确切的历史访问范围",
+    "exactSources": "此邀请包含的记录",
+    "consequences": "仅可认领列出的记录；之后加入合并组的记录不在范围内。设置账号不会报名、授予当前角色或记录政策同意。",
+    "acknowledge": "我已核实收件人及每条列出的原始记录。",
+    "checkReceipt": "查询发送回执",
+    "uncertain": "发送结果尚未确定。开始另一封邀请前，请先查询已保存的回执。",
+    "notRecorded": "暂时没有完成回执。请稍后再次查询；重新发送可能重复正在处理的邮件。",
+    "blocked": {
+      "GROUP_REVIEW_REQUIRED": "邀请前请完成当前参与审核。",
+      "NOT_HISTORICAL": "所选记录必须全部为历史记录。",
+      "CURRENT_WORK": "邀请前请通过原有流程处理当前参与事项。",
+      "ACCOUNT_CONFLICT": "归属冲突需要负责人审核更正或合并。",
+      "ACCOUNT_NOT_READY": "现有归属账号需先完成验证设置或找回流程。",
+      "UNKNOWN": "发送前需要进一步审核。"
+    }
+  },
+  "personParticipation": {
+    "availableAt": "最早审核时间：{date}",
+    "title": "当前参与审核",
+    "help": "请在原有流程中处理每项，然后获取新的审核结果。刷新不会改变访问权限或清除待审核状态。",
+    "clear": "未发现剩余参与冲突。最终确认时将重新检查实时记录。",
+    "workReference": "事项编号：{id}",
+    "deadline": "原截止时间：{date}",
+    "blocksFinalization": "完成合并组审核前需处理此项。",
+    "blocksRetirement": "停用重复账号前需处理此项。",
+    "reason": {
+      "MULTIPLE_LIVE_LOGINS": "多个登录账号需要明确审核保留账号及安全停用方案。",
+      "RETAINED_LOGIN_REQUIRED": "请选择保留访问权限的账号。",
+      "ACTIVE_UNOWNED_PROFILE": "未关联账号的档案有当前参与事项。",
+      "CURRENT_ASSIGNMENT": "请在原有流程中处理当前配对。",
+      "ACCOUNT_SUSPENDED": "请审核账号限制；合并不会解除限制。",
+      "SCHOOL_DEPARTURE": "离校决定仍然有效。",
+      "CREDENTIAL_SETUP_REQUIRED": "账号验证设置或找回尚未完成。",
+      "CAPABILITY_DIFFERENCE": "权限或成员资格不同。",
+      "ACADEMIC_DIFFERENCE": "当前学业信息不同。",
+      "CURRENT_TUTOR_PROFILE": "独立的当前辅导伙伴档案需要审核。",
+      "CURRENT_TUTEE_ENROLLMENT": "独立的当前学习伙伴报名需要审核。",
+      "PENDING_TUTOR_REQUEST": "有待处理的辅导伙伴请求。",
+      "PENDING_CREW_REQUEST": "有待处理的事务伙伴请求。",
+      "PENDING_STUDENT_REQUEST": "有待处理的学习伙伴请求。",
+      "PENDING_APPROVAL": "有待处理的审批。",
+      "UNCONFIRMED_INTAKE": "原始报名尚待确认。",
+      "PENDING_HISTORY_INVITATION": "有待处理的历史记录邀请。",
+      "HEAD_ACCOUNT": "请在原有流程中处理负责人权限。",
+      "MESSAGING_DIFFERENCE": "消息权限不同。",
+      "ACCOUNT_RETIRED": "合并不能恢复已停用的账号。",
+      "ACCOUNT_SAFETY_REVIEW": "账号安全条件需要审核。"
+    },
+    "destination": {
+      "tutor-requests": "打开辅导伙伴请求",
+      "tutee-requests": "打开学习伙伴请求",
+      "users": "打开用户与角色",
+      "tutors": "打开辅导伙伴名单",
+      "tutees": "打开学习伙伴名单",
+      "pairings": "打开配对管理",
+      "crew": "打开事务伙伴",
+      "requests": "打开请求",
+      "approvals": "打开审批",
+      "academic-corrections": "打开学业信息更正"
+    }
+  },
   "requestInvalidity": {
     "badge": "无效条目",
     "filterLabel": "申请有效性",
@@ -5627,6 +5694,14 @@
     "changed": "面试资料已更改，请重新加载并核对最新信息。"
   },
   "combineRecords": {
+    "participationTitle": "审核当前参与事项",
+    "participationIntro": "明确完成合并组审核前，请检查当前事项和访问权限。",
+    "reviewParticipation": "审核当前参与事项",
+    "refreshParticipation": "重新获取参与审核",
+    "finalizeParticipation": "确认完成合并组审核",
+    "historySetup": "设置历史访问权限",
+    "pendingInvitation": "审核待处理的历史邀请",
+    "pendingInvitationHelp": "此邀请仅包含下列原始记录。如已不再需要，请取消邀请，然后重新获取参与审核。",
     "title": "合并记录",
     "intro": "将属于同一人的账号与参与记录归在一起。",
     "open": "合并记录",

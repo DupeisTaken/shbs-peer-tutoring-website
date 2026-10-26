@@ -112,6 +112,10 @@ it("persists graduated on provisional rosters and carries it into a linked accou
     englishName: "Graduate Tutee",
     academicallyGraduated: true,
   });
+  expect(tutor.personId).toBeTruthy();
+  expect(tutee.personId).toBeTruthy();
+  expect(tutor.personId).not.toBe(tutee.personId);
+  expect(await db.user.count({ where: { OR: [{ tutorId: tutor.id }, { studentId: tutee.id }] } })).toBe(0);
   expect(
     (await staff.admin.tutors()).find((row) => row.id === tutor.id)?.academic
       .status,

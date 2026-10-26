@@ -290,6 +290,7 @@ it("creates a verified neutral login then explicitly claims unchanged owned hist
             ...row,
             personId: before.tutee.find((original) => original.id === row.id)!
               .personId,
+            historyIdentityRevision: before.tutee.find((original) => original.id === row.id)!.historyIdentityRevision,
           }
         : row,
     ),

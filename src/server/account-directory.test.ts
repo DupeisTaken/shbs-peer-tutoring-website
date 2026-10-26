@@ -4,7 +4,8 @@ vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { db } from "~/server/db";
 import { createCaller } from "~/server/api/root";
 import { hashPassword } from "./auth/password";
-import { combineAccounts, previewCombine } from "./combine-accounts";
+import { combinePersonRecords, previewPersonCombine } from "./person-combine";
+import { reviewedLoginRetirement } from "~/test/person-combine-fixture";
 import { linkTutorHistory, previewTutorHistory } from "./tutor-history";
 import { emptyUserFilters, matchesUserFilters } from "~/lib/user-filters";
 
@@ -622,7 +623,8 @@ it("removes an accountless directory row after linking and a repeated link prese
   expect(retained.personId).toBe(
     (await db.user.findUniqueOrThrow({ where: { id: "person" } })).personId,
   );
-  expect({ ...retained, personId: original.personId }).toEqual(original);
+  expect(retained.historyIdentityRevision).toBeGreaterThan(original.historyIdentityRevision);
+  expect({ ...retained, personId: original.personId, historyIdentityRevision: original.historyIdentityRevision }).toEqual(original);
   expect(
     (await caller().admin.tutors()).some((row) => row.id === original.id),
   ).toBe(true);
@@ -683,8 +685,17 @@ it("keeps combined historical ownership under the surviving directory account", 
       username: "duplicate-directory",
       passwordHash,
       emailVerifiedAt: new Date(),
+      tuteeMember: true,
+      canTranslate: true,
+      crewStatus: "INACTIVE",
     },
   });
+  // Retirement preserves authority; independently resolved capability/academic
+  // values must agree before combining the two credential families.
+  await db.academicProfile.create({ data: {
+    userId: "duplicate-directory", status: "REPORTED", gradeLevel: 12,
+    schoolYear: "26-27", reconfirmRequired: false,
+  } });
   await db.tutorProfileOwnership.update({
     where: { tutorId: "archive-1" },
     data: { userId: "duplicate-directory" },
@@ -697,13 +708,10 @@ it("keeps combined historical ownership under the surviving directory account", 
     where: { id: "archive-1" },
   });
   const pair = { survivorId: "person", duplicateId: "duplicate-directory" };
-  const preview = await previewCombine(db, pair);
+  const input = await reviewedLoginRetirement(db, pair, password);
+  const preview = await previewPersonCombine(db, input);
   expect(preview.conflicts).toEqual([]);
-  await combineAccounts(db, "directory-reviewer", {
-    ...pair,
-    fingerprint: preview.fingerprint,
-    confirmPassword: password,
-  });
+  await combinePersonRecords(db, "directory-reviewer", input);
   const { rows } = await caller().admin.accounts();
   expect(rows.filter((row) => row.userId === "person")).toHaveLength(1);
   expect(rows.some((row) => row.userId === pair.duplicateId)).toBe(false);
@@ -721,7 +729,8 @@ it("keeps combined historical ownership under the surviving directory account", 
   expect(retained.personId).toBe(
     (await db.user.findUniqueOrThrow({ where: { id: "person" } })).personId,
   );
-  expect({ ...retained, personId: original.personId }).toEqual(original);
+  expect(retained.historyIdentityRevision).toBeGreaterThan(original.historyIdentityRevision);
+  expect({ ...retained, personId: original.personId, historyIdentityRevision: original.historyIdentityRevision }).toEqual(original);
   expect(
     await db.user.findUnique({ where: { id: pair.duplicateId } }),
   ).toMatchObject({ mergedIntoId: "person", passwordHash: null });
