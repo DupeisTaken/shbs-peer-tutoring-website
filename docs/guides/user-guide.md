@@ -862,6 +862,16 @@ not save or discard its draft. Both tutor and tutee recruitment windows remain i
 **Recruitment and Refresh**, alongside separate no-tutoring notices and school-day
 calendar controls. Refreshing the period still requires its deliberate confirmation.
 
+Use the separate **next-period** Tutor and Tutee editors to prepare opening times
+without changing current intake. Check the named destination and timezone before
+saving. Head applies a preparation; Admin requests Head review. A pending request
+has no effect until approved. Leaving an opening unset preserves the destination's
+existing opening (or the new-period default); saving a clear removes only the opening restriction. Acceptance switches,
+closing times and setup requirements still apply. Review both openings at official
+refresh, which activates them together with the new period. If the target or saved
+values change, explicitly reload and review again. After refresh, use the normal
+current-period editors. See [preparation details](program-configuration.md#prepare-next-period-openings).
+
 For a no-tutoring notice, enter a starting date, an inclusive ending date and a
 reason. Head applies changes directly; Admin requests Head review. Each starting
 date identifies one notice. Different notices may overlap and remain separate.

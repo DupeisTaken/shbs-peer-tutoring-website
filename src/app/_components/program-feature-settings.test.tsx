@@ -31,9 +31,15 @@ const state = vi.hoisted(() => ({
   },
   mutateAsync: vi.fn(),
   refetch: vi.fn(),
+  nextRecruitmentInvalidate: vi.fn(),
+  currentPeriodInvalidate: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    useUtils: () => ({
+      program: { nextRecruitment: { invalidate: state.nextRecruitmentInvalidate } },
+      admin: { currentPeriod: { invalidate: state.currentPeriodInvalidate } },
+    }),
     program: {
       featureSettings: {
         useQuery: () => ({
@@ -68,6 +74,8 @@ beforeEach(() => {
   state.mutationError = null;
   state.mutateAsync.mockReset().mockResolvedValue({});
   state.refetch.mockReset().mockResolvedValue({ isSuccess: true });
+  state.nextRecruitmentInvalidate.mockReset().mockResolvedValue(undefined);
+  state.currentPeriodInvalidate.mockReset().mockResolvedValue(undefined);
 });
 afterEach(cleanup);
 
@@ -105,6 +113,22 @@ it("locks accepted writes after a failed read and retries only the read", async 
   expect(state.mutateAsync).toHaveBeenCalledTimes(1);
 });
 
+it("refreshes both next-period identities after a mode save and retries failed dependent reads without another write", async () => {
+  state.data.features[0]!.key = "QUARTER_SYSTEM";
+  state.nextRecruitmentInvalidate.mockRejectedValueOnce(new Error("Read failed"));
+  render(<FeatureToggles />, { wrapper });
+  fireEvent.click(screen.getByRole("switch"));
+  await waitFor(() => expect(screen.getByText(messages.admin.program.features.savedRefreshFailed)).toBeTruthy());
+  expect(screen.getByRole<HTMLButtonElement>("switch").disabled).toBe(true);
+  expect(state.nextRecruitmentInvalidate).toHaveBeenCalledWith(undefined, undefined, { throwOnError: true });
+  expect(state.currentPeriodInvalidate).toHaveBeenCalledWith(undefined, undefined, { throwOnError: true });
+  fireEvent.click(screen.getByRole("button", { name: messages.admin.program.features.retryRefresh }));
+  await waitFor(() => expect(screen.getByRole<HTMLButtonElement>("switch").disabled).toBe(false));
+  expect(state.nextRecruitmentInvalidate).toHaveBeenCalledTimes(2);
+  expect(state.currentPeriodInvalidate).toHaveBeenCalledTimes(2);
+  expect(state.mutateAsync).toHaveBeenCalledExactlyOnceWith({ key: "QUARTER_SYSTEM", enabled: false });
+});
+
 it("blocks same-tick duplicate submits until mutation and refresh finish", async () => {
   let finish!: () => void;
   state.mutateAsync.mockImplementation(
@@ -136,6 +160,8 @@ it("preserves live state for queued Admin requests and links the review", () => 
       .getAttribute("href"),
   ).toBe("/admin/approvals?request=request-389");
   expect(state.refetch).not.toHaveBeenCalled();
+  expect(state.nextRecruitmentInvalidate).not.toHaveBeenCalled();
+  expect(state.currentPeriodInvalidate).not.toHaveBeenCalled();
 });
 
 it("retains failed-write state and permits a deliberate retry", async () => {

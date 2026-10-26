@@ -31,6 +31,14 @@ import { getProgramTimeZone } from "~/server/program/time-zone";
 import { isProgramTimeZone } from "~/lib/program-time";
 import { programTimeZoneOptions } from "~/lib/program-time-zone-options";
 import { inTransaction, lockEntity } from "~/server/transactions";
+import { prepareNextRecruitmentSchema } from "~/lib/next-recruitment";
+import {
+  advanceNextRecruitmentFence,
+  assertNextRecruitmentActor,
+  lockNextRecruitment,
+  readNextRecruitment,
+  saveNextRecruitment,
+} from "~/server/program/next-recruitment";
 
 import {
   SIGNUP_FIELDS,
@@ -474,7 +482,10 @@ export const programRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
-        await lockEntity(tx, "program-timezone");
+        // Period first matches preparation/refresh; changing the display zone never
+        // rewrites saved instants, but an older entered-time review must be reloaded.
+        await lockNextRecruitment(tx);
+        await assertNextRecruitmentActor(tx, ctx.session.user.id);
         const previous = await getProgramTimeZone(tx);
         if (previous !== input.expectedTimeZone)
           throw new TRPCError({
@@ -488,6 +499,7 @@ export const programRouter = createTRPCRouter({
           create: { id: "program", timeZone: input.timeZone },
           update: { timeZone: input.timeZone },
         });
+        await advanceNextRecruitmentFence(tx);
         await tx.auditLog.create({
           data: {
             userId: ctx.session.user.id,
@@ -513,6 +525,16 @@ export const programRouter = createTRPCRouter({
     ...(await getFeatures(ctx.db)),
     EMAIL_DELIVERY_AVAILABLE: isEmailDeliveryAvailable("SECURITY"),
   })),
+
+  /** Next-period openings are separate from active intake and have independent save versions. */
+  nextRecruitment: adminProcedure.query(async ({ ctx }) => ({
+    ...(await readNextRecruitment(ctx.db)),
+    canEdit: ["HEAD", "ADMIN"].includes(ctx.session.role),
+    canApply: ctx.session.role === "HEAD",
+  })),
+  prepareNextRecruitment: adminOnlyProcedure
+    .input(prepareNextRecruitmentSchema)
+    .mutation(({ ctx, input }) => saveNextRecruitment(ctx.db, input, ctx.session.user)),
 
   /** Immediate, independent intake settings; serialize with submissions and period refresh. */
   setSignupWindow: adminOnlyProcedure
@@ -617,7 +639,7 @@ export const programRouter = createTRPCRouter({
    *  target back to the current effective value clears any pending change. */
   setFeaturePending: headProcedure
     .input(z.object({ key: featureKey, enabled: z.boolean() }))
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
       if (
         input.key === "EMAIL_2FA" &&
         input.enabled &&
@@ -629,29 +651,38 @@ export const programRouter = createTRPCRouter({
             "Configure SMTP before enabling email two-factor authentication.",
         });
       }
-      const existing = await ctx.db.programFeature.findUnique({
+      // Every staged module shares refresh's barrier and durable source fence, so
+      // an approval's older Serializable snapshot cannot silently miss a new toggle.
+      if (input.key === "QUARTER_SYSTEM") await lockNextRecruitment(tx);
+      else await lockEntity(tx, "program:period");
+      await assertNextRecruitmentActor(tx, ctx.session.user.id);
+      const existing = await tx.programFeature.findUnique({
         where: { key: input.key },
-        select: { enabled: true },
+        select: { enabled: true, pendingEnabled: true },
       });
       const current = existing?.enabled ?? DEFAULT_FEATURES[input.key];
       const pendingEnabled = input.enabled === current ? null : input.enabled;
-      await ctx.db.programFeature.upsert({
+      const changed = (existing?.pendingEnabled ?? null) !== pendingEnabled;
+      await tx.programFeature.upsert({
         where: { key: input.key },
-        update: { pendingEnabled, updatedByName: ctx.session.user.name },
+        update: { pendingEnabled, updatedByName: ctx.session.user.name,
+          ...(changed ? { revision: { increment: 1 } } : {}) },
         create: {
           key: input.key,
           enabled: current,
           pendingEnabled,
+          revision: changed ? 1 : 0,
           updatedByName: ctx.session.user.name,
         },
       });
+      if (changed) await advanceNextRecruitmentFence(tx);
       await recordAudit({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name,
         action: `Staged ${input.key} ${input.enabled ? "on" : "off"} for next refresh`,
         entity: "ProgramFeature",
         entityId: input.key,
-      });
+      }, tx);
       return { ok: true };
-    }),
+    })),
 });
