@@ -176,6 +176,13 @@ output/inventory limits and secret exclusion. It never queries the real daemon o
 probes production. Production acceptance still requires the operator worksheet and
 independent external checks in the deployment runbook.
 
+The same daemon-free suite covers the [storage capacity preflight](../guides/deployment.md#storage-capacity-preflight)
+with synthetic byte/inode measurements and bounded command failures. It checks
+headroom boundaries, input validation and unknown/insufficient results without
+pulling images, inspecting a real daemon, filling disks or reading `.env`.
+These fixtures establish helper behavior; the operator must still map actual
+filesystems, budget overlapping allocations and observe current host capacity.
+
 ### Option B — An existing local Postgres
 
 Create a database and point `DATABASE_URL` at it, e.g.:

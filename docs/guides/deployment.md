@@ -2,6 +2,8 @@
 
 Single-VPS deploy (2 vCPU / 4 GB / 40 GB) with Docker Compose + Caddy (auto HTTPS).
 The memory-heavy image build runs in **GitHub Actions → GHCR**; the VPS only pulls.
+The disk size is an example, not a capacity guarantee; check the actual filesystems
+and planned peak allocations using the [storage preflight](#storage-capacity-preflight).
 
 ## Architecture
 
@@ -69,6 +71,8 @@ options so the reset targets the intended stack.
    database. Keep the DNS pointing at the VPS if the domain and host are unchanged.
 
 3. Start the fresh stack:
+
+   Complete the [storage preflight](#storage-capacity-preflight) before pulling images.
 
    ```bash
    docker compose config --quiet
@@ -529,6 +533,8 @@ echo <GITHUB_PAT_with_read:packages> | docker login ghcr.io -u <github-user> --p
 
 ## 5. Deploy
 
+Complete the [storage preflight](#storage-capacity-preflight) before these commands.
+
 ```bash
 docker compose pull            # pull the prebuilt app image (+ postgres, caddy)
 docker compose up -d           # start everything; app runs migrations on boot
@@ -538,6 +544,50 @@ docker compose logs -f app     # watch migrations + startup
 
 Visit `https://<your-domain>` — Caddy issues the cert on first request, then sign in with
 email + password at `/signin` after the bootstrap command below.
+
+### Storage capacity preflight
+
+Before every image pull or deployment, budget the **additional peak allocation**
+on each affected filesystem. Include compressed downloads and unpacked image layers
+coexisting with retained images, container writable layers/logs, temporary staging,
+database/WAL growth and any overlapping [backup or restore](#7-backups). Builds run
+in CI, not on the VPS. Use measured release sizes and growth with margin; image
+virtual sizes can share layers, and Docker's reported reclaimable space is neither
+free space nor guaranteed safe to reclaim.
+
+Privately identify the actual Docker data root and any separate containerd image
+store, deployment/staging directory, backup destination and database-volume mount.
+Do not assume all data lives under `/var/lib/docker` or on the root filesystem.
+Map those locations to filesystems and **sum simultaneous peak allocations on the
+same filesystem**; check each distinct filesystem separately. Supply an existing
+directory on that filesystem, rounding its additional peak estimate up to whole GiB:
+
+```bash
+# Example only: replace the directory and 8 GiB budget with reviewed local values.
+bash scripts/check-storage-capacity.sh /existing/directory/on/target/filesystem 8
+```
+
+The [read-only helper](../../scripts/check-storage-capacity.sh) needs Bash and GNU
+`df`, `timeout` and `head`. It performs two serial `df` reads (bytes and inodes),
+each limited to five seconds plus a one-second termination grace and 4 KiB of
+output. It never calls Docker/Compose, reads `.env`, pulls images, deletes files
+or changes volumes. `PEAK_GIB` accepts whole positive integers from 1 to 1048576;
+one GiB is 1,073,741,824 bytes. The required available bytes are:
+
+```text
+additional peak bytes + max(5 GiB, ceil(20% of filesystem capacity))
+```
+
+It uses `df`'s available bytes, which exclude reserved blocks, and refuses zero
+free inodes. Exit **0** (`HEADROOM_OK`) establishes this numeric headroom at the
+observation time only; it neither reserves space nor validates the estimate,
+mount mapping, permissions, quotas, storage health or sufficient inode growth.
+Exit **1** means insufficient bytes or no free inodes; **2** means unknown,
+including unsupported/malformed measurements, missing tools, timeout or oversized
+output; **64** means invalid usage. Stop the pull/deploy on every nonzero result
+and resolve the capacity or evidence gap. Recheck if allocations or plans change.
+Keep host-specific paths, measurements and image identities in private operator
+notes, not public issues.
 
 ### Create the first admin (first deploy)
 
@@ -590,6 +640,9 @@ sign-in routes, runs bootstrap twice, checks default and runtime branding, metad
 Edit locally, including `src/app/icon.png` or logos when needed → commit → push or
 merge to `main` → wait for successful CI publication → GHCR → update the VPS:
 
+Before pulling, complete the [storage preflight](#storage-capacity-preflight) and
+record the [retained image identities](#retain-current-and-previous-tested-images).
+
 ```bash
 cd /opt/shbs
 docker compose pull app
@@ -607,6 +660,42 @@ The pairing-scheduling migration preserves all existing copied schedules as conf
 A customized runtime title takes precedence over a changed repository default.
 Database-managed landing content/translations remain as published; update those
 through their administration screens when required.
+
+### Retain current and previous tested images
+
+Keep the current tested release and the previous tested release available for
+recovery. Before pulling a moving tag such as `latest`, record each release's
+**full local image ID**, immutable registry digest, source revision and successful
+verification evidence privately. Identify the images actually used by containers,
+including stopped containers and other Compose projects; a tag alone is not a
+stable identity. On a first installation, record that no previous tested release
+exists until a subsequent release has been verified. Read-only examples,
+substituting reviewed exact identifiers:
+
+```bash
+docker ps -a --no-trunc --format '{{.ID}} {{.Image}} {{.Names}}'
+docker inspect --format '{{.Id}} {{.Image}}' <exact-container-id>
+docker image inspect --format '{{.Id}} {{json .RepoDigests}}' <exact-image-id>
+```
+
+1. Mark the running tested release as current and preserve the previous tested
+   release. Keep both images and their deployment configuration/recovery evidence
+   while evaluating the incoming release; an untested pull does not replace either.
+2. After [deployment verification](#verify-either-update), promote the verified new
+   release to current and the former current to previous. Preserve additional
+   images under an incident/investigation hold or needed by any container.
+3. Check recovery against the **current database schema and persisted contracts**.
+   Retaining an older image does not make migrations reversible. Rehearse compatible
+   recovery in isolation with a verified [backup](#7-backups); when the previous
+   app cannot read current data, use a compatible corrective release or a separately
+   reviewed data-recovery plan. Never remove migrations or records to force rollback.
+4. If removal is needed, obtain separate approval for a bounded list of exact full
+   image IDs outside the retained/held sets. Recheck every container reference and
+   hold immediately before removing each approved ID with `docker image rm`
+   **without force**; stop on conflicts. Preserve database and Caddy volumes and
+   backups. Do not use broad image/system/volume prune or age/dangling status as
+   authorization. Layer sharing means removed image sizes do not guarantee the
+   same number of freed bytes; rerun the [preflight](#storage-capacity-preflight).
 
 ### Password-session revocation release
 
