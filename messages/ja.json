@@ -1042,7 +1042,7 @@
     },
     "audit": {
       "title": "監査ログ",
-      "subtitle": "最近の管理者操作。取り消し可能なものはここで元に戻せます。それ以外は各ページで手動で戻せます。",
+      "subtitle": "適用済みの操作とその審査証拠です。対応する復元の確認には「入会承認の復元」を使用してください。古い監査記録は読み取り専用です。",
       "columns": {
         "when": "日時",
         "who": "操作者",
@@ -3113,7 +3113,7 @@
     "confirmationExpired": "This confirmation expired. Reopen or refresh it to review again."
   },
   "approvals": {
-    "reviewPermissions": "通常の管理申請はAdminとHeadが審査します。役割・バッジの変更はHeadのみが審査できます。Headは自分の申請も審査できますが、他の人には別の権限を持つ審査担当者が必要です。",
+    "reviewPermissions": "Admin と Head は、条件を満たす入会承認の復元を含む日常業務を審査します。重要な設定、管理者プロフィールと役割、申請された登録コードの付与、その他の取り消しは Head が審査します。Admin と Head は Tutor/Crew コードを直接発行できます。Head は自分の申請も審査できますが、他の人には別の審査資格を持つ担当者が必要です。",
     "title": "Change Approvals",
     "subtitle": "Review proposed changes, explain your decision, and help new team members learn.",
     "queued": "Submitted for Admin Approval",
@@ -3139,7 +3139,7 @@
     "emptyHint": "New coordinator proposals will appear here for review.",
     "previous": "Newer",
     "next": "Older",
-    "trainingBanner": "You are a coordinator in training. Sensitive changes you submit are sent to an admin for approval before taking effect.",
+    "trainingBanner": "コーディネーターは日常業務を Admin または Head の審査に提出します。重要な設定や管理アカウントの編集は Admin または Head が提出する必要があります。入会承認の復元は Admin または Head が審査し、その他の取り消しには Head の承認が必要です。",
     "myRequests": "My Approval Requests",
     "states": {
       "PENDING": "Pending Review",
@@ -3537,7 +3537,7 @@
     "requestHead": "Request Head Approval",
     "sensitiveHelp": "Head applies these changes directly. Admin submits requests for Head review; Coordinators have read-only access. Pending requests do not change live settings.",
     "requestChange": "Request change: {setting}",
-    "reversalHelp": "Head applies reversals directly. Other authorized staff request Head approval before an applied action is reversed."
+    "reversalHelp": "Admin と Head は条件を満たす入会承認の復元を直接実行できます。コーディネーターは Admin または Head に審査を申請します。その他の取り消しには Head の権限または承認済みの申請が必要です。"
   },
   "auditEventDetails": {
     "event": "記録されたイベント",

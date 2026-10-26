@@ -1042,7 +1042,7 @@
     },
     "audit": {
       "title": "Αρχείο ελέγχου",
-      "subtitle": "Πρόσφατες ενέργειες διαχειριστή. Οι αναστρέψιμες μπορούν να αναιρεθούν εδώ· οι υπόλοιπες έχουν χειροκίνητη αντίστροφη ενέργεια στη δική τους σελίδα.",
+      "subtitle": "Εφαρμοσμένες ενέργειες και τα αποδεικτικά ελέγχου τους. Χρησιμοποιήστε την «Ανάκτηση εισαγωγής» για να επιθεωρήσετε υποστηριζόμενες ανακτήσεις· οι παλαιότερες εγγραφές ελέγχου είναι μόνο για ανάγνωση.",
       "columns": {
         "when": "Πότε",
         "who": "Ποιος",
@@ -3113,7 +3113,7 @@
     "confirmationExpired": "This confirmation expired. Reopen or refresh it to review again."
   },
   "approvals": {
-    "reviewPermissions": "Οι Admin και Head εξετάζουν τα συνήθη αιτήματα διαχείρισης. Μόνο ο Head εξετάζει αλλαγές ρόλων και σημάτων. Ο Head μπορεί να εξετάζει τα δικά του αιτήματα· οι υπόλοιποι χρειάζονται άλλον εξουσιοδοτημένο αξιολογητή.",
+    "reviewPermissions": "Οι Admin και Head ελέγχουν καθημερινές ενέργειες, συμπεριλαμβανομένης της επιλέξιμης ανάκτησης εισαγωγής. Ο Head ελέγχει σημαντικές ρυθμίσεις, προφίλ και ρόλους διαχείρισης, αιτούμενες παραχωρήσεις κωδικών εγγραφής και άλλες αναιρέσεις. Οι Admin και Head εκδίδουν απευθείας κωδικούς Tutor/Crew. Ο Head μπορεί να ελέγχει τα δικά του αιτήματα· όλοι οι υπόλοιποι χρειάζονται άλλον επιλέξιμο αξιολογητή.",
     "title": "Change Approvals",
     "subtitle": "Review proposed changes, explain your decision, and help new team members learn.",
     "queued": "Submitted for Admin Approval",
@@ -3139,7 +3139,7 @@
     "emptyHint": "New coordinator proposals will appear here for review.",
     "previous": "Newer",
     "next": "Older",
-    "trainingBanner": "You are a coordinator in training. Sensitive changes you submit are sent to an admin for approval before taking effect.",
+    "trainingBanner": "Οι συντονιστές υποβάλλουν καθημερινές ενέργειες για έλεγχο από Admin ή Head. Οι σημαντικές ρυθμίσεις και οι αλλαγές λογαριασμών διαχείρισης υποβάλλονται από Admin ή Head. Η ανάκτηση εισαγωγής ελέγχεται από Admin ή Head· οι άλλες αναιρέσεις απαιτούν έγκριση Head.",
     "myRequests": "My Approval Requests",
     "states": {
       "PENDING": "Pending Review",
@@ -3537,7 +3537,7 @@
     "requestHead": "Request Head Approval",
     "sensitiveHelp": "Head applies these changes directly. Admin submits requests for Head review; Coordinators have read-only access. Pending requests do not change live settings.",
     "requestChange": "Request change: {setting}",
-    "reversalHelp": "Head applies reversals directly. Other authorized staff request Head approval before an applied action is reversed."
+    "reversalHelp": "Οι Admin και Head μπορούν να εφαρμόζουν απευθείας επιλέξιμη ανάκτηση εισαγωγής· οι συντονιστές ζητούν έλεγχο από Admin ή Head. Οι άλλες αναιρέσεις απαιτούν εξουσία Head ή εγκεκριμένο αίτημα."
   },
   "auditEventDetails": {
     "event": "Καταγεγραμμένο συμβάν",

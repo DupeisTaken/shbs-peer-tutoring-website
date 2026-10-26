@@ -1034,7 +1034,7 @@
     },
     "audit": {
       "title": "Registro de auditoría",
-      "subtitle": "Acciones administrativas recientes. Las reversibles pueden deshacerse aquí; otras tienen una acción inversa manual en su propia página.",
+      "subtitle": "Acciones aplicadas y su evidencia de revisión. Usa Recuperación de admisión para inspeccionar las recuperaciones compatibles; las entradas antiguas de auditoría son de solo lectura.",
       "columns": {
         "when": "Cuándo",
         "who": "Quién",
@@ -3113,7 +3113,7 @@
     "confirmationExpired": "This confirmation expired. Reopen or refresh it to review again."
   },
   "approvals": {
-    "reviewPermissions": "Admin y Head revisan las solicitudes de gestión ordinarias. Solo Head revisa cambios de roles y credenciales. Head puede revisar sus propias solicitudes; los demás necesitan otro revisor autorizado.",
+    "reviewPermissions": "Admin y Head revisan las operaciones diarias, incluida la recuperación de admisión elegible. Head revisa ajustes importantes, perfiles y roles de gestión, concesiones de códigos de registro solicitadas y otras reversiones. Admin y Head emiten directamente códigos Tutor/Crew. Head puede revisar sus propias solicitudes; los demás necesitan otro revisor elegible.",
     "title": "Change Approvals",
     "subtitle": "Review proposed changes, explain your decision, and help new team members learn.",
     "queued": "Submitted for Admin Approval",
@@ -3139,7 +3139,7 @@
     "emptyHint": "New coordinator proposals will appear here for review.",
     "previous": "Newer",
     "next": "Older",
-    "trainingBanner": "You are a coordinator in training. Sensitive changes you submit are sent to an admin for approval before taking effect.",
+    "trainingBanner": "Los coordinadores envían operaciones diarias para revisión de Admin o Head. Los cambios de ajustes importantes y cuentas de gestión deben ser enviados por Admin o Head. La recuperación de admisión se revisa por Admin o Head; las demás reversiones requieren aprobación de Head.",
     "myRequests": "My Approval Requests",
     "states": {
       "PENDING": "Pending Review",
@@ -3537,7 +3537,7 @@
     "requestHead": "Request Head Approval",
     "sensitiveHelp": "Head applies these changes directly. Admin submits requests for Head review; Coordinators have read-only access. Pending requests do not change live settings.",
     "requestChange": "Request change: {setting}",
-    "reversalHelp": "Head applies reversals directly. Other authorized staff request Head approval before an applied action is reversed."
+    "reversalHelp": "Admin y Head pueden aplicar directamente la recuperación de admisión elegible; los coordinadores solicitan revisión de Admin o Head. Las demás reversiones requieren autoridad de Head o una solicitud aprobada."
   },
   "auditEventDetails": {
     "event": "Evento registrado",

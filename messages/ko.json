@@ -1042,7 +1042,7 @@
     },
     "audit": {
       "title": "감사 로그",
-      "subtitle": "최근 관리자 작업입니다. 되돌릴 수 있는 작업은 여기서 실행 취소할 수 있고, 그 외 작업은 해당 페이지에서 수동으로 되돌릴 수 있습니다.",
+      "subtitle": "적용된 작업과 검토 증거입니다. 지원되는 복구를 확인하려면 승인 복구를 사용하세요. 이전 감사 항목은 읽기 전용입니다.",
       "columns": {
         "when": "시간",
         "who": "작업자",
@@ -3113,7 +3113,7 @@
     "confirmationExpired": "This confirmation expired. Reopen or refresh it to review again."
   },
   "approvals": {
-    "reviewPermissions": "일반 관리 요청은 Admin과 Head가 검토합니다. 역할 및 배지 변경은 Head만 검토할 수 있습니다. Head는 자신의 요청도 검토할 수 있으며, 다른 사용자는 별도의 권한 있는 검토자가 필요합니다.",
+    "reviewPermissions": "Admin과 Head는 자격을 충족하는 승인 복구를 포함한 일상 작업을 검토합니다. 중요한 설정, 관리 프로필과 역할, 요청된 등록 코드 부여 및 다른 되돌리기는 Head가 검토합니다. Admin과 Head는 Tutor/Crew 코드를 직접 발급합니다. Head는 자신의 요청도 검토할 수 있으며, 다른 사용자는 별도의 자격 있는 검토자가 필요합니다.",
     "title": "Change Approvals",
     "subtitle": "Review proposed changes, explain your decision, and help new team members learn.",
     "queued": "Submitted for Admin Approval",
@@ -3139,7 +3139,7 @@
     "emptyHint": "New coordinator proposals will appear here for review.",
     "previous": "Newer",
     "next": "Older",
-    "trainingBanner": "You are a coordinator in training. Sensitive changes you submit are sent to an admin for approval before taking effect.",
+    "trainingBanner": "코디네이터는 일상 작업을 Admin 또는 Head의 검토를 위해 제출합니다. 중요한 설정과 관리 계정 수정은 Admin 또는 Head가 제출해야 합니다. 승인 복구는 Admin 또는 Head가 검토하며, 다른 되돌리기는 Head의 승인이 필요합니다.",
     "myRequests": "My Approval Requests",
     "states": {
       "PENDING": "Pending Review",
@@ -3537,7 +3537,7 @@
     "requestHead": "Request Head Approval",
     "sensitiveHelp": "Head applies these changes directly. Admin submits requests for Head review; Coordinators have read-only access. Pending requests do not change live settings.",
     "requestChange": "Request change: {setting}",
-    "reversalHelp": "Head applies reversals directly. Other authorized staff request Head approval before an applied action is reversed."
+    "reversalHelp": "Admin과 Head는 자격을 충족하는 승인 복구를 직접 적용할 수 있습니다. 코디네이터는 Admin 또는 Head의 검토를 요청합니다. 다른 되돌리기에는 Head 권한 또는 승인된 요청이 필요합니다."
   },
   "auditEventDetails": {
     "event": "기록된 이벤트",

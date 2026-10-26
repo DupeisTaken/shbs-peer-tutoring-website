@@ -1042,7 +1042,7 @@
     },
     "audit": {
       "title": "Aktivitätsprotokoll",
-      "subtitle": "Letzte Administratoraktionen. Umkehrbare Aktionen können hier rückgängig gemacht werden; andere haben eine manuelle Umkehrmöglichkeit auf ihrer eigenen Seite.",
+      "subtitle": "Ausgeführte Aktionen und ihre Prüfbelege. Prüfen Sie unterstützte Wiederherstellungen unter „Zulassung wiederherstellen“; ältere Auditeinträge sind schreibgeschützt.",
       "columns": {
         "when": "Wann",
         "who": "Wer",
@@ -3113,7 +3113,7 @@
     "confirmationExpired": "This confirmation expired. Reopen or refresh it to review again."
   },
   "approvals": {
-    "reviewPermissions": "Admin und Head prüfen allgemeine Verwaltungsanträge. Nur Head prüft Rollen- und Abzeichenänderungen. Head darf eigene Anträge prüfen; alle anderen benötigen eine andere berechtigte Person.",
+    "reviewPermissions": "Admin und Head prüfen tägliche Vorgänge einschließlich zulässiger Zulassungswiederherstellungen. Head prüft wesentliche Einstellungen, Verwaltungsprofile und Rollen, beantragte Registrierungscode-Freigaben und andere Rücknahmen. Admin und Head stellen Tutor-/Crew-Codes direkt aus. Head darf eigene Anträge prüfen; alle anderen benötigen eine andere berechtigte Prüfperson.",
     "title": "Change Approvals",
     "subtitle": "Review proposed changes, explain your decision, and help new team members learn.",
     "queued": "Submitted for Admin Approval",
@@ -3139,7 +3139,7 @@
     "emptyHint": "New coordinator proposals will appear here for review.",
     "previous": "Newer",
     "next": "Older",
-    "trainingBanner": "You are a coordinator in training. Sensitive changes you submit are sent to an admin for approval before taking effect.",
+    "trainingBanner": "Koordinatoren reichen tägliche Vorgänge zur Prüfung durch Admin oder Head ein. Wesentliche Einstellungen und Änderungen an Verwaltungskonten müssen von Admin oder Head eingereicht werden. Zulassungswiederherstellungen werden von Admin oder Head geprüft; andere Rücknahmen benötigen die Genehmigung durch Head.",
     "myRequests": "My Approval Requests",
     "states": {
       "PENDING": "Pending Review",
@@ -3537,7 +3537,7 @@
     "requestHead": "Request Head Approval",
     "sensitiveHelp": "Head applies these changes directly. Admin submits requests for Head review; Coordinators have read-only access. Pending requests do not change live settings.",
     "requestChange": "Request change: {setting}",
-    "reversalHelp": "Head applies reversals directly. Other authorized staff request Head approval before an applied action is reversed."
+    "reversalHelp": "Admin und Head können zulässige Zulassungswiederherstellungen direkt ausführen; Koordinatoren beantragen die Prüfung durch Admin oder Head. Andere Rücknahmen erfordern die Berechtigung von Head oder einen genehmigten Antrag."
   },
   "auditEventDetails": {
     "event": "Protokolliertes Ereignis",
