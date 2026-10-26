@@ -430,6 +430,28 @@ Profile-editor fixtures must provide the real grouping child's disabled candidat
 query and read-recovery utilities even while its section is closed. Opening or
 closing a review must not submit a combination.
 
+### Runtime packaging checks
+
+Run `npm run test:deployment` for the synthetic runtime assembler, canonical file
+inventory and image-comparison regressions as well as the deployment helpers.
+Run `python3 scripts/test_image_storage_metrics.py` separately with Python 3;
+it uses only the standard library and synthetic Docker-save archives. These
+checks do not build images, contact the Docker daemon or use a database.
+
+The assembler combines traced standalone dependencies with full production
+dependencies before final image copies, while keeping dependency and application
+outputs disjoint. Its fixtures cover production-file precedence, links, metadata
+and refused unsafe outputs. Inventory/comparison fixtures check content and
+runtime-configuration comparisons; archive fixtures exercise layer-content and
+snapshot-chain accounting. See [CI runtime packaging verification](verification.md#required-checks)
+for the actual controlled-image measurement and its limits.
+
+The full image comparison is restricted to an isolated CI job. Do not set `CI`
+locally just to bypass that guard or run four image layouts against a shared
+daemon. Use the current workflow's JSON evidence; coordinate any necessary local
+image smoke through the existing [Compose smoke test](#6-smoke-test-the-production-docker-stack-optional)
+and resource-ownership rules instead.
+
 ## 6. Smoke-test the production Docker stack (optional)
 
 This exercises the same `docker-compose.yml` used in production (app + Postgres + Caddy),

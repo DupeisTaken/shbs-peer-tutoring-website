@@ -43,6 +43,8 @@ jobs:
         run: npm run test:pr-size
       - name: Test deployment helpers
         run: npm run test:deployment
+      - name: Test image storage accounting
+        run: python3 scripts/test_image_storage_metrics.py
       - name: Audit all dependencies
         run: npm audit
 
@@ -176,10 +178,44 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+  image-storage:
+    # A separate bounded job protects the production image/smoke budget. Most PRs
+    # finish after scope detection; packaging edits compare four cached layouts.
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    env:
+      STORAGE_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
+    steps:
+      - name: Checkout source and immutable baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Node for storage comparison
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Select packaging comparison scope
+        id: scope
+        run: node scripts/compare-runtime-images.mjs scope
+      - name: Set up isolated storage comparison builder
+        if: steps.scope.outputs.compare == 'true'
+        uses: docker/setup-buildx-action@v3
+      - name: Compare identical runtime files and retained image layouts
+        if: steps.scope.outputs.compare == 'true'
+        run: node scripts/compare-runtime-images.mjs compare "$RUNNER_TEMP/runtime-storage-comparison"
+      - name: Upload storage comparison evidence
+        if: ${{ !cancelled() && steps.scope.outputs.compare == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-storage-comparison-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/runtime-storage-comparison/*.json
+          retention-days: 7
+          if-no-files-found: warn
+
   verify:
     # Preserve the required check's name. always() makes failed/skipped prerequisites
     # visible here instead of allowing GitHub to treat a skipped gate as success.
-    needs: [checks, tests, image]
+    needs: [checks, tests, image, image-storage]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -191,7 +227,7 @@ jobs:
         with:
           script: |
             const results = JSON.parse(process.env.NEEDS_JSON);
-            for (const job of ["checks", "tests", "image"]) {
+            for (const job of ["checks", "tests", "image", "image-storage"]) {
               if (results[job]?.result !== "success") {
                 core.setFailed(`${job}: ${results[job]?.result ?? "missing"}`);
               }
