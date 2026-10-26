@@ -3478,6 +3478,7 @@
         "admin_deleteAnnouncement": "Delete an announcement",
         "admin_reviewCard": "Validate or invalidate a disciplinary card",
         "admin_undoAudit": "Undo a recorded management action",
+        "recovery_voidAdmission": "初回の受け入れと対応範囲内の後続の影響を取り消す",
         "home_createNews": "Create a news post",
         "home_updateNews": "Edit news publication settings",
         "home_removeNewsTranslation": "Remove a news translation",

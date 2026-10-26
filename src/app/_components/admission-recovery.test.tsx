@@ -168,7 +168,7 @@ it.each([0, 1])(
     });
     fireEvent.click(review);
     expect(
-      screen.getByRole("dialog", { name: "Confirm admission recovery" }),
+      screen.getByRole("dialog", { name: "Confirm Admission Recovery" }),
     ).toBeTruthy();
     expect(mocks.apply).not.toHaveBeenCalled();
   },

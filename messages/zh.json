@@ -3481,6 +3481,7 @@
         "admin_deleteAnnouncement": "删除公告",
         "admin_reviewCard": "判定纪律卡有效或无效",
         "admin_undoAudit": "撤销已记录的管理操作",
+        "recovery_voidAdmission": "撤销初次录取及其受支持的后续影响",
         "home_createNews": "创建新闻",
         "home_updateNews": "编辑新闻发布设置",
         "home_removeNewsTranslation": "移除新闻翻译",
