@@ -5,32 +5,13 @@ import { db } from "~/server/db";
 import { lockAccountProfile } from "~/server/account-profile";
 import {
   inTransaction,
-  lockEntity,
   type DomainDb,
   type TransactionDb,
 } from "~/server/transactions";
 import { defaultUsername, usernameCandidates } from "~/lib/username";
-import {
-  isSerializationFailure,
-  UsernameSnapshotConflict,
-} from "./username-snapshot";
+import { lockUsernameNamespace } from "./username-namespace";
 export { defaultUsername } from "~/lib/username";
-
-/** Acquire BEFORE account/profile/row writes and hold through persistence. No process-local lock. */
-export async function lockUsernameNamespace(tx: TransactionDb): Promise<void> {
-  await lockEntity(tx, "identity:username-namespace");
-  try {
-    // Advisory locks serialize writers, but cannot refresh an old Serializable snapshot.
-    // Updating one persistent tuple makes PostgreSQL reject that stale snapshot BEFORE
-    // it can select a handle. Upsert also recreates the fence after isolated test resets.
-    await tx.$executeRaw`INSERT INTO "UsernameNamespaceGuard" (id, revision) VALUES (1, 1)
-      ON CONFLICT (id) DO UPDATE SET revision = "UsernameNamespaceGuard".revision + 1`;
-  } catch (error) {
-    if (isSerializationFailure(error))
-      throw new UsernameSnapshotConflict(error);
-    throw error;
-  }
-}
+export { lockUsernameNamespace } from "./username-namespace";
 
 /**
  * Split a single display string ("Alice Chen", "Madonna", "Mary Jane Watson") into name parts

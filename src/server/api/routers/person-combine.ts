@@ -6,6 +6,10 @@ import {
   personCombineSelection,
   personCombineReceiptResult,
   previewPersonCombine,
+  reviewPersonParticipation,
+  finalizePersonParticipation,
+  personReviewSelection,
+  personFinalizeInput,
 } from "~/server/person-combine";
 
 export const personCombineRouter = createTRPCRouter({
@@ -117,6 +121,12 @@ export const personCombineRouter = createTRPCRouter({
     .mutation(({ ctx, input }) =>
       combinePersonRecords(ctx.db, ctx.session.user.id, input),
     ),
+  review: adminOnlyProcedure
+    .input(personReviewSelection)
+    .query(({ ctx, input }) => reviewPersonParticipation(ctx.db, input)),
+  finalize: adminOnlyProcedure
+    .input(personFinalizeInput)
+    .mutation(({ ctx, input }) => finalizePersonParticipation(ctx.db, ctx.session.user.id, input)),
   receipt: adminOnlyProcedure
     .input(z.object({ operationId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {

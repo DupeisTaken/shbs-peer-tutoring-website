@@ -449,6 +449,8 @@ model Term {
 }
 
 model Tutor {
+  /// Monotonic history ownership/group fence, including remove-and-restore changes.
+  historyIdentityRevision Int @default(0)
   personId String?
   person Person? @relation(fields: [personId], references: [id], onDelete: Restrict)
   retainedOwner TutorProfileOwnership?
@@ -693,6 +695,8 @@ enum SignupSource {
 }
 
 model Tutee {
+  /// Monotonic history ownership/group fence, independent of original roster evidence.
+  historyIdentityRevision Int @default(0)
   personId String?
   person Person? @relation(fields: [personId], references: [id], onDelete: Restrict)
   historicalAcademics HistoricalAcademicRecord[]
@@ -2059,6 +2063,67 @@ model TuteeHistoryInvitationAttempt {
   createdAt DateTime @default(now())
   settledAt DateTime?
   @@index([tuteeId, sequence])
+}
+
+/// Additive typed-history envelope. Legacy Tutee grants retain their original table/proofs.
+/// Frozen sources are never expanded through subsequent Person membership changes.
+model HistoricalRecordInvitation {
+  scopeKey String @id
+  tokenHash String @unique
+  sources Json
+  scopeFingerprint String
+  email String
+  recipientId String?
+  recipientSessionVersion Int?
+  recipientFingerprint String?
+  issuedById String
+  issuedBySessionVersion Int
+  reason String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  setupCodeHash String?
+  setupCodeExpiresAt DateTime?
+  setupAttempts Int @default(0)
+  setupVerifiedAt DateTime?
+  setupUserId String?
+  claimedAt DateTime?
+  claimedUserId String?
+}
+
+/// Actor-bound admission receipts recover accepted writes without replaying SMTP.
+model HistoricalRecordInvitationAttempt {
+  id String @id
+  sequence Int @unique @default(autoincrement())
+  scopeKey String
+  inputHash String
+  tokenHash String @unique
+  sources Json
+  scopeFingerprint String
+  predecessorFingerprint String
+  email String
+  recipientId String?
+  recipientSessionVersion Int?
+  recipientFingerprint String?
+  issuedById String
+  issuedBySessionVersion Int
+  reason String
+  expiresAt DateTime
+  status TuteeHistoryInvitationAttemptStatus @default(ADMITTED)
+  createdAt DateTime @default(now())
+  settledAt DateTime?
+  @@index([scopeKey, sequence])
+}
+
+/// Read-only accepted-claim recovery survives legacy token consumption and replacements.
+/// Possession of this digest never grants access without the recorded account and live ownership.
+model HistoricalRecordClaimReceipt {
+  tokenHash String @id
+  sources Json
+  userId String
+  sessionVersion Int
+  email String
+  expiresAt DateTime
+  claimedAt DateTime @default(now())
 }
 
 /// Short-lived, user/action-bound confirmation tickets enforce the popup delay on the server.

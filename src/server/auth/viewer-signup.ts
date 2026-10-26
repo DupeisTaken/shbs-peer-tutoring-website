@@ -18,6 +18,7 @@ import {
 } from "~/server/program/name-fields";
 import { fullPersonName } from "~/lib/person-name";
 import { ensureUserUsername, lockUsernameNamespace } from "./username";
+import { initializePersonSource } from "~/server/person-source-initialization";
 
 export const VIEWER_CODE_TTL_MINUTES = 15;
 const MAX_ATTEMPTS = 6;
@@ -236,6 +237,7 @@ export async function completeViewerSignup(
         emailVerifiedAt: new Date(),
       },
     });
+    await initializePersonSource(tx, { kind: "USER", id: created.id });
     // Existing named Viewer accounts still retain their email-only login; nameless new identities need a public handle.
     if (!created.name?.trim())
       await ensureUserUsername(created.id, tx, { namelessIdentity: true });

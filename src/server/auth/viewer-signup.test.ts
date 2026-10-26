@@ -95,6 +95,10 @@ it("rejects another browser that knows a verified email but lacks its proof", as
   });
   const account = await db.user.findUniqueOrThrow({ where: { email } });
   expect(account.role).toBe("VIEWER");
+  expect(account.personId).toBeTruthy();
+  expect(await db.person.findUniqueOrThrow({ where: { id: account.personId! } })).toMatchObject({ primaryUserId: account.id });
+  expect(await db.tutor.count()).toBe(0);
+  expect(await db.tutee.count()).toBe(0);
   expect(verifyPassword(password, account.passwordHash!)).toBe(true);
 });
 
@@ -134,6 +138,7 @@ it("invalidates previous proofs on resend and permits only one concurrent comple
     ),
   ).toHaveLength(1);
   expect(await db.user.count({ where: { email } })).toBe(1);
+  expect(await db.person.count()).toBe(1);
 });
 
 it("does not grant completion before verification or after exhausting guesses", async () => {
