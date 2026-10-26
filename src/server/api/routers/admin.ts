@@ -173,6 +173,7 @@ import {
 } from "~/server/tutors/application-identity";
 import { decideCrewApplication } from "~/server/crew/signup";
 import { reconcileApplication } from "~/server/tutors/application-status";
+import { beginAdmissionRecoveryCapture, finishAdmissionRecoveryCapture } from "~/server/recovery/capture";
 import {
   notifyAdmins,
   notifyTutors,
@@ -4179,6 +4180,8 @@ export const adminRouter = createTRPCRouter({
             message:
               "Interview panels and outcomes must use the assigned interview workflow.",
           });
+        const recoveryActionId = input.status === "ACCEPTED" && prev.status !== "ACCEPTED"
+          ? await beginAdmissionRecoveryCapture(tx, input.id) : null;
         const updated = await tx.tutorApplication.updateMany({
           where: { id: input.id, updatedAt: input.expectedUpdatedAt },
           data: { status: input.status },
@@ -4186,6 +4189,7 @@ export const adminRouter = createTRPCRouter({
         if (updated.count === 0) staleConflict();
         // On the transition to ACCEPTED, add the applicant to the tutors list.
         await reconcileApplication(tx, input.id);
+        await finishAdmissionRecoveryCapture(tx, recoveryActionId);
         const after = await tx.tutorApplication.findUniqueOrThrow({
           where: { id: input.id },
           select: { updatedAt: true },

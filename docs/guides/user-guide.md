@@ -1017,6 +1017,14 @@ operation summaries may never have recorded it. Details do not reconstruct past
 values from current profiles. Observers retain the restricted summary. If a detail
 read fails, use Retry; this only reloads the event and never repeats its action.
 
+Open **Recovery** to preview a captured initial admission and its consequences.
+Admin/Head can apply a complete plan with at most one later dependent action;
+eligible Coordinator submissions require Admin/Head review. Longer chains require
+the operator CLI. Legacy one-click audit Undo is unavailable because old payloads
+do not prove the full consequence chain. **Database records** remains available
+to Admin/Head for read-only persisted values and CLI references. See the
+[recovery guide](recovery.md) for supported checkpoints and backup staging.
+
 ### Signup request tabs
 
 Staff can mark a public tutor application or tutee signup request **Invalid** when

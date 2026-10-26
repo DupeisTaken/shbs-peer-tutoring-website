@@ -14,26 +14,23 @@ import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } fro
 import { viewEnum, viewFields, viewSearch } from "~/lib/session-view-state";
 import { programDayStart, programDayEnd } from "~/lib/program-time";
 
-import { InlineNotice } from "~/app/_components/ui/patterns";
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
 import { AuditEventDetails } from "~/app/_components/audit-event-details";
 import {
   SummaryTable,
   TableActions,
-  TableAction,
   TableDetails,
 } from "~/app/_components/ui/summary-table";
 
 /**
- * Audit trail of admin mutations. Entries that carry undo data can be reverted with one
- * click (see src/server/audit/log.ts). Supports the audit contracts in docs/reference/technical-report.md.
+ * Audit evidence remains readable. Recovery requires a separate consequence preview;
+ * legacy undo payloads cannot establish a complete dependency chain.
  */
 function AuditLog() {
   const t = useTranslations();
   const format = useFormatter();
   const readOnly = useReadOnly();
-  const utils = api.useUtils();
   const params = useSearchParams();
   const approvalId = params.get("approval") ?? undefined;
   const timeZone = useTimeZone() ?? "Asia/Shanghai";
@@ -72,9 +69,6 @@ function AuditLog() {
   const denied = useSessionAccessDenied(log, options);
   useEffect(() => setAccessDenied(denied), [denied]);
   useSessionPageScroll({ id: "audit", scope: JSON.stringify([approvalId ?? "all", timeZone, view]), ready: !!log.data && !!options.data, enabled: !denied });
-  const undo = api.admin.undoAudit.useMutation({
-    onSuccess: () => utils.admin.auditLog.invalidate(),
-  });
 
   const entries = denied ? [] : (log.data ?? []);
 
@@ -195,12 +189,9 @@ function AuditLog() {
                     </Link>
                   )}
                   {!readOnly && e.undoData != null && !e.undone ? (
-                    <TableAction
-                      disabled={undo.isPending}
-                      onClick={() => undo.mutate({ id: e.id })}
-                    >
-                      {t("admin.audit.undo")}
-                    </TableAction>
+                    <Link className="table-action-link" href="/admin/recovery">
+                      {t("recovery.title")}
+                    </Link>
                   ) : null}
                 </TableActions>
               </tr>
@@ -231,14 +222,6 @@ function AuditLog() {
           {t("approvals.next")}
         </button>
       </div>
-      {!readOnly && undo.error?.data?.approvalId && (
-        <InlineNotice tone="warning" announcement="status">
-          {t("approvals.queuedBody")}
-        </InlineNotice>
-      )}
-      {!readOnly && undo.error && !undo.error.data?.approvalId && (
-        <p className="text-sm text-red-600">{undo.error.message}</p>
-      )}
     </div>
   );
 }

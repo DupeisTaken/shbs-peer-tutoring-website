@@ -63,6 +63,16 @@ COPY --from=build --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 COPY --from=build --chown=nextjs:nodejs /app/package.json /app/tsconfig.json ./
 COPY --from=build --chown=nextjs:nodejs /app/scripts/create-admin.ts ./scripts/create-admin.ts
 COPY --from=build --chown=nextjs:nodejs /app/scripts/reconcile-person-sources.ts ./scripts/reconcile-person-sources.ts
+COPY --from=build --chown=nextjs:nodejs /app/scripts/recovery.ts ./scripts/recovery.ts
+# Recovery is a DB-only operator entry point; it never starts the web runtime.
+COPY --from=build --chown=nextjs:nodejs \
+    /app/src/server/recovery/admission.ts \
+    /app/src/server/recovery/capture.ts \
+    /app/src/server/recovery/record-inspector.ts \
+    /app/src/server/recovery/record-catalog.ts \
+    /app/src/server/recovery/operator-cli.ts \
+    /app/src/server/recovery/operator-plan.ts \
+    /app/src/server/recovery/operator-site.ts ./src/server/recovery/
 # Shared UTC startup policy is also imported by the migration CLI and bootstrap script.
 COPY --from=build --chown=nextjs:nodejs /app/src/server/database-url.ts ./src/server/database-url.ts
 COPY --from=build --chown=nextjs:nodejs /app/src/server/auth/password.ts ./src/server/auth/password.ts

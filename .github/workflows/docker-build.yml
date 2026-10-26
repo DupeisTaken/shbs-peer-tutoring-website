@@ -43,6 +43,8 @@ jobs:
         run: npm run test:pr-size
       - name: Test deployment helpers
         run: npm run test:deployment
+      - name: Test standalone recovery tooling
+        run: npm run test:recovery
       - name: Audit all dependencies
         run: npm audit
 

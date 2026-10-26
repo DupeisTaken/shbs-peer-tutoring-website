@@ -1189,6 +1189,15 @@ Subject willingness UI: `subjectAvailability.mySubjects` loads on dialog open an
 
 Audit events identify actors by stable account ID and current role. The default signed-in mutation boundary commits domain writes and safe before/after evidence atomically; workflows that own their transactions retain their isolation/retry contracts and write evidence inside those boundaries. Failure/denial receipts are independent of rolled-back changes. The audit records actions rather than page access. Review metadata and undo payloads are not exposed to VIEWER accounts.
 
+Prospectively captured initial admissions use the separate
+[causal recovery contract](recovery.md). Website execution requires complete
+coverage and at most one later logical event; longer supported chains use the
+operator CLI. This recovery operation allows Admin/Head application and eligible
+Coordinator requests. `admin.undoAudit` refuses legacy undo before proposal
+queuing because its partial payload cannot prove that bound. The database
+inspector exposes permitted persisted fields and explicit redactions independently
+of whether any recovery can execute.
+
 `admin.auditLogDetail` is an on-demand, live-staff-authorized projection of one
 stored event. It selects recorded metadata, evidence and undo status/time, excluding
 executable `undoData`; it never joins current actors or targets to reconstruct

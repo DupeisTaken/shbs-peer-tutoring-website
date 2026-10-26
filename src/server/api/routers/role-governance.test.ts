@@ -137,17 +137,13 @@ it("requires Head for management invitations and Coordinator participation-code 
   expect(await db.registrationCode.count()).toBe(2);
 });
 
-it("queues reversals for Head and links applied undo evidence to its original action", async () => {
+it("refuses legacy undo for every role before an incomplete recovery can enter the queue", async () => {
   const announcement = await db.announcement.create({ data: { title: "Restorable announcement", body: "Synthetic notice" } });
   await head().admin.deleteAnnouncement({ id: announcement.id });
   const original = await db.auditLog.findFirstOrThrow({ where: { entityId: announcement.id } });
-  const request = await queued(admin().admin.undoAudit({ id: original.id }));
+  for (const actor of [admin(), head(), coordinator()])
+    await expect(actor.admin.undoAudit({ id: original.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect(await db.announcement.findUnique({ where: { id: announcement.id } })).toBeNull();
   expect((await db.auditLog.findUniqueOrThrow({ where: { id: original.id } })).undone).toBe(false);
-  await expect(admin().approval.decide({ id: request.id, approve: true, note: "Head authority is required" }))
-    .rejects.toMatchObject({ code: "FORBIDDEN" });
-  await head().approval.decide({ id: request.id, approve: true, note: "Restore the original announcement" });
-  expect(await db.announcement.findUnique({ where: { id: announcement.id } })).not.toBeNull();
-  expect(await db.auditLog.findFirst({ where: { operation: "admin.undoAudit", entityId: original.id,
-    details: { path: ["originalActionId"], equals: original.id } } })).not.toBeNull();
+  expect(await db.approvalRequest.count({ where: { operation: "admin.undoAudit" } })).toBe(0);
 });

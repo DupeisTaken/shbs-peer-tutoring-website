@@ -55,6 +55,7 @@ test("parallel jobs retain checks, isolated databases, bounded workers and failu
     "npm run test:lint-glob",
     "npm run test:pr-size",
     "npm run test:deployment",
+    "npm run test:recovery",
     "npm audit",
   ]) {
     assert.ok(

@@ -107,10 +107,11 @@ const {
               suspendedAt: true,
               sessionVersion: true,
               mergedIntoId: true,
+              recoveryVoidedAt: true,
             },
           });
           // Suspended users still prove both factors before entering the appeal-only area.
-          if (!user?.twoFactorEnabled || user.mergedIntoId) return null;
+          if (!user?.twoFactorEnabled || user.mergedIntoId || user.recoveryVoidedAt) return null;
           const features = await getFeatures(db);
           if (!features.EMAIL_2FA) return null;
           const ok = await verifyLoginCode(user.id, loginCode.data.code);
@@ -175,11 +176,13 @@ const {
             tutorId: true,
             sessionVersion: true,
             mergedIntoId: true,
+            recoveryVoidedAt: true,
           },
         });
         if (
           !identity ||
           identity.mergedIntoId ||
+          identity.recoveryVoidedAt ||
           identity.sessionVersion !== user.sessionVersion
         )
           return null;
@@ -201,11 +204,12 @@ const {
           await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
           const credentialState = await tx.user.findUnique({
             where: { id: userId },
-            select: { sessionVersion: true, mergedIntoId: true },
+            select: { sessionVersion: true, mergedIntoId: true, recoveryVoidedAt: true },
           });
           if (
             !credentialState ||
             credentialState.mergedIntoId ||
+            credentialState.recoveryVoidedAt ||
             credentialState.sessionVersion !== user.sessionVersion
           )
             return null;
@@ -278,12 +282,14 @@ const {
             role: true,
             sessionVersion: true,
             mergedIntoId: true,
+            recoveryVoidedAt: true,
           },
         });
         // A deleted account must lose its session instead of bouncing between /student and /signin.
         if (
           !dbUser ||
           dbUser.mergedIntoId ||
+          dbUser.recoveryVoidedAt ||
           !Number.isSafeInteger(token.sessionVersion) ||
           dbUser.sessionVersion !== token.sessionVersion
         )
