@@ -15,11 +15,6 @@ COPY tools/next-lint-glob ./tools/next-lint-glob
 COPY prisma ./prisma
 RUN npm ci
 
-# Production dependencies do not depend on the application build. Preserve the
-# complete graph for startup migrations and operator CLIs, including their engines.
-FROM deps AS runtime-deps
-RUN npm prune --omit=dev --ignore-scripts
-
 ############################
 # 2. Build
 ############################
@@ -34,6 +29,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV SKIP_ENV_VALIDATION=1
 RUN npx prisma generate
 RUN npm run build
+
+# Keep build-generated Prisma configuration caches as well as the complete
+# production graph. Pruning from deps loses files created during generation.
+FROM build AS runtime-deps
+RUN npm prune --omit=dev --ignore-scripts
 
 # Merge traced-only packages with production winners before creating final image
 # layers. Deleting overlaid files in the runner would retain their lower-layer bytes.

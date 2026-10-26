@@ -104,8 +104,9 @@ importing application code. Image smoke runs administrator bootstrap twice and
 reconciliation with clean/findings exit statuses, using only each CLI's required
 environment; a successful web-server boot alone does not validate CLI packaging.
 
-The [Dockerfile](../../Dockerfile) derives production dependencies from the
-dependency-install stage before the application build. The
+The [Dockerfile](../../Dockerfile) prunes production dependencies after the
+application build, preserving generated Prisma configuration caches. Pruning
+from the earlier dependency-install stage changes the runtime file set. The
 [runtime assembler](../../scripts/assemble-runtime.mjs) merges standalone traced
 dependencies with the full production dependency tree, with production files
 winning collisions, into disjoint dependency and application trees. The runner
