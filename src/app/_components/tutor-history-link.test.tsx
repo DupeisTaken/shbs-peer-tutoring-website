@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
@@ -15,6 +16,7 @@ import zh from "../../../messages/zh.json";
 import { TutorHistorySection } from "./tutor-history-link";
 import { ProfileDialog } from "./profile-dialog";
 import { useDialogPending } from "./ui/modal";
+import type { RouterInputs, RouterOutputs } from "~/trpc/react";
 
 const mock = vi.hoisted(() => ({
   preview: vi.fn(),
@@ -22,6 +24,14 @@ const mock = vi.hoisted(() => ({
   refresh: vi.fn(),
   retry: vi.fn(),
   close: vi.fn(),
+  combine:
+    vi.fn<
+      (
+        input: RouterInputs["personCombine"]["combine"],
+      ) => Promise<RouterOutputs["personCombine"]["combine"]>
+    >(),
+  combinePreview: vi.fn(),
+  receipt: vi.fn(),
   permissions: ((): {
     data: { canLink: boolean; isHead: boolean } | undefined;
     error: Error | null;
@@ -39,13 +49,46 @@ vi.mock("~/trpc/react", async () => {
     api: {
       useUtils: () => ({
         tutorHistory: { preview: { fetch: mock.preview } },
-        admin: { tutors: { invalidate: mock.refresh } },
+        admin: {
+          tutors: { invalidate: mock.refresh },
+          accounts: { invalidate: mock.refresh },
+          accountDetails: { invalidate: mock.refresh },
+        },
         tuteeHistory: {
+          invalidate: mock.refresh,
           myTutorRecords: { invalidate: mock.refresh },
           myTutorDetails: { invalidate: mock.refresh },
         },
         historicalAcademics: { invalidate: mock.refresh },
+        personCombine: {
+          candidates: { invalidate: mock.refresh },
+          preview: { fetch: mock.combinePreview },
+          receipt: { fetch: mock.receipt },
+        },
       }),
+      personCombine: {
+        finalize: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+        candidates: {
+          useQuery: () => ({
+            data: [
+              {
+                ref: { kind: "TUTEE", id: "archive-tutee" },
+                name: "Original Archive",
+                status: "INACTIVE",
+                hasLogin: false,
+                email: null,
+                personId: null,
+              },
+            ],
+            isSuccess: true,
+            isFetching: false,
+          }),
+        },
+        combine: {
+          useMutation: (options: object) =>
+            useMutation({ mutationFn: mock.combine, ...options }),
+        },
+      },
       tutorHistory: {
         permissions: {
           useQuery: () => ({ ...mock.permissions, refetch: mock.retry }),
@@ -102,6 +145,32 @@ beforeEach(() => {
   mock.preview.mockResolvedValue(original());
   mock.link.mockResolvedValue({ ok: true });
   mock.refresh.mockResolvedValue(undefined);
+  mock.combine.mockReset();
+  mock.combinePreview.mockReset().mockResolvedValue({
+    fingerprint: "a".repeat(64),
+    sources: [
+      { ref: { kind: "TUTOR", id: "archive" }, name: "Original Archive" },
+      { ref: { kind: "TUTEE", id: "archive-tutee" }, name: "Original Archive" },
+    ],
+    accounts: [],
+    retainedUserId: null,
+    requiresHead: false,
+    alreadyTogether: false,
+    conflicts: [],
+    warnings: [],
+    canRetireLogins: false,
+    retireDuplicateLogins: false,
+    outcome: "GROUPED",
+    counts: { users: 0, tutors: 1, tutees: 1 },
+    authoritySummary: "Admin or Head",
+  });
+  mock.receipt.mockReset().mockResolvedValue({
+    ok: true,
+    personId: "person",
+    receiptId: "receipt",
+    outcome: "GROUPED",
+    retiredUserIds: [],
+  });
   client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -114,7 +183,12 @@ function Sibling({ pending }: { pending: boolean }) {
   const busy = useDialogPending(pending);
   return <button disabled={busy}>Sibling save</button>;
 }
-const ui = (locale = "en", siblingPending = false) => (
+const ui = (
+  locale = "en",
+  siblingPending = false,
+  unified = false,
+  historical = false,
+) => (
   <QueryClientProvider client={client}>
     <NextIntlClientProvider
       locale={locale}
@@ -122,11 +196,120 @@ const ui = (locale = "en", siblingPending = false) => (
     >
       <ProfileDialog title="Tutor editor" onClose={mock.close}>
         <Sibling pending={siblingPending} />
-        <TutorHistorySection tutorId="archive" />
+        <TutorHistorySection
+          tutorId="archive"
+          unified={unified}
+          historical={historical}
+        />
       </ProfileDialog>
     </NextIntlClientProvider>
   </QueryClientProvider>
 );
+
+it.each([true, false])(
+  "retains an exact historical-owner correction for Head only (head=%s)",
+  (head) => {
+    mock.permissions.data = { canLink: true, isHead: head };
+    render(ui("en", false, true, true));
+    expect(
+      screen.getByRole("button", { name: en.combineRecords.open }),
+    ).toBeTruthy();
+    expect(!!screen.queryByText(en.combineRecords.correctOwner)).toBe(head);
+  },
+);
+
+it("does not offer historical-owner correction for a current tutor profile", () => {
+  render(ui("en", false, true, false));
+  expect(screen.queryByText(en.combineRecords.correctOwner)).toBeNull();
+});
+
+it("retains an uncertain combination and its receipt reference across transient and denied parent permission reads", async () => {
+  mock.combine.mockRejectedValue(new Error("Connection interrupted"));
+  const view = render(ui("en", false, true, true));
+  const panel = () =>
+    within(
+      screen.getByRole("region", {
+        name: en.combineRecords.title,
+      }),
+    );
+  fireEvent.click(
+    panel().getByRole("button", { name: en.combineRecords.open }),
+  );
+  fireEvent.click(panel().getByRole("checkbox", { name: /archive-tutee/ }));
+  fireEvent.click(
+    panel().getByRole("button", { name: en.combineRecords.preview }),
+  );
+  await panel().findByRole("heading", { name: en.combineRecords.result });
+  fireEvent.change(panel().getByLabelText(en.combineRecords.evidence), {
+    target: { value: "Reviewed original participant evidence" },
+  });
+  fireEvent.click(panel().getByLabelText(en.combineRecords.acknowledge));
+  fireEvent.click(
+    panel().getByRole("button", { name: en.combineRecords.confirm }),
+  );
+  await panel().findByText(en.combineRecords.uncertain);
+  const operationId = mock.combine.mock.calls[0]![0].operationId;
+  mock.permissions.error = new Error("Temporary network error");
+  view.rerender(ui("en", false, true, true));
+  expect(panel().getByText(`Operation reference: ${operationId}`)).toBeTruthy();
+  expect(
+    panel().getByLabelText<HTMLTextAreaElement>(en.combineRecords.evidence)
+      .value,
+  ).toBe("Reviewed original participant evidence");
+  expect(
+    panel().getByRole<HTMLButtonElement>("button", {
+      name: en.combineRecords.checkOutcome,
+    }).disabled,
+  ).toBe(false);
+  expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("true");
+  mock.permissions.error = Object.assign(new Error("Forbidden"), {
+    data: { code: "FORBIDDEN" },
+  });
+  view.rerender(ui("en", false, true, true));
+  expect(panel().queryByRole("table")).toBeNull();
+  expect(panel().getByText(`Operation reference: ${operationId}`)).toBeTruthy();
+  mock.permissions.error = new Error("Still offline");
+  view.rerender(ui("en", false, true, true));
+  expect(panel().queryByRole("table")).toBeNull();
+  fireEvent.click(
+    panel().getByRole("button", { name: en.combineRecords.checkOutcome }),
+  );
+  await panel().findByText(en.combineRecords.saved);
+  expect(mock.receipt).toHaveBeenCalledWith({ operationId }, { staleTime: 0 });
+  expect(mock.combine).toHaveBeenCalledOnce();
+  await waitFor(() =>
+    expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false"),
+  );
+});
+
+it("preserves a Head correction draft during permission read failure and conceals it after Head authority is removed", async () => {
+  const view = render(ui("en", false, true, true));
+  const details = screen
+    .getByText(en.combineRecords.correctOwner, { selector: "summary" })
+    .closest("details")!;
+  details.open = true;
+  fireEvent(details, new Event("toggle"));
+  fireEvent.change(screen.getByLabelText(en.tutorHistory.evidence), {
+    target: { value: "Preserve this exact-owner correction draft" },
+  });
+  mock.permissions.error = new Error("Temporary permission read failure");
+  view.rerender(ui("en", false, true, true));
+  expect(
+    screen.getByLabelText<HTMLTextAreaElement>(en.tutorHistory.evidence).value,
+  ).toBe("Preserve this exact-owner correction draft");
+  expect(
+    screen.getByLabelText(en.tutorHistory.evidence).matches(":disabled"),
+  ).toBe(true);
+  mock.permissions.error = null;
+  mock.permissions.data = { canLink: true, isHead: false };
+  view.rerender(ui("en", false, true, true));
+  expect(screen.queryByLabelText(en.tutorHistory.evidence)).toBeNull();
+  mock.permissions.data = { canLink: true, isHead: true };
+  view.rerender(ui("en", false, true, true));
+  expect(
+    screen.getByLabelText<HTMLTextAreaElement>(en.tutorHistory.evidence).value,
+  ).toBe("Preserve this exact-owner correction draft");
+});
 async function open(locale = "en") {
   const copy = locale === "zh" ? zh.tutorHistory : en.tutorHistory;
   const summary = screen.getByText(copy.title, { selector: "summary" });
@@ -191,9 +374,9 @@ it("retains the draft through collapse, refresh errors and failed writes; new re
   fireEvent.click(screen.getByLabelText(copy.confirmIdentity));
   fireEvent.click(screen.getByRole("button", { name: copy.confirm }));
   await screen.findByText(copy.HISTORY_STALE);
-  expect(screen.getByLabelText<HTMLTextAreaElement>(copy.evidence).value).toContain(
-    "Original archive",
-  );
+  expect(
+    screen.getByLabelText<HTMLTextAreaElement>(copy.evidence).value,
+  ).toContain("Original archive");
   expect(screen.queryByRole("button", { name: copy.confirm })).toBeNull();
   const details = screen
     .getByText(copy.title, { selector: "summary" })
@@ -202,12 +385,14 @@ it("retains the draft through collapse, refresh errors and failed writes; new re
   fireEvent(details, new Event("toggle"));
   details.open = true;
   fireEvent(details, new Event("toggle"));
-  expect(screen.getByLabelText<HTMLTextAreaElement>(copy.evidence).value).toContain(
-    "Original archive",
-  );
+  expect(
+    screen.getByLabelText<HTMLTextAreaElement>(copy.evidence).value,
+  ).toContain("Original archive");
   fireEvent.click(screen.getByRole("button", { name: copy.preview }));
   await screen.findByLabelText(copy.confirmIdentity);
-  expect(screen.getByLabelText<HTMLInputElement>(copy.confirmIdentity).checked).toBe(false);
+  expect(
+    screen.getByLabelText<HTMLInputElement>(copy.confirmIdentity).checked,
+  ).toBe(false);
 });
 
 it.each(["current", "retained", "owned"])(

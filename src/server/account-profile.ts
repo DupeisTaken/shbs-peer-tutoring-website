@@ -10,6 +10,7 @@ import {
 } from "~/server/auth/username";
 import { TRPCError } from "@trpc/server";
 import { staleConflict } from "~/server/concurrency";
+import { syncAccountPerson } from "~/server/person-identity";
 import {
   inTransaction,
   lockEntity,
@@ -180,6 +181,9 @@ export async function updateAccountProfile(
           },
         });
     }
-    return updated;
+    // Signup, provisioning and current-profile relinking already converge here.
+    // Keep directory identity in sync without turning grouping into access.
+    const personId = await syncAccountPerson(tx, userId);
+    return { ...updated, personId };
   });
 }

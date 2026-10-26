@@ -205,7 +205,8 @@ All example accounts use `Password123!`. The identifiers below work at `/signin`
 | ------------------------- | ------------------------------------------------------------- | ---------------------- |
 | `admin`                   | HEAD; collective oversight, decisions and configuration       | `/admin/activity`      |
 | `manager@example.test`    | ADMIN; management review without a tutor identity             | `/admin`               |
-| `carol@example.edu`       | COORDINATOR and tutor; interview chair and approval proposals | `/dashboard`, `/admin` |
+| `chair@example.test`      | ADMIN and tutor; Alex Interview Chair, scheduling and decisions | `/dashboard`, `/admin` |
+| `carol@example.edu`       | COORDINATOR and tutor; approval proposals                      | `/dashboard`, `/admin` |
 | `alice@example.edu`       | Active tutor; attendance, assignments, hours, panel voting    | `/dashboard`           |
 | `crew@example.edu`        | Crew-only member; room patrol and membership                  | `/patrol`              |
 | `iris@example.edu`        | Tutor with crew membership                                    | `/patrol`              |
@@ -219,7 +220,7 @@ All example accounts use `Password123!`. The identifiers below work at `/signin`
 | `parent@example.edu`      | Ordinary viewer                                               | `/`                    |
 | `viewer2@example.edu`     | Suspended viewer with account appeal                          | `/`                    |
 
-The database also includes unverified survey demand before account creation, disqualification history, exact policy acceptance snapshots, school-calendar overrides, active/inactive membership, pending and resolved removals, future meetings, valid qualified interview panels, notifications, private messages, registration codes, custom pages and historical service-hour reports. The Fiona panel has a coordinator chair and a completed interview; Hana demonstrates a tied vote resolved by that chair. Bundled policy text still needs school review before publication.
+The database also includes unverified survey demand before account creation, disqualification history, exact policy acceptance snapshots, school-calendar overrides, active/inactive membership, pending and resolved removals, future meetings, valid qualified interview panels, notifications, private messages, registration codes, custom pages and historical service-hour reports. The Fiona panel has Admin tutor Alex Interview Chair and a completed interview; Hana demonstrates a tied vote resolved by that chair. Carol remains a Coordinator for approval workflows. Bundled policy text still needs school review before publication.
 
 Seeded survey tokens are deliberately unusable: request a new email link through the form. Local email capture is required to rehearse verification and recovery without delivering real email. Never enable a public mail-capture endpoint on a deployed site. Create coordinator proposals through the interface so their immutable target snapshots reflect the database at submission time.
 
@@ -246,7 +247,7 @@ Try the public forms (no login required):
 - **Student signup** at `/signup` collects the full application and policy agreement and reserves a survey timestamp before account verification. The request queue (`/admin/requests`) tracks verified and unverified demand. Enter the captured mailbox verification code, or explicitly confirm the existing local email link, to open the invitation receipt popup. Continue to `/register` for prefilled account/access review; issuing or displaying the invitation alone does not create credentials or confirm participation. Assignment starts a fixed verification deadline if demand is still unverified; retries preserve the original submission priority and policy evidence.
 - **Viewer signup** at `/viewer-signup` collects identity, affiliation and email, verifies the captured mailbox code, then opens the same receipt popup with copy, optional email delivery and a prefilled invitation link. Existing accounts take the LOGIN path with unchanged credentials and access. Keep synthetic mail and browser proofs in ignored evidence.
 - **Invitation entry** at `/register` is a single code card with Continue. Rehearse a five-character staff key containing letters and numbers, a displayed invitation code without browser proof and a verified-browser popup handoff. **Add access** in the account menu and Account Settings opens this same entry for signed-in accounts; entering a code alone makes no access write.
-- **Tutor application** at `/tutor-signup` starts recruitment. Assign at least three active tutor accounts, a highest-ranking management chair, and explicit subject qualification coverage. Every panelist votes; the majority determines the outcome and the chair breaks ties. A non-Head chair's initial-application decision requires Head approval.
+- **Tutor application** at `/tutor-signup` starts recruitment. Assign at least three active tutor accounts, an Admin or Head chair, and explicit subject qualification coverage. The selected chair need not outrank other panelists; a Coordinator may participate and vote but cannot chair. Every panelist votes; the majority determines the outcome and the chair breaks ties. The chair's approval includes actual duration/attendance and immediately applies hours, initial registration setup and Admin/Head notification. An Admin chair's initial-application rejection retains Head review.
 - **Crew application** at `/crew-signup` stages details and sends a captured mailbox code. Verify it to create a pending application; no credentials or Crew membership exist yet. Approve the synthetic applicant through `/admin/crew`, then use the public page's existing-application check and fresh mailbox code to retrieve the shared receipt. Continue to `/register` and review a new account or additive Crew access for an existing tutor. Check pending/rejected status, a revoked/expired/used grant, disabled Crew, resend proof invalidation and original-answer retry preservation. Keep staff approval separate from mailbox proof and account review.
 - **History-only access** starts from a staff-reviewed historical tutee invitation at `/history/claim`. Rehearse with synthetic archive records: send the invitation in the roster editor, verify a separate email code, inspect the receipt popup, test copy/optional mail/prefilled continuation to `/register`, create missing credentials and explicitly claim the record after sign-in. Closing or showing the popup does not claim ownership. No current enrollment or policy acceptance is needed. Keep development email tokens/codes in ignored local logs, never public evidence.
 
@@ -404,11 +405,23 @@ Historical tutor linking uses `src/server/tutor-history.test.ts` and
 historical-academic, registration and roster-editor regressions when changing its
 ownership boundary. Apply `20261007010000_tutor_history_ownership` to the isolated
 database first. On the running site, check **Tutors → Show past tutors → Edit Profile →
-Link Historical Records**, then verify **My Tutoring History** with the target login.
+Combine Records**, then verify **My Tutoring History** with the target login.
 Cover Admin/Head linking, Coordinator denial, a competing current login, retained-owner
 correction, several archives alongside a current tutor, and unchanged stored hours.
 Use EN/ZH at 1440/390 px and enlarged text; verify native selector names and actual
 control heights as well as pending/error recovery in the component tests.
+
+Canonical grouping and its migration are covered by `src/server/person-combine.test.ts`
+and `src/server/person-identity-migration.test.ts`. The migration suite executes the
+committed SQL over populated, transaction-local schemas, checking explicit-link
+backfill, preserved source evidence, unresolved logins and atomic rejection of
+invalid ownership. It always rolls back; use the isolated test database above.
+Keep `Person.primaryUserId`'s restrictive foreign key in production. Narrow fixtures
+that delete their own accounts must release only their own primary references and
+remove only exclusive, unused identity metadata; never truncate unrelated people.
+Profile-editor fixtures must provide the real grouping child's disabled candidate
+query and read-recovery utilities even while its section is closed. Opening or
+closing a review must not submit a combination.
 
 ## 6. Smoke-test the production Docker stack (optional)
 

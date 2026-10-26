@@ -1,4 +1,6 @@
+import { TRPCError } from "@trpc/server";
 import { requireSchoolParticipation } from "~/server/school-departure";
+import { TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE } from "~/lib/tutor-promotion";
 import {
   assertRequestProcessable,
   lockApplicationReview,
@@ -7,6 +9,7 @@ import { assertPrimaryName } from "~/server/program/profile-policy";
 import { ensureNameFallbackForRole } from "~/server/program/name-fields";
 import { initializeAccountAcademics } from "~/server/academics";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
+import { initializePersonSource } from "~/server/person-source-initialization";
 import {
   lockAccountProfile,
   updateAccountProfile,
@@ -14,19 +17,25 @@ import {
 /**
  * Promote an accepted tutor applicant into a roster Tutor + a registration invite.
  *
- * Called when an application transitions to ACCEPTED (by the head's interview decision or by an
- * admin). It creates (or reactivates) the Tutor record and issues a single-use registration code
+ * Called when an initial application is accepted by an eligible Admin/Head chair or an
+ * authorized management decision. It creates (or reactivates) the Tutor record and issues a code
  * bound to the applicant's email — which they redeem at /register to self-create a verified login
  * (set their own password, confirm their email). The code is surfaced on the admin "Registration
  * codes" menu for the team to hand out; it is NOT auto-emailed.
  *
  * Idempotent by email (a returning applicant is reactivated, not duplicated) and by application
  * (an outstanding code isn't re-issued). Requires an application email.
+ * Account restrictions are independent of application approval: only explicit Head restoration
+ * may restore revoked existing membership, including when Head is the accepting interviewer.
  *
  * Node runtime only.
  */
 import { db } from "~/server/db";
-import { inTransaction, type TransactionDb } from "~/server/transactions";
+import {
+  inTransaction,
+  lockEntity,
+  type TransactionDb,
+} from "~/server/transactions";
 import { issueRegistrationCode } from "~/server/auth/registration";
 import {
   defaultUsername,
@@ -35,6 +44,23 @@ import {
   lockUsernameNamespace,
   splitDisplayName,
 } from "~/server/auth/username";
+
+const promotionAccountSelect = {
+  id: true,
+  name: true,
+  legacyName: true,
+  firstName: true,
+  lastName: true,
+  preferredName: true,
+  alternativeNames: true,
+  tutorId: true,
+  role: true,
+  emailVerifiedAt: true,
+  username: true,
+  tutorAccessRevoked: true,
+  suspendedAt: true,
+  mergedIntoId: true,
+} as const;
 
 export async function promoteApplicantToTutor(
   applicationId: string,
@@ -62,26 +88,130 @@ export async function promoteApplicantToTutor(
     const email = app.email?.trim() ? app.email.trim().toLowerCase() : null;
     if (!email) return; // applications always capture an email; nothing to bind a code to otherwise
 
+    // The primary email is the existing matching rule; a linked roster owner is
+    // also authoritative even when legacy contact mirrors disagree. Discover only
+    // lock targets here, then reread their identity and restrictions under locks.
+    const emailAccount = await db.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    const candidateTutor = await db.tutor.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    const candidateOwner = candidateTutor
+      ? await db.user.findUnique({
+          where: { tutorId: candidateTutor.id },
+          select: { id: true },
+        })
+      : null;
+    // Preserve negative evidence from verified aliases, legacy email case, and
+    // retained roster ownership. These matches can refuse admission; they never
+    // authorize a new identity link or replace the primary-email matching rule.
+    const findRestrictionOwners = (tutorId: string | undefined) =>
+      db.user.findMany({
+        where: {
+          OR: [
+            { email: { equals: email, mode: "insensitive" } },
+            {
+              emails: {
+                some: {
+                  email: { equals: email, mode: "insensitive" },
+                  verifiedAt: { not: null },
+                },
+              },
+            },
+            ...(tutorId
+              ? [{ tutorId }, { retainedTutorProfiles: { some: { tutorId } } }]
+              : []),
+          ],
+        },
+        select: promotionAccountSelect,
+        orderBy: { id: "asc" },
+      });
+    const candidateRestrictionOwners = await findRestrictionOwners(
+      candidateTutor?.id,
+    );
+    const accountIds = [
+      ...new Set(
+        [
+          emailAccount?.id,
+          candidateOwner?.id,
+          ...candidateRestrictionOwners.map((account) => account.id),
+        ].filter((id): id is string => !!id),
+      ),
+    ].sort();
+    for (const id of accountIds) await lockAccountProfile(db, id);
+    if (candidateTutor) {
+      // Match historical-academic writers: account/User locks precede the roster
+      // advisory and row locks. The namespace's persistent tuple fence above also
+      // rejects a stale Serializable snapshot before it can authorize a grant.
+      await lockEntity(db, `tutor:${candidateTutor.id}`);
+      await db.$queryRaw`SELECT id FROM "Tutor" WHERE id = ${candidateTutor.id} FOR NO KEY UPDATE`;
+    }
     const hasLogin = await db.user.findUnique({
       where: { email },
-      select: {
-        id: true,
-        name: true,
-        legacyName: true,
-        firstName: true,
-        lastName: true,
-        preferredName: true,
-        alternativeNames: true,
-        tutorId: true,
-        role: true,
-        emailVerifiedAt: true,
-        username: true,
-      },
+      select: promotionAccountSelect,
     });
-    if (hasLogin) {
-      await lockAccountProfile(db, hasLogin.id);
-      await requireSchoolParticipation(db, hasLogin.id);
+    const existing = await db.tutor.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    const rosterOwner = existing
+      ? await db.user.findUnique({
+          where: { tutorId: existing.id },
+          select: promotionAccountSelect,
+        })
+      : null;
+    const restrictionOwners = await findRestrictionOwners(existing?.id);
+    if (
+      hasLogin?.id !== emailAccount?.id ||
+      existing?.id !== candidateTutor?.id ||
+      rosterOwner?.id !== candidateOwner?.id ||
+      restrictionOwners.length !== candidateRestrictionOwners.length ||
+      restrictionOwners.some(
+        (account, index) =>
+          account.id !== candidateRestrictionOwners[index]?.id,
+      )
+    )
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "Applicant account linkage changed. Reload before approving.",
+      });
+    for (const account of restrictionOwners) {
+      if (account.mergedIntoId)
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "This login was combined into another account. Ask Head to review the surviving account before approving.",
+        });
+      if (account.suspendedAt)
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Account access is suspended. Ask Head to review the account before approving tutoring.",
+        });
+      // Historical-only setup also sets this flag without granting membership.
+      // Match registration: a retained current tutor link distinguishes revoked
+      // membership from an account that can still receive its first admission.
+      if (account.tutorId && account.tutorAccessRevoked)
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE,
+        });
+      await requireSchoolParticipation(db, account.id);
     }
+    if (hasLogin?.tutorId && hasLogin.tutorId !== existing?.id)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "Account already belongs to another tutor.",
+      });
+    if (rosterOwner && rosterOwner.id !== hasLogin?.id)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message:
+          "Account and tutor ownership differ. Ask Head to review the account linkage before approving.",
+      });
 
     // A verified account already owns its name; a historical application cannot
     // replace it when participation is granted. Unlinked applicants establish a new name.
@@ -97,10 +227,6 @@ export async function promoteApplicantToTutor(
     );
 
     // Resolve (or create) the Tutor record — reactivated if one already exists for this email.
-    const existing = await db.tutor.findUnique({
-      where: { email },
-      select: { id: true },
-    });
     let tutorId: string;
     if (existing) {
       await preserveHistoricalAcademics(db, "TUTOR", existing.id);
@@ -122,6 +248,9 @@ export async function promoteApplicantToTutor(
       });
       const tutor = await db.tutor.create({
         data: {
+          // Accepted accountless applicants still need a standalone directory
+          // identity; this does not redeem their invitation or create a login.
+          personId: (await db.person.create({ data: {} })).id,
           firstName: hasLogin?.emailVerifiedAt
             ? hasLogin.firstName
             : app.firstName,
@@ -144,6 +273,9 @@ export async function promoteApplicantToTutor(
       tutorId = tutor.id;
     }
 
+    // Older accountless roster rows can predate directory identities. This
+    // initializes metadata only, preserving the application's access decision.
+    await initializePersonSource(db, { kind: "TUTOR", id: tutorId });
     await db.tutorApplication.update({
       where: { id: applicationId },
       data: { promotedTutorId: tutorId },
@@ -151,15 +283,15 @@ export async function promoteApplicantToTutor(
     // Only a verified existing identity can receive the capability without another email challenge.
     if (hasLogin?.emailVerifiedAt) {
       // A verified existing account acquires the capability without receiving new credentials.
-      if (hasLogin.tutorId && hasLogin.tutorId !== tutorId)
-        throw new Error("Account already belongs to another tutor.");
       if (["STUDENT", "VIEWER", "CREW"].includes(hasLogin.role))
         await ensureNameFallbackForRole(db, hasLogin.id, "TUTOR");
       await db.user.update({
         where: { id: hasLogin.id },
         data: {
           tutorId,
-          tutorAccessRevoked: false,
+          // Initialize first membership only. Linked membership passed the
+          // authoritative guard above and never has its Head restriction reset.
+          ...(!hasLogin.tutorId ? { tutorAccessRevoked: false } : {}),
           ...(hasLogin.role === "STUDENT" ||
           hasLogin.role === "VIEWER" ||
           hasLogin.role === "CREW"

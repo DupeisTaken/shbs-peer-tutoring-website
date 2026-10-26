@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { Button } from "./ui/button";
@@ -14,13 +14,47 @@ import {
 import { useDialogPending } from "./ui/modal";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { settleRefreshes } from "~/lib/settle-refreshes";
+import { CombineRecords } from "./combine-records";
+import { HistoricalRecordInvitation } from "./historical-record-invitation";
 
 /** The disclosure owns its permission recovery; absent authority never silently
  * looks like an unsupported archive. Retained lifetime preserves unfinished review. */
-export function TutorHistorySection({ tutorId }: { tutorId: string }) {
+export function TutorHistorySection({
+  tutorId,
+  name,
+  unified = false,
+  historical = false,
+}: {
+  tutorId: string;
+  name?: string;
+  unified?: boolean;
+  historical?: boolean;
+}) {
   const t = useTranslations("tutorHistory");
+  const combineText = useTranslations("combineRecords");
   const common = useTranslations("uiPatterns");
   const permissions = api.tutorHistory.permissions.useQuery();
+  const [hadAccess, setHadAccess] = useState(false);
+  const [hadHeadAccess, setHadHeadAccess] = useState(false);
+  const [denialLatched, setDenialLatched] = useState(false);
+  const denied =
+    permissions.data?.canLink === false ||
+    ["FORBIDDEN", "UNAUTHORIZED"].includes(permissions.error?.data?.code ?? "");
+  useEffect(() => {
+    if (permissions.data?.canLink) setHadAccess(true);
+    if (permissions.data?.canLink && permissions.data.isHead)
+      setHadHeadAccess(true);
+    if (denied) setDenialLatched(true);
+    else if (
+      permissions.data?.canLink &&
+      !permissions.error &&
+      !permissions.isFetching
+    )
+      setDenialLatched(false);
+  }, [denied, permissions.data, permissions.error, permissions.isFetching]);
+  // Keep accepted/uncertain operations and correction drafts alive when the
+  // permission reader refreshes. Denial conceals evidence without losing receipts.
+  const concealed = denied || denialLatched;
   return (
     <section className="mt-5 border-t border-slate-200 pt-4">
       {permissions.error && (
@@ -40,7 +74,44 @@ export function TutorHistorySection({ tutorId }: { tutorId: string }) {
       {!permissions.data && !permissions.error && (
         <StatePanel kind="loading" title={t("loading")} />
       )}
-      {permissions.data?.canLink && (
+      {(permissions.data?.canLink === true || hadAccess) && unified && (
+        <CombineRecords
+          isHead={permissions.data?.isHead ?? false}
+          unavailable={!!permissions.error}
+          accessDenied={concealed}
+          initialSource={{ kind: "TUTOR", id: tutorId, name: name ?? tutorId }}
+        />
+      )}
+      {/* Correcting one mistaken owner must not identify two unrelated people. */}
+      {unified && historical && (permissions.data?.canLink === true || hadAccess) && (
+        <DisclosureSection title={combineText("historySetup")} lifetime="retained">
+          <HistoricalRecordInvitation
+            sources={[{ kind: "TUTOR", id: tutorId }]}
+            unavailable={!!permissions.error}
+            accessDenied={concealed}
+          />
+        </DisclosureSection>
+      )}
+      {unified &&
+        historical &&
+        ((permissions.data?.canLink === true && permissions.data.isHead) ||
+          hadHeadAccess) && (
+          <DisclosureSection
+            title={combineText("correctOwner")}
+            lifetime="retained"
+          >
+            <p className="muted mb-4 text-sm">
+              {combineText("correctOwnerHelp")}
+            </p>
+            <TutorHistoryLinkForm
+              tutorId={tutorId}
+              isHead={permissions.data?.isHead ?? false}
+              unavailable={!!permissions.error}
+              accessDenied={concealed || !permissions.data?.isHead}
+            />
+          </DisclosureSection>
+        )}
+      {permissions.data?.canLink && !unified && (
         <DisclosureSection title={t("title")} lifetime="retained">
           <TutorHistoryLinkForm
             tutorId={tutorId}
@@ -57,10 +128,12 @@ export function TutorHistoryLinkForm({
   tutorId,
   isHead,
   unavailable = false,
+  accessDenied = false,
 }: {
   tutorId: string;
   isHead: boolean;
   unavailable?: boolean;
+  accessDenied?: boolean;
 }) {
   const t = useTranslations("tutorHistory");
   const common = useTranslations("uiPatterns");
@@ -99,6 +172,8 @@ export function TutorHistoryLinkForm({
     try {
       await settleRefreshes([
         () => invalidateAndReport(utils.admin.tutors),
+        () => invalidateAndReport(utils.admin.accounts),
+        () => invalidateAndReport(utils.admin.accountDetails),
         () => invalidateAndReport(utils.tuteeHistory.myTutorRecords),
         () => invalidateAndReport(utils.tuteeHistory.myTutorDetails),
         () => invalidateAndReport(utils.historicalAcademics),
@@ -127,7 +202,7 @@ export function TutorHistoryLinkForm({
   });
   // Register owned work only; the aggregate disables this form during sibling saves.
   const busy = useDialogPending(link.isPending || syncing);
-  const disabled = busy || reviewing || unavailable || saved;
+  const disabled = busy || reviewing || unavailable || accessDenied || saved;
   const errorText = (message: string) =>
     t.has(message) ? t(message) : t("failed");
   return (
@@ -150,233 +225,243 @@ export function TutorHistoryLinkForm({
           {t("refreshFailed")}
         </InlineNotice>
       )}
-      <FormSection
-        title={t("existingAccount")}
-        description={t("help")}
-        disabled={disabled}
-      >
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (
-              disabled ||
-              submitting.current ||
-              reviewingRef.current ||
-              search.trim().length < 2
-            )
-              return;
-            setQuery(search.trim());
-            setUserId("");
-            resetReview();
-          }}
+      {accessDenied ? (
+        <StatePanel kind="denied" title={t("HISTORY_HEAD_REQUIRED")} />
+      ) : (
+        <FormSection
+          title={t("existingAccount")}
+          description={t("help")}
+          disabled={disabled}
         >
-          <label className="min-w-0 flex-1">
-            <span className="label">{t("searchAccount")}</span>
-            <input
-              className="input min-h-11 w-full lg:min-h-10"
-              value={search}
-              maxLength={100}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
-          <Button type="submit" disabled={search.trim().length < 2}>
-            {t("search")}
-          </Button>
-        </form>
-        {query && candidates.isFetching && !candidates.data && (
-          <StatePanel kind="loading" title={t("loading")} />
-        )}
-        {candidates.error && (
-          <StatePanel
-            kind="error"
-            title={common("loadFailed")}
-            action={
-              <Button
-                disabled={candidates.isFetching}
-                onClick={() => void candidates.refetch()}
-              >
-                {common("retry")}
-              </Button>
-            }
-          />
-        )}
-        {query && candidates.data?.length === 0 && (
-          <StatePanel kind="empty" title={t("noAccounts")} />
-        )}
-        <label className="block">
-          <span id={accountLabelId} className="label">
-            {t("chooseAccount")}
-          </span>
-          <select
-            aria-labelledby={accountLabelId}
-            className="input min-h-11 w-full lg:min-h-10"
-            value={userId}
-            disabled={!candidates.data?.length || !!candidates.error}
-            onChange={(event) => {
-              setUserId(event.target.value);
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (
+                disabled ||
+                submitting.current ||
+                reviewingRef.current ||
+                search.trim().length < 2
+              )
+                return;
+              setQuery(search.trim());
+              setUserId("");
               resetReview();
             }}
           >
-            <option value="">{t("chooseAccount")}</option>
-            {candidates.data?.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.name ?? account.username ?? account.email} ·{" "}
-                {account.email}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="label">{t("evidence")}</span>
-          <textarea
-            className="input w-full"
-            rows={3}
-            value={reason}
-            minLength={10}
-            maxLength={1000}
-            onChange={(event) => {
-              setReason(event.target.value);
+            <label className="min-w-0 flex-1">
+              <span className="label">{t("searchAccount")}</span>
+              <input
+                className="input min-h-11 w-full lg:min-h-10"
+                value={search}
+                maxLength={100}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
+            <Button type="submit" disabled={search.trim().length < 2}>
+              {t("search")}
+            </Button>
+          </form>
+          {query && candidates.isFetching && !candidates.data && (
+            <StatePanel kind="loading" title={t("loading")} />
+          )}
+          {candidates.error && (
+            <StatePanel
+              kind="error"
+              title={common("loadFailed")}
+              action={
+                <Button
+                  disabled={candidates.isFetching}
+                  onClick={() => void candidates.refetch()}
+                >
+                  {common("retry")}
+                </Button>
+              }
+            />
+          )}
+          {query && candidates.data?.length === 0 && (
+            <StatePanel kind="empty" title={t("noAccounts")} />
+          )}
+          <label className="block">
+            <span id={accountLabelId} className="label">
+              {t("chooseAccount")}
+            </span>
+            <select
+              aria-labelledby={accountLabelId}
+              className="input min-h-11 w-full lg:min-h-10"
+              value={userId}
+              disabled={!candidates.data?.length || !!candidates.error}
+              onChange={(event) => {
+                setUserId(event.target.value);
+                resetReview();
+              }}
+            >
+              <option value="">{t("chooseAccount")}</option>
+              {candidates.data?.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name ?? account.username ?? account.email} ·{" "}
+                  {account.email}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="label">{t("evidence")}</span>
+            <textarea
+              className="input w-full"
+              rows={3}
+              value={reason}
+              minLength={10}
+              maxLength={1000}
+              onChange={(event) => {
+                setReason(event.target.value);
+                resetReview();
+              }}
+            />
+          </label>
+          <Button
+            disabled={
+              !userId || reason.trim().length < 10 || !!candidates.error
+            }
+            onClick={() => {
+              if (
+                disabled ||
+                submitting.current ||
+                reviewingRef.current ||
+                committed.current
+              )
+                return;
+              reviewingRef.current = true;
+              setReviewing(true);
               resetReview();
+              void utils.tutorHistory.preview
+                .fetch({ tutorId, userId })
+                .then(setPreview)
+                .catch((failure: unknown) => {
+                  setError(
+                    failure instanceof Error ? failure.message : "failed",
+                  );
+                })
+                .finally(() => {
+                  reviewingRef.current = false;
+                  setReviewing(false);
+                });
             }}
-          />
-        </label>
-        <Button
-          disabled={!userId || reason.trim().length < 10 || !!candidates.error}
-          onClick={() => {
-            if (
-              disabled ||
-              submitting.current ||
-              reviewingRef.current ||
-              committed.current
-            )
-              return;
-            reviewingRef.current = true;
-            setReviewing(true);
-            resetReview();
-            void utils.tutorHistory.preview
-              .fetch({ tutorId, userId })
-              .then(setPreview)
-              .catch((failure: unknown) => {
-                setError(failure instanceof Error ? failure.message : "failed");
-              })
-              .finally(() => {
-                reviewingRef.current = false;
-                setReviewing(false);
-              });
-          }}
-        >
-          {t("preview")}
-        </Button>
-        {preview && (
-          <ChangeReview
-            title={t("reviewTitle")}
-            evidence={
-              <div className="space-y-2 break-words">
-                <p>
-                  {t("summary", {
-                    name: preview.record.name,
-                    account: preview.account.email,
-                  })}
-                </p>
-                <p className="muted text-sm">
-                  {t("counts", {
-                    sessions: preview.record.counts.sessions,
-                    meetings: preview.record.counts.meetingAttendances,
-                    amendments: preview.record.counts.adjustments,
-                  })}
-                </p>
-                {preview.previousOwner && (
-                  <p className="text-sm">
-                    {t("previousOwner", {
-                      account: preview.previousOwner.email,
+          >
+            {t("preview")}
+          </Button>
+          {preview && (
+            <ChangeReview
+              title={t("reviewTitle")}
+              evidence={
+                <div className="space-y-2 break-words">
+                  <p>
+                    {t("summary", {
+                      name: preview.record.name,
+                      account: preview.account.email,
                     })}
                   </p>
-                )}
-              </div>
-            }
-            consequences={<p className="muted text-sm">{t("help")}</p>}
-            acknowledgement={
-              !preview.currentConflict &&
-              !preview.alreadyLinked &&
-              (!preview.conflict || isHead) && (
-                <>
-                  {preview.conflict && (
-                    <>
-                      <InlineNotice tone="warning">
-                        {t("headCorrection")}
-                      </InlineNotice>
-                      <label className="block">
-                        <span className="label">{t("password")}</span>
-                        <input
-                          className="input min-h-11 w-full lg:min-h-10"
-                          type="password"
-                          autoComplete="current-password"
-                          maxLength={1024}
-                          value={password}
-                          onChange={(event) => setPassword(event.target.value)}
-                        />
-                      </label>
-                    </>
+                  <p className="muted text-sm">
+                    {t("counts", {
+                      sessions: preview.record.counts.sessions,
+                      meetings: preview.record.counts.meetingAttendances,
+                      amendments: preview.record.counts.adjustments,
+                    })}
+                  </p>
+                  {preview.previousOwner && (
+                    <p className="text-sm">
+                      {t("previousOwner", {
+                        account: preview.previousOwner.email,
+                      })}
+                    </p>
                   )}
-                  <label className="flex min-h-11 items-center gap-3 text-sm">
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5 shrink-0"
-                      checked={acknowledged}
-                      onChange={(event) =>
-                        setAcknowledged(event.target.checked)
-                      }
-                    />
-                    {t("confirmIdentity")}
-                  </label>
-                </>
-              )
-            }
-            actions={
-              preview.currentConflict ? (
-                <InlineNotice tone="warning">
-                  {t("HISTORY_USE_MERGE")}
-                </InlineNotice>
-              ) : preview.alreadyLinked ? (
-                <InlineNotice>{t("alreadyLinked")}</InlineNotice>
-              ) : preview.conflict && !isHead ? (
-                <InlineNotice tone="warning">
-                  {t("HISTORY_HEAD_REQUIRED")}
-                </InlineNotice>
-              ) : (
-                <Button
-                  variant="primary"
-                  disabled={!acknowledged || (preview.conflict && !password)}
-                  onClick={() => {
-                    if (
-                      disabled ||
-                      submitting.current ||
-                      committed.current ||
-                      !acknowledged
-                    )
-                      return;
-                    submitting.current = true;
-                    link.mutate({
-                      tutorId,
-                      userId,
-                      fingerprint: preview.fingerprint,
-                      reason,
-                      acknowledged: true,
-                      ...(preview.conflict
-                        ? { confirmPassword: password }
-                        : {}),
-                    });
-                  }}
-                >
-                  {t("confirm")}
-                </Button>
-              )
-            }
-          />
-        )}
-      </FormSection>
-      {error && (
+                </div>
+              }
+              consequences={<p className="muted text-sm">{t("help")}</p>}
+              acknowledgement={
+                !preview.currentConflict &&
+                !preview.alreadyLinked &&
+                (!preview.conflict || isHead) && (
+                  <>
+                    {preview.conflict && (
+                      <>
+                        <InlineNotice tone="warning">
+                          {t("headCorrection")}
+                        </InlineNotice>
+                        <label className="block">
+                          <span className="label">{t("password")}</span>
+                          <input
+                            className="input min-h-11 w-full lg:min-h-10"
+                            type="password"
+                            autoComplete="current-password"
+                            maxLength={1024}
+                            value={password}
+                            onChange={(event) =>
+                              setPassword(event.target.value)
+                            }
+                          />
+                        </label>
+                      </>
+                    )}
+                    <label className="flex min-h-11 items-center gap-3 text-sm">
+                      <input
+                        type="checkbox"
+                        className="h-5 w-5 shrink-0"
+                        checked={acknowledged}
+                        onChange={(event) =>
+                          setAcknowledged(event.target.checked)
+                        }
+                      />
+                      {t("confirmIdentity")}
+                    </label>
+                  </>
+                )
+              }
+              actions={
+                preview.currentConflict ? (
+                  <InlineNotice tone="warning">
+                    {t("HISTORY_USE_MERGE")}
+                  </InlineNotice>
+                ) : preview.alreadyLinked ? (
+                  <InlineNotice>{t("alreadyLinked")}</InlineNotice>
+                ) : preview.conflict && !isHead ? (
+                  <InlineNotice tone="warning">
+                    {t("HISTORY_HEAD_REQUIRED")}
+                  </InlineNotice>
+                ) : (
+                  <Button
+                    variant="primary"
+                    disabled={!acknowledged || (preview.conflict && !password)}
+                    onClick={() => {
+                      if (
+                        disabled ||
+                        submitting.current ||
+                        committed.current ||
+                        !acknowledged
+                      )
+                        return;
+                      submitting.current = true;
+                      link.mutate({
+                        tutorId,
+                        userId,
+                        fingerprint: preview.fingerprint,
+                        reason,
+                        acknowledged: true,
+                        ...(preview.conflict
+                          ? { confirmPassword: password }
+                          : {}),
+                      });
+                    }}
+                  >
+                    {t("confirm")}
+                  </Button>
+                )
+              }
+            />
+          )}
+        </FormSection>
+      )}
+      {!accessDenied && error && (
         <InlineNotice tone="error" announcement="alert">
           {errorText(error)}
         </InlineNotice>

@@ -5,7 +5,8 @@ import { db } from "./db";
 import { createCaller } from "./api/root";
 import { hashPassword } from "./auth/password";
 import { previewTutorHistory, linkTutorHistory } from "./tutor-history";
-import { previewCombine } from "./combine-accounts";
+import { previewPersonCombine } from "./person-combine";
+import { reviewedLoginRetirement } from "~/test/person-combine-fixture";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -153,6 +154,85 @@ const evidence = async () => ({
   amendment: await db.serviceHourAdjustment.findMany(),
 });
 
+it("summarizes original stored tutoring evidence once per owned record, even with overlapping ownership paths", async () => {
+  await caller().tutorHistory.link(await input());
+  await db.user.update({
+    where: { id: "owner" },
+    data: { tutorId: "archive" },
+  });
+  await db.tutor.update({
+    where: { id: "past" },
+    data: { englishName: "Original Archive Name" },
+  });
+  await caller().tutorHistory.link(await input("owner", "past"));
+  const before = await evidence();
+  const rows = await caller("owner", "STUDENT").tuteeHistory.myTutorRecords();
+  expect(rows).toHaveLength(2);
+  expect(rows.find((row) => row.id === "archive")).toMatchObject({
+    sessionCount: 1,
+    meetingCount: 1,
+    amendmentCount: 1,
+    storedSessionHours: 2,
+    periods: ["24-25 Q1"],
+    firstSessionDate: new Date("2024-10-01"),
+    lastSessionDate: new Date("2024-10-01"),
+  });
+  expect(rows.find((row) => row.id === "past")).toMatchObject({
+    sessionCount: 0,
+    meetingCount: 0,
+    amendmentCount: 0,
+    storedSessionHours: 0,
+    periods: [],
+    firstSessionDate: null,
+    lastSessionDate: null,
+  });
+  // Stored credit is two hours despite a thirty-minute duration; reads preserve it.
+  expect(await evidence()).toEqual(before);
+});
+
+it("pages sessions independently without skipping meeting or adjustment evidence", async () => {
+  await caller().tutorHistory.link(await input());
+  await db.session.createMany({
+    data: Array.from({ length: 50 }, (_, index) => {
+      const date = new Date(Date.UTC(2024, 9, index + 2));
+      return {
+        id: `extra-session-${index}`,
+        tutorId: "archive",
+        pairingId: "pair",
+        date,
+        startMin: 600,
+        endMin: 630,
+        durationMin: 30,
+        shCount: 0,
+        shFactor: 0,
+        month: date.toISOString().slice(0, 7),
+        schoolYear: "24-25",
+        quarter: "Q1" as const,
+      };
+    }),
+  });
+  const result = await caller("owner", "STUDENT").tuteeHistory.myTutorDetails({
+    tutorId: "archive",
+    page: 1,
+    meetingPage: 0,
+    amendmentPage: 0,
+  });
+  expect(result.record).toEqual({
+    id: "archive",
+    englishName: "Original Archive Name",
+  });
+  expect(result.counts).toEqual({ sessions: 51, meetings: 1, amendments: 1 });
+  expect(result.periods).toEqual(["24-25 Q1"]);
+  expect(result.firstSessionDate).toEqual(new Date("2024-10-01"));
+  expect(result.lastSessionDate).toEqual(new Date("2024-11-20"));
+  expect(result.sessions).toHaveLength(1);
+  expect(result.meetings).toHaveLength(1);
+  expect(result.amendments).toHaveLength(1);
+  expect(result.sessionMore || result.meetingMore || result.amendmentMore).toBe(
+    false,
+  );
+});
+
 it("links multiple histories beside a current tutor without changing identity, membership, departure or evidence", async () => {
   await db.user.update({
     where: { id: "owner" },
@@ -173,8 +253,20 @@ it("links multiple histories beside a current tutor without changing identity, m
   });
   await caller("admin", "ADMIN").tutorHistory.link(await input());
   await caller().tutorHistory.link(await input("owner", "past"));
-  expect(await evidence()).toEqual(before);
-  expect(await db.user.findUnique({ where: { id: "owner" } })).toEqual(account);
+  const after = await evidence();
+  const linkedAccount = await db.user.findUniqueOrThrow({
+    where: { id: "owner" },
+  });
+  // Directory metadata is allowed to change; every original field and edit
+  // version remains evidence and must still match the pre-link snapshot.
+  expect(linkedAccount.personId).toEqual(expect.any(String));
+  expect(after.tutor?.personId).toBe(linkedAccount.personId);
+  expect(after.tutor!.historyIdentityRevision).toBeGreaterThan(before.tutor!.historyIdentityRevision);
+  expect({
+    ...after,
+    tutor: { ...after.tutor, personId: before.tutor?.personId, historyIdentityRevision: before.tutor?.historyIdentityRevision },
+  }).toEqual(before);
+  expect({ ...linkedAccount, personId: account?.personId }).toEqual(account);
   expect(
     await db.schoolDeparture.findUnique({ where: { userId: "owner" } }),
   ).toEqual(departure);
@@ -353,21 +445,19 @@ it("database guards prevent alternate login assignment and deletion of owned arc
   ).rejects.toThrow();
 });
 
-it("account combination transfers retained archives before current tutor attachment", async () => {
+it("reviewed login retirement preserves retained archives without adding current tutor membership", async () => {
   await caller().tutorHistory.link(await input());
   await db.user.update({
     where: { id: "owner" },
     data: { tutorId: "archive" },
   });
   const merge = { survivorId: "other", duplicateId: "owner" };
-  const preview = await previewCombine(db, merge);
+  const combineInput = await reviewedLoginRetirement(db, merge, password);
+  const preview = await previewPersonCombine(db, combineInput);
   expect(preview.conflicts).toEqual([]);
-  expect(preview.counts.tutorProfiles).toBe(1);
-  await caller().accountCombine.combine({
-    ...merge,
-    fingerprint: preview.fingerprint,
-    confirmPassword: password,
-  });
+  expect(preview.counts.tutors).toBe(1);
+  await caller().personCombine.combine(combineInput);
+  expect(await db.user.findUnique({ where: { id: "other" } })).toMatchObject({ tutorId: null, role: "STUDENT" });
   expect(
     await db.tutorProfileOwnership.findUnique({
       where: { tutorId: "archive" },

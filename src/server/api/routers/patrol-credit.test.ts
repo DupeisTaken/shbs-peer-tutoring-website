@@ -7,7 +7,8 @@ import { createCaller } from "~/server/api/root";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { PATROL_CREDIT_INTERVAL_MS } from "~/server/crew/patrol-credit";
 import { hashPassword } from "~/server/auth/password";
-import { previewCombine } from "~/server/combine-accounts";
+import { previewPersonCombine } from "~/server/person-combine";
+import { reviewedLoginRetirement } from "~/test/person-combine-fixture";
 import * as credit from "~/server/crew/patrol-credit";
 import { recordCsv } from "~/lib/record-transfer";
 import * as transactions from "~/server/transactions";
@@ -132,9 +133,10 @@ it("checks combined account history without rewriting original authors or reopen
   const first = await caller(otherId).crew.submitPatrol(original);
   const snapshot = await db.patrol.findUniqueOrThrow({ where: { id: first.id }, include: { observations: true, creditWindows: true } });
   const pair = { survivorId: crewId, duplicateId: otherId };
-  const preview = await previewCombine(db, pair);
+  const combineInput = await reviewedLoginRetirement(db, pair, password);
+  const preview = await previewPersonCombine(db, combineInput);
   expect(preview.conflicts).toEqual([]);
-  await caller(headId, "HEAD").accountCombine.combine({ ...pair, fingerprint: preview.fingerprint, confirmPassword: password });
+  await caller(headId, "HEAD").personCombine.combine(combineInput);
   expect((await caller().crew.submitPatrol(input())).hours).toBe(0);
   expect(await caller().crew.patrolConfig()).toMatchObject({ myHours: 0.5, myPatrols: 2 });
   expect(await db.patrolCreditWindow.findFirst()).toMatchObject({ crewUserId: otherId });
@@ -288,7 +290,7 @@ it("fences a correction waiting behind account combination, then permits retry w
   const first = await caller(otherId).crew.submitPatrol(input());
   const before = await db.patrol.findUniqueOrThrow({ where: { id: first.id }, include: { observations: true } });
   const pair = { survivorId: crewId, duplicateId: otherId };
-  const preview = await previewCombine(db, pair);
+  const combineInput = await reviewedLoginRetirement(db, pair, password);
   const held = signal();
   const release = signal();
   const correcting = signal();
@@ -301,7 +303,7 @@ it("fences a correction waiting behind account combination, then permits retry w
     await lockEntity(tx, key);
     if (pause) { held.resolve(); await release.promise; }
   });
-  const combining = caller(headId, "HEAD").accountCombine.combine({ ...pair, fingerprint: preview.fingerprint, confirmPassword: password });
+  const combining = caller(headId, "HEAD").personCombine.combine(combineInput);
   const correctionInput = {
     id: before.id, expectedUpdatedAt: before.updatedAt, reason: "Correct count after account combine", note: null,
     observations: before.observations.map((row) => ({ id: row.id, roomId, headcount: "TWO" as const, observedAt: row.observedAt })),

@@ -122,7 +122,12 @@ function AccountProfileForm({
       const accounts = await utils.admin.accounts.fetch(undefined, {
         staleTime: 0,
       });
-      const latest = accounts.rows.find((row) => row.userId === profile.userId);
+      const latest =
+        accounts.rows.find((row) => row.userId === profile.userId) ??
+        (await utils.admin.accountProfile.fetch(
+          { userId: profile.userId },
+          { staleTime: 0 },
+        ));
       if (latest?.profileVersion == null) throw new Error(common("loadFailed"));
       // Adopt only a complete, matching read; failed reads never replace the draft.
       setNames(nameDraft(latest));

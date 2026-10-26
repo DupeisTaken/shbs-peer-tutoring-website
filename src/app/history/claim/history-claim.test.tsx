@@ -18,19 +18,25 @@ type ClaimInspection = {
   name: string;
   sessions: number;
   expiresAt: Date;
+  claimed: boolean;
+  sources: { kind: "TUTOR" | "TUTEE"; id: string; name: string }[];
 };
 
 const remote = vi.hoisted(() => ({
   inspect: vi.fn<() => Promise<ClaimInspection>>(),
   claim: vi.fn(),
   invalidate: vi.fn(),
+  invalidateTutor: vi.fn(),
 }));
 vi.mock("~/trpc/react", async () => {
   const { useQuery, useMutation } = await import("@tanstack/react-query");
   return {
     api: {
       useUtils: () => ({
-        tuteeHistory: { myRecords: { invalidate: remote.invalidate } },
+        tuteeHistory: {
+          myRecords: { invalidate: remote.invalidate },
+          myTutorRecords: { invalidate: remote.invalidateTutor },
+        },
       }),
       tuteeHistory: {
         inspectClaim: {
@@ -53,10 +59,15 @@ vi.mock("~/trpc/react", async () => {
   };
 });
 const token = "a".repeat(64);
-const evidence = {
+const evidence: ClaimInspection = {
   name: "Synthetic historical identity",
   sessions: 3,
   expiresAt: new Date("2099-01-01"),
+  claimed: false,
+  sources: [
+    { kind: "TUTOR", id: "exact-tutor", name: "Original Tutor" },
+    { kind: "TUTEE", id: "exact-tutee", name: "Original Tutee" },
+  ],
 };
 let client: QueryClient;
 function claimView(
@@ -69,6 +80,7 @@ function claimView(
       <NextIntlClientProvider
         locale={locale}
         messages={locale === "en" ? en : zh}
+        timeZone="UTC"
       >
         <HistoryClaim token={value} invitationId={invitationId} />
       </NextIntlClientProvider>
@@ -107,6 +119,7 @@ beforeEach(() => {
   remote.inspect.mockResolvedValue(evidence);
   remote.claim.mockResolvedValue({ ok: true });
   remote.invalidate.mockResolvedValue(undefined);
+  remote.invalidateTutor.mockResolvedValue(undefined);
 });
 afterEach(() => {
   cleanup();
@@ -184,7 +197,7 @@ it.each([
   },
 );
 
-it("freezes a pending claim, rejects duplicate admission, and preserves confirmation after a failed write", async () => {
+it("freezes a pending claim and requires fresh consent after a definite rejected write", async () => {
   const write = deferred<unknown>();
   remote.claim.mockImplementationOnce(() => write.promise);
   mount();
@@ -197,9 +210,13 @@ it("freezes a pending claim, rejects duplicate admission, and preserves confirma
   fireEvent.click(claim);
   await waitFor(() => expect(remote.claim).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(confirmation.disabled).toBe(true));
-  await act(async () => write.reject(new Error("Offline")));
-  await waitFor(() => expect(claim.disabled).toBe(false));
-  expect(confirmation.checked).toBe(true);
+  await act(async () => write.reject(Object.assign(new Error("Review again"), {
+    data: { code: "PRECONDITION_FAILED" },
+  })));
+  await waitFor(() => expect(confirmation.disabled).toBe(false));
+  expect(confirmation.checked).toBe(false);
+  expect(claim.disabled).toBe(true);
+  fireEvent.click(confirmation);
   fireEvent.click(claim);
   await screen.findByText(en.tuteeHistory.claimed);
   expect(remote.claim).toHaveBeenCalledTimes(2);
@@ -249,7 +266,8 @@ it.each([
     expect(claim.disabled).toBe(true);
     fireEvent.click(claim);
     expect(remote.claim).not.toHaveBeenCalled();
-    // Returning can use a still-fresh inspection cache; it must not revive old consent.
+    // Returning reads the capability again and must never revive earlier consent.
+    remote.inspect.mockResolvedValueOnce(evidence);
     view.rerender(claimView("en", token, firstInvitation));
     await screen.findByText(evidence.name);
     expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
@@ -283,4 +301,95 @@ it("recovers an authoritative claim rejection through inspection only, without r
   expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
   expect(remote.claim).toHaveBeenCalledTimes(1);
   expect(remote.inspect).toHaveBeenCalledTimes(3);
+});
+
+it.each(["en", "zh"] as const)("shows both frozen source types before an explicit %s claim", async (locale) => {
+  const copy = locale === "en" ? en : zh;
+  mount(locale);
+  await screen.findByText("Original Tutor");
+  expect(screen.getByText("Original Tutee")).toBeTruthy();
+  expect(screen.getByText("exact-tutor")).toBeTruthy();
+  expect(screen.getByText("exact-tutee")).toBeTruthy();
+  expect(screen.getByText(copy.historicalInvitation.consequences)).toBeTruthy();
+  expect(remote.claim).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("checkbox"));
+  fireEvent.click(screen.getByRole("button", { name: copy.tuteeHistory.claim }));
+  await screen.findByText(copy.tuteeHistory.claimed);
+  expect(remote.claim).toHaveBeenCalledTimes(1);
+  expect(remote.claim.mock.calls[0]?.[0]).toEqual({ token });
+});
+
+it("retains an accepted receipt while both history reads settle and recovers only those reads", async () => {
+  const tutorRead = deferred<void>();
+  remote.invalidate.mockRejectedValueOnce(new Error("History read failed"));
+  remote.invalidateTutor.mockImplementationOnce(() => tutorRead.promise);
+  mount();
+  fireEvent.click(await screen.findByRole("checkbox"));
+  fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.claim }));
+  await screen.findByText(en.tuteeHistory.claimed);
+  expect(screen.queryByRole("button", { name: en.tuteeHistory.claim })).toBeNull();
+  // A failed sibling cannot release recovery until the other history read settles.
+  expect(screen.queryByRole("button", { name: en.uiPatterns.retry })).toBeNull();
+  await act(async () => tutorRead.resolve());
+  fireEvent.click(await screen.findByRole("button", { name: en.uiPatterns.retry }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: en.uiPatterns.retry })).toBeNull());
+  expect(remote.claim).toHaveBeenCalledTimes(1);
+  expect(remote.invalidate).toHaveBeenCalledTimes(2);
+  expect(remote.invalidateTutor).toHaveBeenCalledTimes(2);
+});
+
+it("keeps an unknown write blocked until receipt inspection confirms it, without repeating the claim", async () => {
+  remote.claim.mockRejectedValueOnce(new Error("Connection lost after write"));
+  mount();
+  fireEvent.click(await screen.findByRole("checkbox"));
+  fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.claim }));
+  await screen.findByText(en.historicalInvitation.claimUncertain);
+  const confirmation = screen.getByRole<HTMLInputElement>("checkbox");
+  expect(confirmation.checked).toBe(false);
+  expect(confirmation.disabled).toBe(true);
+  // Even a read without a receipt does not establish that an in-flight write failed.
+  fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
+  await waitFor(() => expect(remote.inspect).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.getByRole<HTMLButtonElement>("button", { name: en.uiPatterns.retry }).disabled).toBe(false));
+  expect(confirmation.disabled).toBe(true);
+  const receipt = deferred<ClaimInspection>();
+  remote.inspect.mockImplementationOnce(() => receipt.promise);
+  const retry = screen.getByRole("button", { name: en.uiPatterns.retry });
+  fireEvent.click(retry);
+  fireEvent.click(retry);
+  await waitFor(() => expect(remote.inspect).toHaveBeenCalledTimes(3));
+  await act(async () => receipt.resolve({ ...evidence, claimed: true }));
+  await screen.findByText(en.tuteeHistory.claimed);
+  await waitFor(() => expect(remote.invalidateTutor).toHaveBeenCalledTimes(1));
+  expect(remote.invalidate).toHaveBeenCalledTimes(1);
+  expect(remote.claim).toHaveBeenCalledTimes(1);
+});
+
+it("retains an invitation receipt across irrelevant token changes but resets it for another invitation", async () => {
+  const view = mount("en", token, "first-invitation");
+  fireEvent.click(await screen.findByRole("checkbox"));
+  fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.claim }));
+  await screen.findByText(en.tuteeHistory.claimed);
+  view.rerender(claimView("en", "b".repeat(64), "first-invitation"));
+  expect(screen.getByText(en.tuteeHistory.claimed)).toBeTruthy();
+  view.rerender(claimView("en", "b".repeat(64), "second-invitation"));
+  const confirmation = await screen.findByRole<HTMLInputElement>("checkbox");
+  expect(confirmation.checked).toBe(false);
+  expect(screen.queryByText(en.tuteeHistory.claimed)).toBeNull();
+  expect(remote.claim).toHaveBeenCalledTimes(1);
+});
+
+it("does not display an old capability's late claim receipt on a new invitation", async () => {
+  const write = deferred<unknown>();
+  remote.claim.mockImplementationOnce(() => write.promise);
+  const view = mount("en", token, "first-invitation");
+  fireEvent.click(await screen.findByRole("checkbox"));
+  fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.claim }));
+  await waitFor(() => expect(remote.claim).toHaveBeenCalledTimes(1));
+  view.rerender(claimView("en", token, "second-invitation"));
+  await screen.findByRole("checkbox");
+  await act(async () => write.resolve({ ok: true }));
+  expect(screen.queryByText(en.tuteeHistory.claimed)).toBeNull();
+  expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
+  expect(remote.claim).toHaveBeenCalledTimes(1);
 });

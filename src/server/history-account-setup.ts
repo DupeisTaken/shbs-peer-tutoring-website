@@ -16,6 +16,8 @@ import {
   supersedeHistoryInvitationAttempts,
 } from "./tutee-history";
 import { lockAccountProfile } from "./account-profile";
+import { exactSetupInvitation, bindExactHistoryRecipient } from "./exact-history-invitations";
+import { initializePersonSource } from "./person-source-initialization";
 import {
   inTransaction,
   lockEntity,
@@ -37,9 +39,15 @@ export async function setupInvitation(
   email: string,
   tokenIsDigest = false,
 ) {
+  await lockEntity(tx, "program:period");
   await lockUsernameNamespace(tx);
+  // Additive adapter: existing Tutee rows keep their original tokens, challenges
+  // and proof purpose; typed grants are found only by the same secret digest.
+  const tokenHash = tokenIsDigest ? token : historyTokenDigest(token);
+  const exact = await exactSetupInvitation(tx, tokenHash, email);
+  if (exact) return exact;
   const invite = await tx.tuteeHistoryInvitation.findUnique({
-    where: { tokenHash: tokenIsDigest ? token : historyTokenDigest(token) },
+    where: { tokenHash },
   });
   if (!invite || invite.expiresAt <= new Date()) throw invalid();
   if (email !== invite.email)
@@ -72,7 +80,25 @@ export async function setupInvitation(
       message: "HISTORY_NOT_HISTORICAL",
     });
   await requireHistoryManager(tx, invite.issuedById);
-  return { invite, record };
+  return { invite, record, kind: "LEGACY" as const };
+}
+
+/** Shared challenge state never changes a grant's frozen source list. */
+async function updateSetup(
+  tx: TransactionDb,
+  value: Awaited<ReturnType<typeof setupInvitation>>,
+  data: {
+    setupCodeHash?: string;
+    setupCodeExpiresAt?: Date;
+    setupAttempts?: number | { increment: number };
+    setupVerifiedAt?: Date | null;
+    setupUserId?: string;
+  },
+) {
+  if (value.kind === "EXACT")
+    await tx.historicalRecordInvitation.update({ where: { scopeKey: value.invite.scopeKey }, data });
+  else
+    await tx.tuteeHistoryInvitation.update({ where: { tuteeId: value.invite.tuteeId }, data });
 }
 
 export async function startHistoryAccount(
@@ -85,7 +111,8 @@ export async function startHistoryAccount(
       message: "HISTORY_EMAIL_UNAVAILABLE",
     });
   return inTransaction(db, async (tx) => {
-    const { invite } = await setupInvitation(tx, input.token, input.email);
+    const value = await setupInvitation(tx, input.token, input.email);
+    const { invite } = value;
     if (invite.setupUserId) throw taken();
     // A persisted cooldown limits delivery even across app instances. Failed mail rolls back,
     // preserving the previous challenge; resending deliberately invalidates its completion proof.
@@ -109,14 +136,11 @@ export async function startHistoryAccount(
         eyebrow: "EMAIL VERIFICATION",
       },
     });
-    await tx.tuteeHistoryInvitation.update({
-      where: { tuteeId: invite.tuteeId },
-      data: {
+    await updateSetup(tx, value, {
         setupCodeHash: hashCode(code),
         setupCodeExpiresAt: new Date(Date.now() + 15 * 60000),
         setupAttempts: 0,
         setupVerifiedAt: null,
-      },
     });
     return { ok: true };
   });
@@ -127,7 +151,8 @@ export async function verifyHistoryAccount(
   input: { token: string; email: string; code: string },
 ) {
   const result = await inTransaction(db, async (tx) => {
-    const { invite } = await setupInvitation(tx, input.token, input.email);
+    const value = await setupInvitation(tx, input.token, input.email);
+    const { invite } = value;
     if (
       !invite.setupCodeHash ||
       !invite.setupCodeExpiresAt ||
@@ -137,22 +162,16 @@ export async function verifyHistoryAccount(
     if (invite.setupAttempts >= MAX_ATTEMPTS)
       return { error: "HISTORY_CODE_ATTEMPTS" } as const;
     if (invite.setupCodeHash !== hashCode(input.code)) {
-      await tx.tuteeHistoryInvitation.update({
-        where: { tuteeId: invite.tuteeId },
-        data: { setupAttempts: { increment: 1 } },
-      });
+      await updateSetup(tx, value, { setupAttempts: { increment: 1 } });
       return { error: "HISTORY_CODE_MISMATCH" } as const;
     }
     // Repeated successful verification returns the same proof, including after a lost response.
     const verifiedAt = invite.setupVerifiedAt ?? new Date();
-    await tx.tuteeHistoryInvitation.update({
-      where: { tuteeId: invite.tuteeId },
-      data: {
+    await updateSetup(tx, value, {
         setupVerifiedAt: verifiedAt,
         ...(!invite.setupVerifiedAt
           ? { setupCodeExpiresAt: new Date(+verifiedAt + 15 * 60_000) }
           : {}),
-      },
     });
     return {
       completionProof: registrationCompletionProof(
@@ -180,12 +199,13 @@ export async function completeHistoryAccount(
   },
 ) {
   return inTransaction(db, async (tx) => {
-    const { invite, record } = await setupInvitation(
+    const value = await setupInvitation(
       tx,
       input.token,
       input.email,
       input.tokenIsDigest,
     );
+    const { invite, record } = value;
     if (
       !invite.setupVerifiedAt ||
       !invite.setupCodeHash ||
@@ -228,14 +248,14 @@ export async function completeHistoryAccount(
         tutorAccessRevoked: true,
       },
     });
+    await initializePersonSource(tx, { kind: "USER", id: user.id });
     if (!user.name?.trim()) {
       const { ensureUserUsername } = await import("./auth/username");
       await ensureUserUsername(user.id, tx, { namelessIdentity: true });
     }
-    await tx.tuteeHistoryInvitation.update({
-      where: { tuteeId: invite.tuteeId },
-      data: { setupUserId: user.id },
-    });
+    await updateSetup(tx, value, { setupUserId: user.id });
+    if (value.kind === "EXACT")
+      await bindExactHistoryRecipient(tx, value.invite.scopeKey, user.id);
     await tx.auditLog.create({
       data: {
         userId: user.id,
@@ -245,7 +265,7 @@ export async function completeHistoryAccount(
         operation: "tuteeHistory.completeAccount",
         action: "Created verified history-only login",
         details: {
-          tuteeId: invite.tuteeId,
+          ...(value.kind === "LEGACY" ? { tuteeId: value.invite.tuteeId } : { sources: value.sources }),
           issuedById: invite.issuedById,
           reason: invite.reason,
         },

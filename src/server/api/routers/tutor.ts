@@ -1,8 +1,13 @@
 import { notificationEvent } from "~/lib/notification-events";
+import { isInterviewChairRole } from "~/lib/interview-chair";
 import { meetingPeriodInput, meetingPeriodContext, meetingPeriods, meetingPeriodsOverlap, meetingScope, recordedMeetingPeriod } from "~/server/meeting-periods";
 import {
   INTERVIEW_HOURS_REASON,
   interviewHoursId,
+  interviewServiceInput,
+  interviewHourRows,
+  sameInterviewCompletionEvidence,
+  recordInterviewApprovalService,
 } from "~/server/interview-hours";
 import { optionalPersonNameFields } from "~/lib/person-name";
 import {
@@ -16,6 +21,7 @@ import {
   lockApplicationReview,
 } from "~/server/request-invalidity";
 import { lockUsernameNamespace } from "~/server/auth/username";
+import { MAX_CODE_ATTEMPTS } from "~/server/auth/registration";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { requireAcademicConfirmation } from "~/server/academics";
 import { accountHistoryIds } from "~/server/account-history";
@@ -1349,6 +1355,8 @@ export const tutorRouter = createTRPCRouter({
             },
             interviewers: {
               select: {
+                tutorId: true,
+                attended: true,
                 isHead: true,
                 tutor: { select: { englishName: true } },
               },
@@ -1399,13 +1407,20 @@ export const tutorRouter = createTRPCRouter({
       const rejects = a.application.votes.length - accepts;
       return {
         isHead: a.isHead,
+        // Keep historical chair assignment distinct from current authority after
+        // a role change or when reading a panel created under the former policy.
+        canChair: a.isHead && isInterviewChairRole(ctx.session.role),
         ...application,
+        panel: application.interviewers.map((person) => ({
+          tutorId: person.tutorId, name: person.tutor.englishName,
+          isHead: person.isHead, attended: person.attended,
+        })),
         isInvalid: !!invalidatedAt,
         myAwardedHours:
           credits.find(
             (row) => row.id === interviewHoursId(application.id, myTutorId),
           )?.amount ?? 0,
-        pendingDecision: pendingDecisions.some(
+        pendingDecision: ["PENDING", "INTERVIEW"].includes(application.status) && pendingDecisions.some(
           ({ payload }) =>
             payload &&
             typeof payload === "object" &&
@@ -1424,8 +1439,8 @@ export const tutorRouter = createTRPCRouter({
   }),
 
   /**
-   * Set the interview time for an application. Only the HEAD interviewer of that
-   * application may do this (row-scoped check on the caller's tutorId + isHead).
+   * Set the interview time for an application. Only its assigned Admin/Head chair
+   * may do this; other panelists' current eligibility does not block scheduling.
    */
   setInterviewTime: activeTutorProcedure
     .input(
@@ -1449,10 +1464,19 @@ export const tutorRouter = createTRPCRouter({
           },
           select: { isHead: true },
         });
-        if (!assignment?.isHead) {
+        const currentChair = await tx.user.findUnique({
+          where: { id: ctx.session.user.id },
+          select: { role: true, tutorId: true },
+        });
+        if (
+          !assignment?.isHead ||
+          currentChair?.tutorId !== ctx.session.tutorId ||
+          !isInterviewChairRole(currentChair?.role)
+        ) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Only the head interviewer can set the interview time.",
+            message:
+              "Only the assigned Admin or Head chair can set the interview time.",
           });
         }
         const application = await tx.tutorApplication.findUniqueOrThrow({
@@ -1556,8 +1580,8 @@ export const tutorRouter = createTRPCRouter({
     ),
 
   /**
-   * Record the head interviewer's final decision (accept -> ACCEPTED, reject -> REJECTED),
-   * with a required brief comment. Only the HEAD of the panel may decide.
+   * The assigned Admin/Head chair approves admission and service atomically.
+   * Rejections and previously queued decisions retain their reviewed workflow.
    */
   decideInterview: protectedProcedure
     .input(
@@ -1566,21 +1590,25 @@ export const tutorRouter = createTRPCRouter({
         accept: z.boolean(),
         comment: z.string().trim().min(1, "Add a brief comment").max(500),
         expectedUpdatedAt,
+        completion: interviewServiceInput.optional(),
       }),
     )
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         await assertFeatureEnabled(tx, "INTERVIEWS");
+        await lockUsernameNamespace(tx);
+        await lockApplicationReview(tx, input.applicationId);
         // The reviewer authorizes the change; the assigned chair remains the decision's author.
         const reviewId = approvalScope.getStore();
         let chairTutorId = ctx.session.tutorId;
+        let chairUserId = ctx.session.user.id;
         if (reviewId) {
           const proposal = await tx.approvalRequest.findUniqueOrThrow({
             where: { id: reviewId },
           });
           if (
             proposal.operation !== "tutor.decideInterview" ||
-            !["ADMIN", "HEAD"].includes(ctx.session.role)
+            ctx.session.role !== "HEAD"
           )
             throw new TRPCError({ code: "FORBIDDEN" });
           const requester = await tx.user.findUnique({
@@ -1588,9 +1616,17 @@ export const tutorRouter = createTRPCRouter({
             select: { tutorId: true },
           });
           chairTutorId = requester?.tutorId ?? null;
+          chairUserId = proposal.requesterId;
         }
+        const currentChair = await tx.user.findUnique({
+          where: { id: chairUserId },
+          select: { role: true, tutorId: true, suspendedAt: true, mergedIntoId: true, tutorAccessRevoked: true },
+        });
         if (
           !chairTutorId ||
+          currentChair?.tutorId !== chairTutorId ||
+          !isInterviewChairRole(currentChair?.role) ||
+          currentChair.suspendedAt || currentChair.mergedIntoId || currentChair.tutorAccessRevoked ||
           !(await tx.tutor.count({
             where: { id: chairTutorId, status: "ACTIVE" },
           }))
@@ -1599,8 +1635,6 @@ export const tutorRouter = createTRPCRouter({
             code: "FORBIDDEN",
             message: "An active assigned interview chair is required.",
           });
-        await lockUsernameNamespace(tx);
-        await lockApplicationReview(tx, input.applicationId);
         await validateInterviewDecision(
           tx,
           input.applicationId,
@@ -1623,12 +1657,34 @@ export const tutorRouter = createTRPCRouter({
           });
         }
 
-        // Concurrency guard — rejected if the application changed since it was loaded.
-        const res = await tx.tutorApplication.updateMany({
-          where: {
-            id: input.applicationId,
-            updatedAt: input.expectedUpdatedAt,
-          },
+        const before = await tx.tutorApplication.findUniqueOrThrow({
+          where: { id: input.applicationId }, include: { interviewers: true },
+        });
+        if (before.type !== "INITIAL" || before.status === "RECALLED")
+          throw new TRPCError({ code: "CONFLICT", message: "This application cannot receive this interview decision." });
+        if (input.accept) {
+          // Only a previously queued, Head-reviewed payload may omit completion.
+          // A new direct approval can never recreate the former decision-only path.
+          if (!input.completion && !reviewId)
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Report interview duration, completion time and attendance before approving." });
+          if (before.status === "ACCEPTED" && input.completion &&
+            before.decidedByTutorId === chairTutorId && before.decisionComment === input.comment) {
+            const credits = await interviewHourRows(tx, before.id, before.interviewers.map((p) => p.tutorId));
+            if (sameInterviewCompletionEvidence(before, credits, input.completion)) return { ok: true };
+          }
+          if (before.status !== "INTERVIEW")
+            throw new TRPCError({ code: "CONFLICT", message: "This interview has already been decided. Reload its current outcome." });
+        }
+        if (before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()) staleConflict();
+        if (input.accept && input.completion) {
+          if (!z.string().email().safeParse(before.email.trim()).success)
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Add a valid applicant email before approving so tutor registration can be prepared." });
+          await recordInterviewApprovalService(tx, before.id, before, input.completion);
+        }
+
+        // The source lock and pre-write version check cover both completion and decision.
+        await tx.tutorApplication.update({
+          where: { id: input.applicationId },
           data: {
             status: input.accept ? "ACCEPTED" : "REJECTED",
             decisionComment: input.comment,
@@ -1636,11 +1692,38 @@ export const tutorRouter = createTRPCRouter({
             decidedByTutorId: chairTutorId,
           },
         });
-        if (res.count === 0) staleConflict();
 
         // On the transition to ACCEPTED, issue a registration code so the applicant can
         // self-register a verified account (see promoteApplicantToTutor).
         await reconcileApplication(tx, input.applicationId);
+        if (input.accept && input.completion) {
+          // Reconciliation owns provisioning. Verify its exact outcome rather than
+          // claiming success if a malformed legacy code prevented valid issuance.
+          const promoted = await tx.tutorApplication.findUniqueOrThrow({
+            where: { id: before.id }, select: { promotedTutorId: true },
+          });
+          const email = before.email.trim().toLowerCase();
+          const tutorId = promoted.promotedTutorId;
+          const linked = tutorId && await tx.user.count({ where: {
+            tutorId, email, emailVerifiedAt: { not: null }, tutorAccessRevoked: false,
+            suspendedAt: null, mergedIntoId: null,
+          } });
+          const codes = tutorId ? await tx.registrationCode.findMany({ where: {
+            applicationId: before.id, tutorId, email, kind: "TUTOR",
+            code: { not: null }, attempts: { lt: MAX_CODE_ATTEMPTS },
+            usedAt: null, expiresAt: { gt: new Date() },
+          }, select: { code: true } }) : [];
+          // Legacy rows may contain blank plaintext, which cannot be shared for setup.
+          const usableCode = codes.some(({ code }) => !!code?.trim());
+          if (!linked && !usableCode)
+            throw new TRPCError({ code: "CONFLICT", message: "Tutor registration could not be prepared. Review the application's existing account or invitation before approving." });
+          await notifyAdmins({
+            title: "Interview approved",
+            ...notificationEvent("interview_approved"),
+            link: `/admin/applications#application-${input.applicationId}`,
+            inAppOnly: true,
+          }, undefined, tx);
+        }
         return { ok: true };
       }),
     ),

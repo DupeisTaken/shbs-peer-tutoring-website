@@ -37,6 +37,16 @@ import {
   claimTuteeHistory,
   tuteeHistoryDetails,
 } from "~/server/tutee-history";
+import {
+  exactHistorySources,
+  exactHistoryPreviewInput,
+  exactHistoryInviteInput,
+  previewExactHistoryInvitation,
+  inviteExactHistory,
+  exactHistoryInvitationStatus,
+  cancelExactHistoryInvitation,
+  exactHistoryInvitationReceipt,
+} from "~/server/exact-history-invitations";
 
 const detailInput = z.object({
   tuteeId: z.string().min(1).max(128),
@@ -68,6 +78,22 @@ function limit(actorId: string) {
 /** Historical ownership is independent of current tutee membership. Every personal read
  * is scoped again on the server; knowing another record ID never grants access. */
 export const tuteeHistoryRouter = createTRPCRouter({
+  previewExactInvitation: adminOnlyProcedure.input(exactHistoryPreviewInput).query(({ ctx, input }) =>
+    previewExactHistoryInvitation(ctx.db, ctx.session.user.id, input),
+  ),
+  inviteExact: adminOnlyProcedure.input(exactHistoryInviteInput).mutation(({ ctx, input }) => {
+    limit(ctx.session.user.id);
+    return inviteExactHistory(ctx.db, ctx.session.user.id, input);
+  }),
+  exactInvitationStatus: adminOnlyProcedure.input(z.object({ sources: exactHistorySources })).query(({ ctx, input }) =>
+    exactHistoryInvitationStatus(ctx.db, ctx.session.user.id, input.sources),
+  ),
+  exactInvitationReceipt: adminOnlyProcedure.input(z.object({ operationId: z.string().uuid() })).query(({ ctx, input }) =>
+    exactHistoryInvitationReceipt(ctx.db, ctx.session.user.id, input.operationId),
+  ),
+  cancelExactInvitation: adminOnlyProcedure.input(z.object({ sources: exactHistorySources, revision: z.string().length(64) })).mutation(({ ctx, input }) =>
+    cancelExactHistoryInvitation(ctx.db, ctx.session.user.id, input),
+  ),
   myTutorRecords: protectedProcedure.query(({ ctx }) =>
     ownedTutorHistory(ctx.db, ctx.session.user.id),
   ),
@@ -76,6 +102,8 @@ export const tuteeHistoryRouter = createTRPCRouter({
       z.object({
         tutorId: z.string().min(1).max(128),
         page: z.number().int().min(0).max(10000).default(0),
+        meetingPage: z.number().int().min(0).max(10000).optional(),
+        amendmentPage: z.number().int().min(0).max(10000).optional(),
       }),
     )
     .query(({ ctx, input }) =>
@@ -84,6 +112,8 @@ export const tuteeHistoryRouter = createTRPCRouter({
         ctx.session.user.id,
         input.tutorId,
         input.page,
+        input.meetingPage,
+        input.amendmentPage,
       ),
     ),
   // Possession of an exact staff invitation replaces open signup admission; delivery/CPU
@@ -240,8 +270,8 @@ export const tuteeHistoryRouter = createTRPCRouter({
         fromEnvelope,
       );
     }),
-  myRecords: protectedProcedure.query(async ({ ctx }) =>
-    ctx.db.tutee.findMany({
+  myRecords: protectedProcedure.query(async ({ ctx }) => {
+    const records = await ctx.db.tutee.findMany({
       where: { id: { in: await ownedStudentIds(ctx.db, ctx.session.user.id) } },
       select: {
         id: true,
@@ -251,8 +281,24 @@ export const tuteeHistoryRouter = createTRPCRouter({
         _count: { select: { sessions: true } },
       },
       orderBy: [{ createdAt: "desc" }, { id: "asc" }],
-    }),
-  ),
+    });
+    // The original intake term identifies an enrollment; current account grades
+    // and the active term must not relabel imported history.
+    const termIds = records.flatMap((row) =>
+      row.intakeTermId ? [row.intakeTermId] : [],
+    );
+    const terms = await ctx.db.term.findMany({
+      where: { id: { in: termIds } },
+      select: { id: true, name: true, schoolYear: true, quarter: true },
+    });
+    const byId = new Map(terms.map((term) => [term.id, term]));
+    return records.map((record) => ({
+      ...record,
+      term: record.intakeTermId
+        ? (byId.get(record.intakeTermId) ?? null)
+        : null,
+    }));
+  }),
   myDetails: protectedProcedure
     .input(detailInput)
     .query(async ({ ctx, input }) => {

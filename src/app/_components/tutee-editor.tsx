@@ -28,6 +28,8 @@ import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { GRADUATED_GRADE } from "~/lib/academics";
+import { CombineRecords } from "./combine-records";
+import { DisclosureSection } from "./ui/disclosure-section";
 
 /** Profile correction stays separate from assignment/removal, while the version protects both. */
 export function TuteeEditor({
@@ -404,34 +406,67 @@ function TuteeProfileForm({
           {correctionText("HISTORICAL_EDITOR_REQUIRED")}
         </p>
       )}
-      {siblingRow.historical && historyPermissions?.canLink && (
-        <section className="mt-5 border-t border-slate-200 pt-4">
-          {/* Separate forms preserve unsaved profile edits and avoid nested dialogs/forms. */}
-          <details ref={historySection}>
-            <summary className="link flex min-h-11 cursor-pointer items-center text-sm font-medium lg:min-h-8">
-              {history("linkTitle")}
-            </summary>
-            <div className="pt-4">
-              <TuteeHistoryLinkForm
-                row={siblingRow}
-                isHead={historyPermissions.isHead}
-                onLinked={() => {
-                  setHistoryLinked(true);
-                  if (historySection.current) {
-                    historySection.current.open = false;
-                    historySection.current.querySelector("summary")?.focus();
-                  }
-                }}
-              />
-            </div>
-          </details>
-          {historyLinked && (
-            <p role="status" className="mt-2 text-sm text-green-800">
-              {history("linkSaved")}
-            </p>
-          )}
-        </section>
+      {historyPermissions?.canLink && (
+        <CombineRecords
+          isHead={historyPermissions.isHead}
+          initialSource={{
+            kind: "TUTEE",
+            id: siblingRow.id,
+            name: siblingRow.englishName,
+          }}
+        />
       )}
+      {/* An exact-record correction does not merge the former and correct owners. */}
+      {siblingRow.historical &&
+        (siblingRow.owner ?? siblingRow.user) &&
+        historyPermissions?.canLink &&
+        historyPermissions.isHead && (
+          <DisclosureSection
+            title={common("combineRecords.correctOwner")}
+            lifetime="retained"
+          >
+            <p className="muted mb-4 text-sm">
+              {common("combineRecords.correctOwnerHelp")}
+            </p>
+            <TuteeHistoryLinkForm
+              row={siblingRow}
+              isHead
+              onLinked={() => setHistoryLinked(true)}
+            />
+          </DisclosureSection>
+        )}
+      {siblingRow.historical &&
+        !siblingRow.owner &&
+        !siblingRow.user &&
+        historyPermissions?.canLink && (
+          <section className="mt-5 border-t border-slate-200 pt-4">
+            {/* Separate forms preserve unsaved profile edits and avoid nested dialogs/forms. */}
+            <details ref={historySection}>
+              <summary className="link flex min-h-11 cursor-pointer items-center text-sm font-medium lg:min-h-8">
+                {history("invitation")}
+              </summary>
+              <div className="pt-4">
+                <TuteeHistoryLinkForm
+                  row={siblingRow}
+                  isHead={historyPermissions.isHead}
+                  invitationOnly
+                  onLinked={() => {
+                    setHistoryLinked(true);
+                    if (historySection.current) {
+                      historySection.current.open = false;
+                      historySection.current.querySelector("summary")?.focus();
+                    }
+                  }}
+                />
+              </div>
+            </details>
+            {historyLinked && (
+              <p role="status" className="mt-2 text-sm text-green-800">
+                {history("linkSaved")}
+              </p>
+            )}
+          </section>
+        )}
     </>
   );
 }

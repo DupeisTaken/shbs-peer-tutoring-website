@@ -589,6 +589,7 @@ it.each([
             userId: "history-student",
           });
           await caller().tuteeHistory.link({
+            acknowledged: true,
             tuteeId: "history-past",
             userId: "history-student",
             fingerprint: preview.fingerprint,
@@ -827,17 +828,22 @@ it("preserves credentials completed during SMTP, then permits a separate explici
   expect((await current())?.setupUserId).toBe(user.id);
   expect(await db.studentProfileOwnership.count()).toBe(0);
   await caller(user.id, "STUDENT").tuteeHistory.claim({ token: oldToken });
-  expect(
-    await db.tutee.findUniqueOrThrow({ where: { id: archive.id } }),
-  ).toEqual(archive);
+  const claimedArchive = await db.tutee.findUniqueOrThrow({
+    where: { id: archive.id },
+  });
+  // Canonical identity metadata changes; original enrollment evidence does not.
+  expect(claimedArchive.personId).toBeTruthy();
+  expect({ ...claimedArchive, personId: archive.personId, historyIdentityRevision: archive.historyIdentityRevision }).toEqual(archive);
   expect(
     await db.studentProfileOwnership.findUnique({
       where: { tuteeId: archive.id },
     }),
   ).toMatchObject({ userId: user.id });
-  expect(await db.user.findUniqueOrThrow({ where: { id: user.id } })).toEqual(
-    user,
-  );
+  const claimedUser = await db.user.findUniqueOrThrow({
+    where: { id: user.id },
+  });
+  expect(claimedUser.personId).toBe(claimedArchive.personId);
+  expect({ ...claimedUser, personId: user.personId }).toEqual(user);
 });
 
 it("rejects unavailable, unauthorized and stale admissions before SMTP or candidate creation", async () => {

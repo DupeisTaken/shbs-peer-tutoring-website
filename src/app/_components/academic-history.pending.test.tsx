@@ -15,6 +15,8 @@ import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { TuteeEditor } from "./tutee-editor";
 import { AcademicPanel } from "./academic-profile";
+import { TuteeHistoryLinkForm } from "./tutee-history";
+import { ProfileDialog } from "./profile-dialog";
 
 type Operation =
   "profile" | "selfAcademic" | "staffAcademic" | "link" | "invite" | "cancel";
@@ -76,9 +78,30 @@ vi.mock("~/trpc/react", async () => {
   };
   return {
     api: {
+      personCombine: {
+        finalize: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+        candidates: {
+          useQuery: () => ({
+            data: [],
+            isSuccess: true,
+            isFetching: false,
+            refetch: async () => ({ data: [] }),
+          }),
+        },
+        combine: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+      },
+      tutorHistory: {
+        permissions: {
+          useQuery: () => ({
+            data: { canLink: true, isHead: true },
+            isFetching: false,
+          }),
+        },
+      },
       useUtils: () => ({
         admin: {
           accounts: invalidator,
+          accountDetails: invalidator,
           tutors: invalidator,
           tutees: invalidator,
           pairings: invalidator,
@@ -202,12 +225,19 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 const labelsFor = (locale: "en" | "zh") => (locale === "en" ? en : zh);
-function openHistory(locale: "en" | "zh") {
-  screen
-    .getByText(labelsFor(locale).tuteeHistory.linkTitle, {
-      selector: "summary",
-    })
-    .closest("details")!.open = true;
+function openHistory(locale: "en" | "zh", invitation = false) {
+  const disclosure = screen
+    .getByText(
+      invitation
+        ? labelsFor(locale).tuteeHistory.invitation
+        : labelsFor(locale).combineRecords.correctOwner,
+      {
+        selector: "summary",
+      },
+    )
+    .closest("details")!;
+  disclosure.open = true;
+  fireEvent(disclosure, new Event("toggle"));
 }
 function blocked() {
   const dialog = screen.getByRole("dialog");
@@ -359,7 +389,7 @@ it("disables a standalone academic form during Reload without requiring a dialog
   expect(screen.getByText(en.academics.reloadFailed)).toBeTruthy();
 });
 it.each(["en", "zh"] as const)(
-  "registers real %s historical linking and requires a fresh review after failure",
+  "registers real %s historical-owner correction and requires a fresh review after failure",
   async (locale) => {
     const labels = labelsFor(locale);
     const view = render(ui(locale));
@@ -423,7 +453,7 @@ it.each(["en", "zh"] as const)(
     });
     expect(
       screen
-        .getByText(labels.tuteeHistory.linkTitle, { selector: "summary" })
+        .getByText(labels.combineRecords.correctOwner, { selector: "summary" })
         .closest("details")!.open,
     ).toBe(true);
     state.pending.link = false;
@@ -431,16 +461,33 @@ it.each(["en", "zh"] as const)(
     view.rerender(ui(locale));
     expect(
       screen
-        .getByText(labels.tuteeHistory.linkTitle, { selector: "summary" })
+        .getByText(labels.combineRecords.correctOwner, { selector: "summary" })
         .closest("details")!.open,
-    ).toBe(false);
+    ).toBe(true);
+    expect(screen.getByText(labels.tuteeHistory.linkSaved)).toBeTruthy();
     expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
     expect(close).not.toHaveBeenCalled();
   },
 );
-it("freezes only local controls during preview reads and excludes link/invitation writes while the read is unresolved", async () => {
-  render(ui("en", false));
-  openHistory("en");
+it("keeps the legacy direct-link form's invitation controls frozen while its preview read is unresolved", async () => {
+  // Real editors split combination/correction from invitations. The legacy form
+  // still supports both and owns its same-form read/write exclusion contract.
+  const row = {
+    id: "record",
+    englishName: "Original Person",
+    historical: true,
+    status: "INACTIVE",
+    user: null,
+    owner: null,
+    updatedAt: state.updatedAt,
+  } as ComponentProps<typeof TuteeHistoryLinkForm>["row"];
+  render(
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <ProfileDialog title="Legacy history" onClose={close}>
+        <TuteeHistoryLinkForm row={row} isHead onLinked={() => undefined} />
+      </ProfileDialog>
+    </NextIntlClientProvider>,
+  );
   fireEvent.change(screen.getByLabelText(en.tuteeHistory.evidence), {
     target: { value: "Original evidence while reviewing" },
   });
@@ -478,7 +525,7 @@ it.each(["en", "zh"] as const)(
   async (locale) => {
     const labels = labelsFor(locale);
     const view = render(ui(locale, false));
-    openHistory(locale);
+    openHistory(locale, true);
     fireEvent.change(screen.getByLabelText(labels.tuteeHistory.evidence), {
       target: { value: "Verified historical invitation evidence" },
     });

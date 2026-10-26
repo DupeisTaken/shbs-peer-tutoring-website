@@ -7,6 +7,10 @@ import { lockUsernameNamespace } from "./auth/username";
 import { authenticateEmailAction } from "./auth/account-emails";
 import { requireHistoryManager } from "./tutee-history";
 import { inTransaction, type DomainDb } from "./transactions";
+import {
+  historyIdentitySnapshot,
+  syncParticipantPerson,
+} from "./person-identity";
 
 const id = z.string().min(1).max(128);
 export const tutorHistoryPair = z.object({ tutorId: id, userId: id });
@@ -61,8 +65,14 @@ export async function previewTutorHistory(
       message: "HISTORY_ACCOUNT_NOT_READY",
     });
   const previousOwner = record.retainedOwner?.user ?? null;
+  const identity = await historyIdentitySnapshot(
+    db,
+    { kind: "TUTOR", id: record.id },
+    user.id,
+  );
   const currentConflict = !!record.user && record.user.id !== user.id;
-  const conflict = !!previousOwner && previousOwner.id !== user.id;
+  const conflict =
+    (!!previousOwner && previousOwner.id !== user.id) || identity.conflict;
   const alreadyLinked =
     !currentConflict &&
     !conflict &&
@@ -83,6 +93,7 @@ export async function previewTutorHistory(
         user.tutorId,
         user.email,
         user.emailVerifiedAt,
+        identity,
       ]),
     )
     .digest("hex");
@@ -134,6 +145,13 @@ export async function linkTutorHistory(
       create: { tutorId: input.tutorId, userId: input.userId },
       update: { userId: input.userId, revision: { increment: 1 } },
     });
+    await syncParticipantPerson(
+      tx,
+      "TUTOR",
+      input.tutorId,
+      input.userId,
+      preview.conflict,
+    );
     await tx.auditLog.create({
       data: {
         userId: actorId,

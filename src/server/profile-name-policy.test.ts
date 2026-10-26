@@ -757,6 +757,7 @@ it("grandfathers an unchanged roster when reactivating an old application", asyn
   expect(await db.tutor.findUnique({ where: { id: roster.id } })).toMatchObject(
     { englishName: "王小明", username: "stablemember", status: "ACTIVE" },
   );
+  expect((await db.tutor.findUniqueOrThrow({ where: { id: roster.id } })).personId).toBeTruthy();
   expect(await db.registrationCode.count()).toBe(1);
 });
 

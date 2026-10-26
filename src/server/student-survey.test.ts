@@ -1551,6 +1551,9 @@ it("preserves all four name fields when staff materialize an intake before accou
   const { materializeStudent } = await import("./student-survey");
   const profile = await db.$transaction((tx) => materializeStudent(tx, row));
   // Current profiles use the preferred-name default; submitted evidence retains its original names.
+  expect(profile.personId).toBeTruthy();
+  expect(await db.person.findUniqueOrThrow({ where: { id: profile.personId! } })).toMatchObject({ primaryUserId: null });
+  expect(await db.studentProfileOwnership.findUnique({ where: { tuteeId: profile.id } })).toBeNull();
   expect(profile).toMatchObject({
     firstName: "Alexander",
     lastName: "Chen",

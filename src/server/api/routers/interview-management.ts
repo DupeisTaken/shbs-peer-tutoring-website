@@ -9,16 +9,14 @@ import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, adminProcedure } from "~/server/api/trpc";
 import { inTransaction } from "~/server/transactions";
 import { validatePanel } from "~/server/interviews";
-import { getActivePeriod } from "~/server/period";
-import { monthKey } from "~/lib/service-hours";
+import { tutorDirectoryHref } from "~/lib/tutor-directory-link";
 import { assertFeatureEnabled } from "~/server/program/features";
 import { staleConflict } from "~/server/concurrency";
 import {
-  INTERVIEW_HOURS_REASON,
   interviewCompletionInput,
   interviewHourRows,
-  interviewHoursId,
   sameInterviewCompletionEvidence,
+  writeInterviewCompletion,
 } from "~/server/interview-hours";
 
 export const interviewManagementRouter = createTRPCRouter({
@@ -29,9 +27,35 @@ export const interviewManagementRouter = createTRPCRouter({
           page: z.number().int().min(0).default(0),
           search: z.string().trim().max(100).default(""),
           completion: z.enum(["OPEN", "COMPLETED", "ALL"]).default("OPEN"),
+          status: z
+            .enum([
+              "",
+              "PENDING",
+              "INTERVIEW",
+              "ACCEPTED",
+              "REJECTED",
+              "RECALLED",
+            ])
+            .default(""),
+          sort: z
+            .enum([
+              "COMPLETED_DESC",
+              "COMPLETED_ASC",
+              "CREATED_DESC",
+              "CREATED_ASC",
+              "NAME_ASC",
+              "NAME_DESC",
+            ])
+            .default("CREATED_DESC"),
           applicationId: z.string().min(1).optional(),
         })
-        .default({ page: 0, search: "", completion: "OPEN" }),
+        .default({
+          page: 0,
+          search: "",
+          completion: "OPEN",
+          status: "",
+          sort: "CREATED_DESC",
+        }),
     )
     .query(async ({ ctx, input }) => {
       const pageSize = 20;
@@ -39,6 +63,8 @@ export const interviewManagementRouter = createTRPCRouter({
         ...(input.applicationId ? { id: input.applicationId } : {}),
         // Include waiting applicants so staff can reach panel setup from this queue.
         AND: [
+          // Status intersects the completion scope; it must not overwrite OPEN's recalled exclusion.
+          ...(input.status ? [{ status: input.status }] : []),
           {
             OR: [
               { interviewers: { some: {} } },
@@ -97,11 +123,35 @@ export const interviewManagementRouter = createTRPCRouter({
             }
           : {}),
       };
+      // Order the entire matching queue before pagination. Null completion dates
+      // stay last in either direction, and IDs settle imported timestamp/name ties.
+      const orderBy: Prisma.TutorApplicationOrderByWithRelationInput[] =
+        input.sort === "COMPLETED_DESC" || input.sort === "COMPLETED_ASC"
+          ? [
+              {
+                interviewCompletedAt: {
+                  sort: input.sort === "COMPLETED_DESC" ? "desc" : "asc",
+                  nulls: "last",
+                },
+              },
+              { createdAt: "desc" },
+              { id: "desc" },
+            ]
+          : input.sort === "NAME_ASC" || input.sort === "NAME_DESC"
+            ? [
+                { name: input.sort === "NAME_ASC" ? "asc" : "desc" },
+                { createdAt: "desc" },
+                { id: "desc" },
+              ]
+            : [
+                { createdAt: input.sort === "CREATED_ASC" ? "asc" : "desc" },
+                { id: "desc" },
+              ];
       const [applications, total] = await Promise.all([
         ctx.db.tutorApplication.findMany({
           where,
           // Imported/batched applications may share timestamps; offset pages need a total order.
-          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          orderBy,
           take: pageSize,
           skip: input.page * pageSize,
           select: {
@@ -209,11 +259,17 @@ export const interviewManagementRouter = createTRPCRouter({
               const ownCodes = codes.filter(
                 (code) => code.applicationId === application.id,
               );
-              const tutor =
-                linkedTutors.find((row) => row.id === promotedTutorId) ??
-                linkedTutors.find((row) =>
-                  ownCodes.some((code) => code.tutorId === row.id),
-                );
+              // A stale explicit link must not silently select another person.
+              // Legacy codes recover identity only when all bindings agree.
+              const codeTutorIds = new Set(
+                ownCodes.flatMap((code) =>
+                  code.tutorId ? [code.tutorId] : [],
+                ),
+              );
+              const setupTutorId =
+                promotedTutorId ??
+                (codeTutorIds.size === 1 ? [...codeTutorIds][0] : null);
+              const tutor = linkedTutors.find((row) => row.id === setupTutorId);
               const activeCode = ownCodes.find(
                 (code) => !code.usedAt && code.expiresAt > new Date(),
               );
@@ -239,7 +295,7 @@ export const interviewManagementRouter = createTRPCRouter({
                       : registered
                         ? {
                             state: "setupAvailable" as const,
-                            href: "/admin/users",
+                            href: tutorDirectoryHref(tutor.id),
                           }
                         : code
                           ? {
@@ -250,18 +306,22 @@ export const interviewManagementRouter = createTRPCRouter({
                                   : ("codeExpired" as const),
                               href:
                                 (code.usedAt || !activeCode) && tutor
-                                  ? "/admin/users"
+                                  ? tutorDirectoryHref(tutor.id)
                                   : `/admin/registration-codes#registration-code-${code.id}`,
                             }
                           : {
                               state: "followUp" as const,
-                              href: tutor ? "/admin/users" : null,
+                              href: tutor ? tutorDirectoryHref(tutor.id) : null,
                             };
               return {
                 ...application,
                 isInvalid: !!invalidatedAt,
                 registration,
-                pendingDecision: pending("tutor.decideInterview"),
+                // An old proposal remains review history after a direct decision;
+                // it cannot make the committed outcome look pending again.
+                pendingDecision:
+                  ["PENDING", "INTERVIEW"].includes(application.status) &&
+                  pending("tutor.decideInterview"),
                 pendingCompletion: pending("interviewManagement.complete"),
               };
             },
@@ -330,11 +390,19 @@ export const interviewManagementRouter = createTRPCRouter({
               "A recalled request cannot receive interview completion or credit.",
           });
         const chair = before.interviewers.find((p) => p.isHead);
+        // Correcting recorded service must not require replacing its historical
+        // panel (which would also erase votes and reverse accepted admission).
+        // Only this completed-evidence path relaxes today's chair-role rule.
         await validatePanel(
           tx,
           input.applicationId,
           before.interviewers.map((p) => p.tutorId),
           chair?.tutorId ?? "",
+          {
+            chairEligibility: before.interviewCompletedAt
+              ? "recorded"
+              : "current",
+          },
         );
         if (
           new Set(input.attendedTutorIds).size !==
@@ -361,49 +429,14 @@ export const interviewManagementRouter = createTRPCRouter({
           input.expectedUpdatedAt.getTime() !== before.updatedAt.getTime()
         )
           staleConflict();
-        // Original period remains stable when staff later correct duration or attendance.
-        const period =
-          before.interviewSchoolYear && before.interviewQuarter
-            ? {
-                schoolYear: before.interviewSchoolYear,
-                quarter: before.interviewQuarter,
-              }
-            : await getActivePeriod(tx);
-        await tx.tutorApplication.update({
-          where: { id: input.applicationId },
-          data: {
-            interviewCompletedAt: input.completedAt,
-            interviewDurationMin: input.durationMin,
-            interviewSchoolYear: period.schoolYear,
-            interviewQuarter: period.quarter,
-          },
-        });
-        await tx.interviewAssignment.updateMany({
-          where: { applicationId: input.applicationId },
-          data: { attended: false },
-        });
-        await tx.interviewAssignment.updateMany({
-          where: {
-            applicationId: input.applicationId,
-            tutorId: { in: input.attendedTutorIds },
-          },
-          data: { attended: true },
-        });
-        await tx.serviceHourAdjustment.deleteMany({
-          where: { id: { in: credits.map((row) => row.id) } },
-        });
-        await tx.serviceHourAdjustment.createMany({
-          data: input.attendedTutorIds.map((tutorId) => ({
-            id: interviewHoursId(input.applicationId, tutorId),
-            tutorId,
-            month: monthKey(input.completedAt),
-            schoolYear: period.schoolYear,
-            quarter: period.quarter,
-            type: "EXTRA" as const,
-            amount: input.durationMin / 60,
-            reason: INTERVIEW_HOURS_REASON,
-          })),
-        });
+        // The same source-owned write is used by immediate chair approval.
+        await writeInterviewCompletion(
+          tx,
+          input.applicationId,
+          before,
+          input,
+          credits,
+        );
         await tx.auditLog.create({
           data: {
             userId: ctx.session.user.id,

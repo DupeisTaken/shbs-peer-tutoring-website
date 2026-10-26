@@ -3,19 +3,132 @@ import { spawnSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
+  existsSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
+import { isBuiltin } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import yaml from "js-yaml";
+import ts from "typescript";
 
 const root = path.resolve(import.meta.dirname, "..");
 const bash = process.env.SHBS_TEST_BASH ?? "bash";
+
+// Inspect emitted imports without evaluating any application module or opening a
+// database. Type-only edges disappear just as they do under the production tsx CLI.
+function runtimeImports(source, fileName) {
+  const emitted = ts.transpileModule(source, {
+    fileName,
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+      verbatimModuleSyntax: true,
+    },
+  }).outputText;
+  return ts.preProcessFile(emitted, true, true).importedFiles.map((entry) => entry.fileName);
+}
+
+function runtimeCliGraph(entry) {
+  const files = new Set(["package.json", "tsconfig.json"]);
+  const packages = new Set(["tsx"]);
+  const visit = (file) => {
+    if (files.has(file)) return;
+    files.add(file);
+    // prisma generate supplies this whole artifact; the image smoke executes it.
+    if (file.startsWith("generated/")) return;
+    const source = readFileSync(path.join(root, file), "utf8");
+    for (const specifier of runtimeImports(source, file)) {
+      if (isBuiltin(specifier)) continue;
+      if (!specifier.startsWith(".") && !specifier.startsWith("~/")) {
+        packages.add(specifier.split("/").slice(0, specifier.startsWith("@") ? 2 : 1).join("/"));
+        continue;
+      }
+      const base = specifier.startsWith("~/")
+        ? `src/${specifier.slice(2)}`
+        : path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier));
+      assert.ok(!base.startsWith("../"), `CLI import escapes the repository: ${file} -> ${specifier}`);
+      if (base.startsWith("generated/")) {
+        visit(base);
+        continue;
+      }
+      const resolved = [base, `${base}.ts`, `${base}.tsx`, `${base}.js`, `${base}.mjs`, `${base}/index.ts`, `${base}/index.js`]
+        .find((candidate) => existsSync(path.join(root, candidate)) && statSync(path.join(root, candidate)).isFile());
+      assert.ok(resolved, `Cannot resolve CLI import: ${file} -> ${specifier}`);
+      visit(resolved);
+    }
+  };
+  visit(entry);
+  return { files, packages };
+}
+
+function runtimeSourceCopies() {
+  const dockerfile = readFileSync(path.join(root, "Dockerfile"), "utf8");
+  const runner = dockerfile.split(/^FROM .+ AS runner\s*$/m)[1];
+  assert.ok(runner, "the final runtime stage must be inspected");
+  return runner.replace(/\\\r?\n\s*/g, " ").split(/\r?\n/).flatMap((line) => {
+    if (!/^COPY\s+--from=build\s/.test(line)) return [];
+    const args = line.split(/\s+/).slice(1).filter((arg) => !arg.startsWith("--"));
+    const target = args.pop();
+    return args.map((source) => ({
+      source: source.replace(/^\/app\//, ""),
+      target: path.posix.normalize(target.endsWith("/") ? path.posix.join(target, path.posix.basename(source)) : target).replace(/^\/app\//, ""),
+    }));
+  });
+}
+
+function missingRuntimeFiles(graph, copies) {
+  return [...graph.files].filter((file) => !copies.some((copy) =>
+    (file === copy.source && file === copy.target) ||
+    (file.startsWith(`${copy.source}/`) && file === copy.target + file.slice(copy.source.length)),
+  ));
+}
+
+test("operator CLI source graphs ship completely with production dependencies and no application environment", () => {
+  const manifest = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
+  const copies = runtimeSourceCopies();
+  for (const command of ["admin:create", "identity:reconcile"]) {
+    const match = /^tsx (scripts\/[\w-]+\.ts)$/.exec(manifest.scripts[command]);
+    assert.ok(match, `Review the runtime launcher for ${command}`);
+    const graph = runtimeCliGraph(match[1]);
+    assert.deepEqual(missingRuntimeFiles(graph, copies), [], command);
+    for (const dependency of graph.packages)
+      assert.ok(Object.hasOwn(manifest.dependencies, dependency), `${command} requires production dependency ${dependency}`);
+    for (const forbidden of ["src/env.js", "src/server/db.ts"])
+      assert.ok(!graph.files.has(forbidden), `${command} must keep its database-only environment contract: ${forbidden}`);
+  }
+});
+
+test("CLI packaging guard catches omitted entry points and transitive identity dependencies", () => {
+  const copies = runtimeSourceCopies();
+  for (const [entry, omitted] of [
+    ["scripts/create-admin.ts", "src/server/person-source-initialization.ts"],
+    ["scripts/create-admin.ts", "src/server/auth/username-snapshot.ts"],
+    ["scripts/reconcile-person-sources.ts", "scripts/reconcile-person-sources.ts"],
+    ["scripts/reconcile-person-sources.ts", "src/server/person-reconciliation.ts"],
+  ]) {
+    const graph = runtimeCliGraph(entry);
+    assert.ok(graph.files.has(omitted), `${omitted} must be exercised by ${entry}`);
+    assert.deepEqual(missingRuntimeFiles(graph, copies.filter((copy) => copy.source !== omitted)), [omitted]);
+  }
+});
+
+test("CLI import discovery includes deferred, side-effect and re-export edges but excludes types", () => {
+  assert.deepEqual(runtimeImports(`
+    import type { Model } from "./type-only";
+    import { type Shape, value } from "./mixed";
+    import "./setup";
+    export { value as forwarded } from "./forwarded";
+    export const load = () => import("./deferred");
+    export const result = value;
+  `, "fixture.ts").sort(), ["./deferred", "./forwarded", "./mixed", "./setup"]);
+});
 
 // Execute the actual shell helper with an isolated .env and command boundary.
 // Both engines are stubbed, so even a selection regression cannot contact Docker.

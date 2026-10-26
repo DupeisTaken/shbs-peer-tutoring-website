@@ -7,7 +7,7 @@ import {
   inTransaction,
   lockEntity,
 } from "./transactions";
-import { lockAccountProfile, updateAccountProfile } from "./account-profile";
+import { lockAccountProfile } from "./account-profile";
 import { lockUsernameNamespace } from "./auth/username";
 import { verifyPasswordConfirmation } from "./auth/password-confirmation";
 import { effectiveMessagePermission } from "./messaging-permissions";
@@ -321,9 +321,9 @@ export async function previewCombine(db: DomainDb, input: Pair) {
   };
 }
 
-/** One lock ordering matches leadership, username and profile writers. Table locks fence
- * concurrent policy/profile/permission changes between preview validation and final writes.
- * Historical actors, messages, signatures and confirmations are never rewritten or deleted. */
+/** Legacy confirmation contains no source list, retirement acknowledgment or
+ * durable operation ID. Authenticate its original authority, then require fresh
+ * review in the one supported writer; an old fingerprint cannot authorize it. */
 export async function combineAccounts(
   db: DomainDb,
   actorId: string,
@@ -332,144 +332,21 @@ export async function combineAccounts(
   if (!rateLimit(`combine:${actorId}`, { max: 10, windowMs: 15 * 60_000 }).ok)
     throw new TRPCError({ code: "TOO_MANY_REQUESTS" });
   return inTransaction(db, async (tx: TransactionDb) => {
+    await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
     await lockEntity(tx, "program:leadership");
-    const accountIds = [
-      ...new Set([actorId, input.survivorId, input.duplicateId]),
-    ].sort();
-    // Profile writers own this advisory lock before requesting row/table write locks.
-    // Acquire the advisory locks first, without User row locks, to avoid both inversion cases.
-    for (const id of accountIds) await lockEntity(tx, `account-profile:${id}`);
-    // Take table locks before User row locks so another writer cannot hold a table write
-    // lock while waiting for one of our rows (which would create a lock-upgrade deadlock).
-    await tx.$executeRaw`LOCK TABLE "User", "Tutor", "Tutee", "AcademicProfile", "AccountEmail", "MessagePermission", "MessageRestriction", "StudentProfileOwnership", "TutorProfileOwnership", "PolicyAcceptance", "ApprovalRequest", "CrewStatusRequest", "StudentRequestReview", "StudentSurvey" IN SHARE ROW EXCLUSIVE MODE`;
-    for (const id of accountIds) await lockAccountProfile(tx, id);
+    await lockAccountProfile(tx, actorId);
     const actor = await tx.user.findUnique({ where: { id: actorId } });
     if (actor?.role !== "HEAD" || actor.suspendedAt || actor.mergedIntoId)
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "Only the current active Head can combine accounts.",
       });
-    if (
-      !verifyPasswordConfirmation(
-        actorId,
-        input.confirmPassword,
-        actor.passwordHash,
-      )
-    )
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "Password is incorrect.",
-      });
-    const preview = await previewCombine(tx, input);
-    if (preview.conflicts.length)
-      throw new TRPCError({
-        code: "CONFLICT",
-        message: preview.conflicts.join(" "),
-      });
-    if (preview.fingerprint !== input.fingerprint)
-      throw new TRPCError({
-        code: "CONFLICT",
-        message:
-          "Account details changed. Preview the combine again before confirming.",
-      });
-    const { survivorId, duplicateId } = input;
-    const duplicate = await tx.user.findUniqueOrThrow({
-      where: { id: duplicateId },
-      include: { academicProfile: true },
+    if (!verifyPasswordConfirmation(actorId, input.confirmPassword, actor.passwordHash))
+      throw new TRPCError({ code: "FORBIDDEN", message: "Password is incorrect." });
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "This account-combine review is no longer supported. Open Combine Records and obtain a fresh review with explicit login-retirement acknowledgment.",
     });
-    // Release unique links before attaching them. No original login identifier is reassigned.
-    await tx.user.update({
-      where: { id: duplicateId },
-      data: {
-        mergedIntoId: survivorId,
-        tutorId: null,
-        studentId: null,
-        passwordHash: null,
-        sessionVersion: { increment: 1 },
-        twoFactorEnabled: false,
-      },
-    });
-    // Move retained read ownership after releasing the duplicate's unique tutor link,
-    // before attaching it to the survivor; database guards forbid competing owners.
-    await tx.tutorProfileOwnership.updateMany({
-      where: { userId: duplicateId },
-      data: { userId: survivorId, revision: { increment: 1 } },
-    });
-    await tx.user.update({ where: { id: survivorId }, data: preview.result });
-    // The surviving current profile remains canonical; immutable intake/signature evidence
-    // stays on its original rows while the linked live roster mirrors that profile.
-    await updateAccountProfile(tx, survivorId);
-    if (preview.result.tutorId)
-      await tx.tutor.update({
-        where: { id: preview.result.tutorId },
-        data: {
-          username: preview.survivor.username,
-          email: preview.survivor.email,
-        },
-      });
-    if (
-      duplicate.academicProfile &&
-      !(await tx.academicProfile.findUnique({ where: { userId: survivorId } }))
-    ) {
-      const { userId: oldId, ...profile } = duplicate.academicProfile;
-      void oldId;
-      await tx.academicProfile.create({
-        data: { ...profile, userId: survivorId },
-      });
-      await tx.user.update({
-        where: { id: survivorId },
-        data: { gradeLevel: profile.gradeLevel },
-      });
-    }
-    // These are current ownership/delivery pointers, not the historical actor/evidence fields.
-    await tx.studentProfileOwnership.updateMany({
-      where: { userId: duplicateId },
-      data: { userId: survivorId },
-    });
-    await tx.studentQuarterBlock.updateMany({
-      where: { userId: duplicateId },
-      data: { userId: survivorId },
-    });
-    await tx.notification.updateMany({
-      where: { userId: duplicateId },
-      data: { userId: survivorId },
-    });
-    await tx.passwordResetToken.deleteMany({ where: { userId: duplicateId } });
-    await tx.emailVerificationCode.deleteMany({
-      where: { userId: duplicateId },
-    });
-    await tx.studentActionConfirmation.deleteMany({
-      where: { userId: duplicateId },
-    });
-    await tx.emailDelivery.updateMany({
-      where: { userId: duplicateId, status: "PENDING" },
-      data: { status: "CANCELLED", completedAt: new Date() },
-    });
-    // Preserve the reviewed messaging scope even if a participant rank changes.
-    const permission = await effectiveMessagePermission(tx, duplicateId);
-    await tx.messagePermission.upsert({
-      where: { scope: `USER:${survivorId}` },
-      create: { scope: `USER:${survivorId}`, groups: permission.groups },
-      update: { groups: permission.groups },
-    });
-    await tx.auditLog.create({
-      data: {
-        userId: actorId,
-        userName: actor.name ?? actor.username,
-        entity: "User",
-        entityId: survivorId,
-        operation: "accountCombine.combine",
-        action: "Combined duplicate accounts",
-        details: {
-          survivor: preview.survivor,
-          duplicate: preview.duplicate,
-          result: preview.result,
-          counts: preview.counts,
-          retiredEmails: preview.retiredEmails,
-        },
-      },
-    });
-    return { ok: true, survivorId };
   });
 }
