@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => {
     ...navigation,
     enabled: true,
     history: vi.fn(),
+    identity: vi.fn(),
     invalidate: vi.fn(),
     additional: false,
     interview: false,
@@ -53,6 +54,9 @@ vi.mock("~/app/_components/confirm-dialog", () => ({
 }));
 vi.mock("~/app/_components/email-details", () => ({
   EmailDetails: () => null,
+}));
+vi.mock("~/app/_components/application-identity-correction", () => ({
+  ApplicationIdentityCorrection: (props: unknown) => { mocks.identity(props); return null; },
 }));
 vi.mock("~/app/_components/interview-management", () => ({
   InterviewManagement: (props: { enabled: boolean }) => {
@@ -268,6 +272,13 @@ beforeEach(() => {
   mocks.setupState = "active";
 });
 afterEach(cleanup);
+it.each(["HEAD", "ADMIN", "COORDINATOR"])("opens initial identity evidence with explicit correction authority for %s", (role) => {
+  mocks.role = role;
+  show();
+  expect(mocks.identity).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  expect(mocks.identity).toHaveBeenCalledWith(expect.objectContaining({ applicationId: "candidate", canCorrect: role === "HEAD" || role === "ADMIN", isHead: role === "HEAD" }));
+});
 it("presents an accountless blank-name application without treating its label as searchable intake data", () => {
   mocks.name = "  ";
   render(content());
@@ -541,6 +552,7 @@ it.each(["VIEWER", "TUTOR"])(
     expect(screen.getAllByText(/Tutor One/).length).toBeGreaterThan(0);
     expect(document.body.textContent).not.toContain(PRIVATE);
     expect(mocks.history).not.toHaveBeenCalled();
+    expect(mocks.identity).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
   },
 );

@@ -26,6 +26,8 @@ const record = (value: unknown): ReviewRecord | null =>
 /** Concurrency and confirmation evidence is not part of the requested business change. */
 export const reviewTechnicalFields = new Set([
   "expectedUpdatedAt",
+  "clientKey",
+  "identityRevision",
   "expectedInvalidityVersion",
   "invalidityVersion",
   "invalidatedById",
@@ -128,6 +130,7 @@ const comparable = new Set([
   "program.setCalendarDay",
   "admin.updateRoom",
   "admin.updateTutor",
+  "admin.correctApplicationIdentity",
   "admin.updateTutee",
   "admin.updateSubject",
   "admin.updateSubjectLevel",
@@ -284,7 +287,11 @@ export function approvalReview(
       context.push({ key, value: requested });
       continue;
     }
-    if (key === "reason" && operation.startsWith("corrections.")) {
+    if (
+      key === "reason" &&
+      (operation.startsWith("corrections.") ||
+        operation === "admin.correctApplicationIdentity")
+    ) {
       context.push({ key: "requestReason", value: requested });
       continue;
     }

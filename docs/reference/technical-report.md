@@ -2041,6 +2041,54 @@ migrations. New grade reports must still use an offered grade.
 
 See [name-field wording and behavior](name-fields.md) for labels and display examples.
 
+### Initial application name corrections
+
+[`application-identity.ts`](../../src/server/tutors/application-identity.ts) owns
+request-local corrections before promotion. `admin.correctApplicationIdentity`
+is explicitly classified: Head applies, Admin proposes to Head, and Coordinator
+is denied before approval interception. It accepts only four name fields, a reason,
+the observed application version and a retry key. Contact/qualification answers,
+submission order and signed policy revision/snapshot/acceptance time are retained.
+
+The additive migration preserves submitted names independently of the application
+row and stores append-only correction evidence. Original and correction evidence
+survive the existing source-deletion workflow. Effective names are materialized
+into the existing application columns so queue search, panel review, promotion and
+invitation prefill agree; this projection is never a linked account-profile write.
+
+Both proposal capture and application recheck current actor authority, current
+Tutor name policy, eligibility and version while holding the username namespace
+then application-review locks. Only INITIAL requests in PENDING/INTERVIEW without
+a final decision, recorded completion, promotion or issued invitation are editable.
+Names-only changes on an invalid open request preserve its flag and all processing
+restrictions. A correction advances the application version and identity revision,
+staling prepared decisions and proposals; untouched revision-zero records keep
+compatible legacy approval fingerprints.
+
+The transaction commits the correction, projection, audit evidence and retry
+receipt together. An identical response-loss retry returns the recorded result;
+a reused key with different contents conflicts. Saving grants no membership,
+issues no invitation and sends no acceptance notification. Approval replay retains
+the originating requester and records the reviewing Head separately.
+
+Promotion readiness uses verified-account, existing-roster and then application
+identity precedence. Existing identities are not overwritten. Explicit corrected
+parts transfer to a new roster without splitting a display name. Invitation
+prefill and completion both consume the invitation-bound roster: a new roster
+carries the accepted correction, while a returning roster retains its established
+identity and handle. An existing verified account remains authoritative. Latin accents and Unicode
+alternate names follow the shared configured name policy. Unchanged legacy fields
+retain null rather than invented parts, even when a names-only correction leaves
+newly required components unresolved. An unsplit Latin label is not by itself an
+invalid identity. Readiness reports identity requirements only, not acceptance,
+invalidity clearance, interview eligibility or restored tutoring access.
+
+The feature editor retains its draft/version across rejected saves and failed
+reads. Explicit Reload adopts fresh evidence only after the required reads succeed.
+Accepted writes and queued proposals enter read-only synchronization recovery;
+retrying that recovery cannot repeat the write. The current queue and immutable
+correction history remain separate from the signed original submission.
+
 Self-service writes own the current authenticated account. Head applies staff corrections to other
 accounts; Admin submits corrections for Head review. Coordinators cannot submit staff profile or
 academic corrections. Academic and name changes share the account advisory/row lock and

@@ -1,6 +1,7 @@
 "use client";
 import { participantNameLabel } from "~/app/_components/participant-name";
 import { ApplicationAccountSetupButton } from "~/app/_components/application-account-setup";
+import { ApplicationIdentityCorrection } from "~/app/_components/application-identity-correction";
 import { EmailDetails } from "~/app/_components/email-details";
 import { Button } from "~/app/_components/ui/button";
 import { QualificationReview } from "~/app/_components/qualification-review";
@@ -45,6 +46,7 @@ import {
 } from "~/app/_components/interview-panel-editor";
 import {
   APPLICATION_COMPLETIONS,
+  APPLICATION_IDENTITIES,
   APPLICATION_SORTS,
   emptyApplicationFilters,
   matchesApplicationFilters,
@@ -76,6 +78,7 @@ type Application = InvalidityRecord & {
   qualificationSnapshot: unknown;
   id: string;
   name: string;
+  identityNeedsReview?: boolean;
   email: string;
   preferredContact: string | null;
   status: Status;
@@ -214,6 +217,9 @@ function ApplicationCard({
             </span>
             <StatusBadge status={app.status} />
             {app.isInvalid && <InvalidityBadge />}
+            {app.identityNeedsReview && !additional && (
+              <span className="badge-amber">{t("applicationIdentity.needsReview")}</span>
+            )}
             <span className="badge-slate">
               {t(`qualificationRequests.${app.type}`)}
             </span>
@@ -339,6 +345,17 @@ function ApplicationCard({
             <p className="muted text-xs">
               {t("admin.applications.reach", { contact: app.preferredContact })}
             </p>
+          )}
+
+          {!additional && !readOnly && (
+            <ApplicationIdentityCorrection
+              applicationId={app.id}
+              canCorrect={account?.role === "HEAD" || account?.role === "ADMIN"}
+              isHead={account?.role === "HEAD"}
+              invalid={app.isInvalid}
+              onChanged={onChanged}
+              onActive={retainInterviewApproval}
+            />
           )}
 
           {/* Course intents */}
@@ -571,6 +588,8 @@ export default function ApplicationsPage() {
       // criteria, but reject unknown new values instead of adopting them.
       completion: (value) =>
         value === undefined ? "" : viewEnum(APPLICATION_COMPLETIONS)(value),
+      identity: (value) =>
+        value === undefined ? "" : viewEnum(APPLICATION_IDENTITIES)(value),
       sort: (value) =>
         value === undefined ? "" : viewEnum(APPLICATION_SORTS)(value),
     }),

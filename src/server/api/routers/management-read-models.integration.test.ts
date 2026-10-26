@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
@@ -14,7 +15,9 @@ const contact = "viewer-model-private@example.test";
 const tutorId = `${prefix}tutor`;
 const tuteeId = `${prefix}tutee`;
 const sessionId = `${prefix}session`;
-const appId = `${prefix}application`;
+// Submitted identity evidence survives operational deletion. A repeated test run
+// creates a new application rather than reusing a historical application's ID.
+const appId = `${prefix}application-${randomUUID()}`;
 const auditId = `${prefix}audit`;
 const auditCreatedAt = new Date("2026-10-08T12:34:56.789Z");
 const auditUndoneAt = new Date("2026-10-09T01:02:03.456Z");

@@ -25,6 +25,17 @@ controls the participant example; other recipes expose their own state transitio
 
 Specialized gallery recipes also cover [named action review](../../src/app/ui-gallery/action-review-recipe.tsx), [management summary alignment](../../src/app/ui-gallery/admin-summary-recipe.tsx), [manual-creation risk acknowledgement](../../src/app/ui-gallery/creation-risk-recipe.tsx) and [workload preference/review](../../src/app/ui-gallery/workload-preference-recipe.tsx). Each has a colocated behavior test. These are synthetic compositions: use the owning feature and the [technical code map](../reference/technical-report.md#architecture) for permissions, persistence, receipt keys and accepted-write recovery.
 
+The participant form's **Name requirement example → Application correction: retain
+legacy names** case demonstrates the scoped `preserveLegacyRequiredFields` option.
+An unchanged unsplit identity permits an alternate-language-only correction even
+when current policy requires Last or Preferred Name. Editing a Latin name field
+restores the complete configured requirements. Other profile forms retain their
+existing requirements. The real [application correction editor](../../src/app/_components/application-identity-correction.tsx)
+owns permission checks, captured versions, approval and read-only recovery;
+the gallery performs no write and does not establish promotion readiness. Verify
+the gallery case and the actual Applications page in English and Chinese at
+desktop and mobile widths.
+
 For a recipe migration, link its feature issue and the corresponding running-page
 and gallery screenshots in the local verification report. Record language, viewport,
 role and state for each capture; keep the images and report in ignored `outputs/`.

@@ -471,6 +471,39 @@ Staff can narrow **Tutor Applications** by name or email, application status, re
 
 When selecting interviewers, **Group panelists by subject** puts tutors with recorded qualifications first, using the same grouped selector as tutee assignment. Choose any requested subject or focus on one; qualification labels list the requested subjects each tutor covers. Changing the focus preserves current selections. Other available tutors remain selectable as panelists; only Admin or Head panelists can chair, regardless of other panelists' rank. Coordinators may participate and vote. Tutors must have active, non-suspended accounts and cannot review their own additional qualification request. Unavailable existing panelists stay labelled until replaced. A missing chair or a saved chair who is no longer Admin/Head needs a valid chair assignment before scheduling, new decisions or first completion; ask management to update the panel. This does not remove other eligible panelists' voting access. Hour corrections for an already completed interview preserve its recorded chair, including a legacy Coordinator chair. Select three to eight distinct panelists and a chair, then **Save Panel**; the server still checks qualification and chair requirements.
 
+### Correct an initial tutor application's name
+
+In **Tutor Applications**, open an initial request's details and choose **Edit signup
+request**. Head applies the correction; Admin submits it for Head review through
+Management Actions. Coordinators and read-only users cannot submit corrections.
+Confirm the spelling with the applicant, then enter First Name, Last Name,
+Preferred Name and Name in Another Language as appropriate, with a correction
+reason. Never guess a transliteration or divide an old name into guessed parts.
+
+The editor shows the immutable original submission beside the current fields.
+First, last and preferred names follow the program's current requiredness and
+Latin-script rules, including accents; the alternate name accepts Unicode.
+An unchanged legacy name can remain while another name field is corrected.
+**Saved** does not mean **ready for promotion** or **accepted**: check the identity
+review indication and continue the normal screening/interview decision separately.
+A verified account's name and an existing roster identity retain their precedence.
+
+Corrections are limited to pending or interview-stage initial applications without
+a final decision, recorded completion, promotion or issued invitation. An open
+request flagged invalid can receive a name correction, but its flag and processing
+restrictions remain. Qualification requests, completed/rejected requests and
+provisioned accounts use their existing review or profile workflows. Email,
+contact answers, requested subjects, qualifications and signed policy evidence
+are read-only in this editor. Resubmitting the public form keeps a pending
+request's original answers.
+
+Every applied correction records the actor, time, reason and before/after names.
+It preserves the request ID and original submission time. A concurrent correction,
+decision or policy change can make a draft stale; a failed save keeps your draft.
+Use the explicit reload action only when ready to replace it with current evidence.
+After a save or queued proposal succeeds, refresh recovery performs reads only,
+without submitting the correction again.
+
 ### Start tutoring
 
 1. Choose **Become a Tutor** on the home page. Select up to three subjects, explain your qualifications, read the current policy and submit your contact details.

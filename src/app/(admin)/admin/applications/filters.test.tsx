@@ -49,6 +49,9 @@ vi.mock("~/app/_components/confirm-dialog", () => ({
 vi.mock("~/app/_components/email-details", () => ({
   EmailDetails: () => null,
 }));
+vi.mock("~/app/_components/application-identity-correction", () => ({
+  ApplicationIdentityCorrection: () => null,
+}));
 vi.mock("~/app/_components/interview-management", () => ({
   InterviewManagement: () => (
     <>
@@ -380,6 +383,18 @@ it("combines search, status, type and subjects and resets the full list", () => 
   fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
   expect(screen.getByText("3 of 3 applications")).toBeTruthy();
   expect(screen.getByRole("button", { name: /Cai Wu/ })).toBeTruthy();
+});
+it("filters name readiness using server results and updates the visible count", () => {
+  mocks.query.mockReturnValue({ data: applications.map((app) => ({ ...app, identityNeedsReview: app.id === "a" })) });
+  show();
+  change("Name readiness", "NEEDS_REVIEW");
+  expect(screen.getByText("1 of 3 applications")).toBeTruthy();
+  expect(screen.getByRole("button", { name: /Alex Chen/ })).toBeTruthy();
+  change("Name readiness", "READY");
+  expect(screen.getByText(en.admin.applications.filters.noMatches)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
+  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "Name readiness" }).value).toBe("");
+  expect(screen.getByText("3 of 3 applications")).toBeTruthy();
 });
 it("defaults to active validity while retaining ordinary accepted and rejected workflow states", () => {
   mocks.query.mockReturnValue({

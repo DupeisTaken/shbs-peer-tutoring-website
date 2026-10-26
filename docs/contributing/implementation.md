@@ -59,6 +59,14 @@ review. The gallery demonstrates rejected write, accepted write and read recover
 
 ### Add an action or feature
 
+Initial application name corrections compose the configured name fields and
+existing dialog/recovery contract. Their save scope is four names and a reason;
+Head applies and Admin proposes. Eligibility, immutable submitted evidence,
+correction revision and receipt belong to the application domain. Do not reuse
+the account-profile writer: a request-local correction must never replace a
+verified account or retained roster identity. Invalidity, interview completion
+and promotion remain separate decisions.
+
 Start here for a new entry point, then use the inventory above and the
 [extension boundaries](../reference/technical-report.md#ui-extension-boundaries). Reuse a
 current caller with the same consequence and lifetime; an old issue's unchecked

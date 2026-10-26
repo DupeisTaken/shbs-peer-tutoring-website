@@ -56,6 +56,7 @@ export const HEAD_APPROVAL_OPERATIONS = new Set([
   "admin.decideTutorRequest",
   "admin.issueRegistrationCode",
   "admin.updateTutor",
+  "admin.correctApplicationIdentity",
   "admin.setApplicationStatus",
   "tutor.decideInterview",
 ]);
@@ -154,6 +155,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "admin.createAdjustment": "ServiceHourAdjustment",
   "admin.deleteAdjustment": "ServiceHourAdjustment",
   "admin.assignInterviewers": "TutorApplication",
+  "admin.correctApplicationIdentity": "TutorApplication",
   "admin.setApplicationStatus": "TutorApplication",
   "admin.deleteApplication": "TutorApplication",
   "admin.decideTutorRequest": "TutorStatusRequest",
@@ -248,6 +250,9 @@ const managementEdits = new Set([
   "admin.setCrewStatus",
   "admin.updateTutor",
   "admin.updateTutee",
+  // Submitted identity evidence can be corrected only by Head, after an Admin proposal.
+  // Keep this out of the generic account-access branch that also admits Coordinators.
+  "admin.correctApplicationIdentity",
 ]);
 const reversals = new Set([
   "admin.undoAudit",

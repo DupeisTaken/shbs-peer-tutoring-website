@@ -66,7 +66,7 @@ export function ApprovalReviewDetails({
       ? nameFieldsText("title")
       : operation === "program.setNameFields" && key === "accountType"
         ? nameFieldsText("accountType")
-        : operation === "program.setNameFields" &&
+        : ["program.setNameFields", "admin.correctApplicationIdentity"].includes(operation) &&
             NAME_FIELD_KEYS.includes(key as (typeof NAME_FIELD_KEYS)[number])
           ? namesText(key)
           : operation === "admin.reorderRooms" && key === "roomOrder"

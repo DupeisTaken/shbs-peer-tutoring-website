@@ -32,6 +32,8 @@ const safeFields = new Set([
   "invalidatedById",
   "invalidatedByName",
   "invalidityVersion",
+  // Application correction revisions are public audit evidence, never receipt secrets.
+  "identityRevision",
   "id",
   "role",
   "status",

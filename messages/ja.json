@@ -1560,7 +1560,13 @@
           "NAME_ASC": "Applicant name: A–Z",
           "NAME_DESC": "Applicant name: Z–A"
         },
-        "completedOn": "Interview completed: {date}"
+        "completedOn": "Interview completed: {date}",
+        "identity": "氏名の確認状況",
+        "identityOptions": {
+          "ALL": "すべての氏名状況",
+          "NEEDS_REVIEW": "氏名の確認が必要",
+          "READY": "氏名の要件を満たす"
+        }
       },
       "picker": {
         "subjectFocus": "科目別に面接担当者を分類",
@@ -3508,7 +3514,8 @@
         "studentWorkflow_resolveSignupAppeal": "生徒の申込異議を審査",
         "admin_setPairingRoom": "Change a pairing’s room assignment",
         "admin_retryRoomAllocation": "Retry automatic room allocation for a pairing",
-        "admin_autoAssignUnassignedRooms": "確認済みの未割り当てセッションすべてに教室を自動割り当て"
+        "admin_autoAssignUnassignedRooms": "確認済みの未割り当てセッションすべてに教室を自動割り当て",
+        "admin_correctApplicationIdentity": "処理中の申請氏名を訂正"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -5823,5 +5830,69 @@
     "reloadWarning": "このページを再読み込みすると、ミーティングと出席を含む未保存の下書きがすべて破棄されます。保存済みの変更は保持されます。",
     "keepEditing": "編集を続ける",
     "reloadBusy": "保存と更新が完了するまでお待ちください。"
+  },
+  "applicationIdentity": {
+    "title": "申請の氏名",
+    "edit": "氏名を訂正",
+    "dialogTitle": "申請の氏名を訂正",
+    "original": "元の申請内容",
+    "current": "現在の申請氏名",
+    "recordedLabel": "記録された表示名",
+    "notRecorded": "未記録",
+    "blank": "空欄",
+    "ready": "氏名は登録要件を満たしています",
+    "needsReview": "氏名の確認が必要",
+    "needsReviewHelp": "新しいチューター記録を作成する前に、申請者が明確に確認したラテン文字の氏名を入力してください。別の言語の氏名は別途保持できます。",
+    "notAcceptance": "氏名の要件を満たしていても、申請の承認や他の処理要件を満たしたことにはなりません。",
+    "source": {
+      "APPLICATION": "登録には現在の申請氏名を使用します。",
+      "VERIFIED_ACCOUNT": "登録には確認済みアカウントの本人情報を使用します。この訂正はそのアカウントを変更しません。",
+      "EXISTING_ROSTER": "登録には既存のチューター記録を使用します。この訂正はその本人情報を置き換えません。"
+    },
+    "protectedEvidence": "ここで訂正できるのは4つの氏名欄のみです。メール、連絡方法、資格情報、同意済みポリシーの記録は元の申請内容のまま保持されます。",
+    "ineligible": {
+      "APPLICATION_IDENTITY_NOT_INITIAL": "これは資格申請です。資格審査の手順で証拠を確認してください。",
+      "APPLICATION_IDENTITY_NOT_OPEN": "この申請は終了しています。その後の氏名変更は参加者プロフィールで行ってください。",
+      "APPLICATION_IDENTITY_DECIDED": "最終決定または面接完了がすでに記録されています。氏名変更は参加者プロフィールで行ってください。",
+      "APPLICATION_IDENTITY_PROVISIONED": "アカウント設定またはチューター記録がすでに用意されています。関連する参加者プロフィールを確認してください。"
+    },
+    "readOnly": "責任者は訂正を適用できます。管理者は責任者への承認依頼を提出できます。コーディネーターは記録を閲覧できます。",
+    "invalidPreserved": "この申請は無効のままです。氏名を訂正しても無効フラグは解除されず、処理は再開されません。",
+    "history": "訂正履歴（{count}）",
+    "noHistory": "氏名の訂正記録はありません。",
+    "revision": "訂正 {revision} · {actor} · {date}",
+    "before": "訂正前",
+    "after": "訂正後",
+    "viewRequest": "承認依頼を表示",
+    "accessDenied": "この申請の本人情報を閲覧する権限がありません。",
+    "loading": "申請の氏名を読み込み中…",
+    "loadFailed": "申請の氏名を読み込めませんでした。",
+    "retryRead": "更新を再試行",
+    "readFailedRetained": "最新の氏名を読み込めませんでした。下書きは保持されています。更新が成功してから保存してください。",
+    "editHelp": "申請者が確認した氏名を入力し、訂正理由を説明してください。元の申請内容と適用済みの訂正はすべて監査履歴に残ります。",
+    "applied": "氏名の訂正を適用しました",
+    "appliedHelp": "訂正を記録しました。氏名の要件を確認し、通常の申請承認手順を続けてください。",
+    "queued": "責任者に訂正の承認を依頼しました",
+    "queuedHelp": "責任者が承認するまで申請の氏名は変更されません。提出した下書きは保持されます。",
+    "acceptedReadFailed": "訂正は受け付けましたが、最新の記録を更新できませんでした。再試行では記録の読み込みのみ行い、訂正を再送信しません。",
+    "reloadFailed": "再読み込みに失敗しました。下書きと元のバージョンは保持されています。",
+    "authorityChanged": "現在の役割では氏名を訂正できません。保持された下書きは送信できません。",
+    "legacyRetained": "元の未分割の氏名を保持し、名や姓を推測しません。別の言語の氏名のみを訂正した場合、氏名の確認が引き続き必要になることがあります。",
+    "reason": "訂正理由",
+    "reasonHelp": "訂正内容と申請者の確認方法を説明してください。理由は監査記録に保持されます。",
+    "apply": "氏名の訂正を適用",
+    "propose": "責任者に承認を依頼",
+    "saveFailed": "訂正を保存できませんでした。",
+    "reload": "現在の氏名を再読み込み",
+    "cancel": "キャンセル",
+    "errors": {
+      "APPLICATION_IDENTITY_EMAIL_REQUIRED": "元の申請にメールアドレスがありません。適切な申請手順で連絡先の所有者を確認してください。このフォームでは氏名のみを変更します。",
+      "APPLICATION_IDENTITY_NOT_FOUND": "この申請は利用できなくなりました。",
+      "APPLICATION_IDENTITY_ORIGINAL_MISSING": "元の本人情報を取得できません。記録を更新してください。",
+      "APPLICATION_IDENTITY_AUTHORITY_REQUIRED": "訂正を適用できるのは責任者のみです。管理者は承認を依頼できます。",
+      "APPLICATION_IDENTITY_NO_CHANGE": "訂正を送信する前に、少なくとも1つの氏名欄を変更してください。",
+      "APPLICATION_IDENTITY_RETRY_CHANGED": "この受付記録は別の訂正のものです。現在の氏名を再読み込みしてください。",
+      "APPLICATION_IDENTITY_PROPOSAL_DECIDED": "この提案は審査済みです。決定を確認し、現在の氏名を再読み込みしてから新しい訂正を準備してください。"
+    }
   }
 }

@@ -1560,7 +1560,13 @@
           "NAME_ASC": "Applicant name: A–Z",
           "NAME_DESC": "Applicant name: Z–A"
         },
-        "completedOn": "Interview completed: {date}"
+        "completedOn": "Interview completed: {date}",
+        "identity": "Vérification des noms",
+        "identityOptions": {
+          "ALL": "Tous les états des noms",
+          "NEEDS_REVIEW": "Noms à vérifier",
+          "READY": "Noms prêts"
+        }
       },
       "picker": {
         "subjectFocus": "Regrouper les membres par matière",
@@ -3508,7 +3514,8 @@
         "studentWorkflow_resolveSignupAppeal": "Résoudre le recours d’inscription de l’élève",
         "admin_setPairingRoom": "Change a pairing’s room assignment",
         "admin_retryRoomAllocation": "Retry automatic room allocation for a pairing",
-        "admin_autoAssignUnassignedRooms": "Attribuer automatiquement des salles à toutes les séances vérifiées sans attribution"
+        "admin_autoAssignUnassignedRooms": "Attribuer automatiquement des salles à toutes les séances vérifiées sans attribution",
+        "admin_correctApplicationIdentity": "Corriger les noms d’une candidature en attente"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password"
@@ -5823,5 +5830,69 @@
     "reloadWarning": "Le rechargement de cette page supprime tous les brouillons non enregistrés, y compris ceux des réunions et des présences. Les modifications enregistrées sont conservées.",
     "keepEditing": "Continuer à modifier",
     "reloadBusy": "Attendez la fin de l’enregistrement et de l’actualisation."
+  },
+  "applicationIdentity": {
+    "title": "Noms de la candidature",
+    "edit": "Corriger les noms",
+    "dialogTitle": "Corriger les noms de la candidature",
+    "original": "Soumission d’origine",
+    "current": "Noms actuels de la candidature",
+    "recordedLabel": "Nom affiché enregistré",
+    "notRecorded": "Non renseigné",
+    "blank": "Laissé vide",
+    "ready": "Noms prêts pour l’inscription",
+    "needsReview": "Noms à vérifier",
+    "needsReviewHelp": "Renseignez les champs de nom en alphabet latin confirmés par le candidat avant de créer une nouvelle fiche de tuteur. Les noms dans une autre langue peuvent être conservés séparément.",
+    "notAcceptance": "La conformité des noms est indépendante de l’approbation de la candidature et des autres conditions.",
+    "source": {
+      "APPLICATION": "L’inscription utilisera les noms actuels de la candidature.",
+      "VERIFIED_ACCOUNT": "L’inscription utilise l’identité du compte vérifié. Cette correction ne modifie pas ce compte.",
+      "EXISTING_ROSTER": "L’inscription réutilise la fiche de tuteur existante. Cette correction ne remplace pas son identité."
+    },
+    "protectedEvidence": "Seuls les quatre champs de nom peuvent être corrigés ici. L’adresse e-mail, les préférences de contact, les qualifications et les preuves d’acceptation des règles restent celles de la soumission d’origine.",
+    "ineligible": {
+      "APPLICATION_IDENTITY_NOT_INITIAL": "Il s’agit d’une demande de qualification. Consultez ses preuves dans le parcours de qualification.",
+      "APPLICATION_IDENTITY_NOT_OPEN": "Cette candidature est close. Utilisez le profil du participant pour modifier son nom ultérieurement.",
+      "APPLICATION_IDENTITY_DECIDED": "Une décision finale ou un entretien terminé a déjà été enregistré. Utilisez le profil du participant pour modifier son nom.",
+      "APPLICATION_IDENTITY_PROVISIONED": "La configuration du compte ou la fiche du tuteur existe déjà. Consultez le profil du participant associé."
+    },
+    "readOnly": "Un responsable peut appliquer une correction. Un administrateur peut la proposer au responsable. Les coordinateurs peuvent lire ces preuves.",
+    "invalidPreserved": "Cette candidature reste marquée comme non valide. La correction des noms ne retire pas cette marque et ne reprend pas le traitement.",
+    "history": "Historique des corrections ({count})",
+    "noHistory": "Aucune correction de nom enregistrée.",
+    "revision": "Révision {revision} · {actor} · {date}",
+    "before": "Avant correction",
+    "after": "Après correction",
+    "viewRequest": "Voir la demande d’approbation",
+    "accessDenied": "Vous n’avez plus accès aux preuves d’identité de cette candidature.",
+    "loading": "Chargement des noms…",
+    "loadFailed": "Impossible de charger les noms de la candidature.",
+    "retryRead": "Réessayer l’actualisation",
+    "readFailedRetained": "Impossible de lire les noms les plus récents. Votre brouillon est conservé ; actualisez les données avant d’enregistrer.",
+    "editHelp": "Saisissez les noms confirmés par le candidat et expliquez la correction. La soumission d’origine et chaque correction appliquée restent dans l’historique d’audit.",
+    "applied": "Correction des noms appliquée",
+    "appliedHelp": "La correction est enregistrée. Vérifiez la conformité des noms et poursuivez l’approbation habituelle.",
+    "queued": "Correction envoyée au responsable",
+    "queuedHelp": "Les noms restent inchangés jusqu’à l’approbation du responsable. Votre brouillon soumis est conservé.",
+    "acceptedReadFailed": "La correction a été reçue, mais les dernières données n’ont pas pu être actualisées. Réessayer actualise uniquement les données sans soumettre une autre correction.",
+    "reloadFailed": "Échec du rechargement. Votre brouillon et sa version d’origine sont conservés.",
+    "authorityChanged": "Votre rôle ne permet plus de corriger les noms. Le brouillon conservé ne peut pas être soumis.",
+    "legacyRetained": "Le nom d’origine non séparé est conservé sans déduire le prénom ou le nom de famille. Corriger uniquement le nom dans une autre langue peut laisser une vérification nécessaire.",
+    "reason": "Motif de la correction",
+    "reasonHelp": "Expliquez la correction et comment le candidat l’a confirmée. Ce motif est conservé dans le journal d’audit.",
+    "apply": "Appliquer la correction",
+    "propose": "Demander l’approbation du responsable",
+    "saveFailed": "Impossible d’enregistrer la correction.",
+    "reload": "Recharger les noms actuels",
+    "cancel": "Annuler",
+    "errors": {
+      "APPLICATION_IDENTITY_EMAIL_REQUIRED": "La candidature d’origine ne contient pas d’adresse e-mail. Vérifiez le contact dans le parcours approprié ; ce formulaire ne modifie que les noms.",
+      "APPLICATION_IDENTITY_NOT_FOUND": "Cette candidature n’est plus disponible.",
+      "APPLICATION_IDENTITY_ORIGINAL_MISSING": "Les preuves d’identité d’origine sont indisponibles. Actualisez les données avant de continuer.",
+      "APPLICATION_IDENTITY_AUTHORITY_REQUIRED": "Seul un responsable peut appliquer cette correction ; un administrateur peut demander son approbation.",
+      "APPLICATION_IDENTITY_NO_CHANGE": "Modifiez au moins un champ de nom avant de soumettre une correction.",
+      "APPLICATION_IDENTITY_RETRY_CHANGED": "Ce reçu correspond à une autre correction. Rechargez les noms actuels.",
+      "APPLICATION_IDENTITY_PROPOSAL_DECIDED": "Cette proposition a déjà été examinée. Consultez la décision et rechargez les noms actuels avant une nouvelle correction."
+    }
   }
 }

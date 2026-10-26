@@ -48,6 +48,20 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+it.each(["en", "zh"] as const)("previews the application-only legacy exception without relaxing deliberate structured edits in %s", (locale) => {
+  const messages = locale === "zh" ? zh : en;
+  render(<RecipeGallery locale={locale} state="normal" />);
+  fireEvent.change(screen.getByRole("combobox", { name: locale === "zh" ? "姓名要求示例" : "Name requirement example" }), { target: { value: "legacy-correction" } });
+  const first = screen.getByLabelText<HTMLInputElement>(`${messages.personName.firstName} ${messages.signupFields.optional}`);
+  const last = screen.getByLabelText<HTMLInputElement>(`${messages.personName.lastName} ${messages.signupFields.optional}`);
+  expect(first.value).toBe("");
+  expect(last.required).toBe(false);
+  expect(screen.getByText(messages.applicationIdentity.legacyRetained)).toBeTruthy();
+  fireEvent.change(first, { target: { value: "Xiaoming" } });
+  expect(last.required).toBe(true);
+  expect(screen.getByLabelText<HTMLInputElement>(`${messages.personName.preferredName} ${messages.signupFields.required}`).required).toBe(true);
+});
+
 it.each(["en", "zh"] as const)(
   "opens the lazy long table reader with header Close and restores its %s trigger",
   (locale) => {
