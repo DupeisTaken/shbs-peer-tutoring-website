@@ -163,7 +163,7 @@ it.each([
   },
 );
 
-it("preserves Head-only provisioning and never returns a setup token even internally", async () => {
+it.each(["ADMIN", "HEAD"] as const)("allows %s provisioning and never returns a setup token even internally", async (role) => {
   const tutor = await db.tutor.create({
     data: { englishName: "New Tutor", email: "new-tutor@example.test" },
   });
@@ -174,7 +174,7 @@ it("preserves Head-only provisioning and never returns a setup token even intern
     caller("COORDINATOR").admin.sendTutorSetup({ tutorId: tutor.id }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.passwordResetToken.count()).toBe(0);
-  await db.user.update({ where: { id: "actor" }, data: { role: "HEAD" } });
+  await db.user.update({ where: { id: "actor" }, data: { role } });
   expect(await issueTutorSetupLink(tutor.id, "actor")).toEqual({
     ok: true,
     emailed: true,

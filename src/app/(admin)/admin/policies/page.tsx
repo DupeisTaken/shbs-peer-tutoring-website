@@ -236,8 +236,8 @@ function PolicyVersionEditor({
             >
               {upsert.isPending
                 ? t("admin.policies.editor.saving")
-                : identity.data?.role === "ADMIN"
-                  ? t("approvals.requestHead")
+                : identity.data?.role === "COORDINATOR"
+                  ? t("approvals.requestAdmin")
                   : t("admin.policies.editor.save")}
             </button>
             {dirty && (
@@ -638,11 +638,11 @@ export default function PoliciesPage() {
   const readOnly =
     viewerReadOnly ||
     !!identity.error ||
-    !["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
+    !["HEAD", "ADMIN", "COORDINATOR"].includes(identity.data?.role ?? "");
   // A temporary identity read failure disables editing without deleting already
   // opened seed-free form owners. A definitive access denial still hides them.
   const canSeedPolicies =
-    !viewerReadOnly && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
+    !viewerReadOnly && ["HEAD", "ADMIN", "COORDINATOR"].includes(identity.data?.role ?? "");
   const queryClient = useQueryClient();
   const [denied, setDenied] = useState({ policies: false, archives: false });
   const utils = api.useUtils();

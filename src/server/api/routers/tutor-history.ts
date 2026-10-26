@@ -16,7 +16,7 @@ import { rateLimit } from "~/server/rate-limit";
 export const tutorHistoryRouter = createTRPCRouter({
   permissions: protectedProcedure.query(({ ctx }) => ({
     canLink: ["HEAD", "ADMIN"].includes(ctx.session.role),
-    isHead: ctx.session.role === "HEAD",
+    canCorrectOwnership: ["HEAD", "ADMIN"].includes(ctx.session.role),
   })),
   candidates: adminOnlyProcedure
     .input(z.object({ search: z.string().trim().min(2).max(100) }))

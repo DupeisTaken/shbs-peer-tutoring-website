@@ -134,7 +134,7 @@ it("loads candidates only after opening and disables selectors while initial dat
     screen.getByRole<HTMLButtonElement>("button", { name: "Preview combine" })
       .disabled,
   ).toBe(true);
-  expect(screen.queryByLabelText("Your Head account password")).toBeNull();
+  expect(screen.queryByLabelText("Your account password")).toBeNull();
 });
 
 it("announces candidate failure without loading and offers a disabled-while-fetching retry", () => {
@@ -171,7 +171,7 @@ it("distinguishes an empty candidate response from loading", () => {
     messages.combineAccounts.noCandidates,
   );
   expect(screen.queryByText(messages.combineAccounts.loading)).toBeNull();
-  expect(screen.queryByLabelText("Your Head account password")).toBeNull();
+  expect(screen.queryByLabelText("Your account password")).toBeNull();
 });
 
 it("retains selected identities through a cached candidate refetch failure", async () => {
@@ -196,7 +196,7 @@ it("retains selected identities through a cached candidate refetch failure", asy
 it("offers only displayed real logins and clears a reviewed pair hidden by a filter or search", async () => {
   const view = mount();
   await selectAndPreview();
-  fireEvent.change(screen.getByLabelText("Your Head account password"), {
+  fireEvent.change(screen.getByLabelText("Your account password"), {
     target: { value: "secret" },
   });
   visible = [
@@ -210,7 +210,7 @@ it("offers only displayed real logins and clears a reviewed pair hidden by a fil
   ];
   view.rerender(component());
   expect(screen.queryByText("Retained login")).toBeNull();
-  expect(screen.queryByLabelText("Your Head account password")).toBeNull();
+  expect(screen.queryByLabelText("Your account password")).toBeNull();
   const choices = screen.getByLabelText<HTMLSelectElement>(
     "Duplicate login to retire",
   );
@@ -247,7 +247,7 @@ it("discards a delayed preview response after search hides one selected login", 
     finish(response);
   });
   expect(screen.queryByText("Retained login")).toBeNull();
-  expect(screen.queryByLabelText("Your Head account password")).toBeNull();
+  expect(screen.queryByLabelText("Your account password")).toBeNull();
   expect(fixture.mutate).not.toHaveBeenCalled();
 });
 
@@ -255,7 +255,7 @@ it("admits one combine and preserves its pending/result ownership when displayed
   const view = mount();
   await selectAndPreview();
   fireEvent.click(screen.getByRole("checkbox"));
-  fireEvent.change(screen.getByLabelText("Your Head account password"), {
+  fireEvent.change(screen.getByLabelText("Your account password"), {
     target: { value: "secret" },
   });
   const submit = screen.getByRole("button", { name: "Confirm and combine" });
@@ -298,7 +298,7 @@ it("requires preview, identity acknowledgement and Head password before confirma
       .hasAttribute("disabled"),
   ).toBe(true);
   fireEvent.click(screen.getByRole("checkbox"));
-  fireEvent.change(screen.getByLabelText("Your Head account password"), {
+  fireEvent.change(screen.getByLabelText("Your account password"), {
     target: { value: "my-password" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Confirm and combine" }));
@@ -312,14 +312,14 @@ it("requires preview, identity acknowledgement and Head password before confirma
 it("discards the preview and secret when selection changes", async () => {
   mount();
   await selectAndPreview();
-  fireEvent.change(screen.getByLabelText("Your Head account password"), {
+  fireEvent.change(screen.getByLabelText("Your account password"), {
     target: { value: "secret" },
   });
   fireEvent.change(screen.getByLabelText("Duplicate login to retire"), {
     target: { value: "" },
   });
   expect(screen.queryByText("Retained login")).toBeNull();
-  expect(screen.queryByLabelText("Your Head account password")).toBeNull();
+  expect(screen.queryByLabelText("Your account password")).toBeNull();
   expect(fixture.mutate).not.toHaveBeenCalled();
 });
 it("renders blocking conflicts and never offers password confirmation", async () => {

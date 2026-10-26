@@ -245,14 +245,14 @@ export function TuteeHistoryContent({
  * the preview. Server fingerprints independently reject a changed record or account. */
 export function TuteeHistoryLinkForm({
   row,
-  isHead,
+  canCorrectOwnership,
   onLinked,
   onPendingChange,
   parentPending = false,
   invitationOnly = false,
 }: {
   row: RouterOutputs["admin"]["tutees"][number];
-  isHead: boolean;
+  canCorrectOwnership: boolean;
   onLinked: () => void;
   onPendingChange?: (pending: boolean) => void;
   parentPending?: boolean;
@@ -636,7 +636,7 @@ export function TuteeHistoryLinkForm({
               </p>
               {preview.currentConflict ? (
                 <HistoryError message="HISTORY_USE_MERGE" />
-              ) : preview.conflict && !isHead ? (
+              ) : preview.conflict && !canCorrectOwnership ? (
                 <HistoryError message="HISTORY_HEAD_REQUIRED" />
               ) : (
                 <>
@@ -685,7 +685,7 @@ export function TuteeHistoryLinkForm({
                         reason.trim().length < 10 ||
                         !userId ||
                         preview.currentConflict ||
-                        (preview.conflict && (!isHead || !password))
+                        (preview.conflict && (!canCorrectOwnership || !password))
                       )
                         return;
                       submitting.current = true;

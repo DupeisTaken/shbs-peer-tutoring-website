@@ -159,7 +159,7 @@ export async function issueRegistrationCode(
     // Share the database fence with displayed invitations, even for callers that
     // issue participation codes outside a surrounding transaction.
     await lockUsernameNamespace(tx);
-    // Management invitations are durable Head authorization. Check the issuer even
+    // Management invitations are durable Admin/Head authorization. Check the issuer even
     // when called outside the admin router, and never attach participation records.
     if (isManagementCode(opts.kind ?? "TUTOR")) {
       if (opts.issuedById)
@@ -167,10 +167,10 @@ export async function issueRegistrationCode(
       const issuer = opts.issuedById
         ? await tx.user.findUnique({ where: { id: opts.issuedById } })
         : null;
-      if (issuer?.role !== "HEAD" || issuer.suspendedAt)
+      if (!issuer || !["ADMIN", "HEAD"].includes(issuer.role) || issuer.suspendedAt || issuer.mergedIntoId)
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Only Head may issue management invitations.",
+          message: "Only Admin or Head may issue management invitations.",
         });
       if (opts.tutorId || opts.applicationId || opts.crewApplicationId)
         throw new TRPCError({
@@ -790,6 +790,10 @@ async function completeRegistrationLocked(
           before: recipient.role,
           after: nextRole,
         });
+        if (recipient.role !== nextRole) {
+          const { reconcileManagementReviewNotifications } = await import("~/server/notifications/create");
+          await reconcileManagementReviewNotifications(tx);
+        }
         return {
           ok: true as const,
           username: await ensureUserUsername(recipient.id, tx),
@@ -836,6 +840,8 @@ async function completeRegistrationLocked(
         data: { usedByUserId: user.id },
       });
       await recordRedemption(tx, row, user.id);
+      const { reconcileManagementReviewNotifications } = await import("~/server/notifications/create");
+      await reconcileManagementReviewNotifications(tx);
       return { ok: true as const, username };
     });
   }

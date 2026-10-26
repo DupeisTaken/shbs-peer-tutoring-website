@@ -351,16 +351,16 @@ it("does not replace another account's current tutor link", async () => {
   expect(await db.tutorProfileOwnership.count()).toBe(0);
 });
 
-it("requires Head password for a retained-owner correction and revokes the previous reader", async () => {
+it.each([["admin", "ADMIN"], ["head", "HEAD"]] as const)("requires %s password for a retained-owner correction and revokes the previous reader", async (id, role) => {
   await caller().tutorHistory.link(await input());
   const change = await input("other");
   await expect(
     caller("admin", "ADMIN").tutorHistory.link(change),
-  ).rejects.toMatchObject({ message: "HISTORY_HEAD_REQUIRED" });
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   await expect(
     caller().tutorHistory.link({ ...change, confirmPassword: "wrong" }),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  await caller().tutorHistory.link({ ...change, confirmPassword: password });
+  await caller(id, role).tutorHistory.link({ ...change, confirmPassword: password });
   expect(
     await caller("owner", "STUDENT").tuteeHistory.myTutorRecords(),
   ).toEqual([]);

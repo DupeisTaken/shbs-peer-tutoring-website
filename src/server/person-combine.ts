@@ -454,7 +454,7 @@ async function plan(db: DomainDb, raw: Selection, reviewingGroup = false) {
       tutees: graph.tutees.length,
     },
     authoritySummary: requiresHead
-      ? "Head approval and current password are required."
+      ? "Admin or Head review and current password are required."
       : "Admin or Head may confirm these unowned historical records.",
   };
   return { input, graph, live, retained, ready, historicalTutee, preview };
@@ -594,10 +594,10 @@ async function commitPersonReview(
     const planned = "personId" in input ? await planReview(tx, input) : await plan(tx, input);
     const { graph, live, retained, ready, historicalTutee, preview } = planned;
     if (preview.requiresHead) {
-      if (actor.role !== "HEAD")
+      if (!["ADMIN", "HEAD"].includes(actor.role))
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Head review is required.",
+          message: "Admin or Head review is required.",
         });
       if (
         !input.confirmPassword ||

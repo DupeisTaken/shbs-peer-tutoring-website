@@ -179,7 +179,7 @@ vi.mock("~/trpc/react", async () => ({
         useQuery: () => ({
           data: {
             canLink: !state.readOnly,
-            isHead: state.callerRole === "HEAD",
+            canCorrectOwnership: state.callerRole === "HEAD",
           },
         }),
       },

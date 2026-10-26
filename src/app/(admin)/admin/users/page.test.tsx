@@ -24,13 +24,13 @@ import {
 } from "~/lib/management-view-state";
 vi.mock("~/app/_components/combine-records", () => ({
   CombineRecords: ({
-    isHead,
+    canApply,
     onPendingChange,
   }: {
-    isHead: boolean;
+    canApply: boolean;
     onPendingChange: (pending: boolean) => void;
   }) => {
-    fixture.combineRows({ isHead });
+    fixture.combineRows({ canApply });
     return (
       <div>
         Head combine controls
@@ -1408,8 +1408,8 @@ it("lets Head review one verified student's missing username before assignment",
     expect.objectContaining({ title: "Assign a Username to Verified student" }),
   );
 });
-it("hides student username backfill from other staff", () => {
-  fixture.role = "ADMIN";
+it("hides student username backfill from Coordinators", () => {
+  fixture.role = "COORDINATOR";
   mount();
   expect(
     screen.queryByRole("button", { name: messages.identityUsername.assign }),
@@ -1444,24 +1444,24 @@ it("reveals unverified accounts explicitly and resets the saved choice", () => {
 
 it("keeps unified combine search independent of directory visibility filters", () => {
   mount();
-  expect(fixture.combineRows).toHaveBeenLastCalledWith({ isHead: true });
+  expect(fixture.combineRows).toHaveBeenLastCalledWith({ canApply: true });
   fireEvent.click(
     screen.getByRole("button", { name: messages.tuteeHistory.showUnverified }),
   );
   fireEvent.change(screen.getByRole("searchbox"), {
     target: { value: "Unverified student" },
   });
-  expect(fixture.combineRows).toHaveBeenLastCalledWith({ isHead: true });
+  expect(fixture.combineRows).toHaveBeenLastCalledWith({ canApply: true });
   fireEvent.click(
     screen.getByRole("button", { name: messages.tuteeHistory.hideUnverified }),
   );
-  expect(fixture.combineRows).toHaveBeenLastCalledWith({ isHead: true });
+  expect(fixture.combineRows).toHaveBeenLastCalledWith({ canApply: true });
 });
 
-it("offers the unified historical workflow to Admin without Head authority", () => {
+it("offers the unified historical workflow with Admin direct authority", () => {
   fixture.role = "ADMIN";
   mount();
-  expect(fixture.combineRows).toHaveBeenLastCalledWith({ isHead: false });
+  expect(fixture.combineRows).toHaveBeenLastCalledWith({ canApply: true });
 });
 
 it("restores session directory criteria without restricting the unified record picker", () => {
@@ -1474,7 +1474,7 @@ it("restores session directory criteria without restricting the unified record p
   expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe(
     "Unverified student",
   );
-  expect(fixture.combineRows).toHaveBeenLastCalledWith({ isHead: true });
+  expect(fixture.combineRows).toHaveBeenLastCalledWith({ canApply: true });
   expect(screen.getByRole("table").textContent).not.toContain(
     "Management account",
   );

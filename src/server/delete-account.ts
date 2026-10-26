@@ -230,10 +230,10 @@ export async function deleteAccount(
     await tx.$executeRaw`LOCK TABLE "User", "Tutor", "Tutee", "AccountEmail", "StudentProfileOwnership", "TutorProfileOwnership", "AcademicProfile", "AcademicConfirmation", "SchoolDeparture", "SchoolDepartureEvent", "Patrol", "PatrolObservation", "PatrolCreditWindow", "EmailVerificationCode", "PasswordResetToken", "StudentActionConfirmation", "Notification", "EmailDelivery", "CrewStatusRequest", "AccountAppeal", "AnnouncementAck", "PolicyAcceptance", "DirectMessage", "AuditLog", "ApprovalRequest", "StudentRequestReview", "StudentQuarterBlock", "StudentSurvey" IN SHARE ROW EXCLUSIVE MODE`;
     for (const id of accountIds) await lockAccountProfile(tx, id);
     const actor = await tx.user.findUnique({ where: { id: actorId } });
-    if (actor?.role !== "HEAD" || actor.suspendedAt || actor.mergedIntoId)
+    if ((!actor || !["ADMIN", "HEAD"].includes(actor.role)) || actor.suspendedAt || actor.mergedIntoId)
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "Only the current active Head can delete accounts.",
+        message: "Only a current active Admin or Head can delete accounts.",
       });
     if (
       !verifyPasswordConfirmation(

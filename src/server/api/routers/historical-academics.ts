@@ -14,7 +14,7 @@ export const historicalAcademicsRouter = createTRPCRouter({
   list: adminProcedure
     .input(historicalListInput)
     .query(({ ctx, input }) => listHistoricalAcademics(ctx.db, input)),
-  // A preview only reads. Coordinators may inspect changes but cannot submit corrections.
+  // A preview only reads. Coordinators then submit the exact reviewed batch for approval.
   preview: adminProcedure
     .input(historicalCorrectionInput)
     .mutation(async ({ ctx, input }) => ({

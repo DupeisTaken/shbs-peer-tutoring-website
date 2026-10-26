@@ -263,7 +263,7 @@ function Editor({
               ? t("saving")
               : canApply
                 ? t("save")
-                : approvals("requestHead")}
+                : approvals("requestAdmin")}
           </button>
           <button
             type="button"

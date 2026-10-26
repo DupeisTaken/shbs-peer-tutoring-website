@@ -437,6 +437,43 @@ it("restores an authorized crew panel without retaining reviewed decisions", () 
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(state.commit).not.toHaveBeenCalled();
 });
+
+it.each([
+  ["application-app-1", "crewApplications"],
+  ["request-request-1", "crewRequests"],
+] as const)("reveals a delayed canonical %s source ahead of a remembered roster without replacing it", async (anchor, source) => {
+  const key = viewStateKey("head", "/admin/crew", "crew-panel-v1", "");
+  writeViewState(sessionStorage, key, "roster");
+  window.history.replaceState(null, "", `/admin/crew#${anchor}`);
+  state.coldRead = source;
+  // Geometry is explicit: this verifies selection/focus lifetime, not layout.
+  const rects = vi.spyOn(Element.prototype, "getClientRects").mockImplementation(function (this: Element) {
+    return { length: this.closest("[hidden]") ? 0 : 1 } as DOMRectList;
+  });
+  const previousScroll = Object.getOwnPropertyDescriptor(Element.prototype, "scrollIntoView");
+  const scroll = vi.fn();
+  Object.defineProperty(Element.prototype, "scrollIntoView", { configurable: true, value: scroll });
+  try {
+    const view = show(false);
+    expect(screen.getByRole("tab", { name: en.admin.crew.panels.review }).getAttribute("aria-selected")).toBe("true");
+    expect(document.getElementById(anchor)).toBeNull();
+    state.coldRead = "";
+    view.rerender(<CrewPage />);
+    await waitFor(() => expect(document.activeElement).toBe(document.getElementById(anchor)));
+    expect(scroll).toHaveBeenCalledOnce();
+    expect(JSON.parse(sessionStorage.getItem(key)!)).toBe("roster");
+    fireEvent.click(screen.getByRole("tab", { name: en.admin.crew.panels.roster }));
+    view.rerender(<CrewPage />);
+    expect(screen.getByRole("tab", { name: en.admin.crew.panels.roster }).getAttribute("aria-selected")).toBe("true");
+    expect(scroll).toHaveBeenCalledOnce();
+    expect(state.commit).not.toHaveBeenCalled();
+  } finally {
+    rects.mockRestore();
+    if (previousScroll) Object.defineProperty(Element.prototype, "scrollIntoView", previousScroll);
+    else Reflect.deleteProperty(Element.prototype, "scrollIntoView");
+    window.history.replaceState(null, "", "/");
+  }
+});
 it("drops a denied remembered roster but still lets staff visit its read-only Retry state", () => {
   const key = viewStateKey("head", "/admin/crew", "crew-panel-v1", "");
   writeViewState(sessionStorage, key, "roster");

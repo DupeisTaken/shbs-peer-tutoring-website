@@ -6,40 +6,41 @@ This is the supported single-program website. Account role, tutor participation,
 
 ## Management responsibilities and review
 
-Authority follows the effect of a change. Head can apply sensitive changes directly;
-Admin can apply ordinary daily operations directly. A requester without direct authority
-submits to **all eligible reviewers** through Management Actions. Pending requests do not
-change live records. Coordinator cannot submit significant settings or management profile/rank
-edits, including through a direct API call. Participant self-service contact/profile edits
-retain their existing ownership rules; subject qualification levels are distinct from role levels.
+Head is the root management role and inherits every Admin capability. Admin and
+Head apply non-refresh management changes directly; Coordinators submit permitted
+changes to Management Actions. A pending request never changes live records.
+Ordinary review notices go to eligible Admins, with Head as fallback when none can
+review. Head retains review access even when an Admin receives the notification.
 
-| Category and entry points                                                                                                                                         | Direct authority | Allowed requests                                                    | Reviewers               |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------- | ----------------------- |
-| Recruitment switch/start/end/preview; CAPTCHA; name/grade configuration; signup fields; optional email/binding switches; timezone; staged modules; period refresh | Head             | Admin                                                               | Head                    |
-| Global calendar, feedback sharing, policy publication/removal, language visibility/order/removal and message-permission configuration                             | Head             | Admin                                                               | Head                    |
-| Staff account name/username/academic edits, roster profile edits, role/badge and tutoring/crew access changes; historical academic corrections                    | Head             | Admin                                                               | Head                    |
-| Tutor/Crew registration invitations                                                                                                                               | Admin or Head    | Eligible Coordinator requesters                                     | Head                    |
-| Existing participation decisions that grant access                                                                                                                | Head             | Eligible Admin/Coordinator requesters                               | Head                    |
-| Admin/Coordinator registration invitations                                                                                                                        | Head             | Admin                                                               | Head                    |
-| Audit undo, reinstatement, deletion of hour adjustments, invitation revocation, attendance/patrol correction and changes to an applied card decision              | Head             | Eligible Admin/Coordinator requesters; messaging remains Admin-only | Head                    |
-| Time-slot clock changes that propagate into recorded attendance, credits or reviewed flags                                                                        | Head             | Admin/Coordinator                                                   | Head                    |
-| Current tutee signup assigned-choice edits and their affected assignment release                                                                                 | Head             | Admin/Coordinator request Head review; owners cannot drop assigned choices | Head               |
-| Public-request invalid flags; tutee signup appeal decisions                                                                                                      | Admin or Head    | Coordinator proposes flags; the owned tutee request may be appealed   | Admin or Head          |
-| Message restoration, removal of messaging restrictions, and an appeal that overturns an applied decision                                                          | Head             | Eligible requesters in the underlying workflow                      | Head                    |
-| Assignments, rooms/blocks/slots, catalogues, meetings/attendance, ordinary hours, announcements, initial discipline decisions and other reviewed daily work       | Admin or Head    | Coordinator                                                         | All eligible Admin/Head |
+| Category and entry points | Direct authority | Allowed requests | Reviewers |
+| --- | --- | --- | --- |
+| Recruitment windows, timezone, staged modules and next-period openings | Admin or Head | Coordinator | Admin or Head |
+| Official program refresh and activation of staged settings | Head | Admin | Head |
+| Program/security configuration, calendars, policies, language settings and signup fields | Admin or Head | Coordinator where the workflow permits | Admin or Head |
+| Account/roster names, usernames, academic corrections and participant badges | Admin or Head | Coordinator | Admin or Head |
+| Non-Head management rank grants/revocations and Admin/Coordinator invitations | Admin or Head | No Coordinator requests | Admin or Head for compatible historical requests |
+| Leadership transfer | Current Head, with fresh password and singleton checks | Dedicated transfer only | — |
+| Identity combination, account deletion and record import/export | Admin or Head, with dedicated confirmation/ownership checks | Dedicated workflows only | — |
+| Private-message supervision and contact restrictions | Admin or Head | No Coordinator requests | Admin or Head |
+| Daily operations, corrections, reversals, reinstatements and historical hours | Admin or Head | Eligible Coordinator | Admin or Head |
+| Participant membership/appeal requests | Underlying participant workflow | Eligible owner | Admin or Head |
 
-Initial tutor application name corrections follow the same Head-only application
-boundary: Admin may propose, while Coordinator and read-only accounts cannot
-submit. The four name fields and correction reason are the whole save scope.
+Participant ownership, consent, interview chair/applicant safeguards and explicit
+translator assignment remain independent of management rank. Coordinators cannot
+grant or demote management rank, supervise private messages or execute refresh.
+
+Initial tutor application name corrections allow Admin/Head to apply and Coordinator
+to propose. The four name fields and correction reason are the whole save scope.
 Contact, qualification and policy evidence remain unchanged. A name correction
 does not accept the request or clear an invalid flag. See
 [the correction workflow](user-guide.md#correct-an-initial-tutor-applications-name).
 
 The executable inventory is [approval-policy.ts](../../src/lib/approval-policy.ts).
-Restoring archived subjects, subject levels or time slots requires Head application, including batch subject edits and offerings implicitly restored when saving a course group; ordinary catalogue edits retain daily-operation authority.
+Restoring archived subjects, subject levels or time slots allows Admin/Head application
+and Coordinator proposals, including batch edits and implicit course-group restoration.
 
 Its input-dependent classification covers restorations even when the button does not say
-Undo. Corrections that can remove penalties or restore participation use Head review for
+Undo. Corrections that can remove penalties or restore participation use Admin/Head review for
 the entire correction; dependent effects cannot apply early. Initial pending decisions are
 daily work, while changing an already applied decision is a reversal.
 
@@ -47,13 +48,30 @@ Withdrawing an unapplied request, cancelling an unused confirmation ticket, edit
 unsaved draft and read-only previews are not reversals of live program decisions. Existing
 setup/verification resends remain direct operational conveniences: they do not grant rank,
 assign participants or extend an intake deadline. Leadership transfer, account combination,
-account deletion and program-record import/export keep their dedicated Head safeguards.
+account deletion and program-record import/export keep their dedicated safeguards.
+Only leadership transfer remains exclusive to Head among these dedicated flows.
 Unknown Coordinator writes are refused rather than silently acquiring direct authority.
 
 Head retains the ability to review their own eligible request. Other reviewers cannot decide
 their own pending proposal. Current roles and suspension status are rechecked before application;
 changed target evidence requires a fresh request. A legacy role-change proposal requires the
-reviewing Head's fresh password, which is never saved in the proposal or audit log.
+reviewer's fresh password, which is never saved in the proposal or audit log.
+
+Pending proposals are re-evaluated under the current authority policy. Their original
+submitted evidence, fingerprint and historical review authority remain immutable;
+decision audits record both submitted and current policy versions. Incompatible or
+stale requests must be rejected/returned and resubmitted from fresh evidence.
+
+After rolling out this policy, an Admin or Head opens **Management Actions** and
+uses **Refresh reviewer notifications** once. This appends missing notices for
+current eligible reviewers; it does not approve requests, replace history or resend
+notices already delivered. Role/membership changes and leadership transfer also
+reconcile pending review ownership. The result reports pending requests inspected
+and notices added; repeating the action is safe. It covers Management Actions,
+Tutor/Crew membership requests and Crew applications. Stale membership state or
+inactive owners are skipped. Older queue-wide notices cannot be attributed to a
+particular source, so one new source-specific notice may accompany an old notice;
+later runs do not repeat it. Crew links open the review panel and reveal the record.
 
 Audit Log records direct changes, requests, decisions, reversals and automatic program changes,
 with actor/role, operation, outcome and available safe before/after evidence. Undo links to its
@@ -74,7 +92,7 @@ private-message bodies are excluded; failed attempts are distinct from applied c
 | Review subject availability                            | Staff → Tutors → Subject Availability; `/admin/subject-availability`                                                                                         | HEAD, ADMIN and COORDINATOR can inspect qualifications and willingness separately, including inherited grants. Coordinator changes require approval. Availability requires an active subject and level (or no level), an active tutor with tutoring access, a recorded approved grant and explicit willingness; timetable/capacity checks remain separate. |
 | Communicate                                            | Workspace Messages and notifications                                                                                                                         | Announcements support immutable recipient snapshots, filters and individual overrides; private deliveries remain isolated per recipient; disclosed new messages allow audited HEAD/ADMIN supervision ([contact controls](#message-permissions-and-supervision))                                                                                            |
 | Get support                                            | Tutee Support tab, session feedback, card appeals and private messages                                                                                       | Tutee Support (`/admin/student-support`) handles shared feedback and appeals; Program Settings holds calendars; Users & Roles → User details holds account-scoped policy acceptance history                                                                                                                                                                |
-| Review management changes                              | Eligible staff prepare changes according to the responsibility matrix                                                                                        | Management Actions: Head reviews sensitive changes and reversals; Admin/Head review daily operations; pending is not applied                                                                                                                                                                                                                               |
+| Review management changes                              | Eligible staff prepare changes according to the responsibility matrix                                                                                        | Management Actions: Admin/Head review permitted non-refresh changes and reversals; Admin/Head review daily operations; pending is not applied                                                                                                                                                                                                                               |
 | Observe the program                                    | `/viewer-signup` → verify email → invitation popup with copy, optional email and prefilled `/register` link → account review                                 | New VIEWER sees permitted summaries with private contact data masked; an existing account's LOGIN invitation preserves access and credentials                                                                                                                                                                                                              |
 | Patrol rooms                                           | Apply at `/crew-signup`; active crew member → `/patrol`                                                                                                      | Crew maintains applications, membership, room order, patrols and corrections; observations support attendance review                                                                                                                                                                                                                                       |
 | Maintain accounts                                      | Shared Account settings; Add access in settings/account menu; verified email changes and password recovery                                                   | Users & Roles manages identities, invitation/setup, capability assignment, suspension and leadership boundaries                                                                                                                                                                                                                                            |
@@ -112,7 +130,7 @@ truncation.
 
 **Program Settings** groups controls into **Recruitment and Refresh**, **Account Settings**, **Deployment Configurations** and **Optional Features**. Recruitment and Refresh contains the separate tutoring notices and school-day calendar, timezone, recruitment windows and refresh. Account Settings contains name/grade policies, per-account-type name requirements and message-contact permissions. Deployment Configurations contains email/binding configuration and CAPTCHA. Optional Features contains staged feature switches. Message supervision remains in Messages; feedback and appeals remain in Tutee Support. Moving a control does not change its authority or effective timing.
 
-HEAD stages changes to these switches in **Program Settings → Optional Features**. Changes take effect at the **next program refresh**, not when the switch is clicked. Auto-assign rooms alone is initially On at deployment, as described below. Existing records remain history. Do not refresh just to preview a switch: refresh changes participation and the current period.
+Admin and Head stage changes to these switches in **Program Settings → Optional Features**. Changes take effect at the **next program refresh**, not when the switch is clicked. Auto-assign rooms alone is initially On at deployment, as described below. Existing records remain history. Do not refresh just to preview a switch: refresh changes participation and the current period.
 
 | Switch | Default | Effect when applied |
 | --- | --- | --- |
@@ -134,7 +152,7 @@ Auto-assign rooms is effective immediately when first deployed, even before a
 feature setting has been saved. Turning it off or enabling it again is staged
 until the next program refresh. The current On/Off badge remains authoritative;
 the pending badge describes the next refresh. Switch back to the current value
-to cancel a pending change. Admin changes require Head approval before staging.
+to cancel a pending change. Admin and Head stage directly; Coordinator proposals require Admin/Head approval before staging.
 Neither deployment nor changing the switch reallocates existing bookings.
 When off, existing/manual reservations, conflict protection and room displays
 continue to operate. If saving succeeds but reloading settings fails, use
@@ -144,14 +162,14 @@ continue to operate. If saving succeeds but reloading settings fails, use
 
 | Control                           | Scope / timing                                                                                                                                                                                                                                                                                                                |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Program timezone                  | Head applies a supported IANA region; Admin requests Head review. Existing instants remain fixed; weekly slots remain school wall-clock times                                                                                                                                                                                 |
-| Tutor and tutee recruitment       | Head applies each active-period window; Admin requests Head review for acceptance, optional start/end times and preview link. Clearing a start time still respects the switch, end time and setup requirements; see [recruitment windows](#tutor-and-tutee-recruitment-windows)                                               |
-| Names and grades                  | Head applies offered grades and independently controls **Use preferred names** and **Show names in another language**; Admin requests Head review; see [name fields and display settings](user-guide.md#names-and-academic-details)                                                                                           |
+| Program timezone                  | Admin/Head apply a supported IANA region; Coordinators request review. Existing instants remain fixed; weekly slots remain school wall-clock times                                                                                                                                                                                 |
+| Tutor and tutee recruitment       | Admin/Head apply each active-period window; Coordinators request review for acceptance, optional start/end times and preview link. Clearing a start time still respects the switch, end time and setup requirements; see [recruitment windows](#tutor-and-tutee-recruitment-windows)                                               |
+| Names and grades                  | Admin/Head apply offered grades and independently controls **Use preferred names** and **Show names in another language**; Coordinators request review; see [name fields and display settings](user-guide.md#names-and-academic-details)                                                                                           |
 | Subjects, levels, slots and rooms | Management catalogues used by application, availability and pairing workflows                                                                                                                                                                                                                                                 |
 | Policy versions                   | Published database revisions require new acceptance for participation; changing a bundled policy draft does not publish it                                                                                                                                                                                                    |
 | School calendar                   | Staff define holidays and make-up days used for school-day appeal deadlines                                                                                                                                                                                                                                                   |
-| No-tutoring dates                 | Head applies inclusive start/end date ranges with a reason; Admin requests Head review. Protected tutor/tutee schedules display this informational context. It does not restrict attendance, cancel sessions, change recurrence, alter appeal deadlines or modify school-day rules |
-| Name field requirements           | Head configures Required/Optional/Hidden for each field and account type; Admin requests review. New signup uses its intake type; later shared-profile edits use the current account role. Hidden originals remain visible in authorized management editors; active labels exclude them and use username fallback when needed |
+| No-tutoring dates                 | Admin/Head apply inclusive start/end date ranges with a reason; Coordinators request review. Protected tutor/tutee schedules display this informational context. It does not restrict attendance, cancel sessions, change recurrence, alter appeal deadlines or modify school-day rules |
+| Name field requirements           | Admin/Head configure Required/Optional/Hidden for each field and account type; Coordinators request review. New signup uses its intake type; later shared-profile edits use the current account role. Hidden originals remain visible in authorized management editors; active labels exclude them and use username fallback when needed |
 | Feedback visibility               | Management-only by default; configured sharing also affects earlier feedback                                                                                                                                                                                                                                                  |
 | Announcements                     | Filters combine across groups; alternatives within a group match any choice; explicit exclusions win. Published recipients are fixed                                                                                                                                                                                          |
 | Language visibility               | English and Chinese are the launch-visible catalogues; six hidden catalogues contain English fallbacks                                                                                                                                                                                                                        |
@@ -159,7 +177,7 @@ continue to operate. If saving succeeds but reloading settings fails, use
 
 ## Optional email notifications
 
-Head can enable **Email Notifications** in **Program Settings → Deployment Configurations**; Admin submits the change for Head review. The setting takes effect when applied, defaults off and is separate from staged modules and email 2FA. Production requires configured email delivery. Individuals then choose private-message and information/program categories, and whether verified secondary addresses receive copies; see [personal preferences](user-guide.md#optional-email-notifications).
+Admin/Head can enable **Email Notifications** in **Program Settings → Deployment Configurations**; Coordinators submit the change for Admin/Head review. The setting takes effect when applied, defaults off and is separate from staged modules and email 2FA. Production requires configured email delivery. Individuals then choose private-message and information/program categories, and whether verified secondary addresses receive copies; see [personal preferences](user-guide.md#optional-email-notifications).
 
 Disabling the setting cancels pending optional notices and preserves personal preferences. Users cannot enable notifications themselves while this program switch is off. Security alerts and essential public-request invalidity/clear notices remain mandatory. Request-status mail uses the PROGRAM sender but bypasses optional switches and personal preferences, goes only to the request's recorded address, and has no unsubscribe link.
 
@@ -171,7 +189,7 @@ Interview scheduling can carry a recorded date/time/timezone. Tutoring assignmen
 remain recurring weekly arrangements: there is no dated tutoring-session notification
 emitter, and an assignment notice does not create or promise a specific session date.
 
-The independent **Secondary-Email Binding** switch takes effect when Head applies it; Admin can request Head review, and Coordinators cannot submit either email switch. Binding availability defaults on to preserve the existing workflow. Turning it off blocks add/resend/confirm operations, including a code issued before the switch changed. It preserves existing account addresses, sign-in/recovery, primary-email changes and removal/cancellation. A secondary email is never required for signup, setup or use. This switch does not require notification emails to be enabled.
+The independent **Secondary-Email Binding** switch takes effect when Admin/Head apply it; Coordinators can propose either email switch. Binding availability defaults on to preserve the existing workflow. Turning it off blocks add/resend/confirm operations, including a code issued before the switch changed. It preserves existing account addresses, sign-in/recovery, primary-email changes and removal/cancellation. A secondary email is never required for signup, setup or use. This switch does not require notification emails to be enabled.
 
 The settings panel checks both security and program SMTP connection/authentication, warns about unavailable or missing transport, and reports retrying and terminal notification failures separately. **Refresh status** reads diagnostics without sending mail or changing the program; checks may be cached for one minute. Passing the check does not guarantee inbox delivery. Operators should inspect the safe failure summaries in `EmailDelivery` and follow the [delivery operations guide](deployment.md#optional-notification-delivery). Essential authentication mail remains independent.
 
@@ -227,7 +245,7 @@ published slots without an assignment. The participant subtitle identifies the
 highlighted personal pairings and uses a room-status explanation consistent with
 that legend.
 
-In **Rooms**, Head/Admin use the up/down arrows beside each room's existing actions to stage the display order in the current list. There is no separate ordering menu or duplicate room list. The single **Save order** or **Request room order change** row saves the complete order; **Reload order** explicitly replaces that draft and its expected order only after a successful read. Room-detail editors remain keyed by room ID, so moving a room does not save or discard their independent drafts. Pending order writes block additional order changes; failed writes retain the draft, and failed synchronization after an accepted write uses read-only refresh rather than resubmission. A changed room catalog requires Reload before further ordering. Stale or incomplete lists are rejected by the existing server authority. New rooms append to the saved order. Head applies the change and Admin submits it for Head review. Coordinators and Viewers do not edit this program setting. This order is independent from the Crew patrol order: reordering does not move a pairing or change patrol sequencing.
+In **Rooms**, management use the up/down arrows beside each room's existing actions to stage the display order in the current list. There is no separate ordering menu or duplicate room list. The single **Save order** or **Request room order change** row saves the complete order; **Reload order** explicitly replaces that draft and its expected order only after a successful read. Room-detail editors remain keyed by room ID, so moving a room does not save or discard their independent drafts. Pending order writes block additional order changes; failed writes retain the draft, and failed synchronization after an accepted write uses read-only refresh rather than resubmission. A changed room catalog requires Reload before further ordering. Stale or incomplete lists are rejected by the existing server authority. New rooms append to the saved order. Admin/Head apply the change; Coordinators propose it for review. Viewers cannot edit this program setting. This order is independent from the Crew patrol order: reordering does not move a pairing or change patrol sequencing.
 
 Use **Time Slots**, **Rooms** and **Pairings** to plan recurring sessions. A room cannot host overlapping pairings in one program period or a pairing during a recurring blackout; back-to-back sessions are allowed. Availability helps participants agree on a slot and does not prevent staff from assigning a tutor before that agreement. New assignments display **Awaiting schedule** until a tutor or manager selects a catalog slot. These assignments do not reserve rooms or count as scheduled subjects; the assigned tutor remains visible to the tutee.
 
@@ -295,7 +313,7 @@ Admin and Head changes take effect after a successful save. Coordinators use **R
 
 Changing a catalog slot affects linked schedules. Read the Time Slots guidance before saving; **How schedule changes work** reopens dismissed guidance. The tutor's default-slot control confirms a pairing's schedule and links it to the catalog. Clearing that link retains an agreed copied day and time; it does not erase the schedule. Clearing an assignment that is still awaiting scheduling does not assign a day or time. Record completed attendance truthfully even when it differs from the plan, then review any conflict warning.
 
-Changing a catalog slot's clock times also updates previously recorded sessions linked to it. These changes require Head authority because they alter applied attendance; Admin and Coordinator submit them for Head review. A combined block moves as a whole, even if one of its subjects has a different saved slot link. The change is rejected if it would overlap another saved block for the same tutor and date. Hours are recalculated once per block; affected attendance-flag decisions and their linked deductions are reconsidered, with prior evidence kept in the audit log and HEAD notified. Changing only the weekday does not change actual historical session dates or times. A concurrent attendance submission or correction may require a reload before retrying; a rejected slot edit leaves the slot, schedules, attendance and deductions unchanged.
+Changing a catalog slot's clock times also updates previously recorded sessions linked to it. Admin/Head apply these changes; Coordinators submit them for review because they alter applied attendance. A combined block moves as a whole, even if one of its subjects has a different saved slot link. The change is rejected if it would overlap another saved block for the same tutor and date. Hours are recalculated once per block; affected attendance-flag decisions and their linked deductions are reconsidered, with prior evidence kept in the audit log and HEAD notified. Changing only the weekday does not change actual historical session dates or times. A concurrent attendance submission or correction may require a reload before retrying; a rejected slot edit leaves the slot, schedules, attendance and deductions unchanged.
 
 The applied **Quarter System** setting controls labels: Q1/Q2 display in semester one and Q3/Q4 in semester two when quarters are disabled. Requests display their original intake, not whichever intake is currently active. Staged module changes take effect only at refresh; labels do not rewrite stored deadlines or attendance.
 
@@ -313,7 +331,7 @@ explicit attendees and a reason. **Review credits** previews actual minutes ÷ 6
 attendee and the total before final confirmation. Admin/Head apply initial records;
 Coordinator submissions await Admin/Head review. **Correct completion & hours** replaces
 source-owned automatic credits, preserves unrelated adjustments and original period
-ownership, and requires Head application (including Admin/Coordinator proposals).
+ownership, and allows Admin/Head application and Coordinator proposals.
 Both INTERVIEWS and SERVICE_HOURS must be enabled for completion writes.
 
 The read-only review combines decision, completion/approval and registration/setup
@@ -327,7 +345,7 @@ Completed menu and retain drafts across collapse and deterministic reordering.
 
 ## Refresh the program
 
-Head runs refresh in **Program Settings → Recruitment and Refresh** after reviewing the current period, exact destination, program timezone and prepared Tutor/Tutee openings, then typing `REFRESH`; Admin may request Head review. Coordinators can inspect it but cannot submit or execute it. Head-approved pending module settings take effect in this operation; the applied quarter/semester mode determines the next period.
+Head runs refresh in **Program Settings → Recruitment and Refresh** after reviewing the current period, exact destination, program timezone and prepared Tutor/Tutee openings, then typing `REFRESH`; Admin may request Head review. Coordinators can inspect it but cannot submit or execute it. Previously staged module settings take effect in this operation; the applied quarter/semester mode determines the next period.
 
 | Change                       | Result                                                                                                                                                      |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -338,7 +356,7 @@ Head runs refresh in **Program Settings → Recruitment and Refresh** after revi
 | Preserve evidence            | Attendance, service hours, policy acceptances and audit records remain; current-period totals and participation are evaluated separately                    |
 | Activate prepared openings   | Applied next-period Tutor and Tutee openings become current settings in the same transaction that activates the destination; pending proposals do not apply |
 
-Reload and review again after the source period, prepared values, destination intake settings or staged Quarter System revision changes. Changing Quarter System away and back still requires renewed review. A preparation bound to an older target must be explicitly replaced or cleared for the new target before refresh; it is never silently moved or discarded. Previously queued refresh requests without preparation evidence require a fresh request.
+Reload and review again after the source period, prepared values, destination intake settings or any staged feature revision changes. Changing a feature away and back still requires renewed review. A preparation bound to an older target must be explicitly replaced or cleared for the new target before refresh; it is never silently moved or discarded. Previously queued refresh requests without preparation and complete staged-feature evidence require a fresh request.
 
 A failed refresh rolls back activation, participant changes and opening settings together, retaining the preparations for review and retry. Replaying a completed refresh cannot advance another period. After refresh, check applied switches, tutor availability, intake settings and new assignments before resuming the program.
 
@@ -350,9 +368,9 @@ portal shows the same permitted summaries and masked private fields as a standal
 It does not convert the account to the exclusive Viewer membership.
 
 Use **School Departure** in personal account settings to request graduation, transfer or
-return. Head reviews requests through **Management Actions**; pending requests grant no
-access. Staff can also open **Users & Roles → Edit Profile → School Departure**. Head can
-apply the reviewed change directly; other management accounts submit a proposal.
+return. Admin/Head review requests through **Management Actions**; pending requests grant no
+access. Staff can also open **Users & Roles → Edit Profile → School Departure**. Admin/Head can
+apply the reviewed change directly; Coordinators submit a proposal.
 Academic self-reports and imported roster records do not grant observer access.
 
 Confirmation ends tutoring and tutee participation, removes current assignments and requeues
@@ -360,7 +378,7 @@ affected learners. Historical attendance, pairings and service hours remain. Sch
 does not change academic graduation or grade reports. Separately assigned crew, translator
 and management permissions remain in place for independent review.
 
-Head can revoke or restore departure-based observer access without erasing departure
+Admin/Head can revoke or restore departure-based observer access without erasing departure
 history. Account suspension takes precedence. Revoked tutor access also blocks an observer
 grant derived from that tutor membership. A reviewed return removes the departure grant,
 puts an eligible tutor back into pending activation, and requires fresh tutee enrollment;
@@ -388,19 +406,19 @@ Open **Hour Adjustments** (`/admin/hour-adjustments`) to add extra hours or a pu
 
 Months remain in `YYYY-MM` format. Desktop tables reserve space for months and wrap long names, reasons and translated labels; a constrained desktop table can scroll within its card. On mobile, each record stacks its labelled fields and delete action so the full reason stays readable. Form controls and row actions support touch and keyboard use.
 
-HEAD and ADMIN can apply additions; Coordinator additions require Admin/Head review. Deleting an existing adjustment reverses recorded hours, so only Head applies it; Admin and Coordinator submit Head-review proposals. Pending proposals leave live hours unchanged. VIEWER has no mutation controls, cannot write through the API, and receives records with private reasons withheld by the server. Tutor accounts cannot access this management listing.
+HEAD and ADMIN can apply additions; Coordinator additions require Admin/Head review. Deleting an existing adjustment reverses recorded hours; Admin/Head apply it and Coordinators submit review proposals. Pending proposals leave live hours unchanged. VIEWER has no mutation controls, cannot write through the API, and receives records with private reasons withheld by the server. Tutor accounts cannot access this management listing.
 
 ## Reports and exports
 
 Open **Reports** (`/admin/history`) and choose a school year and quarter, semester or whole-year scope. **Summary** shows totals and tutors; **Detailed** adds sessions, cards, meetings, meeting attendance, adjustments, crew and attendance flags; **Full** also includes applications, signups, removals and tutor participation requests. Sections follow enabled modules.
 
-HEAD can download a displayed table as CSV. Use **Print / Save as PDF** and the browser's print dialog for a printable report. Review the private-data masking option before sharing; VIEWER responses are always masked by the server. Report exports reflect the chosen scope and current records. They are not database backups and do not use the import format below.
+Admin/Head can download a displayed table as CSV. Use **Print / Save as PDF** and the browser's print dialog for a printable report. Review the private-data masking option before sharing; VIEWER responses are always masked by the server. Report exports reflect the chosen scope and current records. They are not database backups and do not use the import format below.
 
 Signup grades in newly generated reports use the latest reviewed historical academic correction, or the preserved enrollment grade when no correction exists. An originally unknown grade stays unknown; linking an account does not substitute its current grade. Legacy signups without preserved evidence use their recorded enrollment grade. Generating a report does not change original archive evidence or previously downloaded reports.
 
 ## Import and export program records
 
-Only **HEAD** can open **Program records** (`/admin/records`), download CSV archives/templates, preview an import or commit it. ADMIN and COORDINATOR cannot submit imports for approval. Access is checked against the current database role, including after a demotion or suspension.
+**Admin and Head** can open **Program records** (`/admin/records`), download CSV archives/templates, preview an import or commit it. Coordinators cannot submit imports for approval. Access is checked against the current database role, including after a demotion or suspension.
 
 **Export CSV archive** downloads one ZIP containing a CSV for every supported record type plus `README.txt`. **Download CSV templates** supplies the same headers without data. Use these templates for past records from spreadsheets: rename/map the source columns to the template columns, keep the filenames, and provide stable IDs for each record and its references. An export includes all available program periods, independent of the Reports page filters.
 
@@ -465,7 +483,7 @@ legacy-pairing-001,legacy-tutor-001,legacy-term-001,Mathematics,2,600,630
 
 ## Program Time Zone
 
-Head or Admin selects a supported IANA region in **Program Settings → Recruitment and Refresh → Program Time Zone**; Head applies it and Admin requests Head review. Coordinators can read it. The default is Asia/Shanghai. Review the current/proposed time preview before submitting. Reload a stale editor or other open pages after another staff member changes the setting.
+Head or Admin selects a supported IANA region in **Program Settings → Recruitment and Refresh → Program Time Zone**; Admin/Head apply it and Coordinators request review. The default is Asia/Shanghai. Review the current/proposed time preview before submitting. Reload a stale editor or other open pages after another staff member changes the setting.
 
 Options show the readable region, a localized zone name, an abbreviation where available, and a GMT offset. Use **Preview date** to compare seasonal offsets at 12:00 UTC on that date; this preview does not save a setting. New York shows EST (GMT-05:00) in winter and EDT (GMT-04:00) in summer. UTC and fractional offsets such as India's GMT+05:30 are supported. The selected label also appears below the dropdown so its full text remains readable on narrow screens.
 
@@ -492,7 +510,7 @@ The published audience is fixed. For coordinator proposals, approval freezes the
 
 ## Message permissions and supervision
 
-In **Program Settings → Account Settings → Contact permissions**, Head applies configuration changes; Admin submits them for Head review. Management roles default to all available accounts; other roles default to management. Select a union of groups:
+In **Program Settings → Account Settings → Contact permissions**, Admin/Head apply configuration changes; Coordinators cannot propose private-messaging controls. Management roles default to all available accounts; other roles default to management. Select a union of groups:
 
 | Group                  | Who it includes                                                                                                  |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -506,7 +524,7 @@ A user override **replaces** the role groups. An empty override prevents new sen
 
 Messages deliver immediately, with no pre-delivery approval queue. HEAD/ADMIN can search disclosed messages by participant or text and filter visible/hidden content. **View conversation** shows a participant pair; **All conversations** clears that filter. Opening content requires a reason and records review evidence without marking it read for the recipient.
 
-Hiding removes content from participants' responses while retaining it for authorized review; restoring makes it visible again. Both actions require a reason and keep actor/time evidence. Admin/Head can hide messages or impose messaging restrictions directly; restoring messages or removing restrictions requires Head application, with Admin requests held for review. There is no message-deletion control. Participant-only messages remain outside supervision, and coordinators cannot inspect other people's conversations. Publish wording that matches this disclosure using the [policy publication procedure](policies/README.md#publish-a-revision).
+Hiding removes content from participants' responses while retaining it for authorized review; restoring makes it visible again. Both actions require a reason and keep actor/time evidence. Admin/Head can hide messages or impose messaging restrictions directly; Admin/Head also restore messages or remove restrictions directly. There is no message-deletion control. Participant-only messages remain outside supervision, and coordinators cannot inspect other people's conversations. Publish wording that matches this disclosure using the [policy publication procedure](policies/README.md#publish-a-revision).
 
 ## Publish pages and translations
 
@@ -544,11 +562,11 @@ Verify the finished print or shared image with a scanner.
 
 ### Configure recruitment windows
 
-In **Program Settings**, Head applies **Tutor recruitment** and **Tutee recruitment** settings separately for the active period; Admin submits each change for Head review. Each current-period panel has an **Accept applications** switch, independently optional starting and ending times, and an optional external preview link. Save each panel separately. Times use the configured program timezone; the start is inclusive and the end is exclusive. An enabled form with neither bound accepts applications immediately, provided its prerequisites are configured. Turning off the switch pauses applications regardless of dates.
+In **Program Settings**, Admin/Head apply **Tutor recruitment** and **Tutee recruitment** settings separately for the active period; Coordinators submit each change for Admin/Head review. Each current-period panel has an **Accept applications** switch, independently optional starting and ending times, and an optional external preview link. Save each panel separately. Times use the configured program timezone; the start is inclusive and the end is exclusive. An enabled form with neither bound accepts applications immediately, provided its prerequisites are configured. Turning off the switch pauses applications regardless of dates.
 
 ### Prepare next-period openings
 
-The next-period editors name the source and destination school year and quarter or semester, alongside the program timezone. Head can save, edit or clear the Tutor and Tutee opening times independently; Admin submits each for Head review. A queued proposal is not a saved preparation. Coordinators and Viewers cannot change preparations. Saving does not refresh the program, accept next-period applications, archive participants or alter current intake.
+The next-period editors name the source and destination school year and quarter or semester, alongside the program timezone. Admin/Head can save, edit or clear the Tutor and Tutee opening times independently; Coordinators submit each for Admin/Head review. A queued proposal is not a saved preparation. Coordinators and Viewers cannot change preparations. Saving does not refresh the program, accept next-period applications, archive participants or alter current intake.
 
 An unset preparation preserves the destination's existing opening time; for a new period, the default is no opening restriction. An explicitly saved clear removes only that audience's opening restriction. Both cases preserve the destination's acceptance switch, closing time and preview link. New periods retain enabled switches and unbounded closing times. A prepared opening at or after an existing destination closing time is rejected. An elapsed opening is valid and allows intake immediately after activation only when the switch, closing bound and normal signup prerequisites permit it.
 
@@ -574,7 +592,7 @@ Public closing stops new submissions. It does not end signed-in editing of an
 owned current **OPEN** request or create an extra verification deadline. Owners
 can correct request names, grade, phone, preferred contact, availability and
 unassigned subject choices until active-period rollover or a terminal transition.
-Historical requests are read only. Head reviews assigned-choice edits and any
+Historical requests are read only. Admin/Head review assigned-choice edits and any
 affected assignment release; stored sessions and attendance remain intact. Current
 field and catalogue rules are checked again when a change is accepted.
 
@@ -599,7 +617,7 @@ its recovery action reloads reads without applying the change again.
 ## CAPTCHA verification
 
 Management → Program Settings → Deployment Configurations includes an immediate CAPTCHA Verification switch
-for public tutee/viewer signup or resend and Crew application/status email. Head applies changes; Admin requests Head
+for public tutee/viewer signup or resend and Crew application/status email. Admin/Head apply changes; Coordinators request
 review, and Coordinators can inspect status. A pending request leaves the effective setting unchanged. Enabling requires local provider configuration and uses paid
 Aliyun checks. Disabling leaves signup quotas active and never needs a provider
 call. See [setup, costs and outage procedure](../reference/captcha.md).

@@ -33,11 +33,11 @@ const mock = vi.hoisted(() => ({
   combinePreview: vi.fn(),
   receipt: vi.fn(),
   permissions: ((): {
-    data: { canLink: boolean; isHead: boolean } | undefined;
+    data: { canLink: boolean; canCorrectOwnership: boolean } | undefined;
     error: Error | null;
     isFetching: boolean;
   } => ({
-    data: { canLink: true, isHead: true },
+    data: { canLink: true, canCorrectOwnership: true },
     error: null,
     isFetching: false,
   }))(),
@@ -137,7 +137,7 @@ const original = () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   mock.permissions = {
-    data: { canLink: true, isHead: true },
+    data: { canLink: true, canCorrectOwnership: true },
     error: null,
     isFetching: false,
   };
@@ -209,7 +209,7 @@ const ui = (
 it.each([true, false])(
   "retains an exact historical-owner correction for Head only (head=%s)",
   (head) => {
-    mock.permissions.data = { canLink: true, isHead: head };
+    mock.permissions.data = { canLink: true, canCorrectOwnership: head };
     render(ui("en", false, true, true));
     expect(
       screen.getByRole("button", { name: en.combineRecords.open }),
@@ -301,10 +301,10 @@ it("preserves a Head correction draft during permission read failure and conceal
     screen.getByLabelText(en.tutorHistory.evidence).matches(":disabled"),
   ).toBe(true);
   mock.permissions.error = null;
-  mock.permissions.data = { canLink: true, isHead: false };
+  mock.permissions.data = { canLink: true, canCorrectOwnership: false };
   view.rerender(ui("en", false, true, true));
   expect(screen.queryByLabelText(en.tutorHistory.evidence)).toBeNull();
-  mock.permissions.data = { canLink: true, isHead: true };
+  mock.permissions.data = { canLink: true, canCorrectOwnership: true };
   view.rerender(ui("en", false, true, true));
   expect(
     screen.getByLabelText<HTMLTextAreaElement>(en.tutorHistory.evidence).value,
@@ -354,7 +354,7 @@ it.each(["en", "zh"])(
 );
 
 it("does not render linking for unauthorized roles and exposes permission failure recovery", () => {
-  mock.permissions.data = { canLink: false, isHead: false };
+  mock.permissions.data = { canLink: false, canCorrectOwnership: false };
   const view = render(ui());
   expect(screen.queryByText(en.tutorHistory.title)).toBeNull();
   mock.permissions = {
@@ -398,7 +398,7 @@ it("retains the draft through collapse, refresh errors and failed writes; new re
 it.each(["current", "retained", "owned"])(
   "blocks an unsupported %s ownership action",
   async (kind) => {
-    mock.permissions.data = { canLink: true, isHead: false };
+    mock.permissions.data = { canLink: true, canCorrectOwnership: false };
     mock.preview.mockResolvedValue({
       ...original(),
       currentConflict: kind === "current",

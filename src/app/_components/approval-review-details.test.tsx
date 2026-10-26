@@ -39,6 +39,27 @@ it.each(["en", "zh"])("shows the captured refresh consequences and academic reco
   expect(screen.queryByText(copy.admin.program.effectAgeUp)).toBeNull();
   expect(screen.getByText(copy.admin.program.effectHoursReset.replace("{semester}", "S1"))).toBeTruthy();
 });
+
+it.each(["en", "zh"])("shows the captured staged feature switches in refresh review (%s)", (locale) => {
+  const copy = locale === "en" ? en : zh;
+  const target = { sourceTermId: "source", sourceSchoolYear: "26-27", sourceQuarter: "Q1", destinationSchoolYear: "26-27", destinationQuarter: "Q2", semesterMode: false, modeRevision: 3 };
+  show("admin.refresh", { confirm: "REFRESH" }, { nextRecruitment: {
+    target, currentName: "26-27 Q1", nextName: "26-27 Q2", timeZone: "Asia/Shanghai",
+    preparations: { tutor: null, tutee: null },
+    refreshEvidence: { destination: null, stagedFeatures: [
+      { key: "CREW", enabled: false, pendingEnabled: true, revision: 2 },
+      { key: "MEETINGS", enabled: true, pendingEnabled: false, revision: 4 },
+      { key: "SERVICE_HOURS", enabled: true, pendingEnabled: null, revision: 1 },
+    ] },
+  } }, locale);
+  const crew = screen.getByText(copy.admin.program.features.name.CREW).closest("div")!;
+  const meetings = screen.getByText(copy.admin.program.features.name.MEETINGS).closest("div")!;
+  expect(within(crew).getByText(copy.nextRecruitment.featureAfterRefreshEnabled)).toBeTruthy();
+  expect(within(meetings).getByText(copy.nextRecruitment.featureAfterRefreshDisabled)).toBeTruthy();
+  expect(within(crew).queryByText(copy.nextRecruitment.switchEnabled)).toBeNull();
+  expect(within(meetings).queryByText(copy.nextRecruitment.switchDisabled)).toBeNull();
+  expect(screen.queryByText(copy.admin.program.features.name.SERVICE_HOURS)).toBeNull();
+});
 it.each(["en", "zh"])(
   "localizes name-policy roles/requirements and preserves ordered room names (%s)",
   (locale) => {
@@ -207,6 +228,16 @@ it("places the old and requested values together and keeps unchanged fields out 
   expect(requested.getByText("Quiet study")).toBeTruthy();
   expect(requested.queryByText("Active")).toBeNull();
   expect(screen.getByText("Unchanged submitted values (1)")).toBeTruthy();
+});
+
+it.each(["en", "zh"])("uses the membership capability label for a standalone Translator grant (%s)", (locale) => {
+  const copy = locale === "en" ? en : zh;
+  show("admin.setUserCanTranslate", { userId: "u", canTranslate: true }, { User: [{ record: { id: "u", canTranslate: false } }] }, locale);
+  const requested = within(screen.getByRole("region", { name: copy.approvals.review.requested }));
+  expect(requested.getByText(copy.approvals.review.fields.translator)).toBeTruthy();
+  expect(requested.getByText(copy.approvals.review.yes)).toBeTruthy();
+  expect(requested.getByText(copy.approvals.review.no)).toBeTruthy();
+  expect(screen.queryByText("canTranslate")).toBeNull();
 });
 it.each(["en", "zh"])(
   "explains a requested rejection instead of showing false (%s)",

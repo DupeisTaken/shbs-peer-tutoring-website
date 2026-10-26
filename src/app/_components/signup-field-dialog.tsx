@@ -164,7 +164,7 @@ export function FieldDialog({
           className="btn-primary min-h-11 lg:min-h-10"
           onClick={() => onSave(state)}
         >
-          {pending ? t("saving") : canApply ? t("save") : approvals("requestHead")}
+          {pending ? t("saving") : canApply ? t("save") : approvals("requestAdmin")}
         </button>
       </div>
     </dialog>

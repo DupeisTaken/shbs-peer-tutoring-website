@@ -50,7 +50,7 @@ export default function TutorsPage() {
   const canEditProfiles =
     !readOnly &&
     !identity.error &&
-    ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
+    ["HEAD", "ADMIN", "COORDINATOR"].includes(identity.data?.role ?? "");
   // Translate a tutor status outside the row map, where `t` is shadowed by the row variable.
   const statusLabel = (s: string) => t(`admin.tutorStatus.${s}`);
   const utils = api.useUtils();
@@ -330,8 +330,8 @@ export default function TutorsPage() {
         <TutorProfileEditor
           key={editing.id}
           row={editing}
-          canApply={identity.data?.role === "HEAD"}
-          isHead={identity.data?.role === "HEAD"}
+          canApply={["HEAD", "ADMIN"].includes(identity.data?.role ?? "")}
+          canEditUsername={["HEAD", "ADMIN"].includes(identity.data?.role ?? "")}
           onClose={() => setEditingId(null)}
         />
       )}

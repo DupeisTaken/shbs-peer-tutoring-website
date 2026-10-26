@@ -32,18 +32,18 @@ import { isHistoricalTutor } from "~/lib/historical-academics";
 export function TutorProfileEditor({
   row,
   onClose,
-  isHead = false,
+  canEditUsername = false,
   canApply = true,
 }: {
   row: RouterOutputs["admin"]["tutors"][number];
   onClose: () => void;
-  isHead?: boolean;
+  canEditUsername?: boolean;
   canApply?: boolean;
 }) {
   const t = useTranslations();
   return (
     <ProfileDialog title={t("accountProfile.editProfile")} onClose={onClose}>
-      <TutorProfileForm row={row} isHead={isHead} canApply={canApply} />
+      <TutorProfileForm row={row} canEditUsername={canEditUsername} canApply={canApply} />
     </ProfileDialog>
   );
 }
@@ -51,7 +51,7 @@ export function TutorProfileEditor({
 /** Keep this independent form inside the dialog's pending context. */
 function TutorProfileForm({
   row: initialRow,
-  isHead = false,
+  canEditUsername = false,
   canApply = true,
 }: Omit<ComponentProps<typeof TutorProfileEditor>, "onClose">) {
   const t = useTranslations();
@@ -168,9 +168,9 @@ function TutorProfileForm({
             expectedUpdatedAt,
             ...identity.fields,
             email: value("email") || null,
-            // Unlinked handles still share the login namespace and Head-only authority.
+            // Unlinked handles still share the login namespace and Admin/Head authority.
             ...(!row.user &&
-            isHead &&
+            canEditUsername &&
             value("username") !== (row.username ?? "")
               ? { username: value("username") }
               : {}),
@@ -210,7 +210,7 @@ function TutorProfileForm({
               variant="primary"
               disabled={busy || reloading || needsRefresh || !namePolicyReady}
             >
-              {canApply ? t("accountProfile.save") : t("approvals.requestHead")}
+              {canApply ? t("accountProfile.save") : t("approvals.requestAdmin")}
             </Button>
           }
         >
@@ -228,7 +228,7 @@ function TutorProfileForm({
                 className="input w-full"
                 name="username"
                 defaultValue={row.username ?? ""}
-                readOnly={!isHead}
+                readOnly={!canEditUsername}
                 autoCapitalize="none"
                 autoCorrect="off"
                 maxLength={64}

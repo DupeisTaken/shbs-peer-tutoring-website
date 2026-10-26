@@ -9,6 +9,7 @@ import {
   parseProposal,
   fingerprint,
   proposalTargets,
+  queueProposal,
 } from "~/server/approvals";
 import { databaseScope } from "~/server/db-scope";
 import { notifyAdmins } from "~/server/notifications/create";
@@ -41,6 +42,15 @@ async function queued(work: () => Promise<unknown>) {
     });
   }
   throw new Error("Expected a queued proposal, not a successful live save");
+}
+
+/** Build pre-policy pending evidence without invoking a now-direct Admin mutation. */
+async function legacyProposal(operation: string, input: unknown, requesterId = "approval-admin") {
+  const request = await queueProposal({ user: { id: requesterId, name: "Original requester" }, role: "ADMIN", tutorId: null, expires: "2099-01-01" }, operation, input);
+  const targets = request.targets as Record<string, Prisma.InputJsonValue>;
+  delete targets.reviewPolicyVersion;
+  targets.reviewAuthority = { category: "ACCOUNT_ACCESS", directRoles: ["HEAD"], requesterRoles: ["ADMIN", "HEAD"], reviewerRoles: ["HEAD"] };
+  return db.approvalRequest.update({ where: { id: request.id }, data: { targets, fingerprint: fingerprint(targets) } });
 }
 
 beforeEach(async () => {
@@ -90,80 +100,84 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
-it("queues significant settings for Head and rejects Coordinator before creating a request", async () => {
-  const request = await queued(() => admin().program.setSignupWindow({
+it("queues Coordinator settings for Admin and rejects non-staff before creating a request", async () => {
+  const request = await queued(() => trainee().program.setSignupWindow({
     audience: "tutee", enabled: true, opensAt: null, closesAt: null,
     previewUrl: "https://example.test/intake", expectedTermId: "approval-term",
   }));
   expect(await db.term.findUniqueOrThrow({ where: { id: "approval-term" } })).toMatchObject({ signupPreviewUrl: null });
   const pendingCount = await db.approvalRequest.count();
-  await expect(trainee().program.setSignupWindow({ opensAt: null, previewUrl: null })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(actor("approval-viewer", "VIEWER").program.setSignupWindow({ opensAt: null, previewUrl: null })).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.approvalRequest.count()).toBe(pendingCount);
-  await expect(admin().approval.decide({ id: request.id, approve: true, note: "Cannot self-review" })).rejects.toMatchObject({ code: "FORBIDDEN" });
-  expect((await admin().approval.list()).rows[0]).toMatchObject({ canDecide: false, reviewerRoles: ["HEAD"] });
+  await expect(trainee().approval.decide({ id: request.id, approve: true, note: "Cannot self-review" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect((await admin().approval.list()).rows[0]).toMatchObject({ canDecide: true, reviewerRoles: ["ADMIN", "HEAD"] });
   await head().approval.decide({ id: request.id, approve: true, note: "Reviewed intake" });
   expect(await db.term.findUniqueOrThrow({ where: { id: "approval-term" } })).toMatchObject({ signupPreviewUrl: "https://example.test/intake" });
 });
 
-it("does not let a demoted Admin replay a significant-setting proposal", async () => {
-  const request = await queued(() => admin().program.setTimeZone({ timeZone: "UTC", expectedTimeZone: "Asia/Shanghai" }));
-  await db.user.update({ where: { id: "approval-admin" }, data: { role: "COORDINATOR" } });
+it("does not replay a setting proposal after its Coordinator loses management access", async () => {
+  const request = await queued(() => trainee().program.setTimeZone({ timeZone: "UTC", expectedTimeZone: "Asia/Shanghai" }));
+  await db.user.update({ where: { id: "approval-coordinator" }, data: { role: "VIEWER" } });
   await expect(head().approval.decide({ id: request.id, approve: true, note: "Old Admin proposal" })).rejects.toMatchObject({ code: "CONFLICT" });
   expect(await db.programSettings.findUnique({ where: { id: "program" } })).toBeNull();
   expect(await db.approvalRequest.findUniqueOrThrow({ where: { id: request.id } })).toMatchObject({ state: "PENDING" });
 });
 
 it("records global settings/term evidence and rejects configuration drift", async () => {
-  const request = await queued(() => admin().program.setTimeZone({ timeZone: "UTC", expectedTimeZone: "Asia/Shanghai" }));
+  const request = await queued(() => trainee().program.setTimeZone({ timeZone: "UTC", expectedTimeZone: "Asia/Shanghai" }));
   expect(request.targets).toMatchObject({ authorityContext: { version: 1, programSettings: null, term: { id: "approval-term" } } });
   await db.programSettings.create({ data: { id: "program", timeZone: "Europe/London" } });
   await expect(head().approval.decide({ id: request.id, approve: true, note: "Settings changed" })).rejects.toMatchObject({ code: "CONFLICT" });
   expect(await db.programSettings.findUniqueOrThrow({ where: { id: "program" } })).toMatchObject({ timeZone: "Europe/London" });
 });
 
-it("fans sensitive requests out to all active Heads once without badge-specific wording", async () => {
+it("routes settings to active Admins once while Head remains a fallback reviewer", async () => {
   await db.user.createMany({ data: [
     { id: "approval-head-two", role: "HEAD", email: "head-two@example.test" },
     { id: "approval-head-suspended", role: "HEAD", email: "head-suspended@example.test", suspendedAt: new Date() },
   ] });
-  const request = await queued(() => admin().program.setTimeZone({ timeZone: "UTC", expectedTimeZone: "Asia/Shanghai" }));
-  const retry = await queued(() => admin().program.setTimeZone({ timeZone: "UTC", expectedTimeZone: "Asia/Shanghai" }));
+  const request = await queued(() => trainee().program.setTimeZone({ timeZone: "UTC", expectedTimeZone: "Asia/Shanghai" }));
+  const retry = await queued(() => trainee().program.setTimeZone({ timeZone: "UTC", expectedTimeZone: "Asia/Shanghai" }));
   expect(retry.id).toBe(request.id);
   const notices = await db.notification.findMany({ where: { link: `/admin/approvals?request=${request.id}` } });
-  expect(notices.map((notice) => notice.userId).sort()).toEqual(["approval-head", "approval-head-two"]);
-  expect(notices.every((notice) => notice.title === "Management change awaiting Head approval")).toBe(true);
+  expect(notices.map((notice) => notice.userId).sort()).toEqual(["approval-admin"]);
+  expect(notices.every((notice) => notice.title === "Management change awaiting approval")).toBe(true);
 });
 
-it("notifies every active eligible domain reviewer and reserves badge queues for Head", async () => {
+it("notifies Admins for ordinary work and Head for refresh work", async () => {
   await db.user.createMany({ data: [
     { id: "approval-extra-admin", email: "extra-admin@example.test", role: "ADMIN" },
     { id: "approval-extra-head", email: "extra-head@example.test", role: "HEAD" },
     { id: "approval-suspended-head", email: "suspended-head@example.test", role: "HEAD", suspendedAt: new Date() },
     { id: "approval-merged-admin", email: "merged-admin@example.test", role: "ADMIN", mergedIntoId: "approval-admin" },
   ] });
-  await notifyAdmins({ title: "Daily review" });
-  await notifyAdmins({ title: "Badge review" }, { headOnly: true });
+  await notifyAdmins({ title: "Daily review", event: "tutor_application_pending" });
+  await notifyAdmins({ title: "Refresh review", event: "management_head_review_pending" }, { headOnly: true });
+  await notifyAdmins({ title: "Operational update" });
   const reviewers = async (title: string) => (await db.notification.findMany({ where: { title }, orderBy: { userId: "asc" } })).map((row) => row.userId);
-  expect(await reviewers("Daily review")).toEqual(["approval-admin", "approval-extra-admin", "approval-extra-head", "approval-head"]);
-  expect(await reviewers("Badge review")).toEqual(["approval-extra-head", "approval-head"]);
+  expect(await reviewers("Daily review")).toEqual(["approval-admin", "approval-extra-admin"]);
+  expect(await reviewers("Refresh review")).toEqual(["approval-extra-head", "approval-head"]);
+  expect(await reviewers("Operational update")).toEqual([
+    "approval-admin", "approval-extra-admin", "approval-extra-head", "approval-head",
+  ]);
 });
 
-it("rejects management-code grants from Coordinator while retaining Tutor/Crew Head requests", async () => {
+it("rejects Coordinator management grants while allowing Admin review of participation requests", async () => {
   for (const kind of ["ADMIN", "COORDINATOR"] as const)
     await expect(trainee().admin.issueRegistrationCode({ kind })).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.approvalRequest.count()).toBe(0);
   for (const kind of ["TUTOR", "CREW"] as const) {
     const request = await queued(() => trainee().admin.issueRegistrationCode({ kind }));
-    expect((await head().approval.list({ requestId: request.id })).rows[0]).toMatchObject({ canDecide: true, reviewerRoles: ["HEAD"] });
-    await expect(admin().approval.decide({ id: request.id, approve: true, note: "Direct issuance does not grant review authority" }))
+    expect((await head().approval.list({ requestId: request.id })).rows[0]).toMatchObject({ canDecide: true, reviewerRoles: ["ADMIN", "HEAD"] });
+    await expect(trainee().approval.decide({ id: request.id, approve: true, note: "Coordinator cannot review" }))
       .rejects.toMatchObject({ code: "FORBIDDEN" });
     const notices = await db.notification.findMany({ where: { link: `/admin/approvals?request=${request.id}` } });
-    expect(notices.map((notice) => notice.userId)).toEqual(["approval-head"]);
+    expect(notices.map((notice) => notice.userId)).toEqual(["approval-admin"]);
   }
   expect(await db.registrationCode.count()).toBe(0);
 });
 
-it.each([undefined, "TUTOR", "CREW"] as const)("lets Admin issue %s codes immediately with private lifecycle evidence but retains Head revocation", async (kind) => {
+it.each([undefined, "TUTOR", "CREW"] as const)("lets Admin issue %s codes immediately with private lifecycle evidence and applies revocation directly", async (kind) => {
   const issued = await admin().admin.issueRegistrationCode({ kind, label: "Participation invitation" });
   expect(issued.kind).toBe(kind ?? "TUTOR");
   expect(typeof issued.code).toBe("string");
@@ -176,12 +190,10 @@ it.each([undefined, "TUTOR", "CREW"] as const)("lets Admin issue %s codes immedi
     details: { actorRole: "ADMIN", outcome: "APPLIED", kind: kind ?? "TUTOR", before: { issued: false }, after: { issued: true } },
   });
   expect(JSON.stringify(await db.auditLog.findMany())).not.toContain(issued.code);
-  const request = await queued(() => admin().admin.revokeRegistrationCode({ id: issued.id }));
-  expect(await db.registrationCode.findUnique({ where: { id: issued.id } })).not.toBeNull();
-  await expect(admin().approval.decide({ id: request.id, approve: true, note: "Issuing does not grant undo authority" }))
-    .rejects.toMatchObject({ code: "FORBIDDEN" });
-  await head().approval.decide({ id: request.id, approve: true, note: "Head approves withdrawal" });
+  await admin().admin.revokeRegistrationCode({ id: issued.id });
   expect(await db.registrationCode.findUnique({ where: { id: issued.id } })).toBeNull();
+  expect(await db.approvalRequest.count()).toBe(0);
+  expect(JSON.stringify(await db.auditLog.findMany())).not.toContain(issued.code);
 });
 
 it("checks current Admin authority before issuing codes even when a session retains the Admin role", async () => {
@@ -191,15 +203,15 @@ it("checks current Admin authority before issuing codes even when a session reta
   expect(await db.registrationCode.count()).toBe(0);
 });
 
-it("keeps role proposal passwords out of payloads and requires fresh Head confirmation", async () => {
+it("retains secret-free legacy role proposals and requires a fresh reviewer password", async () => {
   const target = await db.user.create({ data: { role: "COORDINATOR", email: "role-proposal@example.test" } });
-  const request = await queued(() => admin().admin.setUserRole({ userId: target.id, role: "ADMIN", confirmPassword: "REQUESTER_PRIVATE_PASSWORD" }));
+  const request = await legacyProposal("admin.setUserRole", { userId: target.id, role: "ADMIN", confirmPassword: "REQUESTER_PRIVATE_PASSWORD" });
   expect(JSON.stringify(request)).not.toContain("REQUESTER_PRIVATE_PASSWORD");
   await expect(head().approval.decide({ id: request.id, approve: true, note: "Missing identity evidence" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   expect(await db.user.findUniqueOrThrow({ where: { id: target.id } })).toMatchObject({ role: "COORDINATOR" });
 });
 
-it("keeps management invitations intact until Head approves an Admin revocation", async () => {
+it("re-evaluates legacy management invitation revocation without changing its evidence", async () => {
   for (const kind of ["ADMIN", "COORDINATOR"] as const) {
     const code = await db.registrationCode.create({ data: {
       kind, code: kind === "ADMIN" ? "ADMN2" : "CORD2",
@@ -207,7 +219,7 @@ it("keeps management invitations intact until Head approves an Admin revocation"
     } });
     await expect(trainee().admin.revokeRegistrationCode({ id: code.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(await db.approvalRequest.count({ where: { operation: "admin.revokeRegistrationCode", state: "PENDING" } })).toBe(0);
-    const request = await queued(() => admin().admin.revokeRegistrationCode({ id: code.id }));
+    const request = await legacyProposal("admin.revokeRegistrationCode", { id: code.id });
     expect(await db.registrationCode.findUnique({ where: { id: code.id } })).not.toBeNull();
     expect(JSON.stringify(request)).not.toContain(code.code);
     expect(JSON.stringify(request)).not.toContain("private-verification-hash");
@@ -217,7 +229,7 @@ it("keeps management invitations intact until Head approves an Admin revocation"
   }
 });
 
-it("allows initial slot edits but queues propagation into recorded attendance for Head", async () => {
+it("allows initial slot edits but queues propagation into recorded attendance for Admin", async () => {
   const tutor = await db.tutor.create({ data: { englishName: "Slot Tutor" } });
   const slot = await db.timeSlot.create({ data: { label: "Slot", dayOfWeek: 1, startMin: 900, endMin: 960 } });
   const edit = (endMin: number) => ({ id: slot.id, label: "Slot", dayOfWeek: 1, startMin: 900, endMin, active: true });
@@ -234,23 +246,23 @@ it("allows initial slot edits but queues propagation into recorded attendance fo
     startMin: 900, endMin: 970, durationMin: 70, shFactor: 2, shCount: 70 / 30,
   } });
   const before = await db.session.findUniqueOrThrow({ where: { id: attendance.id } });
-  const request = await queued(() => admin().admin.updateTimeSlot(edit(990)));
+  const request = await queued(() => trainee().admin.updateTimeSlot(edit(990)));
   expect(await db.session.findUniqueOrThrow({ where: { id: attendance.id } })).toEqual(before);
   expect(await db.timeSlot.findUniqueOrThrow({ where: { id: slot.id } })).toMatchObject({ endMin: 970 });
   expect(JSON.stringify(request.targets)).toContain(attendance.id);
-  await expect(admin().approval.decide({ id: request.id, approve: true, note: "Recorded hours require Head" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(trainee().approval.decide({ id: request.id, approve: true, note: "Coordinator cannot review recorded hours" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   await head().approval.decide({ id: request.id, approve: true, note: "Recorded time and hours checked" });
   expect(await db.session.findUniqueOrThrow({ where: { id: attendance.id } })).toMatchObject({ endMin: 990, durationMin: 90, shCount: 3 });
 });
 
-it("keeps recorded qualification grants until Head approves their removal", async () => {
+it("keeps qualification grants until Admin reviews their removal", async () => {
   const tutor = await db.tutor.create({ data: { englishName: "Qualification correction tutor", status: "ACTIVE" } });
   const subject = await db.subject.create({ data: { name: "Qualification correction subject" } });
   await db.tutorQualification.create({ data: { tutorId: tutor.id, subjectId: subject.id,
     approvedById: "approval-admin", grants: { create: { subjectId: subject.id } } } });
-  const request = await queued(() => admin().interviewManagement.qualify({ tutorId: tutor.id, subjectId: subject.id, qualified: false }));
+  const request = await queued(() => trainee().interviewManagement.qualify({ tutorId: tutor.id, subjectId: subject.id, qualified: false }));
   expect(await db.tutorQualification.count()).toBe(1);
-  await expect(admin().approval.decide({ id: request.id, approve: true, note: "Needs Head" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(trainee().approval.decide({ id: request.id, approve: true, note: "Needs Admin" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   await head().approval.decide({ id: request.id, approve: true, note: "Recorded correction reviewed" });
   expect(await db.tutorQualification.count()).toBe(0);
 });
@@ -260,7 +272,7 @@ it("keeps private message bodies out of restoration evidence and legacy messages
     senderId: "approval-tutor", recipientId: "approval-viewer", clientKey: "private-restore-key",
     body: "PRIVATE_RESTORATION_BODY", supervisable: true, hiddenAt: new Date(),
   } });
-  const request = await queued(() => admin().messaging.moderate({ id: message.id, hide: false, reason: "Moderation correction" }));
+  const request = await legacyProposal("messaging.moderate", { id: message.id, hide: false, reason: "Moderation correction" });
   expect(JSON.stringify(request)).not.toContain("PRIVATE_RESTORATION_BODY");
   expect(JSON.stringify(request.targets)).not.toContain("private-restore-key");
   expect((await db.directMessage.findUniqueOrThrow({ where: { id: message.id } })).hiddenAt).not.toBeNull();
@@ -594,7 +606,7 @@ it("queues coordinator changes without live writes and deduplicates retries", as
   ]);
   expect(
     (await db.notification.findMany()).map((n) => n.userId).sort(),
-  ).toEqual(["approval-admin", "approval-head"]);
+  ).toEqual(["approval-admin"]);
 });
 
 it("validates input and refuses arbitrary operations before queuing", async () => {
@@ -1064,7 +1076,7 @@ it("applies a nested transaction and its helper audit records as one decision", 
   expect(databaseScope.getStore()).toBeUndefined();
 });
 
-it("requires Head approval for an Admin chair's final interview decision", async () => {
+it("lets a different Admin apply a legacy chair decision with its original panel evidence", async () => {
   const tutor = await db.tutor.create({
     data: { englishName: "Admin Chair" },
   });
@@ -1126,22 +1138,18 @@ it("requires Head approval for an Admin chair's final interview decision", async
   await db.interviewVote.create({
     data: { applicationId: application.id, tutorId: tutor.id, accept: false },
   });
-  const request = await queued(() =>
-    actor("approval-interview-chair", "ADMIN").tutor.decideInterview({
-      applicationId: application.id,
-      accept: false,
-      comment: "More preparation needed",
-      expectedUpdatedAt: application.updatedAt,
-    }),
-  );
+  const request = await legacyProposal("tutor.decideInterview", {
+    applicationId: application.id, accept: false,
+    comment: "More preparation needed", expectedUpdatedAt: application.updatedAt,
+  }, "approval-interview-chair");
   expect(
     await db.tutorApplication.findUnique({ where: { id: application.id } }),
   ).toMatchObject({ status: "INTERVIEW" });
   await expect(
-    admin().approval.decide({
+    trainee().approval.decide({
       id: request.id,
       approve: true,
-      note: "Admin cannot decide participation changes",
+      note: "Coordinator cannot decide participation changes",
     }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(
@@ -1150,7 +1158,7 @@ it("requires Head approval for an Admin chair's final interview decision", async
   expect(
     await db.tutorApplication.findUnique({ where: { id: application.id } }),
   ).toMatchObject({ status: "INTERVIEW" });
-  await head().approval.decide({
+  await admin().approval.decide({
     id: request.id,
     approve: true,
     note: "Reviewed interview evidence",
@@ -1274,4 +1282,29 @@ it.each(["ADMIN", "COORDINATOR", "SUSPENDED"])("blocks former Head self-review a
   await db.user.update({ where: { id: "approval-coordinator" }, data: state === "SUSPENDED" ? { role: "HEAD", suspendedAt: new Date() } : { role: state as "ADMIN" | "COORDINATOR" } });
   await expect(actor("approval-coordinator", "HEAD").approval.decide({ id: request.id, approve: true, note: "Old cookie" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.room.count()).toBe(0);
+});
+
+it("re-evaluates an old pending authority snapshot and records the policy cutover without rewriting evidence", async () => {
+  const request = await legacyProposal("admin.createRoom", { name: "Legacy review" });
+  await db.user.create({ data: { id: "approval-new-reviewer", email: "new-reviewer@example.test", role: "ADMIN" } });
+  const reviewer = actor("approval-new-reviewer", "ADMIN");
+  expect((await reviewer.approval.list({ requestId: request.id })).rows[0]).toMatchObject({ canDecide: true, reviewerRoles: ["ADMIN", "HEAD"] });
+  await expect(admin().approval.decide({ id: request.id, approve: true, note: "Still cannot self-review" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await reviewer.approval.decide({ id: request.id, approve: true, note: "Reviewed under current policy" });
+  expect(await db.approvalRequest.findUniqueOrThrow({ where: { id: request.id } })).toMatchObject({
+    state: "APPROVED", targets: request.targets, payload: request.payload, fingerprint: request.fingerprint,
+  });
+  expect(await db.auditLog.findFirstOrThrow({ where: { approvalId: request.id, kind: "DECISION" } })).toMatchObject({
+    details: { submittedPolicyVersion: 1, reviewPolicyVersion: 2, reviewerRole: "ADMIN" },
+  });
+});
+
+it("uses Head fallback when no other active Admin is eligible, without notifying the requester", async () => {
+  await notifyAdmins({ title: "Admin's request" }, { exclude: "approval-admin" });
+  expect((await db.notification.findMany({ where: { title: "Admin's request" } })).map((row) => row.userId)).toEqual(["approval-head"]);
+  await db.user.update({ where: { id: "approval-admin" }, data: { suspendedAt: new Date() } });
+  const request = await queued(() => trainee().admin.createRoom({ name: "Fallback room" }));
+  expect((await db.notification.findMany({ where: { link: `/admin/approvals?request=${request.id}` } })).map((row) => row.userId)).toEqual(["approval-head"]);
+  await head().approval.decide({ id: request.id, approve: true, note: "Head retains Admin review" });
+  expect(await db.room.count()).toBe(1);
 });

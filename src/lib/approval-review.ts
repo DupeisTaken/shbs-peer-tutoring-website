@@ -1,6 +1,6 @@
 import { APPROVAL_OPERATIONS } from "./approval-policy";
 import { z } from "zod";
-import { nextRecruitmentTargetSchema, sameNextRecruitmentTarget } from "./next-recruitment";
+import { nextRecruitmentTargetSchema, nextRecruitmentRefreshEvidenceSchema, sameNextRecruitmentTarget } from "./next-recruitment";
 import { isProgramTimeZone } from "./program-time";
 import {
   NAME_ACCOUNT_TYPES,
@@ -72,7 +72,12 @@ const reviewNextSnapshot = z.object({
   currentName: z.string(), nextName: z.string(),
   timeZone: z.string().refine(isProgramTimeZone),
   preparations: z.object({ tutor: reviewPreparation.nullable(), tutee: reviewPreparation.nullable() }),
-  refreshEvidence: z.object({ destination: z.object({ termId: z.string(), tutor: reviewDestinationWindow, tutee: reviewDestinationWindow }).nullable() }),
+  refreshEvidence: z.object({
+    destination: z.object({ termId: z.string(), tutor: reviewDestinationWindow, tutee: reviewDestinationWindow }).nullable(),
+    // Preserve the captured switches and revisions; legacy requests may omit
+    // them, but review must never replace this evidence with current settings.
+    stagedFeatures: nextRecruitmentRefreshEvidenceSchema.shape.stagedFeatures,
+  }),
 });
 
 /** Approval JSON dates are restored only for this typed evidence. Legacy requests
@@ -138,6 +143,7 @@ const comparable = new Set([
   "admin.updateAccountProfile",
   "admin.updateAccountUsername",
   "admin.setUserRole",
+  "admin.setUserCanTranslate",
   "program.setTimeZone",
   "program.setProfilePolicy",
   "i18n.setLanguageEnabled",
@@ -293,6 +299,14 @@ export function approvalReview(
         operation === "admin.correctApplicationIdentity")
     ) {
       context.push({ key: "requestReason", value: requested });
+      continue;
+    }
+    if (operation === "admin.setUserCanTranslate" && key === "canTranslate") {
+      // The standalone grant uses the same authored capability label as the
+      // membership editor, and compares only a captured boolean permission.
+      const hasBefore = typeof primary?.canTranslate === "boolean";
+      const field = { key: "translator", requested, before: primary?.canTranslate, hasBefore };
+      (hasBefore && equal(field.before, requested) ? unchanged : changes).push(field);
       continue;
     }
     if (

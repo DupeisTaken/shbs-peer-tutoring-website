@@ -1,3 +1,4 @@
+import { managementNotificationRecipients } from "~/server/notifications/create";
 import { TRPCError } from "@trpc/server";
 import type { Prisma } from "../../generated/prisma";
 import { shCount } from "~/lib/service-hours";
@@ -204,10 +205,7 @@ export async function propagateSlotAttendance(
       ) as Prisma.InputJsonValue,
     },
   });
-  const heads = await tx.user.findMany({
-    where: { role: "HEAD", suspendedAt: null, mergedIntoId: null },
-    select: { id: true },
-  });
+  const heads = await managementNotificationRecipients(tx, "attendance_history_updated");
   if (heads.length)
     await tx.notification.createMany({
       data: heads.map(({ id }) => ({

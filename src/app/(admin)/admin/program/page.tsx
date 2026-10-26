@@ -184,8 +184,8 @@ function ProgramSettingsPage() {
                   termId={activatedPeriod?.termId ?? period.termId}
                   audience={audience}
                   window={(activatedPeriod ?? period).recruitment[audience]}
-                  canEdit={canEditPeriod}
-                  canApply={canApplyPeriod}
+                  canEdit={canReadSettings && !current.error}
+                  canApply={canReadSettings && !current.error && ["ADMIN", "HEAD"].includes(account.data?.role ?? "")}
                 />
               ))}
 

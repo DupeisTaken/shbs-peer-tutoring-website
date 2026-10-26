@@ -230,7 +230,7 @@ export function TimeZoneEditor({
                 ? t("saving")
                 : canApply
                   ? t("save")
-                  : approvals("requestHead")}
+                  : approvals("requestAdmin")}
             </Button>
             {onReload && (
               <Button

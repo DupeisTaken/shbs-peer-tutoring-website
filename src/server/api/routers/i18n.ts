@@ -26,7 +26,7 @@ const languageCatalogProcedure = protectedProcedure.use(
       select: { role: true, canTranslate: true },
     });
     const access = translationAccess(account);
-    if (!access.publish && !access.edit)
+    if (!access.enter)
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "Language management or translation access required.",
@@ -49,9 +49,9 @@ export const i18nRouter = createTRPCRouter({
     listLanguages({ includeDisabled: true }),
   ),
 
-  /** Only Admin/Head may change catalog visibility, ordering or removal. */
+  /** Coordinators may propose catalog changes; direct application remains Admin/Head. */
   canManageLanguages: languageCatalogProcedure.query(
-    ({ ctx }) => ctx.session.role === "HEAD" || ctx.session.role === "ADMIN",
+    ({ ctx }) => ["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role),
   ),
 
   addLanguage: translatorProcedure

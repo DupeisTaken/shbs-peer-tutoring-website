@@ -35,15 +35,15 @@ export function TutorHistorySection({
   const common = useTranslations("uiPatterns");
   const permissions = api.tutorHistory.permissions.useQuery();
   const [hadAccess, setHadAccess] = useState(false);
-  const [hadHeadAccess, setHadHeadAccess] = useState(false);
+  const [hadCorrectionAccess, setHadCorrectionAccess] = useState(false);
   const [denialLatched, setDenialLatched] = useState(false);
   const denied =
     permissions.data?.canLink === false ||
     ["FORBIDDEN", "UNAUTHORIZED"].includes(permissions.error?.data?.code ?? "");
   useEffect(() => {
     if (permissions.data?.canLink) setHadAccess(true);
-    if (permissions.data?.canLink && permissions.data.isHead)
-      setHadHeadAccess(true);
+    if (permissions.data?.canLink && permissions.data.canCorrectOwnership)
+      setHadCorrectionAccess(true);
     if (denied) setDenialLatched(true);
     else if (
       permissions.data?.canLink &&
@@ -76,7 +76,7 @@ export function TutorHistorySection({
       )}
       {(permissions.data?.canLink === true || hadAccess) && unified && (
         <CombineRecords
-          isHead={permissions.data?.isHead ?? false}
+          canApply={permissions.data?.canCorrectOwnership ?? false}
           unavailable={!!permissions.error}
           accessDenied={concealed}
           initialSource={{ kind: "TUTOR", id: tutorId, name: name ?? tutorId }}
@@ -94,8 +94,8 @@ export function TutorHistorySection({
       )}
       {unified &&
         historical &&
-        ((permissions.data?.canLink === true && permissions.data.isHead) ||
-          hadHeadAccess) && (
+        ((permissions.data?.canLink === true && permissions.data.canCorrectOwnership) ||
+          hadCorrectionAccess) && (
           <DisclosureSection
             title={combineText("correctOwner")}
             lifetime="retained"
@@ -105,9 +105,9 @@ export function TutorHistorySection({
             </p>
             <TutorHistoryLinkForm
               tutorId={tutorId}
-              isHead={permissions.data?.isHead ?? false}
+              canCorrectOwnership={permissions.data?.canCorrectOwnership ?? false}
               unavailable={!!permissions.error}
-              accessDenied={concealed || !permissions.data?.isHead}
+              accessDenied={concealed || !permissions.data?.canCorrectOwnership}
             />
           </DisclosureSection>
         )}
@@ -115,7 +115,7 @@ export function TutorHistorySection({
         <DisclosureSection title={t("title")} lifetime="retained">
           <TutorHistoryLinkForm
             tutorId={tutorId}
-            isHead={permissions.data.isHead}
+            canCorrectOwnership={permissions.data.canCorrectOwnership}
             unavailable={!!permissions.error}
           />
         </DisclosureSection>
@@ -126,12 +126,12 @@ export function TutorHistorySection({
 
 export function TutorHistoryLinkForm({
   tutorId,
-  isHead,
+  canCorrectOwnership,
   unavailable = false,
   accessDenied = false,
 }: {
   tutorId: string;
-  isHead: boolean;
+  canCorrectOwnership: boolean;
   unavailable?: boolean;
   accessDenied?: boolean;
 }) {
@@ -381,7 +381,7 @@ export function TutorHistoryLinkForm({
               acknowledgement={
                 !preview.currentConflict &&
                 !preview.alreadyLinked &&
-                (!preview.conflict || isHead) && (
+                (!preview.conflict || canCorrectOwnership) && (
                   <>
                     {preview.conflict && (
                       <>
@@ -424,7 +424,7 @@ export function TutorHistoryLinkForm({
                   </InlineNotice>
                 ) : preview.alreadyLinked ? (
                   <InlineNotice>{t("alreadyLinked")}</InlineNotice>
-                ) : preview.conflict && !isHead ? (
+                ) : preview.conflict && !canCorrectOwnership ? (
                   <InlineNotice tone="warning">
                     {t("HISTORY_HEAD_REQUIRED")}
                   </InlineNotice>

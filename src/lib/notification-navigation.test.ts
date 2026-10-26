@@ -46,6 +46,26 @@ it.each([
   ["/admin/requests#request-survey-abc_123", true],
   ["/admin/requests#request-signup-abc-123", true],
   ["/admin/applications#application-abc123", true],
+  ["/admin/tutor-requests#request-abc_123", true],
+  ["/admin/crew#request-abc-123", true],
+  ["/admin/crew#application-abc123", true],
+  ["/admin/crew#application-" + "a".repeat(128), true],
+  ["/admin/tutor-requests#request-", false],
+  ["/admin/tutor-requests#request-" + "a".repeat(129), false],
+  ["/admin/tutor-requests#request-abc%2Fdef", false],
+  ["/admin/tutor-requests#application-abc", false],
+  ["/admin/tutor-requests#request-abc#request-def", false],
+  ["/admin/tutor-requests?tab=all#request-abc", false],
+  ["/admin/crew#request-", false],
+  ["/admin/crew#application-", false],
+  ["/admin/crew#request-" + "a".repeat(129), false],
+  ["/admin/crew#application-abc%2Fdef", false],
+  ["/admin/crew#request-abc#application-def", false],
+  ["/admin/crew#unknown-abc", false],
+  ["/admin/crew/#application-abc", false],
+  ["/admin/crew?tab=all#application-abc", false],
+  ["https://external.example/admin/crew#application-abc", false],
+  ["//external.example/admin/tutor-requests#request-abc", false],
   ["/admin/pairings#opaque-room-pairing_123", true],
   ["/admin/pairings", false],
   ["/admin/pairings#", false],
@@ -73,6 +93,42 @@ it("repeats a same-document fragment through the record adapter without replacin
   expect(reveal).toHaveBeenCalledOnce();
   expect(window.location.hash).toBe("#application-123");
   window.removeEventListener("hashchange", reveal);
+});
+
+it.each([
+  ["/admin/tutor-requests", "request-"],
+  ["/admin/crew", "request-"],
+  ["/admin/crew", "application-"],
+])("delegates %s %s navigation and repeated clicks to the owning record adapter exactly once", (page, prefix) => {
+  const state = { __NA: true, retainedRouterTree: [page], independentDraft: "retained" };
+  window.history.replaceState(state, "", `${page}#${prefix}old`);
+  const entries = window.history.length;
+  const push = vi.spyOn(window.history, "pushState");
+  const scroll = vi.spyOn(window, "scrollTo");
+  const reveal = vi.fn();
+  window.addEventListener("hashchange", reveal);
+  try {
+    const href = `${page}#${prefix}new_123`;
+    const changed = { preventDefault: vi.fn() };
+    expect(isNotificationRecordDestination(href)).toBe(true);
+    navigateNotificationFragment(href, changed);
+    expect(changed.preventDefault).toHaveBeenCalledOnce();
+    expect(push).toHaveBeenCalledExactlyOnceWith(state, "", window.location.href);
+    expect(window.history.state).toEqual(state);
+    expect(window.history.length).toBe(entries + 1);
+    expect(window.location.hash).toBe(`#${prefix}new_123`);
+    expect(reveal).toHaveBeenCalledOnce();
+    const repeated = { preventDefault: vi.fn() };
+    reveal.mockClear();
+    push.mockClear();
+    navigateNotificationFragment(href, repeated);
+    expect(repeated.preventDefault).toHaveBeenCalledOnce();
+    expect(reveal).toHaveBeenCalledOnce();
+    expect(push).not.toHaveBeenCalled();
+    expect(window.history.length).toBe(entries + 1);
+    expect(window.history.state).toEqual(state);
+    expect(scroll).not.toHaveBeenCalled();
+  } finally { window.removeEventListener("hashchange", reveal); }
 });
 it("uses a native changed fragment so existing page adapters receive navigation", () => {
   window.history.replaceState(null, "", "/admin/requests");

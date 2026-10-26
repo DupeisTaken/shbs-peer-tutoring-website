@@ -7,7 +7,7 @@ import {
 import Link from "next/link";
 import { isAssignmentOperation } from "~/lib/assignment-qualification";
 import { AssignmentConfirmation } from "./assignment-confirmation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import {
   useSessionAccessDenied,
   useSessionPageScroll,
@@ -548,6 +548,7 @@ function ApprovalQueue({
           >
             {t("refresh")}
           </Button>
+          {queue.data?.canReview && !queue.error && <ReviewerNotificationRefresh />}
           {requestId && (
             <Link className="link" href="/admin/approvals?status=all">
               {t("allRequests")}
@@ -637,6 +638,36 @@ function ApprovalQueue({
       )}
     </div>
   );
+}
+
+/** This deliberate staff write fills missing reviewer notices without replaying
+ * decisions. Its lifetime and same-turn guard are independent of list refresh. */
+function ReviewerNotificationRefresh() {
+  const t = useTranslations("approvals");
+  const reconcile = api.notification.reconcileManagementReviews.useMutation();
+  const inFlight = useRef(false);
+  const [pending, setPending] = useState(false);
+  const [result, setResult] = useState<{ pending: number; created: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  return <div className="space-y-2">
+    <Button size="compact" disabled={pending} onClick={async () => {
+      if (inFlight.current) return;
+      inFlight.current = true;
+      setPending(true);
+      setResult(null);
+      setError(null);
+      try {
+        setResult(await reconcile.mutateAsync());
+      } catch (failure) {
+        setError(failure instanceof Error ? failure.message : t("reviewerNoticesFailed"));
+      } finally {
+        inFlight.current = false;
+        setPending(false);
+      }
+    }}>{t(pending ? "reviewerNoticesPending" : "reviewerNoticesRefresh")}</Button>
+    {result && <p role="status" className="max-w-xl text-sm text-slate-700">{t("reviewerNoticesResult", result)}</p>}
+    {error && <p role="alert" className="max-w-xl text-sm text-red-700">{error}</p>}
+  </div>;
 }
 
 function LinkedQueue({ reviewer }: { reviewer: boolean }) {
