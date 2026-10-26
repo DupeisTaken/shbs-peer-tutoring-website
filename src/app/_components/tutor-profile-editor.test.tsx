@@ -1,6 +1,13 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import { TutorProfileEditor } from "./tutor-profile-editor";
@@ -11,40 +18,98 @@ const state = vi.hoisted(() => ({
   save: vi.fn(),
   error: null as { message: string } | null,
   isHead: true,
+  combine: vi.fn(),
+  finalize: vi.fn(),
+  candidates: vi.fn(),
+  invitationStatus: vi.fn(),
+  invite: vi.fn(),
+  cancelInvitation: vi.fn(),
 }));
-vi.mock("~/trpc/react", async () => ({
-  api: {
-    useUtils: () => ({}),
-    admin: {
-      updateTutor: {
-        useMutation: () => ({
-          mutate: state.save,
-          error: state.error,
-          isPending: false,
-        }),
+vi.mock("~/trpc/react", async () => {
+  const { useMutation, useQuery } = await import("@tanstack/react-query");
+  // Mount the real sibling controllers, including their unconditional mutation
+  // registrations. Query enablement and asynchronous mutation state stay real.
+  const mutation = (fn: (input: unknown) => unknown) => ({
+    useMutation: (
+      options: {
+        onSuccess?: () => void | Promise<void>;
+        onError?: (error: Error) => void;
+        onSettled?: () => void;
+      } = {},
+    ) =>
+      useMutation({
+        mutationFn: async (input: unknown) => fn(input),
+        retry: false,
+        ...options,
+      }),
+  });
+  return {
+    api: {
+      useUtils: () => ({}),
+      admin: {
+        updateTutor: {
+          useMutation: () => ({
+            mutate: state.save,
+            error: state.error,
+            isPending: false,
+          }),
+        },
+      },
+      tutorHistory: {
+        permissions: {
+          useQuery: () => ({ data: { canLink: true, isHead: state.isHead } }),
+        },
+      },
+      personCombine: {
+        candidates: {
+          useQuery: (input: unknown, options: { enabled: boolean }) =>
+            useQuery({
+              queryKey: ["personCombine.candidates", input],
+              queryFn: async () =>
+                (await state.candidates(
+                  input,
+                )) as RouterOutputs["personCombine"]["candidates"],
+              ...options,
+            }),
+        },
+        combine: mutation(state.combine),
+        finalize: mutation(state.finalize),
+      },
+      tuteeHistory: {
+        exactInvitationStatus: {
+          useQuery: (
+            input: unknown,
+            options: {
+              enabled: boolean;
+              gcTime: number;
+              refetchOnMount: "always";
+            },
+          ) =>
+            useQuery({
+              queryKey: ["tuteeHistory.exactInvitationStatus", input],
+              queryFn: async () =>
+                (await state.invitationStatus(
+                  input,
+                )) as RouterOutputs["tuteeHistory"]["exactInvitationStatus"],
+              ...options,
+            }),
+        },
+        inviteExact: mutation(state.invite),
+        cancelExactInvitation: mutation(state.cancelInvitation),
+      },
+      program: {
+        ...(
+          await import("~/test/name-field-policy-fixtures")
+        ).nameFieldPolicyQueries(),
+        profilePolicy: {
+          useQuery: () => ({
+            data: { offeredGrades: [10, 11, 12], currentSchoolYear: "26-27" },
+          }),
+        },
       },
     },
-    tutorHistory: {
-      permissions: {
-        useQuery: () => ({ data: { canLink: true, isHead: state.isHead } }),
-      },
-    },
-    personCombine: {
-      candidates: { useQuery: () => ({ data: [] }) },
-      combine: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
-    },
-    program: {
-      ...(
-        await import("~/test/name-field-policy-fixtures")
-      ).nameFieldPolicyQueries(),
-      profilePolicy: {
-        useQuery: () => ({
-          data: { offeredGrades: [10, 11, 12], currentSchoolYear: "26-27" },
-        }),
-      },
-    },
-  },
-}));
+  };
+});
 vi.mock("./profile-dialog", () => ({
   ProfileDialog: ({ children }: { children: ReactNode }) => (
     <div role="dialog">{children}</div>
@@ -64,37 +129,83 @@ const row = {
   status: "ARCHIVED",
   user: null,
 } as RouterOutputs["admin"]["tutors"][number];
+let queryClient: QueryClient | undefined;
 function mount(isHead = true, tutor = row) {
   state.isHead = isHead;
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
   render(
-    <NextIntlClientProvider locale="en" messages={messages}>
-      <TutorProfileEditor row={tutor} isHead={isHead} onClose={vi.fn()} />
-    </NextIntlClientProvider>,
+    <QueryClientProvider client={queryClient}>
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <TutorProfileEditor row={tutor} isHead={isHead} onClose={vi.fn()} />
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
   );
 }
 beforeEach(() => {
   state.save.mockReset();
   state.error = null;
+  state.combine.mockReset();
+  state.finalize.mockReset();
+  state.candidates.mockReset().mockResolvedValue([]);
+  state.invitationStatus.mockReset().mockResolvedValue(null);
+  state.invite.mockReset();
+  state.cancelInvitation.mockReset();
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  queryClient?.clear();
+});
 // Unified identity review applies to every roster status. Exact-owner correction
 // remains a separate historical-record operation authorized by the live reader.
 it.each(["ARCHIVED", "GRADUATED", "TRANSFERRED", "ACTIVE"] as const)(
   "offers unified combination for a %s tutor with its exact source preselected",
-  (status) => {
+  async (status) => {
     mount(true, { ...row, status });
+    expect(state.candidates).not.toHaveBeenCalled();
     fireEvent.click(
       screen.getByRole("button", { name: messages.combineRecords.open }),
     );
     expect(screen.getByText("past-tutor")).toBeTruthy();
     expect(screen.getByText("Past Tutor", { selector: "td p" })).toBeTruthy();
-    const correction = screen.queryByText(messages.combineRecords.correctOwner, {
-      selector: "summary",
-    });
+    await waitFor(() =>
+      expect(state.candidates).toHaveBeenCalledWith({ search: "" }),
+    );
+    expect(state.combine).not.toHaveBeenCalled();
+    expect(state.finalize).not.toHaveBeenCalled();
+    const correction = screen.queryByText(
+      messages.combineRecords.correctOwner,
+      {
+        selector: "summary",
+      },
+    );
     if (status === "ACTIVE") expect(correction).toBeNull();
     else expect(correction).toBeTruthy();
   },
 );
+it("opens exact historical invitation inspection without grouping, finalizing or sending", async () => {
+  mount();
+  expect(state.invitationStatus).not.toHaveBeenCalled();
+  const disclosure = screen
+    .getByText(messages.combineRecords.historySetup, { selector: "summary" })
+    .closest("details")!;
+  disclosure.open = true;
+  fireEvent(disclosure, new Event("toggle"));
+  await waitFor(() =>
+    expect(state.invitationStatus).toHaveBeenCalledWith({
+      sources: [{ kind: "TUTOR", id: "past-tutor" }],
+    }),
+  );
+  expect(
+    screen.getByText(messages.historicalInvitation.recipient),
+  ).toBeTruthy();
+  expect(state.candidates).not.toHaveBeenCalled();
+  expect(state.combine).not.toHaveBeenCalled();
+  expect(state.finalize).not.toHaveBeenCalled();
+  expect(state.invite).not.toHaveBeenCalled();
+  expect(state.cancelInvitation).not.toHaveBeenCalled();
+});
 it("keeps exact historical-owner correction unavailable to ordinary staff", () => {
   mount(false);
   expect(
