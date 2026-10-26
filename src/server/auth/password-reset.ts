@@ -242,9 +242,15 @@ export async function issueTutorSetupLink(
     });
   const tutor = await db.tutor.findUnique({
     where: { id: tutorId },
-    include: { user: true },
+    include: { user: true, retainedOwner: { select: { tutorId: true } } },
   });
   if (!tutor) return { ok: false, error: "no-tutor" };
+  if (!tutor.user && tutor.retainedOwner)
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "This tutor record has a retained historical owner. Use existing account recovery.",
+    });
   const email = (tutor.user?.email ?? tutor.email)?.trim().toLowerCase();
   if (!email) return { ok: false, error: "no-email" };
   if (tutor.user) {
@@ -277,10 +283,41 @@ export async function issueTutorSetupLink(
           code: "FORBIDDEN",
           message: "Only Head can provision tutor access.",
         });
+      // Match history linking/combination: namespace -> account -> Tutor row.
+      // The preflight may predate a committed owner or login attachment; only
+      // this locked read can authorize an accountless invitation and recipient.
+      await tx.$queryRaw`SELECT id FROM "Tutor" WHERE id = ${tutorId} FOR UPDATE`;
+      const currentTutor = await tx.tutor.findUnique({
+        where: { id: tutorId },
+        include: {
+          user: { select: { id: true } },
+          retainedOwner: { select: { tutorId: true } },
+        },
+      });
+      if (!currentTutor)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Tutor not found." });
+      if (currentTutor.retainedOwner)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "This tutor record has a retained historical owner. Use existing account recovery.",
+        });
+      if (currentTutor.user)
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "This tutor now has an attached login. Refresh before sending setup.",
+        });
+      const currentEmail = currentTutor.email?.trim().toLowerCase();
+      if (!currentEmail)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Add an email for this tutor before sending a setup link.",
+        });
       const issued = await issueRegistrationCode(
         {
           tutorId,
-          email,
+          email: currentEmail,
           kind: "TUTOR",
           issuedById: actor.id,
           issuedByName: actor.name,
@@ -290,7 +327,7 @@ export async function issueTutorSetupLink(
       const row = await tx.registrationCode.findUniqueOrThrow({
         where: { id: issued.id },
       });
-      const staged = await setEmailVerification(row, email, tx);
+      const staged = await setEmailVerification(row, currentEmail, tx);
       if (!staged.ok)
         throw new TRPCError({
           code: "CONFLICT",
@@ -301,7 +338,7 @@ export async function issueTutorSetupLink(
       });
       await deliverAccountInvitation(tx, {
         kind: "TUTOR",
-        email,
+        email: currentEmail,
         code: staged.emailCode,
         sourceKey: "staff:" + current.id + ":" + current.emailCodeHash,
         source: {

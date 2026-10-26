@@ -10,6 +10,7 @@ import messages from "../../../messages/en.json";
 const state = vi.hoisted(() => ({
   save: vi.fn(),
   error: null as { message: string } | null,
+  isHead: true,
 }));
 vi.mock("~/trpc/react", async () => ({
   api: {
@@ -22,6 +23,15 @@ vi.mock("~/trpc/react", async () => ({
           isPending: false,
         }),
       },
+    },
+    tutorHistory: {
+      permissions: {
+        useQuery: () => ({ data: { canLink: true, isHead: state.isHead } }),
+      },
+    },
+    personCombine: {
+      candidates: { useQuery: () => ({ data: [] }) },
+      combine: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
     },
     program: {
       ...(
@@ -41,11 +51,6 @@ vi.mock("./profile-dialog", () => ({
   ),
 }));
 vi.mock("./academic-profile", () => ({ AcademicPanel: () => null }));
-vi.mock("./tutor-history-link", () => ({
-  TutorHistorySection: ({ tutorId }: { tutorId: string }) => (
-    <div>History linking: {tutorId}</div>
-  ),
-}));
 const row = {
   id: "past-tutor",
   updatedAt: new Date("2026-09-01"),
@@ -60,6 +65,7 @@ const row = {
   user: null,
 } as RouterOutputs["admin"]["tutors"][number];
 function mount(isHead = true, tutor = row) {
+  state.isHead = isHead;
   render(
     <NextIntlClientProvider locale="en" messages={messages}>
       <TutorProfileEditor row={tutor} isHead={isHead} onClose={vi.fn()} />
@@ -71,12 +77,34 @@ beforeEach(() => {
   state.error = null;
 });
 afterEach(cleanup);
-it("offers historical linking only for archived, graduated and transferred tutors", () => {
-  mount();
-  expect(screen.getByText("History linking: past-tutor")).toBeTruthy();
-  cleanup();
-  mount(true, { ...row, status: "ACTIVE" });
-  expect(screen.queryByText("History linking: past-tutor")).toBeNull();
+// Unified identity review applies to every roster status. Exact-owner correction
+// remains a separate historical-record operation authorized by the live reader.
+it.each(["ARCHIVED", "GRADUATED", "TRANSFERRED", "ACTIVE"] as const)(
+  "offers unified combination for a %s tutor with its exact source preselected",
+  (status) => {
+    mount(true, { ...row, status });
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.combineRecords.open }),
+    );
+    expect(screen.getByText("past-tutor")).toBeTruthy();
+    expect(screen.getByText("Past Tutor", { selector: "td p" })).toBeTruthy();
+    const correction = screen.queryByText(messages.combineRecords.correctOwner, {
+      selector: "summary",
+    });
+    if (status === "ACTIVE") expect(correction).toBeNull();
+    else expect(correction).toBeTruthy();
+  },
+);
+it("keeps exact historical-owner correction unavailable to ordinary staff", () => {
+  mount(false);
+  expect(
+    screen.getByRole("button", { name: messages.combineRecords.open }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByText(messages.combineRecords.correctOwner, {
+      selector: "summary",
+    }),
+  ).toBeNull();
 });
 it("saves an archived unlinked correction without an email and preserves status", () => {
   mount();

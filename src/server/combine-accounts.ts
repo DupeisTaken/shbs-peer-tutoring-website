@@ -12,6 +12,7 @@ import { lockUsernameNamespace } from "./auth/username";
 import { verifyPasswordConfirmation } from "./auth/password-confirmation";
 import { effectiveMessagePermission } from "./messaging-permissions";
 import { rateLimit } from "./rate-limit";
+import { syncCombinedPersons } from "./person-identity";
 
 export const combineInput = z.object({
   survivorId: z.string().min(1).max(128),
@@ -425,7 +426,7 @@ export async function combineAccounts(
     // These are current ownership/delivery pointers, not the historical actor/evidence fields.
     await tx.studentProfileOwnership.updateMany({
       where: { userId: duplicateId },
-      data: { userId: survivorId },
+      data: { userId: survivorId, revision: { increment: 1 } },
     });
     await tx.studentQuarterBlock.updateMany({
       where: { userId: duplicateId },
@@ -453,6 +454,7 @@ export async function combineAccounts(
       create: { scope: `USER:${survivorId}`, groups: permission.groups },
       update: { groups: permission.groups },
     });
+    await syncCombinedPersons(tx, survivorId, duplicateId);
     await tx.auditLog.create({
       data: {
         userId: actorId,

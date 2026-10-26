@@ -405,11 +405,23 @@ Historical tutor linking uses `src/server/tutor-history.test.ts` and
 historical-academic, registration and roster-editor regressions when changing its
 ownership boundary. Apply `20261007010000_tutor_history_ownership` to the isolated
 database first. On the running site, check **Tutors → Show past tutors → Edit Profile →
-Link Historical Records**, then verify **My Tutoring History** with the target login.
+Combine Records**, then verify **My Tutoring History** with the target login.
 Cover Admin/Head linking, Coordinator denial, a competing current login, retained-owner
 correction, several archives alongside a current tutor, and unchanged stored hours.
 Use EN/ZH at 1440/390 px and enlarged text; verify native selector names and actual
 control heights as well as pending/error recovery in the component tests.
+
+Canonical grouping and its migration are covered by `src/server/person-combine.test.ts`
+and `src/server/person-identity-migration.test.ts`. The migration suite executes the
+committed SQL over populated, transaction-local schemas, checking explicit-link
+backfill, preserved source evidence, unresolved logins and atomic rejection of
+invalid ownership. It always rolls back; use the isolated test database above.
+Keep `Person.primaryUserId`'s restrictive foreign key in production. Narrow fixtures
+that delete their own accounts must release only their own primary references and
+remove only exclusive, unused identity metadata; never truncate unrelated people.
+Profile-editor fixtures must provide the real grouping child's disabled candidate
+query and read-recovery utilities even while its section is closed. Opening or
+closing a review must not submit a combination.
 
 ## 6. Smoke-test the production Docker stack (optional)
 

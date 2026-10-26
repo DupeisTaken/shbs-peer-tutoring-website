@@ -284,14 +284,26 @@ it("reuses a normalized existing tutor mailbox only after existing sign-in/MFA a
   expect(await db.tutee.count()).toBe(0);
   await redeemAccountInvitation(db, { ...profile, ...invite, password: "Posted-password-999!" }, user.id);
   expect(await db.user.count()).toBe(1);
-  expect(await db.user.findUniqueOrThrow({ where: { id: user.id } })).toMatchObject({
+  const confirmedUser = await db.user.findUniqueOrThrow({ where: { id: user.id } });
+  expect(confirmedUser).toMatchObject({
     email, name: user.name, username: user.username, passwordHash: user.passwordHash,
-    mustChangePassword: true, twoFactorEnabled: true, tutorId: tutor.id, tuteeMember: true,
+    mustChangePassword: true, twoFactorEnabled: true, role: user.role,
+    sessionVersion: user.sessionVersion,
+    tutorId: tutor.id, tuteeMember: true,
   });
-  // First tutee confirmation runs the canonical profile mirror. Its row timestamp
-  // advances even when every tutor identity/membership/business field is unchanged.
-  const { updatedAt: originalTimestamp, ...originalTutor } = tutor;
-  const { updatedAt: mirroredTimestamp, ...mirroredTutor } = await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } });
+  const person = await db.person.findUniqueOrThrow({ where: { primaryUserId: user.id } });
+  const tutee = await db.tutee.findFirstOrThrow({ where: { user: { id: user.id } } });
+  expect(person).toMatchObject({ primaryUserId: user.id, resolutionState: "GROUPED", mergedIntoId: null });
+  expect(confirmedUser).toMatchObject({ personId: person.id, studentId: tutee.id });
+  expect(tutee.personId).toBe(person.id);
+  expect(await db.person.count()).toBe(1);
+  // First tutee confirmation creates canonical directory metadata and runs the
+  // profile mirror. Assert both separately so no original tutor business field
+  // is excluded from the unchanged-record comparison.
+  const { updatedAt: originalTimestamp, personId: originalPersonId, ...originalTutor } = tutor;
+  const { updatedAt: mirroredTimestamp, personId: mirroredPersonId, ...mirroredTutor } = await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } });
+  expect(originalPersonId).toBeNull();
+  expect(mirroredPersonId).toBe(person.id);
   expect(mirroredTutor).toEqual(originalTutor);
   expect(mirroredTimestamp.getTime()).toBeGreaterThanOrEqual(originalTimestamp.getTime());
 });

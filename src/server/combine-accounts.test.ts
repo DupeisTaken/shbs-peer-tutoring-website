@@ -184,7 +184,10 @@ it.each(["survivor", "duplicate"])(
       await db.studentProfileOwnership.findUnique({
         where: { tuteeId: student.id },
       }),
-    ).toMatchObject({ userId: survivorId });
+    ).toMatchObject({
+      userId: survivorId,
+      revision: direction === "duplicate" ? 2 : 1,
+    });
     expect(
       await db.studentSurvey.findUnique({ where: { id: survey.id } }),
     ).toEqual(survey);

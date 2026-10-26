@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import {
   QueryClient,
@@ -27,8 +28,13 @@ const mock = vi.hoisted(() => ({
   cancel: vi.fn(),
   link: vi.fn(),
   preview: vi.fn(),
+  combine: vi.fn(),
+  combineCandidates: vi.fn(),
+  combinePreview: vi.fn(),
+  combineReceipt: vi.fn(),
   invalidate: vi.fn(),
   refreshTutees: vi.fn(),
+  fetchTutees: vi.fn(),
   refreshTuteeStats: vi.fn(),
   refreshTutors: vi.fn(),
   academicSave: vi.fn(),
@@ -42,7 +48,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: mock.routerRefresh }),
 }));
 vi.mock("~/trpc/react", async () => {
-  const { useMutation } = await import("@tanstack/react-query");
+  const { useMutation, useQuery } = await import("@tanstack/react-query");
   const mutation = (fn: (input: unknown) => unknown) => ({
     // Real mutation state stays pending through asynchronous success callbacks.
     useMutation: (options: {
@@ -60,18 +66,25 @@ vi.mock("~/trpc/react", async () => {
     api: {
       useUtils: () => ({
         admin: {
-          tutees: { invalidate: mock.refreshTutees },
+          tutees: { invalidate: mock.refreshTutees, fetch: mock.fetchTutees },
           tuteeStats: { invalidate: mock.refreshTuteeStats },
           pairings: invalidation,
           accounts: invalidation,
           tutors: { invalidate: mock.refreshTutors },
           accountAcademics: invalidation,
+          accountDetails: invalidation,
         },
         account: { me: invalidation, academicHistory: invalidation },
         tutor: { me: invalidation, myProfile: invalidation },
         tutorDetails: invalidation,
         student: invalidation,
         tuteeHistory: { ...invalidation, preview: { fetch: mock.preview } },
+        historicalAcademics: invalidation,
+        personCombine: {
+          candidates: invalidation,
+          preview: { fetch: mock.combinePreview },
+          receipt: { fetch: mock.combineReceipt },
+        },
       }),
       program: {
         ...(
@@ -114,6 +127,20 @@ vi.mock("~/trpc/react", async () => {
         academicHistory: { useQuery: () => ({ data: [] }) },
         updateAcademics: mutation(mock.selfAcademicSave),
       },
+      personCombine: {
+        candidates: {
+          // Keep React Query's enabled contract real: a closed grouping section
+          // registers its observer without fetching or performing any write.
+          useQuery: (input: unknown, options: { enabled: boolean }) =>
+            useQuery({
+              queryKey: ["personCombine.candidates", input],
+              queryFn: async () =>
+                (await mock.combineCandidates(input)) as typeof combineCandidate[],
+              ...options,
+            }),
+        },
+        combine: mutation(mock.combine),
+      },
       tuteeHistory: {
         invite: mutation(mock.invite),
         cancelInvitation: mutation(mock.cancel),
@@ -131,9 +158,9 @@ vi.mock("~/trpc/react", async () => {
           useQuery: () => ({
             data: [
               {
-                id: "owner",
-                name: "Verified Alumnus",
-                email: "alumni@example.test",
+                id: "linked",
+                name: "Current Account",
+                email: "linked@example.test",
               },
             ],
           }),
@@ -167,16 +194,42 @@ const row = {
   availabilities: [],
   notes: "Original note",
 } as unknown as ComponentProps<typeof TuteeEditor>["row"];
+let renderedRow = row;
 const preview = {
   fingerprint: "b".repeat(64),
   record: { name: "Alex Lin", sessions: 3 },
-  account: { name: "Verified Alumnus" },
-  conflict: false,
+  account: { id: "linked", name: "Current Account" },
+  conflict: true,
   currentConflict: false,
+};
+const combineCandidate = {
+  ref: { kind: "USER", id: "owner" },
+  name: "Verified Alumnus",
+  email: "alumni@example.test",
+  status: "STUDENT",
+  hasLogin: true,
+};
+const combinePreview = {
+  fingerprint: "d".repeat(64),
+  sources: [
+    { ref: { kind: "TUTEE", id: row.id }, name: row.englishName },
+    combineCandidate,
+  ],
+  accounts: [{ id: "owner", name: "Verified Alumnus", email: "alumni@example.test", ready: true }],
+  retainedUserId: "owner",
+  requiresHead: false,
+  alreadyTogether: false,
+  conflicts: [],
+  warnings: [],
+  canRetireLogins: false,
+  retireDuplicateLogins: false,
+  outcome: "GROUPED",
+  counts: { users: 1, tutors: 0, tutees: 1 },
 };
 let client: QueryClient;
 beforeEach(() => {
   vi.resetAllMocks();
+  renderedRow = row;
   mock.academicVersion = 7;
   for (const mutation of [
     mock.save,
@@ -212,6 +265,22 @@ beforeEach(() => {
   });
   mock.cancel.mockResolvedValue({ cancelled: true });
   mock.preview.mockResolvedValue(preview);
+  mock.combineCandidates.mockResolvedValue([combineCandidate]);
+  mock.combinePreview.mockResolvedValue(combinePreview);
+  mock.combineReceipt.mockResolvedValue(null);
+  mock.combine.mockResolvedValue({
+    ok: true,
+    personId: "combined-person",
+    receiptId: "combined-receipt",
+    outcome: "GROUPED",
+    retiredUserIds: [],
+  });
+  // Successful synchronization must read the committed row. Missing fetch used
+  // to disguise every successful save as a refresh failure in this fixture.
+  mock.fetchTutees.mockImplementation(async () => {
+    const saved = mock.save.mock.lastCall?.[0] as Partial<typeof row> | undefined;
+    return [{ ...renderedRow, ...saved, updatedAt: new Date("2026-10-24") }];
+  });
   for (const refresh of [
     mock.refreshTutees,
     mock.refreshTuteeStats,
@@ -227,7 +296,8 @@ afterEach(() => {
   client.clear();
 });
 
-function renderEditor(editorRow = row, unmountOnClose = false) {
+function renderEditor(editorRow = row, unmountOnClose = false, isHead = false) {
+  renderedRow = editorRow;
   const close = vi.fn();
   function Host() {
     const [open, setOpen] = useState(true);
@@ -238,7 +308,7 @@ function renderEditor(editorRow = row, unmountOnClose = false) {
           close();
           if (unmountOnClose) setOpen(false);
         }}
-        historyPermissions={{ canLink: true, isHead: false }}
+        historyPermissions={{ canLink: true, isHead }}
       />
     ) : null;
   }
@@ -258,7 +328,7 @@ function renderEditor(editorRow = row, unmountOnClose = false) {
 function mount() {
   const close = renderEditor();
   fireEvent.click(
-    screen.getByText(en.tuteeHistory.linkTitle, { selector: "summary" }),
+    screen.getByText(en.tuteeHistory.invitation, { selector: "summary" }),
   );
   const notes = screen.getByRole<HTMLTextAreaElement>("textbox", {
     name: en.profileCorrection.notes,
@@ -292,7 +362,7 @@ function mount() {
 async function selectOwner() {
   fireEvent.change(
     screen.getByRole("combobox", { name: en.tuteeHistory.chooseAccount }),
-    { target: { value: "owner" } },
+    { target: { value: "linked" } },
   );
   fireEvent.click(
     screen.getByRole("button", { name: en.tuteeHistory.preview }),
@@ -300,7 +370,34 @@ async function selectOwner() {
   const confirmation = await screen.findByRole("checkbox", {
     name: en.tuteeHistory.confirmIdentity,
   });
+  expect(mock.preview).toHaveBeenLastCalledWith(
+    { tuteeId: "archive", userId: "linked" },
+    { staleTime: 0 },
+  );
   fireEvent.click(confirmation);
+  expect(
+    screen
+      .getByRole("button", { name: en.tuteeHistory.link })
+      .matches(":disabled"),
+  ).toBe(true);
+  fireEvent.change(screen.getByLabelText(en.tuteeHistory.password), {
+    target: { value: "SyntheticHeadConfirmation" },
+  });
+  expect(
+    screen
+      .getByRole("button", { name: en.tuteeHistory.link })
+      .matches(":disabled"),
+  ).toBe(false);
+}
+async function selectCombinedOwner() {
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.open }));
+  fireEvent.click(await screen.findByRole("checkbox", { name: /Verified Alumnus.*owner/ }));
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.preview }));
+  await screen.findByRole("heading", { name: en.combineRecords.result });
+  fireEvent.change(screen.getByRole("textbox", { name: en.combineRecords.evidence }), {
+    target: { value: "Verified the same participant across original records" },
+  });
+  fireEvent.click(screen.getByRole("checkbox", { name: en.combineRecords.acknowledge }));
 }
 async function flushMutationJobs() {
   // A direct submit can enqueue its mutation after the handler returns. Give an
@@ -310,18 +407,63 @@ async function flushMutationJobs() {
   });
 }
 
-it.each(["invite", "cancel", "link"] as const)(
+function dialogCloseButton() {
+  // Grouping has its own Close action. Keep pending/dismissal assertions on the
+  // dialog's declared initial-focus control, even while that section is open.
+  const button = screen.getByRole("dialog").querySelector<HTMLButtonElement>(
+    "button[data-dialog-autofocus]",
+  );
+  expect(button?.textContent).toBe(en.accountProfile.close);
+  return button!;
+}
+
+it("keeps the real closed grouping observer idle and opens it without a write", async () => {
+  renderEditor();
+  expect(client.getQueryState(["personCombine.candidates", { search: "" }])).toBeTruthy();
+  await flushMutationJobs();
+  expect(mock.combineCandidates).not.toHaveBeenCalled();
+  expect(mock.combine).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: en.combineRecords.open }));
+  await screen.findByRole("checkbox", { name: /Verified Alumnus.*owner/ });
+  expect(mock.combineCandidates).toHaveBeenCalledOnce();
+  expect(mock.combineCandidates).toHaveBeenCalledWith({ search: "" });
+  fireEvent.click(
+    within(screen.getByRole("region", { name: en.combineRecords.title })).getByRole(
+      "button",
+      { name: en.combineRecords.close },
+    ),
+  );
+  expect(mock.combine).not.toHaveBeenCalled();
+  expect(mock.combinePreview).not.toHaveBeenCalled();
+  expect(mock.combineReceipt).not.toHaveBeenCalled();
+  expect(mock.invite).not.toHaveBeenCalled();
+  expect(mock.link).not.toHaveBeenCalled();
+});
+
+it("keeps grouping available to Admin while reserving existing-owner correction for Head", () => {
+  renderEditor({
+    ...row,
+    owner: { id: "retained-owner", email: "retained@example.test" },
+  } as typeof row);
+  expect(screen.getByRole("button", { name: en.combineRecords.open })).toBeTruthy();
+  expect(screen.queryByText(en.combineRecords.correctOwner, { selector: "summary" })).toBeNull();
+  expect(screen.queryByRole("button", { name: en.tuteeHistory.link })).toBeNull();
+  expect(screen.queryByText(en.tuteeHistory.invitation, { selector: "summary" })).toBeNull();
+  expect(mock.link).not.toHaveBeenCalled();
+  expect(mock.invite).not.toHaveBeenCalled();
+});
+
+it.each(["invite", "cancel", "combine"] as const)(
   "blocks profile submission during %s and recovers both drafts after failure",
   async (operation) => {
     const ui = mount();
-    if (operation === "link") await selectOwner();
+    if (operation === "combine") await selectCombinedOwner();
     const work = deferred();
     mock[operation].mockReturnValueOnce(work.promise);
     const names = {
       invite: en.tuteeHistory.sendInvitation,
       cancel: en.tuteeHistory.cancelInvitation,
-      link: en.tuteeHistory.link,
-      preview: en.tuteeHistory.preview,
+      combine: en.combineRecords.confirm,
     };
     fireEvent.click(screen.getByRole("button", { name: names[operation] }));
     await waitFor(() => expect(ui.save.disabled).toBe(true));
@@ -337,14 +479,16 @@ it.each(["invite", "cancel", "link"] as const)(
     expect(mock.save).not.toHaveBeenCalled();
     expect(ui.close).not.toHaveBeenCalled();
     await act(async () => {
-      work.reject(new Error("HISTORY_STALE"));
+      work.reject(
+        operation === "combine"
+          ? Object.assign(new Error(en.tuteeHistory.HISTORY_STALE), {
+              data: { code: "CONFLICT" },
+            })
+          : new Error("HISTORY_STALE"),
+      );
     });
     await waitFor(() => expect(ui.save.disabled).toBe(false));
-    expect(
-      screen.getByRole<HTMLButtonElement>("button", {
-        name: en.accountProfile.close,
-      }).disabled,
-    ).toBe(false);
+    expect(dialogCloseButton().disabled).toBe(false);
     expect(screen.getByRole("alert").textContent).toContain(
       en.tuteeHistory.HISTORY_STALE,
     );
@@ -372,11 +516,11 @@ it.each(["invite", "cancel", "link"] as const)(
   },
 );
 
-it("keeps an identity preview dismissible while freezing its local draft and excluding all history writes", async () => {
-  const ui = mount();
+it("keeps an ownership-correction preview dismissible while freezing its local draft and excluding all history writes", async () => {
+  const ui = mountLinked();
   fireEvent.change(
     screen.getByRole("combobox", { name: en.tuteeHistory.chooseAccount }),
-    { target: { value: "owner" } },
+    { target: { value: "linked" } },
   );
   const work = deferred();
   mock.preview.mockReturnValueOnce(work.promise);
@@ -385,14 +529,14 @@ it("keeps an identity preview dismissible while freezing its local draft and exc
   );
   await waitFor(() => expect(mock.preview).toHaveBeenCalledOnce());
   expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
-  expect(ui.save.disabled).toBe(false);
+  expect(ui.profileSave.disabled).toBe(false);
   expect(ui.notes.matches(":disabled")).toBe(false);
   expect(ui.evidence.matches(":disabled")).toBe(true);
-  expect(ui.invite.matches(":disabled")).toBe(true);
-  fireEvent.submit(ui.inviteForm);
-  fireEvent.click(
-    screen.getByRole("button", { name: en.tuteeHistory.cancelInvitation }),
-  );
+  expect(screen.getByRole("combobox", { name: en.tuteeHistory.chooseAccount }).matches(":disabled")).toBe(true);
+  // Already-owned records expose correction only; invitation writes are absent.
+  expect(screen.queryByRole("button", { name: en.tuteeHistory.sendInvitation })).toBeNull();
+  expect(screen.queryByRole("button", { name: en.tuteeHistory.cancelInvitation })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.preview }));
   expect(mock.invite).not.toHaveBeenCalled();
   expect(mock.cancel).not.toHaveBeenCalled();
   expect(mock.link).not.toHaveBeenCalled();
@@ -404,24 +548,19 @@ it("keeps an identity preview dismissible while freezing its local draft and exc
   await act(async () => {
     work.reject(new Error("HISTORY_STALE"));
   });
-  expect(ui.evidence.value).toBe("Exact archived identity evidence reviewed");
-  expect(ui.email.value).toBe("alumni@example.test");
-  expect(ui.notes.value).toBe("Unsaved personal draft");
-  expect(ui.invite.matches(":disabled")).toBe(false);
+  expectLinkedDrafts(ui);
+  expect(ui.evidence.matches(":disabled")).toBe(false);
   expect(screen.getByRole("alert").textContent).toContain(
     en.tuteeHistory.HISTORY_STALE,
   );
 });
 
 it("ignores a late identity preview after deliberate dismissal without starting any write", async () => {
-  const close = renderEditor(row, true);
-  fireEvent.click(
-    screen.getByText(en.tuteeHistory.linkTitle, { selector: "summary" }),
-  );
+  const { close } = mountLinked(true);
   fireEvent.change(
     screen.getByRole("combobox", { name: en.tuteeHistory.chooseAccount }),
     {
-      target: { value: "owner" },
+      target: { value: "linked" },
     },
   );
   const work = deferred();
@@ -430,9 +569,7 @@ it("ignores a late identity preview after deliberate dismissal without starting 
     screen.getByRole("button", { name: en.tuteeHistory.preview }),
   );
   await waitFor(() => expect(mock.preview).toHaveBeenCalledOnce());
-  fireEvent.click(
-    screen.getByRole("button", { name: en.accountProfile.close }),
-  );
+  fireEvent.click(dialogCloseButton());
   expect(close).toHaveBeenCalledOnce();
   expect(screen.queryByRole("dialog")).toBeNull();
   await act(async () => {
@@ -443,22 +580,23 @@ it("ignores a late identity preview after deliberate dismissal without starting 
   expect(mock.invite).not.toHaveBeenCalled();
   expect(mock.cancel).not.toHaveBeenCalled();
   expect(mock.link).not.toHaveBeenCalled();
+  expect(mock.combine).not.toHaveBeenCalled();
 });
 
 it("blocks every history write during profile save, then allows a failed save to be retried without latching", async () => {
   const ui = mount();
-  await selectOwner();
+  await selectCombinedOwner();
   const work = deferred();
   mock.save.mockReturnValueOnce(work.promise);
   fireEvent.submit(ui.profileForm);
   await waitFor(() => expect(ui.invite.disabled).toBe(true));
   for (const name of [
     en.tuteeHistory.cancelInvitation,
-    en.tuteeHistory.link,
-    en.tuteeHistory.preview,
+    en.combineRecords.confirm,
+    en.combineRecords.preview,
   ])
     expect(
-      screen.getByRole<HTMLButtonElement>("button", { name }).disabled,
+      screen.getByRole<HTMLButtonElement>("button", { name }).matches(":disabled"),
     ).toBe(true);
   expect(ui.evidence.matches(":disabled")).toBe(true);
   expect(ui.email.matches(":disabled")).toBe(true);
@@ -466,24 +604,21 @@ it("blocks every history write during profile save, then allows a failed save to
   fireEvent.submit(ui.profileForm);
   await flushMutationJobs();
   expect(mock.invite).not.toHaveBeenCalled();
+  expect(mock.combine).not.toHaveBeenCalled();
   expect(mock.save).toHaveBeenCalledTimes(1);
   expect(ui.close).not.toHaveBeenCalled();
   await act(async () => {
     work.reject(new Error("PROFILE_STALE"));
   });
   await waitFor(() => expect(ui.invite.disabled).toBe(false));
-  expect(
-    screen.getByRole<HTMLButtonElement>("button", {
-      name: en.accountProfile.close,
-    }).disabled,
-  ).toBe(false);
+  expect(dialogCloseButton().disabled).toBe(false);
   expect(screen.getByRole("alert")).toBeTruthy();
   expect(ui.notes.value).toBe("Unsaved personal draft");
   expect(ui.evidence.value).toBe("Exact archived identity evidence reviewed");
   expect(ui.email.value).toBe("alumni@example.test");
   expect(
     screen.getByRole<HTMLInputElement>("checkbox", {
-      name: en.tuteeHistory.confirmIdentity,
+      name: en.combineRecords.acknowledge,
     }).checked,
   ).toBe(true);
   fireEvent.submit(ui.inviteForm);
@@ -511,17 +646,17 @@ it("keeps history unavailable through successful profile invalidation before del
   await closeSavedEditor(ui.close);
 });
 
-it.each(["invite", "cancel", "link"] as const)(
+it.each(["invite", "cancel", "combine"] as const)(
   "keeps the profile unavailable through successful %s refresh without latching",
   async (operation) => {
     const ui = mount();
-    if (operation === "link") await selectOwner();
+    if (operation === "combine") await selectCombinedOwner();
     const refresh = deferred();
     mock.invalidate.mockReturnValue(refresh.promise);
     const names = {
       invite: en.tuteeHistory.sendInvitation,
       cancel: en.tuteeHistory.cancelInvitation,
-      link: en.tuteeHistory.link,
+      combine: en.combineRecords.confirm,
     };
     fireEvent.click(screen.getByRole("button", { name: names[operation] }));
     await waitFor(() => expect(mock.invalidate).toHaveBeenCalled());
@@ -546,13 +681,23 @@ function mountLinked(unmountOnClose = false) {
     {
       ...row,
       user: { id: "linked", email: "linked@example.test" },
+      // Correct a retained owner to the current login. A different current
+      // login must go through Combine Records, not the Head correction action.
+      owner: { id: "previous-owner", email: "past@example.test" },
     } as typeof row,
     unmountOnClose,
+    true,
   );
   fireEvent.click(screen.getByRole("button", { name: en.academics.edit }));
-  fireEvent.click(
-    screen.getByText(en.tuteeHistory.linkTitle, { selector: "summary" }),
-  );
+  const summary = screen.getByText(en.combineRecords.correctOwner, {
+    selector: "summary",
+  });
+  const correction = summary.closest("details")!;
+  fireEvent.click(summary);
+  // jsdom does not reliably deliver the native toggle after summary activation;
+  // dispatch it explicitly so the real retained disclosure mounts its child.
+  correction.open = true;
+  fireEvent(correction, new Event("toggle"));
   const notes = screen.getByRole<HTMLTextAreaElement>("textbox", {
     name: en.profileCorrection.notes,
   });
@@ -565,9 +710,6 @@ function mountLinked(unmountOnClose = false) {
   const grade = screen.getByRole<HTMLSelectElement>("combobox", {
     name: en.academics.grade,
   });
-  const profileSave = screen.getByRole<HTMLButtonElement>("button", {
-    name: en.profileCorrection.save,
-  });
   const academicSave = screen.getByRole<HTMLButtonElement>("button", {
     name: en.academics.confirm,
   });
@@ -579,13 +721,25 @@ function mountLinked(unmountOnClose = false) {
   fireEvent.change(grade, { target: { value: "10" } });
   return {
     close,
-    notes,
+    // Profile refresh remounts only its own fields. Read the current controls,
+    // while retaining the original sibling nodes to catch discarded drafts.
+    get notes() {
+      return screen.getByRole<HTMLTextAreaElement>("textbox", {
+        name: en.profileCorrection.notes,
+      });
+    },
     evidence,
     reason,
     grade,
-    profileSave,
+    get profileSave() {
+      return screen.getByRole<HTMLButtonElement>("button", {
+        name: en.profileCorrection.save,
+      });
+    },
     academicSave,
-    profileForm: profileSave.closest("form")!,
+    get profileForm() {
+      return screen.getByRole("button", { name: en.profileCorrection.save }).closest("form")!;
+    },
     academicForm: academicSave.closest("form")!,
   };
 }
@@ -597,11 +751,7 @@ function expectLinkedDrafts(ui: ReturnType<typeof mountLinked>) {
 }
 function expectDismissalBlocked(close: ReturnType<typeof vi.fn>) {
   const dialog = screen.getByRole("dialog");
-  expect(
-    screen.getByRole<HTMLButtonElement>("button", {
-      name: en.accountProfile.close,
-    }).disabled,
-  ).toBe(true);
+  expect(dialogCloseButton().disabled).toBe(true);
   for (let attempt = 0; attempt < 3; attempt++)
     expect(fireEvent.keyDown(dialog, { key: "Escape" })).toBe(false);
   fireEvent(dialog, new Event("cancel", { cancelable: true }));
@@ -610,9 +760,7 @@ function expectDismissalBlocked(close: ReturnType<typeof vi.fn>) {
 
 async function closeSavedEditor(close: ReturnType<typeof vi.fn>) {
   await screen.findByText(en.accountProfile.sectionSaved);
-  const button = screen.getByRole<HTMLButtonElement>("button", {
-    name: en.accountProfile.close,
-  });
+  const button = dialogCloseButton();
   await waitFor(() => expect(button.disabled).toBe(false));
   expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
   expect(close).not.toHaveBeenCalled();
@@ -703,6 +851,14 @@ it("blocks linked academic submission during a historical link and restores it o
   mock.link.mockReturnValueOnce(work.promise);
   fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.link }));
   await waitFor(() => expect(ui.academicSave.disabled).toBe(true));
+  expect(mock.link).toHaveBeenCalledWith({
+    tuteeId: "archive",
+    userId: "linked",
+    fingerprint: preview.fingerprint,
+    reason: "Verified retained enrollment identity",
+    acknowledged: true,
+    confirmPassword: "SyntheticHeadConfirmation",
+  });
   expectDismissalBlocked(ui.close);
   fireEvent.submit(ui.academicForm);
   fireEvent.submit(ui.profileForm);
@@ -814,7 +970,7 @@ it("admits only one same-frame profile submission and releases its own guard aft
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
-it.each([
+it.each(([
   ["academic", "profile-first", false],
   ["academic", "sibling-first", false],
   ["history", "profile-first", false],
@@ -823,13 +979,17 @@ it.each([
   ["academic", "sibling-first", true],
   ["history", "profile-first", true],
   ["history", "sibling-first", true],
-] as const)(
-  "retains already-admitted %s work (%s, sibling failure %s) until deliberate Close",
-  async (section, order, siblingFails) => {
+] as const).flatMap(([section, order, siblingFails]) =>
+  [false, true].map((profileRefreshFails) => ({ section, order, siblingFails, profileRefreshFails })),
+))(
+  "retains already-admitted $section work ($order, sibling failure $siblingFails, profile refresh failure $profileRefreshFails) until deliberate Close",
+  async ({ section, order, siblingFails, profileRefreshFails }) => {
     const ui = mountLinked(true),
       profile = deferred(),
       sibling = deferred();
     if (section === "history") await selectOwner();
+    if (profileRefreshFails)
+      mock.fetchTutees.mockRejectedValue(new Error("Committed roster read failed"));
     mock.save.mockReturnValueOnce(profile.promise);
     const siblingMutation =
       section === "academic" ? mock.academicSave : mock.link;
@@ -900,10 +1060,18 @@ it.each([
     expect(screen.getByRole("dialog")).toBeTruthy();
     await screen.findByText(en.accountProfile.sectionSaved);
     expect(ui.notes.isConnected).toBe(true);
-    expect(ui.notes.matches(":disabled")).toBe(true);
-    expect(ui.profileSave.disabled).toBe(true);
+    expect(ui.notes.matches(":disabled")).toBe(profileRefreshFails);
+    expect(ui.profileSave.disabled).toBe(profileRefreshFails);
     expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
-    fireEvent.submit(ui.profileForm);
+    if (profileRefreshFails) {
+      // Only failed synchronization freezes the accepted write. A successful
+      // fresh read permits a later deliberate save and must not fake this state.
+      expect(screen.getByText(en.accountProfile.sectionRefreshFailed)).toBeTruthy();
+      fireEvent.submit(ui.profileForm);
+    } else {
+      expect(screen.queryByText(en.accountProfile.sectionRefreshFailed)).toBeNull();
+      expect(mock.fetchTutees).toHaveBeenCalledOnce();
+    }
     await flushMutationJobs();
     expect(mock.save).toHaveBeenCalledOnce();
     expect(mock.save.mock.calls[0]![0]).toEqual(
@@ -1153,11 +1321,7 @@ it("releases the real editor after accepted SMTP publication with a failed refre
   await waitFor(() => expect(client.isMutating()).toBe(0));
   expect(ui.save.disabled).toBe(false);
   expect(ui.invite.disabled).toBe(true);
-  expect(
-    screen.getByRole<HTMLButtonElement>("button", {
-      name: en.accountProfile.close,
-    }).disabled,
-  ).toBe(false);
+  expect(dialogCloseButton().disabled).toBe(false);
   expect(ui.evidence.value).toBe("Exact archived identity evidence reviewed");
   fireEvent.submit(ui.inviteForm);
   expect(mock.invite).toHaveBeenCalledOnce();
