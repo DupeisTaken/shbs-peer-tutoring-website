@@ -3,7 +3,16 @@ import {
   useSessionViewState,
   useSessionPageScroll,
   useSessionAccessDenied,
+  useSessionViewVerified,
 } from "~/app/_components/session-view-state";
+import {
+  useNotificationRecordReveal,
+  type NotificationRecordArrival,
+} from "~/app/_components/use-notification-record-reveal";
+import {
+  tutorDirectoryAnchor,
+  tutorIdFromDirectoryHash,
+} from "~/lib/tutor-directory-link";
 import { useRosterSort } from "~/app/_components/roster-view-state";
 import {
   userDirectoryView,
@@ -40,6 +49,7 @@ import { CombineRecords } from "~/app/_components/combine-records";
 import { TuteeEditor } from "~/app/_components/tutee-editor";
 import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
 import { TutorProfileEditor } from "~/app/_components/tutor-profile-editor";
+import { TutorDetailsButton } from "~/app/_components/tutor-details";
 import { MultiFilter } from "~/app/_components/multi-filter";
 import {
   emptyUserFilters,
@@ -85,6 +95,50 @@ export default function UsersPage() {
   const utils = api.useUtils();
   const accounts = api.admin.accounts.useQuery();
   const directoryDenied = useSessionAccessDenied(accounts);
+  const verified = useSessionViewVerified();
+  const [linkedTutorId, setLinkedTutorId] = useState<string | null>(null);
+  const [directoryDetailsOpen, setDirectoryDetailsOpen] = useState(false);
+  const [arrival, setArrival] = useState<NotificationRecordArrival | null>(
+    null,
+  );
+  const arrivalSequence = useRef(0);
+  // Incoming setup links temporarily select one authorized roster identity. They
+  // never overwrite the caller's saved search/filter choices or provision a login.
+  useEffect(() => {
+    const reveal = () => {
+      const id =
+        verified && !directoryDenied
+          ? tutorIdFromDirectoryHash(window.location.hash)
+          : null;
+      setLinkedTutorId(id);
+      setArrival(
+        id
+          ? {
+              hash: window.location.hash,
+              pathname: window.location.pathname,
+              sequence: ++arrivalSequence.current,
+            }
+          : null,
+      );
+    };
+    reveal();
+    window.addEventListener("hashchange", reveal);
+    window.addEventListener("popstate", reveal);
+    return () => {
+      window.removeEventListener("hashchange", reveal);
+      window.removeEventListener("popstate", reveal);
+    };
+  }, [verified, directoryDenied]);
+  const leaveLinkedTutor = () => {
+    setLinkedTutorId(null);
+    setArrival(null);
+    if (tutorIdFromDirectoryHash(window.location.hash))
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+  };
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [editingTutorId, setEditingTutorId] = useState<string | null>(null);
   const [editingTuteeId, setEditingTuteeId] = useState<string | null>(null);
@@ -238,7 +292,7 @@ export default function UsersPage() {
     id: "users-v1",
     scope: JSON.stringify({ ...view, sort: [sort.key, sort.dir] }),
     ready: accounts.data !== undefined && !directoryDenied,
-    enabled: !directoryDenied,
+    enabled: !directoryDenied && !linkedTutorId,
   });
   // Keep accepted deletion authoritative beside the session-owned directory
   // view: failed list refreshes cannot restore a removed combine candidate.
@@ -252,8 +306,85 @@ export default function UsersPage() {
   const scopedRows = directoryRows.filter((row) =>
     matchesUserFilters(row, filters),
   );
+  const linkedTutor = linkedTutorId
+    ? directoryRows
+        .flatMap((row) => row.tutorDestinations)
+        .find((source) => source.tutorId === linkedTutorId)
+    : undefined;
+  const linkedReadReady =
+    accounts.data !== undefined &&
+    !accounts.isFetching &&
+    !accounts.error &&
+    !directoryDenied;
+  useNotificationRecordReveal(
+    arrival,
+    linkedReadReady && !!linkedTutor && !directoryDetailsOpen,
+    (cancelled) =>
+      setArrival((current) =>
+        current?.sequence === cancelled.sequence ? null : current,
+      ),
+  );
+  const hadDirectoryDetailsOpen = useRef(false);
+  const hasLinkedTutor = !!linkedTutor;
+  useEffect(() => {
+    const closed = hadDirectoryDetailsOpen.current && !directoryDetailsOpen;
+    hadDirectoryDetailsOpen.current = directoryDetailsOpen;
+    if (
+      !closed ||
+      !verified ||
+      directoryDenied ||
+      !linkedTutorId ||
+      !hasLinkedTutor
+    )
+      return;
+    let cancelled = false;
+    const pathname = window.location.pathname;
+    // Editing gestures deliberately cancel incoming reveal. After native dialog
+    // cleanup, recover only lost focus from its now-hidden browsing opener;
+    // this does not restart that arrival or scroll away from the user's position.
+    queueMicrotask(() => {
+      if (
+        cancelled ||
+        window.location.pathname !== pathname ||
+        tutorIdFromDirectoryHash(window.location.hash) !== linkedTutorId ||
+        document.querySelector("dialog[open]")
+      )
+        return;
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLElement &&
+        active !== document.body &&
+        active.isConnected &&
+        !active.matches(":disabled") &&
+        !active.closest("[hidden], [inert]") &&
+        active.getClientRects().length
+      )
+        return;
+      const target = document.getElementById(
+        tutorDirectoryAnchor(linkedTutorId),
+      );
+      if (
+        !target?.getClientRects().length ||
+        target.closest("[hidden], [inert]")
+      )
+        return;
+      if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
+      target.focus({ preventScroll: true });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    directoryDetailsOpen,
+    directoryDenied,
+    verified,
+    linkedTutorId,
+    hasLinkedTutor,
+  ]);
   const rows = useMemo(() => {
     const data = directoryRows;
+    // Navigation hides browsing, but does not remove its row-owned editors.
+    // Their drafts and pending writes survive Back/Forward to a source hash.
     const filtered = data.filter((u) => matchesUserFilters(u, filters, search));
     if (sort.dir === "none") return filtered;
     const dir = sort.dir === "asc" ? 1 : -1;
@@ -366,18 +497,53 @@ export default function UsersPage() {
           </div>
         </DisclosureSection>
       </section>
+      {linkedTutorId && (
+        <InlineNotice
+          announcement="status"
+          tone={linkedReadReady && !linkedTutor ? "warning" : "info"}
+          action={
+            <div className="flex flex-wrap gap-2">
+              {!linkedTutor && (
+                <Button
+                  size="compact"
+                  disabled={accounts.isFetching}
+                  onClick={() => void accounts.refetch()}
+                >
+                  {t("uiPatterns.retry")}
+                </Button>
+              )}
+              <Button size="compact" onClick={leaveLinkedTutor}>
+                {t("usersDirectory.showAll")}
+              </Button>
+            </div>
+          }
+        >
+          {!linkedReadReady
+            ? t(accounts.error ? "uiPatterns.loadFailed" : "common.loading")
+            : linkedTutor
+              ? t("usersDirectory.targetFound", {
+                  name: nameFor(linkedTutor.name, linkedTutor.username),
+                })
+              : t("usersDirectory.targetUnavailable")}
+        </InlineNotice>
+      )}
       {isAdminTier && !readOnly && (
-        <CombineRecords isHead={isHead} onPendingChange={setCombinePending} />
+        // Keep an in-flight review owner alive when a new hash focuses a source.
+        // Hidden browsing controls return with their existing recovery state.
+        <div hidden={!!linkedTutorId}>
+          <CombineRecords isHead={isHead} onPendingChange={setCombinePending} />
+        </div>
       )}
       <fieldset
-        disabled={isAdminTier && combinePending}
+        hidden={!!linkedTutorId}
+        disabled={!!linkedTutorId || (isAdminTier && combinePending)}
         className="card min-w-0 space-y-3 p-4"
       >
         <FilterToolbar
           label={t("rosterSearch.label")}
           summary={t("rosterSearch.results", {
             count: rows.length,
-            total: scopedRows.length,
+            total: linkedTutorId ? rows.length : scopedRows.length,
           })}
         >
           <label className="min-w-0 flex-1">
@@ -396,11 +562,14 @@ export default function UsersPage() {
             </Button>
           )}
         </FilterToolbar>
-        {search.trim() && rows.length === 0 && scopedRows.length > 0 && (
-          <p role="status" className="muted">
-            {t("rosterSearch.noMatches")}
-          </p>
-        )}
+        {!linkedTutorId &&
+          search.trim() &&
+          rows.length === 0 &&
+          scopedRows.length > 0 && (
+            <p role="status" className="muted">
+              {t("rosterSearch.noMatches")}
+            </p>
+          )}
         <p className="muted text-sm">{t("userMultiFilters.hint")}</p>
         <p className="muted text-sm">{t("usersDirectory.visibility")}</p>
         <div
@@ -494,6 +663,11 @@ export default function UsersPage() {
           </FilterToolbar>
         </div>
       </fieldset>
+      {sendSetup.error && (
+        <InlineNotice tone="error" announcement="alert">
+          {sendSetup.error.message}
+        </InlineNotice>
+      )}
 
       {setupInfo && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
@@ -714,7 +888,115 @@ export default function UsersPage() {
           {t("common.loading")}
         </p>
       )}
-      <div className="card">
+      <div className="card" hidden={!linkedTutorId}>
+        <SummaryTable label={t("admin.users.title")}>
+          <thead>
+            <tr>
+              <SortHeader sort={sort} sortKey="name">
+                {t("admin.users.columns.user")}
+              </SortHeader>
+              <SortHeader sort={sort} sortKey="account">
+                {t("usersDirectory.loginSetup")}
+              </SortHeader>
+              <SortHeader sort={sort} sortKey="role">
+                {t(
+                  linkedTutorId
+                    ? "usersDirectory.lifecycle"
+                    : "usersDirectory.rolesParticipation",
+                )}
+              </SortHeader>
+              <th className="table-actions-heading">
+                {t("tablePatterns.actions")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* This source-only view deliberately has no group login/profile actions.
+                Both details and setup are bound to the incoming immutable Tutor ID. */}
+            {linkedTutor && (
+              <tr
+                id={tutorDirectoryAnchor(linkedTutor.tutorId)}
+                className="bg-accent-50"
+              >
+                <td>
+                  <p className="font-medium text-slate-900">
+                    {nameFor(linkedTutor.name, linkedTutor.username)}
+                  </p>
+                  {linkedTutor.username && (
+                    <p className="muted text-xs">@{linkedTutor.username}</p>
+                  )}
+                </td>
+                <td className="max-w-56 min-w-32">
+                  {linkedTutor.account === null ? (
+                    <p className="text-sm text-slate-700">
+                      {t("usersDirectory.retainedBy", {
+                        name: nameFor(linkedTutor.retainedOwnerName),
+                      })}
+                    </p>
+                  ) : (
+                    <LoginSetup
+                      account={linkedTutor.account}
+                      suspended={linkedTutor.suspended}
+                    />
+                  )}
+                </td>
+                <td className="min-w-32">
+                  <span className="badge-slate">
+                    {t(`usersDirectory.status.${linkedTutor.status}`)}
+                  </span>
+                </td>
+                <TableActions>
+                  {/* A read-only source reader belongs to one exact selection;
+                      history navigation dismisses it rather than replacing its subject. */}
+                  <TutorDetailsButton
+                    key={linkedTutor.tutorId}
+                    tutorId={linkedTutor.tutorId}
+                    name={linkedTutor.name}
+                    username={linkedTutor.username}
+                  />
+                  {!readOnly &&
+                    (linkedTutor.account === "setup" ||
+                      (linkedTutor.account === "none" && isHead)) && (
+                      <TableAction
+                        disabled={
+                          !linkedReadReady ||
+                          !linkedTutor.hasEmail ||
+                          sendSetup.isPending
+                        }
+                        title={
+                          !linkedTutor.hasEmail
+                            ? t("admin.tutors.account.needEmail")
+                            : undefined
+                        }
+                        onClick={() =>
+                          sendSetup.mutate({ tutorId: linkedTutor.tutorId })
+                        }
+                      >
+                        {t("admin.tutors.account.sendSetup")}
+                      </TableAction>
+                    )}
+                  {!readOnly && linkedTutor.account === "none" && !isHead && (
+                    <span className="muted max-w-56 text-xs">
+                      {t("usersDirectory.setupHeadRequired")}
+                    </span>
+                  )}
+                </TableActions>
+              </tr>
+            )}
+            {!linkedTutor && (
+              <tr>
+                <td colSpan={4} className="text-slate-500">
+                  {t(accounts.data ? "admin.users.empty" : "common.loading")}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </SummaryTable>
+      </div>
+      {/* Hide the browsing table, retaining the real UserDetails subtree. Its
+          already-open portal stays available until the user finishes or closes
+          it; source reveal waits so navigation cannot steal dialog focus. */}
+      <div className="card" hidden={!!linkedTutorId}>
         <SummaryTable label={t("admin.users.title")}>
           <thead>
             <tr>
@@ -746,7 +1028,14 @@ export default function UsersPage() {
                 u.userId ??
                 (u.tutorId ? `tutor-${u.tutorId}` : `tutee-${u.tuteeId}`);
               return (
-                <tr key={key}>
+                <tr
+                  key={key}
+                  id={
+                    !linkedTutorId && u.tutorId
+                      ? tutorDirectoryAnchor(u.tutorId)
+                      : undefined
+                  }
+                >
                   {/* Identity contains names and the handle; all row actions live in the last column. */}
                   <td>
                     <div className="leading-tight">
@@ -792,10 +1081,15 @@ export default function UsersPage() {
 
                   {/* Contact/profile actions stay available to permitted staff. Only deletion is head-only. */}
                   <TableActions>
-                    <UserDetails row={u} />
+                    <UserDetails
+                      row={u}
+                      onOpenChange={setDirectoryDetailsOpen}
+                    />
                     {/* Registered accounts recover access themselves; only unfinished tutor logins are provisioned. */}
-                    {u.tutorId &&
-                      (u.account === "none" || u.account === "setup") && (
+                    {!readOnly &&
+                      u.tutorId &&
+                      (u.account === "setup" ||
+                        (u.account === "none" && isHead)) && (
                         <TableAction
                           disabled={!u.tutorHasEmail || sendSetup.isPending}
                           title={
@@ -810,6 +1104,14 @@ export default function UsersPage() {
                         >
                           {t("admin.tutors.account.sendSetup")}
                         </TableAction>
+                      )}
+                    {!readOnly &&
+                      u.tutorId &&
+                      u.account === "none" &&
+                      !isHead && (
+                        <span className="muted max-w-56 text-xs">
+                          {t("usersDirectory.setupHeadRequired")}
+                        </span>
                       )}
                     {!u.tutorId &&
                       u.role === "VIEWER" &&
@@ -912,7 +1214,7 @@ export default function UsersPage() {
                 </tr>
               );
             })}
-            {accounts.data && rows.length === 0 && (
+            {accounts.data && rows.length === 0 && !linkedTutor && (
               <tr>
                 <td colSpan={4} className="text-slate-500">
                   {t("admin.users.empty")}
@@ -923,9 +1225,6 @@ export default function UsersPage() {
         </SummaryTable>
       </div>
       {/* Errors from the dangerous (dialog-gated) actions surface inside the dialog itself. */}
-      {sendSetup.error && (
-        <p className="text-sm text-red-600">{sendSetup.error?.message}</p>
-      )}
 
       {isHead && (
         <AccountDeletion

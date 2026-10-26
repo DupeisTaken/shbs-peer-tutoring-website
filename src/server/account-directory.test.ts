@@ -116,6 +116,162 @@ it("filters grouped tutor participation using its own lifecycle, setup and searc
   expect(matchesUserFilters(group, filters)).toBe(false);
   filters.account.include = ["none"];
   expect(matchesUserFilters(group, filters)).toBe(true);
+  expect(group.tutorDestinations).toEqual([
+    {
+      tutorId: "unowned",
+      name: "Unowned Tutor",
+      username: null,
+      status: "ACTIVE",
+      account: "none",
+      hasEmail: false,
+      suspended: false,
+      retainedOwnerName: null,
+    },
+  ]);
+});
+
+it("preserves each grouped Tutor destination's own state without exposing credentials or matching email", async () => {
+  await db.person.create({
+    data: { id: "destination-group", primaryUserId: "person" },
+  });
+  await db.user.update({
+    where: { id: "person" },
+    data: {
+      personId: "destination-group",
+      passwordHash: "private-credential-hash",
+    },
+  });
+  await db.tutor.updateMany({
+    where: { id: { in: ["direct", "unowned", "archive-1"] } },
+    data: { personId: "destination-group" },
+  });
+  await db.tutor.update({
+    where: { id: "unowned" },
+    data: { email: "person@example.test", username: "sourcehandle" },
+  });
+  await db.registrationCode.create({
+    data: {
+      code: "A12BC",
+      kind: "TUTOR",
+      email: "person@example.test",
+      expiresAt: new Date("2099-01-01"),
+    },
+  });
+  const group = (await caller().admin.accounts()).rows.find(
+    (row) => row.personId === "destination-group",
+  )!;
+  expect(group).toMatchObject({
+    userId: "person",
+    role: "ADMIN",
+    account: "registered",
+  });
+  expect(group.tutorDestinations).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        tutorId: "direct",
+        name: "Current Tutor",
+        account: "registered",
+      }),
+      expect.objectContaining({
+        tutorId: "unowned",
+        name: "Unowned Tutor",
+        username: "sourcehandle",
+        account: "none",
+        hasEmail: true,
+      }),
+      expect.objectContaining({
+        tutorId: "archive-1",
+        name: "Archive One",
+        account: null,
+        retainedOwnerName: "Synthetic Person",
+      }),
+    ]),
+  );
+  expect(
+    group.directoryMembers.some((row) => row.tutorId === "archive-1"),
+  ).toBe(false);
+  expect(JSON.stringify(group)).not.toContain("private-credential-hash");
+  expect(JSON.stringify(group.tutorDestinations)).not.toContain(
+    "person@example.test",
+  );
+  expect(
+    group.tutorDestinations.flatMap((source) => Object.keys(source)),
+  ).not.toContain("role");
+  expect(
+    group.tutorDestinations.some((source) => source.tutorId === "missing"),
+  ).toBe(false);
+});
+
+it.each([false, true])(
+  "projects a retained source's own direct-login readiness with ready=%s",
+  async (ready) => {
+    await db.tutorProfileOwnership.create({
+      data: { tutorId: "direct", userId: "person" },
+    });
+    // Readiness belongs to the direct account in both states; historical
+    // ownership cannot impersonate it or convert it into accountless setup.
+    await db.user.update({
+      where: { id: "person" },
+      data: { passwordHash: ready ? "synthetic-ready-hash" : null },
+    });
+    const row = (await caller().admin.accounts()).rows.find(
+      (entry) => entry.userId === "person",
+    )!;
+    expect(
+      row.tutorDestinations.find((source) => source.tutorId === "direct"),
+    ).toMatchObject({
+      tutorId: "direct",
+      account: ready ? "registered" : "setup",
+      hasEmail: true,
+    });
+    expect(
+      await db.tutorProfileOwnership.findUnique({
+        where: { tutorId: "direct" },
+      }),
+    ).toMatchObject({ userId: "person" });
+    expect(await db.registrationCode.count()).toBe(0);
+  },
+);
+
+it("retains exact archive destinations through explicit ownership even before Person backfill", async () => {
+  const group = (await caller().admin.accounts()).rows.find(
+    (row) => row.userId === "person",
+  )!;
+  expect(group.personId).toBeNull();
+  expect(group.tutorDestinations).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        tutorId: "archive-1",
+        account: null,
+        retainedOwnerName: "Synthetic Person",
+      }),
+      expect.objectContaining({
+        tutorId: "archive-2",
+        account: null,
+        retainedOwnerName: "Synthetic Person",
+      }),
+    ]),
+  );
+  expect(
+    group.tutorDestinations.some((source) => source.tutorId === "unowned"),
+  ).toBe(false);
+});
+
+it("rejects retained archive setup before issuing invitations or changing ownership", async () => {
+  await expect(
+    caller().admin.sendTutorSetup({ tutorId: "archive-1" }),
+  ).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+    message:
+      "This tutor record has a retained historical owner. Use existing account recovery.",
+  });
+  expect(await db.registrationCode.count()).toBe(0);
+  expect(await db.user.count()).toBe(2);
+  expect(
+    await db.tutorProfileOwnership.findUnique({
+      where: { tutorId: "archive-1" },
+    }),
+  ).toMatchObject({ userId: "person" });
 });
 
 it("preserves verified sibling visibility when the designated login still needs verification", async () => {
@@ -658,6 +814,9 @@ it.each(["VIEWER", "TUTOR", "STUDENT", "CREW"] as const)(
     await expect(
       caller().admin.accountDetails({ tutorId: "archive-1" }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller().admin.accounts()).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
   },
 );
 

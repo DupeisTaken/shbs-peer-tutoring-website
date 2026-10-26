@@ -257,6 +257,18 @@ authorized decision interfaces and policy rules.
 | English | New Interview Scheduled | You have a new interview scheduled. Review the recorded time and interview details on your dashboard. If no time is shown here, check the dashboard. | View scheduled interview |
 | 中文 | 已安排新的面试 | 您有一场新安排的面试。请在工作台核对记录的时间和面试详情。如本通知未显示时间，请查看工作台。 | 查看已安排的面试 |
 
+### interview_approved
+
+- Recipient: All active, unmerged Admin and Head accounts, including the chair when eligible.
+- Trigger: A chair’s combined interview acceptance and service-hour recording commits successfully. Exact retries do not emit again. Initial and interviewed qualification applications use the same event.
+- Delivery: In-app only; no optional email copy.
+- Authorized destination: /admin/applications#application-{applicationId}.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | Interview approved | The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome. | View application |
+| 中文 | 面试已通过 | 指定主席已批准面试并记录评审组服务时数。请查看申请结果。 | 查看申请 |
+
 ### management_review_pending
 
 - Recipient: All active eligible Admin/Head reviewers for the proposal.

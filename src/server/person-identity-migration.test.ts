@@ -197,6 +197,9 @@ it("backfills only explicit populated components while preserving original busin
           false, NULL, false, NULL, NULL, NULL),
         ('same-name-login', 'Repeated Name', 'other@example.test', 'other', 'other-hash', 'VIEWER',
           false, NULL, false, NULL, NULL, NULL);
+      -- Preserve negative access evidence as well as the default false flag.
+      -- Grouping an existing identity must never restore revoked participation.
+      UPDATE "User" SET "tutorAccessRevoked" = true WHERE id = 'direct-owner';
       INSERT INTO "TutorProfileOwnership" VALUES
         ('direct-tutor', 'direct-owner', 2), ('retained-tutor', 'retained-owner', 7),
         ('chain-old-tutor', 'chain-oldest', 5);

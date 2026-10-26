@@ -60,6 +60,7 @@ function interview(id: string, patch = {}) {
     email: `${id}@example.test`,
     status: "INTERVIEW",
     isHead: true,
+    canChair: true,
     isInvalid: false,
     type: "INITIAL",
     interviewAt: null as Date | null,

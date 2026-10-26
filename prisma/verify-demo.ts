@@ -28,13 +28,13 @@ try {
       db,
       id,
       panel.map((p) => p.tutorId),
-      seedId("tutor-carol"),
+      seedId("tutor-chair"),
     );
     await validateInterviewDecision(
       db,
       id,
       key !== "hana",
-      seedId("tutor-carol"),
+      seedId("tutor-chair"),
     );
     const application = await db.tutorApplication.findUniqueOrThrow({
       where: { id },
@@ -96,7 +96,10 @@ try {
   assert.equal(await db.term.count({ where: { active: true } }), 1);
   // Demo pairings have authored timetables; repeat seeding must keep them confirmed.
   assert.ok(await db.pairing.count());
-  assert.equal(await db.pairing.count({ where: { scheduleConfirmed: false } }), 0);
+  assert.equal(
+    await db.pairing.count({ where: { scheduleConfirmed: false } }),
+    0,
+  );
   console.log(
     "Demo verified: API-valid identities, legal interview panels and outcomes, student ownership/consent, modern queues and singleton leadership/term.",
   );

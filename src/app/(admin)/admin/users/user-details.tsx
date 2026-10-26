@@ -30,7 +30,13 @@ type DirectoryRow = RouterOutputs["admin"]["accounts"]["rows"][number];
 type AccountRow = { [Key in keyof DirectoryRow]: DirectoryRow[Key] };
 type Profile = RouterOutputs["admin"]["accountDetails"]["attached"][number];
 
-export function UserDetails({ row }: { row: AccountRow }) {
+export function UserDetails({
+  row,
+  onOpenChange,
+}: {
+  row: AccountRow;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const t = useTranslations();
   const displayName = participantNameLabel(
     row.name,
@@ -42,6 +48,13 @@ export function UserDetails({ row }: { row: AccountRow }) {
   // Keep denial across closing/reopening so a cached success cannot briefly
   // expose private details before the mandatory fresh read completes.
   const [detailsAccessLost, setDetailsAccessLost] = useState(false);
+  // An already-open reader/editor owns focus even if browser history selects a
+  // different source behind it. Closing or access-driven unmount releases it.
+  useEffect(() => {
+    if (!open) return;
+    onOpenChange?.(true);
+    return () => onOpenChange?.(false);
+  }, [open, onOpenChange]);
   if (readOnly) return null;
   return (
     <>

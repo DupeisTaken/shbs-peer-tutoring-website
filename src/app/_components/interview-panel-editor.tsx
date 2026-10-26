@@ -5,6 +5,7 @@ import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { groupAssignmentTutors } from "~/lib/assignment-qualification";
+import { isInterviewChairRole } from "~/lib/interview-chair";
 import { Button } from "./ui/button";
 import { FormActions } from "./ui/patterns";
 
@@ -13,7 +14,11 @@ export type PanelTutor = {
   englishName: string;
   username?: string | null;
   status: string;
-  user: { tutorAccessRevoked: boolean; suspendedAt: Date | null } | null;
+  user: {
+    role: string;
+    tutorAccessRevoked: boolean;
+    suspendedAt: Date | null;
+  } | null;
 };
 
 /** The subject focus only groups choices. It never removes picks or changes the
@@ -68,6 +73,13 @@ export function InterviewPanelEditor({
   const subjectIds = focus ? [focus] : subjects.map((subject) => subject.id);
   const groups = groupAssignmentTutors(eligible, subjectIds, grants.data ?? []);
   const chosen = picks.filter(Boolean);
+  // Chair authority is independent of panel seniority. Keep an old chair visible
+  // as saved history, but require a currently eligible Admin/Head before saving.
+  const chairIds = new Set(
+    eligible
+      .filter((tutor) => isInterviewChairRole(tutor.user?.role))
+      .map((tutor) => tutor.id),
+  );
   const ready = !grants.isLoading && !grants.error && grants.data !== undefined;
   const canAssign =
     ready &&
@@ -75,6 +87,7 @@ export function InterviewPanelEditor({
     chosen.length === picks.length &&
     new Set(chosen).size === chosen.length &&
     chosen.includes(head) &&
+    chairIds.has(head) &&
     chosen.every((id) => eligible.some((tutor) => tutor.id === id)) &&
     !assign.isPending;
   const labelFor = (tutor: PanelTutor) => {
@@ -199,9 +212,10 @@ export function InterviewPanelEditor({
                     type="radio"
                     name={`head-${applicationId}`}
                     checked={!!pick && head === pick}
-                    disabled={!pick || !!retained || !ready || assign.isPending}
+                    disabled={!chairIds.has(pick) || !ready || assign.isPending}
                     onChange={() => setHead(pick)}
                     aria-label={t("picker.chairSlot", { n: index + 1 })}
+                    aria-describedby={helpId}
                   />
                   {t("head")}
                 </label>

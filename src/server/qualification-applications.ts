@@ -8,11 +8,16 @@ import {
 } from "~/server/qualifications";
 import { courseChoices } from "~/server/course-choices";
 import { subjectOrderBy } from "~/lib/course-catalogue";
-import { lockEntity } from "~/server/transactions";
 import { validateInterviewDecision } from "~/server/interviews";
 import { assertFeatureEnabled } from "~/server/program/features";
 import { staleConflict } from "~/server/concurrency";
-import { notifyTutors } from "~/server/notifications/create";
+import { notifyAdmins, notifyTutors } from "~/server/notifications/create";
+import { assertRequestProcessable, lockApplicationReview } from "~/server/request-invalidity";
+import { lockUsernameNamespace } from "~/server/auth/username";
+import {
+  type InterviewService, interviewHourRows, sameInterviewCompletionEvidence,
+  recordInterviewApprovalService,
+} from "~/server/interview-hours";
 
 export function assertQualificationReviewer(role: string) {
   if (role !== "ADMIN" && role !== "HEAD")
@@ -74,10 +79,14 @@ export async function decideQualificationApplication(
     accept: boolean;
     comment: string;
     expectedUpdatedAt: Date;
+    completion?: InterviewService;
   },
 ) {
   assertQualificationReviewer(actor.role);
-  await lockEntity(tx, `interview:${input.id}`);
+  // Match role/account changes' namespace-before-application lock order, then
+  // re-read the chair account; a stale session cannot keep decision authority.
+  await lockUsernameNamespace(tx);
+  await lockApplicationReview(tx, input.id);
   const app = await tx.tutorApplication.findUniqueOrThrow({
     where: { id: input.id },
     include: { interviewers: true },
@@ -91,13 +100,15 @@ export async function decideQualificationApplication(
       code: "BAD_REQUEST",
       message: "Use the initial application workflow for this applicant.",
     });
-  if (!["PENDING", "INTERVIEW"].includes(app.status))
-    throw new TRPCError({
-      code: "CONFLICT",
-      message: "This qualification request has already been decided.",
-    });
-  if (app.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
-    staleConflict();
+  assertRequestProcessable(app);
+  if (!["PENDING", "INTERVIEW"].includes(app.status) &&
+    !(app.status === "ACCEPTED" && input.accept && input.completion))
+    throw new TRPCError({ code: "CONFLICT", message: "This qualification request has already been decided." });
+  const currentActor = await tx.user.findUnique({ where: { id: actor.id },
+    select: { role: true, tutorId: true, suspendedAt: true, mergedIntoId: true, tutorAccessRevoked: true } });
+  if (!currentActor || currentActor.suspendedAt || currentActor.mergedIntoId)
+    throw new TRPCError({ code: "FORBIDDEN" });
+  assertQualificationReviewer(currentActor.role);
   // A revoked participation badge hides session.tutorId but must not enable self-review.
   if (
     actor.tutorId === app.requestedTutorId ||
@@ -122,14 +133,28 @@ export async function decideQualificationApplication(
   if (hasPanel) {
     await assertFeatureEnabled(tx, "INTERVIEWS");
     chairId = app.interviewers.find((person) => person.isHead)?.tutorId ?? null;
-    if (!chairId || chairId !== actor.tutorId)
+    if (!chairId || chairId !== actor.tutorId || currentActor.tutorId !== chairId || currentActor.tutorAccessRevoked)
       throw new TRPCError({
         code: "FORBIDDEN",
         message:
           "The assigned Admin or Head chair must record the interview decision.",
       });
     await validateInterviewDecision(tx, app.id, input.accept, chairId);
+    if (input.accept) {
+      if (!input.completion)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Report interview duration, completion time and attendance before approving." });
+      if (app.status === "ACCEPTED" && app.qualificationDecidedById === actor.id &&
+        app.decidedByTutorId === chairId && app.decisionComment === input.comment) {
+        const credits = await interviewHourRows(tx, app.id, app.interviewers.map((p) => p.tutorId));
+        if (sameInterviewCompletionEvidence(app, credits, input.completion)) return { ok: true };
+      }
+    }
   }
+  if (!["PENDING", "INTERVIEW"].includes(app.status))
+    throw new TRPCError({ code: "CONFLICT", message: "This qualification request has already been decided." });
+  if (app.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()) staleConflict();
+  if (hasPanel && input.accept && input.completion)
+    await recordInterviewApprovalService(tx, app.id, app, input.completion);
   const snapshot: { id: string; name: string }[] = [];
   if (input.accept) {
     await lockCatalogue(tx);
@@ -191,5 +216,10 @@ export async function decideQualificationApplication(
     },
     tx,
   );
+  if (hasPanel && input.accept)
+    await notifyAdmins({
+      title: "Interview approved", ...notificationEvent("interview_approved"),
+      link: `/admin/applications#application-${app.id}`, inAppOnly: true,
+    }, undefined, tx);
   return { ok: true };
 }
