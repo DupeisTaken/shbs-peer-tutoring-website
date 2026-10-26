@@ -8,6 +8,7 @@ import type {
   AdmissionRecoveryResult,
 } from "~/lib/recovery";
 import { api } from "~/trpc/react";
+import { recoveryEvidenceMessage } from "~/lib/recovery-evidence";
 import { Button } from "./ui/button";
 import { Modal, useDialogPending } from "./ui/modal";
 import { QueryFeedback } from "./ui/query-feedback";
@@ -70,6 +71,10 @@ function RecoveryPlan({
 }) {
   const t = useTranslations("recovery");
   const format = useFormatter();
+  const evidenceText = (message: string) => {
+    const evidence = recoveryEvidenceMessage(message);
+    return evidence ? t(`evidence.${evidence.key}`, evidence.values) : message;
+  };
   const [reason, setReason] = useState("");
   const [confirm, setConfirm] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -228,7 +233,7 @@ function RecoveryPlan({
         {plan.warnings.length > 0 && (
           <ul className="mt-2 list-disc space-y-1 pl-5">
             {plan.warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
+              <li key={warning}>{evidenceText(warning)}</li>
             ))}
           </ul>
         )}
@@ -238,7 +243,7 @@ function RecoveryPlan({
           <h3 className="font-medium">{t("blockers")}</h3>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             {plan.blockers.map((blocker) => (
-              <li key={blocker}>{blocker}</li>
+              <li key={blocker}>{evidenceText(blocker)}</li>
             ))}
           </ul>
         </div>

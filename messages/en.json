@@ -6025,6 +6025,27 @@
     "commandCopied": "CLI inspect command copied.",
     "verificationClocks": "Verification clocks to restore",
     "messageLinks": "Causal messaging links to remove",
-    "messageLinksHelp": "Only messaging links created by this admission chain are removed. Message history and independent messaging access remain."
+    "messageLinksHelp": "Only messaging links created by this admission chain are removed. Message history and independent messaging access remain.",
+    "evidence": {
+      "graphLimit": "The causal graph exceeds the bounded adapter limit; operator review is required.",
+      "missingEvidence": "Complete prospective admission evidence is unavailable.",
+      "missingIssuance": "The admission reused authorization without prospective issuance provenance.",
+      "missingAuthorization": "A source registration authorization was removed or exceeds the adapter limit.",
+      "sourceChanged": "The admission or its roster identity changed. Review the current source records.",
+      "invalidity": "The application has an independent invalidity decision.",
+      "missingCoverage": "Database coverage is incomplete for: {tables}",
+      "originRequired": "Recovery requires an origin database session with active journal triggers.",
+      "clockChanged": "An assignment verification clock changed independently or its original evidence is unavailable.",
+      "sourceEvent": "A single committed source admission event could not be established.",
+      "registrationUnsupported": "Registration has unsupported or incomplete dependent effects.",
+      "assignmentUnsupported": "Assignment has unsupported edits or dependent effects.",
+      "invitationUnsupported": "Invitation preparation has unsupported dependent effects.",
+      "unsupportedEvent": "Unsupported dependent event: {kind}.",
+      "existingParticipation": "Existing assignments or recorded sessions need a separately reviewed recovery adapter.",
+      "missingRegistration": "A consumed code lacks prospective account-creation provenance.",
+      "preserveHistory": "Delivered messages and real interview attendance/hours remain historical evidence. Sent email cannot be recalled.",
+      "preserveIdentity": "Identity and academic evidence is retained. Recovery compensates admission access, recurring assignments and attributable verification clocks.",
+      "preserveAdmission": "Independent tutor admission is preserved; its access and assignments will remain."
+    }
   }
 }

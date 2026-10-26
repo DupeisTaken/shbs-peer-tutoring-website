@@ -6025,6 +6025,27 @@
     "commandCopied": "Commande d’inspection CLI copiée.",
     "verificationClocks": "Délais de vérification à restaurer",
     "messageLinks": "Liens causaux de messagerie à supprimer",
-    "messageLinksHelp": "Seuls les liens de messagerie créés par cette chaîne d’admission sont supprimés. L’historique des messages et les accès indépendants à la messagerie sont conservés."
+    "messageLinksHelp": "Seuls les liens de messagerie créés par cette chaîne d’admission sont supprimés. L’historique des messages et les accès indépendants à la messagerie sont conservés.",
+    "evidence": {
+      "graphLimit": "Le graphe causal dépasse la limite de l’adaptateur ; un examen par un opérateur est requis.",
+      "missingEvidence": "Les preuves prospectives complètes de l’admission ne sont pas disponibles.",
+      "missingIssuance": "L’admission a réutilisé une autorisation sans provenance d’émission enregistrée au préalable.",
+      "missingAuthorization": "Une autorisation d’inscription d’origine a été supprimée ou dépasse la limite de l’adaptateur.",
+      "sourceChanged": "L’admission ou son identité dans le registre a changé. Examinez les enregistrements d’origine actuels.",
+      "invalidity": "La candidature fait l’objet d’une décision d’invalidité indépendante.",
+      "missingCoverage": "La couverture de la base de données est incomplète pour : {tables}",
+      "originRequired": "La récupération exige une session de base de données en mode origin avec les déclencheurs du journal de modifications actifs.",
+      "clockChanged": "Un délai de vérification d’affectation a changé indépendamment ou ses preuves d’origine ne sont pas disponibles.",
+      "sourceEvent": "Il n’a pas été possible d’établir un événement unique et validé d’admission d’origine.",
+      "registrationUnsupported": "L’inscription comporte des effets dépendants non pris en charge ou incomplets.",
+      "assignmentUnsupported": "L’affectation comporte des modifications ou effets dépendants non pris en charge.",
+      "invitationUnsupported": "La préparation de l’invitation comporte des effets dépendants non pris en charge.",
+      "unsupportedEvent": "Événement dépendant non pris en charge : {kind}.",
+      "existingParticipation": "Les affectations existantes ou séances enregistrées nécessitent un adaptateur de récupération examiné séparément.",
+      "missingRegistration": "Un code utilisé ne dispose pas de provenance de création de compte enregistrée au préalable.",
+      "preserveHistory": "Les messages livrés ainsi que les présences et heures réelles d’entretien restent des preuves historiques. Les courriels envoyés ne peuvent pas être rappelés.",
+      "preserveIdentity": "Les preuves d’identité et de scolarité sont conservées. La récupération compense les accès liés à l’admission, les affectations récurrentes et les délais de vérification attribuables.",
+      "preserveAdmission": "L’admission indépendante du tuteur est conservée ; ses accès et affectations resteront en place."
+    }
   }
 }

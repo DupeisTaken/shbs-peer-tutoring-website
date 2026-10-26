@@ -32,8 +32,17 @@ describe("database inspector translations", () => {
       expect(Object.keys(catalog.recovery).sort()).toEqual(
         Object.keys(en.recovery).sort(),
       );
-      for (const text of Object.values(catalog.recovery))
-        expect(text.trim()).not.toBe("");
+      for (const text of Object.values(catalog.recovery)) {
+        if (typeof text === "string") expect(text.trim()).not.toBe("");
+        else
+          for (const diagnostic of Object.values(text))
+            expect(diagnostic.trim()).not.toBe("");
+      }
+      expect(Object.keys(catalog.recovery.evidence).sort()).toEqual(
+        Object.keys(en.recovery.evidence).sort(),
+      );
+      expect(catalog.recovery.evidence.missingCoverage).toContain("{tables}");
+      expect(catalog.recovery.evidence.unsupportedEvent).toContain("{kind}");
       expect(catalog.recovery.application).toContain("{id}");
       expect(catalog.recovery.eventOther).toContain("{kind}");
     },

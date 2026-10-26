@@ -64,6 +64,7 @@ COPY --from=build --chown=nextjs:nodejs /app/package.json /app/tsconfig.json ./
 COPY --from=build --chown=nextjs:nodejs /app/scripts/create-admin.ts ./scripts/create-admin.ts
 COPY --from=build --chown=nextjs:nodejs /app/scripts/reconcile-person-sources.ts ./scripts/reconcile-person-sources.ts
 COPY --from=build --chown=nextjs:nodejs /app/scripts/recovery.ts ./scripts/recovery.ts
+COPY --from=build --chown=nextjs:nodejs /app/src/lib/recovery-evidence.ts ./src/lib/recovery-evidence.ts
 # Recovery is a DB-only operator entry point; it never starts the web runtime.
 COPY --from=build --chown=nextjs:nodejs \
     /app/src/server/recovery/admission.ts \

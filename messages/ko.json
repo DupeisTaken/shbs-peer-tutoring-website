@@ -6025,6 +6025,27 @@
     "commandCopied": "CLI 검사 명령을 복사했습니다.",
     "verificationClocks": "복원할 인증 기한",
     "messageLinks": "제거할 인과 메시지 권한 연결",
-    "messageLinksHelp": "이 승인 관계에서 생성된 메시지 권한 연결만 제거합니다. 메시지 기록과 독립적인 메시지 접근 권한은 보존됩니다."
+    "messageLinksHelp": "이 승인 관계에서 생성된 메시지 권한 연결만 제거합니다. 메시지 기록과 독립적인 메시지 접근 권한은 보존됩니다.",
+    "evidence": {
+      "graphLimit": "인과 관계 그래프가 어댑터의 처리 한도를 초과하여 운영자 검토가 필요합니다.",
+      "missingEvidence": "사전에 기록된 완전한 승인 증거를 사용할 수 없습니다.",
+      "missingIssuance": "이 승인은 사전에 기록된 발급 이력 없이 기존 권한을 재사용했습니다.",
+      "missingAuthorization": "원본 등록 권한이 제거되었거나 어댑터의 처리 한도를 초과합니다.",
+      "sourceChanged": "승인 또는 해당 명단의 신원 정보가 변경되었습니다. 현재 원본 기록을 검토하세요.",
+      "invalidity": "이 신청에는 독립적인 무효 결정이 있습니다.",
+      "missingCoverage": "다음 테이블의 데이터베이스 기록 범위가 불완전합니다: {tables}",
+      "originRequired": "복구에는 변경 기록 트리거가 활성화된 origin 모드의 데이터베이스 세션이 필요합니다.",
+      "clockChanged": "배정 인증 기한이 독립적으로 변경되었거나 원본 증거를 사용할 수 없습니다.",
+      "sourceEvent": "커밋된 단일 원본 승인 이벤트를 확인할 수 없습니다.",
+      "registrationUnsupported": "계정 등록에 지원되지 않거나 불완전한 후속 영향이 있습니다.",
+      "assignmentUnsupported": "배정에 지원되지 않는 수정 사항이나 후속 영향이 있습니다.",
+      "invitationUnsupported": "초대 준비에 지원되지 않는 후속 영향이 있습니다.",
+      "unsupportedEvent": "지원되지 않는 후속 이벤트: {kind}.",
+      "existingParticipation": "기존 배정이나 기록된 활동에는 별도로 검토한 복구 어댑터가 필요합니다.",
+      "missingRegistration": "사용된 코드에 사전에 기록된 계정 생성 이력이 없습니다.",
+      "preserveHistory": "전달된 메시지와 실제 면접 출석 및 시간은 과거 증거로 보존됩니다. 발송된 이메일은 회수할 수 없습니다.",
+      "preserveIdentity": "신원 및 학업 증거는 보존됩니다. 복구는 승인 접근 권한, 정기 배정 및 인과 관계가 확인된 인증 기한에 대해 보상 처리를 수행합니다.",
+      "preserveAdmission": "독립적인 튜터 승인은 보존되며 해당 접근 권한과 배정도 유지됩니다."
+    }
   }
 }

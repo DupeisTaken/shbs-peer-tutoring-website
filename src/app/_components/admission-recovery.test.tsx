@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
+import chineseMessages from "../../../messages/zh.json";
 import type { AdmissionRecoveryPlan } from "~/lib/recovery";
 import { AdmissionRecovery } from "./admission-recovery";
 
@@ -212,6 +213,67 @@ it("blocks unknown coverage and keeps the missing-evidence explanation", () => {
   expect(screen.queryByRole("button", { name: "Review recovery" })).toBeNull();
   expect(screen.getByText("Missing captured journal")).toBeTruthy();
   expect(screen.getByText("Incomplete or unsupported")).toBeTruthy();
+});
+it("localizes canonical evidence in Chinese while retaining identifiers and unknown diagnostics", () => {
+  const warning =
+    "Independent tutor admission is preserved; its access and assignments will remain.";
+  const blocker = "The application has an independent invalidity decision.";
+  mocks.inspect.mockReturnValue(
+    query({
+      ...initialPlan,
+      coverage: "UNKNOWN",
+      blockers: [
+        blocker,
+        "Database coverage is incomplete for: User, Pairing",
+        "Unsupported dependent event: MANUAL_EDIT.",
+        "Future operator diagnostic",
+      ],
+      warnings: [warning],
+    }),
+  );
+  render(
+    <NextIntlClientProvider
+      locale="zh"
+      timeZone="Asia/Shanghai"
+      messages={chineseMessages}
+    >
+      <AdmissionRecovery
+        initialAction="admission-root"
+        actorId="current-admin"
+      />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    screen.getByText(chineseMessages.recovery.evidence.invalidity),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(chineseMessages.recovery.evidence.preserveAdmission),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(
+      chineseMessages.recovery.evidence.missingCoverage.replace(
+        "{tables}",
+        "User, Pairing",
+      ),
+    ),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(
+      chineseMessages.recovery.evidence.unsupportedEvent.replace(
+        "{kind}",
+        "MANUAL_EDIT",
+      ),
+    ),
+  ).toBeTruthy();
+  expect(screen.queryByText(blocker)).toBeNull();
+  expect(screen.queryByText(warning)).toBeNull();
+  expect(screen.getByText("Future operator diagnostic")).toBeTruthy();
+  expect(
+    screen.queryByRole("button", {
+      name: chineseMessages.recovery.reviewApply,
+    }),
+  ).toBeNull();
+  expect(mocks.apply).not.toHaveBeenCalled();
 });
 it("retains the same idempotency key after a failed retry and creates a new intent on reason edit", async () => {
   mocks.apply.mockRejectedValue(new Error("Transport interrupted"));

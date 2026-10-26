@@ -6025,6 +6025,27 @@
     "commandCopied": "Comando de inspección CLI copiado.",
     "verificationClocks": "Plazos de verificación a restaurar",
     "messageLinks": "Vínculos causales de mensajería a eliminar",
-    "messageLinksHelp": "Solo se eliminan los vínculos de mensajería creados por esta cadena de admisión. Se conservan el historial de mensajes y el acceso independiente a la mensajería."
+    "messageLinksHelp": "Solo se eliminan los vínculos de mensajería creados por esta cadena de admisión. Se conservan el historial de mensajes y el acceso independiente a la mensajería.",
+    "evidence": {
+      "graphLimit": "El grafo causal supera el límite del adaptador; se requiere revisión del operador.",
+      "missingEvidence": "No hay evidencia prospectiva completa de la admisión.",
+      "missingIssuance": "La admisión reutilizó una autorización sin procedencia de emisión registrada previamente.",
+      "missingAuthorization": "Se eliminó una autorización de registro de origen o se supera el límite del adaptador.",
+      "sourceChanged": "La admisión o su identidad en la lista ha cambiado. Revisa los registros de origen actuales.",
+      "invalidity": "La solicitud tiene una decisión de invalidez independiente.",
+      "missingCoverage": "La cobertura de la base de datos está incompleta para: {tables}",
+      "originRequired": "La recuperación requiere una sesión de base de datos en modo origin con los disparadores del registro de cambios activos.",
+      "clockChanged": "Un plazo de verificación de asignación cambió de forma independiente o su evidencia original no está disponible.",
+      "sourceEvent": "No se pudo establecer un único evento de admisión de origen confirmado.",
+      "registrationUnsupported": "El registro tiene efectos dependientes no compatibles o incompletos.",
+      "assignmentUnsupported": "La asignación tiene modificaciones o efectos dependientes no compatibles.",
+      "invitationUnsupported": "La preparación de la invitación tiene efectos dependientes no compatibles.",
+      "unsupportedEvent": "Evento dependiente no compatible: {kind}.",
+      "existingParticipation": "Las asignaciones existentes o sesiones registradas requieren un adaptador de recuperación revisado por separado.",
+      "missingRegistration": "Un código consumido carece de procedencia de creación de cuenta registrada previamente.",
+      "preserveHistory": "Los mensajes entregados y la asistencia y horas reales de entrevista se conservan como evidencia histórica. Los correos enviados no se pueden retirar.",
+      "preserveIdentity": "Se conservan las evidencias de identidad y académicas. La recuperación compensa el acceso de admisión, las asignaciones recurrentes y los plazos de verificación atribuibles.",
+      "preserveAdmission": "Se conserva la admisión independiente del tutor; su acceso y sus asignaciones permanecerán."
+    }
   }
 }

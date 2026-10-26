@@ -18,6 +18,11 @@ effects and event chronology. Coverage must be complete before either supported
 write route can apply it. Unknown changes or a conflicting graph cannot be
 overridden with an operator flag.
 
+Canonical diagnostic text remains stable in saved plans and CLI evidence. The
+website resolves that shared vocabulary through localized messages, preserving
+record/table identifiers and displaying unknown future diagnostics verbatim.
+Translation does not alter evidence, fingerprints or recovery eligibility.
+
 The journal follows persisted identities conservatively; a shared record reference
 is evidence of possible impact, not proof that every later fact was caused by the
 admission. The admission adapter decides which effects it can compensate and

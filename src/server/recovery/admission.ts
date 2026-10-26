@@ -1,5 +1,10 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import {
+  RECOVERY_EVIDENCE,
+  recoveryCoveragePrefix,
+  recoveryEventPrefix,
+} from "~/lib/recovery-evidence";
 import type {
   AdmissionRecoveryInput,
   AdmissionRecoveryPlan,
@@ -325,43 +330,32 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
     g.messageLinks.length > 400 ||
     g.pairings.some((pairing) => pairing.tutees.length > 400)
   )
-    blockers.push(
-      "The causal graph exceeds the bounded adapter limit; operator review is required.",
-    );
+    blockers.push(RECOVERY_EVIDENCE.graphLimit);
   if (
     g.action.kind !== "INITIAL_ADMISSION" ||
     !g.before.success ||
     !g.after.success
   )
-    blockers.push("Complete prospective admission evidence is unavailable.");
+    blockers.push(RECOVERY_EVIDENCE.missingEvidence);
   if (g.after.success && !g.after.data.account && !g.after.data.codeIds.length)
-    blockers.push(
-      "The admission reused authorization without prospective issuance provenance.",
-    );
+    blockers.push(RECOVERY_EVIDENCE.missingIssuance);
   if (g.after.success && g.codes.length !== g.after.data.codeIds.length)
-    blockers.push(
-      "A source registration authorization was removed or exceeds the adapter limit.",
-    );
+    blockers.push(RECOVERY_EVIDENCE.missingAuthorization);
   if (
     !g.receipt &&
     (g.application?.status !== "ACCEPTED" ||
       g.application.type !== "INITIAL" ||
       !g.tutor)
   )
-    blockers.push(
-      "The admission or its roster identity changed. Review the current source records.",
-    );
-  if (g.application?.invalidatedAt)
-    blockers.push("The application has an independent invalidity decision.");
+    blockers.push(RECOVERY_EVIDENCE.sourceChanged);
+  if (g.application?.invalidatedAt) blockers.push(RECOVERY_EVIDENCE.invalidity);
   if (g.missingCoverage.length)
     blockers.push(
-      "Database coverage is incomplete for: " +
+      recoveryCoveragePrefix +
         g.missingCoverage.map((record) => record.tableName).join(", "),
     );
   if (g.replicationMode !== "origin")
-    blockers.push(
-      "Recovery requires an origin database session with active journal triggers.",
-    );
+    blockers.push(RECOVERY_EVIDENCE.originRequired);
   if (
     g.surveys.length !== g.clockRestores.size ||
     g.surveys.some((survey) => {
@@ -375,14 +369,9 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
       );
     })
   )
-    blockers.push(
-      "An assignment verification clock changed independently or its original evidence is unavailable.",
-    );
+    blockers.push(RECOVERY_EVIDENCE.clockChanged);
   const rootEvents = g.events.filter((event) => event.kind === "ADMISSION");
-  if (rootEvents.length !== 1)
-    blockers.push(
-      "A single committed source admission event could not be established.",
-    );
+  if (rootEvents.length !== 1) blockers.push(RECOVERY_EVIDENCE.sourceEvent);
   const later = g.events.filter((event) => event.kind !== "ADMISSION");
   for (const event of later) {
     const changes = g.changes.filter((change) => change.eventId === event.id);
@@ -422,9 +411,7 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
             change.operation === "DELETE",
         )
       )
-        blockers.push(
-          "Registration has unsupported or incomplete dependent effects.",
-        );
+        blockers.push(RECOVERY_EVIDENCE.registrationUnsupported);
     } else if (event.kind === "ASSIGNMENT") {
       if (
         changes.some(
@@ -456,13 +443,11 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
               change.operation !== "INSERT"),
         )
       )
-        blockers.push("Assignment has unsupported edits or dependent effects.");
+        blockers.push(RECOVERY_EVIDENCE.assignmentUnsupported);
     } else if (event.kind === "INVITATION") {
       if (changes.some((change) => change.entity !== "AccountInvitation"))
-        blockers.push(
-          "Invitation preparation has unsupported dependent effects.",
-        );
-    } else blockers.push("Unsupported dependent event: " + event.kind + ".");
+        blockers.push(RECOVERY_EVIDENCE.invitationUnsupported);
+    } else blockers.push(recoveryEventPrefix + event.kind + ".");
   }
   const createdPairings = new Set(
     g.changes
@@ -487,18 +472,14 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
         pairing._count.sessions > 0,
     )
   )
-    blockers.push(
-      "Existing assignments or recorded sessions need a separately reviewed recovery adapter.",
-    );
+    blockers.push(RECOVERY_EVIDENCE.existingParticipation);
   for (const code of g.codes)
     if (
       code.usedAt &&
       code.usedByUserId &&
       !g.events.some((event) => event.kind === "REGISTRATION")
     )
-      blockers.push(
-        "A consumed code lacks prospective account-creation provenance.",
-      );
+      blockers.push(RECOVERY_EVIDENCE.missingRegistration);
   const accounts = g.users.map((user) => user.id);
   const fingerprint = recoveryHash({
     action: g.action,
@@ -529,12 +510,10 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
     websiteEligible: !blockers.length && later.length <= 1 && !g.receipt,
     blockers: [...new Set(blockers)],
     warnings: [
-      "Delivered messages and real interview attendance/hours remain historical evidence. Sent email cannot be recalled.",
-      "Identity and academic evidence is retained. Recovery compensates admission access, recurring assignments and attributable verification clocks.",
+      RECOVERY_EVIDENCE.preserveHistory,
+      RECOVERY_EVIDENCE.preserveIdentity,
       ...(independentBefore || g.independentAdmission
-        ? [
-            "Independent tutor admission is preserved; its access and assignments will remain.",
-          ]
+        ? [RECOVERY_EVIDENCE.preserveAdmission]
         : []),
     ],
     effects: {

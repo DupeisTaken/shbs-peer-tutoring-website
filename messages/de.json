@@ -6025,6 +6025,27 @@
     "commandCopied": "CLI-Prüfbefehl kopiert.",
     "verificationClocks": "Wiederherzustellende Verifizierungsfristen",
     "messageLinks": "Zu entfernende kausale Nachrichtenverknüpfungen",
-    "messageLinksHelp": "Nur durch diese Zulassungskette entstandene Nachrichtenverknüpfungen werden entfernt. Nachrichtenverlauf und unabhängige Nachrichtenzugriffe bleiben erhalten."
+    "messageLinksHelp": "Nur durch diese Zulassungskette entstandene Nachrichtenverknüpfungen werden entfernt. Nachrichtenverlauf und unabhängige Nachrichtenzugriffe bleiben erhalten.",
+    "evidence": {
+      "graphLimit": "Der kausale Graph überschreitet das Verarbeitungslimit des Adapters; eine Prüfung durch einen Operator ist erforderlich.",
+      "missingEvidence": "Vollständige, vorausschauend erfasste Zulassungsbelege sind nicht verfügbar.",
+      "missingIssuance": "Die Zulassung verwendete eine bestehende Berechtigung erneut, ohne vorausschauend erfassten Ausstellungsnachweis.",
+      "missingAuthorization": "Eine ursprüngliche Registrierungsberechtigung wurde entfernt oder überschreitet das Verarbeitungslimit des Adapters.",
+      "sourceChanged": "Die Zulassung oder ihre Identität im Verzeichnis hat sich geändert. Prüfen Sie die aktuellen Ursprungsdatensätze.",
+      "invalidity": "Für die Bewerbung liegt eine unabhängige Ungültigkeitsentscheidung vor.",
+      "missingCoverage": "Die Datenbankabdeckung ist für folgende Tabellen unvollständig: {tables}",
+      "originRequired": "Die Wiederherstellung erfordert eine Datenbanksitzung im Modus origin mit aktiven Journal-Triggern.",
+      "clockChanged": "Eine Verifizierungsfrist einer Zuordnung wurde unabhängig geändert oder ihre ursprünglichen Belege sind nicht verfügbar.",
+      "sourceEvent": "Ein einzelnes bestätigtes ursprüngliches Zulassungsereignis konnte nicht festgestellt werden.",
+      "registrationUnsupported": "Die Registrierung hat nicht unterstützte oder unvollständig erfasste Folgeeffekte.",
+      "assignmentUnsupported": "Die Zuordnung enthält nicht unterstützte Änderungen oder Folgeeffekte.",
+      "invitationUnsupported": "Die Einladungsvorbereitung hat nicht unterstützte Folgeeffekte.",
+      "unsupportedEvent": "Nicht unterstütztes Folgeereignis: {kind}.",
+      "existingParticipation": "Bestehende Zuordnungen oder protokollierte Sitzungen erfordern einen gesondert geprüften Wiederherstellungsadapter.",
+      "missingRegistration": "Für einen verbrauchten Code fehlt ein vorausschauend erfasster Nachweis der Kontoerstellung.",
+      "preserveHistory": "Zugestellte Nachrichten sowie tatsächliche Interviewanwesenheit und Stunden bleiben als historische Belege erhalten. Gesendete E-Mails können nicht zurückgerufen werden.",
+      "preserveIdentity": "Identitäts- und akademische Belege bleiben erhalten. Die Wiederherstellung kompensiert Zulassungszugriff, wiederkehrende Zuordnungen und zurechenbare Verifizierungsfristen.",
+      "preserveAdmission": "Eine unabhängige Tutorenzulassung bleibt erhalten; die zugehörigen Zugriffe und Zuordnungen bleiben bestehen."
+    }
   }
 }
