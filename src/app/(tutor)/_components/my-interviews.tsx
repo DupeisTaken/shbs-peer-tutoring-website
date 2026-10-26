@@ -1,14 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { useFormatter, useTranslations, useTimeZone } from "next-intl";
 
-import { api } from "~/trpc/react";
+import { api, type RouterOutputs } from "~/trpc/react";
 import { useDialog } from "~/app/_components/confirm-dialog";
 import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { Button } from "~/app/_components/ui/button";
+import {
+  InterviewApprovalDialog,
+  type InterviewApprovalDraft,
+  type InterviewApprovalEvidence,
+} from "~/app/_components/interview-approval-dialog";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 import { isOpenInterview, orderInterviews } from "~/lib/interview-order";
 import {
   InvalidityBadge,
@@ -18,6 +26,76 @@ import {
 import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 
 type Status = "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED" | "RECALLED";
+type TutorInterview = RouterOutputs["tutor"]["myInterviews"][number];
+
+/** This mutation observer mounts only after an authorized chair opens approval. */
+function TutorInterviewApproval({
+  approval,
+  current,
+  initialDraft,
+  onClose,
+  onSaved,
+}: {
+  approval: { evidence: InterviewApprovalEvidence; comment: string };
+  current: TutorInterview | undefined;
+  initialDraft?: InterviewApprovalDraft;
+  onClose: (draft?: InterviewApprovalDraft) => void;
+  onSaved: () => void;
+}) {
+  const t = useTranslations();
+  const utils = api.useUtils();
+  const router = useRouter();
+  const approve = api.tutor.decideInterview.useMutation();
+  return (
+    <InterviewApprovalDialog
+      evidence={current ?? approval.evidence}
+      initialComment={approval.comment}
+      initialEvidence={approval.evidence}
+      initialDraft={initialDraft}
+      authorized={!!current?.canChair && !current.isInvalid}
+      canApprove={
+        !!current &&
+        current.status === "INTERVIEW" &&
+        current.tally.accepts + current.tally.rejects ===
+          current.panel.length &&
+        current.tally.accepts >= current.tally.rejects
+      }
+      canRetrySubmitted={current?.status === "ACCEPTED"}
+      commit={async (input) => {
+        const result = await approve.mutateAsync({
+          applicationId: approval.evidence.id,
+          accept: true,
+          ...input,
+        });
+        onSaved();
+        return result;
+      }}
+      refresh={() =>
+        settleRefreshes([
+          () => invalidateAndReport(utils.tutor.myInterviews),
+          () => invalidateAndReport(utils.notification.list),
+          () => invalidateAndReport(utils.notification.unreadCount),
+          async () => {
+            // The dashboard total is server-rendered. Verify a fresh read, then
+            // replace that payload while preserving independent client drafts.
+            await utils.tutor.myMonthlyTotal.fetch(undefined, { staleTime: 0 });
+            router.refresh();
+          },
+        ])
+      }
+      reload={async () => {
+        const rows = await utils.tutor.myInterviews.fetch(undefined, {
+          staleTime: 0,
+        });
+        const row = rows.find((item) => item.id === approval.evidence.id);
+        if (!row?.canChair || row.isInvalid || row.status !== "INTERVIEW")
+          throw new Error(t("interviewApproval.unavailable"));
+        return row;
+      }}
+      onClose={onClose}
+    />
+  );
+}
 
 function HeadScheduler({
   applicationId,
@@ -197,6 +275,8 @@ function HeadDecision({
   decisionComment,
   decidedBy,
   expectedUpdatedAt,
+  onApprove,
+  approvalBlocked,
 }: {
   applicationId: string;
   name: string;
@@ -206,6 +286,8 @@ function HeadDecision({
   decisionComment: string | null;
   decidedBy: string | null;
   expectedUpdatedAt: Date;
+  onApprove: (comment: string, version: Date) => void;
+  approvalBlocked: boolean;
 }) {
   const t = useTranslations();
   const utils = api.useUtils();
@@ -249,7 +331,7 @@ function HeadDecision({
         expectedUpdatedAt: version,
       });
   };
-  // Simple majority admits; on a tie the head's own vote breaks it (policy §VII.4).
+  // Simple majority decides; the selected eligible chair resolves a tied panel.
   const majority =
     tally.accepts > tally.rejects
       ? t("tutor.interviews.majorityAccept")
@@ -291,7 +373,7 @@ function HeadDecision({
         placeholder={t("tutor.interviews.decisionCommentPlaceholder")}
         value={comment}
         aria-label={t("tutor.interviews.decisionCommentPlaceholder")}
-        disabled={decide.isPending || queued || reloading}
+        disabled={decide.isPending || queued || reloading || approvalBlocked}
         onChange={(e) => setComment(e.target.value)}
       />
       <div className="flex flex-wrap items-center gap-2">
@@ -299,6 +381,7 @@ function HeadDecision({
           className="btn-primary btn-sm"
           disabled={
             !comment.trim() ||
+            approvalBlocked ||
             decide.isPending ||
             queued ||
             reloading ||
@@ -306,7 +389,7 @@ function HeadDecision({
             tally.accepts + tally.rejects < panelSize ||
             tally.accepts < tally.rejects
           }
-          onClick={() => void recordDecision(true)}
+          onClick={() => onApprove(comment.trim(), version)}
         >
           {t("tutor.interviews.approve")}
         </button>
@@ -315,6 +398,7 @@ function HeadDecision({
           disabled={
             !comment.trim() ||
             decide.isPending ||
+            approvalBlocked ||
             queued ||
             reloading ||
             status !== "INTERVIEW" ||
@@ -333,7 +417,7 @@ function HeadDecision({
         <button
           type="button"
           className="btn-secondary btn-sm"
-          disabled={decide.isPending || queued || reloading}
+          disabled={decide.isPending || queued || reloading || approvalBlocked}
           onClick={() => {
             setComment("");
             setReloadError("");
@@ -392,6 +476,14 @@ export function MyInterviews() {
   const programFormat = useFormatter();
   const t = useTranslations();
   const interviews = api.tutor.myInterviews.useQuery();
+  const [approvalSaved, setApprovalSaved] = useState(false);
+  const [approval, setApproval] = useState<{
+    evidence: InterviewApprovalEvidence;
+    comment: string;
+  } | null>(null);
+  const [approvalDrafts, setApprovalDrafts] = useState<
+    ReadonlyMap<string, InterviewApprovalDraft>
+  >(() => new Map());
   const accessDenied = useSessionAccessDenied(interviews);
   const [expanded, setExpanded] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -408,6 +500,9 @@ export function MyInterviews() {
   const list = orderInterviews(interviews.data ?? []);
   const active = list.filter(isOpenInterview);
   const history = list.filter((row) => !isOpenInterview(row));
+  const currentApproval = approval
+    ? list.find((row) => row.id === approval.evidence.id)
+    : undefined;
   const followups = history.filter(
     (row) =>
       !row.isInvalid && row.status !== "RECALLED" && !row.interviewCompletedAt,
@@ -457,6 +552,29 @@ export function MyInterviews() {
         </Button>
       </div>
       <p className="muted mt-1 mb-3">{t("tutor.interviews.help")}</p>
+      {approvalSaved && (
+        <p role="status" className="mb-3 text-sm text-green-700">
+          {t("interviewApproval.saved")}
+        </p>
+      )}
+      {approval && (
+        <TutorInterviewApproval
+          key={approval.evidence.id}
+          approval={approval}
+          current={currentApproval}
+          initialDraft={approvalDrafts.get(approval.evidence.id)}
+          onSaved={() => setApprovalSaved(true)}
+          onClose={(draft) => {
+            setApprovalDrafts((current) => {
+              const next = new Map(current);
+              if (draft) next.set(approval.evidence.id, draft);
+              else next.delete(approval.evidence.id);
+              return next;
+            });
+            setApproval(null);
+          }}
+        />
+      )}
       {interviews.isLoading && <p role="status">{t("tutor.tasks.loading")}</p>}
       {interviews.error && (
         <p role="alert">
@@ -516,6 +634,9 @@ export function MyInterviews() {
               </div>
             );
           const votes = a.votes;
+          // An old chair assignment remains evidence, but only the server's
+          // current role projection enables chair actions.
+          const canChair = a.isHead && a.canChair;
           const content = (
             <div
               key={a.id}
@@ -583,7 +704,7 @@ export function MyInterviews() {
                 <p className="badge-slate mt-2">
                   {t("qualificationRequests.RECALLED")}
                 </p>
-              ) : a.isHead &&
+              ) : canChair &&
                 !a.isInvalid &&
                 (a.status === "PENDING" || a.status === "INTERVIEW") ? (
                 <HeadScheduler applicationId={a.id} current={a.interviewAt} />
@@ -597,6 +718,11 @@ export function MyInterviews() {
                         }),
                       })
                     : t("tutor.interviews.awaitingSchedule")}
+                </p>
+              )}
+              {a.isHead && !canChair && !a.isInvalid && isOpenInterview(a) && (
+                <p className="mt-2 text-sm text-amber-800">
+                  {t("interviewReview.chairNeedsUpdate")}
                 </p>
               )}
 
@@ -647,7 +773,7 @@ export function MyInterviews() {
               )}
 
               {/* Head's final decision */}
-              {a.isHead &&
+              {canChair &&
                 !a.isInvalid &&
                 a.type !== "ADDITIONAL_SUBJECT" &&
                 a.type !== "HIGHER_LEVEL" && (
@@ -660,9 +786,16 @@ export function MyInterviews() {
                     decisionComment={a.decisionComment}
                     decidedBy={a.decidedByTutor?.englishName ?? null}
                     expectedUpdatedAt={a.updatedAt}
+                    approvalBlocked={!!approval}
+                    onApprove={(comment, version) =>
+                      setApproval({
+                        evidence: { ...a, updatedAt: version },
+                        comment,
+                      })
+                    }
                   />
                 )}
-              {a.isHead &&
+              {canChair &&
                 a.status !== "RECALLED" &&
                 (a.type === "ADDITIONAL_SUBJECT" ||
                   a.type === "HIGHER_LEVEL") && (
@@ -674,7 +807,7 @@ export function MyInterviews() {
                   </a>
                 )}
               {(a.isInvalid ||
-                !a.isHead ||
+                !canChair ||
                 a.type === "ADDITIONAL_SUBJECT" ||
                 a.type === "HIGHER_LEVEL") &&
                 (a.status === "ACCEPTED" || a.status === "REJECTED") && (

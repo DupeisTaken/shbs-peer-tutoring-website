@@ -64,6 +64,7 @@ const academic = {
   needsConfirmation: false,
 };
 const initial: Detail = {
+  group: null,
   membership: {
     rank: "ADMIN",
     tutor: true,

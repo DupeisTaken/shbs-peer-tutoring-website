@@ -36,6 +36,7 @@ const transport = vi.hoisted(() => ({
   version: 7,
   refreshGates: new Map<string, Promise<void>>(),
   invalidations: [] as string[],
+  queries: [] as string[],
   routerRefresh: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
@@ -65,8 +66,12 @@ vi.mock("~/trpc/react", async () => {
       useQuery(input?: unknown, options?: { enabled?: boolean }) {
         return useQuery({
           queryKey: [path, input ?? null],
-          queryFn: async () => data(),
-          initialData: data,
+          queryFn: async () => {
+            transport.queries.push(path);
+            return data();
+          },
+          // Identity candidates start unread, like the closed production disclosure.
+          ...(path === "personCombine.candidates" ? {} : { initialData: data }),
           ...options,
         });
       },
@@ -183,6 +188,7 @@ vi.mock("~/trpc/react", async () => {
             accountAcademics: invalidator("admin.accountAcademics"),
             tuteeStats: invalidator("admin.tuteeStats"),
             pairings: invalidator("admin.pairings"),
+            accountDetails: invalidator("admin.accountDetails"),
           },
           tutor: {
             me: invalidator("tutor.me"),
@@ -190,6 +196,13 @@ vi.mock("~/trpc/react", async () => {
           },
           tutorDetails: invalidator("tutorDetails"),
           tuteeHistory: invalidator("tuteeHistory"),
+          historicalAcademics: invalidator("historicalAcademics"),
+          personCombine: {
+            candidates: invalidator("personCombine.candidates"),
+            preview: { fetch: async () => null },
+            review: { fetch: async () => null },
+            receipt: { fetch: async () => null },
+          },
         };
       },
       program: {
@@ -229,6 +242,18 @@ vi.mock("~/trpc/react", async () => {
         setState: mutation("departure.setState"),
         request: mutation("departure.request"),
       },
+      tutorHistory: {
+        permissions: query("tutorHistory.permissions", () => ({
+          canLink: true,
+          isHead: false,
+        })),
+      },
+      personCombine: {
+        candidates: query("personCombine.candidates", () => []),
+        combine: mutation("personCombine.combine"),
+        // Both modes use the same mounted controller and real mutation lifecycle.
+        finalize: mutation("personCombine.finalize"),
+      },
     },
   };
 });
@@ -240,6 +265,7 @@ beforeEach(() => {
   transport.version = 7;
   transport.refreshGates.clear();
   transport.invalidations = [];
+  transport.queries = [];
   transport.routerRefresh.mockClear();
   client = new QueryClient({
     defaultOptions: {
@@ -467,6 +493,27 @@ const pairs = [
   ["account", "username", "membership"],
   ["account", "username", "departure"],
 ] as const;
+it("keeps the real tutor grouping section closed and read-only until explicitly opened", async () => {
+  const close = mount("tutor");
+  const open = screen.getByRole("button", { name: en.combineRecords.open });
+  expect(open.getAttribute("aria-expanded")).toBe("false");
+  // The disabled query exists in the live cache, but its transport has not run.
+  expect(client.getQueryState(["personCombine.candidates", { search: "" }])).toBeTruthy();
+  expect(transport.queries).not.toContain("personCombine.candidates");
+  expect(transport.requests).toHaveLength(0);
+  fireEvent.click(open);
+  await waitFor(() => expect(transport.queries).toContain("personCombine.candidates"));
+  expect(await screen.findByText(en.combineRecords.noResults)).toBeTruthy();
+  fireEvent.click(
+    within(screen.getByRole("region", { name: en.combineRecords.title })).getByRole(
+      "button",
+      { name: en.combineRecords.close },
+    ),
+  );
+  expect(transport.requests).toHaveLength(0);
+  expect(transport.commits).toHaveLength(0);
+  deliberatelyClose(close);
+});
 const cases = pairs.flatMap(([kind, primary, sibling]) =>
   (["primary-first", "sibling-first"] as const).flatMap((order) =>
     (["sibling-fails", "primary-fails", "all-success"] as const).map(

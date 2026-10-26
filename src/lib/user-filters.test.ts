@@ -5,8 +5,111 @@ import {
   matchesUserFilters,
   normalizeUserFilters,
   parseUserFilters,
+  type UserFilterMember,
 } from "./user-filters";
 const admin = { role: "ADMIN", tutorStatus: "ACTIVE", account: "registered" };
+const groupedArchive: UserFilterMember = {
+  name: "Original archive",
+  role: null,
+  tutorId: "archive",
+  tutorStatus: "ARCHIVED",
+  account: "none",
+  tuteeMember: false,
+  tutorAccessRevoked: false,
+};
+const groupedCurrent: UserFilterMember = {
+  name: "Current student",
+  role: "STUDENT",
+  tutorStatus: null,
+  account: "none",
+  currentTutee: true,
+  tuteeMember: false,
+};
+
+it("keeps a grouped current enrollment visible behind an archived representative", () => {
+  const group = {
+    ...groupedArchive,
+    directoryMembers: [groupedArchive, groupedCurrent],
+  };
+  expect(matchesUserFilters(group, emptyUserFilters())).toBe(true);
+  expect(matchesUserFilters(group, emptyUserFilters(), "Current student")).toBe(
+    true,
+  );
+  expect(
+    matchesUserFilters(group, emptyUserFilters(), "Original archive"),
+  ).toBe(false);
+  expect(
+    matchesUserFilters(
+      group,
+      { ...emptyUserFilters(), showPastTutors: true },
+      "Original archive",
+    ),
+  ).toBe(true);
+});
+
+it("matches an independent active tutor without unioning the primary login's filter facts", () => {
+  const primary: UserFilterMember = {
+    name: "Primary student",
+    role: "STUDENT",
+    tutorStatus: null,
+    account: "registered",
+    tuteeMember: true,
+  };
+  const tutor: UserFilterMember = {
+    name: "Active tutor",
+    role: null,
+    tutorStatus: "ACTIVE",
+    tutorId: "active",
+    tuteeMember: false,
+    account: "none",
+  };
+  const group = { ...primary, directoryMembers: [primary, tutor] };
+  const filters = emptyUserFilters();
+  filters.role.include = ["TUTOR"];
+  filters.status.include = ["ACTIVE"];
+  expect(matchesUserFilters(group, filters)).toBe(true);
+  expect(matchesUserFilters(group, filters, "Active tutor")).toBe(true);
+  expect(matchesUserFilters(group, filters, "Primary student")).toBe(false);
+  filters.account.include = ["registered"];
+  expect(matchesUserFilters(group, filters)).toBe(false);
+  filters.account.include = ["none"];
+  expect(matchesUserFilters(group, filters)).toBe(true);
+  filters.status.exclude = ["ACTIVE"];
+  expect(matchesUserFilters(group, filters)).toBe(false);
+  expect(group.role).toBe("STUDENT");
+  expect(group.tutorId).toBeUndefined();
+});
+
+it("keeps a verified sibling discoverable while setup and search remain member-specific", () => {
+  const pending: UserFilterMember = {
+    ...admin,
+    name: "Pending owner",
+    userId: "pending",
+    emailVerifiedAt: null,
+    account: "setup",
+  };
+  const verified: UserFilterMember = {
+    ...admin,
+    name: "Verified sibling",
+    userId: "verified",
+    emailVerifiedAt: new Date(),
+  };
+  const group = { ...pending, directoryMembers: [pending, verified] };
+  expect(matchesUserFilters(group, emptyUserFilters())).toBe(true);
+  expect(matchesUserFilters(group, emptyUserFilters(), "Pending owner")).toBe(
+    false,
+  );
+  expect(
+    matchesUserFilters(group, emptyUserFilters(), "Verified sibling"),
+  ).toBe(true);
+  expect(
+    matchesUserFilters(
+      group,
+      { ...emptyUserFilters(), showUnverified: true },
+      "Pending owner",
+    ),
+  ).toBe(true);
+});
 it.each(["ACTIVE", "PENDING", "OPTED_OUT", "ARCHIVED", "GRADUATED", null])(
   "applies default past-tutor visibility to %s",
   (tutorStatus) => {
@@ -198,22 +301,74 @@ it("hides unverified logins by default but supports explicit recovery without de
   expect(parseUserFilters('{"showUnverified":true}').showUnverified).toBe(true);
 });
 
-it("hides historical-only tutee accounts while preserving another current membership", () => {
-  const row = {
-    role: "STUDENT",
-    tutorStatus: null,
-    account: "registered",
-    hasTuteeHistory: true,
-    currentTutee: false,
-  };
-  expect(matchesUserFilters(row, emptyUserFilters())).toBe(false);
-  expect(
-    matchesUserFilters(row, { ...emptyUserFilters(), showPastTutors: true }),
-  ).toBe(true);
-  expect(
-    matchesUserFilters({ ...row, currentTutee: true }, emptyUserFilters()),
-  ).toBe(true);
-  expect(
-    matchesUserFilters({ ...row, tutorStatus: "ACTIVE" }, emptyUserFilters()),
-  ).toBe(true);
-});
+it.each(["hasTuteeHistory", "hasTutorHistory"] as const)(
+  "hides historical-only accounts with %s while preserving another current membership",
+  (historyField) => {
+    const row = {
+      role: "STUDENT",
+      tutorStatus: null,
+      account: "registered",
+      [historyField]: true,
+      currentTutee: false,
+    };
+    expect(matchesUserFilters(row, emptyUserFilters())).toBe(false);
+    expect(
+      matchesUserFilters(row, { ...emptyUserFilters(), showPastTutors: true }),
+    ).toBe(true);
+    expect(
+      matchesUserFilters({ ...row, currentTutee: true }, emptyUserFilters()),
+    ).toBe(true);
+    expect(
+      matchesUserFilters({ ...row, tutorStatus: "ACTIVE" }, emptyUserFilters()),
+    ).toBe(true);
+  },
+);
+
+it.each(["ACTIVE", "PENDING", "OPTED_OUT"])(
+  "keeps a current %s tutor visible beside retained history unless access is revoked",
+  (tutorStatus) => {
+    const row = {
+      role: "TUTOR",
+      tutorId: "current-tutor",
+      tutorStatus,
+      account: "registered",
+      hasTutorHistory: true,
+      tuteeMember: false,
+      tutorAccessRevoked: false,
+    };
+    expect(matchesUserFilters(row, emptyUserFilters())).toBe(true);
+    const revoked = { ...row, tutorAccessRevoked: true };
+    expect(matchesUserFilters(revoked, emptyUserFilters())).toBe(false);
+    expect(
+      matchesUserFilters(revoked, {
+        ...emptyUserFilters(),
+        showPastTutors: true,
+      }),
+    ).toBe(true);
+  },
+);
+
+it.each(["ARCHIVED", "GRADUATED", "TRANSFERRED"])(
+  "keeps a %s tutor with retained history behind historical visibility",
+  (tutorStatus) => {
+    const row = {
+      role: "TUTOR",
+      tutorId: "historical-tutor",
+      tutorStatus,
+      account: "registered",
+      hasTutorHistory: true,
+      tuteeMember: false,
+      tutorAccessRevoked: false,
+    };
+    expect(matchesUserFilters(row, emptyUserFilters())).toBe(false);
+    expect(
+      matchesUserFilters(row, {
+        ...emptyUserFilters(),
+        showPastTutors: true,
+      }),
+    ).toBe(true);
+    expect(
+      matchesUserFilters({ ...row, role: "ADMIN" }, emptyUserFilters()),
+    ).toBe(true);
+  },
+);

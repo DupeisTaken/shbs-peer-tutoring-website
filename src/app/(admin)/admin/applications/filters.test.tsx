@@ -10,27 +10,64 @@ import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import en from "../../../../../messages/en.json";
 import ApplicationsPage from "./page";
+import Link from "next/link";
+import type { ComponentProps } from "react";
+import { navigateNotificationFragment } from "~/lib/notification-navigation";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
 import { viewStateKey, writeViewState } from "~/lib/session-view-state";
 
 const mocks = vi.hoisted(() => ({ query: vi.fn() }));
+// Exercise Link's documented SPA-only callback without booting Next's router.
+vi.mock("next/link", () => ({
+  default: ({
+    href,
+    onNavigate,
+    scroll: _scroll,
+    ...props
+  }: ComponentProps<typeof Link>) => (
+    <a
+      {...props}
+      href={typeof href === "string" ? href : (href.pathname ?? "")}
+      onClick={(event) => {
+        props.onClick?.(event);
+        if (
+          !event.defaultPrevented &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.shiftKey &&
+          !event.altKey &&
+          event.button === 0
+        )
+          onNavigate?.({ preventDefault: () => event.preventDefault() });
+      }}
+    />
+  ),
+}));
 vi.mock("~/app/_components/confirm-dialog", () => ({
   useDialog: () => ({ confirm: vi.fn(), dialog: null }),
 }));
 vi.mock("~/app/_components/email-details", () => ({
   EmailDetails: () => null,
 }));
+vi.mock("~/app/_components/application-identity-correction", () => ({
+  ApplicationIdentityCorrection: () => null,
+}));
 vi.mock("~/app/_components/interview-management", () => ({
-  InterviewManagement: ({
-    onManageApplicant,
-  }: {
-    onManageApplicant: () => void;
-  }) => (
+  InterviewManagement: () => (
     <>
       <p>Interview history</p>
-      <a href="#application-a" onClick={onManageApplicant}>
+      <Link
+        href="/admin/applications#application-a"
+        scroll={false}
+        onNavigate={(event) =>
+          navigateNotificationFragment(
+            "/admin/applications#application-a",
+            event,
+          )
+        }
+      >
         Manage Alex panel
-      </a>
+      </Link>
     </>
   ),
 }));
@@ -84,6 +121,19 @@ const applications = [
   qualificationSnapshot: null,
   preferredContact: null,
   updatedAt: new Date("2026-09-01"),
+  createdAt: new Date(
+    app.id === "a"
+      ? "2026-09-03"
+      : app.id === "b"
+        ? "2026-09-01"
+        : "2026-09-02",
+  ),
+  interviewCompletedAt:
+    app.id === "a"
+      ? new Date("2026-10-02T08:00:00Z")
+      : app.id === "c"
+        ? new Date("2026-10-01T08:00:00Z")
+        : null,
   interviewAt: null,
   interviewers: [],
   votes: [],
@@ -129,6 +179,96 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+// Inspect actual keyed cards, so a comparator alone cannot satisfy page ordering.
+const renderedIds = () =>
+  Array.from(document.querySelectorAll('[id^="application-"]'))
+    .map((element) => element.id)
+    .filter((id) => !id.startsWith("application-panel-"));
+
+it("sorts the rendered queue and filters recorded completion independently of acceptance", () => {
+  show();
+  expect(renderedIds()).toEqual([
+    "application-a",
+    "application-b",
+    "application-c",
+  ]);
+  change("Sort by", "CREATED_ASC");
+  expect(renderedIds()).toEqual([
+    "application-b",
+    "application-c",
+    "application-a",
+  ]);
+  change("Interview completion", "COMPLETED");
+  change("Sort by", "COMPLETED_DESC");
+  expect(renderedIds()).toEqual(["application-a", "application-c"]);
+  expect(screen.getByText("2 of 3 applications")).toBeTruthy();
+  expect(screen.getAllByText(/Interview completed:/)).toHaveLength(2);
+  change("Application status", "ACCEPTED");
+  expect(renderedIds()).toEqual([]);
+  change("Interview completion", "NOT_COMPLETED");
+  expect(renderedIds()).toEqual(["application-b"]);
+  fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
+  expect(renderedIds()).toEqual([
+    "application-a",
+    "application-b",
+    "application-c",
+  ]);
+  change("Sort by", "NAME_DESC");
+  expect(renderedIds()).toEqual([
+    "application-c",
+    "application-b",
+    "application-a",
+  ]);
+});
+
+it("remembers new completion and sorting choices across remounts", () => {
+  const page = show();
+  change("Interview completion", "COMPLETED");
+  change("Sort by", "COMPLETED_ASC");
+  page.unmount();
+  show();
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", {
+      name: "Interview completion",
+    }).value,
+  ).toBe("COMPLETED");
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", { name: "Sort by" }).value,
+  ).toBe("COMPLETED_ASC");
+  expect(renderedIds()).toEqual(["application-c", "application-a"]);
+});
+
+it("rejects unsupported stored completion and sorting values", () => {
+  const key = viewStateKey(
+    "head",
+    "/admin/applications",
+    "applications.filters.v1",
+    "",
+  );
+  writeViewState(window.sessionStorage, key, {
+    search: "",
+    status: "",
+    type: "",
+    subjectId: "",
+    completion: "ACCEPTED",
+    sort: "UPDATED_DESC",
+  });
+  show();
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", {
+      name: "Interview completion",
+    }).value,
+  ).toBe("");
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", { name: "Sort by" }).value,
+  ).toBe("");
+  expect(renderedIds()).toEqual([
+    "application-a",
+    "application-b",
+    "application-c",
+  ]);
+});
+
 it("focuses the revealed application after filters commit rather than consuming a pre-commit frame", () => {
   window.history.replaceState(null, "", "/admin/applications");
   const frames: FrameRequestCallback[] = [];
@@ -143,6 +283,8 @@ it("focuses the revealed application after filters commit rather than consuming 
   const page = show();
   change("Name or email", "Bea");
   expect(screen.queryByText("Alex Chen")).toBeNull();
+  change("Interview completion", "NOT_COMPLETED");
+  change("Sort by", "NAME_DESC");
   act(() => {
     window.history.replaceState(null, "", "/admin/applications#application-a");
     window.dispatchEvent(new HashChangeEvent("hashchange"));
@@ -152,6 +294,14 @@ it("focuses the revealed application after filters commit rather than consuming 
   expect(target).not.toBeNull();
   expect(document.activeElement).toBe(target);
   expect(scroll).toHaveBeenCalledWith({ block: "center" });
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", {
+      name: "Interview completion",
+    }).value,
+  ).toBe("");
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", { name: "Sort by" }).value,
+  ).toBe("");
   page.unmount();
   vi.restoreAllMocks();
 });
@@ -190,6 +340,14 @@ it("restores the authorized queue filters after slow choices, lets an applicatio
   mocks.query.mockReturnValue({ data: applications });
   page.rerender(tree());
   expect(screen.getByText("Bea Lin")).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", {
+      name: "Interview completion",
+    }).value,
+  ).toBe("");
+  expect(
+    screen.getByRole<HTMLSelectElement>("combobox", { name: "Sort by" }).value,
+  ).toBe("");
   expect(screen.queryByText("Alex Chen")).toBeNull();
   act(() => {
     window.history.replaceState(null, "", "/#application-a");
@@ -225,6 +383,18 @@ it("combines search, status, type and subjects and resets the full list", () => 
   fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
   expect(screen.getByText("3 of 3 applications")).toBeTruthy();
   expect(screen.getByRole("button", { name: /Cai Wu/ })).toBeTruthy();
+});
+it("filters name readiness using server results and updates the visible count", () => {
+  mocks.query.mockReturnValue({ data: applications.map((app) => ({ ...app, identityNeedsReview: app.id === "a" })) });
+  show();
+  change("Name readiness", "NEEDS_REVIEW");
+  expect(screen.getByText("1 of 3 applications")).toBeTruthy();
+  expect(screen.getByRole("button", { name: /Alex Chen/ })).toBeTruthy();
+  change("Name readiness", "READY");
+  expect(screen.getByText(en.admin.applications.filters.noMatches)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
+  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "Name readiness" }).value).toBe("");
+  expect(screen.getByText("3 of 3 applications")).toBeTruthy();
 });
 it("defaults to active validity while retaining ordinary accepted and rejected workflow states", () => {
   mocks.query.mockReturnValue({
@@ -278,7 +448,7 @@ it("reveals the direct application link after a filter hid the destination", () 
 });
 
 it("resets filters when the history link repeats the current hash", () => {
-  window.history.replaceState(null, "", "/#application-a");
+  window.history.replaceState(null, "", "/admin/applications#application-a");
   show();
   change("Name or email", "Cai");
   fireEvent.click(screen.getByRole("link", { name: "Manage Alex panel" }));
@@ -288,6 +458,49 @@ it("resets filters when the history link repeats the current hash", () => {
       .getAttribute("aria-expanded"),
   ).toBe("true");
   expect(screen.getByText("3 of 3 applications")).toBeTruthy();
+});
+
+it("reveals and focuses a filtered-out history destination after the fragment commits, then reopens a collapsed same-hash target", () => {
+  window.history.replaceState({ __NA: true }, "", "/admin/applications");
+  const frames: FrameRequestCallback[] = [];
+  vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+    frames.push(callback);
+    return frames.length;
+  });
+  vi.spyOn(Element.prototype, "getClientRects").mockReturnValue({
+    length: 1,
+  } as DOMRectList);
+  show();
+  change("Application status", "ACCEPTED");
+  expect(document.getElementById("application-a")).toBeNull();
+  fireEvent.click(screen.getByRole("link", { name: "Manage Alex panel" }));
+  act(() => {
+    for (const frame of frames.splice(0)) frame(0);
+  });
+  expect(window.location.hash).toBe("#application-a");
+  expect(window.history.state).toEqual({ __NA: true });
+  expect(
+    screen
+      .getByRole("button", { name: /Alex Chen/ })
+      .getAttribute("aria-expanded"),
+  ).toBe("true");
+  expect(document.activeElement).toBe(document.getElementById("application-a"));
+  fireEvent.click(screen.getByRole("button", { name: /Alex Chen/ }));
+  expect(
+    screen
+      .getByRole("button", { name: /Alex Chen/ })
+      .getAttribute("aria-expanded"),
+  ).toBe("false");
+  fireEvent.click(screen.getByRole("link", { name: "Manage Alex panel" }));
+  act(() => {
+    for (const frame of frames.splice(0)) frame(0);
+  });
+  expect(
+    screen
+      .getByRole("button", { name: /Alex Chen/ })
+      .getAttribute("aria-expanded"),
+  ).toBe("true");
+  vi.restoreAllMocks();
 });
 it("reveals the same notification fragment again after later filtering", async () => {
   window.history.replaceState(null, "", "/#application-a");

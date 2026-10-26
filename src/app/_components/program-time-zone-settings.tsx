@@ -90,7 +90,12 @@ export function TimeZoneEditor({
     onSuccess: async () => {
       setSaved(true);
       setTimeZone(zone);
-      await utils.program.timeZoneSettings.invalidate();
+      // Mark conversion evidence stale immediately; next-period editors retain
+      // their draft and require Reload before adopting a changed program zone.
+      await Promise.all([
+        utils.program.timeZoneSettings.invalidate(),
+        utils.program.nextRecruitment.invalidate(),
+      ]);
       // Reload server i18n context so client and server render the same new zone.
       router.refresh();
     },

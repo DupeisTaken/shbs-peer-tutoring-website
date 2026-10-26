@@ -1,23 +1,28 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import type { DomainDb } from "~/server/transactions";
+import type { DomainDb, TransactionDb } from "~/server/transactions";
 import { monthKey } from "~/lib/service-hours";
+import type { Quarter } from "~/lib/period";
+import { getActivePeriod } from "~/server/period";
+import { assertFeatureEnabled } from "~/server/program/features";
 
-export const interviewCompletionInput = z.object({
-  applicationId: z.string(),
+export const interviewServiceInput = z.object({
   durationMin: z.number().int().min(1).max(480),
   completedAt: z.coerce.date(),
   attendedTutorIds: z.array(z.string()).min(1),
+});
+export type InterviewService = z.infer<typeof interviewServiceInput>;
+export const interviewCompletionInput = interviewServiceInput.extend({
+  applicationId: z.string(),
   reason: z.string().trim().min(1).max(1000),
   expectedUpdatedAt: z.coerce.date().optional(),
 });
 
-type Completion = z.infer<typeof interviewCompletionInput>;
 type CompletionEvidence = {
   interviewCompletedAt: Date | null;
   interviewDurationMin: number | null;
   interviewSchoolYear: string | null;
-  interviewQuarter: string | null;
+  interviewQuarter: Quarter | null;
   interviewers: { tutorId: string; attended: boolean }[];
 };
 type CreditEvidence = {
@@ -33,7 +38,7 @@ type CreditEvidence = {
 export function sameInterviewCompletionEvidence(
   before: CompletionEvidence,
   credits: CreditEvidence[],
-  input: Completion,
+  input: InterviewService,
 ) {
   return (
     new Set(input.attendedTutorIds).size === input.attendedTutorIds.length &&
@@ -55,6 +60,96 @@ export function sameInterviewCompletionEvidence(
         row.quarter === before.interviewQuarter,
     )
   );
+}
+
+/** Both management completion and chair approval use the same source-owned credit
+ * write. Callers hold the application lock and enforce their distinct authority. */
+export async function writeInterviewCompletion(
+  tx: TransactionDb,
+  applicationId: string,
+  before: CompletionEvidence,
+  input: InterviewService,
+  credits: { id: string }[],
+) {
+  const period =
+    before.interviewSchoolYear && before.interviewQuarter
+      ? {
+          schoolYear: before.interviewSchoolYear,
+          quarter: before.interviewQuarter,
+        }
+      : await getActivePeriod(tx);
+  await tx.tutorApplication.update({
+    where: { id: applicationId },
+    data: {
+      interviewCompletedAt: input.completedAt,
+      interviewDurationMin: input.durationMin,
+      interviewSchoolYear: period.schoolYear,
+      interviewQuarter: period.quarter,
+    },
+  });
+  await tx.interviewAssignment.updateMany({
+    where: { applicationId },
+    data: { attended: false },
+  });
+  await tx.interviewAssignment.updateMany({
+    where: { applicationId, tutorId: { in: input.attendedTutorIds } },
+    data: { attended: true },
+  });
+  await tx.serviceHourAdjustment.deleteMany({
+    where: { id: { in: credits.map((row) => row.id) } },
+  });
+  await tx.serviceHourAdjustment.createMany({
+    data: input.attendedTutorIds.map((tutorId) => ({
+      id: interviewHoursId(applicationId, tutorId),
+      tutorId,
+      month: monthKey(input.completedAt),
+      schoolYear: period.schoolYear,
+      quarter: period.quarter,
+      type: "EXTRA" as const,
+      amount: input.durationMin / 60,
+      reason: INTERVIEW_HOURS_REASON,
+    })),
+  });
+}
+
+/** Chair approval may record first service or retain an exact prior recording;
+ * it never becomes an alternate path around Head review of hour corrections. */
+export async function recordInterviewApprovalService(
+  tx: TransactionDb,
+  applicationId: string,
+  before: CompletionEvidence,
+  input: InterviewService,
+) {
+  await assertFeatureEnabled(tx, "SERVICE_HOURS");
+  if (input.completedAt > new Date())
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Record completion only after the interview.",
+    });
+  if (
+    new Set(input.attendedTutorIds).size !== input.attendedTutorIds.length ||
+    input.attendedTutorIds.some(
+      (id) => !before.interviewers.some((p) => p.tutorId === id),
+    )
+  )
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Attendance must name assigned panelists only.",
+    });
+  const credits = await interviewHourRows(
+    tx,
+    applicationId,
+    before.interviewers.map((p) => p.tutorId),
+  );
+  if (before.interviewCompletedAt || credits.length) {
+    if (sameInterviewCompletionEvidence(before, credits, input)) return;
+    throw new TRPCError({
+      code: "CONFLICT",
+      message:
+        "Interview service was already recorded. Use the management correction workflow before approving.",
+    });
+  }
+  await writeInterviewCompletion(tx, applicationId, before, input, credits);
 }
 
 /** Advisory classification only outside a transaction. The management middleware

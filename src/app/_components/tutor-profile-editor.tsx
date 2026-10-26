@@ -25,8 +25,8 @@ import {
 import { useRef, useState, type ComponentProps } from "react";
 import { useDialogPending } from "./ui/modal";
 import { GRADUATED_GRADE } from "~/lib/academics";
-import { isHistoricalTutor } from "~/lib/historical-academics";
 import { TutorHistorySection } from "./tutor-history-link";
+import { isHistoricalTutor } from "~/lib/historical-academics";
 
 /** One deliberate save avoids racing field-by-field corrections of the same person. */
 export function TutorProfileEditor({
@@ -337,9 +337,12 @@ function TutorProfileForm({
           {t("historicalAcademics.HISTORICAL_EDITOR_REQUIRED")}
         </p>
       )}
-      {isHistoricalTutor(siblingRow) && (
-        <TutorHistorySection tutorId={siblingRow.id} />
-      )}
+      <TutorHistorySection
+        tutorId={siblingRow.id}
+        name={siblingRow.englishName}
+        historical={isHistoricalTutor(siblingRow)}
+        unified
+      />
     </>
   );
 }

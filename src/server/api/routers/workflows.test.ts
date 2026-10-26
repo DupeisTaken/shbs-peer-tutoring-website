@@ -281,9 +281,19 @@ it("projects materialized current labels and handles without changing stored nam
   });
   // SQL name triggers materialize a username label at writes. The DTO's
   // canonicalName references that current User.name, not immutable originals.
-  const storedCrew = await db.user.findUniqueOrThrow({ where: { id: "blank-current-crew" } });
-  const storedTutor = await db.tutor.findUniqueOrThrow({ where: { id: "review-tutor" } });
-  expect(storedCrew).toMatchObject({ name: "crew.handle", firstName: null, lastName: null, preferredName: null, alternativeNames: null });
+  const storedCrew = await db.user.findUniqueOrThrow({
+    where: { id: "blank-current-crew" },
+  });
+  const storedTutor = await db.tutor.findUniqueOrThrow({
+    where: { id: "review-tutor" },
+  });
+  expect(storedCrew).toMatchObject({
+    name: "crew.handle",
+    firstName: null,
+    lastName: null,
+    preferredName: null,
+    alternativeNames: null,
+  });
   expect(storedCrew.legacyName?.trim() ?? "").toBe("");
   expect(storedCrew.legacyName).not.toBe("crew.handle");
   const crew = (
@@ -301,8 +311,12 @@ it("projects materialized current labels and handles without changing stored nam
   await expect(
     caller("VIEWER", "review-viewer").subjectAvailability.options(),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  expect(await db.user.findUniqueOrThrow({ where: { id: "blank-current-crew" } })).toEqual(storedCrew);
-  expect(await db.tutor.findUniqueOrThrow({ where: { id: "review-tutor" } })).toEqual(storedTutor);
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: "blank-current-crew" } }),
+  ).toEqual(storedCrew);
+  expect(
+    await db.tutor.findUniqueOrThrow({ where: { id: "review-tutor" } }),
+  ).toEqual(storedTutor);
 });
 
 it("binds self willingness to the authenticated tutor even if input includes another tutor ID", async () => {
@@ -1538,7 +1552,8 @@ it("revoking an application accepted for an existing account revokes its tutor g
 });
 
 it("concurrent period refresh advances exactly one quarter and rejects a stale retry", async () => {
-  const input = { confirm: "REFRESH", expectedTermId: "review-term" };
+  const input = { confirm: "REFRESH", expectedTermId: "review-term",
+    expectedPreparation: (await caller().program.nextRecruitment()).refreshEvidence };
   const outcomes = await Promise.allSettled([
     caller().admin.refresh(input),
     caller().admin.refresh(input),
@@ -3302,6 +3317,64 @@ it("interview scheduling rechecks chair authority after concurrent panel replace
   ).toBe(2);
 });
 
+it.each(["ADMIN", "HEAD", "COORDINATOR", "TUTOR"] as const)(
+  "interview scheduling uses the assigned chair's current %s role, while their vote stays available",
+  async (role) => {
+    const { app, panel } = await interviewFixture();
+    await db.user.update({
+      where: { id: "panel-user-0" },
+      data: { role },
+    });
+    // Stale elevated session claims must not preserve a demoted chair's controls.
+    const chair = caller("HEAD", "panel-user-0", panel[0]!.id);
+    const canChair = role === "ADMIN" || role === "HEAD";
+    expect((await chair.tutor.myInterviews())[0]).toMatchObject({
+      isHead: true,
+      canChair,
+    });
+    await chair.tutor.castInterviewVote({
+      applicationId: app.id,
+      accept: true,
+    });
+    const interviewAt = new Date("2026-09-15T04:00:00Z");
+    const schedule = chair.tutor.setInterviewTime({
+      applicationId: app.id,
+      interviewAt,
+    });
+    if (canChair) {
+      await expect(schedule).resolves.toMatchObject({ interviewAt });
+    } else {
+      await expect(schedule).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect(
+        (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
+          .interviewAt,
+      ).toBeNull();
+      expect(
+        await db.notification.count({
+          where: { title: "Interview scheduled" },
+        }),
+      ).toBe(0);
+    }
+    expect(await db.interviewVote.count()).toBe(1);
+  },
+);
+
+it("an eligible chair may schedule while other panel eligibility needs repair", async () => {
+  const { app, panel } = await interviewFixture();
+  await db.tutor.update({
+    where: { id: panel[1]!.id },
+    data: { status: "OPTED_OUT" },
+  });
+  await db.tutorQualification.deleteMany();
+  const interviewAt = new Date("2026-09-15T04:00:00Z");
+  await expect(
+    caller("ADMIN", "panel-user-0", panel[0]!.id).tutor.setInterviewTime({
+      applicationId: app.id,
+      interviewAt,
+    }),
+  ).resolves.toMatchObject({ interviewAt });
+});
+
 it("interview schedule and panel notices roll back with an enclosing transaction", async () => {
   const { app, panel } = await interviewFixture();
   await expect(
@@ -3405,16 +3478,10 @@ it("interview outcomes cannot bypass the assigned chair", async () => {
       accept: true,
       comment: "Majority accepts",
       expectedUpdatedAt: current.updatedAt,
+      completion: { completedAt: new Date("2026-09-15T04:00:00Z"), durationMin: 30, attendedTutorIds: panel.map((p) => p.id) },
     }),
-  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  const proposal = await db.approvalRequest.findFirstOrThrow({
-    where: { operation: "tutor.decideInterview", state: "PENDING" },
-  });
-  await caller().approval.decide({
-    id: proposal.id,
-    approve: true,
-    note: "Head approved the chair's decision",
-  });
+  ).resolves.toEqual({ ok: true });
+  expect(await db.approvalRequest.count()).toBe(0);
   await expect(
     caller("TUTOR", "panel-user-1", panel[1]!.id).tutor.castInterviewVote({
       applicationId: app.id,
@@ -3461,6 +3528,162 @@ it("interview completion awards only attendees, and a correction replaces credit
   const rows = await db.serviceHourAdjustment.findMany();
   expect(rows).toHaveLength(1);
   expect(rows[0]!.amount).toBe(0.75);
+});
+
+it("first interview completion still rejects a legacy Coordinator chair", async () => {
+  const { app, panel } = await interviewFixture();
+  await db.user.update({
+    where: { id: "panel-user-0" },
+    data: { role: "COORDINATOR" },
+  });
+  await expect(
+    caller().interviewManagement.complete({
+      applicationId: app.id,
+      durationMin: 30,
+      completedAt: new Date("2026-09-15T04:00:00Z"),
+      attendedTutorIds: panel.map((person) => person.id),
+      reason: "First completion needs a currently eligible chair",
+    }),
+  ).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+    message: "Select an Admin or Head panelist as chair.",
+  });
+  expect(await db.serviceHourAdjustment.count()).toBe(0);
+  expect(
+    (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
+      .interviewCompletedAt,
+  ).toBeNull();
+});
+
+it("historical Coordinator-chair completion corrections preserve decisions, votes and admission", async () => {
+  const { app, panel } = await interviewFixture();
+  await db.interviewVote.createMany({
+    data: panel.map((person) => ({
+      applicationId: app.id,
+      tutorId: person.id,
+      accept: true,
+      comment: "Recorded panel recommendation",
+    })),
+  });
+  await db.tutorApplication.update({
+    where: { id: app.id },
+    data: {
+      status: "ACCEPTED",
+      decidedByTutorId: panel[0]!.id,
+      decidedAt: new Date("2026-09-15T04:30:00Z"),
+      decisionComment: "Recorded acceptance",
+    },
+  });
+  await db.$transaction((tx) => reconcileApplication(tx, app.id));
+  const input = {
+    applicationId: app.id,
+    durationMin: 30,
+    completedAt: new Date("2026-09-15T04:30:00Z"),
+    attendedTutorIds: panel.map((person) => person.id),
+    reason: "Recorded service",
+  };
+  await caller().interviewManagement.complete(input);
+  // The completion predates today's role eligibility. Correcting its hours
+  // must retain its exact chair and admission rather than assigning a new panel.
+  await db.user.update({
+    where: { id: "panel-user-0" },
+    data: { role: "COORDINATOR" },
+  });
+  const readAdmission = () =>
+    db.tutorApplication.findUniqueOrThrow({
+      where: { id: app.id },
+      select: {
+        status: true,
+        decidedByTutorId: true,
+        decidedAt: true,
+        decisionComment: true,
+        promotedTutorId: true,
+        interviewSchoolYear: true,
+        interviewQuarter: true,
+        interviewers: {
+          select: { tutorId: true, isHead: true },
+          orderBy: { tutorId: "asc" },
+        },
+        votes: { orderBy: { tutorId: "asc" } },
+      },
+    });
+  const admission = await readAdmission();
+  const invitations = await db.registrationCode.findMany({
+    where: { applicationId: app.id },
+  });
+  const originalCredits = await db.serviceHourAdjustment.findMany({
+    orderBy: { id: "asc" },
+  });
+  const coordinator = caller("COORDINATOR", "panel-user-0", panel[0]!.id);
+  await expect(coordinator.interviewManagement.complete(input)).resolves.toEqual({
+    ok: true,
+  });
+  expect(await db.approvalRequest.count()).toBe(0);
+  expect(
+    await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
+  ).toEqual(originalCredits);
+  const recorded = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+  });
+  const correction = {
+    ...input,
+    durationMin: 45,
+    attendedTutorIds: [panel[1]!.id],
+    expectedUpdatedAt: recorded.updatedAt,
+  };
+  await expect(
+    caller().interviewManagement.complete({
+      ...correction,
+      expectedUpdatedAt: new Date(0),
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  await expect(
+    caller().interviewManagement.complete({
+      ...correction,
+      attendedTutorIds: ["review-tutor"],
+    }),
+  ).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+    message: "Attendance must name assigned panelists only.",
+  });
+  await expect(
+    coordinator.interviewManagement.complete(correction),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(
+    await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
+  ).toEqual(originalCredits);
+  const request = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "interviewManagement.complete", state: "PENDING" },
+  });
+  await caller().approval.decide({
+    id: request.id,
+    approve: true,
+    note: "Corrected historical attendance without changing its admission",
+  });
+  const correctedCredits = await db.serviceHourAdjustment.findMany({
+    orderBy: { id: "asc" },
+  });
+  expect(correctedCredits).toEqual([
+    expect.objectContaining({
+      tutorId: panel[1]!.id,
+      amount: 0.75,
+      schoolYear: admission.interviewSchoolYear,
+      quarter: admission.interviewQuarter,
+    }),
+  ]);
+  await expect(
+    coordinator.interviewManagement.complete(correction),
+  ).resolves.toEqual({ ok: true });
+  expect(
+    await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
+  ).toEqual(correctedCredits);
+  expect(await readAdmission()).toEqual(admission);
+  expect(
+    await db.registrationCode.findMany({ where: { applicationId: app.id } }),
+  ).toEqual(invitations);
+  expect(
+    await db.tutor.findUnique({ where: { id: admission.promotedTutorId! } }),
+  ).toMatchObject({ status: "ACTIVE" });
 });
 
 it("interview completion rejects stale reviewed evidence but retries identical evidence without replacing credit", async () => {
@@ -3896,7 +4119,7 @@ it("recalled interview completion is rejected and completion rolls back with its
   ).toBeNull();
 });
 
-it("interview completion and approved acceptance stay independent and ordinary tutors see only their actual credit", async () => {
+it("chair acceptance preserves recorded service and ordinary tutors see only their actual credit", async () => {
   const { app, panel } = await interviewFixture();
   await caller().interviewManagement.complete({
     applicationId: app.id,
@@ -3925,8 +4148,9 @@ it("interview completion and approved acceptance stay independent and ordinary t
       accept: true,
       comment: "All panelists recommend acceptance",
       expectedUpdatedAt: current.updatedAt,
+      completion: { completedAt: new Date("2026-09-15"), durationMin: 45, attendedTutorIds: [panel[1]!.id] },
     }),
-  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  ).resolves.toEqual({ ok: true });
   const pending = (
     await caller().interviewManagement.options({
       completion: "ALL",
@@ -3935,8 +4159,8 @@ it("interview completion and approved acceptance stay independent and ordinary t
   ).applications.rows;
   expect(pending).toHaveLength(1);
   expect(pending[0]).toMatchObject({
-    pendingDecision: true,
-    registration: { state: "pendingDecision", href: null },
+    pendingDecision: false,
+    registration: { state: "codeActive" },
   });
   const ordinary = await caller(
     "TUTOR",
@@ -3947,7 +4171,7 @@ it("interview completion and approved acceptance stay independent and ordinary t
     interviewDurationMin: 45,
     interviewCompletedAt: new Date("2026-09-15"),
     myAwardedHours: 0.75,
-    pendingDecision: true,
+    pendingDecision: false,
   });
   expect(ordinary[0]).not.toHaveProperty("registration");
   expect(ordinary[0]).not.toHaveProperty("promotedTutorId");
@@ -3957,14 +4181,7 @@ it("interview completion and approved acceptance stay independent and ordinary t
     )[0]?.myAwardedHours,
   ).toBe(0);
   expect(await tutor().tutor.myInterviews()).toEqual([]);
-  const proposal = await db.approvalRequest.findFirstOrThrow({
-    where: { operation: "tutor.decideInterview", state: "PENDING" },
-  });
-  await caller().approval.decide({
-    id: proposal.id,
-    approve: true,
-    note: "Approved decision independently of service completion",
-  });
+  expect(await db.approvalRequest.count()).toBe(0);
   const accepted = (
     await caller().interviewManagement.options({
       completion: "ALL",
@@ -4026,6 +4243,104 @@ it.each(["ACCEPTED", "REJECTED"] as const)(
     ]);
   },
 );
+
+it("application setup links recover exact legacy provenance without guessing, provisioning or exposing it to observers", async () => {
+  const app = await db.tutorApplication.create({
+    data: {
+      name: "Legacy accepted applicant",
+      email: "legacy-applicant@example.test",
+      status: "ACCEPTED",
+      decisionComment: "Retained acceptance evidence for a legacy application",
+    },
+  });
+  const unrelated = await db.tutorApplication.create({
+    data: { name: app.name, email: app.email },
+  });
+  const otherTutor = await db.tutor.create({
+    data: { englishName: app.name },
+  });
+  const read = async () =>
+    (await caller().admin.tutorApplications()).find((row) => row.id === app.id)!;
+  const workflow = async () =>
+    (await caller().interviewManagement.options({
+      completion: "ALL",
+      applicationId: app.id,
+    })).applications.rows[0]!;
+  const expiresAt = new Date(0);
+  // Neither a matching email/name nor a non-tutor code grants a roster binding.
+  await db.registrationCode.createMany({
+    data: [
+      {
+        code: "MATCH",
+        applicationId: unrelated.id,
+        email: app.email,
+        tutorId: "review-tutor",
+        expiresAt,
+      },
+      {
+        code: "CREWW",
+        kind: "CREW",
+        applicationId: app.id,
+        tutorId: "review-tutor",
+        expiresAt,
+      },
+    ],
+  });
+  expect((await read()).setupTutorId).toBeNull();
+  await db.registrationCode.create({
+    data: {
+      code: "LINKA",
+      applicationId: app.id,
+      tutorId: "review-tutor",
+      usedAt: new Date(),
+      expiresAt,
+    },
+  });
+  // Consumed/expired codes retain exact provenance without being redeemable again.
+  expect((await read()).setupTutorId).toBe("review-tutor");
+  expect((await workflow()).registration.href).toBe("/admin/users#tutor-review-tutor");
+  expect(
+    (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
+      .promotedTutorId,
+  ).toBeNull();
+  await db.registrationCode.create({
+    data: {
+      code: "LINKB",
+      applicationId: app.id,
+      tutorId: "review-tutor",
+      expiresAt,
+    },
+  });
+  expect((await read()).setupTutorId).toBe("review-tutor");
+  await db.registrationCode.create({
+    data: {
+      code: "CLASH",
+      applicationId: app.id,
+      tutorId: otherTutor.id,
+      expiresAt,
+    },
+  });
+  expect((await read()).setupTutorId).toBeNull();
+  expect((await workflow()).registration.href).not.toContain("/admin/users");
+  await db.tutorApplication.update({
+    where: { id: app.id },
+    data: { promotedTutorId: "review-tutor" },
+  });
+  const codesBeforeRead = await db.registrationCode.findMany({
+    orderBy: { id: "asc" },
+  });
+  expect((await read()).setupTutorId).toBe("review-tutor");
+  expect((await workflow()).registration.href).toBe("/admin/users#tutor-review-tutor");
+  const observerRow = (
+    await caller("VIEWER", "review-viewer").admin.tutorApplications()
+  ).find((row) => row.id === app.id)!;
+  expect(observerRow).not.toHaveProperty("setupTutorId");
+  expect(observerRow).not.toHaveProperty("promotedTutorId");
+  expect(observerRow).not.toHaveProperty("registrationCodes");
+  expect(
+    await db.registrationCode.findMany({ orderBy: { id: "asc" } }),
+  ).toEqual(codesBeforeRead);
+});
 
 it("management registration summary uses applied state and application-linked code metadata without provisioning", async () => {
   const { app } = await interviewFixture();
@@ -4123,13 +4438,16 @@ it("management registration summary uses applied state and application-linked co
   });
   expect((await read()).registration).toEqual({
     state: "setupAvailable",
-    href: "/admin/users",
+    href: "/admin/users#tutor-review-tutor",
   });
   await db.user.update({
     where: { id: "review-user" },
     data: { tutorAccessRevoked: true },
   });
-  expect((await read()).registration.state).toBe("codeUsed");
+  expect((await read()).registration).toEqual({
+    state: "codeUsed",
+    href: "/admin/users#tutor-review-tutor",
+  });
   const serialized = JSON.stringify(await read());
   for (const privateValue of [
     "ABCDE",
@@ -4267,7 +4585,7 @@ it("interview pagination visits every tied-timestamp application exactly once", 
   expect(new Set(visited).size).toBe(rows.length);
 });
 
-it("panel assignment rejects missing qualification and a lower-ranking chair", async () => {
+it("panel assignment rejects missing qualification and a coordinator chair", async () => {
   const { app, panel } = await interviewFixture();
   let current = await db.tutorApplication.findUniqueOrThrow({
     where: { id: app.id },
@@ -4306,8 +4624,12 @@ it("panel assignment rejects missing qualification and a lower-ranking chair", a
     }),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
 });
-it("only the highest-ranking staff chair can break an interview tie", async () => {
+it("the selected Admin chair can break a tie while a Head panelist cannot take over", async () => {
   const { app, panel } = await interviewFixture();
+  await db.user.update({
+    where: { id: "panel-user-1" },
+    data: { role: "HEAD" },
+  });
   const fourth = await db.tutor.create({
     data: { englishName: "Fourth", status: "ACTIVE" },
   });
@@ -4331,7 +4653,7 @@ it("only the highest-ranking staff chair can break an interview tie", async () =
   });
   for (let i = 0; i < 4; i++)
     await caller(
-      i === 0 ? "ADMIN" : "TUTOR",
+      i === 0 ? "ADMIN" : i === 1 ? "HEAD" : "TUTOR",
       `panel-user-${i}`,
       panel[i]!.id,
     ).tutor.castInterviewVote({ applicationId: app.id, accept: i < 2 });
@@ -4346,26 +4668,63 @@ it("only the highest-ranking staff chair can break an interview tie", async () =
     }),
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   await expect(
+    caller("HEAD", "panel-user-1", panel[1]!.id).tutor.decideInterview({
+      applicationId: app.id,
+      accept: true,
+      comment: "Head is a panelist, not the selected chair",
+      expectedUpdatedAt: current.updatedAt,
+    }),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(
     caller("ADMIN", "panel-user-0", panel[0]!.id).tutor.decideInterview({
       applicationId: app.id,
       accept: true,
       comment: "Chair tie-break",
       expectedUpdatedAt: current.updatedAt,
+      completion: { completedAt: new Date("2026-09-15T04:00:00Z"), durationMin: 30, attendedTutorIds: panel.map((p) => p.id) },
     }),
-  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  const proposal = await db.approvalRequest.findFirstOrThrow({
-    where: { operation: "tutor.decideInterview", state: "PENDING" },
-  });
-  await caller().approval.decide({
-    id: proposal.id,
-    approve: true,
-    note: "Head approved the chair tie-break",
-  });
+  ).resolves.toEqual({ ok: true });
+  expect(await db.approvalRequest.count()).toBe(0);
   expect(
     (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
       .status,
   ).toBe("ACCEPTED");
 });
+it.each(["ADMIN", "HEAD", "COORDINATOR"] as const)(
+  "completion rechecks the selected %s chair independently of a Head panelist",
+  async (chairRole) => {
+    const { app, panel } = await interviewFixture();
+    await db.user.update({
+      where: { id: "panel-user-0" },
+      data: { role: chairRole },
+    });
+    await db.user.update({
+      where: { id: "panel-user-1" },
+      data: { role: "HEAD" },
+    });
+    const complete = caller().interviewManagement.complete({
+      applicationId: app.id,
+      durationMin: 30,
+      completedAt: new Date("2026-09-15"),
+      attendedTutorIds: panel.map((member) => member.id),
+      reason: "Verified completed panel attendance",
+    });
+    if (chairRole === "COORDINATOR") {
+      await expect(complete).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "Select an Admin or Head panelist as chair.",
+      });
+      expect(await db.serviceHourAdjustment.count()).toBe(0);
+      expect(
+        (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
+          .interviewCompletedAt,
+      ).toBeNull();
+    } else {
+      await expect(complete).resolves.toEqual({ ok: true });
+      expect(await db.serviceHourAdjustment.count()).toBe(panel.length);
+    }
+  },
+);
 it("Q3 starts a fresh meeting allowance, and excused meetings never consume it", async () => {
   const person = await db.tutor.create({
     data: { englishName: "Semester Tester" },

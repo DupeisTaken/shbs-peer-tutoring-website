@@ -10,6 +10,10 @@ import { isHistoricalTutee } from "~/lib/tutee-history";
 import { legacyAcademicRecordId } from "~/lib/historical-academics";
 import { historicalAcademicSnapshot } from "./historical-academics";
 import { lockAccountProfile } from "./account-profile";
+import {
+  historyIdentitySnapshot,
+  syncParticipantPerson,
+} from "./person-identity";
 import { lockUsernameNamespace } from "./auth/username";
 import { authenticateEmailAction } from "./auth/account-emails";
 import { emailSender, isEmailDeliveryAvailable } from "./email/sender";
@@ -30,6 +34,7 @@ const id = z.string().min(1).max(128);
 export const historyPairInput = z.object({ tuteeId: id, userId: id });
 export const historyLinkInput = historyPairInput.extend({
   fingerprint: z.string().length(64),
+  acknowledged: z.literal(true),
   reason: z.string().trim().min(10).max(1000),
   confirmPassword: z.string().max(1024).optional(),
 });
@@ -114,20 +119,32 @@ async function snapshot(db: DomainDb, input: z.infer<typeof historyPairInput>) {
       [record.user?.id, ownership?.userId].filter((v): v is string => !!v),
     ),
   ];
-  const conflict = ownerIds.some((ownerId) => ownerId !== user.id);
+  const identity = await historyIdentitySnapshot(
+    db,
+    { kind: "TUTEE", id: record.id },
+    user.id,
+  );
+  const conflict =
+    ownerIds.some((ownerId) => ownerId !== user.id) || identity.conflict;
   // Current enrollment is managed by signup/merging, never moved by history correction.
   const currentConflict = !!record.user && record.user.id !== user.id;
+  // Ownership can return to the same person, and email changes do not advance the
+  // name-profile version. Bind both to the exact identity the manager reviewed.
   const fingerprint = digest(
     JSON.stringify([
       record.id,
       record.updatedAt,
       record._count.sessions,
       ownership?.userId,
+      ownership?.revision,
       record.user?.id,
       user.id,
       user.profileVersion,
+      user.email,
+      user.emailVerifiedAt,
       user.studentId,
       term?.id,
+      identity,
     ]),
   );
   return { record, user, fingerprint, conflict, currentConflict, ownerIds };
@@ -207,6 +224,7 @@ export async function linkTuteeHistory(
       input.reason,
       value.ownerIds,
       "STAFF",
+      value.conflict,
     );
     return { ok: true };
   });
@@ -220,12 +238,20 @@ async function writeOwnership(
   reason: string,
   previousOwners: string[],
   source: string,
+  identityCorrection = false,
 ) {
   await tx.studentProfileOwnership.upsert({
     where: { tuteeId },
     create: { tuteeId, userId },
-    update: { userId },
+    update: { userId, revision: { increment: 1 } },
   });
+  await syncParticipantPerson(
+    tx,
+    "TUTEE",
+    tuteeId,
+    userId,
+    identityCorrection || previousOwners.some((id) => id !== userId),
+  );
   // Any completed staff link/correction invalidates outstanding claim links.
   await supersedeHistoryInvitationAttempts(tx, tuteeId);
   await tx.tuteeHistoryInvitation.deleteMany({ where: { tuteeId } });
@@ -590,6 +616,10 @@ async function claimSnapshot(
       message: "HISTORY_INVITATION_INVALID",
     });
   const value = await snapshot(db, { tuteeId: invite.tuteeId, userId });
+  // An email challenge proves this exact source only. Conflicting live identities
+  // require a new staff review, even if the invitation predates that grouping.
+  if (value.conflict)
+    throw new TRPCError({ code: "CONFLICT", message: "HISTORY_HEAD_REQUIRED" });
   const secondary = await db.accountEmail.findFirst({
     where: { userId, email: invite.email, verifiedAt: { not: null } },
   });
@@ -613,6 +643,9 @@ export async function inspectHistoryClaim(
   token: string,
   tokenIsDigest = false,
 ) {
+  const { inspectExactHistoryClaim } = await import("./exact-history-invitations");
+  const exact = await inspectExactHistoryClaim(db, userId, tokenIsDigest ? token : digest(token));
+  if (exact) return exact;
   const { invite, value } = await claimSnapshot(
     db,
     userId,
@@ -623,6 +656,8 @@ export async function inspectHistoryClaim(
     name: value.record.englishName,
     sessions: value.record._count.sessions,
     expiresAt: invite.expiresAt,
+    sources: [{ kind: "TUTEE" as const, id: value.record.id, name: value.record.englishName }],
+    claimed: false,
   };
 }
 export async function claimTuteeHistory(
@@ -631,6 +666,9 @@ export async function claimTuteeHistory(
   token: string,
   tokenIsDigest = false,
 ) {
+  const { claimExactHistory } = await import("./exact-history-invitations");
+  const exact = await claimExactHistory(db, userId, tokenIsDigest ? token : digest(token));
+  if (exact) return exact;
   return inTransaction(db, async (tx) => {
     await lockUsernameNamespace(tx);
     await lockAccountProfile(tx, userId);
@@ -638,6 +676,14 @@ export async function claimTuteeHistory(
     await lockEntity(tx, `tutee:${invite.tuteeId}`);
     await tx.$queryRaw`SELECT id FROM "Tutee" WHERE id = ${invite.tuteeId} FOR UPDATE`;
     const current = await claimSnapshot(tx, userId, token, tokenIsDigest);
+    const { writeHistoricalClaimReceipt } = await import("./exact-history-invitations");
+    await writeHistoricalClaimReceipt(tx, {
+      tokenHash: current.invite.tokenHash,
+      sources: [{ kind: "TUTEE", id: invite.tuteeId }],
+      userId,
+      email: current.invite.email,
+      expiresAt: current.invite.expiresAt,
+    });
     await writeOwnership(
       tx,
       invite.tuteeId,

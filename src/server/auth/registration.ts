@@ -3,6 +3,7 @@ import {
   ensureNameFallbackForRole,
 } from "~/server/program/name-fields";
 import { requireSchoolParticipation } from "~/server/school-departure";
+import { fullPersonName } from "~/lib/person-name";
 import {
   applyAcademicIntake,
   synchronizeAcademicMirrors,
@@ -68,6 +69,7 @@ import { needsAcademicConfirmationForParticipation } from "~/lib/academics";
 import { graduationYear } from "~/lib/period";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import { getFeatures } from "~/server/program/features";
+import { initializePersonSource } from "~/server/person-source-initialization";
 
 /** Registration codes stay valid for one week — long enough to distribute and use. */
 export const CODE_TTL_DAYS = 7;
@@ -404,16 +406,24 @@ export async function codePrefill(row: CodeRow, client: DomainDb = db) {
       : row.tutorId
         ? await client.tutor.findUnique({ where: { id: row.tutorId } })
         : null;
+  // A returning roster keeps its established identity during promotion. Prefill
+  // must describe that exact invitation-bound roster too, rather than suggesting
+  // a request-local correction that account creation will correctly refuse to adopt.
+  const names = row.applicationId && row.tutorId
+    ? (await client.tutor.findUnique({ where: { id: row.tutorId } })) ?? source
+    : source;
   return {
     boundEmail: row.email?.toLowerCase() ?? null,
-    firstName: source?.firstName ?? "",
-    lastName: source?.lastName ?? "",
-    preferredName: source?.preferredName ?? "",
-    alternativeNames: source?.alternativeNames ?? "",
-    legacyName: source
-      ? "englishName" in source
-        ? (source.legacyName ?? source.englishName)
-        : source.name
+    firstName: names?.firstName ?? "",
+    lastName: names?.lastName ?? "",
+    preferredName: names?.preferredName ?? "",
+    alternativeNames: names?.alternativeNames ?? "",
+    // A stored null means there is no unsplit original. A live roster label
+    // may consist only of alternate names or the username fallback.
+    legacyName: names
+      ? "englishName" in names
+        ? names.legacyName
+        : names.name
       : null,
     gradeLevel: source && "gradeLevel" in source ? source.gradeLevel : null,
     gradeSchoolYear:
@@ -607,9 +617,13 @@ async function completeRegistrationLocked(
   const acceptedSource =
     !owner && (row.applicationId || row.crewApplicationId || row.tutorId)
       ? row.applicationId
-        ? await client.tutorApplication.findUniqueOrThrow({
-            where: { id: row.applicationId },
-          })
+        ? row.tutorId
+          ? await client.tutor.findUniqueOrThrow({
+              where: { id: row.tutorId },
+            })
+          : await client.tutorApplication.findUniqueOrThrow({
+              where: { id: row.applicationId },
+            })
         : row.crewApplicationId
           ? await client.crewApplication.findUniqueOrThrow({
               where: { id: row.crewApplicationId },
@@ -618,8 +632,11 @@ async function completeRegistrationLocked(
               where: { id: row.tutorId! },
             })
       : null;
-  // Redemption consumes the accepted source identity, never a posted replacement.
-  // In particular, newly hidden form fields must not erase already accepted values.
+  // Promotion has already selected the exact bound roster identity: a returning
+  // tutor keeps that identity even if its new application was corrected. Redemption
+  // must use the same source as prefill; canonical account ownership still wins and
+  // Crew applications retain their existing precedence over a generic tutor link.
+  // Newly hidden form fields and posted replacements cannot erase accepted values.
   const preservedIdentity = owner ?? acceptedSource;
   if (preservedIdentity)
     input = {
@@ -646,6 +663,7 @@ async function completeRegistrationLocked(
         lastName: acceptedSource.lastName,
         preferredName: acceptedSource.preferredName,
         alternativeNames: acceptedSource.alternativeNames,
+        // Preserve the null sentinel; materialized roster labels are not originals.
         legacyName:
           "legacyName" in acceptedSource
             ? acceptedSource.legacyName
@@ -658,6 +676,8 @@ async function completeRegistrationLocked(
   const email = owner?.email ?? (row.email ?? row.pendingEmail).toLowerCase();
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
+  const explicitName = fullPersonName({ firstName, lastName });
+  const acceptedRoster = acceptedSource && "englishName" in acceptedSource;
   const alternativeNames = acceptedSource
     ? acceptedSource.alternativeNames
     : input.alternativeNames?.trim()
@@ -793,7 +813,7 @@ async function completeRegistrationLocked(
           firstName,
           lastName,
           preferredName,
-          name: `${firstName} ${lastName}`,
+          name: explicitName,
           alternativeNames,
           role,
           gradeLevel,
@@ -802,6 +822,7 @@ async function completeRegistrationLocked(
           mustChangePassword: false,
         },
       });
+      await initializePersonSource(tx, { kind: "USER", id: user.id });
       await applyAcademicIntake(
         tx,
         user.id,
@@ -941,13 +962,13 @@ async function completeRegistrationLocked(
           firstName,
           lastName,
           preferredName,
-          name: `${firstName} ${lastName}`,
+          name: explicitName,
           alternativeNames,
           role: "CREW",
           ...(sourceIdentity
             ? {
                 ...sourceIdentity,
-                name: sourceIdentity.legacyName ?? `${firstName} ${lastName}`,
+                name: sourceIdentity.legacyName,
               }
             : {}),
           gradeLevel,
@@ -958,6 +979,7 @@ async function completeRegistrationLocked(
         },
         select: { id: true },
       });
+      await initializePersonSource(tx, { kind: "USER", id: created.id });
       await tx.registrationCode.update({
         where: { id: row.id },
         data: { usedAt: new Date(), usedByUserId: created.id },
@@ -1112,9 +1134,16 @@ async function completeRegistrationLocked(
           firstName,
           lastName,
           preferredName,
-          englishName: existingUser?.name?.trim()
-            ? existingUser.name
-            : `${firstName} ${lastName}`.trim(),
+          // A bound roster already has the accepted originals. Leave its live
+          // label as the trigger's unchanged input; writing a derived alternate
+          // label or blank here could recapture it as a new legacy original.
+          ...(!acceptedRoster
+            ? {
+                englishName: existingUser?.name?.trim()
+                  ? existingUser.name
+                  : sourceIdentity?.legacyName ?? explicitName,
+              }
+            : {}),
           alternativeNames,
           gradeLevel,
           email,
@@ -1127,13 +1156,7 @@ async function completeRegistrationLocked(
             )
               ? rosterTutor.status
               : "ACTIVE",
-          ...(sourceIdentity
-            ? {
-                ...sourceIdentity,
-                englishName:
-                  sourceIdentity.legacyName ?? `${firstName} ${lastName}`,
-              }
-            : {}),
+          ...(sourceIdentity ?? {}),
         },
       });
     } else {
@@ -1144,7 +1167,7 @@ async function completeRegistrationLocked(
           preferredName,
           englishName: existingUser?.name?.trim()
             ? existingUser.name
-            : `${firstName} ${lastName}`.trim(),
+            : explicitName,
           alternativeNames,
           gradeLevel,
           email,
@@ -1185,12 +1208,14 @@ async function completeRegistrationLocked(
           firstName,
           lastName,
           preferredName,
-          name: `${firstName} ${lastName}`,
+          name: explicitName,
           role: "TUTOR",
           ...(sourceIdentity
             ? {
                 ...sourceIdentity,
-                name: sourceIdentity.legacyName ?? `${firstName} ${lastName}`,
+                // Null is evidence that no unsplit original exists. The name
+                // trigger derives the live label from fields/policy/username.
+                name: sourceIdentity.legacyName,
               }
             : {}),
           // Seed the already-validated legal name so unchanged roster values are preserved.

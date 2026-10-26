@@ -2,15 +2,17 @@ import { lockCatalogue } from "~/server/qualifications";
 import { assertRequestProcessable } from "~/server/request-invalidity";
 import { TRPCError } from "@trpc/server";
 import type { TransactionDb } from "~/server/transactions";
+import { isInterviewChairRole } from "~/lib/interview-chair";
 
-export const staffRank = (role: string | undefined) =>
-  role === "HEAD" ? 3 : role === "ADMIN" ? 2 : role === "COORDINATOR" ? 1 : 0;
-/** The chair is a highest-ranking staff panelist. Qualifications are explicit staff records. */
+/** New panels, decisions and first completion require an Admin/Head chair.
+ * A recorded completion may retain its historical chair for hour corrections;
+ * every other panel and qualification requirement remains current. */
 export async function validatePanel(
   tx: TransactionDb,
   applicationId: string,
   tutorIds: string[],
   chairId: string,
+  options: { chairEligibility?: "current" | "recorded" } = {},
 ) {
   if (new Set(tutorIds).size < 3)
     throw new TRPCError({
@@ -29,14 +31,15 @@ export async function validatePanel(
       code: "BAD_REQUEST",
       message: "Every panelist needs an active tutor account.",
     });
-  const rank = Math.max(...tutors.map((t) => staffRank(t.user?.role)));
+  const chair = tutors.find((t) => t.id === chairId);
   if (
-    !rank ||
-    staffRank(tutors.find((t) => t.id === chairId)?.user?.role) !== rank
+    !chair ||
+    (options.chairEligibility !== "recorded" &&
+      !isInterviewChairRole(chair.user?.role))
   )
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "Select a highest-ranking management member as panel chair.",
+      message: "Select an Admin or Head panelist as chair.",
     });
   const subjects = await tx.applicationSubjectIntent.findMany({
     where: { applicationId },
@@ -65,9 +68,12 @@ export async function validateInterviewDecision(
   accept: boolean,
   actorTutorId: string | null,
 ) {
-  assertRequestProcessable(await tx.tutorApplication.findUniqueOrThrow({
-    where: { id: applicationId }, select: { invalidatedAt: true },
-  }));
+  assertRequestProcessable(
+    await tx.tutorApplication.findUniqueOrThrow({
+      where: { id: applicationId },
+      select: { invalidatedAt: true },
+    }),
+  );
   const panel = await tx.interviewAssignment.findMany({
     where: { applicationId },
   });
@@ -95,7 +101,7 @@ export async function validateInterviewDecision(
   if (yes * 2 === panel.length && actorTutorId !== chair.tutorId)
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "Only the highest-ranking staff chair may break a tie.",
+      message: "Only the selected panel chair may break a tie.",
     });
   if (yes * 2 !== panel.length && accept !== yes * 2 > panel.length)
     throw new TRPCError({

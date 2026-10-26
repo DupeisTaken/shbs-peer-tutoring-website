@@ -1,5 +1,6 @@
 import { accountMembership, membershipBadges } from "./account-membership";
 import { isPastTutor } from "./tutor-visibility";
+import { matchesPersonSearch } from "./person-search";
 export type Selection = { include: string[]; exclude: string[] };
 export type UserFilters = {
   role: Selection;
@@ -41,23 +42,67 @@ export function matchesSelection(
     (!selection.include.length || selection.include.includes(normalized))
   );
 }
+/** Presentation-only facts for one independent directory member. These fields
+ * never supply account authority or replace the representative's role badges. */
+export type UserFilterMember = {
+  role: string | null;
+  tutorStatus: string | null;
+  account: string;
+  tutorId?: string | null;
+  tutorAccessRevoked?: boolean;
+  tuteeMember?: boolean;
+  canTranslate?: boolean;
+  crewStatus?: string | null;
+  emailVerifiedAt?: Date | string | null;
+  userId?: string | null;
+  currentTutee?: boolean;
+  hasTuteeHistory?: boolean;
+  hasTutorHistory?: boolean;
+  name?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  preferredName?: string | null;
+  alternativeNames?: string | null;
+  legacyName?: string | null;
+  username?: string | null;
+  email?: string | null;
+  tutor?: { status: string; username?: string | null } | null;
+  searchTerms?: string[];
+};
+export type UserFilterRow = UserFilterMember & {
+  directoryMembers?: UserFilterMember[];
+  personSearchTerms?: string[];
+};
+
+/** One member must satisfy every constraint, including search. Mixing one
+ * sibling's role with another sibling's account/status would invent a match. */
 export function matchesUserFilters(
-  row: {
-    role: string | null;
-    tutorStatus: string | null;
-    account: string;
-    tutorId?: string | null;
-    tutorAccessRevoked?: boolean;
-    tuteeMember?: boolean;
-    canTranslate?: boolean;
-    crewStatus?: string | null;
-    emailVerifiedAt?: Date | string | null;
-    userId?: string | null;
-    currentTutee?: boolean;
-    hasTuteeHistory?: boolean;
-  },
+  row: UserFilterRow,
   filters: UserFilters,
+  search = "",
 ) {
+  const members = row.directoryMembers?.length ? row.directoryMembers : [row];
+  return members.some(
+    (member) =>
+      matchesMemberFilters(member, filters) &&
+      matchesPersonSearch(
+        { ...member, legacyName: member.legacyName ?? member.name },
+        search,
+        [
+          member.name,
+          member.username,
+          member.email,
+          member.tutor?.username,
+          ...(member.searchTerms ?? []),
+          ...(!row.directoryMembers?.length
+            ? (row.personSearchTerms ?? [])
+            : []),
+        ],
+      ),
+  );
+}
+
+function matchesMemberFilters(row: UserFilterMember, filters: UserFilters) {
   // Match every applicable badge, including independent Translator/Crew participation.
   const badges =
     "tuteeMember" in row
@@ -77,14 +122,20 @@ export function matchesUserFilters(
     row.crewStatus === "ACTIVE" ||
     row.canTranslate === true ||
     row.currentTutee === true ||
-    (row.tutorStatus === "ACTIVE" && !row.tutorAccessRevoked);
+    // Current tutor lifecycle states stay discoverable beside retained archives;
+    // assignment eligibility is separate from directory visibility.
+    (["ACTIVE", "PENDING", "OPTED_OUT"].includes(row.tutorStatus ?? "") &&
+      !row.tutorAccessRevoked);
   const explicitlyRequestedSetup = filters.account.include.some((value) =>
     ["setup", "invited", "none"].includes(value),
   );
   const unverified = !!row.userId && row.emailVerifiedAt === null;
   return (
     (!unverified || filters.showUnverified || explicitlyRequestedSetup) &&
-    ((!isPastTutor(row.tutorStatus) && !row.hasTuteeHistory) ||
+    // Retained ownership follows the same historical visibility rule as a past direct link.
+    ((!isPastTutor(row.tutorStatus) &&
+      !row.hasTuteeHistory &&
+      !row.hasTutorHistory) ||
       otherCurrent ||
       filters.showPastTutors ||
       explicitPast) &&

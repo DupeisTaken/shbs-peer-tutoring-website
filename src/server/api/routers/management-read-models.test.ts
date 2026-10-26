@@ -133,6 +133,9 @@ function fixture(access: Access = "VIEWER") {
     policyArchive: empty(),
     announcement: empty(),
     programFeature: { ...empty(), findUnique: vi.fn().mockResolvedValue(null) },
+    // Private application summaries now evaluate current name readiness. The
+    // observer projection still exits before reading that policy or identity.
+    programSettings: { findUnique: vi.fn().mockResolvedValue(null) },
     $executeRaw: vi.fn().mockResolvedValue(0),
     $transaction: vi
       .fn()
@@ -223,6 +226,9 @@ describe.each<Access>(["VIEWER", "observer"])(
           },
         ],
       });
+      // Account-setup identity links stay outside observer response models.
+      expect(applications[0]).not.toHaveProperty("setupTutorId");
+      expect(applications[0]).not.toHaveProperty("promotedTutorId");
     });
 
     it("withholds historical appeal text and searches only visible audit metadata", async () => {
@@ -501,7 +507,9 @@ it.each<Access>(["HEAD", "ADMIN", "COORDINATOR"])(
     expect(await caller.corrections.attendance({ id: "session" })).toEqual([
       sessionRow,
     ]);
-    expect(await caller.admin.tutorApplications()).toEqual([{ ...applicationRow, isInvalid: true }]);
+    expect(await caller.admin.tutorApplications()).toEqual([
+      { ...applicationRow, isInvalid: true, setupTutorId: null, identityNeedsReview: false },
+    ]);
     expect(await caller.admin.auditLog({ search: PRIVATE })).toEqual([
       auditRow,
     ]);

@@ -37,6 +37,9 @@ enum Role {
 }
 
 model User {
+  personId String?
+  person Person? @relation("PersonAccounts", fields: [personId], references: [id], onDelete: Restrict)
+  primaryForPerson Person? @relation("PersonPrimaryAccount")
   retainedTutorProfiles TutorProfileOwnership[]
   studentId                String?                @unique
   student                  Tutee?                 @relation(fields: [studentId], references: [id], onDelete: SetNull)
@@ -155,6 +158,7 @@ model User {
   createdAt DateTime @default(now())
 
   @@index([mergedIntoId])
+  @@index([personId])
 }
 
 /// An available UI language. Built-in locales (en/zh/es) ship with bundled JSON; translators can
@@ -212,6 +216,8 @@ model ProgramFeature {
   key            ProgramFeatureKey @id
   enabled        Boolean           @default(true)
   pendingEnabled Boolean?
+  /// Monotonic staging evidence: changing away and back cannot revive an old period review.
+  revision       Int               @default(0)
   updatedByName  String?
   updatedAt      DateTime          @updatedAt
 }
@@ -435,16 +441,54 @@ model Term {
   /// Optional read-only sheet applicants can preview while the signup gate is closed.
   signupPreviewUrl String?
   active     Boolean        @default(false)
+  /// Transaction fence for preparation/mode/timezone writes; independent audience versions remain separate.
+  nextRecruitmentRevision Int @default(0)
   pairings   Pairing[]
   pairingGroups PairingGroup[]
   meetings   TutorMeeting[]
   patrols    Patrol[]
+  nextRecruitmentPreparations NextRecruitmentPreparation[]
   createdAt  DateTime       @default(now())
 
   @@unique([schoolYear, quarter])
 }
 
+enum RecruitmentAudience {
+  tutor
+  tutee
+}
+
+/// Opening-only preparation never creates a historical Term or changes current intake.
+/// A missing row preserves destination defaults; a row with opensAt=null explicitly clears it.
+/// Source/audience identity retains versions while a changed mode is deliberately re-reviewed.
+model NextRecruitmentPreparation {
+  sourceTermId          String
+  sourceTerm            Term @relation(fields: [sourceTermId], references: [id], onDelete: Restrict)
+  audience              RecruitmentAudience
+  sourceSchoolYear      String
+  sourceQuarter         Quarter
+  destinationSchoolYear String
+  destinationQuarter    Quarter
+  semesterMode          Boolean
+  modeRevision          Int
+  opensAt               DateTime?
+  /// Zone used to interpret the entered wall clock; stored instants never reinterpret later.
+  timeZone              String
+  version               Int @default(1)
+  createdById           String
+  updatedById           String
+  updatedByName         String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @default(now()) @updatedAt
+
+  @@id([sourceTermId, audience])
+}
+
 model Tutor {
+  /// Monotonic history ownership/group fence, including remove-and-restore changes.
+  historyIdentityRevision Int @default(0)
+  personId String?
+  person Person? @relation(fields: [personId], references: [id], onDelete: Restrict)
   retainedOwner TutorProfileOwnership?
   historicalAcademics HistoricalAcademicRecord[]
   qualificationApplications TutorApplication[] @relation("QualificationApplicant")
@@ -503,6 +547,7 @@ model Tutor {
   applicationDecisions TutorApplication[]    @relation("AppDecider")
 
   @@index([status])
+  @@index([personId])
 }
 
 /// A tutor-initiated lifecycle request, reviewed by an admin.
@@ -686,6 +731,10 @@ enum SignupSource {
 }
 
 model Tutee {
+  /// Monotonic history ownership/group fence, independent of original roster evidence.
+  historyIdentityRevision Int @default(0)
+  personId String?
+  person Person? @relation(fields: [personId], references: [id], onDelete: Restrict)
   historicalAcademics HistoricalAcademicRecord[]
   historyInvitation TuteeHistoryInvitation?
   historyInvitationAttempts TuteeHistoryInvitationAttempt[]
@@ -735,6 +784,7 @@ model Tutee {
   removalRequests TuteeRemovalRequest[]
 
   @@index([status])
+  @@index([personId])
 }
 
 /// A request to remove a tutee from the program, raised by their tutor (the person who knows the
@@ -1295,6 +1345,8 @@ enum TutorApplicationType {
 }
 
 model TutorApplication {
+  /// Advances only for audited name corrections; zero keeps untouched review fingerprints compatible.
+  identityRevision Int @default(0)
   /// Reversible staff screening metadata; never an interview outcome or membership change.
   invalidReason String?
   invalidatedAt DateTime?
@@ -1354,6 +1406,41 @@ model TutorApplication {
 
   @@index([status])
   @@index([requestedTutorId, createdAt])
+}
+
+/// Immutable intake identity survives deleting the operational application. Database insertion
+/// captures all future originals; the additive migration preserves existing rows without inference.
+model ApplicationIdentityOriginal {
+  applicationId String @id
+  original Json
+  submittedAt DateTime
+  corrections ApplicationIdentityCorrection[]
+}
+
+/// Append-only application-local name evidence and a durable same-intent retry receipt.
+/// No relation to TutorApplication: deletion must not erase original or corrected evidence.
+model ApplicationIdentityCorrection {
+  id String @id @default(cuid())
+  applicationId String
+  original ApplicationIdentityOriginal @relation(fields: [applicationId], references: [applicationId], onDelete: Restrict, onUpdate: Restrict)
+  revision Int
+  actorId String
+  actorName String
+  reason String
+  before Json
+  after Json
+  policy Json
+  approvalId String?
+  /// Direct actor or exact approval request; two Admin drafts reviewed by one Head cannot collide.
+  receiptOwner String
+  clientKey String @db.Uuid
+  inputHash String
+  appliedUpdatedAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([applicationId, revision])
+  @@unique([receiptOwner, clientKey])
+  @@index([applicationId, createdAt])
 }
 
 /// One intended tutoring course on an application (max 3 enforced in the form/mutation),
@@ -1950,7 +2037,45 @@ model StudentQuarterBlock {
 model StudentProfileOwnership {
   tuteeId String @id
   userId String
+  /// Every reviewed transfer advances this version, even when ownership later returns.
+  revision Int @default(1)
   @@index([userId])
+}
+
+/// Reviewed same-person grouping, independent of credentials and participation access.
+/// Source records and historical actor IDs remain authoritative; grouping grants no access itself.
+model Person {
+  id String @id @default(cuid())
+  revision Int @default(1)
+  primaryUserId String? @unique(map: "Person_primaryUserId_key")
+  primaryUser User? @relation("PersonPrimaryAccount", fields: [primaryUserId], references: [id], onDelete: Restrict)
+  resolutionState PersonResolutionState @default(GROUPED)
+  mergedIntoId String?
+  mergedInto Person? @relation("PersonGroups", fields: [mergedIntoId], references: [id], onDelete: Restrict)
+  mergedGroups Person[] @relation("PersonGroups")
+  users User[] @relation("PersonAccounts")
+  tutors Tutor[]
+  tutees Tutee[]
+  receipts PersonCombineReceipt[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+enum PersonResolutionState {
+  GROUPED
+  REVIEW_REQUIRED
+}
+
+/// Durable accepted-operation receipt. Lost responses never repeat ownership or credential writes.
+model PersonCombineReceipt {
+  id String @id
+  actorId String
+  inputHash String
+  personId String
+  person Person @relation(fields: [personId], references: [id], onDelete: Restrict)
+  outcome PersonResolutionState
+  retiredUserIds String[]
+  createdAt DateTime @default(now())
 }
 
 /// Staff-reviewed historical read ownership; never grants current tutor membership.
@@ -2011,6 +2136,67 @@ model TuteeHistoryInvitationAttempt {
   createdAt DateTime @default(now())
   settledAt DateTime?
   @@index([tuteeId, sequence])
+}
+
+/// Additive typed-history envelope. Legacy Tutee grants retain their original table/proofs.
+/// Frozen sources are never expanded through subsequent Person membership changes.
+model HistoricalRecordInvitation {
+  scopeKey String @id
+  tokenHash String @unique
+  sources Json
+  scopeFingerprint String
+  email String
+  recipientId String?
+  recipientSessionVersion Int?
+  recipientFingerprint String?
+  issuedById String
+  issuedBySessionVersion Int
+  reason String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  setupCodeHash String?
+  setupCodeExpiresAt DateTime?
+  setupAttempts Int @default(0)
+  setupVerifiedAt DateTime?
+  setupUserId String?
+  claimedAt DateTime?
+  claimedUserId String?
+}
+
+/// Actor-bound admission receipts recover accepted writes without replaying SMTP.
+model HistoricalRecordInvitationAttempt {
+  id String @id
+  sequence Int @unique @default(autoincrement())
+  scopeKey String
+  inputHash String
+  tokenHash String @unique
+  sources Json
+  scopeFingerprint String
+  predecessorFingerprint String
+  email String
+  recipientId String?
+  recipientSessionVersion Int?
+  recipientFingerprint String?
+  issuedById String
+  issuedBySessionVersion Int
+  reason String
+  expiresAt DateTime
+  status TuteeHistoryInvitationAttemptStatus @default(ADMITTED)
+  createdAt DateTime @default(now())
+  settledAt DateTime?
+  @@index([scopeKey, sequence])
+}
+
+/// Read-only accepted-claim recovery survives legacy token consumption and replacements.
+/// Possession of this digest never grants access without the recorded account and live ownership.
+model HistoricalRecordClaimReceipt {
+  tokenHash String @id
+  sources Json
+  userId String
+  sessionVersion Int
+  email String
+  expiresAt DateTime
+  claimedAt DateTime @default(now())
 }
 
 /// Short-lived, user/action-bound confirmation tickets enforce the popup delay on the server.

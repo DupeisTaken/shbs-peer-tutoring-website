@@ -6,9 +6,10 @@ image="${1:?Pass the built image tag}"
 case "$DATABASE_URL" in */shbs_boot_test) ;; *) echo 'Use the isolated shbs_boot_test database.' >&2; exit 1;; esac
 name="shbs-smoke-${RANDOM}-$$"
 health_file="$(mktemp)"
+reconciliation_file="$(mktemp)"
 cleanup() {
   docker rm -f "$name" >/dev/null 2>&1 || true
-  rm -f "$health_file"
+  rm -f "$health_file" "$reconciliation_file"
 }
 trap cleanup EXIT
 # Synthetic server-only sentinels must never appear in HTML, React payloads or client JS.
@@ -38,11 +39,29 @@ start_app
 node --test scripts/test-runtime-branding.mjs scripts/test-tab-icon.mjs scripts/test-public-qr.mjs
 # Running twice is deliberate: recovery must preserve the singleton HEAD and initial period.
 for attempt in 1 2; do
-  docker exec -e BOOTSTRAP_ADMIN_EMAIL=smoke@example.test \
-    -e BOOTSTRAP_ADMIN_PASSWORD=DisposableSmokePassword123! \
-    -e BOOTSTRAP_SCHOOL_YEAR=26-27 -e BOOTSTRAP_QUARTER=Q1 \
-    "$name" node node_modules/tsx/dist/cli.mjs scripts/create-admin.ts
+  # A bootstrap CLI must not import the application's AUTH_SECRET/config contract.
+  docker exec "$name" env -i PATH=/usr/local/bin:/usr/bin:/bin NODE_ENV=production \
+    DATABASE_URL="$DATABASE_URL" BOOTSTRAP_ADMIN_EMAIL=smoke@example.test \
+    BOOTSTRAP_ADMIN_PASSWORD=DisposableSmokePassword123! \
+    BOOTSTRAP_SCHOOL_YEAR=26-27 BOOTSTRAP_QUARTER=Q1 \
+    node node_modules/tsx/dist/cli.mjs scripts/create-admin.ts
 done
+reconcile_identity() {
+  docker exec "$name" env -i PATH=/usr/local/bin:/usr/bin:/bin NODE_ENV=production \
+    DATABASE_URL="$DATABASE_URL" npm run --silent identity:reconcile > "$reconciliation_file"
+}
+# Exercise the shipped entry point, its production dependencies and machine-readable stdout.
+reconcile_identity
+node --input-type=module - "$reconciliation_file" <<'JS'
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const text = readFileSync(process.argv[2], 'utf8');
+const report = JSON.parse(text);
+assert.equal(report.schemaVersion, 1);
+assert.deepEqual(report.counts, { persons: 1, users: 1, tutors: 0, tutees: 0, tutorOwners: 0, studentOwners: 0, findings: 0 });
+assert.deepEqual(report.findings, []);
+assert.doesNotMatch(text, /smoke@example\.test|DisposableSmokePassword/);
+JS
 docker exec -i "$name" node --input-type=module <<'JS'
 import pg from 'pg';
 const c = new pg.Client({ connectionString: process.env.DATABASE_URL });
@@ -70,6 +89,24 @@ await c.query(`INSERT INTO "PairingTutee" ("pairingId", "tuteeId") VALUES ('smok
 await c.query(`INSERT INTO "StudentSurvey" (id, email, "intakeTermId", payload, "policyRevision", "policySnapshot", "tokenHash", "expiresAt", "tuteeId", "firstAssignedAt", "verificationDueAt", "submittedAt") VALUES ('smoke-overdue', 'smoke-student@example.test', $1, '{}', 'smoke', '[]', 'smoke-token-hash', NOW() - INTERVAL '1 day', 'smoke-tutee', NOW() - INTERVAL '8 days', NOW() - INTERVAL '1 day', '2026-01-01')`, [term.id]);
 await c.end();
 JS
+# Raw legacy sources deliberately lack directory metadata. The read-only command
+# must report findings with exit 2, preserve the rows, and never turn into a repair.
+reconciliation_status=0
+reconcile_identity || reconciliation_status=$?
+if [ "$reconciliation_status" -ne 2 ]; then
+  echo "Expected reconciliation findings exit 2, got $reconciliation_status" >&2
+  exit 1
+fi
+node --input-type=module - "$reconciliation_file" <<'JS'
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const report = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+assert.deepEqual(report.counts, { persons: 1, users: 1, tutors: 1, tutees: 1, tutorOwners: 0, studentOwners: 0, findings: 2 });
+assert.deepEqual(report.findings.map(({ code, source }) => [code, source.kind, source.id]).sort(), [
+  ['MISSING_PERSON', 'TUTEE', 'smoke-tutee'],
+  ['MISSING_PERSON', 'TUTOR', 'smoke-tutor'],
+]);
+JS
 # Recreate the exact image with different runtime settings; keep the original database.
 # This also proves pending migrations/startup are safe when existing records are present.
 docker rm -f "$name" >/dev/null
@@ -87,15 +124,18 @@ await c.connect();
 let passed = false;
 for (let attempt = 0; attempt < 45; attempt++) {
   const { rows: [r] } = await c.query(`SELECT s.state, s."submittedAt", t.status,
+    t."personId" AS "tuteePersonId",
+    (SELECT "personId" FROM "Tutor" WHERE id='smoke-tutor') AS "tutorPersonId",
+    (SELECT count(*) FROM "Person") AS persons,
     (SELECT count(*) FROM "User" WHERE role='HEAD' AND email='smoke@example.test') AS heads,
     (SELECT count(*) FROM "Term" WHERE active=true) AS periods,
     (SELECT count(*) FROM "PairingTutee" WHERE "tuteeId"='smoke-tutee') AS memberships
     FROM "StudentSurvey" s JOIN "Tutee" t ON t.id=s."tuteeId" WHERE s.id='smoke-overdue'`);
-  if (r.heads === '1' && r.periods === '1' && r.state === 'DISQUALIFIED' && r.status === 'INACTIVE' && r.memberships === '0' && r.submittedAt.toISOString().startsWith('2026-01-01')) { passed = true; break; }
+  if (r.heads === '1' && r.periods === '1' && r.persons === '1' && r.tutorPersonId === null && r.tuteePersonId === null && r.state === 'DISQUALIFIED' && r.status === 'INACTIVE' && r.memberships === '0' && r.submittedAt.toISOString().startsWith('2026-01-01')) { passed = true; break; }
   await new Promise(resolve => setTimeout(resolve, 2000));
 }
 await c.end();
 if (!passed) throw Error('Deadline worker did not resume safely after image restart');
 JS
 curl --fail --silent http://127.0.0.1:3100/api/trpc/health >/dev/null
-echo 'Image boot, runtime branding, metadata, icon, secret exclusion, migrations, repeat bootstrap and record preservation after recreation passed.'
+echo 'Image boot, runtime branding, metadata, icon, secret exclusion, migrations, repeat bootstrap, read-only reconciliation and record preservation after recreation passed.'
