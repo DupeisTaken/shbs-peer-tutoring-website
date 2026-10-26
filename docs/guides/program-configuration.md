@@ -518,6 +518,32 @@ Translations cover interface strings and supported public text such as news, sec
 
 ## Tutor and tutee recruitment windows
 
+### Download public QR images
+
+Open **Program Settings → Recruitment and Refresh → Share Signup Links** to
+download separate labeled PNGs for **Tutor signup**, **Tutee signup**, **Crew
+signup** and the **Website home**. Each image contains one QR code, its destination
+name and the full published URL on a transparent background. The paths are
+`/tutor`, `/tutee`, `/crew` and `/`.
+Chinese interface users receive Chinese image labels; other interface languages
+receive English image labels. Filenames identify the destination and image language.
+
+Downloads are available to readers of the recruitment panel, including read-only
+staff, and remain available when recruitment is closed or Crew is disabled.
+Downloading does not save settings or discard unfinished recruitment edits.
+Scanning still applies the destination's current recruitment, feature, verification
+and access rules; a QR image grants no account or participation access.
+
+The deployment's configured public address determines the encoded domain, even
+when management is opened through an internal address. See the
+[deployment guidance](deployment.md#public-qr-domain-and-regeneration) if a download
+reports a configuration error or the public domain changes. Regenerate distributed
+images after a domain change. Place the black QR and text over a plain, light
+background, keeping the clear border around the QR free of other artwork.
+Verify the finished print or shared image with a scanner.
+
+### Configure recruitment windows
+
 In **Program Settings**, Head applies **Tutor recruitment** and **Tutee recruitment** settings separately for the active period; Admin submits each change for Head review. Each current-period panel has an **Accept applications** switch, independently optional starting and ending times, and an optional external preview link. Save each panel separately. Times use the configured program timezone; the start is inclusive and the end is exclusive. An enabled form with neither bound accepts applications immediately, provided its prerequisites are configured. Turning off the switch pauses applications regardless of dates.
 
 ### Prepare next-period openings

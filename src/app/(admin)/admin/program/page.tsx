@@ -16,6 +16,7 @@ import { useTranslations } from "next-intl";
 
 import { ProgramTimeZoneSettings } from "~/app/_components/program-time-zone-settings";
 import { RecruitmentSettings } from "~/app/_components/recruitment-settings";
+import { ProgramPublicQrLinks } from "~/app/_components/program-public-qr-links";
 import { NextRecruitmentSettings } from "~/app/_components/next-recruitment-settings";
 import { ProgramRefresh } from "~/app/_components/program-refresh";
 import { SchoolCalendar } from "~/app/_components/school-calendar";
@@ -188,6 +189,8 @@ function ProgramSettingsPage() {
                   canApply={canApplyPeriod}
                 />
               ))}
+
+              <ProgramPublicQrLinks />
 
               {canReadSettings && <><NextRecruitmentSettings /><ProgramRefresh period={period} canEdit={canEditPeriod} canApply={canApplyPeriod} onActivated={setActivatedPeriod} /></>}
             </>

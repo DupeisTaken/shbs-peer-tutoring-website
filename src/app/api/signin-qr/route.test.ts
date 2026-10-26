@@ -16,3 +16,19 @@ it("downloads a real scannable PNG containing only the configured sign-in URL", 
   const decoded = jsQR(new Uint8ClampedArray(png.data), png.width, png.height);
   expect(decoded?.data).toBe("https://tutoring.example.edu/signin");
 });
+
+it("preserves the existing inline interface and identical download pixels", async () => {
+  vi.stubEnv("AUTH_URL", "https://tutoring.example.edu");
+  const inline = await GET(new Request("https://internal:3000/api/signin-qr"));
+  const download = await GET(
+    new Request("https://internal:3000/api/signin-qr?download=1"),
+  );
+  expect(inline.headers.get("Content-Disposition")).toBe(
+    'inline; filename="student-signin.png"',
+  );
+  expect(inline.headers.get("Cache-Control")).toBe("private, max-age=3600");
+  expect(inline.headers.get("X-Content-Type-Options")).toBe("nosniff");
+  expect(Buffer.from(await inline.arrayBuffer())).toEqual(
+    Buffer.from(await download.arrayBuffer()),
+  );
+});

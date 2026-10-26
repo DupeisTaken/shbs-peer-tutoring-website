@@ -984,6 +984,16 @@
       "graduating": "Verabschiedung",
       "noActiveTutors": "Keine aktiven Tutoren zu überprüfen.",
       "cancel": "Abbrechen",
+      "publicQr": {
+        "heading": "Anmeldelinks teilen",
+        "help": "Lade beschriftete QR-Bilder für die veröffentlichte Website-Adresse herunter. Anmeldezeiträume und Funktionseinstellungen gelten weiterhin beim Öffnen der Links.",
+        "tutor": "Tutor-Anmeldung",
+        "tutee": "Anmeldung zur Lernhilfe",
+        "crew": "Crew-Anmeldung",
+        "site": "Website-Startseite",
+        "download": "PNG herunterladen",
+        "downloadLabel": "QR-PNG für {destination} herunterladen"
+      },
       "signupWindow": {
         "heading": "Öffnung der Schüleranmeldung",
         "help": "Legen Sie fest, wann die Schüleranmeldung für {quarter} öffentlich verfügbar wird.",

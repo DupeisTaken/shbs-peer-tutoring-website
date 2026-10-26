@@ -976,6 +976,16 @@
       "graduating": "Se gradúa",
       "noActiveTutors": "No hay tutores activos para revisar.",
       "cancel": "Cancelar",
+      "publicQr": {
+        "heading": "Compartir enlaces de inscripción",
+        "help": "Descarga imágenes QR etiquetadas con la dirección publicada del sitio. Los plazos de inscripción y la configuración de funciones siguen vigentes al abrir los enlaces.",
+        "tutor": "Inscripción de tutores",
+        "tutee": "Solicitud de tutoría",
+        "crew": "Inscripción en el equipo de ronda",
+        "site": "Página de inicio",
+        "download": "Descargar PNG",
+        "downloadLabel": "Descargar QR PNG de {destination}"
+      },
       "signupWindow": {
         "heading": "Apertura de inscripciones de estudiantes",
         "help": "Programa cuándo se abrirán al público las inscripciones de estudiantes de {quarter}.",
