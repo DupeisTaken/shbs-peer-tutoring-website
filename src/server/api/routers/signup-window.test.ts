@@ -153,11 +153,11 @@ describe("tutee signup window procedures", () => {
         },
       }),
     );
-    expect(ctx.db.$queryRaw).toHaveBeenCalledWith(
+    expect(ctx.fixtures.lockActor).toHaveBeenCalledWith(
       expect.arrayContaining([expect.stringContaining("FOR SHARE")]),
       headSession.user.id,
     );
-    expect(ctx.db.user.findUnique).toHaveBeenCalledWith({
+    expect(ctx.fixtures.findUser).toHaveBeenCalledWith({
       where: { id: headSession.user.id },
       select: { id: true, name: true, username: true, role: true, suspendedAt: true, mergedIntoId: true },
     });
