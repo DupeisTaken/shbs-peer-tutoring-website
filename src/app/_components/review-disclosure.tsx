@@ -30,8 +30,10 @@ export function ReviewDisclosure({
           className="link flex min-h-11 w-full items-center gap-2 text-left text-sm font-semibold lg:min-h-8"
           onClick={() => setOpen(!open)}
         >
-          <span>{title}</span>{" "}
-          <span className="ml-auto text-xs font-normal">
+          <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+            {title}
+          </span>{" "}
+          <span className="ml-auto shrink-0 text-xs font-normal whitespace-nowrap">
             {t(open ? "collapse" : "expand")}
           </span>
         </button>

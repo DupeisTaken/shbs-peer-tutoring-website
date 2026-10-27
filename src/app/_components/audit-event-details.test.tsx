@@ -416,6 +416,13 @@ function fullEvidence(label = "Full recorded evidence") {
     document.getElementById(toggle.getAttribute("aria-controls")!)!,
   );
 }
+function technicalDetails(label = "Technical details") {
+  const toggle = screen.getByRole("button", { name: new RegExp(`^${label}`) });
+  if (toggle.getAttribute("aria-expanded") === "false") fireEvent.click(toggle);
+  return within(
+    document.getElementById(toggle.getAttribute("aria-controls")!)!,
+  );
+}
 beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   mocks.query.mockReturnValue(result());
@@ -541,6 +548,7 @@ it("shows exact stored identifiers, milliseconds, undo time and a linked approva
     }),
   );
   render(<AuditEventDetails id="event-1" />, { wrapper });
+  const technical = technicalDetails();
   for (const text of [
     "actor-1",
     "event-1",
@@ -549,9 +557,14 @@ it("shows exact stored identifiers, milliseconds, undo time and a linked approva
     "settings-1",
     "2026-10-09T01:23:45.678Z",
     "2026-10-09T02:34:56.789Z",
-    "Undone",
   ])
     expect(screen.getByText(text)).toBeTruthy();
+  expect(technical.getByText("Undone")).toBeTruthy();
+  expect(
+    within(screen.getByRole("region", { name: "Recorded event" })).getByText(
+      "Undone",
+    ),
+  ).toBeTruthy();
   const time = screen.getByText(
     "2026-10-09T01:23:45.678Z",
   ).previousElementSibling;
@@ -564,6 +577,103 @@ it("shows exact stored identifiers, milliseconds, undo time and a linked approva
   ).toBe("/admin/approvals?request=approval-1");
   expect(screen.queryByText(/never-display/)).toBeNull();
 });
+
+it.each(["en", "zh"])(
+  "keeps essential changes before independently collapsed technical provenance (%s)",
+  (locale) => {
+    const copy = locale === "en" ? en : zh;
+    const details = {
+      evidenceVersion: 1,
+      outcome: "APPLIED",
+      before: { enabled: false },
+      after: { enabled: true },
+    };
+    const original = structuredClone(details);
+    mocks.query.mockReturnValue(result({ ...event, details }));
+    render(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider
+          locale={locale}
+          timeZone="Asia/Shanghai"
+          messages={copy}
+        >
+          <AuditEventDetails id="event-1" />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    const upfront = within(
+      screen.getByRole("region", { name: copy.auditEventDetails.event }),
+    );
+    expect(upfront.getByText(event.action)).toBeTruthy();
+    expect(upfront.getByText(event.userName)).toBeTruthy();
+    expect(
+      upfront.getByText(copy.auditFilters.kinds.ACTION, { selector: "dd" }),
+    ).toBeTruthy();
+    expect(
+      upfront.getByText(
+        copy.auditEventDetails.presentation.entities.ProgramSettings,
+      ),
+    ).toBeTruthy();
+    expect(
+      upfront.getByText(copy.auditEventDetails.presentation.outcomes.APPLIED),
+    ).toBeTruthy();
+    expect(upfront.queryByText(event.userId)).toBeNull();
+    expect(upfront.queryByText(event.id)).toBeNull();
+    expect(upfront.queryByText(event.operation)).toBeNull();
+    expect(upfront.queryByText(event.entityId)).toBeNull();
+    expect(upfront.queryByText(copy.auditEventDetails.notUndone)).toBeNull();
+    const summary = screen.getByRole("region", {
+      name: copy.auditEventDetails.summaryTitle,
+    });
+    expect(
+      within(summary).getByText(copy.auditEventDetails.falseValue),
+    ).toBeTruthy();
+    expect(
+      within(summary).getByText(copy.auditEventDetails.trueValue),
+    ).toBeTruthy();
+    const technical = screen.getByRole("button", {
+      name: new RegExp(`^${copy.auditEventDetails.technicalDetails}`),
+    });
+    const panel = document.getElementById(
+      technical.getAttribute("aria-controls")!,
+    )!;
+    expect(panel.hidden).toBe(true);
+    expect(
+      summary.compareDocumentPosition(technical) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.queryByRole("link")).toBeNull();
+    const full = screen.getByRole("button", {
+      name: new RegExp(`^${copy.auditEventDetails.fullEvidence}`),
+    });
+    const comparison = within(summary).getByRole("button");
+    expect(comparison.getAttribute("aria-expanded")).toBe("true");
+    expect(full.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(technical);
+    expect(panel.hidden).toBe(false);
+    const exact = within(panel);
+    for (const text of [
+      event.userId,
+      event.id,
+      event.operation,
+      event.entity,
+      event.entityId,
+    ])
+      expect(exact.getByText(text)).toBeTruthy();
+    expect(exact.getByRole("link").getAttribute("href")).toBe(
+      "/admin/approvals?request=approval-1",
+    );
+    expect(comparison.getAttribute("aria-expanded")).toBe("true");
+    expect(full.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(technical);
+    expect(panel.hidden).toBe(true);
+    fireEvent.click(full);
+    expect(full.getAttribute("aria-expanded")).toBe("true");
+    expect(technical.getAttribute("aria-expanded")).toBe("false");
+    expect(comparison.getAttribute("aria-expanded")).toBe("true");
+    expect(details).toEqual(original);
+  },
+);
 
 it("renders legacy missing evidence explicitly without inventing a before value", () => {
   mocks.query.mockReturnValue(
@@ -581,7 +691,12 @@ it("renders legacy missing evidence explicitly without inventing a before value"
   expect(
     screen.getByText("No detailed evidence was recorded for this event."),
   ).toBeTruthy();
-  expect(screen.getAllByText("Not recorded")).toHaveLength(7);
+  expect(
+    within(screen.getByRole("region", { name: "Recorded event" })).getAllByText(
+      "Not recorded",
+    ),
+  ).toHaveLength(2);
+  expect(technicalDetails().getAllByText("Not recorded")).toHaveLength(6);
   expect(screen.queryByRole("link")).toBeNull();
   expect(screen.queryByRole("region", { name: "Before" })).toBeNull();
 });

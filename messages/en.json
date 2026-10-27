@@ -3646,7 +3646,8 @@
       "archiveSubjectOutcome": "Mark this subject offering inactive; keep existing signup and historical references.",
       "assignInterviewersOutcome": "Start a fresh interview review with the requested panel and chair. Clear previous votes, interview completion and credited interview hours.",
       "replaceAcceptedPanelOutcome": "Start a fresh interview review and clear previous votes, completion and interview hours. Revoke unused invitations from this initial application. Reverse its prior tutor admission and current assignments unless another accepted application independently authorizes membership.",
-      "saveCourseGroupOutcome": "Save the group and requested offerings as active. Archive omitted existing offerings while preserving their references. Renamed offerings also update matching assignment subject labels."
+      "saveCourseGroupOutcome": "Save the group and requested offerings as active. Archive omitted existing offerings while preserving their references. Renamed offerings also update matching assignment subject labels.",
+      "createAnnouncementOutcome": "Publish this announcement. Its recipient list stays fixed after publication."
     },
     "requestHead": "Request Head Approval",
     "sensitiveHelp": "Head applies these changes directly. Admin submits requests for Head review; Coordinators have read-only access. Pending requests do not change live settings.",
@@ -4333,7 +4334,8 @@
       "outcome": "Recorded outcome",
       "fieldsAdded": "Added {fields}",
       "fieldsRemoved": "Removed {fields}"
-    }
+    },
+    "technicalDetails": "Technical details"
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",

@@ -862,3 +862,142 @@ it("does not invent course-group archive lists from missing, partial or duplicat
       ).summary.changes.some((field) => field.key === "archivedOfferings"),
     ).toBe(false);
 });
+
+it("keeps a pairing's proven unchanged catalogue selection out of the changed summary", () => {
+  const input = {
+    id: "pairing",
+    subject: "Captured Physics",
+    subjectId: "physics",
+  };
+  const targets = {
+    Pairing: [{ record: { id: "pairing", subject: "Captured Physics" } }],
+    Subject: [{ record: { id: "physics", name: "Captured Physics" } }],
+    reviewReferences: {
+      version: 1,
+      entities: { Subject: [{ id: "physics", name: "Captured Physics" }] },
+    },
+  };
+  const original = structuredClone({ input, targets });
+  const model = approvalPresentation("admin.updatePairing", input, targets);
+  expect(model.summary.changes).toEqual([]);
+  expect(model.summary.noChange).toBe(true);
+  expect(model.unchanged).toContainEqual({
+    key: "subjectId",
+    requested: "physics",
+    before: "physics",
+    hasBefore: true,
+  });
+  expect({ input, targets }).toEqual(original);
+  const referenceOnly = approvalPresentation("admin.updatePairing", input, {
+    Pairing: targets.Pairing,
+    reviewReferences: targets.reviewReferences,
+  });
+  expect(referenceOnly.summary.changes).toEqual([]);
+});
+
+it("does not invent an original pairing catalogue ID from missing, mismatched or ambiguous captures", () => {
+  const input = {
+    id: "pairing",
+    subject: "Captured Physics",
+    subjectId: "physics",
+  };
+  const pairing = {
+    Pairing: [{ record: { id: "pairing", subject: "Captured Physics" } }],
+  };
+  const captures = [
+    pairing,
+    { Subject: [{ record: { id: "physics", name: "Captured Physics" } }] },
+    {
+      ...pairing,
+      Subject: [{ record: { id: "physics", name: "Different subject" } }],
+    },
+    {
+      ...pairing,
+      Subject: [
+        { record: { id: "physics", name: "Captured Physics" } },
+        { record: { id: "other", name: "Captured Physics" } },
+      ],
+    },
+    {
+      ...pairing,
+      Subject: [{ record: { id: "physics", name: "Captured Physics" } }],
+      reviewReferences: {
+        version: 1,
+        entities: { Subject: [{ id: "physics", name: "Conflicting name" }] },
+      },
+    },
+    {
+      ...pairing,
+      reviewReferences: {
+        version: 99,
+        entities: { Subject: [{ id: "physics", name: "Captured Physics" }] },
+      },
+    },
+  ];
+  for (const targets of captures) {
+    const model = approvalPresentation("admin.updatePairing", input, targets);
+    expect(model.summary.changes).toContainEqual({
+      key: "subjectId",
+      requested: "physics",
+      before: undefined,
+      hasBefore: false,
+    });
+    expect(model.summary.noChange).toBe(false);
+  }
+  const changed = approvalPresentation(
+    "admin.updatePairing",
+    { ...input, subject: "Changed Physics" },
+    {
+      ...pairing,
+      Subject: [{ record: { id: "physics", name: "Changed Physics" } }],
+    },
+  );
+  expect(changed.summary.changes.map((field) => field.key)).toEqual([
+    "subject",
+    "subjectId",
+  ]);
+});
+
+it("explains announcement publication and reports only the captured recipient count, including zero", () => {
+  const payload = {
+    title: "Synthetic announcement",
+    body: "Exact announcement text",
+    audience: { mode: "all" },
+  };
+  const targets = {
+    announcementRecipients: [
+      { id: "one", name: "Captured Tutor One" },
+      { id: "two", name: "Captured Tutor Two" },
+    ],
+  };
+  const original = structuredClone({ payload, targets });
+  const model = approvalPresentation(
+    "admin.createAnnouncement",
+    payload,
+    targets,
+  );
+  expect(model.outcome).toBe("createAnnouncementOutcome");
+  expect(model.summary.facts).toContainEqual({
+    key: "recipientCount",
+    value: 2,
+  });
+  expect(model.summary.changes).toContainEqual(
+    expect.objectContaining({
+      key: "body",
+      requested: "Exact announcement text",
+    }),
+  );
+  expect({ payload, targets }).toEqual(original);
+  expect(
+    approvalPresentation("admin.createAnnouncement", payload, {
+      announcementRecipients: [],
+    }).summary.facts,
+  ).toContainEqual({ key: "recipientCount", value: 0 });
+  expect(
+    approvalPresentation(
+      "admin.createAnnouncement",
+      payload,
+      {},
+    ).summary.facts.some((fact) => fact.key === "recipientCount"),
+  ).toBe(false);
+});

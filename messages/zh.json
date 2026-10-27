@@ -3646,7 +3646,8 @@
       "archiveSubjectOutcome": "将此科目开设项设为非活动；保留现有报名及历史记录中的引用。",
       "assignInterviewersOutcome": "由拟定面试小组及主席重新开始面试审核，并清除先前投票、面试完成记录及已计入的面试服务时数。",
       "replaceAcceptedPanelOutcome": "重新开始面试审核，清除先前投票、面试完成记录及服务时数，并撤销此首次申请尚未使用的邀请。除非另有已获接受的申请独立授予成员资格，否则同时撤销原辅导伙伴录取及当前配对。",
-      "saveCourseGroupOutcome": "保存科目组，并将拟定的科目开设项设为活动。未列入的现有开设项会归档，其引用记录予以保留。开设项更名也会同步更新名称匹配的配对科目标签。"
+      "saveCourseGroupOutcome": "保存科目组，并将拟定的科目开设项设为活动。未列入的现有开设项会归档，其引用记录予以保留。开设项更名也会同步更新名称匹配的配对科目标签。",
+      "createAnnouncementOutcome": "发布此公告。发布后，接收人名单保持不变。"
     },
     "requestHead": "申请负责人审批",
     "sensitiveHelp": "负责人可直接执行这些更改。管理员提交请求由负责人审批；协调员仅可查看。待审批请求不会更改现有设置。",
@@ -4333,7 +4334,8 @@
       "outcome": "记录的处理结果",
       "fieldsAdded": "已添加：{fields}",
       "fieldsRemoved": "已移除：{fields}"
-    }
+    },
+    "technicalDetails": "技术详情"
   },
   "auditFilters": {
     "subtitle": "按用户追踪项目中的操作、提案和决定。",

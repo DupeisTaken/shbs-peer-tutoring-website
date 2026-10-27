@@ -3646,7 +3646,8 @@
       "archiveSubjectOutcome": "Marcar esta oferta de asignatura como inactiva y conservar las referencias de las inscripciones existentes y del historial.",
       "assignInterviewersOutcome": "Iniciar una nueva evaluación de entrevista con el panel y la presidencia solicitados. Borrar los votos anteriores, el registro de finalización y las horas de entrevista acreditadas.",
       "replaceAcceptedPanelOutcome": "Iniciar una nueva evaluación de entrevista y borrar los votos anteriores, la finalización y las horas de entrevista. Revocar las invitaciones sin usar de esta solicitud inicial. Revertir la admisión previa del tutor y sus asignaciones actuales, salvo que otra solicitud aceptada autorice la participación de forma independiente.",
-      "saveCourseGroupOutcome": "Guardar el grupo y las ofertas solicitadas como activos. Archivar las ofertas existentes omitidas y conservar sus referencias. Los cambios de nombre también actualizan las etiquetas de asignatura coincidentes en las asignaciones."
+      "saveCourseGroupOutcome": "Guardar el grupo y las ofertas solicitadas como activos. Archivar las ofertas existentes omitidas y conservar sus referencias. Los cambios de nombre también actualizan las etiquetas de asignatura coincidentes en las asignaciones.",
+      "createAnnouncementOutcome": "Publicar este anuncio. La lista de destinatarios queda fija después de la publicación."
     },
     "requestHead": "Request Head Approval",
     "sensitiveHelp": "Head applies these changes directly. Admin submits requests for Head review; Coordinators have read-only access. Pending requests do not change live settings.",
@@ -4333,7 +4334,8 @@
       "outcome": "Resultado registrado",
       "fieldsAdded": "Se añadió: {fields}",
       "fieldsRemoved": "Se eliminó: {fields}"
-    }
+    },
+    "technicalDetails": "Detalles técnicos"
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",

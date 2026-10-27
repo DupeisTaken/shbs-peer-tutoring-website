@@ -3646,7 +3646,8 @@
       "archiveSubjectOutcome": "この科目の開設項目を無効にし、既存の申込みと過去の記録からの参照を維持します。",
       "assignInterviewersOutcome": "申請された面接担当者と責任者による新しい面接審査を開始し、以前の投票、面接完了記録、認定済みの面接活動時間を削除します。",
       "replaceAcceptedPanelOutcome": "新しい面接審査を開始し、以前の投票、面接完了記録、活動時間を削除します。この初回応募の未使用の招待を無効化します。別の受理済み応募が独立して参加資格を認めている場合を除き、以前のチューター採用と現在の指導割当てを取り消します。",
-      "saveCourseGroupOutcome": "科目グループを保存し、申請された開設項目を有効にします。省略された既存の開設項目は参照を維持したままアーカイブします。開設項目の名称変更は、一致する指導割当ての科目名にも反映されます。"
+      "saveCourseGroupOutcome": "科目グループを保存し、申請された開設項目を有効にします。省略された既存の開設項目は参照を維持したままアーカイブします。開設項目の名称変更は、一致する指導割当ての科目名にも反映されます。",
+      "createAnnouncementOutcome": "このお知らせを公開します。公開後、受信者の一覧は変更されません。"
     },
     "requestHead": "Request Head Approval",
     "sensitiveHelp": "Head applies these changes directly. Admin submits requests for Head review; Coordinators have read-only access. Pending requests do not change live settings.",
@@ -4333,7 +4334,8 @@
       "outcome": "記録された結果",
       "fieldsAdded": "追加：{fields}",
       "fieldsRemoved": "削除：{fields}"
-    }
+    },
+    "technicalDetails": "技術的な詳細"
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",

@@ -592,6 +592,7 @@ export function AuditEventDetails({ id }: { id: string }) {
         ),
       )
     : null;
+  const entityLabel = auditEntityLabelKey(event.entity ?? undefined);
 
   return (
     <div className="min-w-0 space-y-6 text-sm [overflow-wrap:anywhere]">
@@ -606,11 +607,43 @@ export function AuditEventDetails({ id }: { id: string }) {
           <Metadata label={t("action")}>{event.action}</Metadata>
           <Metadata label={t("when")}>{timestamp(event.createdAt)}</Metadata>
           <Metadata label={t("actor")}>{recorded(event.userName)}</Metadata>
+          <Metadata label={t("kind")}>
+            {kinds.has(event.kind) ? kinds(event.kind) : event.kind}
+          </Metadata>
+          <Metadata label={t("entity")}>
+            {entityLabel && vocabulary.has(entityLabel)
+              ? vocabulary(entityLabel)
+              : recorded(event.entity)}
+          </Metadata>
+          {event.undone && (
+            <Metadata label={t("undoStatus")}>{t("undone")}</Metadata>
+          )}
+          {evidence &&
+            "outcome" in evidence &&
+            typeof evidence.outcome === "string" &&
+            vocabulary.has(
+              `auditEventDetails.presentation.outcomes.${evidence.outcome}`,
+            ) && (
+              <Metadata label={t("presentation.outcome")}>
+                {vocabulary(
+                  `auditEventDetails.presentation.outcomes.${evidence.outcome}`,
+                )}
+                <span className="mt-1 block font-mono text-xs text-slate-500">
+                  {evidence.outcome}
+                </span>
+              </Metadata>
+            )}
+        </dl>
+      </section>
+      <AuditChangeSummary summary={summary} />
+      {/* Technical provenance stays complete, but its independent disclosure
+          leaves the recorded changes near the top of this long reader. */}
+      <ReviewDisclosure title={t("technicalDetails")} defaultOpen={false}>
+        <dl className="grid gap-4 sm:grid-cols-2">
           <Metadata label={t("actorId")}>{recorded(event.userId)}</Metadata>
           <Metadata label={t("eventId")}>{event.id}</Metadata>
           <Metadata label={t("kind")}>
-            {kinds.has(event.kind) ? kinds(event.kind) : event.kind}{" "}
-            <span className="text-xs text-slate-500">({event.kind})</span>
+            <span>({event.kind})</span>
           </Metadata>
           <Metadata label={t("operation")}>
             {recorded(event.operation)}
@@ -633,24 +666,8 @@ export function AuditEventDetails({ id }: { id: string }) {
             {t(event.undone ? "undone" : "notUndone")}
           </Metadata>
           <Metadata label={t("undoneAt")}>{timestamp(event.undoneAt)}</Metadata>
-          {evidence &&
-            "outcome" in evidence &&
-            typeof evidence.outcome === "string" &&
-            vocabulary.has(
-              `auditEventDetails.presentation.outcomes.${evidence.outcome}`,
-            ) && (
-              <Metadata label={t("presentation.outcome")}>
-                {vocabulary(
-                  `auditEventDetails.presentation.outcomes.${evidence.outcome}`,
-                )}
-                <span className="mt-1 block font-mono text-xs text-slate-500">
-                  {evidence.outcome}
-                </span>
-              </Metadata>
-            )}
         </dl>
-      </section>
-      <AuditChangeSummary summary={summary} />
+      </ReviewDisclosure>
       <section
         aria-label={t("evidence")}
         className="space-y-4 border-t border-slate-200 pt-5"

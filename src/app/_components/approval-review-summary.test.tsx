@@ -138,6 +138,138 @@ it.each(["en", "zh"])(
   },
 );
 
+it.each(["en", "zh"])(
+  "keeps the primary account ID beside its captured name in upfront profile context (%s)",
+  (locale) => {
+    const copy = locale === "en" ? en : zh;
+    const accountId = "synthetic-profile-account";
+    show(
+      "admin.updateAccountProfile",
+      {
+        userId: accountId,
+        name: "Updated Account Name",
+        firstName: "Updated",
+        lastName: "Account",
+        preferredName: null,
+        alternativeNames: null,
+        expectedProfileVersion: 0,
+      },
+      {
+        User: [
+          {
+            record: {
+              id: accountId,
+              name: "Captured Account Name",
+              firstName: "Captured",
+              lastName: "Account",
+              preferredName: null,
+              alternativeNames: null,
+            },
+          },
+        ],
+        reviewReferences: {
+          version: 1,
+          entities: {
+            User: [
+              {
+                id: accountId,
+                name: "Captured Account Name",
+                username: "captured-account",
+              },
+            ],
+          },
+        },
+      },
+      locale,
+    );
+    const affected = within(
+      screen.getByRole("region", { name: copy.approvals.review.affected }),
+    );
+    const context = affected.getByText(copy.approvals.review.fields.userId, {
+      selector: "dt",
+    }).parentElement!;
+    expect(within(context).getByText("Captured Account Name")).toBeTruthy();
+    expect(
+      within(context).getByText(
+        copy.approvals.review.recordId.replace("{id}", accountId),
+      ),
+    ).toBeTruthy();
+  },
+);
+
+it.each(["en", "zh"])(
+  "keeps distinct learner IDs for same-name nested references in upfront assignment context (%s)",
+  (locale) => {
+    const copy = locale === "en" ? en : zh;
+    const pairingId = "synthetic-pairing-context";
+    const learnerIds = ["synthetic-learner-one", "synthetic-learner-two"];
+    show(
+      "admin.updatePairing",
+      {
+        id: pairingId,
+        tutorId: "synthetic-tutor",
+        timeSlotId: "synthetic-slot",
+        subject: "Captured Physics",
+        roomMode: "NONE",
+        expectedRoomVersion: 0,
+        tuteeIds: learnerIds,
+      },
+      {
+        Pairing: [
+          {
+            record: {
+              id: pairingId,
+              tutorId: "synthetic-tutor",
+              timeSlotId: "synthetic-slot",
+              subject: "Captured Physics",
+              roomMode: "NONE",
+              dayOfWeek: 2,
+              startMin: 900,
+              endMin: 960,
+            },
+          },
+        ],
+        "Pairing.PairingTutee": learnerIds.map((tuteeId) => ({
+          record: { pairingId, tuteeId },
+        })),
+        reviewReferences: {
+          version: 1,
+          entities: {
+            Tutor: [{ id: "synthetic-tutor", englishName: "Captured Tutor" }],
+            Tutee: learnerIds.map((id) => ({
+              id,
+              englishName: "Same Captured Name",
+            })),
+            TimeSlot: [
+              {
+                id: "synthetic-slot",
+                label: "Captured Slot",
+                dayOfWeek: 2,
+                startMin: 900,
+                endMin: 960,
+              },
+            ],
+          },
+        },
+      },
+      locale,
+    );
+    const affected = within(
+      screen.getByRole("region", { name: copy.approvals.review.affected }),
+    );
+    const context = affected.getByText(copy.approvals.review.fields.id, {
+      selector: "dt",
+    }).parentElement!;
+    expect(within(context).getAllByText("Same Captured Name")).toHaveLength(2);
+    for (const id of learnerIds)
+      expect(
+        within(context).getByText(
+          copy.approvals.review.recordId.replace("{id}", id),
+        ),
+      ).toBeTruthy();
+  },
+);
+
 it("preserves literal names and exact multiline changes, including an empty original", () => {
   const text = "PRESENT\n  Keep indentation.\n";
   show(

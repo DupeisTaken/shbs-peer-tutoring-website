@@ -1982,6 +1982,11 @@ Typed entity/ID references prevent similarly named people or identical IDs in
 different tables from borrowing one another's identity. IDs remain secondary;
 missing or contradictory captured labels are stated explicitly. Literal names,
 reasons and publication text never become translated enum values.
+Compact context uses the full card width; desktop original/requested values sit
+side by side and narrow screens stack them. Every named reference retains its
+secondary identifier so same-name participants and account targets stay distinct.
+An unchanged pairing catalogue selector is suppressed only when its exact captured
+subject ID/name and original/requested subject text prove the same selection.
 
 Action outcomes follow the owning writer: subject removal archives an offering;
 replacing an interview panel starts a fresh review and clears prior votes,
@@ -2023,9 +2028,12 @@ child collection differs from an uncaptured collection.
 
 [`AuditChangeSummary`](../../src/app/_components/audit-event-details.tsx) adds a
 changed-value reading order for recognized recorded before/after envelopes. Each
-comparison can collapse independently. Arrays retain the established positional
-comparison; recorded IDs label the evidence without rematching it. The complete
-original reader and exact JSON remain available, including unknown historical
+comparison can collapse independently. Event identity, time, type and recorded
+outcome precede changes; technical identifiers and metadata have their own
+initially closed disclosure.
+Arrays retain the established positional comparison; recorded IDs label the
+evidence without rematching it. The complete original reader and exact JSON
+remain available, including unknown historical
 envelopes. These readers perform no writes and do not replace request permissions,
 stale-evidence checks, private-evidence allowlists or transactional replay.
 

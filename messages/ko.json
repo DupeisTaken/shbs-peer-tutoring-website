@@ -3646,7 +3646,8 @@
       "archiveSubjectOutcome": "이 개설 과목을 비활성화하고 기존 등록 신청과 과거 기록의 참조를 유지합니다.",
       "assignInterviewersOutcome": "요청된 면접 담당자와 책임자로 새 면접 심사를 시작합니다. 이전 투표, 면접 완료 기록, 인정된 면접 봉사 시간을 삭제합니다.",
       "replaceAcceptedPanelOutcome": "새 면접 심사를 시작하고 이전 투표, 완료 기록, 면접 봉사 시간을 삭제합니다. 이 최초 지원의 미사용 초대를 철회합니다. 별도의 수락된 지원이 독립적으로 참여 자격을 부여하는 경우를 제외하고 이전 튜터 선발과 현재 지도 배정을 취소합니다.",
-      "saveCourseGroupOutcome": "과목 그룹을 저장하고 요청된 개설 과목을 활성화합니다. 빠진 기존 개설 과목은 참조를 유지한 채 보관 처리합니다. 개설 과목 이름이 바뀌면 일치하는 지도 배정의 과목 이름도 갱신됩니다."
+      "saveCourseGroupOutcome": "과목 그룹을 저장하고 요청된 개설 과목을 활성화합니다. 빠진 기존 개설 과목은 참조를 유지한 채 보관 처리합니다. 개설 과목 이름이 바뀌면 일치하는 지도 배정의 과목 이름도 갱신됩니다.",
+      "createAnnouncementOutcome": "이 공지를 게시합니다. 게시 후에는 수신자 목록이 변경되지 않습니다."
     },
     "requestHead": "Request Head Approval",
     "sensitiveHelp": "Head applies these changes directly. Admin submits requests for Head review; Coordinators have read-only access. Pending requests do not change live settings.",
@@ -4333,7 +4334,8 @@
       "outcome": "기록된 결과",
       "fieldsAdded": "추가됨: {fields}",
       "fieldsRemoved": "삭제됨: {fields}"
-    }
+    },
+    "technicalDetails": "기술 세부 정보"
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",

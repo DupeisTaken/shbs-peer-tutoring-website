@@ -3646,7 +3646,8 @@
       "archiveSubjectOutcome": "Désactiver cette matière proposée tout en conservant les références des inscriptions existantes et de l’historique.",
       "assignInterviewersOutcome": "Commencer une nouvelle évaluation d’entretien avec le jury et la présidence demandés. Effacer les votes précédents, l’enregistrement de fin d’entretien et les heures d’entretien créditées.",
       "replaceAcceptedPanelOutcome": "Commencer une nouvelle évaluation d’entretien et effacer les votes précédents, la fin d’entretien et les heures créditées. Révoquer les invitations inutilisées de cette candidature initiale. Annuler l’admission antérieure du tuteur et ses affectations actuelles, sauf si une autre candidature acceptée autorise indépendamment sa participation.",
-      "saveCourseGroupOutcome": "Enregistrer le groupe et les matières demandées comme actifs. Archiver les matières existantes omises tout en conservant leurs références. Les changements de nom mettent aussi à jour les libellés de matière correspondants dans les affectations."
+      "saveCourseGroupOutcome": "Enregistrer le groupe et les matières demandées comme actifs. Archiver les matières existantes omises tout en conservant leurs références. Les changements de nom mettent aussi à jour les libellés de matière correspondants dans les affectations.",
+      "createAnnouncementOutcome": "Publier cette annonce. La liste des destinataires reste fixe après la publication."
     },
     "requestHead": "Request Head Approval",
     "sensitiveHelp": "Head applies these changes directly. Admin submits requests for Head review; Coordinators have read-only access. Pending requests do not change live settings.",
@@ -4333,7 +4334,8 @@
       "outcome": "Résultat enregistré",
       "fieldsAdded": "Ajout : {fields}",
       "fieldsRemoved": "Suppression : {fields}"
-    }
+    },
+    "technicalDetails": "Détails techniques"
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",

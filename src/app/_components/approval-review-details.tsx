@@ -231,6 +231,7 @@ export function ApprovalReviewDetails({
     key = "",
     owner = entity,
     literal = false,
+    context = false,
   ): React.ReactNode => {
     if (value === undefined)
       return <span className="text-slate-600">{t("unavailable")}</span>;
@@ -253,14 +254,25 @@ export function ApprovalReviewDetails({
                     },
                   ))}
           </span>
-          {value.facts.map((fact) => (
-            <div key={fact.key} className="text-sm">
-              <span className="text-slate-600">
-                {label(fact.key, value.entity)}:{" "}
-              </span>
-              {display(fact.value, fact.key, value.entity)}
-            </div>
-          ))}
+          <div
+            className={
+              context && key === "id"
+                ? "grid gap-x-4 gap-y-2 sm:grid-cols-2"
+                : "space-y-1"
+            }
+          >
+            {value.facts.map((fact) => (
+              <div
+                key={fact.key}
+                className={`min-w-0 text-sm ${context && Array.isArray(fact.value) ? "sm:col-span-2" : ""}`}
+              >
+                <span className="text-slate-600">
+                  {label(fact.key, value.entity)}:{" "}
+                </span>
+                {display(fact.value, fact.key, value.entity, false, context)}
+              </div>
+            ))}
+          </div>
           <span className="block text-xs font-normal [overflow-wrap:anywhere] text-slate-600">
             {t("recordId", { id: value.id })}
           </span>
@@ -421,7 +433,7 @@ export function ApprovalReviewDetails({
       }
       if (["id", "ids", "code", "codes"].includes(key) || /Ids?$/.test(key)) {
         const reference = model.referenceFor(key, value, owner);
-        if (reference) return display(reference, key, owner);
+        if (reference) return display(reference, key, owner, false, context);
         // An untyped identifier cannot borrow a label from another table.
         return t("recordId", { id: value });
       }
@@ -507,7 +519,7 @@ export function ApprovalReviewDetails({
                                       : undefined;
     if (Array.isArray(value))
       return value.length ? (
-        <ul className="space-y-2">
+        <ul className={context ? "grid gap-2 sm:grid-cols-3" : "space-y-2"}>
           {value.map((item, index) => (
             <li key={index} className="border-l-2 border-slate-200 pl-3">
               {display(
@@ -516,6 +528,7 @@ export function ApprovalReviewDetails({
                 childOwner ?? owner,
                 literal ||
                   (item !== null && typeof item === "object" && !childOwner),
+                context,
               )}
             </li>
           ))}
@@ -544,6 +557,7 @@ export function ApprovalReviewDetails({
                     field,
                     childOwner ?? owner,
                     literal || !childOwner,
+                    context,
                   )}
                 </dd>
               </div>
@@ -552,15 +566,24 @@ export function ApprovalReviewDetails({
       );
     return t("unavailable");
   };
-  const values = (entries: [string, unknown][], owner = entity) => (
+  // Compact context still retains a secondary ID for every reference: names
+  // can collide, including the primary account selected by a userId field.
+  const values = (
+    entries: [string, unknown][],
+    owner = entity,
+    context = false,
+  ) => (
     <dl className="grid gap-4 sm:grid-cols-2">
       {entries.map(([key, value]) => (
-        <div key={key} className="min-w-0">
+        <div
+          key={key}
+          className={`min-w-0 ${context && isReviewReference(value) && value.facts.length ? "sm:col-span-2" : ""}`}
+        >
           <dt className="text-xs font-medium text-slate-500">
             {label(key, owner)}
           </dt>
           <dd className="mt-1 text-sm break-words whitespace-pre-wrap text-slate-900">
-            {display(value, key, owner)}
+            {display(value, key, owner, false, context)}
           </dd>
         </div>
       ))}
@@ -569,7 +592,9 @@ export function ApprovalReviewDetails({
   // The persistent summary keeps the actual changed values visible when the
   // full review is collapsed. It shares the exact capture and value renderer.
   const summaryValue = (field: ReviewField, owner = entity) => (
-    <div className="min-w-0 text-sm [overflow-wrap:anywhere] whitespace-pre-wrap">
+    <div
+      className={`min-w-0 text-sm [overflow-wrap:anywhere] whitespace-pre-wrap ${model.comparison ? "grid gap-3 sm:grid-cols-2" : ""}`}
+    >
       {model.comparison && (
         <div className="text-slate-700">
           <span className="font-medium">{t("before")}: </span>
@@ -662,7 +687,11 @@ export function ApprovalReviewDetails({
   const summary = (
     <section aria-label={t("affected")} className="space-y-3">
       {!!model.summary.facts.length &&
-        values(model.summary.facts.map(({ key, value }) => [key, value]))}
+        values(
+          model.summary.facts.map(({ key, value }) => [key, value]),
+          entity,
+          true,
+        )}
       <p className="text-sm font-medium text-slate-900">{t(model.outcome)}</p>
       {!!model.summary.changes.length && (
         <dl

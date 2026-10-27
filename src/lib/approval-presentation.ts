@@ -77,6 +77,8 @@ export function approvalPresentation(
       }
     | undefined;
   const add = (key: string, value: unknown) => facts.push({ key, value });
+  if (operation === "admin.createAnnouncement")
+    outcome = "createAnnouncementOutcome";
   if (
     operation === "admin.createAnnouncement" &&
     Array.isArray(evidence.announcementRecipients)
@@ -453,6 +455,44 @@ export function approvalPresentation(
   }
 
   const referenceFor = approvalReferences(operation, payload, targets);
+  if (
+    operation === "admin.updatePairing" &&
+    typeof input.subjectId === "string" &&
+    typeof input.subject === "string"
+  ) {
+    const field = changes.find(
+      (field) => field.key === "subjectId" && !field.hasBefore,
+    );
+    const pairings = rows(evidence.Pairing).filter(
+      (row) => row.id === input.id,
+    );
+    const subjects = [
+      ...rows(evidence.Subject),
+      ...rows(evidence.catalogue),
+      ...(references?.version === 1
+        ? rows(record(references.entities)?.Subject)
+        : []),
+    ].filter((row) => row.name === input.subject);
+    const selected = referenceFor("subjectId", input.subjectId);
+    // Pairing stores subject text, not subjectId. This optional ID selects the
+    // uniquely named catalogue offering for assignment checks. Only the exact,
+    // consistent captured name/ID join establishes an unchanged selection.
+    if (
+      field &&
+      pairings.length &&
+      pairings.every((row) => row.subject === input.subject) &&
+      subjects.length &&
+      subjects.every((row) => row.id === input.subjectId) &&
+      selected?.state === "recorded" &&
+      selected.name === input.subject
+    ) {
+      changes = changes.filter((change) => change !== field);
+      unchanged = [
+        ...unchanged,
+        { ...field, before: input.subjectId, hasBefore: true },
+      ];
+    }
+  }
   const summary = approvalSummary({
     operation,
     payload,
