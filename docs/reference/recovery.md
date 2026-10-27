@@ -23,6 +23,34 @@ website resolves that shared vocabulary through localized messages, preserving
 record/table identifiers and displaying unknown future diagnostics verbatim.
 Translation does not alter evidence, fingerprints or recovery eligibility.
 
+New journal updates also store `changedFields`: the complete column-name delta,
+without private values. Earlier rows retain null because redacted snapshots cannot
+establish what was changed. The admission adapter can preserve fully covered
+name/contact, notification-preference, password/security, suspension, independent
+staff/Crew/Translator access and workload-preference edits. It checks every row in
+the transaction against an explicit allowlist. A mixed ownership/lifecycle edit,
+new related record, unsupported role change or missing field metadata still blocks
+recovery. Expiry shortening/revocation of the exact source code is supported;
+extending or rebinding that code is not. These transactions still count toward the
+website's zero-or-one limit, even when their independent fields are kept.
+
+Account compensation is limited to the admission's captured, attached or code-using
+accounts. A learning partner's account may appear in the transitive journal after
+an independent edit, but that does not make it a login created by this admission.
+Independent password changes do not preserve a login whose only authorization was
+the voided admission. Inactive tutors continue to use zero workload under the
+existing lifecycle rule; the later preference remains in immutable history.
+Adapter revision 2 is included in the plan fingerprint, invalidating older previews.
+
+Recovery source rows lead with the applicant and an authored decision description.
+Chronology distinguishes preserved independent edits from changes needing review;
+raw event kinds and record identifiers remain in a disclosure. Audit and approval
+titles resolve the existing translated operation vocabulary, with translated
+category fallbacks for unknown operations, never the raw operation string.
+Refreshing a changed preview retains the typed reason but disables execution until
+the user explicitly reviews the new consequences. A failed background read also
+retains the draft and disables writes; revoked access removes private content.
+
 The journal follows persisted identities conservatively; a shared record reference
 is evidence of possible impact, not proof that every later fact was caused by the
 admission. The admission adapter decides which effects it can compensate and

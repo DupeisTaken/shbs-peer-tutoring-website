@@ -5959,7 +5959,7 @@
     "confirmHelp": "Dies protokolliert eine kompensierende Wiederherstellung und einen unveränderlichen Beleg. Betroffene Datensätze und Grund vor der Bestätigung prüfen.",
     "cancel": "Abbrechen",
     "applying": "Wird ausgeführt…",
-    "requestApproval": "Head-Genehmigung anfordern",
+    "requestApproval": "Genehmigung durch Admin oder Leitung beantragen",
     "confirm": "Zulassung aufheben und Effekte zurücknehmen",
     "preserved": "Unabhängige Zugriffe, unbeteiligte Zuordnungen sowie tatsächliche Interviewanwesenheit und Stunden bleiben erhalten. Zugestellte Nachrichten und gesendete E-Mails können nicht zurückgerufen werden.",
     "preview": "Wiederherstellungsvorschau",
@@ -6045,7 +6045,31 @@
       "missingRegistration": "Für einen verbrauchten Code fehlt ein vorausschauend erfasster Nachweis der Kontoerstellung.",
       "preserveHistory": "Zugestellte Nachrichten sowie tatsächliche Interviewanwesenheit und Stunden bleiben als historische Belege erhalten. Gesendete E-Mails können nicht zurückgerufen werden.",
       "preserveIdentity": "Identitäts- und akademische Belege bleiben erhalten. Die Wiederherstellung kompensiert Zulassungszugriff, wiederkehrende Zuordnungen und zurechenbare Verifizierungsfristen.",
-      "preserveAdmission": "Eine unabhängige Tutorenzulassung bleibt erhalten; die zugehörigen Zugriffe und Zuordnungen bleiben bestehen."
-    }
+      "preserveAdmission": "Eine unabhängige Tutorenzulassung bleibt erhalten; die zugehörigen Zugriffe und Zuordnungen bleiben bestehen.",
+      "preserveLaterEdits": "Unterstützte unabhängige Änderungen bleiben erhalten. Nur durch diese Zulassung gewährter Login-Zugang wird entzogen; bei inaktiven Tutoren wird die Arbeitslast auf null gesetzt."
+    },
+    "admissionFor": "Tutorenzulassung für {name} genehmigt",
+    "previewHelp": "Prüfen Sie vor dem Rückgängigmachen, was geändert und was beibehalten wird.",
+    "technicalDetails": "Datensatzkennungen",
+    "eventCountHelp": "Alle späteren Transaktionen zählen, auch unabhängige Änderungen, die erhalten bleiben.",
+    "recordCount": "{count} Datensätze",
+    "eventPreserved": "Unabhängige Konto- oder Profiländerung",
+    "eventUnknown": "Aufgezeichnete Änderung zur Prüfung",
+    "eventPreservedHelp": "Unterstützte unabhängige Änderungen bleiben erhalten. Nur durch diese Zulassung gewährter Login-Zugang wird entzogen; bei inaktiven Tutoren wird die Arbeitslast auf null gesetzt.",
+    "eventAdmissionHelp": "Diese Genehmigung wird rückgängig gemacht.",
+    "eventReviewHelp": "Prüfen Sie oben, welche Folgen rückgängig gemacht werden können.",
+    "actionIdHelp": "Wählen Sie unten eine Genehmigung oder fügen Sie deren Wiederherstellungsreferenz aus den Datenbankeinträgen ein. Bewerbungs- und Audit-IDs sind andere Kennungen.",
+    "previewChanged": "Die Datensätze haben sich seit dieser Vorschau geändert. Ihre Begründung bleibt erhalten. Prüfen Sie die aktualisierten Folgen.",
+    "reviewUpdated": "Aktualisierte Folgen prüfen",
+    "eventCodeRestricted": "Registrierungscode eingeschränkt oder widerrufen",
+    "eventWorkload": "Arbeitslastwunsch des Tutors aktualisiert"
+  },
+  "eventTitles": {
+    "ACTION": "Aufgezeichnete Änderung",
+    "DECISION": "Aufgezeichnete Entscheidung",
+    "SUBMISSION": "Beantragte Änderung",
+    "CANCELLATION": "Antrag zurückgezogen",
+    "REVERSAL": "Aktion rückgängig gemacht",
+    "ATTEMPT": "Versuchte Änderung"
   }
 }

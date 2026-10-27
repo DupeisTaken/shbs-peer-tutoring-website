@@ -25,7 +25,8 @@ import { useFormatter, useTranslations } from "next-intl";
 import SuperJSON from "superjson";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
+import { proposalConfirmation } from "~/lib/approval-policy";
+import { eventTitle } from "~/lib/event-title";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
 import { ApprovalReviewDetails } from "./approval-review-details";
 import { Button, ChoiceButton } from "./ui/button";
@@ -48,6 +49,7 @@ function RequestCard({
   onChanged: (operation?: string) => Promise<void>;
 }) {
   const t = useTranslations("approvals");
+  const titles = useTranslations();
   const editing = useTranslations("signupEditing");
   const appeals = useTranslations("signupAppeal");
   const format = useFormatter();
@@ -158,13 +160,7 @@ function RequestCard({
                 className="hover:underline"
                 href={`/admin/approvals?request=${encodeURIComponent(request.id)}`}
               >
-                {t.has(
-                  `review.operations.${request.operation.replaceAll(".", "_")}`,
-                )
-                  ? t(
-                      `review.operations.${request.operation.replaceAll(".", "_")}`,
-                    )
-                  : humanizeOperation(request.operation)}
+                {eventTitle(titles, { operation: request.operation, kind: "SUBMISSION" })}
               </Link>
             </h2>
             <p className="mt-1 text-sm text-slate-500">

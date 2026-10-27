@@ -18,6 +18,7 @@ import {
   registrationCompletionProof,
 } from "~/server/auth/registration";
 import { stampStudentAssignment } from "~/server/student-request-state";
+import { updateAccountProfile } from "~/server/account-profile";
 
 beforeEach(async () => {
   assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -191,6 +192,206 @@ const intent = (
   expectedFingerprint: plan.fingerprint,
   clientKey: randomUUID(),
   reason: "Voiding mistaken initial admission",
+});
+
+it("preserves a real later profile edit and its mirrors without keeping private values in the journal", async () => {
+  const source = await admission({ existingStudent: true });
+  await updateAccountProfile(
+    db,
+    "prior-user",
+    { firstName: "Corrected", lastName: "Candidate" },
+    { management: true },
+  );
+  const plan = await inspectAdmissionRecovery(db, source);
+  expect(plan).toMatchObject({
+    coverage: "COMPLETE",
+    dependentEventCount: 1,
+    websiteEligible: true,
+  });
+  expect(plan.events.at(-1)?.disposition).toBe("PRESERVED");
+  const changes = await db.recoveryChange.findMany({
+    where: { actionId: source.actionId, entity: "User", operation: "UPDATE" },
+  });
+  expect(
+    changes.some(
+      (change) =>
+        Array.isArray(change.changedFields) &&
+        change.changedFields.includes("firstName"),
+    ),
+  ).toBe(true);
+  expect(
+    JSON.stringify(changes, (_key, value: unknown) =>
+      typeof value === "bigint" ? String(value) : value,
+    ),
+  ).not.toContain("Corrected");
+  await applyAdmissionRecovery(db, intent(plan), { id: "admin" });
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: "prior-user" } }),
+  ).toMatchObject({
+    firstName: "Corrected",
+    role: "STUDENT",
+    passwordHash: "unchanged-independent-credential",
+  });
+  expect(
+    await db.tutee.findUniqueOrThrow({ where: { id: "prior-student" } }),
+  ).toMatchObject({ firstName: "Corrected" });
+});
+
+it("preserves independent staff access, security changes and suspension after registration", async () => {
+  const source = await admission();
+  const user = await register(source.applicationId);
+  const suspendedAt = new Date("2026-10-27T01:00:00Z");
+  await db.user.update({
+    where: { id: user.id },
+    data: {
+      role: "COORDINATOR",
+      passwordHash: "new-independent-password",
+      canTranslate: true,
+      suspendedAt,
+      twoFactorEnabled: true,
+    },
+  });
+  const plan = await inspectAdmissionRecovery(db, source);
+  expect(plan).toMatchObject({
+    coverage: "COMPLETE",
+    dependentEventCount: 2,
+    websiteEligible: false,
+  });
+  await expect(
+    applyAdmissionRecovery(db, intent(plan), { id: "admin" }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  await applyAdmissionRecoveryFromOperator(db, intent(plan), { id: "admin" });
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: user.id } }),
+  ).toMatchObject({
+    role: "COORDINATOR",
+    passwordHash: "new-independent-password",
+    canTranslate: true,
+    suspendedAt,
+    twoFactorEnabled: true,
+    tutorAccessRevoked: true,
+    recoveryVoidedAt: null,
+  });
+});
+
+it("voids admission-only credentials even after an independent password change", async () => {
+  const source = await admission();
+  const user = await register(source.applicationId);
+  await db.user.update({
+    where: { id: user.id },
+    data: { passwordHash: "replacement-admission-password" },
+  });
+  const plan = await inspectAdmissionRecovery(db, source);
+  expect(plan.coverage).toBe("COMPLETE");
+  await applyAdmissionRecoveryFromOperator(db, intent(plan), { id: "admin" });
+  const voided = await db.user.findUniqueOrThrow({ where: { id: user.id } });
+  expect(voided.passwordHash).toBeNull();
+  expect(voided.recoveryVoidedAt).not.toBeNull();
+});
+
+it("preserves a later learning-partner account edit without treating that login as admission access", async () => {
+  const source = await admission();
+  await db.tutee.create({
+    data: { id: "independent-learner", englishName: "Learner" },
+  });
+  await db.user.create({
+    data: {
+      id: "learner-login",
+      email: "learner@example.test",
+      role: "STUDENT",
+      studentId: "independent-learner",
+      tuteeMember: true,
+      passwordHash: "learner-password",
+    },
+  });
+  await assignment(source.tutorId, "learner", "independent-learner");
+  await db.user.update({
+    where: { id: "learner-login" },
+    data: { name: "Corrected Learner", emailMessages: true },
+  });
+  const plan = await inspectAdmissionRecovery(db, source);
+  expect(plan.coverage).toBe("COMPLETE");
+  expect(plan.effects.accountIds).not.toContain("learner-login");
+  await applyAdmissionRecoveryFromOperator(db, intent(plan), { id: "admin" });
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: "learner-login" } }),
+  ).toMatchObject({
+    name: "Corrected Learner",
+    emailMessages: true,
+    passwordHash: "learner-password",
+    recoveryVoidedAt: null,
+  });
+});
+
+it("accepts an already revoked source code without restoring its authorization", async () => {
+  const source = await admission();
+  const code = await db.registrationCode.findFirstOrThrow({
+    where: { applicationId: source.applicationId },
+  });
+  await db.registrationCode.update({
+    where: { id: code.id },
+    data: { expiresAt: new Date(0) },
+  });
+  const plan = await inspectAdmissionRecovery(db, source);
+  expect(plan).toMatchObject({
+    coverage: "COMPLETE",
+    dependentEventCount: 1,
+    websiteEligible: true,
+  });
+  await applyAdmissionRecovery(db, intent(plan), { id: "admin" });
+  expect(
+    (
+      await db.registrationCode.findUniqueOrThrow({ where: { id: code.id } })
+    ).expiresAt.getTime(),
+  ).toBe(0);
+});
+
+it("refuses an independently extended authorization and mixed unsupported edits", async () => {
+  const source = await admission();
+  const code = await db.registrationCode.findFirstOrThrow({
+    where: { applicationId: source.applicationId },
+  });
+  await db.registrationCode.update({
+    where: { id: code.id },
+    data: { expiresAt: new Date(code.expiresAt.getTime() + 86400000) },
+  });
+  expect((await inspectAdmissionRecovery(db, source)).coverage).toBe("UNKNOWN");
+  await db.$transaction(async (tx) => {
+    await tx.tutor.update({
+      where: { id: source.tutorId },
+      data: { englishName: "Corrected", status: "PENDING" },
+    });
+  });
+  const plan = await inspectAdmissionRecovery(db, source);
+  await expect(
+    applyAdmissionRecoveryFromOperator(db, intent(plan), { id: "admin" }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.recoveryReceipt.count()).toBe(0);
+});
+
+it("keeps preference changes in history while enforcing the inactive tutor workload rule", async () => {
+  const source = await admission();
+  await db.tutor.update({
+    where: { id: source.tutorId },
+    data: {
+      preferredAssignedBlocks: 3,
+      workloadPreferenceVersion: { increment: 1 },
+    },
+  });
+  const plan = await inspectAdmissionRecovery(db, source);
+  expect(plan).toMatchObject({ coverage: "COMPLETE", dependentEventCount: 1 });
+  await applyAdmissionRecovery(db, intent(plan), { id: "admin" });
+  expect(
+    await db.tutor.findUniqueOrThrow({ where: { id: source.tutorId } }),
+  ).toMatchObject({ status: "ARCHIVED", preferredAssignedBlocks: 0 });
+  expect(
+    await db.recoveryChange.count({
+      where: {
+        actionId: source.actionId,
+        after: { path: ["preferredAssignedBlocks"], equals: 3 },
+      },
+    }),
+  ).toBeGreaterThan(0);
 });
 
 it("voids a zero-descendant admission, retaining interview facts and expiring its exact codes", async () => {

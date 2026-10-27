@@ -16,6 +16,24 @@ Open **Database Records** at `/admin/database` to inspect permitted current
 records, model metadata and safe record references. Viewing a record grants no
 additional mutation authority.
 
+Choose an approval by the applicant's name and review **What recovery would
+change** beside **What stays unchanged**. **Record identifiers** holds the original
+event names and IDs for operator investigation. The recovery reference is distinct
+from an application ID or audit ID.
+
+Later independent name/contact, account security, suspension, staff/Crew/Translator
+access and workload-preference edits can now remain in place when the journal has
+complete field-level coverage. Already-shortened or revoked source codes stay
+revoked. An admission-only login is still disabled even if its password changed;
+inactive tutors still have zero workload. Existing learning-partner accounts are
+preserved. A transaction that also changes ownership, unsupported participation or
+other unrecognized fields still needs a separate review. Older edits without the
+new field-name evidence cannot be assumed harmless.
+
+If the records change while you review, your reason remains typed, but recovery is
+disabled. Use **Review updated consequences**, inspect the new effects, then confirm
+again. A failed refresh preserves your reason and offers a read-only retry.
+
 The website permits a supported action only when its entire tracked causal chain
 has zero or one later logical action. Two later actions anywhere in that chain
 require the host operator CLI. A transaction that changes several rows counts as

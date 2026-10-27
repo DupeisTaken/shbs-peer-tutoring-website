@@ -21,8 +21,20 @@ export const recoveryRouter = createTRPCRouter({
         ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
         take: 51,
       });
+      const applications = await ctx.db.tutorApplication.findMany({
+        where: {
+          id: { in: rows.slice(0, 50).map((row) => row.applicationId) },
+        },
+        select: { id: true, name: true },
+      });
       return {
-        items: rows.slice(0, 50),
+        items: rows.slice(0, 50).map((row) => ({
+          ...row,
+          applicantName:
+            applications.find(
+              (application) => application.id === row.applicationId,
+            )?.name ?? null,
+        })),
         nextCursor: rows.length > 50 ? rows[49]!.id : null,
       };
     }),

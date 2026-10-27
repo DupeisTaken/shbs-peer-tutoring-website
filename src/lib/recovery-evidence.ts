@@ -1,6 +1,8 @@
 /** Canonical diagnostics remain stable in stored plans and CLI evidence.
  * The website translates their meaning without rewriting evidence or fingerprints. */
 export const RECOVERY_EVIDENCE = {
+  preserveLaterEdits:
+    "Independent profile, security, access and preference edits remain recorded. Inactive tutor profiles still follow the normal zero-workload rule. Admission-only credentials are revoked even if their password changed.",
   graphLimit:
     "The causal graph exceeds the bounded adapter limit; operator review is required.",
   missingEvidence: "Complete prospective admission evidence is unavailable.",

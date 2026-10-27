@@ -13,6 +13,7 @@ import {
 import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
 import { viewEnum, viewFields, viewSearch } from "~/lib/session-view-state";
 import { programDayStart, programDayEnd } from "~/lib/program-time";
+import { eventTitle } from "~/lib/event-title";
 
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -143,12 +144,12 @@ function AuditLog() {
                           : "badge-slate"
                     }
                   >
-                    {t(`auditFilters.kinds.${e.kind}`)}
+                    {t.has(`auditFilters.kinds.${e.kind}`) ? t(`auditFilters.kinds.${e.kind}`) : eventTitle(t, { kind: e.kind })}
                   </span>
                 </td>
                 <td className="text-slate-800">
-                  <span className="block max-w-72 truncate" title={e.action}>
-                    {e.action}
+                  <span className="block max-w-72 truncate" title={eventTitle(t, e)}>
+                    {eventTitle(t, e)}
                   </span>
                   {e.undone && (
                     <span className="badge-slate ml-2">
@@ -158,7 +159,7 @@ function AuditLog() {
                 </td>
                 <TableActions>
                   <TableDetails
-                    title={`${e.action} · ${e.userName ?? "—"}`}
+                    title={`${eventTitle(t, e)} · ${e.userName ?? "—"}`}
                     // Full recorded evidence needs a reachable Close even after
                     // expanding long JSON; observers keep their compact summary.
                     longReader={!readOnly}

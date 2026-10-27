@@ -12,6 +12,7 @@ import { recoveryEvidenceMessage } from "~/lib/recovery-evidence";
 import { Button } from "./ui/button";
 import { Modal, useDialogPending } from "./ui/modal";
 import { QueryFeedback } from "./ui/query-feedback";
+import { DisclosureSection } from "./ui/disclosure-section";
 import { SummaryTable, TableAction, TableActions } from "./ui/summary-table";
 import { useSessionAccessDenied } from "./session-view-state";
 
@@ -57,13 +58,17 @@ function RecoveryConfirmation({
 }
 
 function RecoveryPlan({
-  plan,
+  plan: incomingPlan,
+  refreshing = false,
+  readFailed = false,
   coordinator,
   canInspectRecords,
   onApplied,
   actorId,
 }: {
   plan: AdmissionRecoveryPlan;
+  refreshing?: boolean;
+  readFailed?: boolean;
   coordinator: boolean;
   canInspectRecords: boolean;
   onApplied: (result: AdmissionRecoveryResult) => void;
@@ -71,9 +76,19 @@ function RecoveryPlan({
 }) {
   const t = useTranslations("recovery");
   const format = useFormatter();
+  const [plan, setPlan] = useState(incomingPlan);
+  const changed = incomingPlan.fingerprint !== plan.fingerprint;
+  const reviewBlocked = changed || refreshing || readFailed;
   const evidenceText = (message: string) => {
     const evidence = recoveryEvidenceMessage(message);
-    return evidence ? t(`evidence.${evidence.key}`, evidence.values) : message;
+    return evidence
+      ? t(
+          `evidence.${evidence.key}`,
+          evidence.key === "unsupportedEvent"
+            ? { kind: t("eventUnknown") }
+            : evidence.values,
+        )
+      : message;
   };
   const [reason, setReason] = useState("");
   const [confirm, setConfirm] = useState(false);
@@ -105,6 +120,7 @@ function RecoveryPlan({
     !queued &&
     !completed;
   const applyPlan = async () => {
+    if (reviewBlocked) return;
     setFailed(false);
     // A transport failure keeps this key. Editing the reason or receiving a new
     // fingerprint mounts a new intent, preventing accidental duplicate compensation.
@@ -142,12 +158,22 @@ function RecoveryPlan({
     <div className="card space-y-5 p-4 sm:p-5">
       <div>
         <h2 className="section-title">{t("preview")}</h2>
-        <p className="mt-1 font-mono text-xs [overflow-wrap:anywhere]">
-          {plan.actionId}
+        <p className="mt-1 font-medium">
+          {plan.applicantName
+            ? t("admissionFor", { name: plan.applicantName })
+            : t("eventAdmission")}
         </p>
-        <p className="muted mt-1">
-          {t("application", { id: plan.applicationId })}
-        </p>
+        <p className="muted mt-1">{t("previewHelp")}</p>
+        <div className="mt-3">
+          <DisclosureSection title={t("technicalDetails")} lifetime="lazy">
+            <p className="font-mono text-xs [overflow-wrap:anywhere]">
+              {plan.actionId}
+            </p>
+            <p className="mt-1 text-xs [overflow-wrap:anywhere]">
+              {t("application", { id: plan.applicationId })}
+            </p>
+          </DisclosureSection>
+        </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <div>
@@ -163,6 +189,7 @@ function RecoveryPlan({
         <div>
           <p className="font-medium">{t("dependentEvents")}</p>
           <p>{plan.dependentEventCount}</p>
+          <p className="muted mt-1 text-xs">{t("eventCountHelp")}</p>
         </div>
         <div>
           <p className="font-medium">{t("eligibility")}</p>
@@ -170,15 +197,39 @@ function RecoveryPlan({
             {t(
               plan.alreadyVoided || completed
                 ? "alreadyVoided"
-                : eligible
-                  ? "websiteEligible"
-                  : plan.dependentEventCount >= 2
-                    ? "cliRequired"
-                    : "blocked",
+                : reviewBlocked ||
+                    plan.coverage !== "COMPLETE" ||
+                    plan.blockers.length > 0
+                  ? "blocked"
+                  : eligible
+                    ? "websiteEligible"
+                    : plan.dependentEventCount >= 2
+                      ? "cliRequired"
+                      : "blocked",
             )}
           </p>
         </div>
       </div>
+      {changed && !completed && !queued && (
+        <div
+          role="status"
+          className="space-y-2 rounded bg-amber-50 p-3 text-amber-900"
+        >
+          <p>{t("previewChanged")}</p>
+          <Button
+            size="compact"
+            disabled={refreshing || readFailed || apply.isPending}
+            onClick={() => {
+              setPlan(incomingPlan);
+              setConfirm(false);
+              setFailed(false);
+              clientKey.current = null;
+            }}
+          >
+            {t("reviewUpdated")}
+          </Button>
+        </div>
+      )}
       <div>
         <h3 className="font-medium">{t("effects")}</h3>
         <dl className="mt-2 grid gap-3 sm:grid-cols-2">
@@ -196,6 +247,9 @@ function RecoveryPlan({
             <div key={field}>
               <dt>{t(field)}</dt>
               <dd className="font-mono text-xs [overflow-wrap:anywhere]">
+                <span className="mb-1 block font-sans text-sm">
+                  {t("recordCount", { count: plan.effects[field].length })}
+                </span>
                 {plan.effects[field].length
                   ? plan.effects[field].join(", ")
                   : t("none")}
@@ -260,20 +314,44 @@ function RecoveryPlan({
             {plan.events.map((event) => (
               <tr key={event.id}>
                 <td>
-                  <span className="block font-mono text-xs [overflow-wrap:anywhere]">
-                    {event.id}
+                  <span className="font-medium">
+                    {event.disposition === "PRESERVED"
+                      ? t(
+                          event.summary === "CODE_RESTRICTION"
+                            ? "eventCodeRestricted"
+                            : event.summary === "WORKLOAD_PREFERENCE"
+                              ? "eventWorkload"
+                              : "eventPreserved",
+                        )
+                      : event.kind === "ADMISSION"
+                        ? t("eventAdmission")
+                        : event.kind === "REGISTRATION"
+                          ? t("eventRegistration")
+                          : event.kind === "INVITATION"
+                            ? t("eventInvitation")
+                            : event.kind === "ASSIGNMENT"
+                              ? t("eventAssignment")
+                              : t("eventUnknown")}
                   </span>
-                  <span>
-                    {event.kind === "ADMISSION"
-                      ? t("eventAdmission")
-                      : event.kind === "REGISTRATION"
-                        ? t("eventRegistration")
-                        : event.kind === "INVITATION"
-                          ? t("eventInvitation")
-                          : event.kind === "ASSIGNMENT"
-                            ? t("eventAssignment")
-                            : t("eventOther", { kind: event.kind })}
-                  </span>
+                  <p className="muted mt-1 text-xs">
+                    {t(
+                      event.disposition === "PRESERVED"
+                        ? "eventPreservedHelp"
+                        : event.kind === "ADMISSION"
+                          ? "eventAdmissionHelp"
+                          : "eventReviewHelp",
+                    )}
+                  </p>
+                  <div className="mt-2">
+                    <DisclosureSection
+                      title={t("technicalDetails")}
+                      lifetime="lazy"
+                    >
+                      <p className="font-mono text-xs [overflow-wrap:anywhere]">
+                        {event.kind} · {event.id}
+                      </p>
+                    </DisclosureSection>
+                  </div>
                 </td>
                 <td>
                   {format.dateTime(new Date(event.createdAt), {
@@ -382,7 +460,9 @@ function RecoveryPlan({
           </p>
           <Button
             variant="danger"
-            disabled={reason.trim().length < 5 || apply.isPending}
+            disabled={
+              reason.trim().length < 5 || apply.isPending || reviewBlocked
+            }
             onClick={() => setConfirm(true)}
           >
             {t(coordinator ? "reviewRequest" : "reviewApply")}
@@ -394,7 +474,7 @@ function RecoveryPlan({
           {t("applyFailed")}
         </p>
       )}
-      {confirm && eligible && (
+      {confirm && eligible && !reviewBlocked && (
         <RecoveryConfirmation
           pending={apply.isPending}
           coordinator={coordinator}
@@ -447,7 +527,7 @@ export function AdmissionRecovery({
     ...(receiptId ? [receipt] : []),
   );
   const roots = !denied && !list.isError ? list.data : undefined;
-  const plan = !denied && !inspect.isError ? inspect.data : undefined;
+  const plan = !denied ? inspect.data : undefined;
   const savedReceipt = !denied && !receipt.isError ? receipt.data : undefined;
   const feedback = {
     loadingTitle: t("loading"),
@@ -542,8 +622,12 @@ export function AdmissionRecovery({
               className="input w-full font-mono text-xs"
               value={lookup}
               maxLength={200}
+              aria-describedby="recovery-action-help"
               onChange={(event) => setLookup(event.target.value)}
             />
+            <p id="recovery-action-help" className="muted">
+              {t("actionIdHelp")}
+            </p>
             <Button type="submit" size="compact" disabled={!lookup.trim()}>
               {t("inspect")}
             </Button>
@@ -573,11 +657,13 @@ export function AdmissionRecovery({
                 {roots.items.map((root) => (
                   <tr key={root.id}>
                     <td>
-                      <span className="block font-mono text-xs [overflow-wrap:anywhere]">
-                        {root.id}
+                      <span className="block font-medium">
+                        {root.applicantName
+                          ? t("admissionFor", { name: root.applicantName })
+                          : t("eventAdmission")}
                       </span>
-                      <span className="font-mono text-xs [overflow-wrap:anywhere]">
-                        {root.applicationId}
+                      <span className="mt-1 block font-mono text-xs [overflow-wrap:anywhere]">
+                        {root.id}
                       </span>
                     </td>
                     <td>
@@ -651,8 +737,10 @@ export function AdmissionRecovery({
       )}
       {plan && (
         <RecoveryPlan
-          key={`${plan.actionId}:${plan.fingerprint}`}
+          key={plan.actionId}
           plan={plan}
+          refreshing={inspect.isFetching}
+          readFailed={inspect.isError}
           coordinator={coordinator}
           canInspectRecords={canInspectRecords}
           actorId={actorId}

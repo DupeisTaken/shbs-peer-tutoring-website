@@ -212,7 +212,7 @@ it("blocks unknown coverage and keeps the missing-evidence explanation", () => {
   mount();
   expect(screen.queryByRole("button", { name: "Review recovery" })).toBeNull();
   expect(screen.getByText("Missing captured journal")).toBeTruthy();
-  expect(screen.getByText("Incomplete or unsupported")).toBeTruthy();
+  expect(screen.getByText("Some changes need further review")).toBeTruthy();
 });
 it("localizes canonical evidence in Chinese while retaining identifiers and unknown diagnostics", () => {
   const warning =
@@ -261,7 +261,7 @@ it("localizes canonical evidence in Chinese while retaining identifiers and unkn
     screen.getByText(
       chineseMessages.recovery.evidence.unsupportedEvent.replace(
         "{kind}",
-        "MANUAL_EDIT",
+        chineseMessages.recovery.eventUnknown,
       ),
     ),
   ).toBeTruthy();
@@ -307,7 +307,7 @@ it("retains the same idempotency key after a failed retry and creates a new inte
     (mocks.apply.mock.calls[0]?.[0] as { clientKey: string }).clientKey,
   );
 });
-it("resets the reviewed reason and confirmation when the plan fingerprint changes", () => {
+it("keeps the reason and requires deliberate review when the plan fingerprint changes", () => {
   const view = mount();
   fireEvent.change(screen.getByLabelText("Recovery reason"), {
     target: { value: "Old reviewed reason" },
@@ -330,7 +330,19 @@ it("resets the reviewed reason and confirmation when the plan fingerprint change
     screen.getByRole<HTMLTextAreaElement>("textbox", {
       name: "Recovery reason",
     }).value,
-  ).toBe("");
+  ).toBe("Old reviewed reason");
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Review recovery" })
+      .disabled,
+  ).toBe(true);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Review updated consequences" }),
+  );
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Review recovery" })
+      .disabled,
+  ).toBe(false);
+  expect(mocks.apply).not.toHaveBeenCalled();
 });
 it("shows an immutable receipt link after success and refreshes evidence without resubmitting", async () => {
   mount();
@@ -358,7 +370,7 @@ it("distinguishes a queued Coordinator request from an applied recovery", async 
     screen.getByRole("button", { name: "Review approval request" }),
   );
   fireEvent.click(
-    screen.getByRole("button", { name: "Request Head approval" }),
+    screen.getByRole("button", { name: "Request Admin or Head approval" }),
   );
   await waitFor(() =>
     expect(
@@ -433,13 +445,16 @@ it("hides cached roots, preview, receipt and open confirmation after an authoriz
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.queryByText("retained-tutor")).toBeNull();
   expect(screen.queryByText("authorizing-admin")).toBeNull();
-  expect(screen.queryByLabelText("Captured admission action ID")).toBeNull();
+  expect(screen.queryByLabelText("Recovery reference")).toBeNull();
   expect(screen.queryByRole("table")).toBeNull();
 });
 it("never presents failed preview loading as an empty or safe recovery", () => {
   mocks.inspect.mockReturnValue({ ...query(initialPlan), isError: true });
   mount();
-  expect(screen.queryByRole("button", { name: "Review recovery" })).toBeNull();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Review recovery" })
+      .disabled,
+  ).toBe(true);
   expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
 });
 it("keeps a denied read concealed through a later transport failure", () => {
@@ -507,7 +522,7 @@ it("includes verification-clock restoration count and identities in the conseque
     }),
   );
   mount();
-  const label = screen.getByText("Verification clocks to restore");
+  const label = screen.getByText("Verification deadlines to restore");
   expect(label.nextElementSibling?.textContent).toBe(
     "2survey-clock-1, survey-clock-2",
   );
@@ -523,7 +538,7 @@ it("reviews causal messaging-link removal while preserving message history and i
     }),
   );
   mount();
-  const label = screen.getByText("Causal messaging links to remove");
+  const label = screen.getByText("Assignment-based messaging access to remove");
   expect(label.nextElementSibling?.textContent).toBe(
     "2student-1:tutor-1, student-2:tutor-1",
   );
@@ -532,4 +547,72 @@ it("reviews causal messaging-link removal while preserving message history and i
       "Only messaging links created by this admission chain are removed. Message history and independent messaging access remain.",
     ),
   ).toBeTruthy();
+});
+
+it("keeps readable titles for unknown events and explains preserved edits", () => {
+  mocks.inspect.mockReturnValue(
+    query({
+      ...initialPlan,
+      applicantName: "Synthetic Candidate",
+      events: [
+        {
+          id: "private-reference",
+          kind: "FUTURE_RAW_EVENT",
+          createdAt: "2026-10-20T10:00:00.000Z",
+        },
+        {
+          id: "preserved-reference",
+          kind: "UNSUPPORTED",
+          disposition: "PRESERVED",
+          createdAt: "2026-10-20T10:01:00.000Z",
+        },
+      ],
+    }),
+  );
+  mount();
+  expect(
+    screen.getByText("Tutor admission approved for Synthetic Candidate"),
+  ).toBeTruthy();
+  expect(screen.getByText(messages.recovery.eventUnknown)).toBeTruthy();
+  expect(screen.getByText(messages.recovery.eventPreserved)).toBeTruthy();
+  expect(screen.queryByText("FUTURE_RAW_EVENT")).toBeNull();
+});
+
+it("retains the reason during a failed background read and disables writing until reads recover", () => {
+  const view = mount();
+  fireEvent.change(screen.getByLabelText("Recovery reason"), {
+    target: { value: "Retained recovery reason" },
+  });
+  mocks.inspect.mockReturnValue({ ...query(initialPlan), isError: true });
+  view.rerender(wrap(<AdmissionRecovery initialAction="admission-root" />));
+  expect(
+    screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: "Recovery reason",
+    }).value,
+  ).toBe("Retained recovery reason");
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Review recovery" })
+      .disabled,
+  ).toBe(true);
+  mocks.inspect.mockReturnValue(query(initialPlan));
+  view.rerender(wrap(<AdmissionRecovery initialAction="admission-root" />));
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Review recovery" })
+      .disabled,
+  ).toBe(false);
+  expect(mocks.apply).not.toHaveBeenCalled();
+});
+
+it("labels incomplete multi-event plans as blocked rather than suggesting CLI can execute them", () => {
+  mocks.inspect.mockReturnValue(
+    query({
+      ...initialPlan,
+      coverage: "UNKNOWN",
+      dependentEventCount: 3,
+      blockers: ["Missing journal"],
+    }),
+  );
+  mount();
+  expect(screen.getByText(messages.recovery.blocked)).toBeTruthy();
+  expect(screen.queryByText(messages.recovery.cliRequired)).toBeNull();
 });

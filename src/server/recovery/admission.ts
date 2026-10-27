@@ -19,6 +19,7 @@ import {
 import { lockUsernameNamespace } from "~/server/auth/username-namespace";
 import { databaseScope } from "~/server/db-scope";
 import { recoveryAccountSelect, recoveryHash, recoveryJson } from "./capture";
+import { preservedRecoveryEvent } from "./independent-changes";
 
 const role = z.enum([
   "STUDENT",
@@ -140,6 +141,7 @@ async function graph(tx: TransactionDb, actionId: string) {
     select: {
       id: true,
       type: true,
+      name: true,
       status: true,
       email: true,
       updatedAt: true,
@@ -316,6 +318,17 @@ async function graph(tx: TransactionDb, actionId: string) {
 }
 
 type Graph = Awaited<ReturnType<typeof graph>>;
+// Transitive tracking includes learning-partner accounts. Only accounts attached
+// to this admission receive compensation; related accounts remain independent.
+function admissionAccounts(g: Graph) {
+  return g.users.filter(
+    (user) =>
+      user.tutorId === g.tutor?.id ||
+      (g.before.success && g.before.data.account?.id === user.id) ||
+      (g.after.success && g.after.data.account?.id === user.id) ||
+      g.codes.some((code) => code.usedByUserId === user.id),
+  );
+}
 function buildPlan(g: Graph): AdmissionRecoveryPlan {
   const blockers: string[] = [];
   if (
@@ -447,7 +460,8 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
     } else if (event.kind === "INVITATION") {
       if (changes.some((change) => change.entity !== "AccountInvitation"))
         blockers.push(RECOVERY_EVIDENCE.invitationUnsupported);
-    } else blockers.push(recoveryEventPrefix + event.kind + ".");
+    } else if (!preservedRecoveryEvent(changes))
+      blockers.push(recoveryEventPrefix + event.kind + ".");
   }
   const createdPairings = new Set(
     g.changes
@@ -480,8 +494,9 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
       !g.events.some((event) => event.kind === "REGISTRATION")
     )
       blockers.push(RECOVERY_EVIDENCE.missingRegistration);
-  const accounts = g.users.map((user) => user.id);
+  const accounts = admissionAccounts(g).map((user) => user.id);
   const fingerprint = recoveryHash({
+    adapterVersion: 2,
     action: g.action,
     changes: g.changes.map((change) => ({
       ...change,
@@ -504,6 +519,7 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
     version: 1,
     actionId: g.action.id,
     applicationId: g.action.applicationId,
+    applicantName: g.application?.name ?? null,
     fingerprint,
     coverage: blockers.length ? "UNKNOWN" : "COMPLETE",
     dependentEventCount: later.length,
@@ -512,6 +528,13 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
     warnings: [
       RECOVERY_EVIDENCE.preserveHistory,
       RECOVERY_EVIDENCE.preserveIdentity,
+      ...(later.some((event) =>
+        preservedRecoveryEvent(
+          g.changes.filter((change) => change.eventId === event.id),
+        ),
+      )
+        ? [RECOVERY_EVIDENCE.preserveLaterEdits]
+        : []),
       ...(independentBefore || g.independentAdmission
         ? [RECOVERY_EVIDENCE.preserveAdmission]
         : []),
@@ -540,6 +563,26 @@ function buildPlan(g: Graph): AdmissionRecoveryPlan {
     events: g.events.map((event) => ({
       id: event.id,
       kind: event.kind,
+      summary: g.changes
+        .filter((change) => change.eventId === event.id)
+        .every((change) => change.entity === "RegistrationCode")
+        ? ("CODE_RESTRICTION" as const)
+        : g.changes.some(
+              (change) =>
+                change.eventId === event.id &&
+                change.entity === "Tutor" &&
+                Array.isArray(change.changedFields) &&
+                change.changedFields.includes("preferredAssignedBlocks"),
+            )
+          ? ("WORKLOAD_PREFERENCE" as const)
+          : ("INDEPENDENT_UPDATE" as const),
+      disposition:
+        event.kind !== "ADMISSION" &&
+        preservedRecoveryEvent(
+          g.changes.filter((change) => change.eventId === event.id),
+        )
+          ? ("PRESERVED" as const)
+          : ("REVIEW" as const),
       createdAt: event.createdAt.toISOString(),
     })),
     alreadyVoided: !!g.receipt,
@@ -770,7 +813,7 @@ async function apply(
         });
       }
       if (!g.independentAdmission)
-        for (const user of g.users) {
+        for (const user of admissionAccounts(g)) {
           const prior =
             before.account?.id === user.id
               ? before.account
@@ -814,7 +857,9 @@ async function apply(
               !!user.studentId ||
               !!user.crewStatus ||
               user.canTranslate ||
-              ["ADMIN", "HEAD", "COORDINATOR", "VIEWER"].includes(user.role);
+              ["ADMIN", "HEAD", "COORDINATOR", "VIEWER", "CREW"].includes(
+                user.role,
+              );
             await tx.user.update({
               where: { id: user.id },
               data: {

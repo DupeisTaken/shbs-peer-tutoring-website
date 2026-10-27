@@ -5959,7 +5959,7 @@
     "confirmHelp": "Se registrará una recuperación compensatoria y un recibo inmutable. Revisa los registros afectados y el motivo antes de confirmar.",
     "cancel": "Cancelar",
     "applying": "Aplicando…",
-    "requestApproval": "Solicitar aprobación de Head",
+    "requestApproval": "Solicitar aprobación de administrador o responsable",
     "confirm": "Anular admisión y recuperar efectos",
     "preserved": "Se conservan los accesos independientes, asignaciones ajenas y asistencia y horas reales de entrevista. Los mensajes entregados y correos enviados no se pueden retirar.",
     "preview": "Vista previa",
@@ -6045,7 +6045,31 @@
       "missingRegistration": "Un código consumido carece de procedencia de creación de cuenta registrada previamente.",
       "preserveHistory": "Los mensajes entregados y la asistencia y horas reales de entrevista se conservan como evidencia histórica. Los correos enviados no se pueden retirar.",
       "preserveIdentity": "Se conservan las evidencias de identidad y académicas. La recuperación compensa el acceso de admisión, las asignaciones recurrentes y los plazos de verificación atribuibles.",
-      "preserveAdmission": "Se conserva la admisión independiente del tutor; su acceso y sus asignaciones permanecerán."
-    }
+      "preserveAdmission": "Se conserva la admisión independiente del tutor; su acceso y sus asignaciones permanecerán.",
+      "preserveLaterEdits": "Se conservan los cambios independientes compatibles. Se revoca el acceso creado únicamente por esta admisión; la carga de tutores inactivos vuelve a cero."
+    },
+    "admissionFor": "Admisión como tutor aprobada para {name}",
+    "previewHelp": "Antes de anular esta aprobación, revisa qué cambiará y qué se conservará.",
+    "technicalDetails": "Identificadores de registros",
+    "eventCountHelp": "Se cuentan todas las transacciones posteriores, incluidos los cambios independientes que se conservarán.",
+    "recordCount": "{count} registros",
+    "eventPreserved": "Cambio independiente de cuenta o perfil",
+    "eventUnknown": "Cambio registrado que requiere revisión",
+    "eventPreservedHelp": "Se conservan los cambios independientes compatibles. Se revoca el acceso creado únicamente por esta admisión; la carga de tutores inactivos vuelve a cero.",
+    "eventAdmissionHelp": "Esta es la aprobación que se va a anular.",
+    "eventReviewHelp": "Revisa arriba qué consecuencias pueden deshacerse.",
+    "actionIdHelp": "Elige una aprobación abajo o pega su referencia de recuperación desde Registros de la base de datos. Los identificadores de solicitud y auditoría son distintos.",
+    "previewChanged": "Los registros cambiaron después de esta vista previa. Tu motivo se conserva. Revisa las consecuencias actualizadas antes de continuar.",
+    "reviewUpdated": "Revisar consecuencias actualizadas",
+    "eventCodeRestricted": "Código de registro restringido o revocado",
+    "eventWorkload": "Preferencia de carga del tutor actualizada"
+  },
+  "eventTitles": {
+    "ACTION": "Cambio registrado",
+    "DECISION": "Decisión registrada",
+    "SUBMISSION": "Cambio solicitado",
+    "CANCELLATION": "Solicitud retirada",
+    "REVERSAL": "Acción revertida",
+    "ATTEMPT": "Intento de cambio"
   }
 }

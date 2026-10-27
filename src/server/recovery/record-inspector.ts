@@ -55,7 +55,7 @@ const fieldPolicies: Record<string, string> = {
   RecoveryEvent: "id actionId transactionId kind createdAt",
   RecoveryTrackedEntity: "actionId entity recordId",
   RecoveryFence: "actionId revision",
-  RecoveryChange: "id actionId eventId entity operation createdAt",
+  RecoveryChange: "id actionId eventId entity operation changedFields createdAt",
   RecoveryReceipt: "id actionId actorId channel createdAt",
   TutorApplication:
     "id identityRevision invalidatedAt invalidatedById invalidatedByName invalidityVersion firstName lastName preferredName alternativeNames type requestedTutorId requestedSubjectId qualificationDecidedById recalledAt recalledById interviewCompletedAt interviewDurationMin interviewSchoolYear interviewQuarter promotedTutorId name email preferredContact contactVerified status interviewAt decidedAt decidedByTutorId createdAt updatedAt",

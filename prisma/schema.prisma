@@ -2603,6 +2603,8 @@ model RecoveryChange {
   eventId String
   entity String
   operation String
+  /// Exact changed column names, never private values. Null means legacy coverage is unknown.
+  changedFields Json?
   recordKey Json
   before Json?
   after Json?

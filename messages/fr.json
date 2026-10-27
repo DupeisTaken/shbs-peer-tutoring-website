@@ -5959,7 +5959,7 @@
     "confirmHelp": "Cette opération enregistre une compensation et un reçu immuable. Vérifiez les dossiers concernés et le motif avant confirmation.",
     "cancel": "Annuler",
     "applying": "Application…",
-    "requestApproval": "Demander l’accord du responsable",
+    "requestApproval": "Demander l’approbation d’un administrateur ou responsable",
     "confirm": "Annuler l’admission et rétablir les effets",
     "preserved": "Les accès indépendants, affectations sans rapport et présences et heures réelles d’entretien restent conservés. Les messages livrés et courriels envoyés ne peuvent être rappelés.",
     "preview": "Aperçu de récupération",
@@ -6045,7 +6045,31 @@
       "missingRegistration": "Un code utilisé ne dispose pas de provenance de création de compte enregistrée au préalable.",
       "preserveHistory": "Les messages livrés ainsi que les présences et heures réelles d’entretien restent des preuves historiques. Les courriels envoyés ne peuvent pas être rappelés.",
       "preserveIdentity": "Les preuves d’identité et de scolarité sont conservées. La récupération compense les accès liés à l’admission, les affectations récurrentes et les délais de vérification attribuables.",
-      "preserveAdmission": "L’admission indépendante du tuteur est conservée ; ses accès et affectations resteront en place."
-    }
+      "preserveAdmission": "L’admission indépendante du tuteur est conservée ; ses accès et affectations resteront en place.",
+      "preserveLaterEdits": "Les modifications indépendantes prises en charge sont conservées. L’accès créé uniquement par cette admission est révoqué ; la charge des tuteurs inactifs revient à zéro."
+    },
+    "admissionFor": "Admission comme tuteur approuvée pour {name}",
+    "previewHelp": "Avant d’annuler cette approbation, vérifiez ce qui changera et ce qui sera conservé.",
+    "technicalDetails": "Identifiants des enregistrements",
+    "eventCountHelp": "Toutes les transactions ultérieures comptent, y compris les modifications indépendantes qui seront conservées.",
+    "recordCount": "{count} enregistrements",
+    "eventPreserved": "Modification indépendante du compte ou du profil",
+    "eventUnknown": "Modification enregistrée à examiner",
+    "eventPreservedHelp": "Les modifications indépendantes prises en charge sont conservées. L’accès créé uniquement par cette admission est révoqué ; la charge des tuteurs inactifs revient à zéro.",
+    "eventAdmissionHelp": "Il s’agit de l’approbation à annuler.",
+    "eventReviewHelp": "Vérifiez ci-dessus quelles conséquences peuvent être annulées.",
+    "actionIdHelp": "Choisissez une approbation ci-dessous ou collez sa référence de récupération depuis les enregistrements de la base. Les identifiants de candidature et d’audit sont différents.",
+    "previewChanged": "Les enregistrements ont changé depuis cet aperçu. Votre motif est conservé. Examinez les conséquences actualisées avant de continuer.",
+    "reviewUpdated": "Examiner les conséquences actualisées",
+    "eventCodeRestricted": "Code d’inscription restreint ou révoqué",
+    "eventWorkload": "Préférence de charge du tuteur mise à jour"
+  },
+  "eventTitles": {
+    "ACTION": "Modification enregistrée",
+    "DECISION": "Décision enregistrée",
+    "SUBMISSION": "Modification demandée",
+    "CANCELLATION": "Demande retirée",
+    "REVERSAL": "Action annulée",
+    "ATTEMPT": "Tentative de modification"
   }
 }

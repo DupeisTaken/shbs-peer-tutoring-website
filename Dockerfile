@@ -68,6 +68,7 @@ COPY --from=build --chown=nextjs:nodejs /app/src/lib/recovery-evidence.ts ./src/
 # Recovery is a DB-only operator entry point; it never starts the web runtime.
 COPY --from=build --chown=nextjs:nodejs \
     /app/src/server/recovery/admission.ts \
+    /app/src/server/recovery/independent-changes.ts \
     /app/src/server/recovery/capture.ts \
     /app/src/server/recovery/record-inspector.ts \
     /app/src/server/recovery/record-catalog.ts \
