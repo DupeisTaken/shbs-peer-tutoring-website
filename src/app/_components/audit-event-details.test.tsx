@@ -374,7 +374,7 @@ it.each(
       .closest("details")!;
     raw.open = true;
     fireEvent(raw, new Event("toggle"));
-    expect(JSON.parse(raw.querySelector("pre")!.textContent!)).toEqual(details);
+    expect(JSON.parse(raw.querySelector("pre")!.textContent)).toEqual(details);
     expect(details).toEqual(original);
   },
 );

@@ -591,7 +591,7 @@ it("shows the requested rejection in both the card and fresh consequence confirm
       within(screen.getByRole("dialog")).getByRole("region", {
         name: en.approvals.review.affected,
       }),
-    ).getByText("Reject the underlying request"),
+    ).getAllByText("Reject the underlying request"),
   ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Confirm consequences" }));
   expect(mocks.decide).toHaveBeenCalledWith({
@@ -684,7 +684,7 @@ it("shows coordinator history and proposed/affected records without privileged r
       .getAttribute("aria-pressed"),
   ).toBe("true");
   expect(
-    within(screen.getByRole("region", { name: "Affected record" })).getByText(
+    within(screen.getByRole("region", { name: "Affected record" })).getAllByText(
       "Original room",
     ),
   ).toBeTruthy();
@@ -693,7 +693,7 @@ it("shows coordinator history and proposed/affected records without privileged r
       "Original room",
     ),
   ).toBeTruthy();
-  expect(screen.getByText("New room name")).toBeTruthy();
+  expect(screen.getAllByText("New room name")).toBeTruthy();
   expect(screen.getByText(/Not applied — awaiting/)).toBeTruthy();
   expect(screen.queryByRole("combobox")).toBeNull();
   expect(mocks.requesters).not.toHaveBeenCalled();
