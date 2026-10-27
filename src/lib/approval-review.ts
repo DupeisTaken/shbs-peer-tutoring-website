@@ -51,6 +51,7 @@ export const reviewTechnicalFields = new Set([
   "expectedTarget",
   "expectedPreparation",
   "ticket",
+  "signedTicket",
   "overrideTicket",
   "confirmPassword",
   "passwordHash",
@@ -274,13 +275,15 @@ export function approvalReview(
       );
   const verb = operation.split(".").at(-1) ?? "";
   const kind =
-    verb.startsWith("create") || verb === "issueRegistrationCode"
-      ? ("create" as const)
-      : verb.startsWith("delete")
-        ? ("delete" as const)
-        : comparable.has(operation)
-          ? ("update" as const)
-          : ("action" as const);
+    operation === "admin.deleteSubject"
+      ? ("update" as const)
+      : verb.startsWith("create") || verb === "issueRegistrationCode"
+        ? ("create" as const)
+        : verb.startsWith("delete")
+          ? ("delete" as const)
+          : comparable.has(operation)
+            ? ("update" as const)
+            : ("action" as const);
   const context: { key: string; value: unknown }[] = [];
   const changes: ReviewField[] = [];
   const unchanged: ReviewField[] = [];
@@ -411,6 +414,14 @@ export function approvalReview(
     }
     let hasBefore = kind === "update" && !!source && Object.hasOwn(source, key);
     let before = hasBefore ? source?.[key] : undefined;
+    if (operation === "admin.setCrewStatus" && key === "status") {
+      hasBefore = !!source && Object.hasOwn(source, "crewStatus");
+      before = hasBefore ? source?.crewStatus : undefined;
+    }
+    if (operation === "student.setFeedbackSettings" && key === "share") {
+      hasBefore = !!source && Object.hasOwn(source, "shareFeedbackWithTutors");
+      before = hasBefore ? source?.shareFeedbackWithTutors : undefined;
+    }
     // Collection writes keep their old values in child snapshots, not the parent.
     // Compare only the submitted columns and only children of the exact target.
     const child =

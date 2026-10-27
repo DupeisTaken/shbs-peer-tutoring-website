@@ -16,6 +16,39 @@ vi.mock("~/trpc/react", () => ({
 }));
 afterEach(cleanup);
 
+it.each(["ATTEMPT", "REVERSAL"])(
+  "submits the localized %s filter unchanged",
+  (kind) => {
+    const apply = vi.fn();
+    render(
+      <NextIntlClientProvider
+        locale="en"
+        messages={messages}
+        timeZone="Asia/Shanghai"
+      >
+        <AuditFilters onApply={apply} />
+      </NextIntlClientProvider>,
+    );
+    const select = screen.getByLabelText(messages.auditFilters.kind);
+    expect(
+      screen.getByRole("option", {
+        name:
+          kind === "ATTEMPT"
+            ? "Unapplied attempt"
+            : "Reversal of an applied action",
+      }),
+    ).toBeTruthy();
+    fireEvent.change(select, { target: { value: kind } });
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.auditFilters.apply }),
+    );
+    expect(apply).toHaveBeenCalledWith(
+      expect.objectContaining({ kind }),
+      expect.objectContaining({ kind }),
+    );
+  },
+);
+
 it("shows both offsets across a DST range while submitting the same program-day bounds", () => {
   const apply = vi.fn();
   render(

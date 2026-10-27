@@ -226,6 +226,36 @@ it("falls back for unknown and partially known batches instead of silently dropp
     comparisons: [],
     counts: { added: 0, removed: 0, changed: 0 },
     positional: false,
+    capturedRecords: [],
   });
   expect(auditChangeSummary({ before: [], after: [] })?.positional).toBe(true);
+});
+
+it("retains unchanged captured context for names without inflating change counts", () => {
+  const before = { id: "tutor", englishName: "Recorded Tutor" };
+  const summary = auditChangeSummary({
+    evidenceVersion: 1,
+    changes: [
+      { entity: "Tutor", before: [before], after: [before] },
+      {
+        entity: "Pairing",
+        before: [{ id: "pairing", tutorId: "tutor", roomMode: "NONE" }],
+        after: [{ id: "pairing", tutorId: "tutor", roomMode: "AUTO" }],
+      },
+    ],
+  })!;
+  expect(summary.comparisons).toHaveLength(1);
+  expect(summary.capturedRecords).toHaveLength(2);
+  expect(summary.counts).toEqual({ changed: 1, added: 0, removed: 0 });
+  expect(summary.capturedRecords[0]).toMatchObject({
+    entity: "Tutor",
+    beforeRecord: before,
+    afterRecord: before,
+  });
+  expect(
+    auditChangeSummary(
+      { before: { status: "PENDING" }, after: { status: "ACTIVE" } },
+      "Tutor",
+    )?.comparisons[0]?.entity,
+  ).toBe("Tutor");
 });

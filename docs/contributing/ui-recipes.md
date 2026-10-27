@@ -30,7 +30,9 @@ uses the production `ApprovalReviewDetails`, `ReviewDisclosure` and
 `AuditChangeSummary` readers with local captured fixtures. Its selector covers one
 attendance status/reason change with eleven unchanged students, staging a feature
 default override, clearing a pending override, exact multiline publication text
-and a batch of 75 audit comparisons. Verify request and section collapse separately:
+and a batch of 75 audit comparisons. Assignment examples additionally cover a
+changed tutor/room/schedule, added and removed learners with the same display name,
+missing historical labels, and an unchanged request. Verify request and section collapse separately:
 the affected-record/outcome summary stays visible, nested expanded state and the
 decision-note draft survive reopening, and simulated pending confirmation blocks
 request collapse. The selector and pending checkbox change only local examples;

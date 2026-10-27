@@ -4,6 +4,7 @@ import { useLocale, useTranslations, useTimeZone } from "next-intl";
 import { api, type RouterInputs } from "~/trpc/react";
 import { humanizeOperation } from "~/lib/approval-policy";
 import { auditActorLabel } from "~/lib/audit-actors";
+import { auditEntityLabelKey } from "~/lib/review-vocabulary";
 
 import { programDayStart, programDayEnd } from "~/lib/program-time";
 import {
@@ -11,6 +12,13 @@ import {
   programTimeZoneLabel,
 } from "~/lib/program-time-zone-label";
 export type AuditFilterInput = NonNullable<RouterInputs["admin"]["auditLog"]>;
+export type AuditKind =
+  | "ACTION"
+  | "DECISION"
+  | "SUBMISSION"
+  | "CANCELLATION"
+  | "ATTEMPT"
+  | "REVERSAL";
 export const emptyAuditView = {
   userId: "",
   kind: "",
@@ -31,6 +39,7 @@ export function AuditFilters({
   appliedView?: AuditView;
 }) {
   const t = useTranslations("auditFilters");
+  const vocabulary = useTranslations();
   const timeZone = useTimeZone() ?? "Asia/Shanghai";
   const locale = useLocale();
   const [referenceTime] = useState(() => new Date());
@@ -63,9 +72,14 @@ export function AuditFilters({
       key: "kind",
       label: "kind",
       all: "allKinds",
-      values: ["ACTION", "DECISION", "SUBMISSION", "CANCELLATION"].map(
-        (id) => ({ id, label: t(`kinds.${id}`) }),
-      ),
+      values: [
+        "ACTION",
+        "DECISION",
+        "SUBMISSION",
+        "CANCELLATION",
+        "ATTEMPT",
+        "REVERSAL",
+      ].map((id) => ({ id, label: t(`kinds.${id}`) })),
     },
     {
       key: "operation",
@@ -74,7 +88,11 @@ export function AuditFilters({
       values:
         options.data?.operations.map((id) => ({
           id,
-          label: `${humanizeOperation(id)} (${id.split(".")[0]})`,
+          label: vocabulary.has(
+            `approvals.review.operations.${id.replaceAll(".", "_")}`,
+          )
+            ? `${vocabulary(`approvals.review.operations.${id.replaceAll(".", "_")}`)} (${id})`
+            : id,
         })) ?? [],
     },
     {
@@ -84,7 +102,9 @@ export function AuditFilters({
       values:
         options.data?.entities.map((id) => ({
           id,
-          label: humanizeOperation(id),
+          label: vocabulary.has(auditEntityLabelKey(id) ?? "")
+            ? vocabulary(auditEntityLabelKey(id)!)
+            : humanizeOperation(id),
         })) ?? [],
     },
   ];
@@ -95,20 +115,29 @@ export function AuditFilters({
         e.preventDefault();
         try {
           setInputError("");
-          onApply({
-            userId: draft.userId || undefined,
-            kind: (draft.kind || undefined) as
-              "ACTION" | "DECISION" | "SUBMISSION" | "CANCELLATION" | undefined,
-            operation: draft.operation || undefined,
-            entity: draft.entity || undefined,
-            search: draft.search || undefined,
-            from: draft.from
-              ? programDayStart(draft.from, timeZone)
-              : undefined,
-            until: draft.until
-              ? new Date(programDayEnd(draft.until, timeZone).getTime() + 1)
-              : undefined,
-          }, draft);
+          onApply(
+            {
+              userId: draft.userId || undefined,
+              kind: (draft.kind || undefined) as
+                | "ACTION"
+                | "DECISION"
+                | "SUBMISSION"
+                | "CANCELLATION"
+                | "ATTEMPT"
+                | "REVERSAL"
+                | undefined,
+              operation: draft.operation || undefined,
+              entity: draft.entity || undefined,
+              search: draft.search || undefined,
+              from: draft.from
+                ? programDayStart(draft.from, timeZone)
+                : undefined,
+              until: draft.until
+                ? new Date(programDayEnd(draft.until, timeZone).getTime() + 1)
+                : undefined,
+            },
+            draft,
+          );
         } catch (error) {
           setInputError(
             error instanceof Error ? error.message : "Invalid date",
@@ -128,9 +157,7 @@ export function AuditFilters({
               )?.label
             }
             value={draft[select.key as keyof AuditView]}
-            onChange={(e) =>
-              set(select.key as keyof AuditView, e.target.value)
-            }
+            onChange={(e) => set(select.key as keyof AuditView, e.target.value)}
           >
             <option value="">{t(select.all)}</option>
             {select.values.map((value) => (

@@ -675,10 +675,26 @@ If records change while a proposal is pending, the reviewer must reject it and r
 Reviewers enter **Your decision note (required)** before either decision. **Approve and Apply** executes the action being requested. If that action is **Reject the underlying request**, approving the proposal applies that rejection. **Reject with Feedback** declines the management proposal without applying it. Head-only and own-request restrictions are explained beside the request; the existing consequence and qualification confirmations still apply.
 
 Use **Review details and decision** to collapse or reopen a request. Its action,
-requester, state, affected record and requested outcome stay visible. Reopening
+requester, state, affected record, requested outcome and change summary stay visible. Reopening
 retains your unfinished decision note and the independent open/closed state of
 the change sections. Request collapse is unavailable while a decision or its
 confirmation is pending. Collapsing is a reading action and submits nothing.
+
+An assignment review names the captured tutor and learners and shows its subject,
+time and room. The summary states which learners are added or removed and which
+values change. Record IDs appear below names, so people with the same name remain
+distinguishable. If an older request did not capture a name, or its captured
+identities conflict, the reader says so; it does not substitute a current name.
+A request with identical captured and requested values is marked as having no
+field changes. An empty text value is distinguished from a field that was not set
+or was never captured.
+
+Read the stated consequence as well as the values. Removing a subject archives it
+and preserves its history. Replacing an interview panel starts a fresh review and
+clears previous votes, completion and credited interview hours. Course-group
+changes explain which omitted offerings will be archived when that complete
+original list was captured. Announcement reviews show the fixed recipient count
+and the selected audience rules.
 
 Attendance corrections emphasize changed students and their status/reason;
 expand **Unchanged rows** to inspect the rest of the captured roster. Withdrawal
@@ -693,6 +709,10 @@ Audit details begin with recorded value changes when before/after evidence is
 available. Collapse each comparison independently; expand the original evidence
 or exact JSON for the complete saved context. These historical values describe
 what was recorded for that event, rather than today's live record.
+Known fields and states use localized labels, with technical paths available below
+them. Added and removed records remain distinct from edits. Attempt records show
+failed or denied outcomes without implying a successful change; the kind filter
+also supports attempts and reversals.
 
 ## Administrators
 

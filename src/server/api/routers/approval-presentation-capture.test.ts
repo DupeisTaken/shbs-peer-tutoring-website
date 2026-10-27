@@ -12,6 +12,7 @@ import {
   proposalTargets,
 } from "~/server/approvals";
 import { DEFAULT_FEATURES } from "~/server/program/features";
+import { captureReviewReferences } from "~/server/approval-reference-capture";
 
 type Request = Awaited<ReturnType<typeof db.approvalRequest.findUniqueOrThrow>>;
 const actor = (id: string, role: Session["role"]) =>
@@ -29,6 +30,28 @@ const admin = () => actor("capture-admin", "ADMIN");
 const head = () => actor("capture-head", "HEAD");
 const coordinator = () => actor("capture-coordinator", "COORDINATOR");
 const targetId = "capture-target";
+
+it("does not treat prototype-named audit entities as display tables", async () => {
+  const result = await db.$transaction((tx) =>
+    captureReviewReferences(
+      tx,
+      "admin.undoAudit",
+      { id: "unknown-event" },
+      {
+        AuditLog: [
+          {
+            record: {
+              id: "unknown-event",
+              entity: "constructor",
+              entityId: "unrelated",
+            },
+          },
+        ],
+      },
+    ),
+  );
+  expect(result).toMatchObject({ version: 1, entities: {} });
+});
 
 async function queued(work: () => Promise<unknown>) {
   try {
@@ -1172,4 +1195,639 @@ it("applies a valid pairing proposal with one learner added, one removed and two
     (await db.approvalRequest.findUniqueOrThrow({ where: { id: request.id } }))
       .targets,
   ).toEqual(request.targets);
+});
+
+type SavedReferences = {
+  version: number;
+  timeZone: string;
+  entities: Record<string, Record<string, unknown>[]>;
+};
+const references = (request: Request) =>
+  (request.targets as unknown as { reviewReferences: SavedReferences })
+    .reviewReferences;
+
+/** Original and requested identities are deliberately different. The removed
+ * learner, former tutor, room and slot are absent from collect(input)'s rows. */
+async function referencedPairing() {
+  const level = await db.subjectLevel.create({
+    data: { name: "Captured honors level", prefix: "Honors" },
+  });
+  const subject = await db.subject.create({
+    data: { name: "Reference mathematics", levelId: level.id },
+  });
+  const oldTutor = await db.tutor.create({
+    data: { englishName: "Original reference tutor", status: "ACTIVE" },
+  });
+  const newTutor = await db.tutor.create({
+    data: { englishName: "Requested reference tutor", status: "ACTIVE" },
+  });
+  await db.tutorQualification.create({
+    data: {
+      tutorId: newTutor.id,
+      subjectId: subject.id,
+      approvedById: "capture-admin",
+      grants: { create: { subjectId: subject.id } },
+    },
+  });
+  const removed = await db.tutee.create({
+    data: {
+      englishName: "Removed reference learner",
+      email: "PRIVATE_REFERENCE_EMAIL@example.test",
+      firstChoiceId: subject.id,
+    },
+  });
+  const retained = await db.tutee.create({
+    data: {
+      englishName: "Retained reference learner",
+      firstChoiceId: subject.id,
+    },
+  });
+  const added = await db.tutee.create({
+    data: { englishName: "Added reference learner", firstChoiceId: subject.id },
+  });
+  const oldRoom = await db.room.create({
+    data: { name: "Original reference room" },
+  });
+  const newRoom = await db.room.create({
+    data: { name: "Requested reference room" },
+  });
+  const oldSlot = await db.timeSlot.create({
+    data: {
+      label: "Original reference slot",
+      dayOfWeek: 7,
+      startMin: 480,
+      endMin: 540,
+    },
+  });
+  const newSlot = await db.timeSlot.create({
+    data: {
+      label: "Requested reference slot",
+      dayOfWeek: 7,
+      startMin: 600,
+      endMin: 660,
+    },
+  });
+  const pairing = await db.pairing.create({
+    data: {
+      tutorId: oldTutor.id,
+      subject: subject.name,
+      termId: "capture-term",
+      timeSlotId: oldSlot.id,
+      roomId: oldRoom.id,
+      roomMode: "FIXED",
+      scheduleConfirmed: true,
+      dayOfWeek: 7,
+      startMin: 480,
+      endMin: 540,
+      tutees: { create: [{ tuteeId: removed.id }, { tuteeId: retained.id }] },
+    },
+  });
+  const current = await db.pairing.findUniqueOrThrow({
+    where: { id: pairing.id },
+  });
+  const input = {
+    id: pairing.id,
+    tutorId: newTutor.id,
+    subject: subject.name,
+    subjectId: subject.id,
+    roomId: newRoom.id,
+    roomMode: "FIXED" as const,
+    timeSlotId: newSlot.id,
+    expectedRoomVersion: current.roomVersion,
+    tuteeIds: [retained.id, added.id],
+  };
+  return {
+    level,
+    subject,
+    oldTutor,
+    newTutor,
+    removed,
+    retained,
+    added,
+    oldRoom,
+    newRoom,
+    oldSlot,
+    newSlot,
+    pairing,
+    input,
+  };
+}
+
+it("captures minimal typed original and requested pairing references and applies the same valid proposal", async () => {
+  const fixture = await referencedPairing();
+  const request = await queued(() =>
+    coordinator().admin.updatePairing(fixture.input),
+  );
+  const saved = references(request);
+  expect(saved).toMatchObject({ version: 1, timeZone: "Asia/Shanghai" });
+  expect(saved.entities.Tutor).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: fixture.oldTutor.id,
+        englishName: "Original reference tutor",
+      }),
+      expect.objectContaining({
+        id: fixture.newTutor.id,
+        englishName: "Requested reference tutor",
+      }),
+    ]),
+  );
+  expect(saved.entities.Tutee).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: fixture.removed.id,
+        englishName: "Removed reference learner",
+      }),
+      expect.objectContaining({
+        id: fixture.retained.id,
+        englishName: "Retained reference learner",
+      }),
+      expect.objectContaining({
+        id: fixture.added.id,
+        englishName: "Added reference learner",
+      }),
+    ]),
+  );
+  expect(saved.entities.Room).toEqual(
+    expect.arrayContaining([
+      { id: fixture.oldRoom.id, name: "Original reference room" },
+      { id: fixture.newRoom.id, name: "Requested reference room" },
+    ]),
+  );
+  expect(saved.entities.TimeSlot).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: fixture.oldSlot.id,
+        label: "Original reference slot",
+        startMin: 480,
+      }),
+      expect.objectContaining({
+        id: fixture.newSlot.id,
+        label: "Requested reference slot",
+        startMin: 600,
+      }),
+    ]),
+  );
+  expect(saved.entities.SubjectLevel).toContainEqual({
+    id: fixture.level.id,
+    name: "Captured honors level",
+    prefix: "Honors",
+  });
+  expect(saved.entities.Subject).toContainEqual(
+    expect.objectContaining({
+      id: fixture.subject.id,
+      levelId: fixture.level.id,
+    }),
+  );
+  expect(saved.entities.Term).toContainEqual(
+    expect.objectContaining({ id: "capture-term", name: "Captured 26–27 Q1" }),
+  );
+  expect(saved.entities.PairingTutee).toEqual(
+    expect.arrayContaining([
+      { pairingId: fixture.pairing.id, tuteeId: fixture.removed.id },
+      { pairingId: fixture.pairing.id, tuteeId: fixture.retained.id },
+    ]),
+  );
+  expect(JSON.stringify(saved)).not.toContain("PRIVATE_REFERENCE_EMAIL");
+  expect(JSON.stringify(saved)).not.toContain("passwordHash");
+  await admin().approval.decide({
+    id: request.id,
+    approve: true,
+    note: "Original and requested participants, tutor, room and slot checked",
+  });
+  expect(
+    await db.pairing.findUniqueOrThrow({ where: { id: fixture.pairing.id } }),
+  ).toMatchObject({
+    tutorId: fixture.newTutor.id,
+    roomId: fixture.newRoom.id,
+    timeSlotId: fixture.newSlot.id,
+  });
+  expect(
+    (
+      await db.pairingTutee.findMany({
+        where: { pairingId: fixture.pairing.id },
+      })
+    )
+      .map((row) => row.tuteeId)
+      .sort(),
+  ).toEqual([fixture.retained.id, fixture.added.id].sort());
+  expect(
+    references(
+      await db.approvalRequest.findUniqueOrThrow({ where: { id: request.id } }),
+    ),
+  ).toEqual(saved);
+});
+
+it("rejects a new pairing review when a removed participant's captured label changes", async () => {
+  const fixture = await referencedPairing();
+  const request = await queued(() =>
+    coordinator().admin.updatePairing(fixture.input),
+  );
+  const originalTargets = request.targets as unknown as {
+    Tutee: { record: { id: string } }[];
+  };
+  expect(originalTargets.Tutee.map((row) => row.record.id)).not.toContain(
+    fixture.removed.id,
+  );
+  await db.tutee.update({
+    where: { id: fixture.removed.id },
+    data: { englishName: "Changed removed learner label" },
+  });
+  await expect(approve(request)).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(
+    await db.pairing.findUniqueOrThrow({ where: { id: fixture.pairing.id } }),
+  ).toMatchObject({ tutorId: fixture.oldTutor.id });
+  const pending = await db.approvalRequest.findUniqueOrThrow({
+    where: { id: request.id },
+  });
+  expect(pending).toMatchObject({
+    state: "PENDING",
+    fingerprint: request.fingerprint,
+    targets: request.targets,
+  });
+  expect(references(pending).entities.Tutee).toContainEqual(
+    expect.objectContaining({
+      id: fixture.removed.id,
+      englishName: "Removed reference learner",
+    }),
+  );
+});
+
+it("keeps historical pairing digests and replay unchanged without joining newly available original labels", async () => {
+  const fixture = await referencedPairing();
+  const fresh = await queued(() =>
+    coordinator().admin.updatePairing(fixture.input),
+  );
+  const request = await historical(fresh);
+  expect(request.targets).not.toHaveProperty("reviewReferences");
+  await db.tutee.update({
+    where: { id: fixture.removed.id },
+    data: { englishName: "Changed removed learner label" },
+  });
+  // This label was never part of the old evidence; adding it during replay would
+  // incorrectly stale a previously valid historical request.
+  await admin().approval.decide({
+    id: request.id,
+    approve: true,
+    note: "Historical evidence generation preserved",
+  });
+  const decided = await db.approvalRequest.findUniqueOrThrow({
+    where: { id: request.id },
+  });
+  expect(decided).toMatchObject({
+    state: "APPROVED",
+    fingerprint: request.fingerprint,
+    targets: request.targets,
+  });
+  expect(decided.targets).not.toHaveProperty("reviewReferences");
+});
+
+it("preserves existing presentation-v1 projection bytes and fingerprints when reference capture is absent", async () => {
+  const fresh = await queued(() =>
+    admin().admin.updateAccountProfile({
+      userId: targetId,
+      name: "June Lin",
+      firstName: "Mira",
+      alternativeNames: null,
+      expectedProfileVersion: 0,
+    }),
+  );
+  const prior = await proposalTargets(
+    db,
+    fresh.operation,
+    fresh.payload,
+    true,
+    true,
+    fresh.requesterId,
+    true,
+  );
+  const current = await proposalTargets(
+    db,
+    fresh.operation,
+    fresh.payload,
+    true,
+    true,
+    fresh.requesterId,
+    true,
+    true,
+  );
+  const { reviewReferences: ignored, ...existingBytes } = current;
+  expect(ignored).toMatchObject({ version: 1 });
+  expect(JSON.stringify(existingBytes)).toBe(JSON.stringify(prior));
+  expect(fingerprint(existingBytes)).toBe(fingerprint(prior));
+  expect(prior.reviewPresentation).toEqual({ version: 1 });
+  prior.reviewAuthority = (fresh.targets as Prisma.JsonObject).reviewAuthority!;
+  const request = await db.approvalRequest.update({
+    where: { id: fresh.id },
+    data: { targets: prior, fingerprint: fingerprint(prior) },
+  });
+  await approve(request);
+  const decided = await db.approvalRequest.findUniqueOrThrow({
+    where: { id: request.id },
+  });
+  expect(decided).toMatchObject({
+    state: "APPROVED",
+    targets: request.targets,
+    fingerprint: request.fingerprint,
+  });
+  expect(decided.targets).not.toHaveProperty("reviewReferences");
+});
+
+it("fails closed on an unsupported saved display reference version", async () => {
+  const fresh = await queued(() =>
+    admin().admin.updateAccountUsername({
+      userId: targetId,
+      username: "miralin",
+      expectedProfileVersion: 0,
+    }),
+  );
+  const targets = {
+    ...(fresh.targets as Prisma.JsonObject),
+    reviewReferences: { version: 2, entities: {} },
+  };
+  const request = await db.approvalRequest.update({
+    where: { id: fresh.id },
+    data: { targets, fingerprint: fingerprint(targets) },
+  });
+  await expect(approve(request)).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: targetId } }),
+  ).toMatchObject({ username: "minalin", profileVersion: 0 });
+  expect(
+    await db.approvalRequest.findUniqueOrThrow({ where: { id: request.id } }),
+  ).toMatchObject({ state: "PENDING", targets });
+});
+
+it("captures a session flag's exact nested tutor, schedule and participants without private text", async () => {
+  const fixture = await mergedAttendance();
+  const flag = await db.sessionFlag.create({
+    data: {
+      sessionId: fixture.primary.id,
+      tutorId: fixture.primary.tutorId,
+      expected: 3,
+      observed: 1,
+    },
+  });
+  const request = await queued(() =>
+    coordinator().admin.decideSessionFlag({
+      flagId: flag.id,
+      action: "WARN",
+      note: "Review the recorded discrepancy",
+    }),
+  );
+  const saved = references(request);
+  expect(saved.entities.SessionFlag).toContainEqual({
+    id: flag.id,
+    sessionId: fixture.primary.id,
+    tutorId: fixture.primary.tutorId,
+  });
+  expect(saved.entities.Session).toContainEqual(
+    expect.objectContaining({
+      id: fixture.primary.id,
+      date: expect.stringMatching(/^2026-10-25T00:00:00/) as unknown,
+      startMin: 600,
+      endMin: 660,
+    }),
+  );
+  expect(saved.entities.Tutor).toContainEqual(
+    expect.objectContaining({
+      id: fixture.primary.tutorId,
+      englishName: "Captured combined tutor",
+    }),
+  );
+  expect(saved.entities.Tutee).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: fixture.learners[0]!.id,
+        englishName: "Captured Ana",
+      }),
+      expect.objectContaining({
+        id: fixture.learners[1]!.id,
+        englishName: "Captured Bo",
+      }),
+      expect.objectContaining({
+        id: fixture.learners[2]!.id,
+        englishName: "Captured Cai",
+      }),
+    ]),
+  );
+  expect(JSON.stringify(saved)).not.toContain("Exact combined-session comment");
+});
+
+it("uses the Crew application namespace for a requested applicationId without changing old target evidence", async () => {
+  const application = await db.crewApplication.create({
+    data: {
+      name: "Captured crew applicant",
+      email: "PRIVATE_CREW_CONTACT@example.test",
+    },
+  });
+  const request = await queued(() =>
+    admin().admin.decideCrewApplication({
+      applicationId: application.id,
+      action: "ACCEPT",
+    }),
+  );
+  expect(references(request).entities.CrewApplication).toContainEqual({
+    id: application.id,
+    name: "Captured crew applicant",
+  });
+  expect(JSON.stringify(references(request))).not.toContain(
+    "PRIVATE_CREW_CONTACT",
+  );
+  expect(request.targets).toMatchObject({ TutorApplication: [] });
+  expect(await db.registrationCode.count()).toBe(0);
+});
+
+it("captures an explicit new interview chair and requested actual room from their typed input fields", async () => {
+  const fixture = await mergedAttendance();
+  const room = await db.room.create({
+    data: { name: "Requested actual room" },
+  });
+  const input = { ...fixture.input, online: false, actualRoomId: room.id };
+  const request = await queued(() =>
+    admin().corrections.correctAttendance(input),
+  );
+  expect(references(request).entities.Room).toContainEqual({
+    id: room.id,
+    name: "Requested actual room",
+  });
+  // The chair field is typed independently, while the parser and domain input
+  // retain the required membership of that chair in the requested panel.
+  const application = await db.tutorApplication.create({
+    data: {
+      name: "Panel reference applicant",
+      email: "panel-ref@example.test",
+    },
+  });
+  const panel = await db.tutor.findMany({
+    where: { id: fixture.primary.tutorId },
+  });
+  const second = await db.tutor.create({
+    data: { englishName: "Second panel reference", status: "ACTIVE" },
+  });
+  const chair = await db.tutor.create({
+    data: { englishName: "Explicit requested chair", status: "ACTIVE" },
+  });
+  const payload = await import("~/server/approvals").then(({ parseProposal }) =>
+    parseProposal("admin.assignInterviewers", {
+      applicationId: application.id,
+      tutorIds: [panel[0]!.id, second.id, chair.id],
+      headTutorId: chair.id,
+      expectedUpdatedAt: application.updatedAt,
+    }),
+  );
+  const targets = await proposalTargets(
+    db,
+    "admin.assignInterviewers",
+    payload,
+    true,
+    true,
+    "capture-admin",
+    true,
+    true,
+  );
+  expect(
+    (targets.reviewReferences as unknown as SavedReferences).entities.Tutor,
+  ).toContainEqual(
+    expect.objectContaining({
+      id: chair.id,
+      englishName: "Explicit requested chair",
+    }),
+  );
+});
+
+it("captures an automatic allocation's original room while excluding an ignored requested candidate", async () => {
+  const fixture = await referencedPairing();
+  const request = await queued(() =>
+    coordinator().admin.updatePairing({ ...fixture.input, roomMode: "AUTO" }),
+  );
+  expect(references(request).entities.Room).toContainEqual({
+    id: fixture.oldRoom.id,
+    name: "Original reference room",
+  });
+  expect(references(request).entities.Room).not.toContainEqual(
+    expect.objectContaining({ id: fixture.newRoom.id }),
+  );
+  await db.room.update({
+    where: { id: fixture.newRoom.id },
+    data: { name: "Changed ignored candidate" },
+  });
+  const recomputed = await proposalTargets(
+    db,
+    request.operation,
+    request.payload,
+    true,
+    true,
+    request.requesterId,
+    true,
+    true,
+  );
+  recomputed.reviewAuthority = (
+    request.targets as Prisma.JsonObject
+  ).reviewAuthority!;
+  expect(fingerprint(recomputed)).toBe(request.fingerprint);
+});
+
+async function announcementAudienceFixture() {
+  const selected = await db.tutor.create({
+    data: {
+      englishName: "Selected filtered tutor",
+      gradeLevel: 12,
+      status: "ACTIVE",
+    },
+  });
+  const included = await db.tutor.create({
+    data: {
+      englishName: "Explicitly included tutor",
+      gradeLevel: 10,
+      status: "PENDING",
+    },
+  });
+  const excluded = await db.tutor.create({
+    data: {
+      englishName: "Explicitly excluded tutor",
+      gradeLevel: 12,
+      status: "ACTIVE",
+      email: "PRIVATE_EXCLUDED_CONTACT@example.test",
+    },
+  });
+  const unrelated = await db.tutor.create({
+    data: {
+      englishName: "Unrelated filtered-out tutor",
+      gradeLevel: 9,
+      status: "ACTIVE",
+    },
+  });
+  const input = {
+    title: "Captured announcement audience",
+    body: "Exact announcement text",
+    audience: {
+      mode: "filtered" as const,
+      grades: [12],
+      statuses: ["ACTIVE" as const],
+      includeTutorIds: [included.id],
+      excludeTutorIds: [excluded.id],
+    },
+  };
+  return { selected, included, excluded, unrelated, input };
+}
+
+it("captures selected announcement recipients and explicit audience overrides without unrelated tutor labels", async () => {
+  const fixture = await announcementAudienceFixture();
+  const request = await queued(() =>
+    coordinator().admin.createAnnouncement(fixture.input),
+  );
+  expect(request.targets).toMatchObject({
+    announcementRecipients: expect.arrayContaining([
+      { id: fixture.selected.id, name: "Selected filtered tutor" },
+      { id: fixture.included.id, name: "Explicitly included tutor" },
+    ]) as unknown,
+  });
+  const saved = references(request);
+  expect(saved.entities.Tutor?.map((tutor) => tutor.id).sort()).toEqual(
+    [fixture.selected.id, fixture.included.id, fixture.excluded.id].sort(),
+  );
+  expect(saved.entities.Tutor).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: fixture.selected.id,
+        englishName: "Selected filtered tutor",
+      }),
+      expect.objectContaining({
+        id: fixture.included.id,
+        englishName: "Explicitly included tutor",
+      }),
+      expect.objectContaining({
+        id: fixture.excluded.id,
+        englishName: "Explicitly excluded tutor",
+      }),
+    ]),
+  );
+  expect(JSON.stringify(saved)).not.toContain(fixture.unrelated.id);
+  expect(JSON.stringify(saved)).not.toContain("Unrelated filtered-out tutor");
+  expect(JSON.stringify(saved)).not.toContain("PRIVATE_EXCLUDED_CONTACT");
+  expect(await db.announcement.count()).toBe(0);
+});
+
+it("retains an explicitly excluded announcement tutor's saved label and refuses a changed audience reference", async () => {
+  const fixture = await announcementAudienceFixture();
+  const request = await queued(() =>
+    coordinator().admin.createAnnouncement(fixture.input),
+  );
+  await db.tutor.update({
+    where: { id: fixture.excluded.id },
+    data: { englishName: "Changed excluded tutor label" },
+  });
+  await expect(approve(request)).rejects.toMatchObject({ code: "CONFLICT" });
+  const pending = await db.approvalRequest.findUniqueOrThrow({
+    where: { id: request.id },
+  });
+  expect(pending).toMatchObject({ state: "PENDING", targets: request.targets });
+  expect(references(pending).entities.Tutor).toContainEqual(
+    expect.objectContaining({
+      id: fixture.excluded.id,
+      englishName: "Explicitly excluded tutor",
+    }),
+  );
+  expect(await db.announcement.count()).toBe(0);
 });

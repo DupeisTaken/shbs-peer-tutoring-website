@@ -153,7 +153,7 @@ it.each(["en", "zh"])(
       requested.queryByText(copy.approvals.review.collectionState.added),
     ).toBeNull();
     expect(
-      screen.getByText(copy.approvals.review.attendanceOutcome),
+      screen.getAllByText(copy.approvals.review.attendanceOutcome),
     ).toBeTruthy();
   },
 );
@@ -197,10 +197,14 @@ it.each(["en", "zh"])(
       },
       locale,
     );
-    expect(screen.getByText("26-27 Q4")).toBeTruthy();
-    expect(screen.getByText("27-28 Q1")).toBeTruthy();
-    expect(screen.getByText(copy.nextRecruitment.proposedOpening)).toBeTruthy();
-    expect(screen.getByText(copy.nextRecruitment.noRestriction)).toBeTruthy();
+    expect(screen.getAllByText("26-27 Q4")).toBeTruthy();
+    expect(screen.getAllByText("27-28 Q1")).toBeTruthy();
+    expect(
+      screen.getAllByText(copy.nextRecruitment.proposedOpening),
+    ).toBeTruthy();
+    expect(
+      screen.getAllByText(copy.nextRecruitment.noRestriction),
+    ).toBeTruthy();
     expect(screen.queryByText(copy.nextRecruitment.tutee)).toBeNull();
     expect(screen.queryByText("Expected Target")).toBeNull();
   },
@@ -208,7 +212,7 @@ it.each(["en", "zh"])(
 
 it("does not invent next-period evidence for a legacy refresh request", () => {
   show("admin.refresh", { confirm: "REFRESH", expectedTermId: "legacy" }, {});
-  expect(screen.getByText(en.approvals.review.unavailable)).toBeTruthy();
+  expect(screen.getAllByText(en.approvals.review.unavailable)).toBeTruthy();
   expect(screen.queryByText(en.nextRecruitment.noRestriction)).toBeNull();
 });
 
@@ -239,17 +243,21 @@ it.each(["en", "zh"])(
       { nextRecruitment: snapshot },
       locale,
     );
-    expect(screen.getByText(copy.admin.program.effectTutees)).toBeTruthy();
-    expect(screen.getByText(copy.admin.program.effectPairings)).toBeTruthy();
-    expect(screen.getByText(copy.admin.program.effectReactivate)).toBeTruthy();
-    expect(screen.getByText(copy.nextRecruitment.graduationHelp)).toBeTruthy();
+    expect(screen.getAllByText(copy.admin.program.effectTutees)).toBeTruthy();
+    expect(screen.getAllByText(copy.admin.program.effectPairings)).toBeTruthy();
     expect(
-      screen.getByText(copy.nextRecruitment.academicReconfirm),
+      screen.getAllByText(copy.admin.program.effectReactivate),
     ).toBeTruthy();
-    expect(screen.getByText(copy.nextRecruitment.historyHelp)).toBeTruthy();
+    expect(
+      screen.getAllByText(copy.nextRecruitment.graduationHelp),
+    ).toBeTruthy();
+    expect(
+      screen.getAllByText(copy.nextRecruitment.academicReconfirm),
+    ).toBeTruthy();
+    expect(screen.getAllByText(copy.nextRecruitment.historyHelp)).toBeTruthy();
     expect(screen.queryByText(copy.admin.program.effectAgeUp)).toBeNull();
     expect(
-      screen.getByText(
+      screen.getAllByText(
         copy.admin.program.effectHoursReset.replace("{semester}", "S1"),
       ),
     ).toBeTruthy();
@@ -274,11 +282,11 @@ it.each(["en", "zh"])(
       { programSettings: null },
       locale,
     );
-    expect(screen.getByText(copy.admin.users.roles.STUDENT)).toBeTruthy();
+    expect(screen.getAllByText(copy.admin.users.roles.STUDENT)).toBeTruthy();
     expect(
       screen.getAllByText(copy.personName.firstName).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByText(copy.signupFields.hidden)).toBeTruthy();
+    expect(screen.getAllByText(copy.signupFields.hidden)).toBeTruthy();
     expect(screen.queryByText("Expected Version")).toBeNull();
     cleanup();
     show(
@@ -292,7 +300,7 @@ it.each(["en", "zh"])(
       },
       locale,
     );
-    expect(screen.getByText(copy.roomOrder.title)).toBeTruthy();
+    expect(screen.getAllByText(copy.roomOrder.title)).toBeTruthy();
     expect(screen.getAllByText("Original Alpha").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Original Beta").length).toBeGreaterThan(0);
     expect(screen.queryByText("Expected Ids")).toBeNull();
@@ -323,8 +331,10 @@ it.each(["en", "zh"])(
       locale,
     );
     const copy = locale === "en" ? en : zh;
-    expect(screen.getByText(copy.approvals.review.fields.invalid)).toBeTruthy();
-    expect(screen.getByText("Duplicate public submission.")).toBeTruthy();
+    expect(
+      screen.getAllByText(copy.approvals.review.fields.invalid),
+    ).toBeTruthy();
+    expect(screen.getAllByText("Duplicate public submission.")).toBeTruthy();
     expect(screen.queryByText("Expected Invalidity Version")).toBeNull();
     expect(screen.queryByText("Invalidity Version")).toBeNull();
   },
@@ -344,9 +354,9 @@ it.each(["en", "zh"])(
       locale,
     );
     const copy = locale === "en" ? en : zh;
-    expect(screen.getByText(copy.signupFields.tutee)).toBeTruthy();
-    expect(screen.getByText(copy.signupFields.labels.phone)).toBeTruthy();
-    expect(screen.getByText(copy.signupFields.required)).toBeTruthy();
+    expect(screen.getAllByText(copy.signupFields.tutee)).toBeTruthy();
+    expect(screen.getAllByText(copy.signupFields.labels.phone)).toBeTruthy();
+    expect(screen.getAllByText(copy.signupFields.required)).toBeTruthy();
     expect(screen.queryByText("expectedState")).toBeNull();
   },
 );
@@ -358,7 +368,7 @@ it("retains unknown signup field values and unrelated literal text", () => {
     reason: "required",
   });
   for (const value of ["legacy", "retiredField", "retiredState", "required"])
-    expect(screen.getByText(value)).toBeTruthy();
+    expect(screen.getAllByText(value)).toBeTruthy();
 });
 it.each(["GRADUATED", "TRANSFERRED", "RETURN", "REVOKE", "RESTORE"])(
   "preserves readable departure actions and their consequences (%s)",
@@ -370,14 +380,14 @@ it.each(["GRADUATED", "TRANSFERRED", "RETURN", "REVOKE", "RESTORE"])(
       explanation: "Request details",
     });
     expect(
-      screen.getByText(
+      screen.getAllByText(
         en.approvals.review.values[
           action as keyof typeof en.approvals.review.values
         ],
       ),
     ).toBeTruthy();
     expect(
-      screen.getByText(
+      screen.getAllByText(
         action === "RETURN"
           ? en.schoolDeparture.returnHelp
           : ["REVOKE", "RESTORE"].includes(action)
@@ -385,7 +395,7 @@ it.each(["GRADUATED", "TRANSFERRED", "RETURN", "REVOKE", "RESTORE"])(
             : en.schoolDeparture.consequences,
       ),
     ).toBeTruthy();
-    expect(screen.getByText(en.schoolDeparture.retained)).toBeTruthy();
+    expect(screen.getAllByText(en.schoolDeparture.retained)).toBeTruthy();
     expect(screen.queryByText("Expected Revision")).toBeNull();
   },
 );
@@ -424,7 +434,7 @@ it("places the old and requested values together and keeps unchanged fields out 
   expect(requested.getByText("Science room")).toBeTruthy();
   expect(requested.getByText("Quiet study")).toBeTruthy();
   expect(requested.queryByText("Active")).toBeNull();
-  expect(screen.getByText("Unchanged submitted values (1)")).toBeTruthy();
+  expect(screen.getAllByText("Unchanged submitted values (1)")).toBeTruthy();
 });
 
 it.each(["en", "zh"])(
@@ -457,15 +467,15 @@ it.each(["en", "zh"])(
     const affected = within(
       screen.getByRole("region", { name: copy.approvals.review.affected }),
     );
-    expect(affected.getByText("Captured Student")).toBeTruthy();
+    expect(affected.getAllByText("Captured Student")).toBeTruthy();
     expect(
-      affected.getByText(copy.approvals.review.values.STUDENT_ABORT),
+      affected.getAllByText(copy.approvals.review.values.STUDENT_ABORT),
     ).toBeTruthy();
     expect(
-      affected.getByText((_, element) => element?.textContent === reason),
+      affected.getAllByText((_, element) => element?.textContent === reason),
     ).toBeTruthy();
     expect(
-      affected.getByText(copy.approvals.review.rejectUnderlying),
+      affected.getAllByText(copy.approvals.review.rejectUnderlying),
     ).toBeTruthy();
     expect(affected.queryByText("Unrelated person")).toBeNull();
   },
@@ -541,12 +551,16 @@ it.each(["en", "zh"])(
       true,
     );
     expect(
-      screen.getByText((_, element) => element?.textContent === proposed),
+      screen.getAllByText((_, element) => element?.textContent === proposed),
     ).toBeTruthy();
-    expect(screen.getByText(copy.approvals.review.emptyValue)).toBeTruthy();
+    expect(
+      screen.getAllByText(copy.auditEventDetails.emptyString),
+    ).toBeTruthy();
     expect(screen.queryByText(copy.approvals.review.unavailable)).toBeNull();
     expect(screen.queryByText("Wrong locale")).toBeNull();
-    expect(screen.getByText(copy.approvals.review.publishOutcome)).toBeTruthy();
+    expect(
+      screen.getAllByText(copy.approvals.review.publishOutcome),
+    ).toBeTruthy();
     expect(screen.queryByText(copy.approvals.review.evidence)).toBeNull();
   },
 );
@@ -577,10 +591,10 @@ it.each(["en", "zh"])(
       locale,
       true,
     );
-    expect(screen.getByText(copy.approvals.review.unavailable)).toBeTruthy();
+    expect(screen.getAllByText(copy.approvals.review.unavailable)).toBeTruthy();
     expect(screen.queryByText(copy.approvals.review.emptyValue)).toBeNull();
     expect(
-      screen.getByText(copy.approvals.review.rejectPublicationOutcome),
+      screen.getAllByText(copy.approvals.review.rejectPublicationOutcome),
     ).toBeTruthy();
   },
 );
@@ -607,10 +621,10 @@ it.each(["en", "zh"])(
         locale,
       );
       expect(
-        screen.getByText(copy.approvals.review.featureSource.default),
+        screen.getAllByText(copy.approvals.review.featureSource.default),
       ).toBeTruthy();
       expect(
-        screen.getByText(
+        screen.getAllByText(
           copy.approvals.review.featureOutcome[
             pending === null ? "stage" : "clear"
           ],
@@ -620,7 +634,7 @@ it.each(["en", "zh"])(
         screen.getAllByText(copy.approvals.review.noPending).length,
       ).toBeGreaterThan(0);
       expect(
-        screen.getByText(copy.admin.program.features.name.CREW),
+        screen.getAllByText(copy.admin.program.features.name.CREW),
       ).toBeTruthy();
       cleanup();
     }
@@ -690,7 +704,7 @@ it.each(["en", "zh"])(
       }),
     ).toBeNull();
     fireEvent.click(toggle);
-    expect(screen.getByText("New room")).toBeTruthy();
+    expect(screen.getAllByText("New room")).toBeTruthy();
     expect(screen.getAllByText("Original room").length).toBeGreaterThan(0);
   },
 );
@@ -719,8 +733,8 @@ it("retains literal text that happens to match a record ID or enum", () => {
     { id: "room", name: "ACTIVE", reason: "room" },
     { Room: [{ record: { id: "room", name: "Old" } }] },
   );
-  expect(screen.getByText("ACTIVE")).toBeTruthy();
-  expect(screen.getByText("room")).toBeTruthy();
+  expect(screen.getAllByText("ACTIVE")).toBeTruthy();
+  expect(screen.getAllByText("room")).toBeTruthy();
 });
 it("separates cleared values from missing historical values", () => {
   show(
@@ -728,9 +742,9 @@ it("separates cleared values from missing historical values", () => {
     { id: "room", name: "", capacity: 0 },
     { Room: [{ record: { id: "room", name: "Old" } }] },
   );
-  expect(screen.getByText("Not set")).toBeTruthy();
-  expect(screen.getByText("Not recorded in this request")).toBeTruthy();
-  expect(screen.getByText("0")).toBeTruthy();
+  expect(screen.getAllByText(en.auditEventDetails.emptyString)).toBeTruthy();
+  expect(screen.getAllByText("Not recorded in this request")).toBeTruthy();
+  expect(screen.getAllByText("0")).toBeTruthy();
 });
 it("makes deletion explicit even when the payload contains only an ID", () => {
   show(
@@ -804,7 +818,11 @@ it("keeps unknown operation fields readable without dropping the request", () =>
     { id: "old-id", customField: "Retained evidence" },
     null,
   );
-  expect(screen.getByText("Record ID: old-id")).toBeTruthy();
-  expect(screen.getByText("Retained evidence")).toBeTruthy();
-  expect(screen.getByText("Custom Field")).toBeTruthy();
+  expect(screen.getAllByText("Record ID: old-id")).toBeTruthy();
+  expect(screen.getAllByText("Retained evidence")).toBeTruthy();
+  expect(
+    screen.getAllByText(
+      en.approvals.review.unknownField.replace("{field}", "customField"),
+    ),
+  ).toBeTruthy();
 });

@@ -28,6 +28,8 @@ export type AuditSummaryComparison = {
   position?: number;
   beforeId?: string;
   afterId?: string;
+  beforeRecord?: unknown;
+  afterRecord?: unknown;
   fields: {
     path: string;
     change: RecordedEvidenceChange;
@@ -39,7 +41,7 @@ export type AuditSummaryComparison = {
 /** Only recorded before/after envelopes are summarized. Arrays keep the existing
  * positional diff semantics; IDs label evidence but never rematch/reorder it.
  * Counts are diff values, not unique records or a replacement for affectedCount. */
-export function auditChangeSummary(details: unknown) {
+export function auditChangeSummary(details: unknown, fallbackEntity?: string) {
   const root = record(details);
   if (!root) return null;
   // An explicit future version may change envelope semantics. Established
@@ -69,6 +71,10 @@ export function auditChangeSummary(details: unknown) {
     batches = entries as RecordValue[];
   } else return null;
   const comparisons: AuditSummaryComparison[] = [];
+  const capturedRecords: Pick<
+    AuditSummaryComparison,
+    "entity" | "beforeRecord" | "afterRecord"
+  >[] = [];
   const counts = { added: 0, removed: 0, changed: 0 };
   let positional = false;
   const at = (value: unknown, present: boolean, path: string): Side => {
@@ -89,7 +95,7 @@ export function auditChangeSummary(details: unknown) {
         ? batch.entity
         : typeof root.entity === "string"
           ? root.entity
-          : undefined;
+          : fallbackEntity;
     const before = batch.before,
       after = batch.after;
     const pairs =
@@ -131,17 +137,25 @@ export function auditChangeSummary(details: unknown) {
           after: at(pair.after, pair.afterPresent, path),
         };
       });
+      const recorded = {
+        entity,
+        ...(pair.beforePresent
+          ? { beforeRecord: publicValue(pair.before) }
+          : {}),
+        ...(pair.afterPresent ? { afterRecord: publicValue(pair.after) } : {}),
+      };
+      capturedRecords.push(recorded);
       if (!fields.length) continue;
       const beforeId = record(pair.before)?.id,
         afterId = record(pair.after)?.id;
       comparisons.push({
-        entity,
         position: pair.position,
         fields,
+        ...recorded,
         ...(typeof beforeId === "string" ? { beforeId } : {}),
         ...(typeof afterId === "string" ? { afterId } : {}),
       });
     }
   }
-  return { comparisons, counts, positional };
+  return { comparisons, counts, positional, capturedRecords };
 }

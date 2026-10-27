@@ -1964,7 +1964,7 @@ the Head reviewer's fresh password during replay.
 Management Actions composes a single review sheet using
 [`ApprovalReviewDetails`](../../src/app/_components/approval-review-details.tsx)
 and [`approvalPresentation`](../../src/lib/approval-presentation.ts). The persistent
-summary identifies the captured target and requested outcome; request and
+summary identifies the captured target, requested outcome and changed values; request and
 change-section disclosures retain mounted drafts and independent expanded state.
 The request disclosure cannot close during a decision write or a consequence or
 qualification confirmation. Identity labels use the shared person-name catalog.
@@ -1972,6 +1972,33 @@ Adapters read only immutable targets: whole-program withdrawal reviews expose th
 linked tutee, request kind and original reason; translation decisions show the
 exact proposed destination text and locale even in the compact confirmation.
 Missing original evidence remains distinct from a recorded empty value.
+
+[`approval-summary`](../../src/lib/approval-summary.ts) explicitly inventories
+every registered approval operation. It projects contextual identities and all
+meaningful requested fields into the persistent summary and compact confirmation.
+Pairing context includes the captured tutor, learners, subject, schedule and room;
+collection summaries name additions/removals and display changed child values.
+Typed entity/ID references prevent similarly named people or identical IDs in
+different tables from borrowing one another's identity. IDs remain secondary;
+missing or contradictory captured labels are stated explicitly. Literal names,
+reasons and publication text never become translated enum values.
+
+Action outcomes follow the owning writer: subject removal archives an offering;
+replacing an interview panel starts a fresh review and clears prior votes,
+completion and service credits; replacing an accepted initial panel also explains
+its admission reconciliation. Course-group saves identify archived omitted
+offerings only from a complete captured child collection. Announcement summaries
+include the captured recipient count and localized audience choices. A generic
+before/after payload does not imply that a decision has already been applied.
+
+New requests independently opt into `reviewReferences.version = 1`. The
+[`reference capture`](../../src/server/approval-reference-capture.ts) follows
+allowlisted requested and original relationships, including removed learners and
+replaced tutor/room/time-slot references. It stores minimal labels and scheduling
+facts, not credentials, contact details, private messages or executable undo data.
+Those labels participate in the immutable fingerprint: later label drift requires
+a fresh review. Replay selects this projection only when the original request
+contains its supported marker; both pre-reference capture formats remain unchanged.
 
 The `reviewPresentation.version = 1` capture marker selects the new safe original
 fields for account names/usernames, captured feature defaults and recruitment
@@ -2001,6 +2028,18 @@ comparison; recorded IDs label the evidence without rematching it. The complete
 original reader and exact JSON remain available, including unknown historical
 envelopes. These readers perform no writes and do not replace request permissions,
 stale-evidence checks, private-evidence allowlists or transactional replay.
+
+The shared [`review vocabulary`](../../src/lib/review-vocabulary.ts) maps known
+entities, fields and enums to authored catalog keys. Meanings are scoped by entity
+and field: an extra session differs from an additional-hours adjustment, and an
+automatically allocated room differs from an automatically issued card. Audit
+references resolve only within the same event, entity and before/after side;
+unchanged captured records can supply labels without increasing change counts.
+Unknown historical fields/values and exact JSON paths remain inspectable. Added,
+removed and changed comparisons keep their recorded distinction, while attempts
+and reversals have localized kind/filter labels. Coverage tests compare the
+operation inventory and schema models/enums with the maintained presentation map
+and require every bundled catalog to contain its vocabulary.
 
 The audit boundary composes database writes and safe before/after evidence in one transaction,
 including helpers that import the shared database. Database-owned workflows retain their

@@ -17,6 +17,9 @@ const copy = {
     clear: "Feature: clear a pending override",
     translation: "Translation: exact publication text",
     audit: "Audit: 75 recorded changes",
+    pairing: "Pairing: people, subject and schedule",
+    legacyPairing: "Pairing: missing historical names",
+    unchanged: "No change: identical requested value",
     note: "Example decision note",
     pending: "Simulate pending confirmation",
     requester: "Requested by Alex Coordinator · Pending",
@@ -30,13 +33,70 @@ const copy = {
     clear: "功能：清除待生效覆盖",
     translation: "翻译：完整发布文本",
     audit: "审计：75 项记录更改",
+    pairing: "辅导安排：人员、科目和时间",
+    legacyPairing: "辅导安排：历史姓名未记录",
+    unchanged: "无更改：申请值与原值相同",
     note: "示例决定备注",
     pending: "模拟待完成确认",
     requester: "申请人 Alex Coordinator · 待审核",
   },
 };
 
-type Example = "attendance" | "stage" | "clear" | "translation" | "audit";
+type Example =
+  | "attendance"
+  | "stage"
+  | "clear"
+  | "translation"
+  | "audit"
+  | "pairing"
+  | "legacyPairing"
+  | "unchanged";
+
+const pairing = {
+  operation: "admin.updatePairing",
+  payload: {
+    id: "assignment",
+    tutorId: "tutor-new",
+    tuteeIds: ["learner-kept", "learner-added"],
+    timeSlotId: "slot-new",
+    roomMode: "FIXED",
+    roomId: "room-new",
+  },
+  targets: {
+    Pairing: [
+      {
+        id: "assignment",
+        tutorId: "tutor-old",
+        subject: "Mathematics",
+        timeSlotId: "slot-old",
+        dayOfWeek: 1,
+        startMin: 960,
+        endMin: 1020,
+        roomMode: "AUTO",
+        roomId: "room-old",
+      },
+    ],
+    "Pairing.PairingTutee": [
+      { pairingId: "assignment", tuteeId: "learner-kept" },
+      { pairingId: "assignment", tuteeId: "learner-removed" },
+    ],
+    Tutor: [{ id: "tutor-new", englishName: "Alex Chen" }],
+    Tutee: [
+      { id: "learner-kept", englishName: "Mina Li" },
+      { id: "learner-added", englishName: "Sam Lee" },
+    ],
+    TimeSlot: [
+      {
+        id: "slot-new",
+        label: "Wednesday afternoon",
+        dayOfWeek: 3,
+        startMin: 990,
+        endMin: 1050,
+      },
+    ],
+    Room: [{ id: "room-new", name: "Room 204" }],
+  },
+};
 
 // IDs and original values remain stable across locales and scenario changes.
 // These are captured fixtures, not a projection of the current program database.
@@ -50,6 +110,53 @@ const attendance = students.map((student) => ({
   absenceReason: null,
 }));
 const fixtures = {
+  pairing: {
+    ...pairing,
+    targets: {
+      ...pairing.targets,
+      reviewReferences: {
+        version: 1,
+        timeZone: "Asia/Shanghai",
+        entities: {
+          Tutor: [
+            { id: "tutor-old", englishName: "Jordan Wu" },
+            { id: "tutor-new", englishName: "Alex Chen" },
+          ],
+          Tutee: [
+            { id: "learner-removed", englishName: "Sam Lee" },
+            { id: "learner-added", englishName: "Sam Lee" },
+            { id: "learner-kept", englishName: "Mina Li" },
+          ],
+          Room: [
+            { id: "room-old", name: "Room 101" },
+            { id: "room-new", name: "Room 204" },
+          ],
+          TimeSlot: [
+            {
+              id: "slot-old",
+              label: "Monday afternoon",
+              dayOfWeek: 1,
+              startMin: 960,
+              endMin: 1020,
+            },
+            {
+              id: "slot-new",
+              label: "Wednesday afternoon",
+              dayOfWeek: 3,
+              startMin: 990,
+              endMin: 1050,
+            },
+          ],
+        },
+      },
+    },
+  },
+  legacyPairing: pairing,
+  unchanged: {
+    operation: "admin.updateRoom",
+    payload: { id: "room", name: "Room 101" },
+    targets: { Room: [{ id: "room", name: "Room 101" }] },
+  },
   attendance: {
     operation: "corrections.correctAttendance",
     payload: {
@@ -164,7 +271,16 @@ export function ManagementReviewRecipe() {
           onChange={(event) => setExample(event.target.value as Example)}
         >
           {(
-            ["attendance", "stage", "clear", "translation", "audit"] as const
+            [
+              "attendance",
+              "pairing",
+              "legacyPairing",
+              "unchanged",
+              "stage",
+              "clear",
+              "translation",
+              "audit",
+            ] as const
           ).map((key) => (
             <option key={key} value={key}>
               {t[key]}

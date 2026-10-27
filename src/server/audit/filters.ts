@@ -6,7 +6,14 @@ export const auditFilters = z
     cursor: z.string().optional(),
     userId: z.string().optional(),
     kind: z
-      .enum(["ACTION", "DECISION", "SUBMISSION", "CANCELLATION", "ATTEMPT"])
+      .enum([
+        "ACTION",
+        "DECISION",
+        "SUBMISSION",
+        "CANCELLATION",
+        "ATTEMPT",
+        "REVERSAL",
+      ])
       .optional(),
     operation: z.string().max(150).optional(),
     entity: z.string().max(100).optional(),

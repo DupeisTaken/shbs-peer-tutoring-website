@@ -28,6 +28,7 @@ import { announcementCandidates } from "./announcement-recipients";
 import { lockUsernameNamespace } from "./auth/username";
 import { DEFAULT_FEATURES } from "./program/features";
 import { getProgramTimeZone } from "./program/time-zone";
+import { captureReviewReferences } from "./approval-reference-capture";
 import {
   applicationIdentityCorrectionInput,
   validateApplicationIdentityCorrection,
@@ -406,11 +407,28 @@ export async function proposalTargets(
   includeAuthorityContext = false,
   actorId?: string,
   includeReviewPresentation = false,
+  includeReviewReferences = false,
 ) {
   const input: unknown = superjson.deserialize(
     payload as Parameters<typeof superjson.deserialize>[0],
   );
   const fields = z.record(z.string(), z.unknown()).parse(input);
+  // Reference labels have their own version. Keep every existing v1 display/
+  // authority projection byte-for-byte stable when this separate marker is absent.
+  const capturedTargets = async (targets: Record<string, unknown>) => {
+    const captured = JSON.parse(JSON.stringify(targets)) as Record<
+      string,
+      Prisma.InputJsonValue
+    >;
+    if (includeReviewReferences)
+      captured.reviewReferences = await captureReviewReferences(
+        client,
+        operation,
+        fields,
+        captured,
+      );
+    return captured;
+  };
   if (operation === "admin.correctApplicationIdentity") {
     // Queue interception happens before the resolver. Capture only a validated,
     // locked correction; replay repeats the same validation before fingerprinting.
@@ -430,23 +448,21 @@ export async function proposalTargets(
         subjectIntents: { orderBy: { id: "asc" } },
       },
     });
-    return JSON.parse(
-      JSON.stringify({
-        TutorApplication: [{ record: application }],
-        applicationIdentity: {
-          original: identity.original,
-          current: identity.current,
-          next: identity.next,
-          revision: identity.revision,
-          policy: identity.policy,
-          readiness: identity.readiness,
-          provisioning: identity.provisioning,
-        },
-        ...(includeAuthorityContext
-          ? { authorityContext: await authoritySnapshot(client) }
-          : {}),
-      }),
-    ) as Record<string, Prisma.InputJsonValue>;
+    return capturedTargets({
+      TutorApplication: [{ record: application }],
+      applicationIdentity: {
+        original: identity.original,
+        current: identity.current,
+        next: identity.next,
+        revision: identity.revision,
+        policy: identity.policy,
+        readiness: identity.readiness,
+        provisioning: identity.provisioning,
+      },
+      ...(includeAuthorityContext
+        ? { authorityContext: await authoritySnapshot(client) }
+        : {}),
+    });
   }
   if (operation === "program.prepareNextRecruitment") {
     const proposal = prepareNextRecruitmentSchema.parse(input);
@@ -455,14 +471,10 @@ export async function proposalTargets(
     // A separate Tutor/Tutee proposal or current-window edit must not invalidate it.
     // The marker distinguishes exact modern evidence from legacy review payloads;
     // live requester/reviewer authority is rechecked by the approval transaction.
-    return JSON.parse(
-      JSON.stringify({
-        nextRecruitment: { audience: proposal.audience, ...evidence },
-        ...(includeAuthorityContext
-          ? { authorityContext: { version: 2 } }
-          : {}),
-      }),
-    ) as Record<string, Prisma.InputJsonValue>;
+    return capturedTargets({
+      nextRecruitment: { audience: proposal.audience, ...evidence },
+      ...(includeAuthorityContext ? { authorityContext: { version: 2 } } : {}),
+    });
   }
   if (operation === "admin.refresh") {
     const expected = nextRecruitmentRefreshEvidenceSchema.parse(
@@ -476,14 +488,12 @@ export async function proposalTargets(
     // Validate while capturing, not only while replaying: queue middleware runs
     // before the resolver. An already stale/invalid refresh never enters review.
     const evidence = await validateNextRecruitmentRefresh(client, expected);
-    return JSON.parse(
-      JSON.stringify({
-        nextRecruitment: evidence,
-        ...(includeAuthorityContext
-          ? { authorityContext: await authoritySnapshot(client) }
-          : {}),
-      }),
-    ) as Record<string, Prisma.InputJsonValue>;
+    return capturedTargets({
+      nextRecruitment: evidence,
+      ...(includeAuthorityContext
+        ? { authorityContext: await authoritySnapshot(client) }
+        : {}),
+    });
   }
   // An automatic proposal approves the scheduling intent, not a previewed candidate room.
   // The slot itself and the edited pairing remain immutable review evidence.
@@ -549,17 +559,12 @@ export async function proposalTargets(
     await lockHistoricalCorrections(client, proposal);
     // Save exact named before/after records, original evidence and ownership. Rebuilding
     // this snapshot during approval rejects drift before any correction is appended.
-    return JSON.parse(
-      JSON.stringify({
-        historicalAcademics: await previewHistoricalCorrections(
-          client,
-          proposal,
-        ),
-        ...(includeAuthorityContext
-          ? { authorityContext: await authoritySnapshot(client) }
-          : {}),
-      }),
-    ) as Record<string, Prisma.InputJsonValue>;
+    return capturedTargets({
+      historicalAcademics: await previewHistoricalCorrections(client, proposal),
+      ...(includeAuthorityContext
+        ? { authorityContext: await authoritySnapshot(client) }
+        : {}),
+    });
   }
   // A tutor may update intent while a staff proposal is pending. Lock the same
   // compound record as live writes before capturing/rechecking review evidence.
@@ -1042,10 +1047,7 @@ export async function proposalTargets(
     orderBy: { createdAt: "desc" },
     select: { id: true, schoolYear: true, quarter: true },
   });
-  return JSON.parse(JSON.stringify(targets)) as Record<
-    string,
-    Prisma.InputJsonValue
-  >;
+  return capturedTargets(targets);
 }
 
 /** JSONB preserves values and array order, but not object insertion order. */
@@ -1178,6 +1180,7 @@ export async function queueProposal(
       true,
       true,
       session.user.id,
+      true,
       true,
     );
     if (

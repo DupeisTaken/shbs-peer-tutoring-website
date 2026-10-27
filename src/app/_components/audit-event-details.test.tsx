@@ -25,7 +25,360 @@ vi.mock("~/trpc/react", () => ({
     },
   },
 }));
+
+it.each(["en", "zh"])(
+  "explains a pairing through unchanged captured names, schedule and typed room states (%s)",
+  (locale) => {
+    const details = {
+      evidenceVersion: 1,
+      outcome: "APPLIED",
+      changes: [
+        {
+          entity: "Tutor",
+          before: [{ id: "tutor", englishName: "Recorded Tutor" }],
+          after: [{ id: "tutor", englishName: "Recorded Tutor" }],
+        },
+        {
+          entity: "TimeSlot",
+          before: [{ id: "slot", dayOfWeek: 1, startMin: 900, endMin: 950 }],
+          after: [{ id: "slot", dayOfWeek: 1, startMin: 900, endMin: 950 }],
+        },
+        {
+          entity: "Pairing",
+          before: [
+            {
+              id: "pairing",
+              tutorId: "tutor",
+              timeSlotId: "slot",
+              subject: "ACTIVE",
+              roomMode: "FIXED",
+            },
+          ],
+          after: [
+            {
+              id: "pairing",
+              tutorId: "tutor",
+              timeSlotId: "slot",
+              subject: "ACTIVE",
+              roomMode: "AUTO",
+            },
+          ],
+        },
+      ],
+    };
+    const original = structuredClone(details);
+    mocks.query.mockReturnValue(result({ ...event, details }));
+    render(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider
+          locale={locale}
+          timeZone="Asia/Shanghai"
+          messages={locale === "en" ? en : zh}
+        >
+          <AuditEventDetails id="event-1" />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    const summary = within(
+      screen.getByRole("region", {
+        name: locale === "en" ? "Recorded Changes" : "记录的变更",
+      }),
+    );
+    const heading = summary.getByRole("button");
+    expect(heading.textContent).toContain("Recorded Tutor");
+    expect(heading.textContent).toContain("ACTIVE");
+    expect(heading.textContent).toContain("15:00–15:50");
+    expect(heading.textContent).not.toContain("tutorId");
+    expect(
+      summary.getByText(locale === "en" ? "Fixed room" : "固定教室"),
+    ).toBeTruthy();
+    expect(
+      summary.getByText(
+        locale === "en" ? "Automatic room allocation" : "自动分配教室",
+      ),
+    ).toBeTruthy();
+    expect(
+      summary.getByText(
+        locale === "en" ? "Recorded path: /roomMode" : "记录路径：/roomMode",
+      ),
+    ).toBeTruthy();
+    expect(details).toEqual(original);
+  },
+);
+
+it.each(["ATTEMPT", "REVERSAL", "FUTURE_KIND"])(
+  "keeps audit kind %s readable without losing stored metadata",
+  (kind) => {
+    mocks.query.mockReturnValue(
+      result({
+        ...event,
+        kind,
+        details: { evidenceVersion: 1, outcome: "FAILED", applied: false },
+      }),
+    );
+    render(<AuditEventDetails id="event-1" />, { wrapper });
+    expect(screen.getByText(`(${kind})`)).toBeTruthy();
+    expect(screen.getByText("Failed")).toBeTruthy();
+    expect(screen.getAllByText("FAILED").length).toBeGreaterThan(0);
+  },
+);
+
+it.each(
+  ["en", "zh"].flatMap((locale) => [
+    {
+      locale,
+      scenario: "added empty object",
+      details: { after: {} },
+      nullCount: 0,
+    },
+    {
+      locale,
+      scenario: "removed empty object",
+      details: { before: {} },
+      nullCount: 0,
+    },
+    {
+      locale,
+      scenario: "null to empty object",
+      details: { before: null, after: {} },
+      nullCount: 1,
+    },
+    {
+      locale,
+      scenario: "undo-only added object",
+      details: { after: { undoData: { private: "never-display" } } },
+      nullCount: 0,
+    },
+    {
+      locale,
+      scenario: "undo-only removed object",
+      details: { before: { undoData: { private: "never-display" } } },
+      nullCount: 0,
+    },
+  ]),
+)(
+  "keeps $scenario explicit in the $locale semantic summary",
+  ({ locale, details, nullCount }) => {
+    const copy = locale === "en" ? en : zh;
+    const original = structuredClone(details);
+    mocks.query.mockReturnValue(result({ ...event, entity: "Tutor", details }));
+    render(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider
+          locale={locale}
+          timeZone="Asia/Shanghai"
+          messages={copy}
+        >
+          <AuditEventDetails id="event-1" />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    const summary = within(
+      screen.getByRole("region", { name: copy.auditEventDetails.summaryTitle }),
+    );
+    expect(summary.getByText(copy.auditEventDetails.emptyObject)).toBeTruthy();
+    expect(
+      summary.queryAllByText(copy.auditEventDetails.nullValue),
+    ).toHaveLength(nullCount);
+    expect(screen.queryByText(/never-display/)).toBeNull();
+    const exact = fullEvidence(copy.auditEventDetails.fullEvidence);
+    const raw = exact
+      .getByText(copy.auditEventDetails.rawEvidence)
+      .closest("details")!;
+    raw.open = true;
+    fireEvent(raw, new Event("toggle"));
+    expect(raw.querySelector("pre")!.textContent).toBe(
+      JSON.stringify(
+        details,
+        (key, value: unknown) => (key === "undoData" ? undefined : value),
+        2,
+      ),
+    );
+    expect(details).toEqual(original);
+  },
+);
+
+it.each(["en", "zh"])(
+  "does not reinterpret an unknown nested object as its containing Tutor schema (%s)",
+  (locale) => {
+    const copy = locale === "en" ? en : zh;
+    const details = {
+      before: { metadata: {} },
+      after: {
+        metadata: {
+          newObject: {
+            status: "ACTIVE",
+            name: "Literal recorded text",
+            undoData: "secret-nested-undo",
+          },
+        },
+      },
+    };
+    mocks.query.mockReturnValue(result({ ...event, entity: "Tutor", details }));
+    render(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider
+          locale={locale}
+          timeZone="Asia/Shanghai"
+          messages={copy}
+        >
+          <AuditEventDetails id="event-1" />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    const summary = within(
+      screen.getByRole("region", { name: copy.auditEventDetails.summaryTitle }),
+    );
+    expect(summary.getByText("ACTIVE")).toBeTruthy();
+    expect(summary.getByText("status")).toBeTruthy();
+    expect(summary.getByText("Literal recorded text")).toBeTruthy();
+    expect(summary.queryByText(/secret-nested-undo/)).toBeNull();
+    expect(summary.queryByText(locale === "en" ? "Active" : "活跃")).toBeNull();
+  },
+);
+
+it.each(["en", "zh"])(
+  "distinguishes ambiguous captured names from a missing reference (%s)",
+  (locale) => {
+    const copy = locale === "en" ? en : zh;
+    const details = {
+      evidenceVersion: 1,
+      changes: [
+        {
+          entity: "Tutor",
+          before: [
+            { id: "conflicting", englishName: "First conflicting tutor" },
+          ],
+          after: [
+            { id: "conflicting", englishName: "First conflicting tutor" },
+          ],
+        },
+        {
+          entity: "Tutor",
+          before: [
+            { id: "conflicting", englishName: "Second conflicting tutor" },
+          ],
+          after: [
+            { id: "conflicting", englishName: "Second conflicting tutor" },
+          ],
+        },
+        {
+          entity: "Pairing",
+          before: { id: "pairing", tutorId: "unrecorded" },
+          after: { id: "pairing", tutorId: "conflicting" },
+        },
+      ],
+    };
+    const original = structuredClone(details);
+    mocks.query.mockReturnValue(result({ ...event, details }));
+    render(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider
+          locale={locale}
+          timeZone="Asia/Shanghai"
+          messages={copy}
+        >
+          <AuditEventDetails id="event-1" />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    const summary = within(
+      screen.getByRole("region", { name: copy.auditEventDetails.summaryTitle }),
+    );
+    const entity = copy.auditEventDetails.presentation.entities.Tutor;
+    expect(
+      summary.getByText(
+        copy.approvals.review.referenceMissing.replace("{entity}", entity),
+      ),
+    ).toBeTruthy();
+    expect(
+      summary.getByText(
+        copy.approvals.review.referenceAmbiguous.replace("{entity}", entity),
+      ),
+    ).toBeTruthy();
+    expect(
+      summary.getByText(
+        copy.approvals.review.recordId.replace("{id}", "conflicting"),
+      ),
+    ).toBeTruthy();
+    expect(summary.queryByText("First conflicting tutor")).toBeNull();
+    expect(summary.queryByText("Second conflicting tutor")).toBeNull();
+    const exact = fullEvidence(copy.auditEventDetails.fullEvidence);
+    expect(exact.getAllByText(/First conflicting tutor/)).toHaveLength(2);
+    expect(exact.getAllByText(/Second conflicting tutor/)).toHaveLength(2);
+    expect(details).toEqual(original);
+  },
+);
 let client: QueryClient;
+
+it.each(
+  ["en", "zh"].flatMap((locale) => [
+    {
+      locale,
+      entity: "Pairing",
+      field: "roomId",
+      target: "Room",
+      before: null,
+      after: "",
+    },
+    {
+      locale,
+      entity: "Pairing",
+      field: "roomId",
+      target: "Room",
+      before: "",
+      after: null,
+    },
+    {
+      locale,
+      entity: "Tutor",
+      field: "id",
+      target: "Tutor",
+      before: null,
+      after: "",
+    },
+  ]),
+)(
+  "preserves empty $entity.$field identifiers separately from null in $locale",
+  ({ locale, entity, field, target, before, after }) => {
+    const copy = locale === "en" ? en : zh;
+    const details = { before: { [field]: before }, after: { [field]: after } };
+    const original = structuredClone(details);
+    mocks.query.mockReturnValue(result({ ...event, entity, details }));
+    render(
+      <QueryClientProvider client={client}>
+        <NextIntlClientProvider
+          locale={locale}
+          timeZone="Asia/Shanghai"
+          messages={copy}
+        >
+          <AuditEventDetails id="event-1" />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    );
+    const summary = within(
+      screen.getByRole("region", { name: copy.auditEventDetails.summaryTitle }),
+    );
+    expect(summary.getByText(copy.auditEventDetails.emptyString)).toBeTruthy();
+    expect(summary.getByText(copy.auditEventDetails.nullValue)).toBeTruthy();
+    const targetName =
+      copy.auditEventDetails.presentation.entities[target as "Room" | "Tutor"];
+    expect(
+      summary.queryByText(
+        copy.approvals.review.referenceMissing.replace("{entity}", targetName),
+      ),
+    ).toBeNull();
+    const exact = fullEvidence(copy.auditEventDetails.fullEvidence);
+    const raw = exact
+      .getByText(copy.auditEventDetails.rawEvidence)
+      .closest("details")!;
+    raw.open = true;
+    fireEvent(raw, new Event("toggle"));
+    expect(JSON.parse(raw.querySelector("pre")!.textContent!)).toEqual(details);
+    expect(details).toEqual(original);
+  },
+);
+
 const event = {
   id: "event-1",
   userId: "actor-1",

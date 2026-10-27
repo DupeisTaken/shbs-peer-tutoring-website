@@ -6,6 +6,8 @@ import {
 import { isProgramTimeZone } from "./program-time";
 import { recordedEvidenceDiff } from "./recorded-evidence-diff";
 import { reviewInstantValue } from "./review-instant";
+import { approvalReferences, approvalSummary } from "./approval-summary";
+import { reviewCollection } from "./approval-review-collections";
 
 const record = (value: unknown): ReviewRecord | undefined =>
   value !== null && typeof value === "object" && !Array.isArray(value)
@@ -58,7 +60,13 @@ export function approvalPresentation(
   let comparison = model.kind === "update";
   let outcome: string =
     model.kind === "action" ? "actionHelp" : `${model.kind}Help`;
-  let timeZone: string | undefined;
+  const references = record(evidence.reviewReferences);
+  let timeZone: string | undefined =
+    references?.version === 1 &&
+    typeof references.timeZone === "string" &&
+    isProgramTimeZone(references.timeZone)
+      ? references.timeZone
+      : undefined;
   let feature:
     | {
         source: string;
@@ -69,6 +77,150 @@ export function approvalPresentation(
       }
     | undefined;
   const add = (key: string, value: unknown) => facts.push({ key, value });
+  if (
+    operation === "admin.createAnnouncement" &&
+    Array.isArray(evidence.announcementRecipients)
+  )
+    add("recipientCount", evidence.announcementRecipients.length);
+
+  if (operation === "admin.assignInterviewers") {
+    const application = rows(evidence.TutorApplication).find(
+      (row) => row.id === input.applicationId,
+    );
+    outcome =
+      application?.type === "INITIAL" && application.status === "ACCEPTED"
+        ? "replaceAcceptedPanelOutcome"
+        : "assignInterviewersOutcome";
+  }
+
+  if (operation === "admin.saveCourseGroup") {
+    outcome = "saveCourseGroupOutcome";
+    const captured = evidence["CourseGroup.Subject"];
+    const submitted = Array.isArray(input.offerings)
+      ? input.offerings.map(record)
+      : undefined;
+    const previous = rows(captured);
+    // The executor retains explicit subject IDs, otherwise the one existing
+    // offering at that exact level. Only a complete, unambiguous captured group
+    // can establish which omitted active offerings become inactive.
+    if (
+      typeof input.id === "string" &&
+      Array.isArray(captured) &&
+      submitted?.every(
+        (row) =>
+          row &&
+          (row.levelId === null || typeof row.levelId === "string") &&
+          (row.subjectId === undefined || typeof row.subjectId === "string"),
+      ) &&
+      previous.length === captured.length &&
+      previous.every(
+        (row) =>
+          row.groupId === input.id &&
+          typeof row.id === "string" &&
+          typeof row.active === "boolean" &&
+          (row.levelId === null || typeof row.levelId === "string"),
+      ) &&
+      new Set(previous.map((row) => row.id)).size === previous.length &&
+      new Set(submitted.map((row) => row?.levelId)).size === submitted.length
+    ) {
+      const retained = new Set<unknown>();
+      let unambiguous = true;
+      for (const offering of submitted) {
+        if (typeof offering?.subjectId === "string")
+          retained.add(offering.subjectId);
+        else {
+          const matches = previous.filter(
+            (row) => row.levelId === offering?.levelId,
+          );
+          if (matches.length > 1) unambiguous = false;
+          else if (matches[0]) retained.add(matches[0].id);
+        }
+      }
+      if (unambiguous) {
+        const before = previous
+          .filter((row) => row.active === true && !retained.has(row.id))
+          .map((row) => ({ subjectId: row.id, active: true }));
+        if (before.length) {
+          const requested = before.map((row) => ({ ...row, active: false }));
+          changes = [
+            ...changes,
+            {
+              key: "archivedOfferings",
+              before,
+              requested,
+              hasBefore: true,
+              collection: reviewCollection(before, requested, "subjectId"),
+            },
+          ];
+        }
+      }
+    }
+  }
+
+  if (operation === "admin.deleteSubject") {
+    // The compatibility endpoint archives one offering; it never deletes the
+    // subject or erases retained signup/attendance references.
+    const subject = rows(evidence.Subject).find((row) => row.id === input.id);
+    const field: ReviewField = {
+      key: "active",
+      requested: false,
+      before: subject?.active,
+      hasBefore: !!subject && Object.hasOwn(subject, "active"),
+    };
+    const same = field.hasBefore && field.before === false;
+    changes = same ? [] : [field];
+    unchanged = same ? [field] : [];
+    comparison = true;
+    outcome = "archiveSubjectOutcome";
+  }
+
+  const settingColumn: Record<string, string> = {
+    "program.setCaptcha": "captchaEnabled",
+    "program.setEmailNotifications": "emailNotificationsEnabled",
+    "program.setSecondaryEmailBinding": "secondaryEmailBindingEnabled",
+  };
+  if (Object.hasOwn(settingColumn, operation)) {
+    const settings = record(evidence.programSettings);
+    const column = settingColumn[operation]!;
+    const field: ReviewField = {
+      key: "enabled",
+      requested: input.enabled,
+      before: settings?.[column],
+      hasBefore: !!settings && Object.hasOwn(settings, column),
+    };
+    // These mutation inputs intentionally differ from their stored column names.
+    // An old absent-row capture does not establish the effective default.
+    const other = changes.filter((change) => change.key !== "enabled");
+    const same =
+      field.hasBefore &&
+      !recordedEvidenceDiff(field.before, field.requested).size;
+    changes = same ? other : [...other, field];
+    unchanged = same ? [...unchanged, field] : unchanged;
+    comparison = true;
+  }
+
+  if (operation === "program.setSignupField") {
+    const settings = record(evidence.programSettings);
+    const forms = record(settings?.signupFields);
+    const form =
+      typeof input.form === "string" ? record(forms?.[input.form]) : undefined;
+    const hasBefore =
+      typeof input.field === "string" &&
+      !!form &&
+      Object.hasOwn(form, input.field);
+    const field: ReviewField = {
+      key: "state",
+      requested: input.state,
+      before: hasBefore ? form?.[String(input.field)] : undefined,
+      hasBefore,
+    };
+    const other = changes.filter((change) => change.key !== "state");
+    const same =
+      hasBefore && !recordedEvidenceDiff(field.before, field.requested).size;
+    changes = same ? other : [...other, field];
+    unchanged = same ? [...unchanged, field] : unchanged;
+    comparison = true;
+  }
 
   if (operation === "program.setFeaturePending") {
     const captured = saved?.version === 1 ? record(saved.feature) : undefined;
@@ -300,6 +452,15 @@ export function approvalPresentation(
           : "actionHelp";
   }
 
+  const referenceFor = approvalReferences(operation, payload, targets);
+  const summary = approvalSummary({
+    operation,
+    payload,
+    facts,
+    changes,
+    unchanged,
+    referenceFor,
+  });
   return {
     ...model,
     facts,
@@ -309,5 +470,7 @@ export function approvalPresentation(
     outcome,
     timeZone,
     feature,
+    referenceFor,
+    summary,
   };
 }
