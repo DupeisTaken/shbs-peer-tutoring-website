@@ -901,7 +901,7 @@
     "summary": {
       "filtersLabel": "名册筛选",
       "statusLabel": "辅导伙伴状态",
-      "statusActive": "在职",
+      "statusActive": "参与中",
       "statusInactive": "已停用",
       "statusAll": "全部",
       "activityLabel": "本时段记录",
