@@ -13,6 +13,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ComponentProps } from "react";
 import messages from "../../../../../messages/en.json";
+import zhMessages from "../../../../../messages/zh.json";
 import { emptyUserFilters, type UserFilters } from "~/lib/user-filters";
 import UsersPage from "./page";
 import { SessionViewProvider } from "~/app/_components/session-view-state";
@@ -53,11 +54,15 @@ const fixture = vi.hoisted(() => {
     accountsError: { message: string; data?: { code?: string } } | null;
     combinedUserId: string | null;
     combinedVerified: Date | null;
+    locale: "en" | "zh";
+    pastTutorUsername: string | null;
     sendSetupError: { message: string } | null;
   } = {
     accountsError: null,
     combinedUserId: "synthetic-combined",
     combinedVerified: new Date("2026-09-01"),
+    locale: "en",
+    pastTutorUsername: "pasttutor",
     sendSetupError: null,
   };
   return {
@@ -68,6 +73,9 @@ const fixture = vi.hoisted(() => {
     targetRole: "ADMIN",
     accountsLoading: false,
     combinedAccount: "registered",
+    combinedUsername: null as string | null,
+    combinedRecordCount: 1,
+    identityReviewRequired: false,
     realDetails: false,
     realTutorDetails: false,
     tutorDetailRead: vi.fn(),
@@ -242,13 +250,16 @@ vi.mock("~/trpc/react", async () => {
                       tutorHasEmail: false,
                       tutor: {
                         englishName: "Past tutor",
-                        username: "pasttutor",
+                        username: fixture.pastTutorUsername,
                       },
                       academic: {},
                     },
                     {
                       userId: fixture.combinedUserId,
                       name: "Combined account",
+                      username: fixture.combinedUsername,
+                      combinedRecordCount: fixture.combinedRecordCount,
+                      identityReviewRequired: fixture.identityReviewRequired,
                       role: "ADMIN",
                       tutorId: "synthetic-tutor",
                       tutorStatus: "ACTIVE",
@@ -474,7 +485,10 @@ const storedFilters = () =>
 let queryClient: QueryClient;
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={queryClient}>
-    <NextIntlClientProvider locale="en" messages={messages}>
+    <NextIntlClientProvider
+      locale={fixture.locale}
+      messages={fixture.locale === "zh" ? zhMessages : messages}
+    >
       <SessionViewProvider
         identity={`${fixture.viewerId}:${fixture.role}`}
         pathname="/admin/users"
@@ -509,6 +523,11 @@ beforeEach(() => {
   fixture.accountsLoading = false;
   fixture.combinedUserId = "synthetic-combined";
   fixture.combinedAccount = "registered";
+  fixture.locale = "en";
+  fixture.combinedUsername = null;
+  fixture.pastTutorUsername = "pasttutor";
+  fixture.combinedRecordCount = 1;
+  fixture.identityReviewRequired = false;
   fixture.realDetails = false;
   fixture.realTutorDetails = false;
   fixture.tutorDetailRead.mockClear();
@@ -1284,13 +1303,76 @@ it("keeps full academic details out of the compact account table", () => {
   ).toBeNull();
   expect(screen.queryByText("Grade 10")).toBeNull();
   expect(screen.queryByText("Grade 8")).toBeNull();
-  // Unverified accounts are hidden by default; the three visible accounts still
-  // exercise the missing-username presentation.
-  expect(screen.getAllByText(messages.academics.usernameMissing)).toHaveLength(
-    3,
-  );
+  expect(screen.queryByText(messages.academics.usernameMissing)).toBeNull();
   expect(screen.queryByText(messages.academics.needsConfirmation)).toBeNull();
 });
+
+it.each(["en", "zh"] as const)(
+  "keeps actual directory handles and review warnings without record counts in %s",
+  (locale) => {
+    fixture.locale = locale;
+    fixture.combinedUsername = "currenthandle";
+    fixture.combinedRecordCount = 3;
+    fixture.identityReviewRequired = true;
+    const text = locale === "zh" ? zhMessages : messages;
+    mount();
+    fireEvent.click(
+      screen.getByRole("button", { name: text.tuteeHistory.showHistorical }),
+    );
+
+    const combined = screen.getByText("Combined account").closest("tr")!;
+    const identity = combined.querySelector("td")!;
+    expect(within(identity).getByText("@currenthandle")).toBeTruthy();
+    expect(
+      within(identity).getByText(text.combineRecords.reviewRequired),
+    ).toBeTruthy();
+    expect(
+      within(identity).queryByText(
+        text.combineRecords.combinedRecords.replace("{count}", "3"),
+      ),
+    ).toBeNull();
+    expect(
+      within(combined).getByRole("button", { name: "User details" }),
+    ).toBeTruthy();
+    const accountless = screen.getByText("Past tutor").closest("tr")!;
+    expect(within(accountless).getByText("@pasttutor")).toBeTruthy();
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "leaves absent directory handles blank while keeping setup and assignment in %s",
+  (locale) => {
+    fixture.locale = locale;
+    fixture.pastTutorUsername = null;
+    const text = locale === "zh" ? zhMessages : messages;
+    mount();
+    fireEvent.click(
+      screen.getByRole("button", { name: text.tuteeHistory.showHistorical }),
+    );
+
+    for (const name of ["Verified student", "Past tutor"]) {
+      const row = screen.getByText(name).closest("tr")!;
+      const identity = row.querySelector("td")!;
+      const handleLine = identity.querySelectorAll("p")[1]!;
+      expect(handleLine.textContent).toBe("");
+      expect(
+        within(identity).queryByText(text.academics.usernameMissing),
+      ).toBeNull();
+      expect(within(identity).queryByText(text.tuteeHistory.noAccount)).toBeNull();
+      expect(
+        within(row).getByText(
+          name === "Verified student"
+            ? text.usersDirectory.setup.registered
+            : text.usersDirectory.setup.none,
+        ),
+      ).toBeTruthy();
+    }
+    const student = screen.getByText("Verified student").closest("tr")!;
+    expect(
+      within(student).getByRole("button", { name: text.identityUsername.assign }),
+    ).toBeTruthy();
+  },
+);
 
 it("reveals past tutors, preserves account filters, persists and clears back to the default", () => {
   const saved = emptyUserFilters();
