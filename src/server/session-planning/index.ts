@@ -13,7 +13,8 @@ import {
 import { participantKeys, participantsOverlap } from "./participants";
 import { sessionNoticeContext } from "~/server/session-planning-notice-copy";
 import { pairingEntries } from "~/lib/pairing-groups";
-import { programDateKey } from "~/lib/program-time";
+import { createProgramDateTimeParser, programDateKey } from "~/lib/program-time";
+import { createSchoolCalendarSnapshot } from "~/lib/school-calendar";
 import {
   inTransaction,
   lockEntity,
@@ -42,6 +43,10 @@ type Request = Prisma.SessionPlanningRequestGetPayload<{
   include: typeof requestInclude;
 }>;
 type Cohort = Prisma.SessionPlanCohortGetPayload<Record<string, never>>;
+type PlanningComputation = {
+  calendar: ReturnType<typeof createSchoolCalendarSnapshot>;
+  parseDateTime: ReturnType<typeof createProgramDateTimeParser>;
+};
 type Actor = { id: string; tutorId?: string | null };
 type Versioned = { expectedVersion: number; clientKey: string };
 type Proposed = PlanningTime &
@@ -434,10 +439,11 @@ async function validateTarget(
   scope: string,
   excludeRequestId?: string,
   now = new Date(),
+  computation?: PlanningComputation,
 ) {
   let window: ReturnType<typeof plannedWindow>;
   try {
-    window = plannedWindow(time, plan.timeZone);
+    window = plannedWindow(time, plan.timeZone, computation?.parseDateTime);
   } catch {
     return fail("Choose a valid 45-minute time in the program timezone.");
   }
@@ -491,15 +497,28 @@ async function validateTarget(
     where: overlap,
     include: { plan: true, participants: { where: { status: "SCHEDULED" } } },
   });
-  const holds = await tx.sessionPlanningRequest.findMany({
+  const offerOverlap = {
+    startsAt: { lt: window.endsAt },
+    endsAt: { gt: window.startsAt },
+  };
+  const possibleHolds = await tx.sessionPlanningRequest.findMany({
     where: {
       status: "PENDING",
       ...(excludeRequestId ? { id: { not: excludeRequestId } } : {}),
+      offers: { some: offerOverlap },
     },
-    include: { plan: true, offers: true },
+    include: { plan: true, offers: { where: offerOverlap } },
   });
-  const calendar = await tx.schoolCalendarDay.findMany();
-  const timetable = resolvePlanningTimetableDay(time.date, calendar);
+  // Historical offers may match the coarse database filter; only the current offer holds time.
+  const holds = possibleHolds.filter((hold) =>
+    hold.offers.some((offer) => offer.id === hold.currentOfferId),
+  );
+  // Retain the authoritative calendar read here; publication's earlier snapshot
+  // is only reused for enumeration and reconciliation calculations.
+  const timetable = resolvePlanningTimetableDay(
+    time.date,
+    await tx.schoolCalendarDay.findMany(),
+  );
   const weekday = new Date(`${time.date}T00:00:00Z`).getUTCDay() || 7;
   const recurring = !timetable.isSchoolDay
     ? []
@@ -619,20 +638,31 @@ async function validateTarget(
     }))
   )
     fail("That room is blocked during this time.", "CONFLICT");
-  // Unmaterialized recurrence must participate too; a dated exception replaces its own default.
-  for (const pairing of recurring) {
-    if (pairing.startMin + 45 <= window.startMin) continue;
+  const recurringCandidates = recurring.filter((pairing) => {
+    if (pairing.startMin + 45 <= window.startMin) return false;
     const own =
       plan.assignments.some((row) => row.pairingId === pairing.id) &&
       time.date === plan.originalDate;
-    if (own && mayReleaseSource) continue;
-    const materialized = await tx.sessionPlanAssignment.findFirst({
+    return !(own && mayReleaseSource);
+  });
+  // Keep all regular exceptions, including cancellations/moves. Bound SQL parameters
+  // without one round trip per recurring candidate; the scheduling fence is still held.
+  const materialized = new Set<string>();
+  for (let offset = 0; offset < recurringCandidates.length; offset += 500) {
+    const assignments = await tx.sessionPlanAssignment.findMany({
       where: {
-        pairingId: pairing.id,
+        pairingId: {
+          in: recurringCandidates.slice(offset, offset + 500).map((row) => row.id),
+        },
         plan: { originalDate: time.date, kind: "REGULAR" },
       },
+      select: { pairingId: true },
     });
-    if (materialized) continue; // effective cohorts checked above, including cancellation/moves
+    for (const assignment of assignments) materialized.add(assignment.pairingId);
+  }
+  // Unmaterialized recurrence must participate too; a dated exception replaces its own default.
+  for (const pairing of recurringCandidates) {
+    if (materialized.has(pairing.id)) continue;
     if (
       (window.roomId && pairing.roomId === window.roomId) ||
       participantsOverlap(
@@ -706,17 +736,16 @@ async function reconcileOrdinaryPlans(
   prefix: string,
   schedule: { dayOfWeek: number; startMin: number; roomId: string | null },
   timeZone: string,
-  overrides: Parameters<typeof resolvePlanningTimetableDay>[1],
+  computation: PlanningComputation,
   now: Date,
 ) {
+  const { calendar, parseDateTime } = computation;
   const scheduleHash = fingerprint([
     schedule.dayOfWeek,
     schedule.startMin,
     schedule.roomId,
     timeZone,
-    overrides
-      .map((day) => resolvePlanningTimetableDay(day.date, overrides))
-      .sort((a, b) => a.date.localeCompare(b.date)),
+    calendar.semanticDays(),
   ]);
   const plans = await tx.sessionPlan.findMany({
     where: {
@@ -786,6 +815,7 @@ async function reconcileOrdinaryPlans(
             "ALL",
             undefined,
             now,
+            computation,
           );
           // Legacy repair is deliberately conservative: an existing exact
           // sibling needs explicit coalescing, never a second physical event.
@@ -841,7 +871,7 @@ async function reconcileOrdinaryPlans(
       if (!ordinary.length) continue;
       const ordinaryIds = ordinary.map((person) => person.id);
       const ordinaryTuteeIds = ordinary.map((person) => person.tuteeId);
-      const day = resolvePlanningTimetableDay(plan.originalDate, overrides);
+      const day = calendar.resolve(plan.originalDate);
       const applies =
         day.isSchoolDay && day.effectiveTimetableWeekday === schedule.dayOfWeek;
       if (
@@ -863,6 +893,7 @@ async function reconcileOrdinaryPlans(
               online: false,
             },
             plan.timeZone,
+            parseDateTime,
           );
           const samePhysicalWindow =
             original.startsAt.getTime() === target.startsAt.getTime() &&
@@ -878,6 +909,7 @@ async function reconcileOrdinaryPlans(
             protectedPeople.length && !samePhysicalWindow ? "ONE" : "ALL",
             undefined,
             now,
+            computation,
           );
         } catch {
           /* Surface unavailable plans rather than double-book a dated exception. */
@@ -1042,6 +1074,12 @@ export async function ensureSessionPlanningWindow(
     let unavailable = 0;
     let normalized = 0;
     const overrides = await tx.schoolCalendarDay.findMany();
+    // Reuse immutable calculations within publication. Keep live conflict and
+    // authority reads outside these caches, including the validation calendar.
+    const computation: PlanningComputation = {
+      calendar: createSchoolCalendarSnapshot(overrides),
+      parseDateTime: createProgramDateTimeParser(),
+    };
     for (const entry of pairingEntries(rows)) {
       const primary = entry.primary;
       if (
@@ -1059,7 +1097,7 @@ export async function ensureSessionPlanningWindow(
         prefix,
         primary,
         timeZone,
-        overrides,
+        computation,
         now,
       );
       const rosterHash = fingerprint(
@@ -1069,12 +1107,15 @@ export async function ensureSessionPlanningWindow(
           row.tutees.map((item) => item.tuteeId).sort(),
         ]),
       );
+      const candidates: { date: string; generationKey: string }[] = [];
+      let termStart: string | undefined;
+      let termEnd: string | undefined;
       for (
         let date = weeks.start;
         date <= weeks.prepareEnd;
         date = addPlanningDays(date, 1)
       ) {
-        const day = resolvePlanningTimetableDay(date, overrides);
+        const day = computation.calendar.resolve(date);
         if (
           !day.isSchoolDay ||
           day.effectiveTimetableWeekday !== primary.dayOfWeek
@@ -1082,14 +1123,31 @@ export async function ensureSessionPlanningWindow(
           continue;
         if (
           (primary.term.startDate &&
-            date < programDateKey(primary.term.startDate, timeZone)) ||
+            date <
+              (termStart ??= programDateKey(primary.term.startDate, timeZone))) ||
           (primary.term.endDate &&
-            date > programDateKey(primary.term.endDate, timeZone))
+            date >
+              (termEnd ??= programDateKey(primary.term.endDate, timeZone)))
         )
           continue;
         const generationKey = `regular:${primary.termId}:${entry.id}:${date}:${rosterHash}`;
-        if (await tx.sessionPlan.findUnique({ where: { generationKey } }))
-          continue;
+        candidates.push({ date, generationKey });
+      }
+      // At most 21 keys per entry. Cancelled/moved plans also suppress regeneration.
+      const existing = new Set(
+        candidates.length
+          ? (await tx.sessionPlan.findMany({
+              where: {
+                generationKey: {
+                  in: candidates.map((row) => row.generationKey),
+                },
+              },
+              select: { generationKey: true },
+            })).map((row) => row.generationKey)
+          : [],
+      );
+      for (const { date, generationKey } of candidates) {
+        if (existing.has(generationKey)) continue;
         let window: ReturnType<typeof plannedWindow>;
         try {
           window = plannedWindow(
@@ -1100,6 +1158,7 @@ export async function ensureSessionPlanningWindow(
               online: false,
             },
             timeZone,
+            computation.parseDateTime,
           );
         } catch {
           unavailable++;
@@ -1136,6 +1195,7 @@ export async function ensureSessionPlanningWindow(
             },
           },
         });
+        existing.add(generationKey);
         let available = true;
         const plan = await tx.sessionPlan.findUniqueOrThrow({
           where: { id: planId },
@@ -1162,6 +1222,7 @@ export async function ensureSessionPlanningWindow(
             "ALL",
             undefined,
             now,
+            computation,
           );
         } catch {
           available = false;
@@ -1650,7 +1711,7 @@ export async function suggestSessionTime(
           "Only this session's tutee can suggest a change.",
           "FORBIDDEN",
         );
-      await validateTarget(
+      const window = await validateTarget(
         tx,
         cohort.plan,
         input,
@@ -1687,14 +1748,8 @@ export async function suggestSessionTime(
             event: "suggestion",
             context: {
               isActionable: false,
-              startsAt: plannedWindow(
-                input,
-                cohort.plan.timeZone,
-              ).startsAt.toISOString(),
-              endsAt: plannedWindow(
-                input,
-                cohort.plan.timeZone,
-              ).endsAt.toISOString(),
+              startsAt: window.startsAt.toISOString(),
+              endsAt: window.endsAt.toISOString(),
               timeZone: cohort.plan.timeZone,
               originalStartsAt: cohort.startsAt.toISOString(),
               subjectLabel: [
@@ -2559,13 +2614,18 @@ export async function assertSessionPlanningWeeklyAvailable(
   const term = await tx.term.findUniqueOrThrow({
     where: { id: schedule.termId },
   });
+  const calendar = createSchoolCalendarSnapshot(overrides);
+  let termStart: string | undefined;
+  let termEnd: string | undefined;
   const applies = (date: string) => {
-    const day = resolvePlanningTimetableDay(date, overrides);
+    const day = calendar.resolve(date);
     return (
       day.isSchoolDay &&
       day.effectiveTimetableWeekday === schedule.dayOfWeek &&
-      (!term.startDate || date >= programDateKey(term.startDate, timeZone)) &&
-      (!term.endDate || date <= programDateKey(term.endDate, timeZone))
+      (!term.startDate ||
+        date >= (termStart ??= programDateKey(term.startDate, timeZone))) &&
+      (!term.endDate ||
+        date <= (termEnd ??= programDateKey(term.endDate, timeZone)))
     );
   };
   const cohorts = await tx.sessionPlanCohort.findMany({

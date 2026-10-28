@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { resolvePlanningCalendarDay } from "~/lib/session-planning";
+import { createSchoolCalendarSnapshot } from "~/lib/school-calendar";
 import { programDateKey } from "~/lib/program-time";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { lockEntity, type TransactionDb } from "~/server/transactions";
@@ -57,15 +57,22 @@ export async function datedUnavailableRooms(
     ...(schedule.excludePairingIds ?? []),
     ...(schedule.excludePairingId ? [schedule.excludePairingId] : []),
   ]);
+  const calendarSnapshot = createSchoolCalendarSnapshot(calendar);
+  // Keep these facts local to the transaction. Resolve bounds only when reached,
+  // preserving short-circuit validation for empty or nonapplicable reservations.
+  let termStart: string | undefined;
+  let termEnd: string | undefined;
   const applies = (date: string, start: number, end: number) => {
-    const day = resolvePlanningCalendarDay(date, calendar);
+    const day = calendarSnapshot.resolve(date);
     return (
       day.isSchoolDay &&
       day.effectiveTimetableWeekday === schedule.dayOfWeek &&
       start < schedule.startMin + 45 &&
       end > schedule.startMin &&
-      (!term.startDate || date >= programDateKey(term.startDate, timeZone)) &&
-      (!term.endDate || date <= programDateKey(term.endDate, timeZone))
+      (!term.startDate ||
+        date >= (termStart ??= programDateKey(term.startDate, timeZone))) &&
+      (!term.endDate ||
+        date <= (termEnd ??= programDateKey(term.endDate, timeZone)))
     );
   };
   const blocked = new Set<string>();

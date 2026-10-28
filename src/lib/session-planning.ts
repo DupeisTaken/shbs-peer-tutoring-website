@@ -26,7 +26,11 @@ export function addPlanningDays(date: string, days: number) {
 }
 
 /** Dates, weekly clocks and instants are deliberately separate. DST never invents a clock. */
-export function plannedWindow(input: PlanningTime, timeZone: string) {
+export function plannedWindow(
+  input: PlanningTime,
+  timeZone: string,
+  parseDateTime: typeof parseProgramDateTime = parseProgramDateTime,
+) {
   const parsed = planningTimeInput.parse(input);
   const date = new Date(`${parsed.date}T00:00:00Z`);
   if (
@@ -37,14 +41,14 @@ export function plannedWindow(input: PlanningTime, timeZone: string) {
   const clock = (minute: number) =>
     `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
   const endMin = parsed.startMin + PLANNED_SESSION_MINUTES;
-  const startsAt = parseProgramDateTime(
+  const startsAt = parseDateTime(
     `${parsed.date}T${clock(parsed.startMin)}`,
     timeZone,
   );
   const endsAt =
     endMin === 1440
       ? programDayStart(addPlanningDays(parsed.date, 1), timeZone)
-      : parseProgramDateTime(`${parsed.date}T${clock(endMin)}`, timeZone);
+      : parseDateTime(`${parsed.date}T${clock(endMin)}`, timeZone);
   if (endsAt <= startsAt) throw new Error("Choose an increasing session time.");
   if (
     endsAt.getTime() - startsAt.getTime() !==

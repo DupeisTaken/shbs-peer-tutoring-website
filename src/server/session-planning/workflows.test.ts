@@ -18,7 +18,7 @@ import {
 import { assertRoomBlackoutAvailable } from "~/server/room-bookings";
 import { changeSchoolDeparture } from "~/server/school-departure";
 import * as transactionHelpers from "~/server/transactions";
-import type { PlanningTime } from "~/lib/session-planning";
+import { plannedWindow, type PlanningTime } from "~/lib/session-planning";
 import { assertNoPublishedTuteeDeletion } from "./deletion-guards";
 import {
   ensureSessionPlanningWindow,
@@ -1773,5 +1773,271 @@ describe("publication and scoped attendance", () => {
     expect(context.rescheduled).toBe(true);
     expect(context.kind).toBe("REGULAR");
     expect(await db.session.count()).toBe(0);
+  });
+});
+
+describe("bounded conflict evidence queries", () => {
+  async function suggestTarget(
+    actor = one,
+    date = "2026-11-09",
+    startMin = 960,
+  ) {
+    const cohort = await source();
+    return suggestSessionTime(db, actor, {
+      cohortId: cohort.id,
+      expectedVersion: cohort.version,
+      clientKey: randomUUID(),
+      date,
+      startMin,
+      online: false,
+    });
+  }
+
+  async function recurringCandidate(
+    id: string,
+    exception?: {
+      kind: "REGULAR" | "EXTRA";
+      originalDate: string;
+      cohortDate: string;
+      status: "SCHEDULED" | "CANCELLED";
+    },
+  ) {
+    await db.pairing.create({
+      data: {
+        id,
+        tutorId: tutor.tutorId,
+        termId: "planning-term",
+        subject: "Science",
+        dayOfWeek: 1,
+        startMin: 960,
+        endMin: 1005,
+        scheduleConfirmed: true,
+        roomMode: "NONE",
+        tutees: { create: { tuteeId: "planning-two" } },
+      },
+    });
+    if (!exception) return;
+    // Seed retained dated evidence directly: public agreement/cancellation lifecycle
+    // is covered above; these cases isolate which assignments suppress a default.
+    const plan = await db.sessionPlan.create({
+      data: {
+        generationKey: `conflict-evidence:${id}`,
+        tutorId: tutor.tutorId,
+        termId: "planning-term",
+        originalDate: exception.originalDate,
+        timeZone: "Asia/Shanghai",
+        kind: exception.kind,
+        sourceFingerprint: "synthetic-conflict-evidence",
+        assignments: {
+          create: {
+            pairingId: id,
+            subject: "Science",
+            tuteeIds: ["planning-two"],
+            primary: true,
+          },
+        },
+      },
+    });
+    const cohort = await db.sessionPlanCohort.create({
+      data: {
+        planId: plan.id,
+        ...plannedWindow(
+          { date: exception.cohortDate, startMin: 960, online: false },
+          "Asia/Shanghai",
+        ),
+        rescheduled: exception.cohortDate !== exception.originalDate,
+        status: exception.status,
+      },
+    });
+    await db.sessionPlanParticipant.create({
+      data: {
+        planId: plan.id,
+        cohortId: cohort.id,
+        tuteeId: "planning-two",
+        status: exception.status,
+      },
+    });
+  }
+
+  it("ignores an overlapping historical offer, blocks the current offer and permits touching endpoints", async () => {
+    const { id } = await propose();
+    await respond(id, one, "REJECT", time("2026-11-04"));
+    const { request, offer } = await current(id);
+    expect(request.status).toBe("PENDING");
+    expect(request.offers).toHaveLength(2);
+    expect(offer.date).toBe("2026-11-04");
+
+    // The original Tuesday offer still matches the database relation filter, but
+    // Wednesday's current offer is the only reservation this request can hold.
+    const historical = await suggestTarget(two, "2026-11-03", 900);
+    await expect(
+      suggestTarget(two, "2026-11-04", 900),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "That time is held by another pending scheduling request.",
+    });
+    const before = await suggestTarget(two, "2026-11-04", 855);
+    const after = await suggestTarget(two, "2026-11-04", 945);
+    const suggestions = await db.sessionPlanningSuggestion.findMany({
+      where: { id: { in: [historical.id, before.id, after.id] } },
+      orderBy: [{ date: "asc" }, { startMin: "asc" }],
+      select: { date: true, startMin: true },
+    });
+    expect(suggestions).toEqual([
+      { date: "2026-11-03", startMin: 900 },
+      { date: "2026-11-04", startMin: 855 },
+      { date: "2026-11-04", startMin: 945 },
+    ]);
+    expect((await current(id)).request.currentOfferId).toBe(offer.id);
+  });
+
+  it("retains canonical learner conflicts in another tutor's current hold", async () => {
+    const other = {
+      id: "planning-hold-tutor-user",
+      tutorId: "planning-hold-tutor",
+    };
+    await db.tutor.create({
+      data: {
+        id: other.tutorId,
+        englishName: "Synthetic hold tutor",
+        status: "ACTIVE",
+      },
+    });
+    await db.user.create({
+      data: {
+        id: other.id,
+        tutorId: other.tutorId,
+        email: "planning-hold-tutor@example.test",
+        emailVerifiedAt: now,
+        role: "TUTOR",
+      },
+    });
+    const policy = await currentPolicy(db, "tutor-policy");
+    await db.policyAcceptance.create({
+      data: {
+        userId: other.id,
+        slug: "tutor-policy",
+        revision: policy.revision,
+        snapshot: policy.documents,
+        signature: "Synthetic hold tutor",
+      },
+    });
+    await db.tutee.create({
+      data: {
+        id: "planning-one-alias",
+        englishName: "Synthetic retained alias",
+        status: "ACTIVE",
+      },
+    });
+    await db.studentProfileOwnership.create({
+      data: { tuteeId: "planning-one-alias", userId: one.id },
+    });
+    await db.pairing.create({
+      data: {
+        id: "planning-alias-hold-pairing",
+        tutorId: other.tutorId,
+        termId: "planning-term",
+        subject: "Science",
+        dayOfWeek: 3,
+        startMin: 1050,
+        endMin: 1095,
+        scheduleConfirmed: true,
+        roomMode: "NONE",
+        tutees: { create: { tuteeId: "planning-one-alias" } },
+      },
+    });
+    await ensureSessionPlanningWindow(db, now);
+    const otherSource = await db.sessionPlanCohort.findFirstOrThrow({
+      where: { date: "2026-11-04", plan: { tutorId: other.tutorId } },
+    });
+    const held = await proposeSession(db, other, {
+      cohortId: otherSource.id,
+      expectedVersion: otherSource.version,
+      clientKey: randomUUID(),
+      scope: "ONE",
+      kind: "RESCHEDULE",
+      tuteeId: "planning-one-alias",
+      ...time(),
+    });
+    await expect(suggestTarget(one, "2026-11-03", 900)).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "That time is held by another pending scheduling request.",
+    });
+    const unrelated = await suggestTarget(two, "2026-11-03", 900);
+    expect(
+      await db.sessionPlanningSuggestion.findUniqueOrThrow({
+        where: { id: unrelated.id },
+      }),
+    ).toMatchObject({ tuteeId: "planning-two", date: "2026-11-03" });
+    expect((await read(held.id)).status).toBe("PENDING");
+  });
+
+  it.each([
+    {
+      label: "cancelled regular",
+      kind: "REGULAR",
+      originalDate: "2026-11-09",
+      cohortDate: "2026-11-09",
+      status: "CANCELLED",
+      suppresses: true,
+    },
+    {
+      label: "moved regular",
+      kind: "REGULAR",
+      originalDate: "2026-11-09",
+      cohortDate: "2026-11-10",
+      status: "SCHEDULED",
+      suppresses: true,
+    },
+    {
+      label: "cancelled extra",
+      kind: "EXTRA",
+      originalDate: "2026-11-09",
+      cohortDate: "2026-11-09",
+      status: "CANCELLED",
+      suppresses: false,
+    },
+    {
+      label: "another original date",
+      kind: "REGULAR",
+      originalDate: "2026-11-02",
+      cohortDate: "2026-11-09",
+      status: "CANCELLED",
+      suppresses: false,
+    },
+  ] as const)(
+    "uses $label evidence only for the matching regular recurrence",
+    async (scenario) => {
+      await recurringCandidate("planning-materialized-candidate", scenario);
+      if (scenario.suppresses) {
+        const result = await suggestTarget();
+        expect(
+          await db.sessionPlanningSuggestion.findUniqueOrThrow({
+            where: { id: result.id },
+          }),
+        ).toMatchObject({ date: "2026-11-09", startMin: 960 });
+      } else {
+        await expect(suggestTarget()).rejects.toMatchObject({
+          code: "CONFLICT",
+          message: "That time conflicts with a recurring assignment.",
+        });
+        expect(await db.sessionPlanningSuggestion.count()).toBe(0);
+      }
+    },
+  );
+
+  it("does not let one materialized assignment suppress an unmaterialized conflict in the same batch", async () => {
+    await recurringCandidate("planning-materialized-candidate", {
+      kind: "REGULAR",
+      originalDate: "2026-11-09",
+      cohortDate: "2026-11-09",
+      status: "CANCELLED",
+    });
+    await recurringCandidate("planning-unmaterialized-candidate");
+    await expect(suggestTarget()).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "That time conflicts with a recurring assignment.",
+    });
+    expect(await db.sessionPlanningSuggestion.count()).toBe(0);
   });
 });

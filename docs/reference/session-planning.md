@@ -94,6 +94,42 @@ ordinary message search gains no broader directory access.
 
 ## Verification boundaries
 
+Scheduling computation reuses bounded timezone formatters. A publication operation
+owns its successful wall-time parser and immutable indexed calendar snapshot;
+returned dates and resolved days cannot mutate later results. The parser still
+rejects missing/repeated DST clocks, and every lesson still validates its own
+location and 45 elapsed minutes. These caches never retain permissions, ownership,
+conflicts, consent or database rows between operations.
+
+Publication batches generation-key reads per assignment unit (at most 21 dates),
+including cancelled and moved plans. Conflict checks narrow pending offers by
+strict UTC overlap, then select the request's exact current offer. Regular-plan
+materialization reads use bounded batches, including cancelled/moved exceptions.
+Room ranking builds one booking index while retaining canonical-person scoring,
+group usage order and the final authoritative room check. Private calendar output
+skips folding only when a complete line already fits within 75 UTF-8 bytes.
+
+Agenda reads still catch up publication and deadlines. The period, room, planning
+and authority-row fences remain in force, including re-reads after waiting for
+source locks. A worker interval or TTL cannot replace these checks without a
+durable invalidation contract covering every source change.
+
+Run the source-comparison benchmarks from the repository root, choosing the
+unoptimized scheduling commit that is the optimization branch's base:
+
+```sh
+node scripts/benchmark-session-planning.mjs --baseline <commit> --output outputs/language-performance/implementation/compute.json
+node scripts/benchmark-room-allocation.mjs --baseline <commit> --output outputs/language-performance/implementation/room-results.json
+```
+
+The compute harness compares complete values, errors, calendar bytes and schedule
+fingerprints from actual source before timing synthetic workloads. It distinguishes
+fresh module formatter caches from warmed caches; operation caches start empty in
+both modes. The room harness includes allocator computation with immediate mock
+reads and explicit guard stubs. Neither measures network, rendering, real database
+latency, lock contention or a website-wide speedup. Preserve the emitted revisions,
+source hashes, runtime, sample ranges and scope alongside any reported medians.
+
 [Workflow tests](../../src/server/session-planning/workflows.test.ts) exercise
 the real transaction/state model against the guarded isolated test database.
 [Attendance and messaging integration](../../src/server/session-planning/attendance-messaging.test.ts)

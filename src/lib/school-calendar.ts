@@ -56,3 +56,55 @@ export function resolveSchoolCalendarDay(
     calendarRevision: override?.scheduleRevision ?? override?.version ?? 0,
   };
 }
+
+export type SchoolCalendarDay = ReturnType<typeof resolveSchoolCalendarDay>;
+
+/** Own one immutable set of calendar facts per operation, never across calendar writes.
+ * Index the first row so duplicate dates retain the direct resolver's find semantics. */
+export function createSchoolCalendarSnapshot(
+  overrides: readonly SchoolCalendarOverride[] = [],
+) {
+  const dates: string[] = [];
+  const firstByDate = new Map<string, SchoolCalendarOverride>();
+  for (const row of overrides) {
+    dates.push(row.date);
+    if (!firstByDate.has(row.date)) {
+      firstByDate.set(row.date, {
+        date: row.date,
+        isSchoolDay: row.isSchoolDay,
+        timetableWeekday: row.timetableWeekday,
+        active: row.active,
+        version: row.version,
+        scheduleRevision: row.scheduleRevision,
+      });
+    }
+  }
+  const resolved = new Map<string, SchoolCalendarDay>();
+  let semantic: readonly Readonly<SchoolCalendarDay>[] | undefined;
+
+  function resolve(date: string): SchoolCalendarDay {
+    let day = resolved.get(date);
+    if (!day) {
+      const override = firstByDate.get(date);
+      // Keep the shared date validation and tombstone/revision rules authoritative.
+      day = resolveSchoolCalendarDay(date, override ? [override] : []);
+      resolved.set(date, day);
+    }
+    return { ...day };
+  }
+
+  return {
+    resolve,
+    /** Matches overrides.map(resolve).sort by date, including repeated dates.
+     * Freeze the reusable fingerprint input so callers cannot poison later hashes. */
+    semanticDays(): readonly Readonly<SchoolCalendarDay>[] {
+      semantic ??= Object.freeze(
+        dates
+          .map(resolve)
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .map((day) => Object.freeze(day)),
+      );
+      return semantic;
+    },
+  };
+}

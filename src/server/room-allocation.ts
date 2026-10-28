@@ -239,8 +239,17 @@ export async function allocateRoom(
   );
   const tutorKey = keys.tutor.get(schedule.tutorId)!;
   const tuteeKeys = new Set(schedule.tuteeIds.map((id) => keys.tutee.get(id)!));
+  // Index once without reordering a room's evidence: group usage below deliberately
+  // keeps the last row's minutes when subject rows share one reservation.
+  const bookingsByRoom = new Map<string, (typeof bookings)[number][]>();
+  for (const booking of bookings) {
+    if (booking.roomId === null) continue;
+    const evidence = bookingsByRoom.get(booking.roomId);
+    if (evidence) evidence.push(booking);
+    else bookingsByRoom.set(booking.roomId, [booking]);
+  }
   const candidates = eligible.map((room) => {
-    const evidence = bookings.filter((booking) => booking.roomId === room.id);
+    const evidence = bookingsByRoom.get(room.id) ?? [];
     const familiar = new Set(
       evidence.flatMap((booking) => [
         keys.tutor.get(booking.tutorId)!,

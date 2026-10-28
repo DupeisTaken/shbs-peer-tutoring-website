@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createProgramDateTimeParser } from "./program-time";
 import {
   oneNegotiationAction,
   plannedWindow,
@@ -8,6 +9,24 @@ import {
 } from "./session-planning";
 
 describe("dated planning contracts", () => {
+  it("reuses instants without reusing a lesson's location or skipping input validation", () => {
+    const parse = createProgramDateTimeParser();
+    const input = { date: "2026-11-02", startMin: 900, roomId: "room-a", online: false };
+    const first = plannedWindow(input, "Asia/Shanghai", parse);
+    first.startsAt.setTime(0);
+    const next = plannedWindow({ ...input, roomId: "room-b" }, "Asia/Shanghai", parse);
+    expect(next).toEqual(plannedWindow({ ...input, roomId: "room-b" }, "Asia/Shanghai"));
+    expect(plannedWindow({ ...input, online: true }, "Asia/Shanghai", parse).roomId).toBeNull();
+    expect(() => plannedWindow({ ...input, roomId: "" }, "Asia/Shanghai", parse)).toThrow();
+    for (const [date, startMin, zone] of [
+      ["2026-03-08", 150, "America/New_York"],
+      ["2026-11-01", 90, "America/New_York"],
+      ["2026-10-04", 105, "Australia/Lord_Howe"],
+    ] as const) {
+      for (let attempt = 0; attempt < 2; attempt++)
+        expect(() => plannedWindow({ ...input, date, startMin }, zone, parse)).toThrow();
+    }
+  });
   it("uses shared school defaults and semantic revisions rather than editor note versions", () => {
     expect(resolvePlanningCalendarDay("2026-10-31", []).isSchoolDay).toBe(
       false,

@@ -1,10 +1,30 @@
 import { DEFAULT_TIME_ZONE } from "~/i18n/config";
 
+const TIME_ZONE_CACHE_LIMIT = 64;
+const PARSER_CACHE_LIMIT = 1024;
+const validTimeZones = new Map<string, true>();
+const dateTimeFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/** Bound reusable Intl state even when callers supply many different zones. */
+function remember<K, V>(cache: Map<K, V>, key: K, value: V, limit: number) {
+  cache.delete(key);
+  cache.set(key, value);
+  if (cache.size > limit) {
+    const oldest = cache.keys().next();
+    if (!oldest.done) cache.delete(oldest.value);
+  }
+}
+
 /** Validate real IANA zones, not ambiguous abbreviations or the machine's local default. */
 export function isProgramTimeZone(value: string): boolean {
   if (value !== "UTC" && !value.includes("/")) return false;
+  if (validTimeZones.has(value)) {
+    remember(validTimeZones, value, true, TIME_ZONE_CACHE_LIMIT);
+    return true;
+  }
   try {
     new Intl.DateTimeFormat("en", { timeZone: value }).format();
+    remember(validTimeZones, value, true, TIME_ZONE_CACHE_LIMIT);
     return true;
   } catch {
     return false;
@@ -15,15 +35,19 @@ export function programDateTimeInput(
   date: Date,
   timeZone = DEFAULT_TIME_ZONE,
 ): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date);
+  const formatter =
+    dateTimeFormatters.get(timeZone) ??
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    });
+  remember(dateTimeFormatters, timeZone, formatter, TIME_ZONE_CACHE_LIMIT);
+  const parts = formatter.formatToParts(date);
   const get = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((p) => p.type === type)!.value;
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
@@ -81,6 +105,24 @@ export function parseProgramDateTime(
         : "This time does not exist because of daylight saving. Choose another time.",
     );
   return candidates[0]!;
+}
+
+/** Reuse successful wall-clock conversions only within one caller-owned operation.
+ * Cache timestamps, never mutable Dates or failures; DST validation stays in the parser.
+ */
+export function createProgramDateTimeParser() {
+  const timestamps = new Map<string, number>();
+  return (value: string, timeZone = DEFAULT_TIME_ZONE): Date => {
+    const key = `${timeZone}\0${value}`;
+    const cached = timestamps.get(key);
+    if (cached !== undefined) {
+      remember(timestamps, key, cached, PARSER_CACHE_LIMIT);
+      return new Date(cached);
+    }
+    const parsed = parseProgramDateTime(value, timeZone);
+    remember(timestamps, key, parsed.getTime(), PARSER_CACHE_LIMIT);
+    return parsed;
+  };
 }
 
 /** Calendar-day arithmetic must not assume that a local day is always 24 hours. */
