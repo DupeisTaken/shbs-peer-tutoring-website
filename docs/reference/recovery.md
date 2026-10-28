@@ -18,6 +18,14 @@ effects and event chronology. Coverage must be complete before either supported
 write route can apply it. Unknown changes or a conflicting graph cannot be
 overridden with an operator flag.
 
+Notification preferences are independent account settings. `NotificationPreference`
+uses the explicit `(userId, category)` identity and participates in the recovery
+change journal. Known preference inserts, deletes, and badge/email flag updates
+are preserved, never replayed or reverted by admission recovery. Ownership/category
+rewrites and unknown changed fields remain unsupported. The legacy review/reminder
+email flags on `User` are likewise preserved. Missing journal coverage still blocks
+recovery; the preference table is not excluded from coverage checks.
+
 Canonical diagnostic text remains stable in saved plans and CLI evidence. The
 website resolves that shared vocabulary through localized messages, preserving
 record/table identifiers and displaying unknown future diagnostics verbatim.

@@ -11,6 +11,16 @@ const change = {
   after: {},
   changedFields: ["name", "profileVersion"],
 };
+it("preserves journaled notification settings but rejects ownership rewrites and unknown coverage", () => {
+  for (const operation of ["INSERT", "DELETE"]) {
+    expect(preservedRecoveryChange({ ...change, entity: "NotificationPreference", operation,
+      changedFields: ["userId", "category", "badgeEnabled", "emailEnabled"] })).toBe(true);
+  }
+  expect(preservedRecoveryChange({ ...change, entity: "NotificationPreference", changedFields: ["badgeEnabled", "emailEnabled"] })).toBe(true);
+  for (const changedFields of [null, [], ["userId"], ["category"], ["futureField"]])
+    expect(preservedRecoveryChange({ ...change, entity: "NotificationPreference", changedFields })).toBe(false);
+  expect(preservedRecoveryChange({ ...change, changedFields: ["emailReviewRequests", "emailEventReminders"] })).toBe(true);
+});
 it("requires complete field-name evidence rather than equal redacted snapshots", () => {
   expect(preservedRecoveryChange(change)).toBe(true);
   for (const changedFields of [
