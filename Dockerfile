@@ -30,10 +30,16 @@ ENV SKIP_ENV_VALIDATION=1
 RUN npx prisma generate
 RUN npm run build
 
-# Keep the complete production dependency graph, including Prisma's migration CLI. Copying
-# just @prisma and prisma omits transitive CLI dependencies and cannot be boot-tested reliably.
+# Keep build-generated Prisma configuration caches as well as the complete
+# production graph. Pruning from deps loses files created during generation.
 FROM build AS runtime-deps
 RUN npm prune --omit=dev --ignore-scripts
+
+# Merge traced-only packages with production winners before creating final image
+# layers. Deleting overlaid files in the runner would retain their lower-layer bytes.
+FROM build AS runtime-files
+COPY --from=runtime-deps /app/node_modules /runtime-production/node_modules
+RUN node scripts/assemble-runtime.mjs .next/standalone /runtime-production/node_modules /runtime-output
 
 ############################
 # 3. Runtime (slim, non-root)
@@ -49,8 +55,11 @@ ENV HOSTNAME=0.0.0.0
 # Run as an unprivileged user.
 RUN addgroup -S nodejs -g 1001 && adduser -S nextjs -u 1001 -G nodejs
 
-# Next.js standalone server + static assets.
-COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
+# Dependencies precede changing app files so retained releases can share their
+# snapshot chain. The assembler guarantees these two outputs do not overlap.
+COPY --from=runtime-files --chown=nextjs:nodejs /runtime-output/dependencies/node_modules ./node_modules
+COPY --from=runtime-files --chown=nextjs:nodejs /runtime-output/app ./
+# Next.js static assets are not included in standalone output.
 COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=build --chown=nextjs:nodejs /app/public ./public
 
@@ -58,7 +67,6 @@ COPY --from=build --chown=nextjs:nodejs /app/public ./public
 # entrypoint can run `prisma migrate deploy` at startup.
 COPY --from=build --chown=nextjs:nodejs /app/generated ./generated
 COPY --from=build --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=runtime-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=build --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 COPY --from=build --chown=nextjs:nodejs /app/package.json /app/tsconfig.json ./
 COPY --from=build --chown=nextjs:nodejs /app/scripts/create-admin.ts ./scripts/create-admin.ts
