@@ -41,7 +41,13 @@ vi.mock("~/trpc/react", () => ({
       periodSummary: {
         useQuery: (input: unknown) => {
           state.summary(input);
-          return { data: { scope: { label: "Synthetic semester" }, rows: [] } };
+          return {
+            data: {
+              scope: { label: "Synthetic semester" },
+              rows: [],
+              totals: { earned: 0, extras: 0, punishments: 0, total: 0 },
+            },
+          };
         },
       },
       sessionFlags: {

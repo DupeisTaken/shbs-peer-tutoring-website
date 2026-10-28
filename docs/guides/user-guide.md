@@ -910,7 +910,7 @@ original editor and claim pathway. See the [historical transition guide](histori
 
 ### Past tutor records and unlinked profiles
 
-Current-work tutor lists hide Archived and Graduated records by default. Use **Show past tutors** in the Tutors roster, Attendance tutor filter, Hour Adjustments selector, the Tutees tutor view or an expanded Meeting attendance editor when you need them. Hiding past tutors keeps an already selected tutor visible. Existing pairings and recorded meeting attendance retain their tutor names; historical reports and summaries retain all records. Assignment selectors continue to enforce their existing Active-tutor eligibility rules; revealing a record does not make it eligible.
+Current-work tutor lists hide Archived and Graduated records by default. Use **Show past tutors** in the Tutors roster, Attendance tutor filter, Hour Adjustments selector, the Tutees tutor view or an expanded Meeting attendance editor when you need them. Hiding past tutors keeps an already selected tutor visible. Existing pairings and recorded meeting attendance retain their tutor names; historical reports and program totals retain all records. Service Hours has its own current-status and period-activity filters, described below. Assignment selectors continue to enforce their existing Active-tutor eligibility rules; revealing a record does not make it eligible.
 
 In **Users & Roles**, use **Show historical records** and choose **Edit profile** on an unlinked tutor row. Admin/Head can correct First Name, Last Name, Preferred Name, Name in Another Language, email and grade in the same editor used by the Tutors roster; Coordinators can propose those changes. Admin/Head can also correct its username; the shared username rules and uniqueness checks apply. Coordinator profile and status proposals require Admin/Head review. Saving leaves the record unlinked and preserves its selected status: it does not invite, create a login or reactivate the tutor. After saving a valid email, the same row enables **Send setup link**, which remains a separate action. Identifier conflicts and stale edits show an error. Linked account email changes continue through verified account settings.
 
@@ -1228,10 +1228,20 @@ Tutor and crew opt-out/reentry requests remain pending until reviewed. Opt-out a
 
 Corrections to tutoring attendance, patrol observations, recorded meeting attendance and completed interviews may reverse reviewed flags, deductions or earned credits. Admin/Head apply the whole correction and its dependent consequences; eligible Coordinator submissions wait for review. Restoring hidden messages, archived news or announcements, reinstating participation and overturning a reviewed discipline decision follow the same Admin/Head authority. Initial attendance entries and other eligible daily operations retain Admin/Head direct authority and Coordinator requests. Withdrawing an unapplied request is distinct from reversing an applied action.
 
-**Service Hours** keeps each tutor's total and Details action in the compact
-summary. Expand **Compare Hour Breakdowns** to compare earned hours, extras and
-penalties across tutors. On a narrow screen, scroll inside that labelled table;
-keyboard users can focus it and use the left/right arrow keys.
+**Service Hours** starts with currently **Active** tutors. Choose **Inactive** or
+**All** to see other current statuses; these labels do not describe a tutor's
+status during a historical month. Independently filter for records in the selected
+period or no records, and search by name. A zero-credit session, zero-valued
+adjustment or deductions that offset earnings still counts as a record.
+
+Program totals above the roster always include the complete selected period.
+The filtered subtotal describes only the shown rows. When the Active filter hides
+inactive contributors, use the displayed action to reveal their records. Choose
+**Summary** for totals and Details, or **Breakdown** for earned hours, extras and
+deductions in the same filtered roster. Filters, search, view and sort are retained
+for the browser session. On a narrow screen, scroll inside the labelled table;
+keyboard users can focus it and use the left/right arrow keys. Viewing or hiding
+records never changes their hours or eligibility.
 
 Use [Attendance Flags](program-configuration.md#review-attendance-flags) to assess crew evidence before applying a decision. Use [Reports](program-configuration.md#reports-and-exports) to choose a period, review totals, download table CSVs or print a report. Check the privacy setting before sharing. Audits and policy acceptance history remain separate evidence views.
 
