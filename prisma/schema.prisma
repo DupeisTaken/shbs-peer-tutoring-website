@@ -2358,9 +2358,17 @@ model QualificationGrant {
 
 /// Explicit holidays and make-up school days override the default Monday–Friday calendar.
 model SchoolCalendarDay {
-  date String @id
-  isSchoolDay Boolean
-  note String?
+  date             String   @id
+  isSchoolDay      Boolean
+  /// ISO weekday (Monday=1, Sunday=7); null keeps the date's civil weekday.
+  timetableWeekday Int?
+  note             String?
+  /// Reset retains a tombstone so a stale edit cannot revive an old override.
+  active           Boolean  @default(true)
+  version          Int      @default(1)
+  /// Operational notices/dated sessions ignore note-only editor revisions.
+  scheduleRevision Int      @default(1)
+  updatedAt        DateTime @default(now()) @updatedAt
 }
 
 /// Informational inclusive ranges only; attendance and school-day appeal rules never consume these rows.

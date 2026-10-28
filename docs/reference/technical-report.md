@@ -1534,8 +1534,9 @@ and [tutor allocation tests](<../../src/app/(tutor)/_components/tutor-pairings.a
 
 The tutor dashboard's task summary reuses the same tRPC query keys as its feature
 sections, including explicit unknown/error states. It uses the program-zone date
-and only confirmed weekly pairing times; this is a regular timetable, not a
-holiday or attendance-completion inference. Active membership controls attendance
+and confirmed weekly pairing times, resolved through the school calendar for that
+actual date. A closure suppresses ordinary recurrence; a mapped school date uses
+the selected weekday's timetable. Neither is attendance-completion evidence. Active membership controls attendance
 and pairing writes; pending/inactive membership keeps read-only records and
 unresolved requirements. Hash shortcuts focus their section for keyboard users.
 Attendance freezes its submitted fields and distinguishes a saved entry from a
@@ -1552,14 +1553,78 @@ filtering stays in the existing pairing reader; inactive accounts have no previe
 Only valid PENDING/INTERVIEW assignments with a future recorded start appear;
 interviews have no inferred end or room. Existing workflow anchors retain all
 unresolved/history records. The shared grid/API projection gains no applicant data.
-Calendar notices do not modify recurrence. Strict program-time conversion reports
+School-calendar facts resolve ordinary recurrence; separate informational no-tutoring
+notices do not modify it. Strict program-time conversion reports
 ambiguous/nonexistent DST wall clocks rather than choosing an instant; 24:00 uses
 the next local boundary. Ties sort by instant then stable event ID.
 The client advances its clock every 30 seconds and on focus, with one-minute query
-refreshes sharing existing cache keys. Either source denial conceals both caches until every enabled source freshly
+refreshes sharing existing cache keys. A source denial conceals the combined evidence until every enabled source freshly
 recovers; untouched cached success cannot release this boundary. Transient read
 failures retain partial evidence with an explicit stale warning and independent retries. Feature-disabled interviews are not queried or projected. Rendering and
 workflow links never call scheduling, voting, attendance or booking mutations.
+
+### School calendar dates and timetable mapping
+
+[`SchoolCalendarDay`](../../prisma/schema.prisma) stores an actual program-local
+`YYYY-MM-DD` date, `isSchoolDay`, optional ISO `timetableWeekday` (Monday 1 through
+Sunday 7), a staff note, `active`, editor `version`, semantic `scheduleRevision`
+and `updatedAt`. The [additive migration](../../prisma/migrations/20261029010000_school_calendar_mapping/migration.sql)
+preserves existing school-day flags and notes, leaves mappings unset, and starts
+both revisions at 1. Database checks reject mappings outside 1–7 and a mapped
+weekday on a closed date.
+
+The shared [resolver](../../src/lib/school-calendar.ts) defaults Monday–Friday to
+school days and weekends to closed. An active open override uses its mapped
+weekday, or the date's civil weekday when no mapping is set. A closure has no
+effective timetable weekday. An inactive tombstone restores these defaults while
+retaining its semantic revision. `calendarRevision` uses `scheduleRevision`, with
+the legacy editor version or 0 as fallback. Mapping a Sunday to Monday changes the
+timetable selected for Sunday; the actual date and stored weekly pairings remain
+unchanged. Appeal counting uses only school-day status and ignores inactive rows;
+a timetable substitution alone cannot change the five-school-day window.
+
+[Set/reset services](../../src/server/program/school-calendar.ts) serialize each
+date, validate the captured editor version and commit audit and notification intent
+together. Head applies both operations; Admin requests Head approval, while
+Coordinator cannot submit them. A proposal changes no live calendar or operational
+notice. Reset retains the row and advances both revisions; recreation must use
+that tombstone's current version. An unchanged save/reset is a no-op. Notes and
+equivalent timetable edits advance only the editor version; changes to active
+state or resolved school-day/timetable meaning also advance `scheduleRevision`.
+Legacy set inputs without an expected version retain create-only version-0
+behavior; an existing row or incompatible older proposal requires fresh review.
+
+Protected participant reads expose bounded calendar facts without staff notes.
+Tutor upcoming sessions and today's task summary share these facts; attendance,
+historical session dates and service hours remain actual evidence. The separate
+`ProgramCalendarDay` inclusive no-tutoring ranges retain their informational meaning.
+The [dated-session audience adapter](../../src/server/school-calendar-session-audience.ts)
+is the integration seam for the coordinated dated-session rollout; it currently
+adds no dated participants. This calendar foundation does not establish that
+rollout's extra-session, rescheduling or effective-occupancy behavior. No calendar
+provider receives writes from these operations.
+
+[Calendar notices](../../src/server/school-calendar-notifications.ts) identify the
+actual date and resolved timetable, using eligible tutors and tutees with confirmed,
+populated active-period pairings on the union of the civil, prior mapped and new
+mapped weekdays. Retained tutee ownership is respected, and still-eligible prior
+recipients receive corrections. The existing notification worker checks today and
+tomorrow for advance reminders from the prior date at 18:00 until the actual date
+at noon, in the program timezone. A change receipt already issued to that recipient
+in the same window and semantic revision also serves as the advance reminder;
+later same-day changes still issue immediate notices. Historical changes do not
+create new operational notices.
+
+Deterministic date/revision/phase/recipient notification IDs make logical retries
+idempotent. A source-locked receipt lookup also respects notification ownership
+moved by account combination without rewriting historical IDs. Superseded pending/failed mail is skipped, and delivery rechecks current
+semantic revision, resolved state, recipient eligibility and reminder timing.
+These notices use optional information email, with normal program and personal
+preferences; they are not essential request-service mail. Safe mail context holds
+only actual date, school-day flag, effective weekday, semantic revision and timezone,
+never staff notes. Source rechecking does not recall SMTP already accepted, and the
+ordinary optional-mail path does not guarantee exactly-once transport. The
+[event inventory](notification-events.md) owns the maintained bilingual copy.
 
 `Pairing.scheduleConfirmed` separates assigned tutors from agreed schedules. New request assignments default false; catalog-slot creation or selection sets true. Clearing a slot link retains the flag and copied times. Lists expose the awaiting state, dashboard counts exclude it, and attendance requires explicit actual start/end values whenever any selected pairing is unconfirmed. Recording actual attendance never confirms the recurring schedule. The [scheduling migration](../../prisma/migrations/20260922200100_pairing_scheduling/migration.sql) conservatively marks preexisting rows true because copied-time provenance is unknown; new rows default false. No historical schedule or session time is inferred or rewritten.
 
@@ -1760,7 +1825,9 @@ is not persisted. Old in-app rows retain their original readable title/body; unk
 email events use the generic program-update description. Count context is limited to
 discipline-card requests and changed historical teaching blocks. Scheduled interviews
 carry a validated ISO instant and IANA timezone. Recurring assignment updates carry
-no invented date; there is no dated tutoring-session notification emitter. The
+no invented date. School-calendar change/reset/advance notices carry actual date,
+resolved school-day/timetable facts and semantic revision; staff notes are excluded.
+These calendar events do not promise an individual dated tutoring session. The
 [event inventory](notification-events.md) maps every supported event to its actual
 emitter, audience, maintained copy and destination, including email-only account events.
 

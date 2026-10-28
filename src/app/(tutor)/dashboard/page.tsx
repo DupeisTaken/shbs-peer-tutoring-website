@@ -26,6 +26,7 @@ import { SessionPagePosition } from "~/app/_components/session-view-state";
 import { TutorRoomSchedule } from "~/app/(tutor)/_components/tutor-room-schedule";
 import { TutorUpcoming } from "~/app/(tutor)/_components/tutor-upcoming";
 import { ProgramCalendarNotice } from "~/app/_components/program-calendar";
+import { SchoolCalendarNotice } from "~/app/_components/school-calendar-notice";
 
 export default async function TutorDashboard() {
   const session = await auth();
@@ -223,6 +224,7 @@ export default async function TutorDashboard() {
           <p className="muted">{t("dashboard.schedule.help")}</p>
         </div>
         <ProgramCalendarNotice />
+        <SchoolCalendarNotice />
         <TutorUpcoming
           active={!inactive}
           interviewsEnabled={features.INTERVIEWS}

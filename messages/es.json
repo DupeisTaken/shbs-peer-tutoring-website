@@ -3378,7 +3378,9 @@
         "lastName": "Apellidos",
         "preferredName": "Nombre preferido",
         "states": "Requisitos de los campos",
-        "archivedOfferings": "Ofertas de asignatura que se archivarán"
+        "archivedOfferings": "Ofertas de asignatura que se archivarán",
+        "timetableWeekday": "Día del horario",
+        "scheduleRevision": "Revisión del horario"
       },
       "values": {
         "ACTIVE": "Activo",
@@ -3606,7 +3608,8 @@
         "admin_setPairingRoom": "Cambiar el aula de una asignación de tutoría",
         "admin_retryRoomAllocation": "Reintentar la asignación automática de aula de una tutoría",
         "admin_autoAssignUnassignedRooms": "Asignar automáticamente aulas a todas las sesiones revisadas sin asignar",
-        "admin_correctApplicationIdentity": "Corregir nombres de una solicitud pendiente"
+        "admin_correctApplicationIdentity": "Corregir nombres de una solicitud pendiente",
+        "student_resetCalendarDay": "Restaurar una fecha escolar"
       },
       "decisionRequestHelp": "Aprobar y aplicar ejecuta la acción solicitada, incluso cuando esta consiste en rechazar una solicitud. Rechazar con comentarios descarta esta propuesta sin aplicar cambios. Añada una nota para explicar su decisión.",
       "confirmPassword": "Confirme la contraseña de su cuenta de responsable principal",
@@ -4082,7 +4085,9 @@
         "viewer": "Acceso de observador",
         "willing": "Dispuesto a impartir esta asignatura",
         "windowStart": "Inicio del intervalo de reconocimiento",
-        "workloadPreferenceVersion": "Versión de la preferencia de carga"
+        "workloadPreferenceVersion": "Versión de la preferencia de carga",
+        "timetableWeekday": "Día del horario",
+        "scheduleRevision": "Revisión del horario"
       },
       "enums": {
         "Role": {
@@ -6152,7 +6157,24 @@
       "title": "Interview Approved",
       "body": "The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome.",
       "action": "View application"
-    }
+    },
+    "school_calendar_changed": {
+      "title": "Horario escolar modificado",
+      "body": "El horario escolar del {date} cambió: {schedule}. Revisa las tutorías que puedan verse afectadas.",
+      "action": "Revisar horario escolar"
+    },
+    "school_calendar_reset": {
+      "title": "Horario escolar restaurado",
+      "body": "El horario escolar del {date} volvió a su estado predeterminado: {schedule}. Revisa tus tutorías.",
+      "action": "Revisar horario escolar"
+    },
+    "school_calendar_upcoming": {
+      "title": "Próxima excepción de horario escolar",
+      "body": "Recordatorio del {date}: {schedule}. Revisa las tutorías que puedan verse afectadas.",
+      "action": "Revisar horario escolar"
+    },
+    "schoolCalendarScheduleNoSchool": "Sin clases",
+    "schoolCalendarScheduleFollows": "Horario del {weekday}"
   },
   "requestAppeal": {
     "title": "Appeal an Invalid Request",
@@ -6665,5 +6687,46 @@
       "APPLICATION_IDENTITY_RETRY_CHANGED": "Este recibo corresponde a otra corrección. Recargue los nombres actuales.",
       "APPLICATION_IDENTITY_PROPOSAL_DECIDED": "Esta propuesta ya fue revisada. Consulte la decisión y recargue los nombres antes de preparar otra corrección."
     }
+  },
+  "schoolCalendar": {
+    "title": "Calendario escolar",
+    "help": "Configura cierres escolares y el horario semanal aplicado a una fecha. Las demás fechas siguen el calendario escolar de lunes a viernes.",
+    "noticeDistinction": "Los avisos de días sin tutoría son información independiente y no cambian este calendario escolar.",
+    "add": "Añadir excepción de fecha",
+    "date": "Fecha real",
+    "timetable": "Horario",
+    "actions": "Acciones",
+    "details": "Ver detalles",
+    "edit": "Editar",
+    "reset": "Restaurar normalidad",
+    "resetTitle": "¿Restaurar esta fecha escolar?",
+    "resetHelp": "Restaura las reglas habituales de días lectivos y horarios. Se conservan el historial y las sesiones acordadas explícitamente.",
+    "empty": "Sin excepciones. Se aplican las reglas habituales de días lectivos y horarios.",
+    "denied": "No se puede acceder al calendario escolar.",
+    "refresh": "Actualizar",
+    "loading": "Cargando calendario escolar…",
+    "loadFailed": "No se pudo actualizar el calendario. La edición está pausada hasta una lectura correcta.",
+    "schoolStatus": "Estado escolar",
+    "schoolDay": "Día lectivo",
+    "noSchool": "Sin clases",
+    "civilWeekday": "Usar el día real de la semana",
+    "timetableHelp": "Elige el horario escolar para esta fecha, por ejemplo clases del lunes en domingo.",
+    "note": "Nota del personal",
+    "agreementWarning": "Los extras y cambios de fecha acordados explícitamente se conservan durante cierres escolares. Revísalos con los participantes.",
+    "saving": "Guardando…",
+    "save": "Guardar fecha escolar",
+    "saved": "Calendario escolar guardado.",
+    "saveFailed": "No se pudo guardar la fecha escolar. Se conserva tu borrador.",
+    "reload": "Recargar fecha actual",
+    "refreshFailed": "El cambio se aceptó, pero falló la actualización. Reintenta la lectura sin guardar otra vez.",
+    "follows": "Horario del {weekday}",
+    "closureWarning": "Las sesiones extra o reprogramadas acordadas siguen programadas; consulta tu agenda.",
+    "noticeTitle": "Cambios escolares en los próximos 14 días",
+    "noticeLoadFailed": "No se pudo actualizar el calendario escolar. Las fechas anteriores pueden estar desactualizadas.",
+    "alreadySubmitted": "Este cambio de fecha ya se envió. Actualiza el calendario para revisar su estado actual.",
+    "viewUpcoming": "Ver próximos cambios",
+    "requestedDateTitle": "Calendario escolar de esta fecha",
+    "defaultCalendar": "No hay una excepción activa para esta fecha. Se aplican las reglas habituales de días lectivos y horarios.",
+    "currentCalendar": "Se muestra el calendario escolar actual, no el estado de la notificación anterior."
   }
 }

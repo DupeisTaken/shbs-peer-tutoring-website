@@ -3378,7 +3378,9 @@
         "lastName": "Family name",
         "preferredName": "Preferred name",
         "states": "Field requirements",
-        "archivedOfferings": "Offerings to archive"
+        "archivedOfferings": "Offerings to archive",
+        "timetableWeekday": "Timetable weekday",
+        "scheduleRevision": "Schedule revision"
       },
       "values": {
         "ACTIVE": "Active",
@@ -3606,7 +3608,8 @@
         "admin_setPairingRoom": "Change a pairing’s room assignment",
         "admin_retryRoomAllocation": "Retry automatic room allocation for a pairing",
         "admin_autoAssignUnassignedRooms": "Auto assign rooms to all reviewed unassigned sessions",
-        "admin_correctApplicationIdentity": "Correct pending application names"
+        "admin_correctApplicationIdentity": "Correct pending application names",
+        "student_resetCalendarDay": "Reset a school calendar day"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
       "confirmPassword": "Confirm your Head account password",
@@ -4082,7 +4085,9 @@
         "viewer": "Viewer access",
         "willing": "Willing to tutor this subject",
         "windowStart": "Credit window start",
-        "workloadPreferenceVersion": "Workload preference version"
+        "workloadPreferenceVersion": "Workload preference version",
+        "timetableWeekday": "Timetable weekday",
+        "scheduleRevision": "Schedule revision"
       },
       "enums": {
         "Role": {
@@ -6152,7 +6157,24 @@
       "title": "Interview Approved",
       "body": "The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome.",
       "action": "View application"
-    }
+    },
+    "school_calendar_changed": {
+      "title": "School schedule changed",
+      "body": "The school schedule for {date} changed: {schedule}. Review your potentially affected tutoring sessions.",
+      "action": "Review school schedule"
+    },
+    "school_calendar_reset": {
+      "title": "School schedule restored",
+      "body": "The school schedule for {date} returned to its default: {schedule}. Review your tutoring sessions.",
+      "action": "Review school schedule"
+    },
+    "school_calendar_upcoming": {
+      "title": "Upcoming school schedule override",
+      "body": "Reminder for {date}: {schedule}. Review your potentially affected tutoring sessions.",
+      "action": "Review school schedule"
+    },
+    "schoolCalendarScheduleNoSchool": "No school",
+    "schoolCalendarScheduleFollows": "Follows {weekday} timetable"
   },
   "requestAppeal": {
     "title": "Appeal an Invalid Request",
@@ -6665,5 +6687,46 @@
     "saveFailed": "The correction could not be saved.",
     "reload": "Reload current names",
     "cancel": "Cancel"
+  },
+  "schoolCalendar": {
+    "title": "School calendar",
+    "help": "Set school closures and the weekday timetable followed on a specific date. Other dates follow the normal Monday–Friday school calendar.",
+    "noticeDistinction": "No-tutoring notices are separate informational dates. They do not change this school calendar.",
+    "add": "Add date override",
+    "date": "Actual date",
+    "timetable": "Timetable",
+    "actions": "Actions",
+    "details": "View details",
+    "edit": "Edit",
+    "reset": "Reset to normal",
+    "resetTitle": "Reset this school date?",
+    "resetHelp": "Restore the normal school-day and weekday rules for this date. Retained history and explicitly agreed sessions are preserved.",
+    "empty": "No date overrides. Normal school-day and weekday rules apply.",
+    "denied": "School calendar access is unavailable.",
+    "refresh": "Refresh",
+    "loading": "Loading school calendar…",
+    "loadFailed": "Could not refresh the school calendar. Editing is paused until a successful read.",
+    "schoolStatus": "School status",
+    "schoolDay": "School day",
+    "noSchool": "No school",
+    "civilWeekday": "Use the actual weekday",
+    "timetableHelp": "Choose the school timetable for this date, for example Monday lessons on a Sunday.",
+    "note": "Staff note",
+    "agreementWarning": "Explicitly agreed extras and rescheduled sessions are preserved on school closures. Review them with participants.",
+    "saving": "Saving…",
+    "save": "Save school date",
+    "saved": "School calendar saved.",
+    "saveFailed": "Could not save the school date. Your draft is retained.",
+    "reload": "Reload current date",
+    "refreshFailed": "The change was accepted, but refresh failed. Retry reads without saving again.",
+    "follows": "Follows {weekday} timetable",
+    "closureWarning": "Agreed extra or rescheduled sessions remain scheduled; check your agenda.",
+    "noticeTitle": "School schedule changes in the next 14 days",
+    "noticeLoadFailed": "Could not refresh the school calendar. Previously shown dates may be outdated.",
+    "alreadySubmitted": "This date change has already been submitted. Refresh the calendar to review its current state.",
+    "viewUpcoming": "View upcoming changes",
+    "requestedDateTitle": "School calendar for this date",
+    "defaultCalendar": "No active override for this date. Normal school-day and weekday rules apply.",
+    "currentCalendar": "This reflects the current school calendar, not the earlier notification’s snapshot."
   }
 }

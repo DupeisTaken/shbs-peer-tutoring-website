@@ -19,6 +19,7 @@ import { StudentWorkspace } from "../student/student-workspace";
 import { LegacyParticipation } from "../student/legacy-participation";
 import { TutorDiscipline } from "../(tutor)/_components/tutor-discipline";
 import { DEFAULT_NAME_FIELDS } from "~/lib/name-field-policy";
+import { programDateKey } from "~/lib/program-time";
 
 const remote = vi.hoisted(() => ({
   me: vi.fn(),
@@ -35,6 +36,7 @@ const remote = vi.hoisted(() => ({
   profile: vi.fn(),
   names: vi.fn(),
   headEdit: vi.fn(),
+  calendar: vi.fn(),
 }));
 vi.mock("~/trpc/react", async () => {
   const { useQuery, useMutation } = await import("@tanstack/react-query");
@@ -58,6 +60,7 @@ vi.mock("~/trpc/react", async () => {
   return {
     api: {
       program: {
+        schoolCalendar: read(["program", "schoolCalendar"], remote.calendar),
         calendar: { useQuery: () => ({ data: [] }) },
         profilePolicy: read(["program", "profilePolicy"], remote.profile),
         nameFieldPolicy: read(["program", "nameFieldPolicy"], remote.names),
@@ -261,6 +264,8 @@ beforeEach(() => {
     },
   });
   vi.clearAllMocks();
+  window.history.replaceState(null, "", "/student");
+  remote.calendar.mockResolvedValue([]);
   remote.me.mockResolvedValue(personal);
   remote.settings.mockResolvedValue(false);
   remote.mine.mockResolvedValue([request]);
@@ -287,6 +292,71 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   client.clear();
+});
+
+it("recovers school-calendar reads independently while retaining the tutee's weekly schedule", async () => {
+  const date = programDateKey(new Date(), "Asia/Shanghai");
+  const calendar = [
+    {
+      date,
+      isSchoolDay: false,
+      timetableWeekday: null,
+      version: 2,
+      scheduleRevision: 2,
+    },
+  ];
+  remote.calendar.mockResolvedValue(calendar);
+  remote.me.mockResolvedValue({
+    ...personal,
+    schedule: [
+      {
+        id: "calendar-pairing",
+        subject: "Calendar mathematics",
+        tutor: { englishName: "Synthetic Tutor" },
+        scheduleConfirmed: true,
+        dayOfWeek: 1,
+        startMin: 930,
+        endMin: 990,
+        room: null,
+      },
+    ],
+  });
+  mount(<StudentPortal view="schedule" />);
+  await screen.findByText(en.schoolCalendar.closureWarning);
+  expect(
+    screen.getByText("Calendar mathematics · Synthetic Tutor"),
+  ).toBeTruthy();
+  const personalReads = remote.me.mock.calls.length;
+  remote.calendar.mockRejectedValue(new Error("Calendar offline"));
+  await refresh(["program", "schoolCalendar"]);
+  await screen.findByText(en.schoolCalendar.noticeLoadFailed);
+  expect(screen.getByText(en.schoolCalendar.closureWarning)).toBeTruthy();
+  expect(
+    screen.getByText("Calendar mathematics · Synthetic Tutor"),
+  ).toBeTruthy();
+  remote.calendar.mockRejectedValue(
+    Object.assign(new Error("Denied"), { data: { code: "FORBIDDEN" } }),
+  );
+  await refresh(["program", "schoolCalendar"]);
+  await screen.findByText(en.schoolCalendar.denied);
+  expect(screen.queryByText(en.schoolCalendar.closureWarning)).toBeNull();
+  expect(
+    screen.getByText("Calendar mathematics · Synthetic Tutor"),
+  ).toBeTruthy();
+  remote.calendar.mockRejectedValue(new Error("Still offline"));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolCalendar.refresh }),
+  );
+  await waitFor(() => expect(client.isFetching()).toBe(0));
+  expect(screen.getByText(en.schoolCalendar.denied)).toBeTruthy();
+  remote.calendar.mockResolvedValue(calendar);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolCalendar.refresh }),
+  );
+  await screen.findByText(en.schoolCalendar.closureWarning);
+  expect(remote.me).toHaveBeenCalledTimes(personalReads);
+  expect(remote.feedback).not.toHaveBeenCalled();
+  expect(remote.appeal).not.toHaveBeenCalled();
 });
 
 it.each(["en", "zh"])(
@@ -410,7 +480,9 @@ it("freezes only the pending feedback draft, retains rejected text and clears an
   );
   fireEvent.change(first!, { target: { value: "A new unsaved draft" } });
   // React Query batches mutation reset notifications; observe the rendered result.
-  await waitFor(() => expect(screen.queryByText(en.workflows.saved)).toBeNull());
+  await waitFor(() =>
+    expect(screen.queryByText(en.workflows.saved)).toBeNull(),
+  );
   expect(second!.value).toBe("Other draft stays editable");
 });
 it("shows initial failure with a read-only retry and no invented empty records", async () => {

@@ -16,6 +16,8 @@ import { TutorUpcoming } from "./tutor-upcoming";
 const state = vi.hoisted(() => ({
   pairings: [] as unknown[],
   interviews: [] as unknown[],
+  calendar: [] as unknown[],
+  calendarError: null as null | { data?: { code: string } },
   pairingsError: null as null | { data?: { code: string } },
   interviewsError: null as null | { data?: { code: string } },
   missing: false,
@@ -25,6 +27,15 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    program: {
+      schoolCalendar: {
+        useQuery: () => ({
+          data: state.calendar,
+          error: state.calendarError,
+          refetch: async () => ({ data: state.calendar }),
+        }),
+      },
+    },
     tutor: {
       myPairings: {
         useQuery: (_: unknown, options: unknown) => {
@@ -74,6 +85,10 @@ function page({
   );
 }
 beforeEach(() => {
+  state.calendar = [
+    { date: "2026-10-18", isSchoolDay: true, timetableWeekday: null },
+  ];
+  state.calendarError = null;
   state.pairings = [
     {
       id: "p",
@@ -141,13 +156,37 @@ it.each(["en", "zh"])(
     ).toContain(locale === "en" ? "04:00 PM" : "16:00");
   },
 );
+it("suppresses ordinary tutoring on closure and keeps dated interview context; failed calendar reads stay explicit", () => {
+  state.calendar = [{ date: "2026-10-18", isSchoolDay: false }];
+  const view = render(page());
+  expect(screen.queryByText("Synthetic Mathematics")).toBeNull();
+  expect(screen.getByText("Synthetic Applicant")).toBeTruthy();
+  expect(screen.getByText(en.schoolCalendar.closureWarning)).toBeTruthy();
+  state.calendarError = { data: { code: "INTERNAL_SERVER_ERROR" } };
+  view.rerender(page());
+  expect(screen.queryByText("Synthetic Mathematics")).toBeNull();
+  expect(screen.getByRole("button", { name: /school calendar/i })).toBeTruthy();
+});
+
 it("shows a repair warning without presenting an incomplete group as a confirmed appointment", () => {
   const base = state.pairings[0] as Record<string, unknown>;
   state.pairings = [
-    { ...base, id: "chem", groupId: "g", subject: "Chemistry",
-      group: { primaryPairingId: "chem" }, tutees: [{ tuteeId: "a" }] },
-    { ...base, id: "math", groupId: "g", subject: "Mathematics",
-      group: { primaryPairingId: "chem" }, tutees: [{ tuteeId: "a" }, { tuteeId: "b" }] },
+    {
+      ...base,
+      id: "chem",
+      groupId: "g",
+      subject: "Chemistry",
+      group: { primaryPairingId: "chem" },
+      tutees: [{ tuteeId: "a" }],
+    },
+    {
+      ...base,
+      id: "math",
+      groupId: "g",
+      subject: "Mathematics",
+      group: { primaryPairingId: "chem" },
+      tutees: [{ tuteeId: "a" }, { tuteeId: "b" }],
+    },
   ];
   state.interviews = [];
   render(page());
@@ -172,7 +211,7 @@ it.each(["pairings", "interviews"])(
     view.rerender(page());
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Refresh Tutoring sessions / Interviews",
+        name: "Refresh Tutoring sessions / School calendar / Interviews",
       }),
     );
     await waitFor(() => expect(state.refreshInterviews).toHaveBeenCalledOnce());
@@ -190,7 +229,7 @@ it.each(["pairings", "interviews"])(
     );
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Refresh Tutoring sessions / Interviews",
+        name: "Refresh Tutoring sessions / School calendar / Interviews",
       }),
     );
     await waitFor(() =>
@@ -223,7 +262,7 @@ it("holds the shared denial boundary through all pending reads and guards duplic
       }),
   );
   const button = screen.getByRole<HTMLButtonElement>("button", {
-    name: "Refresh Tutoring sessions / Interviews",
+    name: "Refresh Tutoring sessions / School calendar / Interviews",
   });
   fireEvent.click(button);
   fireEvent.click(button);
@@ -243,7 +282,9 @@ it("recovers only the enabled source when interviews are disabled", async () => 
   state.pairingsError = null;
   view.rerender(page({ interviewsEnabled: false }));
   fireEvent.click(
-    screen.getByRole("button", { name: "Refresh Tutoring sessions" }),
+    screen.getByRole("button", {
+      name: "Refresh Tutoring sessions / School calendar",
+    }),
   );
   await waitFor(() =>
     expect(screen.getByText("Synthetic Mathematics")).toBeTruthy(),
@@ -257,6 +298,7 @@ it("does not claim an empty schedule when a source is still unavailable", () => 
   expect(screen.getByText("Loading Tutoring sessions…")).toBeTruthy();
 });
 it("does not claim an empty schedule when a confirmed recurrence needs DST time review", () => {
+  state.calendar = [{ date: "2026-11-01", isSchoolDay: true }];
   state.pairings = [
     {
       id: "dst",

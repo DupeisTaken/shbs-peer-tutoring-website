@@ -18,6 +18,7 @@ import {
 import { viewPage } from "~/lib/session-view-state";
 import { ParticipantName } from "./participant-name";
 import { ProgramCalendarNotice } from "./program-calendar";
+import { SchoolCalendarNotice } from "./school-calendar-notice";
 
 /** Pending and valid cards may be appealed once while their school-day window is open. */
 export function canSubmitCardAppeal({
@@ -199,6 +200,7 @@ export function StudentPortal({
         <section className="card p-6">
           {view === "all" && <h2 className="section-title">{t("schedule")}</h2>}
           <ProgramCalendarNotice />
+          <SchoolCalendarNotice />
           {!schedule.length && (
             <p className="muted mt-3">{portal("scheduleEmpty")}</p>
           )}

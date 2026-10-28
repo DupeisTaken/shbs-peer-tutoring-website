@@ -3378,7 +3378,9 @@
         "lastName": "Nom de famille",
         "preferredName": "Prénom d’usage",
         "states": "Exigences des champs",
-        "archivedOfferings": "Matières proposées à archiver"
+        "archivedOfferings": "Matières proposées à archiver",
+        "timetableWeekday": "Jour de l’emploi du temps",
+        "scheduleRevision": "Révision du programme"
       },
       "values": {
         "ACTIVE": "Actif",
@@ -3606,7 +3608,8 @@
         "admin_setPairingRoom": "Modifier la salle d’une affectation de tutorat",
         "admin_retryRoomAllocation": "Réessayer l’attribution automatique d’une salle à une affectation",
         "admin_autoAssignUnassignedRooms": "Attribuer automatiquement des salles à toutes les séances vérifiées sans attribution",
-        "admin_correctApplicationIdentity": "Corriger les noms d’une candidature en attente"
+        "admin_correctApplicationIdentity": "Corriger les noms d’une candidature en attente",
+        "student_resetCalendarDay": "Rétablir une date scolaire"
       },
       "decisionRequestHelp": "Approuver et appliquer exécute l’action demandée, y compris un rejet demandé. Rejeter avec un commentaire refuse cette proposition sans rien modifier. Ajoutez une note pour expliquer votre décision.",
       "confirmPassword": "Confirmez le mot de passe de votre compte de responsable du programme",
@@ -4082,7 +4085,9 @@
         "viewer": "Accès observateur",
         "willing": "Souhaite enseigner cette matière",
         "windowStart": "Début de la fenêtre de crédit",
-        "workloadPreferenceVersion": "Version du choix de charge de travail"
+        "workloadPreferenceVersion": "Version du choix de charge de travail",
+        "timetableWeekday": "Jour de l’emploi du temps",
+        "scheduleRevision": "Révision du programme"
       },
       "enums": {
         "Role": {
@@ -6152,7 +6157,24 @@
       "title": "Interview Approved",
       "body": "The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome.",
       "action": "View application"
-    }
+    },
+    "school_calendar_changed": {
+      "title": "Emploi du temps scolaire modifié",
+      "body": "L’emploi du temps du {date} a changé : {schedule}. Vérifiez vos séances de tutorat potentiellement concernées.",
+      "action": "Vérifier l’emploi du temps"
+    },
+    "school_calendar_reset": {
+      "title": "Emploi du temps scolaire rétabli",
+      "body": "Le programme scolaire du {date} est revenu à sa valeur par défaut : {schedule}. Vérifiez vos séances de tutorat.",
+      "action": "Vérifier l’emploi du temps"
+    },
+    "school_calendar_upcoming": {
+      "title": "Prochaine exception scolaire",
+      "body": "Rappel pour le {date} : {schedule}. Vérifiez vos séances de tutorat potentiellement concernées.",
+      "action": "Vérifier l’emploi du temps"
+    },
+    "schoolCalendarScheduleNoSchool": "Pas de cours",
+    "schoolCalendarScheduleFollows": "Emploi du temps du {weekday}"
   },
   "requestAppeal": {
     "title": "Appeal an Invalid Request",
@@ -6665,5 +6687,46 @@
       "APPLICATION_IDENTITY_RETRY_CHANGED": "Ce reçu correspond à une autre correction. Rechargez les noms actuels.",
       "APPLICATION_IDENTITY_PROPOSAL_DECIDED": "Cette proposition a déjà été examinée. Consultez la décision et rechargez les noms actuels avant une nouvelle correction."
     }
+  },
+  "schoolCalendar": {
+    "title": "Calendrier scolaire",
+    "help": "Définissez les fermetures et le jour d’emploi du temps appliqué à une date. Les autres dates suivent le calendrier scolaire du lundi au vendredi.",
+    "noticeDistinction": "Les avis de jours sans tutorat sont des informations distinctes et ne modifient pas ce calendrier scolaire.",
+    "add": "Ajouter une exception",
+    "date": "Date réelle",
+    "timetable": "Emploi du temps",
+    "actions": "Actions",
+    "details": "Voir les détails",
+    "edit": "Modifier",
+    "reset": "Rétablir la règle normale",
+    "resetTitle": "Rétablir cette date scolaire ?",
+    "resetHelp": "Rétablissez les règles habituelles des jours scolaires et de l’emploi du temps. L’historique et les séances explicitement convenues sont conservés.",
+    "empty": "Aucune exception. Les règles scolaires habituelles s’appliquent.",
+    "denied": "Accès au calendrier scolaire indisponible.",
+    "refresh": "Actualiser",
+    "loading": "Chargement du calendrier scolaire…",
+    "loadFailed": "Impossible d’actualiser le calendrier. La modification est suspendue jusqu’à une lecture réussie.",
+    "schoolStatus": "Statut scolaire",
+    "schoolDay": "Jour scolaire",
+    "noSchool": "Pas de cours",
+    "civilWeekday": "Utiliser le jour réel de la semaine",
+    "timetableHelp": "Choisissez l’emploi du temps pour cette date, par exemple les cours du lundi un dimanche.",
+    "note": "Note du personnel",
+    "agreementWarning": "Les séances supplémentaires et reports explicitement convenus sont conservés lors des fermetures. Vérifiez-les avec les participants.",
+    "saving": "Enregistrement…",
+    "save": "Enregistrer la date scolaire",
+    "saved": "Calendrier scolaire enregistré.",
+    "saveFailed": "Impossible d’enregistrer la date. Votre brouillon est conservé.",
+    "reload": "Recharger la date actuelle",
+    "refreshFailed": "Modification acceptée, mais actualisation impossible. Réessayez la lecture sans enregistrer à nouveau.",
+    "follows": "Emploi du temps du {weekday}",
+    "closureWarning": "Les séances supplémentaires ou reportées convenues restent prévues ; consultez votre agenda.",
+    "noticeTitle": "Changements scolaires dans les 14 prochains jours",
+    "noticeLoadFailed": "Impossible d’actualiser le calendrier scolaire. Les dates affichées précédemment peuvent être périmées.",
+    "alreadySubmitted": "Cette modification a déjà été soumise. Actualisez le calendrier pour consulter son état actuel.",
+    "viewUpcoming": "Voir les prochains changements",
+    "requestedDateTitle": "Calendrier scolaire pour cette date",
+    "defaultCalendar": "Aucune exception active pour cette date. Les règles scolaires habituelles s’appliquent.",
+    "currentCalendar": "Ceci reflète le calendrier scolaire actuel, pas l’état au moment de la notification précédente."
   }
 }

@@ -24,6 +24,16 @@ import { assertFeatureEnabled } from "~/server/program/features";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { programDateKey, programDayEnd } from "~/lib/program-time";
 import { DEFAULT_TIME_ZONE } from "~/i18n/config";
+import {
+  resolveSchoolCalendarDay,
+  schoolCalendarWrite,
+  schoolCalendarReset,
+  type SchoolCalendarOverride,
+} from "~/lib/school-calendar";
+import {
+  saveSchoolCalendar,
+  resetSchoolCalendar,
+} from "~/server/program/school-calendar";
 const staff = (role: string) => ["HEAD", "ADMIN", "COORDINATOR"].includes(role);
 const text = z.string().trim().min(1).max(2000);
 const paging = z
@@ -32,16 +42,18 @@ const paging = z
 /** Weekday deadline uses the configured school calendar; staff may still correct cards independently. */
 export function appealDeadline(
   date: Date,
-  overrides: { date: string; isSchoolDay: boolean }[] = [],
+  overrides: readonly SchoolCalendarOverride[] = [],
   timeZone = DEFAULT_TIME_ZONE,
 ) {
   const day = new Date(`${programDateKey(date, timeZone)}T00:00:00Z`);
   for (let remaining = 5; remaining > 0;) {
     day.setUTCDate(day.getUTCDate() + 1);
-    const override = overrides.find(
-      (o) => o.date === day.toISOString().slice(0, 10),
-    );
-    if (override?.isSchoolDay ?? ![0, 6].includes(day.getUTCDay())) remaining--;
+    // Timetable substitutions never change counting; reset overrides use ordinary weekdays.
+    if (
+      resolveSchoolCalendarDay(day.toISOString().slice(0, 10), overrides)
+        .isSchoolDay
+    )
+      remaining--;
   }
   return programDayEnd(day.toISOString().slice(0, 10), timeZone);
 }
@@ -119,39 +131,14 @@ export const studentRouter = createTRPCRouter({
     ctx.db.schoolCalendarDay.findMany({ orderBy: { date: "asc" } }),
   ),
   setCalendarDay: adminProcedure
-    .input(
-      z.object({
-        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-        isSchoolDay: z.boolean(),
-        note: z.string().trim().max(300),
-      }),
-    )
-    .mutation(async ({ ctx, input }) =>
-      inTransaction(ctx.db, async (tx) => {
-        if (
-          Number.isNaN(Date.parse(input.date)) ||
-          new Date(input.date).toISOString().slice(0, 10) !== input.date
-        )
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Invalid calendar date.",
-          });
-        await tx.schoolCalendarDay.upsert({
-          where: { date: input.date },
-          update: input,
-          create: input,
-        });
-        await tx.auditLog.create({
-          data: {
-            userId: ctx.session.user.id,
-            entity: "SchoolCalendarDay",
-            entityId: input.date,
-            action: `School calendar: ${input.isSchoolDay ? "school day" : "holiday"}`,
-            details: input,
-          },
-        });
-        return { ok: true };
-      }),
+    .input(schoolCalendarWrite)
+    .mutation(({ ctx, input }) =>
+      saveSchoolCalendar(ctx.db, input, ctx.session.user.id),
+    ),
+  resetCalendarDay: adminProcedure
+    .input(schoolCalendarReset)
+    .mutation(({ ctx, input }) =>
+      resetSchoolCalendar(ctx.db, input, ctx.session.user.id),
     ),
 
   policy: protectedProcedure

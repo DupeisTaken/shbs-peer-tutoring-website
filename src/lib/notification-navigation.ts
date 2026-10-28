@@ -1,3 +1,13 @@
+import { programCalendarDate } from "./program-calendar";
+
+/** Date fragments select public calendar facts only after strict date validation. */
+export function schoolCalendarHashDate(hash: string): string | null {
+  const match = /^#school-calendar\/(\d{4}-\d{2}-\d{2})$/.exec(hash);
+  return match && programCalendarDate.safeParse(match[1]).success
+    ? match[1]!
+    : null;
+}
+
 /** Next's client navigation changes history without a native hashchange. Keep
  * same-document notification fragments native so the owning page's validated
  * record adapter reveals its target without unmounting independent editor drafts.
@@ -6,8 +16,14 @@
 /** Only server-issued, relative record destinations delegate scroll to their
  * authorized page adapter. Ordinary and external links keep Next's defaults. */
 export function isNotificationRecordDestination(href: string) {
-  return /^\/admin\/(?:requests#request-(?:survey|signup)-|applications#application-|pairings#)[a-zA-Z0-9_-]{1,128}$/.test(
+  const calendar = /^\/(?:dashboard|student)(#school-calendar\/[^#?]+)$/.exec(
     href,
+  );
+  return (
+    !!(calendar && schoolCalendarHashDate(calendar[1]!)) ||
+    /^\/admin\/(?:requests#request-(?:survey|signup)-|applications#application-|pairings#)[a-zA-Z0-9_-]{1,128}$/.test(
+      href,
+    )
   );
 }
 
@@ -25,7 +41,14 @@ export function navigateNotificationFragment(
     return;
   event.preventDefault();
   if (target.hash === window.location.hash)
-    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    // Equal URLs identify a deliberate repeat, unlike paired popstate/hashchange
+    // browser events for one Back/Forward arrival.
+    window.dispatchEvent(
+      new HashChangeEvent("hashchange", {
+        oldURL: window.location.href,
+        newURL: target.href,
+      }),
+    );
   else if (isNotificationRecordDestination(href)) {
     // A native hash assignment scrolls every ancestor before our owning pane
     // can reveal the committed record. Preserve the ordinary Back entry and

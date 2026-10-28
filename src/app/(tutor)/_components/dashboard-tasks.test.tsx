@@ -18,6 +18,12 @@ vi.mock("~/app/_components/focus-visible-context", () => ({
 
 const state = vi.hoisted(() => ({
   error: false,
+  calendarError: false,
+  calendar: [] as {
+    date: string;
+    isSchoolDay: boolean;
+    timetableWeekday?: number | null;
+  }[],
   loading: false,
   membership: false,
   retry: vi.fn(),
@@ -34,6 +40,15 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    program: {
+      schoolCalendar: {
+        useQuery: () => ({
+          data: state.calendar,
+          error: state.calendarError ? new Error("Calendar offline") : null,
+          refetch: state.retry,
+        }),
+      },
+    },
     tutor: {
       myTuteeRemovalRequests: {
         useQuery: () => ({ data: state.empty ? [] : [{ id: "removal" }] }),
@@ -80,7 +95,9 @@ vi.mock("~/trpc/react", () => ({
                     endMin: 960,
                     tutees: [
                       { tuteeId: "student" },
-                      ...(state.invalidGroup ? [{ tuteeId: "other-student" }] : []),
+                      ...(state.invalidGroup
+                        ? [{ tuteeId: "other-student" }]
+                        : []),
                     ],
                   },
                 ],
@@ -145,6 +162,8 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 afterEach(() => {
+  state.calendar = [];
+  state.calendarError = false;
   cleanup();
   state.error = false;
   state.loading = false;
@@ -204,7 +223,9 @@ it("keeps an incomplete group discoverable as a repair task rather than a usable
   expect(screen.getByText(/1 pairing group needs repair/)).toBeTruthy();
   expect(screen.queryByText("Friday maths + Thursday science")).toBeNull();
   expect(
-    within(screen.getByRole("navigation", { name: messages.tutor.tasks.attention }))
+    within(
+      screen.getByRole("navigation", { name: messages.tutor.tasks.attention }),
+    )
       .getByRole("link", { name: messages.dashboard.pairings.title })
       .getAttribute("href"),
   ).toBe("#tutor-pairings");
@@ -335,6 +356,21 @@ it("counts only eligible rows in a mixed paused and ordinary interview list", ()
   expect(
     screen.queryByRole("link", { name: "Open interviews (2)" }),
   ).toBeNull();
+});
+
+it("uses the mapped timetable for today and never presents a failed calendar read as an empty day", () => {
+  state.calendar = [
+    { date: "2026-10-02", isSchoolDay: true, timetableWeekday: 4 },
+  ];
+  const view = show();
+  const today = screen.getByRole("heading", { name: /Today/ }).parentElement!;
+  expect(within(today).getByText("Thursday science")).toBeTruthy();
+  expect(within(today).queryByText("Friday maths")).toBeNull();
+  view.unmount();
+  state.calendarError = true;
+  show();
+  expect(screen.queryByText(messages.tutor.tasks.noSessions)).toBeNull();
+  expect(screen.getByText(messages.tutor.tasks.loadError)).toBeTruthy();
 });
 
 it("shows the empty attention state only when every required read succeeded", () => {
