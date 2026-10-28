@@ -4828,7 +4828,7 @@
     "info": "项目通知",
     "infoHelp": "同伴辅导项目的邮件更新。您仍可查看网站通知。",
     "all": "所有可选通知邮件",
-    "allHelp": "私信、项目通知、审核请求及活动提醒邮件。",
+    "allHelp": "停止所有可选类别的邮件。未读角标偏好保持不变。",
     "accountWide": "此操作会更改与本链接关联账户的邮件偏好，包括发往该账户已验证备用邮箱的副本。",
     "saveError": "暂时无法确认更新结果。您的选择已保留，请重试；重复退订不会造成额外影响。",
     "securityTitle": "必要邮件将继续发送",
@@ -4836,7 +4836,27 @@
     "review": "待审核请求通知",
     "reviewHelp": "需要您以管理员或负责人身份审核的请求邮件。其他项目邮件设置不变。",
     "reminder": "即将开始的活动提醒",
-    "reminderHelp": "在面试、会议及已确认的辅导课程开始前24小时和1小时发送的提醒邮件。"
+    "reminderHelp": "在面试、会议及已确认的辅导课程开始前24小时和1小时发送的提醒邮件。",
+    "reviews": "待审核请求",
+    "reviewsHelp": "等待授权审核人的请求。仅在职管理员和负责人可接收此类邮件。",
+    "applications": "申请与面试",
+    "applicationsHelp": "申请、资格、面试小组及面试决定。",
+    "tutoring": "辅导分配",
+    "tutoringHelp": "辅导伙伴分配、可用时间与排期变更。",
+    "attendance": "出勤与纪律",
+    "attendanceHelp": "出勤、教室冲突、纪律卡、反馈与申诉。",
+    "membership": "参与与退出",
+    "membershipHelp": "参与状态、退出、重新加入及撤回通知。",
+    "account": "账户与权限",
+    "accountHelp": "可选的账户资料与权限变更；必要的安全邮件始终发送。",
+    "announcements": "公告",
+    "announcementsHelp": "已发布的项目公告。",
+    "management": "管理变更",
+    "managementHelp": "管理提案、决定与记录更正。",
+    "program": "其他项目通知",
+    "programHelp": "未归入其他类别的项目通知。",
+    "reminders": "即将开始的活动提醒",
+    "remindersHelp": "在已安排的面试、会议和已确认辅导课程开始前24小时及1小时发送邮件。"
   },
   "participantRecovery": {
     "loading": "正在加载记录…",
@@ -5417,6 +5437,11 @@
       "title": "辅导课程即将开始",
       "body": "您已确认的辅导课程即将开始。请查看记录的时间及课程详情。",
       "action": "查看辅导课程"
+    },
+    "room_assignment_needed": {
+      "title": "需要分配教室",
+      "body": "已确认的辅导安排仍需分配教室。",
+      "action": "查看教室分配"
     }
   },
   "requestAppeal": {
@@ -5930,5 +5955,46 @@
     "saveFailed": "无法保存更正。",
     "reload": "重新加载当前姓名",
     "cancel": "取消"
+  },
+  "notificationPreferences": {
+    "title": "通知偏好",
+    "help": "分别选择每个类别的未读角标和邮件。关闭角标后，该类别的通知仍保留在通知列表中。",
+    "badge": "未读角标",
+    "email": "邮件",
+    "badgeFor": "{category}：未读角标",
+    "emailFor": "{category}：邮件",
+    "emailOnly": "仅邮件",
+    "disabled": "项目管理员已关闭可选邮件。您仍可更改未读角标偏好。",
+    "essential": "验证、登录、账户恢复、安全及必要的申请服务邮件始终发送。这些偏好不会移除通知列表中的通知。",
+    "manage": "通知设置",
+    "save": "保存偏好",
+    "saving": "保存中…",
+    "saved": "偏好设置已保存。",
+    "categories": {
+      "messages": "私信",
+      "reviews": "待审核请求",
+      "applications": "申请与面试",
+      "tutoring": "辅导分配",
+      "attendance": "出勤与纪律",
+      "membership": "参与与退出",
+      "account": "账户与权限",
+      "announcements": "公告",
+      "management": "管理变更",
+      "program": "其他项目通知",
+      "reminders": "即将开始的活动提醒"
+    },
+    "descriptions": {
+      "messages": "新的私信通知；消息内容保留在收件箱中。",
+      "reviews": "等待授权审核人的请求。仅在职管理员和负责人可接收此类邮件。",
+      "applications": "申请、资格、面试小组及面试决定。",
+      "tutoring": "辅导伙伴分配、可用时间与排期变更。",
+      "attendance": "出勤、教室冲突、纪律卡、反馈与申诉。",
+      "membership": "参与状态、退出、重新加入及撤回通知。",
+      "account": "可选的账户资料与权限变更；必要的安全邮件始终发送。",
+      "announcements": "已发布的项目公告。",
+      "management": "管理提案、决定与记录更正。",
+      "program": "未归入其他类别的项目通知。",
+      "reminders": "在已安排的面试、会议和已确认辅导课程开始前24小时及1小时发送邮件。"
+    }
   }
 }

@@ -2,7 +2,6 @@ import { requireSchoolParticipation } from "./school-departure";
 import { lockAccountProfile } from "~/server/account-profile";
 import { requireAcademicConfirmation } from "~/server/academics";
 import { TRPCError } from "@trpc/server";
-import { notificationEvent } from "~/lib/notification-events";
 import { notificationInAppEvent } from "~/lib/notification-details";
 import {
   inTransaction,
@@ -289,12 +288,17 @@ export async function decideMembership(
               ? "Opt-out approved"
               : "Reentry approved"
             : "Request declined",
-          ...notificationEvent(
+          ...notificationInAppEvent(
             approve
               ? request.kind === "OPT_OUT"
                 ? "membership_optout_approved"
                 : "membership_reentry_approved"
               : "membership_declined",
+            undefined,
+            {
+              en: `${current.name}: ${kind === "tutor" ? "Tutor" : "Crew"} ${request.kind === "OPT_OUT" ? "opt-out" : "reentry"} request ${approve ? "approved" : "declined"}${approve ? `; membership is now ${request.kind === "OPT_OUT" ? "opted out" : "active"}` : "; membership was not changed"}.`,
+              zh: `${current.name}：${kind === "tutor" ? "辅导伙伴" : "工作人员"}${request.kind === "OPT_OUT" ? "退出" : "重新加入"}申请${approve ? "已批准" : "未批准"}${approve ? `，参与状态现为${request.kind === "OPT_OUT" ? "已退出" : "参与中"}` : "，参与状态未改变"}。`,
+            },
           ),
           body: approve
             ? request.kind === "OPT_OUT"

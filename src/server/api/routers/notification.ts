@@ -61,11 +61,16 @@ export const notificationRouter = createTRPCRouter({
     }));
   }),
 
-  unreadCount: protectedProcedure.query(({ ctx }) =>
-    ctx.db.notification.count({
-      where: { userId: ctx.session.user.id, readAt: null },
-    }),
-  ),
+  unreadCount: protectedProcedure.query(async ({ ctx }) => {
+    const muted = await ctx.db.notificationPreference.findMany({
+      where: { userId: ctx.session.user.id, badgeEnabled: false }, select: { category: true },
+    });
+    return ctx.db.notification.count({
+      where: { userId: ctx.session.user.id, readAt: null,
+        ...(muted.length ? { category: { notIn: muted.map((row) => row.category) } } : {}),
+      },
+    });
+  }),
 
   markRead: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))

@@ -1,4 +1,5 @@
 import { notificationInAppEvent } from "~/lib/notification-details";
+import { notificationAttendanceStatus, notificationList, notificationInstant } from "~/lib/notification-facts";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { programDateKey } from "~/lib/program-time";
 import { notifyUsers } from "~/server/notifications/create";
@@ -121,7 +122,7 @@ export const correctionsRouter = createTRPCRouter({
         await lockEntity(tx, `attendance-correction:${primaryId}`);
         const before = await tx.session.findMany({
           where: { OR: [{ id: primaryId }, { mergeGroupId: primaryId }] },
-          include: { tutees: true, cards: true, flags: true },
+          include: { tutees: { include: { tutee: { select: { englishName: true } } } }, cards: true, flags: true },
         });
         const primary = before.find((s) => s.id === primaryId)!;
         // Corrections share the tutor/day locks used by attendance submission. Lock dates in
@@ -294,12 +295,24 @@ export const correctionsRouter = createTRPCRouter({
           where: { role: "HEAD", suspendedAt: null, mergedIntoId: null },
           select: { id: true },
         });
+        const tutor = await tx.tutor.findUnique({ where: { id: primary.tutorId }, select: { englishName: true } });
+        const rooms = await tx.room.findMany({ where: { id: { in: [primary.actualRoomId, input.actualRoomId].filter((id): id is string => !!id) } }, select: { id: true, name: true } });
+        const roomLabel = (id: string | null, online: boolean, locale: "en" | "zh") => online ? (locale === "en" ? "Online" : "线上") : rooms.find((room) => room.id === id)?.name ?? "—";
+        const changes = (locale: "en" | "zh") => notificationList([
+          ...(primary.tutorStatus !== input.tutorStatus ? [`${notificationAttendanceStatus(primary.tutorStatus, locale)} → ${notificationAttendanceStatus(input.tutorStatus, locale)}`] : []),
+          ...(primary.actualRoomId !== input.actualRoomId || primary.online !== input.online ? [`${roomLabel(primary.actualRoomId, primary.online, locale)} → ${roomLabel(input.actualRoomId, input.online, locale)}`] : []),
+          ...tutees.flatMap((tutee) => {
+            const old = before.flatMap((session) => session.tutees).find((row) => row.tuteeId === tutee.tuteeId);
+            return old && old.status !== tutee.status ? [`${old.tutee.englishName}: ${notificationAttendanceStatus(old.status, locale)} → ${notificationAttendanceStatus(tutee.status, locale)}`] : [];
+          }),
+        ]);
+        const clock = (minute: number) => `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
         await notifyUsers(
           heads.map((h) => h.id),
           {
             ...notificationInAppEvent("record_corrected", undefined, {
-              en: `Management corrected attendance recorded for ${primary.date.toISOString().slice(0, 10)}. Review the original and corrected evidence.`,
-              zh: `管理人员已更正 ${primary.date.toISOString().slice(0, 10)} 的出勤记录。请查看原始及更正后的记录。`,
+              en: `Management corrected ${tutor?.englishName ?? "Tutor"}'s attendance: ${primary.date.toISOString().slice(0, 10)} ${clock(primary.startMin)}–${clock(primary.endMin)} → ${input.date.toISOString().slice(0, 10)} ${clock(input.startMin)}–${clock(input.endMin)}. ${changes("en")}`,
+              zh: `管理人员已更正 ${tutor?.englishName ?? "辅导伙伴"} 的出勤记录：${primary.date.toISOString().slice(0, 10)} ${clock(primary.startMin)}–${clock(primary.endMin)} → ${input.date.toISOString().slice(0, 10)} ${clock(input.startMin)}–${clock(input.endMin)}。${changes("zh")}`,
             }),
             title: "Management corrected a record",
             body: `${ctx.session.user.name ?? "Management"}: ${input.reason}`,
@@ -358,7 +371,7 @@ export const correctionsRouter = createTRPCRouter({
         assertObservedTimes(input.observations);
         const before = await tx.patrol.findUniqueOrThrow({
           where: { id: input.id },
-          include: { observations: true },
+          include: { observations: { include: { room: { select: { name: true } } } } },
         });
         if (before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
           throw new TRPCError({
@@ -427,12 +440,24 @@ export const correctionsRouter = createTRPCRouter({
           where: { role: "HEAD", suspendedAt: null, mergedIntoId: null },
           select: { id: true },
         });
+        const correctedRooms = await tx.room.findMany({ where: { id: { in: input.observations.map((row) => row.roomId) } }, select: { id: true, name: true } });
+        const counts: Record<string, string> = { ZERO: "0", ONE: "1", TWO: "2", THREE: "3", FOUR_PLUS: "4+" };
+        const observationTime = (date: Date) => notificationInstant(date, timeZone, "en");
+        const observationChanges = notificationList(input.observations.flatMap((row) => {
+          const old = before.observations.find((previous) => previous.id === row.id)!;
+          const changes = [
+            ...(old.roomId !== row.roomId ? [`${old.room.name} → ${correctedRooms.find((room) => room.id === row.roomId)?.name ?? "—"}`] : []),
+            ...(old.headcount !== row.headcount ? [`${counts[old.headcount]} → ${counts[row.headcount]}`] : []),
+            ...(old.observedAt.getTime() !== row.observedAt.getTime() ? [`${observationTime(old.observedAt)} → ${observationTime(row.observedAt)}`] : []),
+          ];
+          return changes.length ? [`${old.room.name}: ${changes.join("; ")}`] : [];
+        }));
         await notifyUsers(
           heads.map((h) => h.id),
           {
             ...notificationInAppEvent("record_corrected", undefined, {
-              en: `Management corrected the patrol recorded on ${programDateKey(before.createdAt, timeZone)} (${timeZone}). Review the original and corrected observations.`,
-              zh: `管理人员已更正 ${programDateKey(before.createdAt, timeZone)}（${timeZone}）的巡查记录。请查看原始及更正后的观察记录。`,
+              en: `Management corrected the patrol recorded on ${programDateKey(before.createdAt, timeZone)} (${timeZone}). Room / headcount / observation-time changes: ${observationChanges || "No observation changes; patrol note corrected"}.`,
+              zh: `管理人员已更正 ${programDateKey(before.createdAt, timeZone)}（${timeZone}）的巡查记录。教室／人数／观察时间变更：${observationChanges || "观察记录未变更，巡查备注已更正"}。`,
             }),
             title: "Management corrected a record",
             body: `${ctx.session.user.name ?? "Management"}: ${input.reason}`,

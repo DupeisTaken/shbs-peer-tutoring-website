@@ -1,5 +1,5 @@
-/** Event identities describe committed facts. Free text (messages, appeals, review notes,
- * announcements and contact details) never belongs in their email-safe context. */
+/** Event identities describe committed facts. Message bodies, appeal/review notes,
+ * announcement bodies and contact details never belong in their email-safe context. */
 export const notificationEvents = [
   "primary_changed",
   "secondary_added",
@@ -53,6 +53,7 @@ export const notificationEvents = [
   "tutee_card_appeal",
   "tutee_appeal_reviewed",
   "student_assignment_updated",
+  "room_assignment_needed",
   "student_availability_updated",
   "student_request_recalled",
   "student_signup_rejected",
@@ -81,6 +82,9 @@ export type NotificationContext = {
   count?: number;
   startsAt?: string;
   timeZone?: string;
+  actorName?: string;
+  announcementTitle?: string;
+  announcementAction?: "published" | "updated";
 };
 const counted = new Set<NotificationEvent>([
   "attendance_cards_pending",
@@ -98,6 +102,24 @@ export function notificationEvent(
     input && typeof input === "object"
       ? (input as Record<string, unknown>)
       : {};
+  // These content types expose only the selected label, never a free-form email
+  // description assembled from a private message or complete announcement body.
+  const label = (value: unknown, max: number) => {
+    if (typeof value !== "string") return;
+    const clean = value.replace(/\s+/g, " ").trim();
+    return clean.length > 0 && clean.length <= max ? clean : undefined;
+  };
+  if (event === "message_received") {
+    const actorName = label(data.actorName, 160);
+    if (actorName) context.actorName = actorName;
+  }
+  if (event === "announcement_published") {
+    const title = label(data.announcementTitle, 200);
+    if (title && (data.announcementAction === "published" || data.announcementAction === "updated")) {
+      context.announcementTitle = title;
+      context.announcementAction = data.announcementAction;
+    }
+  }
   if (
     counted.has(event) &&
     typeof data.count === "number" &&

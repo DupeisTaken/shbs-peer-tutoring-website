@@ -1,4 +1,4 @@
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationList, notificationCard, notificationInstant } from "~/lib/notification-facts";
 import { notificationInAppEvent } from "~/lib/notification-details";
 import { isInterviewChairRole } from "~/lib/interview-chair";
 import { meetingPeriodInput, meetingPeriodContext, meetingPeriods, meetingPeriodsOverlap, meetingScope, recordedMeetingPeriod } from "~/server/meeting-periods";
@@ -766,10 +766,14 @@ export const tutorRouter = createTRPCRouter({
 
           // Tutor-requested cards need a team review — surface them for admins.
           if (features.DISCIPLINE && cardRequests.length > 0) {
+            const cardPeople = await tx.tutee.findMany({ where: { id: { in: cardRequests.map((card) => card.tuteeId) } }, select: { id: true, englishName: true } });
             await notifyAdmins(
               {
-                ...notificationEvent("attendance_cards_pending", {
+                ...notificationInAppEvent("attendance_cards_pending", {
                   count: cardRequests.length,
+                }, {
+                  en: `${ctx.session.user.name ?? "Tutor"} requested ${cardRequests.length} discipline card(s) for ${primary.subject}, ${input.date.toISOString().slice(0, 10)}: ${notificationList(cardRequests.map((card) => `${cardPeople.find((person) => person.id === card.tuteeId)?.englishName ?? "Tutee"} (${notificationCard(card.color, "en")})`))}. Awaiting review.`,
+                  zh: `${ctx.session.user.name ?? "辅导伙伴"} 为 ${input.date.toISOString().slice(0, 10)} 的 ${primary.subject} 辅导申请 ${cardRequests.length} 张纪律卡：${notificationList(cardRequests.map((card) => `${cardPeople.find((person) => person.id === card.tuteeId)?.englishName ?? "学习伙伴"}（${notificationCard(card.color, "zh")}）`))}。待审核。`,
                 }),
                 title: "Discipline cards to review",
                 body: `${cardRequests.length} card(s) submitted with an attendance survey.`,
@@ -820,6 +824,7 @@ export const tutorRouter = createTRPCRouter({
               },
             });
             if (conflict || blocked) {
+              const reportedRoom = await tx.room.findUnique({ where: { id: actualRoomId }, select: { name: true } });
               await tx.auditLog.create({
                 data: {
                   userId: ctx.session.user.id,
@@ -839,8 +844,8 @@ export const tutorRouter = createTRPCRouter({
                     "attendance_room_reported",
                     undefined,
                     {
-                      en: `${ctx.session.user.name ?? "A tutor"} reported attendance on ${input.date.toISOString().slice(0, 10)} in a room allocated elsewhere. Review the room conflict.`,
-                      zh: `${ctx.session.user.name ?? "一位辅导伙伴"} 在 ${input.date.toISOString().slice(0, 10)} 上报了已被其他安排占用的教室出勤。请审核教室冲突。`,
+                      en: `${ctx.session.user.name ?? "A tutor"} reported ${primary.subject} attendance on ${input.date.toISOString().slice(0, 10)} in ${reportedRoom?.name ?? "an unavailable room"}, which was allocated elsewhere or blocked. Review the room conflict.`,
+                      zh: `${ctx.session.user.name ?? "一位辅导伙伴"} 在 ${input.date.toISOString().slice(0, 10)} 上报了 ${primary.subject} 在 ${reportedRoom?.name ?? "不可用教室"} 的出勤；该教室已被其他安排占用或禁用。请审核教室冲突。`,
                     },
                   ),
                   title: "Attendance reported in an allocated room",
@@ -1732,11 +1737,14 @@ export const tutorRouter = createTRPCRouter({
           const usableCode = codes.some(({ code }) => !!code?.trim());
           if (!linked && !usableCode)
             throw new TRPCError({ code: "CONFLICT", message: "Tutor registration could not be prepared. Review the application's existing account or invitation before approving." });
+          const grants = tutorId ? await tx.qualificationGrant.findMany({ where: { tutorId }, select: { subjectId: true } }) : [];
+          const grantedSubjects = grants.length ? await tx.subject.findMany({ where: { id: { in: grants.map((grant) => grant.subjectId) } }, select: { name: true, level: { select: { name: true } } }, orderBy: { name: "asc" } }) : [];
+          const awarded = notificationList(grantedSubjects.map((subject) => `${subject.name}${subject.level ? ` (${subject.level.name})` : ""}`));
           await notifyAdmins({
             title: "Interview approved",
             ...notificationInAppEvent("interview_approved", undefined, {
-              en: `${before.name}'s interview was approved and the tutor admission was applied.`,
-              zh: `${before.name} 的面试已获批准，辅导伙伴录取已生效。`,
+              en: `${before.name}'s interview was approved and the tutor admission was applied.${awarded ? ` Granted subjects/levels: ${awarded}.` : ""}`,
+              zh: `${before.name} 的面试已获批准，辅导伙伴录取已生效。${awarded ? `授予的科目及等级：${awarded}。` : ""}`,
             }),
             link: `/admin/applications#application-${input.applicationId}`,
             inAppOnly: true,
@@ -1990,8 +1998,13 @@ export const tutorRouter = createTRPCRouter({
       });
       await notifyAdmins({
         title: input.available ? "Tutor reactivated" : "Tutor opted out",
-        ...notificationEvent(
+        ...notificationInAppEvent(
           input.available ? "tutor_reactivated" : "tutor_opted_out",
+          undefined,
+          {
+            en: `Tutor ${tutor.englishName} ${input.available ? "activated participation" : "opted out"} for the current program period.`,
+            zh: `辅导伙伴 ${tutor.englishName} 已${input.available ? "开启" : "退出"}当前项目周期的参与。`,
+          },
         ),
         body: `${tutor.englishName} ${input.available ? "is available" : "opted out"} this term.`,
         link: "/admin/tutors",
@@ -2137,8 +2150,8 @@ export const tutorRouter = createTRPCRouter({
       });
       await notifyAdmins({
         ...notificationInAppEvent("meeting_absence_excused", undefined, {
-          en: `${tutor?.englishName ?? "A tutor"} will be absent from the meeting “${meeting.title}”.`,
-          zh: `${tutor?.englishName ?? "辅导伙伴"} 将缺席会议“${meeting.title}”。`,
+          en: `${tutor?.englishName ?? "A tutor"} will be absent from the meeting “${meeting.title}” on ${notificationInstant(meeting.date, await getProgramTimeZone(ctx.db), "en")}.`,
+          zh: `${tutor?.englishName ?? "辅导伙伴"} 将缺席 ${notificationInstant(meeting.date, await getProgramTimeZone(ctx.db), "zh")} 的会议“${meeting.title}”。`,
         }),
         title: "Meeting absence excused",
         body: `${tutor?.englishName ?? "A tutor"} will miss "${meeting.title}".`,

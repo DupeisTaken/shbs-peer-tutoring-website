@@ -9,6 +9,7 @@ import {
   programDateTimeInput,
 } from "~/lib/program-time";
 import { portalAccess } from "~/lib/portal-access";
+import { effectiveNotificationPreference } from "~/lib/notification-categories";
 import { getFeatures } from "~/server/program/features";
 
 export const REMINDER_LEADS = [1440, 60] as const;
@@ -71,12 +72,16 @@ export function reminderKey(
 
 const accountInclude = {
   emails: true,
+  notificationPreferences: { where: { category: "reminders" } },
   schoolDeparture: true,
   tutor: { select: { status: true } },
 } satisfies Prisma.UserInclude;
 type Account = Prisma.UserGetPayload<{ include: typeof accountInclude }>;
 const accountWhere = {
-  emailEventReminders: true,
+  AND: [{ OR: [
+    { notificationPreferences: { some: { category: "reminders", emailEnabled: true } } },
+    { emailEventReminders: true, notificationPreferences: { none: { category: "reminders" } } },
+  ] }],
   suspendedAt: null,
   mergedIntoId: null,
   role: { not: "VIEWER" },
@@ -88,7 +93,7 @@ const activeTutor = {
 } satisfies Prisma.UserWhereInput;
 
 function addresses(user: Account) {
-  if (!user.emailEventReminders || !portalAccess(user).canParticipate)
+  if (!effectiveNotificationPreference(user, "reminders", user.notificationPreferences).emailEnabled || !portalAccess(user).canParticipate)
     return [];
   return user.emails
     .filter(
@@ -442,6 +447,7 @@ async function enqueueOccurrence(
           userId: user.id,
           recipient,
           category: "reminder",
+          preferenceTopic: "reminders",
           event: eventFor(kind),
           context,
           reminderKey: reminderKey(context, user.id, recipient),

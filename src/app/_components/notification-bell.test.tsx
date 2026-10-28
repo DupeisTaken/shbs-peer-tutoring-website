@@ -7,6 +7,7 @@ import zh from "../../../messages/zh.json";
 import { NotificationBell } from "./notification-bell";
 const mocks = vi.hoisted(() => ({
   list: vi.fn(),
+  count: 2,
   mark: vi.fn(),
   all: vi.fn(),
   invalidate: vi.fn(),
@@ -21,7 +22,7 @@ vi.mock("~/trpc/react", () => ({
     }),
     notification: {
       list: { useQuery: mocks.list },
-      unreadCount: { useQuery: () => ({ data: 2 }) },
+      unreadCount: { useQuery: () => ({ data: mocks.count }) },
       markRead: { useMutation: () => ({ mutate: mocks.mark }) },
       markAllRead: { useMutation: () => ({ mutate: mocks.all }) },
     },
@@ -47,6 +48,7 @@ vi.mock("next/link", () => ({
 }));
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.count = 2;
   mocks.list.mockReturnValue({
     data: [
       {
@@ -73,6 +75,28 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+it("retains muted unread notices and mark-all-read when the badge is zero", () => {
+  mocks.count = 0;
+  render(
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <NotificationBell />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    screen.getByText("Fiona Example submitted a tutor application."),
+  ).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: en.components.notifications.markAllRead,
+    }),
+  );
+  expect(mocks.all).toHaveBeenCalledOnce();
+  expect(
+    screen
+      .getByRole("link", { name: en.notificationPreferences.manage })
+      .getAttribute("href"),
+  ).toBe("/my-account#notification-preferences");
+});
 it.each(["en", "zh"] as const)(
   "shows the recorded %s assignment detail as text and preserves navigation",
   (locale) => {

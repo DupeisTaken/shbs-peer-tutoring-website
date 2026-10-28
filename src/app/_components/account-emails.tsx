@@ -8,6 +8,10 @@ import { QueryFeedback } from "./ui/query-feedback";
 import { Button } from "./ui/button";
 import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
 import { useSessionAccessDenied } from "./session-view-state";
+import {
+  NotificationPreferenceFields,
+  type NotificationPreferenceChoice,
+} from "./notification-preference-fields";
 
 /** One shared address manager for account and tutor settings. Passwords remain local to the form.
  * Form actions retain 44px touch targets; compact desktop address actions share 32px rows. */
@@ -289,20 +293,19 @@ export function AccountEmails() {
 }
 
 type PreferenceDraft = {
-  emailMessages: boolean;
-  emailInfo: boolean;
-  emailReviewRequests: boolean;
-  emailEventReminders: boolean;
+  categories: NotificationPreferenceChoice[];
   emailSecondaryRecipients: boolean;
 };
 
 /** A dirty draft owns its choices. Background reads can change availability,
  * but only Cancel or a successful post-save read replaces the draft. */
 export function EmailPreferences() {
-  const t = useTranslations("emailPreferences");
+  const t = useTranslations("notificationPreferences");
+  const emailText = useTranslations("emailPreferences");
   const recovery = useTranslations("participantRecovery");
   const ui = useTranslations("uiPatterns");
-  const settings = api.account.emailSettings.useQuery();
+  const settings = api.account.notificationPreferences.useQuery();
+  const utils = api.useUtils();
   const denied = useSessionAccessDenied(settings);
   const [saved, setSaved] = useState(false);
   const [draft, setDraft] = useState<PreferenceDraft | null>(null);
@@ -325,10 +328,14 @@ export function EmailPreferences() {
       setRefreshing(false);
     }
   };
-  const save = api.account.setEmailPreferences.useMutation({
+  const save = api.account.setNotificationPreferences.useMutation({
     onSuccess: async () => {
       setSaved(true);
       setCommitted(true);
+      void Promise.allSettled([
+        utils.notification.unreadCount.invalidate(),
+        utils.notification.list.invalidate(),
+      ]);
       await refreshSaved();
     },
     onSettled: () => {
@@ -366,26 +373,27 @@ export function EmailPreferences() {
   if (!settings.data) return feedback;
   const data = settings.data;
   const preferences = draft ?? {
-    emailMessages: data.emailMessages,
-    emailInfo: data.emailInfo,
-    emailReviewRequests: data.emailReviewRequests,
-    emailEventReminders: data.emailEventReminders,
+    categories: data.categories.map(
+      ({ category, badgeEnabled, emailEnabled }) => ({
+        category,
+        badgeEnabled,
+        emailEnabled,
+      }),
+    ),
     emailSecondaryRecipients: data.emailSecondaryRecipients,
   };
-  const blocked =
-    !data.enabled ||
-    !!settings.error ||
-    save.isPending ||
-    committed ||
-    refreshing;
+  const blocked = !!settings.error || save.isPending || committed || refreshing;
   return (
-    <section className="card space-y-4 p-5 sm:p-6">
+    <section
+      id="notification-preferences"
+      className="card scroll-mt-24 space-y-4 p-5 sm:p-6"
+    >
       <div>
         <h2 className="section-title">{t("title")}</h2>
         <p className="muted mt-1 text-sm">{t("help")}</p>
       </div>
       {feedback}
-      {!data.enabled && (
+      {!data.emailEnabled && (
         <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
           {t("disabled")}
         </p>
@@ -397,55 +405,78 @@ export function EmailPreferences() {
           if (blocked || admitted.current) return;
           admitted.current = true;
           setDraft(preferences);
-          // A role change can hide review mail while a draft is open. Do not
-          // submit that now-ineligible preference alongside ordinary choices.
-          const { emailReviewRequests, ...ordinary } = preferences;
-          save.mutate(
-            data.canReceiveReviewRequests
-              ? { ...ordinary, emailReviewRequests }
-              : ordinary,
-          );
+          // A gate/role change must not enable an email choice retained in an
+          // older draft. Badge changes remain available with email disabled.
+          save.mutate({
+            categories: data.categories.map((row) => {
+              const choice =
+                preferences.categories.find(
+                  (item) => item.category === row.category,
+                ) ?? row;
+              return {
+                category: row.category,
+                badgeEnabled: row.badgeAvailable
+                  ? choice.badgeEnabled
+                  : row.badgeEnabled,
+                emailEnabled: row.emailEditable
+                  ? choice.emailEnabled
+                  : row.emailEnabled,
+              };
+            }),
+            ...(data.emailEnabled
+              ? {
+                  emailSecondaryRecipients:
+                    preferences.emailSecondaryRecipients,
+                }
+              : {}),
+          });
         }}
       >
         <fieldset
           disabled={blocked}
           className="divide-y divide-slate-100 disabled:opacity-60"
         >
-          {(
-            [
-              "emailMessages",
-              "emailInfo",
-              "emailReviewRequests",
-              "emailEventReminders",
-              "emailSecondaryRecipients",
-            ] as const
-          )
-            .filter(
-              (key) =>
-                key !== "emailReviewRequests" || data.canReceiveReviewRequests,
-            )
-            .map((key) => (
-              <label
-                key={key}
-                className="flex cursor-pointer items-start gap-3 py-3"
-              >
-                <input
-                  type="checkbox"
-                  checked={preferences[key]}
-                  onChange={(e) => {
-                    setSaved(false);
-                    setDraft({ ...preferences, [key]: e.target.checked });
-                  }}
-                  className="accent-accent-600 mt-1 h-4 w-4 shrink-0"
-                />
-                <span>
-                  <span className="block text-sm font-medium text-slate-900">
-                    {t(key)}
-                  </span>
-                  <span className="muted block text-xs">{t(`${key}Help`)}</span>
-                </span>
-              </label>
-            ))}
+          <NotificationPreferenceFields
+            rows={data.categories}
+            choices={preferences.categories}
+            disabled={blocked}
+            onChange={(choice) => {
+              setSaved(false);
+              setDraft({
+                ...preferences,
+                categories: preferences.categories.map((row) =>
+                  row.category === choice.category ? choice : row,
+                ),
+              });
+            }}
+          />
+          <label className="flex min-h-11 items-start gap-3 py-3">
+            <input
+              type="checkbox"
+              className="accent-accent-600 mt-1 h-4 w-4 shrink-0"
+              disabled={!data.emailEnabled}
+              checked={
+                data.emailEnabled
+                  ? preferences.emailSecondaryRecipients
+                  : data.emailSecondaryRecipients
+              }
+              onChange={(event) => {
+                setSaved(false);
+                setDraft({
+                  ...preferences,
+                  emailSecondaryRecipients: event.target.checked,
+                });
+              }}
+            />
+            <span>
+              <span className="block text-sm font-medium">
+                {emailText("emailSecondaryRecipients")}
+              </span>
+              <span className="block text-xs text-slate-600">
+                {emailText("emailSecondaryRecipientsHelp")}
+              </span>
+            </span>
+          </label>
         </fieldset>
         <p className="muted text-xs">{t("essential")}</p>
         <FormActions>

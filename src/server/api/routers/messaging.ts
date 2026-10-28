@@ -1,4 +1,4 @@
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import { createHash } from "node:crypto";
 import { accountHistoryIds } from "~/server/account-history";
 import { z } from "zod";
@@ -255,12 +255,16 @@ export const messagingRouter = createTRPCRouter({
             supervisable,
           })),
         });
+        const sender = await tx.user.findUniqueOrThrow({ where: { id: ctx.session.user.id }, select: { name: true } });
         // The helper writes independent rows. Canonical links resolve the role when opened,
         // even after a later role change; previews contain no content or other recipients.
         await notifyUsers(
           people.map((p) => p.id),
           {
-            ...notificationEvent("message_received"),
+            ...notificationInAppEvent("message_received", { actorName: sender.name }, {
+              en: `${sender.name ?? "A program participant"} sent you a private message. Open your inbox to read it.`,
+              zh: `${sender.name ?? "一位项目参与者"} 给您发送了私信，请到收件箱查看。`,
+            }),
             title: "New private message",
             link: "/messages",
           },

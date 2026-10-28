@@ -4828,7 +4828,7 @@
     "info": "Program notifications",
     "infoHelp": "Email updates about the tutoring program. Your website notifications stay available.",
     "all": "All optional notification emails",
-    "allHelp": "Private-message, program-update, review-request and event-reminder emails.",
+    "allHelp": "Stop emails from all optional categories. Badge preferences stay unchanged.",
     "accountWide": "This changes preferences for the account associated with this link, including copies sent to its verified secondary email addresses.",
     "saveError": "We couldn’t confirm the update. Your selection is still here. Please try again; repeating an unsubscribe request is safe.",
     "securityTitle": "Essential Emails Stay On",
@@ -4836,7 +4836,27 @@
     "review": "Review-request notifications",
     "reviewHelp": "Email requests awaiting your Admin or Head review. Other program emails stay unchanged.",
     "reminder": "Upcoming event reminders",
-    "reminderHelp": "Email reminders 24 hours and 1 hour before interviews, meetings and confirmed tutoring sessions."
+    "reminderHelp": "Email reminders 24 hours and 1 hour before interviews, meetings and confirmed tutoring sessions.",
+    "reviews": "Review requests",
+    "reviewsHelp": "Requests awaiting an authorized reviewer. Email is available to active Admin and Head reviewers.",
+    "applications": "Applications and interviews",
+    "applicationsHelp": "Applications, qualifications, interview panels and interview decisions.",
+    "tutoring": "Tutoring assignments",
+    "tutoringHelp": "Tutor assignments, availability and schedule changes.",
+    "attendance": "Attendance and discipline",
+    "attendanceHelp": "Attendance, room conflicts, cards, feedback and appeals.",
+    "membership": "Participation and withdrawals",
+    "membershipHelp": "Participation status, opt-out, reentry and withdrawal updates.",
+    "account": "Account and access",
+    "accountHelp": "Optional account information and access changes; required security mail stays on.",
+    "announcements": "Announcements",
+    "announcementsHelp": "Published program announcements.",
+    "management": "Management changes",
+    "managementHelp": "Management proposals, decisions and corrected records.",
+    "program": "Other program updates",
+    "programHelp": "Program updates not included in another category.",
+    "reminders": "Upcoming reminders",
+    "remindersHelp": "Email 24 hours and 1 hour before scheduled interviews, meetings and confirmed tutoring sessions."
   },
   "participantRecovery": {
     "loading": "Loading records…",
@@ -5417,6 +5437,11 @@
       "title": "Upcoming Tutoring Session",
       "body": "Your confirmed tutoring session is coming up. Review the recorded time and session details.",
       "action": "View tutoring session"
+    },
+    "room_assignment_needed": {
+      "title": "Room Assignment Needed",
+      "body": "A confirmed tutoring arrangement still needs a room.",
+      "action": "Review room assignment"
     }
   },
   "requestAppeal": {
@@ -5930,5 +5955,46 @@
     "saveFailed": "The correction could not be saved.",
     "reload": "Reload current names",
     "cancel": "Cancel"
+  },
+  "notificationPreferences": {
+    "title": "Notification preferences",
+    "help": "Choose the unread badge and email separately for each category. All notifications remain in the bell list when their badge is muted.",
+    "badge": "Unread badge",
+    "email": "Email",
+    "badgeFor": "{category}: unread badge",
+    "emailFor": "{category}: email",
+    "emailOnly": "Email only",
+    "disabled": "Optional email is disabled by the program administrator. You can still change unread-badge preferences.",
+    "essential": "Verification, sign-in, recovery, account-security and essential request-service emails remain enabled. These preferences never remove notices from your bell list.",
+    "manage": "Notification settings",
+    "save": "Save preferences",
+    "saving": "Saving…",
+    "saved": "Preferences saved.",
+    "categories": {
+      "messages": "Private messages",
+      "reviews": "Review requests",
+      "applications": "Applications and interviews",
+      "tutoring": "Tutoring assignments",
+      "attendance": "Attendance and discipline",
+      "membership": "Participation and withdrawals",
+      "account": "Account and access",
+      "announcements": "Announcements",
+      "management": "Management changes",
+      "program": "Other program updates",
+      "reminders": "Upcoming reminders"
+    },
+    "descriptions": {
+      "messages": "New private-message notices; message contents remain in your inbox.",
+      "reviews": "Requests awaiting an authorized reviewer. Email is available to active Admin and Head reviewers.",
+      "applications": "Applications, qualifications, interview panels and interview decisions.",
+      "tutoring": "Tutor assignments, availability and schedule changes.",
+      "attendance": "Attendance, room conflicts, cards, feedback and appeals.",
+      "membership": "Participation status, opt-out, reentry and withdrawal updates.",
+      "account": "Optional account information and access changes; required security mail stays on.",
+      "announcements": "Published program announcements.",
+      "management": "Management proposals, decisions and corrected records.",
+      "program": "Program updates not included in another category.",
+      "reminders": "Email 24 hours and 1 hour before scheduled interviews, meetings and confirmed tutoring sessions."
+    }
   }
 }

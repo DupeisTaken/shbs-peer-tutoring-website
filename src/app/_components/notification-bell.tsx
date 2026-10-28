@@ -83,7 +83,7 @@ export function NotificationBell() {
           <span className="text-sm font-semibold text-slate-900">
             {t("components.notifications.title")}
           </span>
-          {count > 0 && (
+          {(count > 0 || items.some((item) => !item.readAt)) && (
             <button
               className="link min-h-11 text-xs lg:min-h-8"
               disabled={markAll.isPending || markOne.isPending || writeBlocked}
@@ -92,6 +92,14 @@ export function NotificationBell() {
               {t("components.notifications.markAllRead")}
             </button>
           )}
+        </div>
+        <div className="border-b border-slate-100 px-3">
+          <Link
+            href="/my-account#notification-preferences"
+            className="link inline-flex min-h-11 items-center text-xs"
+          >
+            {t("notificationPreferences.manage")}
+          </Link>
         </div>
         <div className="px-3">
           {denied ? (

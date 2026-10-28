@@ -9,8 +9,12 @@ import {
   StatePanel,
 } from "~/app/_components/ui/patterns";
 import { PublicFormRoute } from "~/app/_components/public-form-page";
+import {
+  isNotificationCategory,
+  type NotificationCategory,
+} from "~/lib/notification-categories";
 
-type Category = "messages" | "info" | "review" | "reminder";
+type Category = NotificationCategory | "info" | "review" | "reminder";
 type Scope = "category" | "all";
 type State =
   | { status: "loading" | "error" | "invalid" }
@@ -28,7 +32,7 @@ function readResult(
   if (data.status === "invalid") return { status: "invalid" };
   if (
     (data.status === "ready" || data.status === "already-unsubscribed") &&
-    (data.category === "messages" ||
+    (isNotificationCategory(data.category) ||
       data.category === "info" ||
       data.category === "review" ||
       data.category === "reminder")

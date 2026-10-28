@@ -73,8 +73,8 @@ export const viewerRouter = createTRPCRouter({
                 category: "SECURITY",
                 signup: true,
                 to: input.email.trim().toLowerCase(),
-                subject: `Your ${APP_TITLE} verification code`,
-                text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${res.code}.\n\nIt expires in ${VIEWER_CODE_TTL_MINUTES} minutes. If you didn't request this, ignore this email.`,
+                subject: `${APP_TITLE}: verify Viewer signup / 验证观察员注册`,
+                text: `Verify your email to continue signing up for read-only Viewer access. This code does not enroll you as a tutor or tutee.\n验证邮箱后可继续申请只读观察员权限；此验证码不会将您登记为辅导伙伴或学习伙伴。\n\nYour email verification code (4 digits) / 邮箱验证码（4 位数字） is ${res.code}.\n\nIt expires in ${VIEWER_CODE_TTL_MINUTES} minutes. If you didn't request this, ignore this email.\n验证码将在 ${VIEWER_CODE_TTL_MINUTES} 分钟后失效。如非本人申请，请忽略此邮件。`,
                 presentation: {
                   code: res.code,
                   codePurpose: "verification",

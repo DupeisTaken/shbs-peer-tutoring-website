@@ -27,6 +27,15 @@ const payload = {
 };
 
 describe("management notification details", () => {
+  it("captures safe old and new clock values without copying private fields", () => {
+    const detail = approvalNotificationDetail("admin.updateTimeSlot", {
+      id: "slot", startMin: 960, endMin: 1020, reason: "Private medical explanation", password: "secret",
+    }, { TimeSlot: [{ record: { id: "slot", startMin: 900, endMin: 960 } }] }, "pending");
+    expect(detail.en).toContain("15:00 → 16:00");
+    expect(detail.zh).toContain("16:00 → 17:00");
+    expect(detail.en).toMatch(/^Proposed:/);
+    expect(JSON.stringify(detail)).not.toMatch(/medical|secret/);
+  });
   it("names the exact proposed assignment in both languages without claiming it was applied", () => {
     const detail = approvalNotificationDetail(
       "studentWorkflow.assign",

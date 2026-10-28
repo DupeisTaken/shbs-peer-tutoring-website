@@ -8,6 +8,8 @@ import {
   withTranslationWrite,
 } from "./translation-destination";
 import { z } from "zod";
+import { approvalNotificationDetail } from "~/lib/approval-notification-detail";
+import { notificationLabel } from "~/lib/notification-facts";
 /** Translators, including Coordinators, submit immutable drafts. Only Admin/Head publish. */
 export async function proposeTranslation(
   db: TransactionDb,
@@ -19,6 +21,12 @@ export async function proposeTranslation(
   await withTranslationWrite(db, async (tx) => {
     const fields = z.record(z.string(), z.unknown()).parse(payload);
     const baseline = await translationBaseline(tx, operation, fields);
+    const action = approvalNotificationDetail(operation, {}, {}, "pending");
+    const news = operation === "home.setNewsTranslation" && typeof fields.postId === "string" ? await tx.newsTranslation.findUnique({ where: { postId_locale: { postId: fields.postId, locale: "en" } }, select: { title: true } }) : null;
+    const section = operation === "home.setSectionTranslation" && typeof fields.sectionId === "string" ? await tx.landingSectionTranslation.findUnique({ where: { sectionId_locale: { sectionId: fields.sectionId, locale: "en" } }, select: { title: true } }) : null;
+    const page = operation === "home.setPageTitle" && typeof fields.id === "string" ? await tx.customPage.findUnique({ where: { id: fields.id }, select: { slug: true } }) : null;
+    const destination = [news?.title, section?.title, page?.slug, fields.key, fields.slug, fields.postId, fields.sectionId, fields.pageId].find((value) => typeof value === "string");
+    const target = typeof destination === "string" ? notificationLabel(destination) : "—";
     await tx.translationDraft.create({
       data: {
         authorId: session.user.id,
@@ -32,8 +40,8 @@ export async function proposeTranslation(
     await notifyAdmins(
       {
         ...notificationInAppEvent("translation_review_pending", undefined, {
-          en: `Translation ${typeof fields.key === "string" ? fields.key : typeof fields.slug === "string" ? fields.slug : "draft"}${typeof fields.locale === "string" ? ` (${fields.locale})` : ""} awaits review; it has not been published.`,
-          zh: `翻译${typeof fields.key === "string" ? ` ${fields.key}` : typeof fields.slug === "string" ? ` ${fields.slug}` : "草稿"}${typeof fields.locale === "string" ? `（${fields.locale}）` : ""}待审核，尚未发布。`,
+          en: `${action.en} Translation target: ${target}${typeof fields.locale === "string" ? ` (${fields.locale})` : ""}. Awaiting review; not published.`,
+          zh: `${action.zh} 翻译目标：${target}${typeof fields.locale === "string" ? `（${fields.locale}）` : ""}。待审核，尚未发布。`,
         }),
         title: "Translation awaiting review",
         link: "/localization?view=review",

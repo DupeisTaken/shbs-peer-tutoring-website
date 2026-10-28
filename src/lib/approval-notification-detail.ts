@@ -114,10 +114,9 @@ export function approvalNotificationDetail(
   const changedFields =
     review.kind === "update"
       ? review.changes
-          .map((field) => field.key)
           .filter(
-            (key) =>
-              !["reason", "note", "body", "password", "email"].includes(key),
+            (field) =>
+              !["reason", "note", "body", "password", "email"].includes(field.key),
           )
           .slice(0, 4)
       : [];
@@ -129,8 +128,23 @@ export function approvalNotificationDetail(
     const action =
       operations[operation.replaceAll(".", "_")] ??
       humanizeOperation(operation);
+    // Values are admitted by field AND type; arbitrary text/objects are never
+    // copied from proposal evidence into a preview or optional email.
+    const value = (key: string, raw: unknown): string | undefined => {
+      if (["startMin", "endMin"].includes(key) && typeof raw === "number" && Number.isInteger(raw) && raw >= 0 && raw <= 1440)
+        return `${String(Math.floor(raw / 60)).padStart(2, "0")}:${String(raw % 60).padStart(2, "0")}`;
+      if (["dayOfWeek", "durationMin", "penaltyHours", "headcount", "capacity", "schoolYear", "quarter"].includes(key) && typeof raw === "number" && Number.isFinite(raw)) return String(raw);
+      if (["active", "enabled", "scheduleConfirmed", "isSchoolDay"].includes(key) && typeof raw === "boolean") return locale === "en" ? (raw ? "Yes" : "No") : (raw ? "是" : "否");
+      if (["englishName", "name", "subject"].includes(key)) return label(raw);
+      return undefined;
+    };
     const changes = changedFields
-      .map((key) => fields[key] ?? humanizeOperation(key))
+      .map((field) => {
+        const heading = fields[field.key] ?? humanizeOperation(field.key);
+        const requested = value(field.key, field.requested);
+        const before = field.hasBefore ? value(field.key, field.before) : undefined;
+        return requested ? `${heading}: ${before ? `${before} → ` : ""}${requested}` : heading;
+      })
       .join(", ");
     return `${statuses[outcome][locale]}: ${action}${target ? ` — ${target}` : ""}${names.length > 3 ? ` (+${names.length - 3})` : ""}${changes ? ` (${changes})` : ""}.`;
   };

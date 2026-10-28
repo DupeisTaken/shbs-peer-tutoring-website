@@ -4794,7 +4794,7 @@
     "info": "Notifications du programme",
     "infoHelp": "Actualités du programme de tutorat par e-mail. Les notifications du site restent accessibles.",
     "all": "Tous les e-mails de notification facultatifs",
-    "allHelp": "Emails de messages privés, informations du programme, demandes à examiner et rappels d’événements.",
+    "allHelp": "Arrêter les e-mails de toutes les catégories facultatives. Les préférences du compteur de non-lus restent inchangées.",
     "accountWide": "Ce changement concerne le compte associé au lien, y compris les copies envoyées à ses adresses secondaires vérifiées.",
     "saveError": "Nous n’avons pas pu confirmer la modification. Votre choix est conservé. Réessayez ; répéter la demande est sans risque.",
     "securityTitle": "Les E-mails Essentiels Restent Actifs",
@@ -4802,7 +4802,27 @@
     "review": "Notifications de demandes à examiner",
     "reviewHelp": "Emails de demandes en attente de votre examen comme administrateur ou responsable. Les autres emails du programme restent inchangés.",
     "reminder": "Rappels des événements à venir",
-    "reminderHelp": "Rappels par email 24 heures et 1 heure avant les entretiens, réunions et séances de tutorat confirmées."
+    "reminderHelp": "Rappels par email 24 heures et 1 heure avant les entretiens, réunions et séances de tutorat confirmées.",
+    "reviews": "Demandes à examiner",
+    "reviewsHelp": "Demandes aux personnes autorisées. Email disponible aux administrateurs et responsables actifs.",
+    "applications": "Candidatures et entretiens",
+    "applicationsHelp": "Candidatures, qualifications, jurys et décisions d’entretien.",
+    "tutoring": "Affectations de tutorat",
+    "tutoringHelp": "Affectations, disponibilités et changements d’horaire.",
+    "attendance": "Présence et discipline",
+    "attendanceHelp": "Présence, conflits de salles, cartes, retours et recours.",
+    "membership": "Participation et retraits",
+    "membershipHelp": "Statut de participation, départs, retours et retraits.",
+    "account": "Compte et accès",
+    "accountHelp": "Modifications facultatives du compte et des accès ; les emails de sécurité obligatoires restent actifs.",
+    "announcements": "Annonces",
+    "announcementsHelp": "Annonces publiées du programme.",
+    "management": "Modifications de gestion",
+    "managementHelp": "Propositions, décisions de gestion et corrections de dossiers.",
+    "program": "Autres informations du programme",
+    "programHelp": "Informations du programme sans autre catégorie.",
+    "reminders": "Rappels des événements",
+    "remindersHelp": "Email 24 heures et 1 heure avant les entretiens, réunions et séances de tutorat confirmées."
   },
   "participantRecovery": {
     "loading": "Chargement des données…",
@@ -5417,6 +5437,11 @@
       "title": "Séance de tutorat à venir",
       "body": "Votre séance de tutorat confirmée approche. Vérifiez l’heure enregistrée et les détails.",
       "action": "Voir la séance de tutorat"
+    },
+    "room_assignment_needed": {
+      "title": "Affectation de salle nécessaire",
+      "body": "Une séance de tutorat confirmée attend encore une salle.",
+      "action": "Examiner l’affectation de salle"
     }
   },
   "requestAppeal": {
@@ -5929,6 +5954,47 @@
       "APPLICATION_IDENTITY_NO_CHANGE": "Modifiez au moins un champ de nom avant de soumettre une correction.",
       "APPLICATION_IDENTITY_RETRY_CHANGED": "Ce reçu correspond à une autre correction. Rechargez les noms actuels.",
       "APPLICATION_IDENTITY_PROPOSAL_DECIDED": "Cette proposition a déjà été examinée. Consultez la décision et rechargez les noms actuels avant une nouvelle correction."
+    }
+  },
+  "notificationPreferences": {
+    "title": "Préférences de notification",
+    "help": "Choisissez séparément le compteur non lu et les emails par catégorie. Toutes les notifications restent dans la liste, même sans compteur.",
+    "badge": "Compteur non lu",
+    "email": "Email",
+    "badgeFor": "{category} : compteur non lu",
+    "emailFor": "{category} : email",
+    "emailOnly": "Email uniquement",
+    "disabled": "Les emails facultatifs sont désactivés par l’administrateur. Vous pouvez toujours modifier les compteurs non lus.",
+    "essential": "Les emails de vérification, connexion, récupération, sécurité et services essentiels des demandes restent actifs. Ces préférences ne suppriment aucune notification.",
+    "manage": "Paramètres de notification",
+    "save": "Enregistrer les préférences",
+    "saving": "Enregistrement…",
+    "saved": "Préférences enregistrées.",
+    "categories": {
+      "messages": "Messages privés",
+      "reviews": "Demandes à examiner",
+      "applications": "Candidatures et entretiens",
+      "tutoring": "Affectations de tutorat",
+      "attendance": "Présence et discipline",
+      "membership": "Participation et retraits",
+      "account": "Compte et accès",
+      "announcements": "Annonces",
+      "management": "Modifications de gestion",
+      "program": "Autres informations du programme",
+      "reminders": "Rappels des événements"
+    },
+    "descriptions": {
+      "messages": "Nouveaux messages privés ; leur contenu reste dans la boîte de réception.",
+      "reviews": "Demandes aux personnes autorisées. Email disponible aux administrateurs et responsables actifs.",
+      "applications": "Candidatures, qualifications, jurys et décisions d’entretien.",
+      "tutoring": "Affectations, disponibilités et changements d’horaire.",
+      "attendance": "Présence, conflits de salles, cartes, retours et recours.",
+      "membership": "Statut de participation, départs, retours et retraits.",
+      "account": "Modifications facultatives du compte et des accès ; les emails de sécurité obligatoires restent actifs.",
+      "announcements": "Annonces publiées du programme.",
+      "management": "Propositions, décisions de gestion et corrections de dossiers.",
+      "program": "Informations du programme sans autre catégorie.",
+      "reminders": "Email 24 heures et 1 heure avant les entretiens, réunions et séances de tutorat confirmées."
     }
   }
 }

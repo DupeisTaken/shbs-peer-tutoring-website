@@ -57,7 +57,6 @@ it("renders approved bilingual facts, without copying arbitrary message/profile 
 it.each([
   "security_changed",
   "information_changed",
-  "message_received",
   "program_update",
   "unknown_event",
 ])("does not accept factual-detail overrides for %s", (event) => {

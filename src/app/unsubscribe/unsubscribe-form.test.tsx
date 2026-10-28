@@ -12,12 +12,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { UnsubscribeForm } from "./unsubscribe-form";
+import {
+  notificationCategories,
+  type NotificationCategory,
+} from "~/lib/notification-categories";
 
 const request = vi.fn<typeof fetch>();
 const response = (body: unknown, ok = true) =>
   ({ ok, json: async () => body }) as Response;
 const ready = (
-  category: "messages" | "info" | "review" | "reminder" = "messages",
+  category: NotificationCategory | "info" | "review" | "reminder" = "messages",
 ) => response({ status: "ready", category });
 function deferred() {
   let resolve!: (value: Response) => void;
@@ -55,6 +59,26 @@ afterEach(() => {
 });
 
 describe("public unsubscribe confirmation", () => {
+  it.each(notificationCategories)(
+    "recognizes exact %s topic without broadening the submitted scope",
+    async (category) => {
+      request.mockResolvedValueOnce(ready(category));
+      request.mockResolvedValueOnce(
+        response({ status: "unsubscribed", category }),
+      );
+      render(view("topic-capability"));
+      await screen.findByRole("radio", {
+        name: (name) => name.startsWith(en.unsubscribe[category]),
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: en.unsubscribe.confirmCategory }),
+      );
+      await screen.findByText(en.unsubscribe.successTitle);
+      expect(request.mock.calls.at(-1)?.[1]?.body).toBe(
+        JSON.stringify({ token: "topic-capability", scope: "category" }),
+      );
+    },
+  );
   it.each(["review", "reminder"] as const)(
     "offers a distinct %s unsubscribe category in both languages",
     async (category) => {

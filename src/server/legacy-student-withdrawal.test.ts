@@ -25,7 +25,7 @@ function fixture() {
       findMany: vi.fn().mockResolvedValue([{ id: "admin" }]),
     },
     studentProfileOwnership: { findMany: vi.fn().mockResolvedValue([]) },
-    term: { findFirst: vi.fn().mockResolvedValue({ id: "current" }) },
+    term: { findFirst: vi.fn().mockResolvedValue({ id: "current", name: "Autumn 2026" }) },
     tutee: {
       findUnique: vi.fn().mockResolvedValue({
         id: "student",
@@ -121,8 +121,8 @@ describe("manual student withdrawal ownership and policy", () => {
           userId: "admin",
           context: {
             inAppDetail: {
-              en: "Tutee Morgan Student requested withdrawal for the current quarter. Participation continues until approval.",
-              zh: "学习伙伴 Morgan Student 申请退出本季度辅导。批准前仍继续参与。",
+              en: "Tutee Morgan Student requested withdrawal for Autumn 2026. Participation continues until approval.",
+              zh: "学习伙伴 Morgan Student 申请退出 Autumn 2026 的辅导。批准前仍继续参与。",
             },
           },
         }),

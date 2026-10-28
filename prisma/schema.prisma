@@ -156,6 +156,7 @@ model User {
   policyEdits      PolicyDocument[]   @relation("PolicyEditor")
   // In-app notifications addressed to this user.
   notifications    Notification[]
+  notificationPreferences NotificationPreference[]
 
   createdAt DateTime @default(now())
 
@@ -328,6 +329,8 @@ model Notification {
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String
+  /// Stable topic set by the insertion trigger, independent of later role changes.
+  category  String @default("program")
   body      String?
   /// Structured event identity and explicitly allowlisted context; legacy text remains intact.
   event     String?
@@ -340,6 +343,17 @@ model Notification {
   createdAt DateTime  @default(now())
 
   @@index([userId, readAt])
+  @@index([userId, readAt, category])
+}
+
+/// Overrides inherit legacy email preferences when absent; badge muting never hides inbox rows.
+model NotificationPreference {
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category String
+  badgeEnabled Boolean @default(true)
+  emailEnabled Boolean @default(false)
+  @@id([userId, category])
 }
 
 // ----------------------------------------------------------------------------
@@ -2420,6 +2434,8 @@ model EmailDelivery {
   userId String?
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
   category String
+  /// Optional preference topic; null retains legacy broad-category semantics or essential delivery.
+  preferenceTopic String?
   event String
   /// Safe event context copied atomically by the notification trigger, never Notification.body.
   context Json?

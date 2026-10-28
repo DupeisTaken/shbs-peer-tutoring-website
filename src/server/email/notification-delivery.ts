@@ -5,6 +5,7 @@ import { emailUrl, notificationDestination } from "./urls";
 import { notificationUnsubscribeUrl } from "./unsubscribe-token";
 import { notificationEmailCopy } from "./notification-copy";
 import { requestNoticeEmailCopy } from "./request-notice-copy";
+import { effectiveNotificationPreference, isNotificationCategory } from "~/lib/notification-categories";
 import {
   eligibleReviewRecipient,
   notificationEmailDetail,
@@ -77,7 +78,7 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
     }
     const row = await db.emailDelivery.findUniqueOrThrow({
       where: { id },
-      include: { user: { include: { emails: true } } },
+      include: { user: { include: { emails: true, notificationPreferences: true } } },
     });
     if (
       row.status !== "PENDING" &&
@@ -141,6 +142,8 @@ export async function deliverNotifications(limit = 10, deadline?: number) {
       const reminder = row.category === "reminder";
       const preference = essential
         ? true
+        : user && isNotificationCategory(row.preferenceTopic)
+          ? effectiveNotificationPreference(user, row.preferenceTopic, user.notificationPreferences).emailEnabled
         : review
           ? user?.emailReviewRequests
           : reminder

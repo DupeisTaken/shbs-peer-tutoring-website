@@ -213,8 +213,11 @@ export async function propagateSlotAttendance(
       data: heads.map(({ id }) => ({
         userId: id,
         title: "Catalogue change updated historical attendance",
-        ...notificationEvent("attendance_history_updated", {
+        ...notificationInAppEvent("attendance_history_updated", {
           count: changed.length,
+        }, {
+          en: `${changed.length} historical teaching block(s) changed from ${notificationList(changed.map(({ primary }) => `${clock(primary.startMin)}–${clock(primary.endMin)}`))} to ${clock(window.startMin)}–${clock(window.endMin)}. Attendance flags and linked deductions were reconsidered.`,
+          zh: `${changed.length} 个历史教学时段由 ${notificationList(changed.map(({ primary }) => `${clock(primary.startMin)}–${clock(primary.endMin)}`))} 改为 ${clock(window.startMin)}–${clock(window.endMin)}，考勤标记及关联扣分已重新核算。`,
         }),
         body: `${changed.length} teaching block(s) were updated. Changed attendance flags and linked deductions were reconsidered.`,
         link: "/admin/audit",
@@ -222,4 +225,6 @@ export async function propagateSlotAttendance(
     });
   return sessions.length;
 }
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
+import { notificationList } from "~/lib/notification-facts";
+const clock = (minute: number) => `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;

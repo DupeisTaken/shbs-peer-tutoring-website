@@ -1,4 +1,5 @@
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
+import { invitationPurpose } from "~/server/email/required-notice-details";
 import { timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { currentStudentSignupPayload } from "~/server/student-signup-answers";
@@ -532,11 +533,12 @@ export async function deliverAccountInvitation(
     );
     if (input.display) return invitationReceipt(row);
     const url = `${emailOrigin()}/register?invitation=${encodeURIComponent(row.id)}`;
+    const purpose = invitationPurpose(row.kind);
     await emailSender.send({
       category: "SECURITY",
       to: email,
-      subject: "Your email verification code / 邮箱验证码",
-      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires at ${expiresAt.toISOString()} (UTC). Enter it at ${url}. If you already have an account, this signs you in without changing your password or memberships. Review any added access separately.\n\n您的邮箱验证码是 ${code}，有效期至 ${expiresAt.toISOString()}（UTC）。请前往 ${url} 输入。已有账号可登录，密码和身份不会改变；新增权限须另行确认。`,
+      subject: `Verify your email for ${purpose.en} / ${purpose.zh}邮箱验证`,
+      text: `Invitation purpose: ${purpose.en}. Verify your mailbox before reviewing this invitation; the invitation does not itself apply the access change.\n邀请用途：${purpose.zh}。请先验证邮箱，再审核邀请；邀请本身不会自动更改权限。\n\nYour email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires at ${expiresAt.toISOString()} (UTC). Enter it at ${url}. If you already have an account, this signs you in without changing your password or memberships. Review any added access separately.\n\n您的邮箱验证码是 ${code}，有效期至 ${expiresAt.toISOString()}（UTC）。请前往 ${url} 输入。已有账号可登录，密码和身份不会改变；新增权限须另行确认。`,
       presentation: {
         code,
         codePurpose: "verification",
@@ -700,11 +702,12 @@ export async function emailDisplayedInvitation(
     row.codeHash,
   );
   const url = `${emailOrigin()}/register?invitation=${encodeURIComponent(row.id)}&code=${code}`;
+  const purpose = invitationPurpose(row.kind);
   await emailSender.send({
     category: "SECURITY",
     to: row.email,
-    subject: "Your account invitation / 账号邀请码",
-    text: `Your invitation code / 邀请码: ${code}.\n\n${/^(?=.*[A-Z])(?=.*[0-9])[0-9A-Z]{5}$/.test(code) ? "5 letters and numbers. / 5 位字母与数字组合。" : "Previously issued code: enter the complete code as shown. / 此为此前签发的邀请码，请按显示内容完整输入。"}\n\nContinue at ${url}. Expires ${row.expiresAt.toISOString()}. / 请通过链接继续注册。`,
+    subject: `Invitation to review ${purpose.en} / ${purpose.zh}邀请`,
+    text: `You are invited to review ${purpose.en}. Opening this invitation does not apply new access or replace existing memberships.\n邀请您审核${purpose.zh}。打开邀请不会自动授予新权限或替换已有身份。\n\nYour invitation code / 邀请码: ${code}.\n\n${/^(?=.*[A-Z])(?=.*[0-9])[0-9A-Z]{5}$/.test(code) ? "5 letters and numbers. / 5 位字母与数字组合。" : "Previously issued code: enter the complete code as shown. / 此为此前签发的邀请码，请按显示内容完整输入。"}\n\nContinue at ${url}. Expires ${row.expiresAt.toISOString()} (UTC). / 请通过链接继续注册，有效期至 ${row.expiresAt.toISOString()}（UTC）。`,
     presentation: {
       code,
       codePurpose: "invitation",
@@ -744,11 +747,12 @@ export async function sendInvitationVerification(
     // A replacement must remain distinct from the invitation and the last mailbox code.
     const code = freshEmailCode([row.codeHash, row.emailCodeHash]);
     const expiresAt = new Date(Math.min(+row.expiresAt, Date.now() + TTL));
+    const purpose = invitationPurpose(row.kind);
     await emailSender.send({
       category: "SECURITY",
       to: row.email,
-      subject: "Verify your email / 验证邮箱",
-      text: `Your email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. / 您的邮箱验证码是 ${code}。`,
+      subject: `Verify your mailbox for ${purpose.en} / ${purpose.zh}邮箱验证`,
+      text: `Verify your mailbox before reviewing the invitation for ${purpose.en}. This code confirms mailbox ownership; added access still requires your separate review.\n请先验证邮箱，再审核${purpose.zh}邀请。此验证码仅确认邮箱归属，新增权限仍须另行确认。\n\nYour email verification code (4 digits) / 邮箱验证码（4 位数字） is ${code}. It expires at ${expiresAt.toISOString()} (UTC).\n您的邮箱验证码是 ${code}，有效期至 ${expiresAt.toISOString()}（UTC）。如非本人申请，请忽略此邮件。`,
       presentation: { code, codePurpose: "verification" },
     });
     const challenged = await tx.accountInvitation.update({
@@ -1181,7 +1185,10 @@ export async function redeemAccountInvitation(
         if (!result.ok) throw conflict();
         await notifyAdmins(
           {
-            ...notificationEvent("viewer_registered"),
+            ...notificationInAppEvent("viewer_registered", undefined, {
+              en: `${state.viewer.name} registered with read-only Viewer access.`,
+              zh: `${state.viewer.name} 已注册并获得只读观察员权限。`,
+            }),
             title: "New viewer account",
             body: "A new read-only viewer registered to follow the program.",
             link: "/admin/users",

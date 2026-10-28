@@ -45,18 +45,60 @@ decisions say **Approved** or **Declined**. New committed assignment notices nam
 the tutee, tutor and subject and explicitly say when the schedule awaits confirmation;
 placeholder weekdays/times are not published as confirmed appointments.
 The database trigger promotes the validated detail only for explicitly allowlisted
-domain events, as `emailDetail`; security and private-message events stay generic.
+domain events, as `emailDetail`. Message email uses only its selected sender name;
+announcement email uses its title and publication/update action, never either full
+body. These two events construct email copy from separate typed fields rather than
+promoting an arbitrary description. Account-change email uses allowlisted field
+identities: password versus two-factor enabled/disabled, and the particular profile
+or access change. It never includes passwords, codes, addresses or entire account rows.
 The tables below document fallback copy; captured descriptions can be more specific.
 
-### Email categories and upcoming reminders
+### Category preferences and upcoming reminders
 
-Ordinary program updates, private-message notices, reviewer requests and upcoming-event
-reminders have independent account preferences. The two new preferences default off;
-the global optional-email switch still gates all four. Only active Admin/Head accounts
-can enable reviewer mail, and Head-only events retain their narrower authority.
-Participant copies of a pending workflow event remain ordinary updates. Dispatch
-rechecks reviewer eligibility, preferences and verified address ownership. Unsubscribe
-can disable one category or all optional categories; essential mail is unaffected.
+The shared **Notification preferences** card is available to staff, tutors and tutees
+through their account settings. Each category has separate unread-badge and optional
+email controls. The exhaustive [category mapping](../../src/lib/notification-categories.ts)
+is shared by settings, badge queries and delivery; the migration's SQL classification
+is checked against it by integration tests.
+
+| Category | Examples | Bell badge | Optional email |
+| --- | --- | --- | --- |
+| Private messages | A message from a named sender | Configurable | Configurable |
+| Review requests | Pending decisions for eligible staff reviewers | Configurable | Active Admin/Head only |
+| Applications and interviews | Applications, qualifications, panel assignments and interview outcomes | Configurable | Configurable |
+| Tutoring | Assignments, availability, request lifecycle, schedule changes and withdrawals | Configurable | Configurable |
+| Attendance and feedback | Lesson attendance, cards, appeals, feedback and corrections | Configurable | Configurable |
+| Membership | Tutor/Crew participation changes and school departure | Configurable | Configurable |
+| Account updates | Optional profile, access and account-appeal updates | Configurable for bell notices | Configurable; essential security mail is separate |
+| Announcements | Published or updated announcement titles | Configurable | Configurable |
+| Management updates | Management outcomes and translation updates | Configurable | Configurable |
+| General program updates | Unclassified legacy and general program notices | Configurable | Configurable |
+| Upcoming reminders | Interviews, meetings and confirmed tutoring | Email only | Configurable |
+
+Disabling a badge category **does not hide notifications or mark them read**. The list
+still shows all recent notices, including their original unread styling. Mark all read
+continues to work when only muted unread notices remain. Re-enabling a badge category
+counts its still-unread notices again. Saving badge preferences is allowed while
+optional program email is disabled. The global switch still gates optional email;
+it does not alter personal badge choices or required mail.
+
+New notices record their category at insertion so later role changes cannot reclassify
+their history. Migration classifies older bell records from their existing event/link
+and available recipient role; old email rows retain their recorded reviewer/participant
+transport distinction. A sparse `NotificationPreference` override inherits the old
+email setting until explicitly changed: messages, review requests and reminders keep
+their respective switches; the other categories inherit information updates. New
+accounts start with badge categories enabled and optional email off. Legacy broad
+settings only propagate switches whose values actually change, preserving unrelated
+category overrides when an old client submits an unchanged value.
+
+Only active Admin/Head accounts can enable reviewer email, and Head-only events keep
+their narrower authority. Participant copies of a pending workflow event keep their
+domain category. Dispatch rechecks recipient eligibility, category preferences and
+verified address ownership. Unsubscribe disables the delivery's exact category or all
+optional categories, without changing badge settings. An intentionally in-app-only
+event, such as a room-allocation shortage, still does not produce email merely because
+its category's email preference is enabled.
 
 The migration retains old delivery evidence and skips pending reviewer mail rather
 than replaying a backlog under the new opt-in. Existing notices without captured facts
@@ -82,6 +124,21 @@ attendance is not absence; future absence cannot be inferred from an unrecorded 
 These rules affect reminders only, never attendance or appeal-school-day calculations.
 Ambiguous/nonexistent local times during daylight-saving transitions are skipped.
 Interview applicants without an eligible account are not enrolled in optional mail.
+
+### Required email and captured detail
+
+Required security, verification, recovery, requested invitation and request-service
+mail is not optional; its sender identity (`SECURITY` or `PROGRAM`) does not determine
+whether it is optional. Verification and invitation emails identify their operation
+or audience and expiry. Historical invitations describe the reviewed profile types
+and counts while keeping private attendance records in the portal. Existing request
+status email retains its mailbox-proof rule for disclosing private reasons.
+
+Domain details identify the affected people and recorded facts: attendance dates,
+subjects and status/room changes; added/removed availability; approved qualifications
+and levels; withdrawal periods; and safe before/after fields in management proposals.
+Proposed changes remain labelled as proposed. Details are captured at the write and
+are not reconstructed from today's mutable records when an old notification is read.
 
 Destinations identify the existing authorized workflow, not an access grant. Email
 uses the canonical public origin and a validated sign-in callback; current route
@@ -892,3 +949,14 @@ See [the source copy](../../src/server/email/request-notice-copy.ts),
 | --- | --- | --- | --- |
 | English | Upcoming Tutoring Session | Your confirmed tutoring session is coming up. Review the recorded time and session details. | View tutoring session |
 | 中文 | 辅导课程即将开始 | 您已确认的辅导课程即将开始。请查看记录的时间及课程详情。 | 查看辅导课程 |
+
+### room_assignment_needed
+
+- Recipient: Existing eligible staff room-allocation audience.
+- Trigger: A confirmed tutoring arrangement has no available room. Captures tutor, subjects and confirmed weekly time. [Emitter](../../src/server/room-allocation.ts).
+- Category: Tutoring. Authorized destination: `/admin/pairings#<encoded assignment ID>`. Intentionally in-app only.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | Room Assignment Needed | A confirmed tutoring arrangement still needs a room. | Review room assignment |
+| 中文 | 需要分配教室 | 已确认的辅导安排仍需分配教室。 | 查看教室分配 |

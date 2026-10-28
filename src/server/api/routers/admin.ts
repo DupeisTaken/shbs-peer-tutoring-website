@@ -17,8 +17,9 @@ import {
   deleteAccountInput,
   previewDeleteAccount,
 } from "~/server/delete-account";
-import { notificationEvent } from "~/lib/notification-events";
 import { notificationInAppEvent } from "~/lib/notification-details";
+import { programDateKey } from "~/lib/program-time";
+import { getProgramTimeZone } from "~/server/program/time-zone";
 import { clearInterviewHours } from "~/server/interview-hours";
 import { SESSION_FLAG_FILTERS } from "~/lib/session-flag-state";
 import { tutorWorkloads } from "~/server/tutor-workload";
@@ -5000,6 +5001,7 @@ export const adminRouter = createTRPCRouter({
                 quarter: true,
                 month: true,
                 date: true,
+                pairing: { select: { subject: true } },
               },
             },
           },
@@ -5067,8 +5069,8 @@ export const adminRouter = createTRPCRouter({
                     : "attendance_review_escalated",
                 undefined,
                 {
-                  en: `Attendance for ${flag.session.date.toISOString().slice(0, 10)}: ${input.action === "WARN" ? "a warning was recorded" : input.action === "PENALIZE" ? `a ${input.penaltyHours ?? 0.5}-hour service penalty was applied` : "the discrepancy was escalated for review"}.`,
-                  zh: `${flag.session.date.toISOString().slice(0, 10)} 的出勤：${input.action === "WARN" ? "已记录警告" : input.action === "PENALIZE" ? `已扣减 ${input.penaltyHours ?? 0.5} 服务小时` : "异常已提交进一步审核"}。`,
+                  en: `${flag.tutor.englishName}'s ${flag.session.pairing.subject} attendance for ${flag.session.date.toISOString().slice(0, 10)}: ${input.action === "WARN" ? "a warning was recorded" : input.action === "PENALIZE" ? `a ${input.penaltyHours ?? 0.5}-hour service penalty was applied` : "the discrepancy was escalated for review"}.`,
+                  zh: `${flag.tutor.englishName} 在 ${flag.session.date.toISOString().slice(0, 10)} 的 ${flag.session.pairing.subject} 出勤：${input.action === "WARN" ? "已记录警告" : input.action === "PENALIZE" ? `已扣减 ${input.penaltyHours ?? 0.5} 服务小时` : "异常已提交进一步审核"}。`,
                 },
               ),
             },
@@ -5976,7 +5978,10 @@ export const adminRouter = createTRPCRouter({
         },
       });
       await notifyUsers([target.id], {
-        ...notificationEvent("account_suspended"),
+        ...notificationInAppEvent("account_suspended", undefined, {
+          en: `${target.name ?? "Your account"}: Viewer access was suspended. You may submit an account appeal.`,
+          zh: `${target.name ?? "您的账户"}：观察员访问权限已暂停，您可提交账户申诉。`,
+        }),
         title: "Account suspended",
         body: "Your account access was suspended pending review. You can submit an appeal.",
         link: "/suspended",
@@ -6010,7 +6015,10 @@ export const adminRouter = createTRPCRouter({
         });
       });
       await notifyUsers([input.userId], {
-        ...notificationEvent("account_reinstated"),
+        ...notificationInAppEvent("account_reinstated", undefined, {
+          en: "Your account suspension was lifted. Account access is restored and pending account appeals were approved.",
+          zh: "您的账户暂停状态已解除，访问权限已恢复，待处理的账户申诉已批准。",
+        }),
         title: "Account reinstated",
         body: "Your account access has been restored.",
         link: "/",
@@ -6058,7 +6066,7 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const appeal = await ctx.db.accountAppeal.findUniqueOrThrow({
         where: { id: input.appealId },
-        select: { id: true, state: true, userId: true },
+        select: { id: true, state: true, userId: true, createdAt: true },
       });
       if (appeal.state !== "PENDING") {
         throw new TRPCError({
@@ -6085,10 +6093,15 @@ export const adminRouter = createTRPCRouter({
       await notifyUsers([appeal.userId], {
         title:
           input.action === "APPROVE" ? "Appeal approved" : "Appeal declined",
-        ...notificationEvent(
+        ...notificationInAppEvent(
           input.action === "APPROVE"
             ? "account_appeal_approved"
             : "account_appeal_declined",
+          undefined,
+          {
+            en: `Your account appeal submitted on ${programDateKey(appeal.createdAt, await getProgramTimeZone(ctx.db))} was ${input.action === "APPROVE" ? "approved; account access was restored" : "declined; account access remains suspended"}.`,
+            zh: `您于 ${programDateKey(appeal.createdAt, await getProgramTimeZone(ctx.db))} 提交的账户申诉${input.action === "APPROVE" ? "已批准，账户访问权限已恢复" : "未获批准，账户访问权限仍被暂停"}。`,
+          },
         ),
         body:
           input.action === "APPROVE"
@@ -6478,7 +6491,10 @@ export const adminRouter = createTRPCRouter({
               title,
               body,
               link: "/dashboard",
-              ...notificationEvent("announcement_published"),
+              ...notificationInAppEvent("announcement_published", { announcementTitle: input.title, announcementAction: "published" }, {
+                en: `Announcement “${input.title}” was published. Open announcements to read it.`,
+                zh: `公告“${input.title}”已发布，请打开公告查看。`,
+              }),
             },
             tx,
           ),
@@ -6492,7 +6508,10 @@ export const adminRouter = createTRPCRouter({
               title,
               body,
               link: "/admin/announcements",
-              ...notificationEvent("announcement_published"),
+              ...notificationInAppEvent("announcement_published", { announcementTitle: input.title, announcementAction: "published" }, {
+                en: `Announcement “${input.title}” was published. Open announcements to read it.`,
+                zh: `公告“${input.title}”已发布，请打开公告查看。`,
+              }),
             },
             tx,
           ),

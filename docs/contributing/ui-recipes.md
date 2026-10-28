@@ -25,6 +25,13 @@ controls the participant example; other recipes expose their own state transitio
 
 Specialized gallery recipes also cover [named action review](../../src/app/ui-gallery/action-review-recipe.tsx), [management summary alignment](../../src/app/ui-gallery/admin-summary-recipe.tsx), [manual-creation risk acknowledgement](../../src/app/ui-gallery/creation-risk-recipe.tsx) and [workload preference/review](../../src/app/ui-gallery/workload-preference-recipe.tsx). Each has a colocated behavior test. These are synthetic compositions: use the owning feature and the [technical code map](../reference/technical-report.md#architecture) for permissions, persistence, receipt keys and accepted-write recovery.
 
+The [notification preference recipe](../../src/app/ui-gallery/notification-preferences-recipe.tsx)
+uses the same category controls as account settings. Verify independent badge/email
+choices, staged Save/Cancel, retained badge editing with program email off, and the
+email-only reminder row in English and Chinese at desktop and mobile widths. The
+gallery stores synthetic local state only; production settings own persistence,
+reviewer eligibility, queued-mail cancellation and accepted-save read recovery.
+
 The named-action recipe also demonstrates a request receipt through the
 `ReviewedAction.successMessage` option of `useActionReview`, following the active tutor opt-out in
 [Settings](<../../src/app/(tutor)/settings/page.tsx>). Verify Cancel without a write,

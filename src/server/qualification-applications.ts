@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { notificationInAppEvent } from "~/lib/notification-details";
+import { notificationList } from "~/lib/notification-facts";
 import type { TransactionDb } from "~/server/transactions";
 import {
   approveQualification,
@@ -196,6 +197,7 @@ export async function decideQualificationApplication(
   if (hasPanel && input.accept && input.completion)
     await recordInterviewApprovalService(tx, app.id, app, input.completion);
   const snapshot: { id: string; name: string }[] = [];
+  const grantedLabels: string[] = [];
   if (input.accept) {
     await lockCatalogue(tx);
     const subject = await tx.subject.findUniqueOrThrow({
@@ -222,9 +224,10 @@ export async function decideQualificationApplication(
     const subjects = await tx.subject.findMany({
       where: { id: { in: grants.map((grant) => grant.subjectId) } },
       orderBy: [...subjectOrderBy],
-      select: { id: true, name: true },
+      select: { id: true, name: true, level: { select: { name: true } } },
     });
-    snapshot.push(...subjects);
+    snapshot.push(...subjects.map(({ id, name }) => ({ id, name })));
+    grantedLabels.push(...subjects.map((subject) => `${subject.name}${subject.level ? ` (${subject.level.name})` : ""}`));
     if (!snapshot.length)
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -256,8 +259,8 @@ export async function decideQualificationApplication(
         input.accept ? "qualification_approved" : "qualification_rejected",
         undefined,
         {
-          en: `${app.name}'s qualification request${requestedSubject ? ` for ${requestedSubject.name}` : ""} was ${input.accept ? "approved" : "declined"}.`,
-          zh: `${app.name} 的${requestedSubject ? ` ${requestedSubject.name} ` : ""}资格申请${input.accept ? "已获批准" : "未获批准"}。`,
+          en: `${app.name}'s qualification request${requestedSubject ? ` for ${requestedSubject.name}` : ""} was ${input.accept ? "approved" : "declined"}.${snapshot.length ? ` Granted subjects/levels: ${notificationList(grantedLabels)}.` : ""}`,
+          zh: `${app.name} 的${requestedSubject ? ` ${requestedSubject.name} ` : ""}资格申请${input.accept ? "已获批准" : "未获批准"}。${snapshot.length ? `授予的科目及等级：${notificationList(grantedLabels)}。` : ""}`,
         },
       ),
       body: input.comment,
@@ -270,8 +273,8 @@ export async function decideQualificationApplication(
       {
         title: "Interview approved",
         ...notificationInAppEvent("interview_approved", undefined, {
-          en: `${app.name}'s qualification interview was approved and the qualification changes were applied.`,
-          zh: `${app.name} 的资格面试已获批准，资格变更已生效。`,
+          en: `${app.name}'s qualification interview${requestedSubject ? ` for ${requestedSubject.name}` : ""} was approved. Granted subjects/levels: ${notificationList(grantedLabels)}.`,
+          zh: `${app.name} 的${requestedSubject ? ` ${requestedSubject.name} ` : ""}资格面试已获批准。授予的科目及等级：${notificationList(grantedLabels)}。`,
         }),
         link: `/admin/applications#application-${app.id}`,
         inAppOnly: true,
