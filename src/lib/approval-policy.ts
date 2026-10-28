@@ -3,14 +3,18 @@
 // program.resendStuckEmails remains immediate ADMIN/HEAD authority: it retries existing delivery evidence.
 // notification.retryRequestEmail and notification.declineRequestAppeal are immediate
 // ADMIN/HEAD authority. They retain receipt IDs and never bypass an invalidity proposal.
-// recordTransfer.* requires HEAD directly. Imports/exports cannot be proposed or replayed.
+// recordTransfer.* requires ADMIN/HEAD directly. Imports/exports cannot be proposed or replayed.
 // tuteeHistory.invite/link/cancelInvitation require ADMIN/HEAD directly. Conflict correction
-// additionally reauthenticates Head; public history account setup grants no membership.
-/** These operations assign or restore account capabilities and retain Head review.
+// additionally reauthenticates the reviewer; public history account setup grants no membership.
+/** Effect categories remain independent from current reviewer authority.
  * classifyApproval explicitly allows Admin to issue Tutor/Crew invitations directly.
  * qualificationApplication.decide deliberately uses adminOnlyProcedure instead: subject grants
  * do not change account badges and coordinators cannot submit/replay these decisions. */
-export const HEAD_APPROVAL_OPERATIONS = new Set([
+/** Policy version belongs to authorization, independently of immutable evidence shapes. */
+export const APPROVAL_POLICY_VERSION = 2;
+export const HEAD_APPROVAL_OPERATIONS = new Set(["admin.refresh"]);
+
+const accountAccessOperations = new Set([
   "studentWorkflow.headEditSignup",
   "studentWorkflow.headUnassign",
   "program.setCaptcha",
@@ -62,6 +66,7 @@ export const HEAD_APPROVAL_OPERATIONS = new Set([
   "tutor.decideInterview",
 ]);
 export const APPROVAL_OPERATIONS: Record<string, string> = {
+  "recovery.voidAdmission": "RecoveryAction",
   "studentWorkflow.headEditSignup": "StudentSurvey",
   "studentWorkflow.headUnassign": "StudentSurvey",
   "studentWorkflow.resolveSignupAppeal": "StudentSignupAppeal",
@@ -89,6 +94,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "messaging.setPermission": "MessagePermission",
   "admin.updateAccountUsername": "User",
   "admin.setUserRole": "User",
+  "admin.setUserCanTranslate": "User",
   "admin.revokeRegistrationCode": "RegistrationCode",
   "messaging.moderate": "DirectMessage",
   "messaging.restrict": "User",
@@ -250,11 +256,11 @@ const managementEdits = new Set([
   "admin.setUserRole",
   "admin.setMemberships",
   "admin.setUserCanTutor",
+  "admin.setUserCanTranslate",
   "admin.setCrewStatus",
   "admin.updateTutor",
   "admin.updateTutee",
-  // Submitted identity evidence can be corrected only by Head, after an Admin proposal.
-  // Keep this out of the generic account-access branch that also admits Coordinators.
+  // Submitted identity corrections retain their own revision and readiness safeguards.
   "admin.correctApplicationIdentity",
 ]);
 const reversals = new Set([
@@ -264,14 +270,14 @@ const reversals = new Set([
   "admin.deleteAdjustment",
   "admin.revokeRegistrationCode",
   // A correction may remove a reviewed deduction and restore dependent participation.
-  // Review the complete correction with Head before applying any part of it.
+  // Review the complete correction before applying any part of it.
   "corrections.correctAttendance",
   "corrections.correctPatrol",
   "historicalAcademics.correctBatch",
 ]);
 
 /** Authority depends on effects, including legacy payloads. Context comes from live DB state;
- * callers cannot claim that a tutor's status is unchanged in order to avoid Head review. */
+ * callers cannot conceal dependent restoration effects from review. */
 export function classifyApproval(
   operation: string,
   input?: unknown,
@@ -286,15 +292,33 @@ export function classifyApproval(
     meetingHasAttendance?: boolean;
     changesRecordedSlotAttendance?: boolean;
     currentRegistrationKind?: string;
+    currentAccountRole?: string;
     restoresArchivedRecord?: boolean;
     discretionarySignupChange?: boolean;
   } = {},
 ): ApprovalAuthority | null {
   if (!Object.hasOwn(APPROVAL_OPERATIONS, operation)) return null;
+  // Causal admission recovery uses ordinary management review. The domain
+  // service still enforces complete evidence and the website's 0/1 event cap.
+  if (operation === "recovery.voidAdmission") return {
+    category: "REVERSAL",
+    directRoles: ["ADMIN", "HEAD"],
+    requesterRoles: ["COORDINATOR", "ADMIN", "HEAD"],
+    reviewerRoles: ["ADMIN", "HEAD"],
+  };
   const value =
     input && typeof input === "object"
       ? (input as Record<string, unknown>)
       : {};
+  // Head inherits every Admin capability. Only activation of the next period is
+  // exclusive: Admin/Head can prepare its settings without activating them.
+  if (operation === "admin.refresh")
+    return {
+      category: "SIGNIFICANT_SETTING",
+      directRoles: ["HEAD"],
+      requesterRoles: ["ADMIN", "HEAD"],
+      reviewerRoles: ["HEAD"],
+    };
   if (
     context.discretionarySignupChange ||
     ["studentWorkflow.headEditSignup", "studentWorkflow.headUnassign"].includes(
@@ -303,23 +327,27 @@ export function classifyApproval(
   )
     return {
       category: "REVERSAL",
-      directRoles: ["HEAD"],
+      directRoles: ["ADMIN", "HEAD"],
       requesterRoles: ["ADMIN", "COORDINATOR", "HEAD"],
-      reviewerRoles: ["HEAD"],
+      reviewerRoles: ["ADMIN", "HEAD"],
     };
   if (significantSettings.has(operation))
     return {
       category: "SIGNIFICANT_SETTING",
-      directRoles: ["HEAD"],
-      requesterRoles: ["ADMIN", "HEAD"],
-      reviewerRoles: ["HEAD"],
+      directRoles: ["ADMIN", "HEAD"],
+      requesterRoles: operation.startsWith("messaging.") ? ["ADMIN", "HEAD"] : ["COORDINATOR", "ADMIN", "HEAD"],
+      reviewerRoles: ["ADMIN", "HEAD"],
     };
   if (managementEdits.has(operation))
     return {
       category: "ACCOUNT_ACCESS",
-      directRoles: ["HEAD"],
-      requesterRoles: ["ADMIN", "HEAD"],
-      reviewerRoles: ["HEAD"],
+      directRoles: ["ADMIN", "HEAD"],
+      requesterRoles: operation === "admin.setUserRole" ||
+        (operation === "admin.setMemberships" &&
+          (["ADMIN", "COORDINATOR", "HEAD"].includes(String((value.membership as { rank?: unknown } | undefined)?.rank)) ||
+           ["ADMIN", "COORDINATOR", "HEAD"].includes(context.currentAccountRole ?? "")))
+        ? ["ADMIN", "HEAD"] : ["COORDINATOR", "ADMIN", "HEAD"],
+      reviewerRoles: ["ADMIN", "HEAD"],
     };
   if (
     reversals.has(operation) ||
@@ -355,17 +383,16 @@ export function classifyApproval(
   )
     return {
       category: "REVERSAL",
-      directRoles: ["HEAD"],
+      directRoles: ["ADMIN", "HEAD"],
       requesterRoles:
         operation.startsWith("messaging.") ||
-        operation === "historicalAcademics.correctBatch" ||
         (operation === "admin.revokeRegistrationCode" &&
           ["ADMIN", "COORDINATOR"].includes(
             context.currentRegistrationKind ?? "",
           ))
           ? ["ADMIN", "HEAD"]
           : ["COORDINATOR", "ADMIN", "HEAD"],
-      reviewerRoles: ["HEAD"],
+      reviewerRoles: ["ADMIN", "HEAD"],
     };
   // Supervision remains immediate Admin/Head authority; only restorations enter this queue.
   if (operation.startsWith("messaging."))
@@ -380,31 +407,25 @@ export function classifyApproval(
     (context.currentTutorStatus === undefined ||
       value.status !== context.currentTutorStatus);
   if (
-    HEAD_APPROVAL_OPERATIONS.has(operation) &&
+    accountAccessOperations.has(operation) &&
     (operation !== "admin.updateTutor" || tutorStatusChange)
   ) {
     const managementCode =
       operation === "admin.issueRegistrationCode" &&
       ["ADMIN", "COORDINATOR"].includes(String(value.kind));
-    // Admin may issue participation invitations directly. Coordinator proposals still
-    // go to Head, and this exception never extends to management grants or revocation.
-    const participationCode =
-      operation === "admin.issueRegistrationCode" &&
-      (value.kind === undefined ||
-        value.kind === "TUTOR" ||
-        value.kind === "CREW");
+    // The resolver still validates recipient ownership and interview eligibility.
     // This only removes the extra reviewer: the resolver still requires the
     // current assigned Admin/Head chair, all votes and atomic service evidence.
     const chairApproval = operation === "tutor.decideInterview" && value.accept === true;
     return {
       category: "ACCOUNT_ACCESS",
-      directRoles: participationCode || chairApproval ? ["ADMIN", "HEAD"] : ["HEAD"],
+      directRoles: ["ADMIN", "HEAD"],
       requesterRoles: managementCode
         ? ["ADMIN", "HEAD"]
         : chairApproval ? ["ADMIN", "HEAD"] : operation === "tutor.decideInterview"
           ? ["TUTOR", "COORDINATOR", "ADMIN", "HEAD"]
           : ["COORDINATOR", "ADMIN", "HEAD"],
-      reviewerRoles: ["HEAD"],
+      reviewerRoles: ["ADMIN", "HEAD"],
     };
   }
   return {

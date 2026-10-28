@@ -818,7 +818,7 @@ The same panel checks SECURITY and PROGRAM SMTP connection/authentication separa
 
 After correcting the transport, ADMIN/HEAD can use **Resend stuck emails** to queue up to 100 oldest eligible failed or retrying notifications for the normal worker. This starts a fresh retry cycle; the result reports how many were queued, not delivered. Active leases, completed/skipped mail and untouched pending mail are excluded. Unconfigured production categories and disabled optional notifications stay excluded; security notices remain independent. The worker rechecks current preferences and recipient ownership before sending and retains each message's existing ID. Repeated or concurrent clicks cannot requeue a row that is already waiting with a fresh retry budget. Each request records an aggregate audit entry. SMTP still cannot guarantee exactly-once delivery across an expired lease or a process failure after acceptance. If queuing succeeds but status refresh fails, use the read-only **Refresh status** recovery rather than submitting the resend again.
 
-Configure and test the real email transport before enabling optional notifications. Head applies switch changes; Admin submits them for Head review. Disabling cancels queued optional notices without discarding preferences; security alerts continue through the same worker, and essential authentication mail remains independent. The optional-email availability migration adds the independent secondary-binding flag (default on) without changing stored addresses or preferences, and updates enqueue rules so security alerts cannot be suppressed. Apply the migration and updated dispatcher together; legacy `emailSecurity` values are retained but no longer control delivery. See [notification controls](program-configuration.md#optional-email-notifications) and [personal preferences](user-guide.md#optional-email-notifications).
+Configure and test the real email transport before enabling optional notifications. Admin and Head apply switch changes directly; Coordinators request Admin approval. Disabling cancels queued optional notices without discarding preferences; security alerts continue through the same worker, and essential authentication mail remains independent. The optional-email availability migration adds the independent secondary-binding flag (default on) without changing stored addresses or preferences, and updates enqueue rules so security alerts cannot be suppressed. Apply the migration and updated dispatcher together; legacy `emailSecurity` values are retained but no longer control delivery. See [notification controls](program-configuration.md#optional-email-notifications) and [personal preferences](user-guide.md#optional-email-notifications).
 
 ## Verify before opening intake
 
@@ -865,7 +865,7 @@ npx tsx scripts/backfill-school-departures.ts
 This defaults to a dry run. After reviewing its counts and account IDs, apply with
 `npx tsx scripts/backfill-school-departures.ts --apply`. Repeating the command skips
 accounts already confirmed. Revoked/suspended accounts, standalone Viewers and accounts
-with active learning participation are reported for individual Head review.
+with active learning participation are reported for individual Admin/Head review.
 
 The migration preserves account roles and historical records. Self-reported academic
 graduation, ordinary archives and opt-outs do not grant access. New imports never run this
@@ -884,7 +884,7 @@ revocations; do not delete departure rows to bypass its blockers.
 ## Combined-account identity retention
 
 Deploy `20260929010000_combine_accounts` and
-`20260929020000_retired_credential_grants` before running code with the Head-only
+`20260929020000_retired_credential_grants` before running code with the Admin/Head
 account-combine workflow. The nullable `User.mergedIntoId` self-reference records an
 explicit historical ownership relationship. Existing accounts remain active.
 The database guards reject deleting either side of a combined identity, restoring

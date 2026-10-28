@@ -277,7 +277,15 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])("opens initial identity evidence with 
   show();
   expect(mocks.identity).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
-  expect(mocks.identity).toHaveBeenCalledWith(expect.objectContaining({ applicationId: "candidate", canCorrect: role === "HEAD" || role === "ADMIN", isHead: role === "HEAD" }));
+  expect(mocks.identity).toHaveBeenCalledWith(expect.objectContaining({ applicationId: "candidate", canCorrect: true, canApply: role === "HEAD" || role === "ADMIN" }));
+  expect(mocks.decide).not.toHaveBeenCalled();
+});
+
+it("keeps correction controls out of the read-only application evidence view", () => {
+  render(content(true));
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  expect(mocks.identity).not.toHaveBeenCalled();
+  expect(mocks.decide).not.toHaveBeenCalled();
 });
 it("presents an accountless blank-name application without treating its label as searchable intake data", () => {
   mocks.name = "  ";

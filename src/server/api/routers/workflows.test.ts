@@ -24,7 +24,7 @@ import {
 import { initializeProgram } from "~/server/program/bootstrap";
 import { confirmEmailChange } from "~/server/auth/email-change";
 import { hashCode } from "~/server/auth/registration";
-import { databaseScope } from "~/server/db-scope";
+import { auditActorScope, databaseScope } from "~/server/db-scope";
 import { lockEntity } from "~/server/transactions";
 import * as audit from "~/server/audit/log";
 import { availableSubjectIds } from "~/server/subject-willingness";
@@ -803,10 +803,10 @@ it("unchanged publication and pending policy proposals do not invalidate accepte
   expect(await studentPolicyStatus(db, "review-user")).toBeNull();
   await db.user.update({
     where: { id: "review-viewer" },
-    data: { role: "ADMIN" },
+    data: { role: "COORDINATOR" },
   });
   await expect(
-    caller("ADMIN", "review-viewer").admin.upsertPolicy({
+    caller("COORDINATOR", "review-viewer").admin.upsertPolicy({
       slug: "tutor-policy",
       locale: "en",
       title: "Draft title",
@@ -819,10 +819,10 @@ it("unchanged publication and pending policy proposals do not invalidate accepte
   );
   await db.user.update({
     where: { id: "review-viewer" },
-    data: { role: "COORDINATOR" },
+    data: { role: "VIEWER" },
   });
   await expect(
-    caller("COORDINATOR", "review-viewer").admin.upsertPolicy({
+    caller("VIEWER", "review-viewer").admin.upsertPolicy({
       slug: "tutor-policy",
       locale: "en",
       title: "Forbidden draft",
@@ -1618,7 +1618,7 @@ it("stale audit undo cannot overwrite a later card review", async () => {
   });
   await expect(
     caller().admin.undoAudit({ id: original.id }),
-  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect(
     (await db.disciplinaryCard.findUniqueOrThrow({ where: { id: card.id } }))
       .reviewNote,
@@ -2107,7 +2107,12 @@ it("F09: undoing a card review must reconcile the resulting removal", async () =
   const log = await db.auditLog.findFirstOrThrow({
     where: { entityId: second.id },
   });
-  await caller().admin.undoAudit({ id: log.id });
+  await expect(caller().admin.undoAudit({ id: log.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  // Retain coverage of the legacy domain primitive, which has no website entry.
+  expect(await auditActorScope.run(
+    { id: "review-head", name: "Review Head", role: "HEAD" },
+    () => audit.applyUndo(log.undoData, db),
+  )).toBe(true);
   const removed = await db.tutee.findUniqueOrThrow({
     where: { id: "review-tutee" },
   });
@@ -2387,7 +2392,8 @@ it("F19: announcement deletion undo must retain existing acknowledgements", asyn
   });
   await caller().admin.deleteAnnouncement({ id: a.id });
   const log = await db.auditLog.findFirstOrThrow({ where: { entityId: a.id } });
-  await caller().admin.undoAudit({ id: log.id });
+  await expect(caller().admin.undoAudit({ id: log.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await audit.applyUndo(log.undoData, db)).toBe(true);
   expect(
     await db.announcementAck.count({ where: { announcementId: a.id } }),
   ).toBe(1);
@@ -3722,7 +3728,7 @@ it("interview completion rejects stale reviewed evidence but retries identical e
   ).toEqual(credits);
 });
 
-it("Admin lost-response completion retry returns its receipt while changed evidence still queues Head review", async () => {
+it("Admin lost-response completion retry returns its receipt and a fresh correction applies directly", async () => {
   const { app, panel } = await interviewFixture();
   const current = await db.tutorApplication.findUniqueOrThrow({
     where: { id: app.id },
@@ -3750,21 +3756,15 @@ it("Admin lost-response completion retry returns its receipt while changed evide
   const recorded = await db.tutorApplication.findUniqueOrThrow({
     where: { id: app.id },
   });
-  await expect(
-    admin.interviewManagement.complete({
-      ...input,
-      durationMin: 45,
-      expectedUpdatedAt: recorded.updatedAt,
-    }),
-  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  expect(
-    await db.approvalRequest.count({
-      where: { operation: "interviewManagement.complete", state: "PENDING" },
-    }),
-  ).toBe(1);
-  expect(
-    await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
-  ).toEqual(credits);
+  await admin.interviewManagement.complete({
+    ...input,
+    durationMin: 45,
+    expectedUpdatedAt: recorded.updatedAt,
+  });
+  expect(await db.approvalRequest.count()).toBe(0);
+  const corrected = await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } });
+  expect(corrected).toHaveLength(credits.length);
+  expect(corrected.every((row) => row.amount === 0.75)).toBe(true);
 });
 
 it("Coordinator completion proposals deduplicate, replay on approval, and retry as exact receipts", async () => {
@@ -4007,7 +4007,7 @@ it("interview completion refuses deterministic identifier collisions without cha
   ).toBeNull();
 });
 
-it("Head-reviewed interview correction retains original period and exposes pending completion without live changes", async () => {
+it("Admin-reviewed Coordinator interview correction retains original period and exposes pending completion without live changes", async () => {
   const { app, panel } = await interviewFixture();
   const input = {
     applicationId: app.id,
@@ -4038,8 +4038,9 @@ it("Head-reviewed interview correction retains original period and exposes pendi
     attendedTutorIds: [panel[0]!.id],
     expectedUpdatedAt: current.updatedAt,
   };
+  await db.user.update({ where: { id: "review-viewer" }, data: { role: "COORDINATOR" } });
   await expect(
-    caller("ADMIN", "panel-user-0", panel[0]!.id).interviewManagement.complete(
+    caller("COORDINATOR", "review-viewer").interviewManagement.complete(
       correction,
     ),
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
@@ -4055,7 +4056,7 @@ it("Head-reviewed interview correction retains original period and exposes pendi
   const request = await db.approvalRequest.findFirstOrThrow({
     where: { operation: "interviewManagement.complete", state: "PENDING" },
   });
-  await caller().approval.decide({
+  await caller("ADMIN", "panel-user-0", panel[0]!.id).approval.decide({
     id: request.id,
     approve: true,
     note: "Checked original interview evidence",

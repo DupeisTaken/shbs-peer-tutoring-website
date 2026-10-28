@@ -4,6 +4,10 @@ import {
   useSessionPageScroll,
 } from "~/app/_components/session-view-state";
 import {
+  useNotificationRecordReveal,
+  type NotificationRecordArrival,
+} from "~/app/_components/use-notification-record-reveal";
+import {
   CREW_PANELS,
   crewPanelParser,
   type CrewPanel,
@@ -254,8 +258,35 @@ export default function CrewPage() {
     enabled: availablePanels.length > 0,
   });
   const [recoveryPanel, setRecoveryPanel] = useState<CrewPanel | null>(null);
-  const panel = recoveryPanel ?? rememberedPanel;
+  const [arrival, setArrival] = useState<(NotificationRecordArrival & {
+    scope: "applications" | "requests";
+    recordId: string;
+  }) | null>(null);
+  const arrivalSequence = useRef(0);
+  // Source links select their review pane temporarily, preserving the ordinary
+  // visit's remembered tab. Only this page's authorized reads can reveal a row.
+  useEffect(() => {
+    const reveal = () => {
+      const target = /^#(application|request)-([a-zA-Z0-9_-]{1,128})$/.exec(window.location.hash);
+      setArrival(target ? {
+        hash: window.location.hash,
+        pathname: window.location.pathname,
+        sequence: ++arrivalSequence.current,
+        scope: target[1] === "application" ? "applications" : "requests",
+        recordId: target[2]!,
+      } : null);
+    };
+    reveal();
+    window.addEventListener("hashchange", reveal);
+    window.addEventListener("popstate", reveal);
+    return () => {
+      window.removeEventListener("hashchange", reveal);
+      window.removeEventListener("popstate", reveal);
+    };
+  }, []);
+  const panel = arrival ? "review" : recoveryPanel ?? rememberedPanel;
   const setPanel = (next: CrewPanel) => {
+    setArrival(null);
     if (availablePanels.includes(next)) {
       setRecoveryPanel(null);
       setRememberedPanel(next);
@@ -276,6 +307,14 @@ export default function CrewPage() {
       panelReady && panelAllowed && (panel !== "patrol" || patrolRead.ready),
     enabled: panelAllowed && (panel !== "patrol" || !patrolRead.denied),
   });
+  const arrivalSource = arrival ? sources[arrival.scope].query : null;
+  useNotificationRecordReveal(
+    arrival,
+    !!arrival && panel === "review" && !hidden(arrival.scope) &&
+      !arrivalSource?.error && !arrivalSource?.isFetching &&
+      !!(arrival.scope === "applications" ? apps : reqs).find((row) => row.id === arrival.recordId),
+    (cancelled) => setArrival((current) => current?.sequence === cancelled.sequence ? null : current),
+  );
   return (
     <div className="space-y-8">
       <div>
@@ -323,6 +362,7 @@ export default function CrewPage() {
                 apps.map((a) => (
                   <div
                     key={a.id}
+                    id={`application-${a.id}`}
                     className="flex flex-wrap items-center gap-3 py-3 text-sm"
                   >
                     <span className="font-medium text-slate-800">
@@ -517,6 +557,7 @@ export default function CrewPage() {
                 reqs.map((r) => (
                   <div
                     key={r.id}
+                    id={`request-${r.id}`}
                     className="flex flex-wrap items-center gap-3 py-3 text-sm"
                   >
                     <span className="font-medium text-slate-800">

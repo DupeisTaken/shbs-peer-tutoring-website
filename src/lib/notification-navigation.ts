@@ -21,7 +21,7 @@ export function isNotificationRecordDestination(href: string) {
   );
   return (
     !!(calendar && schoolCalendarHashDate(calendar[1]!)) ||
-    /^\/admin\/(?:requests#request-(?:survey|signup)-|applications#application-|pairings#)[a-zA-Z0-9_-]{1,128}$/.test(
+    /^\/admin\/(?:requests#request-(?:survey|signup)-|applications#application-|tutor-requests#request-|crew#(?:request|application)-|pairings#)[a-zA-Z0-9_-]{1,128}$/.test(
       href,
     )
   );

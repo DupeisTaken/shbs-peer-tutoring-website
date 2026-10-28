@@ -159,26 +159,30 @@ it.each(["en", "zh"] as const)(
   },
 );
 
-it("saves no-school status without a contradictory weekday and preserves the captured version", async () => {
-  render(tree());
-  edit();
-  fireEvent.change(
-    screen.getByRole("combobox", { name: en.schoolCalendar.schoolStatus }),
-    { target: { value: "closed" } },
-  );
-  expect(
-    screen.queryByRole("combobox", { name: en.schoolCalendar.timetable }),
-  ).toBeNull();
-  await submit();
-  expect(state.save).toHaveBeenCalledWith({
-    date: "2026-11-01",
-    isSchoolDay: false,
-    timetableWeekday: null,
-    note: "Synthetic staff note",
-    expectedVersion: 3,
-  });
-  expect(state.publicInvalidate).toHaveBeenCalledTimes(1);
-});
+it.each(["HEAD", "ADMIN"])(
+  "saves no-school status directly as %s without a contradictory weekday and preserves the captured version",
+  async (role) => {
+    state.role = role;
+    render(tree());
+    edit();
+    fireEvent.change(
+      screen.getByRole("combobox", { name: en.schoolCalendar.schoolStatus }),
+      { target: { value: "closed" } },
+    );
+    expect(
+      screen.queryByRole("combobox", { name: en.schoolCalendar.timetable }),
+    ).toBeNull();
+    await submit();
+    expect(state.save).toHaveBeenCalledWith({
+      date: "2026-11-01",
+      isSchoolDay: false,
+      timetableWeekday: null,
+      note: "Synthetic staff note",
+      expectedVersion: 3,
+    });
+    expect(state.publicInvalidate).toHaveBeenCalledTimes(1);
+  },
+);
 
 it("recreates a reset date using its tombstone version", async () => {
   state.days = [row({ active: false, version: 7 })];
@@ -281,8 +285,8 @@ it("keeps accepted saves locked and recovers a refresh failure through reads onl
   expect(screen.queryByText(en.schoolCalendar.refreshFailed)).toBeNull();
 });
 
-it("reports an Admin proposal as queued and does not resubmit it", async () => {
-  state.role = "ADMIN";
+it("reports a Coordinator proposal as queued and does not resubmit it", async () => {
+  state.role = "COORDINATOR";
   state.save.mockRejectedValueOnce({
     data: { approvalId: "synthetic-proposal" },
   });
@@ -290,7 +294,7 @@ it("reports an Admin proposal as queued and does not resubmit it", async () => {
   edit();
   await act(async () => {
     fireEvent.click(
-      screen.getByRole("button", { name: en.approvals.requestHead }),
+      screen.getByRole("button", { name: en.approvals.requestAdmin }),
     );
   });
   expect(screen.getByText(en.approvals.queuedBody)).toBeTruthy();
@@ -344,8 +348,8 @@ it("conceals denied cached records through transport errors and disables edits d
   ).toBe(true);
 });
 
-it("keeps non-editing staff read-only", () => {
-  state.role = "COORDINATOR";
+it("hides write actions when the current role has no calendar editing authority", () => {
+  state.role = "VIEWER";
   render(tree());
   expect(
     screen.queryByRole("button", { name: en.schoolCalendar.add }),
@@ -417,7 +421,7 @@ it("retains an ordinary rejected write draft for another deliberate attempt", as
 
 it("does not repeat an accepted new-date proposal after its editor closes", async () => {
   state.days = [];
-  state.role = "ADMIN";
+  state.role = "COORDINATOR";
   state.save.mockRejectedValueOnce({
     data: { approvalId: "synthetic-proposal" },
   });
@@ -428,7 +432,7 @@ it("does not repeat an accepted new-date proposal after its editor closes", asyn
   });
   await act(async () => {
     fireEvent.click(
-      screen.getByRole("button", { name: en.approvals.requestHead }),
+      screen.getByRole("button", { name: en.approvals.requestAdmin }),
     );
   });
   fireEvent.click(
@@ -443,4 +447,27 @@ it("does not repeat an accepted new-date proposal after its editor closes", asyn
     fireEvent.submit(field(en.schoolCalendar.date).closest("form")!);
   });
   expect(state.save).toHaveBeenCalledTimes(1);
+});
+it("queues a Coordinator reset for Admin review without reporting a direct reset", async () => {
+  state.role = "COORDINATOR";
+  state.reset.mockRejectedValueOnce({
+    data: { approvalId: "synthetic-reset-proposal" },
+  });
+  render(tree());
+  fireEvent.click(
+    screen.getByRole("button", { name: en.schoolCalendar.reset }),
+  );
+  await act(async () => {
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: en.approvals.requestAdmin,
+      }),
+    );
+  });
+  expect(state.reset).toHaveBeenCalledWith({
+    date: "2026-11-01",
+    expectedVersion: 3,
+  });
+  expect(screen.getByText(en.actionReview.queued)).toBeTruthy();
+  expect(state.save).not.toHaveBeenCalled();
 });

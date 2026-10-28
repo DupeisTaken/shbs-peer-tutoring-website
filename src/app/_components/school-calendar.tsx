@@ -48,8 +48,9 @@ export function SchoolCalendar() {
   const revokeReview = review.revoke;
   const denied = useSessionAccessDenied(identity, calendar);
   const canEdit =
-    !identity.error && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
-  const canApply = identity.data?.role === "HEAD";
+    !identity.error &&
+    ["HEAD", "ADMIN", "COORDINATOR"].includes(identity.data?.role ?? "");
+  const canApply = ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
   const [editor, setEditor] = useState<{
     day: Day | null;
     snapshot: Day[];
@@ -217,7 +218,7 @@ export function SchoolCalendar() {
                                     description: t("resetHelp"),
                                     confirmLabel: canApply
                                       ? t("reset")
-                                      : approvals("requestHead"),
+                                      : approvals("requestAdmin"),
                                     confirmVariant: "primary",
                                     details: (
                                       <p>
@@ -481,7 +482,7 @@ function SchoolDayEditor({
               ? t("saving")
               : canApply
                 ? t("save")
-                : approvals("requestHead")}
+                : approvals("requestAdmin")}
           </Button>
         </FormActions>
       </fieldset>

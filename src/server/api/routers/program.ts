@@ -15,7 +15,6 @@ import {
   protectedProcedure,
   adminProcedure,
   adminOnlyProcedure,
-  headProcedure,
 } from "~/server/api/trpc";
 import {
   getFeatures,
@@ -91,7 +90,7 @@ const httpUrl = z
 
 /**
  * Program configuration: the optional-module feature flags. Effective flags are public (any surface
- * can hide a disabled module); staging changes is HEAD-only and takes effect at the next refresh.
+ * can hide a disabled module); Admin/Head stage changes for the next Head-executed refresh.
  */
 export const programRouter = createTRPCRouter({
   nameFieldPolicy: publicProcedure.query(({ ctx }) =>
@@ -99,8 +98,8 @@ export const programRouter = createTRPCRouter({
   ),
   nameFieldSettings: adminProcedure.query(async ({ ctx }) => ({
     ...(await getNameFieldPolicy(ctx.db)),
-    canEdit: ["HEAD", "ADMIN"].includes(ctx.session.role),
-    canApply: ctx.session.role === "HEAD",
+    canEdit: ["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role),
+    canApply: ["HEAD", "ADMIN"].includes(ctx.session.role),
   })),
   nameFieldsForProfile: protectedProcedure
     .input(
@@ -192,8 +191,8 @@ export const programRouter = createTRPCRouter({
     days: await ctx.db.programCalendarDay.findMany({
       orderBy: { date: "asc" },
     }),
-    canEdit: ["HEAD", "ADMIN"].includes(ctx.session.role),
-    canApply: ctx.session.role === "HEAD",
+    canEdit: ["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role),
+    canApply: ["HEAD", "ADMIN"].includes(ctx.session.role),
   })),
   setCalendarDay: adminOnlyProcedure
     .input(programCalendarWrite)
@@ -220,8 +219,8 @@ export const programRouter = createTRPCRouter({
   captchaSettings: adminProcedure.query(async ({ ctx }) => ({
     ...(await captchaStatus(ctx.db)),
     ready: !!aliyunProvider(),
-    canEdit: ["ADMIN", "HEAD"].includes(ctx.session.role),
-    canApply: ctx.session.role === "HEAD",
+    canEdit: ["ADMIN", "HEAD", "COORDINATOR"].includes(ctx.session.role),
+    canApply: ["HEAD", "ADMIN"].includes(ctx.session.role),
   })),
   setCaptcha: adminOnlyProcedure
     .input(
@@ -285,8 +284,8 @@ export const programRouter = createTRPCRouter({
   })),
   profilePolicySettings: adminProcedure.query(async ({ ctx }) => ({
     ...(await getProfilePolicy(ctx.db)),
-    canEdit: ctx.session.role === "HEAD" || ctx.session.role === "ADMIN",
-    canApply: ctx.session.role === "HEAD",
+    canEdit: ["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role),
+    canApply: ["HEAD", "ADMIN"].includes(ctx.session.role),
   })),
   setProfilePolicy: adminOnlyProcedure
     .input(profilePolicySchema.extend({ expectedPolicy: profilePolicySchema }))
@@ -337,16 +336,16 @@ export const programRouter = createTRPCRouter({
         return after;
       }),
     ),
-  // Editing means proposing for Admin, applying for Head; Coordinator reads remain read-only.
+  // Coordinators propose changes; Admin/Head apply them directly.
   signupFieldSettings: adminProcedure.query(async ({ ctx }) => ({
     fields: await getSignupSettings(ctx.db),
-    canEdit: ["ADMIN", "HEAD"].includes(ctx.session.role),
-    canApply: ctx.session.role === "HEAD",
+    canEdit: ["ADMIN", "HEAD", "COORDINATOR"].includes(ctx.session.role),
+    canApply: ["HEAD", "ADMIN"].includes(ctx.session.role),
     secondaryEmailBindingEnabled:
       (await ctx.db.programSettings.findUnique({ where: { id: "program" } }))
         ?.secondaryEmailBindingEnabled ?? true,
   })),
-  setSignupField: headProcedure
+  setSignupField: adminOnlyProcedure
     .input(
       z
         .object({
@@ -413,8 +412,8 @@ export const programRouter = createTRPCRouter({
       enabled: settings?.emailNotificationsEnabled ?? false,
       secondaryEmailBindingEnabled:
         settings?.secondaryEmailBindingEnabled ?? true,
-      canEdit: ["HEAD", "ADMIN"].includes(ctx.session.role),
-      canApply: ctx.session.role === "HEAD",
+      canEdit: ["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role),
+      canApply: ["HEAD", "ADMIN"].includes(ctx.session.role),
       deliveryAvailable: isEmailDeliveryAvailable("PROGRAM"),
       failed,
     };
@@ -457,7 +456,7 @@ export const programRouter = createTRPCRouter({
         return { ok: true };
       }),
     ),
-  // Independent immediate availability setting; never a coordinator proposal.
+  // Independent immediate availability setting; Coordinator changes require review.
   setSecondaryEmailBinding: adminOnlyProcedure
     .input(z.object({ enabled: z.boolean(), expectedEnabled: z.boolean() }))
     .mutation(async ({ ctx, input }) =>
@@ -491,11 +490,11 @@ export const programRouter = createTRPCRouter({
     return {
       timeZone,
       timeZoneOptions: programTimeZoneOptions(timeZone),
-      canEdit: ctx.session.role === "HEAD" || ctx.session.role === "ADMIN",
-      canApply: ctx.session.role === "HEAD",
+      canEdit: ["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role),
+      canApply: ["HEAD", "ADMIN"].includes(ctx.session.role),
     };
   }),
-  // Central authority queues Admin proposals; only Head applies significant settings.
+  // Coordinators propose this setting; Admin/Head apply it without activating refresh.
   setTimeZone: adminOnlyProcedure
     .input(
       z.object({
@@ -511,7 +510,7 @@ export const programRouter = createTRPCRouter({
         // Period first matches preparation/refresh; changing the display zone never
         // rewrites saved instants, but an older entered-time review must be reloaded.
         await lockNextRecruitment(tx);
-        await assertNextRecruitmentActor(tx, ctx.session.user.id);
+        await assertNextRecruitmentActor(tx, ctx.session.user.id, ["ADMIN", "HEAD"]);
         const previous = await getProgramTimeZone(tx);
         if (previous !== input.expectedTimeZone)
           throw new TRPCError({
@@ -555,8 +554,8 @@ export const programRouter = createTRPCRouter({
   /** Next-period openings are separate from active intake and have independent save versions. */
   nextRecruitment: adminProcedure.query(async ({ ctx }) => ({
     ...(await readNextRecruitment(ctx.db)),
-    canEdit: ["HEAD", "ADMIN"].includes(ctx.session.role),
-    canApply: ctx.session.role === "HEAD",
+    canEdit: ["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role),
+    canApply: ["HEAD", "ADMIN"].includes(ctx.session.role),
   })),
   prepareNextRecruitment: adminOnlyProcedure
     .input(prepareNextRecruitmentSchema)
@@ -590,6 +589,7 @@ export const programRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const updated = await inTransaction(ctx.db, async (tx) => {
         await lockEntity(tx, "program:period");
+        await assertNextRecruitmentActor(tx, ctx.session.user.id, ["ADMIN", "HEAD"]);
         const active = await tx.term.findFirst({
           where: { active: true },
           orderBy: { createdAt: "desc" },
@@ -643,13 +643,13 @@ export const programRouter = createTRPCRouter({
       return updated;
     }),
 
-  /** Current + staged (pending) state for the Program UI, plus whether the caller may edit (HEAD). */
+  /** Current + staged state and separate proposal/direct capabilities for the Program UI. */
   featureSettings: adminProcedure.query(async ({ ctx }) => {
     const rows = await ctx.db.programFeature.findMany();
     const byKey = new Map(rows.map((r) => [r.key, r]));
     return {
-      canEdit: ["ADMIN", "HEAD"].includes(ctx.session.role),
-      canApply: ctx.session.role === "HEAD",
+      canEdit: ["ADMIN", "HEAD", "COORDINATOR"].includes(ctx.session.role),
+      canApply: ["HEAD", "ADMIN"].includes(ctx.session.role),
       features: FEATURE_KEYS.map((key) => {
         const row = byKey.get(key);
         return {
@@ -661,9 +661,9 @@ export const programRouter = createTRPCRouter({
     };
   }),
 
-  /** Stage a feature change (HEAD only). It activates at the next program refresh. Setting the
+  /** Admin/Head stage a feature change. It activates at the next program refresh. Setting the
    *  target back to the current effective value clears any pending change. */
-  setFeaturePending: headProcedure
+  setFeaturePending: adminOnlyProcedure
     .input(z.object({ key: featureKey, enabled: z.boolean() }))
     .mutation(async ({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
       if (
@@ -681,7 +681,7 @@ export const programRouter = createTRPCRouter({
       // an approval's older Serializable snapshot cannot silently miss a new toggle.
       if (input.key === "QUARTER_SYSTEM") await lockNextRecruitment(tx);
       else await lockEntity(tx, "program:period");
-      await assertNextRecruitmentActor(tx, ctx.session.user.id);
+      await assertNextRecruitmentActor(tx, ctx.session.user.id, ["ADMIN", "HEAD"]);
       const existing = await tx.programFeature.findUnique({
         where: { key: input.key },
         select: { enabled: true, pendingEnabled: true },

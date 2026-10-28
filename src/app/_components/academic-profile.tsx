@@ -223,7 +223,7 @@ export function AcademicForm({
               ? t("saving")
               : canApply
                 ? t("confirm")
-                : approvals("requestHead")}
+                : approvals("requestAdmin")}
           </button>
           <button
             type="button"

@@ -28,6 +28,21 @@ const at = (catalog: unknown, path: string | null): unknown =>
           : undefined,
       catalog,
     );
+
+it("labels recovery evidence only within its known schema owners", () => {
+  expect(auditEntityLabelKey("RecoveryReceipt")).toBe(
+    "auditEventDetails.presentation.entities.RecoveryReceipt",
+  );
+  expect(auditFieldLabelKey("RecoveryChange", "changedFields")).toBe(
+    "auditEventDetails.presentation.fields.changedFields",
+  );
+  expect(auditFieldLabelKey("User", "recoveryVoidedAt")).toBe(
+    "auditEventDetails.presentation.fields.recoveryVoidedAt",
+  );
+  expect(auditFieldLabelKey("Tutor", "recoveryVoidedAt")).toBeNull();
+  expect(auditFieldLabelKey("UnknownRecord", "changedFields")).toBeNull();
+});
+
 it.each(Object.entries({ en, zh, de, el, es, fr, ja, ko }))(
   "has localized schema vocabulary in %s",
   (_locale, catalog) => {

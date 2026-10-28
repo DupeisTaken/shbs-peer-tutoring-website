@@ -16,11 +16,13 @@ export function MembershipEditor({
   userId,
   initial,
   isHead = false,
+  canApply = isHead,
   selfService = false,
 }: {
   userId: string;
   initial: AccountMembership;
   isHead?: boolean;
+  canApply?: boolean;
   selfService?: boolean;
 }) {
   const t = useTranslations("membership");
@@ -73,14 +75,14 @@ export function MembershipEditor({
     <section className="mt-5 space-y-4 border-t border-slate-200 pt-5">
       <h3 className="section-title">{t("title")}</h3>
       <p className="muted text-sm">
-        {t(isHead && !selfService ? "headHelp" : "requestHelp")}
+        {t(canApply && !selfService ? "headHelp" : "requestHelp")}
       </p>
       <label className="block">
         <span className="label">{t("rank")}</span>
         <select
           className="select min-h-11 w-full lg:min-h-10"
           value={value.rank}
-          disabled={selfService || initial.rank === "HEAD" || pending}
+          disabled={selfService || !canApply || initial.rank === "HEAD" || pending}
           onChange={(event) =>
             setValue({
               ...value,
@@ -128,7 +130,7 @@ export function MembershipEditor({
           {t("viewerExclusive")}
         </p>
       )}
-      {isHead && !selfService && (
+      {canApply && !selfService && (
         <label className="block">
           <span className="label">{t("password")}</span>
           <input
@@ -146,14 +148,14 @@ export function MembershipEditor({
           type="button"
           className="btn-primary min-h-11 lg:min-h-10"
           disabled={
-            pending || !parsed.success || (isHead && !selfService && !password)
+            pending || !parsed.success || (canApply && !selfService && !password)
           }
           onClick={() => {
             if (
               pending ||
               submitting.current ||
               !parsed.success ||
-              (isHead && !selfService && !password)
+              (canApply && !selfService && !password)
             )
               return;
             submitting.current = true;
@@ -163,11 +165,11 @@ export function MembershipEditor({
               save.mutate({
                 userId,
                 membership: value,
-                ...(isHead ? { confirmPassword: password } : {}),
+                ...(canApply ? { confirmPassword: password } : {}),
               });
           }}
         >
-          {t(isHead && !selfService ? "save" : "request")}
+          {t(canApply && !selfService ? "save" : "request")}
         </button>
         {isHead &&
           !selfService &&

@@ -1,11 +1,15 @@
 "use client";
 import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import {
+  useNotificationRecordReveal,
+  type NotificationRecordArrival,
+} from "~/app/_components/use-notification-record-reveal";
+import {
   ParticipantName,
   participantNameLabel,
 } from "~/app/_components/participant-name";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { useFormatter, useTranslations } from "next-intl";
@@ -44,6 +48,31 @@ export default function TutorRequestsPage() {
     } else if (requests.isSuccess && !requests.isFetching) setDenied(false);
   }, [accessDenied, requests.isSuccess, requests.isFetching, queryClient]);
   const readBlocked = requests.data === undefined || !!requests.error;
+  const [arrival, setArrival] = useState<NotificationRecordArrival | null>(null);
+  const arrivalSequence = useRef(0);
+  // The authorized queue read resolves delayed source links without a second
+  // navigation, and the shared waiter relinquishes focus after user interaction.
+  useEffect(() => {
+    const reveal = () => {
+      const hash = window.location.hash;
+      setArrival(/^#request-[a-zA-Z0-9_-]{1,128}$/.test(hash) ? {
+        hash, pathname: window.location.pathname, sequence: ++arrivalSequence.current,
+      } : null);
+    };
+    reveal();
+    window.addEventListener("hashchange", reveal);
+    window.addEventListener("popstate", reveal);
+    return () => {
+      window.removeEventListener("hashchange", reveal);
+      window.removeEventListener("popstate", reveal);
+    };
+  }, []);
+  useNotificationRecordReveal(
+    arrival,
+    !!arrival && !readBlocked && !denied && !accessDenied && !requests.isFetching &&
+      !!requests.data?.some((request) => `#request-${request.id}` === arrival.hash),
+    (cancelled) => setArrival((current) => current?.sequence === cancelled.sequence ? null : current),
+  );
   const section = t("admin.tutorRequests.title");
   useSessionPageScroll({
     id: "tutor-requests-v1",
@@ -179,6 +208,7 @@ export default function TutorRequestsPage() {
         {list.map((req) => (
           <div
             key={req.id}
+            id={`request-${req.id}`}
             className="card flex flex-wrap items-center justify-between gap-3 p-4"
           >
             <div className="min-w-0">

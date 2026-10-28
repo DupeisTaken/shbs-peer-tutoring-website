@@ -170,19 +170,34 @@ it("rejects forged contact/status/qualification fields and reasonless edits at t
   expect(applicationIdentityCorrectionInput.safeParse(correction(app, { reason: "   " })).success).toBe(false);
 });
 
-it("allows Admin validated capture but only current Head application", async () => {
+it("allows Admin validated capture and direct application", async () => {
   const app = await fixture();
   const input = correction(app);
   await expect(validateApplicationIdentityCorrection(db, input, { id: "identity-admin" }))
     .resolves.toMatchObject({ revision: 0, next: { firstName: "Xiaoming" } });
   await expect(correctApplicationIdentity(db, input, { id: "identity-admin" }))
-    .rejects.toMatchObject({ code: "FORBIDDEN" });
-  await db.user.update({ where: { id: head.id }, data: { role: "ADMIN" } });
+    .resolves.toMatchObject({ revision: 1 });
+  expect(await fetchApplication(app.id)).toMatchObject({ firstName: "Xiaoming", identityRevision: 1 });
+});
+
+it("allows Coordinator proposal validation while rejecting direct application", async () => {
+  const app = await fixture();
+  const actor = { id: "identity-coordinator" };
+  await expect(validateApplicationIdentityCorrection(db, correction(app), actor)).resolves.toMatchObject({ revision: 0 });
+  await expect(correctApplicationIdentity(db, correction(app), actor)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await fetchApplication(app.id)).toEqual(app);
+});
+
+it.each(["demoted", "suspended"] as const)("rejects a %s direct actor despite an earlier valid correction snapshot", async (state) => {
+  const app = await fixture();
+  const input = correction(app);
+  await validateApplicationIdentityCorrection(db, input, head);
+  await db.user.update({ where: { id: head.id }, data: state === "demoted" ? { role: "COORDINATOR" } : { suspendedAt: new Date() } });
   await expect(correctApplicationIdentity(db, input, head)).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await fetchApplication(app.id)).toEqual(app);
 });
 
-it.each(["coordinator", "viewer", "tutor", "student", "crew"])("denies %s before proposal capture as well as direct application", async (role) => {
+it.each(["viewer", "tutor", "student", "crew"])("denies %s before proposal capture as well as direct application", async (role) => {
   const app = await fixture();
   const actor = { id: `identity-${role}` };
   await expect(validateApplicationIdentityCorrection(db, correction(app), actor)).rejects.toMatchObject({ code: "FORBIDDEN" });

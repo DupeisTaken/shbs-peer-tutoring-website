@@ -7,6 +7,53 @@ import {
   isReviewReference,
 } from "./approval-summary";
 
+it("keeps admission recovery context separate from its requested reason", () => {
+  const payload = {
+    actionId: "admission-one",
+    expectedFingerprint: "captured-hash",
+    clientKey: "retry-key",
+    reason: "Wrong admission decision",
+  };
+  const targets = {
+    version: 1,
+    actionId: payload.actionId,
+    applicantName: "Synthetic applicant",
+    dependentEventCount: 1,
+  };
+  const original = structuredClone({ payload, targets });
+  const model = approvalPresentation(
+    "recovery.voidAdmission",
+    payload,
+    targets,
+  );
+  expect(model.summary).toMatchObject({
+    known: true,
+    operationKey: "recovery_voidAdmission",
+  });
+  expect(model.summary.facts).toEqual(
+    expect.arrayContaining([
+      { key: "actionId", value: "admission-one" },
+      { key: "name", value: "Synthetic applicant" },
+    ]),
+  );
+  expect(
+    model.summary.changes.map(({ key, requested }) => ({ key, requested })),
+  ).toEqual([{ key: "reason", requested: "Wrong admission decision" }]);
+  expect({ payload, targets }).toEqual(original);
+  for (const evidence of [
+    {},
+    { ...targets, actionId: "another-admission" },
+    { ...targets, version: 2 },
+  ])
+    expect(
+      approvalPresentation(
+        "recovery.voidAdmission",
+        payload,
+        evidence,
+      ).summary.facts.some(({ key }) => key === "name"),
+    ).toBe(false);
+});
+
 it("authors a semantic summary contract for every allowed approval operation", () => {
   expect(Object.keys(approvalSummaryContexts).sort()).toEqual(
     Object.keys(APPROVAL_OPERATIONS).sort(),
@@ -34,6 +81,37 @@ it("authors a semantic summary contract for every allowed approval operation", (
         }),
       );
   }
+});
+
+it("summarizes a Translator grant with its captured user and permission change", () => {
+  const model = approvalPresentation(
+    "admin.setUserCanTranslate",
+    { userId: "translator-user", canTranslate: true },
+    {
+      User: [
+        {
+          record: {
+            id: "translator-user",
+            name: "Captured Translator",
+            canTranslate: false,
+          },
+        },
+      ],
+    },
+  );
+  expect(model.summary.known).toBe(true);
+  expect(model.summary.operationKey).toBe("admin_setUserCanTranslate");
+  expect(model.summary.changes).toContainEqual(
+    expect.objectContaining({
+      key: "translator",
+      before: false,
+      requested: true,
+      hasBefore: true,
+    }),
+  );
+  expect(model.summary.changes.some((field) => field.key === "userId")).toBe(
+    false,
+  );
 });
 
 it("promotes every changed pairing field and a captured composite identity", () => {

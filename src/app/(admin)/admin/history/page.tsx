@@ -1222,7 +1222,7 @@ function ReportTable({
       </TableActions>,
     );
   });
-  const canExport = api.account.me.useQuery().data?.role === "HEAD";
+  const canExport = ["ADMIN", "HEAD"].includes(api.account.me.useQuery().data?.role ?? "");
   return (
     <section className="space-y-2">
       <div className="report-section-head flex items-center justify-between">

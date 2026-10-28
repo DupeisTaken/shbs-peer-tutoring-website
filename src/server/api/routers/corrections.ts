@@ -1,3 +1,4 @@
+import { managementNotificationRecipients } from "~/server/notifications/create";
 import { notificationEvent } from "~/lib/notification-events";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { programDateKey } from "~/lib/program-time";
@@ -290,10 +291,7 @@ export const correctionsRouter = createTRPCRouter({
             details: json({ before, after: input }),
           },
         });
-        const heads = await tx.user.findMany({
-          where: { role: "HEAD", suspendedAt: null, mergedIntoId: null },
-          select: { id: true },
-        });
+        const heads = await managementNotificationRecipients(tx, "record_corrected");
         await notifyUsers(
           heads.map((h) => h.id),
           {
@@ -420,10 +418,7 @@ export const correctionsRouter = createTRPCRouter({
             }),
           },
         });
-        const heads = await tx.user.findMany({
-          where: { role: "HEAD", suspendedAt: null, mergedIntoId: null },
-          select: { id: true },
-        });
+        const heads = await managementNotificationRecipients(tx, "record_corrected");
         await notifyUsers(
           heads.map((h) => h.id),
           {

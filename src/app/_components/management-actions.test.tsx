@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -29,6 +30,7 @@ const mocks = vi.hoisted(() => ({
   invalidateOptions: vi.fn(),
   invalidateApplications: vi.fn(),
   invalidateCodes: vi.fn(),
+  reconcileNotices: vi.fn(),
 }));
 // Dialog internals have their own tests; these doubles verify that this panel
 // preserves the staged review flow and only forwards fresh reviewer tickets.
@@ -82,6 +84,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    notification: { reconcileManagementReviews: { useMutation: () => ({ mutateAsync: mocks.reconcileNotices }) } },
     useUtils: () => ({
       tutor: { myInterviews: { invalidate: mocks.invalidateInterviews } },
       interviewManagement: { options: { invalidate: mocks.invalidateOptions } },
@@ -176,6 +179,7 @@ beforeEach(() => {
   mocks.params = "";
   mocks.decisionState = {};
   mocks.refetch.mockResolvedValue({});
+  mocks.reconcileNotices.mockReset().mockResolvedValue({ pending: 2, created: 1 });
   for (const invalidate of [
     mocks.invalidateInterviews,
     mocks.invalidateOptions,
@@ -186,6 +190,41 @@ beforeEach(() => {
   queue();
 });
 afterEach(cleanup);
+
+it.each([false, true])("lets Admin and Head deliberately reconcile notices without deciding requests (Head=%s)", async (headReviewer) => {
+  queue([], true, 0, headReviewer);
+  render(view(true));
+  expect(mocks.reconcileNotices).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: en.approvals.reviewerNoticesRefresh }));
+  await screen.findByText(en.approvals.reviewerNoticesResult.replace("{created}", "1").replace("{pending}", "2"));
+  expect(mocks.reconcileNotices).toHaveBeenCalledExactlyOnceWith();
+  expect(mocks.decide).not.toHaveBeenCalled();
+  expect(mocks.refetch).not.toHaveBeenCalled();
+});
+
+it("conceals notification reconciliation from request-only Coordinators", () => {
+  queue([], false);
+  render(view(false));
+  expect(screen.queryByRole("button", { name: en.approvals.reviewerNoticesRefresh })).toBeNull();
+  expect(mocks.reconcileNotices).not.toHaveBeenCalled();
+});
+
+it("admits one reconciliation while pending and permits a deliberate retry after failure", async () => {
+  let reject!: (failure: Error) => void;
+  mocks.reconcileNotices.mockReturnValueOnce(new Promise((_resolve, fail) => { reject = fail; }));
+  queue([], true);
+  render(view(true, "zh"));
+  const button = screen.getByRole("button", { name: zh.approvals.reviewerNoticesRefresh });
+  act(() => { fireEvent.click(button); fireEvent.click(button); });
+  expect(mocks.reconcileNotices).toHaveBeenCalledOnce();
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: zh.approvals.reviewerNoticesPending }).disabled).toBe(true);
+  await act(async () => reject(new Error("Temporary notification failure")));
+  expect(screen.getByRole("alert").textContent).toBe("Temporary notification failure");
+  fireEvent.click(screen.getByRole("button", { name: zh.approvals.reviewerNoticesRefresh }));
+  await screen.findByText(zh.approvals.reviewerNoticesResult.replace("{created}", "1").replace("{pending}", "2"));
+  expect(mocks.reconcileNotices).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("alert")).toBeNull();
+});
 
 // A decision can remove the only row on the last page. The remaining queue must
 // stay reachable even when its new total no longer needs a second page.
@@ -554,9 +593,9 @@ it("requires a nonblank note and explains both proposal outcomes", () => {
 });
 
 it("explains Head-only requests when an Admin cannot decide them", () => {
-  queue([{ ...row(), operation: "admin.setMemberships" }], true);
+  queue([{ ...row(), operation: "admin.refresh", reviewerRoles: ["HEAD"], canDecide: false }], true);
   render(view(true));
-  expect(screen.getByText("Only Head can decide this request.")).toBeTruthy();
+  expect(screen.getByText(en.approvals.review.headRequired)).toBeTruthy();
   expect(
     screen.queryByRole("button", { name: "Approve and Apply" }),
   ).toBeNull();
@@ -872,14 +911,14 @@ it.each([true, false])(
   },
 );
 
-it("honors server review authority for a payload-dependent reversal", () => {
+it("honors current server review authority for a payload-dependent reversal", () => {
   queue(
     [
       {
         ...row(),
         operation: "messaging.moderate",
         canDecide: false,
-        reviewerRoles: ["HEAD"],
+        reviewerRoles: ["ADMIN", "HEAD"],
         payload: SuperJSON.serialize({
           messageId: "message",
           hide: false,
@@ -890,25 +929,25 @@ it("honors server review authority for a payload-dependent reversal", () => {
     true,
   );
   render(view(true));
-  expect(screen.getByText(en.approvals.review.headRequired)).toBeTruthy();
+  expect(screen.getByText(en.approvals.review.waitingReviewer)).toBeTruthy();
   expect(
     screen.queryByRole("button", { name: en.approvals.approve }),
   ).toBeNull();
 });
-it("requires a fresh Head password for legacy management role requests", () => {
+it("requires the current reviewer's fresh password for legacy management role requests", () => {
   queue(
     [
       {
         ...row(),
         operation: "admin.setUserRole",
         canDecide: true,
-        reviewerRoles: ["HEAD"],
+        reviewerRoles: ["ADMIN", "HEAD"],
         payload: SuperJSON.serialize({ userId: "account", role: "ADMIN" }),
       },
     ],
     true,
     1,
-    true,
+    false,
   );
   render(view(true));
   fireEvent.change(

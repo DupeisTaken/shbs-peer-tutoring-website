@@ -59,6 +59,7 @@ async function eligibleUsers(tx: TransactionDb, userIds: string[]) {
   const users = await tx.user.findMany({
     where: {
       id: { in: [...new Set(userIds)] },
+      role: { not: "VIEWER" },
       suspendedAt: null,
       mergedIntoId: null,
       OR: [

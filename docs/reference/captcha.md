@@ -66,9 +66,9 @@ No credentials enter browser configuration or the management status response.
 This adapter uses explicit credentials; it does not automatically discover an ECS
 role or refresh STS credentials. Rotate secrets/restart through normal deployment.
 
-In **Management → Program Settings → Deployment Configurations → CAPTCHA Verification**, Head applies
-enable/disable changes; Admin submits them for Head review. Coordinators can read
-status but cannot propose changes. Enabling validates local configuration; readiness is **not** an
+In **Management → Program Settings → Deployment Configurations → CAPTCHA Verification**, Admin and Head apply
+enable/disable changes directly; Coordinators can inspect status and request
+Admin approval for changes. Enabling validates local configuration; readiness is **not** an
 external health check. Disabling never contacts Aliyun. Version comparisons reject
 stale concurrent updates, including off/on/off changes. Audit entries include the
 actor, time, prior and new values. Period refresh preserves this independent setting.
@@ -84,7 +84,7 @@ when available. Already-loaded provider code/requests cannot be revoked or unbil
 
 Rejections, script-load failures, provider unavailability and application errors
 have separate translated messages. Users retry explicitly, with the signup cooldown
-still active. During an outage, Head can turn the switch off in the portal;
+still active. During an outage, Admin or Head can turn the switch off in the portal;
 signup rate limits/email budgets remain enforced. This intentionally **fails closed**
 for unauthenticated mail-producing operations, unlike Aliyun's general suggestion
 to allow requests on transport errors. Sign-in and existing emailed proof remain

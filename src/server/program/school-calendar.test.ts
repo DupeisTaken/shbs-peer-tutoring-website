@@ -253,20 +253,52 @@ it("serializes competing writes and rejects unversioned overwrites of legacy row
   ).toEqual(legacy);
 });
 
-it("keeps set/reset in Head review, captures current versions and emits only for applied changes", async () => {
-  for (const role of ["COORDINATOR", "TUTOR", "STUDENT"] as const)
+it.each(["ADMIN", "HEAD"] as const)(
+  "lets %s apply school calendar set/reset directly without a proposal",
+  async (role) => {
+    const saved = await caller(role).student.setCalendarDay(mapping);
+    expect(saved).toMatchObject({
+      active: true,
+      version: 1,
+      scheduleRevision: 1,
+    });
+    expect(await db.approvalRequest.count()).toBe(0);
+    const reset = await caller(role).student.resetCalendarDay({
+      date: saved.date,
+      expectedVersion: saved.version,
+    });
+    expect(reset).toMatchObject({
+      active: false,
+      version: 2,
+      scheduleRevision: 2,
+    });
+    expect(await db.approvalRequest.count()).toBe(0);
+    expect(notifySchoolCalendarChange).toHaveBeenCalledTimes(2);
+    expect(
+      await db.auditLog.findFirst({
+        where: {
+          entity: "SchoolCalendarDay",
+          action: "School calendar: reset to default",
+        },
+      }),
+    ).toMatchObject({ userId: `calendar-${role}` });
+  },
+);
+
+it("queues Coordinator set/reset for management review, captures current versions and emits only for applied changes", async () => {
+  for (const role of ["TUTOR", "STUDENT"] as const)
     await expect(
       caller(role).student.setCalendarDay(mapping),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   await expect(
-    caller("ADMIN").student.setCalendarDay(mapping),
+    caller("COORDINATOR").student.setCalendarDay(mapping),
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect(await db.schoolCalendarDay.count()).toBe(0);
   expect(notifySchoolCalendarChange).not.toHaveBeenCalled();
   const proposal = await db.approvalRequest.findFirstOrThrow({
     where: { operation: "student.setCalendarDay" },
   });
-  await caller().approval.decide({
+  await caller("ADMIN").approval.decide({
     id: proposal.id,
     approve: true,
     note: "Calendar checked",
@@ -274,7 +306,7 @@ it("keeps set/reset in Head review, captures current versions and emits only for
   const applied = await db.schoolCalendarDay.findUniqueOrThrow({
     where: { date: mapping.date },
   });
-  for (const role of ["COORDINATOR", "TUTOR", "STUDENT"] as const)
+  for (const role of ["TUTOR", "STUDENT"] as const)
     await expect(
       caller(role).student.resetCalendarDay({
         date: applied.date,
@@ -282,7 +314,7 @@ it("keeps set/reset in Head review, captures current versions and emits only for
       }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   await expect(
-    caller("ADMIN").student.resetCalendarDay({
+    caller("COORDINATOR").student.resetCalendarDay({
       date: applied.date,
       expectedVersion: applied.version,
     }),
@@ -293,13 +325,13 @@ it("keeps set/reset in Head review, captures current versions and emits only for
   expect(resetProposal.targets).toMatchObject({
     calendar: [{ date: applied.date, active: true, version: applied.version }],
   });
-  await caller().student.setCalendarDay({
+  await caller("ADMIN").student.setCalendarDay({
     ...mapping,
     note: "Later explanation",
     expectedVersion: applied.version,
   });
   await expect(
-    caller().approval.decide({
+    caller("ADMIN").approval.decide({
       id: resetProposal.id,
       approve: true,
       note: "Outdated reset",
@@ -313,6 +345,32 @@ it("keeps set/reset in Head review, captures current versions and emits only for
     ).active,
   ).toBe(true);
   expect(notifySchoolCalendarChange).toHaveBeenCalledTimes(1);
+  const current = await db.schoolCalendarDay.findUniqueOrThrow({
+    where: { date: applied.date },
+  });
+  await expect(
+    caller("COORDINATOR").student.resetCalendarDay({
+      date: current.date,
+      expectedVersion: current.version,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const replacement = await db.approvalRequest.findFirstOrThrow({
+    where: {
+      operation: "student.resetCalendarDay",
+      id: { not: resetProposal.id },
+    },
+  });
+  await caller("ADMIN").approval.decide({
+    id: replacement.id,
+    approve: true,
+    note: "Current reset checked",
+  });
+  expect(
+    await db.schoolCalendarDay.findUniqueOrThrow({
+      where: { date: current.date },
+    }),
+  ).toMatchObject({ active: false, version: current.version + 1 });
+  expect(notifySchoolCalendarChange).toHaveBeenCalledTimes(2);
 });
 
 it("rolls back calendar and audit changes if transactional notification intent fails", async () => {

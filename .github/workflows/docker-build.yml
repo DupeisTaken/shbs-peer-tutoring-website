@@ -43,6 +43,8 @@ jobs:
         run: npm run test:pr-size
       - name: Test deployment helpers
         run: npm run test:deployment
+      - name: Test standalone recovery tooling
+        run: npm run test:recovery
       - name: Audit all dependencies
         run: npm audit
 
@@ -50,13 +52,13 @@ jobs:
     name: tests (${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
     # Whole-job budget includes container startup, installation and migrations.
-    # Five shards leave headroom below nine minutes using the recorded CI timings.
+    # Eight shards retain setup headroom as the integration suite grows; see verification.md.
     timeout-minutes: 9
     strategy:
       # Let every shard finish so a failure still leaves complete diagnostics.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     # Each runner owns its database. Files stay serial within each shard because
     # integration fixtures truncate shared tables; local test defaults are unchanged.
     services:

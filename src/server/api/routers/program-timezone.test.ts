@@ -49,19 +49,19 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
-it("keeps Admin timezone requests pending until Head applies the parsed change", async () => {
-  await expect(caller("ADMIN").program.setTimeZone({ timeZone: "UTC", expectedTimeZone: "Asia/Shanghai" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+it("keeps Coordinator timezone requests pending until Admin applies the parsed change", async () => {
+  await expect(caller("COORDINATOR").program.setTimeZone({ timeZone: "UTC", expectedTimeZone: "Asia/Shanghai" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect(await db.programSettings.count()).toBe(0);
   const request = await db.approvalRequest.findFirstOrThrow({ where: { operation: "program.setTimeZone" } });
-  await caller("HEAD").approval.decide({ id: request.id, approve: true, note: "Review school timezone" });
+  await caller("ADMIN").approval.decide({ id: request.id, approve: true, note: "Review school timezone" });
   expect((await caller("ADMIN").program.timeZoneSettings()).timeZone).toBe("UTC");
 });
 
-it("defaults to Shanghai, permits Head changes and records before/after evidence", async () => {
+it.each(["ADMIN", "HEAD"] as const)("defaults to Shanghai, permits %s changes and records before/after evidence", async (role) => {
   expect((await caller("ADMIN").program.timeZoneSettings()).timeZone).toBe(
     "Asia/Shanghai",
   );
-  await caller("HEAD").program.setTimeZone({
+  await caller(role).program.setTimeZone({
     timeZone: "America/New_York",
     expectedTimeZone: "Asia/Shanghai",
   });
@@ -81,7 +81,7 @@ it("defaults to Shanghai, permits Head changes and records before/after evidence
   });
 });
 it("rejects unauthorized, invalid and stale changes without changing settings", async () => {
-  for (const role of ["COORDINATOR", "STUDENT"] as const)
+  for (const role of ["STUDENT"] as const)
     await expect(
       caller(role).program.setTimeZone({
         timeZone: "UTC",

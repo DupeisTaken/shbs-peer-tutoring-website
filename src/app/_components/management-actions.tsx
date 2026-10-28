@@ -7,7 +7,7 @@ import {
 import Link from "next/link";
 import { isAssignmentOperation } from "~/lib/assignment-qualification";
 import { AssignmentConfirmation } from "./assignment-confirmation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import {
   useSessionAccessDenied,
   useSessionPageScroll,
@@ -25,7 +25,8 @@ import { useFormatter, useTranslations } from "next-intl";
 import SuperJSON from "superjson";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
+import { proposalConfirmation } from "~/lib/approval-policy";
+import { eventTitle } from "~/lib/event-title";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
 import { ApprovalReviewDetails } from "./approval-review-details";
 import { ReviewDisclosure } from "./review-disclosure";
@@ -49,6 +50,7 @@ function RequestCard({
   onChanged: (operation?: string) => Promise<void>;
 }) {
   const t = useTranslations("approvals");
+  const titles = useTranslations();
   const editing = useTranslations("signupEditing");
   const appeals = useTranslations("signupAppeal");
   const format = useFormatter();
@@ -160,13 +162,7 @@ function RequestCard({
                 className="hover:underline"
                 href={`/admin/approvals?request=${encodeURIComponent(request.id)}`}
               >
-                {t.has(
-                  `review.operations.${request.operation.replaceAll(".", "_")}`,
-                )
-                  ? t(
-                      `review.operations.${request.operation.replaceAll(".", "_")}`,
-                    )
-                  : humanizeOperation(request.operation)}
+                {eventTitle(titles, { operation: request.operation, kind: "SUBMISSION" })}
               </Link>
             </h2>
             <p className="mt-1 text-sm text-slate-500">
@@ -570,6 +566,7 @@ function ApprovalQueue({
           >
             {t("refresh")}
           </Button>
+          {queue.data?.canReview && !queue.error && <ReviewerNotificationRefresh />}
           {requestId && (
             <Link className="link" href="/admin/approvals?status=all">
               {t("allRequests")}
@@ -659,6 +656,36 @@ function ApprovalQueue({
       )}
     </div>
   );
+}
+
+/** This deliberate staff write fills missing reviewer notices without replaying
+ * decisions. Its lifetime and same-turn guard are independent of list refresh. */
+function ReviewerNotificationRefresh() {
+  const t = useTranslations("approvals");
+  const reconcile = api.notification.reconcileManagementReviews.useMutation();
+  const inFlight = useRef(false);
+  const [pending, setPending] = useState(false);
+  const [result, setResult] = useState<{ pending: number; created: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  return <div className="space-y-2">
+    <Button size="compact" disabled={pending} onClick={async () => {
+      if (inFlight.current) return;
+      inFlight.current = true;
+      setPending(true);
+      setResult(null);
+      setError(null);
+      try {
+        setResult(await reconcile.mutateAsync());
+      } catch (failure) {
+        setError(failure instanceof Error ? failure.message : t("reviewerNoticesFailed"));
+      } finally {
+        inFlight.current = false;
+        setPending(false);
+      }
+    }}>{t(pending ? "reviewerNoticesPending" : "reviewerNoticesRefresh")}</Button>
+    {result && <p role="status" className="max-w-xl text-sm text-slate-700">{t("reviewerNoticesResult", result)}</p>}
+    {error && <p role="alert" className="max-w-xl text-sm text-red-700">{error}</p>}
+  </div>;
 }
 
 function LinkedQueue({ reviewer }: { reviewer: boolean }) {

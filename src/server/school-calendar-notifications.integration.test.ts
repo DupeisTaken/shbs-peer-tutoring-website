@@ -285,6 +285,22 @@ it("excludes suspended, departed, unconfirmed and inactive identities using live
   expect(await db.notification.count({ where: noticeWhere })).toBe(0);
 });
 
+it("excludes a Viewer with retained participant links from new notices and queued email", async () => {
+  await applyMapping();
+  const userId = `${prefix}tutor-user-1`;
+  const row = await db.emailDelivery.findFirstOrThrow({ where: { ...noticeWhere, userId } });
+  await db.user.update({ where: { id: userId }, data: {
+    role: "VIEWER", tutorAccessRevoked: true, tuteeMember: false,
+    canTranslate: false, crewStatus: null,
+  } });
+  expect(await schoolCalendarEmailEligible(db, row, now)).toBe(false);
+  await applyMapping(3);
+  expect(await db.notification.count({ where: {
+    ...noticeWhere, userId,
+    context: { path: ["calendarRevision"], equals: 2 },
+  } })).toBe(0);
+});
+
 it("fences stale and same-revision-wrong-state mail, with current eligibility rechecked at dispatch", async () => {
   await applyMapping();
   const row = await db.emailDelivery.findFirstOrThrow({

@@ -18,6 +18,26 @@ it("restores recorded preparation instants without conflating absent preparation
   expect(nextRecruitmentApprovalReview("admin.refresh", {}, {})).toBeNull();
 });
 
+it("preserves exact staged switch evidence and keeps legacy omissions absent", () => {
+  const stagedFeatures = [
+    { key: "CREW", enabled: false, pendingEnabled: true, revision: 2 },
+    { key: "MEETINGS", enabled: true, pendingEnabled: false, revision: 4 },
+    { key: "SERVICE_HOURS", enabled: true, pendingEnabled: null, revision: 1 },
+  ];
+  const evidence = {
+    target: { sourceTermId: "term", sourceSchoolYear: "26-27", sourceQuarter: "Q1", destinationSchoolYear: "26-27", destinationQuarter: "Q2", semesterMode: false, modeRevision: 1 },
+    currentName: "26-27 Q1", nextName: "26-27 Q2", timeZone: "Asia/Shanghai",
+    preparations: { tutor: null, tutee: null }, refreshEvidence: { destination: null, stagedFeatures },
+  };
+  const before = JSON.stringify(evidence);
+  const parsed = nextRecruitmentApprovalReview("admin.refresh", {}, { nextRecruitment: evidence });
+  expect(parsed).toHaveProperty("snapshot.refreshEvidence.stagedFeatures", stagedFeatures);
+  expect(JSON.stringify(evidence)).toBe(before);
+  const legacy = nextRecruitmentApprovalReview("admin.refresh", {}, { nextRecruitment: { ...evidence, refreshEvidence: { destination: null } } });
+  expect(legacy).not.toBeNull();
+  expect(legacy).not.toHaveProperty("snapshot.refreshEvidence.stagedFeatures");
+});
+
 describe("immutable approval presentation", () => {
   it("shows the captured active override being reset without inventing changes to its retained timetable", () => {
     const model = approvalReview(
@@ -48,6 +68,20 @@ describe("immutable approval presentation", () => {
       ),
     ).toBe(false);
   });
+  it.each([[false, true], [true, false], [false, false]] as const)("compares standalone Translator access with captured membership evidence (%s to %s)", (before, requested) => {
+    const model = approvalReview("admin.setUserCanTranslate", { userId: "u", canTranslate: requested }, { User: [{ record: { id: "u", canTranslate: before } }] });
+    expect(model.kind).toBe("update");
+    expect(before === requested ? model.unchanged : model.changes).toEqual([
+      { key: "translator", requested, before, hasBefore: true },
+    ]);
+    expect(before === requested ? model.changes : model.unchanged).toEqual([]);
+  });
+
+  it("does not invent missing legacy Translator permission evidence", () => {
+    const model = approvalReview("admin.setUserCanTranslate", { userId: "u", canTranslate: true }, { User: [{ record: { id: "u" } }] });
+    expect(model.changes).toEqual([{ key: "translator", requested: true, before: undefined, hasBefore: false }]);
+  });
+
   it("compares corrected names with submission-time values and separates the explanation", () => {
     const model = approvalReview(
       "admin.correctApplicationIdentity",

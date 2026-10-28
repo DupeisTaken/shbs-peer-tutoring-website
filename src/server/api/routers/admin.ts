@@ -128,6 +128,7 @@ import {
   inTransaction,
   lockEntity,
   type DomainDb,
+  type TransactionDb,
 } from "~/server/transactions";
 
 import {
@@ -158,7 +159,7 @@ import {
   ensureUserUsername,
   splitDisplayName,
 } from "~/server/auth/username";
-import { assertCallerPassword } from "~/server/auth/reauth";
+import { verifyPasswordConfirmation } from "~/server/auth/password-confirmation";
 import {
   issueAccountVerification,
   issueTutorSetupLink,
@@ -173,10 +174,12 @@ import {
 } from "~/server/tutors/application-identity";
 import { decideCrewApplication } from "~/server/crew/signup";
 import { reconcileApplication } from "~/server/tutors/application-status";
+import { beginAdmissionRecoveryCapture, finishAdmissionRecoveryCapture } from "~/server/recovery/capture";
 import {
   notifyAdmins,
   notifyTutors,
   notifyUsers,
+  reconcileManagementReviewNotifications,
 } from "~/server/notifications/create";
 import { standingFromCounts } from "~/lib/discipline";
 import {
@@ -216,6 +219,25 @@ import {
   roomBlockForWrite,
 } from "~/server/room-bookings";
 import { studentRequestRows } from "~/server/student-workflow";
+
+/** Role writers acquire the namespace/leadership barriers first. Freeze the actor
+ * afterwards so suspension, retirement or demotion cannot pass a waiting write. */
+async function activeManagementActor(tx: TransactionDb, userId: string, headOnly = false) {
+  await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR SHARE`;
+  const actor = await tx.user.findUnique({ where: { id: userId } });
+  if (!actor || actor.suspendedAt || actor.mergedIntoId ||
+    !(headOnly ? ["HEAD"] : ["ADMIN", "HEAD"]).includes(actor.role))
+    throw new TRPCError({ code: "FORBIDDEN", message: headOnly ? "Head access required." : "Administrator access required." });
+  return actor;
+}
+
+/** Recheck the password against the locked current account, after any barrier wait. */
+function requireManagementPassword(actor: { id: string; passwordHash: string | null }, password: string) {
+  if (!actor.passwordHash)
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Set a password on your account before performing this action." });
+  if (!verifyPasswordConfirmation(actor.id, password, actor.passwordHash))
+    throw new TRPCError({ code: "FORBIDDEN", message: "Password is incorrect." });
+}
 
 /**
  * Detach an inactive tutor's active-term tutees from their pairings and re-queue them (set PENDING)
@@ -2138,7 +2160,7 @@ export const adminRouter = createTRPCRouter({
         };
 
         const out = await (async () => {
-          // Activate any HEAD-staged optional-module toggles at this period boundary.
+          // Activate the exact Admin/Head-staged toggles reviewed at this period boundary.
           await applyPendingFeatures(tx);
           await tx.term.updateMany({
             where: { active: true },
@@ -2291,7 +2313,7 @@ export const adminRouter = createTRPCRouter({
   // Tutor / Tutee / Room management
   // --------------------------------------------------------------------------
   // Deliberate, auditable batches; verified students never acquire handles merely by reading a page.
-  backfillStudentUsernames: headProcedure
+  backfillStudentUsernames: adminOnlyProcedure
     .input(z.object({ userIds: z.array(cuid).min(1).max(100) }))
     .mutation(({ ctx, input }) =>
       backfillStudentUsernames(ctx.db, ctx.session.user.id, input.userIds),
@@ -2377,7 +2399,7 @@ export const adminRouter = createTRPCRouter({
         expectedUpdatedAt: expectedUpdatedAt.optional(),
         ...optionalPersonNameFields,
         alternativeNames: z.string().trim().max(200).nullable().optional(),
-        // Head can correct an unlinked handle; linked logins use the account editor.
+        // Admin/Head can correct an unlinked handle; linked logins use the account editor.
         username: z.string().trim().optional(),
         email: z.string().email().nullable().optional(),
         gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
@@ -2434,7 +2456,7 @@ export const adminRouter = createTRPCRouter({
       )
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Edit login usernames through Users & Roles as Head.",
+          message: "Edit login usernames through Users & Roles as Admin or Head.",
         });
       const prev = await ctx.db.tutor.findUnique({
         where: { id: input.id },
@@ -2443,6 +2465,7 @@ export const adminRouter = createTRPCRouter({
       const updated = await inTransaction(ctx.db, async (tx) => {
         await lockEntity(tx, "program:period");
         await lockUsernameNamespace(tx);
+        await activeManagementActor(tx, ctx.session.user.id);
         if (account) await lockAccountProfile(tx, account.id);
         await lockEntity(tx, `tutor:${input.id}`);
         const before = await tx.tutor.findUniqueOrThrow({
@@ -2460,10 +2483,10 @@ export const adminRouter = createTRPCRouter({
           input.username !== undefined &&
           input.username.trim().toLowerCase() !== (before.username ?? "")
         ) {
-          if (account || ctx.session.role !== "HEAD")
+          if (account || !["HEAD", "ADMIN"].includes(ctx.session.role))
             throw new TRPCError({
               code: "FORBIDDEN",
-              message: "Only Head may edit an unlinked tutor username.",
+              message: "Only Admin or Head may edit an unlinked tutor username.",
             });
           const parsed = accountUsernameSchema.safeParse(input.username);
           if (!parsed.success)
@@ -2588,11 +2611,11 @@ export const adminRouter = createTRPCRouter({
         )
           await preserveHistoricalAcademics(tx, "TUTOR", before.id);
         // The middleware's routing decision is not authority for a later state transition.
-        if (before.status !== input.status && ctx.session.role !== "HEAD")
+        if (before.status !== input.status && !["HEAD", "ADMIN"].includes(ctx.session.role))
           throw new TRPCError({
             code: "CONFLICT",
             message:
-              "Tutor membership changed. Ask Head to review this status change.",
+              "Tutor membership changed. Ask Admin or Head to review this status change.",
           });
         if (
           input.expectedUpdatedAt &&
@@ -2612,7 +2635,7 @@ export const adminRouter = createTRPCRouter({
                 userId: account.id,
                 action: input.status,
                 expectedRevision: departure?.revision ?? 0,
-                explanation: "Head confirmed departure through tutor roster",
+                explanation: "Management confirmed departure through tutor roster",
               },
               ctx.session.user.id,
             );
@@ -2822,6 +2845,7 @@ export const adminRouter = createTRPCRouter({
         // Serialize profile restoration with departure, including historically owned profiles.
         await lockEntity(tx, "program:period");
         await lockUsernameNamespace(tx);
+        await activeManagementActor(tx, ctx.session.user.id);
         await lockCatalogue(tx);
         // Take the reservation fence before request/account/tutee row locks, as
         // assignment writers hold it while replacing a group's active roster.
@@ -3869,7 +3893,7 @@ export const adminRouter = createTRPCRouter({
     ),
 
   // Classification denies Coordinator before proposal interception. The domain helper
-  // rechecks the live Head under the same locks used by promotion and review replay.
+  // rechecks the live reviewer under the same locks used by promotion and review replay.
   correctApplicationIdentity: adminOnlyProcedure
     .input(applicationIdentityCorrectionInput)
     .mutation(({ ctx, input }) =>
@@ -3987,11 +4011,11 @@ export const adminRouter = createTRPCRouter({
           code: "NOT_FOUND",
           message: "Application not found.",
         });
-      if (app.status === "ACCEPTED" && ctx.session.role !== "HEAD")
+      if (app.status === "ACCEPTED" && !["HEAD", "ADMIN"].includes(ctx.session.role))
         throw new TRPCError({
           code: "FORBIDDEN",
           message:
-            "Only Head can replace the panel of an accepted applicant and revoke its tutor grant.",
+            "Only Admin or Head can replace the panel of an accepted applicant and revoke its tutor grant.",
         });
       const found = await ctx.db.tutor.count({
         where: { id: { in: tutorIds }, status: "ACTIVE" },
@@ -4058,12 +4082,12 @@ export const adminRouter = createTRPCRouter({
         }
         if (
           lockedApplication.status === "ACCEPTED" &&
-          ctx.session.role !== "HEAD"
+          !["HEAD", "ADMIN"].includes(ctx.session.role)
         )
           throw new TRPCError({
             code: "CONFLICT",
             message:
-              "Applicant membership changed. Head must review replacement of this panel.",
+              "Applicant membership changed. Admin or Head must review replacement of this panel.",
           });
         await validatePanel(
           tx,
@@ -4133,6 +4157,7 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         await lockUsernameNamespace(tx);
+        await activeManagementActor(tx, ctx.session.user.id);
         await lockApplicationReview(tx, input.id);
         const prev = await tx.tutorApplication.findUnique({
           where: { id: input.id },
@@ -4179,6 +4204,8 @@ export const adminRouter = createTRPCRouter({
             message:
               "Interview panels and outcomes must use the assigned interview workflow.",
           });
+        const recoveryActionId = input.status === "ACCEPTED" && prev.status !== "ACCEPTED"
+          ? await beginAdmissionRecoveryCapture(tx, input.id) : null;
         const updated = await tx.tutorApplication.updateMany({
           where: { id: input.id, updatedAt: input.expectedUpdatedAt },
           data: { status: input.status },
@@ -4186,6 +4213,7 @@ export const adminRouter = createTRPCRouter({
         if (updated.count === 0) staleConflict();
         // On the transition to ACCEPTED, add the applicant to the tutors list.
         await reconcileApplication(tx, input.id);
+        await finishAdmissionRecoveryCapture(tx, recoveryActionId);
         const after = await tx.tutorApplication.findUniqueOrThrow({
           where: { id: input.id },
           select: { updatedAt: true },
@@ -4542,6 +4570,9 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      await lockUsernameNamespace(ctx.db);
+      await activeManagementActor(ctx.db, ctx.session.user.id);
+      await lockAccountProfile(ctx.db, input.userId);
       await ctx.db.user.update({
         where: { id: input.userId },
         data: { crewStatus: input.status },
@@ -4559,9 +4590,12 @@ export const adminRouter = createTRPCRouter({
   /** Hard-delete a crew-only login (role CREW). Soft-remove (INACTIVE) is preferred + revertible;
    *  this is the explicit, irreversible option. Guarded to crew-only accounts so it can never nuke
    *  a tutor/admin login. Patrols + requests cascade. */
-  deleteCrewMember: headProcedure
+  deleteCrewMember: adminOnlyProcedure
     .input(z.object({ userId: cuid }))
     .mutation(async ({ ctx, input }) => {
+      await lockUsernameNamespace(ctx.db);
+      await activeManagementActor(ctx.db, ctx.session.user.id);
+      await lockAccountProfile(ctx.db, input.userId);
       const target = await ctx.db.user.findUniqueOrThrow({
         where: { id: input.userId },
         select: {
@@ -5036,7 +5070,7 @@ export const adminRouter = createTRPCRouter({
     const canSee = !ctx.portalAccess.maskManagementData;
     const codes = await ctx.db.registrationCode.findMany({
       where:
-        ctx.session.role === "HEAD" ? {} : { kind: { in: ["TUTOR", "CREW"] } },
+        ["HEAD", "ADMIN"].includes(ctx.session.role) ? {} : { kind: { in: ["TUTOR", "CREW"] } },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -5155,14 +5189,7 @@ export const adminRouter = createTRPCRouter({
           where: { id: input.id },
         });
         if (isManagementCode(code.kind)) {
-          const actor = await tx.user.findUnique({
-            where: { id: ctx.session.user.id },
-          });
-          if (actor?.role !== "HEAD" || actor.suspendedAt)
-            throw new TRPCError({
-              code: "FORBIDDEN",
-              message: "Only Head may access management invitations.",
-            });
+          await activeManagementActor(tx, ctx.session.user.id);
         }
         if (code.usedAt)
           throw new TRPCError({
@@ -5240,13 +5267,18 @@ export const adminRouter = createTRPCRouter({
   updateAccountAcademics: adminProcedure
     .input(currentAcademicInput.extend({ userId: cuid }))
     .mutation(({ ctx, input }) =>
-      confirmCurrentAccountAcademics(ctx.db, input.userId, input, {
-        actorId: ctx.session.user.id,
-        source: "STAFF",
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await lockUsernameNamespace(tx);
+        await activeManagementActor(tx, ctx.session.user.id);
+        return confirmCurrentAccountAcademics(tx, input.userId, input, {
+          actorId: ctx.session.user.id,
+          source: "STAFF",
+        });
       }),
     ),
 
-  updateAccountUsername: headProcedure
+  updateAccountUsername: adminOnlyProcedure
     .input(
       z.object({
         userId: cuid,
@@ -5269,10 +5301,14 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const updated = await updateAccountProfile(ctx.db, input.userId, input, {
-        management: true,
+      return inTransaction(ctx.db, async (tx) => {
+        await lockUsernameNamespace(tx);
+        await activeManagementActor(tx, ctx.session.user.id);
+        const updated = await updateAccountProfile(tx, input.userId, input, {
+          management: true,
+        });
+        return { profileVersion: updated.profileVersion };
       });
-      return { profileVersion: updated.profileVersion };
     }),
 
   sendAccountVerification: adminProcedure
@@ -5649,9 +5685,9 @@ export const adminRouter = createTRPCRouter({
     };
   }),
 
-  /** Head applies role changes; Admin requests use the shared review queue.
+  /** Admin and Head apply non-Head role changes directly.
    * Leadership transfer stays separate and credentials never enter saved proposals. */
-  setUserRole: headProcedure
+  setUserRole: adminOnlyProcedure
     .input(
       z.object({
         userId: cuid,
@@ -5660,21 +5696,11 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await assertCallerPassword(ctx.session.user.id, input.confirmPassword);
       return inTransaction(ctx.db, async (tx) => {
         await lockUsernameNamespace(tx);
         await lockEntity(tx, "program:leadership");
-        if (
-          (
-            await tx.user.findUniqueOrThrow({
-              where: { id: ctx.session.user.id },
-            })
-          ).role !== "HEAD"
-        )
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Head access required.",
-          });
+        const actor = await activeManagementActor(tx, ctx.session.user.id);
+        requireManagementPassword(actor, input.confirmPassword);
         const target = await tx.user.findUniqueOrThrow({
           where: { id: input.userId },
         });
@@ -5701,16 +5727,18 @@ export const adminRouter = createTRPCRouter({
             message: "Assign tutor membership in Edit Profile.",
           });
         await ensureNameFallbackForRole(tx, target.id, input.role);
-        return tx.user.update({
+        const updated = await tx.user.update({
           where: { id: input.userId },
           data: { role: input.role },
         });
+        if (target.role !== input.role) await reconcileManagementReviewNotifications(tx);
+        return updated;
       });
     }),
 
-  /** Apply a complete badge set atomically. Approval replays use the Head's fresh identity;
+  /** Apply a complete badge set atomically. Approval replays use the reviewer's fresh identity;
    * password values are never stored inside proposal evidence. Links/history survive removal. */
-  setMemberships: headProcedure
+  setMemberships: adminOnlyProcedure
     .input(
       z.object({
         userId: cuid,
@@ -5719,28 +5747,15 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      if (!approvalScope.getStore())
-        await assertCallerPassword(
-          ctx.session.user.id,
-          input.confirmPassword ?? "",
-        );
       return inTransaction(ctx.db, (tx) =>
         databaseScope.run(databaseScope.getStore() ?? tx, async () => {
           // This wrapper can delegate tutor creation; take the namespace before account locks.
           await lockUsernameNamespace(tx);
           await lockEntity(tx, "program:leadership");
+          const actor = await activeManagementActor(tx, ctx.session.user.id);
+          if (!approvalScope.getStore())
+            requireManagementPassword(actor, input.confirmPassword ?? "");
           await lockAccountProfile(tx, input.userId);
-          if (
-            (
-              await tx.user.findUniqueOrThrow({
-                where: { id: ctx.session.user.id },
-              })
-            ).role !== "HEAD"
-          )
-            throw new TRPCError({
-              code: "FORBIDDEN",
-              message: "Head access required.",
-            });
           const target = await tx.user.findUniqueOrThrow({
             where: { id: input.userId },
             include: { tutor: true },
@@ -5762,6 +5777,18 @@ export const adminRouter = createTRPCRouter({
                   : "STUDENT";
           // Leave Viewer before assigning any capability; the database enforces exclusivity too.
           await ensureNameFallbackForRole(tx, target.id, role);
+          const tutorChanged = accountMembership(target).tutor !== value.tutor;
+          const deferSelfDemotion = target.id === actor.id && !["ADMIN", "HEAD"].includes(role);
+          const changeTutorAccess = async () => {
+            const { createCaller } = await import("../root");
+            await createCaller({ ...ctx, db: ctx.db }).admin.setUserCanTutor({
+              userId: target.id,
+              canTutor: value.tutor,
+            });
+          };
+          // Finish dependent writes while the self-editing Admin still has authority.
+          // The final rank and badge changes remain one atomic transaction.
+          if (deferSelfDemotion && tutorChanged) await changeTutorAccess();
           await tx.user.update({
             where: { id: target.id },
             data: {
@@ -5772,13 +5799,8 @@ export const adminRouter = createTRPCRouter({
               crewStatus: value.crew ? (target.crewStatus ?? "ACTIVE") : null,
             },
           });
-          if (accountMembership(target).tutor !== value.tutor) {
-            const { createCaller } = await import("../root");
-            await createCaller({ ...ctx, db: ctx.db }).admin.setUserCanTutor({
-              userId: target.id,
-              canTutor: value.tutor,
-            });
-          }
+          if (!deferSelfDemotion && tutorChanged) await changeTutorAccess();
+          if (target.role !== role) await reconcileManagementReviewNotifications(tx);
           return { ok: true };
         }),
       );
@@ -5794,7 +5816,6 @@ export const adminRouter = createTRPCRouter({
       z.object({ userId: cuid, confirmPassword: z.string().min(1).max(1024) }),
     )
     .mutation(async ({ ctx, input }) => {
-      await assertCallerPassword(ctx.session.user.id, input.confirmPassword);
       if (input.userId === ctx.session.user.id) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -5814,12 +5835,14 @@ export const adminRouter = createTRPCRouter({
       await inTransaction(ctx.db, async (tx) => {
         await lockUsernameNamespace(tx);
         await lockEntity(tx, "program:leadership");
+        const actor = await activeManagementActor(tx, ctx.session.user.id, true);
+        requireManagementPassword(actor, input.confirmPassword);
         const liveTarget = await tx.user.findUniqueOrThrow({
           where: { id: target.id },
         });
         if (
           !["ADMIN", "COORDINATOR"].includes(liveTarget.role) ||
-          liveTarget.suspendedAt
+          liveTarget.suspendedAt || liveTarget.mergedIntoId
         )
           throw new TRPCError({
             code: "CONFLICT",
@@ -5836,6 +5859,7 @@ export const adminRouter = createTRPCRouter({
           where: { id: target.id },
           data: { role: "HEAD" },
         });
+        await reconcileManagementReviewNotifications(tx);
       });
       await recordAudit({
         userId: ctx.session.user.id,
@@ -5848,28 +5872,32 @@ export const adminRouter = createTRPCRouter({
     }),
 
   /**
-   * Delete a login account (HEAD only, identity-confirmed). The linked Tutor record is NOT
+   * Delete a login account (Admin/Head, identity-confirmed). The linked Tutor record is NOT
    * deleted — the user's tutor link is dropped first so its username/class/history stay on the
    * roster. A fresh invitation is a separate account-creation decision, not deletion undo. The login's personal rows
    * (notifications, acks, verification codes, reset tokens) cascade away; authored content
    * (announcements, card reviews, policy edits) is detached (set-null), not lost. You cannot
    * delete yourself or another head — transfer leadership first.
    */
-  previewDeleteUser: headProcedure
+  previewDeleteUser: adminOnlyProcedure
     .input(z.object({ userId: cuid }))
     .query(({ ctx, input }) =>
       previewDeleteAccount(ctx.db, ctx.session.user.id, input.userId),
     ),
 
-  deleteUser: headProcedure
+  deleteUser: adminOnlyProcedure
     .input(deleteAccountInput)
     .mutation(({ ctx, input }) =>
       deleteAccount(ctx.db, ctx.session.user.id, input),
     ),
   /** Assign (or unassign) a user as a translator — grants access to the /localization editor. */
-  setUserCanTranslate: headProcedure
+  setUserCanTranslate: adminOnlyProcedure
     .input(z.object({ userId: cuid, canTranslate: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
+      // protectedProcedure owns the audit transaction; identity locks survive to commit.
+      await lockUsernameNamespace(ctx.db);
+      await activeManagementActor(ctx.db, ctx.session.user.id);
+      await lockAccountProfile(ctx.db, input.userId);
       const target = await ctx.db.user.findUniqueOrThrow({
         where: { id: input.userId },
       });
@@ -6044,20 +6072,12 @@ export const adminRouter = createTRPCRouter({
    * a tutor area. Re-enables an existing linked/email-matched tutor, or creates one from their
    * name. Disabling deactivates the tutor and unlinks it (revertible — re-enable relinks).
    */
-  setUserCanTutor: headProcedure
+  setUserCanTutor: adminOnlyProcedure
     .input(z.object({ userId: cuid, canTutor: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
-      // Coordinators may only change their own tutoring access; the admin tier (ADMIN/HEAD), anyone's.
-      const callerIsAdminTier =
-        ctx.session.role === "ADMIN" || ctx.session.role === "HEAD";
-      if (!callerIsAdminTier && input.userId !== ctx.session.user.id) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You can only change your own tutoring access.",
-        });
-      }
       return inTransaction(ctx.db, async (tx) => {
         await lockUsernameNamespace(tx);
+        await activeManagementActor(tx, ctx.session.user.id);
         await lockAccountProfile(tx, input.userId);
         const user = await tx.user.findUniqueOrThrow({
           where: { id: input.userId },

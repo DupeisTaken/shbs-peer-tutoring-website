@@ -276,7 +276,7 @@ function mount(kind: Kind, canApply = true) {
       <AccountProfileEditor
         profile={original}
         onClose={close}
-        canRequestHead={!canApply}
+        canPropose={!canApply}
       />
     ) : kind === "username" ? (
       <ProfileDialog title="Username editor" onClose={close}>
@@ -678,13 +678,13 @@ it("retains tutor sibling editors across automatic reactivation refresh and refr
 
 // A queued proposal is an unapplied error result, so automatic post-save reads must not run.
 it.each(kinds)(
-  "keeps queued Head-review %s drafts editable with their original fence",
+  "keeps queued Admin-review %s drafts editable with their original fence",
   async (kind) => {
     const { field, form, close } = mount(kind, false);
     const draft = kind === "username" ? "queuedusername" : "Queued";
     fireEvent.change(field, { target: { value: draft } });
     expect(
-      within(form).getByRole("button", { name: en.approvals.requestHead }),
+      within(form).getByRole("button", { name: en.approvals.requestAdmin }),
     ).toBeTruthy();
     fireEvent.submit(form);
     await waitFor(() => expect(transport.requests).toHaveLength(1));
