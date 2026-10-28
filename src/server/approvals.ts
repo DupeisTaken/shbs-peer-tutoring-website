@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Prisma, ProgramFeatureKey } from "../../generated/prisma";
 import {
   APPROVAL_OPERATIONS,
+  APPROVAL_POLICY_VERSION,
   classifyApproval,
   type ApprovalAuthority,
   humanizeOperation,
@@ -23,6 +24,7 @@ import {
   verifyHistoricalPreview,
 } from "./historical-academics";
 import { db } from "./db";
+import { managementReviewers } from "./notifications/create";
 import { inTransaction, lockEntity, type TransactionDb } from "./transactions";
 import { announcementCandidates } from "./announcement-recipients";
 import { lockUsernameNamespace } from "./auth/username";
@@ -258,6 +260,8 @@ export async function proposalAuthority(
         })
       : null;
   return classifyApproval(operation, value, {
+    currentAccountRole: operation === "admin.setMemberships" && typeof input.userId === "string"
+      ? (await client.user.findUnique({ where: { id: input.userId }, select: { role: true } }))?.role : undefined,
     currentTutorStatus: tutor?.status,
     currentCardReviewStatus: card?.reviewStatus,
     currentTuteeStatus: tutee?.status,
@@ -328,7 +332,7 @@ export async function parseProposal(operation: string, input: unknown) {
   let parsed: unknown = input;
   try {
     for (const parser of procedure._def.inputs) {
-      // Head reauthenticates role changes at application. Reuse the actual router schema
+      // The reviewer reauthenticates role changes at application. Reuse the actual router schema
       // while excluding its credential field from durable requester evidence.
       const schema =
         operation === "admin.setUserRole" && parser instanceof z.ZodObject
@@ -439,7 +443,7 @@ export async function proposalTargets(
       { id: actorId },
     );
     // Names do not replace review evidence. Hold the application lock while
-    // capturing the exact panel, votes and qualification evidence the Head sees.
+    // capturing the exact panel, votes and qualification evidence the reviewer sees.
     const application = await client.tutorApplication.findUniqueOrThrow({
       where: { id: identity.id },
       include: {
@@ -1080,7 +1084,7 @@ export async function queueProposal(
   input: unknown,
   options: { participantSelfService?: boolean } = {},
 ) {
-  // Identity challenges belong to the acting Head, never to persisted/requester payloads.
+  // Identity challenges belong to the acting reviewer, never to persisted/requester payloads.
   if (operation === "admin.setMemberships") {
     const value = z
       .object({ userId: z.string(), membership: z.unknown() })
@@ -1194,10 +1198,12 @@ export async function queueProposal(
         authority.requesterRoles,
       );
     }
-    if (targets && typeof targets === "object" && !Array.isArray(targets))
+    if (targets && typeof targets === "object" && !Array.isArray(targets)) {
       targets.reviewAuthority = JSON.parse(
         JSON.stringify(authority),
       ) as Prisma.InputJsonValue;
+      targets.reviewPolicyVersion = APPROVAL_POLICY_VERSION;
+    }
     if (
       options.participantSelfService &&
       targets &&
@@ -1301,23 +1307,19 @@ export async function queueProposal(
         },
       },
     });
-    const reviewers = await tx.user.findMany({
-      where: {
-        role: { in: [...authority.reviewerRoles] },
-        suspendedAt: null,
-        mergedIntoId: null,
-      },
-      select: { id: true },
+    const headOnly = authority.reviewerRoles.includes("HEAD") && !authority.reviewerRoles.includes("ADMIN");
+    const reviewers = await managementReviewers(tx, {
+      headOnly, exclude: session.user.id, allowHeadSelfReview: true,
     });
     await tx.notification.createMany({
       data: reviewers.map((u) => ({
         userId: u.id,
         title:
-          authority.reviewerRoles.length === 1
+          headOnly
             ? "Management change awaiting Head approval"
             : "Management change awaiting approval",
         ...notificationEvent(
-          authority.reviewerRoles.length === 1
+          headOnly
             ? "management_head_review_pending"
             : "management_review_pending",
         ),

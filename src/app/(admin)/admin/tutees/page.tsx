@@ -126,7 +126,7 @@ export default function TuteesPage() {
   const canEditProfiles =
     !readOnly &&
     !identity.error &&
-    ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
+    ["HEAD", "ADMIN", "COORDINATOR"].includes(identity.data?.role ?? "");
   const [creationOpen, setCreationOpen] = useState(false);
   const [creationRiskOpen, setCreationRiskOpen] = useState(false);
   const creationPanel = useRef<HTMLElement>(null);
@@ -395,7 +395,7 @@ export default function TuteesPage() {
         <TuteeEditor
           key={editing.id}
           row={editing}
-          canApply={identity.data?.role === "HEAD"}
+          canApply={["HEAD", "ADMIN"].includes(identity.data?.role ?? "")}
           historyPermissions={permissions.data}
           onClose={() => setEditingId(null)}
         />

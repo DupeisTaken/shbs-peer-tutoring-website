@@ -217,7 +217,7 @@ it.each(["Viewer", "unknown observer"])(
     expect(screen.getByLabelText("enabled").matches(":disabled")).toBe(true);
     expect(screen.getByRole("textbox").matches(":disabled")).toBe(true);
     expect(
-      screen.getByRole("button", { name: "requestHead" }).matches(":disabled"),
+      screen.getByRole("button", { name: "requestAdmin" }).matches(":disabled"),
     ).toBe(true);
     fireEvent.submit(view.container.querySelector("form")!);
     expect(mocks.mutate).not.toHaveBeenCalled();
@@ -243,7 +243,7 @@ it("retains an Admin proposal draft without announcing a successful settings sav
   );
   expect(screen.getByRole("status").textContent).toBe("queuedBody");
   expect(screen.queryByRole("alert")).toBeNull();
-  expect(screen.getByRole("button", { name: "requestHead" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "requestAdmin" })).toBeTruthy();
   expect(mocks.invalidate).not.toHaveBeenCalled();
 });
 it("keeps an Admin's recruitment draft across a changed live window and failed reload", async () => {

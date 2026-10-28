@@ -803,10 +803,10 @@ it("unchanged publication and pending policy proposals do not invalidate accepte
   expect(await studentPolicyStatus(db, "review-user")).toBeNull();
   await db.user.update({
     where: { id: "review-viewer" },
-    data: { role: "ADMIN" },
+    data: { role: "COORDINATOR" },
   });
   await expect(
-    caller("ADMIN", "review-viewer").admin.upsertPolicy({
+    caller("COORDINATOR", "review-viewer").admin.upsertPolicy({
       slug: "tutor-policy",
       locale: "en",
       title: "Draft title",
@@ -819,10 +819,10 @@ it("unchanged publication and pending policy proposals do not invalidate accepte
   );
   await db.user.update({
     where: { id: "review-viewer" },
-    data: { role: "COORDINATOR" },
+    data: { role: "VIEWER" },
   });
   await expect(
-    caller("COORDINATOR", "review-viewer").admin.upsertPolicy({
+    caller("VIEWER", "review-viewer").admin.upsertPolicy({
       slug: "tutor-policy",
       locale: "en",
       title: "Forbidden draft",
@@ -3722,7 +3722,7 @@ it("interview completion rejects stale reviewed evidence but retries identical e
   ).toEqual(credits);
 });
 
-it("Admin lost-response completion retry returns its receipt while changed evidence still queues Head review", async () => {
+it("Admin lost-response completion retry returns its receipt and a fresh correction applies directly", async () => {
   const { app, panel } = await interviewFixture();
   const current = await db.tutorApplication.findUniqueOrThrow({
     where: { id: app.id },
@@ -3750,21 +3750,15 @@ it("Admin lost-response completion retry returns its receipt while changed evide
   const recorded = await db.tutorApplication.findUniqueOrThrow({
     where: { id: app.id },
   });
-  await expect(
-    admin.interviewManagement.complete({
-      ...input,
-      durationMin: 45,
-      expectedUpdatedAt: recorded.updatedAt,
-    }),
-  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  expect(
-    await db.approvalRequest.count({
-      where: { operation: "interviewManagement.complete", state: "PENDING" },
-    }),
-  ).toBe(1);
-  expect(
-    await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } }),
-  ).toEqual(credits);
+  await admin.interviewManagement.complete({
+    ...input,
+    durationMin: 45,
+    expectedUpdatedAt: recorded.updatedAt,
+  });
+  expect(await db.approvalRequest.count()).toBe(0);
+  const corrected = await db.serviceHourAdjustment.findMany({ orderBy: { id: "asc" } });
+  expect(corrected).toHaveLength(credits.length);
+  expect(corrected.every((row) => row.amount === 0.75)).toBe(true);
 });
 
 it("Coordinator completion proposals deduplicate, replay on approval, and retry as exact receipts", async () => {
@@ -4007,7 +4001,7 @@ it("interview completion refuses deterministic identifier collisions without cha
   ).toBeNull();
 });
 
-it("Head-reviewed interview correction retains original period and exposes pending completion without live changes", async () => {
+it("Admin-reviewed Coordinator interview correction retains original period and exposes pending completion without live changes", async () => {
   const { app, panel } = await interviewFixture();
   const input = {
     applicationId: app.id,
@@ -4038,8 +4032,9 @@ it("Head-reviewed interview correction retains original period and exposes pendi
     attendedTutorIds: [panel[0]!.id],
     expectedUpdatedAt: current.updatedAt,
   };
+  await db.user.update({ where: { id: "review-viewer" }, data: { role: "COORDINATOR" } });
   await expect(
-    caller("ADMIN", "panel-user-0", panel[0]!.id).interviewManagement.complete(
+    caller("COORDINATOR", "review-viewer").interviewManagement.complete(
       correction,
     ),
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
@@ -4055,7 +4050,7 @@ it("Head-reviewed interview correction retains original period and exposes pendi
   const request = await db.approvalRequest.findFirstOrThrow({
     where: { operation: "interviewManagement.complete", state: "PENDING" },
   });
-  await caller().approval.decide({
+  await caller("ADMIN", "panel-user-0", panel[0]!.id).approval.decide({
     id: request.id,
     approve: true,
     note: "Checked original interview evidence",

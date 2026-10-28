@@ -133,7 +133,7 @@ export async function linkTutorHistory(
       throw new TRPCError({ code: "CONFLICT", message: "HISTORY_USE_MERGE" });
     if (preview.alreadyLinked) return { ok: true };
     if (preview.conflict) {
-      if (actor.role !== "HEAD")
+      if (!["ADMIN", "HEAD"].includes(actor.role))
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "HISTORY_HEAD_REQUIRED",

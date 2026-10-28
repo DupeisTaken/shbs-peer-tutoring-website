@@ -773,7 +773,7 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
                 row={row}
                 pairing={entry.pairing}
                 canRelease={management && !readOnly}
-                proposal={account?.role !== "HEAD"}
+                proposal={!["HEAD", "ADMIN"].includes(account?.role ?? "")}
               />
             ),
           )}

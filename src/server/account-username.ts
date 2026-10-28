@@ -14,9 +14,10 @@ export async function updateAccountUsername(database: DomainDb, actorId: string,
     // The namespace spans two tables. Serialize against all existing writers, including
     // automatic username allocation, before checking either table or locking a profile.
     await lockUsernameNamespace(tx);
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${actorId} FOR SHARE`;
     const actor = await tx.user.findUnique({ where: { id: actorId } });
-    if (actor?.role !== "HEAD" || actor.suspendedAt)
-      throw new TRPCError({ code: "FORBIDDEN", message: "Only Head may edit usernames." });
+    if (!actor || !["ADMIN", "HEAD"].includes(actor.role) || actor.suspendedAt || actor.mergedIntoId)
+      throw new TRPCError({ code: "FORBIDDEN", message: "Only Admin or Head may edit usernames." });
     await lockAccountProfile(tx, input.userId);
     const current = await tx.user.findUniqueOrThrow({ where: { id: input.userId } });
     if (current.profileVersion !== input.expectedProfileVersion) staleConflict();

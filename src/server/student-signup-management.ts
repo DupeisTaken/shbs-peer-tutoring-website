@@ -9,6 +9,7 @@ import {
 import { lockUsernameNamespace } from "./auth/username";
 import { lockCatalogue } from "./qualifications";
 import { lockStudentRequestReview } from "./request-invalidity";
+import { lockAccountProfile } from "./account-profile";
 import { assertSignupEditPeriod } from "./student-signup-editor";
 import { consumeStudentAction } from "./student-workflow";
 import {
@@ -29,7 +30,7 @@ export const headSignupUnassignInput = z
   })
   .strict();
 
-/** Current public requests require Head for discretionary removals/course changes. Historical
+/** Current public requests require Admin/Head for discretionary removals/course changes. Historical
  * repairs and domain-owned withdrawal, schedule and discipline transitions keep their own rules. */
 async function currentPublicSignup(db: DomainDb, tuteeId: string) {
   const survey = await db.studentSurvey.findUnique({ where: { tuteeId } });
@@ -133,11 +134,11 @@ export async function assertHeadDiscretionarySignupChange(
     where: { id: userId },
     select: { role: true, suspendedAt: true, mergedIntoId: true },
   });
-  if (actor.role !== "HEAD" || actor.suspendedAt || actor.mergedIntoId)
+  if (!["ADMIN", "HEAD"].includes(actor.role) || actor.suspendedAt || actor.mergedIntoId)
     throw new TRPCError({
       code: "FORBIDDEN",
       message:
-        "Only Head can unassign public signup requests or change their assigned subjects.",
+        "Only Admin or Head can unassign public signup requests or change their assigned subjects.",
     });
   if (
     operation === "admin.updatePairing" &&
@@ -176,13 +177,13 @@ export async function assertHeadDiscretionarySignupChange(
           throw new TRPCError({
             code: "PRECONDITION_FAILED",
             message:
-              "Use the Head signup editor before assigning a subject outside the request choices.",
+              "Use the management signup editor before assigning a subject outside the request choices.",
           });
       }
     }
   }
   // Legacy profile tools cannot strand an assignment outside the source choices.
-  // The dedicated Head editor explicitly reviews and releases affected links.
+  // The dedicated management editor explicitly reviews and releases affected links.
   if (
     operation === "admin.updateTutee" &&
     input &&
@@ -226,7 +227,7 @@ export async function assertHeadDiscretionarySignupChange(
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message:
-            "Use the Head signup editor to change assigned choices and confirm which assignments to release.",
+            "Use the management signup editor to change assigned choices and confirm which assignments to release.",
         });
     }
   }
@@ -248,8 +249,9 @@ export async function unassignStudentSignup(
     const row = await tx.studentSurvey.findUniqueOrThrow({
       where: { id: input.id },
     });
+    await lockAccountProfile(tx, userId);
     const actor = await tx.user.findUniqueOrThrow({ where: { id: userId } });
-    if (actor.role !== "HEAD" || actor.suspendedAt || actor.mergedIntoId)
+    if (!["ADMIN", "HEAD"].includes(actor.role) || actor.suspendedAt || actor.mergedIntoId)
       throw new TRPCError({ code: "FORBIDDEN" });
     const inputHash = studentSignupIntentDigest({
       operation: "headUnassign",
@@ -362,7 +364,7 @@ export async function unassignStudentSignup(
       operation: "studentWorkflow.headUnassign",
       entity: "StudentSurvey",
       entityId: row.id,
-      action: "Head released current signup assignment",
+      action: "Management released current signup assignment",
       before: { currentVersion: row.currentVersion },
       after: { currentVersion: version },
       effects: {

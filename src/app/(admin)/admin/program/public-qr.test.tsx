@@ -147,8 +147,8 @@ function nextRecruitmentData(): NextRecruitmentSettingsData {
     nextName: "Next",
     timeZone,
     preparations,
-    canEdit: ["HEAD", "ADMIN"].includes(state.role) && !state.readOnly,
-    canApply: state.role === "HEAD" && !state.readOnly,
+    canEdit: ["HEAD", "ADMIN", "COORDINATOR"].includes(state.role) && !state.readOnly,
+    canApply: ["HEAD", "ADMIN"].includes(state.role) && !state.readOnly,
     refreshEvidence: { target, timeZone, preparations, destination: null },
   };
 }
@@ -295,7 +295,8 @@ it.each(
     expect(links.every((link) => link.closest("[disabled]") === null)).toBe(
       true,
     );
-    const editable = ["HEAD", "ADMIN"].includes(state.role) && !state.readOnly;
+    const editable = ["HEAD", "ADMIN", "COORDINATOR"].includes(state.role) && !state.readOnly;
+    const canPrepareRefresh = ["HEAD", "ADMIN"].includes(state.role) && !state.readOnly;
     for (const input of screen.getAllByLabelText(copy.recruitment.previewLink, {
       exact: false,
     })) {
@@ -312,8 +313,11 @@ it.each(
           name: copy.nextRecruitment[audience],
         }));
         expect(editor.getByLabelText(copy.nextRecruitment.setOpening).matches(":disabled")).toBe(!editable);
+        expect(editor.getByRole("button", {
+          name: role === "COORDINATOR" ? copy.approvals.requestAdmin : copy.nextRecruitment.clear,
+        })).toBeTruthy();
       }
-      expect(screen.getByLabelText<HTMLInputElement>(copy.admin.program.confirmLabel).disabled).toBe(!editable);
+      expect(screen.getByLabelText<HTMLInputElement>(copy.admin.program.confirmLabel).disabled).toBe(!canPrepareRefresh);
     }
     if (!editable) {
       // Synthetic submit bypasses disabled controls; the real forms must still

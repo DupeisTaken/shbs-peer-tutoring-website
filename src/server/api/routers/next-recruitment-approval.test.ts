@@ -16,7 +16,7 @@ if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test")
   throw new Error("Next recruitment approval tests require local shbs_shipping_test");
 const sourceId = "next-approval-source";
 const opening = new Date("2030-11-01T00:00:00Z");
-const caller = (role: "HEAD" | "ADMIN" = "HEAD") => createCaller({
+const caller = (role: "HEAD" | "ADMIN" | "COORDINATOR" = "HEAD") => createCaller({
   db,
   headers: new Headers(),
   session: {
@@ -30,7 +30,7 @@ beforeEach(async () => {
     SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
   await db.$executeRawUnsafe("TRUNCATE " + tables.map(({ tablename }) =>
     '"' + tablename.replaceAll('"', '""') + '"').join(",") + " CASCADE");
-  await db.user.createMany({ data: (["HEAD", "ADMIN"] as const).map((role) => ({
+  await db.user.createMany({ data: (["HEAD", "ADMIN", "COORDINATOR"] as const).map((role) => ({
     id: `next-approval-${role}`, role, name: role, email: `${role}@example.test`,
   })) });
   await db.term.create({ data: { id: sourceId, schoolYear: "26-27", quarter: "Q1",
@@ -49,7 +49,7 @@ async function prepareInput() {
 async function queued(operation: "prepare" | "refresh") {
   const snapshot = await caller().program.nextRecruitment();
   const pending = operation === "prepare"
-    ? caller("ADMIN").program.prepareNextRecruitment(await prepareInput())
+    ? caller("COORDINATOR").program.prepareNextRecruitment(await prepareInput())
     : caller("ADMIN").admin.refresh({ confirm: "REFRESH", expectedTermId: sourceId,
       expectedPreparation: snapshot.refreshEvidence });
   const error: unknown = await pending.catch((error: unknown) => error);
@@ -88,7 +88,7 @@ it("rolls a failed refresh approval back without changing its evidence, then app
 });
 
 it.each([
-  ["prepare", "ADMIN"], ["prepare", "HEAD"],
+  ["prepare", "COORDINATOR"], ["prepare", "HEAD"],
   ["refresh", "ADMIN"], ["refresh", "HEAD"],
 ] as const)("rejects a %s approval when %s authority changes during the period wait", async (operation, changedRole) => {
   const request = await queued(operation);
@@ -100,7 +100,7 @@ it.each([
     await lockEntity(tx, "program:period");
     announceWriter();
     await release;
-    await tx.user.update({ where: { id: `next-approval-${changedRole}` }, data: { role: "COORDINATOR" } });
+    await tx.user.update({ where: { id: `next-approval-${changedRole}` }, data: { role: "VIEWER" } });
   }, { timeout: 10_000 }).then(
     () => ({ status: "fulfilled" as const }),
     (reason: unknown) => { announceWriter(); return { status: "rejected" as const, reason }; },

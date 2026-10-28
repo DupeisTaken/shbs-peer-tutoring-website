@@ -1608,7 +1608,7 @@ export const tutorRouter = createTRPCRouter({
           });
           if (
             proposal.operation !== "tutor.decideInterview" ||
-            ctx.session.role !== "HEAD"
+            !["ADMIN", "HEAD"].includes(ctx.session.role)
           )
             throw new TRPCError({ code: "FORBIDDEN" });
           const requester = await tx.user.findUnique({

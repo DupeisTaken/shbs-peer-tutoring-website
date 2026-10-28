@@ -2,8 +2,10 @@ import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
 import superjson from "superjson";
 import type { Prisma } from "../../../generated/prisma";
+import type * as NotificationModule from "~/server/notifications/create";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
-vi.mock("~/server/notifications/create", () => ({
+vi.mock("~/server/notifications/create", async (importOriginal) => ({
+  ...await importOriginal<typeof NotificationModule>(),
   notifyAdmins: vi.fn(),
   notifyUsers: vi.fn(),
 }));
@@ -46,6 +48,16 @@ import {
 import { emailSender } from "~/server/email/sender";
 import { stageCrewVerification } from "~/server/crew/signup";
 import { issueRegistrationCode } from "~/server/auth/registration";
+import { fingerprint, queueProposal } from "~/server/approvals";
+
+/** Reconstruct an old Admin request without calling today's direct mutation. */
+async function legacyCalendarProposal(operation: string, input: unknown) {
+  const request = await queueProposal({ user: { id: "program-review-ADMIN", name: "Original Admin" }, role: "ADMIN", tutorId: null, expires: "2099-01-01" }, operation, input);
+  const targets = request.targets as Record<string, Prisma.InputJsonValue>;
+  delete targets.reviewPolicyVersion;
+  targets.reviewAuthority = { category: "SIGNIFICANT_SETTING", directRoles: ["HEAD"], requesterRoles: ["ADMIN", "HEAD"], reviewerRoles: ["HEAD"] };
+  return db.approvalRequest.update({ where: { id: request.id }, data: { targets, fingerprint: fingerprint(targets) } });
+}
 
 // Guard during module evaluation, before any destructive fixture or teardown is registered.
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -228,9 +240,9 @@ it("stores inclusive ranges as independent notices and versions endpoint changes
   });
 });
 
-it("requires Head review for Admin ranges and refuses a changed range proposal", async () => {
+it("requires Admin review for Coordinator ranges and refuses a changed range proposal", async () => {
   await expect(
-    caller("ADMIN").program.setCalendarDay({
+    caller("COORDINATOR").program.setCalendarDay({
       date: "2026-10-12",
       endDate: "2026-10-16",
       reason: "Exam week",
@@ -241,7 +253,7 @@ it("requires Head review for Admin ranges and refuses a changed range proposal",
     where: { operation: "program.setCalendarDay" },
   });
   expect(await caller("STUDENT").program.calendar()).toEqual([]);
-  await caller().approval.decide({
+  await caller("ADMIN").approval.decide({
     id: request.id,
     approve: true,
     note: "Reviewed dates",
@@ -251,7 +263,7 @@ it("requires Head review for Admin ranges and refuses a changed range proposal",
   });
   expect(first.endDate).toBe("2026-10-16");
   await expect(
-    caller("ADMIN").program.setCalendarDay({
+    caller("COORDINATOR").program.setCalendarDay({
       date: first.date,
       endDate: "2026-10-17",
       reason: first.reason,
@@ -287,12 +299,7 @@ it("applies an unchanged legacy queued single-day edit after the additive range 
     reason: "Legacy reviewed notice",
     expectedVersion: first.version,
   };
-  await expect(
-    caller("ADMIN").program.setCalendarDay(legacyInput),
-  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  const request = await db.approvalRequest.findFirstOrThrow({
-    where: { operation: "program.setCalendarDay" },
-  });
+  const request = await legacyCalendarProposal("program.setCalendarDay", legacyInput);
   // Recreate the stored pre-migration payload. Its immutable target evidence has
   // the old row shape, even though the migrated database now has an endpoint.
   expect(request.targets).toMatchObject({
@@ -324,14 +331,9 @@ it("applies an unchanged legacy queued removal and retains the range tombstone",
     reason: "Legacy removal",
     expectedVersion: 0,
   });
-  await expect(
-    caller("ADMIN").program.removeCalendarDay({
+  const request = await legacyCalendarProposal("program.removeCalendarDay", {
       date: first.date,
       expectedVersion: first.version,
-    }),
-  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  const request = await db.approvalRequest.findFirstOrThrow({
-    where: { operation: "program.removeCalendarDay" },
   });
   // Removal payloads never gained an endpoint; unchanged single-day target
   // evidence must remain valid across deployment, just like legacy edit evidence.
@@ -355,16 +357,16 @@ it("applies an unchanged legacy queued removal and retains the range tombstone",
     version: first.version + 1,
   });
 });
-it("queues Admin notices, denies Coordinator writes and rejects a proposal after the notice changes", async () => {
+it("queues Coordinator notices, denies participant writes and rejects a proposal after the notice changes", async () => {
   await expect(
-    caller("COORDINATOR").program.setCalendarDay({
+    caller("STUDENT").program.setCalendarDay({
       date: "2026-10-12",
       reason: "No authority",
       expectedVersion: 0,
     }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
   await expect(
-    caller("ADMIN").program.setCalendarDay({
+    caller("COORDINATOR").program.setCalendarDay({
       date: "2026-10-12",
       reason: "Proposed",
       expectedVersion: 0,

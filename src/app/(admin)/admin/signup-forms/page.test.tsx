@@ -189,7 +189,7 @@ it("contains Tab around the selected radio, keeps arrow keys native and holds fo
   );
 });
 
-it("retains a queued Admin field draft as pending instead of saved or failed", () => {
+it("retains a queued Coordinator field draft as pending instead of saved or failed", () => {
   const props = {
     label: "Phone",
     initial: "required" as const,
@@ -202,7 +202,7 @@ it("retains a queued Admin field draft as pending instead of saved or failed", (
   const view = wrap(<FieldDialog {...props} />);
   fireEvent.click(screen.getByRole("radio", { name: "Hidden" }));
   fireEvent.click(
-    screen.getByRole("button", { name: en.approvals.requestHead }),
+    screen.getByRole("button", { name: en.approvals.requestAdmin }),
   );
   view.rerender(
     <NextIntlClientProvider locale="en" messages={en}>
@@ -232,7 +232,7 @@ it("preserves a queued field draft and expected state through failed and success
   );
   fireEvent.click(screen.getByRole("radio", { name: "Hidden" }));
   fireEvent.click(
-    screen.getByRole("button", { name: en.approvals.requestHead }),
+    screen.getByRole("button", { name: en.approvals.requestAdmin }),
   );
   mocks.error = { message: "Queued", data: { approvalId: "request" } };
   mocks.query.mockReturnValue({
@@ -263,7 +263,7 @@ it("preserves a queued field draft and expected state through failed and success
   );
   expect(screen.getByText(en.approvals.queuedBody)).toBeTruthy();
   fireEvent.click(
-    screen.getByRole("button", { name: en.approvals.requestHead }),
+    screen.getByRole("button", { name: en.approvals.requestAdmin }),
   );
   expect(mocks.mutate).toHaveBeenLastCalledWith(
     expect.objectContaining({ state: "hidden", expectedState: "required" }),
@@ -294,7 +294,7 @@ it("preserves a queued field draft and expected state through failed and success
     ).toBe(true),
   );
   fireEvent.click(
-    screen.getByRole("button", { name: en.approvals.requestHead }),
+    screen.getByRole("button", { name: en.approvals.requestAdmin }),
   );
   expect(mocks.mutate).toHaveBeenLastCalledWith(
     expect.objectContaining({ state: "optional", expectedState: "optional" }),

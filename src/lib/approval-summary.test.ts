@@ -36,6 +36,20 @@ it("authors a semantic summary contract for every allowed approval operation", (
   }
 });
 
+it("summarizes a Translator grant with its captured user and permission change", () => {
+  const model = approvalPresentation(
+    "admin.setUserCanTranslate",
+    { userId: "translator-user", canTranslate: true },
+    { User: [{ record: { id: "translator-user", name: "Captured Translator", canTranslate: false } }] },
+  );
+  expect(model.summary.known).toBe(true);
+  expect(model.summary.operationKey).toBe("admin_setUserCanTranslate");
+  expect(model.summary.changes).toContainEqual(
+    expect.objectContaining({ key: "translator", before: false, requested: true, hasBefore: true }),
+  );
+  expect(model.summary.changes.some((field) => field.key === "userId")).toBe(false);
+});
+
 it("promotes every changed pairing field and a captured composite identity", () => {
   const targets = {
     Pairing: [

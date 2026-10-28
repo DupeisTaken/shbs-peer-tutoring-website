@@ -51,6 +51,7 @@ export const approvalSummaryContexts: Record<string, readonly string[]> = {
   "messaging.setPermission": ["target"],
   "admin.updateAccountUsername": ["userId"],
   "admin.setUserRole": ["userId"],
+  "admin.setUserCanTranslate": ["userId"],
   "admin.revokeRegistrationCode": ["id"],
   "messaging.moderate": ["id"],
   "messaging.restrict": ["userId"],

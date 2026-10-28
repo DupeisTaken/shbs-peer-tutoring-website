@@ -4,6 +4,7 @@ import { reviewCollection } from "./approval-review-collections";
 import { reviewInstantValue } from "./review-instant";
 import {
   nextRecruitmentTargetSchema,
+  nextRecruitmentRefreshEvidenceSchema,
   sameNextRecruitmentTarget,
 } from "./next-recruitment";
 import { isProgramTimeZone } from "./program-time";
@@ -97,6 +98,9 @@ const reviewNextSnapshot = z.object({
         tutee: reviewDestinationWindow,
       })
       .nullable(),
+    // Preserve submitted feature values and revisions alongside review summaries.
+    // Historical evidence must never be filled from current settings.
+    stagedFeatures: nextRecruitmentRefreshEvidenceSchema.shape.stagedFeatures,
   }),
 });
 
@@ -201,6 +205,7 @@ const comparable = new Set([
   "admin.updateAccountProfile",
   "admin.updateAccountUsername",
   "admin.setUserRole",
+  "admin.setUserCanTranslate",
   "program.setTimeZone",
   "program.setProfilePolicy",
   "i18n.setLanguageEnabled",
@@ -358,6 +363,14 @@ export function approvalReview(
         operation === "admin.correctApplicationIdentity")
     ) {
       context.push({ key: "requestReason", value: requested });
+      continue;
+    }
+    if (operation === "admin.setUserCanTranslate" && key === "canTranslate") {
+      // The standalone grant uses the same authored capability label as the
+      // membership editor, and compares only a captured boolean permission.
+      const hasBefore = typeof primary?.canTranslate === "boolean";
+      const field = { key: "translator", requested, before: primary?.canTranslate, hasBefore };
+      (hasBefore && equal(field.before, requested) ? unchanged : changes).push(field);
       continue;
     }
     if (

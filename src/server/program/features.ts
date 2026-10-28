@@ -1,6 +1,6 @@
 /**
- * Optional program modules a HEAD can switch off to fit a different program. Effective flags come
- * from the `ProgramFeature` table; a missing row uses the safe defaults below. Changes a HEAD makes
+ * Optional program modules Admin/Head can stage to fit a different program. Effective flags come
+ * from the `ProgramFeature` table; a missing row uses the safe defaults below. Their changes
  * are *staged* (`pendingEnabled`) and applied at the next program
  * refresh — see `applyPendingFeatures`. Node runtime only (touches the DB).
  *

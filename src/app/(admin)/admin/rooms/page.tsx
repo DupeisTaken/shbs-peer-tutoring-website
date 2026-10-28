@@ -606,11 +606,11 @@ export default function RoomsPage() {
       <div className="space-y-4">
         {rooms.data &&
         !readOnly &&
-        ["HEAD", "ADMIN"].includes(me.data?.role ?? "") ? (
+        ["HEAD", "ADMIN", "COORDINATOR"].includes(me.data?.role ?? "") ? (
           <RoomOrderEditor
             rooms={rooms.data}
             canEdit={!rooms.error && !me.error}
-            canApply={me.data?.role === "HEAD"}
+            canApply={["HEAD", "ADMIN"].includes(me.data?.role ?? "")}
             onRefresh={async () => {
               const result = await rooms.refetch();
               if (!result.isSuccess)

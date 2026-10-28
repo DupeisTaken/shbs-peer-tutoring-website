@@ -56,7 +56,7 @@ vi.mock("~/trpc/react", async () => {
       },
       tuteeHistory: {
         permissions: {
-          useQuery: () => ({ data: { canLink: true, isHead: true } }),
+          useQuery: () => ({ data: { canLink: true, canCorrectOwnership: true } }),
         },
       },
       admin: {

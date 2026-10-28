@@ -38,7 +38,7 @@ beforeEach(async () => {
     .map((row) => '"' + row.tablename.replaceAll('"', '""') + '"').join(",") + " CASCADE");
   await db.user.createMany({ data: ([
     ["head", "HEAD"], ["admin", "ADMIN"], ["other-admin", "ADMIN"],
-    ["coordinator", "COORDINATOR"], ["viewer", "VIEWER"], ["tutor", "TUTOR"],
+    ["coordinator", "COORDINATOR"], ["other-coordinator", "COORDINATOR"], ["viewer", "VIEWER"], ["tutor", "TUTOR"],
   ] as const).map(([id, role]) => ({ id, role, username: id,
     name: `Current ${id}`, email: `${id}@example.test` })) });
   await db.term.create({ data: {
@@ -60,9 +60,21 @@ async function fixture() {
   } };
 }
 
-it("denies Coordinator, Viewer and participant before creating any correction proposal", async () => {
+it.each(["admin", "head"])("lets %s correct names directly without changing consent or account identity", async (id) => {
+  const { app, input } = await fixture();
+  await caller(id).admin.correctApplicationIdentity(input);
+  expect(await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } })).toMatchObject({
+    name: "Ming Li", identityRevision: 1, email: app.email, policySnapshot: app.policySnapshot,
+    policyRevision: app.policyRevision, policyAcceptedAt: app.policyAcceptedAt,
+  });
+  expect(await db.applicationIdentityCorrection.findFirstOrThrow()).toMatchObject({ actorId: id, approvalId: null });
+  expect(await db.approvalRequest.count()).toBe(0);
+  expect(await db.tutor.count()).toBe(0);
+});
+
+it("denies Viewer and participant before creating any correction proposal", async () => {
   const { input } = await fixture();
-  for (const id of ["coordinator", "viewer", "tutor"])
+  for (const id of ["viewer", "tutor"])
     await expect(caller(id).admin.correctApplicationIdentity(input))
       .rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.approvalRequest.count()).toBe(0);
@@ -71,7 +83,7 @@ it("denies Coordinator, Viewer and participant before creating any correction pr
 
 it("validates the names-only payload and eligibility before queue interception", async () => {
   const { app, input } = await fixture();
-  await expect(caller("admin").admin.correctApplicationIdentity({ ...input, firstName: "明" }))
+  await expect(caller("coordinator").admin.correctApplicationIdentity({ ...input, firstName: "明" }))
     .rejects.toMatchObject({ code: "BAD_REQUEST" });
   const forged = { ...input, email: "replacement@example.test" };
   await expect(caller("admin").admin.correctApplicationIdentity(forged))
@@ -82,50 +94,48 @@ it("validates the names-only payload and eligibility before queue interception",
   expect(await db.approvalRequest.count()).toBe(0);
 });
 
-it("queues one exact Admin intent, rejects a changed retry and applies only through Head", async () => {
+it("queues one exact Coordinator intent, rejects a changed retry and applies through Admin", async () => {
   const { app, input } = await fixture();
-  const first = await queued(() => caller("admin").admin.correctApplicationIdentity(input));
-  const second = await queued(() => caller("admin").admin.correctApplicationIdentity(input));
+  const first = await queued(() => caller("coordinator").admin.correctApplicationIdentity(input));
+  const second = await queued(() => caller("coordinator").admin.correctApplicationIdentity(input));
   expect(second.id).toBe(first.id);
-  await expect(caller("admin").admin.correctApplicationIdentity({ ...input, firstName: "Mingjie" }))
+  await expect(caller("coordinator").admin.correctApplicationIdentity({ ...input, firstName: "Mingjie" }))
     .rejects.toMatchObject({ code: "CONFLICT", message: "APPLICATION_IDENTITY_RETRY_CHANGED" });
-  await expect(caller("admin").admin.correctApplicationIdentity({ ...input, reason: "A different justification" }))
+  await expect(caller("coordinator").admin.correctApplicationIdentity({ ...input, reason: "A different justification" }))
     .rejects.toMatchObject({ code: "CONFLICT", message: "APPLICATION_IDENTITY_RETRY_CHANGED" });
   expect(await db.approvalRequest.count()).toBe(1);
-  expect(await db.notification.count({ where: { link: `/admin/approvals?request=${first.id}` } })).toBe(1);
+  expect(await db.notification.count({ where: { link: `/admin/approvals?request=${first.id}` } })).toBe(2);
   expect(await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } })).toEqual(app);
   expect(first.targets).toMatchObject({ applicationIdentity: {
     original: { name: "李明", firstName: null }, current: { name: "李明" },
     next: { name: "Ming Li", firstName: "Ming", lastName: "Li" }, revision: 0,
   } });
-  await expect(caller("other-admin").approval.decide({ id: first.id, approve: true, note: "Checked" }))
-    .rejects.toMatchObject({ code: "FORBIDDEN" });
-  await caller("head").approval.decide({ id: first.id, approve: true, note: "Applicant evidence checked" });
+  await caller("other-admin").approval.decide({ id: first.id, approve: true, note: "Applicant evidence checked" });
   expect(await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } })).toMatchObject({
     name: "Ming Li", identityRevision: 1, status: "PENDING", email: app.email,
     preferredContact: app.preferredContact, policyRevision: app.policyRevision,
     policySnapshot: app.policySnapshot, policyAcceptedAt: app.policyAcceptedAt,
   });
   expect(await db.applicationIdentityCorrection.findFirstOrThrow()).toMatchObject({
-    actorId: "head", actorName: "Current head", approvalId: first.id, revision: 1,
+    actorId: "other-admin", actorName: "Current other-admin", approvalId: first.id, revision: 1,
   });
   expect(await db.auditLog.findFirstOrThrow({ where: {
     operation: "admin.correctApplicationIdentity", entity: "TutorApplication", entityId: app.id,
-  } })).toMatchObject({ userId: "head", approvalId: first.id });
+  } })).toMatchObject({ userId: "other-admin", approvalId: first.id });
   expect(await db.tutor.count()).toBe(0);
   expect(await db.registrationCode.count()).toBe(0);
-  await expect(caller("admin").admin.correctApplicationIdentity(input))
+  await expect(caller("coordinator").admin.correctApplicationIdentity(input))
     .rejects.toMatchObject({ code: "CONFLICT", message: "APPLICATION_IDENTITY_PROPOSAL_DECIDED" });
   expect(await db.approvalRequest.count()).toBe(1);
   expect(await db.applicationIdentityCorrection.count()).toBe(1);
 });
 
-it("keeps distinct Admin receipt namespaces when Head reviews the same client key", async () => {
+it("keeps distinct Coordinator receipt namespaces when Head reviews the same client key", async () => {
   const first = await fixture();
   const second = await fixture();
   const otherInput = { ...second.input, clientKey: first.input.clientKey, firstName: "Lin" };
-  const firstRequest = await queued(() => caller("admin").admin.correctApplicationIdentity(first.input));
-  const secondRequest = await queued(() => caller("other-admin").admin.correctApplicationIdentity(otherInput));
+  const firstRequest = await queued(() => caller("coordinator").admin.correctApplicationIdentity(first.input));
+  const secondRequest = await queued(() => caller("other-coordinator").admin.correctApplicationIdentity(otherInput));
   await caller("head").approval.decide({ id: firstRequest.id, approve: true, note: "First record checked" });
   await caller("head").approval.decide({ id: secondRequest.id, approve: true, note: "Second record checked" });
   expect(await db.applicationIdentityCorrection.count()).toBe(2);
@@ -135,24 +145,24 @@ it("keeps distinct Admin receipt namespaces when Head reviews the same client ke
 
 it("recovers an unchanged pending submission after target drift without replacing its evidence", async () => {
   const { app, input } = await fixture();
-  const request = await queued(() => caller("admin").admin.correctApplicationIdentity(input));
+  const request = await queued(() => caller("coordinator").admin.correctApplicationIdentity(input));
   await db.tutorApplication.update({ where: { id: app.id }, data: {
     interviewAt: new Date("2026-10-24T00:00:00Z"), updatedAt: new Date(app.updatedAt.getTime() + 1000),
   } });
-  const retry = await queued(() => caller("admin").admin.correctApplicationIdentity(input));
+  const retry = await queued(() => caller("coordinator").admin.correctApplicationIdentity(input));
   expect(retry).toEqual(request);
   await expect(caller("head").approval.decide({ id: request.id, approve: true, note: "Old review" }))
     .rejects.toMatchObject({ code: "CONFLICT" });
   expect(await db.applicationIdentityCorrection.count()).toBe(0);
 });
 
-it("refuses replay after requester loses Admin authority", async () => {
+it("refuses replay after requester loses Coordinator authority", async () => {
   const { input } = await fixture();
-  const request = await queued(() => caller("admin").admin.correctApplicationIdentity(input));
-  await db.user.update({ where: { id: "admin" }, data: { role: "COORDINATOR" } });
+  const request = await queued(() => caller("coordinator").admin.correctApplicationIdentity(input));
+  await db.user.update({ where: { id: "coordinator" }, data: { role: "VIEWER" } });
   await expect(caller("head").approval.decide({ id: request.id, approve: true, note: "Role changed" }))
     .rejects.toMatchObject({ code: "CONFLICT" });
-  await expect(caller("admin").admin.correctApplicationIdentity(input))
+  await expect(caller("coordinator").admin.correctApplicationIdentity(input))
     .rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.approvalRequest.findUniqueOrThrow({ where: { id: request.id } }))
     .toMatchObject({ state: "PENDING" });
@@ -161,7 +171,7 @@ it("refuses replay after requester loses Admin authority", async () => {
 
 it("stales a queued correction when current name policy changes", async () => {
   const { input } = await fixture();
-  const request = await queued(() => caller("admin").admin.correctApplicationIdentity(input));
+  const request = await queued(() => caller("coordinator").admin.correctApplicationIdentity(input));
   await db.programSettings.create({ data: { id: "program", nameFieldsVersion: 1 } });
   await expect(caller("head").approval.decide({ id: request.id, approve: true, note: "Policy changed" }))
     .rejects.toMatchObject({ code: "CONFLICT" });
@@ -172,7 +182,7 @@ it("stales captured account identity even when the application itself did not ch
   const { app, input } = await fixture();
   const account = await db.user.create({ data: { username: "candidate", email: app.email,
     emailVerifiedAt: new Date(), firstName: "Verified", lastName: "Identity" } });
-  const request = await queued(() => caller("admin").admin.correctApplicationIdentity(input));
+  const request = await queued(() => caller("coordinator").admin.correctApplicationIdentity(input));
   await db.user.update({ where: { id: account.id }, data: {
     firstName: "Changed", profileVersion: { increment: 1 },
   } });
@@ -189,7 +199,7 @@ it("stales captured panel votes without mutating or discarding those votes", asy
   await db.interviewAssignment.create({ data: { applicationId: app.id, tutorId: tutor.id, isHead: true } });
   const vote = { applicationId: app.id, tutorId: tutor.id };
   await db.interviewVote.create({ data: { ...vote, accept: true } });
-  const request = await queued(() => caller("admin").admin.correctApplicationIdentity(input));
+  const request = await queued(() => caller("coordinator").admin.correctApplicationIdentity(input));
   await db.interviewVote.update({ where: { applicationId_tutorId: vote }, data: { comment: "Later evidence" } });
   await expect(caller("head").approval.decide({ id: request.id, approve: true, note: "Vote changed" }))
     .rejects.toMatchObject({ code: "CONFLICT" });
@@ -203,7 +213,7 @@ it("preserves untouched decision fingerprints but stales a queued decision after
   const decision = { id: app.id, status: "REJECTED" as const, expectedUpdatedAt: app.updatedAt };
   const before = await proposalTargets(db, "admin.setApplicationStatus", superjson.serialize(decision));
   expect(JSON.stringify(before)).not.toContain("identityRevision");
-  const request = await queued(() => caller("admin").admin.setApplicationStatus(decision));
+  const request = await queued(() => caller("coordinator").admin.setApplicationStatus(decision));
   await caller("head").admin.correctApplicationIdentity(input);
   const after = await proposalTargets(db, "admin.setApplicationStatus", superjson.serialize(decision));
   expect(JSON.stringify(after)).toContain('"identityRevision":1');

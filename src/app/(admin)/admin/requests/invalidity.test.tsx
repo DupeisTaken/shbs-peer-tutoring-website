@@ -939,7 +939,7 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
     ];
     render(content());
     const action =
-      role === "HEAD"
+      role === "HEAD" || role === "ADMIN"
         ? en.signupAppeal.unassign
         : en.signupAppeal.proposeUnassign;
     const mathRows = screen.getAllByRole("group", {
@@ -953,6 +953,9 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
           name: action,
         }),
       ).toHaveLength(1);
+      expect(within(mathRows[index]!).queryByRole("button", {
+        name: role === "COORDINATOR" ? en.signupAppeal.unassign : en.signupAppeal.proposeUnassign,
+      })).toBeNull();
       expect(mathRows[index]!.children[0]?.textContent).toBe("Mathematics");
     }
     const historicalChoice = screen.getByRole("group", {

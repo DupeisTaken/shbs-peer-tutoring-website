@@ -133,7 +133,7 @@ beforeEach(async () => {
         id: "capture-admin",
         role: "ADMIN",
         email: "capture-admin@example.test",
-        name: "Requesting Admin",
+        name: "Reviewing Admin",
       },
       {
         id: "capture-head",
@@ -145,7 +145,7 @@ beforeEach(async () => {
         id: "capture-coordinator",
         role: "COORDINATOR",
         email: "capture-coordinator@example.test",
-        name: "Translator Coordinator",
+        name: "Requesting Translator Coordinator",
         canTranslate: true,
       },
       {
@@ -176,7 +176,7 @@ afterAll(() => db.$disconnect());
 
 it("captures exact safe structured originals and leaves the live profile untouched until Head applies", async () => {
   const request = await queued(() =>
-    admin().admin.updateAccountProfile({
+    coordinator().admin.updateAccountProfile({
       userId: targetId,
       // The default display policy materializes the preferred name in User.name.
       name: "June Lin",
@@ -218,7 +218,7 @@ it("captures exact safe structured originals and leaves the live profile untouch
     await db.user.findUniqueOrThrow({ where: { id: targetId } }),
   ).toMatchObject({ firstName: "Mina", profileVersion: 0 });
   await expect(
-    admin().approval.decide({
+    coordinator().approval.decide({
       id: request.id,
       approve: true,
       note: "Cannot review own proposal",
@@ -241,7 +241,7 @@ it("captures exact safe structured originals and leaves the live profile untouch
 
 it("distinguishes an explicit preferred-name clear from an omitted unchanged name field", async () => {
   const request = await queued(() =>
-    admin().admin.updateAccountProfile({
+    coordinator().admin.updateAccountProfile({
       userId: targetId,
       name: "Mina Lin",
       preferredName: null,
@@ -297,7 +297,7 @@ it("retains explicit null originals and an unsplit legacy identity without inven
     },
   });
   const request = await queued(() =>
-    admin().admin.updateAccountProfile({
+    coordinator().admin.updateAccountProfile({
       userId: targetId,
       name: "王小明",
       preferredName: null,
@@ -343,7 +343,7 @@ it.each(["firstName", "lastName", "preferredName"] as const)(
   "rejects a changed captured %s even if an external writer did not advance profileVersion",
   async (field) => {
     const request = await queued(() =>
-      admin().admin.updateAccountProfile({
+      coordinator().admin.updateAccountProfile({
         userId: targetId,
         name: "Mina Lin",
         firstName: "Mira",
@@ -373,7 +373,7 @@ it.each([false, true])(
   "replays a historical profile capture with authority=%s without backfilling originals",
   async (withAuthority) => {
     const fresh = await queued(() =>
-      admin().admin.updateAccountProfile({
+      coordinator().admin.updateAccountProfile({
         userId: targetId,
         name: "Mina Lin",
         firstName: "Mira",
@@ -431,7 +431,7 @@ it.each([null, "minalin"])(
   async (username) => {
     await db.user.update({ where: { id: targetId }, data: { username } });
     const request = await queued(() =>
-      admin().admin.updateAccountUsername({
+      coordinator().admin.updateAccountUsername({
         userId: targetId,
         username: "miralin",
         expectedProfileVersion: 0,
@@ -466,7 +466,7 @@ it.each([null, "minalin"])(
 
 it("fences changed username originals independently from the resolver's profile version check", async () => {
   const request = await queued(() =>
-    admin().admin.updateAccountUsername({
+    coordinator().admin.updateAccountUsername({
       userId: targetId,
       username: "miralin",
       expectedProfileVersion: 0,
@@ -489,7 +489,7 @@ it.each([false, true])(
   "replays historical username evidence with authority=%s and leaves its missing original visible",
   async (withAuthority) => {
     const fresh = await queued(() =>
-      admin().admin.updateAccountUsername({
+      coordinator().admin.updateAccountUsername({
         userId: targetId,
         username: "miralin",
         expectedProfileVersion: 0,
@@ -561,7 +561,7 @@ it.each([
       data: { key: "CREW", enabled: effective, pendingEnabled: pending },
     });
     const request = await queued(() =>
-      admin().program.setFeaturePending({ key: "CREW", enabled: requested }),
+      coordinator().program.setFeaturePending({ key: "CREW", enabled: requested }),
     );
     expect(request.targets).toMatchObject({
       reviewPresentation: {
@@ -595,7 +595,7 @@ it("captures a missing feature's effective default at submission and rejects a l
   const originalDefault = DEFAULT_FEATURES.CREW;
   expect(originalDefault).toBe(true);
   const request = await queued(() =>
-    admin().program.setFeaturePending({ key: "CREW", enabled: false }),
+    coordinator().program.setFeaturePending({ key: "CREW", enabled: false }),
   );
   expect(request.targets).toMatchObject({
     programFeature: [],
@@ -641,7 +641,7 @@ it("captures a missing feature's effective default at submission and rejects a l
 
 it("replays an old absent-row feature proposal without replacing its uncaptured default evidence", async () => {
   const fresh = await queued(() =>
-    admin().program.setFeaturePending({ key: "CREW", enabled: false }),
+    coordinator().program.setFeaturePending({ key: "CREW", enabled: false }),
   );
   const request = await historical(fresh);
   expect(request.targets).toMatchObject({ programFeature: [] });
@@ -679,7 +679,7 @@ it.each(["tutor", "tutee"] as const)(
       },
     });
     const request = await queued(() =>
-      admin().program.setSignupWindow({
+      coordinator().program.setSignupWindow({
         audience,
         expectedTermId: "capture-term",
         opensAt: null,
@@ -719,7 +719,7 @@ it("retains the saved timezone through later live configuration drift and reject
     data: { id: "program", timeZone: "America/New_York" },
   });
   const request = await queued(() =>
-    admin().program.setSignupWindow({
+    coordinator().program.setSignupWindow({
       audience: "tutor",
       enabled: false,
       opensAt: new Date("2027-01-01T05:00:00Z"),
@@ -746,7 +746,7 @@ it("retains the saved timezone through later live configuration drift and reject
 
 it("replays a historical default-zone window without backfilling its missing timezone", async () => {
   const fresh = await queued(() =>
-    admin().program.setSignupWindow({
+    coordinator().program.setSignupWindow({
       audience: "tutee",
       enabled: false,
       opensAt: null,
@@ -926,7 +926,7 @@ it.each(["primary", "sibling"] as const)(
     const fixture = await mergedAttendance();
     const input = { ...fixture.input, id: fixture[selected].id };
     const request = await queued(() =>
-      admin().corrections.correctAttendance(input),
+      coordinator().corrections.correctAttendance(input),
     );
     expect(request.targets).toMatchObject({
       reviewPresentation: { version: 1 },
@@ -1004,7 +1004,7 @@ it.each(["session", "participant"] as const)(
   async (changed) => {
     const fixture = await mergedAttendance();
     const request = await queued(() =>
-      admin().corrections.correctAttendance(fixture.input),
+      coordinator().corrections.correctAttendance(fixture.input),
     );
     if (changed === "session") {
       await db.session.update({
@@ -1051,7 +1051,7 @@ it.each([false, true])(
   async (withAuthority) => {
     const fixture = await mergedAttendance();
     const fresh = await queued(() =>
-      admin().corrections.correctAttendance(fixture.input),
+      coordinator().corrections.correctAttendance(fixture.input),
     );
     const request = await historical(fresh, withAuthority);
     expect(request.targets).not.toHaveProperty("reviewPresentation");
@@ -1484,7 +1484,7 @@ it("keeps historical pairing digests and replay unchanged without joining newly 
 
 it("preserves existing presentation-v1 projection bytes and fingerprints when reference capture is absent", async () => {
   const fresh = await queued(() =>
-    admin().admin.updateAccountProfile({
+    coordinator().admin.updateAccountProfile({
       userId: targetId,
       name: "June Lin",
       firstName: "Mira",
@@ -1535,7 +1535,7 @@ it("preserves existing presentation-v1 projection bytes and fingerprints when re
 
 it("fails closed on an unsupported saved display reference version", async () => {
   const fresh = await queued(() =>
-    admin().admin.updateAccountUsername({
+    coordinator().admin.updateAccountUsername({
       userId: targetId,
       username: "miralin",
       expectedProfileVersion: 0,
@@ -1622,7 +1622,7 @@ it("uses the Crew application namespace for a requested applicationId without ch
     },
   });
   const request = await queued(() =>
-    admin().admin.decideCrewApplication({
+    coordinator().admin.decideCrewApplication({
       applicationId: application.id,
       action: "ACCEPT",
     }),
@@ -1645,7 +1645,7 @@ it("captures an explicit new interview chair and requested actual room from thei
   });
   const input = { ...fixture.input, online: false, actualRoomId: room.id };
   const request = await queued(() =>
-    admin().corrections.correctAttendance(input),
+    coordinator().corrections.correctAttendance(input),
   );
   expect(references(request).entities.Room).toContainEqual({
     id: room.id,
@@ -1725,6 +1725,10 @@ it("captures an automatic allocation's original room while excluding an ignored 
   recomputed.reviewAuthority = (
     request.targets as Prisma.JsonObject
   ).reviewAuthority!;
+  // Replay preserves the submitted policy marker independently of display versions.
+  recomputed.reviewPolicyVersion = (
+    request.targets as Prisma.JsonObject
+  ).reviewPolicyVersion!;
   expect(fingerprint(recomputed)).toBe(request.fingerprint);
 });
 

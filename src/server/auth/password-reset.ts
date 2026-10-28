@@ -262,11 +262,11 @@ export async function issueTutorSetupLink(
     await import("./registration");
   const { deliverAccountInvitation } = await import("./account-invitations");
   const actor = await db.user.findUnique({ where: { id: actorId } });
-  if (actor?.role !== "HEAD" || actor.suspendedAt)
+  if (!actor || !["ADMIN", "HEAD"].includes(actor.role) || actor.suspendedAt || actor.mergedIntoId)
     throw new TRPCError({
       code: "FORBIDDEN",
       message:
-        "Only Head can provision tutor access. Existing account setup links may be resent.",
+        "Only Admin or Head can provision tutor access. Existing account setup links may be resent.",
     });
   // An accountless roster is not a login. Only recipient redemption creates credentials or links
   // participation; the staff action merely authorizes and delivers the typed Tutor invitation.
@@ -278,10 +278,10 @@ export async function issueTutorSetupLink(
       const currentActor = await tx.user.findUnique({
         where: { id: actor.id },
       });
-      if (currentActor?.role !== "HEAD" || currentActor.suspendedAt)
+      if (!currentActor || !["ADMIN", "HEAD"].includes(currentActor.role) || currentActor.suspendedAt || currentActor.mergedIntoId)
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Only Head can provision tutor access.",
+          message: "Only Admin or Head can provision tutor access.",
         });
       // Match history linking/combination: namespace -> account -> Tutor row.
       // The preflight may predate a committed owner or login attachment; only

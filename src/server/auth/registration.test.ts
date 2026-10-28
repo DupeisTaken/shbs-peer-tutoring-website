@@ -361,45 +361,29 @@ it.each([
   },
 );
 it.each(["ADMIN", "COORDINATOR"] as const)(
-  "requires Head authorization and hides %s codes from non-Head accounts",
+  "allows Admin and Head to issue, inspect and revoke %s codes directly while excluding Coordinator and Viewer",
   async (kind) => {
-    for (const id of ["admin", "coordinator"]) {
-      await expect(
-        actor(id).admin.issueRegistrationCode({ kind }),
-      ).rejects.toMatchObject({ code: id === "admin" ? "PRECONDITION_FAILED" : "FORBIDDEN" });
-      expect(await db.registrationCode.count()).toBe(0);
-    }
-    const requests = await db.approvalRequest.findMany();
-    expect(requests).toHaveLength(1);
-    await expect(
-      actor("admin").approval.decide({
-        id: requests[0]!.id,
-        approve: true,
-        note: "Not Head",
-      }),
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await actor("head").approval.decide({
-      id: requests[0]!.id,
-      approve: true,
-      note: "Management invitation authorized",
-    });
-    const codes = await actor("head").admin.registrationCodes();
-    expect(codes).toHaveLength(1);
-    expect(codes[0]?.kind).toBe(kind);
-    for (const id of ["admin", "coordinator", "viewer"])
-      expect(await actor(id).admin.registrationCodes()).toHaveLength(0);
-    await expect(
-      actor("admin").admin.revokeRegistrationCode({ id: codes[0]!.id }),
-    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-    await expect(actor("coordinator").admin.revokeRegistrationCode({ id: codes[0]!.id }))
+    await expect(actor("coordinator").admin.issueRegistrationCode({ kind }))
       .rejects.toMatchObject({ code: "FORBIDDEN" });
-    expect((await resolveUsableCode(codes[0]!.code!)).ok).toBe(true);
-    const reversal = await db.approvalRequest.findFirstOrThrow({ where: { operation: "admin.revokeRegistrationCode" } });
-    await actor("head").approval.decide({ id: reversal.id, approve: true, note: "Revoke the unused management invitation" });
-    expect(await resolveUsableCode(codes[0]!.code!)).toEqual({
-      ok: false,
-      error: "not-found",
-    });
+    expect(await db.registrationCode.count()).toBe(0);
+    for (const issuer of ["admin", "head"]) {
+      const issued = await actor(issuer).admin.issueRegistrationCode({ kind });
+      expect(issued.kind).toBe(kind);
+      expect(await db.approvalRequest.count()).toBe(0);
+      for (const reviewer of ["admin", "head"]) {
+        const codes = await actor(reviewer).admin.registrationCodes();
+        expect(codes).toHaveLength(1);
+        expect(codes[0]).toMatchObject({ id: issued.id, kind });
+      }
+      for (const id of ["coordinator", "viewer"])
+        expect(await actor(id).admin.registrationCodes()).toHaveLength(0);
+      await expect(actor("coordinator").admin.revokeRegistrationCode({ id: issued.id }))
+        .rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect((await resolveUsableCode(issued.code)).ok).toBe(true);
+      await actor(issuer).admin.revokeRegistrationCode({ id: issued.id });
+      expect(await resolveUsableCode(issued.code)).toEqual({ ok: false, error: "not-found" });
+      expect(await db.approvalRequest.count()).toBe(0);
+    }
   },
 );
 it.each(["ADMIN", "COORDINATOR"] as const)(
@@ -475,26 +459,27 @@ it.each(["ADMIN", "COORDINATOR"] as const)(
     ).toBeNull();
   },
 );
-it("rejects non-Head helper issuance, suspension, participation bindings and HEAD codes", async () => {
-  await expect(
-    issueRegistrationCode({ kind: "ADMIN", issuedById: "admin" }),
-  ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await expect(
-    actor("head").admin.issueRegistrationCode({
-      kind: "ADMIN",
-      tutorId: "any-tutor",
-    }),
-  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  await expect(
-    actor("head").admin.issueRegistrationCode({ kind: "HEAD" as "ADMIN" }),
-  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  await db.user.update({
-    where: { id: "head" },
-    data: { suspendedAt: new Date() },
-  });
-  await expect(
-    actor("head").admin.issueRegistrationCode({ kind: "ADMIN" }),
-  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+it("rejects Coordinator helper issuance, suspended managers, participation bindings and HEAD codes", async () => {
+  await expect(issueRegistrationCode({ kind: "ADMIN", issuedById: "coordinator" }))
+    .rejects.toMatchObject({ code: "FORBIDDEN" });
+  const tutor = await db.tutor.create({ data: { englishName: "Participation binding fixture" } });
+  for (const issuer of ["admin", "head"]) {
+    await expect(issueRegistrationCode({ kind: "ADMIN", issuedById: issuer })).resolves.toMatchObject({
+      id: expect.any(String) as unknown, code: expect.any(String) as unknown,
+    });
+    await expect(actor(issuer).admin.issueRegistrationCode({ kind: "ADMIN", tutorId: tutor.id }))
+      .rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(issueRegistrationCode({ kind: "ADMIN", issuedById: issuer, tutorId: tutor.id }))
+      .rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(actor(issuer).admin.issueRegistrationCode({ kind: "HEAD" as "ADMIN" }))
+      .rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await db.user.update({ where: { id: issuer }, data: { suspendedAt: new Date() } });
+    await expect(actor(issuer).admin.issueRegistrationCode({ kind: "ADMIN" }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(issueRegistrationCode({ kind: "ADMIN", issuedById: issuer }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+  }
+  expect(await db.registrationCode.count()).toBe(2);
 });
 it("keeps email binding and public request rate limits", async () => {
   const issued = await actor("head").admin.issueRegistrationCode({

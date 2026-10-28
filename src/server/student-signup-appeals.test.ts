@@ -305,7 +305,7 @@ it.each(["token", "owner"] as const)(
       orderBy: { userId: "asc" },
     });
     expect(events).toEqual(
-      ["ADMIN", "HEAD"].map((userId) => ({
+      ["ADMIN"].map((userId) => ({
         userId,
         title: "Invalid Request Appeal Awaiting Review",
         event: "request_invalidity_appeal_pending",
@@ -373,7 +373,7 @@ it("rolls back modern appeal and audit when its transactional staff notification
     await db.notification.count({
       where: { event: "request_invalidity_appeal_pending" },
     }),
-  ).toBe(2);
+  ).toBe(1);
 });
 
 it("uses one shared flag receipt and retires generic survey tokens without modifying historical appeal evidence", async () => {
@@ -1072,7 +1072,7 @@ it("accepts with retained priority; final rejection closes current queue and pre
     submittedAt: row.submittedAt,
   });
 });
-it("Head alone releases a current assignment with an idempotent version fence", async () => {
+it("Admin releases a current assignment with an idempotent version fence", async () => {
   const { tutee } = await fixture();
   const tutor = await db.tutor.create({
     data: { englishName: "Tutor", status: "ACTIVE" },
@@ -1094,15 +1094,15 @@ it("Head alone releases a current assignment with an idempotent version fence", 
     pairingId: pair.id,
     expectedVersion: 0,
     clientKey: randomUUID(),
-    signedTicket: await ticket("SIGNUP_UNASSIGN", "source:pair"),
+    signedTicket: await ticket("SIGNUP_UNASSIGN", "source:pair", "ADMIN"),
   };
-  await expect(unassignStudentSignup(db, "ADMIN", input)).rejects.toMatchObject(
+  await expect(unassignStudentSignup(db, "COORDINATOR", input)).rejects.toMatchObject(
     { code: "FORBIDDEN" },
   );
-  expect(await unassignStudentSignup(db, "HEAD", input)).toMatchObject({
+  expect(await unassignStudentSignup(db, "ADMIN", input)).toMatchObject({
     version: 1,
   });
-  expect(await unassignStudentSignup(db, "HEAD", input)).toMatchObject({
+  expect(await unassignStudentSignup(db, "ADMIN", input)).toMatchObject({
     version: 1,
   });
   expect(

@@ -245,7 +245,7 @@ vi.mock("~/trpc/react", async () => {
       tutorHistory: {
         permissions: query("tutorHistory.permissions", () => ({
           canLink: true,
-          isHead: false,
+          canCorrectOwnership: false,
         })),
       },
       personCombine: {
