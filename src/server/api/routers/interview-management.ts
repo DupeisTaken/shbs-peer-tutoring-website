@@ -83,6 +83,17 @@ export const interviewManagementRouter = createTRPCRouter({
               interviewCompletedAt: null,
               status: { not: "RECALLED" },
               invalidatedAt: null,
+              // A direct subject approval resolves the interview request. Its
+              // decision note remains history, not unfinished interview service.
+              // Retain genuine interview evidence, including legacy follow-up.
+              NOT: {
+                type: { not: "INITIAL" },
+                status: "ACCEPTED",
+                interviewers: { none: {} },
+                interviewAt: null,
+                votes: { none: {} },
+                decidedByTutorId: null,
+              },
             }
           : input.completion === "COMPLETED"
             ? { interviewCompletedAt: { not: null } }
