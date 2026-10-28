@@ -508,8 +508,10 @@ Pushing to `main` triggers `.github/workflows/docker-build.yml`, which builds an
 `ghcr.io/<owner>/shbs-peer-tutoring-website:latest`.
 
 Only a push or manual dispatch for the `main` ref can publish. Runs for the same pull request or
-ref cancel older runs. Static checks, two isolated test shards, and the production image
-build/boot checks run in parallel, followed by the required `verify` gate. Every prerequisite
+ref cancel older runs. Static checks, eight isolated test shards, production image
+build/boot checks and the scoped image-storage comparison run in parallel, followed by
+the required `verify` gate. See [CI verification](../contributing/verification.md#required-checks)
+for the job budgets and comparison scope. Every prerequisite
 must succeed; failed, cancelled or skipped jobs cannot authorize publication.
 
 The image job applies OCI metadata before building and smoke-testing. On publishable runs,
