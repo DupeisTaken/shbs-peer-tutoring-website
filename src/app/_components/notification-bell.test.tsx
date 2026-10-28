@@ -8,6 +8,10 @@ import { NotificationBell } from "./notification-bell";
 const mocks = vi.hoisted(() => ({
   list: vi.fn(),
   count: 2,
+  totalCount: 2,
+  totalError: null as null | { message: string; data?: { code: string } },
+  refetch: vi.fn(),
+  allSuccess: undefined as undefined | (() => Promise<void>),
   mark: vi.fn(),
   all: vi.fn(),
   invalidate: vi.fn(),
@@ -22,9 +26,9 @@ vi.mock("~/trpc/react", () => ({
     }),
     notification: {
       list: { useQuery: mocks.list },
-      unreadCount: { useQuery: () => ({ data: mocks.count }) },
+      unreadCount: { useQuery: (input?: { includeMuted?: boolean }) => ({ data: input?.includeMuted ? mocks.totalCount : mocks.count, error: input?.includeMuted ? mocks.totalError : null, refetch: mocks.refetch }) },
       markRead: { useMutation: () => ({ mutate: mocks.mark }) },
-      markAllRead: { useMutation: () => ({ mutate: mocks.all }) },
+      markAllRead: { useMutation: (options: { onSuccess: () => Promise<void> }) => { mocks.allSuccess = options.onSuccess; return { mutate: mocks.all }; } },
     },
   },
 }));
@@ -49,6 +53,8 @@ vi.mock("next/link", () => ({
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.count = 2;
+  mocks.totalCount = 2;
+  mocks.totalError = null;
   mocks.list.mockReturnValue({
     data: [
       {
@@ -75,6 +81,32 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+it("blocks writes when the total unread read fails and hides cached notices on its access denial", () => {
+  mocks.totalError = { message: "Read failed" };
+  const wrap = () => <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai"><NotificationBell /></NextIntlClientProvider>;
+  const view = render(wrap());
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: en.components.notifications.markAllRead }).disabled).toBe(true);
+  mocks.totalError = { message: "Denied", data: { code: "FORBIDDEN" } };
+  view.rerender(wrap());
+  expect(screen.queryByText("Fiona Example submitted a tutor application.")).toBeNull();
+  expect(screen.queryByRole("button", { name: en.components.notifications.markAllRead })).toBeNull();
+  expect(mocks.all).not.toHaveBeenCalled();
+});
+it("keeps mark-all available for muted unread notices older than the visible thirty and invalidates every count", async () => {
+  mocks.count = 0;
+  mocks.totalCount = 1;
+  mocks.list.mockReturnValue({ data: Array.from({ length: 30 }, (_, index) => ({
+    id: `read-${index}`, title: `Read notice ${index}`, event: null, context: null,
+    body: null, link: null, createdAt: new Date(), readAt: new Date(),
+  })) });
+  const { container } = render(<NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai"><NotificationBell /></NextIntlClientProvider>);
+  expect(container.querySelector("summary .bg-red-500")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: en.components.notifications.markAllRead }));
+  expect(mocks.all).toHaveBeenCalledOnce();
+  await mocks.allSuccess!();
+  expect(mocks.invalidate).toHaveBeenCalledTimes(2);
+  expect(mocks.invalidate).toHaveBeenCalledWith();
+});
 it("retains muted unread notices and mark-all-read when the badge is zero", () => {
   mocks.count = 0;
   render(

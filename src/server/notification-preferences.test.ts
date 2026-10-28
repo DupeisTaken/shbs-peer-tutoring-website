@@ -72,6 +72,20 @@ it("mutes the unread badge without hiding rows or changing their read state", as
   expect(await caller().notification.unreadCount()).toBe(2);
 });
 
+it("counts older muted unread notices separately and marks them read beyond the latest thirty", async () => {
+  await db.notification.create({ data: { userId, title: "Older muted assignment", event: "student_assignment_updated", createdAt: new Date("2020-01-01") } });
+  await db.notification.createMany({ data: Array.from({ length: 30 }, (_, index) => ({ userId, title: `Read ${index}`, event: "student_assignment_updated", readAt: new Date() })) });
+  await caller().account.setNotificationPreferences({ categories: [{ category: "tutoring", badgeEnabled: false, emailEnabled: false }] });
+  const visible = await caller().notification.list();
+  expect(visible).toHaveLength(30);
+  expect(visible.every((row) => row.readAt !== null)).toBe(true);
+  expect(await caller().notification.unreadCount()).toBe(0);
+  expect(await caller().notification.unreadCount({ includeMuted: true })).toBe(1);
+  await caller().notification.markAllRead();
+  expect(await caller().notification.unreadCount()).toBe(0);
+  expect(await caller().notification.unreadCount({ includeMuted: true })).toBe(0);
+});
+
 it("allows badge-only changes with email disabled or after reviewer role loss", async () => {
   await db.user.update({
     where: { id: userId },

@@ -56,6 +56,7 @@ import { computeSessionHours } from "~/lib/service-hours";
 import { semesterQuarters } from "~/lib/period";
 import { getActivePeriodOrNull } from "~/server/period";
 import { reconcileApplication } from "~/server/tutors/application-status";
+import { beginAdmissionRecoveryCapture, finishAdmissionRecoveryCapture } from "~/server/recovery/capture";
 import { notifyAdmins, notifyTutors } from "~/server/notifications/create";
 import { verifyPasswordConfirmation } from "~/server/auth/password-confirmation";
 import { changeVerifiedPassword } from "~/server/auth/session-version";
@@ -1702,6 +1703,8 @@ export const tutorRouter = createTRPCRouter({
           await recordInterviewApprovalService(tx, before.id, before, input.completion);
         }
 
+        const recoveryActionId = input.accept
+          ? await beginAdmissionRecoveryCapture(tx, input.applicationId) : null;
         // The source lock and pre-write version check cover both completion and decision.
         await tx.tutorApplication.update({
           where: { id: input.applicationId },
@@ -1716,6 +1719,7 @@ export const tutorRouter = createTRPCRouter({
         // On the transition to ACCEPTED, issue a registration code so the applicant can
         // self-register a verified account (see promoteApplicantToTutor).
         await reconcileApplication(tx, input.applicationId);
+        await finishAdmissionRecoveryCapture(tx, recoveryActionId);
         if (input.accept && input.completion) {
           // Reconciliation owns provisioning. Verify its exact outcome rather than
           // claiming success if a malformed legacy code prevented valid issuance.

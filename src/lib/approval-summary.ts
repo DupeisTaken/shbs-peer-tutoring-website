@@ -25,6 +25,7 @@ export function isReviewReference(value: unknown): value is ReviewReference {
  * submitted business fields remain changes, including future schema additions.
  * This is a presentation inventory, never an execution/authority registry. */
 export const approvalSummaryContexts: Record<string, readonly string[]> = {
+  "recovery.voidAdmission": ["actionId"],
   "studentWorkflow.headEditSignup": ["id"],
   "studentWorkflow.headUnassign": ["id", "pairingId"],
   "studentWorkflow.resolveSignupAppeal": ["id"],

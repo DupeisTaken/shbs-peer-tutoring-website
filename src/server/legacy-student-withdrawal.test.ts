@@ -22,7 +22,7 @@ function fixture() {
         email: "owner@example.test",
         suspendedAt: null,
       }),
-      findMany: vi.fn().mockResolvedValue([{ id: "admin" }]),
+      findMany: vi.fn().mockResolvedValue([{ id: "admin", role: "ADMIN" }]),
     },
     studentProfileOwnership: { findMany: vi.fn().mockResolvedValue([]) },
     term: { findFirst: vi.fn().mockResolvedValue({ id: "current", name: "Autumn 2026" }) },

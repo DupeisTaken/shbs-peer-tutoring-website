@@ -215,6 +215,7 @@ export const protectedProcedure = t.procedure
       select: {
         role: true,
         mergedIntoId: true,
+        recoveryVoidedAt: true,
         tutorId: true,
         tutorAccessRevoked: true,
         schoolDeparture: true,
@@ -226,7 +227,11 @@ export const protectedProcedure = t.procedure
         username: true,
       },
     });
-    if (!account || account.mergedIntoId) throw new TRPCError({ code: "UNAUTHORIZED" });
+    if (!account || account.mergedIntoId || account.recoveryVoidedAt) throw new TRPCError({ code: "UNAUTHORIZED" });
+    // Legacy undo payloads lack causal closure. Refuse before approval queuing,
+    // including replay of an old queued undo; the CLI inspector retains evidence.
+    if (type === "mutation" && path === "admin.undoAudit")
+      throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Legacy undo has no complete consequence history. Use recovery preview or the database inspector for operator review." });
     if (
       account.suspendedAt &&
       !["account.me", "account.suspension", "account.submitAppeal"].includes(

@@ -491,7 +491,7 @@ it("does not describe a failed notification read as an empty inbox", () => {
   expect(screen.getByRole("alert")).toBeTruthy();
 });
 
-it("retains cached notices on read failure, retries both reads, and conceals denied notices", async () => {
+it("retains cached notices on read failure, retries the list and both counts, and conceals denied notices", async () => {
   const data = [
     {
       id: "notice",
@@ -520,7 +520,7 @@ it("retains cached notices on read failure, retries both reads, and conceals den
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
   });
-  expect(state.retry).toHaveBeenCalledTimes(2);
+  expect(state.retry).toHaveBeenCalledTimes(3);
   state.notifications.mockReturnValue({
     data,
     error: { data: { code: "FORBIDDEN" } },

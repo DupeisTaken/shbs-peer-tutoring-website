@@ -44,6 +44,9 @@ the immutable proposal: pending assignments say **Proposed assignment**, while
 decisions say **Approved** or **Declined**. New committed assignment notices name
 the tutee, tutor and subject and explicitly say when the schedule awaits confirmation;
 placeholder weekdays/times are not published as confirmed appointments.
+Admission-recovery notices use the immutable plan's captured applicant name and
+distinguish a proposed withdrawal from an applied or declined one; recovery reasons
+and graph evidence are excluded.
 The database trigger promotes the validated detail only for explicitly allowlisted
 domain events, as `emailDetail`. Message email uses only its selected sender name;
 announcement email uses its title and publication/update action, never either full

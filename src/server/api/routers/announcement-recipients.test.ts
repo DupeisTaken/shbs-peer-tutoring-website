@@ -114,7 +114,14 @@ describe("announcement publication and access", () => {
           body: "Private",
           link: "/dashboard",
           event: "announcement_published",
-          context: {},
+          context: {
+            announcementAction: "published",
+            announcementTitle: "Grade 12",
+            inAppDetail: {
+              en: "Announcement “Grade 12” was published. Open announcements to read it.",
+              zh: "公告“Grade 12”已发布，请打开公告查看。",
+            },
+          },
         },
       ],
     });

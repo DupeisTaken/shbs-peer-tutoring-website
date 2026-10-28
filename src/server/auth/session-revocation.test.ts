@@ -81,6 +81,13 @@ it("revokes every old session after recovery and accepts only newly verified cre
   expect(await isSessionCurrent(db, { sub: userId, sessionVersion: 1 })).toBe(true);
 });
 
+it("rejects the current generation of a voided admission and all protected API access", async () => {
+  const user = await db.user.update({ where: { id: userId }, data: { recoveryVoidedAt: new Date() } });
+  expect(user.passwordHash).toBeNull();
+  expect(await isSessionCurrent(db, { sub: userId, sessionVersion: user.sessionVersion })).toBe(false);
+  await expect(caller().account.me()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+});
+
 it.each(["account", "tutor"] as const)("revokes the requesting session after the %s password flow with email step-up", async (path) => {
   let api = caller();
   if (path === "tutor") {

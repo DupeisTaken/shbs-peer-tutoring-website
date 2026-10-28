@@ -74,8 +74,8 @@ export const notificationRouter = createTRPCRouter({
     }));
   }),
 
-  unreadCount: protectedProcedure.query(async ({ ctx }) => {
-    const muted = await ctx.db.notificationPreference.findMany({
+  unreadCount: protectedProcedure.input(z.object({ includeMuted: z.boolean().optional() }).optional()).query(async ({ ctx, input }) => {
+    const muted = input?.includeMuted ? [] : await ctx.db.notificationPreference.findMany({
       where: { userId: ctx.session.user.id, badgeEnabled: false }, select: { category: true },
     });
     return ctx.db.notification.count({

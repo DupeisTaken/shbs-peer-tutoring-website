@@ -12,11 +12,13 @@ import {
   auditEntityLabelKey,
   auditEnumLabelKey,
   auditFieldLabelKey,
+  auditReferenceEntity,
   reviewSchema,
   reviewEnumValues,
   reviewFieldKeys,
   reviewStringDomains,
 } from "./review-vocabulary";
+import { notificationCategories } from "./notification-categories";
 
 const at = (catalog: unknown, path: string | null): unknown =>
   path
@@ -28,6 +30,39 @@ const at = (catalog: unknown, path: string | null): unknown =>
           : undefined,
       catalog,
     );
+
+it("labels recovery evidence only within its known schema owners", () => {
+  expect(auditEntityLabelKey("RecoveryReceipt")).toBe(
+    "auditEventDetails.presentation.entities.RecoveryReceipt",
+  );
+  expect(auditFieldLabelKey("RecoveryChange", "changedFields")).toBe(
+    "auditEventDetails.presentation.fields.changedFields",
+  );
+  expect(auditFieldLabelKey("User", "recoveryVoidedAt")).toBe(
+    "auditEventDetails.presentation.fields.recoveryVoidedAt",
+  );
+  expect(auditFieldLabelKey("Tutor", "recoveryVoidedAt")).toBeNull();
+  expect(auditFieldLabelKey("UnknownRecord", "changedFields")).toBeNull();
+});
+
+it("labels notification preference schema and scopes closed topics without exposing literal evidence", () => {
+  expect(auditReferenceEntity("NotificationPreference", "userId")).toBe("User");
+  for (const [entity, field] of [
+    ["User", "emailReviewRequests"], ["User", "emailEventReminders"], ["User", "notificationPreferences"],
+    ["Notification", "category"], ["EmailDelivery", "preferenceTopic"], ["EmailDelivery", "reminderKey"],
+    ["NotificationPreference", "category"], ["NotificationPreference", "badgeEnabled"], ["NotificationPreference", "emailEnabled"],
+  ]) expect(auditFieldLabelKey(entity, field!)).toBe(`auditEventDetails.presentation.fields.${field}`);
+  for (const category of notificationCategories) {
+    for (const [entity, field] of [["Notification", "category"], ["NotificationPreference", "category"], ["EmailDelivery", "preferenceTopic"]])
+      expect(auditEnumLabelKey(entity, field!, category)).toBe(`notificationPreferences.categories.${category}`);
+    expect(auditEnumLabelKey("Notification", "body", category)).toBeNull();
+  }
+  expect(auditEnumLabelKey("EmailDelivery", "category", "reviews")).toBeNull();
+  expect(auditEnumLabelKey("EmailDelivery", "category", "review")).toBe("notificationPreferences.categories.reviews");
+  expect(auditEnumLabelKey("EmailDelivery", "category", "security")).toBe("auditEventDetails.presentation.deliveryCategories.security");
+  expect(auditEnumLabelKey("NotificationPreference", "category", "PRIVATE_SENTINEL")).toBeNull();
+  expect(auditEnumLabelKey("EmailDelivery", "reminderKey", "reminders")).toBeNull();
+});
 it.each(Object.entries({ en, zh, de, el, es, fr, ja, ko }))(
   "has localized schema vocabulary in %s",
   (_locale, catalog) => {

@@ -4,6 +4,7 @@ vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { createCaller } from "../root";
 import { db } from "~/server/db";
 import { recordCsv } from "~/lib/record-transfer";
+import { applyUndo } from "~/server/audit/log";
 import {
   legacyAcademicRecordId,
   type HistoricalCorrectionInput,
@@ -1457,7 +1458,9 @@ it.each(["profile", "status", "reinstate", "undo"] as const)(
           },
         },
       });
-      await caller().admin.undoAudit({ id: entry.id });
+      await expect(caller().admin.undoAudit({ id: entry.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+      // The old helper still preserves historical evidence, but is no longer a web recovery route.
+      expect(await applyUndo(entry.undoData, db)).toBe(true);
     }
     const current = await db.tutee.findUniqueOrThrow({
       where: { id: tutee.id },

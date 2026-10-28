@@ -465,6 +465,12 @@ In **Tutor Applications**, additional-subject and higher-level requests have dis
 
 For a pending additional-subject or higher-level request without an assigned panel, select **Approve without Interview** to open its review. Check the applicant and subject, enter the required **Decision note**, then choose **Approve qualification**. This dialog has no reject action: **Reject request** is available only to the assigned Admin/Head chair after all interview panelists have voted, following the panel majority. Opening the dialog submits nothing. **Cancel** or Escape closes it and retains the note while the application card remains mounted. Failed submissions keep the note for retry; **Reload review** clears it only after the latest application loads successfully. A saved decision whose refresh fails offers **Try again** to refresh records without repeating the decision. Interview-stage requests keep the chair/voting workflow, and initial applications keep their existing screening process.
 
+Approving a request without an interview removes it from the open **Interview
+Records** queue automatically. Its accepted request, decision note and granted
+qualifications remain in history; choose **All** to find it. It is not counted as
+a completed interview and earns no interview hours. Records with actual interview
+evidence remain available for service follow-up.
+
 Use **My Subject Willingness → Edit willingness** on the Tutor Dashboard to change your own subject choices. Only subjects with saved approved qualifications, including inherited qualifications, appear. Choose **Willing to Tutor** or **Unwilling to Tutor**; an unanswered subject shows **Not recorded** with neither selected. Each change saves immediately; check the saved result or error before continuing. Inactive tutors have read-only access. If no subjects qualify, request qualification in **Subject Qualifications**. Willingness does not change qualifications or timetable availability.
 
 Staff can narrow **Tutor Applications** by name or email, application status, request type, requested subject and **Interview completion**. **Completed interviews** means a completion time has been recorded; acceptance or rejection alone does not establish completion. Each completed card shows its completion date. Filters combine, and the matching count always refers to the complete application queue. Choose **Sort by** to order by completion date, application date or applicant name in either direction. Choosing completed interviews from the default order starts with the newest completion; you can switch to oldest first. Records without a completion date stay last when sorting by completion date. **Reset filters** clears these controls and restores the queue's default order; the separate active/invalid entry scope remains as selected.
@@ -1047,6 +1053,14 @@ Missing detailed evidence is explicitly identified: older events and generic
 operation summaries may never have recorded it. Details do not reconstruct past
 values from current profiles. Observers retain the restricted summary. If a detail
 read fails, use Retry; this only reloads the event and never repeats its action.
+
+Open **Recovery** to preview a captured initial admission and its consequences.
+Admin/Head can apply a complete plan with at most one later dependent action;
+eligible Coordinator submissions require Admin/Head review. Longer chains require
+the operator CLI. Legacy one-click audit Undo is unavailable because old payloads
+do not prove the full consequence chain. **Database records** remains available
+to Admin/Head for read-only persisted values and CLI references. See the
+[recovery guide](recovery.md) for supported checkpoints and backup staging.
 
 ### Signup request tabs
 

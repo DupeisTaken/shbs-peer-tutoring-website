@@ -5,7 +5,7 @@ import { approvalReview } from "./approval-review";
 import type { NotificationInAppDetail } from "./notification-details";
 
 type Row = Record<string, unknown>;
-type Outcome = "pending" | "approved" | "rejected";
+type Outcome = "pending" | "approved" | "rejected" | "withdrawn";
 const object = (value: unknown): Row =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Row)
@@ -18,6 +18,7 @@ const statuses = {
   pending: { en: "Proposed", zh: "待审核" },
   approved: { en: "Approved", zh: "已批准" },
   rejected: { en: "Declined", zh: "已拒绝" },
+  withdrawn: { en: "Withdrawn", zh: "已撤回" },
 } as const;
 
 /** Captured identity fields only: never serialize a review payload, note, contact,
@@ -31,6 +32,21 @@ export function approvalNotificationDetail(
 ): NotificationInAppDetail {
   const input = object(payload);
   const evidence = object(targets);
+  if (operation === "recovery.voidAdmission") {
+    // Recovery captures a flat, immutable plan rather than table snapshots.
+    // Admit only its applicant label; reasons, IDs and graph contents stay private.
+    const applicant = label(evidence.applicantName);
+    const action = {
+      pending: { en: "Proposed admission withdrawal", zh: "录取撤销提案待审核" },
+      approved: { en: "Admission withdrawal applied", zh: "录取撤销已执行" },
+      rejected: { en: "Admission withdrawal declined", zh: "录取撤销提案已拒绝" },
+      withdrawn: { en: "Admission withdrawal proposal withdrawn", zh: "录取撤销提案已撤回" },
+    }[outcome];
+    return {
+      en: `${action.en}: ${applicant ?? "(applicant name not recorded)"}.${outcome === "approved" ? "" : " No admission change was applied by this proposal."}`,
+      zh: `${action.zh}：${applicant ?? "（未记录申请人姓名）"}。${outcome === "approved" ? "" : "此提案未应用任何录取变更。"}`,
+    };
+  }
   const rows = (table: string) => {
     const value = evidence[table];
     return (Array.isArray(value) ? value : value ? [value] : []).map((item) =>

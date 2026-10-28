@@ -27,6 +27,31 @@ const payload = {
 };
 
 describe("management notification details", () => {
+  it.each([
+    ["pending", "Proposed admission withdrawal", "待审核"],
+    ["approved", "Admission withdrawal applied", "已执行"],
+    ["rejected", "Admission withdrawal declined", "已拒绝"],
+    ["withdrawn", "Admission withdrawal proposal withdrawn", "已撤回"],
+  ] as const)("describes %s recovery using only the captured applicant", (outcome, english, chinese) => {
+    const detail = approvalNotificationDetail("recovery.voidAdmission",
+      { applicantName: "Untrusted replacement", reason: "private-reason", actionId: "private-action" },
+      { applicantName: " Emma\n Chen ", applicationId: "private-application", effects: { email: "private@example.test" }, warnings: ["private-warning"] }, outcome);
+    expect(detail.en).toContain(`${english}: Emma Chen.`);
+    expect(detail.zh).toContain(chinese);
+    expect(detail.zh).toContain("Emma Chen");
+    expect(detail.en.includes("No admission change was applied")).toBe(outcome !== "approved");
+    expect(JSON.stringify(detail)).not.toMatch(/private|Untrusted/);
+  });
+
+  it("does not reconstruct missing recovery names and bounds captured labels", () => {
+    const missing = approvalNotificationDetail("recovery.voidAdmission", { applicantName: "Untrusted" }, { applicantName: { name: "Nested private name" } }, "pending");
+    expect(missing.en).toContain("applicant name not recorded");
+    expect(missing.zh).toContain("未记录申请人姓名");
+    expect(JSON.stringify(missing)).not.toMatch(/Untrusted|Nested/);
+    const bounded = approvalNotificationDetail("recovery.voidAdmission", {}, { applicantName: "x".repeat(5000) }, "approved");
+    expect(bounded.en).toContain("x".repeat(80));
+    expect(bounded.en).not.toContain("x".repeat(81));
+  });
   it("captures safe old and new clock values without copying private fields", () => {
     const detail = approvalNotificationDetail("admin.updateTimeSlot", {
       id: "slot", startMin: 960, endMin: 1020, reason: "Private medical explanation", password: "secret",

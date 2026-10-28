@@ -77,6 +77,16 @@ export function approvalPresentation(
       }
     | undefined;
   const add = (key: string, value: unknown) => facts.push({ key, value });
+  // Recovery captures its own causal plan rather than table/reference wrappers.
+  // Use only the name from the matching submitted plan, never a live lookup.
+  if (
+    operation === "recovery.voidAdmission" &&
+    evidence.version === 1 &&
+    typeof input.actionId === "string" &&
+    evidence.actionId === input.actionId &&
+    typeof evidence.applicantName === "string"
+  )
+    add("name", evidence.applicantName);
   if (operation === "admin.createAnnouncement")
     outcome = "createAnnouncementOutcome";
   if (

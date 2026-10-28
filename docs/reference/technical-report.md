@@ -1122,6 +1122,12 @@ adding a generic hidden-record query. Coverage lives in [link tests](../../src/l
 
 ## Approval transactions
 
+Directly accepted additional-subject and higher-level requests with no interview
+panel, schedule, votes or recorded chair leave the OPEN Interview Records queue.
+The shared row/count predicate retains them in ALL history without inventing
+completion or service hours. Genuine interview evidence keeps legacy service
+follow-up discoverable; approval status alone does not mean an interview finished.
+
 Additional tutor qualifications use `qualificationApplication` and explicit `ADDITIONAL_SUBJECT` / `HIGHER_LEVEL` application types linked to an existing tutor and stable subject ID. Submission is self-only for active, non-revoked tutors; an open-request unique index plus transaction locks prevents duplicate pending/interview requests. Only Admin/Head may choose a panel or decide, and an interviewed request retains the existing votes/majority/chair checks. Initial-signup reconciliation is bypassed: no roles, membership, registration codes, willingness or existing grants change. Approval uses `approveQualification` in the decision transaction and copies its concrete grants into immutable request evidence; later catalogue reordering never recalculates this evidence. SQL guards preserve request identity and final decisions. Legacy status, delete and interview-decision entry points reject additional applications before proposal middleware.
 
 Successful additional-qualification decisions invalidate the affected tutor's `tutorDetails.get` cache alongside the application, availability and roster queries. The detail cache is independent of `admin.tutors`; scoped invalidation ensures reopening the same tutor within the query freshness window shows the new approval without invalidating unrelated tutor details.
@@ -1190,6 +1196,15 @@ Subject Availability has a separate staff route and management procedures, plus 
 Subject willingness UI: `subjectAvailability.mySubjects` loads on dialog open and scopes qualifications, saved grants and intent to the authenticated tutor. Only subjects backed by approved saved grants (direct or inherited) are returned; unqualified or pending-only subjects are hidden without deleting their historical intent. Staff retains the complete catalogue. The tutor editor uses two mutually exclusive pressed-state buttons; absent intent selects neither, and clicking a confirmed choice does not clear it. Aligned subject rows use paired controls with a checkmark as well as theme colour for selection. The dialog opts into a wider layout; existing profile dialogs keep their default width. On narrow screens, choices stack below each subject and retain equal touch-target heights. Save feedback occupies a stable footer slot. `setMine` retains fresh authorization and cannot accept another tutor ID. Confirmed values are refreshed after immediate saves, including staff/detail caches; failed saves do not present optimistic success. The editor registers only its own mutation with `useDialogPending` before query-state returns, keeping dismissal and controls locked until the write and successful refresh work settle. A same-tick submission guard prevents duplicate writes; failure retains the search and confirmed per-subject choices for retry, and inherited dialog work does not latch the editor's busy state. Management card filters use one nullable selection per tutor and mount only inside expanded cards. Pending Review includes open qualification applications without converting them to grants.
 
 Audit events identify actors by stable account ID and current role. The default signed-in mutation boundary commits domain writes and safe before/after evidence atomically; workflows that own their transactions retain their isolation/retry contracts and write evidence inside those boundaries. Failure/denial receipts are independent of rolled-back changes. The audit records actions rather than page access. Review metadata and undo payloads are not exposed to VIEWER accounts.
+
+Prospectively captured initial admissions use the separate
+[causal recovery contract](recovery.md). Website execution requires complete
+coverage and at most one later logical event; longer supported chains use the
+operator CLI. This recovery operation allows Admin/Head application and eligible
+Coordinator requests. `admin.undoAudit` refuses legacy undo before proposal
+queuing because its partial payload cannot prove that bound. The database
+inspector exposes permitted persisted fields and explicit redactions independently
+of whether any recovery can execute.
 
 `admin.auditLogDetail` is an on-demand, live-staff-authorized projection of one
 stored event. It selects recorded metadata, evidence and undo status/time, excluding
@@ -1778,7 +1793,9 @@ email choices transactionally, permits badge-only saves with the global email ga
 off or reviewer access lost, and prevents newly enabling unavailable email choices.
 The unread-count query excludes disabled badge categories using the user/read/category
 index; list and mark-read operations retain all categories and their original read
-state. Saving invalidates the bell queries; an accepted save followed by a failed
+state. A separate total-unread query keeps Mark all read available when muted unread
+notices fall outside the latest thirty displayed records. Saving invalidates both
+counts and the list; an accepted save followed by a failed
 refresh offers read-only recovery rather than repeating the write.
 
 [Account email services](../../src/server/auth/account-emails.ts) use the account-profile lock to serialize a person's changes. `AccountEmail` is the globally unique namespace for primary and verified secondary addresses; triggers reserve primary addresses for every account creation/update path. Inputs are trimmed and lowercased. Pending secondary requests live only in `EmailVerificationCode`, so failed, expired or abandoned requests cannot block another person. The settings list combines owned addresses with account-local pending challenges and applies the five-secondary limit to that union. Cancellation remains available for expired requests; resend is available when secondary binding is enabled; failed SMTP delivery retires only that request's challenge.

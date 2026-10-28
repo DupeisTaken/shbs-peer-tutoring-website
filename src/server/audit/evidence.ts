@@ -456,6 +456,9 @@ const writes = new Set([
   "deleteMany",
 ]);
 const independentlyAudited = new Set([
+  // Recovery owns its Serializable graph recheck, compensation and receipt.
+  // Wrapping it in the default ReadCommitted transaction would weaken that fence.
+  "recovery",
   "approval",
   "recordTransfer",
   "accountCombine",

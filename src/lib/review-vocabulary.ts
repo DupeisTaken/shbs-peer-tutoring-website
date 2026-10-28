@@ -3,6 +3,7 @@ import {
   reviewFieldKeys,
   reviewSchema,
 } from "./review-vocabulary-schema";
+import { notificationCategories } from "./notification-categories";
 
 type EntitySchema = {
   fields: readonly string[];
@@ -12,10 +13,26 @@ type EntitySchema = {
 const schemas = reviewSchema as Readonly<Record<string, EntitySchema>>;
 const fields = new Set<string>(reviewFieldKeys);
 const prefix = "auditEventDetails.presentation";
+const notificationCategoryLabels = Object.fromEntries(notificationCategories.map((category) =>
+  [category, `notificationPreferences.categories.${category}`]));
 /** These persisted String columns have closed domains owned by their writers,
  * rather than Prisma enums. Keep each mapping scoped to its exact entity/field;
  * an identical token in a name, explanation or unknown object remains text. */
 export const reviewStringDomains = {
+  Notification: { category: notificationCategoryLabels },
+  NotificationPreference: { category: notificationCategoryLabels },
+  EmailDelivery: {
+    preferenceTopic: notificationCategoryLabels,
+    category: {
+      messages: "notificationPreferences.categories.messages",
+      review: "notificationPreferences.categories.reviews",
+      reminder: "notificationPreferences.categories.reminders",
+      info: "unsubscribe.info",
+      information: "unsubscribe.info",
+      security: `${prefix}.deliveryCategories.security`,
+      request_service: `${prefix}.deliveryCategories.request_service`,
+    },
+  },
   TranslationDraft: {
     state: {
       PENDING: "translationEditor.PENDING",
