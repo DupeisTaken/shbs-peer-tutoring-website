@@ -211,7 +211,7 @@ it.each(["pairings", "interviews"])(
     view.rerender(page());
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Refresh Tutoring sessions / School calendar / Interviews",
+        name: "Refresh Tutoring sessions / School Calendar / Interviews",
       }),
     );
     await waitFor(() => expect(state.refreshInterviews).toHaveBeenCalledOnce());
@@ -229,7 +229,7 @@ it.each(["pairings", "interviews"])(
     );
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Refresh Tutoring sessions / School calendar / Interviews",
+        name: "Refresh Tutoring sessions / School Calendar / Interviews",
       }),
     );
     await waitFor(() =>
@@ -262,7 +262,7 @@ it("holds the shared denial boundary through all pending reads and guards duplic
       }),
   );
   const button = screen.getByRole<HTMLButtonElement>("button", {
-    name: "Refresh Tutoring sessions / School calendar / Interviews",
+    name: "Refresh Tutoring sessions / School Calendar / Interviews",
   });
   fireEvent.click(button);
   fireEvent.click(button);
@@ -283,7 +283,7 @@ it("recovers only the enabled source when interviews are disabled", async () => 
   view.rerender(page({ interviewsEnabled: false }));
   fireEvent.click(
     screen.getByRole("button", {
-      name: "Refresh Tutoring sessions / School calendar",
+      name: "Refresh Tutoring sessions / School Calendar",
     }),
   );
   await waitFor(() =>
