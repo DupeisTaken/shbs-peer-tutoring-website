@@ -1,4 +1,4 @@
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import { accountHistoryIds } from "~/server/account-history";
 import { findAccountPolicy } from "~/server/policy-acceptance";
 import type { Prisma } from "../../../../generated/prisma";
@@ -418,6 +418,7 @@ export const studentRouter = createTRPCRouter({
         const owned = await ownedStudentIds(tx, ctx.session.user.id);
         const attendance = await tx.sessionTutee.findFirst({
           where: { sessionId: input.sessionId, tuteeId: { in: owned } },
+          include: { tutee: { select: { englishName: true } } },
         });
         if (!attendance) throw new TRPCError({ code: "FORBIDDEN" });
         const row = await tx.studentFeedback.upsert({
@@ -432,7 +433,10 @@ export const studentRouter = createTRPCRouter({
         });
         await notifyAdmins(
           {
-            ...notificationEvent("tutee_feedback_received"),
+            ...notificationInAppEvent("tutee_feedback_received", undefined, {
+              en: `Tutee ${attendance.tutee.englishName} submitted session feedback.`,
+              zh: `学习伙伴 ${attendance.tutee.englishName} 提交了辅导反馈。`,
+            }),
             title: "Tutee feedback received",
             link: "/student-support",
           },
@@ -522,9 +526,16 @@ export const studentRouter = createTRPCRouter({
         await tx.studentAppeal.create({
           data: { studentId: card.tuteeId, ...input },
         });
+        const tutee = await tx.tutee.findUniqueOrThrow({
+          where: { id: card.tuteeId },
+          select: { englishName: true },
+        });
         await notifyAdmins(
           {
-            ...notificationEvent("tutee_card_appeal"),
+            ...notificationInAppEvent("tutee_card_appeal", undefined, {
+              en: `Tutee ${tutee.englishName} appealed a disciplinary card. Review the appeal.`,
+              zh: `学习伙伴 ${tutee.englishName} 对纪律卡提出申诉，请审核。`,
+            }),
             title: "Tutee card appeal",
             link: "/student-support",
           },
@@ -648,7 +659,14 @@ export const studentRouter = createTRPCRouter({
           await notifyUsers(
             [owner.id],
             {
-              ...notificationEvent("tutee_appeal_reviewed"),
+              ...notificationInAppEvent("tutee_appeal_reviewed", undefined, {
+                en: input.overturn
+                  ? "Your card appeal was upheld and the card was invalidated."
+                  : "Your card appeal was declined; the card remains in effect.",
+                zh: input.overturn
+                  ? "您的纪律卡申诉已获支持，该卡已作废。"
+                  : "您的纪律卡申诉未获支持，该卡仍然有效。",
+              }),
               title: "Your appeal was reviewed",
               link: "/student",
             },

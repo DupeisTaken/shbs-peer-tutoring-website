@@ -17,6 +17,9 @@ export const notificationEvents = [
   "tutor_setup_needed",
   "interview_panel_assigned",
   "interview_scheduled",
+  "interview_upcoming",
+  "meeting_upcoming",
+  "tutoring_upcoming",
   "interview_approved",
   "management_review_pending",
   "management_head_review_pending",
@@ -103,7 +106,12 @@ export function notificationEvent(
   )
     context.count = data.count;
   if (
-    event === "interview_scheduled" &&
+    [
+      "interview_scheduled",
+      "interview_upcoming",
+      "meeting_upcoming",
+      "tutoring_upcoming",
+    ].includes(event) &&
     typeof data.startsAt === "string" &&
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(data.startsAt) &&
     Number.isFinite(Date.parse(data.startsAt)) &&

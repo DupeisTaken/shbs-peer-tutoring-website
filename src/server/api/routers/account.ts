@@ -1,4 +1,4 @@
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import { optionalPersonNameFields } from "~/lib/person-name";
 import { accountHistoryIds } from "~/server/account-history";
 import { currentAcademicInput, academicSummary } from "~/lib/academics";
@@ -24,6 +24,7 @@ import { getFeatures } from "~/server/program/features";
 import { maskEmail } from "~/server/auth/mask";
 import { notifyAdmins } from "~/server/notifications/create";
 import { isEmailDeliveryAvailable } from "~/server/email/sender";
+import { eligibleReviewRecipient } from "~/server/email/notification-policy";
 import {
   requestEmailChange,
   confirmEmailChange,
@@ -84,6 +85,11 @@ export const accountRouter = createTRPCRouter({
           emailSecurity: true,
           emailMessages: true,
           emailInfo: true,
+          emailReviewRequests: true,
+          emailEventReminders: true,
+          role: true,
+          suspendedAt: true,
+          mergedIntoId: true,
           emailSecondaryRecipients: true,
         },
       }),
@@ -98,6 +104,7 @@ export const accountRouter = createTRPCRouter({
     ]);
     return {
       ...user,
+      canReceiveReviewRequests: eligibleReviewRecipient(user),
       emails,
       enabled: program?.emailNotificationsEnabled ?? false,
       secondaryEmailBindingEnabled:
@@ -112,6 +119,8 @@ export const accountRouter = createTRPCRouter({
         emailSecurity: z.boolean().optional(),
         emailMessages: z.boolean(),
         emailInfo: z.boolean(),
+        emailReviewRequests: z.boolean().optional(),
+        emailEventReminders: z.boolean().optional(),
         emailSecondaryRecipients: z.boolean(),
       }),
     )
@@ -128,14 +137,50 @@ export const accountRouter = createTRPCRouter({
             message:
               "Email notifications are disabled by the program administrator.",
           });
+        if (input.emailReviewRequests) {
+          const current = await tx.user.findUniqueOrThrow({
+            where: { id: ctx.session.user.id },
+            select: { role: true, suspendedAt: true, mergedIntoId: true },
+          });
+          if (!eligibleReviewRecipient(current))
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message:
+                "Only active Admin or Head reviewers can enable review-request emails.",
+            });
+        }
         await tx.user.update({
           where: { id: ctx.session.user.id },
           data: {
             emailMessages: input.emailMessages,
             emailInfo: input.emailInfo,
+            ...(input.emailReviewRequests !== undefined
+              ? { emailReviewRequests: input.emailReviewRequests }
+              : {}),
+            ...(input.emailEventReminders !== undefined
+              ? { emailEventReminders: input.emailEventReminders }
+              : {}),
             emailSecondaryRecipients: input.emailSecondaryRecipients,
           },
         });
+        // Opting out cancels existing copies too; a later opt-in must not replay them.
+        const stoppedCategories = [
+          ...(input.emailReviewRequests === false ? ["review"] : []),
+          ...(input.emailEventReminders === false ? ["reminder"] : []),
+        ];
+        if (stoppedCategories.length)
+          await tx.emailDelivery.updateMany({
+            where: {
+              userId: ctx.session.user.id,
+              status: "PENDING",
+              category: { in: stoppedCategories },
+            },
+            data: {
+              status: "SKIPPED",
+              completedAt: new Date(),
+              leaseUntil: null,
+            },
+          });
         return { ok: true };
       });
     }),
@@ -306,7 +351,10 @@ export const accountRouter = createTRPCRouter({
         data: { userId: ctx.session.user.id, message: input.message },
       });
       await notifyAdmins({
-        ...notificationEvent("account_appeal_requested"),
+        ...notificationInAppEvent("account_appeal_requested", undefined, {
+          en: `${user.name ?? "A suspended user"} submitted an account suspension appeal.`,
+          zh: `${user.name ?? "一位账户被停用的用户"} 提交了账户停用申诉。`,
+        }),
         title: "Account appeal",
         body: `${user.name ?? "A suspended user"} submitted an appeal.`,
         link: "/admin/users",

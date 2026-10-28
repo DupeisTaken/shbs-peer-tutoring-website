@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 
 const mocks = vi.hoisted(() => ({
   data: {},
@@ -102,8 +103,11 @@ beforeEach(() => {
     secondaryEmailBindingEnabled: true,
     deliveryAvailable: true,
     emailSecurity: true,
+    canReceiveReviewRequests: true,
     emailMessages: false,
     emailInfo: false,
+    emailReviewRequests: false,
+    emailEventReminders: false,
     emailSecondaryRecipients: false,
   };
 });
@@ -176,8 +180,99 @@ it("saves independent categories and recipients", () => {
   expect(mocks.preferences).toHaveBeenCalledWith({
     emailMessages: true,
     emailInfo: false,
+    emailReviewRequests: false,
+    emailEventReminders: false,
     emailSecondaryRecipients: true,
   });
+});
+
+it("saves review requests and event reminders without enabling ordinary updates", () => {
+  view(<EmailPreferences />);
+  fireEvent.click(screen.getByRole("checkbox", { name: /^Review requests/ }));
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: /^Upcoming event reminders/ }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
+  expect(mocks.preferences).toHaveBeenCalledWith({
+    emailMessages: false,
+    emailInfo: false,
+    emailReviewRequests: true,
+    emailEventReminders: true,
+    emailSecondaryRecipients: false,
+  });
+  expect(
+    screen.getByText(messages.emailPreferences.emailEventRemindersHelp),
+  ).toBeTruthy();
+});
+
+it.each(["en", "zh"] as const)(
+  "labels separate review and reminder choices in %s",
+  (locale) => {
+    const catalog = locale === "zh" ? zh : messages;
+    render(
+      <NextIntlClientProvider
+        locale={locale}
+        messages={catalog}
+        timeZone="Asia/Shanghai"
+      >
+        <EmailPreferences />
+      </NextIntlClientProvider>,
+    );
+    for (const key of ["emailReviewRequests", "emailEventReminders"] as const) {
+      expect(
+        screen.getByRole("checkbox", {
+          name: (name) => name.startsWith(catalog.emailPreferences[key]),
+        }),
+      ).toBeTruthy();
+      expect(
+        screen.getByText(catalog.emailPreferences[`${key}Help`]),
+      ).toBeTruthy();
+    }
+  },
+);
+
+it("shows reminders to participants but hides and omits the staff review preference", () => {
+  mocks.data = {
+    ...mocks.data,
+    canReceiveReviewRequests: false,
+    emailReviewRequests: true,
+  };
+  view(<EmailPreferences />);
+  expect(
+    screen.queryByRole("checkbox", { name: /^Review requests/ }),
+  ).toBeNull();
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: /^Upcoming event reminders/ }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
+  expect(mocks.preferences).toHaveBeenCalledWith({
+    emailMessages: false,
+    emailInfo: false,
+    emailEventReminders: true,
+    emailSecondaryRecipients: false,
+  });
+});
+
+it("omits a dirty review preference after reviewer access changes", () => {
+  const rendered = view(<EmailPreferences />);
+  fireEvent.click(screen.getByRole("checkbox", { name: /^Review requests/ }));
+  mocks.data = { ...mocks.data, canReceiveReviewRequests: false };
+  rendered.rerender(
+    <NextIntlClientProvider
+      locale="en"
+      messages={messages}
+      timeZone="Asia/Shanghai"
+    >
+      <EmailPreferences />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    screen.queryByRole("checkbox", { name: /^Review requests/ }),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
+  expect(mocks.preferences.mock.calls[0]?.[0]).not.toHaveProperty(
+    "emailReviewRequests",
+  );
 });
 
 it("disables preference editing behind the admin gate while explaining essential mail", () => {

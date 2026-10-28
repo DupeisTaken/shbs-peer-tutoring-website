@@ -1,4 +1,4 @@
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import type { Prisma } from "../../generated/prisma";
 import type { TransactionDb } from "~/server/transactions";
 import { notifyAdmins } from "~/server/notifications/create";
@@ -31,7 +31,10 @@ export async function proposeTranslation(
     });
     await notifyAdmins(
       {
-        ...notificationEvent("translation_review_pending"),
+        ...notificationInAppEvent("translation_review_pending", undefined, {
+          en: `Translation ${typeof fields.key === "string" ? fields.key : typeof fields.slug === "string" ? fields.slug : "draft"}${typeof fields.locale === "string" ? ` (${fields.locale})` : ""} awaits review; it has not been published.`,
+          zh: `翻译${typeof fields.key === "string" ? ` ${fields.key}` : typeof fields.slug === "string" ? ` ${fields.slug}` : "草稿"}${typeof fields.locale === "string" ? `（${fields.locale}）` : ""}待审核，尚未发布。`,
+        }),
         title: "Translation awaiting review",
         link: "/localization?view=review",
       },

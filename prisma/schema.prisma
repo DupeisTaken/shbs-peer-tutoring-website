@@ -66,6 +66,8 @@ model User {
   emailSecurity Boolean @default(true)
   emailMessages Boolean @default(false)
   emailInfo Boolean @default(false)
+  emailReviewRequests Boolean @default(false)
+  emailEventReminders Boolean @default(false)
   emailSecondaryRecipients Boolean @default(false)
   emailDeliveries EmailDelivery[]
 
@@ -2413,6 +2415,8 @@ model AccountEmail {
 /// A transactionally recorded notification, with one row per event/recipient and bounded retries.
 model EmailDelivery {
   id String @id @default(cuid())
+  /// Occurrence/lead/recipient receipt prevents duplicate event reminders across workers.
+  reminderKey String? @unique
   userId String?
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
   category String

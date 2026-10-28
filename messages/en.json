@@ -3759,17 +3759,21 @@
     "emailMessages": "Messages",
     "emailMessagesHelp": "A notice when a new private message arrives. Message contents stay in the app.",
     "emailInfo": "Information updates",
-    "emailInfoHelp": "Profile, role, account status, and program notifications.",
+    "emailInfoHelp": "Profile, role, account status and ordinary program updates. Review requests and upcoming reminders have separate settings.",
     "emailSecondaryRecipients": "Include verified secondary emails",
     "emailSecondaryRecipientsHelp": "Send your selected notifications to all verified addresses. Otherwise, use the primary only.",
     "essential": "Verification, sign-in codes, recovery emails and account security alerts always remain available. Primary-email changes also notify the previous verified primary.",
     "save": "Save preferences",
     "saving": "Saving…",
-    "saved": "Preferences saved."
+    "saved": "Preferences saved.",
+    "emailReviewRequests": "Review requests",
+    "emailReviewRequestsHelp": "Requests awaiting your Admin or Head review. Independent of ordinary program updates.",
+    "emailEventReminders": "Upcoming event reminders",
+    "emailEventRemindersHelp": "Reminders 24 hours and 1 hour before your interviews, meetings and confirmed tutoring sessions. Unscheduled or cancelled events have no reminders."
   },
   "programEmail": {
     "title": "Email Notifications",
-    "help": "Enable optional message and information emails. Each person chooses which updates to receive in account preferences.",
+    "help": "Enable optional messages, program updates, review requests and event reminders. Each person chooses their categories in account preferences.",
     "on": "Enabled",
     "off": "Disabled",
     "enable": "Enable email notifications",
@@ -4824,11 +4828,15 @@
     "info": "Program notifications",
     "infoHelp": "Email updates about the tutoring program. Your website notifications stay available.",
     "all": "All optional notification emails",
-    "allHelp": "Both private-message and program notification emails.",
+    "allHelp": "Private-message, program-update, review-request and event-reminder emails.",
     "accountWide": "This changes preferences for the account associated with this link, including copies sent to its verified secondary email addresses.",
     "saveError": "We couldn’t confirm the update. Your selection is still here. Please try again; repeating an unsubscribe request is safe.",
     "securityTitle": "Essential Emails Stay On",
-    "securityHelp": "Account security, verification and recovery emails are unaffected. An email already being sent may still arrive."
+    "securityHelp": "Account security, verification and recovery emails are unaffected. An email already being sent may still arrive.",
+    "review": "Review-request notifications",
+    "reviewHelp": "Email requests awaiting your Admin or Head review. Other program emails stay unchanged.",
+    "reminder": "Upcoming event reminders",
+    "reminderHelp": "Email reminders 24 hours and 1 hour before interviews, meetings and confirmed tutoring sessions."
   },
   "participantRecovery": {
     "loading": "Loading records…",
@@ -5394,6 +5402,21 @@
       "title": "Interview Approved",
       "body": "The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome.",
       "action": "View application"
+    },
+    "interview_upcoming": {
+      "title": "Upcoming Interview",
+      "body": "Your scheduled interview is coming up. Review the recorded time and panel duties.",
+      "action": "View interview"
+    },
+    "meeting_upcoming": {
+      "title": "Upcoming Meeting",
+      "body": "Your scheduled meeting is coming up. Review the recorded time and meeting details.",
+      "action": "View meeting"
+    },
+    "tutoring_upcoming": {
+      "title": "Upcoming Tutoring Session",
+      "body": "Your confirmed tutoring session is coming up. Review the recorded time and session details.",
+      "action": "View tutoring session"
     }
   },
   "requestAppeal": {

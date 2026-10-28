@@ -16,10 +16,8 @@ import {
   declineRequestAppeal,
 } from "~/server/email/request-appeal";
 import { notificationDestination } from "~/server/email/urls";
-import {
-  isNotificationEvent,
-  notificationEvent,
-} from "~/lib/notification-events";
+import { isNotificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 
 /**
  * In-app notifications for the signed-in user (any role). Always scoped to
@@ -48,7 +46,7 @@ export const notificationRouter = createTRPCRouter({
     return rows.map((row) => ({
       ...row,
       context: isNotificationEvent(row.event)
-        ? notificationEvent(row.event, row.context).context
+        ? notificationInAppEvent(row.event, row.context).context
         : null,
       link: row.link
         ? notificationDestination(

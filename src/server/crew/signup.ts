@@ -1,4 +1,4 @@
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import { timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -252,7 +252,10 @@ export async function verifyCrewApplication(
           );
           await notifyAdmins(
             {
-              ...notificationEvent("crew_application_pending"),
+              ...notificationInAppEvent("crew_application_pending", undefined, {
+                en: `${draft.name} applied to join the crew. Head review is required.`,
+                zh: `${draft.name} 申请加入工作组，待主管审核。`,
+              }),
               title: "New crew application awaiting Head review",
               body: `${draft.name} applied to join the crew.`,
               link: "/admin/crew",

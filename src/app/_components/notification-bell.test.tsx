@@ -54,7 +54,7 @@ beforeEach(() => {
         event: "tutor_application_pending",
         context: { body: "Private body" },
         title: "Old literal title",
-        body: "Private old body",
+        body: "Fiona Example submitted a tutor application.",
         link: "/admin/applications",
         createdAt: new Date("2026-10-13T03:00:00Z"),
         readAt: null,
@@ -73,6 +73,47 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+it.each(["en", "zh"] as const)(
+  "shows the recorded %s assignment detail as text and preserves navigation",
+  (locale) => {
+    const detail = {
+      en: "Proposed assignment: Emma <Example> to Alice Example for Mathematics. Not yet applied.",
+      zh: "分配提案：将 Emma <Example> 分配给数学辅导伙伴 Alice Example。尚未应用。",
+    };
+    mocks.list.mockReturnValue({
+      data: [
+        {
+          id: "specific",
+          event: "management_review_pending",
+          context: { inAppDetail: detail },
+          title: "Old heading",
+          body: "New assignment",
+          link: "/admin/approvals?request=specific",
+          createdAt: new Date(),
+          readAt: null,
+        },
+      ],
+    });
+    const { container } = render(
+      <NextIntlClientProvider
+        locale={locale}
+        messages={locale === "zh" ? zh : en}
+        timeZone="Asia/Shanghai"
+      >
+        <NotificationBell />
+      </NextIntlClientProvider>,
+    );
+    const body = screen.getByText(detail[locale]);
+    expect(body.className).toContain("break-words");
+    expect(container.querySelector("example")).toBeNull();
+    expect(screen.queryByText("New assignment")).toBeNull();
+    expect(body.closest("a")?.getAttribute("href")).toBe(
+      "/admin/approvals?request=specific",
+    );
+    fireEvent.click(body);
+    expect(mocks.mark).toHaveBeenCalledWith({ id: "specific" });
+  },
+);
 it.each([
   ["/admin/requests#request-survey-abc123", "disabled"],
   ["/admin/requests#request-signup-abc123", "disabled"],
@@ -134,13 +175,11 @@ it.each(["en", "zh"] as const)(
       ),
     ).toBeTruthy();
     expect(
-      screen.getByText(
-        messages.notificationEvents.tutor_application_pending.body,
-      ),
+      screen.getByText("Fiona Example submitted a tutor application."),
     ).toBeTruthy();
     expect(screen.getByText("Retained legacy notice")).toBeTruthy();
     expect(screen.getByText("Readable original notice")).toBeTruthy();
-    expect(screen.queryByText("Private old body")).toBeNull();
+    expect(screen.queryByText("Private body")).toBeNull();
     fireEvent.click(screen.getByText("Retained legacy notice"));
     expect(mocks.mark).toHaveBeenCalledWith({ id: "legacy" });
     fireEvent.click(

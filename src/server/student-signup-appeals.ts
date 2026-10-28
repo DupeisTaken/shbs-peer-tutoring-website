@@ -20,13 +20,20 @@ import { assertSignupEditPeriod } from "./student-signup-editor";
 import { ownedStudentIds } from "./student-ownership";
 import { consumeStudentAction } from "./student-workflow";
 import { closeStudentRequest } from "./student-request-state";
-import { studentSignupIntentDigest } from "./student-signup-answers";
+import {
+  studentSignupIntentDigest,
+  currentStudentSignupPayload,
+} from "./student-signup-answers";
 import { recordDomainAudit } from "./audit/evidence";
 import { emailSender } from "./email/sender";
 import { emailOrigin } from "./email/urls";
 import { env } from "~/env";
 import { queueRequestNotice } from "./email/request-notice";
-import { notifyAdmins, notificationData } from "./notifications/create";
+import {
+  notifyAdmins,
+  notificationData,
+  namedNotificationDetail,
+} from "./notifications/create";
 import { requestStaffDestination } from "~/lib/request-notification-destination";
 
 const id = z.string().min(1).max(128);
@@ -451,8 +458,9 @@ export async function retrySignupNotices(db: DomainDb, surveyId: string) {
     return { queued: updated.count === 1, emailSent: false };
   });
   if (result.queued) {
-    const send = async () =>
-      (await import("./email/notification-delivery")).deliverNotifications();
+    const send = async () => {
+      await (await import("./email/notification-delivery")).deliverNotifications();
+    };
     if (!deferUntilCommit(send)) await send();
   }
   return result;
@@ -592,9 +600,19 @@ export async function appealStudentSignup(
     // Preserve the shared staff-review handoff in this first-admission transaction.
     // Immutable receipt replay returned above, so neither a retry nor a failed
     // transaction can duplicate the event or expose its private appeal evidence.
+    const applicantName = currentStudentSignupPayload(row).englishName;
     await notifyAdmins(
       {
-        ...notificationData("request_invalidity_appeal_pending"),
+        ...notificationData(
+          "request_invalidity_appeal_pending",
+          undefined,
+          typeof applicantName === "string"
+            ? namedNotificationDetail(
+                "request_invalidity_appeal_pending",
+                applicantName,
+              )
+            : undefined,
+        ),
         link: requestStaffDestination({ kind: "survey", id: row.id }),
       },
       undefined,

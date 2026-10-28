@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { useFormatter, useLocale, useTranslations } from "next-intl";
-import { formatNotificationEvent } from "~/lib/notification-events";
+import { formatNotificationInApp } from "~/lib/notification-details";
 import {
   isNotificationRecordDestination,
   navigateNotificationFragment,
@@ -139,16 +139,15 @@ export function NotificationBell() {
             </li>
           )}
           {items.map((n) => {
-            // New notices localize an explicit event. Older records retain their
-            // original readable text without guessing an event from private body text.
-            const copy = formatNotificationEvent(
+            // Preserve recorded change details while localizing the event heading.
+            const copy = formatNotificationInApp(
               n.event,
               n.context,
               locale,
               eventText,
+              n,
             );
-            const title = copy?.title ?? n.title;
-            const body = copy?.body ?? n.body;
+            const { title, body } = copy;
             const inner = (
               <>
                 <p

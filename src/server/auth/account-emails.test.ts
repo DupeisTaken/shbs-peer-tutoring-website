@@ -293,17 +293,18 @@ it.each([false, true])(
           data: { primaryUserId: null },
         });
         await tx.user.delete({ where: { id: owner.id } });
-        if (owner.personId) await tx.person.deleteMany({
-          where: {
-            id: owner.personId,
-            users: { none: {} },
-            tutors: { none: {} },
-            tutees: { none: {} },
-            receipts: { none: {} },
-            mergedGroups: { none: {} },
-            mergedIntoId: null,
-          },
-        });
+        if (owner.personId)
+          await tx.person.deleteMany({
+            where: {
+              id: owner.personId,
+              users: { none: {} },
+              tutors: { none: {} },
+              tutees: { none: {} },
+              receipts: { none: {} },
+              mergedGroups: { none: {} },
+              mergedIntoId: null,
+            },
+          });
       });
       await db.viewerSignup.deleteMany({ where: { email } });
     }
@@ -498,6 +499,101 @@ it("revokes removed-address sign-in, reset grants, and pending challenges, even 
     data: { userId, email: secondary(), verifiedAt: new Date() },
   });
   expect(await resetPassword(token, "OtherPassword123!")).toBeNull();
+});
+
+it("review and event preferences are independent and old clients preserve them", async () => {
+  await caller(headId, "HEAD").account.setEmailPreferences({
+    emailMessages: false,
+    emailInfo: false,
+    emailSecondaryRecipients: false,
+    emailReviewRequests: true,
+    emailEventReminders: true,
+  });
+  expect(await caller(headId, "HEAD").account.emailSettings()).toMatchObject({
+    canReceiveReviewRequests: true,
+    emailReviewRequests: true,
+    emailEventReminders: true,
+    emailInfo: false,
+  });
+  await caller(headId, "HEAD").account.setEmailPreferences({
+    emailMessages: true,
+    emailInfo: false,
+    emailSecondaryRecipients: false,
+  });
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: headId } }),
+  ).toMatchObject({
+    emailReviewRequests: true,
+    emailEventReminders: true,
+  });
+});
+
+it("does not let non-reviewers enable review mail even with a stale Head session", async () => {
+  expect(await caller().account.emailSettings()).toMatchObject({
+    canReceiveReviewRequests: false,
+  });
+  await expect(
+    caller(userId, "HEAD").account.setEmailPreferences({
+      emailMessages: false,
+      emailInfo: false,
+      emailSecondaryRecipients: false,
+      emailReviewRequests: true,
+    }),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await caller().account.setEmailPreferences({
+    emailMessages: false,
+    emailInfo: false,
+    emailSecondaryRecipients: false,
+    emailEventReminders: true,
+  });
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: userId } }),
+  ).toMatchObject({
+    emailReviewRequests: false,
+    emailEventReminders: true,
+  });
+});
+
+it("turning off new optional categories cancels leased copies without canceling ordinary or essential mail", async () => {
+  await db.user.update({
+    where: { id: headId },
+    data: { emailReviewRequests: true, emailEventReminders: true },
+  });
+  await db.emailDelivery.createMany({
+    data: ["review", "reminder", "info", "security"].map((category) => ({
+      userId: headId,
+      recipient: `${headId}@example.test`,
+      category,
+      event: "program_update",
+      leaseUntil: new Date(Date.now() + 60_000),
+    })),
+  });
+  await caller(headId, "HEAD").account.setEmailPreferences({
+    emailMessages: true,
+    emailInfo: true,
+    emailSecondaryRecipients: false,
+    emailReviewRequests: false,
+    emailEventReminders: false,
+  });
+  expect(
+    await db.emailDelivery.count({
+      where: {
+        userId: headId,
+        category: { in: ["review", "reminder"] },
+        status: "SKIPPED",
+        leaseUntil: null,
+      },
+    }),
+  ).toBe(2);
+  expect(
+    await db.emailDelivery.count({
+      where: {
+        userId: headId,
+        category: { in: ["info", "security"] },
+        status: "PENDING",
+      },
+    }),
+  ).toBe(2);
 });
 
 it("Head enablement and personal categories gate notifications without affecting essential mail", async () => {

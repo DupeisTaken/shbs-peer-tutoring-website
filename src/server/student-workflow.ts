@@ -306,6 +306,10 @@ export async function assignStudentRequest(
       tx,
       { ...row, tuteeId: student.id },
       "student_assignment_updated",
+      {
+        en: `Tutee ${student.englishName} is assigned to ${tutor.englishName} for ${subject.name}. The weekly schedule is awaiting confirmation.`,
+        zh: `学习伙伴 ${student.englishName} 已分配给辅导伙伴 ${tutor.englishName}，科目为 ${subject.name}。每周辅导时间待确认。`,
+      },
     );
     return { email: row.email, needsVerification: !row.confirmedAt };
   });
@@ -691,6 +695,10 @@ async function notifyLegacySchedule(
   tutorUserId: string,
   event: NotificationEvent,
 ) {
+  const student = await tx.tutee.findUnique({
+    where: { id: tuteeId },
+    select: { englishName: true },
+  });
   const users = await tx.user.findMany({
     where: {
       suspendedAt: null,
@@ -706,7 +714,13 @@ async function notifyLegacySchedule(
   await tx.notification.createMany({
     data: users.map((user) => ({
       userId: user.id,
-      ...notificationData(event),
+      ...notificationData(
+        event,
+        undefined,
+        student
+          ? namedNotificationDetail(event, student.englishName)
+          : undefined,
+      ),
       link: ["HEAD", "ADMIN"].includes(user.role)
         ? "/admin/requests"
         : user.tutorId
@@ -857,5 +871,8 @@ export async function studentRequestRows(
     };
   });
 }
-import { notificationData } from "./notifications/create";
+import {
+  notificationData,
+  namedNotificationDetail,
+} from "./notifications/create";
 import type { NotificationEvent } from "~/lib/notification-events";

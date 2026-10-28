@@ -10,7 +10,7 @@ import {
 } from "~/app/_components/ui/patterns";
 import { PublicFormRoute } from "~/app/_components/public-form-page";
 
-type Category = "messages" | "info";
+type Category = "messages" | "info" | "review" | "reminder";
 type Scope = "category" | "all";
 type State =
   | { status: "loading" | "error" | "invalid" }
@@ -28,7 +28,10 @@ function readResult(
   if (data.status === "invalid") return { status: "invalid" };
   if (
     (data.status === "ready" || data.status === "already-unsubscribed") &&
-    (data.category === "messages" || data.category === "info")
+    (data.category === "messages" ||
+      data.category === "info" ||
+      data.category === "review" ||
+      data.category === "reminder")
   )
     return { status: data.status, category: data.category };
   return null;

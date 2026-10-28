@@ -29,6 +29,7 @@ function fixture() {
     tutee: {
       findUnique: vi.fn().mockResolvedValue({
         id: "student",
+        englishName: "Morgan Student",
         status: "ACTIVE",
         intakeTermId: "current",
         pairings: [],
@@ -114,11 +115,28 @@ describe("manual student withdrawal ownership and policy", () => {
       },
     });
     expect(mock.pairingTutee.deleteMany).not.toHaveBeenCalled();
+    expect(mock.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          userId: "admin",
+          context: {
+            inAppDetail: {
+              en: "Tutee Morgan Student requested withdrawal for the current quarter. Participation continues until approval.",
+              zh: "学习伙伴 Morgan Student 申请退出本季度辅导。批准前仍继续参与。",
+            },
+          },
+        }),
+      ],
+    });
+    expect(
+      JSON.stringify(mock.notification.createMany.mock.calls),
+    ).not.toContain("Leaving");
   });
   it("supports the active primary manual profile before its first pairing and rejects inactive profiles", async () => {
     const { db, mock } = fixture();
     mock.tutee.findUnique.mockResolvedValue({
       id: "student",
+      englishName: "Morgan Student",
       status: "ACTIVE",
       intakeTermId: null,
       pairings: [],
@@ -128,6 +146,7 @@ describe("manual student withdrawal ownership and policy", () => {
     ).resolves.toHaveProperty("student.id", "student");
     mock.tutee.findUnique.mockResolvedValue({
       id: "student",
+      englishName: "Morgan Student",
       status: "INACTIVE",
       intakeTermId: null,
       pairings: [],

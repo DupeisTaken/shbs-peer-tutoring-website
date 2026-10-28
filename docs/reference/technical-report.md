@@ -1736,6 +1736,18 @@ Changing the program timezone writes only the singleton setting and audit entry,
 
 ## Communication
 
+The notification bell uses [captured in-app details](../../src/lib/notification-details.ts)
+before generic event copy, retaining localized headings and historical stored bodies.
+New bilingual details identify affected records and actions; management summaries use
+immutable proposal evidence, and pending assignments never claim to be applied.
+The list API revalidates the bounded snapshots. Email uses a separate explicit event
+allowlist to copy selected factual descriptions, never arbitrary stored bodies or
+review reasons. Independent review/reminder preferences retain the global optional
+mail gate. Durable reminder deliveries revalidate their source and audience before
+SMTP; calendar/absence suppression affects reminders only. See the
+[event inventory](notification-events.md#delivery-and-access-boundaries) for fallback,
+language and delivery rules.
+
 [Messaging permissions](../../src/server/messaging-permissions.ts) use explicit ownership and recorded assignment evidence. Role contact groups form a union; a user override replaces that union. The same checks govern search, sends and replies. Permission or assignment writes cannot race send validation and commit.
 
 A send validates the entire recipient batch and atomically writes separate deliveries, a retry receipt and notifications. A sender lock serializes retries and quotas; reusing a client key with different recipients, text or disclosure fails. Notifications omit private message bodies and recipient lists. No external I/O belongs inside the transaction.

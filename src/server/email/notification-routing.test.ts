@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   updateMany: vi.fn(),
   available: vi.fn(),
   send: vi.fn(),
+  reminderEligible: vi.fn(),
 }));
 vi.mock("~/server/db", () => ({
   db: {
@@ -24,6 +25,10 @@ vi.mock("./sender", () => ({
   emailSender: { send: mocks.send },
   isEmailDeliveryAvailable: mocks.available,
 }));
+vi.mock("./event-reminders", () => ({
+  queueEventReminders: vi.fn(),
+  validateEventReminder: mocks.reminderEligible,
+}));
 import { deliverNotifications } from "./notification-delivery";
 import { renderEmail } from "./template";
 import type { EmailMessage } from "./sender";
@@ -37,18 +42,28 @@ beforeEach(() => {
   mocks.rows.mockResolvedValue([{ id: "notice-1" }]);
   mocks.available.mockReturnValue(true);
   mocks.send.mockResolvedValue(undefined);
+  mocks.reminderEligible.mockResolvedValue(true);
 });
 afterEach(() => vi.unstubAllEnvs());
 function notice(
   category: string,
   event: string,
-  options: { retired?: boolean; destination?: string; role?: string } = {},
+  options: {
+    retired?: boolean;
+    destination?: string;
+    role?: string;
+    review?: boolean;
+    reminder?: boolean;
+    suspended?: boolean;
+    context?: unknown;
+  } = {},
 ) {
   mocks.row.mockResolvedValue({
     id: "notice-1",
     status: "PENDING",
     category,
     event,
+    context: options.context ?? null,
     destination: options.destination ?? null,
     recipient: "recipient@example.test",
     createdAt: new Date("2026-01-01T00:00:00Z"),
@@ -60,6 +75,9 @@ function notice(
       email: "recipient@example.test",
       emailMessages: true,
       emailInfo: true,
+      emailReviewRequests: options.review ?? false,
+      emailEventReminders: options.reminder ?? false,
+      suspendedAt: options.suspended ? new Date() : null,
       emailSecurity: false,
       emails: [{ email: "recipient@example.test", verifiedAt: new Date() }],
     },
@@ -223,6 +241,89 @@ it("never offers an unsubscribe capability in essential security mail", async ()
   const message = mocks.send.mock.calls[0]?.[0] as EmailMessage;
   expect(message.presentation?.unsubscribeUrl).toBeUndefined();
   expect(message.text).not.toContain("Unsubscribe");
+});
+
+it.each([
+  { role: "ADMIN", review: false },
+  { role: "STUDENT", review: true },
+  { role: "HEAD", review: true, suspended: true },
+])(
+  "skips review mail without current eligible opted-in authority: %j",
+  async (options) => {
+    notice("review", "management_review_pending", options);
+    await deliverNotifications();
+    expect(mocks.send).not.toHaveBeenCalled();
+  },
+);
+
+it("keeps head-only review mail separate from ordinary Admin reviews", async () => {
+  notice("review", "management_head_review_pending", {
+    role: "ADMIN",
+    review: true,
+  });
+  await deliverNotifications();
+  expect(mocks.send).not.toHaveBeenCalled();
+  notice("review", "management_head_review_pending", {
+    role: "HEAD",
+    review: true,
+  });
+  await deliverNotifications();
+  expect(mocks.send).toHaveBeenCalledTimes(1);
+  const message = mocks.send.mock.calls[0]?.[0] as EmailMessage;
+  expect(message.presentation?.eyebrow).toBe("REVIEW REQUEST");
+  expect(message.presentation?.unsubscribeUrl).toBeTruthy();
+});
+
+it("retains participant updates for review-pending events under ordinary info preferences", async () => {
+  notice("info", "student_withdrawal_pending", {
+    role: "STUDENT",
+    review: false,
+    destination: "/student",
+  });
+  await deliverNotifications();
+  expect(mocks.send).toHaveBeenCalledOnce();
+});
+
+it("retains generic legacy home fallback but withholds detailed staff facts after role loss", async () => {
+  notice("info", "program_update", {
+    role: "STUDENT",
+    destination: "/admin/requests",
+  });
+  await deliverNotifications();
+  expect(mocks.send).toHaveBeenCalledOnce();
+  const generic = mocks.send.mock.calls[0]?.[0] as EmailMessage;
+  expect(
+    new URL(generic.presentation!.action!.url).searchParams.get("callbackUrl"),
+  ).toBe("/");
+  mocks.send.mockClear();
+  notice("info", "tutee_feedback_received", {
+    role: "STUDENT",
+    destination: "/admin/support",
+    context: {
+      emailDetail: {
+        en: "Morgan submitted session feedback.",
+        zh: "Morgan 提交了辅导反馈。",
+      },
+    },
+  });
+  await deliverNotifications();
+  expect(mocks.send).not.toHaveBeenCalled();
+});
+
+it("requires reminder opt-in and a still-current eligible event before dispatch", async () => {
+  notice("reminder", "meeting_upcoming", { role: "TUTOR", reminder: false });
+  await deliverNotifications();
+  expect(mocks.send).not.toHaveBeenCalled();
+  notice("reminder", "meeting_upcoming", { role: "TUTOR", reminder: true });
+  mocks.reminderEligible.mockResolvedValue(false);
+  await deliverNotifications();
+  expect(mocks.send).not.toHaveBeenCalled();
+  mocks.reminderEligible.mockResolvedValue(true);
+  await deliverNotifications();
+  expect(mocks.send).toHaveBeenCalledOnce();
+  const message = mocks.send.mock.calls[0]?.[0] as EmailMessage;
+  expect(message.presentation?.eyebrow).toBe("UPCOMING EVENT");
+  expect(message.presentation?.unsubscribeUrl).toBeTruthy();
 });
 
 it("fails optional delivery safely if a signing secret is unavailable", async () => {

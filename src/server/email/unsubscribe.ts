@@ -3,7 +3,7 @@ import { lockAccountProfile } from "~/server/account-profile";
 import { inTransaction, type DomainDb } from "~/server/transactions";
 import { verifyUnsubscribeToken } from "./unsubscribe-token";
 
-export type UnsubscribeCategory = "messages" | "info";
+export type UnsubscribeCategory = "messages" | "info" | "review" | "reminder";
 export type UnsubscribeScope = "category" | "all";
 export type UnsubscribeStatus =
   | { status: "invalid" }
@@ -16,8 +16,10 @@ export type UnsubscribeResult =
 export function optionalEmailCategory(
   category: string,
 ): UnsubscribeCategory | null {
-  return category === "messages"
-    ? "messages"
+  return category === "messages" ||
+    category === "review" ||
+    category === "reminder"
+    ? category
     : ["info", "information"].includes(category)
       ? "info"
       : null;
@@ -52,7 +54,11 @@ export async function getUnsubscribeStatus(
   const enabled =
     delivery.category === "messages"
       ? delivery.row.user.emailMessages
-      : delivery.row.user.emailInfo;
+      : delivery.category === "review"
+        ? delivery.row.user.emailReviewRequests
+        : delivery.category === "reminder"
+          ? delivery.row.user.emailEventReminders
+          : delivery.row.user.emailInfo;
   return {
     status: enabled ? "ready" : "already-unsubscribed",
     category: delivery.category,
@@ -80,11 +86,15 @@ export async function unsubscribeFromEmail(
     if (delivery?.row.userId !== initial.userId) return { status: "invalid" };
     const stopMessages = scope === "all" || delivery.category === "messages";
     const stopInfo = scope === "all" || delivery.category === "info";
+    const stopReview = scope === "all" || delivery.category === "review";
+    const stopReminders = scope === "all" || delivery.category === "reminder";
     await tx.user.update({
       where: { id: initial.userId },
       data: {
         ...(stopMessages ? { emailMessages: false } : {}),
         ...(stopInfo ? { emailInfo: false } : {}),
+        ...(stopReview ? { emailReviewRequests: false } : {}),
+        ...(stopReminders ? { emailEventReminders: false } : {}),
       },
     });
     // Include all verified recipient copies, including leased rows not yet sent. SMTP already
@@ -97,6 +107,8 @@ export async function unsubscribeFromEmail(
           in: [
             ...(stopMessages ? ["messages"] : []),
             ...(stopInfo ? ["info", "information"] : []),
+            ...(stopReview ? ["review"] : []),
+            ...(stopReminders ? ["reminder"] : []),
           ],
         },
       },

@@ -6,6 +6,11 @@ import { notificationUnsubscribeUrl } from "./unsubscribe-token";
 import { notificationEmailCopy } from "./notification-copy";
 import { requestNoticeEmailCopy } from "./request-notice-copy";
 import {
+  eligibleReviewRecipient,
+  notificationEmailDetail,
+} from "./notification-policy";
+import { queueEventReminders, validateEventReminder } from "./event-reminders";
+import {
   admitRequestDelivery,
   finishRequestDelivery,
   requestServiceCategory,
@@ -14,10 +19,15 @@ import {
 /** Leased batches survive restarts and SKIP LOCKED keeps concurrent application workers independent.
  * SMTP has no exactly-once guarantee: a crash after acceptance may retry, but ordinary concurrent
  * dispatches cannot send the same row. A stable Message-ID further identifies retries. */
-export async function deliverNotifications(limit = 10) {
+export async function deliverNotifications(limit = 10, deadline?: number) {
   // Defer the entire lease/send/status workflow, otherwise a deferred SMTP call would
   // mark an outbox row SENT before transport actually accepted it.
-  if (deferUntilCommit(() => deliverNotifications(limit))) return;
+  if (
+    deferUntilCommit(async () => {
+      await deliverNotifications(limit);
+    })
+  )
+    return 0;
   const settings = await db.programSettings.findUnique({
     where: { id: "program" },
   });
@@ -34,7 +44,7 @@ export async function deliverNotifications(limit = 10) {
     !isEmailDeliveryAvailable("SECURITY") &&
     !isEmailDeliveryAvailable("PROGRAM")
   )
-    return;
+    return 0;
   // Freeze the candidate set before updating leases so eligibility changes do
   // not expand a bounded sweep; row locks still give concurrent workers disjoint rows.
   const rows = await db.$queryRaw<
@@ -46,7 +56,25 @@ export async function deliverNotifications(limit = 10) {
     UPDATE "EmailDelivery" delivery SET "leaseUntil" = NOW() + INTERVAL '5 minutes'
     FROM candidates WHERE delivery.id = candidates.id
     RETURNING delivery.id, delivery."leaseUntil", delivery."attemptId"`;
-  for (const { id, leaseUntil, attemptId } of rows) {
+  for (const [index, { id, leaseUntil, attemptId }] of rows.entries()) {
+    if (deadline !== undefined && performance.now() >= deadline) {
+      // The budget stops before another SMTP attempt, never interrupts one in
+      // flight. Release only the exact unprocessed leases this batch acquired.
+      await db.emailDelivery.updateMany({
+        where: {
+          status: { in: ["PENDING", "SENDING"] },
+          OR: rows
+            .slice(index)
+            .map((row) => ({
+              id: row.id,
+              leaseUntil: row.leaseUntil,
+              attemptId: row.attemptId,
+            })),
+        },
+        data: { leaseUntil: null },
+      });
+      return index;
+    }
     const row = await db.emailDelivery.findUniqueOrThrow({
       where: { id },
       include: { user: { include: { emails: true } } },
@@ -109,11 +137,17 @@ export async function deliverNotifications(limit = 10) {
       // ordinary row with no account fails closed rather than taking a request path.
       const essential = row.category === "security";
       const user = row.user;
+      const review = row.category === "review";
+      const reminder = row.category === "reminder";
       const preference = essential
         ? true
-        : row.category === "messages"
-          ? user?.emailMessages
-          : user?.emailInfo;
+        : review
+          ? user?.emailReviewRequests
+          : reminder
+            ? user?.emailEventReminders
+            : row.category === "messages"
+              ? user?.emailMessages
+              : user?.emailInfo;
       const owned = user?.emails.some(
         (address) =>
           address.email === row.recipient &&
@@ -125,6 +159,15 @@ export async function deliverNotifications(limit = 10) {
         user.mergedIntoId ||
         (!essential && !current?.emailNotificationsEnabled) ||
         !preference ||
+        (review && !eligibleReviewRecipient(user, row.event)) ||
+        (reminder && !(await validateEventReminder(db, row))) ||
+        // Generic historical mail retains its safe home-link fallback. Newly
+        // detailed staff facts must not follow an account after staff access ends.
+        (!essential &&
+          notificationEmailDetail(row.event, row.context) &&
+          row.destination?.startsWith("/admin") &&
+          (user.suspendedAt ||
+            !["HEAD", "ADMIN", "COORDINATOR"].includes(user.role))) ||
         (!owned && !row.previousPrimary)
       ) {
         await db.emailDelivery.updateMany({
@@ -157,9 +200,13 @@ export async function deliverNotifications(limit = 10) {
         ? "If you do not recognize this activity, contact the program team through private support.\n如非本人操作，请通过私密支持联系项目团队。"
         : "Sign in to review the update. You can manage optional email notifications in account settings.\n请登录查看通知。您可在账户设置中管理可选邮件通知。";
       // Only optional notification classes receive this narrowly scoped account capability.
-      const unsubscribeUrl = ["messages", "info", "information"].includes(
-        row.category,
-      )
+      const unsubscribeUrl = [
+        "messages",
+        "info",
+        "information",
+        "review",
+        "reminder",
+      ].includes(row.category)
         ? notificationUnsubscribeUrl(id)
         : undefined;
       await emailSender.send({
@@ -174,7 +221,11 @@ export async function deliverNotifications(limit = 10) {
             ? "ACCOUNT SECURITY"
             : row.category === "messages"
               ? "PRIVATE MESSAGES"
-              : "PROGRAM UPDATE",
+              : review
+                ? "REVIEW REQUEST"
+                : reminder
+                  ? "UPCOMING EVENT"
+                  : "PROGRAM UPDATE",
           action: {
             label: copy.action,
             url: link,
@@ -208,6 +259,36 @@ export async function deliverNotifications(limit = 10) {
       });
     }
   }
+  return rows.length;
+}
+
+const DRAIN_BUDGET_MS = 20_000;
+const DRAIN_BATCH_SIZE = 10;
+const DRAIN_MAX_BATCHES = 100;
+
+/** Drain bursts serially in original queue order, preserving security/ordinary
+ * fairness. Bound both elapsed admission time and work even with a static clock.
+ * An SMTP attempt already in flight may finish after the twenty-second budget. */
+export async function drainNotificationQueue(
+  sendBatch: (
+    limit: number,
+    deadline: number,
+  ) => Promise<number> = deliverNotifications,
+  clock: () => number = () => performance.now(),
+) {
+  const deadline = clock() + DRAIN_BUDGET_MS;
+  let processed = 0;
+  for (
+    let batch = 0;
+    batch < DRAIN_MAX_BATCHES && clock() < deadline;
+    batch++
+  ) {
+    const count = await sendBatch(DRAIN_BATCH_SIZE, deadline);
+    processed += count;
+    // Empty/unavailable transport and a partially drained final batch stop here.
+    if (count < DRAIN_BATCH_SIZE) break;
+  }
+  return processed;
 }
 
 const state = globalThis as typeof globalThis & {
@@ -220,7 +301,15 @@ export function startNotificationWorker() {
     if (running) return;
     running = true;
     try {
-      await deliverNotifications();
+      try {
+        await queueEventReminders();
+      } catch {
+        // A failed source scan must never stall security or already queued delivery.
+        console.error(
+          "[email-notifications] Reminder sweep failed; existing mail delivery will continue.",
+        );
+      }
+      await drainNotificationQueue();
     } catch {
       console.error(
         "[email-notifications] Delivery sweep failed; check database and transport availability.",

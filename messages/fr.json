@@ -3759,17 +3759,21 @@
     "emailMessages": "Messages",
     "emailMessagesHelp": "Un avis à l’arrivée d’un message privé. Son contenu reste dans l’application.",
     "emailInfo": "Mises à jour des informations",
-    "emailInfoHelp": "Profil, rôle, état du compte et notifications du programme.",
+    "emailInfoHelp": "Profil, rôle, état du compte et informations générales du programme. Les demandes à examiner et les rappels ont des réglages distincts.",
     "emailSecondaryRecipients": "Inclure les adresses secondaires vérifiées",
     "emailSecondaryRecipientsHelp": "Envoyer les notifications choisies à toutes les adresses vérifiées ; sinon, uniquement à l’adresse principale.",
     "essential": "Les vérifications, codes de connexion, e-mails de récupération et alertes de sécurité restent toujours disponibles. Un changement d’adresse principale est aussi signalé à l’ancienne adresse principale vérifiée.",
     "save": "Enregistrer les préférences",
     "saving": "Enregistrement…",
-    "saved": "Préférences enregistrées."
+    "saved": "Préférences enregistrées.",
+    "emailReviewRequests": "Demandes à examiner",
+    "emailReviewRequestsHelp": "Demandes en attente de votre examen en tant qu’administrateur ou responsable. Indépendantes des informations générales du programme.",
+    "emailEventReminders": "Rappels des événements à venir",
+    "emailEventRemindersHelp": "Rappels 24 heures et 1 heure avant vos entretiens, réunions et séances de tutorat confirmées. Aucun rappel pour les événements non planifiés ou annulés."
   },
   "programEmail": {
     "title": "Notifications e-mail",
-    "help": "Activez les e-mails facultatifs de messages et d’information. Chaque personne choisit les mises à jour souhaitées dans ses préférences.",
+    "help": "Activer les emails facultatifs de messages, informations, demandes à examiner et rappels. Chaque personne choisit ses catégories dans les paramètres du compte.",
     "on": "Activées",
     "off": "Désactivées",
     "enable": "Activer les notifications e-mail",
@@ -4790,11 +4794,15 @@
     "info": "Notifications du programme",
     "infoHelp": "Actualités du programme de tutorat par e-mail. Les notifications du site restent accessibles.",
     "all": "Tous les e-mails de notification facultatifs",
-    "allHelp": "Les notifications de messages privés et du programme.",
+    "allHelp": "Emails de messages privés, informations du programme, demandes à examiner et rappels d’événements.",
     "accountWide": "Ce changement concerne le compte associé au lien, y compris les copies envoyées à ses adresses secondaires vérifiées.",
     "saveError": "Nous n’avons pas pu confirmer la modification. Votre choix est conservé. Réessayez ; répéter la demande est sans risque.",
     "securityTitle": "Les E-mails Essentiels Restent Actifs",
-    "securityHelp": "Les e-mails de sécurité, de vérification et de récupération du compte ne changent pas. Un e-mail déjà en cours d’envoi peut encore arriver."
+    "securityHelp": "Les e-mails de sécurité, de vérification et de récupération du compte ne changent pas. Un e-mail déjà en cours d’envoi peut encore arriver.",
+    "review": "Notifications de demandes à examiner",
+    "reviewHelp": "Emails de demandes en attente de votre examen comme administrateur ou responsable. Les autres emails du programme restent inchangés.",
+    "reminder": "Rappels des événements à venir",
+    "reminderHelp": "Rappels par email 24 heures et 1 heure avant les entretiens, réunions et séances de tutorat confirmées."
   },
   "participantRecovery": {
     "loading": "Chargement des données…",
@@ -5394,6 +5402,21 @@
       "title": "Interview Approved",
       "body": "The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome.",
       "action": "View application"
+    },
+    "interview_upcoming": {
+      "title": "Entretien à venir",
+      "body": "Votre entretien planifié approche. Vérifiez l’heure enregistrée et les responsabilités du jury.",
+      "action": "Voir l’entretien"
+    },
+    "meeting_upcoming": {
+      "title": "Réunion à venir",
+      "body": "Votre réunion planifiée approche. Vérifiez l’heure enregistrée et les détails.",
+      "action": "Voir la réunion"
+    },
+    "tutoring_upcoming": {
+      "title": "Séance de tutorat à venir",
+      "body": "Votre séance de tutorat confirmée approche. Vérifiez l’heure enregistrée et les détails.",
+      "action": "Voir la séance de tutorat"
     }
   },
   "requestAppeal": {

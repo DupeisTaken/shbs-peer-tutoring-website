@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import type { TransactionDb } from "~/server/transactions";
 import {
   approveQualification,
@@ -12,10 +12,15 @@ import { validateInterviewDecision } from "~/server/interviews";
 import { assertFeatureEnabled } from "~/server/program/features";
 import { staleConflict } from "~/server/concurrency";
 import { notifyAdmins, notifyTutors } from "~/server/notifications/create";
-import { assertRequestProcessable, lockApplicationReview } from "~/server/request-invalidity";
+import {
+  assertRequestProcessable,
+  lockApplicationReview,
+} from "~/server/request-invalidity";
 import { lockUsernameNamespace } from "~/server/auth/username";
 import {
-  type InterviewService, interviewHourRows, sameInterviewCompletionEvidence,
+  type InterviewService,
+  interviewHourRows,
+  sameInterviewCompletionEvidence,
   recordInterviewApprovalService,
 } from "~/server/interview-hours";
 
@@ -101,11 +106,24 @@ export async function decideQualificationApplication(
       message: "Use the initial application workflow for this applicant.",
     });
   assertRequestProcessable(app);
-  if (!["PENDING", "INTERVIEW"].includes(app.status) &&
-    !(app.status === "ACCEPTED" && input.accept && input.completion))
-    throw new TRPCError({ code: "CONFLICT", message: "This qualification request has already been decided." });
-  const currentActor = await tx.user.findUnique({ where: { id: actor.id },
-    select: { role: true, tutorId: true, suspendedAt: true, mergedIntoId: true, tutorAccessRevoked: true } });
+  if (
+    !["PENDING", "INTERVIEW"].includes(app.status) &&
+    !(app.status === "ACCEPTED" && input.accept && input.completion)
+  )
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "This qualification request has already been decided.",
+    });
+  const currentActor = await tx.user.findUnique({
+    where: { id: actor.id },
+    select: {
+      role: true,
+      tutorId: true,
+      suspendedAt: true,
+      mergedIntoId: true,
+      tutorAccessRevoked: true,
+    },
+  });
   if (!currentActor || currentActor.suspendedAt || currentActor.mergedIntoId)
     throw new TRPCError({ code: "FORBIDDEN" });
   assertQualificationReviewer(currentActor.role);
@@ -133,7 +151,12 @@ export async function decideQualificationApplication(
   if (hasPanel) {
     await assertFeatureEnabled(tx, "INTERVIEWS");
     chairId = app.interviewers.find((person) => person.isHead)?.tutorId ?? null;
-    if (!chairId || chairId !== actor.tutorId || currentActor.tutorId !== chairId || currentActor.tutorAccessRevoked)
+    if (
+      !chairId ||
+      chairId !== actor.tutorId ||
+      currentActor.tutorId !== chairId ||
+      currentActor.tutorAccessRevoked
+    )
       throw new TRPCError({
         code: "FORBIDDEN",
         message:
@@ -142,17 +165,34 @@ export async function decideQualificationApplication(
     await validateInterviewDecision(tx, app.id, input.accept, chairId);
     if (input.accept) {
       if (!input.completion)
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Report interview duration, completion time and attendance before approving." });
-      if (app.status === "ACCEPTED" && app.qualificationDecidedById === actor.id &&
-        app.decidedByTutorId === chairId && app.decisionComment === input.comment) {
-        const credits = await interviewHourRows(tx, app.id, app.interviewers.map((p) => p.tutorId));
-        if (sameInterviewCompletionEvidence(app, credits, input.completion)) return { ok: true };
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Report interview duration, completion time and attendance before approving.",
+        });
+      if (
+        app.status === "ACCEPTED" &&
+        app.qualificationDecidedById === actor.id &&
+        app.decidedByTutorId === chairId &&
+        app.decisionComment === input.comment
+      ) {
+        const credits = await interviewHourRows(
+          tx,
+          app.id,
+          app.interviewers.map((p) => p.tutorId),
+        );
+        if (sameInterviewCompletionEvidence(app, credits, input.completion))
+          return { ok: true };
       }
     }
   }
   if (!["PENDING", "INTERVIEW"].includes(app.status))
-    throw new TRPCError({ code: "CONFLICT", message: "This qualification request has already been decided." });
-  if (app.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()) staleConflict();
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "This qualification request has already been decided.",
+    });
+  if (app.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
+    staleConflict();
   if (hasPanel && input.accept && input.completion)
     await recordInterviewApprovalService(tx, app.id, app, input.completion);
   const snapshot: { id: string; name: string }[] = [];
@@ -202,14 +242,23 @@ export async function decideQualificationApplication(
       qualificationSnapshot: snapshot,
     },
   });
+  const requestedSubject = await tx.subject.findUnique({
+    where: { id: app.requestedSubjectId },
+    select: { name: true },
+  });
   await notifyTutors(
     [app.requestedTutorId],
     {
       title: input.accept
         ? "Qualification request approved"
         : "Qualification request rejected",
-      ...notificationEvent(
+      ...notificationInAppEvent(
         input.accept ? "qualification_approved" : "qualification_rejected",
+        undefined,
+        {
+          en: `${app.name}'s qualification request${requestedSubject ? ` for ${requestedSubject.name}` : ""} was ${input.accept ? "approved" : "declined"}.`,
+          zh: `${app.name} 的${requestedSubject ? ` ${requestedSubject.name} ` : ""}资格申请${input.accept ? "已获批准" : "未获批准"}。`,
+        },
       ),
       body: input.comment,
       link: "/dashboard#qualification-requests",
@@ -217,9 +266,18 @@ export async function decideQualificationApplication(
     tx,
   );
   if (hasPanel && input.accept)
-    await notifyAdmins({
-      title: "Interview approved", ...notificationEvent("interview_approved"),
-      link: `/admin/applications#application-${app.id}`, inAppOnly: true,
-    }, undefined, tx);
+    await notifyAdmins(
+      {
+        title: "Interview approved",
+        ...notificationInAppEvent("interview_approved", undefined, {
+          en: `${app.name}'s qualification interview was approved and the qualification changes were applied.`,
+          zh: `${app.name} 的资格面试已获批准，资格变更已生效。`,
+        }),
+        link: `/admin/applications#application-${app.id}`,
+        inAppOnly: true,
+      },
+      undefined,
+      tx,
+    );
   return { ok: true };
 }

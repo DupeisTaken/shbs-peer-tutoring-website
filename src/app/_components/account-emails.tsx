@@ -291,10 +291,12 @@ export function AccountEmails() {
 type PreferenceDraft = {
   emailMessages: boolean;
   emailInfo: boolean;
+  emailReviewRequests: boolean;
+  emailEventReminders: boolean;
   emailSecondaryRecipients: boolean;
 };
 
-/** A dirty draft owns all three choices. Background reads can change availability,
+/** A dirty draft owns its choices. Background reads can change availability,
  * but only Cancel or a successful post-save read replaces the draft. */
 export function EmailPreferences() {
   const t = useTranslations("emailPreferences");
@@ -366,6 +368,8 @@ export function EmailPreferences() {
   const preferences = draft ?? {
     emailMessages: data.emailMessages,
     emailInfo: data.emailInfo,
+    emailReviewRequests: data.emailReviewRequests,
+    emailEventReminders: data.emailEventReminders,
     emailSecondaryRecipients: data.emailSecondaryRecipients,
   };
   const blocked =
@@ -393,7 +397,14 @@ export function EmailPreferences() {
           if (blocked || admitted.current) return;
           admitted.current = true;
           setDraft(preferences);
-          save.mutate(preferences);
+          // A role change can hide review mail while a draft is open. Do not
+          // submit that now-ineligible preference alongside ordinary choices.
+          const { emailReviewRequests, ...ordinary } = preferences;
+          save.mutate(
+            data.canReceiveReviewRequests
+              ? { ...ordinary, emailReviewRequests }
+              : ordinary,
+          );
         }}
       >
         <fieldset
@@ -401,29 +412,40 @@ export function EmailPreferences() {
           className="divide-y divide-slate-100 disabled:opacity-60"
         >
           {(
-            ["emailMessages", "emailInfo", "emailSecondaryRecipients"] as const
-          ).map((key) => (
-            <label
-              key={key}
-              className="flex cursor-pointer items-start gap-3 py-3"
-            >
-              <input
-                type="checkbox"
-                checked={preferences[key]}
-                onChange={(e) => {
-                  setSaved(false);
-                  setDraft({ ...preferences, [key]: e.target.checked });
-                }}
-                className="accent-accent-600 mt-1 h-4 w-4 shrink-0"
-              />
-              <span>
-                <span className="block text-sm font-medium text-slate-900">
-                  {t(key)}
+            [
+              "emailMessages",
+              "emailInfo",
+              "emailReviewRequests",
+              "emailEventReminders",
+              "emailSecondaryRecipients",
+            ] as const
+          )
+            .filter(
+              (key) =>
+                key !== "emailReviewRequests" || data.canReceiveReviewRequests,
+            )
+            .map((key) => (
+              <label
+                key={key}
+                className="flex cursor-pointer items-start gap-3 py-3"
+              >
+                <input
+                  type="checkbox"
+                  checked={preferences[key]}
+                  onChange={(e) => {
+                    setSaved(false);
+                    setDraft({ ...preferences, [key]: e.target.checked });
+                  }}
+                  className="accent-accent-600 mt-1 h-4 w-4 shrink-0"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-slate-900">
+                    {t(key)}
+                  </span>
+                  <span className="muted block text-xs">{t(`${key}Help`)}</span>
                 </span>
-                <span className="muted block text-xs">{t(`${key}Help`)}</span>
-              </span>
-            </label>
-          ))}
+              </label>
+            ))}
         </fieldset>
         <p className="muted text-xs">{t("essential")}</p>
         <FormActions>

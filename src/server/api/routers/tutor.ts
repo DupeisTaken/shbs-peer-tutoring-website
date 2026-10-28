@@ -1,4 +1,5 @@
 import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import { isInterviewChairRole } from "~/lib/interview-chair";
 import { meetingPeriodInput, meetingPeriodContext, meetingPeriods, meetingPeriodsOverlap, meetingScope, recordedMeetingPeriod } from "~/server/meeting-periods";
 import {
@@ -834,7 +835,14 @@ export const tutorRouter = createTRPCRouter({
               });
               await notifyAdmins(
                 {
-                  ...notificationEvent("attendance_room_reported"),
+                  ...notificationInAppEvent(
+                    "attendance_room_reported",
+                    undefined,
+                    {
+                      en: `${ctx.session.user.name ?? "A tutor"} reported attendance on ${input.date.toISOString().slice(0, 10)} in a room allocated elsewhere. Review the room conflict.`,
+                      zh: `${ctx.session.user.name ?? "一位辅导伙伴"} 在 ${input.date.toISOString().slice(0, 10)} 上报了已被其他安排占用的教室出勤。请审核教室冲突。`,
+                    },
+                  ),
                   title: "Attendance reported in an allocated room",
                   link: "/admin/attendance",
                 },
@@ -1505,10 +1513,17 @@ export const tutorRouter = createTRPCRouter({
           await notifyTutors(
             panel.map((p) => p.tutorId),
             {
-              ...notificationEvent("interview_scheduled", {
-                startsAt: input.interviewAt.toISOString(),
-                timeZone: await getProgramTimeZone(tx),
-              }),
+              ...notificationInAppEvent(
+                "interview_scheduled",
+                {
+                  startsAt: input.interviewAt.toISOString(),
+                  timeZone: await getProgramTimeZone(tx),
+                },
+                {
+                  en: `An interview for ${updated.name} was scheduled. Review the recorded time and panel duties.`,
+                  zh: `已为 ${updated.name} 安排面试。请查看面试时间和小组职责。`,
+                },
+              ),
               title: "Interview scheduled",
               body: `An interview was scheduled for ${new Intl.DateTimeFormat("en", { timeZone: await getProgramTimeZone(tx), dateStyle: "medium", timeStyle: "short" }).format(input.interviewAt)}.`,
               link: "/dashboard",
@@ -1719,7 +1734,10 @@ export const tutorRouter = createTRPCRouter({
             throw new TRPCError({ code: "CONFLICT", message: "Tutor registration could not be prepared. Review the application's existing account or invitation before approving." });
           await notifyAdmins({
             title: "Interview approved",
-            ...notificationEvent("interview_approved"),
+            ...notificationInAppEvent("interview_approved", undefined, {
+              en: `${before.name}'s interview was approved and the tutor admission was applied.`,
+              zh: `${before.name} 的面试已获批准，辅导伙伴录取已生效。`,
+            }),
             link: `/admin/applications#application-${input.applicationId}`,
             inAppOnly: true,
           }, undefined, tx);
@@ -1895,7 +1913,10 @@ export const tutorRouter = createTRPCRouter({
         });
         await notifyAdmins(
           {
-            ...notificationEvent("tutee_optout_requested"),
+            ...notificationInAppEvent("tutee_optout_requested", undefined, {
+              en: `${tutor?.englishName ?? "A tutor"} requested an opt-out for tutee ${tutee?.englishName ?? "(name not recorded)"}; automatic approval follows the ${TUTEE_OPT_OUT_COOLDOWN_DAYS}-day cooldown.`,
+              zh: `${tutor?.englishName ?? "辅导伙伴"} 为学习伙伴 ${tutee?.englishName ?? "（未记录姓名）"} 提交退出申请，将在 ${TUTEE_OPT_OUT_COOLDOWN_DAYS} 天冷静期后自动批准。`,
+            }),
             title: "Tutee opt-out",
             body: `${tutor?.englishName ?? "A tutor"} relayed an opt-out for ${tutee?.englishName ?? "a tutee"} (auto-approves in ${TUTEE_OPT_OUT_COOLDOWN_DAYS} days).`,
             link: "/admin/tutee-requests",
@@ -2115,7 +2136,10 @@ export const tutorRouter = createTRPCRouter({
         select: { englishName: true },
       });
       await notifyAdmins({
-        ...notificationEvent("meeting_absence_excused"),
+        ...notificationInAppEvent("meeting_absence_excused", undefined, {
+          en: `${tutor?.englishName ?? "A tutor"} will be absent from the meeting “${meeting.title}”.`,
+          zh: `${tutor?.englishName ?? "辅导伙伴"} 将缺席会议“${meeting.title}”。`,
+        }),
         title: "Meeting absence excused",
         body: `${tutor?.englishName ?? "A tutor"} will miss "${meeting.title}".`,
         link: "/admin/meetings",

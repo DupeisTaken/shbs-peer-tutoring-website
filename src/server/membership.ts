@@ -3,6 +3,7 @@ import { lockAccountProfile } from "~/server/account-profile";
 import { requireAcademicConfirmation } from "~/server/academics";
 import { TRPCError } from "@trpc/server";
 import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import {
   inTransaction,
   lockEntity,
@@ -81,7 +82,7 @@ export async function requestMembership(
     await notifyAdmins(
       {
         title: `${member.kind === "tutor" ? "Tutor" : "Crew"} ${kind === "OPT_OUT" ? "opt-out" : "reentry"} request`,
-        ...notificationEvent(
+        ...notificationInAppEvent(
           member.kind === "tutor"
             ? kind === "OPT_OUT"
               ? "tutor_optout_requested"
@@ -89,6 +90,11 @@ export async function requestMembership(
             : kind === "OPT_OUT"
               ? "crew_optout_requested"
               : "crew_reentry_requested",
+          undefined,
+          {
+            en: `${current.name} requested ${kind === "OPT_OUT" ? "to opt out" : "to rejoin"} as ${member.kind === "tutor" ? "a tutor" : "a crew member"}.`,
+            zh: `${current.name} 申请${kind === "OPT_OUT" ? "退出" : "重新加入"}${member.kind === "tutor" ? "辅导伙伴" : "工作组"}。`,
+          },
         ),
         body: `${current.name} asked ${kind === "OPT_OUT" ? "to opt out (review after the cooldown)" : "to rejoin"}.`,
         link: member.kind === "tutor" ? "/admin/tutor-requests" : "/admin/crew",

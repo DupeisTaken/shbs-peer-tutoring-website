@@ -1,5 +1,9 @@
 import { requireStudentSchoolParticipation } from "./school-departure";
-import { notificationData } from "./notifications/create";
+import {
+  notificationData,
+  namedNotificationDetail,
+} from "./notifications/create";
+import { currentStudentSignupPayload } from "./student-signup-answers";
 import type { NotificationEvent } from "~/lib/notification-events";
 import {
   assertRequestProcessable,
@@ -22,7 +26,11 @@ export async function notifyRequest(
   tx: TransactionDb,
   row: StudentSurvey,
   event: NotificationEvent,
+  detail?: { en: string; zh: string },
 ) {
+  const answers = currentStudentSignupPayload(row);
+  const name =
+    typeof answers.englishName === "string" ? answers.englishName : null;
   const links = row.tuteeId
     ? await tx.pairingTutee.findMany({
         where: { tuteeId: row.tuteeId },
@@ -53,7 +61,11 @@ export async function notifyRequest(
   await tx.notification.createMany({
     data: users.map((user) => ({
       userId: user.id,
-      ...notificationData(event),
+      ...notificationData(
+        event,
+        undefined,
+        detail ?? (name ? namedNotificationDetail(event, name) : undefined),
+      ),
       link: ["HEAD", "ADMIN"].includes(user.role)
         ? "/admin/requests"
         : user.id === owner?.userId || user.email === row.email

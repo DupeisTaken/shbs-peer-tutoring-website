@@ -199,7 +199,23 @@ export async function changeSchoolDeparture(
       data: {
         userId: user.id,
         title: "School departure updated / 离校状态已更新",
-        ...notificationEvent("school_departure_updated"),
+        ...notificationInAppEvent("school_departure_updated", undefined, {
+          en: {
+            GRADUATED: "Your school status was changed to graduated.",
+            TRANSFERRED: "Your school status was changed to transferred.",
+            RETURN:
+              "Your return to school was recorded. Review your participation status.",
+            REVOKE: "Your post-departure observer access was revoked.",
+            RESTORE: "Your post-departure observer access was restored.",
+          }[input.action],
+          zh: {
+            GRADUATED: "您的在校状态已更改为已毕业。",
+            TRANSFERRED: "您的在校状态已更改为已转学。",
+            RETURN: "您的返校状态已记录。请查看参与状态。",
+            REVOKE: "您的离校后观察员权限已撤销。",
+            RESTORE: "您的离校后观察员权限已恢复。",
+          }[input.action],
+        }),
         body: input.action,
         link:
           user.tutorId && !user.tutorAccessRevoked
@@ -210,4 +226,4 @@ export async function changeSchoolDeparture(
     return { ok: true, revision };
   });
 }
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";

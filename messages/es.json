@@ -3759,17 +3759,21 @@
     "emailMessages": "Mensajes",
     "emailMessagesHelp": "Aviso de un nuevo mensaje privado. El contenido permanece en la aplicación.",
     "emailInfo": "Actualizaciones",
-    "emailInfoHelp": "Cambios de perfil, rol, estado de cuenta y avisos del programa.",
+    "emailInfoHelp": "Perfil, rol, estado de la cuenta y novedades generales del programa. Las solicitudes de revisión y los recordatorios tienen ajustes separados.",
     "emailSecondaryRecipients": "Incluir correos secundarios verificados",
     "emailSecondaryRecipientsHelp": "Enviar las notificaciones elegidas a todas las direcciones verificadas; de lo contrario, solo a la principal.",
     "essential": "La verificación, los códigos de acceso, la recuperación y las alertas de seguridad siempre siguen disponibles. Los cambios de correo principal también se notifican al anterior correo principal verificado.",
     "save": "Guardar preferencias",
     "saving": "Guardando…",
-    "saved": "Preferencias guardadas."
+    "saved": "Preferencias guardadas.",
+    "emailReviewRequests": "Solicitudes de revisión",
+    "emailReviewRequestsHelp": "Solicitudes pendientes de tu revisión como administrador o responsable. Independientes de las novedades generales del programa.",
+    "emailEventReminders": "Recordatorios de próximos eventos",
+    "emailEventRemindersHelp": "Recordatorios 24 horas y 1 hora antes de tus entrevistas, reuniones y sesiones de tutoría confirmadas. No se envían para eventos sin programar o cancelados."
   },
   "programEmail": {
     "title": "Notificaciones por correo",
-    "help": "Activa correos opcionales de mensajes e información. Cada persona elige qué actualizaciones recibir en sus preferencias.",
+    "help": "Activa correos opcionales de mensajes, novedades, solicitudes de revisión y recordatorios. Cada persona elige sus categorías en los ajustes de cuenta.",
     "on": "Activadas",
     "off": "Desactivadas",
     "enable": "Activar notificaciones por correo",
@@ -4790,11 +4794,15 @@
     "info": "Notificaciones del programa",
     "infoHelp": "Novedades del programa de tutoría por correo. Las notificaciones del sitio seguirán disponibles.",
     "all": "Todos los correos de notificación opcionales",
-    "allHelp": "Tanto los mensajes privados como las notificaciones del programa.",
+    "allHelp": "Correos de mensajes privados, novedades del programa, solicitudes de revisión y recordatorios de eventos.",
     "accountWide": "Este cambio afecta a la cuenta asociada al enlace, incluidas las copias a sus direcciones secundarias verificadas.",
     "saveError": "No pudimos confirmar el cambio. Conservamos tu selección. Inténtalo de nuevo; es seguro repetir la solicitud.",
     "securityTitle": "Los Correos Esenciales Continúan",
-    "securityHelp": "Los correos de seguridad, verificación y recuperación no cambian. Puede llegar algún correo cuyo envío ya haya empezado."
+    "securityHelp": "Los correos de seguridad, verificación y recuperación no cambian. Puede llegar algún correo cuyo envío ya haya empezado.",
+    "review": "Avisos de solicitudes de revisión",
+    "reviewHelp": "Correos de solicitudes pendientes de tu revisión como administrador o responsable. Los demás correos del programa no cambian.",
+    "reminder": "Recordatorios de próximos eventos",
+    "reminderHelp": "Recordatorios por correo 24 horas y 1 hora antes de entrevistas, reuniones y sesiones de tutoría confirmadas."
   },
   "participantRecovery": {
     "loading": "Cargando registros…",
@@ -5394,6 +5402,21 @@
       "title": "Interview Approved",
       "body": "The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome.",
       "action": "View application"
+    },
+    "interview_upcoming": {
+      "title": "Próxima entrevista",
+      "body": "Tu entrevista programada se acerca. Revisa la hora registrada y las funciones del panel.",
+      "action": "Ver entrevista"
+    },
+    "meeting_upcoming": {
+      "title": "Próxima reunión",
+      "body": "Tu reunión programada se acerca. Revisa la hora registrada y los detalles.",
+      "action": "Ver reunión"
+    },
+    "tutoring_upcoming": {
+      "title": "Próxima sesión de tutoría",
+      "body": "Tu sesión de tutoría confirmada se acerca. Revisa la hora registrada y los detalles.",
+      "action": "Ver sesión de tutoría"
     }
   },
   "requestAppeal": {

@@ -186,6 +186,8 @@ beforeEach(() => {
       enabled: true,
       emailMessages: true,
       emailInfo: false,
+      emailReviewRequests: false,
+      emailEventReminders: false,
       emailSecondaryRecipients: false,
     },
   });
@@ -205,6 +207,8 @@ it("preserves an unsaved notification preference when a background settings read
       enabled: true,
       emailMessages: true,
       emailInfo: true,
+      emailReviewRequests: false,
+      emailEventReminders: false,
       emailSecondaryRecipients: false,
     },
   });
@@ -221,6 +225,8 @@ it("preserves dirty preferences through a failed read and explicit read recovery
     enabled: true,
     emailMessages: true,
     emailInfo: false,
+    emailReviewRequests: false,
+    emailEventReminders: false,
     emailSecondaryRecipients: false,
   };
   state.emailSettings.mockReturnValue({ data, refetch: state.retry });
@@ -263,6 +269,8 @@ it("locks accepted preferences during failed synchronization and only retries th
     enabled: true,
     emailMessages: true,
     emailInfo: false,
+    emailReviewRequests: false,
+    emailEventReminders: false,
     emailSecondaryRecipients: false,
   };
   state.emailSettings.mockReturnValue({ data, refetch: state.retry });

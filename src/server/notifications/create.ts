@@ -3,22 +3,35 @@
  */
 import { db } from "~/server/db";
 import type { TransactionDb } from "~/server/transactions";
-import {
-  notificationEvent,
-  type NotificationEvent,
-  type NotificationContext,
+import type {
+  NotificationEvent,
+  NotificationContext,
 } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import enMessages from "../../../messages/en.json";
+import zhMessages from "../../../messages/zh.json";
+
+/** Name only the affected record; free-text reasons stay in their authorized workflow. */
+export function namedNotificationDetail(
+  event: NotificationEvent,
+  name: string,
+) {
+  return {
+    en: `${name}: ${enMessages.notificationEvents[event].body}`,
+    zh: `${name}：${zhMessages.notificationEvents[event].body}`,
+  };
+}
 
 /** Retain a readable English text snapshot for older readers without inferring event
  * identity from free text. Current UI and mail localize the explicit event. */
 export function notificationData(
   event: NotificationEvent,
   context?: NotificationContext,
+  detail?: { en: string; zh: string },
 ) {
   return {
     title: enMessages.notificationEvents[event].title,
-    ...notificationEvent(event, context),
+    ...notificationInAppEvent(event, context, detail),
   };
 }
 
@@ -29,7 +42,7 @@ export interface NotificationInput {
   /** Explicitly suppress optional email copies for a workflow with an in-app-only contract. */
   inAppOnly?: boolean;
   event?: NotificationEvent;
-  context?: NotificationContext;
+  context?: NotificationContext & { inAppDetail?: { en: string; zh: string } };
 }
 
 /** Create the same notification for each of the given user ids (de-duplicated, skips empty). */
@@ -47,7 +60,7 @@ export async function notifyUsers(
       body: data.body ?? null,
       link: data.link ?? null,
       ...(data.inAppOnly ? { inAppOnly: true } : {}),
-      ...(data.event ? notificationEvent(data.event, data.context) : {}),
+      ...(data.event ? notificationInAppEvent(data.event, data.context) : {}),
     })),
   });
 }

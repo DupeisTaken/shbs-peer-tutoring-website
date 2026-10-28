@@ -1,4 +1,4 @@
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { programDateKey } from "~/lib/program-time";
 import { notifyUsers } from "~/server/notifications/create";
@@ -297,7 +297,10 @@ export const correctionsRouter = createTRPCRouter({
         await notifyUsers(
           heads.map((h) => h.id),
           {
-            ...notificationEvent("record_corrected"),
+            ...notificationInAppEvent("record_corrected", undefined, {
+              en: `Management corrected attendance recorded for ${primary.date.toISOString().slice(0, 10)}. Review the original and corrected evidence.`,
+              zh: `管理人员已更正 ${primary.date.toISOString().slice(0, 10)} 的出勤记录。请查看原始及更正后的记录。`,
+            }),
             title: "Management corrected a record",
             body: `${ctx.session.user.name ?? "Management"}: ${input.reason}`,
             link: "/admin/audit",
@@ -427,7 +430,10 @@ export const correctionsRouter = createTRPCRouter({
         await notifyUsers(
           heads.map((h) => h.id),
           {
-            ...notificationEvent("record_corrected"),
+            ...notificationInAppEvent("record_corrected", undefined, {
+              en: `Management corrected the patrol recorded on ${programDateKey(before.createdAt, timeZone)} (${timeZone}). Review the original and corrected observations.`,
+              zh: `管理人员已更正 ${programDateKey(before.createdAt, timeZone)}（${timeZone}）的巡查记录。请查看原始及更正后的观察记录。`,
+            }),
             title: "Management corrected a record",
             body: `${ctx.session.user.name ?? "Management"}: ${input.reason}`,
             link: "/admin/audit",
