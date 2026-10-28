@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import { inTransaction } from "~/server/transactions";
+import { reconcileManagementReviewNotifications } from "~/server/notifications/create";
 
 import {
   createTRPCRouter,
@@ -24,6 +27,16 @@ import { notificationInAppEvent } from "~/lib/notification-details";
  * `ctx.session.user.id` — a user only ever sees their own notifications.
  */
 export const notificationRouter = createTRPCRouter({
+  /** An operator may run this once after a governance rollout; retries add no duplicates. */
+  reconcileManagementReviews: adminOnlyProcedure.mutation(({ ctx }) =>
+    inTransaction(ctx.db, async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${ctx.session.user.id} FOR SHARE`;
+      const actor = await tx.user.findUnique({ where: { id: ctx.session.user.id } });
+      if (!actor || actor.suspendedAt || actor.mergedIntoId || !["ADMIN", "HEAD"].includes(actor.role))
+        throw new TRPCError({ code: "FORBIDDEN", message: "Administrator access required." });
+      return reconcileManagementReviewNotifications(tx);
+    }),
+  ),
   requestEmailStatus: adminProcedure
     .input(requestNoticeSource)
     .query(({ ctx, input }) => requestNoticeStatus(ctx.db, input)),

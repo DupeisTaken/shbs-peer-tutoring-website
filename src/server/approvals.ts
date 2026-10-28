@@ -1,5 +1,6 @@
 import { enforceAssignmentQualification } from "./assignment-qualification";
 import { approvalNotificationDetail } from "~/lib/approval-notification-detail";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import { discretionarySignupChange } from "./student-signup-management";
 import { createHash } from "node:crypto";
 import { TRPCError, type AnyTRPCProcedure } from "@trpc/server";
@@ -9,6 +10,7 @@ import { z } from "zod";
 import { Prisma, ProgramFeatureKey } from "../../generated/prisma";
 import {
   APPROVAL_OPERATIONS,
+  APPROVAL_POLICY_VERSION,
   classifyApproval,
   type ApprovalAuthority,
   humanizeOperation,
@@ -24,9 +26,13 @@ import {
   verifyHistoricalPreview,
 } from "./historical-academics";
 import { db } from "./db";
+import { managementReviewers } from "./notifications/create";
 import { inTransaction, lockEntity, type TransactionDb } from "./transactions";
 import { announcementCandidates } from "./announcement-recipients";
 import { lockUsernameNamespace } from "./auth/username";
+import { DEFAULT_FEATURES } from "./program/features";
+import { getProgramTimeZone } from "./program/time-zone";
+import { captureReviewReferences } from "./approval-reference-capture";
 import {
   applicationIdentityCorrectionInput,
   validateApplicationIdentityCorrection,
@@ -256,6 +262,8 @@ export async function proposalAuthority(
         })
       : null;
   return classifyApproval(operation, value, {
+    currentAccountRole: operation === "admin.setMemberships" && typeof input.userId === "string"
+      ? (await client.user.findUnique({ where: { id: input.userId }, select: { role: true } }))?.role : undefined,
     currentTutorStatus: tutor?.status,
     currentCardReviewStatus: card?.reviewStatus,
     currentTuteeStatus: tutee?.status,
@@ -326,7 +334,7 @@ export async function parseProposal(operation: string, input: unknown) {
   let parsed: unknown = input;
   try {
     for (const parser of procedure._def.inputs) {
-      // Head reauthenticates role changes at application. Reuse the actual router schema
+      // The reviewer reauthenticates role changes at application. Reuse the actual router schema
       // while excluding its credential field from durable requester evidence.
       const schema =
         operation === "admin.setUserRole" && parser instanceof z.ZodObject
@@ -404,11 +412,29 @@ export async function proposalTargets(
   includeRoomBlockContext = false,
   includeAuthorityContext = false,
   actorId?: string,
+  includeReviewPresentation = false,
+  includeReviewReferences = false,
 ) {
   const input: unknown = superjson.deserialize(
     payload as Parameters<typeof superjson.deserialize>[0],
   );
   const fields = z.record(z.string(), z.unknown()).parse(input);
+  // Reference labels have their own version. Keep every existing v1 display/
+  // authority projection byte-for-byte stable when this separate marker is absent.
+  const capturedTargets = async (targets: Record<string, unknown>) => {
+    const captured = JSON.parse(JSON.stringify(targets)) as Record<
+      string,
+      Prisma.InputJsonValue
+    >;
+    if (includeReviewReferences)
+      captured.reviewReferences = await captureReviewReferences(
+        client,
+        operation,
+        fields,
+        captured,
+      );
+    return captured;
+  };
   if (operation === "admin.correctApplicationIdentity") {
     // Queue interception happens before the resolver. Capture only a validated,
     // locked correction; replay repeats the same validation before fingerprinting.
@@ -419,7 +445,7 @@ export async function proposalTargets(
       { id: actorId },
     );
     // Names do not replace review evidence. Hold the application lock while
-    // capturing the exact panel, votes and qualification evidence the Head sees.
+    // capturing the exact panel, votes and qualification evidence the reviewer sees.
     const application = await client.tutorApplication.findUniqueOrThrow({
       where: { id: identity.id },
       include: {
@@ -428,23 +454,21 @@ export async function proposalTargets(
         subjectIntents: { orderBy: { id: "asc" } },
       },
     });
-    return JSON.parse(
-      JSON.stringify({
-        TutorApplication: [{ record: application }],
-        applicationIdentity: {
-          original: identity.original,
-          current: identity.current,
-          next: identity.next,
-          revision: identity.revision,
-          policy: identity.policy,
-          readiness: identity.readiness,
-          provisioning: identity.provisioning,
-        },
-        ...(includeAuthorityContext
-          ? { authorityContext: await authoritySnapshot(client) }
-          : {}),
-      }),
-    ) as Record<string, Prisma.InputJsonValue>;
+    return capturedTargets({
+      TutorApplication: [{ record: application }],
+      applicationIdentity: {
+        original: identity.original,
+        current: identity.current,
+        next: identity.next,
+        revision: identity.revision,
+        policy: identity.policy,
+        readiness: identity.readiness,
+        provisioning: identity.provisioning,
+      },
+      ...(includeAuthorityContext
+        ? { authorityContext: await authoritySnapshot(client) }
+        : {}),
+    });
   }
   if (operation === "program.prepareNextRecruitment") {
     const proposal = prepareNextRecruitmentSchema.parse(input);
@@ -453,14 +477,10 @@ export async function proposalTargets(
     // A separate Tutor/Tutee proposal or current-window edit must not invalidate it.
     // The marker distinguishes exact modern evidence from legacy review payloads;
     // live requester/reviewer authority is rechecked by the approval transaction.
-    return JSON.parse(
-      JSON.stringify({
-        nextRecruitment: { audience: proposal.audience, ...evidence },
-        ...(includeAuthorityContext
-          ? { authorityContext: { version: 2 } }
-          : {}),
-      }),
-    ) as Record<string, Prisma.InputJsonValue>;
+    return capturedTargets({
+      nextRecruitment: { audience: proposal.audience, ...evidence },
+      ...(includeAuthorityContext ? { authorityContext: { version: 2 } } : {}),
+    });
   }
   if (operation === "admin.refresh") {
     const expected = nextRecruitmentRefreshEvidenceSchema.parse(
@@ -474,14 +494,12 @@ export async function proposalTargets(
     // Validate while capturing, not only while replaying: queue middleware runs
     // before the resolver. An already stale/invalid refresh never enters review.
     const evidence = await validateNextRecruitmentRefresh(client, expected);
-    return JSON.parse(
-      JSON.stringify({
-        nextRecruitment: evidence,
-        ...(includeAuthorityContext
-          ? { authorityContext: await authoritySnapshot(client) }
-          : {}),
-      }),
-    ) as Record<string, Prisma.InputJsonValue>;
+    return capturedTargets({
+      nextRecruitment: evidence,
+      ...(includeAuthorityContext
+        ? { authorityContext: await authoritySnapshot(client) }
+        : {}),
+    });
   }
   // An automatic proposal approves the scheduling intent, not a previewed candidate room.
   // The slot itself and the edited pairing remain immutable review evidence.
@@ -547,17 +565,12 @@ export async function proposalTargets(
     await lockHistoricalCorrections(client, proposal);
     // Save exact named before/after records, original evidence and ownership. Rebuilding
     // this snapshot during approval rejects drift before any correction is appended.
-    return JSON.parse(
-      JSON.stringify({
-        historicalAcademics: await previewHistoricalCorrections(
-          client,
-          proposal,
-        ),
-        ...(includeAuthorityContext
-          ? { authorityContext: await authoritySnapshot(client) }
-          : {}),
-      }),
-    ) as Record<string, Prisma.InputJsonValue>;
+    return capturedTargets({
+      historicalAcademics: await previewHistoricalCorrections(client, proposal),
+      ...(includeAuthorityContext
+        ? { authorityContext: await authoritySnapshot(client) }
+        : {}),
+    });
   }
   // A tutor may update intent while a staff proposal is pending. Lock the same
   // compound record as live writes before capturing/rechecking review evidence.
@@ -586,6 +599,25 @@ export async function proposalTargets(
       Object.entries(value).forEach(([k, v]) => collect(v, k));
   };
   collect(input);
+  if (
+    includeReviewPresentation &&
+    operation === "corrections.correctAttendance"
+  ) {
+    // The correction owns a combined attendance block. Capture the same union
+    // the executor validates, so sibling students cannot look newly added.
+    const selected = await client.session.findUnique({
+      where: { id: z.string().parse(fields.id) },
+      select: { id: true, mergeGroupId: true },
+    });
+    if (selected) {
+      const primaryId = selected.mergeGroupId ?? selected.id;
+      const sessions = await client.session.findMany({
+        where: { OR: [{ id: primaryId }, { mergeGroupId: primaryId }] },
+        select: { id: true },
+      });
+      ids.set("Session", new Set(sessions.map((row) => row.id)));
+    }
+  }
   // A room-only proposal owns the complete explicit group, including sibling
   // membership/roster/version evidence. Approval never silently targets a later unit.
   if (
@@ -696,6 +728,36 @@ export async function proposalTargets(
     if (tutees.size) ids.set("Tutee", tutees);
   }
   const targets: Record<string, unknown> = {};
+  // New captures opt in; replay selects this exact shape only when the immutable
+  // request has the version marker. Old proposals retain their original digest
+  // and missing originals, without backfilling from today's account/defaults.
+  if (
+    includeReviewPresentation &&
+    [
+      "admin.updateAccountProfile",
+      "admin.updateAccountUsername",
+      "program.setFeaturePending",
+      "program.setSignupWindow",
+      "corrections.correctAttendance",
+    ].includes(operation)
+  ) {
+    const presentation: Record<string, unknown> = { version: 1 };
+    if (operation === "program.setFeaturePending") {
+      const key = z.nativeEnum(ProgramFeatureKey).parse(fields.key);
+      const feature = await client.programFeature.findUnique({
+        where: { key },
+      });
+      presentation.feature = {
+        key,
+        effective: feature?.enabled ?? DEFAULT_FEATURES[key],
+        pending: feature?.pendingEnabled ?? null,
+        source: feature ? "stored" : "default",
+      };
+    }
+    if (operation === "program.setSignupWindow")
+      presentation.timeZone = await getProgramTimeZone(client);
+    targets.reviewPresentation = presentation;
+  }
   if (primary === "ProgramCalendarDay") {
     const notices = await client.programCalendarDay.findMany({
       where: { date: z.string().parse(fields.date) },
@@ -866,7 +928,7 @@ export async function proposalTargets(
     });
   for (const [table, values] of [...ids.entries()].sort()) {
     // User secrets and audit undo payloads are never proposal evidence.
-    const fields =
+    let fields =
       table === "User"
         ? [
             "admin.updateAccountProfile",
@@ -897,6 +959,14 @@ export async function proposalTargets(
                         ? " - CASE WHEN t.\"identityRevision\" = 0 THEN ARRAY['identityRevision']::text[] ELSE ARRAY[]::text[] END"
                         : "")
                     : "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[]";
+    if (table === "User" && includeReviewPresentation) {
+      if (operation === "admin.updateAccountProfile")
+        fields +=
+          " || jsonb_build_object('firstName', t.\"firstName\", 'lastName', t.\"lastName\", 'preferredName', t.\"preferredName\")";
+      if (operation === "admin.updateAccountUsername")
+        fields +=
+          " || jsonb_build_object('username', t.username, 'profileVersion', t.\"profileVersion\")";
+    }
     targets[table] = await client.$queryRaw(
       Prisma.sql`SELECT ${Prisma.raw(fields)} AS record FROM ${Prisma.raw('"' + table + '"')} t WHERE t.id IN (${Prisma.join([...values].sort())}) ORDER BY t.id`,
     );
@@ -983,10 +1053,7 @@ export async function proposalTargets(
     orderBy: { createdAt: "desc" },
     select: { id: true, schoolYear: true, quarter: true },
   });
-  return JSON.parse(JSON.stringify(targets)) as Record<
-    string,
-    Prisma.InputJsonValue
-  >;
+  return capturedTargets(targets);
 }
 
 /** JSONB preserves values and array order, but not object insertion order. */
@@ -1019,7 +1086,7 @@ export async function queueProposal(
   input: unknown,
   options: { participantSelfService?: boolean } = {},
 ) {
-  // Identity challenges belong to the acting Head, never to persisted/requester payloads.
+  // Identity challenges belong to the acting reviewer, never to persisted/requester payloads.
   if (operation === "admin.setMemberships") {
     const value = z
       .object({ userId: z.string(), membership: z.unknown() })
@@ -1119,6 +1186,8 @@ export async function queueProposal(
       true,
       true,
       session.user.id,
+      true,
+      true,
     );
     if (
       ["program.prepareNextRecruitment", "admin.refresh"].includes(operation)
@@ -1131,10 +1200,12 @@ export async function queueProposal(
         authority.requesterRoles,
       );
     }
-    if (targets && typeof targets === "object" && !Array.isArray(targets))
+    if (targets && typeof targets === "object" && !Array.isArray(targets)) {
       targets.reviewAuthority = JSON.parse(
         JSON.stringify(authority),
       ) as Prisma.InputJsonValue;
+      targets.reviewPolicyVersion = APPROVAL_POLICY_VERSION;
+    }
     if (
       options.participantSelfService &&
       targets &&
@@ -1238,23 +1309,19 @@ export async function queueProposal(
         },
       },
     });
-    const reviewers = await tx.user.findMany({
-      where: {
-        role: { in: [...authority.reviewerRoles] },
-        suspendedAt: null,
-        mergedIntoId: null,
-      },
-      select: { id: true },
+    const headOnly = authority.reviewerRoles.includes("HEAD") && !authority.reviewerRoles.includes("ADMIN");
+    const reviewers = await managementReviewers(tx, {
+      headOnly, exclude: session.user.id, allowHeadSelfReview: true,
     });
     await tx.notification.createMany({
       data: reviewers.map((u) => ({
         userId: u.id,
         title:
-          authority.reviewerRoles.length === 1
+          headOnly
             ? "Management change awaiting Head approval"
             : "Management change awaiting approval",
         ...notificationInAppEvent(
-          authority.reviewerRoles.length === 1
+          headOnly
             ? "management_head_review_pending"
             : "management_review_pending",
           {},
@@ -1267,4 +1334,3 @@ export async function queueProposal(
     return request;
   });
 }
-import { notificationInAppEvent } from "~/lib/notification-details";

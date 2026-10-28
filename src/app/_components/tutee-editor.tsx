@@ -41,7 +41,7 @@ export function TuteeEditor({
   row: RouterOutputs["admin"]["tutees"][number];
   onClose: () => void;
   canApply?: boolean;
-  historyPermissions?: { canLink: boolean; isHead: boolean };
+  historyPermissions?: { canLink: boolean; canCorrectOwnership: boolean };
 }) {
   const profileText = useTranslations("accountProfile");
   return (
@@ -268,7 +268,7 @@ function TuteeProfileForm({
                   slots.isLoading
                 }
               >
-                {canApply ? t("save") : common("approvals.requestHead")}
+                {canApply ? t("save") : common("approvals.requestAdmin")}
               </Button>
             }
           >
@@ -408,7 +408,7 @@ function TuteeProfileForm({
       )}
       {historyPermissions?.canLink && (
         <CombineRecords
-          isHead={historyPermissions.isHead}
+          canApply={historyPermissions.canCorrectOwnership}
           initialSource={{
             kind: "TUTEE",
             id: siblingRow.id,
@@ -420,7 +420,7 @@ function TuteeProfileForm({
       {siblingRow.historical &&
         (siblingRow.owner ?? siblingRow.user) &&
         historyPermissions?.canLink &&
-        historyPermissions.isHead && (
+        historyPermissions.canCorrectOwnership && (
           <DisclosureSection
             title={common("combineRecords.correctOwner")}
             lifetime="retained"
@@ -430,7 +430,7 @@ function TuteeProfileForm({
             </p>
             <TuteeHistoryLinkForm
               row={siblingRow}
-              isHead
+              canCorrectOwnership
               onLinked={() => setHistoryLinked(true)}
             />
           </DisclosureSection>
@@ -448,7 +448,7 @@ function TuteeProfileForm({
               <div className="pt-4">
                 <TuteeHistoryLinkForm
                   row={siblingRow}
-                  isHead={historyPermissions.isHead}
+                  canCorrectOwnership={historyPermissions.canCorrectOwnership}
                   invitationOnly
                   onLinked={() => {
                     setHistoryLinked(true);

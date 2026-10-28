@@ -165,7 +165,7 @@ async function lockedActor(tx: TransactionDb, actor: IdentityActor, apply: boole
     id: true, name: true, username: true, role: true, suspendedAt: true, mergedIntoId: true,
   } });
   if (!current || current.suspendedAt || current.mergedIntoId ||
-    (apply ? current.role !== "HEAD" : !["HEAD", "ADMIN"].includes(current.role)))
+    !(apply ? ["HEAD", "ADMIN"] : ["HEAD", "ADMIN", "COORDINATOR"]).includes(current.role))
     throw new TRPCError({ code: "FORBIDDEN", message: "APPLICATION_IDENTITY_AUTHORITY_REQUIRED" });
   return { id: current.id, name: current.name ?? current.username ?? current.id, role: current.role };
 }

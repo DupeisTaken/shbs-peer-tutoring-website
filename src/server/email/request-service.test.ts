@@ -826,8 +826,12 @@ it("worker failure stores a safe diagnostic and stable Message-ID across a manua
   );
 });
 
-it("GET status never consumes an appeal; concurrent submissions retain one immutable body and staff events contain no free text", async () => {
+it.each(["service-admin", "service-head"] as const)("GET status never consumes an appeal; concurrent submissions notify %s once and retain immutable private evidence", async (reviewerId) => {
   const { source: row, notice } = await marked();
+  // An unavailable Admin transfers review ownership to Head without changing
+  // the underlying flag, appeal, retry receipt or public status response.
+  if (reviewerId === "service-head")
+    await db.user.update({ where: { id: actor.id }, data: { suspendedAt: new Date() } });
   const token = requestAppealToken(notice.id, notice.createdAt);
   for (let read = 0; read < 2; read++)
     expect(await requestAppealStatus(token, db)).toEqual({
@@ -864,10 +868,7 @@ it("GET status never consumes an appeal; concurrent submissions retain one immut
   const events = await db.notification.findMany({
     where: { event: "request_invalidity_appeal_pending" },
   });
-  expect(events.map((event) => event.userId).sort()).toEqual([
-    "service-admin",
-    "service-head",
-  ]);
+  expect(events.map((event) => event.userId)).toEqual([reviewerId]);
   expect(events.every((event) => event.link?.includes(row.id))).toBe(true);
   expect(JSON.stringify(events)).not.toContain(appealText);
   const safe = await requestAppealStatus(token, db);

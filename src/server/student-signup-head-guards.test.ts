@@ -124,7 +124,7 @@ async function queued(work: () => Promise<unknown>) {
     expect(cause).toBeInstanceOf(ApprovalQueued);
     return db.approvalRequest.findUniqueOrThrow({ where: { id: (cause as ApprovalQueued).approvalId } });
   }
-  throw new Error("Expected a reviewed proposal, never a live non-Head removal");
+  throw new Error("Expected a reviewed Coordinator proposal, never a live removal");
 }
 
 const operations = ["updatePairing", "deletePairing", "setTuteeStatus", "updateTutee"] as const;
@@ -143,19 +143,17 @@ function genericChange(caller: ReturnType<typeof head>, operation: Operation, da
   });
 }
 
-it.each(operations)("fences generic %s: Admin/Coordinator proposals do not remove assigned demand and only Head can apply", async (operation) => {
+it.each(operations)("fences generic %s: Coordinator proposals preserve assigned demand until Admin applies", async (operation) => {
   const data = await fixture({ attendance: false });
   const beforeLinks = await db.pairingTutee.findMany({ orderBy: { pairingId: "asc" } });
-  const administratorProposal = await queued(() => genericChange(admin(), operation, data));
   const proposal = await queued(() => genericChange(coordinator(), operation, data));
   expect(proposal.operation).toBe(`admin.${operation}`);
   expect(await db.pairingTutee.findMany({ orderBy: { pairingId: "asc" } })).toEqual(beforeLinks);
   expect(await db.tutee.findUniqueOrThrow({ where: { id: data.tutee.id } })).toEqual(data.tutee);
-  await expect(admin().approval.decide({ id: proposal.id, approve: true, note: "Attempted non-Head review" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(coordinator().approval.decide({ id: proposal.id, approve: true, note: "Attempted Coordinator review" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect((await db.approvalRequest.findUniqueOrThrow({ where: { id: proposal.id } })).state).toBe("PENDING");
-  await head().approval.decide({ id: proposal.id, approve: true, note: "Head explicitly reviewed affected assignment" });
+  await admin().approval.decide({ id: proposal.id, approve: true, note: "Admin explicitly reviewed affected assignment" });
   expect((await db.approvalRequest.findUniqueOrThrow({ where: { id: proposal.id } })).state).toBe("APPROVED");
-  expect((await db.approvalRequest.findUniqueOrThrow({ where: { id: administratorProposal.id } })).state).toBe("PENDING");
   expect(await db.pairingTutee.findUnique({ where: { pairingId_tuteeId: { pairingId: data.history.id, tuteeId: data.tutee.id } } })).not.toBeNull();
   if (operation === "updateTutee") {
     expect(await db.tutee.findUniqueOrThrow({ where: { id: data.tutee.id } })).toMatchObject({ firstChoiceId: "writing", secondChoiceId: "math" });
@@ -165,7 +163,7 @@ it.each(operations)("fences generic %s: Admin/Coordinator proposals do not remov
     });
   }
   else expect(await db.pairingTutee.findUnique({ where: { pairingId_tuteeId: { pairingId: data.pairing.id, tuteeId: data.tutee.id } } })).toBeNull();
-  expect(await db.auditLog.findFirst({ where: { approvalId: proposal.id, kind: "DECISION" } })).toMatchObject({ userId: "head" });
+  expect(await db.auditLog.findFirst({ where: { approvalId: proposal.id, kind: "DECISION" } })).toMatchObject({ userId: "admin" });
 });
 
 it("refuses generic Head roster edits which would omit an assigned choice and directs its explicit assignment-release editor", async () => {
@@ -205,9 +203,9 @@ it("rejects generic pairing courses outside the current request, keeps owner con
   });
 });
 
-it.each(["ADMIN", "COORDINATOR"] as const)("blocks %s from applying dedicated Head edits/unassignment even with a valid personal countdown", async (role) => {
+it.each(["COORDINATOR"] as const)("blocks %s from applying management edits/unassignment even with a valid personal countdown", async (role) => {
   const data = await fixture();
-  const userId = role === "ADMIN" ? "admin" : "coordinator";
+  const userId = role.toLowerCase();
   const edit = { id: data.survey.id, expectedVersion: 0, clientKey: randomUUID(), answers: studentSignupAnswersInput.parse({ ...data.payload, firstChoiceId: "writing" }) };
   await expect(editOwnedStudentSignup(db, userId, edit, {
     signedTicket: await readyTicket(userId, "SIGNUP_EDIT", data.survey.id), releaseChangedAssignments: true,
@@ -220,16 +218,17 @@ it.each(["ADMIN", "COORDINATOR"] as const)("blocks %s from applying dedicated He
   expect(await db.pairingTutee.count({ where: { pairingId: data.pairing.id } })).toBe(1);
 });
 
-it("Head assigned-choice edit releases only affected current links and preserves unrelated/historical assignments, sessions and credentials", async () => {
+it.each(["ADMIN", "HEAD"] as const)("%s assigned-choice edit releases only affected current links and preserves unrelated/historical assignments, sessions and credentials", async (role) => {
+  const userId = role.toLowerCase();
   const data = await fixture({ secondAssignment: true });
   const attendance = await db.sessionTutee.findMany();
-  const ticket = await readyTicket("head", "SIGNUP_EDIT", data.survey.id);
+  const ticket = await readyTicket(userId, "SIGNUP_EDIT", data.survey.id);
   const input = {
     id: data.survey.id, expectedVersion: 0, clientKey: randomUUID(), signedTicket: ticket,
     releaseChangedAssignments: true as const,
     answers: studentSignupAnswersInput.parse({ ...data.payload, firstChoiceId: "writing", preferredContact: "Corrected by Head" }),
   };
-  await expect(head().studentWorkflow.headEditSignup(input)).resolves.toEqual({ ok: true, version: 1 });
+  await expect(actor(userId, role).studentWorkflow.headEditSignup(input)).resolves.toEqual({ ok: true, version: 1 });
   expect(await db.pairingTutee.findUnique({ where: { pairingId_tuteeId: { pairingId: data.pairing.id, tuteeId: data.tutee.id } } })).toBeNull();
   for (const pairingId of [data.history.id, data.second!.id]) expect(await db.pairingTutee.count({ where: { pairingId, tuteeId: data.tutee.id } })).toBe(1);
   // Removing the one affected roster link deliberately invalidates its room
@@ -246,11 +245,11 @@ it("Head assigned-choice edit releases only affected current links and preserves
     submittedAt: data.survey.submittedAt, currentVersion: 1,
     currentPayload: { firstChoiceId: "writing", secondChoiceId: "science" },
   });
-  await expect(head().studentWorkflow.headEditSignup(input)).resolves.toEqual({ ok: true, version: 1 });
+  await expect(actor(userId, role).studentWorkflow.headEditSignup(input)).resolves.toEqual({ ok: true, version: 1 });
   expect(await db.studentSignupRevision.count()).toBe(1);
   expect(await db.pairing.findUniqueOrThrow({ where: { id: data.pairing.id } })).toEqual(releasedPairing);
-  const freshTicket = await readyTicket("head", "SIGNUP_EDIT", data.survey.id);
-  await expect(head().studentWorkflow.headEditSignup({ ...input, signedTicket: freshTicket })).resolves.toEqual({ ok: true, version: 1 });
+  const freshTicket = await readyTicket(userId, "SIGNUP_EDIT", data.survey.id);
+  await expect(actor(userId, role).studentWorkflow.headEditSignup({ ...input, signedTicket: freshTicket })).resolves.toEqual({ ok: true, version: 1 });
   expect((await db.studentActionConfirmation.findUniqueOrThrow({ where: { id: freshTicket } })).usedAt).toBeNull();
   expect(await db.studentSignupRevision.count()).toBe(1);
   expect(await db.pairing.findUniqueOrThrow({ where: { id: data.pairing.id } })).toEqual(releasedPairing);
@@ -289,7 +288,7 @@ it("Head unassign returns an exact receipt, rejects changed-key reuse/stale draf
 it("rechecks Head's current authority rather than trusting an old session or an unused ticket", async () => {
   const data = await fixture();
   const signedTicket = await readyTicket("head", "SIGNUP_UNASSIGN", `${data.survey.id}:${data.pairing.id}`);
-  await db.user.update({ where: { id: "head" }, data: { role: "ADMIN" } });
+  await db.user.update({ where: { id: "head" }, data: { role: "COORDINATOR" } });
   await expect(unassignStudentSignup(db, "head", { id: data.survey.id, pairingId: data.pairing.id, expectedVersion: 0, clientKey: randomUUID(), signedTicket })).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.pairingTutee.count({ where: { pairingId: data.pairing.id } })).toBe(1);
   expect(await db.studentSignupRevision.count()).toBe(0);

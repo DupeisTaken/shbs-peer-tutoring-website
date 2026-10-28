@@ -148,21 +148,31 @@ destination is no longer accessible falls back to /. Unknown
 email events and account-change events use /my-account. In-app links retain the original
 recorded destination. See [URL handling](../../src/server/email/urls.ts).
 
-**Survey request audience** means active, unmerged Admin/Head, the explicit retained
+**Survey request audience** includes eligible managers, the explicit retained
 tutee owner (otherwise the linked student account), and accounts linked to that tutee's
 assigned tutors. [notifyRequest](../../src/server/student-request-state.ts) directs
 Admin/Head to /admin/requests, the owner/request-email branch to /student, and remaining
 tutors to /dashboard. A matching email alone does not add a recipient.
-**Legacy review audience** means active, unmerged Admin/Head, the review requester and
+**Legacy review audience** includes eligible managers, the review requester and
 the account linked to the legacy tutee; [notifyLegacySchedule](../../src/server/student-workflow.ts)
 directs managers to /admin/requests, linked tutors to /dashboard, and others to /student.
-Membership request notifications currently go to Head only, including tutor requests.
+For these two audiences, pending review events select active, unmerged Admins with Head fallback; outcomes include all active, unmerged Admin/Head. Pending management and membership review notices go to eligible active, unmerged Admins, with Head fallback when none can review. Requester exclusions are applied before choosing the fallback; only current Head can review their own management proposal. Head retains review permission regardless of notification delivery. Official refresh review remains Head-only. Outcomes and operational alerts keep their documented audiences.
 
 Scheduled-interview events record an actual date/time/timezone. Tutoring assignment
 events describe recurring weekly arrangements and confirmation state, while optional
 reminder emails derive dated occurrences only from confirmed schedules.
 Account authentication, signup confirmation and request-invalidity service mail use
 separate direct/essential flows and are not silently reclassified as optional events.
+
+### Reviewer notification reconciliation
+
+After the policy rollout, Admin/Head use **Management Actions → Refresh reviewer notifications** to append missing current-reviewer notices. `notification.reconcileManagementReviews` returns pending requests inspected and notices added across Management Actions, Tutor/Crew membership requests and Crew applications. Repeated calls serialize and preserve existing deliveries; no request evidence or decision changes. Current requester and membership state are checked before delivery. Authoritative role/membership/succession changes also reconcile the queue. Reads remain read-only.
+
+New membership and Crew application notices identify their source in a canonical
+fragment. An older queue-wide notice has no reliable source identity and is retained;
+one source-specific notice may accompany it, with later runs deduplicated. Crew
+source links reveal the review panel even when another panel was remembered, then
+focus the loaded authorized row. Background refresh does not repeatedly move focus.
 
 ### Record arrivals and scroll ownership
 
@@ -270,7 +280,7 @@ authorized decision interfaces and policy rules.
 
 ### tutor_application_pending
 
-- Recipient: Active Admin/Head.
+- Recipient: Eligible active Admin reviewers, with Head fallback (subject to the workflow’s requester exclusions).
 - Trigger: First accepted distinct public tutor application commits. [Emitter](../../src/server/api/routers/application.ts).
 - Authorized destination: /admin/applications.
 
@@ -281,7 +291,7 @@ authorized decision interfaces and policy rules.
 
 ### qualification_requested
 
-- Recipient: Active Admin/Head.
+- Recipient: Eligible active Admin reviewers, with Head fallback (subject to the workflow’s requester exclusions).
 - Trigger: Tutor submits an additional-subject or higher-level qualification application. [Emitter](../../src/server/api/routers/qualification-application.ts).
 - Authorized destination: /admin/applications#application-{requestId}.
 
@@ -314,14 +324,14 @@ authorized decision interfaces and policy rules.
 
 ### crew_application_pending
 
-- Recipient: Active Head only.
+- Recipient: Eligible active Admin reviewers, with Head fallback (subject to the workflow’s requester exclusions).
 - Trigger: Mailbox verification commits the first pending Crew application. [Emitter](../../src/server/crew/signup.ts).
 - Authorized destination: /admin/crew.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | New Crew Application Awaiting Head Review | A new crew application is awaiting the program Head's review. Open the crew workflow to review it. | Review crew applications |
-| 中文 | 新的工作组申请待负责人审核 | 一份新的工作组申请正等待项目负责人审核。请打开工作组流程查看申请。 | 查看工作组申请 |
+| English | New Crew Application Awaiting Admin Review | A new crew application is awaiting Admin review. Open the crew workflow to review it. | Review crew applications |
+| 中文 | 新值勤申请等待管理员审核 | 一份新值勤申请正在等待管理员审核。请前往值勤流程审核。 | 查看工作组申请 |
 
 ### viewer_registered
 
@@ -336,7 +346,7 @@ authorized decision interfaces and policy rules.
 
 ### tutor_setup_needed
 
-- Recipient: Active Admin/Head.
+- Recipient: All active, unmerged Admin and Head accounts, subject to the emitter’s actor exclusion.
 - Trigger: Management adds an unlinked tutor with no login. [Emitter](../../src/server/api/routers/admin.ts).
 - Authorized destination: /admin/users.
 
@@ -381,7 +391,7 @@ authorized decision interfaces and policy rules.
 
 ### management_review_pending
 
-- Recipient: All active eligible Admin/Head reviewers for the proposal.
+- Recipient: Eligible active Admin reviewers, with Head fallback (subject to the workflow’s requester exclusions).
 - Trigger: Ordinary management proposal is queued; live change remains unapplied. [Emitter](../../src/server/approvals.ts).
 - Authorized destination: /admin/approvals?request={proposalId}.
 
@@ -393,7 +403,7 @@ authorized decision interfaces and policy rules.
 ### management_head_review_pending
 
 - Recipient: Active Head only.
-- Trigger: A Head-only management proposal is queued; live change remains unapplied. [Emitter](../../src/server/approvals.ts).
+- Trigger: An official-refresh management proposal is queued; live change remains unapplied. [Emitter](../../src/server/approvals.ts).
 - Authorized destination: /admin/approvals?request={proposalId}.
 
 | Language | Title | Description | Action |
@@ -425,7 +435,7 @@ authorized decision interfaces and policy rules.
 
 ### translation_review_pending
 
-- Recipient: Active Admin/Head.
+- Recipient: Eligible active Admin reviewers, with Head fallback (subject to the workflow’s requester exclusions).
 - Trigger: Translation draft submission commits for review. [Emitter](../../src/server/translation-drafts.ts).
 - Authorized destination: /localization?view=review.
 
@@ -447,7 +457,7 @@ authorized decision interfaces and policy rules.
 
 ### tutor_optout_requested
 
-- Recipient: Active Head only.
+- Recipient: Eligible active Admin reviewers, with Head fallback (subject to the workflow’s requester exclusions).
 - Trigger: Tutor membership opt-out request is created, awaiting cooldown/review. [Emitter](../../src/server/membership.ts).
 - Authorized destination: /admin/tutor-requests.
 
@@ -458,7 +468,7 @@ authorized decision interfaces and policy rules.
 
 ### tutor_reentry_requested
 
-- Recipient: Active Head only.
+- Recipient: Eligible active Admin reviewers, with Head fallback (subject to the workflow’s requester exclusions).
 - Trigger: Tutor membership reentry request is created. [Emitter](../../src/server/membership.ts).
 - Authorized destination: /admin/tutor-requests.
 
@@ -469,25 +479,25 @@ authorized decision interfaces and policy rules.
 
 ### crew_optout_requested
 
-- Recipient: Active Head only.
+- Recipient: Eligible active Admin reviewers, with Head fallback (subject to the workflow’s requester exclusions).
 - Trigger: Crew membership opt-out request is created, awaiting cooldown/review. [Emitter](../../src/server/membership.ts).
 - Authorized destination: /admin/crew.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Crew Opt-Out Request Awaiting Head Review | A crew member requested to opt out. The program Head can review the request after the required cooldown. | Review crew request |
-| 中文 | 工作组退出申请待负责人审核 | 一位工作组成员申请退出。项目负责人可在规定冷静期后审核申请。 | 查看工作组申请 |
+| English | Crew Opt-Out Request Awaiting Admin Review | A crew member requested to opt out. An Admin can review the request after the required cooldown. | Review crew request |
+| 中文 | 退出值勤申请等待管理员审核 | 一位值勤成员申请退出。规定的冷静期结束后，管理员可审核该申请。 | 查看工作组申请 |
 
 ### crew_reentry_requested
 
-- Recipient: Active Head only.
+- Recipient: Eligible active Admin reviewers, with Head fallback (subject to the workflow’s requester exclusions).
 - Trigger: Crew membership reentry request is created. [Emitter](../../src/server/membership.ts).
 - Authorized destination: /admin/crew.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Crew Reentry Request Awaiting Head Review | A crew member requested to rejoin. The program Head must review the request before participation is restored. | Review crew request |
-| 中文 | 工作组重新加入申请待负责人审核 | 一位工作组成员申请重新加入。项目负责人须先审核申请，再恢复参与状态。 | 查看工作组申请 |
+| English | Crew Reentry Request Awaiting Admin Review | A crew member requested to rejoin. An Admin must review the request before participation is restored. | Review crew request |
+| 中文 | 重新加入值勤申请等待管理员审核 | 一位值勤成员申请重新加入。恢复参与前须由管理员审核申请。 | 查看工作组申请 |
 
 ### membership_optout_approved
 
@@ -524,7 +534,7 @@ authorized decision interfaces and policy rules.
 
 ### tutee_optout_requested
 
-- Recipient: Active Admin/Head.
+- Recipient: Eligible active Admin reviewers, with Head fallback (subject to the workflow’s requester exclusions).
 - Trigger: Tutor relays a tutee opt-out with its existing automatic-approval cooldown. [Emitter](../../src/server/api/routers/tutor.ts).
 - Authorized destination: /admin/tutee-requests.
 
@@ -557,7 +567,7 @@ authorized decision interfaces and policy rules.
 
 ### attendance_cards_pending
 
-- Recipient: Active Admin/Head.
+- Recipient: Eligible active Admin reviewers, with Head fallback (subject to the workflow’s requester exclusions).
 - Trigger: Attendance survey commits one or more disciplinary-card requests; count records submitted requests. [Emitter](../../src/server/api/routers/tutor.ts).
 - Authorized destination: /admin/discipline.
 
@@ -614,7 +624,7 @@ Without a recorded count: An attendance survey submitted discipline card request
 
 ### attendance_history_updated
 
-- Recipient: Active Head only.
+- Recipient: All active, unmerged Admin and Head accounts, subject to the emitter’s actor exclusion.
 - Trigger: Catalogue clock propagation changes recorded teaching blocks and reconsiders flags/deductions; count is changed blocks. [Emitter](../../src/server/attendance-schedule.ts).
 - Authorized destination: /admin/audit.
 
@@ -649,7 +659,7 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 ### account_appeal_requested
 
-- Recipient: Active Admin/Head.
+- Recipient: Eligible active Admin reviewers, with Head fallback (subject to the workflow’s requester exclusions).
 - Trigger: A suspended account submits an account reinstatement appeal. [Emitter](../../src/server/api/routers/account.ts).
 - Authorized destination: /admin/users.
 
@@ -682,7 +692,7 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 ### record_corrected
 
-- Recipient: Active Head only.
+- Recipient: All active, unmerged Admin and Head accounts, subject to the emitter’s actor exclusion.
 - Trigger: Management attendance or patrol correction commits. [Emitter](../../src/server/api/routers/corrections.ts).
 - Authorized destination: /admin/audit.
 
@@ -704,7 +714,7 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 ### tutee_card_appeal
 
-- Recipient: Active Admin/Head.
+- Recipient: Eligible active Admin reviewers, with Head fallback (subject to the workflow’s requester exclusions).
 - Trigger: Tutee submits an appeal for an owned disciplinary card. [Emitter](../../src/server/api/routers/student.ts).
 - Authorized destination: /student-support.
 
@@ -771,7 +781,7 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 ### student_withdrawal_pending
 
-- Recipient: Survey request audience; legacy account-owned withdrawal notifies active Admin/Head.
+- Recipient: Eligible active Admin reviewers, with Head fallback; any separate participant notices retain their ownership rules.
 - Trigger: Assigned student applies for current-period withdrawal, or the legacy withdrawal request commits. [Emitter](../../src/server/student-workflow.ts).
 - Legacy account-owned withdrawal emitter: [legacy withdrawal](../../src/server/legacy-student-withdrawal.ts).
 - Authorized destination: Request audience destinations; legacy pending: /admin/tutee-requests.
@@ -805,7 +815,7 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 ### student_schedule_review_pending
 
-- Recipient: Survey request audience or legacy review audience.
+- Recipient: Eligible active Admin reviewers, with Head fallback; any separate participant notices retain their ownership rules.
 - Trigger: Assigned tutor reports a schedule conflict and requests review. [Emitter](../../src/server/student-workflow.ts).
 - Authorized destination: Request audience destinations or legacy review destinations.
 
@@ -882,7 +892,7 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 ### request_invalidity_appeal_pending
 
-- Recipient: Active Admin/Head.
+- Recipient: Eligible active Admin reviewers, with Head fallback (subject to the workflow’s requester exclusions).
 - Trigger: First immutable appeal to a current applied request-invalidity flag commits. [Emitter](../../src/server/email/request-appeal.ts).
 - Authorized destination: Tutor application: /admin/applications; survey/legacy signup: /admin/requests.
 

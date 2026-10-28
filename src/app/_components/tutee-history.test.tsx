@@ -168,7 +168,7 @@ const mount = (head = false, locale: "en" | "zh" = "en") =>
     >
       <TuteeHistoryLinkForm
         row={row}
-        isHead={head}
+        canCorrectOwnership={head}
         onLinked={() => undefined}
       />
     </NextIntlClientProvider>,
@@ -318,7 +318,7 @@ it("registers historical writes with the parent dialog and locks the whole histo
   const contents = () => (
     <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
       <Modal title="Profile" onClose={close} footer={null}>
-        <TuteeHistoryLinkForm row={row} isHead={false} onLinked={vi.fn()} />
+        <TuteeHistoryLinkForm row={row} canCorrectOwnership={false} onLinked={vi.fn()} />
       </Modal>
     </NextIntlClientProvider>
   );
@@ -934,7 +934,7 @@ it("requires explicit read recovery after a stale cancellation, preserving its d
   };
   view.rerender(
     <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-      <TuteeHistoryLinkForm row={row} isHead={false} onLinked={vi.fn()} />
+      <TuteeHistoryLinkForm row={row} canCorrectOwnership={false} onLinked={vi.fn()} />
     </NextIntlClientProvider>,
   );
   fireEvent.click(
@@ -991,7 +991,7 @@ it.each(["en", "zh"] as const)(
         messages={messages}
         timeZone="UTC"
       >
-        <TuteeHistoryLinkForm row={row} isHead={false} onLinked={vi.fn()} />
+        <TuteeHistoryLinkForm row={row} canCorrectOwnership={false} onLinked={vi.fn()} />
       </NextIntlClientProvider>
     );
     mock.invitationError = { message: "Offline" };
@@ -1069,7 +1069,7 @@ it("keeps the initiating dialog busy through SMTP and releases dismissal after a
   const content = () => (
     <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
       <Modal title="Invitation editor" onClose={close} footer={null}>
-        <TuteeHistoryLinkForm row={row} isHead={false} onLinked={vi.fn()} />
+        <TuteeHistoryLinkForm row={row} canCorrectOwnership={false} onLinked={vi.fn()} />
       </Modal>
     </NextIntlClientProvider>
   );
@@ -1156,7 +1156,7 @@ it.each(["status", "candidates", "preview", "link"] as const)(
     }
     view.rerender(
       <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-        <TuteeHistoryLinkForm row={row} isHead={false} onLinked={vi.fn()} />
+        <TuteeHistoryLinkForm row={row} canCorrectOwnership={false} onLinked={vi.fn()} />
       </NextIntlClientProvider>,
     );
     expect(screen.queryByRole("combobox")).toBeNull();
@@ -1244,7 +1244,7 @@ it("uses an explicit successful status read to recover permission without losing
   });
   view.rerender(
     <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-      <TuteeHistoryLinkForm row={row} isHead={false} onLinked={vi.fn()} />
+      <TuteeHistoryLinkForm row={row} canCorrectOwnership={false} onLinked={vi.fn()} />
     </NextIntlClientProvider>,
   );
   expect(screen.getByText(/private@example.test/)).toBeTruthy();
@@ -1278,7 +1278,7 @@ it("uses a newer background attempt instead of a previous local publication rece
   };
   view.rerender(
     <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-      <TuteeHistoryLinkForm row={row} isHead={false} onLinked={vi.fn()} />
+      <TuteeHistoryLinkForm row={row} canCorrectOwnership={false} onLinked={vi.fn()} />
     </NextIntlClientProvider>,
   );
   expect(screen.getByText(en.tuteeHistory.invitation_UNCERTAIN)).toBeTruthy();

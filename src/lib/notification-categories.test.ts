@@ -22,7 +22,9 @@ it("distinguishes reviewers from participants without changing the event's domai
   ).toBe("tutoring");
   expect(
     notificationCategory("crew_application_pending", { role: "ADMIN" }),
-  ).toBe("applications");
+  ).toBe("reviews");
+  expect(notificationCategory("crew_application_pending", { role: "STUDENT" })).toBe("applications");
+  expect(notificationCategory("management_head_review_pending", { role: "ADMIN" })).toBe("management");
   expect(
     notificationCategory("crew_application_pending", { role: "HEAD" }),
   ).toBe("reviews");

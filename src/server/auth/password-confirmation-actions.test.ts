@@ -117,8 +117,17 @@ it("shares concurrent attempts across fresh sessions without exceeding ten hashe
 });
 
 it("keys privileged confirmations to the caller even when actions and targets rotate", async () => {
-  const api = caller(randomUUID());
+  const actorId = randomUUID();
+  const api = caller(actorId);
   const target = "cjld2cjxh0000qzrmn831i7rn";
+  // The locked actor read supplies the password-budget identity. Keep each target
+  // eligible so target validation cannot short-circuit the confirmation check.
+  mocks.findUser.mockImplementation(async ({ where }: { where: { id: string } }) => ({
+    id: where.id,
+    role: where.id === actorId ? "HEAD" : "ADMIN",
+    passwordHash: "stored",
+    name: "Test",
+  }));
   for (let i = 0; i < 10; i++) {
     await expect(api.admin.setUserRole({
       userId: `${target.slice(0, -1)}${i}`, role: "ADMIN", confirmPassword: "wrong",

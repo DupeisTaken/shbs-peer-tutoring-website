@@ -300,7 +300,7 @@ it("requests approval for administrators with the full range and freezes an acce
   edit();
   await act(async () => {
     fireEvent.click(
-      screen.getByRole("button", { name: en.approvals.requestHead }),
+      screen.getByRole("button", { name: en.approvals.requestAdmin }),
     );
   });
   expect(state.save).toHaveBeenCalledWith(

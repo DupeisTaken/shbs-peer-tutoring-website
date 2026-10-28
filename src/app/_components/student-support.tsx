@@ -140,17 +140,17 @@ export function StudentSupport({ viewScope = "" }: { viewScope?: string }) {
                         save.isPending ||
                         !setting.isSuccess ||
                         !!me.error ||
-                        !["HEAD", "ADMIN"].includes(me.data?.role ?? "")
+                        !["HEAD", "ADMIN", "COORDINATOR"].includes(me.data?.role ?? "")
                       }
                       onChange={(e) => {
                         if (
                           !me.error &&
-                          ["HEAD", "ADMIN"].includes(me.data?.role ?? "")
+                          ["HEAD", "ADMIN", "COORDINATOR"].includes(me.data?.role ?? "")
                         )
                           save.mutate({ share: e.target.checked });
                       }}
                     />
-                    {me.data?.role === "ADMIN"
+                    {me.data?.role === "COORDINATOR"
                       ? approvals("requestChange", {
                           setting: t("shareFeedback"),
                         })

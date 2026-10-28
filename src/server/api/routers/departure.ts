@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure, headProcedure } from "../trpc";
+import { createTRPCRouter, protectedProcedure, adminOnlyProcedure } from "../trpc";
 import { departureChange } from "~/lib/school-departure";
 import { changeSchoolDeparture } from "~/server/school-departure";
 import { queueProposal } from "~/server/approvals";
@@ -46,7 +46,7 @@ export const departureRouter = createTRPCRouter({
         userId: ctx.session.user.id,
       });
     }),
-  setState: headProcedure
+  setState: adminOnlyProcedure
     .input(departureChange)
     .mutation(({ ctx, input }) =>
       changeSchoolDeparture(ctx.db, input, ctx.session.user.id),

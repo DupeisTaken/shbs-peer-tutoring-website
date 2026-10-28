@@ -38,6 +38,7 @@ export function NotificationPreferenceFields({
         return (
           <div key={row.category} className="py-4">
             <SettingRow
+              stackOnMobile
               label={category}
               description={t(`descriptions.${row.category}`)}
               control={

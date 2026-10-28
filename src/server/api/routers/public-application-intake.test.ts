@@ -132,7 +132,7 @@ it("serializes concurrent tutor retries across address casing and networks witho
   );
   expect(result).toEqual(Array.from({ length: 6 }, () => ({ ok: true })));
   expect(await db.tutorApplication.count()).toBe(1);
-  await expectReviewerNotifications(["HEAD", "ADMIN"]);
+  await expectReviewerNotifications(["ADMIN"]);
   expect(await db.publicApplicationRateLimit.count()).toBe(2);
   expect(
     (await db.publicApplicationRateLimit.findMany()).every(
@@ -160,13 +160,30 @@ it("serializes crew retries, preserves answers and does not disclose the earlier
     ),
   );
   expect(await db.crewApplication.count()).toBe(1);
-  await expectReviewerNotifications(["HEAD"]);
+  await expectReviewerNotifications(["ADMIN"]);
   await expect(
     verifiedCrew({ ...input, message: "Replace this" }),
   ).resolves.toEqual({ ok: true });
   expect((await db.crewApplication.findFirstOrThrow()).message).toBe(
     input.message,
   );
+});
+
+it.each(["tutor", "crew"] as const)("uses Head fallback for %s intake when every Admin is suspended or retired, without duplicate retry notices", async (audience) => {
+  await db.user.update({ where: { id: "intake-admin" }, data: { suspendedAt: new Date() } });
+  const tutor = await tutorInput();
+  const crew = crewInput();
+  const submit = () => audience === "tutor"
+    ? client().application.submit(tutor)
+    : verifiedCrew(crew);
+  await submit();
+  const original = audience === "tutor"
+    ? await db.tutorApplication.findFirstOrThrow()
+    : await db.crewApplication.findFirstOrThrow();
+  await submit();
+  await expectReviewerNotifications(["HEAD"]);
+  expect(audience === "tutor" ? await db.tutorApplication.findFirstOrThrow() : await db.crewApplication.findFirstOrThrow()).toEqual(original);
+  expect((await db.publicApplicationRateLimit.findMany()).every((row) => row.count === 1)).toBe(true);
 });
 
 it("treats an interview as pending, while allowing a new submission after a decision", async () => {
@@ -178,7 +195,7 @@ it("treats an interview as pending, while allowing a new submission after a deci
   await db.tutorApplication.updateMany({ data: { status: "REJECTED" } });
   await client().application.submit(input);
   expect(await db.tutorApplication.count()).toBe(2);
-  await expectReviewerNotifications(["HEAD", "ADMIN"], 2);
+  await expectReviewerNotifications(["ADMIN"], 2);
 });
 
 it("shares the email allowance between tutor and crew, and rolls back the over-limit transaction", async () => {
@@ -196,7 +213,7 @@ it("shares the email allowance between tutor and crew, and rolls back the over-l
   expect(
     (await db.tutorApplication.count()) + (await db.crewApplication.count()),
   ).toBe(1);
-  await expectReviewerNotifications((await db.tutorApplication.count()) > 0 ? ["HEAD", "ADMIN"] : ["HEAD"]);
+  await expectReviewerNotifications(["ADMIN"]);
   expect(
     (
       await db.publicApplicationRateLimit.findUniqueOrThrow({
@@ -236,7 +253,7 @@ it("keeps retries successful when limits are full, without reserving more capaci
       (row) => row.count === APPLICATION_IP_MAX,
     ),
   ).toBe(true);
-  await expectReviewerNotifications(["HEAD"]);
+  await expectReviewerNotifications(["ADMIN"]);
 });
 
 it("resets expired email and network windows and prunes old unrelated counters", async () => {
@@ -271,7 +288,7 @@ it("rolls back application and capacity when notification fan-out fails, then pe
   await expect(verifiedCrew(crewInput())).resolves.toEqual({
     ok: true,
   });
-  await expectReviewerNotifications(["HEAD"]);
+  await expectReviewerNotifications(["ADMIN"]);
 });
 
 it("checks policy and subject validity even on retries, without consuming capacity", async () => {
@@ -291,7 +308,7 @@ it("checks policy and subject validity even on retries, without consuming capaci
       (row) => row.count === 1,
     ),
   ).toBe(true);
-  await expectReviewerNotifications(["HEAD", "ADMIN"]);
+  await expectReviewerNotifications(["ADMIN"]);
 });
 
 it("does not reserve capacity while crew is disabled or tutor recruitment is closed", async () => {

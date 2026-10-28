@@ -19,7 +19,7 @@ import {
 } from "~/server/auth/registration";
 import { lockUsernameNamespace } from "~/server/auth/username";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
-import { notifyAdmins } from "~/server/notifications/create";
+import { managementReviewSourceLink, notifyAdmins } from "~/server/notifications/create";
 import { getFeatures } from "~/server/program/features";
 import {
   assertOfferedGrade,
@@ -253,14 +253,14 @@ export async function verifyCrewApplication(
           await notifyAdmins(
             {
               ...notificationInAppEvent("crew_application_pending", undefined, {
-                en: `${draft.name} applied to join the crew. Head review is required.`,
-                zh: `${draft.name} 申请加入工作组，待主管审核。`,
+                en: `${draft.name} applied to join the crew. Management review is required.`,
+                zh: `${draft.name} 申请加入工作组，待管理人员审核。`,
               }),
-              title: "New crew application awaiting Head review",
+              title: "New crew application awaiting management review",
               body: `${draft.name} applied to join the crew.`,
-              link: "/admin/crew",
+              link: managementReviewSourceLink("CrewApplication", application.id),
             },
-            { headOnly: true },
+            undefined,
             tx,
           );
         },
@@ -404,13 +404,13 @@ export async function decideCrewApplication(
     await lockUsernameNamespace(tx);
     await assertEnabled(tx);
     // Leadership transfer has its own lock, so hold this actor row through the
-    // decision rather than assuming the invitation namespace freezes Head authority.
+    // decision rather than assuming the invitation namespace freezes staff authority.
     await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${actor.id} FOR SHARE`;
     const currentActor = await tx.user.findUnique({ where: { id: actor.id } });
-    if (currentActor?.role !== "HEAD" || currentActor.suspendedAt)
+    if (!currentActor || !["ADMIN", "HEAD"].includes(currentActor.role) || currentActor.suspendedAt || currentActor.mergedIntoId)
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "Only Head may decide crew participation.",
+        message: "Only Admin or Head may decide crew participation.",
       });
     await tx.$queryRaw`SELECT id FROM "CrewApplication" WHERE id = ${input.applicationId} FOR UPDATE`;
     const application = await tx.crewApplication.findUniqueOrThrow({

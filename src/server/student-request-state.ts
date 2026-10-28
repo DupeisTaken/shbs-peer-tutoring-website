@@ -5,6 +5,7 @@ import {
   namedNotificationDetail,
 } from "./notifications/create";
 import { currentStudentSignupPayload } from "./student-signup-answers";
+import { managementNotificationRecipients } from "./notifications/create";
 import type { NotificationEvent } from "~/lib/notification-events";
 import {
   assertRequestProcessable,
@@ -44,12 +45,13 @@ export async function notifyRequest(
         where: { tuteeId: row.tuteeId },
       })
     : null;
+  const managers = await managementNotificationRecipients(tx, event);
   const users = await tx.user.findMany({
     where: {
       suspendedAt: null,
       mergedIntoId: null,
       OR: [
-        { role: { in: ["HEAD", "ADMIN"] } },
+        { id: { in: managers.map((manager) => manager.id) } },
         ...(owner
           ? [{ id: owner.userId }]
           : row.tuteeId

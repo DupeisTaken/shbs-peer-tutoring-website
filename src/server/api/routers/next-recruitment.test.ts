@@ -85,34 +85,34 @@ describe("next-period opening authority and public isolation", () => {
     expect(await db.auditLog.count({ where: { operation: "program.prepareNextRecruitment" } })).toBeGreaterThanOrEqual(4);
   });
 
-  it("queues independent Admin proposals without writing preparations and lets Head apply both", async () => {
-    const tutor = await queued(actor("ADMIN").program.prepareNextRecruitment(await preparation("tutor")));
-    const tutee = await queued(actor("ADMIN").program.prepareNextRecruitment(await preparation("tutee", laterOpening)));
+  it("queues independent Coordinator proposals without writing preparations and lets Admin apply both", async () => {
+    const tutor = await queued(actor("COORDINATOR").program.prepareNextRecruitment(await preparation("tutor")));
+    const tutee = await queued(actor("COORDINATOR").program.prepareNextRecruitment(await preparation("tutee", laterOpening)));
     expect(await db.nextRecruitmentPreparation.count()).toBe(0);
-    await expect(actor("ADMIN").approval.decide({ id: tutor.id, approve: true, note: "Self-review refused" })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await actor().approval.decide({ id: tutor.id, approve: true, note: "Reviewed tutor date" });
+    await expect(actor("COORDINATOR").approval.decide({ id: tutor.id, approve: true, note: "Self-review refused" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await actor("ADMIN").approval.decide({ id: tutor.id, approve: true, note: "Reviewed tutor date" });
     // Current-window edits are unrelated to a future audience's independent proposal.
     await actor().program.setSignupWindow({ audience: "tutor", expectedTermId: sourceId,
       enabled: false, opensAt: null, closesAt: null, previewUrl: null });
-    await actor().approval.decide({ id: tutee.id, approve: true, note: "Reviewed tutee date" });
+    await actor("ADMIN").approval.decide({ id: tutee.id, approve: true, note: "Reviewed tutee date" });
     expect(await db.nextRecruitmentPreparation.count()).toBe(2);
     expect(await actor().program.nextRecruitment()).toMatchObject({
       preparations: { tutor: { opensAt: opening }, tutee: { opensAt: laterOpening } },
     });
   });
 
-  it.each(["COORDINATOR", "VIEWER"] as const)("denies %s preparation writes before queueing", async (role) => {
+  it.each(["VIEWER"] as const)("denies %s preparation writes before queueing", async (role) => {
     await expect(actor(role).program.prepareNextRecruitment(await preparation("tutor"))).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(await db.approvalRequest.count()).toBe(0);
     expect(await db.nextRecruitmentPreparation.count()).toBe(0);
   });
 
   it("uses current roles rather than stale requester and reviewer sessions", async () => {
-    const proposal = await queued(actor("ADMIN").program.prepareNextRecruitment(await preparation("tutor")));
-    await db.user.update({ where: { id: "next-ADMIN" }, data: { role: "COORDINATOR" } });
+    const proposal = await queued(actor("COORDINATOR").program.prepareNextRecruitment(await preparation("tutor")));
+    await db.user.update({ where: { id: "next-COORDINATOR" }, data: { role: "VIEWER" } });
     await expect(actor().approval.decide({ id: proposal.id, approve: true, note: "Requester demoted" })).rejects.toMatchObject({ code: "CONFLICT" });
-    await db.user.update({ where: { id: "next-ADMIN" }, data: { role: "ADMIN" } });
-    await db.user.update({ where: { id: "next-HEAD" }, data: { role: "ADMIN" } });
+    await db.user.update({ where: { id: "next-COORDINATOR" }, data: { role: "COORDINATOR" } });
+    await db.user.update({ where: { id: "next-HEAD" }, data: { role: "COORDINATOR" } });
     await expect(actor().approval.decide({ id: proposal.id, approve: true, note: "Reviewer demoted" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(await db.nextRecruitmentPreparation.count()).toBe(0);
     expect((await db.approvalRequest.findUniqueOrThrow({ where: { id: proposal.id } })).state).toBe("PENDING");
@@ -232,7 +232,7 @@ describe("stale target and boundary protection", () => {
   it("requires replacement after a mode change away and back, including already queued requests", async () => {
     const stale = await preparation("tutor");
     await actor().program.prepareNextRecruitment(stale);
-    const request = await queued(actor("ADMIN").program.prepareNextRecruitment(await preparation("tutee")));
+    const request = await queued(actor("COORDINATOR").program.prepareNextRecruitment(await preparation("tutee")));
     const reviewed = await refreshInput();
     await actor().program.setFeaturePending({ key: "QUARTER_SYSTEM", enabled: false });
     await actor().program.setFeaturePending({ key: "QUARTER_SYSTEM", enabled: true });

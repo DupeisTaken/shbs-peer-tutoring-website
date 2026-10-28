@@ -79,7 +79,7 @@ vi.mock("~/trpc/react", async () => {
       tutorHistory: {
         permissions: {
           useQuery: () => ({
-            data: { canLink: true, isHead: true },
+            data: { canLink: true, canCorrectOwnership: true },
             isFetching: false,
           }),
         },
@@ -299,7 +299,7 @@ it.each([true, false])(
         <TuteeEditor
           row={row}
           onClose={close}
-          historyPermissions={{ canLink, isHead: false }}
+          historyPermissions={{ canLink, canCorrectOwnership: false }}
         />
       </NextIntlClientProvider>,
     );

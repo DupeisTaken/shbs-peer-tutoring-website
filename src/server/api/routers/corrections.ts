@@ -1,5 +1,6 @@
 import { notificationInAppEvent } from "~/lib/notification-details";
 import { notificationAttendanceStatus, notificationList, notificationInstant } from "~/lib/notification-facts";
+import { managementNotificationRecipients } from "~/server/notifications/create";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { programDateKey } from "~/lib/program-time";
 import { notifyUsers } from "~/server/notifications/create";
@@ -291,10 +292,7 @@ export const correctionsRouter = createTRPCRouter({
             details: json({ before, after: input }),
           },
         });
-        const heads = await tx.user.findMany({
-          where: { role: "HEAD", suspendedAt: null, mergedIntoId: null },
-          select: { id: true },
-        });
+        const heads = await managementNotificationRecipients(tx, "record_corrected");
         const tutor = await tx.tutor.findUnique({ where: { id: primary.tutorId }, select: { englishName: true } });
         const rooms = await tx.room.findMany({ where: { id: { in: [primary.actualRoomId, input.actualRoomId].filter((id): id is string => !!id) } }, select: { id: true, name: true } });
         const roomLabel = (id: string | null, online: boolean, locale: "en" | "zh") => online ? (locale === "en" ? "Online" : "线上") : rooms.find((room) => room.id === id)?.name ?? "—";
@@ -436,10 +434,7 @@ export const correctionsRouter = createTRPCRouter({
             }),
           },
         });
-        const heads = await tx.user.findMany({
-          where: { role: "HEAD", suspendedAt: null, mergedIntoId: null },
-          select: { id: true },
-        });
+        const heads = await managementNotificationRecipients(tx, "record_corrected");
         const correctedRooms = await tx.room.findMany({ where: { id: { in: input.observations.map((row) => row.roomId) } }, select: { id: true, name: true } });
         const counts: Record<string, string> = { ZERO: "0", ONE: "1", TWO: "2", THREE: "3", FOUR_PLUS: "4+" };
         const observationTime = (date: Date) => notificationInstant(date, timeZone, "en");

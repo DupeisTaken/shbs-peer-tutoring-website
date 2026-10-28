@@ -143,12 +143,12 @@ export async function syncPunishmentRemoval(
         removal.resolvedAt?.getTime() === tutee.updatedAt.getTime()
       ) {
         // Card corrections that restore roster membership are reversals of applied
-        // removal, so their initiating correction must already have Head authority.
-        if (auditActorScope.getStore()?.role !== "HEAD")
+        // removal, so their initiating correction must already have Admin/Head authority.
+        if (!["ADMIN", "HEAD"].includes(auditActorScope.getStore()?.role ?? ""))
           throw new TRPCError({
             code: "FORBIDDEN",
             message:
-              "Head approval is required to restore removed participation.",
+              "Admin or Head approval is required to restore removed participation.",
           });
         const pairings = await tx.pairing.findMany({
           where: {

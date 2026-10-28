@@ -47,11 +47,6 @@ export const reviewNotificationEvents = [
 ] as const;
 const headOnly = new Set<string>([
   "management_head_review_pending",
-  "crew_application_pending",
-  "tutor_optout_requested",
-  "tutor_reentry_requested",
-  "crew_optout_requested",
-  "crew_reentry_requested",
 ]);
 export function eligibleReviewRecipient(
   user: {

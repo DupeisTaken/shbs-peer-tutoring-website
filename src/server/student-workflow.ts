@@ -715,12 +715,14 @@ async function notifyLegacySchedule(
     where: { id: tuteeId },
     select: { englishName: true },
   });
+  const { managementNotificationRecipients } = await import("./notifications/create");
+  const managers = await managementNotificationRecipients(tx, event);
   const users = await tx.user.findMany({
     where: {
       suspendedAt: null,
       mergedIntoId: null,
       OR: [
-        { role: { in: ["HEAD", "ADMIN"] } },
+        { id: { in: managers.map((manager) => manager.id) } },
         { id: tutorUserId },
         { studentId: tuteeId },
       ],

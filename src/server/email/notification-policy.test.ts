@@ -9,7 +9,12 @@ describe("review email eligibility", () => {
     ).toBe(true);
     expect(
       eligibleReviewRecipient({ role: "ADMIN" }, "crew_application_pending"),
-    ).toBe(false);
+    ).toBe(true);
+    for (const event of ["tutor_optout_requested", "tutor_reentry_requested", "crew_optout_requested", "crew_reentry_requested"]) {
+      expect(eligibleReviewRecipient({ role: "ADMIN" }, event)).toBe(true);
+      expect(eligibleReviewRecipient({ role: "STUDENT" }, event)).toBe(false);
+    }
+    expect(eligibleReviewRecipient({ role: "ADMIN" }, "management_head_review_pending")).toBe(false);
     expect(
       eligibleReviewRecipient({ role: "ADMIN" }, "management_review_pending"),
     ).toBe(true);

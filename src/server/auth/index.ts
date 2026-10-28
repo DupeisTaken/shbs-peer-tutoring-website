@@ -249,6 +249,10 @@ const {
           });
           if (tutorId && identity?.tutorId !== tutorId)
             await updateAccountProfile(tx, userId);
+          if (roleBump) {
+            const { reconcileManagementReviewNotifications } = await import("~/server/notifications/create");
+            await reconcileManagementReviewNotifications(tx);
+          }
           return updated;
         });
         if (!dbUser) return null;

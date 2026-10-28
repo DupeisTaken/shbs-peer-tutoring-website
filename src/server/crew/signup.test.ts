@@ -142,7 +142,9 @@ it("keeps unverified drafts out of the queue and creates one application/notice 
   expect(await db.crewApplication.count()).toBe(1);
   expect(await db.notification.count()).toBe(1);
   expect(await db.notification.findFirstOrThrow()).toMatchObject({
-    userId: "HEAD",
+    userId: "ADMIN",
+    event: "crew_application_pending",
+    link: `/admin/crew#application-${(await db.crewApplication.findFirstOrThrow()).id}`,
   });
   const creation = await db.auditLog.findMany({
     where: { operation: "crew.verifyApplication" },
@@ -338,9 +340,9 @@ it.each(["STUDENT", "VIEWER", "ADMIN"] as const)(
     );
   },
 );
-it("requires live Head review; proposal replay persists the recipient-retrievable grant", async () => {
+it("requires live Admin review; Coordinator proposal replay persists the recipient-retrievable grant", async () => {
   const initial = await pending();
-  const queued = await actor("ADMIN")
+  const queued = await actor("COORDINATOR")
     .admin.decideCrewApplication({
       applicationId: initial.application.id,
       action: "ACCEPT",
@@ -349,7 +351,7 @@ it("requires live Head review; proposal replay persists the recipient-retrievabl
   expect((queued as { cause: unknown }).cause).toBeInstanceOf(ApprovalQueued);
   expect(await db.registrationCode.count()).toBe(0);
   const request = await db.approvalRequest.findFirstOrThrow();
-  await actor().approval.decide({
+  await actor("ADMIN").approval.decide({
     id: request.id,
     approve: true,
     note: "Approved crew applicant",
@@ -411,7 +413,7 @@ it("waits for an in-flight Head demotion and rejects before issuing a grant", as
         { pid: number }[]
       >`SELECT pg_backend_pid() AS pid`;
       demotionPid = backend!.pid;
-      await tx.user.update({ where: { id: "HEAD" }, data: { role: "ADMIN" } });
+      await tx.user.update({ where: { id: "HEAD" }, data: { role: "COORDINATOR" } });
       actorLocked();
       await gate;
     }),

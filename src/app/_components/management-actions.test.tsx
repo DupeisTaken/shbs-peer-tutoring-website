@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -29,6 +30,7 @@ const mocks = vi.hoisted(() => ({
   invalidateOptions: vi.fn(),
   invalidateApplications: vi.fn(),
   invalidateCodes: vi.fn(),
+  reconcileNotices: vi.fn(),
 }));
 // Dialog internals have their own tests; these doubles verify that this panel
 // preserves the staged review flow and only forwards fresh reviewer tickets.
@@ -82,6 +84,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    notification: { reconcileManagementReviews: { useMutation: () => ({ mutateAsync: mocks.reconcileNotices }) } },
     useUtils: () => ({
       tutor: { myInterviews: { invalidate: mocks.invalidateInterviews } },
       interviewManagement: { options: { invalidate: mocks.invalidateOptions } },
@@ -176,6 +179,7 @@ beforeEach(() => {
   mocks.params = "";
   mocks.decisionState = {};
   mocks.refetch.mockResolvedValue({});
+  mocks.reconcileNotices.mockReset().mockResolvedValue({ pending: 2, created: 1 });
   for (const invalidate of [
     mocks.invalidateInterviews,
     mocks.invalidateOptions,
@@ -186,6 +190,41 @@ beforeEach(() => {
   queue();
 });
 afterEach(cleanup);
+
+it.each([false, true])("lets Admin and Head deliberately reconcile notices without deciding requests (Head=%s)", async (headReviewer) => {
+  queue([], true, 0, headReviewer);
+  render(view(true));
+  expect(mocks.reconcileNotices).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: en.approvals.reviewerNoticesRefresh }));
+  await screen.findByText(en.approvals.reviewerNoticesResult.replace("{created}", "1").replace("{pending}", "2"));
+  expect(mocks.reconcileNotices).toHaveBeenCalledExactlyOnceWith();
+  expect(mocks.decide).not.toHaveBeenCalled();
+  expect(mocks.refetch).not.toHaveBeenCalled();
+});
+
+it("conceals notification reconciliation from request-only Coordinators", () => {
+  queue([], false);
+  render(view(false));
+  expect(screen.queryByRole("button", { name: en.approvals.reviewerNoticesRefresh })).toBeNull();
+  expect(mocks.reconcileNotices).not.toHaveBeenCalled();
+});
+
+it("admits one reconciliation while pending and permits a deliberate retry after failure", async () => {
+  let reject!: (failure: Error) => void;
+  mocks.reconcileNotices.mockReturnValueOnce(new Promise((_resolve, fail) => { reject = fail; }));
+  queue([], true);
+  render(view(true, "zh"));
+  const button = screen.getByRole("button", { name: zh.approvals.reviewerNoticesRefresh });
+  act(() => { fireEvent.click(button); fireEvent.click(button); });
+  expect(mocks.reconcileNotices).toHaveBeenCalledOnce();
+  expect(screen.getByRole<HTMLButtonElement>("button", { name: zh.approvals.reviewerNoticesPending }).disabled).toBe(true);
+  await act(async () => reject(new Error("Temporary notification failure")));
+  expect(screen.getByRole("alert").textContent).toBe("Temporary notification failure");
+  fireEvent.click(screen.getByRole("button", { name: zh.approvals.reviewerNoticesRefresh }));
+  await screen.findByText(zh.approvals.reviewerNoticesResult.replace("{created}", "1").replace("{pending}", "2"));
+  expect(mocks.reconcileNotices).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("alert")).toBeNull();
+});
 
 // A decision can remove the only row on the last page. The remaining queue must
 // stay reachable even when its new total no longer needs a second page.
@@ -293,6 +332,128 @@ it.each([
     });
   },
 );
+
+it.each(["en", "zh"])(
+  "retains a reviewer note and independent section state across request collapse (%s)",
+  (locale) => {
+    const copy = locale === "en" ? en : zh;
+    queue([row()], true);
+    render(view(true, locale));
+    const note = "Checked the immutable room proposal.\n已核对原始记录。";
+    fireEvent.change(
+      screen.getByRole("textbox", { name: copy.approvals.review.noteRequired }),
+      { target: { value: note } },
+    );
+    const requested = screen.getByRole("button", {
+      name: `${copy.approvals.review.requested} ${copy.approvals.review.collapse}`,
+    });
+    fireEvent.click(requested);
+    const request = screen.getByRole("button", {
+      name: `${copy.approvals.review.reviewDetails} ${copy.approvals.review.collapse}`,
+    });
+    fireEvent.click(request);
+    expect(request.getAttribute("aria-expanded")).toBe("false");
+    expect(
+      screen.queryByRole("textbox", {
+        name: copy.approvals.review.noteRequired,
+      }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("region", { name: copy.approvals.review.affected }),
+    ).toBeTruthy();
+    expect(screen.getByText(copy.approvals.effects.PENDING)).toBeTruthy();
+    fireEvent.click(request);
+    expect(
+      screen.getByRole<HTMLTextAreaElement>("textbox", {
+        name: copy.approvals.review.noteRequired,
+      }).value,
+    ).toBe(note);
+    expect(requested.getAttribute("aria-expanded")).toBe("false");
+    expect(mocks.decide).not.toHaveBeenCalled();
+    expect(mocks.cancel).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["en", "zh"])(
+  "keeps request review expanded during a consequence confirmation (%s)",
+  (locale) => {
+    const copy = locale === "en" ? en : zh;
+    queue(
+      [
+        {
+          ...row(),
+          operation: "studentWorkflow.headUnassign",
+          payload: SuperJSON.serialize({ id: "signup", pairingId: "pairing" }),
+          canDecide: true,
+        },
+      ],
+      true,
+      1,
+      true,
+    );
+    render(view(true, locale));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: copy.approvals.review.noteRequired }),
+      { target: { value: "Review retained during confirmation" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.approvals.approve }),
+    );
+    const request = screen.getByRole<HTMLButtonElement>("button", {
+      name: `${copy.approvals.review.reviewDetails} ${copy.approvals.review.collapse}`,
+    });
+    expect(request.disabled).toBe(true);
+    fireEvent.click(request);
+    expect(request.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      screen.getByRole("dialog", { name: "Consequence confirmation" }),
+    ).toBeTruthy();
+    expect(mocks.decide).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Cancel confirmation" }),
+    );
+    expect(request.disabled).toBe(false);
+    expect(
+      screen.getByRole<HTMLTextAreaElement>("textbox", {
+        name: copy.approvals.review.noteRequired,
+      }).value,
+    ).toBe("Review retained during confirmation");
+  },
+);
+
+it("prevents request collapse during a pending decision and reopens with its draft after rejection", () => {
+  queue([row()], true);
+  const mounted = render(view(true));
+  fireEvent.change(
+    screen.getByRole("textbox", { name: en.approvals.review.noteRequired }),
+    { target: { value: "Retained decision note" } },
+  );
+  mocks.decisionState = { isPending: true };
+  mounted.rerender(view(true));
+  const request = screen.getByRole<HTMLButtonElement>("button", {
+    name: `${en.approvals.review.reviewDetails} ${en.approvals.review.collapse}`,
+  });
+  expect(request.disabled).toBe(true);
+  fireEvent.click(request);
+  expect(request.getAttribute("aria-expanded")).toBe("true");
+  const section = screen.getByRole<HTMLButtonElement>("button", {
+    name: `${en.approvals.review.requested} ${en.approvals.review.collapse}`,
+  });
+  expect(section.disabled).toBe(true);
+  mocks.decisionState = {
+    isPending: false,
+    error: new Error("Decision rejected"),
+  };
+  mounted.rerender(view(true));
+  expect(screen.getByRole("alert").textContent).toBe("Decision rejected");
+  expect(request.disabled).toBe(false);
+  expect(section.disabled).toBe(false);
+  expect(
+    screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: en.approvals.review.noteRequired,
+    }).value,
+  ).toBe("Retained decision note");
+});
 
 it("restores the reviewer list, gives explicit URL criteria precedence, and clears it on access denial", () => {
   const cached = queue([row()], true, 100);
@@ -432,9 +593,9 @@ it("requires a nonblank note and explains both proposal outcomes", () => {
 });
 
 it("explains Head-only requests when an Admin cannot decide them", () => {
-  queue([{ ...row(), operation: "admin.setMemberships" }], true);
+  queue([{ ...row(), operation: "admin.refresh", reviewerRoles: ["HEAD"], canDecide: false }], true);
   render(view(true));
-  expect(screen.getByText("Only Head can decide this request.")).toBeTruthy();
+  expect(screen.getByText(en.approvals.review.headRequired)).toBeTruthy();
   expect(
     screen.queryByRole("button", { name: "Approve and Apply" }),
   ).toBeNull();
@@ -465,9 +626,11 @@ it("shows the requested rejection in both the card and fresh consequence confirm
   fireEvent.click(screen.getByRole("button", { name: "Approve and Apply" }));
   expect(mocks.decide).not.toHaveBeenCalled();
   expect(
-    within(screen.getByRole("dialog")).getByText(
-      "Reject the underlying request",
-    ),
+    within(
+      within(screen.getByRole("dialog")).getByRole("region", {
+        name: en.approvals.review.affected,
+      }),
+    ).getAllByText("Reject the underlying request"),
   ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Confirm consequences" }));
   expect(mocks.decide).toHaveBeenCalledWith({
@@ -560,7 +723,7 @@ it("shows coordinator history and proposed/affected records without privileged r
       .getAttribute("aria-pressed"),
   ).toBe("true");
   expect(
-    within(screen.getByRole("region", { name: "Affected record" })).getByText(
+    within(screen.getByRole("region", { name: "Affected record" })).getAllByText(
       "Original room",
     ),
   ).toBeTruthy();
@@ -569,7 +732,7 @@ it("shows coordinator history and proposed/affected records without privileged r
       "Original room",
     ),
   ).toBeTruthy();
-  expect(screen.getByText("New room name")).toBeTruthy();
+  expect(screen.getAllByText("New room name")).toBeTruthy();
   expect(screen.getByText(/Not applied — awaiting/)).toBeTruthy();
   expect(screen.queryByRole("combobox")).toBeNull();
   expect(mocks.requesters).not.toHaveBeenCalled();
@@ -748,14 +911,14 @@ it.each([true, false])(
   },
 );
 
-it("honors server review authority for a payload-dependent reversal", () => {
+it("honors current server review authority for a payload-dependent reversal", () => {
   queue(
     [
       {
         ...row(),
         operation: "messaging.moderate",
         canDecide: false,
-        reviewerRoles: ["HEAD"],
+        reviewerRoles: ["ADMIN", "HEAD"],
         payload: SuperJSON.serialize({
           messageId: "message",
           hide: false,
@@ -766,25 +929,25 @@ it("honors server review authority for a payload-dependent reversal", () => {
     true,
   );
   render(view(true));
-  expect(screen.getByText(en.approvals.review.headRequired)).toBeTruthy();
+  expect(screen.getByText(en.approvals.review.waitingReviewer)).toBeTruthy();
   expect(
     screen.queryByRole("button", { name: en.approvals.approve }),
   ).toBeNull();
 });
-it("requires a fresh Head password for legacy management role requests", () => {
+it("requires the current reviewer's fresh password for legacy management role requests", () => {
   queue(
     [
       {
         ...row(),
         operation: "admin.setUserRole",
         canDecide: true,
-        reviewerRoles: ["HEAD"],
+        reviewerRoles: ["ADMIN", "HEAD"],
         payload: SuperJSON.serialize({ userId: "account", role: "ADMIN" }),
       },
     ],
     true,
     1,
-    true,
+    false,
   );
   render(view(true));
   fireEvent.change(

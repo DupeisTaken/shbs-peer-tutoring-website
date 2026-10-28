@@ -97,14 +97,8 @@ export async function applyLegacyStudentWithdrawal(
         reason,
       },
     });
-    const managers = await tx.user.findMany({
-      where: {
-        role: { in: ["HEAD", "ADMIN"] },
-        suspendedAt: null,
-        mergedIntoId: null,
-      },
-      select: { id: true },
-    });
+    const { managementReviewers } = await import("./notifications/create");
+    const managers = await managementReviewers(tx);
     await tx.notification.createMany({
       data: managers.map((u) => ({
         userId: u.id,

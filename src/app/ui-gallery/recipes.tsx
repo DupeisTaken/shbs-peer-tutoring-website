@@ -4,6 +4,7 @@ import { AdminSummaryRecipe } from "./admin-summary-recipe";
 import { WorkloadPreferenceRecipe } from "./workload-preference-recipe";
 import { NavigationRecipes } from "./navigation-recipes";
 import { ActionReviewRecipe } from "./action-review-recipe";
+import { ManagementReviewRecipe } from "./management-review-recipe";
 import { CreationRiskRecipe } from "./creation-risk-recipe";
 import { CodeRecipe } from "./code-recipe";
 import { NotificationPreferencesRecipe } from "./notification-preferences-recipe";
@@ -411,6 +412,7 @@ export function RecipeGallery({
         <CodeRecipe locale={locale} />
         <NotificationPreferencesRecipe />
         <ActionReviewRecipe />
+        <ManagementReviewRecipe />
         <CreationRiskRecipe />
         <Recipe
           title={t.long}

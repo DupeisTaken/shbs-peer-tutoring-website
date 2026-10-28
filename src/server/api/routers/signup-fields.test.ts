@@ -1,4 +1,5 @@
 import type { Session } from "next-auth";
+import type * as NotificationModule from "~/server/notifications/create";
 import { randomUUID } from "node:crypto";
 import { beforeEach, afterAll, expect, it, vi } from "vitest";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
@@ -6,7 +7,10 @@ vi.mock("~/server/email/sender", () => ({
   emailSender: { send: vi.fn() },
   isEmailDeliveryAvailable: () => true,
 }));
-vi.mock("~/server/notifications/create", () => ({ notifyAdmins: vi.fn() }));
+vi.mock("~/server/notifications/create", async (importOriginal) => ({
+  ...await importOriginal<typeof NotificationModule>(),
+  notifyAdmins: vi.fn(),
+}));
 vi.mock("~/server/rate-limit", () => ({ rateLimit: () => ({ ok: true }) }));
 import { db } from "~/server/db";
 import { createCaller } from "../root";
@@ -125,7 +129,7 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
-it("restricts writes to Head, rejects essential/custom fields, and guards stale changes", async () => {
+it("restricts writes to management, rejects essential/custom fields, and guards stale changes", async () => {
   const input = {
     form: "tutee" as const,
     field: "phone",
@@ -133,7 +137,6 @@ it("restricts writes to Head, rejects essential/custom fields, and guards stale 
     expectedState: "optional" as const,
   };
   for (const role of [
-    "COORDINATOR",
     "STUDENT",
     "TUTOR",
     "VIEWER",
@@ -167,7 +170,7 @@ it("restricts writes to Head, rejects essential/custom fields, and guards stale 
   ).toBe(1);
 });
 
-it("lets Admin request field requirements without applying them before Head review", async () => {
+it("lets Coordinator request field requirements without applying them before Admin review", async () => {
   const input = {
     form: "tutee" as const,
     field: "phone",
@@ -175,7 +178,7 @@ it("lets Admin request field requirements without applying them before Head revi
     expectedState: "optional" as const,
   };
   await expect(
-    caller("ADMIN").program.setSignupField(input),
+    caller("COORDINATOR").program.setSignupField(input),
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect(
     (await caller("ADMIN").program.signupFieldSettings()).fields.tutee.phone,
@@ -183,12 +186,12 @@ it("lets Admin request field requirements without applying them before Head revi
   const request = await db.approvalRequest.findFirstOrThrow({
     where: { operation: "program.setSignupField" },
   });
-  expect(request.requesterId).toBe("fields-ADMIN");
+  expect(request.requesterId).toBe("fields-COORDINATOR");
   await expect(
     caller("COORDINATOR").program.setSignupField(input),
-  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect(await db.approvalRequest.count()).toBe(1);
-  await caller("HEAD").approval.decide({
+  await caller("ADMIN").approval.decide({
     id: request.id,
     approve: true,
     note: "Reviewed the requirement",

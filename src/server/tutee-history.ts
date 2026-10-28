@@ -210,7 +210,7 @@ export async function linkTuteeHistory(
     if (value.currentConflict)
       throw new TRPCError({ code: "CONFLICT", message: "HISTORY_USE_MERGE" });
     if (value.conflict) {
-      if (actor.role !== "HEAD")
+      if (!["ADMIN", "HEAD"].includes(actor.role))
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "HISTORY_HEAD_REQUIRED",

@@ -9,7 +9,7 @@ import {
   type DomainDb,
   type TransactionDb,
 } from "./transactions";
-import { notifyAdmins, notifyUsers } from "./notifications/create";
+import { managementReviewSourceLink, notifyAdmins, notifyUsers } from "./notifications/create";
 import { recordAudit } from "./audit/log";
 
 type Member = { kind: "tutor" | "crew"; id: string };
@@ -96,9 +96,9 @@ export async function requestMembership(
           },
         ),
         body: `${current.name} asked ${kind === "OPT_OUT" ? "to opt out (review after the cooldown)" : "to rejoin"}.`,
-        link: member.kind === "tutor" ? "/admin/tutor-requests" : "/admin/crew",
+        link: managementReviewSourceLink(member.kind === "tutor" ? "TutorStatusRequest" : "CrewStatusRequest", request.id),
       },
-      { headOnly: true },
+      undefined,
       tx,
     );
     return { ok: true, id: request.id, eligibleAt };

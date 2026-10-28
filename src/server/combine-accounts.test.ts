@@ -479,7 +479,6 @@ it("combines historical read and delivery ownership, preserves immutable evidenc
 });
 
 it.each([
-  "ADMIN",
   "COORDINATOR",
   "TUTOR",
   "STUDENT",
@@ -501,7 +500,7 @@ it.each([
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   },
 );
-it("rechecks the live Head and password inside the transaction", async () => {
+it("rechecks current management authority and password inside the transaction", async () => {
   const preview = await previewCombine(db, pair());
   await expect(
     combineAccounts(db, headId, {
@@ -510,7 +509,7 @@ it("rechecks the live Head and password inside the transaction", async () => {
       confirmPassword: "wrong",
     }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await db.user.update({ where: { id: headId }, data: { role: "ADMIN" } });
+  await db.user.update({ where: { id: headId }, data: { role: "COORDINATOR" } });
   await expect(
     combineAccounts(db, headId, {
       ...pair(),

@@ -11,7 +11,7 @@ export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
   const t = useTranslations();
   const identity = api.account.me.useQuery();
   const eligible =
-    !identity.error && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
+    !identity.error && ["HEAD", "ADMIN", "COORDINATOR"].includes(identity.data?.role ?? "");
   const { confirm, dialog } = useDialog();
   const utils = api.useUtils();
   const languages = api.i18n.managedLanguages.useQuery();
