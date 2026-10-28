@@ -728,7 +728,7 @@ Each of those handlers uses `invalidateAndReport` to report actual read failures
 
 Discipline review and attendance correction also register their own writes inside table details. Their notes and correction fields freeze with dismissal while saving, and queued approvals retain the draft with an explicit pending-approval message. Background refreshes preserve each draft's expected version; explicit successful Reload replaces it. Attendance correction collapses only after an applied write has synchronized and settled.
 
-Account name and management username Reloads exclude their own Save immediately through refs as well as disabled form fields. A failed read preserves the draft, version and mutation error; a successful explicit read adopts only the matching account. These reads never register as dialog writes, so Close/Escape remains available. Username writes keep their existing live Head authority, audit and server-version checks.
+Account name and management username Reloads exclude their own Save immediately through refs as well as disabled form fields. A failed read preserves the draft, version and mutation error; a successful explicit read adopts only the matching account. These reads never register as dialog writes, so Close/Escape remains available. Username writes keep their existing live Admin/Head authority, audit and server-version checks.
 
 Explicit Reload in discipline review and the account name/username editors bypasses the normal 30-second query freshness window. A still-fresh cached list cannot clear a conflict or replace the draft; the requested server read must succeed first.
 
@@ -1753,6 +1753,18 @@ Changing the program timezone writes only the singleton setting and audit entry,
 
 ## Communication
 
+The notification bell uses [captured in-app details](../../src/lib/notification-details.ts)
+before generic event copy, retaining localized headings and historical stored bodies.
+New bilingual details identify affected records and actions; management summaries use
+immutable proposal evidence, and pending assignments never claim to be applied.
+The list API revalidates the bounded snapshots. Email uses a separate explicit event
+allowlist to copy selected factual descriptions, never arbitrary stored bodies or
+review reasons. Independent review/reminder preferences retain the global optional
+mail gate. Durable reminder deliveries revalidate their source and audience before
+SMTP; calendar/absence suppression affects reminders only. See the
+[event inventory](notification-events.md#delivery-and-access-boundaries) for fallback,
+language and delivery rules.
+
 [Messaging permissions](../../src/server/messaging-permissions.ts) use explicit ownership and recorded assignment evidence. Role contact groups form a union; a user override replaces that union. The same checks govern search, sends and replies. Permission or assignment writes cannot race send validation and commit.
 
 A send validates the entire recipient batch and atomically writes separate deliveries, a retry receipt and notifications. A sender lock serializes retries and quotas; reusing a client key with different recipients, text or disclosure fails. Notifications omit private message bodies and recipient lists. No external I/O belongs inside the transaction.
@@ -1762,6 +1774,29 @@ Supervision requires the message's recorded disclosure. Head/Admin may inspect a
 Announcements freeze tutor IDs at publication, or at approval for a coordinator proposal. Editing or restoring a post does not recompute its recipients. Empty restricted audiences never become broadcasts. Preview, publication, reads and acknowledgements must share recipient-selection rules; notifications and publication commit together.
 
 ### Account emails and delivery
+
+Staff, tutors and tutees share the staged **Notification preferences** card. The
+[exhaustive category contract](../../src/lib/notification-categories.ts) defines
+messages, reviews, applications, tutoring, attendance, membership, account,
+announcements, management, program and reminders. `Notification.category` is
+captured by an insertion trigger; reviewer overrides apply only to eligible reviewer
+copies. `EmailDelivery.preferenceTopic` selects the personal email preference while
+its transport category retains review/reminder/security eligibility rules. Upcoming
+reminders remain email-only and expose no badge control.
+
+Sparse `NotificationPreference` rows inherit the existing message, information,
+review or reminder email switch until explicitly saved; badge defaults are true.
+The additive migration backfills notification topics and existing optional outbox
+topics without enabling mail or replaying a backlog. Legacy clients propagate broad
+switches only when those switches actually change. The category API saves badge and
+email choices transactionally, permits badge-only saves with the global email gate
+off or reviewer access lost, and prevents newly enabling unavailable email choices.
+The unread-count query excludes disabled badge categories using the user/read/category
+index; list and mark-read operations retain all categories and their original read
+state. A separate total-unread query keeps Mark all read available when muted unread
+notices fall outside the latest thirty displayed records. Saving invalidates both
+counts and the list; an accepted save followed by a failed
+refresh offers read-only recovery rather than repeating the write.
 
 [Account email services](../../src/server/auth/account-emails.ts) use the account-profile lock to serialize a person's changes. `AccountEmail` is the globally unique namespace for primary and verified secondary addresses; triggers reserve primary addresses for every account creation/update path. Inputs are trimmed and lowercased. Pending secondary requests live only in `EmailVerificationCode`, so failed, expired or abandoned requests cannot block another person. The settings list combines owned addresses with account-local pending challenges and applies the five-secondary limit to that union. Cancellation remains available for expired requests; resend is available when secondary binding is enabled; failed SMTP delivery retires only that request's challenge.
 
@@ -1777,17 +1812,35 @@ is not persisted. Old in-app rows retain their original readable title/body; unk
 email events use the generic program-update description. Count context is limited to
 discipline-card requests and changed historical teaching blocks. Scheduled interviews
 carry a validated ISO instant and IANA timezone. Recurring assignment updates carry
-no invented date; there is no dated tutoring-session notification emitter. The
+no invented date; dated tutoring reminders use the separate email-only occurrence
+worker and live-source preflight. The
 [event inventory](notification-events.md) maps every supported event to its actual
 emitter, audience, maintained copy and destination, including email-only account events.
 
 Every [email sender](../../src/server/email/sender.ts) call declares SECURITY or PROGRAM purpose; configuration selects a complete sender account per purpose. Student signup confirmation uses PROGRAM, while viewer verification and history invitations use SECURITY. The notification outbox retains the event's internal destination; shared link validation and sign-in callbacks preserve it through password/2FA and session recovery, with current permissions checked at the destination. Shared HTML/plain-text rendering uses runtime branding and program-zone notification timestamps. See [sender setup](../guides/deployment.md#email--aliyun-direct-mail-邮件推送) for fallback and delivery checks.
+
+Required direct mail names its operation (verification, recovery, sign-in/step-up,
+invitation or signup) rather than using an unrelated generic update. Account triggers
+capture allowlisted changed-field keys and distinguish password changes from enabling
+or disabling two-step verification; simultaneous primary-address and security changes
+enqueue both notices. Message and announcement mail constructs factual copy from
+bounded sender-name or title/action fields, never arbitrary message/announcement
+bodies, recipient lists or supplied free-form descriptions. Other audited event
+details use bounded bilingual snapshots. Account secrets and profile field values
+are excluded; request-status reason disclosure retains its separate mailbox-proof
+rule. Historical rows are not reconstructed from mutable current records.
 
 The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program Settings → Deployment Configurations email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. Direct authentication/signup delivery history is not persisted by these diagnostics; the additive event/request outbox migrations remain required before running this version.
 
 The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only failed or previously attempted pending rows without an active lease qualify, and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Existing SMTP at-least-once limitations still apply across lease expiry and crashes.
 
 Optional notification delivery adds a signed, 90-day unsubscribe link to HTML and plain text. The public `/unsubscribe` page only reads on GET; an explicit confirmation disables either the originating category or all optional email categories, account-wide across primary and included secondary destinations. The capability cannot enable preferences or suppress essential security/authentication mail. The shared template accepts an optional `unsubscribeUrl`, rejects non-HTTP(S) and credential-bearing URLs, escapes the link, and places an underlined 44 px target after the existing logo, brand and privacy copy. Sender purpose does not imply eligibility: direct student signup confirmation uses PROGRAM but remains essential and has no unsubscribe link.
+
+When a receipt records a preference topic, unsubscribe disables only that exact
+topic and cancels its pending copies without changing badge settings or sibling
+topics. Legacy null-topic receipts retain their broad messages/information/review/
+reminder behavior. All-optional unsubscribe covers all eleven topics; security and
+essential request-service transport never grants an unsubscribe capability.
 
 ### Public-request invalidity notices and appeals
 
@@ -2296,6 +2349,6 @@ capability. Original answers are compared separately from the current projection
 
 Preview runs the same validation/insertion code and deliberately rolls back the transaction. This exercises actual unique and referential constraints without retained writes, notifications or emails. A 15-minute HMAC ticket binds the exact uploaded files to the actor. Import verifies the ticket and revalidates against the current database. Exact primary-key matches are skipped only when all supplied values match; conflicting rows abort the transaction. The import audit entry commits with the data. These three operations bypass the generic post-mutation audit hook because export/import already write transactional evidence and preview must remain a dry run. Imported survey tokens are random hashes with no issued plaintext link.
 
-`src/lib/record-transfer.ts` defines strict CSV parsing and reversible, formula-safe encoding; `record-transfer-archive.ts` checks ZIP names and expanded sizes before extraction. `src/app/_components/record-transfer.tsx` loads ZIP support only on demand and clears preview/confirmation state when files change. The server page and navigation both restrict the feature to HEAD; existing Reports CSV controls use the refreshed account role. Limits are 5 MiB and 5,000 rows across a transfer. This feature is additive history ingestion, not a replacement for database backup/restore or account provisioning.
+`src/lib/record-transfer.ts` defines strict CSV parsing and reversible, formula-safe encoding; `record-transfer-archive.ts` checks ZIP names and expanded sizes before extraction. `src/app/_components/record-transfer.tsx` loads ZIP support only on demand and clears preview/confirmation state when files change. The server page and navigation both restrict the feature to ADMIN/HEAD; existing Reports CSV controls use the refreshed account role. Limits are 5 MiB and 5,000 rows across a transfer. This feature is additive history ingestion, not a replacement for database backup/restore or account provisioning.
 
 Regression coverage is in the three `record-transfer.test` files under `src/lib`, `src/server/api/routers` and `src/app/_components`: role denial, stale privileges, rollback, related-record ordering, retries/conflicts, ticket integrity, CSV/ZIP encoding and bounds, upload/confirmation states and error display. Integration fixtures require the isolated `shbs_shipping_test` database.

@@ -17,7 +17,9 @@ import {
   deleteAccountInput,
   previewDeleteAccount,
 } from "~/server/delete-account";
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
+import { programDateKey } from "~/lib/program-time";
+import { getProgramTimeZone } from "~/server/program/time-zone";
 import { clearInterviewHours } from "~/server/interview-hours";
 import { SESSION_FLAG_FILTERS } from "~/lib/session-flag-state";
 import { tutorWorkloads } from "~/server/tutor-workload";
@@ -1276,7 +1278,8 @@ export const adminRouter = createTRPCRouter({
           input,
         );
         await assertPairingGroupsRemainEligible(tx, {
-          pairingIds: [input.id], removePairingIds: [input.id],
+          pairingIds: [input.id],
+          removePairingIds: [input.id],
         });
         const sessions = await tx.session.count({
           where: { pairingId: input.id },
@@ -2101,10 +2104,11 @@ export const adminRouter = createTRPCRouter({
   refresh: adminOnlyProcedure
     .input(
       z.object({
-        confirm: z.string().refine(
-          (value) => value.trim().toUpperCase() === "REFRESH",
-          { message: "Type REFRESH to confirm." },
-        ),
+        confirm: z
+          .string()
+          .refine((value) => value.trim().toUpperCase() === "REFRESH", {
+            message: "Type REFRESH to confirm.",
+          }),
         expectedTermId: z.string(),
         // Required even without overrides: old clients/queued approvals must reload
         // the exact destination, mode revision and both audience preparations.
@@ -2289,9 +2293,11 @@ export const adminRouter = createTRPCRouter({
             operation: "admin.refresh",
             // Keep the exact reviewed openings, source/mode and time zone as
             // immutable evidence even after the new current window is edited.
-            effects: JSON.parse(JSON.stringify({
-              nextRecruitment: preparation.refreshEvidence,
-            })) as Prisma.InputJsonValue,
+            effects: JSON.parse(
+              JSON.stringify({
+                nextRecruitment: preparation.refreshEvidence,
+              }),
+            ) as Prisma.InputJsonValue,
           },
           tx,
         );
@@ -2382,7 +2388,10 @@ export const adminRouter = createTRPCRouter({
       // Manually-added tutors have no login yet — remind the team to send a setup link.
       await notifyAdmins(
         {
-          ...notificationEvent("tutor_setup_needed"),
+          ...notificationInAppEvent("tutor_setup_needed", undefined, {
+            en: `Tutor ${tutor.englishName} was added and needs an account setup link.`,
+            zh: `辅导伙伴 ${tutor.englishName} 已添加，需要发送账户设置链接。`,
+          }),
           title: "New tutor needs an account",
           body: `${tutor.englishName} was added — send them a setup link.`,
           link: "/admin/users",
@@ -3013,10 +3022,13 @@ export const adminRouter = createTRPCRouter({
           await preserveHistoricalAcademics(tx, "TUTEE", id);
         if (fields.status === "INACTIVE" && before.status !== "INACTIVE")
           await assertPairingGroupsRemainEligible(tx, {
-            tuteeIds: [id], removeTuteeIds: [id],
+            tuteeIds: [id],
+            removeTuteeIds: [id],
           });
         if (fields.status !== "INACTIVE" && before.status === "INACTIVE")
-          await assertPairingGroupsRemainEligible(tx, { activateTuteeIds: [id] });
+          await assertPairingGroupsRemainEligible(tx, {
+            activateTuteeIds: [id],
+          });
         const updated = await tx.tutee.update({
           where: { id },
           data: {
@@ -3197,6 +3209,7 @@ export const adminRouter = createTRPCRouter({
           where: { id: input.tuteeId },
           select: {
             status: true,
+            englishName: true,
             firstChoice: { select: { name: true } },
             secondChoice: { select: { name: true } },
           },
@@ -3213,6 +3226,7 @@ export const adminRouter = createTRPCRouter({
           existing.map((e) => e.pairing.subject),
         );
 
+        const addedAssignments: { tutorName: string; subject: string }[] = [];
         for (const a of input.assignments) {
           const choices = [tutee.firstChoice?.name, tutee.secondChoice?.name];
           if (
@@ -3242,6 +3256,14 @@ export const adminRouter = createTRPCRouter({
             },
           });
           assignedSubjects.add(a.subject);
+          const assignedTutor = await tx.tutor.findUniqueOrThrow({
+            where: { id: a.tutorId },
+            select: { englishName: true },
+          });
+          addedAssignments.push({
+            tutorName: assignedTutor.englishName,
+            subject: a.subject,
+          });
         }
 
         // A request is "fulfilled" once every subject choice the tutee actually provided has
@@ -3274,7 +3296,18 @@ export const adminRouter = createTRPCRouter({
           await notifyUsers(
             [account.id],
             {
-              ...notificationEvent("student_assignment_updated"),
+              ...notificationInAppEvent(
+                "student_assignment_updated",
+                undefined,
+                {
+                  en: addedAssignments.length
+                    ? `Tutee ${tutee.englishName} is assigned to ${addedAssignments.map((a) => `${a.tutorName} (${a.subject})`).join("; ")}. The weekly schedule is awaiting confirmation.`
+                    : `Assignment review for tutee ${tutee.englishName} is complete; no additional assignments were added.`,
+                  zh: addedAssignments.length
+                    ? `学习伙伴 ${tutee.englishName} 已分配给 ${addedAssignments.map((a) => `${a.tutorName}（${a.subject}）`).join("；")}。每周辅导时间待确认。`
+                    : `学习伙伴 ${tutee.englishName} 的分配审核已完成；未新增分配。`,
+                },
+              ),
               title: "Your tutoring assignment was updated",
               link: "/student",
             },
@@ -3718,15 +3751,26 @@ export const adminRouter = createTRPCRouter({
 
   // The optional scope preserves existing all-record readers; the workspace
   // always supplies a recorded period and loads older groups on demand.
-  meetings: viewerProcedure.input(meetingPeriodInput.optional()).query(async ({ ctx, input }) =>
-    ctx.db.tutorMeeting.findMany({
-      where: input ? await meetingScope(ctx.db, input.period, new Date(), input.outsideCurrent) : undefined,
-      orderBy: { date: "desc" },
-      include: {
-        attendances: { include: { tutor: { select: { englishName: true } } } },
-      },
-    }),
-  ),
+  meetings: viewerProcedure
+    .input(meetingPeriodInput.optional())
+    .query(async ({ ctx, input }) =>
+      ctx.db.tutorMeeting.findMany({
+        where: input
+          ? await meetingScope(
+              ctx.db,
+              input.period,
+              new Date(),
+              input.outsideCurrent,
+            )
+          : undefined,
+        orderBy: { date: "desc" },
+        include: {
+          attendances: {
+            include: { tutor: { select: { englishName: true } } },
+          },
+        },
+      }),
+    ),
 
   createMeeting: adminProcedure
     .input(
@@ -3883,7 +3927,9 @@ export const adminRouter = createTRPCRouter({
   /** Application-specific credentials are loaded only by an authorized open action. */
   applicationAccountSetup: adminProcedure
     .input(z.object({ applicationId: cuid }))
-    .query(({ ctx, input }) => applicationAccountSetup(ctx.db, input.applicationId)),
+    .query(({ ctx, input }) =>
+      applicationAccountSetup(ctx.db, input.applicationId),
+    ),
 
   /** Read submitted evidence and the effective promotion identity without changing either. */
   applicationIdentity: adminProcedure
@@ -3928,7 +3974,11 @@ export const adminRouter = createTRPCRouter({
     if (!isViewer) {
       const identitySummaries = await applicationIdentitySummaries(
         ctx.db,
-        apps.filter((app) => app.type === "INITIAL" && ["PENDING", "INTERVIEW"].includes(app.status)),
+        apps.filter(
+          (app) =>
+            app.type === "INITIAL" &&
+            ["PENDING", "INTERVIEW"].includes(app.status),
+        ),
       );
       // Legacy accepted applications predate promotedTutorId. Only their own
       // code provenance may recover the roster link; names/emails are not identity.
@@ -3953,7 +4003,8 @@ export const adminRouter = createTRPCRouter({
       const legacyTutors = new Map<string, Set<string>>();
       for (const code of codes) {
         if (!code.applicationId || !code.tutorId) continue;
-        const targets = legacyTutors.get(code.applicationId) ?? new Set<string>();
+        const targets =
+          legacyTutors.get(code.applicationId) ?? new Set<string>();
         targets.add(code.tutorId);
         legacyTutors.set(code.applicationId, targets);
       }
@@ -3961,12 +4012,13 @@ export const adminRouter = createTRPCRouter({
         const targets = legacyTutors.get(app.id);
         // Reissued codes may share one tutor; conflicting bindings must not guess.
         const legacyTutorId =
-          targets?.size === 1 ? [...targets][0] ?? null : null;
+          targets?.size === 1 ? ([...targets][0] ?? null) : null;
         return {
           ...app,
           ...requestInvalidity(app),
           setupTutorId: app.promotedTutorId ?? legacyTutorId,
-          identityNeedsReview: identitySummaries.get(app.id)?.needsReview ?? false,
+          identityNeedsReview:
+            identitySummaries.get(app.id)?.needsReview ?? false,
         };
       });
     }
@@ -4138,7 +4190,10 @@ export const adminRouter = createTRPCRouter({
       });
       // Notify the assigned panelists.
       await notifyTutors(tutorIds, {
-        ...notificationEvent("interview_panel_assigned"),
+        ...notificationInAppEvent("interview_panel_assigned", undefined, {
+          en: `You were assigned to the interview panel for ${app.name}.`,
+          zh: `您已被安排参加 ${app.name} 的面试评审小组。`,
+        }),
         title: "You're on an interview panel",
         body: `Applicant: ${app.name}`,
         link: "/dashboard",
@@ -4486,7 +4541,10 @@ export const adminRouter = createTRPCRouter({
         });
         if (tutor?.user?.id) {
           await notifyUsers([tutor.user.id], {
-            ...notificationEvent("tutee_optout_cancelled"),
+            ...notificationInAppEvent("tutee_optout_cancelled", undefined, {
+              en: `Management cancelled the opt-out request for tutee ${req.tutee.englishName}.`,
+              zh: `管理人员已取消学习伙伴 ${req.tutee.englishName} 的退出申请。`,
+            }),
             title: "Tutee opt-out cancelled",
             body: `An admin cancelled the opt-out for ${req.tutee.englishName}.`,
             link: "/dashboard",
@@ -4972,7 +5030,13 @@ export const adminRouter = createTRPCRouter({
               select: { englishName: true, user: { select: { id: true } } },
             },
             session: {
-              select: { schoolYear: true, quarter: true, month: true },
+              select: {
+                schoolYear: true,
+                quarter: true,
+                month: true,
+                date: true,
+                pairing: { select: { subject: true } },
+              },
             },
           },
         });
@@ -5031,12 +5095,17 @@ export const adminRouter = createTRPCRouter({
               title: "Attendance review",
               body,
               link: "/dashboard",
-              ...notificationEvent(
+              ...notificationInAppEvent(
                 input.action === "WARN"
                   ? "attendance_review_warning"
                   : input.action === "PENALIZE"
                     ? "attendance_review_penalty"
                     : "attendance_review_escalated",
+                undefined,
+                {
+                  en: `${flag.tutor.englishName}'s ${flag.session.pairing.subject} attendance for ${flag.session.date.toISOString().slice(0, 10)}: ${input.action === "WARN" ? "a warning was recorded" : input.action === "PENALIZE" ? `a ${input.penaltyHours ?? 0.5}-hour service penalty was applied` : "the discrepancy was escalated for review"}.`,
+                  zh: `${flag.tutor.englishName} 在 ${flag.session.date.toISOString().slice(0, 10)} 的 ${flag.session.pairing.subject} 出勤：${input.action === "WARN" ? "已记录警告" : input.action === "PENALIZE" ? `已扣减 ${input.penaltyHours ?? 0.5} 服务小时` : "异常已提交进一步审核"}。`,
+                },
               ),
             },
             tx,
@@ -5937,7 +6006,10 @@ export const adminRouter = createTRPCRouter({
         },
       });
       await notifyUsers([target.id], {
-        ...notificationEvent("account_suspended"),
+        ...notificationInAppEvent("account_suspended", undefined, {
+          en: `${target.name ?? "Your account"}: Viewer access was suspended. You may submit an account appeal.`,
+          zh: `${target.name ?? "您的账户"}：观察员访问权限已暂停，您可提交账户申诉。`,
+        }),
         title: "Account suspended",
         body: "Your account access was suspended pending review. You can submit an appeal.",
         link: "/suspended",
@@ -5971,7 +6043,10 @@ export const adminRouter = createTRPCRouter({
         });
       });
       await notifyUsers([input.userId], {
-        ...notificationEvent("account_reinstated"),
+        ...notificationInAppEvent("account_reinstated", undefined, {
+          en: "Your account suspension was lifted. Account access is restored and pending account appeals were approved.",
+          zh: "您的账户暂停状态已解除，访问权限已恢复，待处理的账户申诉已批准。",
+        }),
         title: "Account reinstated",
         body: "Your account access has been restored.",
         link: "/",
@@ -6019,7 +6094,7 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const appeal = await ctx.db.accountAppeal.findUniqueOrThrow({
         where: { id: input.appealId },
-        select: { id: true, state: true, userId: true },
+        select: { id: true, state: true, userId: true, createdAt: true },
       });
       if (appeal.state !== "PENDING") {
         throw new TRPCError({
@@ -6046,10 +6121,15 @@ export const adminRouter = createTRPCRouter({
       await notifyUsers([appeal.userId], {
         title:
           input.action === "APPROVE" ? "Appeal approved" : "Appeal declined",
-        ...notificationEvent(
+        ...notificationInAppEvent(
           input.action === "APPROVE"
             ? "account_appeal_approved"
             : "account_appeal_declined",
+          undefined,
+          {
+            en: `Your account appeal submitted on ${programDateKey(appeal.createdAt, await getProgramTimeZone(ctx.db))} was ${input.action === "APPROVE" ? "approved; account access was restored" : "declined; account access remains suspended"}.`,
+            zh: `您于 ${programDateKey(appeal.createdAt, await getProgramTimeZone(ctx.db))} 提交的账户申诉${input.action === "APPROVE" ? "已批准，账户访问权限已恢复" : "未获批准，账户访问权限仍被暂停"}。`,
+          },
         ),
         body:
           input.action === "APPROVE"
@@ -6431,7 +6511,10 @@ export const adminRouter = createTRPCRouter({
               title,
               body,
               link: "/dashboard",
-              ...notificationEvent("announcement_published"),
+              ...notificationInAppEvent("announcement_published", { announcementTitle: input.title, announcementAction: "published" }, {
+                en: `Announcement “${input.title}” was published. Open announcements to read it.`,
+                zh: `公告“${input.title}”已发布，请打开公告查看。`,
+              }),
             },
             tx,
           ),
@@ -6445,7 +6528,10 @@ export const adminRouter = createTRPCRouter({
               title,
               body,
               link: "/admin/announcements",
-              ...notificationEvent("announcement_published"),
+              ...notificationInAppEvent("announcement_published", { announcementTitle: input.title, announcementAction: "published" }, {
+                en: `Announcement “${input.title}” was published. Open announcements to read it.`,
+                zh: `公告“${input.title}”已发布，请打开公告查看。`,
+              }),
             },
             tx,
           ),

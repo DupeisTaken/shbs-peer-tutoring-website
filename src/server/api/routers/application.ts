@@ -1,4 +1,4 @@
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
 import {
   configuredNewNames,
@@ -248,7 +248,14 @@ export const applicationRouter = createTRPCRouter({
             // Only an accepted distinct application fans out; the write and in-app notices are atomic.
             await notifyAdmins(
               {
-                ...notificationEvent("tutor_application_pending"),
+                ...notificationInAppEvent(
+                  "tutor_application_pending",
+                  undefined,
+                  {
+                    en: `${input.name} applied to tutor. Review their application.`,
+                    zh: `${input.name} 申请成为辅导伙伴，请审核申请。`,
+                  },
+                ),
                 title: "New tutor application",
                 body: `${input.name} applied to tutor.`,
                 link: "/admin/applications",

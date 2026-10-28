@@ -2,7 +2,7 @@ import { requireSchoolParticipation } from "./school-departure";
 import { lockAccountProfile } from "~/server/account-profile";
 import { requireAcademicConfirmation } from "~/server/academics";
 import { TRPCError } from "@trpc/server";
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 import {
   inTransaction,
   lockEntity,
@@ -81,7 +81,7 @@ export async function requestMembership(
     await notifyAdmins(
       {
         title: `${member.kind === "tutor" ? "Tutor" : "Crew"} ${kind === "OPT_OUT" ? "opt-out" : "reentry"} request`,
-        ...notificationEvent(
+        ...notificationInAppEvent(
           member.kind === "tutor"
             ? kind === "OPT_OUT"
               ? "tutor_optout_requested"
@@ -89,6 +89,11 @@ export async function requestMembership(
             : kind === "OPT_OUT"
               ? "crew_optout_requested"
               : "crew_reentry_requested",
+          undefined,
+          {
+            en: `${current.name} requested ${kind === "OPT_OUT" ? "to opt out" : "to rejoin"} as ${member.kind === "tutor" ? "a tutor" : "a crew member"}.`,
+            zh: `${current.name} 申请${kind === "OPT_OUT" ? "退出" : "重新加入"}${member.kind === "tutor" ? "辅导伙伴" : "工作组"}。`,
+          },
         ),
         body: `${current.name} asked ${kind === "OPT_OUT" ? "to opt out (review after the cooldown)" : "to rejoin"}.`,
         link: managementReviewSourceLink(member.kind === "tutor" ? "TutorStatusRequest" : "CrewStatusRequest", request.id),
@@ -283,12 +288,17 @@ export async function decideMembership(
               ? "Opt-out approved"
               : "Reentry approved"
             : "Request declined",
-          ...notificationEvent(
+          ...notificationInAppEvent(
             approve
               ? request.kind === "OPT_OUT"
                 ? "membership_optout_approved"
                 : "membership_reentry_approved"
               : "membership_declined",
+            undefined,
+            {
+              en: `${current.name}: ${kind === "tutor" ? "Tutor" : "Crew"} ${request.kind === "OPT_OUT" ? "opt-out" : "reentry"} request ${approve ? "approved" : "declined"}${approve ? `; membership is now ${request.kind === "OPT_OUT" ? "opted out" : "active"}` : "; membership was not changed"}.`,
+              zh: `${current.name}：${kind === "tutor" ? "辅导伙伴" : "工作人员"}${request.kind === "OPT_OUT" ? "退出" : "重新加入"}申请${approve ? "已批准" : "未批准"}${approve ? `，参与状态现为${request.kind === "OPT_OUT" ? "已退出" : "参与中"}` : "，参与状态未改变"}。`,
+            },
           ),
           body: approve
             ? request.kind === "OPT_OUT"

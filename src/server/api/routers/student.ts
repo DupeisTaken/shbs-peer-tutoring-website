@@ -1,4 +1,5 @@
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
+import { notificationCard } from "~/lib/notification-facts";
 import { accountHistoryIds } from "~/server/account-history";
 import { findAccountPolicy } from "~/server/policy-acceptance";
 import type { Prisma } from "../../../../generated/prisma";
@@ -418,6 +419,7 @@ export const studentRouter = createTRPCRouter({
         const owned = await ownedStudentIds(tx, ctx.session.user.id);
         const attendance = await tx.sessionTutee.findFirst({
           where: { sessionId: input.sessionId, tuteeId: { in: owned } },
+          include: { tutee: { select: { englishName: true } }, session: { select: { date: true, pairing: { select: { subject: true } }, tutor: { select: { englishName: true } } } } },
         });
         if (!attendance) throw new TRPCError({ code: "FORBIDDEN" });
         const row = await tx.studentFeedback.upsert({
@@ -432,7 +434,10 @@ export const studentRouter = createTRPCRouter({
         });
         await notifyAdmins(
           {
-            ...notificationEvent("tutee_feedback_received"),
+            ...notificationInAppEvent("tutee_feedback_received", undefined, {
+              en: `Tutee ${attendance.tutee.englishName} submitted feedback for ${attendance.session.pairing.subject} with ${attendance.session.tutor.englishName} on ${attendance.session.date.toISOString().slice(0, 10)}.`,
+              zh: `学习伙伴 ${attendance.tutee.englishName} 提交了 ${attendance.session.date.toISOString().slice(0, 10)} 与辅导伙伴 ${attendance.session.tutor.englishName} 的 ${attendance.session.pairing.subject} 辅导反馈。`,
+            }),
             title: "Tutee feedback received",
             link: "/student-support",
           },
@@ -522,9 +527,16 @@ export const studentRouter = createTRPCRouter({
         await tx.studentAppeal.create({
           data: { studentId: card.tuteeId, ...input },
         });
+        const tutee = await tx.tutee.findUniqueOrThrow({
+          where: { id: card.tuteeId },
+          select: { englishName: true },
+        });
         await notifyAdmins(
           {
-            ...notificationEvent("tutee_card_appeal"),
+            ...notificationInAppEvent("tutee_card_appeal", undefined, {
+              en: `Tutee ${tutee.englishName} appealed the ${notificationCard(card.color, "en")} issued on ${programDateKey(card.createdAt, await getProgramTimeZone(tx))}. Awaiting review.`,
+              zh: `学习伙伴 ${tutee.englishName} 对 ${programDateKey(card.createdAt, await getProgramTimeZone(tx))} 发出的${notificationCard(card.color, "zh")}提出申诉，待审核。`,
+            }),
             title: "Tutee card appeal",
             link: "/student-support",
           },
@@ -648,7 +660,14 @@ export const studentRouter = createTRPCRouter({
           await notifyUsers(
             [owner.id],
             {
-              ...notificationEvent("tutee_appeal_reviewed"),
+              ...notificationInAppEvent("tutee_appeal_reviewed", undefined, {
+                en: input.overturn
+                  ? `Your appeal of the ${notificationCard(before.color, "en")} issued on ${programDateKey(before.createdAt, await getProgramTimeZone(tx))} was upheld; that card was invalidated.`
+                  : `Your appeal of the ${notificationCard(before.color, "en")} issued on ${programDateKey(before.createdAt, await getProgramTimeZone(tx))} was declined; that card remains in effect.`,
+                zh: input.overturn
+                  ? `您对 ${programDateKey(before.createdAt, await getProgramTimeZone(tx))} 发出的${notificationCard(before.color, "zh")}所提申诉已获支持，该卡已作废。`
+                  : `您对 ${programDateKey(before.createdAt, await getProgramTimeZone(tx))} 发出的${notificationCard(before.color, "zh")}所提申诉未获支持，该卡仍然有效。`,
+              }),
               title: "Your appeal was reviewed",
               link: "/student",
             },

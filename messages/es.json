@@ -3836,7 +3836,8 @@
         "RecoveryTrackedEntity": "Registro de recuperación supervisado",
         "RecoveryFence": "Control de concurrencia de recuperación",
         "RecoveryChange": "Cambio registrado en la base de datos",
-        "RecoveryReceipt": "Comprobante de recuperación"
+        "RecoveryReceipt": "Comprobante de recuperación",
+        "NotificationPreference": "Preferencias de notificaciones"
       },
       "fields": {
         "absenceReason": "Motivo de la ausencia",
@@ -4117,7 +4118,15 @@
         "operation": "Operación",
         "actorId": "ID de cuenta de quien realizó la acción",
         "evidence": "Evidencia almacenada",
-        "actionId": "ID de acción de admisión registrada"
+        "actionId": "ID de acción de admisión registrada",
+        "category": "Categoría",
+        "emailReviewRequests": "Solicitudes de revisión · Correo",
+        "emailEventReminders": "Recordatorios de eventos · Correo",
+        "notificationPreferences": "Preferencias de notificaciones",
+        "preferenceTopic": "Categoría de preferencias",
+        "reminderKey": "Clave para evitar recordatorios duplicados",
+        "badgeEnabled": "Contador sin leer",
+        "emailEnabled": "Correo"
       },
       "enums": {
         "Role": {
@@ -4368,7 +4377,11 @@
       "moreFields": "{count} campos más",
       "outcome": "Resultado registrado",
       "fieldsAdded": "Se añadió: {fields}",
-      "fieldsRemoved": "Se eliminó: {fields}"
+      "fieldsRemoved": "Se eliminó: {fields}",
+      "deliveryCategories": {
+        "security": "Seguridad de la cuenta",
+        "request_service": "Estado obligatorio de la solicitud"
+      }
     },
     "technicalDetails": "Detalles técnicos"
   },
@@ -4552,17 +4565,21 @@
     "emailMessages": "Mensajes",
     "emailMessagesHelp": "Aviso de un nuevo mensaje privado. El contenido permanece en la aplicación.",
     "emailInfo": "Actualizaciones",
-    "emailInfoHelp": "Cambios de perfil, rol, estado de cuenta y avisos del programa.",
+    "emailInfoHelp": "Perfil, rol, estado de la cuenta y novedades generales del programa. Las solicitudes de revisión y los recordatorios tienen ajustes separados.",
     "emailSecondaryRecipients": "Incluir correos secundarios verificados",
     "emailSecondaryRecipientsHelp": "Enviar las notificaciones elegidas a todas las direcciones verificadas; de lo contrario, solo a la principal.",
     "essential": "La verificación, los códigos de acceso, la recuperación y las alertas de seguridad siempre siguen disponibles. Los cambios de correo principal también se notifican al anterior correo principal verificado.",
     "save": "Guardar preferencias",
     "saving": "Guardando…",
-    "saved": "Preferencias guardadas."
+    "saved": "Preferencias guardadas.",
+    "emailReviewRequests": "Solicitudes de revisión",
+    "emailReviewRequestsHelp": "Solicitudes pendientes de tu revisión como administrador o responsable. Independientes de las novedades generales del programa.",
+    "emailEventReminders": "Recordatorios de próximos eventos",
+    "emailEventRemindersHelp": "Recordatorios 24 horas y 1 hora antes de tus entrevistas, reuniones y sesiones de tutoría confirmadas. No se envían para eventos sin programar o cancelados."
   },
   "programEmail": {
     "title": "Notificaciones por correo",
-    "help": "Activa correos opcionales de mensajes e información. Cada persona elige qué actualizaciones recibir en sus preferencias.",
+    "help": "Activa correos opcionales de mensajes, novedades, solicitudes de revisión y recordatorios. Cada persona elige sus categorías en los ajustes de cuenta.",
     "on": "Activadas",
     "off": "Desactivadas",
     "enable": "Activar notificaciones por correo",
@@ -5583,11 +5600,35 @@
     "info": "Notificaciones del programa",
     "infoHelp": "Novedades del programa de tutoría por correo. Las notificaciones del sitio seguirán disponibles.",
     "all": "Todos los correos de notificación opcionales",
-    "allHelp": "Tanto los mensajes privados como las notificaciones del programa.",
+    "allHelp": "Dejar de recibir correos de todas las categorías opcionales. Las preferencias del contador de no leídos no cambian.",
     "accountWide": "Este cambio afecta a la cuenta asociada al enlace, incluidas las copias a sus direcciones secundarias verificadas.",
     "saveError": "No pudimos confirmar el cambio. Conservamos tu selección. Inténtalo de nuevo; es seguro repetir la solicitud.",
     "securityTitle": "Los Correos Esenciales Continúan",
-    "securityHelp": "Los correos de seguridad, verificación y recuperación no cambian. Puede llegar algún correo cuyo envío ya haya empezado."
+    "securityHelp": "Los correos de seguridad, verificación y recuperación no cambian. Puede llegar algún correo cuyo envío ya haya empezado.",
+    "review": "Avisos de solicitudes de revisión",
+    "reviewHelp": "Correos de solicitudes pendientes de tu revisión como administrador o responsable. Los demás correos del programa no cambian.",
+    "reminder": "Recordatorios de próximos eventos",
+    "reminderHelp": "Recordatorios por correo 24 horas y 1 hora antes de entrevistas, reuniones y sesiones de tutoría confirmadas.",
+    "reviews": "Solicitudes de revisión",
+    "reviewsHelp": "Solicitudes para revisores autorizados. Correo disponible para administradores y responsables activos.",
+    "applications": "Solicitudes y entrevistas",
+    "applicationsHelp": "Solicitudes, cualificaciones, paneles y decisiones de entrevistas.",
+    "tutoring": "Asignaciones de tutoría",
+    "tutoringHelp": "Asignaciones, disponibilidad y cambios de horario.",
+    "attendance": "Asistencia y disciplina",
+    "attendanceHelp": "Asistencia, conflictos de aulas, tarjetas, comentarios y apelaciones.",
+    "membership": "Participación y bajas",
+    "membershipHelp": "Estado de participación, bajas, reincorporaciones y retiradas.",
+    "account": "Cuenta y acceso",
+    "accountHelp": "Cambios opcionales de cuenta y acceso; los correos de seguridad obligatorios siguen activos.",
+    "announcements": "Anuncios",
+    "announcementsHelp": "Anuncios publicados del programa.",
+    "management": "Cambios de gestión",
+    "managementHelp": "Propuestas, decisiones de gestión y correcciones de registros.",
+    "program": "Otras novedades del programa",
+    "programHelp": "Novedades del programa sin otra categoría.",
+    "reminders": "Recordatorios de eventos",
+    "remindersHelp": "Correo 24 horas y 1 hora antes de entrevistas, reuniones y tutorías confirmadas."
   },
   "participantRecovery": {
     "loading": "Cargando registros…",
@@ -6187,6 +6228,26 @@
       "title": "Interview Approved",
       "body": "The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome.",
       "action": "View application"
+    },
+    "interview_upcoming": {
+      "title": "Próxima entrevista",
+      "body": "Tu entrevista programada se acerca. Revisa la hora registrada y las funciones del panel.",
+      "action": "Ver entrevista"
+    },
+    "meeting_upcoming": {
+      "title": "Próxima reunión",
+      "body": "Tu reunión programada se acerca. Revisa la hora registrada y los detalles.",
+      "action": "Ver reunión"
+    },
+    "tutoring_upcoming": {
+      "title": "Próxima sesión de tutoría",
+      "body": "Tu sesión de tutoría confirmada se acerca. Revisa la hora registrada y los detalles.",
+      "action": "Ver sesión de tutoría"
+    },
+    "room_assignment_needed": {
+      "title": "Se necesita asignar un aula",
+      "body": "Una tutoría confirmada todavía necesita un aula.",
+      "action": "Revisar asignación de aula"
     }
   },
   "requestAppeal": {
@@ -6699,6 +6760,47 @@
       "APPLICATION_IDENTITY_NO_CHANGE": "Cambie al menos un campo de nombre antes de enviar una corrección.",
       "APPLICATION_IDENTITY_RETRY_CHANGED": "Este recibo corresponde a otra corrección. Recargue los nombres actuales.",
       "APPLICATION_IDENTITY_PROPOSAL_DECIDED": "Esta propuesta ya fue revisada. Consulte la decisión y recargue los nombres antes de preparar otra corrección."
+    }
+  },
+  "notificationPreferences": {
+    "title": "Preferencias de notificaciones",
+    "help": "Elige por separado el contador sin leer y el correo para cada categoría. Todas las notificaciones permanecen en la lista aunque silencies su contador.",
+    "badge": "Contador sin leer",
+    "email": "Correo",
+    "badgeFor": "{category}: contador sin leer",
+    "emailFor": "{category}: correo",
+    "emailOnly": "Solo correo",
+    "disabled": "El administrador ha desactivado los correos opcionales. Puedes seguir cambiando las preferencias del contador.",
+    "essential": "Los correos de verificación, acceso, recuperación, seguridad y servicios esenciales de solicitudes siguen activos. Estas preferencias no eliminan notificaciones.",
+    "manage": "Ajustes de notificaciones",
+    "save": "Guardar preferencias",
+    "saving": "Guardando…",
+    "saved": "Preferencias guardadas.",
+    "categories": {
+      "messages": "Mensajes privados",
+      "reviews": "Solicitudes de revisión",
+      "applications": "Solicitudes y entrevistas",
+      "tutoring": "Asignaciones de tutoría",
+      "attendance": "Asistencia y disciplina",
+      "membership": "Participación y bajas",
+      "account": "Cuenta y acceso",
+      "announcements": "Anuncios",
+      "management": "Cambios de gestión",
+      "program": "Otras novedades del programa",
+      "reminders": "Recordatorios de eventos"
+    },
+    "descriptions": {
+      "messages": "Avisos de nuevos mensajes privados; su contenido permanece en la bandeja de entrada.",
+      "reviews": "Solicitudes para revisores autorizados. Correo disponible para administradores y responsables activos.",
+      "applications": "Solicitudes, cualificaciones, paneles y decisiones de entrevistas.",
+      "tutoring": "Asignaciones, disponibilidad y cambios de horario.",
+      "attendance": "Asistencia, conflictos de aulas, tarjetas, comentarios y apelaciones.",
+      "membership": "Estado de participación, bajas, reincorporaciones y retiradas.",
+      "account": "Cambios opcionales de cuenta y acceso; los correos de seguridad obligatorios siguen activos.",
+      "announcements": "Anuncios publicados del programa.",
+      "management": "Propuestas, decisiones de gestión y correcciones de registros.",
+      "program": "Novedades del programa sin otra categoría.",
+      "reminders": "Correo 24 horas y 1 hora antes de entrevistas, reuniones y tutorías confirmadas."
     }
   },
   "recordInspector": {

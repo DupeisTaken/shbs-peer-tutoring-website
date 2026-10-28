@@ -7,6 +7,7 @@ import { ActionReviewRecipe } from "./action-review-recipe";
 import { ManagementReviewRecipe } from "./management-review-recipe";
 import { CreationRiskRecipe } from "./creation-risk-recipe";
 import { CodeRecipe } from "./code-recipe";
+import { NotificationPreferencesRecipe } from "./notification-preferences-recipe";
 import { useEffect, useState, type ReactNode } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import enMessages from "../../../messages/en.json";
@@ -409,6 +410,7 @@ export function RecipeGallery({
     >
       <div className="grid items-start gap-6 lg:grid-cols-2">
         <CodeRecipe locale={locale} />
+        <NotificationPreferencesRecipe />
         <ActionReviewRecipe />
         <ManagementReviewRecipe />
         <CreationRiskRecipe />

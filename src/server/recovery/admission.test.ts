@@ -57,6 +57,24 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
+it("journals and preserves independent notification preferences through admission recovery", async () => {
+  const source = await admission({ existingStudent: true });
+  const user = await db.user.findUniqueOrThrow({ where: { id: "prior-user" } });
+  await db.notificationPreference.create({ data: { userId: user.id, category: "tutoring", badgeEnabled: true, emailEnabled: false } });
+  await db.notificationPreference.update({ where: { userId_category: { userId: user.id, category: "tutoring" } }, data: { badgeEnabled: false, emailEnabled: true } });
+  await db.notificationPreference.create({ data: { userId: user.id, category: "messages" } });
+  await db.notificationPreference.delete({ where: { userId_category: { userId: user.id, category: "messages" } } });
+  await db.user.update({ where: { id: user.id }, data: { emailReviewRequests: true, emailEventReminders: true } });
+  const journal = await db.recoveryChange.findMany({ where: { actionId: source.actionId, entity: "NotificationPreference" } });
+  expect(journal.map((row) => row.operation)).toEqual(expect.arrayContaining(["INSERT", "UPDATE", "DELETE"]));
+  expect(journal.some((row) => JSON.stringify(row.recordKey).includes('"category":"tutoring"'))).toBe(true);
+  const plan = await inspectAdmissionRecovery(db, source);
+  expect(plan.coverage).toBe("COMPLETE");
+  await applyAdmissionRecoveryFromOperator(db, intent(plan), { id: "admin" });
+  expect(await db.notificationPreference.findMany({ where: { userId: user.id } })).toEqual([{ userId: user.id, category: "tutoring", badgeEnabled: false, emailEnabled: true }]);
+  expect(await db.user.findUniqueOrThrow({ where: { id: user.id } })).toMatchObject({ emailReviewRequests: true, emailEventReminders: true });
+});
+
 async function admission(options: { existingStudent?: boolean } = {}) {
   if (options.existingStudent) {
     await db.tutee.create({

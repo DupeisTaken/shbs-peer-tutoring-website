@@ -12,6 +12,7 @@ export const RECORD_PRIMARY_KEYS: Readonly<Record<string, readonly string[]>> =
     AuditLog: ["id"],
     ApprovalRequest: ["id"],
     Notification: ["id"],
+    NotificationPreference: ["userId", "category"],
     SubjectLevel: ["id"],
     Term: ["id"],
     NextRecruitmentPreparation: ["sourceTermId", "audience"],

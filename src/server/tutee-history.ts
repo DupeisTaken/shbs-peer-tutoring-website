@@ -17,6 +17,7 @@ import {
 import { lockUsernameNamespace } from "./auth/username";
 import { authenticateEmailAction } from "./auth/account-emails";
 import { emailSender, isEmailDeliveryAvailable } from "./email/sender";
+import { historyInvitationScope } from "./email/required-notice-details";
 import {
   afterCommitDatabase,
   afterCommitScope,
@@ -448,6 +449,7 @@ export async function inviteTuteeHistory(
     return { attempt: candidate, actor };
   });
   const receipt = historyInvitationReceipt(attempt);
+  const scope = historyInvitationScope([{ kind: "TUTEE" }]);
   const deliver = async () => {
     // Never let a post-commit error tell the caller to replay the admitted write.
     // PUBLISHED is monotonic: uncertain commits are resolved by a fresh read only.
@@ -456,7 +458,7 @@ export async function inviteTuteeHistory(
         category: "SECURITY",
         to: input.email,
         subject: "Link your historical tutoring records / 关联历史学习记录",
-        text: `The program team has reviewed your identity and invited you to link your past tutoring records:\n${url.href}\n\nSign in with your existing verified account, or use Create history-only account on this page and verify the separate email code. Then review and claim your records. The invitation expires in seven days and can be cancelled by staff. Account creation and claiming history do not enroll you or grant observer access. If your old email is unavailable, contact the program team for a reviewed replacement invitation.\n\n项目团队已核实你的身份并邀请你关联历史记录。请使用已有的已验证账号登录，或在页面选择创建仅供历史记录访问的账号并验证单独发送的邮箱验证码，然后确认关联。邀请七天内有效，管理人员可取消。创建账号和关联历史记录不会加入当前项目或授予观察员权限。如旧邮箱已无法使用，请联系项目团队核实后重新邀请。`,
+        text: `${scope.en}\n${scope.zh}\n\nThe program team has reviewed your identity and invited you to link your past tutoring records:\n${url.href}\n\nSign in with your existing verified account, or use Create history-only account on this page and verify the separate email code. Then review and claim your records. The invitation expires in seven days and can be cancelled by staff. Account creation and claiming history do not enroll you or grant observer access. If your old email is unavailable, contact the program team for a reviewed replacement invitation.\n\n项目团队已核实你的身份并邀请你关联历史记录。请使用已有的已验证账号登录，或在页面选择创建仅供历史记录访问的账号并验证单独发送的邮箱验证码，然后确认关联。邀请七天内有效，管理人员可取消。创建账号和关联历史记录不会加入当前项目或授予观察员权限。如旧邮箱已无法使用，请联系项目团队核实后重新邀请。`,
       });
     } catch {
       try {

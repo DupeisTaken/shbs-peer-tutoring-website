@@ -3836,7 +3836,8 @@
         "RecoveryTrackedEntity": "Verfolgter Wiederherstellungsdatensatz",
         "RecoveryFence": "Nebenläufigkeitsschutz der Wiederherstellung",
         "RecoveryChange": "Protokollierte Datenbankänderung",
-        "RecoveryReceipt": "Wiederherstellungsbeleg"
+        "RecoveryReceipt": "Wiederherstellungsbeleg",
+        "NotificationPreference": "Benachrichtigungseinstellungen"
       },
       "fields": {
         "absenceReason": "Abwesenheitsgrund",
@@ -4117,7 +4118,15 @@
         "operation": "Vorgang",
         "actorId": "Konto-ID der handelnden Person",
         "evidence": "Gespeicherte Nachweise",
-        "actionId": "Aktions-ID der erfassten Zulassung"
+        "actionId": "Aktions-ID der erfassten Zulassung",
+        "category": "Kategorie",
+        "emailReviewRequests": "Prüfanfragen · E-Mail",
+        "emailEventReminders": "Terminerinnerungen · E-Mail",
+        "notificationPreferences": "Benachrichtigungseinstellungen",
+        "preferenceTopic": "Benachrichtigungskategorie",
+        "reminderKey": "Erinnerungskennung zur Duplikatvermeidung",
+        "badgeEnabled": "Ungelesen-Zähler",
+        "emailEnabled": "E-Mail"
       },
       "enums": {
         "Role": {
@@ -4368,7 +4377,11 @@
       "moreFields": "{count} weitere Felder",
       "outcome": "Protokolliertes Ergebnis",
       "fieldsAdded": "Hinzugefügt: {fields}",
-      "fieldsRemoved": "Entfernt: {fields}"
+      "fieldsRemoved": "Entfernt: {fields}",
+      "deliveryCategories": {
+        "security": "Kontosicherheit",
+        "request_service": "Erforderlicher Antragsstatus"
+      }
     },
     "technicalDetails": "Technische Details"
   },
@@ -4552,17 +4565,21 @@
     "emailMessages": "Nachrichten",
     "emailMessagesHelp": "Hinweis auf neue private Nachrichten. Der Inhalt bleibt in der App.",
     "emailInfo": "Informationsänderungen",
-    "emailInfoHelp": "Profil, Rolle, Kontostatus und Programmhinweise.",
+    "emailInfoHelp": "Profil, Rolle, Kontostatus und allgemeine Programmmitteilungen. Prüfanfragen und Terminerinnerungen haben separate Einstellungen.",
     "emailSecondaryRecipients": "Weitere bestätigte Adressen einbeziehen",
     "emailSecondaryRecipientsHelp": "Ausgewählte Benachrichtigungen an alle bestätigten Adressen senden, sonst nur an die Hauptadresse.",
     "essential": "Bestätigung, Anmeldecodes, Kontowiederherstellung und Sicherheitswarnungen bleiben immer verfügbar. Änderungen der primären Adresse werden auch an die bisherige bestätigte primäre Adresse gemeldet.",
     "save": "Einstellungen speichern",
     "saving": "Wird gespeichert…",
-    "saved": "Einstellungen gespeichert."
+    "saved": "Einstellungen gespeichert.",
+    "emailReviewRequests": "Prüfanfragen",
+    "emailReviewRequestsHelp": "Anfragen, die Ihre Prüfung als Admin oder Leitung benötigen. Unabhängig von allgemeinen Programmmitteilungen.",
+    "emailEventReminders": "Erinnerungen an bevorstehende Termine",
+    "emailEventRemindersHelp": "Erinnerungen 24 Stunden und 1 Stunde vor Ihren Interviews, Treffen und bestätigten Nachhilfestunden. Keine Erinnerungen für unbestimmte oder abgesagte Termine."
   },
   "programEmail": {
     "title": "E-Mail-Benachrichtigungen",
-    "help": "Aktiviere optionale E-Mails zu Nachrichten und Informationen. Jede Person wählt die gewünschten Aktualisierungen in den Kontoeinstellungen.",
+    "help": "Optionale Nachrichten, Programmmitteilungen, Prüfanfragen und Terminerinnerungen aktivieren. Jede Person wählt ihre Kategorien in den Kontoeinstellungen.",
     "on": "Aktiviert",
     "off": "Deaktiviert",
     "enable": "E-Mail-Benachrichtigungen aktivieren",
@@ -5583,11 +5600,35 @@
     "info": "Programmbenachrichtigungen",
     "infoHelp": "E-Mail-Neuigkeiten zum Tutoring-Programm. Benachrichtigungen auf der Website bleiben verfügbar.",
     "all": "Alle optionalen Benachrichtigungs-E-Mails",
-    "allHelp": "E-Mails zu privaten Nachrichten und zum Programm.",
+    "allHelp": "E-Mails aus allen optionalen Kategorien stoppen. Einstellungen für die Ungelesen-Anzeige bleiben unverändert.",
     "accountWide": "Dies ändert die Einstellungen des mit diesem Link verbundenen Kontos, einschließlich Kopien an dessen bestätigte zusätzliche E-Mail-Adressen.",
     "saveError": "Die Änderung konnte nicht bestätigt werden. Deine Auswahl bleibt erhalten. Versuche es erneut; die Wiederholung ist sicher.",
     "securityTitle": "Wichtige E-Mails Bleiben Aktiv",
-    "securityHelp": "Sicherheits-, Bestätigungs- und Wiederherstellungs-E-Mails sind nicht betroffen. Bereits versendete E-Mails können noch eintreffen."
+    "securityHelp": "Sicherheits-, Bestätigungs- und Wiederherstellungs-E-Mails sind nicht betroffen. Bereits versendete E-Mails können noch eintreffen.",
+    "review": "Benachrichtigungen zu Prüfanfragen",
+    "reviewHelp": "E-Mails zu Anfragen, die Ihre Prüfung als Admin oder Leitung benötigen. Andere Programm-E-Mails bleiben unverändert.",
+    "reminder": "Erinnerungen an bevorstehende Termine",
+    "reminderHelp": "E-Mail-Erinnerungen 24 Stunden und 1 Stunde vor Interviews, Treffen und bestätigten Nachhilfestunden.",
+    "reviews": "Prüfanfragen",
+    "reviewsHelp": "Anfragen an berechtigte Prüfer. E-Mail für aktive Admins und Leitung.",
+    "applications": "Bewerbungen und Interviews",
+    "applicationsHelp": "Bewerbungen, Qualifikationen, Interviewgremien und Entscheidungen.",
+    "tutoring": "Nachhilfezuweisungen",
+    "tutoringHelp": "Zuweisungen, Verfügbarkeit und Zeitplanänderungen.",
+    "attendance": "Anwesenheit und Disziplin",
+    "attendanceHelp": "Anwesenheit, Raumkonflikte, Karten, Rückmeldungen und Einsprüche.",
+    "membership": "Teilnahme und Austritte",
+    "membershipHelp": "Teilnahmestatus, Austritt, Wiedereintritt und Rücknahmen.",
+    "account": "Konto und Zugriff",
+    "accountHelp": "Optionale Konto- und Zugriffsänderungen; erforderliche Sicherheitsmails bleiben aktiv.",
+    "announcements": "Ankündigungen",
+    "announcementsHelp": "Veröffentlichte Programmankündigungen.",
+    "management": "Verwaltungsänderungen",
+    "managementHelp": "Verwaltungsvorschläge, Entscheidungen und Korrekturen.",
+    "program": "Weitere Programmmitteilungen",
+    "programHelp": "Programmmitteilungen ohne andere Kategorie.",
+    "reminders": "Terminerinnerungen",
+    "remindersHelp": "E-Mail 24 Stunden und 1 Stunde vor Interviews, Treffen und bestätigter Nachhilfe."
   },
   "participantRecovery": {
     "loading": "Einträge werden geladen…",
@@ -6187,6 +6228,26 @@
       "title": "Interview Approved",
       "body": "The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome.",
       "action": "View application"
+    },
+    "interview_upcoming": {
+      "title": "Bevorstehendes Interview",
+      "body": "Ihr geplantes Interview steht bevor. Prüfen Sie die angegebene Uhrzeit und die Aufgaben des Gremiums.",
+      "action": "Interview ansehen"
+    },
+    "meeting_upcoming": {
+      "title": "Bevorstehendes Treffen",
+      "body": "Ihr geplantes Treffen steht bevor. Prüfen Sie die angegebene Uhrzeit und die Einzelheiten.",
+      "action": "Treffen ansehen"
+    },
+    "tutoring_upcoming": {
+      "title": "Bevorstehende Nachhilfestunde",
+      "body": "Ihre bestätigte Nachhilfestunde steht bevor. Prüfen Sie die angegebene Uhrzeit und die Einzelheiten.",
+      "action": "Nachhilfestunde ansehen"
+    },
+    "room_assignment_needed": {
+      "title": "Raumzuweisung erforderlich",
+      "body": "Für eine bestätigte Nachhilfezuweisung fehlt noch ein Raum.",
+      "action": "Raumzuweisung prüfen"
     }
   },
   "requestAppeal": {
@@ -6699,6 +6760,47 @@
       "APPLICATION_IDENTITY_NO_CHANGE": "Ändern Sie mindestens ein Namensfeld, bevor Sie die Korrektur einreichen.",
       "APPLICATION_IDENTITY_RETRY_CHANGED": "Dieser Beleg gehört zu einer anderen Korrektur. Laden Sie die aktuellen Namen neu.",
       "APPLICATION_IDENTITY_PROPOSAL_DECIDED": "Dieser Vorschlag wurde bereits geprüft. Sehen Sie die Entscheidung an und laden Sie die aktuellen Namen neu."
+    }
+  },
+  "notificationPreferences": {
+    "title": "Benachrichtigungseinstellungen",
+    "help": "Ungelesen-Zähler und E-Mail je Kategorie separat wählen. Stummgeschaltete Kategorien bleiben in der Benachrichtigungsliste.",
+    "badge": "Ungelesen-Zähler",
+    "email": "E-Mail",
+    "badgeFor": "{category}: Ungelesen-Zähler",
+    "emailFor": "{category}: E-Mail",
+    "emailOnly": "Nur E-Mail",
+    "disabled": "Optionale E-Mails sind durch die Programmverwaltung deaktiviert. Zählereinstellungen können weiterhin geändert werden.",
+    "essential": "Bestätigungs-, Anmelde-, Wiederherstellungs-, Sicherheits- und erforderliche Antrags-E-Mails bleiben aktiv. Diese Einstellungen entfernen keine Benachrichtigungen.",
+    "manage": "Benachrichtigungen einstellen",
+    "save": "Einstellungen speichern",
+    "saving": "Wird gespeichert…",
+    "saved": "Einstellungen gespeichert.",
+    "categories": {
+      "messages": "Private Nachrichten",
+      "reviews": "Prüfanfragen",
+      "applications": "Bewerbungen und Interviews",
+      "tutoring": "Nachhilfezuweisungen",
+      "attendance": "Anwesenheit und Disziplin",
+      "membership": "Teilnahme und Austritte",
+      "account": "Konto und Zugriff",
+      "announcements": "Ankündigungen",
+      "management": "Verwaltungsänderungen",
+      "program": "Weitere Programmmitteilungen",
+      "reminders": "Terminerinnerungen"
+    },
+    "descriptions": {
+      "messages": "Neue private Nachrichten; Inhalte bleiben im Posteingang.",
+      "reviews": "Anfragen an berechtigte Prüfer. E-Mail für aktive Admins und Leitung.",
+      "applications": "Bewerbungen, Qualifikationen, Interviewgremien und Entscheidungen.",
+      "tutoring": "Zuweisungen, Verfügbarkeit und Zeitplanänderungen.",
+      "attendance": "Anwesenheit, Raumkonflikte, Karten, Rückmeldungen und Einsprüche.",
+      "membership": "Teilnahmestatus, Austritt, Wiedereintritt und Rücknahmen.",
+      "account": "Optionale Konto- und Zugriffsänderungen; erforderliche Sicherheitsmails bleiben aktiv.",
+      "announcements": "Veröffentlichte Programmankündigungen.",
+      "management": "Verwaltungsvorschläge, Entscheidungen und Korrekturen.",
+      "program": "Programmmitteilungen ohne andere Kategorie.",
+      "reminders": "E-Mail 24 Stunden und 1 Stunde vor Interviews, Treffen und bestätigter Nachhilfe."
     }
   },
   "recordInspector": {

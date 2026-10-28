@@ -1,4 +1,5 @@
 import { confirmationDelayMs } from "~/lib/confirmation-timing";
+import { notificationList, notificationSchedule } from "~/lib/notification-facts";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import { currentStudentSignupPayload } from "./student-signup-answers";
 import { synchronizeStudentSignupAnswers } from "./student-signup-revisions";
@@ -35,6 +36,7 @@ import {
   closeStudentRequest,
   expireStudentRequests,
   notifyRequest,
+  studentScheduleDetail,
   stampStudentAssignment,
 } from "./student-request-state";
 
@@ -306,6 +308,10 @@ export async function assignStudentRequest(
       tx,
       { ...row, tuteeId: student.id },
       "student_assignment_updated",
+      {
+        en: `Tutee ${student.englishName} is assigned to ${tutor.englishName} for ${subject.name}. The weekly schedule is awaiting confirmation.`,
+        zh: `学习伙伴 ${student.englishName} 已分配给辅导伙伴 ${tutor.englishName}，科目为 ${subject.name}。每周辅导时间待确认。`,
+      },
     );
     return { email: row.email, needsVerification: !row.confirmedAt };
   });
@@ -359,7 +365,14 @@ export async function editStudentAvailability(
       data: { editedAt: new Date() },
     });
     await synchronizeStudentSignupAnswers(tx, row, userId, { slotIds: ids });
-    await notifyRequest(tx, row, "student_availability_updated");
+    const slots = await tx.timeSlot.findMany({ where: { id: { in: [...new Set([...ids, ...old.map((slot) => slot.slotId)])] } } });
+    const added = slots.filter((slot) => ids.includes(slot.id) && !old.some((previous) => previous.slotId === slot.id));
+    const removed = slots.filter((slot) => !ids.includes(slot.id));
+    const student = await tx.tutee.findUnique({ where: { id: row.tuteeId! }, select: { englishName: true } });
+    await notifyRequest(tx, row, "student_availability_updated", {
+      en: `${student?.englishName ?? "Tutee"} updated availability. Added: ${notificationList(added.map((slot) => notificationSchedule(slot, "en"))) || "none"}. Removed: ${notificationList(removed.map((slot) => notificationSchedule(slot, "en"))) || "none"}.`,
+      zh: `${student?.englishName ?? "学习伙伴"}更新了可用时间。新增：${notificationList(added.map((slot) => notificationSchedule(slot, "zh"))) || "无"}。移除：${notificationList(removed.map((slot) => notificationSchedule(slot, "zh"))) || "无"}。`,
+    });
     return { ok: true };
   });
 }
@@ -473,6 +486,7 @@ export async function applyScheduleRejection(
         tuteeId,
         userId,
         "student_schedule_review_pending",
+        pairingId,
       );
       return { ok: true };
     }
@@ -512,7 +526,7 @@ export async function applyScheduleRejection(
         reason,
       },
     });
-    await notifyRequest(tx, row, "student_schedule_review_pending");
+    await notifyRequest(tx, row, "student_schedule_review_pending", undefined, pairingId);
     return { ok: true };
   });
 }
@@ -594,6 +608,8 @@ export async function resolveStudentReview(
           : approve
             ? "student_schedule_review_approved"
             : "student_schedule_review_declined",
+        review.kind === "SCHEDULE_CONFLICT" ? review.pairingId : undefined,
+        review.legacyIntakeTermId,
       );
       return { ok: true };
     }
@@ -656,7 +672,7 @@ export async function resolveStudentReview(
         fail(
           "This tutor assignment changed after the application was submitted. Decline this outdated application and review the current assignment.",
         );
-      await notifyRequest(tx, row, "student_schedule_review_approved");
+      await notifyRequest(tx, row, "student_schedule_review_approved", undefined, review.pairingId);
       await preserveHistoricalAcademics(tx, "TUTEE", row.tuteeId!);
       await tx.pairingTutee.deleteMany({
         where: { pairingId: review.pairingId!, tuteeId: row.tuteeId! },
@@ -672,6 +688,8 @@ export async function resolveStudentReview(
         review.kind === "STUDENT_ABORT"
           ? "student_withdrawal_declined"
           : "student_schedule_review_declined",
+        undefined,
+        review.kind === "SCHEDULE_CONFLICT" ? review.pairingId : undefined,
       );
     await tx.studentRequestReview.update({
       where: { id },
@@ -690,7 +708,13 @@ async function notifyLegacySchedule(
   tuteeId: string,
   tutorUserId: string,
   event: NotificationEvent,
+  pairingId?: string | null,
+  termId?: string | null,
 ) {
+  const student = await tx.tutee.findUnique({
+    where: { id: tuteeId },
+    select: { englishName: true },
+  });
   const { managementNotificationRecipients } = await import("./notifications/create");
   const managers = await managementNotificationRecipients(tx, event);
   const users = await tx.user.findMany({
@@ -705,10 +729,18 @@ async function notifyLegacySchedule(
     },
     select: { id: true, role: true, tutorId: true },
   });
+  const detail = pairingId ? await studentScheduleDetail(tx, pairingId, student?.englishName ?? "—", event) : undefined;
+  const period = event.startsWith("student_withdrawal_") && termId ? await tx.term.findUnique({ where: { id: termId }, select: { name: true } }) : null;
   await tx.notification.createMany({
     data: users.map((user) => ({
       userId: user.id,
-      ...notificationData(event),
+      ...notificationData(
+        event,
+        undefined,
+        detail ?? (student
+          ? namedNotificationDetail(event, `${student.englishName}${period ? ` (${period.name})` : ""}`)
+          : undefined),
+      ),
       link: ["HEAD", "ADMIN"].includes(user.role)
         ? "/admin/requests"
         : user.tutorId
@@ -859,5 +891,8 @@ export async function studentRequestRows(
     };
   });
 }
-import { notificationData } from "./notifications/create";
+import {
+  notificationData,
+  namedNotificationDetail,
+} from "./notifications/create";
 import type { NotificationEvent } from "~/lib/notification-events";

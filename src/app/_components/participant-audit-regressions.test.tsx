@@ -16,6 +16,7 @@ import { PersonalTutorHistory } from "../history/personal-tutor-history";
 import { TuteeHistoryContent } from "./tutee-history";
 import { NotificationBell } from "./notification-bell";
 import { EmailPreferences } from "./account-emails";
+import { notificationCategories } from "~/lib/notification-categories";
 
 // Audit regressions exercise real presentation boundaries with deterministic failed reads.
 // No database, server, browser process or external notification provider is needed.
@@ -64,8 +65,40 @@ vi.mock("~/trpc/react", () => ({
       },
     }),
     account: {
-      emailSettings: { useQuery: state.emailSettings },
-      setEmailPreferences: {
+      notificationPreferences: {
+        useQuery: () => {
+          const result = state.emailSettings() as {
+            data?: {
+              enabled: boolean;
+              emailMessages: boolean;
+              emailInfo: boolean;
+              emailSecondaryRecipients: boolean;
+            };
+            [key: string]: unknown;
+          };
+          const data = result.data;
+          return {
+            ...result,
+            data: data
+              ? {
+                  emailEnabled: data.enabled,
+                  emailSecondaryRecipients: data.emailSecondaryRecipients,
+                  categories: notificationCategories.map((category) => ({
+                    category,
+                    badgeEnabled: true,
+                    emailEnabled:
+                      category === "messages"
+                        ? data.emailMessages
+                        : data.emailInfo,
+                    badgeAvailable: category !== "reminders",
+                    emailEditable: data.enabled,
+                  })),
+                }
+              : undefined,
+          };
+        },
+      },
+      setNotificationPreferences: {
         useMutation: (options: {
           onSuccess: () => Promise<void>;
           onSettled: () => void;
@@ -186,6 +219,8 @@ beforeEach(() => {
       enabled: true,
       emailMessages: true,
       emailInfo: false,
+      emailReviewRequests: false,
+      emailEventReminders: false,
       emailSecondaryRecipients: false,
     },
   });
@@ -195,7 +230,7 @@ afterEach(cleanup);
 it("preserves an unsaved notification preference when a background settings read changes", () => {
   const view = render(wrap(<EmailPreferences />));
   const field = screen.getByRole<HTMLInputElement>("checkbox", {
-    name: new RegExp(en.emailPreferences.emailMessages),
+    name: "Private messages: email",
   });
   fireEvent.click(field);
   expect(field.checked).toBe(false);
@@ -205,13 +240,15 @@ it("preserves an unsaved notification preference when a background settings read
       enabled: true,
       emailMessages: true,
       emailInfo: true,
+      emailReviewRequests: false,
+      emailEventReminders: false,
       emailSecondaryRecipients: false,
     },
   });
   view.rerender(wrap(<EmailPreferences />));
   expect(
     screen.getByRole<HTMLInputElement>("checkbox", {
-      name: new RegExp(en.emailPreferences.emailMessages),
+      name: "Private messages: email",
     }).checked,
   ).toBe(false);
 });
@@ -221,11 +258,15 @@ it("preserves dirty preferences through a failed read and explicit read recovery
     enabled: true,
     emailMessages: true,
     emailInfo: false,
+    emailReviewRequests: false,
+    emailEventReminders: false,
     emailSecondaryRecipients: false,
   };
   state.emailSettings.mockReturnValue({ data, refetch: state.retry });
   const view = render(wrap(<EmailPreferences />));
-  fireEvent.click(screen.getByRole("checkbox", { name: /Messages/ }));
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: "Private messages: email" }),
+  );
   state.emailSettings.mockReturnValue({
     data,
     error: new Error("Offline"),
@@ -233,11 +274,14 @@ it("preserves dirty preferences through a failed read and explicit read recovery
   });
   view.rerender(wrap(<EmailPreferences />));
   expect(
-    screen.getByRole<HTMLInputElement>("checkbox", { name: /Messages/ })
-      .checked,
+    screen.getByRole<HTMLInputElement>("checkbox", {
+      name: "Private messages: email",
+    }).checked,
   ).toBe(false);
   expect(
-    screen.getByRole("checkbox", { name: /Messages/ }).matches(":disabled"),
+    screen
+      .getByRole("checkbox", { name: "Private messages: email" })
+      .matches(":disabled"),
   ).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
   expect(state.retry).toHaveBeenCalledOnce();
@@ -248,13 +292,15 @@ it("preserves dirty preferences through a failed read and explicit read recovery
   });
   view.rerender(wrap(<EmailPreferences />));
   expect(
-    screen.getByRole<HTMLInputElement>("checkbox", { name: /Messages/ })
-      .checked,
+    screen.getByRole<HTMLInputElement>("checkbox", {
+      name: "Private messages: email",
+    }).checked,
   ).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.cancel }));
   expect(
-    screen.getByRole<HTMLInputElement>("checkbox", { name: /Messages/ })
-      .checked,
+    screen.getByRole<HTMLInputElement>("checkbox", {
+      name: "Private messages: email",
+    }).checked,
   ).toBe(true);
 });
 
@@ -263,12 +309,16 @@ it("locks accepted preferences during failed synchronization and only retries th
     enabled: true,
     emailMessages: true,
     emailInfo: false,
+    emailReviewRequests: false,
+    emailEventReminders: false,
     emailSecondaryRecipients: false,
   };
   state.emailSettings.mockReturnValue({ data, refetch: state.retry });
   state.retry.mockRejectedValueOnce(new Error("Offline"));
   const view = render(wrap(<EmailPreferences />));
-  fireEvent.click(screen.getByRole("checkbox", { name: /Messages/ }));
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: "Private messages: email" }),
+  );
   fireEvent.click(
     screen.getByRole("button", { name: en.emailPreferences.save }),
   );
@@ -292,7 +342,7 @@ it("locks accepted preferences during failed synchronization and only retries th
   expect(state.save).toHaveBeenCalledOnce();
   expect(
     screen.getByRole<HTMLInputElement>("checkbox", {
-      name: /Information updates/,
+      name: "Other program updates: email",
     }).checked,
   ).toBe(true);
   expect(screen.queryByRole("alert")).toBeNull();
@@ -304,8 +354,9 @@ it("locks accepted preferences during failed synchronization and only retries th
   });
   view.rerender(wrap(<EmailPreferences />));
   expect(
-    screen.getByRole<HTMLInputElement>("checkbox", { name: /Messages/ })
-      .checked,
+    screen.getByRole<HTMLInputElement>("checkbox", {
+      name: "Private messages: email",
+    }).checked,
   ).toBe(true);
 });
 
@@ -440,7 +491,7 @@ it("does not describe a failed notification read as an empty inbox", () => {
   expect(screen.getByRole("alert")).toBeTruthy();
 });
 
-it("retains cached notices on read failure, retries both reads, and conceals denied notices", async () => {
+it("retains cached notices on read failure, retries the list and both counts, and conceals denied notices", async () => {
   const data = [
     {
       id: "notice",
@@ -469,7 +520,7 @@ it("retains cached notices on read failure, retries both reads, and conceals den
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
   });
-  expect(state.retry).toHaveBeenCalledTimes(2);
+  expect(state.retry).toHaveBeenCalledTimes(3);
   state.notifications.mockReturnValue({
     data,
     error: { data: { code: "FORBIDDEN" } },

@@ -19,10 +19,8 @@ import {
   declineRequestAppeal,
 } from "~/server/email/request-appeal";
 import { notificationDestination } from "~/server/email/urls";
-import {
-  isNotificationEvent,
-  notificationEvent,
-} from "~/lib/notification-events";
+import { isNotificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
 
 /**
  * In-app notifications for the signed-in user (any role). Always scoped to
@@ -61,7 +59,7 @@ export const notificationRouter = createTRPCRouter({
     return rows.map((row) => ({
       ...row,
       context: isNotificationEvent(row.event)
-        ? notificationEvent(row.event, row.context).context
+        ? notificationInAppEvent(row.event, row.context).context
         : null,
       link: row.link
         ? notificationDestination(
@@ -76,11 +74,16 @@ export const notificationRouter = createTRPCRouter({
     }));
   }),
 
-  unreadCount: protectedProcedure.query(({ ctx }) =>
-    ctx.db.notification.count({
-      where: { userId: ctx.session.user.id, readAt: null },
-    }),
-  ),
+  unreadCount: protectedProcedure.input(z.object({ includeMuted: z.boolean().optional() }).optional()).query(async ({ ctx, input }) => {
+    const muted = input?.includeMuted ? [] : await ctx.db.notificationPreference.findMany({
+      where: { userId: ctx.session.user.id, badgeEnabled: false }, select: { category: true },
+    });
+    return ctx.db.notification.count({
+      where: { userId: ctx.session.user.id, readAt: null,
+        ...(muted.length ? { category: { notIn: muted.map((row) => row.category) } } : {}),
+      },
+    });
+  }),
 
   markRead: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))

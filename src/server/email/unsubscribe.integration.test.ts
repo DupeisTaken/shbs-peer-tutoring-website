@@ -17,6 +17,8 @@ beforeEach(async () => {
       emailVerifiedAt: new Date(),
       emailMessages: true,
       emailInfo: true,
+      emailReviewRequests: true,
+      emailEventReminders: true,
       emailSecondaryRecipients: true,
     },
   });
@@ -92,10 +94,12 @@ it("category unsubscribe applies to all recipient copies, preserves other prefer
   ).toBe(2);
 });
 
-it("all optional scope disables messages and information but preserves essential mail", async () => {
+it("all optional scope disables every optional category but preserves essential mail", async () => {
   const { token } = await delivery("info");
   await delivery("messages");
   await delivery("information");
+  await delivery("review");
+  await delivery("reminder");
   const { row: security } = await delivery("security");
   expect(await unsubscribeFromEmail(token, "all")).toEqual({
     status: "unsubscribed",
@@ -103,15 +107,49 @@ it("all optional scope disables messages and information but preserves essential
   });
   expect(
     await db.user.findUniqueOrThrow({ where: { id: userId } }),
-  ).toMatchObject({ emailMessages: false, emailInfo: false });
+  ).toMatchObject({
+    emailMessages: false,
+    emailInfo: false,
+    emailReviewRequests: false,
+    emailEventReminders: false,
+  });
   expect(
     await db.emailDelivery.count({ where: { userId, status: "SKIPPED" } }),
-  ).toBe(3);
+  ).toBe(5);
   expect(
     (await db.emailDelivery.findUniqueOrThrow({ where: { id: security.id } }))
       .status,
   ).toBe("PENDING");
 });
+
+it.each(["review", "reminder"])(
+  "unsubscribes only %s copies without changing the other preferences",
+  async (category) => {
+    const { token } = await delivery(category);
+    await delivery(category, secondary);
+    const other = category === "review" ? "reminder" : "review";
+    const { row } = await delivery(other);
+    expect(await getUnsubscribeStatus(token)).toEqual({
+      status: "ready",
+      category,
+    });
+    await unsubscribeFromEmail(token, "category");
+    const user = await db.user.findUniqueOrThrow({ where: { id: userId } });
+    expect(user.emailInfo).toBe(true);
+    expect(user.emailMessages).toBe(true);
+    expect(user.emailReviewRequests).toBe(category !== "review");
+    expect(user.emailEventReminders).toBe(category !== "reminder");
+    expect(
+      await db.emailDelivery.count({
+        where: { userId, category, status: "SKIPPED" },
+      }),
+    ).toBe(2);
+    expect(
+      (await db.emailDelivery.findUniqueOrThrow({ where: { id: row.id } }))
+        .status,
+    ).toBe("PENDING");
+  },
+);
 
 it.each(["security", "unknown"])(
   "rejects %s even with a valid signature",

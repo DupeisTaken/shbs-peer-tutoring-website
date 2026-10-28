@@ -3836,7 +3836,8 @@
         "RecoveryTrackedEntity": "復旧の追跡対象レコード",
         "RecoveryFence": "復旧の同時実行制御",
         "RecoveryChange": "記録されたデータベース変更",
-        "RecoveryReceipt": "復旧の完了記録"
+        "RecoveryReceipt": "復旧の完了記録",
+        "NotificationPreference": "通知の設定"
       },
       "fields": {
         "absenceReason": "欠席理由",
@@ -4117,7 +4118,15 @@
         "operation": "操作識別子",
         "actorId": "操作者のアカウント ID",
         "evidence": "保存された証拠",
-        "actionId": "記録済み入会承認の操作 ID"
+        "actionId": "記録済み入会承認の操作 ID",
+        "category": "カテゴリ",
+        "emailReviewRequests": "審査依頼 · メール",
+        "emailEventReminders": "予定のリマインダー · メール",
+        "notificationPreferences": "通知の設定",
+        "preferenceTopic": "設定カテゴリ",
+        "reminderKey": "リマインダー重複防止キー",
+        "badgeEnabled": "未読バッジ",
+        "emailEnabled": "メール"
       },
       "enums": {
         "Role": {
@@ -4368,7 +4377,11 @@
       "moreFields": "ほか{count}項目",
       "outcome": "記録された結果",
       "fieldsAdded": "追加：{fields}",
-      "fieldsRemoved": "削除：{fields}"
+      "fieldsRemoved": "削除：{fields}",
+      "deliveryCategories": {
+        "security": "アカウントのセキュリティ",
+        "request_service": "必須の申請状況通知"
+      }
     },
     "technicalDetails": "技術的な詳細"
   },
@@ -4552,17 +4565,21 @@
     "emailMessages": "メッセージ",
     "emailMessagesHelp": "新しいプライベートメッセージの通知。本文はアプリ内でのみ表示されます。",
     "emailInfo": "情報の更新",
-    "emailInfoHelp": "プロフィール、役割、アカウント状態、プログラムのお知らせ。",
+    "emailInfoHelp": "プロフィール、役割、アカウント状態、通常のプログラム更新。審査依頼と予定のリマインダーは別に設定します。",
     "emailSecondaryRecipients": "確認済みの予備アドレスにも送信",
     "emailSecondaryRecipientsHelp": "選択した通知をすべての確認済みアドレスへ送信します。未選択の場合はメインのみです。",
     "essential": "確認メール、ログインコード、復旧メール、アカウントのセキュリティ通知は常に利用できます。メインアドレスの変更は、以前の確認済みメインアドレスにも通知されます。",
     "save": "設定を保存",
     "saving": "保存中…",
-    "saved": "設定を保存しました。"
+    "saved": "設定を保存しました。",
+    "emailReviewRequests": "審査依頼",
+    "emailReviewRequestsHelp": "管理者または責任者として確認する必要がある依頼。通常のプログラム通知とは別に設定します。",
+    "emailEventReminders": "予定のリマインダー",
+    "emailEventRemindersHelp": "参加する面接、会議、確定済みの指導セッションの24時間前と1時間前に通知します。未定またはキャンセル済みの予定には通知しません。"
   },
   "programEmail": {
     "title": "メール通知",
-    "help": "任意のメッセージ通知と情報更新メールを有効にします。各利用者がアカウント設定で受け取る更新を選べます。",
+    "help": "メッセージ、プログラム更新、審査依頼、予定のリマインダーの任意メールを有効にします。各自がアカウント設定で受信する種類を選びます。",
     "on": "有効",
     "off": "無効",
     "enable": "メール通知を有効にする",
@@ -5583,11 +5600,35 @@
     "info": "プログラム通知",
     "infoHelp": "チュータリングプログラムの更新メール。サイトの通知は引き続き利用できます。",
     "all": "すべての任意の通知メール",
-    "allHelp": "プライベートメッセージとプログラムの通知メールの両方。",
+    "allHelp": "すべての任意カテゴリのメールを停止します。未読バッジの設定は変更されません。",
     "accountWide": "このリンクに紐づくアカウントの設定を変更します。確認済みの予備メールアドレスへのコピーにも適用されます。",
     "saveError": "更新を確認できませんでした。選択は保持されています。再試行してください。繰り返しの配信停止は安全です。",
     "securityTitle": "重要なメールは引き続き届きます",
-    "securityHelp": "セキュリティ、認証、アカウント復旧メールには影響しません。すでに送信中のメールは届く場合があります。"
+    "securityHelp": "セキュリティ、認証、アカウント復旧メールには影響しません。すでに送信中のメールは届く場合があります。",
+    "review": "審査依頼の通知",
+    "reviewHelp": "管理者または責任者として確認する必要がある依頼のメール。他のプログラムメールの設定は変わりません。",
+    "reminder": "予定のリマインダー",
+    "reminderHelp": "面接、会議、確定済みの指導セッションの24時間前と1時間前に送られるメール。",
+    "reviews": "審査依頼",
+    "reviewsHelp": "権限のある審査担当者への依頼。メールは有効な管理者と責任者が利用できます。",
+    "applications": "応募と面接",
+    "applicationsHelp": "応募、資格、面接担当者と面接結果。",
+    "tutoring": "指導の割り当て",
+    "tutoringHelp": "担当者の割り当て、空き時間と予定変更。",
+    "attendance": "出席と規律",
+    "attendanceHelp": "出席、教室の競合、カード、フィードバックと異議申立て。",
+    "membership": "参加と退会",
+    "membershipHelp": "参加状態、退会、再参加と撤回。",
+    "account": "アカウントとアクセス",
+    "accountHelp": "任意のアカウント情報と権限変更。必須のセキュリティメールは継続します。",
+    "announcements": "お知らせ",
+    "announcementsHelp": "公開済みのプログラムのお知らせ。",
+    "management": "管理上の変更",
+    "managementHelp": "管理上の提案、決定と記録訂正。",
+    "program": "その他のプログラム更新",
+    "programHelp": "他のカテゴリに含まれないプログラム更新。",
+    "reminders": "予定のリマインダー",
+    "remindersHelp": "面接、会議、確定済みの指導セッションの24時間前と1時間前にメールします。"
   },
   "participantRecovery": {
     "loading": "記録を読み込み中…",
@@ -6187,6 +6228,26 @@
       "title": "Interview Approved",
       "body": "The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome.",
       "action": "View application"
+    },
+    "interview_upcoming": {
+      "title": "まもなく面接",
+      "body": "予定された面接の時間が近づいています。記録された時刻と面接担当者の役割を確認してください。",
+      "action": "面接を見る"
+    },
+    "meeting_upcoming": {
+      "title": "まもなく会議",
+      "body": "予定された会議の時間が近づいています。記録された時刻と会議の詳細を確認してください。",
+      "action": "会議を見る"
+    },
+    "tutoring_upcoming": {
+      "title": "まもなく指導セッション",
+      "body": "確定済みの指導セッションの時間が近づいています。記録された時刻と詳細を確認してください。",
+      "action": "指導セッションを見る"
+    },
+    "room_assignment_needed": {
+      "title": "教室の割り当てが必要",
+      "body": "確定した指導セッションにまだ教室が割り当てられていません。",
+      "action": "教室の割り当てを確認"
     }
   },
   "requestAppeal": {
@@ -6699,6 +6760,47 @@
       "APPLICATION_IDENTITY_NO_CHANGE": "訂正を送信する前に、少なくとも1つの氏名欄を変更してください。",
       "APPLICATION_IDENTITY_RETRY_CHANGED": "この受付記録は別の訂正のものです。現在の氏名を再読み込みしてください。",
       "APPLICATION_IDENTITY_PROPOSAL_DECIDED": "この提案は審査済みです。決定を確認し、現在の氏名を再読み込みしてから新しい訂正を準備してください。"
+    }
+  },
+  "notificationPreferences": {
+    "title": "通知の設定",
+    "help": "カテゴリごとに未読バッジとメールを別々に選びます。バッジをオフにしても通知一覧にはすべて残ります。",
+    "badge": "未読バッジ",
+    "email": "メール",
+    "badgeFor": "{category}：未読バッジ",
+    "emailFor": "{category}：メール",
+    "emailOnly": "メールのみ",
+    "disabled": "管理者が任意メールを無効にしています。未読バッジの設定は変更できます。",
+    "essential": "本人確認、ログイン、復旧、セキュリティ、申請手続きに必要なメールは継続します。この設定で通知一覧の通知は削除されません。",
+    "manage": "通知設定",
+    "save": "設定を保存",
+    "saving": "保存中…",
+    "saved": "設定を保存しました。",
+    "categories": {
+      "messages": "プライベートメッセージ",
+      "reviews": "審査依頼",
+      "applications": "応募と面接",
+      "tutoring": "指導の割り当て",
+      "attendance": "出席と規律",
+      "membership": "参加と退会",
+      "account": "アカウントとアクセス",
+      "announcements": "お知らせ",
+      "management": "管理上の変更",
+      "program": "その他のプログラム更新",
+      "reminders": "予定のリマインダー"
+    },
+    "descriptions": {
+      "messages": "新しい私信の通知。内容は受信トレイに残ります。",
+      "reviews": "権限のある審査担当者への依頼。メールは有効な管理者と責任者が利用できます。",
+      "applications": "応募、資格、面接担当者と面接結果。",
+      "tutoring": "担当者の割り当て、空き時間と予定変更。",
+      "attendance": "出席、教室の競合、カード、フィードバックと異議申立て。",
+      "membership": "参加状態、退会、再参加と撤回。",
+      "account": "任意のアカウント情報と権限変更。必須のセキュリティメールは継続します。",
+      "announcements": "公開済みのプログラムのお知らせ。",
+      "management": "管理上の提案、決定と記録訂正。",
+      "program": "他のカテゴリに含まれないプログラム更新。",
+      "reminders": "面接、会議、確定済みの指導セッションの24時間前と1時間前にメールします。"
     }
   },
   "recordInspector": {

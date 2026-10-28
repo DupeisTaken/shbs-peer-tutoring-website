@@ -1,4 +1,6 @@
 import { TRPCError } from "@trpc/server";
+import { notificationInAppEvent } from "~/lib/notification-details";
+import { notificationSchedule } from "~/lib/notification-facts";
 import { pairingEntries } from "~/lib/pairing-groups";
 import {
   rankRoomCandidates,
@@ -390,9 +392,14 @@ export async function notifyRoomShortage(
     allocation.roomShortageKey === previousKey
   )
     return;
+  const pairing = await db.pairing.findUnique({ where: { id: pairingId }, select: { subject: true, dayOfWeek: true, startMin: true, endMin: true, tutor: { select: { englishName: true } } } });
   await notifyAdmins(
     {
       title: "Pairing needs a room",
+      ...notificationInAppEvent("room_assignment_needed", undefined, {
+        en: `${pairing?.tutor.englishName ?? "Tutor"}${pairing ? ` — ${pairing.subject}, ${notificationSchedule(pairing, "en")}` : ""}: no room is available for this confirmed schedule. Review the pairing to allocate a room.`,
+        zh: `${pairing?.tutor.englishName ?? "辅导伙伴"}${pairing ? ` — ${pairing.subject}，${notificationSchedule(pairing, "zh")}` : ""}：已确认的辅导安排暂无可用教室，请审核并分配教室。`,
+      }),
       body: "A confirmed tutoring schedule has no available room. Review the pairing to retry allocation or select a room.",
       link: `/admin/pairings#${encodeURIComponent(pairingId)}`,
       inAppOnly: true,

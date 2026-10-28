@@ -7,6 +7,7 @@ import { isAssignmentOperation } from "~/lib/assignment-qualification";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import superjson from "superjson";
+import { approvalNotificationDetail } from "~/lib/approval-notification-detail";
 import {
   createTRPCRouter,
   protectedProcedure,
@@ -514,10 +515,19 @@ export const approvalRouter = createTRPCRouter({
                     data: {
                       userId: request.requesterId,
                       title: `Change ${input.approve ? "approved" : "rejected"}`,
-                      ...notificationEvent(
+                      ...notificationInAppEvent(
                         input.approve
                           ? "management_approved"
                           : "management_rejected",
+                        {},
+                        approvalNotificationDetail(
+                          request.operation,
+                          // Names and target IDs are JSON scalars; decoding is not
+                          // needed and must not prevent rejecting malformed legacy input.
+                          (request.payload as { json?: unknown } | null)?.json,
+                          request.targets,
+                          input.approve ? "approved" : "rejected",
+                        ),
                       ),
                       body: `${reviewerName}: ${input.note}`,
                       link:
@@ -606,4 +616,4 @@ export const approvalRouter = createTRPCRouter({
     ),
 });
 import { accountHistoryIds } from "~/server/account-history";
-import { notificationEvent } from "~/lib/notification-events";
+import { notificationInAppEvent } from "~/lib/notification-details";
