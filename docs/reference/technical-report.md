@@ -775,6 +775,13 @@ Feature integrations include the three participant/account editors, roster actio
 
 Tutor availability keeps a local draft once editing begins, so background query updates cannot discard it. A successful mutation is followed by an explicit throwing refetch before releasing the draft: the server filters inactive slot IDs and returns only a count, so the submitted list is not authoritative. If synchronization fails, the submitted choices remain visible and locked with a read-only retry; only the refreshed result unlocks editing. See [issue #223](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/223).
 
+The dated planning model and agreement workflow are described in
+[Session planning](session-planning.md), with
+[essential mail and private calendar delivery](session-planning-delivery.md).
+The tutor agenda opens attendance for one captured cohort; its retained dialog
+owns the draft and immutable submission receipt. Planned extra/rescheduled
+provenance is authoritative, while actual attendance duration remains independent.
+
 Tutor attendance also admits a submission synchronously, before React can render
 disabled controls. A failed write releases admission without replacing the draft;
 acceptance keeps it locked through totals refresh and read-only recovery until
@@ -1616,10 +1623,12 @@ Tutor upcoming sessions and today's task summary share these facts; attendance,
 historical session dates and service hours remain actual evidence. The separate
 `ProgramCalendarDay` inclusive no-tutoring ranges retain their informational meaning.
 The [dated-session audience adapter](../../src/server/school-calendar-session-audience.ts)
-is the integration seam for the coordinated dated-session rollout; it currently
-adds no dated participants. This calendar foundation does not establish that
-rollout's extra-session, rescheduling or effective-occupancy behavior. No calendar
-provider receives writes from these operations.
+adds current eligible tutors and tutees from actual scheduled cohorts, including
+explicit extras and moved commitments retained on closed dates. Split rosters use
+their destination date rather than the original assignment. Cancelled participants
+and attendance-only history are excluded. See [session planning](session-planning.md)
+for agreement, occupancy and private subscription behavior. No calendar provider
+receives writes from these operations.
 
 [Calendar notices](../../src/server/school-calendar-notifications.ts) identify the
 actual date and resolved timetable, using eligible tutors and tutees with confirmed,
@@ -1790,7 +1799,7 @@ self-service slot changes expand to all members, and catalog preflight recognize
 one grouped room booking. Group tables precede Pairing in historical export/import
 dependency order.
 
-The [group editor](<../../src/app/(tutor)/_components/pairing-group-editor.tsx>) composes ProfileDialog, FormSection, ChangeReview and QueryFeedback. Its draft/version survives failed writes and background reads; explicit Reload replaces it only after a successful read. Same-tick admission and owned dialog pending state block duplicate writes and dismissal. The retained editor must also honor current participation eligibility after opening: loss of active status blocks new Review/Save admission without discarding the draft. This write guard must not block read-only synchronization Retry for a save already accepted. Accepted saves retain their receipt through read-only synchronization recovery. Attendance group selection copies a distinct-student snapshot into its separate draft; changing saved groups does not rewrite a pending/saved attendance form. One-off combined attendance and individual-subject attendance remain available. English/Chinese copy is authored; the other six catalogs use English for these new group strings pending translation.
+The [group editor](<../../src/app/(tutor)/_components/pairing-group-editor.tsx>) composes ProfileDialog, FormSection, ChangeReview and QueryFeedback. Its draft/version survives failed writes and background reads; explicit Reload replaces it only after a successful read. Same-tick admission and owned dialog pending state block duplicate writes and dismissal. The retained editor must also honor current participation eligibility after opening: loss of active status blocks new Review/Save admission without discarding the draft. This write guard must not block read-only synchronization Retry for a save already accepted. Accepted saves retain their receipt through read-only synchronization recovery. Dated publication captures the group roster and subjects; agenda attendance selects that exact cohort. Changing recurring groups does not rewrite a retained attendance draft or historical evidence. The generic one-off merge/subject picker remains legacy API compatibility and is no longer exposed by the current attendance UI. English/Chinese copy is authored; the other six catalogs use English for these new group strings pending translation.
 
 Use [pairingEntries](../../src/lib/pairing-groups.ts) for coherent grouped read
 projections, and keep `Session.mergeGroupId` as independent saved attendance evidence.

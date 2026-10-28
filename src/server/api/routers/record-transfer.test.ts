@@ -219,7 +219,10 @@ it.each(roles.filter((r) => r !== "HEAD" && r !== "ADMIN"))(
 );
 
 it("rejects a stale HEAD cookie after loss of management authority and a suspended HEAD", async () => {
-  await db.user.update({ where: { id: "HEAD" }, data: { role: "COORDINATOR" } });
+  await db.user.update({
+    where: { id: "HEAD" },
+    data: { role: "COORDINATOR" },
+  });
   await expect(caller().recordTransfer.export({})).rejects.toMatchObject({
     code: "FORBIDDEN",
   });
@@ -232,52 +235,76 @@ it("rejects a stale HEAD cookie after loss of management authority and a suspend
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
 
-it.each(["ADMIN", "HEAD"] as const)("%s previews without persistence, imports linked history atomically, and skips identical retries", async (role) => {
-  const files = fixtures();
-  const preview = await caller(role).recordTransfer.preview({ files });
-  expect(preview.summary.reduce((n, s) => n + s.created, 0)).toBe(8);
-  expect(await db.tutor.count()).toBe(0);
-  expect(await db.auditLog.count()).toBe(0);
-  expect(await db.person.count()).toBe(0);
-  const imported = await caller(role).recordTransfer.import({
-    files,
-    ticket: preview.ticket,
-  });
-  expect(imported.summary).toEqual(preview.summary);
-  const tutorIdentity = await db.tutor.findUniqueOrThrow({ where: { id: "tutor" }, select: { personId: true } });
-  const studentIdentity = await db.tutee.findUniqueOrThrow({ where: { id: "tutee" }, select: { personId: true, updatedAt: true } });
-  expect(tutorIdentity.personId).toBeTruthy();
-  expect(studentIdentity.personId).toBeTruthy();
-  expect(tutorIdentity.personId).not.toBe(studentIdentity.personId);
-  expect(studentIdentity.updatedAt).toEqual(new Date("2024-10-01T10:00:00Z"));
-  const peopleBeforeRetry = await db.person.findMany({ orderBy: { id: "asc" } });
-  expect(
-    await db.session.findUnique({
-      where: { id: "session" },
-      include: { tutees: true },
-    }),
-  ).toMatchObject({
-    tutorId: "tutor",
-    shCount: 2,
-    tutees: [{ tuteeId: "tutee" }],
-  });
-  const repeat = await caller(role).recordTransfer.import({
-    files,
-    ticket: preview.ticket,
-  });
-  expect(repeat.summary.reduce((n, s) => n + s.created, 0)).toBe(0);
-  expect(await db.session.count()).toBe(1);
-  expect(await db.person.findMany({ orderBy: { id: "asc" } })).toEqual(peopleBeforeRetry);
-  expect(
-    await db.auditLog.count({ where: { operation: "recordTransfer.import" } }),
-  ).toBe(2);
-});
+it.each(["ADMIN", "HEAD"] as const)(
+  "%s previews without persistence, imports linked history atomically, and skips identical retries",
+  async (role) => {
+    const files = fixtures();
+    const preview = await caller(role).recordTransfer.preview({ files });
+    expect(preview.summary.reduce((n, s) => n + s.created, 0)).toBe(8);
+    expect(await db.tutor.count()).toBe(0);
+    expect(await db.auditLog.count()).toBe(0);
+    expect(await db.person.count()).toBe(0);
+    const imported = await caller(role).recordTransfer.import({
+      files,
+      ticket: preview.ticket,
+    });
+    expect(imported.summary).toEqual(preview.summary);
+    const tutorIdentity = await db.tutor.findUniqueOrThrow({
+      where: { id: "tutor" },
+      select: { personId: true },
+    });
+    const studentIdentity = await db.tutee.findUniqueOrThrow({
+      where: { id: "tutee" },
+      select: { personId: true, updatedAt: true },
+    });
+    expect(tutorIdentity.personId).toBeTruthy();
+    expect(studentIdentity.personId).toBeTruthy();
+    expect(tutorIdentity.personId).not.toBe(studentIdentity.personId);
+    expect(studentIdentity.updatedAt).toEqual(new Date("2024-10-01T10:00:00Z"));
+    const peopleBeforeRetry = await db.person.findMany({
+      orderBy: { id: "asc" },
+    });
+    expect(
+      await db.session.findUnique({
+        where: { id: "session" },
+        include: { tutees: true },
+      }),
+    ).toMatchObject({
+      tutorId: "tutor",
+      shCount: 2,
+      tutees: [{ tuteeId: "tutee" }],
+    });
+    const repeat = await caller(role).recordTransfer.import({
+      files,
+      ticket: preview.ticket,
+    });
+    expect(repeat.summary.reduce((n, s) => n + s.created, 0)).toBe(0);
+    expect(await db.session.count()).toBe(1);
+    expect(await db.person.findMany({ orderBy: { id: "asc" } })).toEqual(
+      peopleBeforeRetry,
+    );
+    expect(
+      await db.auditLog.count({
+        where: { operation: "recordTransfer.import" },
+      }),
+    ).toBe(2);
+  },
+);
 
 it("initializes imported explicit ownership without changing account privileges or source versions", async () => {
   const before = await db.user.findUniqueOrThrow({ where: { id: "HEAD" } });
   const files = [
-    file("StudentProfileOwnership", [{ tuteeId: "owned-history", userId: "HEAD" }]),
-    file("Tutee", [{ id: "owned-history", englishName: "Original history", status: "INACTIVE", updatedAt: "2024-10-01T10:00:00Z" }]),
+    file("StudentProfileOwnership", [
+      { tuteeId: "owned-history", userId: "HEAD" },
+    ]),
+    file("Tutee", [
+      {
+        id: "owned-history",
+        englishName: "Original history",
+        status: "INACTIVE",
+        updatedAt: "2024-10-01T10:00:00Z",
+      },
+    ]),
     // Archives reference the persisted account; its email trigger normalizes case.
     file("User", [{ id: before.id, email: before.email, name: before.name }]),
   ];
@@ -287,31 +314,101 @@ it("initializes imported explicit ownership without changing account privileges 
   const owner = await db.user.findUniqueOrThrow({ where: { id: "HEAD" } });
   expect(owner.personId).toBeTruthy();
   expect(owner).toEqual({ ...before, personId: owner.personId });
-  expect(await db.tutee.findUniqueOrThrow({ where: { id: "owned-history" } })).toMatchObject({
-    personId: owner.personId, englishName: "Original history", status: "INACTIVE", updatedAt: new Date("2024-10-01T10:00:00Z"),
+  expect(
+    await db.tutee.findUniqueOrThrow({ where: { id: "owned-history" } }),
+  ).toMatchObject({
+    personId: owner.personId,
+    englishName: "Original history",
+    status: "INACTIVE",
+    updatedAt: new Date("2024-10-01T10:00:00Z"),
   });
-  expect(await db.studentProfileOwnership.findUniqueOrThrow({ where: { tuteeId: "owned-history" } })).toMatchObject({ userId: "HEAD", revision: 1 });
+  expect(
+    await db.studentProfileOwnership.findUniqueOrThrow({
+      where: { tuteeId: "owned-history" },
+    }),
+  ).toMatchObject({ userId: "HEAD", revision: 1 });
 });
 
 it("refuses conflicting explicit imported ownership and rolls back all identity metadata", async () => {
-  await db.tutee.create({ data: { id: "already-current", englishName: "Current source" } });
-  const owner = await db.user.update({ where: { id: "ADMIN" }, data: { studentId: "already-current" } });
-  const source = await db.tutee.findUniqueOrThrow({ where: { id: "already-current" } });
-  const files = [file("StudentProfileOwnership", [{ tuteeId: "already-current", userId: "HEAD" }])];
+  await db.tutee.create({
+    data: { id: "already-current", englishName: "Current source" },
+  });
+  const owner = await db.user.update({
+    where: { id: "ADMIN" },
+    data: { studentId: "already-current" },
+  });
+  const source = await db.tutee.findUniqueOrThrow({
+    where: { id: "already-current" },
+  });
+  const files = [
+    file("StudentProfileOwnership", [
+      { tuteeId: "already-current", userId: "HEAD" },
+    ]),
+  ];
   // Import rejects conflicting ownership before directory initialization runs.
-  await expect(caller().recordTransfer.preview({ files })).rejects.toThrow("StudentProfileOwnership.csv, row 2: this student profile belongs to another account.");
+  await expect(caller().recordTransfer.preview({ files })).rejects.toThrow(
+    "StudentProfileOwnership.csv, row 2: this student profile belongs to another account.",
+  );
   expect(await db.person.count()).toBe(0);
   expect(await db.studentProfileOwnership.count()).toBe(0);
-  expect(await db.user.findUniqueOrThrow({ where: { id: owner.id } })).toEqual(owner);
-  expect(await db.tutee.findUniqueOrThrow({ where: { id: source.id } })).toEqual(source);
+  expect(await db.user.findUniqueOrThrow({ where: { id: owner.id } })).toEqual(
+    owner,
+  );
+  expect(
+    await db.tutee.findUniqueOrThrow({ where: { id: source.id } }),
+  ).toEqual(source);
+});
+
+it("keeps dated cohort authority outside historical attendance archives", async () => {
+  const exported = await caller().recordTransfer.export({ templates: true });
+  const attendance = exported.files.find(
+    (entry) => entry.name === "Session.csv",
+  );
+  expect(attendance).toBeDefined();
+  expect(attendance!.text).not.toContain("planningCohortId");
+  expect(
+    exported.files.some((entry) =>
+      /^SessionPlan|^SessionNotice|^SessionCalendar/.test(entry.name),
+    ),
+  ).toBe(false);
+  await expect(
+    caller().recordTransfer.preview({
+      files: [
+        file("Session", [
+          {
+            id: "forged-attendance",
+            planningCohortId: "live-cohort",
+          },
+        ]),
+      ],
+    }),
+  ).rejects.toThrow(/unknown or duplicate columns/);
 });
 
 it("keeps operational identity IDs and invitation revisions outside archive authority", async () => {
   const exported = await caller().recordTransfer.export({ templates: true });
   for (const name of ["User.csv", "Tutor.csv", "Tutee.csv"])
-    expect(exported.files.find((entry) => entry.name === name)?.text).not.toMatch(/personId|historyIdentityRevision/);
-  for (const metadata of [{ personId: "forged-person" }, { historyIdentityRevision: 10 }])
-    await expect(caller().recordTransfer.preview({ files: [file("Tutee", [{ id: "forged", englishName: "Source", updatedAt: "2024-10-01T10:00:00Z", ...metadata }])] })).rejects.toThrow(/unknown or duplicate columns/);
+    expect(
+      exported.files.find((entry) => entry.name === name)?.text,
+    ).not.toMatch(/personId|historyIdentityRevision/);
+  for (const metadata of [
+    { personId: "forged-person" },
+    { historyIdentityRevision: 10 },
+  ])
+    await expect(
+      caller().recordTransfer.preview({
+        files: [
+          file("Tutee", [
+            {
+              id: "forged",
+              englishName: "Source",
+              updatedAt: "2024-10-01T10:00:00Z",
+              ...metadata,
+            },
+          ]),
+        ],
+      }),
+    ).rejects.toThrow(/unknown or duplicate columns/);
   expect(await db.person.count()).toBe(0);
   expect(await db.tutee.count()).toBe(0);
 });

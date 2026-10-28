@@ -7,11 +7,17 @@ import { Pager } from "./student-portal";
 import { Button } from "./ui/button";
 import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
 import { focusVisibleContext } from "./focus-visible-context";
+import { ProfileDialog } from "./profile-dialog";
 import {
   useSessionPageScroll,
   useSessionViewState,
 } from "./session-view-state";
-import { viewPage, viewSearch } from "~/lib/session-view-state";
+import {
+  viewAccessDenied,
+  viewPage,
+  viewSearch,
+} from "~/lib/session-view-state";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 
 type Contact = {
   id: string;
@@ -37,12 +43,26 @@ function parseInboxView(value: unknown): InboxView | undefined {
     ? undefined
     : { page, contactPage, search };
 }
-export function MessageInbox({ viewScope = "" }: { viewScope?: string }) {
+export function MessageInbox({
+  viewScope = "",
+  sessionCohortId,
+  initialRecipients = [],
+  dialog,
+}: {
+  viewScope?: string;
+  sessionCohortId?: string;
+  initialRecipients?: Contact[];
+  dialog?: { open: boolean; title: string; onClose: () => void };
+}) {
   const format = useFormatter();
   const t = useTranslations("workflows");
   const m = useTranslations("messaging");
+  const recovery = useTranslations("participantRecovery");
   const roleLabel = useTranslations("admin.users.roles");
   const [viewDenied, setViewDenied] = useState(false);
+  const [scopedAccessLost, setScopedAccessLost] = useState(false);
+  const [recoveringScope, setRecoveringScope] = useState(false);
+  const scopeRecoveryAdmission = useRef(false);
   // Only the visible list/search choices persist; recipients, body, reply drafts
   // and accepted-operation keys keep their existing private mounted lifetime.
   const [view, setView] = useSessionViewState<InboxView>({
@@ -50,7 +70,7 @@ export function MessageInbox({ viewScope = "" }: { viewScope?: string }) {
     scope: viewScope,
     initialState: { page: 0, contactPage: 0, search: "" },
     parse: parseInboxView,
-    enabled: !viewDenied,
+    enabled: !viewDenied && !dialog,
   });
   const { page, contactPage, search } = view;
   const setPage = (page: number) =>
@@ -58,11 +78,12 @@ export function MessageInbox({ viewScope = "" }: { viewScope?: string }) {
   const setContactPage = (contactPage: number) =>
     setView((current) => ({ ...current, contactPage }));
   // Store selected identities independently of the current search/page result.
-  const [selected, setSelected] = useState<Contact[]>([]);
+  const [selected, setSelected] = useState<Contact[]>(initialRecipients);
   const [body, setBody] = useState("");
   const [clientKey, setClientKey] = useState(() => crypto.randomUUID());
   const [replyTo, setReplyTo] = useState<Contact | null>(null);
   const previousDraft = useRef<MessageDraft | null>(null);
+  const sendAdmission = useRef(false);
   const replyDrafts = useRef(new Map<string, MessageDraft>());
   const replyOpener = useRef<HTMLButtonElement | null>(null);
   const bodyField = useRef<HTMLTextAreaElement>(null);
@@ -85,10 +106,11 @@ export function MessageInbox({ viewScope = "" }: { viewScope?: string }) {
   const contacts = api.messaging.recipients.useQuery({
     search,
     page: contactPage,
+    sessionCohortId,
   });
   const permission = api.messaging.permission.useQuery();
   const inbox = api.messaging.inbox.useQuery(
-    { page },
+    { page, sessionCohortId },
     { refetchInterval: 30000, refetchIntervalInBackground: false },
   );
   const readDenied = [contacts, inbox].some(
@@ -96,6 +118,46 @@ export function MessageInbox({ viewScope = "" }: { viewScope?: string }) {
       query.error?.data?.code === "FORBIDDEN" ||
       query.error?.data?.code === "UNAUTHORIZED",
   );
+  const scopeDeniedNow =
+    !!sessionCohortId &&
+    [contacts, inbox, permission].some((query) =>
+      viewAccessDenied(query.error),
+    );
+  useEffect(() => {
+    if (scopeDeniedNow) setScopedAccessLost(true);
+  }, [scopeDeniedNow]);
+  const concealScope =
+    !!sessionCohortId && (scopeDeniedNow || scopedAccessLost);
+  async function recoverScope() {
+    if (scopeRecoveryAdmission.current) return;
+    scopeRecoveryAdmission.current = true;
+    setRecoveringScope(true);
+    try {
+      // Cached sibling success is not fresh authority. Keep the whole scoped
+      // composer concealed until every enabled private read has completed again.
+      await settleRefreshes([
+        async () => {
+          const result = await contacts.refetch({ throwOnError: true });
+          if (!result.data) throw new Error("Missing scoped contacts");
+        },
+        async () => {
+          const result = await inbox.refetch({ throwOnError: true });
+          if (!result.data) throw new Error("Missing scoped messages");
+        },
+        async () => {
+          const result = await permission.refetch({ throwOnError: true });
+          if (!result.data || result.data.restricted)
+            throw new Error("Messaging unavailable");
+        },
+      ]);
+      setScopedAccessLost(false);
+    } catch {
+      setScopedAccessLost(true);
+    } finally {
+      scopeRecoveryAdmission.current = false;
+      setRecoveringScope(false);
+    }
+  }
   useEffect(() => {
     if (readDenied) setViewDenied(true);
     else if (contacts.data && inbox.data) setViewDenied(false);
@@ -104,7 +166,7 @@ export function MessageInbox({ viewScope = "" }: { viewScope?: string }) {
     id: "message-inbox-v1",
     scope: `${viewScope}:${page}:${contactPage}:${search}`,
     ready: !!contacts.data && !!inbox.data,
-    enabled: !viewDenied && !readDenied,
+    enabled: !dialog && !viewDenied && !readDenied,
   });
   const send = api.messaging.send.useMutation({
     onSuccess: async () => {
@@ -113,7 +175,17 @@ export function MessageInbox({ viewScope = "" }: { viewScope?: string }) {
       restoreDraft(replyTo ? previousDraft.current : null);
       setReplyTo(null);
       previousDraft.current = null;
-      await inbox.refetch();
+      try {
+        await inbox.refetch();
+      } finally {
+        sendAdmission.current = false;
+      }
+    },
+    onError: () => {
+      sendAdmission.current = false;
+    },
+    onSettled: () => {
+      sendAdmission.current = false;
     },
   });
   const read = api.messaging.markRead.useMutation({
@@ -125,7 +197,11 @@ export function MessageInbox({ viewScope = "" }: { viewScope?: string }) {
     send.reset();
   }
   const permissionReady =
-    !!permission.data && !permission.error && !permission.data.restricted;
+    !!permission.data &&
+    !permission.error &&
+    !permission.data.restricted &&
+    !concealScope &&
+    !recoveringScope;
   function restoreDraft(draft: MessageDraft | null) {
     setBody(draft?.body ?? "");
     setSelected(draft?.selected ?? []);
@@ -161,7 +237,22 @@ export function MessageInbox({ viewScope = "" }: { viewScope?: string }) {
     requestedFocus.current = replyOpener.current;
     setFocusRequest((request) => request + 1);
   }
-  return (
+  // Keep the private draft owner mounted while its optional dialog is closed.
+  // The dialog receives only this owner's write, so pending sends block dismissal.
+  if (dialog && !dialog.open) return null;
+  const content = concealScope ? (
+    <StatePanel
+      kind="denied"
+      title={recovery("accessDenied")}
+      action={
+        <Button disabled={recoveringScope} onClick={() => void recoverScope()}>
+          {recovery("retry")}
+        </Button>
+      }
+    >
+      <p>{recovery("accessDeniedHelp")}</p>
+    </StatePanel>
+  ) : (
     <div className="space-y-5">
       <InlineNotice>
         <p className="font-semibold">{m("privacyTitle")}</p>
@@ -177,16 +268,19 @@ export function MessageInbox({ viewScope = "" }: { viewScope?: string }) {
             e.preventDefault();
             if (
               send.isPending ||
+              sendAdmission.current ||
               !permissionReady ||
               !selected.length ||
               !body.trim()
             )
               return;
+            sendAdmission.current = true;
             send.mutate({
               recipientIds: selected.map((c) => c.id),
               body,
               clientKey,
               disclosureVersion: 1,
+              sessionCohortId,
             });
           }}
         >
@@ -491,6 +585,20 @@ export function MessageInbox({ viewScope = "" }: { viewScope?: string }) {
         </section>
       </div>
     </div>
+  );
+  return dialog ? (
+    <ProfileDialog
+      size="wide"
+      title={dialog.title}
+      pending={send.isPending}
+      onClose={() => {
+        if (!sendAdmission.current && !send.isPending) dialog.onClose();
+      }}
+    >
+      {content}
+    </ProfileDialog>
+  ) : (
+    content
   );
 }
 

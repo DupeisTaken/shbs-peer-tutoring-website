@@ -595,8 +595,9 @@ plus eligible prior recipients for corrections. Advance reminders run from 18:00
 on the prior date until noon on the actual date, using the program timezone. A
 same-revision change notice issued inside that window serves as that recipient's
 reminder; a later same-day change still notifies immediately. Changes to historical
-dates do not generate a new operational notice. The separate dated-session rollout
-owns adding participants from explicit extras and reschedules.
+dates do not generate a new operational notice. Participants in agreed dated extras
+and reschedules on the affected date also receive these calendar notices. Essential
+session-agreement emails use the separate delivery rules in [session planning](../reference/session-planning.md).
 
 Email copies use the optional **Information / Program** category and require both
 the program switch and the recipient's preference. Copy includes the actual date

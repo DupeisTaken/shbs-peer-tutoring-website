@@ -6,6 +6,7 @@ import { lockAccountProfile } from "./account-profile";
 import { lockUsernameNamespace } from "./auth/username";
 import { verifyPasswordConfirmation } from "./auth/password-confirmation";
 import { recordAudit } from "./audit/log";
+import { schedulingNoticeRetentionMessage } from "./session-planning/deletion-guards";
 
 export const deleteAccountInput = z.object({
   userId: z.string().cuid(),
@@ -24,6 +25,7 @@ const blockerMessages = {
     "Retained tutee ownership must be preserved. Review historical ownership before deletion, or use Combine Accounts instead to retire a duplicate while retaining access.",
   intake:
     "Complete or withdraw the account's unconfirmed tutee intake before deleting its login.",
+  schedulingHistory: schedulingNoticeRetentionMessage,
 } as const;
 
 /** Signup is not an eligibility gate. This projection describes existing cascade/detach
@@ -80,6 +82,7 @@ export async function previewDeleteAccount(
     studentRequests,
     quarterBlocks,
     intake,
+    sessionNotices,
   ] = await Promise.all([
     db.user.count({ where: { mergedIntoId: userId } }),
     db.tutorProfileOwnership.findMany({
@@ -98,6 +101,7 @@ export async function previewDeleteAccount(
       db.passwordResetToken.count({ where: { userId } }),
       db.emailVerificationCode.count({ where: { userId } }),
       db.studentActionConfirmation.count({ where: { userId } }),
+      db.sessionCalendarToken.count({ where: { userId } }),
     ]).then((values) => values.reduce((sum, value) => sum + value, 0)),
     db.emailDelivery.count({ where: { userId } }),
     db.crewStatusRequest.count({ where: { userId } }),
@@ -128,6 +132,7 @@ export async function previewDeleteAccount(
         confirmedAt: null,
       },
     }),
+    db.sessionNotice.count({ where: { recipientUserId: userId } }),
   ]);
   const blockers: (keyof typeof blockerMessages)[] = [];
   if (userId === actorId) blockers.push("self");
@@ -148,6 +153,7 @@ export async function previewDeleteAccount(
   // cannot rely on a foreign key to prevent an inaccessible retained archive.
   if (students.length) blockers.push("studentHistory");
   if (intake) blockers.push("intake");
+  if (sessionNotices) blockers.push("schedulingHistory");
   const removed = {
     emails,
     credentials,
@@ -179,6 +185,7 @@ export async function previewDeleteAccount(
     approvals,
     studentRequests,
     quarterBlocks,
+    sessionNotices,
   };
   // Bind account/credentials and every displayed consequence. Namespace/table fences
   // keep writers from adding a signup or changing these counts after validation.
@@ -212,7 +219,7 @@ export async function previewDeleteAccount(
   };
 }
 
-/** Namespace → leadership → sorted account advisory locks → table fences → User
+/** Period → namespace → leadership → sorted account advisory locks → table fences → User
  * rows matches signup/profile writers and combine. Audit and deletion share the
  * caller's existing transaction, or one owned here when invoked independently. */
 export async function deleteAccount(
@@ -221,16 +228,22 @@ export async function deleteAccount(
   input: z.infer<typeof deleteAccountInput>,
 ) {
   return inTransaction(db, async (tx) => {
+    await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
     await lockEntity(tx, "program:leadership");
     const accountIds = [...new Set([actorId, input.userId])].sort();
     for (const id of accountIds) await lockEntity(tx, `account-profile:${id}`);
     // Take fences before row locks, avoiding a row/table upgrade inversion. Counted
     // scalar evidence lacks FK guards; the same fence protects concurrent additions.
-    await tx.$executeRaw`LOCK TABLE "User", "Tutor", "Tutee", "AccountEmail", "StudentProfileOwnership", "TutorProfileOwnership", "AcademicProfile", "AcademicConfirmation", "SchoolDeparture", "SchoolDepartureEvent", "Patrol", "PatrolObservation", "PatrolCreditWindow", "EmailVerificationCode", "PasswordResetToken", "StudentActionConfirmation", "Notification", "EmailDelivery", "CrewStatusRequest", "AccountAppeal", "AnnouncementAck", "PolicyAcceptance", "DirectMessage", "AuditLog", "ApprovalRequest", "StudentRequestReview", "StudentQuarterBlock", "StudentSurvey" IN SHARE ROW EXCLUSIVE MODE`;
+    await tx.$executeRaw`LOCK TABLE "User", "Tutor", "Tutee", "AccountEmail", "StudentProfileOwnership", "TutorProfileOwnership", "AcademicProfile", "AcademicConfirmation", "SchoolDeparture", "SchoolDepartureEvent", "Patrol", "PatrolObservation", "PatrolCreditWindow", "EmailVerificationCode", "PasswordResetToken", "StudentActionConfirmation", "Notification", "EmailDelivery", "SessionNotice", "SessionCalendarToken", "CrewStatusRequest", "AccountAppeal", "AnnouncementAck", "PolicyAcceptance", "DirectMessage", "AuditLog", "ApprovalRequest", "StudentRequestReview", "StudentQuarterBlock", "StudentSurvey" IN SHARE ROW EXCLUSIVE MODE`;
     for (const id of accountIds) await lockAccountProfile(tx, id);
     const actor = await tx.user.findUnique({ where: { id: actorId } });
-    if ((!actor || !["ADMIN", "HEAD"].includes(actor.role)) || actor.suspendedAt || actor.mergedIntoId)
+    if (
+      !actor ||
+      !["ADMIN", "HEAD"].includes(actor.role) ||
+      actor.suspendedAt ||
+      actor.mergedIntoId
+    )
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "Only a current active Admin or Head can delete accounts.",

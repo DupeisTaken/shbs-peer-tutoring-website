@@ -10,7 +10,12 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AttendanceForm } from "./attendance-form";
-import { MergeProvider } from "./merge-context";
+import { attendanceOccurrence } from "./attendance-test-data";
+vi.mock("~/app/_components/profile-dialog", () => ({
+  ProfileDialog: ({ children }: { children: React.ReactNode }) => (
+    <div role="dialog">{children}</div>
+  ),
+}));
 
 type Request = {
   input: Record<string, unknown>;
@@ -42,6 +47,7 @@ vi.mock("~/trpc/react", async () => {
   return {
     api: {
       useUtils: () => ({
+        sessionPlanning: { agenda: { invalidate: async () => undefined } },
         tutor: {
           myMonthlyTotal: { fetch: transport.totals },
           mySessions: { invalidate: transport.sessions },
@@ -105,16 +111,15 @@ afterEach(() => {
 function show() {
   render(
     <QueryClientProvider client={client}>
-      <MergeProvider>
-        <AttendanceForm />
-      </MergeProvider>
+      <AttendanceForm
+        occurrence={{ ...attendanceOccurrence, tutees: [] }}
+        open
+        onClose={vi.fn()}
+      />
     </QueryClientProvider>,
   );
 }
 function fill() {
-  fireEvent.change(screen.getByLabelText("tutor.attendance.pairing"), {
-    target: { value: "pairing" },
-  });
   fireEvent.change(screen.getByLabelText("tutor.attendance.comments"), {
     target: { value: "Synthetic attendance draft" },
   });
@@ -203,16 +208,8 @@ it("keeps acceptance locked through failed refresh and read-only retry until an 
   expect(transport.requests).toHaveLength(1);
   expect(transport.totals).toHaveBeenCalledTimes(2);
   expect(screen.queryByRole("alert")).toBeNull();
-  fireEvent.click(
-    screen.getByRole("button", { name: "tutor.attendance.submitAnother" }),
-  );
-  fill();
   await submit();
-  await waitFor(() => expect(transport.requests).toHaveLength(2));
-  await act(async () => {
-    transport.requests[1]!.resolve();
-  });
-  await screen.findByRole("status");
+  expect(transport.requests).toHaveLength(1);
 });
 
 it("leaves a locally invalid draft editable without consuming submission admission", async () => {

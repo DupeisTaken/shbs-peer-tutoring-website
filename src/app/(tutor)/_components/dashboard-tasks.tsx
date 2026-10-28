@@ -7,11 +7,12 @@ import { isOpenInterview } from "~/lib/interview-order";
 import { programDateKey } from "~/lib/program-time";
 import { minToHm } from "~/lib/time";
 import { pairingEntries } from "~/lib/pairing-groups";
-import { InlineNotice } from "~/app/_components/ui/patterns";
+import { InlineNotice, StatePanel } from "~/app/_components/ui/patterns";
 import { Button } from "~/app/_components/ui/button";
 import { focusVisibleContext } from "~/app/_components/focus-visible-context";
 import { resolveSchoolCalendarDay } from "~/lib/school-calendar";
 import { SchoolCalendarDayContext } from "~/app/_components/school-calendar-notice";
+import { useSessionAccessDenied } from "~/app/_components/session-view-state";
 
 const taskTargets = new Set([
   "tutor-activation",
@@ -22,6 +23,7 @@ const taskTargets = new Set([
   "qualification-requests",
   "tutor-preferences",
   "room-schedule",
+  "sessions",
 ]);
 
 /** Summary queries share the feature components' cache. Unknown/failed reads must
@@ -40,6 +42,7 @@ export function DashboardTasks({
   const t = useTranslations("tutor.tasks");
   const groupText = useTranslations("pairingGroups");
   const pairingsText = useTranslations("dashboard.pairings");
+  const planning = useTranslations("sessionPlanning");
   const format = useFormatter();
   const timeZone = useTimeZone();
   const [now, setNow] = useState(initialNow);
@@ -76,7 +79,16 @@ export function DashboardTasks({
     };
   }, [revealTask]);
   const active = status === "ACTIVE";
-  const date = programDateKey(now, timeZone);
+  const agenda = api.sessionPlanning.agenda.useQuery(
+    { role: "tutor" },
+    {
+      enabled: active,
+      refetchInterval: active ? 30_000 : false,
+    },
+  );
+  const agendaDenied = useSessionAccessDenied(agenda);
+  const schoolTimeZone = agenda.data?.timeZone ?? timeZone;
+  const date = programDateKey(now, schoolTimeZone);
   const calendar = api.program.schoolCalendar.useQuery(
     { from: date, to: date },
     {
@@ -102,19 +114,19 @@ export function DashboardTasks({
     removals,
     membership,
     ...(active ? [calendar] : []),
+    ...(active ? [agenda] : []),
     ...(active && interviewsEnabled ? [interviews] : []),
     ...(active && meetingsEnabled ? [meetings] : []),
   ];
   const schoolDay = resolveSchoolCalendarDay(date, calendar.data ?? []);
-  const weekday = schoolDay.effectiveTimetableWeekday;
   const entries = pairingEntries(pairings.data ?? []);
-  const today = entries.filter(
-    (entry) =>
-      !!calendar.data &&
-      !calendar.error &&
-      entry.groupStatus !== "needsRepair" &&
-      entry.primary.scheduleConfirmed &&
-      entry.primary.dayOfWeek === weekday,
+  // Weekly assignments still own setup/repair tasks. Today's teaching uses only
+  // effective dated cohorts, so moved/cancelled originals cannot reappear here.
+  const today = (agendaDenied ? [] : (agenda.data?.cohorts ?? [])).filter(
+    (cohort) =>
+      cohort.date === date &&
+      !cohort.unavailable &&
+      (cohort.status === "SCHEDULED" || cohort.status === "RECORDED"),
   );
   // One valid unscheduled group is one plan, not one task for every subject.
   // Invalid groups get their own repair task rather than an invented appointment.
@@ -237,6 +249,9 @@ export function DashboardTasks({
           }
         >
           {t("loadError")}
+          {active && !agendaDenied && agenda.data && agenda.error && (
+            <p className="mt-1">{planning("refreshFailed")}</p>
+          )}
         </InlineNotice>
       )}
       <nav aria-label={t("attention")}>
@@ -265,29 +280,63 @@ export function DashboardTasks({
         <div className="border-t border-slate-100 pt-3">
           <h3 className="font-semibold">
             {t("today", {
-              date: format.dateTime(now, { dateStyle: "medium" }),
+              date: format.dateTime(now, {
+                dateStyle: "medium",
+                timeZone: schoolTimeZone,
+              }),
             })}
           </h3>
           <p className="muted mt-1 text-sm">{t("scheduleHelp")}</p>
+          <p className="muted text-xs">
+            {planning("zone", { timeZone: schoolTimeZone })}
+          </p>
           {calendar.data && !calendar.error && (
             <SchoolCalendarDayContext {...schoolDay} />
           )}
           {anchor("attendance", t("attendance"))}
-          {pairings.data &&
-            calendar.data &&
-            !calendar.error &&
-            !today.length && <p className="mt-2 text-sm">{t("noSessions")}</p>}
+          {agendaDenied && (
+            <StatePanel
+              kind="denied"
+              title={planning("denied")}
+              action={
+                <Button
+                  disabled={agenda.isFetching}
+                  onClick={() => void agenda.refetch()}
+                >
+                  {planning("retry")}
+                </Button>
+              }
+            />
+          )}
+          {agenda.data && !agenda.error && !agendaDenied && !today.length && (
+            <p className="mt-2 text-sm">{t("noSessions")}</p>
+          )}
           <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-            {today.map((entry) => (
-              <li key={entry.id} className="rounded-lg bg-slate-50 p-3 text-sm">
-                <p className="font-semibold">
-                  {entry.pairings.map((p) => p.subject).join(" + ")}
-                </p>
+            {today.map((cohort) => (
+              <li
+                key={cohort.id}
+                className="rounded-lg bg-slate-50 p-3 text-sm"
+              >
+                <p className="font-semibold">{cohort.subjects.join(" + ")}</p>
                 <p>
-                  {minToHm(entry.primary.startMin)}–
-                  {minToHm(entry.primary.endMin)} ·{" "}
-                  {entry.primary.room?.name ?? t("noRoom")}
+                  {minToHm(cohort.startMin)}–{minToHm(cohort.endMin)} ·{" "}
+                  {cohort.online
+                    ? planning("online")
+                    : (cohort.roomName ?? t("noRoom"))}
                 </p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {cohort.kind === "EXTRA" && (
+                    <span className="badge-slate">{planning("extra")}</span>
+                  )}
+                  {cohort.rescheduled && (
+                    <span className="badge-slate">
+                      {planning("rescheduled")}
+                    </span>
+                  )}
+                  {cohort.status === "RECORDED" && (
+                    <span className="badge-slate">{planning("recorded")}</span>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

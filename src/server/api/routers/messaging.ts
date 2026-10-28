@@ -20,6 +20,7 @@ import {
 import {
   effectiveMessagePermission,
   eligibleMessageRecipients,
+  eligibleSessionMessageRecipients,
 } from "~/server/messaging-permissions";
 
 import { MESSAGING_ADMIN_OPERATIONS } from "~/lib/approval-policy";
@@ -31,12 +32,16 @@ const supervisorProcedure = adminOnlyProcedure.use(({ path, type, next }) => {
   return next();
 });
 const pageInput = z
-  .object({ page: z.number().int().min(0).max(10000).default(0) })
+  .object({
+    page: z.number().int().min(0).max(10000).default(0),
+    sessionCohortId: z.string().min(1).max(200).optional(),
+  })
   .default({ page: 0 });
 const searchInput = z
   .object({
     search: z.string().trim().max(100).default(""),
     page: z.number().int().min(0).max(10000).default(0),
+    sessionCohortId: z.string().min(1).max(200).optional(),
   })
   .default({ search: "", page: 0 });
 const peopleSelect = {
@@ -68,10 +73,13 @@ export const messagingRouter = createTRPCRouter({
   recipients: protectedProcedure
     .input(searchInput)
     .query(async ({ ctx, input }) => {
-      const allowed = await eligibleMessageRecipients(
-        ctx.db,
-        ctx.session.user.id,
-      );
+      const allowed = input.sessionCohortId
+        ? await eligibleSessionMessageRecipients(
+            ctx.db,
+            ctx.session.user.id,
+            input.sessionCohortId,
+          )
+        : await eligibleMessageRecipients(ctx.db, ctx.session.user.id);
       const rows = await ctx.db.user.findMany({
         where: { AND: [allowed, personSearch(input.search)] },
         select: peopleSelect,
@@ -97,7 +105,13 @@ export const messagingRouter = createTRPCRouter({
         where: { id: { in: ids } },
         select: peopleSelect,
       }),
-      eligibleMessageRecipients(ctx.db, ctx.session.user.id),
+      input.sessionCohortId
+        ? eligibleSessionMessageRecipients(
+            ctx.db,
+            ctx.session.user.id,
+            input.sessionCohortId,
+          )
+        : eligibleMessageRecipients(ctx.db, ctx.session.user.id),
     ]);
     const replyIds = people.map((person) => person.mergedIntoId ?? person.id);
     const replyable = await ctx.db.user.findMany({
@@ -142,6 +156,7 @@ export const messagingRouter = createTRPCRouter({
             .max(MAX_MESSAGE_RECIPIENTS)
             .optional(),
           disclosureVersion: z.literal(1).optional(),
+          sessionCohortId: z.string().min(1).max(200).optional(),
           body: z.string().trim().min(1).max(4000),
           clientKey: z.string().uuid(),
         })
@@ -160,7 +175,16 @@ export const messagingRouter = createTRPCRouter({
       ].sort();
       const supervisable = input.disclosureVersion === 1;
       const hash = createHash("sha256")
-        .update(JSON.stringify({ recipients, body: input.body, supervisable }))
+        .update(
+          JSON.stringify({
+            recipients,
+            body: input.body,
+            supervisable,
+            ...(input.sessionCohortId
+              ? { sessionCohortId: input.sessionCohortId }
+              : {}),
+          }),
+        )
         .digest("hex");
       if (
         !rateLimit(`dm:${ctx.session.user.id}`, { max: 30, windowMs: 60000 }).ok
@@ -213,10 +237,15 @@ export const messagingRouter = createTRPCRouter({
         // Short shared locks prevent a concurrent role/assignment/policy change from committing
         // between eligibility validation and delivery. No external I/O occurs under these locks.
         await tx.$executeRaw`LOCK TABLE "User", "MessagePermission", "MessageRestriction", "Pairing", "PairingTutee", "Term", "StudentProfileOwnership", "MessageTutorAssignment" IN SHARE MODE`;
-        const allowed = await eligibleMessageRecipients(
-          tx,
-          ctx.session.user.id,
-        );
+        if (input.sessionCohortId)
+          await tx.$executeRaw`LOCK TABLE "SessionPlan", "SessionPlanCohort", "SessionPlanParticipant", "Tutor", "Tutee", "SchoolDeparture" IN SHARE MODE`;
+        const allowed = input.sessionCohortId
+          ? await eligibleSessionMessageRecipients(
+              tx,
+              ctx.session.user.id,
+              input.sessionCohortId,
+            )
+          : await eligibleMessageRecipients(tx, ctx.session.user.id);
         const people = await tx.user.findMany({
           where: { AND: [allowed, { id: { in: recipients } }] },
           select: peopleSelect,

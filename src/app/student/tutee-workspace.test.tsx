@@ -12,6 +12,15 @@ import { TuteeOverview } from "./tutee-overview";
 import { TuteeNavigation } from "./navigation";
 import { StudentPortal } from "~/app/_components/student-portal";
 import { programDateKey } from "~/lib/program-time";
+vi.mock("~/app/_components/session-agenda", () => ({
+  // Preserve the child's heading contract while its query/interaction coverage
+  // stays in session-agenda.test.tsx. The portal owns weekly arrangement headings.
+  SessionAgenda: () => (
+    <section aria-label="Dated session agenda">
+      <h2>Dated sessions</h2>
+    </section>
+  ),
+}));
 const mocks = vi.hoisted(() => ({
   personal: vi.fn(),
   requests: vi.fn(),
@@ -329,11 +338,20 @@ it("combines initial overview recovery without duplicate loading or failed-read 
   expect(requestRead).toHaveBeenCalledOnce();
 });
 
-it("retains meaningful headings in the combined portal while dedicated attendance omits its duplicate heading", () => {
+it("separates dated sessions, weekly arrangements and attendance headings while dedicated attendance omits unrelated sections", () => {
   const { unmount } = render(<StudentPortal view="all" />);
-  expect(screen.getByRole("heading", { name: "schedule" })).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { name: "Dated sessions", level: 2 }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { name: "weeklyArrangements", level: 2 }),
+  ).toBeTruthy();
   expect(screen.getByRole("heading", { name: "attendance" })).toBeTruthy();
   unmount();
   render(<StudentPortal view="attendance" />);
   expect(screen.queryByRole("heading", { name: "attendance" })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Dated sessions" })).toBeNull();
+  expect(
+    screen.queryByRole("heading", { name: "weeklyArrangements" }),
+  ).toBeNull();
 });

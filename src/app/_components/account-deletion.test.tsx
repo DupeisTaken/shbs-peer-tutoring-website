@@ -87,7 +87,7 @@ const preview = () => ({
   fingerprint: "reviewed",
   blockers: [],
   removed: { emails: 1, academicProfiles: 1 },
-  retained: { messages: 2 },
+  retained: { messages: 2, sessionNotices: 0 },
 });
 function Controller() {
   const [target, setTarget] = useState<{ id: string; name: string } | null>(
@@ -146,6 +146,26 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("shows retained essential scheduling evidence and blocks deletion with the scheduling-history explanation", () => {
+  state.data = {
+    ...preview(),
+    retained: { messages: 2, sessionNotices: 3 },
+    blockers: ["schedulingHistory"],
+  };
+  mount();
+  open();
+  expect(
+    screen.getByText(messages.accountDeletion.counts.sessionNotices),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(messages.accountDeletion.blockers.schedulingHistory),
+  ).toBeTruthy();
+  // Native fieldset disabled state is inherited; input.disabled only reports
+  // the input's own attribute and remains false for this composition.
+  expect(password().matches(":disabled")).toBe(true);
+  submit();
+  expect(state.mutate).not.toHaveBeenCalled();
+});
 it("reads a fresh review on every opening and restores the exact opener on idle Escape", async () => {
   mount();
   const opener = open();

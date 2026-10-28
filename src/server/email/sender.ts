@@ -172,7 +172,7 @@ async function sendSmtp(message: EmailMessage, account: SenderAccount) {
         ])
       : await delivery;
     // Single-recipient mail must be accepted before a flow reports success.
-    if (result.rejected?.length || result.accepted?.length === 0) {
+    if (result.rejected?.length || !result.accepted?.length) {
       throw new Error("SMTP recipient rejected");
     }
     console.info(`[email] ${message.category} delivered`);

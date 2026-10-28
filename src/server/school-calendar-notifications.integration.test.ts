@@ -2,6 +2,7 @@ import { afterAll, beforeEach, expect, it } from "vitest";
 import { db } from "~/server/db";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { lockEntity } from "./transactions";
+import { getSchoolCalendarDatedSessionUserIds } from "./school-calendar-session-audience";
 import {
   notifySchoolCalendarChange,
   remindUpcomingSchoolCalendar,
@@ -27,7 +28,9 @@ async function cleanup() {
     WHERE schemaname='public' AND tablename <> '_prisma_migrations'`;
   await db.$executeRawUnsafe(
     "TRUNCATE " +
-      tables.map(({ tablename }) => '"' + tablename.replaceAll('"', '""') + '"').join(",") +
+      tables
+        .map(({ tablename }) => '"' + tablename.replaceAll('"', '""') + '"')
+        .join(",") +
       " CASCADE",
   );
 }
@@ -104,6 +107,90 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
+it("includes the actual dated cohort on a closure, retained owners and no moved or cancelled participants", async () => {
+  const actualDate = "2026-11-01"; // Sunday: no recurring pairing from this fixture.
+  await db.sessionPlan.create({
+    data: {
+      id: `${prefix}dated-plan`,
+      generationKey: `${prefix}dated-key`,
+      tutorId: `${prefix}tutor-3`,
+      termId: `${prefix}term`,
+      originalDate: "2026-10-28",
+      timeZone: "Asia/Shanghai",
+      kind: "EXTRA",
+      sourceFingerprint: "synthetic",
+      cohorts: {
+        create: {
+          id: `${prefix}dated-cohort`,
+          date: actualDate,
+          startMin: 900,
+          endMin: 945,
+          startsAt: new Date(`${actualDate}T07:00:00Z`),
+          endsAt: new Date(`${actualDate}T07:45:00Z`),
+          rescheduled: true,
+        },
+      },
+    },
+  });
+  await db.sessionPlanParticipant.createMany({
+    data: [
+      {
+        planId: `${prefix}dated-plan`,
+        tuteeId: `${prefix}student-3`,
+        cohortId: `${prefix}dated-cohort`,
+      },
+      {
+        planId: `${prefix}dated-plan`,
+        tuteeId: `${prefix}student-1`,
+        cohortId: null,
+        status: "CANCELLED",
+      },
+    ],
+  });
+  await db.$transaction(async (tx) => {
+    expect(
+      (await getSchoolCalendarDatedSessionUserIds(tx, actualDate)).sort(),
+    ).toEqual([`${prefix}student-user-3`, `${prefix}tutor-user-3`]);
+    expect(
+      await getSchoolCalendarDatedSessionUserIds(tx, "2026-10-28"),
+    ).toEqual([]);
+    const after = await tx.schoolCalendarDay.create({
+      data: { date: actualDate, isSchoolDay: false },
+    });
+    await notifySchoolCalendarChange(
+      tx,
+      { before: null, after },
+      new Date("2026-10-31T10:00:00Z"),
+    );
+  });
+  expect(
+    (
+      await db.notification.findMany({
+        where: noticeWhere,
+        select: { userId: true },
+      })
+    )
+      .map((row) => row.userId)
+      .sort(),
+  ).toEqual([`${prefix}student-user-3`, `${prefix}tutor-user-3`]);
+  expect(
+    (
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: `${prefix}dated-cohort` },
+      })
+    ).status,
+  ).toBe("SCHEDULED");
+  await db.user.update({
+    where: { id: `${prefix}student-user-3` },
+    data: { suspendedAt: now },
+  });
+  await db.$transaction(async (tx) => {
+    expect(await getSchoolCalendarDatedSessionUserIds(tx, actualDate)).toEqual([
+      `${prefix}tutor-user-3`,
+    ]);
+  });
+});
+
 async function applyMapping(
   weekday = 2,
   announcedAt = new Date("2026-10-31T10:00:00Z"),
@@ -167,43 +254,114 @@ it("preserves migrated advance receipts after account combination without duplic
   await remindUpcomingSchoolCalendar(db, now);
   const retiredId = `${prefix}tutor-user-1`;
   const survivorId = `${prefix}merged-user`;
-  const original = await db.notification.findFirstOrThrow({ where: {
-    userId: retiredId, event: "school_calendar_upcoming",
-    context: { path: ["schoolDate"], equals: date },
-  } });
-  await db.user.create({ data: {
-    id: survivorId, email: `${prefix}merged@example.test`, role: "TUTOR",
-    emailInfo: true, emailVerifiedAt: now,
-  } });
+  const original = await db.notification.findFirstOrThrow({
+    where: {
+      userId: retiredId,
+      event: "school_calendar_upcoming",
+      context: { path: ["schoolDate"], equals: date },
+    },
+  });
+  await db.user.create({
+    data: {
+      id: survivorId,
+      email: `${prefix}merged@example.test`,
+      role: "TUTOR",
+      emailInfo: true,
+      emailVerifiedAt: now,
+    },
+  });
   // Match the existing combination contract: direct access and receipt ownership
   // move to the survivor; immutable receipt IDs/context remain unchanged.
   await db.$transaction(async (tx) => {
-    await tx.user.update({ where: { id: retiredId }, data: { tutorId: null, mergedIntoId: survivorId } });
-    await tx.user.update({ where: { id: survivorId }, data: { tutorId: `${prefix}tutor-1` } });
-    await tx.notification.updateMany({ where: { userId: retiredId }, data: { userId: survivorId } });
+    await tx.user.update({
+      where: { id: retiredId },
+      data: { tutorId: null, mergedIntoId: survivorId },
+    });
+    await tx.user.update({
+      where: { id: survivorId },
+      data: { tutorId: `${prefix}tutor-1` },
+    });
+    await tx.notification.updateMany({
+      where: { userId: retiredId },
+      data: { userId: survivorId },
+    });
   });
   const beforeMail = await db.emailDelivery.count({ where: noticeWhere });
-  await Promise.all([remindUpcomingSchoolCalendar(db, now), remindUpcomingSchoolCalendar(db, now)]);
-  expect(await db.notification.findUniqueOrThrow({ where: { id: original.id } })).toMatchObject({ userId: survivorId, context: original.context, createdAt: original.createdAt });
-  expect(await db.notification.count({ where: { userId: survivorId, event: "school_calendar_upcoming" } })).toBe(1);
-  expect(await db.notification.findUnique({ where: { id: schoolCalendarNotificationId(date, 1, "upcoming", survivorId) } })).toBeNull();
+  await Promise.all([
+    remindUpcomingSchoolCalendar(db, now),
+    remindUpcomingSchoolCalendar(db, now),
+  ]);
+  expect(
+    await db.notification.findUniqueOrThrow({ where: { id: original.id } }),
+  ).toMatchObject({
+    userId: survivorId,
+    context: original.context,
+    createdAt: original.createdAt,
+  });
+  expect(
+    await db.notification.count({
+      where: { userId: survivorId, event: "school_calendar_upcoming" },
+    }),
+  ).toBe(1);
+  expect(
+    await db.notification.findUnique({
+      where: {
+        id: schoolCalendarNotificationId(date, 1, "upcoming", survivorId),
+      },
+    }),
+  ).toBeNull();
   expect(await db.emailDelivery.count({ where: noticeWhere })).toBe(beforeMail);
 });
 
 it("does not suppress advance reminders using receipts from another event, date or revision", async () => {
   await applyMapping();
   const userId = `${prefix}tutor-user-1`;
-  const facts = { schoolDate: date, isSchoolDay: true, timetableWeekday: 2, calendarRevision: 1, timeZone: "Asia/Shanghai" };
+  const facts = {
+    schoolDate: date,
+    isSchoolDay: true,
+    timetableWeekday: 2,
+    calendarRevision: 1,
+    timeZone: "Asia/Shanghai",
+  };
   const unrelated = [
-    { id: `${prefix}other-date`, event: "school_calendar_upcoming", context: { ...facts, schoolDate: "2026-11-03" } },
-    { id: `${prefix}other-revision`, event: "school_calendar_upcoming", context: { ...facts, calendarRevision: 99 } },
-    { id: `${prefix}other-phase`, event: "school_calendar_reset", context: facts },
+    {
+      id: `${prefix}other-date`,
+      event: "school_calendar_upcoming",
+      context: { ...facts, schoolDate: "2026-11-03" },
+    },
+    {
+      id: `${prefix}other-revision`,
+      event: "school_calendar_upcoming",
+      context: { ...facts, calendarRevision: 99 },
+    },
+    {
+      id: `${prefix}other-phase`,
+      event: "school_calendar_reset",
+      context: facts,
+    },
   ];
-  await db.notification.createMany({ data: unrelated.map((row) => ({ ...row, userId, title: "Synthetic unrelated receipt", inAppOnly: true })) });
+  await db.notification.createMany({
+    data: unrelated.map((row) => ({
+      ...row,
+      userId,
+      title: "Synthetic unrelated receipt",
+      inAppOnly: true,
+    })),
+  });
   await remindUpcomingSchoolCalendar(db, now);
-  expect(await db.notification.findUniqueOrThrow({ where: { id: schoolCalendarNotificationId(date, 1, "upcoming", userId) } })).toMatchObject({ userId, event: "school_calendar_upcoming", context: facts });
+  expect(
+    await db.notification.findUniqueOrThrow({
+      where: { id: schoolCalendarNotificationId(date, 1, "upcoming", userId) },
+    }),
+  ).toMatchObject({
+    userId,
+    event: "school_calendar_upcoming",
+    context: facts,
+  });
   for (const row of unrelated) {
-    expect(await db.notification.findUniqueOrThrow({ where: { id: row.id } })).toMatchObject(row);
+    expect(
+      await db.notification.findUniqueOrThrow({ where: { id: row.id } }),
+    ).toMatchObject(row);
   }
 });
 
@@ -288,17 +446,30 @@ it("excludes suspended, departed, unconfirmed and inactive identities using live
 it("excludes a Viewer with retained participant links from new notices and queued email", async () => {
   await applyMapping();
   const userId = `${prefix}tutor-user-1`;
-  const row = await db.emailDelivery.findFirstOrThrow({ where: { ...noticeWhere, userId } });
-  await db.user.update({ where: { id: userId }, data: {
-    role: "VIEWER", tutorAccessRevoked: true, tuteeMember: false,
-    canTranslate: false, crewStatus: null,
-  } });
+  const row = await db.emailDelivery.findFirstOrThrow({
+    where: { ...noticeWhere, userId },
+  });
+  await db.user.update({
+    where: { id: userId },
+    data: {
+      role: "VIEWER",
+      tutorAccessRevoked: true,
+      tuteeMember: false,
+      canTranslate: false,
+      crewStatus: null,
+    },
+  });
   expect(await schoolCalendarEmailEligible(db, row, now)).toBe(false);
   await applyMapping(3);
-  expect(await db.notification.count({ where: {
-    ...noticeWhere, userId,
-    context: { path: ["calendarRevision"], equals: 2 },
-  } })).toBe(0);
+  expect(
+    await db.notification.count({
+      where: {
+        ...noticeWhere,
+        userId,
+        context: { path: ["calendarRevision"], equals: 2 },
+      },
+    }),
+  ).toBe(0);
 });
 
 it("fences stale and same-revision-wrong-state mail, with current eligibility rechecked at dispatch", async () => {

@@ -19,6 +19,7 @@ import { viewPage } from "~/lib/session-view-state";
 import { ParticipantName } from "./participant-name";
 import { ProgramCalendarNotice } from "./program-calendar";
 import { SchoolCalendarNotice } from "./school-calendar-notice";
+import { SessionAgenda } from "./session-agenda";
 
 /** Pending and valid cards may be appealed once while their school-day window is open. */
 export function canSubmitCardAppeal({
@@ -197,28 +198,31 @@ export function StudentPortal({
         </Modal>
       )}
       {(view === "all" || view === "schedule") && (
-        <section className="card p-6">
-          {view === "all" && <h2 className="section-title">{t("schedule")}</h2>}
-          <ProgramCalendarNotice />
-          <SchoolCalendarNotice />
-          {!schedule.length && (
-            <p className="muted mt-3">{portal("scheduleEmpty")}</p>
-          )}
-          {schedule.map((p) => (
-            <div key={p.id} className="mt-3 rounded-lg bg-slate-50 p-4">
-              <p className="font-semibold">
-                {p.subject} ·{" "}
-                <ParticipantName
-                  name={p.tutor.englishName}
-                  username={p.tutor.user?.username}
-                />
-              </p>
-              <p className="muted">
-                {pairingScheduleText(p, scheduling("awaiting"), locale)}
-              </p>
-              <RoomAllocationStatus pairing={p} />
-            </div>
-          ))}
+        <section className="space-y-5">
+          <SessionAgenda role="tutee" />
+          <div className="card p-4 sm:p-5">
+            <h2 className="section-title">{portal("weeklyArrangements")}</h2>
+            <ProgramCalendarNotice />
+            <SchoolCalendarNotice />
+            {!schedule.length && (
+              <p className="muted mt-3">{portal("scheduleEmpty")}</p>
+            )}
+            {schedule.map((p) => (
+              <div key={p.id} className="mt-3 rounded-lg bg-slate-50 p-4">
+                <p className="font-semibold">
+                  {p.subject} ·{" "}
+                  <ParticipantName
+                    name={p.tutor.englishName}
+                    username={p.tutor.user?.username}
+                  />
+                </p>
+                <p className="muted">
+                  {pairingScheduleText(p, scheduling("awaiting"), locale)}
+                </p>
+                <RoomAllocationStatus pairing={p} />
+              </div>
+            ))}
+          </div>
         </section>
       )}
       {(view === "all" || view === "attendance") && (
