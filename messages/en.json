@@ -6194,17 +6194,17 @@
       "action": "View application"
     },
     "school_calendar_changed": {
-      "title": "School schedule changed",
+      "title": "School Schedule Changed",
       "body": "The school schedule for {date} changed: {schedule}. Review your potentially affected tutoring sessions.",
       "action": "Review school schedule"
     },
     "school_calendar_reset": {
-      "title": "School schedule restored",
+      "title": "School Schedule Restored",
       "body": "The school schedule for {date} returned to its default: {schedule}. Review your tutoring sessions.",
       "action": "Review school schedule"
     },
     "school_calendar_upcoming": {
-      "title": "Upcoming school schedule override",
+      "title": "Upcoming School Schedule Override",
       "body": "Reminder for {date}: {schedule}. Review your potentially affected tutoring sessions.",
       "action": "Review school schedule"
     },
@@ -6724,7 +6724,7 @@
     "cancel": "Cancel"
   },
   "schoolCalendar": {
-    "title": "School calendar",
+    "title": "School Calendar",
     "help": "Set school closures and the weekday timetable followed on a specific date. Other dates follow the normal Monday–Friday school calendar.",
     "noticeDistinction": "No-tutoring notices are separate informational dates. They do not change this school calendar.",
     "add": "Add date override",
@@ -6734,7 +6734,7 @@
     "details": "View details",
     "edit": "Edit",
     "reset": "Reset to normal",
-    "resetTitle": "Reset this school date?",
+    "resetTitle": "Reset This School Date?",
     "resetHelp": "Restore the normal school-day and weekday rules for this date. Retained history and explicitly agreed sessions are preserved.",
     "empty": "No date overrides. Normal school-day and weekday rules apply.",
     "denied": "School calendar access is unavailable.",
@@ -6756,11 +6756,11 @@
     "refreshFailed": "The change was accepted, but refresh failed. Retry reads without saving again.",
     "follows": "Follows {weekday} timetable",
     "closureWarning": "Agreed extra or rescheduled sessions remain scheduled; check your agenda.",
-    "noticeTitle": "School schedule changes in the next 14 days",
+    "noticeTitle": "School Schedule Changes in the Next 14 Days",
     "noticeLoadFailed": "Could not refresh the school calendar. Previously shown dates may be outdated.",
     "alreadySubmitted": "This date change has already been submitted. Refresh the calendar to review its current state.",
     "viewUpcoming": "View upcoming changes",
-    "requestedDateTitle": "School calendar for this date",
+    "requestedDateTitle": "School Calendar for This Date",
     "defaultCalendar": "No active override for this date. Normal school-day and weekday rules apply.",
     "currentCalendar": "This reflects the current school calendar, not the earlier notification’s snapshot."
   },

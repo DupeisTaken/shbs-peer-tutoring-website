@@ -832,7 +832,7 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | School schedule changed | The school schedule for {date} changed: {schedule}. Review your potentially affected tutoring sessions. | Review school schedule |
+| English | School Schedule Changed | The school schedule for {date} changed: {schedule}. Review your potentially affected tutoring sessions. | Review school schedule |
 | 中文 | 学校课表已调整 | {date}的学校安排已调整：{schedule}。请查看可能受影响的辅导安排。 | 查看学校课表 |
 
 ### school_calendar_reset
@@ -844,7 +844,7 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | School schedule restored | The school schedule for {date} returned to its default: {schedule}. Review your tutoring sessions. | Review school schedule |
+| English | School Schedule Restored | The school schedule for {date} returned to its default: {schedule}. Review your tutoring sessions. | Review school schedule |
 | 中文 | 学校课表已恢复 | {date}的学校安排已恢复默认：{schedule}。请查看辅导安排。 | 查看学校课表 |
 
 ### school_calendar_upcoming
@@ -856,7 +856,7 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 
 | Language | Title | Description | Action |
 | --- | --- | --- | --- |
-| English | Upcoming school schedule override | Reminder for {date}: {schedule}. Review your potentially affected tutoring sessions. | Review school schedule |
+| English | Upcoming School Schedule Override | Reminder for {date}: {schedule}. Review your potentially affected tutoring sessions. | Review school schedule |
 | 中文 | 即将生效的学校课表调整 | {date}的安排提醒：{schedule}。请查看可能受影响的辅导安排。 | 查看学校课表 |
 
 `{date}` is the actual date label, never shifted through a recipient timezone.
