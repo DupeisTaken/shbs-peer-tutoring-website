@@ -18,7 +18,7 @@ export function optionalEmailCategory(
 ): UnsubscribeCategory | null {
   return category === "messages"
     ? "messages"
-    : ["info", "information"].includes(category)
+    : ["info", "information", "monthly_hours"].includes(category)
       ? "info"
       : null;
 }
@@ -96,7 +96,7 @@ export async function unsubscribeFromEmail(
         category: {
           in: [
             ...(stopMessages ? ["messages"] : []),
-            ...(stopInfo ? ["info", "information"] : []),
+            ...(stopInfo ? ["info", "information", "monthly_hours"] : []),
           ],
         },
       },

@@ -5,6 +5,8 @@ import { emailUrl, notificationDestination } from "./urls";
 import { notificationUnsubscribeUrl } from "./unsubscribe-token";
 import { notificationEmailCopy } from "./notification-copy";
 import { requestNoticeEmailCopy } from "./request-notice-copy";
+import { monthlyHoursCategory } from "~/server/monthly-hours";
+import { admitMonthlyHoursDelivery, finishMonthlyHoursDelivery, monthlyHoursDeliveryCopy } from "~/server/monthly-hours-delivery";
 import {
   admitRequestDelivery,
   finishRequestDelivery,
@@ -41,7 +43,7 @@ export async function deliverNotifications(limit = 10) {
     { id: string; leaseUntil: Date; attemptId: string | null }[]
   >`
     WITH candidates AS MATERIALIZED (SELECT id FROM "EmailDelivery" WHERE (status = 'PENDING'
-      OR (status = 'SENDING' AND category = 'request_service')) AND "availableAt" <= NOW()
+      OR (status = 'SENDING' AND category IN ('request_service', 'monthly_hours'))) AND "availableAt" <= NOW()
       AND ("leaseUntil" IS NULL OR "leaseUntil" < NOW()) ORDER BY "createdAt" LIMIT ${limit} FOR UPDATE SKIP LOCKED)
     UPDATE "EmailDelivery" delivery SET "leaseUntil" = NOW() + INTERVAL '5 minutes'
     FROM candidates WHERE delivery.id = candidates.id
@@ -53,7 +55,7 @@ export async function deliverNotifications(limit = 10) {
     });
     if (
       row.status !== "PENDING" &&
-      !(row.category === requestServiceCategory && row.status === "SENDING")
+      !([requestServiceCategory, monthlyHoursCategory].includes(row.category) && row.status === "SENDING")
     )
       continue;
     // Account security notices are essential; other notifications are program mail.
@@ -74,6 +76,18 @@ export async function deliverNotifications(limit = 10) {
     const current = await db.programSettings.findUnique({
       where: { id: "program" },
     });
+    if (row.category === monthlyHoursCategory) {
+      const admitted = await admitMonthlyHoursDelivery(db, id, leaseUntil, attemptId);
+      if (!admitted?.row.attemptId) continue;
+      let accepted = false;
+      try {
+        await emailSender.send({ category: "PROGRAM", to: admitted.row.recipient,
+          messageId: `<monthly-hours-${id}@shbs-notifications>`, ...monthlyHoursDeliveryCopy(admitted) });
+        accepted = true;
+      } catch { /* Completion retains only safe transport diagnostics. */ }
+      await finishMonthlyHoursDelivery(db, id, admitted.row.attemptId, accepted);
+      continue;
+    }
     if (row.category === requestServiceCategory) {
       // Preserve the lease/fence from the UPDATE itself. A paused older candidate
       // must not borrow a newer worker's lease from this later row read.

@@ -13,8 +13,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import SessionFlagsPage from "../(admin)/admin/session-flags/page";
-import ServiceHoursPage from "../(admin)/admin/service-hours/page";
+import ServiceHoursPage from "../(admin)/admin/service-hours/(roster)/page";
 import { ReadOnlyProvider } from "./read-only";
+
+vi.mock("./monthly-hours-panel", () => ({ MonthlyHoursPanel: () => null }));
 
 const state = vi.hoisted(() => ({
   loaded: true,

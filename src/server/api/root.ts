@@ -30,6 +30,7 @@ import { programRouter } from "~/server/api/routers/program";
 import { viewerRouter } from "~/server/api/routers/viewer";
 import { homeRouter } from "~/server/api/routers/home";
 import { correctionsRouter } from "~/server/api/routers/corrections";
+import { monthlyHoursRouter } from "~/server/api/routers/monthly-hours";
 import { studentWorkflowRouter } from "~/server/api/routers/student-workflow";
 
 /**
@@ -46,6 +47,7 @@ import { subjectAvailabilityRouter } from "./routers/subject-availability";
 import { translationReviewRouter } from "./routers/translation-review";
 
 export const appRouter = createTRPCRouter({
+  monthlyHours: monthlyHoursRouter,
   historicalAcademics: historicalAcademicsRouter,
   tuteeHistory: tuteeHistoryRouter,
   departure: departureRouter,

@@ -1,6 +1,48 @@
 // This explicit schema vocabulary is derived from prisma/schema.prisma; update it with schema changes.
 // It labels recorded evidence only and never fetches or changes a record.
 export const reviewSchema = {
+  MonthlyHoursSchedule: {
+    references: {},
+    enums: {},
+    fields: [
+      "id",
+      "enabled",
+      "recipientUserIds",
+      "dayOfMonth",
+      "localTime",
+      "timeZone",
+      "version",
+      "firstReportMonth",
+      "nextReportMonth",
+      "nextDueAt",
+      "lastGenerationError",
+      "updatedAt",
+      "reports",
+    ],
+  },
+  MonthlyHoursReport: {
+    references: { scheduleId: "MonthlyHoursSchedule" },
+    enums: {},
+    fields: [
+      "id",
+      "scheduleId",
+      "schedule",
+      "month",
+      "revision",
+      "configVersion",
+      "timeZone",
+      "dueAt",
+      "generatedAt",
+      "contentHash",
+      "snapshot",
+      "intendedRecipients",
+      "reason",
+      "generatedById",
+      "generationKey",
+      "generationHash",
+      "deliveries",
+    ],
+  },
   User: {
     references: {
       personId: "Person",
@@ -1795,6 +1837,7 @@ export const reviewSchema = {
   EmailDelivery: {
     references: {
       userId: "User",
+      monthlyHoursReportId: "MonthlyHoursReport",
     },
     enums: {},
     fields: [
@@ -1802,6 +1845,7 @@ export const reviewSchema = {
       "userId",
       "user",
       "category",
+      "monthlyHoursReportId",
       "event",
       "context",
       "requestKind",
@@ -2100,6 +2144,27 @@ export const reviewEnumValues = {
   AcademicStatus: ["REPORTED", "UNKNOWN", "GRADUATED", "NOT_APPLICABLE"],
 } as const;
 export const reviewFieldKeys = [
+  "recipientUserIds",
+  "dayOfMonth",
+  "localTime",
+  "firstReportMonth",
+  "nextReportMonth",
+  "nextDueAt",
+  "lastGenerationError",
+  "configVersion",
+  "dueAt",
+  "generatedAt",
+  "contentHash",
+  "snapshot",
+  "intendedRecipients",
+  "generatedById",
+  "generationKey",
+  "generationHash",
+  "monthlyHoursReportId",
+  "scheduleId",
+  "schedule",
+  "reports",
+  "deliveries",
   "absenceReason",
   "academicallyGraduated",
   "accept",

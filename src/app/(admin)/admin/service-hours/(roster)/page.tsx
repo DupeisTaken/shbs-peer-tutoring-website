@@ -28,6 +28,7 @@ import { QueryFeedback } from "~/app/_components/ui/query-feedback";
 import { SectionTabs } from "~/app/_components/ui/section-tabs";
 import { nextSort, type Sort } from "~/app/_components/sortable";
 import { ServiceHoursComparison } from "~/app/_components/service-hours-comparison";
+import { MonthlyHoursPanel } from "~/app/_components/monthly-hours-panel";
 
 export default function SummaryPage() {
   const t = useTranslations();
@@ -140,7 +141,7 @@ export default function SummaryPage() {
           </Link>
         </FilterToolbar>
       </div>
-
+      {!hidden && <MonthlyHoursPanel />}
       {hidden ? (
         <StatePanel
           kind="denied"

@@ -183,6 +183,8 @@ export const approvalRouter = createTRPCRouter({
           "admin.setUserRole",
           "program.setProfilePolicy",
           "program.setNameFields",
+          // Monthly delivery owns namespace/account before schedule admission.
+          "monthlyHours.save",
         ].includes(initial.operation);
       const periodIdentityApproval =
         !!initial &&

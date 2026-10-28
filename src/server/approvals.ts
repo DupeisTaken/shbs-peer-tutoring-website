@@ -30,6 +30,11 @@ import { announcementCandidates } from "./announcement-recipients";
 import { lockUsernameNamespace } from "./auth/username";
 import { DEFAULT_FEATURES } from "./program/features";
 import { getProgramTimeZone } from "./program/time-zone";
+import {
+  monthlyHoursLock,
+  validateMonthlyHoursSettings,
+} from "./monthly-hours";
+import { monthlyHoursSettingsInput } from "./monthly-hours-input";
 import { captureReviewReferences } from "./approval-reference-capture";
 import {
   applicationIdentityCorrectionInput,
@@ -260,8 +265,15 @@ export async function proposalAuthority(
         })
       : null;
   return classifyApproval(operation, value, {
-    currentAccountRole: operation === "admin.setMemberships" && typeof input.userId === "string"
-      ? (await client.user.findUnique({ where: { id: input.userId }, select: { role: true } }))?.role : undefined,
+    currentAccountRole:
+      operation === "admin.setMemberships" && typeof input.userId === "string"
+        ? (
+            await client.user.findUnique({
+              where: { id: input.userId },
+              select: { role: true },
+            })
+          )?.role
+        : undefined,
     currentTutorStatus: tutor?.status,
     currentCardReviewStatus: card?.reviewStatus,
     currentTuteeStatus: tutee?.status,
@@ -433,6 +445,62 @@ export async function proposalTargets(
       );
     return captured;
   };
+  if (operation === "monthlyHours.save") {
+    const proposed = monthlyHoursSettingsInput.parse(input);
+    await lockEntity(client, monthlyHoursLock);
+    await validateMonthlyHoursSettings(client, proposed);
+    const config = await client.monthlyHoursSchedule.findUnique({
+      where: { id: "program" },
+      select: {
+        id: true,
+        enabled: true,
+        recipientUserIds: true,
+        dayOfMonth: true,
+        localTime: true,
+        timeZone: true,
+        version: true,
+      },
+    });
+    if ((config?.version ?? 0) !== proposed.expectedVersion)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message:
+          "The monthly report settings changed. Reload before proposing this change.",
+      });
+    // Include both added and removed recipients. Background generation advances
+    // its cursor without invalidating this independently versioned configuration.
+    const ids = [
+      ...new Set([
+        ...(config?.recipientUserIds ?? []),
+        ...proposed.recipientUserIds,
+      ]),
+    ].sort();
+    const recipients = await client.user.findMany({
+      where: { id: { in: ids } },
+      orderBy: { id: "asc" },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        suspendedAt: true,
+        mergedIntoId: true,
+        email: true,
+        emailInfo: true,
+        emailSecondaryRecipients: true,
+        emails: {
+          select: { email: true, verifiedAt: true },
+          orderBy: { email: "asc" },
+        },
+      },
+    });
+    return capturedTargets({
+      monthlyHoursSchedule: config,
+      User: recipients.map((record) => ({ record })),
+      ...(includeAuthorityContext
+        ? { authorityContext: await authoritySnapshot(client) }
+        : {}),
+    });
+  }
   if (operation === "admin.correctApplicationIdentity") {
     // Queue interception happens before the resolver. Capture only a validated,
     // locked correction; replay repeats the same validation before fingerprinting.
@@ -1104,6 +1172,9 @@ export async function queueProposal(
       await lockUsernameNamespace(tx);
       await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${session.user.id} FOR SHARE`;
     }
+    // Monthly recipient notifications must not take account rows after holding
+    // the schedule while a delivery admission owns the opposite lock order.
+    if (operation === "monthlyHours.save") await lockUsernameNamespace(tx);
     // Retry/double-click of the same unchanged proposal returns its existing request.
     await lockEntity(
       tx,
@@ -1307,17 +1378,20 @@ export async function queueProposal(
         },
       },
     });
-    const headOnly = authority.reviewerRoles.includes("HEAD") && !authority.reviewerRoles.includes("ADMIN");
+    const headOnly =
+      authority.reviewerRoles.includes("HEAD") &&
+      !authority.reviewerRoles.includes("ADMIN");
     const reviewers = await managementReviewers(tx, {
-      headOnly, exclude: session.user.id, allowHeadSelfReview: true,
+      headOnly,
+      exclude: session.user.id,
+      allowHeadSelfReview: true,
     });
     await tx.notification.createMany({
       data: reviewers.map((u) => ({
         userId: u.id,
-        title:
-          headOnly
-            ? "Management change awaiting Head approval"
-            : "Management change awaiting approval",
+        title: headOnly
+          ? "Management change awaiting Head approval"
+          : "Management change awaiting approval",
         ...notificationEvent(
           headOnly
             ? "management_head_review_pending"
