@@ -26,8 +26,10 @@ primary-change security exception. A listed in-app audience does not imply that 
 account in it has opted into email.
 
 Context is allowlisted on write and read, and again by the notification-email database
-trigger. Only card-request/history-block counts and scheduled-interview ISO instant +
-timezone are used. No private message, announcement, appeal/review text, original
+trigger. Allowed facts are card-request/history-block counts, scheduled-interview
+ISO instant + timezone, and school-calendar actual date, school-day flag, effective
+timetable weekday, semantic revision and timezone. Calendar notes are excluded.
+No private message, announcement, appeal/review text, original
 answers, names, contacts or account secrets become event email context. Unknown counts
 use the catalogue's count-free description.
 
@@ -48,11 +50,34 @@ the account linked to the legacy tutee; [notifyLegacySchedule](../../src/server/
 directs managers to /admin/requests, linked tutors to /dashboard, and others to /student.
 Pending management and membership review notices go to eligible active, unmerged Admins, with Head fallback when none can review. Requester exclusions are applied before choosing the fallback; only current Head can review their own management proposal. Head retains review permission regardless of notification delivery. Official refresh review remains Head-only. Outcomes and operational alerts keep their documented audiences.
 
-There is **no dated tutoring-session notification emitter**. The scheduled-interview
-event records an actual date/time/timezone. Tutoring assignment events describe recurring
-weekly arrangements and confirmation state; they do not invent a next-session date.
+The scheduled-interview event records an actual date/time/timezone. Tutoring
+assignment events describe recurring weekly arrangements and confirmation state;
+they do not invent a next-session date. School-calendar events separately name the
+actual school date and resolved timetable; they do not promise an individual dated
+tutoring session or write to an external calendar provider.
 Account authentication, signup confirmation and request-invalidity service mail use
 separate direct/essential flows and are not silently reclassified as optional events.
+
+**School-calendar audience** means eligible active tutors and tutees with confirmed,
+populated active-period pairings on the union of the actual date's civil weekday,
+prior mapped weekday and new mapped weekday. Retained tutee ownership is included;
+suspended, merged, departed and inactive participants are excluded. Still-eligible
+prior recipients receive corrections. The [dated-session adapter](../../src/server/school-calendar-session-audience.ts)
+is the coordinated rollout's integration seam and currently contributes no dated
+participants. Calendar events use optional information email and normal verified
+address, program-switch and personal-preference gates.
+
+[Calendar emitters](../../src/server/school-calendar-notifications.ts) use stable
+date/semantic-revision/phase/recipient notification IDs. A lookup under the date's
+source lock also recognizes an existing phase/date/revision receipt moved to a
+surviving account, preserving its historical ID instead of repeating the notice.
+Notes change the editor version without advancing the semantic revision or
+repeating a notice. Applied
+changes invalidate superseded pending/failed email; dispatch rechecks the source
+revision, resolved state, recipient eligibility and reminder window. Sent and in-app
+records remain historical evidence. These checks cannot recall SMTP already
+accepted and do not guarantee exactly-once transport. There are no provider-calendar
+writes.
 
 ### Reviewer notification reconciliation
 
@@ -66,7 +91,7 @@ focus the loaded authorized row. Background refresh does not repeatedly move foc
 
 ### Record arrivals and scroll ownership
 
-Validated request/application record links in the bell disable Next's default page
+Validated request/application record links and school-calendar date links in the bell disable Next's default page
 scroll for that navigation. The authorized destination first selects its required
 panel and filters, then reveals and focuses the committed record in its native
 scroll container. A delayed read or mount must not consume the arrival before the
@@ -74,6 +99,13 @@ record exists. Incoming fragments take precedence over remembered page position;
 ordinary notification destinations retain normal navigation. Once revealed, later
 scrolling belongs to the user. A new location, access denial or intervening user
 gesture cancels an unfinished reveal; it must not pull the user back later.
+
+School-calendar links use `/dashboard#school-calendar/YYYY-MM-DD` or
+`/student#school-calendar/YYYY-MM-DD`. The participant adapter reads that exact
+validated date, including dates outside the ordinary fourteen-day notice window.
+It shows current authoritative facts or restored weekday/weekend defaults after a
+reset, without staff notes. A deliberate repeated click reveals the date again;
+paired Back/Forward events and background refreshes do not steal focus.
 
 At desktop management widths, the actual scrollable `#admin-content` pane owns
 record positioning. Revealing a child must not chain a second scroll into the
@@ -790,6 +822,46 @@ Without a recorded count: A catalogue change updated historical teaching blocks.
 | --- | --- | --- | --- |
 | English | Invalid Request Appeal Awaiting Review | A submitter appealed an applied invalid-request flag. Open the linked request to review the appeal; submitting an appeal does not clear the flag. | Review invalid request appeal |
 | 中文 | 无效申请申诉待审核 | 一位申请提交者对已应用的无效标记提出申诉。请打开链接中的申请审核申诉；提交申诉不会解除标记。 | 查看无效申请申诉 |
+
+### school_calendar_changed
+
+- Recipient: School-calendar audience, including eligible prior recipients.
+- Trigger: Applied create/reactivation or resolved school-day/timetable change on today or a future date. Pending proposals and note-only edits emit nothing. [Emitter](../../src/server/school-calendar-notifications.ts).
+- Authorized destination: Tutor dashboard or tutee workspace school-calendar context.
+- Timing: Immediate, including same-day changes after the advance-reminder cutoff. A same-revision change receipt within the advance window also serves as that recipient's advance reminder.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | School Schedule Changed | The school schedule for {date} changed: {schedule}. Review your potentially affected tutoring sessions. | Review school schedule |
+| 中文 | 学校课表已调整 | {date}的学校安排已调整：{schedule}。请查看可能受影响的辅导安排。 | 查看学校课表 |
+
+### school_calendar_reset
+
+- Recipient: School-calendar audience, including eligible prior recipients.
+- Trigger: Applied reset restores weekday/weekend defaults on today or a future date while retaining the override tombstone. [Emitter](../../src/server/school-calendar-notifications.ts).
+- Authorized destination: Tutor dashboard or tutee workspace school-calendar context.
+- Timing: Immediate. Historical resets retain audit evidence without a new operational notice.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | School Schedule Restored | The school schedule for {date} returned to its default: {schedule}. Review your tutoring sessions. | Review school schedule |
+| 中文 | 学校课表已恢复 | {date}的学校安排已恢复默认：{schedule}。请查看辅导安排。 | 查看学校课表 |
+
+### school_calendar_upcoming
+
+- Recipient: School-calendar audience for the active override, including eligible recipients of that revision's earlier change notice.
+- Trigger: Existing notification worker rereads an active override under its calendar lock and records one advance reminder per semantic revision and recipient. [Emitter](../../src/server/school-calendar-notifications.ts).
+- Authorized destination: Tutor dashboard or tutee workspace school-calendar context.
+- Timing: From the prior school-local date at 18:00, inclusive, until noon on the actual date, exclusive. A change notice already issued to that recipient in the same window and revision suppresses the duplicate advance phase; earlier announcements still receive it. School timezone wall clocks, rather than 24 elapsed hours, define the window.
+
+| Language | Title | Description | Action |
+| --- | --- | --- | --- |
+| English | Upcoming School Schedule Override | Reminder for {date}: {schedule}. Review your potentially affected tutoring sessions. | Review school schedule |
+| 中文 | 即将生效的学校课表调整 | {date}的安排提醒：{schedule}。请查看可能受影响的辅导安排。 | 查看学校课表 |
+
+`{date}` is the actual date label, never shifted through a recipient timezone.
+`{schedule}` is “No school / 不上课” or “Follows {weekday} timetable / 采用{weekday}课表”,
+with the effective weekday localized by the shared formatter.
 
 ## Essential request-service notices
 

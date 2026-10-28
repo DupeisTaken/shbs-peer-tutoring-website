@@ -217,6 +217,7 @@ const comparable = new Set([
   "admin.upsertPolicy",
   "admin.saveCourseGroup",
   "student.setCalendarDay",
+  "student.resetCalendarDay",
   "student.setFeedbackSettings",
   "home.updateNews",
   "home.updateSection",
@@ -256,7 +257,12 @@ export function approvalReview(
   payload: unknown,
   targets: unknown,
 ) {
-  const input = record(payload) ?? {};
+  const rawInput = record(payload) ?? {};
+  // Reset has a fixed, reviewable resulting effect; retained fields remain historical evidence.
+  const input =
+    operation === "student.resetCalendarDay"
+      ? { ...rawInput, active: false }
+      : rawInput;
   const evidence = record(targets) ?? {};
   const groups = Object.entries(evidence).flatMap(([table, value]) => {
     const rows = (Array.isArray(value) ? value : [value])

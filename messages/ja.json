@@ -3381,6 +3381,8 @@
         "preferredName": "希望する呼び名",
         "states": "入力項目の要件",
         "archivedOfferings": "アーカイブする科目の開設項目",
+        "timetableWeekday": "時間割の曜日",
+        "scheduleRevision": "時間割の改訂番号",
         "actionId": "記録済み入会承認の操作 ID"
       },
       "values": {
@@ -3559,7 +3561,6 @@
         "admin_deleteAnnouncement": "お知らせを削除",
         "admin_reviewCard": "懲戒カードを有効または無効と判定",
         "admin_undoAudit": "記録された管理操作を取り消す",
-        "recovery_voidAdmission": "初回の受け入れと対応範囲内の後続の影響を取り消す",
         "home_createNews": "ニュース記事を作成",
         "home_updateNews": "ニュースの公開設定を編集",
         "home_removeNewsTranslation": "ニュースの翻訳を削除",
@@ -3611,6 +3612,8 @@
         "admin_retryRoomAllocation": "指導割当ての教室自動割当てを再試行",
         "admin_autoAssignUnassignedRooms": "確認済みの未割り当てセッションすべてに教室を自動割り当て",
         "admin_correctApplicationIdentity": "処理中の申請氏名を訂正",
+        "student_resetCalendarDay": "学校日付を通常に戻す",
+        "recovery_voidAdmission": "初回の受け入れと対応範囲内の後続の影響を取り消す",
         "admin_setUserCanTranslate": "翻訳者権限を変更"
       },
       "decisionRequestHelp": "「承認して適用」は、元の申請を却下する操作も含め、提案された操作を実行します。「フィードバックを付けて却下」は、この提案を却下し、変更を行いません。どちらの場合も判断の理由を備考に記入してください。",
@@ -4099,6 +4102,8 @@
         "willing": "この科目の指導を希望",
         "windowStart": "活動時間の算定枠の開始",
         "workloadPreferenceVersion": "希望指導負担のバージョン",
+        "timetableWeekday": "時間割の曜日",
+        "scheduleRevision": "時間割の改訂番号",
         "recoveryVoidedAt": "ログイン権限の無効化日時",
         "transactionId": "トランザクション ID",
         "payload": "記録された入力",
@@ -6187,7 +6192,24 @@
       "title": "Interview Approved",
       "body": "The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome.",
       "action": "View application"
-    }
+    },
+    "school_calendar_changed": {
+      "title": "学校の時間割が変更されました",
+      "body": "{date}の学校の予定が変更されました：{schedule}。影響を受ける可能性のあるチュータリングを確認してください。",
+      "action": "学校の時間割を確認"
+    },
+    "school_calendar_reset": {
+      "title": "学校の時間割が元に戻りました",
+      "body": "{date}の学校の予定が既定に戻りました：{schedule}。チュータリングの予定を確認してください。",
+      "action": "学校の時間割を確認"
+    },
+    "school_calendar_upcoming": {
+      "title": "学校の時間割の変更予定",
+      "body": "{date}のリマインダー：{schedule}。影響を受ける可能性のあるチュータリングを確認してください。",
+      "action": "学校の時間割を確認"
+    },
+    "schoolCalendarScheduleNoSchool": "休校",
+    "schoolCalendarScheduleFollows": "{weekday}の時間割を適用"
   },
   "requestAppeal": {
     "title": "Appeal an Invalid Request",
@@ -6700,6 +6722,47 @@
       "APPLICATION_IDENTITY_RETRY_CHANGED": "この受付記録は別の訂正のものです。現在の氏名を再読み込みしてください。",
       "APPLICATION_IDENTITY_PROPOSAL_DECIDED": "この提案は審査済みです。決定を確認し、現在の氏名を再読み込みしてから新しい訂正を準備してください。"
     }
+  },
+  "schoolCalendar": {
+    "title": "学校カレンダー",
+    "help": "休校日と、指定日に適用する曜日の時間割を設定します。その他の日は月曜から金曜が登校日です。",
+    "noticeDistinction": "チュータリングを行わない日の案内は別の情報であり、学校カレンダーは変更しません。",
+    "add": "日付の例外を追加",
+    "date": "実際の日付",
+    "timetable": "時間割",
+    "actions": "操作",
+    "details": "詳細を見る",
+    "edit": "編集",
+    "reset": "通常に戻す",
+    "resetTitle": "この日を通常に戻しますか？",
+    "resetHelp": "通常の登校日と曜日の時間割に戻します。履歴と明示的に合意したセッションは保持されます。",
+    "empty": "日付の例外はありません。通常の登校日と曜日のルールを適用します。",
+    "denied": "学校カレンダーにアクセスできません。",
+    "refresh": "更新",
+    "loading": "学校カレンダーを読み込み中…",
+    "loadFailed": "学校カレンダーを更新できませんでした。読み込みが成功するまで編集できません。",
+    "schoolStatus": "登校の状態",
+    "schoolDay": "登校日",
+    "noSchool": "休校",
+    "civilWeekday": "実際の曜日を使用",
+    "timetableHelp": "この日に適用する時間割を選びます。例：日曜日に月曜日の授業を行う。",
+    "note": "スタッフ用メモ",
+    "agreementWarning": "休校でも、明示的に合意した追加・振替セッションは保持されます。参加者と確認してください。",
+    "saving": "保存中…",
+    "save": "学校日付を保存",
+    "saved": "学校カレンダーを保存しました。",
+    "saveFailed": "日付を保存できませんでした。下書きは保持されています。",
+    "reload": "現在の日付を再読み込み",
+    "refreshFailed": "変更は受理されましたが、更新できませんでした。再保存せず読み込みを再試行してください。",
+    "follows": "{weekday}の時間割を適用",
+    "closureWarning": "合意済みの追加・振替セッションは予定どおりです。日程を確認してください。",
+    "noticeTitle": "今後14日間の学校の予定変更",
+    "noticeLoadFailed": "学校カレンダーを更新できませんでした。表示済みの予定は古い可能性があります。",
+    "alreadySubmitted": "この日付の変更は送信済みです。カレンダーを更新して現在の状態を確認してください。",
+    "viewUpcoming": "今後の変更を見る",
+    "requestedDateTitle": "この日付の学校の予定",
+    "defaultCalendar": "この日に有効な例外はありません。通常の登校日と曜日のルールを適用します。",
+    "currentCalendar": "現在の学校カレンダーを表示しています。以前の通知時点の内容ではありません。"
   },
   "recordInspector": {
     "nav": "データベース記録",

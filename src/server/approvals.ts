@@ -30,6 +30,10 @@ import { announcementCandidates } from "./announcement-recipients";
 import { lockUsernameNamespace } from "./auth/username";
 import { DEFAULT_FEATURES } from "./program/features";
 import { getProgramTimeZone } from "./program/time-zone";
+import {
+  schoolCalendarWrite,
+  schoolCalendarReset,
+} from "~/lib/school-calendar";
 import { captureReviewReferences } from "./approval-reference-capture";
 import {
   applicationIdentityCorrectionInput,
@@ -539,6 +543,24 @@ export async function proposalTargets(
         code: "CONFLICT",
         message:
           "The tutoring notice changed. Reload before requesting review.",
+      });
+  }
+  if (
+    ["student.setCalendarDay", "student.resetCalendarDay"].includes(operation)
+  ) {
+    const calendarInput =
+      operation === "student.setCalendarDay"
+        ? schoolCalendarWrite.parse(input)
+        : schoolCalendarReset.parse(input);
+    await lockEntity(client, `school-calendar:${calendarInput.date}`);
+    const day = await client.schoolCalendarDay.findUnique({
+      where: { date: calendarInput.date },
+    });
+    if ((day?.version ?? 0) !== calendarInput.expectedVersion)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message:
+          "The school calendar changed. Reload before requesting review.",
       });
   }
   if (operation === "program.setNameFields") {

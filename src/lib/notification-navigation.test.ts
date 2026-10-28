@@ -164,3 +164,62 @@ it("preserves router history state when a same-page shortage link changes its ta
   expect(reveal).toHaveBeenCalledOnce();
   window.removeEventListener("hashchange", reveal);
 });
+
+it.each(["/dashboard", "/student"])(
+  "delegates same-page school-calendar navigation on %s to its authorized date reader",
+  (route) => {
+    const routerState = { __NA: true, retainedRouterTree: [route] };
+    window.history.replaceState(routerState, "", `${route}#previous-section`);
+    const push = vi.spyOn(window.history, "pushState");
+    const reveal = vi.fn<(event: HashChangeEvent) => void>();
+    const event = { preventDefault: vi.fn() };
+    window.addEventListener("hashchange", reveal);
+    navigateNotificationFragment(`${route}#school-calendar/2026-12-01`, event);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(push).toHaveBeenCalledExactlyOnceWith(
+      routerState,
+      "",
+      window.location.href,
+    );
+    expect(reveal).toHaveBeenCalledOnce();
+    expect(window.location.hash).toBe("#school-calendar/2026-12-01");
+    expect(window.history.state).toEqual(routerState);
+    window.removeEventListener("hashchange", reveal);
+  },
+);
+
+it.each([
+  ["/dashboard#school-calendar/2026-12-01", true],
+  ["/student#school-calendar/2028-02-29", true],
+  ["/student#school-calendar/2026-02-29", false],
+  ["/student#school-calendar/2026-13-01", false],
+  ["/student#school-calendar/2026-12-01/extra", false],
+  ["/student#school-calendar/2026%2D12%2D01", false],
+  ["/student?view=schedule#school-calendar/2026-12-01", false],
+  ["https://outside.example/student#school-calendar/2026-12-01", false],
+  ["/other#school-calendar/2026-12-01", false],
+] as const)(
+  "validates the managed school-calendar destination %s",
+  (href, expected) => {
+    expect(isNotificationRecordDestination(href)).toBe(expected);
+  },
+);
+
+it("identifies an intentional repeated calendar notification through equal old and new URLs", () => {
+  window.history.replaceState(
+    null,
+    "",
+    "/dashboard#school-calendar/2026-12-01",
+  );
+  const reveal = vi.fn<(event: HashChangeEvent) => void>();
+  const push = vi.spyOn(window.history, "pushState");
+  window.addEventListener("hashchange", reveal);
+  navigateNotificationFragment("/dashboard#school-calendar/2026-12-01", {
+    preventDefault: vi.fn(),
+  });
+  expect(reveal).toHaveBeenCalledOnce();
+  expect(reveal.mock.calls[0]?.[0].oldURL).toBe(window.location.href);
+  expect(reveal.mock.calls[0]?.[0].newURL).toBe(window.location.href);
+  expect(push).not.toHaveBeenCalled();
+  window.removeEventListener("hashchange", reveal);
+});

@@ -3381,6 +3381,8 @@
         "preferredName": "Preferred name",
         "states": "Field requirements",
         "archivedOfferings": "Offerings to archive",
+        "timetableWeekday": "Timetable weekday",
+        "scheduleRevision": "Schedule revision",
         "actionId": "Recovery reference"
       },
       "values": {
@@ -3562,7 +3564,6 @@
         "admin_deleteAnnouncement": "Delete an announcement",
         "admin_reviewCard": "Validate or invalidate a disciplinary card",
         "admin_undoAudit": "Undo a recorded management action",
-        "recovery_voidAdmission": "Void an initial admission and its supported consequences",
         "home_createNews": "Create a news post",
         "home_updateNews": "Edit news publication settings",
         "home_removeNewsTranslation": "Remove a news translation",
@@ -3611,6 +3612,8 @@
         "admin_retryRoomAllocation": "Retry automatic room allocation for a pairing",
         "admin_autoAssignUnassignedRooms": "Auto assign rooms to all reviewed unassigned sessions",
         "admin_correctApplicationIdentity": "Correct pending application names",
+        "student_resetCalendarDay": "Reset a school calendar day",
+        "recovery_voidAdmission": "Void an initial admission and its supported consequences",
         "admin_setUserCanTranslate": "Change Translator access"
       },
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
@@ -4099,6 +4102,8 @@
         "willing": "Willing to tutor this subject",
         "windowStart": "Credit window start",
         "workloadPreferenceVersion": "Workload preference version",
+        "timetableWeekday": "Timetable weekday",
+        "scheduleRevision": "Schedule revision",
         "recoveryVoidedAt": "Login voided at",
         "transactionId": "Transaction ID",
         "payload": "Recorded input",
@@ -6187,7 +6192,24 @@
       "title": "Interview Approved",
       "body": "The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome.",
       "action": "View application"
-    }
+    },
+    "school_calendar_changed": {
+      "title": "School Schedule Changed",
+      "body": "The school schedule for {date} changed: {schedule}. Review your potentially affected tutoring sessions.",
+      "action": "Review school schedule"
+    },
+    "school_calendar_reset": {
+      "title": "School Schedule Restored",
+      "body": "The school schedule for {date} returned to its default: {schedule}. Review your tutoring sessions.",
+      "action": "Review school schedule"
+    },
+    "school_calendar_upcoming": {
+      "title": "Upcoming School Schedule Override",
+      "body": "Reminder for {date}: {schedule}. Review your potentially affected tutoring sessions.",
+      "action": "Review school schedule"
+    },
+    "schoolCalendarScheduleNoSchool": "No school",
+    "schoolCalendarScheduleFollows": "Follows {weekday} timetable"
   },
   "requestAppeal": {
     "title": "Appeal an Invalid Request",
@@ -6700,6 +6722,47 @@
     "saveFailed": "The correction could not be saved.",
     "reload": "Reload current names",
     "cancel": "Cancel"
+  },
+  "schoolCalendar": {
+    "title": "School Calendar",
+    "help": "Set school closures and the weekday timetable followed on a specific date. Other dates follow the normal Monday–Friday school calendar.",
+    "noticeDistinction": "No-tutoring notices are separate informational dates. They do not change this school calendar.",
+    "add": "Add date override",
+    "date": "Actual date",
+    "timetable": "Timetable",
+    "actions": "Actions",
+    "details": "View details",
+    "edit": "Edit",
+    "reset": "Reset to normal",
+    "resetTitle": "Reset This School Date?",
+    "resetHelp": "Restore the normal school-day and weekday rules for this date. Retained history and explicitly agreed sessions are preserved.",
+    "empty": "No date overrides. Normal school-day and weekday rules apply.",
+    "denied": "School calendar access is unavailable.",
+    "refresh": "Refresh",
+    "loading": "Loading school calendar…",
+    "loadFailed": "Could not refresh the school calendar. Editing is paused until a successful read.",
+    "schoolStatus": "School status",
+    "schoolDay": "School day",
+    "noSchool": "No school",
+    "civilWeekday": "Use the actual weekday",
+    "timetableHelp": "Choose the school timetable for this date, for example Monday lessons on a Sunday.",
+    "note": "Staff note",
+    "agreementWarning": "Explicitly agreed extras and rescheduled sessions are preserved on school closures. Review them with participants.",
+    "saving": "Saving…",
+    "save": "Save school date",
+    "saved": "School calendar saved.",
+    "saveFailed": "Could not save the school date. Your draft is retained.",
+    "reload": "Reload current date",
+    "refreshFailed": "The change was accepted, but refresh failed. Retry reads without saving again.",
+    "follows": "Follows {weekday} timetable",
+    "closureWarning": "Agreed extra or rescheduled sessions remain scheduled; check your agenda.",
+    "noticeTitle": "School Schedule Changes in the Next 14 Days",
+    "noticeLoadFailed": "Could not refresh the school calendar. Previously shown dates may be outdated.",
+    "alreadySubmitted": "This date change has already been submitted. Refresh the calendar to review its current state.",
+    "viewUpcoming": "View upcoming changes",
+    "requestedDateTitle": "School Calendar for This Date",
+    "defaultCalendar": "No active override for this date. Normal school-day and weekday rules apply.",
+    "currentCalendar": "This reflects the current school calendar, not the earlier notification’s snapshot."
   },
   "recordInspector": {
     "nav": "Database records",

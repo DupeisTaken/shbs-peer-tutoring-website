@@ -1758,7 +1758,16 @@ export const reviewSchema = {
   SchoolCalendarDay: {
     references: {},
     enums: {},
-    fields: ["date", "isSchoolDay", "note"],
+    fields: [
+      "date",
+      "isSchoolDay",
+      "timetableWeekday",
+      "note",
+      "active",
+      "version",
+      "scheduleRevision",
+      "updatedAt",
+    ],
   },
   ProgramCalendarDay: {
     references: {},

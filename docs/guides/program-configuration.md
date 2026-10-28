@@ -167,7 +167,7 @@ continue to operate. If saving succeeds but reloading settings fails, use
 | Names and grades                  | Admin/Head apply offered grades and independently controls **Use preferred names** and **Show names in another language**; Coordinators request review; see [name fields and display settings](user-guide.md#names-and-academic-details)                                                                                           |
 | Subjects, levels, slots and rooms | Management catalogues used by application, availability and pairing workflows                                                                                                                                                                                                                                                 |
 | Policy versions                   | Published database revisions require new acceptance for participation; changing a bundled policy draft does not publish it                                                                                                                                                                                                    |
-| School calendar                   | Staff define holidays and make-up days used for school-day appeal deadlines                                                                                                                                                                                                                                                   |
+| School calendar                   | Admin/Head apply date-specific school closures, make-up school days and timetable weekdays; Coordinators request Admin/Head review. Defaults are Monday–Friday school days. School-day status affects appeal deadlines; a timetable mapping alone does not. See [school calendar](#school-calendar-and-timetable-dates) |
 | No-tutoring dates                 | Admin/Head apply inclusive start/end date ranges with a reason; Coordinators request review. Protected tutor/tutee schedules display this informational context. It does not restrict attendance, cancel sessions, change recurrence, alter appeal deadlines or modify school-day rules |
 | Name field requirements           | Admin/Head configure Required/Optional/Hidden for each field and account type; Coordinators request review. New signup uses its intake type; later shared-profile edits use the current account role. Hidden originals remain visible in authorized management editors; active labels exclude them and use username fallback when needed |
 | Feedback visibility               | Management-only by default; configured sharing also affects earlier feedback                                                                                                                                                                                                                                                  |
@@ -186,8 +186,10 @@ language. Email includes English and Chinese together; the system does not save 
 recipient email-language preference. The [notification event inventory](../reference/notification-events.md)
 maps all supported events to their actual trigger, recipients, wording and destination.
 Interview scheduling can carry a recorded date/time/timezone. Tutoring assignments
-remain recurring weekly arrangements: there is no dated tutoring-session notification
-emitter, and an assignment notice does not create or promise a specific session date.
+remain recurring weekly arrangements; an assignment notice does not create or promise
+a specific session date. School-calendar notices separately name an actual date and
+its school-day/timetable meaning, with optional information email copies. They do not
+write to an external calendar provider or announce an individual dated session.
 
 The independent **Secondary-Email Binding** switch takes effect when Admin/Head apply it; Coordinators can propose either email switch. Binding availability defaults on to preserve the existing workflow. Turning it off blocks add/resend/confirm operations, including a code issued before the switch changed. It preserves existing account addresses, sign-in/recovery, primary-email changes and removal/cancellation. A secondary email is never required for signup, setup or use. This switch does not require notification emails to be enabled.
 
@@ -559,6 +561,50 @@ reports a configuration error or the public domain changes. Regenerate distribut
 images after a domain change. Place the black QR and text over a plain, light
 background, keeping the clear border around the QR free of other artwork.
 Verify the finished print or shared image with a scanner.
+
+### School calendar and timetable dates
+
+Open **Program Settings → Recruitment and Refresh → School Calendar**. Admin/Head apply
+changes and resets directly; Coordinators submit them for Admin/Head review.
+Pending proposals do not change schedules or send
+operational calendar notices.
+
+Use **Add date override** for a holiday, make-up school day or different timetable. Select
+the actual date, whether school is open, an optional timetable weekday, and a note.
+Without an override, Monday–Friday are school days and weekends are closed. An open
+date with no selected timetable weekday follows its own civil weekday. For example,
+an open Sunday can follow Monday's timetable; its displayed and recorded date remains
+Sunday. A closed date cannot also select a timetable weekday. Ordinary recurring
+plans are suppressed on a closed date. The coordinated dated-session workflows
+remain responsible for agreed extras/reschedules and their closure warnings; this
+setting does not rewrite attendance or historical service hours.
+
+Edit a saved date deliberately, or use **Reset to normal** to restore ordinary
+weekday/weekend behavior. Reset retains internal version evidence so an older open
+editor cannot recreate a removed override. Background reads preserve unfinished
+drafts. If another editor changes the date, explicitly reload and review it before
+saving. After an accepted write, a failed refresh offers a read-only retry rather
+than repeating the change. A note-only edit does not send another operational
+notice. School-day appeal deadlines use open/closed status; changing the timetable
+weekday alone has no effect on those deadlines.
+
+Eligible tutors and tutees with potentially affected confirmed active-period
+pairings receive in-app change/reset notices. The audience includes the actual
+date's civil weekday, the prior timetable weekday and the new timetable weekday,
+plus eligible prior recipients for corrections. Advance reminders run from 18:00
+on the prior date until noon on the actual date, using the program timezone. A
+same-revision change notice issued inside that window serves as that recipient's
+reminder; a later same-day change still notifies immediately. Changes to historical
+dates do not generate a new operational notice. The separate dated-session rollout
+owns adding participants from explicit extras and reschedules.
+
+Email copies use the optional **Information / Program** category and require both
+the program switch and the recipient's preference. Copy includes the actual date
+and school-day/timetable facts, never the staff note. Delivery rechecks the current
+calendar revision and participant eligibility; SMTP already accepted cannot be
+recalled. No external calendar provider is modified. The separate **No-tutoring
+dates** control remains informational: its inclusive ranges do not cancel sessions,
+change recurrence, restrict attendance or alter school-day appeal counting.
 
 ### Configure recruitment windows
 

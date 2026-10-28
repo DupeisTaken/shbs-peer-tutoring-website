@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { programDateKey } from "./program-time";
 import {
   tutorUpcoming,
   type UpcomingPairing,
@@ -31,9 +32,57 @@ const project = (
   interviews: UpcomingInterview[] = [],
   now = new Date("2026-10-18T07:30:00Z"),
   timeZone = "Asia/Shanghai",
-) => tutorUpcoming({ pairings, interviews, now, timeZone });
+) =>
+  tutorUpcoming({
+    pairings,
+    interviews,
+    now,
+    timeZone,
+    // These legacy projection fixtures explicitly allow weekend tutoring. Calendar
+    // default/closure behavior is exercised separately below.
+    schoolCalendar: Array.from({ length: 7 }, (_, offset) => {
+      const date = new Date(`${programDateKey(now, timeZone)}T00:00:00Z`);
+      date.setUTCDate(date.getUTCDate() + offset);
+      return { date: date.toISOString().slice(0, 10), isSchoolDay: true };
+    }),
+  });
 
 describe("personal seven-program-date projection", () => {
+  it("uses the mapped timetable on the actual date and closes ordinary recurrence without moving interviews", () => {
+    const result = tutorUpcoming({
+      pairings: [
+        pairing({ dayOfWeek: 1 }),
+        pairing({ id: "tuesday", dayOfWeek: 2 }),
+      ],
+      interviews: [
+        interview({ interviewAt: new Date("2026-11-02T08:00:00Z") }),
+      ],
+      now: new Date("2026-10-31T16:00:00Z"),
+      timeZone: "Asia/Shanghai",
+      schoolCalendar: [
+        { date: "2026-11-01", isSchoolDay: true, timetableWeekday: 1 },
+        { date: "2026-11-02", isSchoolDay: false },
+      ],
+    });
+    expect(result.events.map((event) => event.id)).toEqual([
+      "session:pairing:2026-11-01",
+      "interview:applicant",
+      "session:tuesday:2026-11-03",
+    ]);
+    expect(result.events[0]?.start.toISOString()).toBe(
+      "2026-11-01T07:00:00.000Z",
+    );
+  });
+  it("keeps unmapped weekend recurrence closed by the school calendar default", () => {
+    expect(
+      tutorUpcoming({
+        pairings: [pairing()],
+        interviews: [],
+        now: new Date("2026-10-18T07:00:00Z"),
+        timeZone: "Asia/Shanghai",
+      }).events,
+    ).toEqual([]);
+  });
   it("retains ongoing confirmed sessions until their end and never promotes defaults or empty assignments", () => {
     const input = [
       pairing(),
@@ -128,7 +177,9 @@ describe("personal seven-program-date projection", () => {
       pairing({ ...common, id: "p1" }),
       pairing({ ...common, id: "p2", subject: "Physics" }),
     ];
-    const waiting = project(members.map((p) => ({ ...p, scheduleConfirmed: false })));
+    const waiting = project(
+      members.map((p) => ({ ...p, scheduleConfirmed: false })),
+    );
     expect(waiting.events).toEqual([]);
     expect(waiting.groupsNeedingRepair).toBe(0);
     const invalid = project([members[0]!, { ...members[1]!, tutees: [] }]);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useFormatter, useTimeZone, useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { isOpenInterview } from "~/lib/interview-order";
 import { programDateKey } from "~/lib/program-time";
@@ -10,6 +10,8 @@ import { pairingEntries } from "~/lib/pairing-groups";
 import { InlineNotice } from "~/app/_components/ui/patterns";
 import { Button } from "~/app/_components/ui/button";
 import { focusVisibleContext } from "~/app/_components/focus-visible-context";
+import { resolveSchoolCalendarDay } from "~/lib/school-calendar";
+import { SchoolCalendarDayContext } from "~/app/_components/school-calendar-notice";
 
 const taskTargets = new Set([
   "tutor-activation",
@@ -28,7 +30,7 @@ export function DashboardTasks({
   status,
   interviewsEnabled,
   meetingsEnabled,
-  now,
+  now: initialNow,
 }: {
   status: string;
   interviewsEnabled: boolean;
@@ -40,6 +42,17 @@ export function DashboardTasks({
   const pairingsText = useTranslations("dashboard.pairings");
   const format = useFormatter();
   const timeZone = useTimeZone();
+  const [now, setNow] = useState(initialNow);
+  useEffect(() => {
+    if (status !== "ACTIVE") return;
+    const update = () => setNow(new Date());
+    const timer = window.setInterval(update, 30_000);
+    window.addEventListener("focus", update);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", update);
+    };
+  }, [status]);
   const revealFrame = useRef<number | null>(null);
   const revealTask = useCallback((id: string) => {
     if (!taskTargets.has(id)) return;
@@ -63,6 +76,14 @@ export function DashboardTasks({
     };
   }, [revealTask]);
   const active = status === "ACTIVE";
+  const date = programDateKey(now, timeZone);
+  const calendar = api.program.schoolCalendar.useQuery(
+    { from: date, to: date },
+    {
+      enabled: active,
+      refetchInterval: active ? 60_000 : false,
+    },
+  );
   const pairings = api.tutor.myPairings.useQuery();
   const roster = api.studentWorkflow.tutorRoster.useQuery();
   const removals = api.tutor.myTuteeRemovalRequests.useQuery();
@@ -80,23 +101,30 @@ export function DashboardTasks({
     qualifications,
     removals,
     membership,
+    ...(active ? [calendar] : []),
     ...(active && interviewsEnabled ? [interviews] : []),
     ...(active && meetingsEnabled ? [meetings] : []),
   ];
-  const date = programDateKey(now, timeZone);
-  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
+  const schoolDay = resolveSchoolCalendarDay(date, calendar.data ?? []);
+  const weekday = schoolDay.effectiveTimetableWeekday;
   const entries = pairingEntries(pairings.data ?? []);
   const today = entries.filter(
     (entry) =>
+      !!calendar.data &&
+      !calendar.error &&
       entry.groupStatus !== "needsRepair" &&
-      entry.primary.scheduleConfirmed && entry.primary.dayOfWeek === weekday,
+      entry.primary.scheduleConfirmed &&
+      entry.primary.dayOfWeek === weekday,
   );
   // One valid unscheduled group is one plan, not one task for every subject.
   // Invalid groups get their own repair task rather than an invented appointment.
   const unscheduled = entries.filter(
-    (entry) => entry.groupStatus !== "needsRepair" && !entry.primary.scheduleConfirmed,
+    (entry) =>
+      entry.groupStatus !== "needsRepair" && !entry.primary.scheduleConfirmed,
   ).length;
-  const needsRepair = entries.filter((entry) => entry.groupStatus === "needsRepair").length;
+  const needsRepair = entries.filter(
+    (entry) => entry.groupStatus === "needsRepair",
+  ).length;
   const reviews = (roster.data ?? []).filter(
     (r) => r.pending || !r.verified || r.editedAt,
   ).length;
@@ -241,10 +269,14 @@ export function DashboardTasks({
             })}
           </h3>
           <p className="muted mt-1 text-sm">{t("scheduleHelp")}</p>
-          {anchor("attendance", t("attendance"))}
-          {pairings.data && !today.length && (
-            <p className="mt-2 text-sm">{t("noSessions")}</p>
+          {calendar.data && !calendar.error && (
+            <SchoolCalendarDayContext {...schoolDay} />
           )}
+          {anchor("attendance", t("attendance"))}
+          {pairings.data &&
+            calendar.data &&
+            !calendar.error &&
+            !today.length && <p className="mt-2 text-sm">{t("noSessions")}</p>}
           <ul className="mt-2 grid gap-2 sm:grid-cols-2">
             {today.map((entry) => (
               <li key={entry.id} className="rounded-lg bg-slate-50 p-3 text-sm">

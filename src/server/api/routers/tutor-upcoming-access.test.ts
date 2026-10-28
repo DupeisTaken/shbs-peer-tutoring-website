@@ -32,6 +32,8 @@ beforeEach(async () => {
         .join(",") +
       " CASCADE",
   );
+  // This fixture intentionally teaches on a Sunday make-up school day.
+  await db.schoolCalendarDay.create({ data: { date: "2026-10-18", isSchoolDay: true } });
   const tutor = await db.tutor.create({
     data: { englishName: "Synthetic schedule owner" },
   });
@@ -113,6 +115,7 @@ it("projects only live owned active-period plans and never adds interview eviden
   const result = tutorUpcoming({
     pairings,
     interviews,
+    schoolCalendar: await own.program.schoolCalendar({ from: "2026-10-18", to: "2026-10-24" }),
     now,
     timeZone: "Asia/Shanghai",
   });
@@ -142,6 +145,7 @@ it("reflects rescheduling and panel replacement on a new read without retained d
     tutorUpcoming({
       pairings,
       interviews: await own.tutor.myInterviews(),
+      schoolCalendar: await own.program.schoolCalendar({ from: "2026-10-18", to: "2026-10-24" }),
       now,
       timeZone: "Asia/Shanghai",
     }).events,

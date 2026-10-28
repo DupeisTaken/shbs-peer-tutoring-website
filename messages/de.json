@@ -3381,6 +3381,8 @@
         "preferredName": "Bevorzugter Name",
         "states": "Feldanforderungen",
         "archivedOfferings": "Zu archivierende Fachangebote",
+        "timetableWeekday": "Wochentag des Stundenplans",
+        "scheduleRevision": "Stundenplanrevision",
         "actionId": "Aktions-ID der erfassten Zulassung"
       },
       "values": {
@@ -3559,7 +3561,6 @@
         "admin_deleteAnnouncement": "Mitteilung löschen",
         "admin_reviewCard": "Disziplinarkarte für gültig oder ungültig erklären",
         "admin_undoAudit": "Protokollierte Verwaltungsaktion rückgängig machen",
-        "recovery_voidAdmission": "Eine Erstzulassung und ihre unterstützten Folgen rückgängig machen",
         "home_createNews": "Neuigkeitenbeitrag erstellen",
         "home_updateNews": "Veröffentlichungseinstellungen für Neuigkeiten bearbeiten",
         "home_removeNewsTranslation": "Übersetzung eines Neuigkeitenbeitrags entfernen",
@@ -3611,6 +3612,8 @@
         "admin_retryRoomAllocation": "Automatische Raumzuweisung einer Lernzuordnung erneut versuchen",
         "admin_autoAssignUnassignedRooms": "Allen geprüften Sitzungen ohne Raum automatisch Räume zuweisen",
         "admin_correctApplicationIdentity": "Namen eines offenen Antrags korrigieren",
+        "student_resetCalendarDay": "Schultag auf Standard zurücksetzen",
+        "recovery_voidAdmission": "Eine Erstzulassung und ihre unterstützten Folgen rückgängig machen",
         "admin_setUserCanTranslate": "Übersetzerzugriff ändern"
       },
       "decisionRequestHelp": "„Genehmigen und anwenden“ führt die beantragte Aktion aus, auch eine beantragte Ablehnung. „Mit Rückmeldung ablehnen“ lehnt diesen Antrag ohne Änderungen ab. Begründen Sie beide Entscheidungen mit einer Notiz.",
@@ -4099,6 +4102,8 @@
         "willing": "Bereit zur Betreuung dieses Fachs",
         "windowStart": "Beginn des Anrechnungsfensters",
         "workloadPreferenceVersion": "Version des gewünschten Arbeitsumfangs",
+        "timetableWeekday": "Wochentag des Stundenplans",
+        "scheduleRevision": "Stundenplanrevision",
         "recoveryVoidedAt": "Anmeldezugang ungültig seit",
         "transactionId": "Transaktions-ID",
         "payload": "Protokollierte Eingabe",
@@ -6187,7 +6192,24 @@
       "title": "Interview Approved",
       "body": "The assigned chair approved the interview and recorded panel service hours. Review the application for its outcome.",
       "action": "View application"
-    }
+    },
+    "school_calendar_changed": {
+      "title": "Schulstundenplan geändert",
+      "body": "Der Schulstundenplan für {date} wurde geändert: {schedule}. Prüfe möglicherweise betroffene Nachhilfetermine.",
+      "action": "Schulstundenplan prüfen"
+    },
+    "school_calendar_reset": {
+      "title": "Schulstundenplan wiederhergestellt",
+      "body": "Der Schulstundenplan für {date} wurde auf Standard zurückgesetzt: {schedule}. Prüfe deine Nachhilfetermine.",
+      "action": "Schulstundenplan prüfen"
+    },
+    "school_calendar_upcoming": {
+      "title": "Bevorstehende Stundenplanänderung",
+      "body": "Erinnerung für {date}: {schedule}. Prüfe möglicherweise betroffene Nachhilfetermine.",
+      "action": "Schulstundenplan prüfen"
+    },
+    "schoolCalendarScheduleNoSchool": "Schulfrei",
+    "schoolCalendarScheduleFollows": "Stundenplan: {weekday}"
   },
   "requestAppeal": {
     "title": "Appeal an Invalid Request",
@@ -6700,6 +6722,47 @@
       "APPLICATION_IDENTITY_RETRY_CHANGED": "Dieser Beleg gehört zu einer anderen Korrektur. Laden Sie die aktuellen Namen neu.",
       "APPLICATION_IDENTITY_PROPOSAL_DECIDED": "Dieser Vorschlag wurde bereits geprüft. Sehen Sie die Entscheidung an und laden Sie die aktuellen Namen neu."
     }
+  },
+  "schoolCalendar": {
+    "title": "Schulkalender",
+    "help": "Schulfreie Tage und den geltenden Stundenplan für einzelne Daten festlegen. Sonst gelten Montag bis Freitag als Schultage.",
+    "noticeDistinction": "Hinweise auf unterrichtsfreie Nachhilfetage sind getrennte Informationen und ändern diesen Schulkalender nicht.",
+    "add": "Datumsregel hinzufügen",
+    "date": "Tatsächliches Datum",
+    "timetable": "Stundenplan",
+    "actions": "Aktionen",
+    "details": "Details ansehen",
+    "edit": "Bearbeiten",
+    "reset": "Standard wiederherstellen",
+    "resetTitle": "Standard für dieses Datum wiederherstellen?",
+    "resetHelp": "Die üblichen Schultag- und Wochentagsregeln wiederherstellen. Verlauf und ausdrücklich vereinbarte Termine bleiben erhalten.",
+    "empty": "Keine Datumsregeln. Es gelten die üblichen Schul- und Wochentage.",
+    "denied": "Kein Zugriff auf den Schulkalender.",
+    "refresh": "Aktualisieren",
+    "loading": "Schulkalender wird geladen…",
+    "loadFailed": "Schulkalender konnte nicht aktualisiert werden. Bearbeiten ist bis zum erfolgreichen Laden gesperrt.",
+    "schoolStatus": "Schulstatus",
+    "schoolDay": "Schultag",
+    "noSchool": "Schulfrei",
+    "civilWeekday": "Tatsächlichen Wochentag verwenden",
+    "timetableHelp": "Den Stundenplan für dieses Datum wählen, etwa Montagsunterricht an einem Sonntag.",
+    "note": "Interne Notiz",
+    "agreementWarning": "Ausdrücklich vereinbarte Zusatz- und Ersatztermine bleiben an schulfreien Tagen erhalten. Bitte mit den Teilnehmenden prüfen.",
+    "saving": "Wird gespeichert…",
+    "save": "Schuldatum speichern",
+    "saved": "Schulkalender gespeichert.",
+    "saveFailed": "Schuldatum konnte nicht gespeichert werden. Der Entwurf bleibt erhalten.",
+    "reload": "Aktuellen Tag neu laden",
+    "refreshFailed": "Änderung angenommen, Aktualisierung fehlgeschlagen. Erneut laden, ohne nochmals zu speichern.",
+    "follows": "Stundenplan: {weekday}",
+    "closureWarning": "Vereinbarte Zusatz- oder Ersatztermine bleiben bestehen. Prüfe deinen Terminplan.",
+    "noticeTitle": "Schulstundenplanänderungen in den nächsten 14 Tagen",
+    "noticeLoadFailed": "Schulkalender konnte nicht aktualisiert werden. Bereits angezeigte Daten können veraltet sein.",
+    "alreadySubmitted": "Diese Datumsänderung wurde bereits eingereicht. Aktualisiere den Kalender, um den aktuellen Stand zu prüfen.",
+    "viewUpcoming": "Bevorstehende Änderungen ansehen",
+    "requestedDateTitle": "Schulkalender für dieses Datum",
+    "defaultCalendar": "Keine aktive Ausnahme für dieses Datum. Die üblichen Schul- und Wochentagsregeln gelten.",
+    "currentCalendar": "Dies zeigt den aktuellen Schulkalender, nicht den Stand der früheren Benachrichtigung."
   },
   "recordInspector": {
     "nav": "Datenbankeinträge",

@@ -3381,6 +3381,8 @@
         "preferredName": "常用名",
         "states": "字段填写要求",
         "archivedOfferings": "拟归档的科目开设项",
+        "timetableWeekday": "课表星期",
+        "scheduleRevision": "课表版本",
         "actionId": "恢复编号"
       },
       "values": {
@@ -3562,7 +3564,6 @@
         "admin_deleteAnnouncement": "删除公告",
         "admin_reviewCard": "判定纪律卡有效或无效",
         "admin_undoAudit": "撤销已记录的管理操作",
-        "recovery_voidAdmission": "撤销初次录取及其受支持的后续影响",
         "home_createNews": "创建新闻",
         "home_updateNews": "编辑新闻发布设置",
         "home_removeNewsTranslation": "移除新闻翻译",
@@ -3611,6 +3612,8 @@
         "admin_retryRoomAllocation": "重试配对的教室自动分配",
         "admin_autoAssignUnassignedRooms": "为所有已审核的未分配课程自动分配教室",
         "admin_correctApplicationIdentity": "更正待处理申请姓名",
+        "student_resetCalendarDay": "恢复学校日期的常规安排",
+        "recovery_voidAdmission": "撤销初次录取及其受支持的后续影响",
         "admin_setUserCanTranslate": "更改翻译权限"
       },
       "decisionRequestHelp": "“批准并执行”将执行申请的操作，包括申请中要求的拒绝决定。“拒绝并反馈”只拒绝此申请，不做任何更改。两种决定都需要说明。",
@@ -4099,6 +4102,8 @@
         "willing": "愿意教授此科目",
         "windowStart": "工时窗口开始时间",
         "workloadPreferenceVersion": "工作量偏好版本",
+        "timetableWeekday": "课表星期",
+        "scheduleRevision": "课表版本",
         "recoveryVoidedAt": "登录权限作废时间",
         "transactionId": "事务 ID",
         "payload": "已记录的输入",
@@ -6187,7 +6192,24 @@
       "title": "面试已通过",
       "body": "指定主席已批准面试并记录评审组服务时数。请查看申请结果。",
       "action": "查看申请"
-    }
+    },
+    "school_calendar_changed": {
+      "title": "学校课表已调整",
+      "body": "{date}的学校安排已调整：{schedule}。请查看可能受影响的辅导安排。",
+      "action": "查看学校课表"
+    },
+    "school_calendar_reset": {
+      "title": "学校课表已恢复",
+      "body": "{date}的学校安排已恢复默认：{schedule}。请查看辅导安排。",
+      "action": "查看学校课表"
+    },
+    "school_calendar_upcoming": {
+      "title": "即将生效的学校课表调整",
+      "body": "{date}的安排提醒：{schedule}。请查看可能受影响的辅导安排。",
+      "action": "查看学校课表"
+    },
+    "schoolCalendarScheduleNoSchool": "不上课",
+    "schoolCalendarScheduleFollows": "采用{weekday}课表"
   },
   "requestAppeal": {
     "title": "无效申请申诉",
@@ -6700,6 +6722,47 @@
     "saveFailed": "无法保存更正。",
     "reload": "重新加载当前姓名",
     "cancel": "取消"
+  },
+  "schoolCalendar": {
+    "title": "学校日历",
+    "help": "设置停课日期，以及指定日期采用的星期课表。其他日期默认按周一至周五上课。",
+    "noticeDistinction": "不开展辅导日期是独立的信息提示，不会更改学校日历。",
+    "add": "添加日期调整",
+    "date": "实际日期",
+    "timetable": "课表",
+    "actions": "操作",
+    "details": "查看详情",
+    "edit": "编辑",
+    "reset": "恢复常规安排",
+    "resetTitle": "恢复此日期的常规安排？",
+    "resetHelp": "恢复此日期的常规上课日及星期课表规则。保留历史记录及已明确约定的辅导安排。",
+    "empty": "暂无日期调整，采用常规上课日及星期课表规则。",
+    "denied": "无法访问学校日历。",
+    "refresh": "刷新",
+    "loading": "正在加载学校日历…",
+    "loadFailed": "无法刷新学校日历。成功读取前暂停编辑。",
+    "schoolStatus": "上课状态",
+    "schoolDay": "上课日",
+    "noSchool": "不上课",
+    "civilWeekday": "采用实际日期的星期课表",
+    "timetableHelp": "选择此日期采用的学校课表，例如周日按周一课表上课。",
+    "note": "工作人员备注",
+    "agreementWarning": "停课时仍保留已明确约定的额外及改期辅导。请与参与者确认安排。",
+    "saving": "正在保存…",
+    "save": "保存学校日期",
+    "saved": "学校日历已保存。",
+    "saveFailed": "无法保存学校日期，草稿已保留。",
+    "reload": "重新加载当前日期",
+    "refreshFailed": "更改已被接受，但刷新失败。请重试读取，无需再次保存。",
+    "follows": "采用{weekday}课表",
+    "closureWarning": "已约定的额外或改期辅导仍按计划进行，请查看日程。",
+    "noticeTitle": "未来14天的学校安排调整",
+    "noticeLoadFailed": "无法刷新学校日历，之前显示的日期安排可能已过时。",
+    "alreadySubmitted": "此日期的更改已提交，请刷新日历查看当前状态。",
+    "viewUpcoming": "查看即将生效的调整",
+    "requestedDateTitle": "此日期的学校安排",
+    "defaultCalendar": "此日期没有生效中的调整，采用常规上课日及星期课表规则。",
+    "currentCalendar": "这里显示的是当前学校日历，并非之前通知发送时的安排快照。"
   },
   "recordInspector": {
     "nav": "数据库记录",

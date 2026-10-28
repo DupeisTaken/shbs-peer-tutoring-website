@@ -65,6 +65,9 @@ export const notificationEvents = [
   "meeting_absence_excused",
   "school_departure_updated",
   "request_invalidity_appeal_pending",
+  "school_calendar_changed",
+  "school_calendar_reset",
+  "school_calendar_upcoming",
 ] as const;
 export type NotificationEvent = (typeof notificationEvents)[number];
 const supported = new Set<string>(notificationEvents);
@@ -78,7 +81,21 @@ export type NotificationContext = {
   count?: number;
   startsAt?: string;
   timeZone?: string;
+  schoolDate?: string;
+  isSchoolDay?: boolean;
+  timetableWeekday?: number | null;
+  calendarRevision?: number;
 };
+export const schoolCalendarNotificationEvents = [
+  "school_calendar_changed",
+  "school_calendar_reset",
+  "school_calendar_upcoming",
+] as const;
+export function isSchoolCalendarNotification(event: string) {
+  return (schoolCalendarNotificationEvents as readonly string[]).includes(
+    event,
+  );
+}
 const counted = new Set<NotificationEvent>([
   "attendance_cards_pending",
   "attendance_history_updated",
@@ -90,11 +107,41 @@ export function notificationEvent(
   event: NotificationEvent,
   input: unknown = {},
 ) {
-  const context: Record<string, string | number> = {};
+  const context: Record<string, string | number | boolean | null> = {};
   const data =
     input && typeof input === "object"
       ? (input as Record<string, unknown>)
       : {};
+  if (
+    isSchoolCalendarNotification(event) &&
+    typeof data.schoolDate === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(data.schoolDate) &&
+    Number.isFinite(Date.parse(`${data.schoolDate}T00:00:00Z`)) &&
+    new Date(`${data.schoolDate}T00:00:00Z`).toISOString().slice(0, 10) ===
+      data.schoolDate &&
+    typeof data.isSchoolDay === "boolean" &&
+    (data.isSchoolDay
+      ? typeof data.timetableWeekday === "number" &&
+        Number.isInteger(data.timetableWeekday) &&
+        data.timetableWeekday >= 1 &&
+        data.timetableWeekday <= 7
+      : data.timetableWeekday === null) &&
+    typeof data.calendarRevision === "number" &&
+    Number.isSafeInteger(data.calendarRevision) &&
+    data.calendarRevision > 0 &&
+    typeof data.timeZone === "string"
+  ) {
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: data.timeZone }).format();
+      context.schoolDate = data.schoolDate;
+      context.isSchoolDay = data.isSchoolDay;
+      context.timetableWeekday = data.timetableWeekday as number | null;
+      context.calendarRevision = data.calendarRevision;
+      context.timeZone = data.timeZone;
+    } catch {
+      /* Invalid calendar context fails closed on both surfaces. */
+    }
+  }
   if (
     counted.has(event) &&
     typeof data.count === "number" &&
@@ -126,7 +173,9 @@ export function notificationEvent(
 type CopyKey =
   | `${NotificationEvent}.${"title" | "body" | "action"}`
   | "attendance_cards_pending.bodyWithoutCount"
-  | "attendance_history_updated.bodyWithoutCount";
+  | "attendance_history_updated.bodyWithoutCount"
+  | "schoolCalendarScheduleNoSchool"
+  | "schoolCalendarScheduleFollows";
 type Translate = (
   key: CopyKey,
   values?: Record<string, string | number>,
@@ -142,6 +191,25 @@ export function formatNotificationEvent(
   if (!isNotificationEvent(event)) return null;
   const { context } = notificationEvent(event, input);
   let time = "";
+  let date = "";
+  let schedule = "";
+  if (typeof context.schoolDate === "string") {
+    // A calendar date is a label, not an instant to shift through the recipient zone.
+    date = new Intl.DateTimeFormat(locale, {
+      dateStyle: "full",
+      timeZone: "UTC",
+    }).format(new Date(`${context.schoolDate}T12:00:00Z`));
+    schedule = context.isSchoolDay
+      ? t("schoolCalendarScheduleFollows", {
+          weekday: new Intl.DateTimeFormat(locale, {
+            weekday: "long",
+            timeZone: "UTC",
+          }).format(
+            new Date(Date.UTC(2024, 0, 7 + Number(context.timetableWeekday))),
+          ),
+        })
+      : t("schoolCalendarScheduleNoSchool");
+  }
   if (
     typeof context.startsAt === "string" &&
     typeof context.timeZone === "string"
@@ -156,7 +224,11 @@ export function formatNotificationEvent(
         : `${event}.body`;
   return {
     title: t(`${event}.title`),
-    body: t(bodyKey, { count: context.count ?? 0 }),
+    body: t(bodyKey, {
+      count: typeof context.count === "number" ? context.count : 0,
+      date,
+      schedule,
+    }),
     action: t(`${event}.action`),
     time,
   };

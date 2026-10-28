@@ -49,6 +49,7 @@ import { profilePolicySchema } from "~/lib/profile-policy";
 import { getProfilePolicy } from "~/server/program/profile-policy";
 import { lockUsernameNamespace } from "~/server/auth/username";
 import {
+  programCalendarDate,
   programCalendarWrite,
   programCalendarRemove,
 } from "~/lib/program-calendar";
@@ -161,6 +162,31 @@ export const programRouter = createTRPCRouter({
       select: { date: true, endDate: true, reason: true },
     }),
   ),
+  // Participants read only bounded calendar facts; staff notes and editor history stay private.
+  schoolCalendar: protectedProcedure
+    .input(
+      z
+        .object({ from: programCalendarDate, to: programCalendarDate })
+        .strict()
+        .refine(
+          ({ from, to }) =>
+            to >= from && Date.parse(to) - Date.parse(from) < 92 * 86_400_000,
+          "Choose a calendar range of at most 92 days.",
+        ),
+    )
+    .query(({ ctx, input }) =>
+      ctx.db.schoolCalendarDay.findMany({
+        where: { active: true, date: { gte: input.from, lte: input.to } },
+        orderBy: { date: "asc" },
+        select: {
+          date: true,
+          isSchoolDay: true,
+          timetableWeekday: true,
+          version: true,
+          scheduleRevision: true,
+        },
+      }),
+    ),
   calendarSettings: adminProcedure.query(async ({ ctx }) => ({
     days: await ctx.db.programCalendarDay.findMany({
       orderBy: { date: "asc" },
