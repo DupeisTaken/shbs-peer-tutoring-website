@@ -24,7 +24,7 @@ import {
 import { initializeProgram } from "~/server/program/bootstrap";
 import { confirmEmailChange } from "~/server/auth/email-change";
 import { hashCode } from "~/server/auth/registration";
-import { databaseScope } from "~/server/db-scope";
+import { auditActorScope, databaseScope } from "~/server/db-scope";
 import { lockEntity } from "~/server/transactions";
 import * as audit from "~/server/audit/log";
 import { availableSubjectIds } from "~/server/subject-willingness";
@@ -1618,7 +1618,7 @@ it("stale audit undo cannot overwrite a later card review", async () => {
   });
   await expect(
     caller().admin.undoAudit({ id: original.id }),
-  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect(
     (await db.disciplinaryCard.findUniqueOrThrow({ where: { id: card.id } }))
       .reviewNote,
@@ -2107,7 +2107,12 @@ it("F09: undoing a card review must reconcile the resulting removal", async () =
   const log = await db.auditLog.findFirstOrThrow({
     where: { entityId: second.id },
   });
-  await caller().admin.undoAudit({ id: log.id });
+  await expect(caller().admin.undoAudit({ id: log.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  // Retain coverage of the legacy domain primitive, which has no website entry.
+  expect(await auditActorScope.run(
+    { id: "review-head", name: "Review Head", role: "HEAD" },
+    () => audit.applyUndo(log.undoData, db),
+  )).toBe(true);
   const removed = await db.tutee.findUniqueOrThrow({
     where: { id: "review-tutee" },
   });
@@ -2387,7 +2392,8 @@ it("F19: announcement deletion undo must retain existing acknowledgements", asyn
   });
   await caller().admin.deleteAnnouncement({ id: a.id });
   const log = await db.auditLog.findFirstOrThrow({ where: { entityId: a.id } });
-  await caller().admin.undoAudit({ id: log.id });
+  await expect(caller().admin.undoAudit({ id: log.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await audit.applyUndo(log.undoData, db)).toBe(true);
   expect(
     await db.announcementAck.count({ where: { announcementId: a.id } }),
   ).toBe(1);

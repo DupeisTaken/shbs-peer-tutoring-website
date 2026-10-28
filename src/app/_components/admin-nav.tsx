@@ -167,6 +167,8 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
         elevatedOnly: true,
       },
       { href: "/admin/audit", labelKey: "admin.nav.links.auditLog" },
+      { href: "/admin/recovery", labelKey: "recovery.title", elevatedOnly: true },
+      { href: "/admin/database", labelKey: "recordInspector.nav", adminOnly: true },
       {
         href: "/admin/users",
         labelKey: "admin.nav.links.usersRoles",

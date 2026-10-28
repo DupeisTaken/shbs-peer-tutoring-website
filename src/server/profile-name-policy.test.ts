@@ -751,7 +751,8 @@ it("grandfathers an unchanged roster when reactivating an old application", asyn
     },
   });
   const app = await db.tutorApplication.create({
-    data: { name: "Different Submitted Name", email, type: "INITIAL" },
+    // Promotion follows the accepted decision; a pending application cannot issue an invitation.
+    data: { name: "Different Submitted Name", email, type: "INITIAL", status: "ACCEPTED" },
   });
   await promoteApplicantToTutor(app.id);
   expect(await db.tutor.findUnique({ where: { id: roster.id } })).toMatchObject(

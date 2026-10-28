@@ -157,7 +157,7 @@ it.each(["en", "zh"] as const)(
     const messages = mount(locale);
     expect(mocks.detail).not.toHaveBeenCalled();
     const trigger = screen.getByRole("button", {
-      name: `${messages.tablePatterns.details}: Management action · Recorded actor`,
+      name: `${messages.tablePatterns.details}: ${messages.eventTitles.ACTION} · Recorded actor`,
     });
     trigger.focus();
     fireEvent.click(trigger);
@@ -207,7 +207,7 @@ it.each(["en", "zh"] as const)(
   (locale) => {
     const messages = mount(locale, true);
     const trigger = screen.getByRole("button", {
-      name: `${messages.tablePatterns.details}: Management action · Recorded actor`,
+      name: `${messages.tablePatterns.details}: ${messages.eventTitles.ACTION} · Recorded actor`,
     });
     trigger.focus();
     fireEvent.click(trigger);
