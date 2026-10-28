@@ -1,5 +1,8 @@
 import { lockUsernameNamespace } from "~/server/auth/username";
-import { isSerializationFailure, retryUsernameSnapshot } from "~/server/auth/username-snapshot";
+import {
+  isSerializationFailure,
+  retryUsernameSnapshot,
+} from "~/server/auth/username-snapshot";
 import { isAssignmentOperation } from "~/lib/assignment-qualification";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -22,6 +25,7 @@ import {
 } from "~/server/approvals";
 import {
   APPROVAL_OPERATIONS,
+  APPROVAL_POLICY_VERSION,
   classifyApproval,
   humanizeOperation,
   proposalConfirmation,
@@ -53,20 +57,22 @@ function requestAuthority(request: {
   operation: string;
   payload: unknown;
   targets: unknown;
+  state: string;
 }) {
   if (!Object.hasOwn(APPROVAL_OPERATIONS, request.operation)) return null;
   const targets = request.targets as {
     reviewAuthority?: ApprovalAuthority;
   } | null;
-  return (
-    targets?.reviewAuthority ??
-    classifyApproval(
+  // Pending proposals adopt current governance without rewriting their original
+  // authority or fingerprint. Completed decisions retain their historical policy.
+  if (request.state !== "PENDING" && targets?.reviewAuthority) return targets.reviewAuthority;
+  const current = classifyApproval(
       request.operation,
       superjson.deserialize(
         request.payload as Parameters<typeof superjson.deserialize>[0],
       ),
-    )
-  );
+    );
+  return current && { ...current, category: targets?.reviewAuthority?.category ?? current.category };
 }
 
 /** Approval is a single atomic transition: revalidation, live change, decision, audit,
@@ -178,12 +184,18 @@ export const approvalRouter = createTRPCRouter({
           "program.setProfilePolicy",
           "program.setNameFields",
         ].includes(initial.operation);
-      const periodIdentityApproval = !!initial && [
-        "admin.updateTutor", "admin.updateTutee", "admin.updateAccountAcademics",
-      ].includes(initial.operation);
-      const nextRecruitmentApproval = !!initial && [
-        "program.prepareNextRecruitment", "admin.refresh",
-      ].includes(initial.operation);
+      const periodIdentityApproval =
+        !!initial &&
+        [
+          "admin.updateTutor",
+          "admin.updateTutee",
+          "admin.updateAccountAcademics",
+        ].includes(initial.operation);
+      const nextRecruitmentApproval =
+        !!initial &&
+        ["program.prepareNextRecruitment", "admin.refresh"].includes(
+          initial.operation,
+        );
       const runDecision = () =>
         ctx.db.$transaction(
           async (tx) =>
@@ -191,7 +203,8 @@ export const approvalRouter = createTRPCRouter({
               approvalScope.run(input.id, async () => {
                 // These identity callbacks reenter the period barrier. Match signup
                 // and refresh order so an approval cannot invert namespace/period.
-                if (periodIdentityApproval) await lockEntity(tx, "program:period");
+                if (periodIdentityApproval)
+                  await lockEntity(tx, "program:period");
                 if (nextRecruitmentApproval) {
                   await lockNextRecruitment(tx);
                   try {
@@ -201,15 +214,27 @@ export const approvalRouter = createTRPCRouter({
                     await lockUsernameNamespace(tx);
                     // Read authority only after the period wait. SHARE also rejects
                     // an older Serializable snapshot when a role changed meanwhile.
-                    for (const id of [...new Set([ctx.session.user.id, initial.requesterId])].sort())
+                    for (const id of [
+                      ...new Set([ctx.session.user.id, initial.requesterId]),
+                    ].sort())
                       await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${id} FOR SHARE`;
                   } catch (cause) {
                     if (isSerializationFailure(cause))
-                      throw new TRPCError({ code: "CONFLICT", message: "NEXT_RECRUITMENT_CHANGED", cause });
+                      throw new TRPCError({
+                        code: "CONFLICT",
+                        message: "NEXT_RECRUITMENT_CHANGED",
+                        cause,
+                      });
                     throw cause;
                   }
                 }
-                if (identityApproval) await lockUsernameNamespace(tx);
+                if (identityApproval) {
+                  await lockUsernameNamespace(tx);
+                  // Freeze both actors after the shared identity barrier. This also
+                  // rejects a Serializable snapshot taken before their role changed.
+                  for (const id of [...new Set([ctx.session.user.id, initial.requesterId])].sort())
+                    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${id} FOR SHARE`;
+                }
                 if (attendanceApproval)
                   await lockAttendanceApproval(tx, initial.operation, [
                     ctx.session.user.id,
@@ -351,6 +376,19 @@ export const approvalRouter = createTRPCRouter({
                       "authorityContext",
                     ),
                     request.requesterId,
+                    // Capture versions are chosen from stored evidence, never from
+                    // today's schema: pending pre-upgrade proposals stay compatible.
+                    !!evidence.reviewPresentation &&
+                      typeof evidence.reviewPresentation === "object" &&
+                      "version" in evidence.reviewPresentation &&
+                      evidence.reviewPresentation.version === 1,
+                    // Display references are independently versioned; existing
+                    // v1 presentation captures never acquire new joins at replay.
+                    !!evidence.reviewReferences &&
+                      typeof evidence.reviewReferences === "object" &&
+                      !Array.isArray(evidence.reviewReferences) &&
+                      "version" in evidence.reviewReferences &&
+                      evidence.reviewReferences.version === 1,
                   );
                   if (
                     targets &&
@@ -366,6 +404,8 @@ export const approvalRouter = createTRPCRouter({
                       targets.reviewAuthority = request.targets.reviewAuthority;
                     if (evidence.participantSelfService)
                       targets.participantSelfService = true;
+                    if (evidence.reviewPolicyVersion !== undefined)
+                      targets.reviewPolicyVersion = evidence.reviewPolicyVersion as number;
                   }
                   if (fingerprint(targets) !== request.fingerprint)
                     throw new TRPCError({
@@ -464,6 +504,8 @@ export const approvalRouter = createTRPCRouter({
                         )?.role ?? "UNAVAILABLE",
                       reviewerRole: currentReviewer.role,
                       category: authority.category,
+                      reviewPolicyVersion: APPROVAL_POLICY_VERSION,
+                      submittedPolicyVersion: (request.targets as { reviewPolicyVersion?: number }).reviewPolicyVersion ?? 1,
                     },
                   },
                 });
@@ -517,8 +559,10 @@ export const approvalRouter = createTRPCRouter({
             where: { id: payload.id },
           });
           if (survey && !survey.confirmedAt) {
-            const { resendSurveyResult } = await import("~/server/student-survey");
-            emailSent = (await resendSurveyResult(ctx.db, survey.email, false)).emailSent;
+            const { resendSurveyResult } =
+              await import("~/server/student-survey");
+            emailSent = (await resendSurveyResult(ctx.db, survey.email, false))
+              .emailSent;
           } else if (survey?.confirmedAt) emailSent = null;
         } catch {
           emailSent = false;

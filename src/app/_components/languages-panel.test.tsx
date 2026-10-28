@@ -62,6 +62,7 @@ import { LanguagesPanel } from "./languages-panel";
 afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
+  state.role = "HEAD";
   state.manage = true;
   state.loading = false;
   state.error = null;
@@ -166,10 +167,20 @@ it("reports loading and query failures instead of showing an empty catalog", () 
   expect(screen.getByRole("alert").textContent).toBe("Catalog unavailable");
 });
 
-it("keeps significant language settings read-only for Coordinators even with catalog capabilities", () => {
+it("lets Coordinators propose catalog changes while protecting English", () => {
   state.role = "COORDINATOR";
   render(<LanguagesPanel canAdd={false} />);
-  expect(screen.queryByRole("button", { name: "localization.disableLanguage" })).toBeNull();
+  expect(row("English").getByRole<HTMLButtonElement>("button", { name: "localization.disableLanguage" }).disabled).toBe(true);
+  fireEvent.click(row("中文").getByRole("button", { name: "localization.disableLanguage" }));
+  expect(state.toggle).toHaveBeenCalledWith({ code: "zh", enabled: false });
+  // The immutable read stays unchanged while the server owns approval routing.
+  expect(row("中文").getByText("localization.enabled")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "localization.addLanguageBtn" })).toBeNull();
-  state.role = "HEAD";
+});
+
+it("keeps catalog management concealed from a viewer even if capabilities are stale", () => {
+  state.role = "VIEWER";
+  render(<LanguagesPanel canAdd={false} />);
+  expect(screen.queryByRole("button", { name: "localization.disableLanguage" })).toBeNull();
+  expect(state.toggle).not.toHaveBeenCalled();
 });

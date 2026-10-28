@@ -508,25 +508,29 @@ it("requires just one admin approval for a coordinator's translation review and 
   ).rejects.toMatchObject({ code: "CONFLICT" });
 });
 
-it("queues calendar and feedback visibility changes without applying them early", async () => {
+it("queues Coordinator calendar and feedback visibility changes for Admin without applying them early", async () => {
   const calendar = await queued(
-    admin().student.setCalendarDay({
+    coordinator().student.setCalendarDay({
       date: "2026-10-01",
       isSchoolDay: false,
       note: "Holiday",
     }),
   );
   const feedback = await queued(
-    admin().student.setFeedbackSettings({ share: true }),
+    coordinator().student.setFeedbackSettings({ share: true }),
   );
   expect(await db.schoolCalendarDay.count()).toBe(0);
   expect(await db.studentSettings.count()).toBe(0);
-  await head().approval.decide({
+  expect(calendar).toMatchObject({ requesterId: "shipping-coordinator", state: "PENDING" });
+  expect(feedback).toMatchObject({ requesterId: "shipping-coordinator", state: "PENDING" });
+  await admin().approval.decide({
     id: calendar.id,
     approve: true,
     note: "School calendar checked",
   });
-  await head().approval.decide({
+  expect(await db.studentSettings.count()).toBe(0);
+  expect((await db.approvalRequest.findUniqueOrThrow({ where: { id: feedback.id } })).state).toBe("PENDING");
+  await admin().approval.decide({
     id: feedback.id,
     approve: true,
     note: "Visibility checked",

@@ -118,6 +118,10 @@ async function readLockedNextRecruitment(tx: TransactionDb) {
   });
   const refreshEvidence: NextRecruitmentRefreshEvidence = {
     target, timeZone, preparations, destination: destinationEvidence(existingDestination),
+    stagedFeatures: await tx.programFeature.findMany({
+      select: { key: true, enabled: true, pendingEnabled: true, revision: true },
+      orderBy: { key: "asc" },
+    }),
   };
   const withState = (row: NextRecruitmentPreparationEvidence | null) => row ? {
     ...row, matchesTarget: sameNextRecruitmentTarget(row.target, target),
@@ -171,7 +175,7 @@ export async function saveNextRecruitment(
 ) {
   return inTransaction(db, async (tx) => {
     const before = await validateNextRecruitmentWrite(tx, input);
-    const currentActor = await assertNextRecruitmentActor(tx, actor.id);
+    const currentActor = await assertNextRecruitmentActor(tx, actor.id, ["ADMIN", "HEAD"]);
     const actorName = currentActor.name ?? currentActor.username ?? actor.name ?? null;
     const target = before.target;
     const data = {
@@ -211,7 +215,7 @@ export async function validateNextRecruitmentRefresh(tx: TransactionDb, evidence
   if (!sameNextRecruitmentTarget(evidence.target, snapshot.target))
     conflict("NEXT_RECRUITMENT_TARGET_CHANGED");
   const reviewed = nextRecruitmentRefreshEvidenceSchema.parse(evidence);
-  if (JSON.stringify(reviewed) !== JSON.stringify(snapshot.refreshEvidence))
+  if (JSON.stringify(reviewed) !== JSON.stringify(nextRecruitmentRefreshEvidenceSchema.parse(snapshot.refreshEvidence)))
     conflict("NEXT_RECRUITMENT_CHANGED");
   for (const audience of ["tutor", "tutee"] as const) {
     const row = snapshot.preparations[audience];

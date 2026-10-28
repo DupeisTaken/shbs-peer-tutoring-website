@@ -4,6 +4,7 @@ import { AdminSummaryRecipe } from "./admin-summary-recipe";
 import { WorkloadPreferenceRecipe } from "./workload-preference-recipe";
 import { NavigationRecipes } from "./navigation-recipes";
 import { ActionReviewRecipe } from "./action-review-recipe";
+import { ManagementReviewRecipe } from "./management-review-recipe";
 import { CreationRiskRecipe } from "./creation-risk-recipe";
 import { CodeRecipe } from "./code-recipe";
 import { useEffect, useState, type ReactNode } from "react";
@@ -409,6 +410,7 @@ export function RecipeGallery({
       <div className="grid items-start gap-6 lg:grid-cols-2">
         <CodeRecipe locale={locale} />
         <ActionReviewRecipe />
+        <ManagementReviewRecipe />
         <CreationRiskRecipe />
         <Recipe
           title={t.long}

@@ -427,6 +427,28 @@ it("tutor decisions are disabled while cached eligibility cannot be refreshed", 
   expect(remote.write).not.toHaveBeenCalled();
 });
 
+it("reveals a tutor membership request from its canonical source link after the authorized read", async () => {
+  window.history.replaceState(null, "", "/admin/tutor-requests#request-request");
+  const rects = vi.spyOn(Element.prototype, "getClientRects").mockReturnValue({ length: 1 } as DOMRectList);
+  const previousScroll = Object.getOwnPropertyDescriptor(Element.prototype, "scrollIntoView");
+  const scroll = vi.fn();
+  Object.defineProperty(Element.prototype, "scrollIntoView", { configurable: true, value: scroll });
+  try {
+    mount(<TutorRequestsPage />);
+    await screen.findByText("Private opt-out reason");
+    await waitFor(() => expect(document.activeElement).toBe(document.getElementById("request-request")));
+    expect(scroll).toHaveBeenCalledOnce();
+    await refresh("tutorRequests");
+    expect(scroll).toHaveBeenCalledOnce();
+    expect(remote.write).not.toHaveBeenCalled();
+  } finally {
+    rects.mockRestore();
+    if (previousScroll) Object.defineProperty(Element.prototype, "scrollIntoView", previousScroll);
+    else Reflect.deleteProperty(Element.prototype, "scrollIntoView");
+    window.history.replaceState(null, "", "/");
+  }
+});
+
 it("VIEWER never mounts staff withdrawal reads while removal summaries recover", async () => {
   mount(<TuteeRequestsPage />, true);
   await screen.findByText("Private withdrawal reason");

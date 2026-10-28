@@ -7,12 +7,13 @@ import type { NextRecruitmentSettingsData } from "./next-recruitment-settings";
 /** Used by preparation, refresh and immutable approval evidence. Dates always
  * use the captured program zone rather than the reviewer's computer timezone. */
 export function NextRecruitmentReview({ snapshot, audience, compact = false, proposedOpening }: {
-  snapshot: Pick<NextRecruitmentSettingsData, "target" | "currentName" | "nextName" | "timeZone" | "preparations"> & { refreshEvidence?: Pick<NextRecruitmentSettingsData["refreshEvidence"], "destination"> };
+  snapshot: Pick<NextRecruitmentSettingsData, "target" | "currentName" | "nextName" | "timeZone" | "preparations"> & { refreshEvidence?: Pick<NextRecruitmentSettingsData["refreshEvidence"], "destination" | "stagedFeatures"> };
   audience?: RecruitmentAudience;
   compact?: boolean;
   proposedOpening?: Date | null;
 }) {
   const t = useTranslations("nextRecruitment");
+  const features = useTranslations("admin.program.features.name");
   const locale = useLocale();
   const opening = (value: Date | null | undefined) => value
     ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: snapshot.timeZone }).format(new Date(value))
@@ -41,6 +42,12 @@ export function NextRecruitmentReview({ snapshot, audience, compact = false, pro
       })}
       {proposedOpening !== undefined && <div className="border-t border-slate-200 pt-3"><dt className="text-xs font-medium text-slate-600">{t("proposedOpening")}</dt><dd className="mt-1 font-semibold">{opening(proposedOpening)}</dd></div>}
     </dl>
+    {!compact && !audience && snapshot.refreshEvidence?.stagedFeatures && <dl className="space-y-2">
+      {snapshot.refreshEvidence.stagedFeatures.filter((feature) => feature.pendingEnabled !== null).map((feature) =>
+        <div key={feature.key}><dt className="font-medium">{features(feature.key)}</dt>
+          <dd>{t(feature.pendingEnabled ? "featureAfterRefreshEnabled" : "featureAfterRefreshDisabled")}</dd></div>,
+      )}
+    </dl>}
     {!compact && <p className="muted text-sm">{t("elapsedHelp")}</p>}
   </div>;
 }

@@ -374,7 +374,7 @@ function rightmostActions(table: HTMLElement) {
   return actions;
 }
 
-it("keeps audit payload off the summary and preserves request links and undo identity in the last cell", () => {
+it("keeps audit payload off the summary and preserves request and recovery links in the last cell", () => {
   render(<AuditPage />, { wrapper });
   const actions = rightmostActions(screen.getByRole("table"));
   expect(screen.queryByText(/Detailed audit payload/)).toBeNull();
@@ -383,10 +383,9 @@ it("keeps audit payload off the summary and preserves request links and undo ide
       .getByRole("link", { name: messages.approvals.viewRequest })
       .getAttribute("href"),
   ).toBe("/admin/approvals?request=approval-1");
-  fireEvent.click(
-    within(actions).getByRole("button", { name: messages.admin.audit.undo }),
-  );
-  expect(state.undo).toHaveBeenCalledWith({ id: "audit-1" });
+  expect(within(actions).queryByRole("button", { name: messages.admin.audit.undo })).toBeNull();
+  expect(within(actions).getByRole("link", { name: messages.recovery.title }).getAttribute("href")).toBe("/admin/recovery");
+  expect(state.undo).not.toHaveBeenCalled();
   fireEvent.click(
     within(actions).getByRole("button", { name: /^View details:/ }),
   );
@@ -585,7 +584,8 @@ it("adds a final Details link to every history report while retaining detailed p
   ).toBeTruthy();
 });
 
-it("keeps full signup contact and subject columns in CSV exports after compacting screen tables", () => {
+it.each(["HEAD", "ADMIN"])("keeps full signup contact and subject columns in %s CSV exports after compacting screen tables", (role) => {
+  state.accountRole = role;
   Object.defineProperty(URL, "createObjectURL", {
     configurable: true,
     value: vi.fn(() => "blob:report"),
@@ -620,8 +620,8 @@ it("keeps full signup contact and subject columns in CSV exports after compactin
   );
 });
 
-it.each(["ADMIN", "COORDINATOR", "VIEWER", null])(
-  "keeps report detail access without exposing Head-only CSV exports for role %s",
+it.each(["COORDINATOR", "VIEWER", null])(
+  "keeps report detail access without exposing Admin/Head CSV exports for role %s",
   (role) => {
     // A missing account response must not briefly expose privileged exports.
     state.accountRole = role;

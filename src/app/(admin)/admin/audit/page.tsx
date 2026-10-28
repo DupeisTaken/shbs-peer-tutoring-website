@@ -7,33 +7,36 @@ import Link from "next/link";
 import {
   AuditFilters,
   type AuditFilterInput,
+  type AuditKind,
   emptyAuditView,
   type AuditView,
 } from "~/app/_components/audit-filters";
-import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+  useSessionViewState,
+} from "~/app/_components/session-view-state";
 import { viewEnum, viewFields, viewSearch } from "~/lib/session-view-state";
 import { programDayStart, programDayEnd } from "~/lib/program-time";
+import { eventTitle } from "~/lib/event-title";
 
-import { InlineNotice } from "~/app/_components/ui/patterns";
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
 import { AuditEventDetails } from "~/app/_components/audit-event-details";
 import {
   SummaryTable,
   TableActions,
-  TableAction,
   TableDetails,
 } from "~/app/_components/ui/summary-table";
 
 /**
- * Audit trail of admin mutations. Entries that carry undo data can be reverted with one
- * click (see src/server/audit/log.ts). Supports the audit contracts in docs/reference/technical-report.md.
+ * Audit evidence remains readable. Recovery requires a separate consequence preview;
+ * legacy undo payloads cannot establish a complete dependency chain.
  */
 function AuditLog() {
   const t = useTranslations();
   const format = useFormatter();
   const readOnly = useReadOnly();
-  const utils = api.useUtils();
   const params = useSearchParams();
   const approvalId = params.get("approval") ?? undefined;
   const timeZone = useTimeZone() ?? "Asia/Shanghai";
@@ -41,27 +44,54 @@ function AuditLog() {
     if (typeof value !== "string") return;
     if (!value) return value;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return;
-    try { programDayStart(value, timeZone); return value; } catch { return; }
+    try {
+      programDayStart(value, timeZone);
+      return value;
+    } catch {
+      return;
+    }
   };
   const options = api.admin.auditFilterOptions.useQuery();
   const [accessDenied, setAccessDenied] = useState(false);
   const [view, setView] = useSessionViewState<AuditView>({
-    id: "audit.filters.v1", initialState: emptyAuditView, enabled: !accessDenied,
-    scope: JSON.stringify([approvalId ?? "all", timeZone]), restoreReady: !!options.data,
+    id: "audit.filters.v1",
+    initialState: emptyAuditView,
+    enabled: !accessDenied,
+    scope: JSON.stringify([approvalId ?? "all", timeZone]),
+    restoreReady: !!options.data,
     parse: viewFields<AuditView>({
-      userId: viewEnum(["", "__system__", ...(options.data?.users ?? []).map((user) => user.id)]),
-      kind: viewEnum(["", "ACTION", "DECISION", "SUBMISSION", "CANCELLATION"]),
+      userId: viewEnum([
+        "",
+        "__system__",
+        ...(options.data?.users ?? []).map((user) => user.id),
+      ]),
+      kind: viewEnum([
+        "",
+        "ACTION",
+        "DECISION",
+        "SUBMISSION",
+        "CANCELLATION",
+        "ATTEMPT",
+        "REVERSAL",
+      ]),
       operation: viewEnum(["", ...(options.data?.operations ?? [])]),
-      entity: viewEnum(["", ...(options.data?.entities ?? [])]), search: viewSearch,
-      from: dateChoice, until: dateChoice,
+      entity: viewEnum(["", ...(options.data?.entities ?? [])]),
+      search: viewSearch,
+      from: dateChoice,
+      until: dateChoice,
     }),
   });
   // Store date control values, then rebuild the existing timezone-aware read DTO.
   const filters: AuditFilterInput = {
-    userId: view.userId || undefined, kind: (view.kind || undefined) as "ACTION" | "DECISION" | "SUBMISSION" | "CANCELLATION" | undefined,
-    operation: view.operation || undefined, entity: view.entity || undefined, search: view.search || undefined,
+    userId: view.userId || undefined,
+    kind: (view.kind || undefined) as AuditKind | undefined,
+    operation: view.operation || undefined,
+    entity: view.entity || undefined,
+    search: view.search || undefined,
     from: view.from ? programDayStart(view.from, timeZone) : undefined,
-    until: view.until ? new Date(programDayEnd(view.until, timeZone).getTime() + 1) : undefined,
+    until: view.until
+      ? new Date(programDayEnd(view.until, timeZone).getTime() + 1)
+      : undefined,
   };
   const [cursors, setCursors] = useState<string[]>([]);
   const log = api.admin.auditLog.useQuery({
@@ -71,14 +101,23 @@ function AuditLog() {
   });
   const denied = useSessionAccessDenied(log, options);
   useEffect(() => setAccessDenied(denied), [denied]);
-  useSessionPageScroll({ id: "audit", scope: JSON.stringify([approvalId ?? "all", timeZone, view]), ready: !!log.data && !!options.data, enabled: !denied });
-  const undo = api.admin.undoAudit.useMutation({
-    onSuccess: () => utils.admin.auditLog.invalidate(),
+  useSessionPageScroll({
+    id: "audit",
+    scope: JSON.stringify([approvalId ?? "all", timeZone, view]),
+    ready: !!log.data && !!options.data,
+    enabled: !denied,
   });
 
   const entries = denied ? [] : (log.data ?? []);
 
-  if (denied) return <p role="alert">{log.error?.message ?? options.error?.message ?? t("uiPatterns.loadFailed")}</p>;
+  if (denied)
+    return (
+      <p role="alert">
+        {log.error?.message ??
+          options.error?.message ??
+          t("uiPatterns.loadFailed")}
+      </p>
+    );
   return (
     <div className="space-y-6">
       <div>
@@ -149,12 +188,17 @@ function AuditLog() {
                           : "badge-slate"
                     }
                   >
-                    {t(`auditFilters.kinds.${e.kind}`)}
+                    {t.has(`auditFilters.kinds.${e.kind}`)
+                      ? t(`auditFilters.kinds.${e.kind}`)
+                      : eventTitle(t, { kind: e.kind })}
                   </span>
                 </td>
                 <td className="text-slate-800">
-                  <span className="block max-w-72 truncate" title={e.action}>
-                    {e.action}
+                  <span
+                    className="block max-w-72 truncate"
+                    title={eventTitle(t, e)}
+                  >
+                    {eventTitle(t, e)}
                   </span>
                   {e.undone && (
                     <span className="badge-slate ml-2">
@@ -164,7 +208,7 @@ function AuditLog() {
                 </td>
                 <TableActions>
                   <TableDetails
-                    title={`${e.action} · ${e.userName ?? "—"}`}
+                    title={`${eventTitle(t, e)} · ${e.userName ?? "—"}`}
                     // Full recorded evidence needs a reachable Close even after
                     // expanding long JSON; observers keep their compact summary.
                     longReader={!readOnly}
@@ -195,12 +239,9 @@ function AuditLog() {
                     </Link>
                   )}
                   {!readOnly && e.undoData != null && !e.undone ? (
-                    <TableAction
-                      disabled={undo.isPending}
-                      onClick={() => undo.mutate({ id: e.id })}
-                    >
-                      {t("admin.audit.undo")}
-                    </TableAction>
+                    <Link className="table-action-link" href="/admin/recovery">
+                      {t("recovery.title")}
+                    </Link>
                   ) : null}
                 </TableActions>
               </tr>
@@ -231,14 +272,6 @@ function AuditLog() {
           {t("approvals.next")}
         </button>
       </div>
-      {!readOnly && undo.error?.data?.approvalId && (
-        <InlineNotice tone="warning" announcement="status">
-          {t("approvals.queuedBody")}
-        </InlineNotice>
-      )}
-      {!readOnly && undo.error && !undo.error.data?.approvalId && (
-        <p className="text-sm text-red-600">{undo.error.message}</p>
-      )}
     </div>
   );
 }

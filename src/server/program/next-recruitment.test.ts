@@ -230,10 +230,20 @@ it("binds saved source identity and validates year/semester destination boundari
 it.each(["demoted", "suspended"])("refuses a %s direct actor after reading the preparation target", async (change) => {
   const write = await input();
   await db.user.update({ where: { id: actor.id }, data: change === "demoted"
-    ? { role: "ADMIN" } : { suspendedAt: new Date() } });
+    ? { role: "COORDINATOR" } : { suspendedAt: new Date() } });
   await expect(saveNextRecruitment(db, write, actor)).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.nextRecruitmentPreparation.count()).toBe(0);
   expect((await db.term.findUniqueOrThrow({ where: { id: "source" } })).nextRecruitmentRevision).toBe(0);
+});
+
+it("accepts direct Admin preparation while leaving the active period unchanged", async () => {
+  const write = await input();
+  const before = await db.term.findUniqueOrThrow({ where: { id: "source" } });
+  await db.user.update({ where: { id: actor.id }, data: { role: "ADMIN" } });
+  await expect(saveNextRecruitment(db, write, actor)).resolves.toMatchObject({ opensAt: firstOpening, version: 1 });
+  const after = await db.term.findUniqueOrThrow({ where: { id: "source" } });
+  expect({ ...after, nextRecruitmentRevision: before.nextRecruitmentRevision }).toEqual(before);
+  expect(await db.term.count()).toBe(1);
 });
 
 it("validates proposals without writing and rejects changed reused destination evidence", async () => {

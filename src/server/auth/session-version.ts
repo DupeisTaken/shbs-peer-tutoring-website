@@ -9,8 +9,8 @@ export async function isSessionCurrent(
   token: { sub?: string; sessionVersion?: unknown },
 ): Promise<boolean> {
   if (!token.sub || !Number.isSafeInteger(token.sessionVersion)) return false;
-  const user = await db.user.findUnique({ where: { id: token.sub }, select: { sessionVersion: true, mergedIntoId: true } });
-  return !!user && !user.mergedIntoId && user.sessionVersion === token.sessionVersion;
+  const user = await db.user.findUnique({ where: { id: token.sub }, select: { sessionVersion: true, mergedIntoId: true, recoveryVoidedAt: true } });
+  return !!user && !user.mergedIntoId && !user.recoveryVoidedAt && user.sessionVersion === token.sessionVersion;
 }
 
 /** A verified current password authorizes exactly one password update. The conditional write
@@ -23,7 +23,7 @@ export async function changeVerifiedPassword(
   newPassword: string,
 ) {
   const changed = await db.user.updateMany({
-    where: { id: userId, passwordHash: verifiedHash },
+    where: { id: userId, passwordHash: verifiedHash, recoveryVoidedAt: null },
     data: { passwordHash: hashPassword(newPassword), mustChangePassword: false },
   });
   if (changed.count !== 1)

@@ -93,7 +93,7 @@ vi.mock("~/trpc/react", async () => {
       tutorHistory: {
         permissions: {
           useQuery: () => ({
-            data: { canLink: true, isHead: true },
+            data: { canLink: true, canCorrectOwnership: true },
             isFetching: false,
           }),
         },
@@ -191,7 +191,7 @@ function ui(locale: "en" | "zh" = "en", linked = true) {
       <TuteeEditor
         row={row}
         onClose={close}
-        historyPermissions={{ canLink: true, isHead: true }}
+        historyPermissions={{ canLink: true, canCorrectOwnership: true }}
       />
     </NextIntlClientProvider>
   );
@@ -484,7 +484,7 @@ it("keeps the legacy direct-link form's invitation controls frozen while its pre
   render(
     <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
       <ProfileDialog title="Legacy history" onClose={close}>
-        <TuteeHistoryLinkForm row={row} isHead onLinked={() => undefined} />
+        <TuteeHistoryLinkForm row={row} canCorrectOwnership onLinked={() => undefined} />
       </ProfileDialog>
     </NextIntlClientProvider>,
   );

@@ -146,7 +146,7 @@ it.each(["HEAD", "ADMIN", "COORDINATOR", "VIEWER"])(
       screen.queryByRole("button", { name: en.roomOrder.open }),
     ).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
-    if (role === "COORDINATOR" || role === "VIEWER") {
+    if (role === "VIEWER") {
       expect(up).toBeNull();
       expect(
         screen.queryByRole("button", { name: en.roomOrder.request }),
@@ -158,9 +158,12 @@ it.each(["HEAD", "ADMIN", "COORDINATOR", "VIEWER"])(
       expect(up).toBeTruthy();
       expect(
         screen.getByRole("button", {
-          name: role === "HEAD" ? en.roomOrder.save : en.roomOrder.request,
+          name: role === "COORDINATOR" ? en.roomOrder.request : en.roomOrder.save,
         }),
       ).toBeTruthy();
+      expect(screen.queryByRole("button", {
+        name: role === "COORDINATOR" ? en.roomOrder.save : en.roomOrder.request,
+      })).toBeNull();
     }
     expect(mocks.calls).toHaveLength(0);
   },

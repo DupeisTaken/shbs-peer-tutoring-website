@@ -21,7 +21,7 @@ vi.mock("~/trpc/react", async () => ({
     // focused on preserving unsplit names without opening a separate link form.
     tutorHistory: {
       permissions: {
-        useQuery: () => ({ data: { canLink: false, isHead: false } }),
+        useQuery: () => ({ data: { canLink: false, canCorrectOwnership: false } }),
       },
     },
     useUtils: () => ({}),

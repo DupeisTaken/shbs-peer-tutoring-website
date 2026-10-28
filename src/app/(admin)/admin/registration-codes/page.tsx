@@ -2,7 +2,6 @@
 import { useSessionPageScroll } from "~/app/_components/session-view-state";
 import {
   REGISTRATION_KINDS,
-  isManagementCode,
   registrationKindLabel,
   type RegistrationKind,
 } from "~/lib/registration-kind";
@@ -118,7 +117,7 @@ export default function RegistrationCodesPage() {
   const [kind, setKind] = useState<RegistrationKind>("TUTOR");
   // Match issuance authority for the selected kind without broadening revocation.
   const canIssueDirectly =
-    isHead || (role === "ADMIN" && !isManagementCode(kind));
+    isHead || role === "ADMIN";
   const [issued, setIssued] = useState<{
     code: string;
     label: string | null;
@@ -310,7 +309,7 @@ export default function RegistrationCodesPage() {
           >
             {canIssueDirectly
               ? t("admin.registrationCodes.issue")
-              : t("approvals.requestHead")}
+              : t("approvals.requestAdmin")}
           </button>
         </form>
       )}

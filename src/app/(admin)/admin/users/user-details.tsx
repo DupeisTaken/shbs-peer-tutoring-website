@@ -279,6 +279,7 @@ function CombinedPersonDetails({
   const t = useTranslations();
   const directory = api.admin.accounts.useQuery();
   const canEdit = ["HEAD", "ADMIN"].includes(directory.data?.caller.role ?? "");
+  const canEditProfiles = ["HEAD", "ADMIN", "COORDINATOR"].includes(directory.data?.caller.role ?? "");
   const [wasEditable, setWasEditable] = useState(canEdit);
   const [directoryAccessLost, setDirectoryAccessLost] = useState(false);
   const directoryDenied = ["FORBIDDEN", "UNAUTHORIZED"].includes(directory.error?.data?.code ?? "");
@@ -319,7 +320,7 @@ function CombinedPersonDetails({
       )}
       {(canEdit || wasEditable) && needsReview && <CombineRecords
         reviewPersonId={group.id}
-        isHead={directory.data?.caller.role === "HEAD"}
+        canApply={["HEAD", "ADMIN"].includes(directory.data?.caller.role ?? "")}
         unavailable={controlsUnavailable}
         accessDenied={editorDenied}
       />}
@@ -352,7 +353,7 @@ function CombinedPersonDetails({
                   <p className="muted text-xs break-all">{user.email}</p>
                 </td>
                 <TableActions>
-                  {canEdit && (
+                  {canEditProfiles && (
                     <TableAction disabled={controlsUnavailable} onClick={() => setEditing(user.id)}>
                       {t("accountProfile.editProfile")}
                     </TableAction>
@@ -407,7 +408,7 @@ function CombinedPersonDetails({
           ))}
         </tbody>
       </SummaryTable>
-      {canEdit && login && (
+      {canEditProfiles && login && (
         <AccountProfileEditor
           profile={{
             ...login,
@@ -419,7 +420,8 @@ function CombinedPersonDetails({
             tutorStatus: login.tutor?.status,
           })}
           isHead={directory.data?.caller.role === "HEAD"}
-          canRequestHead={directory.data?.caller.role === "ADMIN"}
+          canApply={["HEAD", "ADMIN"].includes(directory.data?.caller.role ?? "")}
+          canPropose={directory.data?.caller.role === "COORDINATOR"}
           onClose={() => setEditing(null)}
         />
       )}

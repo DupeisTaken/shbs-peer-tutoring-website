@@ -13,6 +13,23 @@ import {
 } from "~/lib/recorded-evidence-diff";
 import { Button } from "./ui/button";
 import { DisclosureSection } from "./ui/disclosure-section";
+import { ReviewDisclosure } from "./review-disclosure";
+import { auditChangeSummary } from "~/lib/audit-change-summary";
+import {
+  auditCapturedName,
+  auditComparisonFacts,
+  auditComparisonIdentity,
+  auditCapturedReferences,
+  auditDirectField,
+} from "~/lib/audit-review-presentation";
+import {
+  auditEntityLabelKey,
+  auditFieldLabelKey,
+  auditEnumLabelKey,
+  auditReferenceEntity,
+} from "~/lib/review-vocabulary";
+import { reviewInstant } from "~/lib/review-instant";
+import { minToHm } from "~/lib/time";
 import { InlineNotice, StatePanel } from "./ui/patterns";
 
 /** Preserve JSON types and escaping on demand; never serialize the event's
@@ -175,6 +192,294 @@ function EvidenceContent({
   );
 }
 
+/** The summary decorates known stored envelopes. The original reader below stays
+ * available for unknown keys, complete context, and exact JSON. */
+export function AuditChangeSummary({
+  summary,
+}: {
+  summary: ReturnType<typeof auditChangeSummary>;
+}) {
+  const t = useTranslations("auditEventDetails");
+  const vocabulary = useTranslations();
+  const format = useFormatter();
+  if (!summary) return null;
+  const references = auditCapturedReferences(
+    summary.capturedRecords,
+    (value, entity) => {
+      const name = auditCapturedName(value);
+      if (name) return name;
+      if (entity === "TimeSlot" && value && typeof value === "object") {
+        const row = value as Record<string, unknown>;
+        if (
+          typeof row.dayOfWeek === "number" &&
+          row.dayOfWeek >= 1 &&
+          row.dayOfWeek <= 7 &&
+          typeof row.startMin === "number" &&
+          typeof row.endMin === "number"
+        )
+          return `${format.dateTime(new Date(Date.UTC(2026, 0, 4 + row.dayOfWeek)), { weekday: "long", timeZone: "UTC" })} · ${minToHm(row.startMin)}–${minToHm(row.endMin)}`;
+      }
+      return undefined;
+    },
+  );
+  const label = (entity: string | undefined, path: string) => {
+    const field = auditDirectField(path);
+    const key = field ? auditFieldLabelKey(entity, field) : null;
+    return key && vocabulary.has(key)
+      ? vocabulary(key)
+      : path || t("presentation.fullRecord");
+  };
+  const value = (
+    entity: string | undefined,
+    field: string | null,
+    item: unknown,
+    side: "before" | "after",
+    wholeRecord = false,
+  ): ReactNode => {
+    // A recorded empty identifier is a value, not evidence of an absent linked
+    // record. Preserve its explicit state before attempting label resolution.
+    if (item === "") return <EvidenceValue value={item} />;
+    const enumKey = field ? auditEnumLabelKey(entity, field, item) : null;
+    if (enumKey && vocabulary.has(enumKey)) return vocabulary(enumKey);
+    if (field && Array.isArray(item) && item.length)
+      return (
+        <ul className="space-y-1">
+          {item.map((child, index) => (
+            <li key={index}>{value(entity, field, child, side)}</li>
+          ))}
+        </ul>
+      );
+    if (field && auditFieldLabelKey(entity, field)) {
+      if (typeof item === "number" && ["startMin", "endMin"].includes(field))
+        return minToHm(item);
+      if (
+        typeof item === "number" &&
+        field === "dayOfWeek" &&
+        item >= 1 &&
+        item <= 7
+      )
+        return format.dateTime(new Date(Date.UTC(2026, 0, 4 + item)), {
+          weekday: "long",
+          timeZone: "UTC",
+        });
+      if (
+        typeof item === "string" &&
+        /(?:At|date|Date)$/.test(field) &&
+        /^\d{4}-\d{2}-\d{2}T/.test(item)
+      ) {
+        const date = reviewInstant(item);
+        if (Number.isFinite(date.getTime()))
+          return (
+            <span>
+              {format.dateTime(date, {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
+              <span className="mt-1 block font-mono text-xs text-slate-600">
+                {item}
+              </span>
+            </span>
+          );
+      }
+    }
+    if (field && typeof item === "string") {
+      const name = references(entity, field, item, side);
+      if (name)
+        return (
+          <span>
+            {name}
+            <span className="mt-1 block font-mono text-xs text-slate-600">
+              {item}
+            </span>
+          </span>
+        );
+      const target =
+        field === "id" ? entity : auditReferenceEntity(entity, field);
+      const targetLabel = auditEntityLabelKey(target);
+      if (targetLabel)
+        return (
+          <span>
+            {vocabulary(
+              references.resolve(entity, field, item, side).state ===
+                "ambiguous"
+                ? "approvals.review.referenceAmbiguous"
+                : "approvals.review.referenceMissing",
+              {
+                entity: vocabulary(targetLabel),
+              },
+            )}
+            <span className="mt-1 block font-mono text-xs text-slate-600">
+              {vocabulary("approvals.review.recordId", { id: item })}
+            </span>
+          </span>
+        );
+    }
+    if (
+      wholeRecord &&
+      auditEntityLabelKey(entity) &&
+      item !== null &&
+      typeof item === "object" &&
+      !Array.isArray(item) &&
+      Object.keys(item).some((key) => key !== "undoData")
+    )
+      return (
+        <dl className="space-y-2">
+          {Object.entries(item as Record<string, unknown>)
+            .filter(([key]) => key !== "undoData")
+            .map(([key, child]) => (
+              <div key={key}>
+                <dt className="text-xs font-medium text-slate-600">
+                  {label(
+                    entity,
+                    `/${key.replaceAll("~", "~0").replaceAll("/", "~1")}`,
+                  )}
+                </dt>
+                <dd>{value(entity, key, child, side)}</dd>
+              </div>
+            ))}
+        </dl>
+      );
+    return <EvidenceValue value={item} />;
+  };
+  const factText = (
+    entity: string | undefined,
+    key: string,
+    item: unknown,
+    side: "before" | "after",
+  ) => {
+    if (typeof item === "string") {
+      const name = references(entity, key, item, side);
+      if (name) return name;
+      if (key.endsWith("Id")) return undefined; // IDs remain exact secondary evidence.
+      const enumKey = auditEnumLabelKey(entity, key, item);
+      return enumKey && vocabulary.has(enumKey) ? vocabulary(enumKey) : item;
+    }
+    if (typeof item === "number" && ["startMin", "endMin"].includes(key))
+      return minToHm(item);
+    return undefined;
+  };
+  return (
+    <section aria-label={t("summaryTitle")} className="space-y-3">
+      <h3 className="text-base font-semibold text-slate-900">
+        {t("summaryTitle")}
+      </h3>
+      <p className="text-sm text-slate-700">
+        {t("summaryCounts", summary.counts)}
+      </p>
+      {summary.positional && (
+        <p className="text-sm text-slate-600">{t("positionalSummary")}</p>
+      )}
+      {!summary.comparisons.length && <p>{t("noRecordedChanges")}</p>}
+      {summary.comparisons.map((comparison, index) => {
+        const entityKey = auditEntityLabelKey(comparison.entity);
+        const entity =
+          entityKey && vocabulary.has(entityKey)
+            ? vocabulary(entityKey)
+            : (comparison.entity ?? t("evidence"));
+        const identity = auditComparisonIdentity(comparison);
+        const facts = auditComparisonFacts(comparison).flatMap((fact) => {
+          const before = factText(
+            comparison.entity,
+            fact.key,
+            fact.before,
+            "before",
+          );
+          const after = factText(
+            comparison.entity,
+            fact.key,
+            fact.after,
+            "after",
+          );
+          const result =
+            before && after && before !== after
+              ? `${before} → ${after}`
+              : (after ?? before);
+          return result ? [result] : [];
+        });
+        const names = [
+          ...new Set(
+            comparison.fields.map((field) =>
+              label(comparison.entity, field.path),
+            ),
+          ),
+        ];
+        const fieldNames =
+          names.slice(0, 3).join(", ") +
+          (names.length > 3
+            ? ` · ${t("presentation.moreFields", { count: names.length - 3 })}`
+            : "");
+        const changeKey = comparison.fields.every(
+          (field) => field.change === "added",
+        )
+          ? "fieldsAdded"
+          : comparison.fields.every((field) => field.change === "removed")
+            ? "fieldsRemoved"
+            : "fieldsChanged";
+        return (
+          <ReviewDisclosure
+            key={index}
+            defaultOpen={summary.comparisons.length === 1}
+            title={`${entity}${identity ? ` · ${identity}` : facts.length ? ` · ${facts.join(" · ")}` : ""} · ${t(`presentation.${changeKey}`, { fields: fieldNames })} · ${t("comparisonNumber", { number: index + 1 })}`}
+          >
+            {comparison.position !== undefined && (
+              <p className="text-xs text-slate-600">
+                {t("recordedPosition", { number: comparison.position })}
+              </p>
+            )}
+            {(comparison.beforeId !== undefined ||
+              comparison.afterId !== undefined) && (
+              <p className="text-xs text-slate-600">
+                {t("recordedIds", {
+                  before: comparison.beforeId ?? t("notRecorded"),
+                  after: comparison.afterId ?? t("notRecorded"),
+                })}
+              </p>
+            )}
+            <div className="divide-y divide-slate-200">
+              {comparison.fields.map((field) => (
+                <div
+                  key={field.path}
+                  className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,2fr)]"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium [overflow-wrap:anywhere]">
+                      {label(comparison.entity, field.path)}
+                    </p>
+                    {field.path && (
+                      <p className="mt-1 font-mono text-xs [overflow-wrap:anywhere] text-slate-500">
+                        {t("presentation.recordedPath", { path: field.path })}
+                      </p>
+                    )}
+                    <p className="text-xs text-slate-600">
+                      {t(`difference.${field.change}`)}
+                    </p>
+                  </div>
+                  {(["before", "after"] as const).map((side) => (
+                    <div key={side} className="min-w-0">
+                      <p className="mb-1 text-xs font-medium text-slate-600">
+                        {t(side)}
+                      </p>
+                      <div className="whitespace-pre-wrap">
+                        {value(
+                          comparison.entity,
+                          auditDirectField(field.path),
+                          field[side].present ? field[side].value : undefined,
+                          side,
+                          field.path === "",
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </ReviewDisclosure>
+        );
+      })}
+    </section>
+  );
+}
+
 function Metadata({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
@@ -190,6 +495,7 @@ function Metadata({ label, children }: { label: string; children: ReactNode }) {
  * Recovery repeats this read, never the audited write or an undo operation. */
 export function AuditEventDetails({ id }: { id: string }) {
   const t = useTranslations("auditEventDetails");
+  const vocabulary = useTranslations();
   const kinds = useTranslations("auditFilters.kinds");
   const format = useFormatter();
   const queryClient = useQueryClient();
@@ -261,6 +567,9 @@ export function AuditEventDetails({ id }: { id: string }) {
     );
   };
   const details = event.details;
+  // Derive once from this immutable event; no present-day record reads or ID
+  // matching participate in either the summary or the full evidence reader.
+  const summary = auditChangeSummary(details, event.entity ?? undefined);
   const evidence =
     details && typeof details === "object" && !Array.isArray(details)
       ? details
@@ -283,6 +592,7 @@ export function AuditEventDetails({ id }: { id: string }) {
         ),
       )
     : null;
+  const entityLabel = auditEntityLabelKey(event.entity ?? undefined);
 
   return (
     <div className="min-w-0 space-y-6 text-sm [overflow-wrap:anywhere]">
@@ -297,11 +607,43 @@ export function AuditEventDetails({ id }: { id: string }) {
           <Metadata label={t("action")}>{event.action}</Metadata>
           <Metadata label={t("when")}>{timestamp(event.createdAt)}</Metadata>
           <Metadata label={t("actor")}>{recorded(event.userName)}</Metadata>
+          <Metadata label={t("kind")}>
+            {kinds.has(event.kind) ? kinds(event.kind) : event.kind}
+          </Metadata>
+          <Metadata label={t("entity")}>
+            {entityLabel && vocabulary.has(entityLabel)
+              ? vocabulary(entityLabel)
+              : recorded(event.entity)}
+          </Metadata>
+          {event.undone && (
+            <Metadata label={t("undoStatus")}>{t("undone")}</Metadata>
+          )}
+          {evidence &&
+            "outcome" in evidence &&
+            typeof evidence.outcome === "string" &&
+            vocabulary.has(
+              `auditEventDetails.presentation.outcomes.${evidence.outcome}`,
+            ) && (
+              <Metadata label={t("presentation.outcome")}>
+                {vocabulary(
+                  `auditEventDetails.presentation.outcomes.${evidence.outcome}`,
+                )}
+                <span className="mt-1 block font-mono text-xs text-slate-500">
+                  {evidence.outcome}
+                </span>
+              </Metadata>
+            )}
+        </dl>
+      </section>
+      <AuditChangeSummary summary={summary} />
+      {/* Technical provenance stays complete, but its independent disclosure
+          leaves the recorded changes near the top of this long reader. */}
+      <ReviewDisclosure title={t("technicalDetails")} defaultOpen={false}>
+        <dl className="grid gap-4 sm:grid-cols-2">
           <Metadata label={t("actorId")}>{recorded(event.userId)}</Metadata>
           <Metadata label={t("eventId")}>{event.id}</Metadata>
           <Metadata label={t("kind")}>
-            {kinds(event.kind)}{" "}
-            <span className="text-xs text-slate-500">({event.kind})</span>
+            <span>({event.kind})</span>
           </Metadata>
           <Metadata label={t("operation")}>
             {recorded(event.operation)}
@@ -325,7 +667,7 @@ export function AuditEventDetails({ id }: { id: string }) {
           </Metadata>
           <Metadata label={t("undoneAt")}>{timestamp(event.undoneAt)}</Metadata>
         </dl>
-      </section>
+      </ReviewDisclosure>
       <section
         aria-label={t("evidence")}
         className="space-y-4 border-t border-slate-200 pt-5"
@@ -336,50 +678,52 @@ export function AuditEventDetails({ id }: { id: string }) {
           </h3>
           <p className="mt-1 text-sm text-slate-500">{t("evidenceHelp")}</p>
         </div>
-        {details === null ? (
-          <p className="rounded-lg bg-slate-50 p-4 text-slate-600">
-            {t("noEvidence")}
-          </p>
-        ) : hasComparison ? (
-          <>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(["before", "after"] as const).map((side) => (
-                <section
-                  key={side}
-                  aria-label={t(side)}
-                  className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-4"
-                >
-                  <h4 className="mb-3 text-sm font-semibold text-slate-700">
-                    {t(side)}
-                  </h4>
-                  <div className="whitespace-pre-wrap">
-                    <EvidenceValue
-                      value={evidence[side]}
-                      changes={differences}
-                    />
-                  </div>
-                </section>
-              ))}
-            </div>
-            {context && Object.keys(context).length > 0 && (
-              <div className="min-w-0 whitespace-pre-wrap">
-                <EvidenceValue value={context} />
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="min-w-0 rounded-lg bg-slate-50 p-4 whitespace-pre-wrap">
-            <EvidenceValue value={details} />
-          </div>
-        )}
-        {details !== null && (
-          <DisclosureSection title={t("rawEvidence")} lifetime="lazy">
-            <p className="mb-3 text-sm text-slate-500">
-              {t("rawEvidenceHelp")}
+        <ReviewDisclosure title={t("fullEvidence")} defaultOpen={!summary}>
+          {details === null ? (
+            <p className="rounded-lg bg-slate-50 p-4 text-slate-600">
+              {t("noEvidence")}
             </p>
-            <StoredEvidenceJson value={details} />
-          </DisclosureSection>
-        )}
+          ) : hasComparison ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(["before", "after"] as const).map((side) => (
+                  <section
+                    key={side}
+                    aria-label={t(side)}
+                    className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <h4 className="mb-3 text-sm font-semibold text-slate-700">
+                      {t(side)}
+                    </h4>
+                    <div className="whitespace-pre-wrap">
+                      <EvidenceValue
+                        value={evidence[side]}
+                        changes={differences}
+                      />
+                    </div>
+                  </section>
+                ))}
+              </div>
+              {context && Object.keys(context).length > 0 && (
+                <div className="min-w-0 whitespace-pre-wrap">
+                  <EvidenceValue value={context} />
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="min-w-0 rounded-lg bg-slate-50 p-4 whitespace-pre-wrap">
+              <EvidenceValue value={details} />
+            </div>
+          )}
+          {details !== null && (
+            <DisclosureSection title={t("rawEvidence")} lifetime="lazy">
+              <p className="mb-3 text-sm text-slate-500">
+                {t("rawEvidenceHelp")}
+              </p>
+              <StoredEvidenceJson value={details} />
+            </DisclosureSection>
+          )}
+        </ReviewDisclosure>
       </section>
     </div>
   );

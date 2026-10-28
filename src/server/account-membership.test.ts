@@ -21,6 +21,9 @@ const caller = (id = head) => createCaller({ db, headers: new Headers(), session
 } });
 
 beforeEach(async () => {
+  // The synthetic accounts are recreated each case; reset their process-local budgets too.
+  const limiter = (globalThis as { rateLimitStore?: Map<string, unknown> }).rateLimitStore;
+  for (const id of [head, admin, person, viewer]) limiter?.delete(`password-confirmation:${id}`);
   const url = new URL(process.env.DATABASE_URL!);
   if (!["localhost", "127.0.0.1"].includes(url.hostname) || url.pathname !== "/shbs_shipping_test")
     throw new Error("Membership tests require isolated local shbs_shipping_test");
@@ -63,21 +66,19 @@ it("supports management-only and management with both kinds of participation wit
   await expect(caller(person).student.me()).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
 });
 
-it("queues self requests without access and permits only Head to decide", async () => {
+it("queues participant self requests without access and permits Admin to decide", async () => {
   const requested = await caller(person).account.requestMemberships({ ...base, translator: true, crew: true });
   expect((await db.user.findUniqueOrThrow({ where: { id: person } })).canTranslate).toBe(false);
-  await expect(caller(admin).approval.decide({ id: requested.id, approve: true, note: "Review" })).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await caller().approval.decide({ id: requested.id, approve: true, note: "Reviewed membership" });
+  await caller(admin).approval.decide({ id: requested.id, approve: true, note: "Reviewed membership" });
   expect(await db.user.findUniqueOrThrow({ where: { id: person } })).toMatchObject({ canTranslate: true, crewStatus: "ACTIVE" });
   await expect(caller().approval.decide({ id: requested.id, approve: true, note: "Repeat" })).rejects.toMatchObject({ code: "CONFLICT" });
 });
 
-it("queues administrator badge changes and never persists identity challenges", async () => {
-  await expect(caller(admin).admin.setMemberships({ userId: person, membership: { ...base, translator: true }, confirmPassword: "NeverStoreThisSecret" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  const request = await db.approvalRequest.findFirstOrThrow();
-  expect(JSON.stringify(request)).not.toContain("NeverStoreThisSecret");
+it("applies administrator badge changes directly while requiring their own password", async () => {
+  await expect(caller(admin).admin.setMemberships({ userId: person, membership: { ...base, translator: true }, confirmPassword: "NeverStoreThisSecret" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.approvalRequest.count()).toBe(0);
   expect((await db.user.findUniqueOrThrow({ where: { id: person } })).canTranslate).toBe(false);
-  await caller().approval.decide({ id: request.id, approve: true, note: "Reviewed" });
+  await caller(admin).admin.setMemberships({ userId: person, membership: { ...base, translator: true }, confirmPassword: password });
   expect((await db.user.findUniqueOrThrow({ where: { id: person } })).canTranslate).toBe(true);
 });
 
@@ -87,10 +88,9 @@ it("rejects every Viewer combination through schema and database constraints", a
   for (const data of [{ canTranslate: true }, { crewStatus: "ACTIVE" as const }, { tuteeMember: true }])
     await expect(db.user.update({ where: { id: viewer }, data })).rejects.toThrow();
   await expect(caller().admin.setUserCanTranslate({ userId: viewer, canTranslate: true })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  await expect(caller(admin).admin.setUserRole({ userId: viewer, role: "STUDENT", confirmPassword: password })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  expect((await db.user.findUniqueOrThrow({ where: { id: viewer } })).role).toBe("VIEWER");
-  const request = await db.approvalRequest.findFirstOrThrow({ where: { operation: "admin.setUserRole" } });
-  await expect(caller(admin).approval.decide({ id: request.id, approve: true, note: "Admin cannot change rank" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await caller(admin).admin.setUserRole({ userId: viewer, role: "STUDENT", confirmPassword: password });
+  expect((await db.user.findUniqueOrThrow({ where: { id: viewer } })).role).toBe("STUDENT");
+  expect(await db.approvalRequest.count()).toBe(0);
 });
 
 it("requires explicit Translator even for management, before coordinator queueing", async () => {
@@ -153,7 +153,8 @@ it("converts historical participants to sole Viewer without deleting identity or
   await expect(caller(person).student.me()).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
 
-it("queues a concurrent Admin status restore without reversing Head removal", async () => {
+it("queues a concurrent Coordinator status restore without reversing management removal", async () => {
+  await db.user.update({ where: { id: admin }, data: { role: "COORDINATOR" } });
   await caller().admin.setMemberships({ userId: person, membership: { ...base, tutor: true }, confirmPassword: password });
   const user = await db.user.findUniqueOrThrow({ where: { id: person } });
   const original = db.tutor.findUnique.bind(db.tutor);
@@ -172,6 +173,6 @@ it("queues a concurrent Admin status restore without reversing Head removal", as
     expect((await db.tutor.findUniqueOrThrow({ where: { id: user.tutorId! } })).status).toBe("ARCHIVED");
     const request = await db.approvalRequest.findFirstOrThrow({ where: { operation: "admin.updateTutor" } });
     expect(request.state).toBe("PENDING");
-    await expect(caller(admin).approval.decide({ id: request.id, approve: true, note: "Admin cannot reverse removal" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller(admin).approval.decide({ id: request.id, approve: true, note: "Coordinator cannot reverse removal" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   } finally { spy.mockRestore(); }
 });

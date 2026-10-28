@@ -374,7 +374,7 @@ function StandaloneCombineHost() {
     setPending(value);
   }, []);
   return <>
-    <CombineRecords isHead onPendingChange={reportPending} />
+    <CombineRecords canApply onPendingChange={reportPending} />
     <button disabled={pending}>Page sibling action</button>
   </>;
 }
@@ -418,7 +418,7 @@ const element = (isHead = false, locale: "en" | "zh" = "en", reviewPersonId?: st
     messages={locale === "en" ? en : zh}
     timeZone="UTC"
   >
-    <CombineRecords isHead={isHead} onPendingChange={fixture.pending} reviewPersonId={reviewPersonId} />
+    <CombineRecords canApply={isHead} onPendingChange={fixture.pending} reviewPersonId={reviewPersonId} />
   </NextIntlClientProvider>
 );
 function mount(isHead = false, locale: "en" | "zh" = "en") {

@@ -456,7 +456,7 @@ it.each(["coord", "viewer", "owner"])(
   },
 );
 
-it("requires Head and their live password for multiple-login grouping", async () => {
+it("requires a live Admin or Head password for multiple-login grouping", async () => {
   const selection = {
     sources: [user("owner"), user("other")],
     retainedUserId: "owner",
@@ -464,7 +464,7 @@ it("requires Head and their live password for multiple-login grouping", async ()
   const preview = await previewPersonCombine(db, selection);
   expect(preview.requiresHead).toBe(true);
   const input = await reviewed(selection);
-  await expect(combinePersonRecords(db, "admin", input)).rejects.toMatchObject({
+  await expect(combinePersonRecords(db, "coord", input)).rejects.toMatchObject({
     code: "FORBIDDEN",
   });
   await expect(
@@ -473,7 +473,7 @@ it("requires Head and their live password for multiple-login grouping", async ()
       confirmPassword: "incorrect",
     }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await db.user.update({ where: { id: "head" }, data: { role: "ADMIN" } });
+  await db.user.update({ where: { id: "head" }, data: { role: "COORDINATOR" } });
   await expect(combinePersonRecords(db, "head", input)).rejects.toMatchObject({
     code: "FORBIDDEN",
   });
@@ -499,15 +499,15 @@ it("enforces identity acknowledgement and role checks through the actual API", a
   );
 });
 
-it("requires Head when an unowned participant is active, preserving its operational state", async () => {
+it("allows Admin review when an unowned participant is active, preserving its operational state", async () => {
   const selection = {
     sources: [tutor("current-tutor"), tutee("current-tutee")],
   };
   expect((await previewPersonCombine(db, selection)).requiresHead).toBe(true);
-  await expect(combine(selection, "admin")).rejects.toMatchObject({
+  await expect(combine(selection, "coord")).rejects.toMatchObject({
     code: "FORBIDDEN",
   });
-  await combine(selection);
+  await combine(selection, "admin");
   expect(
     await db.tutor.findUnique({ where: { id: "current-tutor" } }),
   ).toMatchObject({ status: "ACTIVE" });
@@ -578,7 +578,7 @@ it("keeps conflicting active logins and their private histories separate while g
   expect(await accountHistoryIds(db, "other")).toEqual(["other"]);
 });
 
-it("does not transfer an already owned archive through an Admin review", async () => {
+it("does not transfer an already owned archive through a Coordinator review", async () => {
   await db.tutorProfileOwnership.create({
     data: { tutorId: "archive", userId: "other" },
   });
@@ -587,7 +587,7 @@ it("does not transfer an already owned archive through an Admin review", async (
     retainedUserId: "owner",
   };
   expect((await previewPersonCombine(db, selection)).requiresHead).toBe(true);
-  await expect(combine(selection, "admin")).rejects.toMatchObject({
+  await expect(combine(selection, "coord")).rejects.toMatchObject({
     code: "FORBIDDEN",
   });
   expect(
@@ -1070,17 +1070,17 @@ it.each([false, true])(
   },
 );
 
-it("requires Head for accountless archived records with current assignments", async () => {
+it("allows Admin review for accountless archived records with current assignments", async () => {
   await currentAssignment("TUTOR");
   const preview = await previewPersonCombine(db, archives);
   expect(preview).toMatchObject({
     requiresHead: true,
     outcome: "REVIEW_REQUIRED",
   });
-  await expect(combine(archives, "admin")).rejects.toMatchObject({
+  await expect(combine(archives, "coord")).rejects.toMatchObject({
     code: "FORBIDDEN",
   });
-  expect(await combine(archives)).toMatchObject({
+  expect(await combine(archives, "admin")).toMatchObject({
     outcome: "REVIEW_REQUIRED",
     retiredUserIds: [],
   });
@@ -1511,7 +1511,7 @@ it("exposes a durable receipt only to the staff actor who accepted that intent",
 });
 
 it.each(["TUTOR", "TUTEE"] as const)(
-  "requires Head before an unowned %s sibling can leave a group containing another live login",
+  "requires a management password before an unowned %s sibling can leave a group containing another live login",
   async (kind) => {
     await combine(archives, "admin");
     // Claim only the opposite role, leaving the tested source unowned in its group.
@@ -1546,10 +1546,10 @@ it.each(["TUTOR", "TUTEE"] as const)(
         acknowledged: true as const,
         confirmPassword: password,
       };
-      await expect(linkTutorHistory(db, "admin", input)).rejects.toMatchObject({
+      await expect(linkTutorHistory(db, "coord", input)).rejects.toMatchObject({
         code: "FORBIDDEN",
       });
-      await linkTutorHistory(db, "head", input);
+      await linkTutorHistory(db, "admin", input);
     } else {
       const pair = { tuteeId: "past", userId: "other" };
       const preview = await previewHistoryLink(db, pair);
@@ -1561,10 +1561,10 @@ it.each(["TUTOR", "TUTEE"] as const)(
         acknowledged: true as const,
         confirmPassword: password,
       };
-      await expect(linkTuteeHistory(db, "admin", input)).rejects.toMatchObject({
+      await expect(linkTuteeHistory(db, "coord", input)).rejects.toMatchObject({
         code: "FORBIDDEN",
       });
-      await linkTuteeHistory(db, "head", input);
+      await linkTuteeHistory(db, "admin", input);
     }
     const newOwner = await db.user.findUniqueOrThrow({
       where: { id: "other" },
@@ -1697,18 +1697,18 @@ it("refuses remaining active work, then explicitly finalizes a fresh review with
   expect(await originals()).toEqual(original);
 });
 
-it("requires explicit safe retirement and current Head authority while finalizing separate private logins", async () => {
+it("requires explicit safe retirement and current management authority while finalizing separate private logins", async () => {
   const grouped = await combine({ sources: [user("owner"), user("other")] });
   const selection = { personId: grouped.personId, retainedUserId: "owner", retireDuplicateLogins: true };
   const review = await reviewPersonParticipation(db, selection);
   const input = { ...selection, fingerprint: review.fingerprint, reason, acknowledged: true as const, operationId: randomUUID(), confirmPassword: password };
-  await expect(finalizePersonParticipation(db, "admin", input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(finalizePersonParticipation(db, "coord", input)).rejects.toMatchObject({ code: "FORBIDDEN" });
   await expect(finalizePersonParticipation(db, "head", { ...input, confirmPassword: "wrong" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await accountHistoryIds(db, "owner")).toEqual(["owner"]);
-  const result = await finalizePersonParticipation(db, "head", input);
+  const result = await finalizePersonParticipation(db, "admin", input);
   expect(result).toMatchObject({ outcome: "GROUPED", retiredUserIds: ["other"] });
   expect((await accountHistoryIds(db, "owner")).sort()).toEqual(["other", "owner"]);
-  expect(await finalizePersonParticipation(db, "head", input)).toEqual(result);
+  expect(await finalizePersonParticipation(db, "admin", input)).toEqual(result);
 });
 
 it("binds finalization to current membership and source revisions rather than a grouping fingerprint", async () => {

@@ -21,7 +21,7 @@ type Names = IdentitySnapshot["current"];
 type Props = {
   applicationId: string;
   canCorrect: boolean;
-  isHead: boolean;
+  canApply: boolean;
   invalid: boolean;
   onChanged: (reportErrors?: boolean) => Promise<unknown> | void;
   onActive: (active: boolean) => void;
@@ -270,7 +270,7 @@ function IdentityCorrectionEditor({
             <ReasonField value={reason} onChange={(next) => { setReason(next); setAccepted(null); }} />
             <p className="muted text-sm">{t("protectedEvidence")}</p>
             {props.invalid && <InlineNotice tone="warning">{t("invalidPreserved")}</InlineNotice>}
-            {!accepted && <Button type="submit" variant="primary" disabled={!namePolicyReady || !reason.trim()}>{t(props.isHead ? "apply" : "propose")}</Button>}
+            {!accepted && <Button type="submit" variant="primary" disabled={!namePolicyReady || !reason.trim()}>{t(props.canApply ? "apply" : "propose")}</Button>}
           </fieldset>
           {error != null && <p role="alert" className="text-sm text-red-700"><IdentityError message={error instanceof Error ? error.message : t("saveFailed")} /></p>}
           <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">

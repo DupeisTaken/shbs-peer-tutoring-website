@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Prisma, ProgramFeatureKey } from "../../generated/prisma";
 import {
   APPROVAL_OPERATIONS,
+  APPROVAL_POLICY_VERSION,
   classifyApproval,
   type ApprovalAuthority,
   humanizeOperation,
@@ -23,9 +24,13 @@ import {
   verifyHistoricalPreview,
 } from "./historical-academics";
 import { db } from "./db";
+import { managementReviewers } from "./notifications/create";
 import { inTransaction, lockEntity, type TransactionDb } from "./transactions";
 import { announcementCandidates } from "./announcement-recipients";
 import { lockUsernameNamespace } from "./auth/username";
+import { DEFAULT_FEATURES } from "./program/features";
+import { getProgramTimeZone } from "./program/time-zone";
+import { captureReviewReferences } from "./approval-reference-capture";
 import {
   applicationIdentityCorrectionInput,
   validateApplicationIdentityCorrection,
@@ -255,6 +260,8 @@ export async function proposalAuthority(
         })
       : null;
   return classifyApproval(operation, value, {
+    currentAccountRole: operation === "admin.setMemberships" && typeof input.userId === "string"
+      ? (await client.user.findUnique({ where: { id: input.userId }, select: { role: true } }))?.role : undefined,
     currentTutorStatus: tutor?.status,
     currentCardReviewStatus: card?.reviewStatus,
     currentTuteeStatus: tutee?.status,
@@ -325,7 +332,7 @@ export async function parseProposal(operation: string, input: unknown) {
   let parsed: unknown = input;
   try {
     for (const parser of procedure._def.inputs) {
-      // Head reauthenticates role changes at application. Reuse the actual router schema
+      // The reviewer reauthenticates role changes at application. Reuse the actual router schema
       // while excluding its credential field from durable requester evidence.
       const schema =
         operation === "admin.setUserRole" && parser instanceof z.ZodObject
@@ -403,11 +410,38 @@ export async function proposalTargets(
   includeRoomBlockContext = false,
   includeAuthorityContext = false,
   actorId?: string,
+  includeReviewPresentation = false,
+  includeReviewReferences = false,
 ) {
   const input: unknown = superjson.deserialize(
     payload as Parameters<typeof superjson.deserialize>[0],
   );
   const fields = z.record(z.string(), z.unknown()).parse(input);
+  if (operation === "recovery.voidAdmission") {
+    // The complete causal graph is review evidence, not a requester assertion.
+    // Rebuilding it at approval detects changed-away-and-back descendant writes.
+    const { inspectAdmissionRecovery } = await import("./recovery/admission");
+    const plan = await inspectAdmissionRecovery(client, { actionId: z.string().parse(fields.actionId) });
+    if (!plan.websiteEligible || plan.fingerprint !== fields.expectedFingerprint)
+      throw new TRPCError({ code: "CONFLICT", message: "Recovery evidence changed or requires the operator CLI. Inspect it again." });
+    return JSON.parse(JSON.stringify(plan)) as Record<string, Prisma.InputJsonValue>;
+  }
+  // Reference labels have their own version. Keep every existing v1 display/
+  // authority projection byte-for-byte stable when this separate marker is absent.
+  const capturedTargets = async (targets: Record<string, unknown>) => {
+    const captured = JSON.parse(JSON.stringify(targets)) as Record<
+      string,
+      Prisma.InputJsonValue
+    >;
+    if (includeReviewReferences)
+      captured.reviewReferences = await captureReviewReferences(
+        client,
+        operation,
+        fields,
+        captured,
+      );
+    return captured;
+  };
   if (operation === "admin.correctApplicationIdentity") {
     // Queue interception happens before the resolver. Capture only a validated,
     // locked correction; replay repeats the same validation before fingerprinting.
@@ -418,7 +452,7 @@ export async function proposalTargets(
       { id: actorId },
     );
     // Names do not replace review evidence. Hold the application lock while
-    // capturing the exact panel, votes and qualification evidence the Head sees.
+    // capturing the exact panel, votes and qualification evidence the reviewer sees.
     const application = await client.tutorApplication.findUniqueOrThrow({
       where: { id: identity.id },
       include: {
@@ -427,23 +461,21 @@ export async function proposalTargets(
         subjectIntents: { orderBy: { id: "asc" } },
       },
     });
-    return JSON.parse(
-      JSON.stringify({
-        TutorApplication: [{ record: application }],
-        applicationIdentity: {
-          original: identity.original,
-          current: identity.current,
-          next: identity.next,
-          revision: identity.revision,
-          policy: identity.policy,
-          readiness: identity.readiness,
-          provisioning: identity.provisioning,
-        },
-        ...(includeAuthorityContext
-          ? { authorityContext: await authoritySnapshot(client) }
-          : {}),
-      }),
-    ) as Record<string, Prisma.InputJsonValue>;
+    return capturedTargets({
+      TutorApplication: [{ record: application }],
+      applicationIdentity: {
+        original: identity.original,
+        current: identity.current,
+        next: identity.next,
+        revision: identity.revision,
+        policy: identity.policy,
+        readiness: identity.readiness,
+        provisioning: identity.provisioning,
+      },
+      ...(includeAuthorityContext
+        ? { authorityContext: await authoritySnapshot(client) }
+        : {}),
+    });
   }
   if (operation === "program.prepareNextRecruitment") {
     const proposal = prepareNextRecruitmentSchema.parse(input);
@@ -452,12 +484,10 @@ export async function proposalTargets(
     // A separate Tutor/Tutee proposal or current-window edit must not invalidate it.
     // The marker distinguishes exact modern evidence from legacy review payloads;
     // live requester/reviewer authority is rechecked by the approval transaction.
-    return JSON.parse(
-      JSON.stringify({
-        nextRecruitment: { audience: proposal.audience, ...evidence },
-        ...(includeAuthorityContext ? { authorityContext: { version: 2 } } : {}),
-      }),
-    ) as Record<string, Prisma.InputJsonValue>;
+    return capturedTargets({
+      nextRecruitment: { audience: proposal.audience, ...evidence },
+      ...(includeAuthorityContext ? { authorityContext: { version: 2 } } : {}),
+    });
   }
   if (operation === "admin.refresh") {
     const expected = nextRecruitmentRefreshEvidenceSchema.parse(
@@ -471,18 +501,21 @@ export async function proposalTargets(
     // Validate while capturing, not only while replaying: queue middleware runs
     // before the resolver. An already stale/invalid refresh never enters review.
     const evidence = await validateNextRecruitmentRefresh(client, expected);
-    return JSON.parse(
-      JSON.stringify({
-        nextRecruitment: evidence,
-        ...(includeAuthorityContext
-          ? { authorityContext: await authoritySnapshot(client) }
-          : {}),
-      }),
-    ) as Record<string, Prisma.InputJsonValue>;
+    return capturedTargets({
+      nextRecruitment: evidence,
+      ...(includeAuthorityContext
+        ? { authorityContext: await authoritySnapshot(client) }
+        : {}),
+    });
   }
   // An automatic proposal approves the scheduling intent, not a previewed candidate room.
   // The slot itself and the edited pairing remain immutable review evidence.
-  const automaticRoomIntent = ["admin.createPairing", "admin.updatePairing", "admin.setPairingRoom"].includes(operation) && fields.roomMode === "AUTO";
+  const automaticRoomIntent =
+    [
+      "admin.createPairing",
+      "admin.updatePairing",
+      "admin.setPairingRoom",
+    ].includes(operation) && fields.roomMode === "AUTO";
   if (operation === "admin.reorderRooms") {
     const { assertProgramRoomOrder, roomOrderInput } =
       await import("./room-order");
@@ -539,17 +572,12 @@ export async function proposalTargets(
     await lockHistoricalCorrections(client, proposal);
     // Save exact named before/after records, original evidence and ownership. Rebuilding
     // this snapshot during approval rejects drift before any correction is appended.
-    return JSON.parse(
-      JSON.stringify({
-        historicalAcademics: await previewHistoricalCorrections(
-          client,
-          proposal,
-        ),
-        ...(includeAuthorityContext
-          ? { authorityContext: await authoritySnapshot(client) }
-          : {}),
-      }),
-    ) as Record<string, Prisma.InputJsonValue>;
+    return capturedTargets({
+      historicalAcademics: await previewHistoricalCorrections(client, proposal),
+      ...(includeAuthorityContext
+        ? { authorityContext: await authoritySnapshot(client) }
+        : {}),
+    });
   }
   // A tutor may update intent while a staff proposal is pending. Lock the same
   // compound record as live writes before capturing/rechecking review evidence.
@@ -578,14 +606,41 @@ export async function proposalTargets(
       Object.entries(value).forEach(([k, v]) => collect(v, k));
   };
   collect(input);
+  if (
+    includeReviewPresentation &&
+    operation === "corrections.correctAttendance"
+  ) {
+    // The correction owns a combined attendance block. Capture the same union
+    // the executor validates, so sibling students cannot look newly added.
+    const selected = await client.session.findUnique({
+      where: { id: z.string().parse(fields.id) },
+      select: { id: true, mergeGroupId: true },
+    });
+    if (selected) {
+      const primaryId = selected.mergeGroupId ?? selected.id;
+      const sessions = await client.session.findMany({
+        where: { OR: [{ id: primaryId }, { mergeGroupId: primaryId }] },
+        select: { id: true },
+      });
+      ids.set("Session", new Set(sessions.map((row) => row.id)));
+    }
+  }
   // A room-only proposal owns the complete explicit group, including sibling
   // membership/roster/version evidence. Approval never silently targets a later unit.
-  if (["admin.setPairingRoom", "admin.retryRoomAllocation"].includes(operation)) {
-    const selected = await client.pairing.findUnique({ where: { id: z.string().parse(fields.id) }, select: { groupId: true } });
+  if (
+    ["admin.setPairingRoom", "admin.retryRoomAllocation"].includes(operation)
+  ) {
+    const selected = await client.pairing.findUnique({
+      where: { id: z.string().parse(fields.id) },
+      select: { groupId: true },
+    });
     if (selected?.groupId) {
-      const members = await client.pairing.findMany({ where: { groupId: selected.groupId }, select: { id: true } });
+      const members = await client.pairing.findMany({
+        where: { groupId: selected.groupId },
+        select: { id: true },
+      });
       const pairingIds = ids.get("Pairing") ?? new Set<string>();
-      members.forEach(member => pairingIds.add(member.id));
+      members.forEach((member) => pairingIds.add(member.id));
       ids.set("Pairing", pairingIds);
     }
   }
@@ -594,10 +649,13 @@ export async function proposalTargets(
       where: { id: { in: [...(ids.get("Pairing") ?? [])] } },
       select: { groupId: true },
     });
-    const groupIds = [...new Set(selected.flatMap((row) => row.groupId ? [row.groupId] : []))];
+    const groupIds = [
+      ...new Set(selected.flatMap((row) => (row.groupId ? [row.groupId] : []))),
+    ];
     if (groupIds.length) {
       const members = await client.pairing.findMany({
-        where: { groupId: { in: groupIds } }, select: { id: true },
+        where: { groupId: { in: groupIds } },
+        select: { id: true },
       });
       const pairingIds = ids.get("Pairing") ?? new Set<string>();
       members.forEach((member) => pairingIds.add(member.id));
@@ -677,6 +735,36 @@ export async function proposalTargets(
     if (tutees.size) ids.set("Tutee", tutees);
   }
   const targets: Record<string, unknown> = {};
+  // New captures opt in; replay selects this exact shape only when the immutable
+  // request has the version marker. Old proposals retain their original digest
+  // and missing originals, without backfilling from today's account/defaults.
+  if (
+    includeReviewPresentation &&
+    [
+      "admin.updateAccountProfile",
+      "admin.updateAccountUsername",
+      "program.setFeaturePending",
+      "program.setSignupWindow",
+      "corrections.correctAttendance",
+    ].includes(operation)
+  ) {
+    const presentation: Record<string, unknown> = { version: 1 };
+    if (operation === "program.setFeaturePending") {
+      const key = z.nativeEnum(ProgramFeatureKey).parse(fields.key);
+      const feature = await client.programFeature.findUnique({
+        where: { key },
+      });
+      presentation.feature = {
+        key,
+        effective: feature?.enabled ?? DEFAULT_FEATURES[key],
+        pending: feature?.pendingEnabled ?? null,
+        source: feature ? "stored" : "default",
+      };
+    }
+    if (operation === "program.setSignupWindow")
+      presentation.timeZone = await getProgramTimeZone(client);
+    targets.reviewPresentation = presentation;
+  }
   if (primary === "ProgramCalendarDay") {
     const notices = await client.programCalendarDay.findMany({
       where: { date: z.string().parse(fields.date) },
@@ -847,7 +935,7 @@ export async function proposalTargets(
     });
   for (const [table, values] of [...ids.entries()].sort()) {
     // User secrets and audit undo payloads are never proposal evidence.
-    const fields =
+    let fields =
       table === "User"
         ? [
             "admin.updateAccountProfile",
@@ -857,27 +945,35 @@ export async function proposalTargets(
             "jsonb_build_object('id', t.id, 'name', t.name, 'alternativeNames', t.\"alternativeNames\", 'profileVersion', t.\"profileVersion\", 'role', t.role, 'tutorId', t.\"tutorId\", 'studentId', t.\"studentId\")"
           : "jsonb_build_object('id', t.id, 'name', t.name, 'role', t.role, 'tutorId', t.\"tutorId\", 'tutorAccessRevoked', t.\"tutorAccessRevoked\", 'tuteeMember', t.\"tuteeMember\", 'canTranslate', t.\"canTranslate\", 'crewStatus', t.\"crewStatus\", 'suspendedAt', t.\"suspendedAt\")"
         : table === "Pairing"
-          // Additive room columns do not stale untouched pre-deployment proposals.
-          ? "to_jsonb(t) - CASE WHEN t.\"roomVersion\" = 0 AND t.\"roomMode\" IN ('LEGACY','FIXED') AND NOT t.\"roomNeedsAssignment\" AND t.\"roomShortageKey\" IS NULL THEN ARRAY['roomMode','roomVersion','roomNeedsAssignment','roomShortageKey']::text[] ELSE ARRAY[]::text[] END"
-        : table === "Tutor"
-          ? // Advisory self-service changes never stale assignments or older proposal shapes.
-            "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot','preferredAssignedBlocks','workloadPreferenceVersion']::text[]"
-          : table === "DirectMessage"
-            ? "to_jsonb(t) - ARRAY['body','clientKey']::text[]"
-            : table === "StudentSignupAppeal"
-              ? "to_jsonb(t) - ARRAY['clientKey','inputHash','decisionKey','decisionHash']::text[]"
-              : table === "RegistrationCode"
-                ? "jsonb_build_object('id', t.id, 'kind', t.kind, 'tutorId', t.\"tutorId\", 'applicationId', t.\"applicationId\", 'crewApplicationId', t.\"crewApplicationId\", 'label', t.label, 'issuedById', t.\"issuedById\", 'issuedByName', t.\"issuedByName\", 'expiresAt', t.\"expiresAt\", 'usedAt', t.\"usedAt\", 'usedByUserId', t.\"usedByUserId\", 'emailVerifiedAt', t.\"emailVerifiedAt\", 'createdAt', t.\"createdAt\")"
-                : ["TutorApplication", "StudentSurvey"].includes(table)
-                  ? // Untouched additive columns must not invalidate pre-migration proposals.
-                    // A first flag or later clear leaves a positive revision in every future snapshot.
-                    "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[] - CASE WHEN t.\"invalidityVersion\" = 0 AND t.\"invalidatedAt\" IS NULL THEN ARRAY['invalidReason','invalidatedAt','invalidatedById','invalidatedByName','invalidityVersion']::text[] ELSE ARRAY[]::text[] END" +
-                    // Preserve old decisions for untouched applications. Every actual
-                    // correction contributes its positive revision to future fingerprints.
-                    (table === "TutorApplication"
-                      ? " - CASE WHEN t.\"identityRevision\" = 0 THEN ARRAY['identityRevision']::text[] ELSE ARRAY[]::text[] END"
-                      : "")
-                  : "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[]";
+          ? // Additive room columns do not stale untouched pre-deployment proposals.
+            "to_jsonb(t) - CASE WHEN t.\"roomVersion\" = 0 AND t.\"roomMode\" IN ('LEGACY','FIXED') AND NOT t.\"roomNeedsAssignment\" AND t.\"roomShortageKey\" IS NULL THEN ARRAY['roomMode','roomVersion','roomNeedsAssignment','roomShortageKey']::text[] ELSE ARRAY[]::text[] END"
+          : table === "Tutor"
+            ? // Advisory self-service changes never stale assignments or older proposal shapes.
+              "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot','preferredAssignedBlocks','workloadPreferenceVersion']::text[]"
+            : table === "DirectMessage"
+              ? "to_jsonb(t) - ARRAY['body','clientKey']::text[]"
+              : table === "StudentSignupAppeal"
+                ? "to_jsonb(t) - ARRAY['clientKey','inputHash','decisionKey','decisionHash']::text[]"
+                : table === "RegistrationCode"
+                  ? "jsonb_build_object('id', t.id, 'kind', t.kind, 'tutorId', t.\"tutorId\", 'applicationId', t.\"applicationId\", 'crewApplicationId', t.\"crewApplicationId\", 'label', t.label, 'issuedById', t.\"issuedById\", 'issuedByName', t.\"issuedByName\", 'expiresAt', t.\"expiresAt\", 'usedAt', t.\"usedAt\", 'usedByUserId', t.\"usedByUserId\", 'emailVerifiedAt', t.\"emailVerifiedAt\", 'createdAt', t.\"createdAt\")"
+                  : ["TutorApplication", "StudentSurvey"].includes(table)
+                    ? // Untouched additive columns must not invalidate pre-migration proposals.
+                      // A first flag or later clear leaves a positive revision in every future snapshot.
+                      "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[] - CASE WHEN t.\"invalidityVersion\" = 0 AND t.\"invalidatedAt\" IS NULL THEN ARRAY['invalidReason','invalidatedAt','invalidatedById','invalidatedByName','invalidityVersion']::text[] ELSE ARRAY[]::text[] END" +
+                      // Preserve old decisions for untouched applications. Every actual
+                      // correction contributes its positive revision to future fingerprints.
+                      (table === "TutorApplication"
+                        ? " - CASE WHEN t.\"identityRevision\" = 0 THEN ARRAY['identityRevision']::text[] ELSE ARRAY[]::text[] END"
+                        : "")
+                    : "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[]";
+    if (table === "User" && includeReviewPresentation) {
+      if (operation === "admin.updateAccountProfile")
+        fields +=
+          " || jsonb_build_object('firstName', t.\"firstName\", 'lastName', t.\"lastName\", 'preferredName', t.\"preferredName\")";
+      if (operation === "admin.updateAccountUsername")
+        fields +=
+          " || jsonb_build_object('username', t.username, 'profileVersion', t.\"profileVersion\")";
+    }
     targets[table] = await client.$queryRaw(
       Prisma.sql`SELECT ${Prisma.raw(fields)} AS record FROM ${Prisma.raw('"' + table + '"')} t WHERE t.id IN (${Prisma.join([...values].sort())}) ORDER BY t.id`,
     );
@@ -919,13 +1015,22 @@ export async function proposalTargets(
     ["NewsPost", "NewsTranslation", "postId"],
     ["LandingSection", "LandingSectionTranslation", "sectionId"],
   ] as const) {
-    if (automaticRoomIntent && parent === "TimeSlot" && child === "Pairing") continue;
-    if (!includeAuthorityContext && (child === "ServiceHourAdjustment" || child === "TuteeRemovalRequest" || child === "DisciplinaryCard" || child === "SessionFlag")) continue;
+    if (automaticRoomIntent && parent === "TimeSlot" && child === "Pairing")
+      continue;
+    if (
+      !includeAuthorityContext &&
+      (child === "ServiceHourAdjustment" ||
+        child === "TuteeRemovalRequest" ||
+        child === "DisciplinaryCard" ||
+        child === "SessionFlag")
+    )
+      continue;
     const values = ids.get(parent);
     if (values?.size) {
-      const childFields = child === "Pairing"
-        ? "to_jsonb(t) - CASE WHEN t.\"roomVersion\" = 0 AND t.\"roomMode\" IN ('LEGACY','FIXED') AND NOT t.\"roomNeedsAssignment\" AND t.\"roomShortageKey\" IS NULL THEN ARRAY['roomMode','roomVersion','roomNeedsAssignment','roomShortageKey']::text[] ELSE ARRAY[]::text[] END"
-        : "to_jsonb(t)";
+      const childFields =
+        child === "Pairing"
+          ? "to_jsonb(t) - CASE WHEN t.\"roomVersion\" = 0 AND t.\"roomMode\" IN ('LEGACY','FIXED') AND NOT t.\"roomNeedsAssignment\" AND t.\"roomShortageKey\" IS NULL THEN ARRAY['roomMode','roomVersion','roomNeedsAssignment','roomShortageKey']::text[] ELSE ARRAY[]::text[] END"
+          : "to_jsonb(t)";
       const rows = await client.$queryRaw<unknown[]>(
         Prisma.sql`SELECT ${Prisma.raw(childFields)} AS record FROM ${Prisma.raw('"' + child + '"')} t WHERE ${Prisma.raw('"' + field + '"')} IN (${Prisma.join([...values])}) ORDER BY to_jsonb(t)::text`,
       );
@@ -955,10 +1060,7 @@ export async function proposalTargets(
     orderBy: { createdAt: "desc" },
     select: { id: true, schoolYear: true, quarter: true },
   });
-  return JSON.parse(JSON.stringify(targets)) as Record<
-    string,
-    Prisma.InputJsonValue
-  >;
+  return capturedTargets(targets);
 }
 
 /** JSONB preserves values and array order, but not object insertion order. */
@@ -991,7 +1093,7 @@ export async function queueProposal(
   input: unknown,
   options: { participantSelfService?: boolean } = {},
 ) {
-  // Identity challenges belong to the acting Head, never to persisted/requester payloads.
+  // Identity challenges belong to the acting reviewer, never to persisted/requester payloads.
   if (operation === "admin.setMemberships") {
     const value = z
       .object({ userId: z.string(), membership: z.unknown() })
@@ -1002,9 +1104,10 @@ export async function queueProposal(
   const value: unknown = superjson.deserialize(
     payload as unknown as Parameters<typeof superjson.deserialize>[0],
   );
-  const identityCorrection = operation === "admin.correctApplicationIdentity"
-    ? applicationIdentityCorrectionInput.parse(value)
-    : null;
+  const identityCorrection =
+    operation === "admin.correctApplicationIdentity"
+      ? applicationIdentityCorrectionInput.parse(value)
+      : null;
   return inTransaction(db, async (tx) => {
     if (identityCorrection) {
       await lockUsernameNamespace(tx);
@@ -1056,23 +1159,46 @@ export async function queueProposal(
         where: {
           requesterId: session.user.id,
           operation,
-          payload: { path: ["json", "clientKey"], equals: identityCorrection.clientKey },
+          payload: {
+            path: ["json", "clientKey"],
+            equals: identityCorrection.clientKey,
+          },
         },
       });
       if (receipt) {
         // This is a semantic retry comparison, not an old review fingerprint:
         // PostgreSQL may reorder both payload and SuperJSON metadata keys.
-        if (JSON.stringify(canonicalJson(receipt.payload)) !== JSON.stringify(canonicalJson(payload)))
-          throw new TRPCError({ code: "CONFLICT", message: "APPLICATION_IDENTITY_RETRY_CHANGED" });
+        if (
+          JSON.stringify(canonicalJson(receipt.payload)) !==
+          JSON.stringify(canonicalJson(payload))
+        )
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "APPLICATION_IDENTITY_RETRY_CHANGED",
+          });
         // The original proposal remains the receipt even after its target drifts.
         // Reopening it cannot recapture later evidence or duplicate notifications.
         if (receipt.state === "PENDING") return receipt;
-        throw new TRPCError({ code: "CONFLICT", message: "APPLICATION_IDENTITY_PROPOSAL_DECIDED" });
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "APPLICATION_IDENTITY_PROPOSAL_DECIDED",
+        });
       }
     }
     await validateRoomBlockProposal(tx, operation, value);
-    const targets = await proposalTargets(tx, operation, payload, true, true, session.user.id);
-    if (["program.prepareNextRecruitment", "admin.refresh"].includes(operation)) {
+    const targets = await proposalTargets(
+      tx,
+      operation,
+      payload,
+      true,
+      true,
+      session.user.id,
+      true,
+      true,
+    );
+    if (
+      ["program.prepareNextRecruitment", "admin.refresh"].includes(operation)
+    ) {
       // Capturing evidence may wait behind a refresh or mode edit. Retain the
       // requester's live authority under a row lock until the proposal commits.
       actor = await assertNextRecruitmentActor(
@@ -1081,10 +1207,12 @@ export async function queueProposal(
         authority.requesterRoles,
       );
     }
-    if (targets && typeof targets === "object" && !Array.isArray(targets))
+    if (targets && typeof targets === "object" && !Array.isArray(targets)) {
       targets.reviewAuthority = JSON.parse(
         JSON.stringify(authority),
       ) as Prisma.InputJsonValue;
+      targets.reviewPolicyVersion = APPROVAL_POLICY_VERSION;
+    }
     if (
       options.participantSelfService &&
       targets &&
@@ -1188,23 +1316,19 @@ export async function queueProposal(
         },
       },
     });
-    const reviewers = await tx.user.findMany({
-      where: {
-        role: { in: [...authority.reviewerRoles] },
-        suspendedAt: null,
-        mergedIntoId: null,
-      },
-      select: { id: true },
+    const headOnly = authority.reviewerRoles.includes("HEAD") && !authority.reviewerRoles.includes("ADMIN");
+    const reviewers = await managementReviewers(tx, {
+      headOnly, exclude: session.user.id, allowHeadSelfReview: true,
     });
     await tx.notification.createMany({
       data: reviewers.map((u) => ({
         userId: u.id,
         title:
-          authority.reviewerRoles.length === 1
+          headOnly
             ? "Management change awaiting Head approval"
             : "Management change awaiting approval",
         ...notificationEvent(
-          authority.reviewerRoles.length === 1
+          headOnly
             ? "management_head_review_pending"
             : "management_review_pending",
         ),

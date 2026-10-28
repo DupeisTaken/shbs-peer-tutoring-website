@@ -30,7 +30,7 @@ export function HistoricalAcademicCorrections({
   coordinator,
   initialSearch = "",
 }: {
-  /** Legacy prop name: true selects the Admin proposal workflow; the route excludes Coordinators. */
+  /** Coordinators retain a batch draft until Admin review; Admin/Head apply directly. */
   coordinator: boolean;
   initialSearch?: string;
 }) {

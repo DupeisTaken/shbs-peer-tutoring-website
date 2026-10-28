@@ -11,8 +11,7 @@ import type { FeatureKey } from "~/server/program/features";
 
 /**
  * Optional-module toggles. Room automation controls new allocation while retaining
- * reservations/readers; Quarter System controls refresh granularity. Only the
- * Head applies them directly and Admin may request Head review, and changes are staged — they take effect at the next program refresh.
+ * reservations/readers; Quarter System controls refresh granularity. Admin/Head stage them directly and Coordinators may request Admin review. Changes are staged — they take effect at the next program refresh.
  */
 export function FeatureToggles() {
   const t = useTranslations();

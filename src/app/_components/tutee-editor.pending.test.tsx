@@ -313,7 +313,7 @@ function renderEditor(editorRow = row, unmountOnClose = false, isHead = false) {
           close();
           if (unmountOnClose) setOpen(false);
         }}
-        historyPermissions={{ canLink: true, isHead }}
+        historyPermissions={{ canLink: true, canCorrectOwnership: isHead }}
       />
     ) : null;
   }

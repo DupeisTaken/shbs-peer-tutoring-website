@@ -116,7 +116,7 @@ vi.mock("~/trpc/react", async () => {
       tutorHistory: {
         permissions: {
           useQuery: () => ({
-            data: { canLink: true, isHead: true },
+            data: { canLink: true, canCorrectOwnership: true },
             isFetching: false,
           }),
         },
@@ -354,7 +354,7 @@ function Host({ kind, close }: { kind: Kind; close: () => void }) {
           <TuteeEditor
             row={row as unknown as ComponentProps<typeof TuteeEditor>["row"]}
             onClose={onClose}
-            historyPermissions={{ canLink: true, isHead: true }}
+            historyPermissions={{ canLink: true, canCorrectOwnership: true }}
           />
         ) : kind === "tutor" ? (
           <TutorProfileEditor

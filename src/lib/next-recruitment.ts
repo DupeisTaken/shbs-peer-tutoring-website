@@ -34,6 +34,12 @@ const destinationWindowSchema = z.object({
 export const nextRecruitmentRefreshEvidenceSchema = z.object({
   target: nextRecruitmentTargetSchema,
   timeZone,
+  // Optional only for reading old requests. Application requires equality with the
+  // current complete snapshot, so legacy refreshes must be reviewed again.
+  stagedFeatures: z.array(z.object({
+    key: z.string(), enabled: z.boolean(), pendingEnabled: z.boolean().nullable(),
+    revision: z.number().int().nonnegative(),
+  }).strict()).optional(),
   preparations: z.object({
     tutor: nextRecruitmentPreparationEvidenceSchema.nullable(),
     tutee: nextRecruitmentPreparationEvidenceSchema.nullable(),

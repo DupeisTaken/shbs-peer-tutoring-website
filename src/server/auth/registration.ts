@@ -70,6 +70,7 @@ import { graduationYear } from "~/lib/period";
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import { getFeatures } from "~/server/program/features";
 import { initializePersonSource } from "~/server/person-source-initialization";
+import { registrationRecoveryAction, captureRegistrationBefore, recoveryAccountSelect, trackRecoveryEntity } from "~/server/recovery/capture";
 
 /** Registration codes stay valid for one week — long enough to distribute and use. */
 export const CODE_TTL_DAYS = 7;
@@ -159,7 +160,7 @@ export async function issueRegistrationCode(
     // Share the database fence with displayed invitations, even for callers that
     // issue participation codes outside a surrounding transaction.
     await lockUsernameNamespace(tx);
-    // Management invitations are durable Head authorization. Check the issuer even
+    // Management invitations are durable Admin/Head authorization. Check the issuer even
     // when called outside the admin router, and never attach participation records.
     if (isManagementCode(opts.kind ?? "TUTOR")) {
       if (opts.issuedById)
@@ -167,10 +168,10 @@ export async function issueRegistrationCode(
       const issuer = opts.issuedById
         ? await tx.user.findUnique({ where: { id: opts.issuedById } })
         : null;
-      if (issuer?.role !== "HEAD" || issuer.suspendedAt)
+      if (!issuer || !["ADMIN", "HEAD"].includes(issuer.role) || issuer.suspendedAt || issuer.mergedIntoId)
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Only Head may issue management invitations.",
+          message: "Only Admin or Head may issue management invitations.",
         });
       if (opts.tutorId || opts.applicationId || opts.crewApplicationId)
         throw new TRPCError({
@@ -292,9 +293,9 @@ export async function assertTutorRegistrationSource(
   await client.$queryRaw`SELECT id FROM "TutorApplication" WHERE id = ${row.applicationId} FOR UPDATE`;
   const application = await client.tutorApplication.findUnique({
     where: { id: row.applicationId },
-    select: { invalidatedAt: true },
+    select: { invalidatedAt: true, status: true },
   });
-  if (!application || application.invalidatedAt)
+  if (!application || application.invalidatedAt || application.status !== "ACCEPTED")
     throw new TRPCError({ code: "BAD_REQUEST", message: "INVITATION_INVALID" });
 }
 
@@ -790,6 +791,10 @@ async function completeRegistrationLocked(
           before: recipient.role,
           after: nextRole,
         });
+        if (recipient.role !== nextRole) {
+          const { reconcileManagementReviewNotifications } = await import("~/server/notifications/create");
+          await reconcileManagementReviewNotifications(tx);
+        }
         return {
           ok: true as const,
           username: await ensureUserUsername(recipient.id, tx),
@@ -836,6 +841,8 @@ async function completeRegistrationLocked(
         data: { usedByUserId: user.id },
       });
       await recordRedemption(tx, row, user.id);
+      const { reconcileManagementReviewNotifications } = await import("~/server/notifications/create");
+      await reconcileManagementReviewNotifications(tx);
       return { ok: true as const, username };
     });
   }
@@ -1016,6 +1023,7 @@ async function completeRegistrationLocked(
     await lockEntity(tx, "program:period");
     await lockUsernameNamespace(tx);
     await assertTutorRegistrationSource(tx, row);
+    const recoveryActionId = await registrationRecoveryAction(tx, row.applicationId, row.id);
     const term = await tx.term.findFirst({
       where: { active: true },
       select: { schoolYear: true },
@@ -1035,7 +1043,8 @@ async function completeRegistrationLocked(
       });
       if (
         existingUser.suspendedAt ||
-        (existingUser.tutorId && existingUser.tutorAccessRevoked)
+        (existingUser.tutorId && existingUser.tutorAccessRevoked &&
+          !(existingUser.recoveryVoidedAt && recoveryActionId))
       )
         throw new TRPCError({
           code: "FORBIDDEN",
@@ -1061,6 +1070,10 @@ async function completeRegistrationLocked(
         message:
           "Account membership changed. Ask Head to review this invitation.",
       });
+    if (recoveryActionId) await captureRegistrationBefore(tx, recoveryActionId,
+      existingUser ? await tx.user.findUnique({ where: { id: existingUser.id }, select: recoveryAccountSelect }) : null);
+    if (existingUser?.recoveryVoidedAt && recoveryActionId)
+      await tx.$queryRaw`SELECT set_config('shbs.recovery_reauthorize', ${recoveryActionId}, true)`;
     await claimRegistration(tx, row);
     // A generic grant for an already-linked tutor is idempotent. It must not
     // reactivate an opted-out/historical record or replay academic/profile intake.
@@ -1187,6 +1200,7 @@ async function completeRegistrationLocked(
         data: {
           tutorId,
           tutorAccessRevoked: false,
+          ...(existingUser.recoveryVoidedAt && recoveryActionId ? { recoveryVoidedAt: null } : {}),
           ...(existingUser.role === "VIEWER" ? { role: "TUTOR" as const } : {}),
           username: desiredUsername,
           ...(!existingUser.passwordHash
@@ -1288,6 +1302,7 @@ async function completeRegistrationLocked(
       where: { id: row.id },
       data: { usedAt: new Date(), usedByUserId: userId },
     });
+    if (recoveryActionId) await trackRecoveryEntity(tx, recoveryActionId, "User", userId);
     await recordRedemption(tx, row, userId);
     return {
       username: desiredUsername,

@@ -140,20 +140,20 @@ it("defaults off, returns no widget config and never calls the provider while li
   });
   expect(sdk.verify).not.toHaveBeenCalled();
 });
-it("restricts direct changes to Head, exposes safe status and queues Admin proposals", async () => {
-  for (const role of ["COORDINATOR", "VIEWER", "STUDENT"] as const)
+it("restricts direct changes to Admin and Head, exposes safe status and queues Coordinator proposals", async () => {
+  for (const role of ["VIEWER", "STUDENT"] as const)
     await expect(
       caller(role).program.setCaptcha({ enabled: true, expectedVersion: 0 }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect((await caller("COORDINATOR").program.captchaSettings()).canEdit).toBe(
-    false,
+    true,
   );
   expect(Object.hasOwn(APPROVAL_OPERATIONS, "program.setCaptcha")).toBe(true);
-  await expect(caller("ADMIN").program.setCaptcha({ enabled: true, expectedVersion: 0 }))
+  await expect(caller("COORDINATOR").program.setCaptcha({ enabled: true, expectedVersion: 0 }))
     .rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect((await caller().program.captchaPublic()).enabled).toBe(false);
   expect(await db.approvalRequest.count()).toBe(1);
-  await enable();
+  await caller("ADMIN").program.setCaptcha({ enabled: true, expectedVersion: 0 });
   await expect(
     caller("HEAD").program.setCaptcha({ enabled: false, expectedVersion: 0 }),
   ).rejects.toMatchObject({ code: "CONFLICT" });
@@ -178,7 +178,7 @@ it("restricts direct changes to Head, exposes safe status and queues Admin propo
       orderBy: { createdAt: "asc" },
     }),
   ).toMatchObject({
-    userId: "HEAD",
+    userId: "ADMIN",
     details: { before: { enabled: false }, after: { enabled: true } },
   });
 });

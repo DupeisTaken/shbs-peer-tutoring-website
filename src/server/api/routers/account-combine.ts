@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createTRPCRouter, headProcedure } from "../trpc";
+import { createTRPCRouter, adminOnlyProcedure } from "../trpc";
 import {
   combineAccounts,
   combineInput,
@@ -7,17 +7,17 @@ import {
 } from "~/server/combine-accounts";
 
 export const accountCombineRouter = createTRPCRouter({
-  candidates: headProcedure.query(({ ctx }) =>
+  candidates: adminOnlyProcedure.query(({ ctx }) =>
     ctx.db.user.findMany({
       where: { mergedIntoId: null },
       select: { id: true, name: true, email: true, username: true, role: true },
       orderBy: [{ name: "asc" }, { id: "asc" }],
     }),
   ),
-  preview: headProcedure
+  preview: adminOnlyProcedure
     .input(combineInput)
     .query(({ ctx, input }) => previewCombine(ctx.db, input)),
-  combine: headProcedure
+  combine: adminOnlyProcedure
     .input(
       combineInput.extend({
         fingerprint: z.string().length(64),

@@ -313,7 +313,7 @@ describe("automatic room ranking", () => {
   });
   it("suppresses unchanged shortage notices and uses the caller transaction", async () => {
     const { db, raw } = fixture([], {
-      users: [{ id: "admin", tutorId: null, studentId: null }],
+      users: [{ id: "admin", tutorId: null, studentId: null }, { id: "head", tutorId: null, studentId: null }],
       blocks: ["a", "b"],
     });
     const allocation = await allocateRoom(db, schedule, {}, current);
@@ -327,7 +327,11 @@ describe("automatic room ranking", () => {
     await notifyRoomShortage(db, "pairing", allocation, null);
     expect(raw.notification.createMany).toHaveBeenCalledTimes(1);
     expect(raw.user.findMany.mock.lastCall).toMatchObject([
-      { where: { role: { in: ["HEAD", "ADMIN"] } } },
+      { where: { role: { in: ["ADMIN", "HEAD"] }, suspendedAt: null, mergedIntoId: null } },
     ]);
+    expect(raw.notification.createMany).toHaveBeenCalledExactlyOnceWith({ data: [
+      expect.objectContaining({ userId: "admin" }) as unknown,
+      expect.objectContaining({ userId: "head" }) as unknown,
+    ] });
   });
 });

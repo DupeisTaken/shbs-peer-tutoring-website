@@ -497,9 +497,7 @@ function PermissionEditor({
             variant="primary"
             disabled={save.isPending || reason.trim().length < 5}
           >
-            {identity.data?.role === "ADMIN"
-              ? approvals("requestHead")
-              : t("save")}
+            {t("save")}
           </Button>
           <Button
             disabled={save.isPending || reason.trim().length < 5}

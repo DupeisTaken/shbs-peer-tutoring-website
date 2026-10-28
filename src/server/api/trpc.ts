@@ -215,6 +215,7 @@ export const protectedProcedure = t.procedure
       select: {
         role: true,
         mergedIntoId: true,
+        recoveryVoidedAt: true,
         tutorId: true,
         tutorAccessRevoked: true,
         schoolDeparture: true,
@@ -226,7 +227,11 @@ export const protectedProcedure = t.procedure
         username: true,
       },
     });
-    if (!account || account.mergedIntoId) throw new TRPCError({ code: "UNAUTHORIZED" });
+    if (!account || account.mergedIntoId || account.recoveryVoidedAt) throw new TRPCError({ code: "UNAUTHORIZED" });
+    // Legacy undo payloads lack causal closure. Refuse before approval queuing,
+    // including replay of an old queued undo; the CLI inspector retains evidence.
+    if (type === "mutation" && path === "admin.undoAudit")
+      throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Legacy undo has no complete consequence history. Use recovery preview or the database inspector for operator review." });
     if (
       account.suspendedAt &&
       !["account.me", "account.suspension", "account.submitAppeal"].includes(
@@ -240,7 +245,7 @@ export const protectedProcedure = t.procedure
     }
     const access = portalAccess(account);
     if (type === "mutation" && access.departed && ["tutor.activateAccount", "tutor.requestReentry", "tutor.setAvailability", "tutor.setInterviewTime", "studentWorkflow.editAvailability", "studentWorkflow.applyAbort", "studentWorkflow.applyLegacyWithdrawal"].includes(path))
-      throw new TRPCError({ code: "FORBIDDEN", message: "School departure is confirmed. Ask Head to review your return." });
+      throw new TRPCError({ code: "FORBIDDEN", message: "School departure is confirmed. Ask Admin or Head to review your return." });
     // Participant reads and writes share the same consent boundary as the tutee page.
     // Policy/onboarding and staff inspection remain available before participation is granted.
     const tuteeOperations = new Set([
@@ -291,7 +296,7 @@ export const protectedProcedure = t.procedure
         message: "Translation access required.",
       });
     // Central classification covers legacy entry points as well as profile editing.
-    // Participant requests cannot execute mutations; their eventual reviewer must be Head.
+    // Participant requests cannot execute mutations; their eventual reviewer is Admin/Head.
     // Check additional requests before legacy membership/coordinator proposal middleware.
     // A coordinator must not turn a prohibited decision into an approval replay loophole.
     if (type === "mutation" && ["admin.assignInterviewers", "admin.setApplicationStatus", "admin.deleteApplication", "tutor.decideInterview"].includes(path)) {
@@ -328,7 +333,7 @@ export const protectedProcedure = t.procedure
           throw new TRPCError({ code: "FORBIDDEN", message: "Your current role cannot submit this change." });
         const request = await queueProposal({ ...ctx.session, role: account.role }, path, raw);
         throw new TRPCError({ code: "PRECONDITION_FAILED",
-          message: authority.reviewerRoles.length === 1
+          message: authority.reviewerRoles.includes("HEAD") && !authority.reviewerRoles.includes("ADMIN")
             ? "Submitted for Head approval. No live changes have been applied."
             : "Submitted for management approval. No live changes have been applied.",
           cause: new ApprovalQueued(request.id) });
@@ -423,8 +428,8 @@ export const protectedProcedure = t.procedure
 /**
  * Role hierarchy: HEAD > ADMIN > COORDINATOR > TUTOR > VIEWER.
  * - "Elevated" = admin-area access (HEAD, ADMIN, COORDINATOR).
- * - "Admin tier" = full admin powers excluding coordinators (HEAD, ADMIN) — e.g. role changes,
- *   program refresh. HEAD additionally manages the admin roster + leadership transfer.
+ * - "Admin tier" = management application/review powers (HEAD, ADMIN), including non-Head ranks.
+ *   HEAD additionally activates program refresh and transfers leadership.
  */
 const ELEVATED_ROLES = ["HEAD", "ADMIN", "COORDINATOR"] as const;
 const ADMIN_TIER_ROLES = ["HEAD", "ADMIN"] as const;
@@ -509,7 +514,8 @@ export const adminProcedure = protectedProcedure.use(
 
 /**
  * Admin-tier procedure: ADMIN or HEAD (not coordinators). For powers above a coordinator —
- * managing non-admin roles, program refresh, hour adjustments, etc.
+ * managing non-Head roles, preparation/settings, hour adjustments, etc. Refresh activation
+ * is separately classified as Head-only before a resolver can run.
  */
 export const adminOnlyProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (!isAdminTier(ctx.session.role)) {
@@ -523,7 +529,7 @@ export const adminOnlyProcedure = protectedProcedure.use(({ ctx, next }) => {
 
 /**
  * Head procedure: strictly HEAD (the singleton admin leader). Gates the powers only the head
- * holds — promoting/demoting admins and transferring leadership. See the head transfer in
+ * holds — transferring leadership. Refresh activation is centrally classified. See the head transfer in
  * the admin router; the head can never demote themselves except via that transfer.
  */
 export const headProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -559,7 +565,7 @@ export const activeTutorProcedure = tutorProcedure.use(
 );
 
 /**
- * Translator procedure: an explicit Head-approved `canTranslate` assignment.
+ * Translator procedure: an explicit Admin/Head-approved `canTranslate` assignment.
  * Gates the in-app localization editor (assigned tutors can help translate without admin rights).
  */
 export const translatorProcedure = protectedProcedure.use(

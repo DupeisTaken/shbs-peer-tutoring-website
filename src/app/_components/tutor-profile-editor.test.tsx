@@ -57,7 +57,7 @@ vi.mock("~/trpc/react", async () => {
       },
       tutorHistory: {
         permissions: {
-          useQuery: () => ({ data: { canLink: true, isHead: state.isHead } }),
+          useQuery: () => ({ data: { canLink: true, canCorrectOwnership: state.isHead } }),
         },
       },
       personCombine: {
@@ -138,7 +138,7 @@ function mount(isHead = true, tutor = row) {
   render(
     <QueryClientProvider client={queryClient}>
       <NextIntlClientProvider locale="en" messages={messages}>
-        <TutorProfileEditor row={tutor} isHead={isHead} onClose={vi.fn()} />
+        <TutorProfileEditor row={tutor} canEditUsername={isHead} onClose={vi.fn()} />
       </NextIntlClientProvider>
     </QueryClientProvider>,
   );
