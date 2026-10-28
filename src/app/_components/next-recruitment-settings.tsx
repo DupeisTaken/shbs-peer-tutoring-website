@@ -202,7 +202,7 @@ export function NextRecruitmentEditor({ audience, data, readFailed = false }: { 
             <p id={`${inputId}-zone`} className="muted text-xs">{programTimeZoneInputLabel(opening, snapshot.timeZone, locale)}</p>
           </div> : <p className="muted text-sm">{t("clearHelp")}</p>}
           <p className="muted text-sm">{t("elapsedHelp")}</p>
-          {data.canEdit && <button className="btn-primary min-h-11 lg:min-h-10">{busy ? t("saving") : !data.canApply ? approvalText("requestHead") : hasOpening ? t("save") : t("clear")}</button>}
+          {data.canEdit && <button className="btn-primary min-h-11 lg:min-h-10">{busy ? t("saving") : !data.canApply ? approvalText("requestAdmin") : hasOpening ? t("save") : t("clear")}</button>}
         </fieldset>
         {approvalId && <InlineNotice tone="warning" announcement="status"><p>{t("queued")}</p><Link className="link inline-flex min-h-11 items-center lg:min-h-10" href={`/admin/approvals?request=${encodeURIComponent(approvalId)}`}>{t("viewRequest")}</Link></InlineNotice>}
         {error && <InlineNotice tone="error" announcement="alert"><NextRecruitmentError message={error} /></InlineNotice>}

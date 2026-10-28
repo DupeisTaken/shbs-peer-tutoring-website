@@ -42,8 +42,8 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
         adminOnly: true,
       },
       { href: "/admin/history", labelKey: "admin.nav.links.reports" },
-      { href: "/admin/records", labelKey: "recordTransfer.title", headOnly: true },
-      { href: "/admin/academic-corrections", labelKey: "historicalAcademics.title", adminOnly: true },
+      { href: "/admin/records", labelKey: "recordTransfer.title", adminOnly: true },
+      { href: "/admin/academic-corrections", labelKey: "historicalAcademics.title" },
       {
         href: "/admin/announcements",
         labelKey: "admin.nav.links.announcements",

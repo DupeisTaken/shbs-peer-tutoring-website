@@ -350,8 +350,8 @@ function ApplicationCard({
           {!additional && !readOnly && (
             <ApplicationIdentityCorrection
               applicationId={app.id}
-              canCorrect={account?.role === "HEAD" || account?.role === "ADMIN"}
-              isHead={account?.role === "HEAD"}
+              canCorrect={["HEAD", "ADMIN", "COORDINATOR"].includes(account?.role ?? "")}
+              canApply={["HEAD", "ADMIN"].includes(account?.role ?? "")}
               invalid={app.isInvalid}
               onChanged={onChanged}
               onActive={retainInterviewApproval}

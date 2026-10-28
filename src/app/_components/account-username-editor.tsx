@@ -12,7 +12,7 @@ import { api } from "~/trpc/react";
 import { settleRefreshes } from "~/lib/settle-refreshes";
 import { invalidateAndReport } from "~/lib/invalidate-refresh";
 
-/** Head applies identity changes; Admin proposals keep this independent draft and version. */
+/** Admin/Head apply identity changes; Coordinator proposals keep this independent draft and version. */
 export function AccountUsernameEditor({
   userId,
   username: initial,
@@ -136,7 +136,7 @@ export function AccountUsernameEditor({
         }}
         actions={
           <Button type="submit" disabled={controlsBusy || !username.trim()}>
-            {canApply ? t("saveUsername") : approvals("requestHead")}
+            {canApply ? t("saveUsername") : approvals("requestAdmin")}
           </Button>
         }
       >

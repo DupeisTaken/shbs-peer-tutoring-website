@@ -337,10 +337,10 @@ export async function combineAccounts(
     await lockEntity(tx, "program:leadership");
     await lockAccountProfile(tx, actorId);
     const actor = await tx.user.findUnique({ where: { id: actorId } });
-    if (actor?.role !== "HEAD" || actor.suspendedAt || actor.mergedIntoId)
+    if ((!actor || !["ADMIN", "HEAD"].includes(actor.role)) || actor.suspendedAt || actor.mergedIntoId)
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "Only the current active Head can combine accounts.",
+        message: "Only a current active Admin or Head can combine accounts.",
       });
     if (!verifyPasswordConfirmation(actorId, input.confirmPassword, actor.passwordHash))
       throw new TRPCError({ code: "FORBIDDEN", message: "Password is incorrect." });

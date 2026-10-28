@@ -132,14 +132,9 @@ export const qualificationApplicationRouter = createTRPCRouter({
           },
           select: { id: true },
         });
-        const reviewers = await tx.user.findMany({
-          where: {
-            role: { in: ["ADMIN", "HEAD"] },
-            suspendedAt: null,
-            mergedIntoId: null,
-          },
-          select: { id: true },
-        });
+        const { managementReviewers } = await import("~/server/notifications/create");
+        // Applicant self-review is forbidden even for Head in this separate domain.
+        const reviewers = await managementReviewers(tx, { exclude: user.id });
         await notifyUsers(
           reviewers.map((reviewer) => reviewer.id),
           {

@@ -30,22 +30,13 @@ async function cleanup() {
   await db.language.deleteMany({ where: { code: LANGUAGE } });
 }
 
-/** Admin controls propose structural changes; the current Head applies the same
- * immutable input. A promoted Head may review their own request under the existing policy. */
+/** Structural catalogue controls apply directly for both Admin and Head;
+ * language text editing continues to require the explicit Translator badge. */
 async function applyStructural(operation: string, apply: () => Promise<unknown>) {
-  const actor = await db.user.findUniqueOrThrow({ where: { id: adminSession.user.id } });
-  if (actor.role === "HEAD") return apply();
-  const before = await db.language.findMany({ where: { code: LANGUAGE } });
-  await expect(apply()).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  expect(await db.language.findMany({ where: { code: LANGUAGE } })).toEqual(before);
-  const request = await db.approvalRequest.findFirstOrThrow({ where: { requesterId: actor.id, operation, state: "PENDING" } });
-  await expect(admin().approval.decide({ id: request.id, approve: true, note: "Admin cannot apply global language settings" })).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await db.user.update({ where: { id: actor.id }, data: { role: "HEAD" } });
-  try {
-    return await admin().approval.decide({ id: request.id, approve: true, note: "Reviewed global language configuration" });
-  } finally {
-    await db.user.update({ where: { id: actor.id }, data: { role: "ADMIN" } });
-  }
+  const before = await db.approvalRequest.count({ where: { requesterId: adminSession.user.id, operation } });
+  const result = await apply();
+  expect(await db.approvalRequest.count({ where: { requesterId: adminSession.user.id, operation } })).toBe(before);
+  return result;
 }
 
 beforeEach(async () => {
@@ -118,7 +109,26 @@ describe("language publishing", () => {
     },
   );
 
-  it.each(["COORDINATOR", "TUTOR", "STUDENT", "VIEWER"] as const)(
+  it("allows an unassigned Coordinator to inspect and propose catalog changes while denying direct publishing and text editing", async () => {
+    // The stale Admin cookie cannot turn proposals or text edits into direct writes.
+    await db.user.update({ where: { id: adminSession.user.id }, data: { role: "COORDINATOR", canTranslate: false } });
+    const language = await db.language.create({ data: { code: LANGUAGE, label: "Coordinator review", enabled: true, builtIn: false, sortOrder: 2000 } });
+    expect((await admin().i18n.managedLanguages()).some((item) => item.code === LANGUAGE)).toBe(true);
+    expect(await admin().i18n.canManageLanguages()).toBe(true);
+    await expect(admin().localization.strings({ locale: LANGUAGE })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(admin().localization.setString({ locale: LANGUAGE, key: "common.save", value: "Unauthorized text" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(admin().i18n.addLanguage({ code: "zx", label: "Unauthorized language" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await db.approvalRequest.count({ where: { requesterId: adminSession.user.id } })).toBe(0);
+    await expect(admin().i18n.setLanguageEnabled({ code: LANGUAGE, enabled: false })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    await expect(admin().i18n.reorderLanguages({ codes: [LANGUAGE] })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    expect(await db.language.findUniqueOrThrow({ where: { code: LANGUAGE } })).toEqual(language);
+    const requests = await db.approvalRequest.findMany({ where: { requesterId: adminSession.user.id, state: "PENDING" } });
+    expect(requests.map((request) => request.operation).sort()).toEqual(["i18n.reorderLanguages", "i18n.setLanguageEnabled"]);
+    await expect(admin().approval.decide({ id: requests[0]!.id, approve: true, note: "Coordinator cannot publish directly" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await db.language.findUniqueOrThrow({ where: { code: LANGUAGE } })).toEqual(language);
+  });
+
+  it.each(["TUTOR", "STUDENT", "VIEWER"] as const)(
     "rejects catalog access and mutations after demotion to unassigned %s",
     async (role) => {
       // Keep the ADMIN session deliberately stale: live account permissions must win.

@@ -50,8 +50,8 @@ function deferred<T>() {
   const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
   return { promise, resolve, reject };
 }
-function tree({ canCorrect = true, isHead = true, invalid = false, chinese = false } = {}) {
-  return <NextIntlClientProvider locale={chinese ? "zh" : "en"} messages={chinese ? zh : en} timeZone="Asia/Shanghai"><ApplicationIdentityCorrection applicationId="application" canCorrect={canCorrect} isHead={isHead} invalid={invalid} onChanged={state.changed} onActive={state.active} /></NextIntlClientProvider>;
+function tree({ canCorrect = true, canApply = true, invalid = false, chinese = false } = {}) {
+  return <NextIntlClientProvider locale={chinese ? "zh" : "en"} messages={chinese ? zh : en} timeZone="Asia/Shanghai"><ApplicationIdentityCorrection applicationId="application" canCorrect={canCorrect} canApply={canApply} invalid={invalid} onChanged={state.changed} onActive={state.active} /></NextIntlClientProvider>;
 }
 function open() {
   const opener = screen.getByRole("button", { name: en.applicationIdentity.edit });
@@ -77,7 +77,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 it.each([false, true])("reads original/current evidence without mounting a write for a Coordinator (Chinese=%s)", (chinese) => {
-  render(tree({ canCorrect: false, isHead: false, chinese }));
+  render(tree({ canCorrect: false, canApply: false, chinese }));
   const text = chinese ? zh.applicationIdentity : en.applicationIdentity;
   expect(screen.getByText(text.original)).toBeTruthy();
   expect(screen.getByText(text.current)).toBeTruthy();
@@ -176,7 +176,7 @@ it("waits for all accepted-write reads, and retries only reads after failure and
 
 it("shows an Admin proposal as queued, retains its draft and prevents replay", async () => {
   state.save.mockRejectedValue(Object.assign(new Error("Queued"), { data: { approvalId: "approval-1" } }));
-  render(tree({ isHead: false })); open(); fill();
+  render(tree({ canApply: false })); open(); fill();
   expect(screen.getByRole("button", { name: en.applicationIdentity.propose })).toBeTruthy();
   submit(); await screen.findByText(en.applicationIdentity.queued);
   expect(screen.queryByText(en.applicationIdentity.applied)).toBeNull();
@@ -192,7 +192,7 @@ it("shows an Admin proposal as queued, retains its draft and prevents replay", a
 
 it.each(["REJECTED", "CANCELLED"])("starts a deliberate new correction only after a successful read of the %s proposal", async (status) => {
   state.save.mockRejectedValueOnce(Object.assign(new Error("Queued"), { data: { approvalId: "approval-1" } }));
-  render(tree({ isHead: false })); open(); fill(); submit();
+  render(tree({ canApply: false })); open(); fill(); submit();
   await screen.findByText(en.applicationIdentity.queued);
   await waitFor(() => expect(screen.getByRole<HTMLButtonElement>("button", { name: en.applicationIdentity.reload }).disabled).toBe(false));
   const firstKey = (state.save.mock.calls[0]![0] as {clientKey: string}).clientKey;

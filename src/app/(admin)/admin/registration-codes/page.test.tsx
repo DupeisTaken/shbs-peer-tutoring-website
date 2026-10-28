@@ -312,7 +312,7 @@ it("lets Coordinators request only participant invitations", () => {
     }),
   ).toBeNull();
   expect(
-    screen.getByRole("button", { name: messages.approvals.requestHead }),
+    screen.getByRole("button", { name: messages.approvals.requestAdmin }),
   ).toBeTruthy();
 });
 
@@ -323,8 +323,8 @@ it.each([
   ["HEAD", "COORDINATOR", true],
   ["ADMIN", "TUTOR", true],
   ["ADMIN", "CREW", true],
-  ["ADMIN", "ADMIN", false],
-  ["ADMIN", "COORDINATOR", false],
+  ["ADMIN", "ADMIN", true],
+  ["ADMIN", "COORDINATOR", true],
   ["COORDINATOR", "TUTOR", false],
   ["COORDINATOR", "CREW", false],
 ] as const)(
@@ -337,13 +337,13 @@ it.each([
       screen.getByRole("button", {
         name: direct
           ? messages.admin.registrationCodes.issue
-          : messages.approvals.requestHead,
+          : messages.approvals.requestAdmin,
       }),
     ).toBeTruthy();
     expect(
       screen.queryByRole("button", {
         name: direct
-          ? messages.approvals.requestHead
+          ? messages.approvals.requestAdmin
           : messages.admin.registrationCodes.issue,
       }),
     ).toBeNull();
@@ -360,7 +360,7 @@ it.each(["TUTOR", "CREW"] as const)(
       target: { value: "ADMIN" },
     });
     expect(
-      screen.getByRole("button", { name: messages.approvals.requestHead }),
+      screen.getByRole("button", { name: messages.admin.registrationCodes.issue }),
     ).toBeTruthy();
     fireEvent.change(screen.getByRole("combobox"), { target: { value: kind } });
     fireEvent.click(

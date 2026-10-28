@@ -246,7 +246,7 @@ function NamePolicyEditor({
               ? t("saving")
               : canApply
                 ? t("save")
-                : approvals("requestHead")}
+                : approvals("requestAdmin")}
           </Button>
         </FormActions>
       </fieldset>

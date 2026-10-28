@@ -261,16 +261,18 @@ it("keeps a saved translation visible when the English fallback is still missing
   expect(state.save).not.toHaveBeenCalled();
 });
 
-it("keeps policy editing read-only for Coordinators", () => {
+it("offers Coordinator policy proposals while retaining unapplied drafts", () => {
   state.role = "COORDINATOR";
   render(<PoliciesPage />, { wrapper });
   expect(
     screen.queryByRole("button", { name: messages.admin.policies.editor.save }),
   ).toBeNull();
-  expect(
-    screen.queryByRole("button", { name: messages.approvals.requestHead }),
-  ).toBeNull();
-  state.role = "HEAD";
+  fireEvent.change(screen.getAllByRole("textbox", { name: "Document title" })[0]!, { target: { value: "Proposed policy" } });
+  fireEvent.change(screen.getAllByRole("textbox", { name: "Policy text (Markdown)" })[0]!, { target: { value: "Proposed policy body" } });
+  fireEvent.click(screen.getAllByRole("button", { name: messages.approvals.requestAdmin })[0]!);
+  expect(state.save).toHaveBeenCalledWith(expect.objectContaining({ title: "Proposed policy", body: "Proposed policy body" }));
+  expect(screen.getByDisplayValue("Proposed policy")).toBeTruthy();
+  expect(state.refresh).not.toHaveBeenCalled();
 });
 
 const policy = (locale: string, title: string) => ({

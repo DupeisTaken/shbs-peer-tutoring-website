@@ -359,10 +359,10 @@ export async function editOwnedStudentSignup(
       input.id,
       !!management,
     );
-    if (management && user.role !== "HEAD")
+    if (management && !["ADMIN", "HEAD"].includes(user.role))
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "Only Head can change assigned signup subjects.",
+        message: "Only Admin or Head can change assigned signup subjects.",
       });
     const inputHash = studentSignupIntentDigest(
       JSON.parse(

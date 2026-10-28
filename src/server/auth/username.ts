@@ -194,7 +194,7 @@ export async function ensureUserUsername(
   });
 }
 
-/** Head chooses an explicit bounded set; page reads never assign old student identities. */
+/** Admin/Head chooses an explicit bounded set; page reads never assign old student identities. */
 export async function backfillStudentUsernames(
   client: DomainDb,
   actorId: string,
@@ -211,8 +211,9 @@ export async function backfillStudentUsernames(
     });
   return inTransaction(client, async (tx) => {
     await lockUsernameNamespace(tx);
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${actorId} FOR SHARE`;
     const actor = await tx.user.findUniqueOrThrow({ where: { id: actorId } });
-    if (actor.role !== "HEAD" || actor.suspendedAt)
+    if (!["ADMIN", "HEAD"].includes(actor.role) || actor.suspendedAt || actor.mergedIntoId)
       throw new TRPCError({ code: "FORBIDDEN" });
     const results = [];
     for (const id of userIds) {

@@ -524,7 +524,7 @@ async function passwordForHead() {
   });
 }
 
-it("audit: only Head can delete an eligible account and linked tutor history survives", async () => {
+it("audit: Head can delete an eligible account and linked tutor history survives", async () => {
   await passwordForHead();
   await expect(
     tutor().admin.deleteUser({
@@ -552,7 +552,7 @@ it("audit: only Head can delete an eligible account and linked tutor history sur
   expect(await db.user.count({ where: { role: "HEAD" } })).toBe(1);
 });
 
-it("audit: a deletion already in flight loses authority after leadership transfer", async () => {
+it("audit: a deletion already in flight loses authority after demotion out of management", async () => {
   await passwordForHead();
   const successor = await db.user.create({
     data: { name: "Next Head", email: "next-head@example.test", role: "ADMIN" },
@@ -574,7 +574,7 @@ it("audit: a deletion already in flight loses authority after leadership transfe
       await lockEntity(tx, "program:leadership");
       entered();
       await release;
-      await tx.user.update({ where: { id: headId }, data: { role: "ADMIN" } });
+      await tx.user.update({ where: { id: headId }, data: { role: "COORDINATOR" } });
       await tx.user.update({
         where: { id: successor.id },
         data: { role: "HEAD" },

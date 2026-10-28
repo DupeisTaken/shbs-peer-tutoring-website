@@ -11,7 +11,7 @@ Current name-policy, display and compatibility behavior. For contributor wording
 | Preferred Name           | The name you would like us to use instead of your first name. Use Latin letters. | Same character rule when supplied.                                 |
 | Name in Another Language | Your name in another language or writing system, such as 张小明.                 | Unicode text; no Latin-only restriction.                           |
 
-Requirements remain separate from labels. In **Program Settings → Account Settings**, Head can set each of the four fields to **Required**, **Optional** or **Hidden** independently for Student, Tutor, Crew, Viewer, Coordinator, Admin and Head. Admin requests Head review; Coordinator can inspect this configuration. Unconfigured programs retain First Name required and the other fields optional. All four fields may be optional or hidden.
+Requirements remain separate from labels. In **Program Settings → Account Settings**, Admin and Head can set each of the four fields to **Required**, **Optional** or **Hidden** independently for Student, Tutor, Crew, Viewer, Coordinator, Admin and Head. Coordinators can inspect this configuration and request Admin approval for changes. Unconfigured programs retain First Name required and the other fields optional. All four fields may be optional or hidden.
 
 New signup uses the intake type being registered. An existing shared profile uses the account's current role, even when the account also has tutoring, tutee or crew membership. Profile edits enforce the current configuration on the server. Fields remain unavailable while the policy loads; cached fields and drafts stay mounted on a failed refresh, but editing and saving wait for read recovery.
 
@@ -32,8 +32,8 @@ Supporting text: **These settings change how names are shown. They do not remove
 
 **Use preferred names** defaults on for new or unconfigured programs; **Show names in
 another language** defaults off. Upgrades enable untouched preferred-name defaults
-and preserve audited administrator choices, including off. Head applies changes
-in this section; Admin can request Head review, and Coordinators can inspect settings.
+and preserve audited administrator choices, including off. Admin and Head apply changes
+in this section directly; Coordinators can inspect settings and request Admin approval.
 
 ### Display examples
 

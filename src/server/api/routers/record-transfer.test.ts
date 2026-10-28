@@ -201,7 +201,7 @@ it("does not revive an exported survey verification token", async () => {
   ).resolves.toBeDefined();
 });
 
-it.each(roles.filter((r) => r !== "HEAD"))(
+it.each(roles.filter((r) => r !== "HEAD" && r !== "ADMIN"))(
   "blocks %s from preview, import and export",
   async (role) => {
     const files = fixtures();
@@ -218,8 +218,8 @@ it.each(roles.filter((r) => r !== "HEAD"))(
   },
 );
 
-it("rejects a stale HEAD cookie after demotion and a suspended HEAD", async () => {
-  await db.user.update({ where: { id: "HEAD" }, data: { role: "ADMIN" } });
+it("rejects a stale HEAD cookie after loss of management authority and a suspended HEAD", async () => {
+  await db.user.update({ where: { id: "HEAD" }, data: { role: "COORDINATOR" } });
   await expect(caller().recordTransfer.export({})).rejects.toMatchObject({
     code: "FORBIDDEN",
   });
@@ -232,14 +232,14 @@ it("rejects a stale HEAD cookie after demotion and a suspended HEAD", async () =
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
 
-it("previews without persistence, imports linked history atomically, and skips identical retries", async () => {
+it.each(["ADMIN", "HEAD"] as const)("%s previews without persistence, imports linked history atomically, and skips identical retries", async (role) => {
   const files = fixtures();
-  const preview = await caller().recordTransfer.preview({ files });
+  const preview = await caller(role).recordTransfer.preview({ files });
   expect(preview.summary.reduce((n, s) => n + s.created, 0)).toBe(8);
   expect(await db.tutor.count()).toBe(0);
   expect(await db.auditLog.count()).toBe(0);
   expect(await db.person.count()).toBe(0);
-  const imported = await caller().recordTransfer.import({
+  const imported = await caller(role).recordTransfer.import({
     files,
     ticket: preview.ticket,
   });
@@ -261,7 +261,7 @@ it("previews without persistence, imports linked history atomically, and skips i
     shCount: 2,
     tutees: [{ tuteeId: "tutee" }],
   });
-  const repeat = await caller().recordTransfer.import({
+  const repeat = await caller(role).recordTransfer.import({
     files,
     ticket: preview.ticket,
   });

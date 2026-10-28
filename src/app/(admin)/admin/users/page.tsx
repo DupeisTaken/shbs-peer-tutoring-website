@@ -263,7 +263,9 @@ export default function UsersPage() {
 
   const callerRole = accounts.data?.caller.role;
   const isHead = !readOnly && !directoryDenied && callerRole === "HEAD";
-  const isAdminTier = isHead || callerRole === "ADMIN";
+  const isAdminTier = !readOnly && !directoryDenied && ["HEAD", "ADMIN"].includes(callerRole ?? "");
+  // Profile proposals are permitted to Coordinators; direct security and role grants remain Admin/Head.
+  const canEditProfiles = !readOnly && !directoryDenied && ["HEAD", "ADMIN", "COORDINATOR"].includes(callerRole ?? "");
   const sort = useRosterSort(
     "users-sort-v1",
     ["name", "account", "role"],
@@ -424,19 +426,19 @@ export default function UsersPage() {
     );
   return (
     <div className="space-y-6">
-      {isAdminTier && editingTuteeId && (
+      {canEditProfiles && editingTuteeId && (
         <DirectoryTuteeEditor
           tuteeId={editingTuteeId}
-          isHead={isHead}
+          canApply={isAdminTier}
           onClose={() => setEditingTuteeId(null)}
         />
       )}
-      {isAdminTier && editingTutor && !editingTutor.user && (
+      {canEditProfiles && editingTutor && !editingTutor.user && (
         <TutorProfileEditor
           key={editingTutor.id}
           row={editingTutor}
-          isHead={isHead}
-          canApply={isHead}
+          canEditUsername={isAdminTier}
+          canApply={isAdminTier}
           onClose={() => setEditingTutorId(null)}
         />
       )}
@@ -446,7 +448,7 @@ export default function UsersPage() {
       {editingTutorId && tutorProfiles.error && (
         <p role="alert">{tutorProfiles.error.message}</p>
       )}
-      {isAdminTier &&
+      {canEditProfiles &&
         editingProfile?.userId &&
         editingProfile.profileVersion !== null && (
           <AccountProfileEditor
@@ -462,7 +464,8 @@ export default function UsersPage() {
               profileVersion: editingProfile.profileVersion,
             }}
             membership={accountMembership(editingProfile)}
-            canRequestHead={callerRole === "ADMIN"}
+            canPropose
+            canApply={isAdminTier}
             isHead={isHead}
             onClose={() => setEditingProfileId(null)}
           />
@@ -531,7 +534,7 @@ export default function UsersPage() {
         // Keep an in-flight review owner alive when a new hash focuses a source.
         // Hidden browsing controls return with their existing recovery state.
         <div hidden={!!linkedTutorId}>
-          <CombineRecords isHead={isHead} onPendingChange={setCombinePending} />
+          <CombineRecords canApply={isAdminTier} onPendingChange={setCombinePending} />
         </div>
       )}
       <fieldset
@@ -956,7 +959,7 @@ export default function UsersPage() {
                   />
                   {!readOnly &&
                     (linkedTutor.account === "setup" ||
-                      (linkedTutor.account === "none" && isHead)) && (
+                      (linkedTutor.account === "none" && isAdminTier)) && (
                       <TableAction
                         disabled={
                           !linkedReadReady ||
@@ -975,7 +978,7 @@ export default function UsersPage() {
                         {t("admin.tutors.account.sendSetup")}
                       </TableAction>
                     )}
-                  {!readOnly && linkedTutor.account === "none" && !isHead && (
+                  {!readOnly && linkedTutor.account === "none" && !isAdminTier && (
                     <span className="muted max-w-56 text-xs">
                       {t("usersDirectory.setupHeadRequired")}
                     </span>
@@ -1089,7 +1092,7 @@ export default function UsersPage() {
                     {!readOnly &&
                       u.tutorId &&
                       (u.account === "setup" ||
-                        (u.account === "none" && isHead)) && (
+                        (u.account === "none" && isAdminTier)) && (
                         <TableAction
                           disabled={!u.tutorHasEmail || sendSetup.isPending}
                           title={
@@ -1108,7 +1111,7 @@ export default function UsersPage() {
                     {!readOnly &&
                       u.tutorId &&
                       u.account === "none" &&
-                      !isHead && (
+                      !isAdminTier && (
                         <span className="muted max-w-56 text-xs">
                           {t("usersDirectory.setupHeadRequired")}
                         </span>
@@ -1124,9 +1127,9 @@ export default function UsersPage() {
                             reinstateUser.mutate({ userId: u.userId })
                           }
                         >
-                          {isHead
+                          {isAdminTier
                             ? t("admin.users.reinstate")
-                            : t("approvals.requestHead")}
+                            : t("approvals.requestAdmin")}
                         </TableAction>
                       ) : (
                         <TableAction
@@ -1150,24 +1153,24 @@ export default function UsersPage() {
                           {t("admin.users.suspend")}
                         </TableAction>
                       ))}
-                    {isAdminTier && u.userId && (
+                    {canEditProfiles && u.userId && (
                       <TableAction
                         onClick={() => setEditingProfileId(u.userId)}
                       >
                         {t("accountProfile.editProfile")}
                       </TableAction>
                     )}
-                    {isAdminTier && !u.userId && u.tutorId && (
+                    {canEditProfiles && !u.userId && u.tutorId && (
                       <TableAction onClick={() => setEditingTutorId(u.tutorId)}>
                         {t("accountProfile.editProfile")}
                       </TableAction>
                     )}
-                    {isAdminTier && !u.userId && !u.tutorId && u.tuteeId && (
+                    {canEditProfiles && !u.userId && !u.tutorId && u.tuteeId && (
                       <TableAction onClick={() => setEditingTuteeId(u.tuteeId)}>
                         {t("accountProfile.editProfile")}
                       </TableAction>
                     )}
-                    {isHead &&
+                    {isAdminTier &&
                       u.userId &&
                       u.role === "STUDENT" &&
                       u.emailVerifiedAt &&
@@ -1192,7 +1195,7 @@ export default function UsersPage() {
                           {t("identityUsername.assign")}
                         </TableAction>
                       )}
-                    {isHead && u.userId && !u.isSelf && u.role !== "HEAD" ? (
+                    {isAdminTier && u.userId && !u.isSelf && u.role !== "HEAD" ? (
                       <TableAction
                         variant="danger"
                         disabled={
@@ -1226,7 +1229,7 @@ export default function UsersPage() {
       </div>
       {/* Errors from the dangerous (dialog-gated) actions surface inside the dialog itself. */}
 
-      {isHead && (
+      {isAdminTier && (
         <AccountDeletion
           target={deleteTarget}
           onRecoveryChange={setDeletionRecoveryBlocked}
@@ -1245,11 +1248,11 @@ export default function UsersPage() {
 /** Only an opened accountless enrollment editor loads its full roster evidence. */
 function DirectoryTuteeEditor({
   tuteeId,
-  isHead,
+  canApply,
   onClose,
 }: {
   tuteeId: string;
-  isHead: boolean;
+  canApply: boolean;
   onClose: () => void;
 }) {
   const t = useTranslations();
@@ -1259,8 +1262,8 @@ function DirectoryTuteeEditor({
     return (
       <TuteeEditor
         row={record}
-        canApply={isHead}
-        historyPermissions={{ canLink: true, isHead }}
+        canApply={canApply}
+        historyPermissions={canApply ? { canLink: true, canCorrectOwnership: canApply } : undefined}
         onClose={onClose}
       />
     );

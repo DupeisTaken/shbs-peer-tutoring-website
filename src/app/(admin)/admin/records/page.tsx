@@ -11,6 +11,6 @@ export default async function RecordsPage() {
     where: { id: session.user.id },
     select: { role: true, suspendedAt: true },
   });
-  if (user?.role !== "HEAD" || user.suspendedAt) redirect("/admin");
+  if ((!user || !["HEAD", "ADMIN"].includes(user.role)) || user.suspendedAt) redirect("/admin");
   return <><SessionPagePosition id="records" ready /><RecordTransfer /></>;
 }

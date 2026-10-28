@@ -56,11 +56,11 @@ it("defaults omitted name-display fields on/off while preserving explicit opt-ou
   expect(await caller().program.profilePolicy()).toMatchObject({ usePreferredNames: false });
 });
 
-it("queues Admin policy requests while Head applies the normalized policy", async () => {
-  await expect(caller("ADMIN").program.setProfilePolicy({ ...defaults, offeredGrades: [12, 10, 11], expectedPolicy: defaults })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+it("queues Coordinator policy requests while Admin applies the normalized policy", async () => {
+  await expect(caller("COORDINATOR").program.setProfilePolicy({ ...defaults, offeredGrades: [12, 10, 11], expectedPolicy: defaults })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect((await caller().program.profilePolicy()).offeredGrades).toEqual(ALL_GRADES);
   const request = await db.approvalRequest.findFirstOrThrow({ where: { operation: "program.setProfilePolicy" } });
-  await caller("HEAD").approval.decide({ id: request.id, approve: true, note: "Reviewed offered grades" });
+  await caller("ADMIN").approval.decide({ id: request.id, approve: true, note: "Reviewed offered grades" });
   expect((await caller().program.profilePolicy()).offeredGrades).toEqual([10, 11, 12]);
 });
 
@@ -86,7 +86,7 @@ it("audits independent alternate-name display and detects stale drafts", async (
   expect(await caller().program.profilePolicy()).toMatchObject(changed);
 });
 
-it("publishes safe defaults and permits audited, immediate, reversible Head settings", async () => {
+it.each(["ADMIN", "HEAD"] as const)("publishes safe defaults and permits audited, immediate, reversible %s settings", async (role) => {
   expect(
     await createCaller({
       db,
@@ -96,11 +96,11 @@ it("publishes safe defaults and permits audited, immediate, reversible Head sett
   ).toEqual({ ...defaults, currentSchoolYear: "26-27" });
   expect(
     (await caller("COORDINATOR").program.profilePolicySettings()).canEdit,
-  ).toBe(false);
+  ).toBe(true);
   const beforeUser = await db.user.findUniqueOrThrow({
     where: { id: "policy-STUDENT" },
   });
-  const changed = await caller("HEAD").program.setProfilePolicy({
+  const changed = await caller(role).program.setProfilePolicy({
     ...defaults,
     offeredGrades: [12, 10, 11],
     expectedPolicy: defaults,
@@ -120,7 +120,7 @@ it("publishes safe defaults and permits audited, immediate, reversible Head sett
   expect(
     await db.user.findUniqueOrThrow({ where: { id: beforeUser.id } }),
   ).toEqual(beforeUser);
-  await caller("HEAD").program.setProfilePolicy({
+  await caller(role).program.setProfilePolicy({
     ...defaults,
     expectedPolicy: changed,
   });
@@ -130,7 +130,7 @@ it("publishes safe defaults and permits audited, immediate, reversible Head sett
 });
 
 it("rejects unauthorized, invalid and stale policy changes", async () => {
-  for (const role of ["COORDINATOR", "STUDENT", "VIEWER"] as const)
+  for (const role of ["STUDENT", "VIEWER"] as const)
     await expect(caller(role).program.setProfilePolicy({ ...defaults, expectedPolicy: defaults })).rejects.toMatchObject({ code: "FORBIDDEN" });
   for (const grades of [[], [0], [13], [9, 9]])
     await expect(caller("HEAD").program.setProfilePolicy({ ...defaults, offeredGrades: grades, expectedPolicy: defaults })).rejects.toMatchObject({ code: "BAD_REQUEST" });

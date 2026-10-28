@@ -7,8 +7,8 @@ export function SchoolCalendar() {
   const t = useTranslations("workflows");
   const approvals = useTranslations("approvals");
   const identity = api.account.me.useQuery();
-  const canEdit = !identity.error && (identity.data?.role === "HEAD" || identity.data?.role === "ADMIN");
-  const canApply = identity.data?.role === "HEAD";
+  const canEdit = !identity.error && ["HEAD", "ADMIN", "COORDINATOR"].includes(identity.data?.role ?? "");
+  const canApply = ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
   const calendar = api.student.calendar.useQuery();
   const save = api.student.setCalendarDay.useMutation({
     onSuccess: () => calendar.refetch(),
@@ -46,7 +46,7 @@ export function SchoolCalendar() {
           {t("schoolDay")}
         </label>
         <button className="btn-primary control-standard" disabled={save.isPending}>
-          {canApply ? t("save") : approvals("requestHead")}
+          {canApply ? t("save") : approvals("requestAdmin")}
         </button>
       </form>
       </fieldset>

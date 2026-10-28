@@ -29,7 +29,8 @@ export function AccountProfileEditor({
   onClose,
   membership,
   isHead,
-  canRequestHead = false,
+  canApply = !!isHead,
+  canPropose = false,
 }: {
   profile: {
     userId: string;
@@ -45,7 +46,8 @@ export function AccountProfileEditor({
   onClose: () => void;
   membership?: AccountMembership;
   isHead?: boolean;
-  canRequestHead?: boolean;
+  canApply?: boolean;
+  canPropose?: boolean;
 }) {
   const t = useTranslations("accountProfile");
   return (
@@ -54,7 +56,8 @@ export function AccountProfileEditor({
         profile={profile}
         membership={membership}
         isHead={isHead}
-        canRequestHead={canRequestHead}
+        canApply={canApply}
+        canPropose={canPropose}
       />
     </ProfileDialog>
   );
@@ -65,7 +68,8 @@ function AccountProfileForm({
   profile,
   membership,
   isHead,
-  canRequestHead = false,
+  canApply = !!isHead,
+  canPropose = false,
 }: Omit<ComponentProps<typeof AccountProfileEditor>, "onClose">) {
   const t = useTranslations("accountProfile");
   const common = useTranslations("uiPatterns");
@@ -198,7 +202,7 @@ function AccountProfileForm({
               variant="primary"
               disabled={save.isPending || !namePolicyReady}
             >
-              {canRequestHead && !isHead ? approvals("requestHead") : t("save")}
+              {canPropose && !canApply ? approvals("requestAdmin") : t("save")}
             </Button>
           }
         >
@@ -254,22 +258,23 @@ function AccountProfileForm({
       <div className="mt-5">
         <AcademicPanel
           userId={profile.userId}
-          canApply={!canRequestHead || !!isHead}
+          canApply={canApply}
         />
       </div>
-      {(isHead === true || canRequestHead) && (
+      {(canApply || canPropose) && (
         <AccountUsernameEditor
           userId={profile.userId}
           username={profile.username}
           profileVersion={profile.profileVersion}
-          canApply={!!isHead}
+          canApply={canApply}
         />
       )}
-      {membership && (
+      {membership && (canApply || membership.rank === "NONE") && (
         <MembershipEditor
           userId={profile.userId}
           initial={membership}
           isHead={isHead}
+          canApply={canApply}
         />
       )}
       <SchoolDeparturePanel userId={profile.userId} />

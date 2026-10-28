@@ -190,7 +190,7 @@ export const tuteeHistoryRouter = createTRPCRouter({
     ),
   permissions: protectedProcedure.query(({ ctx }) => ({
     canLink: ["HEAD", "ADMIN"].includes(ctx.session.role),
-    isHead: ctx.session.role === "HEAD",
+    canCorrectOwnership: ["HEAD", "ADMIN"].includes(ctx.session.role),
   })),
   details: adminProcedure
     .input(detailInput)
