@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { isOpenInterview } from "~/lib/interview-order";
 import { programDateKey } from "~/lib/program-time";
+import { DEFAULT_TIME_ZONE } from "~/i18n/config";
 import { minToHm } from "~/lib/time";
 import { pairingEntries } from "~/lib/pairing-groups";
 import { InlineNotice, StatePanel } from "~/app/_components/ui/patterns";
@@ -87,7 +88,7 @@ export function DashboardTasks({
     },
   );
   const agendaDenied = useSessionAccessDenied(agenda);
-  const schoolTimeZone = agenda.data?.timeZone ?? timeZone;
+  const schoolTimeZone = agenda.data?.timeZone ?? timeZone ?? DEFAULT_TIME_ZONE;
   const date = programDateKey(now, schoolTimeZone);
   const calendar = api.program.schoolCalendar.useQuery(
     { from: date, to: date },

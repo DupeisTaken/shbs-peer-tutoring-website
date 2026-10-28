@@ -552,6 +552,12 @@ export async function proposalTargets(
       operation === "student.setCalendarDay"
         ? schoolCalendarWrite.parse(input)
         : schoolCalendarReset.parse(input);
+    // Replay retains these locks while the writer reconciles dated plans. Match
+    // direct calendar writes before taking the date lock to avoid date → period
+    // inversion between approval and a concurrent direct save/reset.
+    await lockEntity(client, "program:period");
+    const { lockSessionPlanning } = await import("./session-planning");
+    await lockSessionPlanning(client);
     await lockEntity(client, `school-calendar:${calendarInput.date}`);
     const day = await client.schoolCalendarDay.findUnique({
       where: { date: calendarInput.date },

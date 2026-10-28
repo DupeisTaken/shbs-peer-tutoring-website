@@ -9,6 +9,7 @@ import type { TransactionDb } from "./transactions";
 export async function getSchoolCalendarDatedSessionUserIds(
   tx: TransactionDb,
   date: string,
+  now = new Date(),
 ): Promise<string[]> {
   const cohorts = await tx.sessionPlanCohort.findMany({
     where: {
@@ -27,20 +28,56 @@ export async function getSchoolCalendarDatedSessionUserIds(
     },
     take: 5001,
   });
-  if (cohorts.length > 5000)
+  // A calendar change also matters to people considering this date. Only the
+  // current live offer counts; historical alternatives do not expand the audience.
+  const requests = await tx.sessionPlanningRequest.findMany({
+    where: {
+      status: { in: ["PENDING", "SPLIT_REQUESTED"] },
+      offers: { some: { date, cutoffAt: { gt: now } } },
+    },
+    select: {
+      currentOfferId: true,
+      participantIds: true,
+      plan: { select: { tutorId: true, tutor: { select: { status: true } } } },
+      offers: { select: { id: true, date: true, cutoffAt: true } },
+    },
+    take: 5001,
+  });
+  if (cohorts.length > 5000 || requests.length > 5000)
     throw new Error(
       "Too many dated sessions to safely resolve calendar recipients.",
     );
-  const tutorIds = cohorts
+  const current = requests.filter((request) =>
+    request.offers.some(
+      (offer) =>
+        offer.id === request.currentOfferId &&
+        offer.date === date &&
+        offer.cutoffAt > now,
+    ),
+  );
+  const tutorIds = [...cohorts, ...current]
     .filter((row) => row.plan.tutor.status === "ACTIVE")
     .map((row) => row.plan.tutorId);
-  const tuteeIds = [
-    ...new Set(
-      cohorts.flatMap((row) =>
+  const candidateTuteeIds = [
+    ...new Set([
+      ...cohorts.flatMap((row) =>
         row.participants.map((person) => person.tuteeId),
       ),
-    ),
+      ...current.flatMap((request) =>
+        Array.isArray(request.participantIds)
+          ? request.participantIds.filter(
+              (id): id is string => typeof id === "string",
+            )
+          : [],
+      ),
+    ]),
   ];
+  const tuteeIds = (
+    await tx.tutee.findMany({
+      where: { id: { in: candidateTuteeIds }, status: "ACTIVE" },
+      select: { id: true },
+    })
+  ).map((person) => person.id);
   if (!tutorIds.length && !tuteeIds.length) return [];
   const owners = await tx.studentProfileOwnership.findMany({
     where: { tuteeId: { in: tuteeIds } },

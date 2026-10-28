@@ -19,6 +19,7 @@ import {
 } from "~/lib/school-calendar";
 import { notifySchoolCalendarChange } from "~/server/school-calendar-notifications";
 import { saveSchoolCalendar } from "./school-calendar";
+import * as transactionHelpers from "~/server/transactions";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
 const caller = (role: Session["role"] = "HEAD") =>
@@ -384,6 +385,102 @@ it("rolls back calendar and audit changes if transactional notification intent f
   expect(
     await db.auditLog.count({ where: { entity: "SchoolCalendarDay" } }),
   ).toBe(0);
+});
+
+it("serializes calendar approval behind a direct writer before the date lock and rejects stale evidence", async () => {
+  await expect(
+    caller("COORDINATOR").student.setCalendarDay(mapping),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const proposal = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "student.setCalendarDay" },
+  });
+  const signal = () => {
+    let resolve: () => void = () => undefined;
+    const promise = new Promise<void>((done) => {
+      resolve = done;
+    });
+    return { promise, resolve };
+  };
+  const directHeld = signal(),
+    releaseDirect = signal(),
+    approvalReached = signal();
+  let directTx: Parameters<typeof transactionHelpers.lockEntity>[0] | undefined;
+  let approvalRequestedPeriod = false;
+  const originalLock = transactionHelpers.lockEntity;
+  const locks = vi
+    .spyOn(transactionHelpers, "lockEntity")
+    .mockImplementation(async (client, key) => {
+      if (key === "program:period" && !directTx) {
+        directTx = client;
+        await originalLock(client, key);
+        directHeld.resolve();
+        await releaseDirect.promise;
+        return;
+      }
+      if (client !== directTx && key === "program:period") {
+        approvalRequestedPeriod = true;
+        approvalReached.resolve();
+      }
+      if (
+        client !== directTx &&
+        key === `school-calendar:${mapping.date}` &&
+        !approvalRequestedPeriod
+      ) {
+        approvalReached.resolve();
+        // Fail before acquiring an inverted date lock instead of hanging the test
+        // until PostgreSQL's deadlock detector aborts one of the real transactions.
+        throw new Error("CALENDAR_DATE_LOCK_BEFORE_PERIOD");
+      }
+      await originalLock(client, key);
+    });
+  try {
+    const direct = saveSchoolCalendar(
+      db,
+      schoolCalendarWrite.parse({
+        ...mapping,
+        note: "Concurrent direct decision",
+      }),
+      "calendar-HEAD",
+    );
+    await directHeld.promise;
+    const approval = caller("ADMIN")
+      .approval.decide({
+        id: proposal.id,
+        approve: true,
+        note: "Review the pending mapping",
+      })
+      .then(
+        (value) => ({ value, error: undefined }),
+        (error: unknown) => ({ value: undefined, error }),
+      );
+    await approvalReached.promise;
+    releaseDirect.resolve();
+    const [saved, reviewed] = await Promise.all([direct, approval]);
+    expect(approvalRequestedPeriod).toBe(true);
+    expect(saved).toMatchObject({
+      version: 1,
+      note: "Concurrent direct decision",
+    });
+    expect(reviewed.error).toMatchObject({ code: "CONFLICT" });
+    expect(
+      await db.schoolCalendarDay.findUniqueOrThrow({
+        where: { date: mapping.date },
+      }),
+    ).toMatchObject({ version: 1, note: "Concurrent direct decision" });
+    expect(
+      (
+        await db.approvalRequest.findUniqueOrThrow({
+          where: { id: proposal.id },
+        })
+      ).state,
+    ).toBe("PENDING");
+    expect(
+      await db.auditLog.count({ where: { entity: "SchoolCalendarDay" } }),
+    ).toBe(1);
+  } finally {
+    releaseDirect.resolve();
+    locks.mockRestore();
+  }
 });
 
 it("counts school-day status for appeals without consuming timetable mappings, tombstones or tutoring notices", async () => {

@@ -191,6 +191,115 @@ it("includes the actual dated cohort on a closure, retained owners and no moved 
   });
 });
 
+it.each(["EXTRA", "RESCHEDULE"])(
+  "notifies live %s offer recipients for a Sunday without an existing Sunday cohort",
+  async (kind) => {
+    const targetDate = "2026-11-01";
+    const checkAt = new Date("2026-10-31T10:00:00Z");
+    const plan = await db.sessionPlan.create({
+      data: {
+        generationKey: `${prefix}offer-plan`,
+        tutorId: `${prefix}tutor-3`,
+        termId: `${prefix}term`,
+        originalDate: "2026-11-04",
+        timeZone: "Asia/Shanghai",
+        sourceFingerprint: "synthetic",
+        cohorts: {
+          create: {
+            date: "2026-11-04",
+            startMin: 900,
+            endMin: 945,
+            startsAt: new Date("2026-11-04T07:00:00Z"),
+            endsAt: new Date("2026-11-04T07:45:00Z"),
+          },
+        },
+      },
+      include: { cohorts: true },
+    });
+    const request = await db.sessionPlanningRequest.create({
+      data: {
+        planId: plan.id,
+        cohortId: plan.cohorts[0]!.id,
+        kind,
+        scope: "ALL",
+        participantIds: [`${prefix}student-3`],
+      },
+    });
+    const offer = await db.sessionPlanningOffer.create({
+      data: {
+        requestId: request.id,
+        sequence: 1,
+        authorKey: `tutor:${prefix}tutor-3`,
+        date: targetDate,
+        startMin: 900,
+        endMin: 945,
+        startsAt: new Date("2026-11-01T07:00:00Z"),
+        endsAt: new Date("2026-11-01T07:45:00Z"),
+        cutoffAt: new Date("2026-11-01T07:00:00Z"),
+      },
+    });
+    await db.sessionPlanningRequest.update({
+      where: { id: request.id },
+      data: { currentOfferId: offer.id },
+    });
+    const audience = () =>
+      db.$transaction((tx) =>
+        getSchoolCalendarDatedSessionUserIds(tx, targetDate, checkAt),
+      );
+    const expected = [`${prefix}student-user-3`, `${prefix}tutor-user-3`];
+    expect((await audience()).sort()).toEqual(expected);
+    await db.$transaction(async (tx) => {
+      const after = await tx.schoolCalendarDay.create({
+        data: { date: targetDate, isSchoolDay: false },
+      });
+      await notifySchoolCalendarChange(tx, { before: null, after }, checkAt);
+    });
+    expect(
+      (await db.notification.findMany({ where: noticeWhere }))
+        .map((row) => row.userId)
+        .sort(),
+    ).toEqual(expected);
+    await db.sessionPlanningRequest.update({
+      where: { id: request.id },
+      data: { status: "SPLIT_REQUESTED" },
+    });
+    expect((await audience()).sort()).toEqual(expected);
+    // A superseded alternative, an expired cutoff, or a terminal request is not live interest.
+    const newer = await db.sessionPlanningOffer.create({
+      data: {
+        requestId: request.id,
+        sequence: 2,
+        authorKey: `tutor:${prefix}tutor-3`,
+        date: "2026-11-02",
+        startMin: 900,
+        endMin: 945,
+        startsAt: new Date("2026-11-02T07:00:00Z"),
+        endsAt: new Date("2026-11-02T07:45:00Z"),
+        cutoffAt: new Date("2026-11-02T07:00:00Z"),
+      },
+    });
+    await db.sessionPlanningRequest.update({
+      where: { id: request.id },
+      data: { currentOfferId: newer.id },
+    });
+    expect(await audience()).toEqual([]);
+    await db.sessionPlanningRequest.update({
+      where: { id: request.id },
+      data: { currentOfferId: offer.id },
+    });
+    expect(
+      await db.$transaction((tx) =>
+        getSchoolCalendarDatedSessionUserIds(tx, targetDate, offer.cutoffAt),
+      ),
+    ).toEqual([]);
+    await db.sessionPlanningRequest.update({
+      where: { id: request.id },
+      data: { status: "CANCELLED" },
+    });
+    expect(await audience()).toEqual([]);
+  },
+);
+
 async function applyMapping(
   weekday = 2,
   announcedAt = new Date("2026-10-31T10:00:00Z"),

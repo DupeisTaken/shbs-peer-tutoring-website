@@ -2711,6 +2711,10 @@ model SessionPlanParticipant {
   cohortId String?
   cohort SessionPlanCohort? @relation(fields: [cohortId], references: [id], onDelete: Restrict)
   status String @default("SCHEDULED")
+  /// Exact agreement belongs to this learner, not every peer sharing the room/time.
+  scheduleOverride Boolean @default(false)
+  /// Automatic plan/calendar suppression may be restored; user/lifecycle cancellations are not.
+  calendarSuppressed Boolean @default(false)
   version Int @default(1)
   updatedAt DateTime @updatedAt
   @@unique([planId, tuteeId])

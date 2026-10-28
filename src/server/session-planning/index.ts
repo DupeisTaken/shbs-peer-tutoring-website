@@ -568,6 +568,8 @@ async function validateTarget(
   // An original booking remains real when only part of its cohort may move.
   if (
     !mayReleaseSource &&
+    source.status === "SCHEDULED" &&
+    sourceRoster.length > 0 &&
     source.startsAt < window.endsAt &&
     source.endsAt > window.startsAt
   )
@@ -652,12 +654,17 @@ async function notifyPlanChange(
   cohort: Cohort,
   event: string,
   originalStartsAt = cohort.startsAt,
+  affectedTuteeIds?: readonly string[],
 ) {
   const audience = await recipients(
     tx,
     plan,
     plan.participants
-      .filter((person) => person.cohortId === cohort.id)
+      .filter(
+        (person) =>
+          person.cohortId === cohort.id &&
+          (!affectedTuteeIds || affectedTuteeIds.includes(person.tuteeId)),
+      )
       .map((person) => person.tuteeId),
     false,
   );
@@ -718,11 +725,20 @@ async function reconcileOrdinaryPlans(
       OR: [
         { sourceScheduleFingerprint: { not: scheduleHash } },
         { cohorts: { some: { sourceInvalidated: true } } },
+        { participants: { some: { calendarSuppressed: true } } },
       ],
     },
     include: planInclude,
   });
   for (const plan of plans) {
+    if (!(await sourceIsCurrent(tx, plan))) {
+      await invalidateSessionPlansForPairings(
+        tx,
+        plan.assignments.map((row) => row.pairingId),
+        now,
+      );
+      continue;
+    }
     const hasPending = Boolean(
       await tx.sessionPlanningRequest.count({
         where: {
@@ -735,40 +751,131 @@ async function reconcileOrdinaryPlans(
     const cohorts = await tx.sessionPlanCohort.findMany({
       where: {
         planId: plan.id,
-        rescheduled: false,
+        date: plan.originalDate,
         startsAt: { gt: now },
-        OR: [{ status: "SCHEDULED" }, { sourceInvalidated: true }],
+        status: { in: ["SCHEDULED", "CANCELLED"] },
       },
     });
     for (const original of cohorts) {
+      const people = await tx.sessionPlanParticipant.findMany({
+        where: { cohortId: original.id },
+      });
+      const ordinary = people.filter(
+        (person) =>
+          !person.scheduleOverride &&
+          (person.status === "SCHEDULED" || person.calendarSuppressed),
+      );
+      const protectedPeople = people.filter(
+        (person) => person.scheduleOverride && person.status === "SCHEDULED",
+      );
+      // Older automatic tombstones kept participant status SCHEDULED. Accepted
+      // request evidence backfills each learner's override; revive only that
+      // future agreement, never a user/lifecycle cancellation or past lesson.
+      if (
+        original.sourceInvalidated &&
+        original.status === "CANCELLED" &&
+        protectedPeople.length
+      ) {
+        try {
+          await validateTarget(
+            tx,
+            plan,
+            original,
+            protectedPeople.map((person) => person.tuteeId),
+            original,
+            "ALL",
+            undefined,
+            now,
+          );
+          // Legacy repair is deliberately conservative: an existing exact
+          // sibling needs explicit coalescing, never a second physical event.
+          if (
+            await tx.sessionPlanCohort.findFirst({
+              where: {
+                planId: plan.id,
+                id: { not: original.id },
+                status: "SCHEDULED",
+                startsAt: original.startsAt,
+                endsAt: original.endsAt,
+                roomId: original.roomId,
+                online: original.online,
+              },
+              select: { id: true },
+            })
+          )
+            fail(
+              "An existing physical lesson requires review before restoring this commitment.",
+              "CONFLICT",
+            );
+        } catch {
+          // Keep the unavailable tombstone visible and retry after conflicts are
+          // resolved; neither historical consent nor a reset overrides new work.
+          deferred = true;
+          continue;
+        }
+        await tx.sessionPlanParticipant.updateMany({
+          where: { id: { in: protectedPeople.map((person) => person.id) } },
+          data: { calendarSuppressed: false, version: { increment: 1 } },
+        });
+        const restored = await tx.sessionPlanCohort.update({
+          where: { id: original.id },
+          data: {
+            status: "SCHEDULED",
+            sourceInvalidated: false,
+            version: { increment: 1 },
+          },
+        });
+        const currentPlan = await tx.sessionPlan.findUniqueOrThrow({
+          where: { id: plan.id },
+          include: planInclude,
+        });
+        await notifyPlanChange(
+          tx,
+          currentPlan,
+          restored,
+          "schedule_updated",
+          original.startsAt,
+          protectedPeople.map((person) => person.tuteeId),
+        );
+      }
+      if (!ordinary.length) continue;
+      const ordinaryIds = ordinary.map((person) => person.id);
+      const ordinaryTuteeIds = ordinary.map((person) => person.tuteeId);
       const day = resolvePlanningTimetableDay(plan.originalDate, overrides);
       const applies =
         day.isSchoolDay && day.effectiveTimetableWeekday === schedule.dayOfWeek;
-      if (hasPending && applies && !original.sourceInvalidated) {
+      if (
+        hasPending &&
+        applies &&
+        !ordinary.some((person) => person.calendarSuppressed)
+      ) {
         deferred = true;
         continue;
       }
       let window: ReturnType<typeof plannedWindow> | null = null;
       if (applies) {
         try {
-          window = await validateTarget(
-            tx,
-            plan,
+          const target = plannedWindow(
             {
               date: plan.originalDate,
               startMin: schedule.startMin,
               roomId: schedule.roomId,
               online: false,
             },
-            plan.participants
-              .filter(
-                (person) =>
-                  person.cohortId === original.id &&
-                  person.status === "SCHEDULED",
-              )
-              .map((person) => person.tuteeId),
+            plan.timeZone,
+          );
+          const samePhysicalWindow =
+            original.startsAt.getTime() === target.startsAt.getTime() &&
+            original.endsAt.getTime() === target.endsAt.getTime() &&
+            original.roomId === target.roomId &&
+            original.online === target.online;
+          window = await validateTarget(
+            tx,
+            plan,
+            target,
+            ordinaryTuteeIds,
             original,
-            "ALL",
+            protectedPeople.length && !samePhysicalWindow ? "ONE" : "ALL",
             undefined,
             now,
           );
@@ -776,32 +883,102 @@ async function reconcileOrdinaryPlans(
           /* Surface unavailable plans rather than double-book a dated exception. */
         }
       }
-      const changed = !window
-        ? original.status !== "CANCELLED"
-        : original.status !== "SCHEDULED" ||
+      const clockChanged = Boolean(
+        window &&
+        (original.startsAt.getTime() !== window.startsAt.getTime() ||
+          original.endsAt.getTime() !== window.endsAt.getTime() ||
           original.startMin !== window.startMin ||
           original.roomId !== window.roomId ||
-          plan.timeZone !== timeZone;
+          original.online !== window.online),
+      );
+      const changed = !window
+        ? ordinary.some(
+            (person) =>
+              person.status !== "CANCELLED" || !person.calendarSuppressed,
+          )
+        : original.status !== "SCHEDULED" ||
+          clockChanged ||
+          ordinary.some(
+            (person) =>
+              person.status !== "SCHEDULED" || person.calendarSuppressed,
+          );
       if (!changed) continue;
-      const cohort = await tx.sessionPlanCohort.update({
-        where: { id: original.id },
-        data: {
-          ...(window ?? {}),
-          status: window ? "SCHEDULED" : "CANCELLED",
-          sourceInvalidated: !window,
-          version: { increment: 1 },
-        },
-      });
-      await tx.sessionPlanParticipant.updateMany({
-        where: { cohortId: cohort.id },
-        data: { version: { increment: 1 } },
+      let cohort: Cohort;
+      const shared =
+        window && clockChanged
+          ? await tx.sessionPlanCohort.findFirst({
+              where: {
+                planId: plan.id,
+                date: window.date,
+                startMin: window.startMin,
+                endMin: window.endMin,
+                roomId: window.roomId,
+                online: window.online,
+                status: "SCHEDULED",
+                id: { not: original.id },
+              },
+            })
+          : null;
+      if (window && clockChanged && (protectedPeople.length || shared)) {
+        // A shared clock does not transfer one learner's explicit agreement to peers.
+        // Exact matches coalesce into one physical lesson even when the ordinary
+        // source has no protected learner left; an emptied source retires its UID.
+        cohort = shared
+          ? await tx.sessionPlanCohort.update({
+              where: { id: shared.id },
+              data: { version: { increment: 1 } },
+            })
+          : await tx.sessionPlanCohort.create({
+              data: { planId: plan.id, ...window },
+            });
+        await tx.sessionPlanParticipant.updateMany({
+          where: { id: { in: ordinaryIds } },
+          data: {
+            cohortId: cohort.id,
+            status: "SCHEDULED",
+            calendarSuppressed: false,
+            version: { increment: 1 },
+          },
+        });
+        await tx.sessionPlanCohort.update({
+          where: { id: original.id },
+          data: {
+            status: protectedPeople.length ? "SCHEDULED" : "CANCELLED",
+            sourceInvalidated: false,
+            version: { increment: 1 },
+          },
+        });
+      } else {
+        cohort = await tx.sessionPlanCohort.update({
+          where: { id: original.id },
+          data: {
+            ...(window ?? {}),
+            status:
+              window || protectedPeople.length ? "SCHEDULED" : "CANCELLED",
+            sourceInvalidated: !window && !protectedPeople.length,
+            version: { increment: 1 },
+          },
+        });
+        await tx.sessionPlanParticipant.updateMany({
+          where: { id: { in: ordinaryIds } },
+          data: {
+            status: window ? "SCHEDULED" : "CANCELLED",
+            calendarSuppressed: !window,
+            version: { increment: 1 },
+          },
+        });
+      }
+      const currentPlan = await tx.sessionPlan.findUniqueOrThrow({
+        where: { id: plan.id },
+        include: planInclude,
       });
       await notifyPlanChange(
         tx,
-        plan,
+        currentPlan,
         cohort,
         window ? "schedule_updated" : "cancelled",
         original.startsAt,
+        ordinaryTuteeIds,
       );
       await audit(tx, plan.id, "weeklyPlanUpdated", true);
     }
@@ -826,7 +1003,15 @@ export async function ensureSessionPlanningWindow(
     const affected = await tx.sessionPlanAssignment.findMany({
       where: {
         plan: {
-          cohorts: { some: { status: "SCHEDULED", startsAt: { gt: now } } },
+          cohorts: {
+            some: {
+              startsAt: { gt: now },
+              OR: [
+                { status: "SCHEDULED" },
+                { participants: { some: { calendarSuppressed: true } } },
+              ],
+            },
+          },
         },
       },
       select: { pairingId: true },
@@ -992,7 +1177,13 @@ export async function ensureSessionPlanningWindow(
           },
         });
         await tx.sessionPlanParticipant.createMany({
-          data: roster.map((tuteeId) => ({ planId, tuteeId, cohortId })),
+          data: roster.map((tuteeId) => ({
+            planId,
+            tuteeId,
+            cohortId,
+            status: available ? "SCHEDULED" : "CANCELLED",
+            calendarSuppressed: !available,
+          })),
         });
         const complete = await tx.sessionPlan.findUniqueOrThrow({
           where: { id: planId },
@@ -1117,7 +1308,10 @@ async function finishAgreement(
     select: { dayOfWeek: true },
   });
   const calendarSuppressed =
-    source.sourceInvalidated &&
+    (source.sourceInvalidated ||
+      source.plan.participants.some(
+        (person) => person.cohortId === source.id && person.calendarSuppressed,
+      )) &&
     source.plan.kind === "REGULAR" &&
     !source.rescheduled &&
     (!sourceCalendar.isSchoolDay ||
@@ -1175,7 +1369,9 @@ async function finishAgreement(
     targetPlanId = extra.id;
   }
   const sourceRoster = request.plan.participants.filter(
-    (person) => person.cohortId === source.id && person.status === "SCHEDULED",
+    (person) =>
+      person.cohortId === source.id &&
+      (person.status === "SCHEDULED" || person.calendarSuppressed),
   );
   const movesWholeCohort =
     request.kind !== "EXTRA" &&
@@ -1238,7 +1434,13 @@ async function finishAgreement(
     else
       await tx.sessionPlanParticipant.update({
         where: { planId_tuteeId: { planId: request.planId, tuteeId } },
-        data: { cohortId: cohort.id, version: { increment: 1 } },
+        data: {
+          cohortId: cohort.id,
+          status: "SCHEDULED",
+          scheduleOverride: true,
+          calendarSuppressed: false,
+          version: { increment: 1 },
+        },
       });
   }
   if (request.kind !== "EXTRA" && cohort.id !== source.id) {
@@ -1714,7 +1916,11 @@ export async function respondSession(
                 planId: request.planId,
                 tuteeId: { in: ids(request.participantIds) },
               },
-              data: { status: "CANCELLED", version: { increment: 1 } },
+              data: {
+                status: "CANCELLED",
+                calendarSuppressed: false,
+                version: { increment: 1 },
+              },
             });
           if (request.kind !== "EXTRA") {
             const remaining = await tx.sessionPlanParticipant.count({
@@ -1947,7 +2153,11 @@ export async function readSessionAgenda(
             roomRows.find((room) => room.id === row.roomId)?.name ?? null,
           online: row.online,
           kind: row.plan.kind,
-          rescheduled: row.rescheduled,
+          rescheduled:
+            role === "tutee"
+              ? personal.some((person) => person.scheduleOverride)
+              : row.rescheduled ||
+                roster.some((person) => person.scheduleOverride),
           schoolClosed: !resolvePlanningTimetableDay(row.date, calendar)
             .isSchoolDay,
           unavailable: row.sourceInvalidated,
@@ -2231,7 +2441,9 @@ export async function sessionAttendanceContext(
     roomId: cohort.roomId,
     online: cohort.online,
     kind: cohort.plan.kind,
-    rescheduled: cohort.rescheduled,
+    rescheduled:
+      cohort.rescheduled ||
+      participants.some((person) => person.scheduleOverride),
     tuteeIds: participants.map((person) => person.tuteeId),
     primaryPairingId: assignments[0]!.pairingId,
     pairingIds: assignments.map((row) => row.pairingId),
@@ -2264,6 +2476,14 @@ export async function invalidateSessionPlansForPairings(
       OR: [
         { cohorts: { some: { status: "SCHEDULED", startsAt: { gt: now } } } },
         {
+          cohorts: {
+            some: {
+              startsAt: { gt: now },
+              participants: { some: { calendarSuppressed: true } },
+            },
+          },
+        },
+        {
           requests: {
             some: { status: { in: ["PENDING", "SPLIT_REQUESTED"] } },
           },
@@ -2275,16 +2495,31 @@ export async function invalidateSessionPlansForPairings(
   for (const plan of plans) {
     if (await sourceIsCurrent(tx, plan)) continue;
     const cohorts = await tx.sessionPlanCohort.findMany({
-      where: { planId: plan.id, status: "SCHEDULED", startsAt: { gt: now } },
+      where: {
+        planId: plan.id,
+        startsAt: { gt: now },
+        OR: [
+          { status: "SCHEDULED" },
+          { participants: { some: { calendarSuppressed: true } } },
+        ],
+      },
     });
     for (const cohort of cohorts) {
       const cancelled = await tx.sessionPlanCohort.update({
         where: { id: cohort.id },
-        data: { status: "CANCELLED", version: { increment: 1 } },
+        data: {
+          status: "CANCELLED",
+          sourceInvalidated: false,
+          version: { increment: 1 },
+        },
       });
       await tx.sessionPlanParticipant.updateMany({
         where: { cohortId: cohort.id },
-        data: { status: "CANCELLED", version: { increment: 1 } },
+        data: {
+          status: "CANCELLED",
+          calendarSuppressed: false,
+          version: { increment: 1 },
+        },
       });
       await notifyPlanChange(tx, plan, cancelled, "cancelled");
     }

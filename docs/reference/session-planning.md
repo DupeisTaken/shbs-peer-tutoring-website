@@ -24,6 +24,18 @@ unavailable until repaired. Effective dated exceptions and current proposals tak
 part in conflict checks. School closures suppress ordinary recurrence; explicitly
 agreed sessions remain commitments. The school-calendar mapping adapter reads
 the owning calendar's effective weekday and semantic revision.
+Semantic calendar saves and resets reconcile future plans in the same transaction,
+using the shared period, room and planning locks. A closure saved before a lesson
+starts cannot remain attendance-eligible just because the first agenda read occurs
+after its start; retrospective edits preserve already-started evidence.
+Individual `scheduleOverride` provenance preserves an explicitly agreed learner
+who returns to an ordinary shared cohort. `calendarSuppressed` distinguishes an
+ordinary commitment that may be restored on reset from a user/lifecycle
+cancellation. Restoration rechecks conflicts; exact matching cohorts coalesce
+and emptied physical cohorts retain cancellation evidence for subscriptions.
+Calendar-change notices include current live proposal recipients on the target
+date, even when no confirmed lesson or recurring assignment exists there yet.
+Superseded offers, elapsed cutoffs and terminal requests do not expand that audience.
 
 ## Agreements
 

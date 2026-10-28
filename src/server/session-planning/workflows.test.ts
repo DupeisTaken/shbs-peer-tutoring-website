@@ -96,6 +96,34 @@ async function respond(
   });
 }
 
+async function returnOneToOrdinaryCohort() {
+  const original = await source();
+  const first = await propose();
+  await respond(first.id, one, "ACCEPT");
+  const participant = await db.sessionPlanParticipant.findUniqueOrThrow({
+    where: {
+      planId_tuteeId: { planId: original.planId, tuteeId: "planning-one" },
+    },
+  });
+  const away = await db.sessionPlanCohort.findUniqueOrThrow({
+    where: { id: participant.cohortId! },
+  });
+  const back = await proposeSession(db, tutor, {
+    cohortId: away.id,
+    expectedVersion: away.version,
+    clientKey: randomUUID(),
+    scope: "ONE",
+    kind: "RESCHEDULE",
+    tuteeId: "planning-one",
+    date: original.date,
+    startMin: original.startMin,
+    roomId: original.roomId,
+    online: original.online,
+  });
+  await respond(back.id, one, "ACCEPT");
+  return { original, participantId: participant.id };
+}
+
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(now);
@@ -727,6 +755,471 @@ describe("whole-group agreement and split", () => {
 });
 
 describe("publication and scoped attendance", () => {
+  it("atomically suppresses a pre-start closure even when no agenda is read until after start", async () => {
+    const original = await source();
+    vi.setSystemTime(new Date(original.startsAt.getTime() - 60_000));
+    await saveSchoolCalendar(
+      db,
+      {
+        date: original.date,
+        isSchoolDay: false,
+        timetableWeekday: null,
+        note: "Synthetic pre-start closure",
+        expectedVersion: 0,
+      },
+      tutor.id,
+    );
+    const saved = await db.sessionPlanCohort.findUniqueOrThrow({
+      where: { id: original.id },
+    });
+    expect(saved.status).toBe("CANCELLED");
+    expect(
+      await db.sessionPlanParticipant.count({
+        where: {
+          cohortId: original.id,
+          status: "CANCELLED",
+          calendarSuppressed: true,
+        },
+      }),
+    ).toBe(2);
+    vi.setSystemTime(new Date(original.startsAt.getTime() + 10 * 60_000));
+    const agenda = await readSessionAgenda(db, tutor, "tutor");
+    expect(agenda.cohorts.find((row) => row.id === original.id)).toMatchObject({
+      status: "CANCELLED",
+      needsAttendance: false,
+      canRecordAttendance: false,
+    });
+    await expect(
+      db.$transaction((tx) =>
+        sessionAttendanceContext(
+          tx,
+          tutor,
+          original.id,
+          undefined,
+          new Date(original.endsAt.getTime() + 60_000),
+        ),
+      ),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(await db.session.count()).toBe(0);
+    expect(await db.disciplinaryCard.count()).toBe(0);
+  });
+
+  it("preserves already-started published evidence when a calendar edit is retrospective", async () => {
+    const original = await source();
+    vi.setSystemTime(new Date(original.startsAt.getTime() + 10 * 60_000));
+    await saveSchoolCalendar(
+      db,
+      {
+        date: original.date,
+        isSchoolDay: false,
+        timetableWeekday: null,
+        note: "Synthetic retrospective note",
+        expectedVersion: 0,
+      },
+      tutor.id,
+    );
+    expect(
+      (
+        await db.sessionPlanCohort.findUniqueOrThrow({
+          where: { id: original.id },
+        })
+      ).status,
+    ).toBe("SCHEDULED");
+    const context = await db.$transaction((tx) =>
+      sessionAttendanceContext(
+        tx,
+        tutor,
+        original.id,
+        undefined,
+        new Date(original.endsAt.getTime() + 60_000),
+      ),
+    );
+    expect(context.tuteeIds.sort()).toEqual(["planning-one", "planning-two"]);
+    expect(await db.session.count()).toBe(0);
+  });
+
+  it("retains only an explicitly returned learner through closure and reset of a shared ordinary cohort", async () => {
+    const { original, participantId } = await returnOneToOrdinaryCohort();
+    const before = await db.sessionPlanParticipant.findUniqueOrThrow({
+      where: { id: participantId },
+    });
+    const peerBefore = await db.sessionPlanParticipant.findUniqueOrThrow({
+      where: {
+        planId_tuteeId: { planId: original.planId, tuteeId: "planning-two" },
+      },
+    });
+    expect(before.cohortId).toBe(original.id);
+    expect(before.scheduleOverride).toBe(true);
+    expect(peerBefore.scheduleOverride).toBe(false);
+    const closed = await saveSchoolCalendar(
+      db,
+      {
+        date: original.date,
+        isSchoolDay: false,
+        timetableWeekday: null,
+        note: "Synthetic shared cohort closure",
+        expectedVersion: 0,
+      },
+      tutor.id,
+    );
+    const kept = await db.sessionPlanParticipant.findUniqueOrThrow({
+      where: { id: before.id },
+    });
+    const suppressed = await db.sessionPlanParticipant.findUniqueOrThrow({
+      where: { id: peerBefore.id },
+    });
+    expect(kept).toEqual(before);
+    expect(suppressed).toMatchObject({
+      cohortId: original.id,
+      status: "CANCELLED",
+      calendarSuppressed: true,
+      scheduleOverride: false,
+    });
+    expect(suppressed.version).toBe(peerBefore.version + 1);
+    expect(
+      (
+        await db.sessionPlanCohort.findUniqueOrThrow({
+          where: { id: original.id },
+        })
+      ).status,
+    ).toBe("SCHEDULED");
+    const ownAgenda = await readSessionAgenda(db, one, "tutee"),
+      peerAgenda = await readSessionAgenda(db, two, "tutee");
+    expect(
+      ownAgenda.cohorts.find((row) => row.id === original.id),
+    ).toMatchObject({ status: "SCHEDULED", rescheduled: true });
+    expect(
+      peerAgenda.cohorts.find((row) => row.id === original.id),
+    ).toMatchObject({ status: "CANCELLED", rescheduled: false });
+    await resetSchoolCalendar(
+      db,
+      { date: original.date, expectedVersion: closed.version },
+      tutor.id,
+    );
+    const restored = await db.sessionPlanParticipant.findUniqueOrThrow({
+      where: { id: peerBefore.id },
+    });
+    expect(restored).toMatchObject({
+      cohortId: original.id,
+      status: "SCHEDULED",
+      calendarSuppressed: false,
+      scheduleOverride: false,
+    });
+    expect(restored.version).toBe(suppressed.version + 1);
+    expect(
+      await db.sessionPlanParticipant.findUniqueOrThrow({
+        where: { id: before.id },
+      }),
+    ).toEqual(before);
+    const reset = await db.schoolCalendarDay.findUniqueOrThrow({
+      where: { date: original.date },
+    });
+    await saveSchoolCalendar(
+      db,
+      {
+        date: original.date,
+        isSchoolDay: false,
+        timetableWeekday: null,
+        note: "Synthetic second closure",
+        expectedVersion: reset.version,
+      },
+      tutor.id,
+    );
+    const context = await db.$transaction((tx) =>
+      sessionAttendanceContext(
+        tx,
+        tutor,
+        original.id,
+        undefined,
+        new Date(original.endsAt.getTime() + 60_000),
+      ),
+    );
+    expect(context.tuteeIds).toEqual(["planning-one"]);
+    expect(context.rescheduled).toBe(true);
+    expect(
+      await db.sessionPlanCohort.count({
+        where: {
+          planId: original.planId,
+          date: original.date,
+          status: "SCHEDULED",
+        },
+      }),
+    ).toBe(1);
+    expect(await db.session.count()).toBe(0);
+  });
+
+  it("moves ordinary peers with a changed weekly clock while preserving a returned learner's exact agreement", async () => {
+    const { original, participantId } = await returnOneToOrdinaryCohort();
+    const kept = await db.sessionPlanParticipant.findUniqueOrThrow({
+      where: { id: participantId },
+    });
+    await db.pairing.update({
+      where: { id: "planning-pairing" },
+      data: { startMin: 960, endMin: 1005 },
+    });
+    await ensureSessionPlanningWindow(db, now);
+    expect(
+      await db.sessionPlanParticipant.findUniqueOrThrow({
+        where: { id: participantId },
+      }),
+    ).toEqual(kept);
+    expect(
+      (
+        await db.sessionPlanCohort.findUniqueOrThrow({
+          where: { id: original.id },
+        })
+      ).startMin,
+    ).toBe(900);
+    const peer = await db.sessionPlanParticipant.findUniqueOrThrow({
+      where: {
+        planId_tuteeId: { planId: original.planId, tuteeId: "planning-two" },
+      },
+      include: { cohort: true },
+    });
+    expect(peer.cohortId).not.toBe(original.id);
+    expect(peer.cohort?.startMin).toBe(960);
+    expect(peer.scheduleOverride).toBe(false);
+    expect(
+      await db.sessionPlanCohort.count({
+        where: {
+          planId: original.planId,
+          date: original.date,
+          status: "SCHEDULED",
+        },
+      }),
+    ).toBe(2);
+    await db.pairing.update({
+      where: { id: "planning-pairing" },
+      data: { startMin: 900, endMin: 945 },
+    });
+    await ensureSessionPlanningWindow(db, now);
+    const rejoined = await db.sessionPlanParticipant.findUniqueOrThrow({
+      where: { id: peer.id },
+    });
+    expect(rejoined.cohortId).toBe(original.id);
+    expect(rejoined.version).toBe(peer.version + 1);
+    expect(
+      await db.sessionPlanParticipant.findUniqueOrThrow({
+        where: { id: participantId },
+      }),
+    ).toEqual(kept);
+    const retired = await db.sessionPlanCohort.findUniqueOrThrow({
+      where: { id: peer.cohortId! },
+    });
+    expect(retired.status).toBe("CANCELLED");
+    expect(retired.version).toBe(peer.cohort!.version + 1);
+    expect(
+      await db.sessionPlanCohort.count({
+        where: {
+          planId: original.planId,
+          date: original.date,
+          status: "SCHEDULED",
+        },
+      }),
+    ).toBe(1);
+    const context = await db.$transaction((tx) =>
+      sessionAttendanceContext(
+        tx,
+        tutor,
+        original.id,
+        undefined,
+        new Date(original.endsAt.getTime() + 60_000),
+      ),
+    );
+    expect(context.tuteeIds.sort()).toEqual(["planning-one", "planning-two"]);
+    // Coalescing is exact: an overlapping different clock must remain unavailable.
+    await db.pairing.update({
+      where: { id: "planning-pairing" },
+      data: { startMin: 915, endMin: 960 },
+    });
+    await ensureSessionPlanningWindow(db, now);
+    expect(
+      await db.sessionPlanParticipant.findUniqueOrThrow({
+        where: { id: peer.id },
+      }),
+    ).toMatchObject({
+      cohortId: original.id,
+      status: "CANCELLED",
+      calendarSuppressed: true,
+    });
+    expect(
+      await db.sessionPlanParticipant.findUniqueOrThrow({
+        where: { id: participantId },
+      }),
+    ).toEqual(kept);
+    await db.pairing.update({
+      where: { id: "planning-pairing" },
+      data: { startMin: 900, endMin: 945 },
+    });
+    await ensureSessionPlanningWindow(db, now);
+    expect(
+      await db.sessionPlanParticipant.findUniqueOrThrow({
+        where: { id: peer.id },
+      }),
+    ).toMatchObject({
+      cohortId: original.id,
+      status: "SCHEDULED",
+      calendarSuppressed: false,
+    });
+    expect(
+      await db.sessionPlanCohort.count({
+        where: {
+          planId: original.planId,
+          date: original.date,
+          status: "SCHEDULED",
+        },
+      }),
+    ).toBe(1);
+  });
+  it("repairs a future legacy calendar tombstone only for its accepted learner agreement", async () => {
+    const room = await db.room.create({
+      data: { name: "Synthetic restoration room" },
+    });
+    await db.pairing.update({
+      where: { id: "planning-pairing" },
+      data: { roomId: room.id, roomMode: "FIXED" },
+    });
+    await ensureSessionPlanningWindow(db, now);
+    const { original, participantId } = await returnOneToOrdinaryCohort();
+    await db.sessionPlanParticipant.update({
+      where: { id: participantId },
+      data: { calendarSuppressed: true },
+    });
+    await db.sessionPlanParticipant.updateMany({
+      where: { planId: original.planId, tuteeId: "planning-two" },
+      data: { status: "CANCELLED", calendarSuppressed: false },
+    });
+    await db.sessionPlanCohort.update({
+      where: { id: original.id },
+      data: { status: "CANCELLED", sourceInvalidated: true },
+    });
+    await db.schoolCalendarDay.create({
+      data: { date: original.date, isSchoolDay: false, timetableWeekday: null },
+    });
+    const before = await db.sessionPlanParticipant.findUniqueOrThrow({
+      where: { id: participantId },
+    });
+    // The ordinary room was released while the lesson was tombstoned. The
+    // learner's exact prior agreement still retains that room independently.
+    await db.pairing.update({
+      where: { id: "planning-pairing" },
+      data: { roomId: null, roomMode: "NONE" },
+    });
+    const blackout = await db.roomUnavailability.create({
+      data: {
+        roomId: room.id,
+        dayOfWeek: 1,
+        startMin: original.startMin,
+        endMin: original.endMin,
+      },
+    });
+    await ensureSessionPlanningWindow(db, now);
+    expect(
+      await db.sessionPlanParticipant.findUniqueOrThrow({
+        where: { id: participantId },
+      }),
+    ).toEqual(before);
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: original.id },
+      }),
+    ).toMatchObject({ status: "CANCELLED", sourceInvalidated: true });
+    await expect(
+      db.$transaction((tx) =>
+        sessionAttendanceContext(
+          tx,
+          tutor,
+          original.id,
+          undefined,
+          new Date(original.endsAt.getTime() + 60_000),
+        ),
+      ),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    await db.roomUnavailability.delete({ where: { id: blackout.id } });
+    const sibling = await db.sessionPlanCohort.create({
+      data: {
+        planId: original.planId,
+        date: original.date,
+        startMin: original.startMin,
+        endMin: original.endMin,
+        startsAt: original.startsAt,
+        endsAt: original.endsAt,
+        roomId: original.roomId,
+        online: original.online,
+        rescheduled: true,
+      },
+    });
+    await db.sessionPlanParticipant.updateMany({
+      where: { planId: original.planId, tuteeId: "planning-two" },
+      data: {
+        cohortId: sibling.id,
+        status: "SCHEDULED",
+        scheduleOverride: true,
+      },
+    });
+    await ensureSessionPlanningWindow(db, now);
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: original.id },
+      }),
+    ).toMatchObject({ status: "CANCELLED", sourceInvalidated: true });
+    expect(
+      await db.sessionPlanParticipant.findUniqueOrThrow({
+        where: { id: participantId },
+      }),
+    ).toEqual(before);
+    expect(
+      await db.sessionPlanCohort.count({
+        where: {
+          planId: original.planId,
+          date: original.date,
+          status: "SCHEDULED",
+        },
+      }),
+    ).toBe(1);
+    await db.sessionPlanCohort.update({
+      where: { id: sibling.id },
+      data: { status: "CANCELLED" },
+    });
+    await db.sessionPlanParticipant.updateMany({
+      where: { planId: original.planId, tuteeId: "planning-two" },
+      data: { status: "CANCELLED" },
+    });
+    await ensureSessionPlanningWindow(db, now);
+    expect(
+      await db.sessionPlanParticipant.findUniqueOrThrow({
+        where: { id: participantId },
+      }),
+    ).toMatchObject({
+      cohortId: original.id,
+      status: "SCHEDULED",
+      scheduleOverride: true,
+      calendarSuppressed: false,
+      version: before.version + 1,
+    });
+    expect(
+      await db.sessionPlanParticipant.findUniqueOrThrow({
+        where: {
+          planId_tuteeId: { planId: original.planId, tuteeId: "planning-two" },
+        },
+      }),
+    ).toMatchObject({ status: "CANCELLED", calendarSuppressed: false });
+    expect(
+      await db.sessionPlanCohort.findUniqueOrThrow({
+        where: { id: original.id },
+      }),
+    ).toMatchObject({ status: "SCHEDULED", sourceInvalidated: false });
+    const context = await db.$transaction((tx) =>
+      sessionAttendanceContext(
+        tx,
+        tutor,
+        original.id,
+        undefined,
+        new Date(original.endsAt.getTime() + 60_000),
+      ),
+    );
+    expect(context.tuteeIds).toEqual(["planning-one"]);
+  });
   it("requires inactivation rather than deletion once a tutee has published planning evidence", async () => {
     expect(await db.session.count()).toBe(0);
     await expect(
