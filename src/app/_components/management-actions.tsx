@@ -7,7 +7,7 @@ import {
 import Link from "next/link";
 import { isAssignmentOperation } from "~/lib/assignment-qualification";
 import { AssignmentConfirmation } from "./assignment-confirmation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import {
   useSessionAccessDenied,
   useSessionPageScroll,
@@ -29,6 +29,7 @@ import { proposalConfirmation } from "~/lib/approval-policy";
 import { eventTitle } from "~/lib/event-title";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
 import { ApprovalReviewDetails } from "./approval-review-details";
+import { ReviewDisclosure } from "./review-disclosure";
 import { Button, ChoiceButton } from "./ui/button";
 import { FilterToolbar } from "./ui/patterns";
 
@@ -148,11 +149,12 @@ function RequestCard({
             payload={payload}
             targets={request.targets}
             compact
+            busy={decision.isPending}
           />
           <p className="text-sm whitespace-pre-wrap">{note}</p>
         </TimedActionDialog>
       )}
-      <div className="space-y-4 p-5 sm:p-6">
+      <div className="space-y-4 p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-slate-900">
@@ -190,135 +192,155 @@ function RequestCard({
               : "text-sm text-slate-600"
           }
         >
-          {t(`effects.${request.state}`)}
+          {t(
+            request.operation === "program.setFeaturePending" &&
+              request.state === "APPROVED"
+              ? "review.featureApplied"
+              : `effects.${request.state}`,
+          )}
         </p>
         <ApprovalReviewDetails
           operation={request.operation}
           payload={payload}
           targets={request.targets}
+          summaryOnly
         />
-        {request.reviewedAt && (
-          <div className="rounded-lg border-l-4 border-slate-300 bg-slate-50 p-4">
-            <p className="text-xs font-medium text-slate-500">
-              {request.state === "CANCELLED"
-                ? t("withdrawnBy", { name: request.requesterName })
-                : request.reviewerName}{" "}
-              ·{" "}
-              {request.reviewedAt &&
-                format.dateTime(new Date(request.reviewedAt), {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}
-            </p>
-            <p className="mt-2 text-sm whitespace-pre-wrap">
-              {request.reviewNote}
-            </p>
-          </div>
-        )}
-        {pending && canReview && (
-          <div className="space-y-3 border-t border-slate-100 pt-4">
-            <h3 className="text-sm font-semibold text-slate-800">
-              {t("review.yourDecision")}
-            </h3>
-            <p className="text-sm text-slate-600">
-              {t(
-                payload &&
-                  typeof payload === "object" &&
-                  ["approve", "accept", "overturn", "action"].some(
-                    (key) => key in payload,
-                  )
-                  ? "review.decisionRequestHelp"
-                  : "review.decisionHelp",
-              )}
-            </p>
-            <label className="block">
-              <span className="label">{t("review.noteRequired")}</span>
-              <textarea
-                className="input mt-1 w-full"
-                rows={2}
-                maxLength={2000}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder={t("noteHint")}
-              />
-            </label>
-            {needsPassword && (
+        <ReviewDisclosure
+          title={t("review.reviewDetails")}
+          busy={busy || confirming || !!overrideReview}
+        >
+          <ApprovalReviewDetails
+            operation={request.operation}
+            payload={payload}
+            targets={request.targets}
+            hideSummary
+            busy={busy || confirming || !!overrideReview}
+          />
+          {request.reviewedAt && (
+            <div className="rounded-lg border-l-4 border-slate-300 bg-slate-50 p-4">
+              <p className="text-xs font-medium text-slate-500">
+                {request.state === "CANCELLED"
+                  ? t("withdrawnBy", { name: request.requesterName })
+                  : request.reviewerName}{" "}
+                ·{" "}
+                {request.reviewedAt &&
+                  format.dateTime(new Date(request.reviewedAt), {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+              </p>
+              <p className="mt-2 text-sm whitespace-pre-wrap">
+                {request.reviewNote}
+              </p>
+            </div>
+          )}
+          {pending && canReview && (
+            <div className="space-y-3 border-t border-slate-100 pt-4">
+              <h3 className="text-sm font-semibold text-slate-800">
+                {t("review.yourDecision")}
+              </h3>
+              <p className="text-sm text-slate-600">
+                {t(
+                  payload &&
+                    typeof payload === "object" &&
+                    ["approve", "accept", "overturn", "action"].some(
+                      (key) => key in payload,
+                    )
+                    ? "review.decisionRequestHelp"
+                    : "review.decisionHelp",
+                )}
+              </p>
               <label className="block">
-                <span className="label">{t("review.confirmPassword")}</span>
-                <input
-                  type="password"
-                  autoComplete="current-password"
-                  className="input min-h-11 w-full lg:min-h-10"
-                  value={password}
-                  disabled={busy}
-                  onChange={(event) => setPassword(event.target.value)}
+                <span className="label">{t("review.noteRequired")}</span>
+                <textarea
+                  className="input mt-1 w-full"
+                  rows={2}
+                  maxLength={2000}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder={t("noteHint")}
                 />
               </label>
-            )}
-            <div className="flex flex-wrap gap-2">
-              <button
-                className="btn-primary min-h-11 lg:min-h-10"
-                disabled={busy || !note.trim() || (needsPassword && !password)}
-                onClick={() => {
-                  if (confirmation) setConfirming(true);
-                  else
-                    void approve()?.catch(() => {
-                      /* The feature displays the decision error. */
-                    });
-                }}
-              >
-                {t("approve")}
-              </button>
-              <button
-                className="btn-secondary min-h-11 lg:min-h-10"
-                disabled={busy || !note.trim()}
-                onClick={() =>
-                  decision.mutate({ id: request.id, approve: false, note })
-                }
-              >
-                {t("reject")}
-              </button>
+              {needsPassword && (
+                <label className="block">
+                  <span className="label">{t("review.confirmPassword")}</span>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    className="input min-h-11 w-full lg:min-h-10"
+                    value={password}
+                    disabled={busy}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                </label>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="btn-primary min-h-11 lg:min-h-10"
+                  disabled={
+                    busy || !note.trim() || (needsPassword && !password)
+                  }
+                  onClick={() => {
+                    if (confirmation) setConfirming(true);
+                    else
+                      void approve()?.catch(() => {
+                        /* The feature displays the decision error. */
+                      });
+                  }}
+                >
+                  {t("approve")}
+                </button>
+                <button
+                  className="btn-secondary min-h-11 text-red-700 lg:min-h-10"
+                  disabled={busy || !note.trim()}
+                  onClick={() =>
+                    decision.mutate({ id: request.id, approve: false, note })
+                  }
+                >
+                  {t("reject")}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-        {pending && !canReview && (
-          <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
-            {t(
-              headOnly
-                ? "review.headRequired"
-                : canCancel
-                  ? "review.otherReviewer"
-                  : "review.waitingReviewer",
-            )}
-          </p>
-        )}
-        {pending && canCancel && (
-          <button
-            className="btn-secondary min-h-11 lg:min-h-10"
-            disabled={busy}
-            onClick={() => cancel.mutate({ id: request.id })}
-          >
-            {t("cancel")}
-          </button>
-        )}
-        {(decision.error ?? cancel.error) && (
-          <p role="alert" className="text-sm text-red-700">
-            {(decision.error ?? cancel.error)!.message}
-          </p>
-        )}
-        {decision.data?.emailSent === false && (
-          <p role="status" className="text-sm text-amber-800">
-            {t("emailRetry")}
-          </p>
-        )}
-        {canReview && (
-          <Link
-            href={`/admin/audit?approval=${request.id}`}
-            className="link text-xs"
-          >
-            {t("audit")}
-          </Link>
-        )}
+          )}
+          {pending && !canReview && (
+            <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+              {t(
+                headOnly
+                  ? "review.headRequired"
+                  : canCancel
+                    ? "review.otherReviewer"
+                    : "review.waitingReviewer",
+              )}
+            </p>
+          )}
+          {pending && canCancel && (
+            <button
+              className="btn-secondary min-h-11 lg:min-h-10"
+              disabled={busy}
+              onClick={() => cancel.mutate({ id: request.id })}
+            >
+              {t("cancel")}
+            </button>
+          )}
+          {(decision.error ?? cancel.error) && (
+            <p role="alert" className="text-sm text-red-700">
+              {(decision.error ?? cancel.error)!.message}
+            </p>
+          )}
+          {decision.data?.emailSent === false && (
+            <p role="status" className="text-sm text-amber-800">
+              {t("emailRetry")}
+            </p>
+          )}
+          {canReview && (
+            <Link
+              href={`/admin/audit?approval=${request.id}`}
+              className="link text-xs"
+            >
+              {t("audit")}
+            </Link>
+          )}
+        </ReviewDisclosure>
       </div>
     </article>
   );
@@ -544,6 +566,7 @@ function ApprovalQueue({
           >
             {t("refresh")}
           </Button>
+          {queue.data?.canReview && !queue.error && <ReviewerNotificationRefresh />}
           {requestId && (
             <Link className="link" href="/admin/approvals?status=all">
               {t("allRequests")}
@@ -633,6 +656,36 @@ function ApprovalQueue({
       )}
     </div>
   );
+}
+
+/** This deliberate staff write fills missing reviewer notices without replaying
+ * decisions. Its lifetime and same-turn guard are independent of list refresh. */
+function ReviewerNotificationRefresh() {
+  const t = useTranslations("approvals");
+  const reconcile = api.notification.reconcileManagementReviews.useMutation();
+  const inFlight = useRef(false);
+  const [pending, setPending] = useState(false);
+  const [result, setResult] = useState<{ pending: number; created: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  return <div className="space-y-2">
+    <Button size="compact" disabled={pending} onClick={async () => {
+      if (inFlight.current) return;
+      inFlight.current = true;
+      setPending(true);
+      setResult(null);
+      setError(null);
+      try {
+        setResult(await reconcile.mutateAsync());
+      } catch (failure) {
+        setError(failure instanceof Error ? failure.message : t("reviewerNoticesFailed"));
+      } finally {
+        inFlight.current = false;
+        setPending(false);
+      }
+    }}>{t(pending ? "reviewerNoticesPending" : "reviewerNoticesRefresh")}</Button>
+    {result && <p role="status" className="max-w-xl text-sm text-slate-700">{t("reviewerNoticesResult", result)}</p>}
+    {error && <p role="alert" className="max-w-xl text-sm text-red-700">{error}</p>}
+  </div>;
 }
 
 function LinkedQueue({ reviewer }: { reviewer: boolean }) {

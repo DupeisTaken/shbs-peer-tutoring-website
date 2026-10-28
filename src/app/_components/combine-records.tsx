@@ -40,14 +40,14 @@ function isDenied(error: unknown) {
 /** One identity review accepts logins and roster records alike. Grouping preserves
  * original evidence; retiring credentials is a separate, explicit Head choice. */
 export function CombineRecords({
-  isHead,
+  canApply,
   initialSource,
   reviewPersonId,
   onPendingChange,
   unavailable = false,
   accessDenied = false,
 }: {
-  isHead: boolean;
+  canApply: boolean;
   initialSource?: CombineRecordSource;
   /** Existing groups use a fresh read and an explicit finalization, never a second grouping. */
   reviewPersonId?: string;
@@ -591,7 +591,7 @@ export function CombineRecords({
                       </select>
                     </label>
                   )}
-                  {isHead && accounts.length > 1 && (
+                  {canApply && accounts.length > 1 && (
                     <label className="flex min-h-11 items-start gap-3 text-sm">
                       <input
                         type="checkbox"
@@ -730,7 +730,7 @@ export function CombineRecords({
                           />
                           <span>{t("acknowledge")}</span>
                         </label>
-                        {preview.requiresHead && isHead && (
+                        {preview.requiresHead && canApply && (
                           <label className="block">
                             <span className="label">{t("password")}</span>
                             <input
@@ -747,7 +747,7 @@ export function CombineRecords({
                       </div>
                     }
                     actions={
-                      preview.requiresHead && !isHead ? (
+                      preview.requiresHead && !canApply ? (
                         <InlineNotice tone="warning">
                           {t("headRequired")}
                         </InlineNotice>
@@ -778,7 +778,7 @@ export function CombineRecords({
                               !acknowledged ||
                               reason.trim().length < 10 ||
                               (preview.requiresHead &&
-                                (!isHead || !password)) ||
+                                (!canApply || !password)) ||
                               (preview.retireDuplicateLogins &&
                                 !preview.canRetireLogins)
                             )

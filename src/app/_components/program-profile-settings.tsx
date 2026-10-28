@@ -202,7 +202,7 @@ export function ProfilePolicyEditor({
               className="btn-primary min-h-11 lg:min-h-10"
               disabled={!offeredGrades.length}
             >
-              {save.isPending ? t("saving") : canApply ? t("save") : approvals("requestHead")}
+              {save.isPending ? t("saving") : canApply ? t("save") : approvals("requestAdmin")}
             </button>
           )}
         </fieldset>

@@ -353,13 +353,13 @@ it.each([false, true])(
   },
 );
 
-it.each([false, true])("keeps a queued Admin policy draft in language %s", (chinese) => {
+it.each([false, true])("keeps a queued Coordinator policy draft in language %s", (chinese) => {
   mock.error = { message: "Queued", data: { approvalId: "request-1" } };
   render(wrap(<ProfilePolicyEditor policy={policy} canEdit canApply={false} onReload={vi.fn()} />, chinese));
   const messages = chinese ? zh : en;
   fireEvent.click(screen.getByRole("checkbox", { name: messages.profilePolicy.usePreferredNames }));
   expect(screen.getByRole("status").textContent).toBe(messages.approvals.queuedBody);
-  expect(screen.getByRole("button", { name: messages.approvals.requestHead })).toBeTruthy();
+  expect(screen.getByRole("button", { name: messages.approvals.requestAdmin })).toBeTruthy();
   expect(screen.queryByText(messages.profilePolicy.saved)).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
   expect(mock.invalidate).not.toHaveBeenCalled();

@@ -165,7 +165,7 @@ async function prepared(
 }
 async function queue(value: Awaited<ReturnType<typeof prepared>>) {
   try {
-    await caller("ADMIN").historicalAcademics.correctBatch(value);
+    await caller("COORDINATOR").historicalAcademics.correctBatch(value);
   } catch (error) {
     const cause = (error as { cause?: unknown }).cause;
     expect(cause).toBeInstanceOf(ApprovalQueued);
@@ -173,7 +173,7 @@ async function queue(value: Awaited<ReturnType<typeof prepared>>) {
       where: { id: (cause as ApprovalQueued).approvalId },
     });
   }
-  throw new Error("Expected a proposal, never a live Admin save");
+  throw new Error("Expected a proposal, never a live Coordinator save");
 }
 
 it("reads missing/raw grades without writes, accounts, current-year assumptions or name matching", async () => {
@@ -490,7 +490,7 @@ it("preserves newer account academics on explicit linking and detects ownership 
   ).rejects.toThrow("HISTORICAL_OWNERSHIP_CONFLICT");
 });
 
-it("queues an Admin batch without live changes and applies all rows only after Head review", async () => {
+it("queues a Coordinator batch without live changes and applies all rows only after Admin review", async () => {
   const value = await prepared(await input([key("a"), key("b")]), "ADMIN");
   const request = await queue(value);
   expect(await db.historicalAcademicRecord.count()).toBe(0);
@@ -498,23 +498,23 @@ it("queues an Admin batch without live changes and applies all rows only after H
   expect(request.targets).toHaveProperty("historicalAcademics");
   await expect(
     caller("COORDINATOR").historicalAcademics.correctBatch(value),
-  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect(await db.approvalRequest.count()).toBe(1);
   await expect(
-    caller("ADMIN").approval.decide({
+    caller("COORDINATOR").approval.decide({
       id: request.id,
       approve: true,
-      note: "Admin cannot apply",
+      note: "Coordinator cannot apply",
     }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await caller("HEAD").approval.decide({
+  await caller("ADMIN").approval.decide({
     id: request.id,
     approve: true,
     note: "Reviewed both historical references",
   });
   expect(
     await db.historicalAcademicCorrection.count({
-      where: { approvalId: request.id, actorId: "HEAD" },
+      where: { approvalId: request.id, actorId: "ADMIN" },
     }),
   ).toBe(2);
   expect(
@@ -524,7 +524,7 @@ it("queues an Admin batch without live changes and applies all rows only after H
 });
 
 it.each(["stale", "demoted"])(
-  "rejects %s Admin requests without partial application",
+  "rejects %s Coordinator requests without partial application",
   async (scenario) => {
     const request = await queue(
       await prepared(await input([key("a"), key("b")])),
@@ -536,8 +536,8 @@ it.each(["stale", "demoted"])(
       });
     else
       await db.user.update({
-        where: { id: "ADMIN" },
-        data: { role: "COORDINATOR" },
+        where: { id: "COORDINATOR" },
+        data: { role: "VIEWER" },
       });
     await expect(
       caller("HEAD").approval.decide({

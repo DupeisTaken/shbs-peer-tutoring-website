@@ -116,12 +116,12 @@ it("requires an explicit reload before replacing a preparation bound to an old m
   await waitFor(() => expect(mocks.write).toHaveBeenCalledWith(expect.objectContaining({ expectedTarget: target, expectedVersion: 4, opensAt: null })));
 });
 
-it("retains a queued Admin draft without presenting it as a saved preparation", async () => {
+it("retains a queued Coordinator draft without presenting it as a saved preparation", async () => {
   mocks.write.mockRejectedValue({ data: { approvalId: "proposal-123" } });
   const value = { ...data(), canApply: false };
   render(show(value));
   setOpening();
-  fireEvent.click(screen.getByRole("button", { name: en.approvals.requestHead }));
+  fireEvent.click(screen.getByRole("button", { name: en.approvals.requestAdmin }));
   await screen.findByText(text.queued);
   expect(screen.queryByText(text.saved)).toBeNull();
   expect(screen.getByLabelText<HTMLInputElement>(text.opening).value).toBe("2026-11-01T09:00");
@@ -140,7 +140,7 @@ it.each(["APPROVED", "REJECTED", "CANCELLED"])("unlocks a queued draft only afte
   mocks.write.mockRejectedValueOnce({ data: { approvalId: "proposal-123" } });
   render(show({ ...data(), canApply: false }));
   setOpening();
-  fireEvent.click(screen.getByRole("button", { name: en.approvals.requestHead }));
+  fireEvent.click(screen.getByRole("button", { name: en.approvals.requestAdmin }));
   await screen.findByText(text.queued);
   mocks.approvalFetch.mockRejectedValueOnce(new Error("status offline"));
   fireEvent.click(screen.getByRole("button", { name: text.checkApproval }));

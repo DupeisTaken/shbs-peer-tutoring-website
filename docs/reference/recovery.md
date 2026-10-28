@@ -71,6 +71,14 @@ directly; Coordinator recovery writes enter ordinary Admin/Head proposal review.
 Queued proposals retain the original fingerprint and recheck the graph when a
 reviewer applies them. Inspection does not authorize arbitrary record mutation.
 
+The management review summary treats the recovery action ID as context and the
+requested reason as the change being reviewed. It displays the applicant name
+only from a matching version-1 captured plan; missing, mismatched or future
+evidence never borrows a name from live records. The shared review vocabulary
+includes recovery record types and fields, while technical hashes stay outside
+the requested-change summary. These labels do not change immutable proposal
+evidence, current reviewer authority or the causal execution checks.
+
 Compensation removes supported consequences derived from the admission. It
 preserves independent account facts, independent access, unrelated learning
 partners and their accounts. A checkpoint does not grant arbitrary row replacement

@@ -123,7 +123,7 @@ it.each(["GRADUATED", "TRANSFERRED"] as const)(
     ).toMatchObject({ role: "TUTOR", tutorId, studentId });
   },
 );
-it("uses the Head queue for self and Admin requests without granting access early", async () => {
+it("lets Admin review participant departure requests without granting access early", async () => {
   const input = {
     action: "TRANSFERRED" as const,
     expectedRevision: 0,
@@ -133,14 +133,7 @@ it("uses the Head queue for self and Admin requests without granting access earl
   await expect(caller().admin.tutors()).rejects.toMatchObject({
     code: "FORBIDDEN",
   });
-  await expect(
-    caller(admin).approval.decide({
-      id: proposal.id,
-      approve: true,
-      note: "Review",
-    }),
-  ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await caller(head).approval.decide({
+  await caller(admin).approval.decide({
     id: proposal.id,
     approve: true,
     note: "Confirmed school transfer",

@@ -71,7 +71,7 @@ export function SchoolDeparturePanel({ userId }: { userId?: string }) {
     router.refresh();
     setCompletion({
       clearDraft: true,
-      requested: !(userId && state.data?.role === "HEAD"),
+      requested: !(userId && ["HEAD", "ADMIN"].includes(state.data?.role ?? "")),
     });
   };
   const settled = () => {
@@ -191,7 +191,7 @@ export function SchoolDeparturePanel({ userId }: { userId?: string }) {
             setConfirming(true);
         }}
       >
-        {t(userId && state.data?.role === "HEAD" ? "review" : "request")}
+        {t(userId && ["HEAD", "ADMIN"].includes(state.data?.role ?? "") ? "review" : "request")}
       </Button>
       {outcome && (
         <p role="status" className="text-sm text-teal-800">

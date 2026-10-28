@@ -81,8 +81,17 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
+it("lets Admin delete an eligible login with a fresh review and their own password", async () => {
+  await db.user.update({ where: { id: headId }, data: { role: "ADMIN" } });
+  const reviewed = await input();
+  await expect(caller(headId, "ADMIN").admin.deleteUser({ ...reviewed, confirmPassword: "wrong" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.user.findUnique({ where: { id: targetId } })).not.toBeNull();
+  await caller(headId, "ADMIN").admin.deleteUser(reviewed);
+  expect(await db.user.findUnique({ where: { id: targetId } })).toBeNull();
+  expect(await db.approvalRequest.count()).toBe(0);
+});
+
 it.each([
-  "ADMIN",
   "COORDINATOR",
   "STUDENT",
   "TUTOR",
@@ -457,7 +466,7 @@ it("rechecks the live actor and current password when the helper is called direc
   await expect(
     deleteAccount(db, headId, { ...reviewed, confirmPassword: "wrong" }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await db.user.update({ where: { id: headId }, data: { role: "ADMIN" } });
+  await db.user.update({ where: { id: headId }, data: { role: "COORDINATOR" } });
   await expect(deleteAccount(db, headId, reviewed)).rejects.toMatchObject({
     code: "FORBIDDEN",
   });

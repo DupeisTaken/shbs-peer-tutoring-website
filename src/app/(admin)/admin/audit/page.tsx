@@ -7,10 +7,15 @@ import Link from "next/link";
 import {
   AuditFilters,
   type AuditFilterInput,
+  type AuditKind,
   emptyAuditView,
   type AuditView,
 } from "~/app/_components/audit-filters";
-import { useSessionAccessDenied, useSessionPageScroll, useSessionViewState } from "~/app/_components/session-view-state";
+import {
+  useSessionAccessDenied,
+  useSessionPageScroll,
+  useSessionViewState,
+} from "~/app/_components/session-view-state";
 import { viewEnum, viewFields, viewSearch } from "~/lib/session-view-state";
 import { programDayStart, programDayEnd } from "~/lib/program-time";
 import { eventTitle } from "~/lib/event-title";
@@ -39,27 +44,54 @@ function AuditLog() {
     if (typeof value !== "string") return;
     if (!value) return value;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return;
-    try { programDayStart(value, timeZone); return value; } catch { return; }
+    try {
+      programDayStart(value, timeZone);
+      return value;
+    } catch {
+      return;
+    }
   };
   const options = api.admin.auditFilterOptions.useQuery();
   const [accessDenied, setAccessDenied] = useState(false);
   const [view, setView] = useSessionViewState<AuditView>({
-    id: "audit.filters.v1", initialState: emptyAuditView, enabled: !accessDenied,
-    scope: JSON.stringify([approvalId ?? "all", timeZone]), restoreReady: !!options.data,
+    id: "audit.filters.v1",
+    initialState: emptyAuditView,
+    enabled: !accessDenied,
+    scope: JSON.stringify([approvalId ?? "all", timeZone]),
+    restoreReady: !!options.data,
     parse: viewFields<AuditView>({
-      userId: viewEnum(["", "__system__", ...(options.data?.users ?? []).map((user) => user.id)]),
-      kind: viewEnum(["", "ACTION", "DECISION", "SUBMISSION", "CANCELLATION"]),
+      userId: viewEnum([
+        "",
+        "__system__",
+        ...(options.data?.users ?? []).map((user) => user.id),
+      ]),
+      kind: viewEnum([
+        "",
+        "ACTION",
+        "DECISION",
+        "SUBMISSION",
+        "CANCELLATION",
+        "ATTEMPT",
+        "REVERSAL",
+      ]),
       operation: viewEnum(["", ...(options.data?.operations ?? [])]),
-      entity: viewEnum(["", ...(options.data?.entities ?? [])]), search: viewSearch,
-      from: dateChoice, until: dateChoice,
+      entity: viewEnum(["", ...(options.data?.entities ?? [])]),
+      search: viewSearch,
+      from: dateChoice,
+      until: dateChoice,
     }),
   });
   // Store date control values, then rebuild the existing timezone-aware read DTO.
   const filters: AuditFilterInput = {
-    userId: view.userId || undefined, kind: (view.kind || undefined) as "ACTION" | "DECISION" | "SUBMISSION" | "CANCELLATION" | undefined,
-    operation: view.operation || undefined, entity: view.entity || undefined, search: view.search || undefined,
+    userId: view.userId || undefined,
+    kind: (view.kind || undefined) as AuditKind | undefined,
+    operation: view.operation || undefined,
+    entity: view.entity || undefined,
+    search: view.search || undefined,
     from: view.from ? programDayStart(view.from, timeZone) : undefined,
-    until: view.until ? new Date(programDayEnd(view.until, timeZone).getTime() + 1) : undefined,
+    until: view.until
+      ? new Date(programDayEnd(view.until, timeZone).getTime() + 1)
+      : undefined,
   };
   const [cursors, setCursors] = useState<string[]>([]);
   const log = api.admin.auditLog.useQuery({
@@ -69,11 +101,23 @@ function AuditLog() {
   });
   const denied = useSessionAccessDenied(log, options);
   useEffect(() => setAccessDenied(denied), [denied]);
-  useSessionPageScroll({ id: "audit", scope: JSON.stringify([approvalId ?? "all", timeZone, view]), ready: !!log.data && !!options.data, enabled: !denied });
+  useSessionPageScroll({
+    id: "audit",
+    scope: JSON.stringify([approvalId ?? "all", timeZone, view]),
+    ready: !!log.data && !!options.data,
+    enabled: !denied,
+  });
 
   const entries = denied ? [] : (log.data ?? []);
 
-  if (denied) return <p role="alert">{log.error?.message ?? options.error?.message ?? t("uiPatterns.loadFailed")}</p>;
+  if (denied)
+    return (
+      <p role="alert">
+        {log.error?.message ??
+          options.error?.message ??
+          t("uiPatterns.loadFailed")}
+      </p>
+    );
   return (
     <div className="space-y-6">
       <div>
@@ -144,11 +188,16 @@ function AuditLog() {
                           : "badge-slate"
                     }
                   >
-                    {t.has(`auditFilters.kinds.${e.kind}`) ? t(`auditFilters.kinds.${e.kind}`) : eventTitle(t, { kind: e.kind })}
+                    {t.has(`auditFilters.kinds.${e.kind}`)
+                      ? t(`auditFilters.kinds.${e.kind}`)
+                      : eventTitle(t, { kind: e.kind })}
                   </span>
                 </td>
                 <td className="text-slate-800">
-                  <span className="block max-w-72 truncate" title={eventTitle(t, e)}>
+                  <span
+                    className="block max-w-72 truncate"
+                    title={eventTitle(t, e)}
+                  >
                     {eventTitle(t, e)}
                   </span>
                   {e.undone && (

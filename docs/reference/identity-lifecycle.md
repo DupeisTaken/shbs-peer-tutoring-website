@@ -6,6 +6,13 @@ credentials, restrictions, consent and original evidence keep their own authorit
 This inventory is maintained alongside identity writers and readers; it is not a
 proposal to replace them with a `personId` authorization check.
 
+Admin and Head can directly perform authorized identity management operations,
+including account combination, exact historical ownership correction and guarded
+account deletion. The current Head alone can transfer leadership; combination
+cannot replace that workflow or bypass the singleton-Head invariant. Coordinator
+profile and academic corrections follow the [management review policy](../guides/program-configuration.md#management-responsibilities-and-review);
+these requests do not grant identity-combination or private-history access.
+
 ## Source writers
 
 | Entry point | Identity initialization / synchronization | Authority and preserved data |
@@ -21,7 +28,7 @@ proposal to replace them with a `personId` authorization check.
 | Exact historical account setup, [history-account-setup](../../src/server/history-account-setup.ts), [exact-history-invitations](../../src/server/exact-history-invitations.ts) | Missing User directory identity when verified credentials are created; exact claim uses existing ownership synchronization | Creating credentials and claiming frozen historical sources remain separate; no current participation/consent is fabricated |
 | Current profile edit/relink, [account-profile](../../src/server/account-profile.ts) | `syncAccountPerson` | Explicit current pointers; canonical name mirrors remain a separate write from directory metadata |
 | Historical Tutor/Tutee claim or correction, [tutor-history](../../src/server/tutor-history.ts), [tutee-history](../../src/server/tutee-history.ts), [student-ownership](../../src/server/student-ownership.ts) | `syncParticipantPerson` inside the authorized ownership transaction | Correction moves the exact source only; it does not combine the former/new owners' unrelated groups |
-| Combine Records, [person-combine](../../src/server/person-combine.ts) | Reviewed plan and atomic receipt | Existing Head/password/actor rules, fresh revisions, explicit retirement and retained original actors; unresolved work keeps review state |
+| Combine Records, [person-combine](../../src/server/person-combine.ts) | Reviewed plan and atomic receipt | Admin/Head authority, current-password confirmation where required, actor rules, fresh revisions, explicit retirement and retained original actors; unresolved work keeps review state |
 | Account deletion, [delete-account](../../src/server/delete-account.ts) | Existing guarded delete clears the primary pointer | Combined families and retained history remain protected; empty Person metadata may remain for review |
 | Departure, return, restrictions and current participation | Existing [school departure](../../src/server/school-departure.ts), [membership](../../src/server/membership.ts) and domain workflows | Do not create or join Persons merely to restore eligibility; consent, deadlines, assignments and qualifications are separate decisions |
 

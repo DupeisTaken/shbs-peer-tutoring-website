@@ -429,7 +429,7 @@ it("requires explicit identity acknowledgement through the API", async () => {
   expect(await db.studentProfileOwnership.count()).toBe(0);
 });
 
-it("requires Head password for retained ownership conflicts and routes current account conflicts to Merge", async () => {
+it.each([["admin", "ADMIN"], ["head", "HEAD"]] as const)("requires %s password for retained ownership conflicts and routes current account conflicts to Merge", async (id, role) => {
   await link();
   const input = { tuteeId: "past", userId: "other" };
   const preview = await caller().tuteeHistory.preview(input);
@@ -440,9 +440,9 @@ it("requires Head password for retained ownership conflicts and routes current a
       fingerprint: preview.fingerprint,
       reason,
     }),
-  ).rejects.toThrow("HISTORY_HEAD_REQUIRED");
+  ).rejects.toThrow("password");
   await expect(
-    caller("head", "HEAD").tuteeHistory.link({
+    caller(id, role).tuteeHistory.link({
       acknowledged: true,
       ...input,
       fingerprint: preview.fingerprint,
@@ -450,7 +450,7 @@ it("requires Head password for retained ownership conflicts and routes current a
       confirmPassword: "wrong",
     }),
   ).rejects.toThrow("password");
-  await caller("head", "HEAD").tuteeHistory.link({
+  await caller(id, role).tuteeHistory.link({
     acknowledged: true,
     ...input,
     fingerprint: preview.fingerprint,
@@ -463,7 +463,7 @@ it("requires Head password for retained ownership conflicts and routes current a
   await db.user.update({ where: { id: "other" }, data: { studentId: "past" } });
   const current = await caller().tuteeHistory.preview(pair);
   await expect(
-    caller("head", "HEAD").tuteeHistory.link({
+    caller(id, role).tuteeHistory.link({
       acknowledged: true,
       ...pair,
       fingerprint: current.fingerprint,

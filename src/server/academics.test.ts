@@ -771,7 +771,7 @@ it("linking roster evidence fills only an empty legacy profile and records confl
   ).toMatchObject({ details: { gradeLevel: 9 } });
 });
 it.each([false, true])(
-  "Admin academic corrections require Head and reject stale approval: %s",
+  "Coordinator academic corrections require Admin and reject stale approval: %s",
   async (stale) => {
     await db.user.create({
       data: {
@@ -780,7 +780,7 @@ it.each([false, true])(
         role: "COORDINATOR",
       },
     });
-    // Management-profile proposals reject Coordinator before creating immutable requests.
+    // Coordinator proposals preserve current academics until an eligible reviewer acts.
     await expect(
       caller(
         "academic-coordinator",
@@ -789,11 +789,8 @@ it.each([false, true])(
         ...reported(),
         userId: "academic-person",
       }),
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
-    expect(await db.approvalRequest.count()).toBe(0);
-    await expect(caller("academic-admin", "ADMIN").admin.updateAccountAcademics({
-      ...reported(), userId: "academic-person",
-    })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    expect(await db.approvalRequest.count()).toBe(1);
     expect(
       await db.academicProfile.findUnique({
         where: { userId: "academic-person" },
@@ -804,11 +801,11 @@ it.each([false, true])(
     });
     if (stale)
       await caller("academic-person").account.updateAcademics(reported(0, 11));
-    await expect(caller("academic-admin", "ADMIN").approval.decide({
-      id: proposal.id, approve: true, note: "Admin cannot apply management academic correction",
+    await expect(caller("academic-coordinator", "COORDINATOR").approval.decide({
+      id: proposal.id, approve: true, note: "Coordinator cannot apply management academic correction",
     })).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect((await db.approvalRequest.findUniqueOrThrow({ where: { id: proposal.id } })).state).toBe("PENDING");
-    const decision = caller("academic-head", "HEAD").approval.decide({
+    const decision = caller("academic-admin", "ADMIN").approval.decide({
       id: proposal.id,
       approve: true,
       note: "Reviewed academic correction",

@@ -152,7 +152,7 @@ it("uses the account profile for both explicit participation links without touch
 });
 
 it("returns no credential fields and rejects stale simultaneous account edits", async () => {
-  await headCaller(); // Exercise actual direct writes, not two pending Admin proposals.
+  // Competing direct Admin writes must still use the profile version guard.
   const results = await Promise.allSettled([
     caller().admin.updateAccountProfile(input),
     caller().admin.updateAccountProfile({ ...input, name: "Different Name" }),
@@ -179,14 +179,12 @@ it("returns no credential fields and rejects stale simultaneous account edits", 
   ).toBe(account.name);
 });
 
-it("rejects Coordinator proposals and applies an Admin profile request only after Head approval", async () => {
+it("queues Coordinator profile corrections and lets Admin review their complete identity evidence", async () => {
   await expect(
     caller("profile-coordinator", "COORDINATOR").admin.updateAccountProfile(
       input,
     ),
-  ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  expect(await db.approvalRequest.count()).toBe(0);
-  await expect(caller().admin.updateAccountProfile(input)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect(
     (await db.user.findUniqueOrThrow({ where: { id: input.userId } })).name,
   ).toBe("Original Person");
@@ -205,10 +203,7 @@ it("rejects Coordinator proposals and applies an Admin profile request only afte
     ],
   });
   expect(JSON.stringify(proposal.targets)).not.toContain("passwordHash");
-  await expect(caller().approval.decide({ id: proposal.id, approve: true, note: "Admin cannot apply" })).rejects.toMatchObject({ code: "FORBIDDEN" });
-  expect((await db.approvalRequest.findUniqueOrThrow({ where: { id: proposal.id } })).state).toBe("PENDING");
-  const head = await headCaller();
-  await head.approval.decide({
+  await caller().approval.decide({
     id: proposal.id,
     approve: true,
     note: "Profile correction verified",
@@ -226,7 +221,7 @@ it("rejects Coordinator proposals and applies an Admin profile request only afte
 
 it("blocks stale approval after a self-service profile correction", async () => {
   await expect(
-    caller().admin.updateAccountProfile(input),
+    caller("profile-coordinator", "COORDINATOR").admin.updateAccountProfile(input),
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   const proposal = await db.approvalRequest.findFirstOrThrow();
   await caller("profile-person", "TUTOR").account.updateName({
@@ -351,6 +346,11 @@ async function headCaller() {
   await db.user.update({ where: { id: "profile-admin" }, data: { role: "HEAD" } });
   return caller(); // Deliberately keep the old cookie role.
 }
+it("allows Admin to rename an account directly despite an outdated Head cookie", async () => {
+  await caller("profile-admin", "HEAD").admin.updateAccountUsername({ userId: "profile-person", username: "admincorrection", expectedProfileVersion: 0 });
+  expect(await db.user.findUniqueOrThrow({ where: { id: "profile-person" } })).toMatchObject({ username: "admincorrection", profileVersion: 1 });
+  expect(await db.approvalRequest.count()).toBe(0);
+});
 it.each(["profile-admin", "profile-person", "profile-viewer", "profile-coordinator"])("Head renames %s with current permissions and preserves identity", async (userId) => {
   const head = await headCaller();
   const before = await db.user.findUniqueOrThrow({ where: { id: userId } });
@@ -362,10 +362,10 @@ it.each(["profile-admin", "profile-person", "profile-viewer", "profile-coordinat
   expect(await db.auditLog.count({ where: { operation: "admin.updateAccountUsername", action: "Updated account username" } })).toBe(1);
   await expect(head.admin.updateAccountUsername({ userId, username: "stale", expectedProfileVersion: 0 })).rejects.toMatchObject({ code: "CONFLICT" });
 });
-it.each(["profile-admin", "profile-coordinator", "profile-person", "profile-viewer"])("uses current authority for rename by %s despite a Head cookie", async (id) => {
-  await expect(caller(id, "HEAD").admin.updateAccountUsername({ userId: "profile-person", username: "forbidden", expectedProfileVersion: 0 })).rejects.toMatchObject({ code: id === "profile-admin" ? "PRECONDITION_FAILED" : "FORBIDDEN" });
+it.each(["profile-coordinator", "profile-person", "profile-viewer"])("uses current authority for rename by %s despite a Head cookie", async (id) => {
+  await expect(caller(id, "HEAD").admin.updateAccountUsername({ userId: "profile-person", username: "forbidden", expectedProfileVersion: 0 })).rejects.toMatchObject({ code: id === "profile-coordinator" ? "PRECONDITION_FAILED" : "FORBIDDEN" });
   expect((await db.user.findUniqueOrThrow({ where: { id: "profile-person" } })).username).toBe("profileperson");
-  expect(await db.approvalRequest.count()).toBe(id === "profile-admin" ? 1 : 0);
+  expect(await db.approvalRequest.count()).toBe(id === "profile-coordinator" ? 1 : 0);
 });
 it("rejects invalid and colliding usernames in both tables without partial changes", async () => {
   const head = await headCaller();
@@ -416,20 +416,18 @@ it("edits an unlinked archived tutor without creating a login, sending mail or r
   await expect(head.admin.updateTutor({ id: tutor.id, expectedUpdatedAt: tutor.updatedAt, firstName: "Stale", lastName: "Tutor", status: "ARCHIVED" })).rejects.toMatchObject({ code: "CONFLICT" });
 });
 
-it("keeps unlinked identifier correction Head-only and reports conflicts atomically", async () => {
+it("queues Coordinator identifier corrections, permits Admin direct changes and reports conflicts atomically", async () => {
   const head = await headCaller();
   const tutor = await db.tutor.create({ data: { id: "profile-past", englishName: "Past Tutor", username: "pasttutor", status: "ARCHIVED" } });
   const input = { id: tutor.id, firstName: "Past", lastName: "Tutor", status: "ARCHIVED" as const };
-  // Staff account/profile corrections require Head; Coordinator cannot submit them.
-  await expect(caller("profile-coordinator", "COORDINATOR").admin.updateTutor({ ...input, email: "past@example.test" })).rejects.toMatchObject({ code: "FORBIDDEN" });
-  expect(await db.approvalRequest.count()).toBe(0);
-  await db.user.update({ where: { id: "profile-coordinator" }, data: { role: "ADMIN" } });
-  await expect(caller("profile-coordinator", "ADMIN").admin.updateTutor({ ...input, email: "past@example.test" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  // Queued identity evidence remains immutable while an eligible Admin reviews it.
+  await expect(caller("profile-coordinator", "COORDINATOR").admin.updateTutor({ ...input, email: "past@example.test" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect((await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } })).email).toBeNull();
   const request = await db.approvalRequest.findFirstOrThrow();
   await head.approval.decide({ id: request.id, approve: true, note: "Verified archived tutor contact correction" });
-  await expect(caller("profile-coordinator", "ADMIN").admin.updateTutor({ ...input, username: "changed" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  expect((await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } })).username).toBe("pasttutor");
+  await db.user.update({ where: { id: "profile-coordinator" }, data: { role: "ADMIN" } });
+  await caller("profile-coordinator", "ADMIN").admin.updateTutor({ ...input, username: "changed" });
+  expect((await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } })).username).toBe("changed");
   for (const username of ["profileperson", "ProfilePerson"]) {
     await expect(head.admin.updateTutor({ ...input, firstName: "Not Saved", username })).rejects.toMatchObject({ code: "CONFLICT" });
   }
@@ -440,7 +438,7 @@ it("keeps unlinked identifier correction Head-only and reports conflicts atomica
     await expect(head.admin.updateTutor({ ...input, email })).rejects.toMatchObject({ code: "CONFLICT" });
   for (const username of ["", "bad-name", "a".repeat(65)])
     await expect(head.admin.updateTutor({ ...input, username })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ englishName: "Past Tutor", username: "pasttutor", email: "past@example.test", status: "ARCHIVED" });
+  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ englishName: "Past Tutor", username: "changed", email: "past@example.test", status: "ARCHIVED" });
   expect(await db.user.findUnique({ where: { tutorId: tutor.id } })).toBeNull();
   expect(delivery.send).not.toHaveBeenCalled();
 });

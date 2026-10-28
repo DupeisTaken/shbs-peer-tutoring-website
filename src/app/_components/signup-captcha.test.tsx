@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => ({
   work: vi.fn(),
   destroy: vi.fn(),
   canEdit: true,
+  canApply: true,
   save: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
@@ -49,7 +50,7 @@ vi.mock("~/trpc/react", () => ({
       },
       captchaSettings: {
         useQuery: () => ({
-          data: { ...mocks.settings, canEdit: mocks.canEdit },
+          data: { ...mocks.settings, canEdit: mocks.canEdit, canApply: mocks.canApply },
         }),
       },
       setCaptcha: { useMutation: () => ({ mutate: mocks.save }) },
@@ -97,6 +98,7 @@ beforeEach(() => {
   mocks.destroy.mockClear();
   mocks.save.mockClear();
   mocks.canEdit = true;
+  mocks.canApply = true;
   widget = undefined;
   window.initAliyunCaptcha = vi.fn(
     (options: Parameters<NonNullable<Window["initAliyunCaptcha"]>>[0]) => {
@@ -268,5 +270,17 @@ it("blocks an unready enable, allows disable while unready, and omits edit contr
   mocks.canEdit = false;
   view.rerender(wrap(<ProgramCaptchaSettings />));
   expect(screen.queryByRole("switch")).toBeNull();
-  expect(screen.getByText(/Only Administrators/)).toBeTruthy();
+  expect(screen.getByText(en.captcha.readOnly)).toBeTruthy();
+});
+
+it.each([true, false])("distinguishes direct Admin/Head CAPTCHA editing from Coordinator proposals (direct=%s)", (canApply) => {
+  mocks.canApply = canApply;
+  render(wrap(<ProgramCaptchaSettings />));
+  const label = canApply ? en.captcha.title : en.approvals.requestChange.replace("{setting}", en.captcha.title);
+  const toggle = screen.getByRole<HTMLButtonElement>("switch", { name: label });
+  fireEvent.click(toggle);
+  expect(mocks.save).toHaveBeenCalledExactlyOnceWith({ enabled: true, expectedVersion: 0 });
+  // A staff draft must not optimistically claim that a proposal changed live settings.
+  expect(toggle.getAttribute("aria-checked")).toBe("false");
+  if (!canApply) expect(screen.getByText(en.approvals.sensitiveHelp)).toBeTruthy();
 });

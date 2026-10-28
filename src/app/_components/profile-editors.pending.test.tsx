@@ -55,7 +55,7 @@ vi.mock("~/trpc/react", async () => {
       // this suite exercises contact drafts, not the independently tested link form.
       tutorHistory: {
         permissions: {
-          useQuery: () => ({ data: { canLink: false, isHead: false } }),
+          useQuery: () => ({ data: { canLink: false, canCorrectOwnership: false } }),
         },
       },
       useUtils: () => ({

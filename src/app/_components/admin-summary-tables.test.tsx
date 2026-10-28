@@ -584,7 +584,8 @@ it("adds a final Details link to every history report while retaining detailed p
   ).toBeTruthy();
 });
 
-it("keeps full signup contact and subject columns in CSV exports after compacting screen tables", () => {
+it.each(["HEAD", "ADMIN"])("keeps full signup contact and subject columns in %s CSV exports after compacting screen tables", (role) => {
+  state.accountRole = role;
   Object.defineProperty(URL, "createObjectURL", {
     configurable: true,
     value: vi.fn(() => "blob:report"),
@@ -619,8 +620,8 @@ it("keeps full signup contact and subject columns in CSV exports after compactin
   );
 });
 
-it.each(["ADMIN", "COORDINATOR", "VIEWER", null])(
-  "keeps report detail access without exposing Head-only CSV exports for role %s",
+it.each(["COORDINATOR", "VIEWER", null])(
+  "keeps report detail access without exposing Admin/Head CSV exports for role %s",
   (role) => {
     // A missing account response must not briefly expose privileged exports.
     state.accountRole = role;

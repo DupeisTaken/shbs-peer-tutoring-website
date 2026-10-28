@@ -178,14 +178,14 @@ it.each(["CET", "GMT", "EST", "HST"])(
   },
 );
 
-it("labels an Admin timezone change as a Head request while retaining the selected zone", () => {
+it("labels an Coordinator timezone change as an Admin request while retaining the selected zone", () => {
   render(<TimeZoneEditor {...props} canApply={false} />, { wrapper });
   fireEvent.change(screen.getByRole("combobox"), {
     target: { value: "America/New_York" },
   });
   fireEvent.click(screen.getByRole("checkbox"));
   fireEvent.click(
-    screen.getByRole("button", { name: messages.approvals.requestHead }),
+    screen.getByRole("button", { name: messages.approvals.requestAdmin }),
   );
   expect(mutate).toHaveBeenCalledWith({
     timeZone: "America/New_York",
@@ -195,7 +195,7 @@ it("labels an Admin timezone change as a Head request while retaining the select
     "America/New_York",
   );
 });
-it("retains an Admin's queued timezone draft and version through background failure and live updates", () => {
+it("retains a Coordinator's queued timezone draft and version through background failure and live updates", () => {
   const view = render(<ProgramTimeZoneSettings />, { wrapper });
   fireEvent.change(screen.getByRole("combobox"), {
     target: { value: "America/New_York" },
@@ -212,7 +212,7 @@ it("retains an Admin's queued timezone draft and version through background fail
   state.settings = { ...state.settings, timeZone: "UTC" };
   view.rerender(<ProgramTimeZoneSettings />);
   fireEvent.click(
-    screen.getByRole("button", { name: messages.approvals.requestHead }),
+    screen.getByRole("button", { name: messages.approvals.requestAdmin }),
   );
   expect(mutate).toHaveBeenLastCalledWith({
     timeZone: "America/New_York",

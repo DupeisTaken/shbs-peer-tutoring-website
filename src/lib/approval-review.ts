@@ -1,6 +1,12 @@
 import { APPROVAL_OPERATIONS } from "./approval-policy";
 import { z } from "zod";
-import { nextRecruitmentTargetSchema, sameNextRecruitmentTarget } from "./next-recruitment";
+import { reviewCollection } from "./approval-review-collections";
+import { reviewInstantValue } from "./review-instant";
+import {
+  nextRecruitmentTargetSchema,
+  nextRecruitmentRefreshEvidenceSchema,
+  sameNextRecruitmentTarget,
+} from "./next-recruitment";
 import { isProgramTimeZone } from "./program-time";
 import {
   NAME_ACCOUNT_TYPES,
@@ -14,6 +20,7 @@ export type ReviewField = {
   requested: unknown;
   before: unknown;
   hasBefore: boolean;
+  collection?: ReturnType<typeof reviewCollection>;
 };
 const record = (value: unknown): ReviewRecord | null =>
   value !== null &&
@@ -33,6 +40,7 @@ export const reviewTechnicalFields = new Set([
   "invalidatedById",
   "expectedRevision",
   "expectedProfileVersion",
+  "expectedRoomVersion",
   "expectedVersion",
   "expectedIds",
   "expectedPolicy",
@@ -44,6 +52,7 @@ export const reviewTechnicalFields = new Set([
   "expectedTarget",
   "expectedPreparation",
   "ticket",
+  "signedTicket",
   "overrideTicket",
   "confirmPassword",
   "passwordHash",
@@ -56,7 +65,7 @@ export const reviewTechnicalFields = new Set([
 ]);
 
 const reviewOpening = z.preprocess(
-  (value) => typeof value === "string" ? new Date(value) : value,
+  (value) => (typeof value === "string" ? new Date(value) : value),
   z.date().nullable(),
 );
 const reviewPreparation = z.object({
@@ -66,35 +75,93 @@ const reviewPreparation = z.object({
   target: nextRecruitmentTargetSchema,
   matchesTarget: z.boolean(),
 });
-const reviewDestinationWindow = z.object({ enabled: z.boolean(), opensAt: reviewOpening, closesAt: reviewOpening, previewUrl: z.string().nullable() });
+const reviewDestinationWindow = z.object({
+  enabled: z.boolean(),
+  opensAt: reviewOpening,
+  closesAt: reviewOpening,
+  previewUrl: z.string().nullable(),
+});
 const reviewNextSnapshot = z.object({
   target: nextRecruitmentTargetSchema,
-  currentName: z.string(), nextName: z.string(),
+  currentName: z.string(),
+  nextName: z.string(),
   timeZone: z.string().refine(isProgramTimeZone),
-  preparations: z.object({ tutor: reviewPreparation.nullable(), tutee: reviewPreparation.nullable() }),
-  refreshEvidence: z.object({ destination: z.object({ termId: z.string(), tutor: reviewDestinationWindow, tutee: reviewDestinationWindow }).nullable() }),
+  preparations: z.object({
+    tutor: reviewPreparation.nullable(),
+    tutee: reviewPreparation.nullable(),
+  }),
+  refreshEvidence: z.object({
+    destination: z
+      .object({
+        termId: z.string(),
+        tutor: reviewDestinationWindow,
+        tutee: reviewDestinationWindow,
+      })
+      .nullable(),
+    // Preserve submitted feature values and revisions alongside review summaries.
+    // Historical evidence must never be filled from current settings.
+    stagedFeatures: nextRecruitmentRefreshEvidenceSchema.shape.stagedFeatures,
+  }),
 });
 
 /** Approval JSON dates are restored only for this typed evidence. Legacy requests
  * without a captured target stay visibly unavailable, never inferred from live data. */
-export function nextRecruitmentApprovalReview(operation: string, payload: unknown, targets: unknown) {
-  if (operation !== "program.prepareNextRecruitment" && operation !== "admin.refresh") return null;
+export function nextRecruitmentApprovalReview(
+  operation: string,
+  payload: unknown,
+  targets: unknown,
+) {
+  if (
+    operation !== "program.prepareNextRecruitment" &&
+    operation !== "admin.refresh"
+  )
+    return null;
   const evidence = record(targets)?.nextRecruitment;
   if (operation === "admin.refresh") {
     const snapshot = reviewNextSnapshot.safeParse(evidence);
     return snapshot.success ? { snapshot: snapshot.data } : null;
   }
-  const saved = z.object({
-    target: nextRecruitmentTargetSchema,
-    currentName: z.string(), nextName: z.string(),
-    timeZone: z.string().refine(isProgramTimeZone),
-    preparation: reviewPreparation.omit({ matchesTarget: true }).nullable(),
-  }).safeParse(evidence);
-  const input = z.object({ audience: z.enum(["tutor", "tutee"]), opensAt: reviewOpening, expectedTarget: nextRecruitmentTargetSchema }).safeParse(payload);
-  if (!saved.success || !input.success || !sameNextRecruitmentTarget(input.data.expectedTarget, saved.data.target)) return null;
+  const saved = z
+    .object({
+      target: nextRecruitmentTargetSchema,
+      currentName: z.string(),
+      nextName: z.string(),
+      timeZone: z.string().refine(isProgramTimeZone),
+      preparation: reviewPreparation.omit({ matchesTarget: true }).nullable(),
+    })
+    .safeParse(evidence);
+  const input = z
+    .object({
+      audience: z.enum(["tutor", "tutee"]),
+      opensAt: reviewOpening,
+      expectedTarget: nextRecruitmentTargetSchema,
+    })
+    .safeParse(payload);
+  if (
+    !saved.success ||
+    !input.success ||
+    !sameNextRecruitmentTarget(input.data.expectedTarget, saved.data.target)
+  )
+    return null;
   const preparation = saved.data.preparation;
-  const preparations = { tutor: null, tutee: null, [input.data.audience]: preparation ? { ...preparation, matchesTarget: sameNextRecruitmentTarget(preparation.target, saved.data.target) } : null };
-  return { snapshot: { ...saved.data, preparations }, audience: input.data.audience, proposedOpening: input.data.opensAt };
+  const preparations = {
+    tutor: null,
+    tutee: null,
+    [input.data.audience]: preparation
+      ? {
+          ...preparation,
+          matchesTarget: sameNextRecruitmentTarget(
+            preparation.target,
+            saved.data.target,
+          ),
+        }
+      : null,
+  };
+  return {
+    snapshot: { ...saved.data, preparations },
+    audience: input.data.audience,
+    proposedOpening: input.data.opensAt,
+  };
 }
 const targetKeys = new Set([
   "id",
@@ -138,6 +205,7 @@ const comparable = new Set([
   "admin.updateAccountProfile",
   "admin.updateAccountUsername",
   "admin.setUserRole",
+  "admin.setUserCanTranslate",
   "program.setTimeZone",
   "program.setProfilePolicy",
   "i18n.setLanguageEnabled",
@@ -212,13 +280,15 @@ export function approvalReview(
       );
   const verb = operation.split(".").at(-1) ?? "";
   const kind =
-    verb.startsWith("create") || verb === "issueRegistrationCode"
-      ? ("create" as const)
-      : verb.startsWith("delete")
-        ? ("delete" as const)
-        : comparable.has(operation)
-          ? ("update" as const)
-          : ("action" as const);
+    operation === "admin.deleteSubject"
+      ? ("update" as const)
+      : verb.startsWith("create") || verb === "issueRegistrationCode"
+        ? ("create" as const)
+        : verb.startsWith("delete")
+          ? ("delete" as const)
+          : comparable.has(operation)
+            ? ("update" as const)
+            : ("action" as const);
   const context: { key: string; value: unknown }[] = [];
   const changes: ReviewField[] = [];
   const unchanged: ReviewField[] = [];
@@ -295,6 +365,14 @@ export function approvalReview(
       context.push({ key: "requestReason", value: requested });
       continue;
     }
+    if (operation === "admin.setUserCanTranslate" && key === "canTranslate") {
+      // The standalone grant uses the same authored capability label as the
+      // membership editor, and compares only a captured boolean permission.
+      const hasBefore = typeof primary?.canTranslate === "boolean";
+      const field = { key: "translator", requested, before: primary?.canTranslate, hasBefore };
+      (hasBefore && equal(field.before, requested) ? unchanged : changes).push(field);
+      continue;
+    }
     if (
       operation === "admin.setMemberships" &&
       key === "membership" &&
@@ -349,6 +427,14 @@ export function approvalReview(
     }
     let hasBefore = kind === "update" && !!source && Object.hasOwn(source, key);
     let before = hasBefore ? source?.[key] : undefined;
+    if (operation === "admin.setCrewStatus" && key === "status") {
+      hasBefore = !!source && Object.hasOwn(source, "crewStatus");
+      before = hasBefore ? source?.crewStatus : undefined;
+    }
+    if (operation === "student.setFeedbackSettings" && key === "share") {
+      hasBefore = !!source && Object.hasOwn(source, "shareFeedbackWithTutors");
+      before = hasBefore ? source?.shareFeedbackWithTutors : undefined;
+    }
     // Collection writes keep their old values in child snapshots, not the parent.
     // Compare only the submitted columns and only children of the exact target.
     const child =
@@ -369,6 +455,7 @@ export function approvalReview(
                 table: "Patrol.PatrolObservation",
                 foreignKey: "patrolId",
                 identity: "id",
+                dateFields: ["observedAt"],
               }
             : null;
     if (
@@ -376,9 +463,30 @@ export function approvalReview(
       Array.isArray(requested) &&
       Array.isArray(evidence[child.table])
     ) {
+      // Only the versioned attendance capture establishes the complete merged
+      // block. Legacy snapshots can contain just one member's students.
+      const completeAttendance =
+        operation === "corrections.correctAttendance" &&
+        record(evidence.reviewPresentation)?.version === 1;
+      const primaryId = primary?.mergeGroupId ?? primary?.id;
+      const sessionIds =
+        completeAttendance && primaryId
+          ? new Set(
+              primaryRows
+                .filter(
+                  (row) =>
+                    row.id === primaryId || row.mergeGroupId === primaryId,
+                )
+                .map((row) => row.id),
+            )
+          : null;
       const rows = (
         groups.find((group) => group.table === child.table)?.rows ?? []
-      ).filter((row) => row[child.foreignKey] === input.id);
+      ).filter((row) =>
+        sessionIds
+          ? sessionIds.has(row[child.foreignKey])
+          : row[child.foreignKey] === input.id,
+      );
       hasBefore = true;
       before =
         key === "tuteeIds"
@@ -390,17 +498,53 @@ export function approvalReview(
               // Removed children still need a readable identity and their old values.
               return submitted
                 ? Object.fromEntries(
-                    Object.keys(submitted).map((field) => [field, row[field]]),
+                    Object.keys(submitted)
+                      .filter((field) => Object.hasOwn(row, field))
+                      .map((field) => [field, row[field]]),
                   )
                 : row;
             });
+      if (completeAttendance && Array.isArray(before)) {
+        // A student may appear in several subjects of the same saved block.
+        // Coalesce only identical submitted-column originals; conflicting
+        // historical duplicates keep the faithful array fallback.
+        const unique = new Map<unknown, unknown>();
+        let consistent = true;
+        for (const value of before as unknown[]) {
+          const id = record(value)?.[child.identity];
+          if (unique.has(id) && !equal(unique.get(id), value))
+            consistent = false;
+          unique.set(id, value);
+        }
+        if (consistent) before = [...unique.values()];
+      }
     }
-    const field = {
+    const field: ReviewField = {
       key,
       requested,
       before,
       hasBefore,
+      ...(child && hasBefore
+        ? {
+            collection: reviewCollection(
+              before,
+              requested,
+              child.identity,
+              "dateFields" in child ? child.dateFields : [],
+            ),
+          }
+        : {}),
     };
+    if (
+      operation === "corrections.correctAttendance" &&
+      record(evidence.reviewPresentation)?.version !== 1 &&
+      field.collection &&
+      (field.collection.counts.added || field.collection.counts.removed)
+    ) {
+      // Absence from an older partial capture cannot establish a roster change.
+      // Preserve both complete captured/submitted values in the standard reader.
+      field.collection = null;
+    }
     const comparisonValue = (value: unknown) =>
       child && Array.isArray(value)
         ? [...(value as unknown[])].sort((left: unknown, right: unknown) =>
@@ -408,9 +552,13 @@ export function approvalReview(
               String(record(right)?.[child.identity] ?? right),
             ),
           )
-        : value;
+        : /(?:At|date|Date)$/.test(key)
+          ? reviewInstantValue(value)
+          : value;
     (hasBefore &&
-    equal(comparisonValue(field.before), comparisonValue(requested))
+    (field.collection
+      ? field.collection.rows.every((row) => row.state === "unchanged")
+      : equal(comparisonValue(field.before), comparisonValue(requested)))
       ? unchanged
       : changes
     ).push(field);

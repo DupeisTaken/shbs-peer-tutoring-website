@@ -1,10 +1,11 @@
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
+import type { Prisma } from "../../generated/prisma";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { createCaller } from "~/server/api/root";
 import { db } from "~/server/db";
 import { databaseScope } from "~/server/db-scope";
-import { queueProposal } from "~/server/approvals";
+import { fingerprint, queueProposal } from "~/server/approvals";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { interviewHoursId } from "~/server/interview-hours";
 import { lockAccountProfile } from "~/server/account-profile";
@@ -22,6 +23,17 @@ const session = (id = "chair"): Session => ({
 const caller = (id = "chair") =>
   createCaller({ db, headers: new Headers(), session: session(id) });
 const completedAt = new Date("2026-09-15T04:00:12.345Z");
+
+/** Old requests retain their original Head-only authority as immutable evidence. */
+async function legacyAcceptance(input: unknown) {
+  const request = await queueProposal(session(), "tutor.decideInterview", input);
+  const targets = request.targets as Record<string, Prisma.InputJsonValue>;
+  delete targets.reviewPolicyVersion;
+  targets.reviewAuthority = { category: "ACCOUNT_ACCESS", directRoles: ["HEAD"],
+    requesterRoles: ["ADMIN", "HEAD"], reviewerRoles: ["HEAD"] };
+  return db.approvalRequest.update({ where: { id: request.id },
+    data: { targets, fingerprint: fingerprint(targets) } });
+}
 
 beforeEach(async () => {
   assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -827,8 +839,9 @@ it("rechecks a revocation committed while approval waits for the account lock", 
   });
 });
 
-it("an old pending decision-only acceptance remains Head-reviewed and invents no service evidence", async () => {
+it.each(["review-admin", "head"])("%s can review an old pending decision-only acceptance without inventing service evidence", async (reviewerId) => {
   const { app, input } = await fixture();
+  await db.user.create({ data: { id: "review-admin", role: "ADMIN", email: "review-admin@example.test" } });
   // Internal proposal construction stands in for a durable request from the old UI;
   // new direct RPC submissions without completion are rejected above.
   const legacy = {
@@ -837,19 +850,15 @@ it("an old pending decision-only acceptance remains Head-reviewed and invents no
     comment: input.comment,
     expectedUpdatedAt: input.expectedUpdatedAt,
   };
-  const request = await queueProposal(
-    session(),
-    "tutor.decideInterview",
-    legacy,
-  );
+  const request = await legacyAcceptance(legacy);
   await expect(
     caller().approval.decide({
       id: request.id,
       approve: true,
-      note: "Not Head",
+      note: "Requester cannot self-review as Admin",
     }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await caller("head").approval.decide({
+  await caller(reviewerId).approval.decide({
     id: request.id,
     approve: true,
     note: "Apply the recorded legacy proposal",
@@ -863,6 +872,9 @@ it("an old pending decision-only acceptance remains Head-reviewed and invents no
   expect(saved.credits).toEqual([]);
   expect(saved.codes).toHaveLength(1);
   expect(saved.notices).toEqual([]);
+  expect(await db.approvalRequest.findUniqueOrThrow({ where: { id: request.id } })).toMatchObject({
+    state: "APPROVED", targets: request.targets, payload: request.payload, fingerprint: request.fingerprint,
+  });
 });
 
 it("a superseded legacy proposal cannot replay over a new atomic chair approval", async () => {
@@ -873,11 +885,7 @@ it("a superseded legacy proposal cannot replay over a new atomic chair approval"
     comment: input.comment,
     expectedUpdatedAt: input.expectedUpdatedAt,
   };
-  const request = await queueProposal(
-    session(),
-    "tutor.decideInterview",
-    legacy,
-  );
+  const request = await legacyAcceptance(legacy);
   await caller().tutor.decideInterview(input);
   const saved = await outcome(app.id);
   const management = (
@@ -1098,7 +1106,7 @@ it("an identical accepted retry after later Head revocation is read-only and ret
 it("Head review of a pending legacy acceptance cannot implicitly restore applicant access", async () => {
   const { app, input } = await fixture();
   const { account } = await existingApplicant();
-  const request = await queueProposal(session(), "tutor.decideInterview", {
+  const request = await legacyAcceptance({
     applicationId: input.applicationId,
     accept: input.accept,
     comment: input.comment,

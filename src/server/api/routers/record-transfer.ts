@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { Prisma } from "../../../../generated/prisma";
 import { TRPCError } from "@trpc/server";
-import { createTRPCRouter, headProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, adminOnlyProcedure } from "~/server/api/trpc";
 import { transferFilesSchema } from "~/lib/record-transfer";
 import {
   applyRecords,
@@ -20,24 +20,24 @@ class PreviewRollback extends Error {
 }
 
 // Recheck rank inside the transaction and hold the account row against concurrent demotion.
-async function assertHead(tx: TransactionDb, id: string) {
-  const rows = await tx.$queryRaw<{ role: string; suspendedAt: Date | null }[]>(
-    Prisma.sql`SELECT role,"suspendedAt" FROM "User" WHERE id=${id} FOR SHARE`,
+async function assertManagementActor(tx: TransactionDb, id: string) {
+  const rows = await tx.$queryRaw<{ role: string; suspendedAt: Date | null; mergedIntoId: string | null }[]>(
+    Prisma.sql`SELECT role,"suspendedAt","mergedIntoId" FROM "User" WHERE id=${id} FOR SHARE`,
   );
-  if (rows[0]?.role !== "HEAD" || rows[0].suspendedAt)
+  if (!rows[0] || !["ADMIN", "HEAD"].includes(rows[0].role) || rows[0].suspendedAt || rows[0].mergedIntoId)
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "Head access required.",
+      message: "Administrator access required.",
     });
 }
 
 export const recordTransferRouter = createTRPCRouter({
-  export: headProcedure
+  export: adminOnlyProcedure
     .input(z.object({ templates: z.boolean().default(false) }))
     .mutation(async ({ ctx, input }) =>
       ctx.db.$transaction(
         async (tx) => {
-          await assertHead(tx, ctx.session.user.id);
+          await assertManagementActor(tx, ctx.session.user.id);
           const result = await exportRecords(tx, input.templates);
           await tx.auditLog.create({
             data: {
@@ -57,7 +57,7 @@ export const recordTransferRouter = createTRPCRouter({
       ),
     ),
 
-  preview: headProcedure
+  preview: adminOnlyProcedure
     .input(z.object({ files: transferFilesSchema }))
     .mutation(async ({ ctx, input }) => {
       try {
@@ -66,7 +66,7 @@ export const recordTransferRouter = createTRPCRouter({
             // Imports may initialize any User/Tutor/Tutee source identity. Take
             // the shared namespace fence before the actor/source row locks.
             await lockUsernameNamespace(tx);
-            await assertHead(tx, ctx.session.user.id);
+            await assertManagementActor(tx, ctx.session.user.id);
             await lockEntity(tx, "program-record-transfer");
             const summary = await applyRecords(tx, input.files);
             throw new PreviewRollback(summary);
@@ -84,7 +84,7 @@ export const recordTransferRouter = createTRPCRouter({
       throw new Error("Preview must always roll back");
     }),
 
-  import: headProcedure
+  import: adminOnlyProcedure
     .input(
       z.object({ files: transferFilesSchema, ticket: z.string().max(200) }),
     )
@@ -93,7 +93,7 @@ export const recordTransferRouter = createTRPCRouter({
       return ctx.db.$transaction(
         async (tx) => {
           await lockUsernameNamespace(tx);
-          await assertHead(tx, ctx.session.user.id);
+          await assertManagementActor(tx, ctx.session.user.id);
           await lockEntity(tx, "program-record-transfer");
           const summary = await applyRecords(tx, input.files);
           const created = summary.reduce((n, row) => n + row.created, 0);
