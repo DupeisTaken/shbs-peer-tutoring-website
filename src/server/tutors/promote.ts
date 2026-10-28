@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { isFreshAdmissionCapture } from "~/server/recovery/capture";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE } from "~/lib/tutor-promotion";
 import {
@@ -59,6 +60,7 @@ const promotionAccountSelect = {
   tutorAccessRevoked: true,
   suspendedAt: true,
   mergedIntoId: true,
+  recoveryVoidedAt: true,
 } as const;
 
 export async function promoteApplicantToTutor(
@@ -194,7 +196,8 @@ export async function promoteApplicantToTutor(
       // Historical-only setup also sets this flag without granting membership.
       // Match registration: a retained current tutor link distinguishes revoked
       // membership from an account that can still receive its first admission.
-      if (account.tutorId && account.tutorAccessRevoked)
+      if (account.tutorId && account.tutorAccessRevoked &&
+        !(account.recoveryVoidedAt && await isFreshAdmissionCapture(db, applicationId)))
         throw new TRPCError({
           code: "FORBIDDEN",
           message: TUTOR_ACCESS_REVOKED_PROMOTION_MESSAGE,
@@ -279,7 +282,7 @@ export async function promoteApplicantToTutor(
       data: { promotedTutorId: tutorId },
     });
     // Only a verified existing identity can receive the capability without another email challenge.
-    if (hasLogin?.emailVerifiedAt) {
+    if (hasLogin?.emailVerifiedAt && !hasLogin.recoveryVoidedAt) {
       // A verified existing account acquires the capability without receiving new credentials.
       if (["STUDENT", "VIEWER", "CREW"].includes(hasLogin.role))
         await ensureNameFallbackForRole(db, hasLogin.id, "TUTOR");

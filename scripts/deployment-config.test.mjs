@@ -93,7 +93,7 @@ function missingRuntimeFiles(graph, copies) {
 test("operator CLI source graphs ship completely with production dependencies and no application environment", () => {
   const manifest = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
   const copies = runtimeSourceCopies();
-  for (const command of ["admin:create", "identity:reconcile"]) {
+  for (const command of ["admin:create", "identity:reconcile", "recovery"]) {
     const match = /^tsx (scripts\/[\w-]+\.ts)$/.exec(manifest.scripts[command]);
     assert.ok(match, `Review the runtime launcher for ${command}`);
     const graph = runtimeCliGraph(match[1]);

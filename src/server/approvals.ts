@@ -417,6 +417,15 @@ export async function proposalTargets(
     payload as Parameters<typeof superjson.deserialize>[0],
   );
   const fields = z.record(z.string(), z.unknown()).parse(input);
+  if (operation === "recovery.voidAdmission") {
+    // The complete causal graph is review evidence, not a requester assertion.
+    // Rebuilding it at approval detects changed-away-and-back descendant writes.
+    const { inspectAdmissionRecovery } = await import("./recovery/admission");
+    const plan = await inspectAdmissionRecovery(client, { actionId: z.string().parse(fields.actionId) });
+    if (!plan.websiteEligible || plan.fingerprint !== fields.expectedFingerprint)
+      throw new TRPCError({ code: "CONFLICT", message: "Recovery evidence changed or requires the operator CLI. Inspect it again." });
+    return JSON.parse(JSON.stringify(plan)) as Record<string, Prisma.InputJsonValue>;
+  }
   // Reference labels have their own version. Keep every existing v1 display/
   // authority projection byte-for-byte stable when this separate marker is absent.
   const capturedTargets = async (targets: Record<string, unknown>) => {

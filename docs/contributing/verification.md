@@ -25,7 +25,7 @@ Integration tests reset fixtures. Use the isolated loopback `shbs_shipping_test`
 
 The [CI workflow](../../.github/workflows/docker-build.yml) also checks dependency installation, migrations, schema agreement, dependency audit, production build and image boot/restart. Use its result for the commit being reviewed; old test totals are not current verification.
 
-CI runs static/tooling checks, five test shards, and image build/smoke verification
+CI runs static/tooling checks, eight test shards, and image build/smoke verification
 in parallel. Each job has a nine-minute timeout (the short `verify` gate uses two
 minutes). This is a whole-job limit, including setup, installation and migrations;
 it fails an over-budget job rather than treating partial coverage as success.
@@ -36,21 +36,24 @@ including every shard. Failed, cancelled, skipped or missing prerequisites fail
 the gate. Keep `verify` as the branch-protection check when changing job names.
 
 Run `npm run test:ci` for workflow and image-promotion regressions. It also checks
-that Vitest's five shards cover every discovered file exactly once without running
+that Vitest's eight shards cover every discovered file exactly once without running
 database fixtures. Each CI shard uploads a seven-day JSON report with test timings
 and failures. Use these reports and whole-job durations to assess shard balance
 before adding more runners. The matrix size supplies Vitest's shard denominator;
 keep the matrix contiguous from 1 and preserve serial files within each runner.
 Local `npm test` still runs the complete suite serially.
 
-The sizing baseline is successful [run 39441513352](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/39441513352)
-at `6357007373d1efd177e36140d9e0ba7c80d2f237`: 467 files and 5,569 passing
-tests. Its two whole test jobs took 11m44s and 13m19s; checks took 3m54s and
-image verification took 5m33s. Replaying Vitest's path-hash partitioning over its
-file timings estimates the slowest five-shard job at roughly 7–7½ minutes with
-the observed setup and per-file runner overhead. Four shards estimate about
-8m20s, leaving less room for variation. These are projections, not a hosted
-five-shard result: confirm the complete jobs on the changed revision, including
+The current sizing evidence is [run 40735002104](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/40735002104)
+at `01255cf9258cc836130f9cbde89ec1d1f7fc1cb1`: its five JSON reports contain
+526 files and 7,164 passing tests, but shard 2 exceeded the whole-job limit.
+Its test step alone took 538.39 seconds. A passing test report does not override
+that cancellation or the failed required gate. Replaying Vitest's path-hash
+partitioning over all measured file durations, adding 0.9 seconds per file for
+runner overhead and 60 seconds for setup, estimates the slowest whole jobs at
+599 seconds for five shards, 517 for six, 591 for seven and 481 for eight.
+Eight adds three hosted runners while retaining roughly a minute of headroom
+under the unchanged nine-minute limit. These are projections, not a hosted
+eight-shard result: confirm complete jobs on the changed revision, including
 cleanup and report upload. Runner queues are outside the job execution budget.
 Preserve assertions and database isolation; refactor measured slow fixtures or
 split an oversized file only when timings show that partitioning is insufficient.

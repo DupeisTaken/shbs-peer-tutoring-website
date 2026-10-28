@@ -55,6 +55,7 @@ test("parallel jobs retain checks, isolated databases, bounded workers and failu
     "npm run test:lint-glob",
     "npm run test:pr-size",
     "npm run test:deployment",
+    "npm run test:recovery",
     "npm audit",
   ]) {
     assert.ok(
@@ -62,7 +63,7 @@ test("parallel jobs retain checks, isolated databases, bounded workers and failu
       command,
     );
   }
-  assert.deepEqual(tests.strategy.matrix.shard, [1, 2, 3, 4, 5]);
+  assert.deepEqual(tests.strategy.matrix.shard, [1, 2, 3, 4, 5, 6, 7, 8]);
   assert.equal(tests.name, "tests (${{ matrix.shard }}/${{ strategy.job-total }})");
   assert.equal(tests.strategy["fail-fast"], false);
   assert.equal(tests.services.postgres.env.POSTGRES_DB, "shbs_shipping_test");

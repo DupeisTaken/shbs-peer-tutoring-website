@@ -7,6 +7,8 @@
     "build": "next build --turbopack",
     "admin:create": "tsx scripts/create-admin.ts",
     "identity:reconcile": "tsx scripts/reconcile-person-sources.ts",
+    "recovery": "tsx scripts/recovery.ts",
+    "test:recovery": "node --import tsx --test --test-concurrency=1 scripts/recovery.test.ts",
     "check": "next typegen && eslint . && tsc --noEmit",
     "db:generate": "prisma migrate dev",
     "db:migrate": "prisma migrate deploy",

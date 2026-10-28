@@ -65,6 +65,7 @@ const accountAccessOperations = new Set([
   "tutor.decideInterview",
 ]);
 export const APPROVAL_OPERATIONS: Record<string, string> = {
+  "recovery.voidAdmission": "RecoveryAction",
   "studentWorkflow.headEditSignup": "StudentSurvey",
   "studentWorkflow.headUnassign": "StudentSurvey",
   "studentWorkflow.resolveSignupAppeal": "StudentSignupAppeal",
@@ -294,6 +295,14 @@ export function classifyApproval(
   } = {},
 ): ApprovalAuthority | null {
   if (!Object.hasOwn(APPROVAL_OPERATIONS, operation)) return null;
+  // Causal admission recovery uses ordinary management review. The domain
+  // service still enforces complete evidence and the website's 0/1 event cap.
+  if (operation === "recovery.voidAdmission") return {
+    category: "REVERSAL",
+    directRoles: ["ADMIN", "HEAD"],
+    requesterRoles: ["COORDINATOR", "ADMIN", "HEAD"],
+    reviewerRoles: ["ADMIN", "HEAD"],
+  };
   const value =
     input && typeof input === "object"
       ? (input as Record<string, unknown>)
