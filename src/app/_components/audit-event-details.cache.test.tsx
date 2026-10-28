@@ -68,7 +68,7 @@ function mount() {
         timeZone="Asia/Shanghai"
         messages={en}
       >
-        <TableDetails title="Audit event">
+        <TableDetails title="Audit event" longReader>
           <AuditEventDetails id={event.id} />
         </TableDetails>
       </NextIntlClientProvider>
@@ -169,4 +169,43 @@ it("does not resurrect denied cache after Close and reopen followed by a server 
   expect(screen.queryByText("Private recorded evidence")).toBeNull();
   expect(client.getQueryData(key())).toBeUndefined();
   expect(remote.load).toHaveBeenCalledTimes(3);
+});
+
+it("removes summary and retained expanded evidence together when the real cache loses authority", async () => {
+  remote.load.mockResolvedValueOnce({
+    ...event,
+    details: {
+      before: { note: "Private before" },
+      after: { note: "Private after" },
+    },
+  });
+  mount();
+  const opener = screen.getByRole("button", {
+    name: "View details: Audit event",
+  });
+  opener.focus();
+  open();
+  await screen.findByText("Value changes: 1 changed · 0 added · 0 removed");
+  const evidenceToggle = screen.getByRole("button", {
+    name: /^Full recorded evidence/,
+  });
+  expect(evidenceToggle.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(evidenceToggle);
+  const raw = screen.getByText("View stored JSON").closest("details")!;
+  raw.open = true;
+  fireEvent(raw, new Event("toggle"));
+  expect(raw.querySelector("pre")!.textContent).toContain("Private after");
+
+  remote.load.mockRejectedValueOnce(denied());
+  await act(async () => {
+    await client.refetchQueries({ queryKey: key(), exact: true });
+  });
+  await screen.findByText("Event details access denied");
+  expect(screen.queryByRole("region", { name: "Recorded Changes" })).toBeNull();
+  expect(screen.queryByText("View stored JSON")).toBeNull();
+  expect(document.body.textContent).not.toContain("Private before");
+  expect(document.body.textContent).not.toContain("Private after");
+  expect(client.getQueryData(key())).toBeUndefined();
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(document.activeElement).toBe(opener);
 });

@@ -25,6 +25,21 @@ controls the participant example; other recipes expose their own state transitio
 
 Specialized gallery recipes also cover [named action review](../../src/app/ui-gallery/action-review-recipe.tsx), [management summary alignment](../../src/app/ui-gallery/admin-summary-recipe.tsx), [manual-creation risk acknowledgement](../../src/app/ui-gallery/creation-risk-recipe.tsx) and [workload preference/review](../../src/app/ui-gallery/workload-preference-recipe.tsx). Each has a colocated behavior test. These are synthetic compositions: use the owning feature and the [technical code map](../reference/technical-report.md#architecture) for permissions, persistence, receipt keys and accepted-write recovery.
 
+The [management review evidence recipe](../../src/app/ui-gallery/management-review-recipe.tsx)
+uses the production `ApprovalReviewDetails`, `ReviewDisclosure` and
+`AuditChangeSummary` readers with local captured fixtures. Its selector covers one
+attendance status/reason change with eleven unchanged students, staging a feature
+default override, clearing a pending override, exact multiline publication text
+and a batch of 75 audit comparisons. Assignment examples additionally cover a
+changed tutor/room/schedule, added and removed learners with the same display name,
+missing historical labels, and an unchanged request. Verify request and section collapse separately:
+the affected-record/outcome summary stays visible, nested expanded state and the
+decision-note draft survive reopening, and simulated pending confirmation blocks
+request collapse. The selector and pending checkbox change only local examples;
+the recipe mounts no query, generates no approval ticket and grants no authority.
+Check the real Management Actions and Audit pages as well as the gallery in EN/ZH
+at desktop and mobile widths; fixtures do not establish server replay or privacy.
+
 The named-action recipe also demonstrates a request receipt through the
 `ReviewedAction.successMessage` option of `useActionReview`, following the active tutor opt-out in
 [Settings](<../../src/app/(tutor)/settings/page.tsx>). Verify Cancel without a write,

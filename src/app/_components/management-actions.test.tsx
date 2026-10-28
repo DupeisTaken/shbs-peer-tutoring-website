@@ -294,6 +294,128 @@ it.each([
   },
 );
 
+it.each(["en", "zh"])(
+  "retains a reviewer note and independent section state across request collapse (%s)",
+  (locale) => {
+    const copy = locale === "en" ? en : zh;
+    queue([row()], true);
+    render(view(true, locale));
+    const note = "Checked the immutable room proposal.\n已核对原始记录。";
+    fireEvent.change(
+      screen.getByRole("textbox", { name: copy.approvals.review.noteRequired }),
+      { target: { value: note } },
+    );
+    const requested = screen.getByRole("button", {
+      name: `${copy.approvals.review.requested} ${copy.approvals.review.collapse}`,
+    });
+    fireEvent.click(requested);
+    const request = screen.getByRole("button", {
+      name: `${copy.approvals.review.reviewDetails} ${copy.approvals.review.collapse}`,
+    });
+    fireEvent.click(request);
+    expect(request.getAttribute("aria-expanded")).toBe("false");
+    expect(
+      screen.queryByRole("textbox", {
+        name: copy.approvals.review.noteRequired,
+      }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("region", { name: copy.approvals.review.affected }),
+    ).toBeTruthy();
+    expect(screen.getByText(copy.approvals.effects.PENDING)).toBeTruthy();
+    fireEvent.click(request);
+    expect(
+      screen.getByRole<HTMLTextAreaElement>("textbox", {
+        name: copy.approvals.review.noteRequired,
+      }).value,
+    ).toBe(note);
+    expect(requested.getAttribute("aria-expanded")).toBe("false");
+    expect(mocks.decide).not.toHaveBeenCalled();
+    expect(mocks.cancel).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["en", "zh"])(
+  "keeps request review expanded during a consequence confirmation (%s)",
+  (locale) => {
+    const copy = locale === "en" ? en : zh;
+    queue(
+      [
+        {
+          ...row(),
+          operation: "studentWorkflow.headUnassign",
+          payload: SuperJSON.serialize({ id: "signup", pairingId: "pairing" }),
+          canDecide: true,
+        },
+      ],
+      true,
+      1,
+      true,
+    );
+    render(view(true, locale));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: copy.approvals.review.noteRequired }),
+      { target: { value: "Review retained during confirmation" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.approvals.approve }),
+    );
+    const request = screen.getByRole<HTMLButtonElement>("button", {
+      name: `${copy.approvals.review.reviewDetails} ${copy.approvals.review.collapse}`,
+    });
+    expect(request.disabled).toBe(true);
+    fireEvent.click(request);
+    expect(request.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      screen.getByRole("dialog", { name: "Consequence confirmation" }),
+    ).toBeTruthy();
+    expect(mocks.decide).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Cancel confirmation" }),
+    );
+    expect(request.disabled).toBe(false);
+    expect(
+      screen.getByRole<HTMLTextAreaElement>("textbox", {
+        name: copy.approvals.review.noteRequired,
+      }).value,
+    ).toBe("Review retained during confirmation");
+  },
+);
+
+it("prevents request collapse during a pending decision and reopens with its draft after rejection", () => {
+  queue([row()], true);
+  const mounted = render(view(true));
+  fireEvent.change(
+    screen.getByRole("textbox", { name: en.approvals.review.noteRequired }),
+    { target: { value: "Retained decision note" } },
+  );
+  mocks.decisionState = { isPending: true };
+  mounted.rerender(view(true));
+  const request = screen.getByRole<HTMLButtonElement>("button", {
+    name: `${en.approvals.review.reviewDetails} ${en.approvals.review.collapse}`,
+  });
+  expect(request.disabled).toBe(true);
+  fireEvent.click(request);
+  expect(request.getAttribute("aria-expanded")).toBe("true");
+  const section = screen.getByRole<HTMLButtonElement>("button", {
+    name: `${en.approvals.review.requested} ${en.approvals.review.collapse}`,
+  });
+  expect(section.disabled).toBe(true);
+  mocks.decisionState = {
+    isPending: false,
+    error: new Error("Decision rejected"),
+  };
+  mounted.rerender(view(true));
+  expect(screen.getByRole("alert").textContent).toBe("Decision rejected");
+  expect(request.disabled).toBe(false);
+  expect(section.disabled).toBe(false);
+  expect(
+    screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: en.approvals.review.noteRequired,
+    }).value,
+  ).toBe("Retained decision note");
+});
+
 it("restores the reviewer list, gives explicit URL criteria precedence, and clears it on access denial", () => {
   const cached = queue([row()], true, 100);
   const key = viewStateKey(
@@ -465,9 +587,11 @@ it("shows the requested rejection in both the card and fresh consequence confirm
   fireEvent.click(screen.getByRole("button", { name: "Approve and Apply" }));
   expect(mocks.decide).not.toHaveBeenCalled();
   expect(
-    within(screen.getByRole("dialog")).getByText(
-      "Reject the underlying request",
-    ),
+    within(
+      within(screen.getByRole("dialog")).getByRole("region", {
+        name: en.approvals.review.affected,
+      }),
+    ).getAllByText("Reject the underlying request"),
   ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Confirm consequences" }));
   expect(mocks.decide).toHaveBeenCalledWith({
@@ -560,7 +684,7 @@ it("shows coordinator history and proposed/affected records without privileged r
       .getAttribute("aria-pressed"),
   ).toBe("true");
   expect(
-    within(screen.getByRole("region", { name: "Affected record" })).getByText(
+    within(screen.getByRole("region", { name: "Affected record" })).getAllByText(
       "Original room",
     ),
   ).toBeTruthy();
@@ -569,7 +693,7 @@ it("shows coordinator history and proposed/affected records without privileged r
       "Original room",
     ),
   ).toBeTruthy();
-  expect(screen.getByText("New room name")).toBeTruthy();
+  expect(screen.getAllByText("New room name")).toBeTruthy();
   expect(screen.getByText(/Not applied — awaiting/)).toBeTruthy();
   expect(screen.queryByRole("combobox")).toBeNull();
   expect(mocks.requesters).not.toHaveBeenCalled();
