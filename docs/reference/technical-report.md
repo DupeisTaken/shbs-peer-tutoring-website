@@ -1122,6 +1122,12 @@ adding a generic hidden-record query. Coverage lives in [link tests](../../src/l
 
 ## Approval transactions
 
+Directly accepted additional-subject and higher-level requests with no interview
+panel, schedule, votes or recorded chair leave the OPEN Interview Records queue.
+The shared row/count predicate retains them in ALL history without inventing
+completion or service hours. Genuine interview evidence keeps legacy service
+follow-up discoverable; approval status alone does not mean an interview finished.
+
 Additional tutor qualifications use `qualificationApplication` and explicit `ADDITIONAL_SUBJECT` / `HIGHER_LEVEL` application types linked to an existing tutor and stable subject ID. Submission is self-only for active, non-revoked tutors; an open-request unique index plus transaction locks prevents duplicate pending/interview requests. Only Admin/Head may choose a panel or decide, and an interviewed request retains the existing votes/majority/chair checks. Initial-signup reconciliation is bypassed: no roles, membership, registration codes, willingness or existing grants change. Approval uses `approveQualification` in the decision transaction and copies its concrete grants into immutable request evidence; later catalogue reordering never recalculates this evidence. SQL guards preserve request identity and final decisions. Legacy status, delete and interview-decision entry points reject additional applications before proposal middleware.
 
 Successful additional-qualification decisions invalidate the affected tutor's `tutorDetails.get` cache alongside the application, availability and roster queries. The detail cache is independent of `admin.tutors`; scoped invalidation ensures reopening the same tutor within the query freshness window shows the new approval without invalidating unrelated tutor details.
