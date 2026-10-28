@@ -1645,6 +1645,18 @@ as task counts; only applied server outcomes move records between groups.
 
 Meeting deductions use the semester allowance in [meeting-hours.ts](../../src/server/meeting-hours.ts); corrections recompute system credits while preserving manual adjustments.
 
+The [service-hours summary](../../src/server/service-hours-summary.ts) aggregates
+stored session credits and adjustments for an exact month or recorded program
+period, independently of current tutor status. `admin.periodSummary` retains the
+complete roster and program totals; its observer projection includes only the
+adjustment count needed to recognize evidence, not adjustment reasons. The
+[view helper](../../src/lib/service-hours-view.ts) applies current-status,
+record-activity and name filters to the roster, defaulting to Active. Session and
+adjustment counts keep zero-credit, zero-valued, negative and offset-zero records
+discoverable. Summary and Breakdown share that selection and sort; a separately
+labelled subtotal must not replace the complete program totals. Current status is
+not a historical membership assertion, and identical names never merge tutor IDs.
+
 Meeting workspaces use the count-only catalog in
 [meeting-periods.ts](../../src/server/meeting-periods.ts), grouping stored term ownership
 by school year and quarter, or both quarters under the applied semester mode.

@@ -31,6 +31,7 @@ const state = vi.hoisted(() => {
     englishName: "Alex Tutor",
     active: true,
     sessions: 3,
+    adjustmentCount: 2,
     earned: 3,
     extras: 2,
     punishments: 1,
@@ -302,7 +303,11 @@ vi.mock("~/trpc/react", () => ({
         useQuery: (input: unknown) => {
           state.summaryInput = input;
           return {
-            data: { scope: { label: "Current semester" }, rows: [state.tutor] },
+            data: {
+              scope: { label: "Current semester" },
+              rows: [state.tutor],
+              totals: { earned: 3, extras: 2, punishments: 1, total: 4 },
+            },
           };
         },
       },

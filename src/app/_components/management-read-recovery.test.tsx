@@ -176,12 +176,14 @@ const code = {
 };
 const totals = {
   scope: { label: "Recorded semester" },
+  totals: { earned: 3, extras: 1, punishments: 0, total: 4 },
   rows: [
     {
       tutorId: "tutor",
       englishName: "Private Tutor",
       active: true,
       sessions: 3,
+      adjustmentCount: 1,
       earned: 3,
       extras: 1,
       punishments: 0,

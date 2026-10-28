@@ -139,6 +139,7 @@ import {
   viewerProcedure,
 } from "~/server/api/trpc";
 import { monthKey } from "~/lib/service-hours";
+import { serviceHoursSummary } from "~/server/service-hours-summary";
 import {
   lockAttendanceSchedule,
   propagateSlotAttendance,
@@ -1418,80 +1419,12 @@ export const adminRouter = createTRPCRouter({
         : { schoolYear, quarter: { in: quarters } };
       if (input?.month) label = input.month;
 
-      const [tutors, sessionAgg, adjustments, attendance] = await Promise.all([
-        ctx.db.tutor.findMany({ orderBy: { englishName: "asc" } }),
-        ctx.db.session.groupBy({
-          by: ["tutorId"],
-          where: periodWhere,
-          _sum: { shCount: true },
-          _count: { _all: true },
-        }),
-        ctx.db.serviceHourAdjustment.groupBy({
-          by: ["tutorId", "type"],
-          where: periodWhere,
-          _sum: { amount: true },
-        }),
-        ctx.db.sessionTutee.groupBy({
-          by: ["status"],
-          where: { session: periodWhere },
-          _count: { _all: true },
-        }),
-      ]);
-
-      const earnedBy = new Map(
-        sessionAgg.map((s) => [s.tutorId, s._sum.shCount ?? 0]),
-      );
-      const sessionsBy = new Map(
-        sessionAgg.map((s) => [s.tutorId, s._count._all]),
-      );
-      const punishBy = new Map<string, number>();
-      const extraBy = new Map<string, number>();
-      for (const a of adjustments) {
-        const target = a.type === "PUNISHMENT" ? punishBy : extraBy;
-        target.set(
-          a.tutorId,
-          (target.get(a.tutorId) ?? 0) + (a._sum.amount ?? 0),
-        );
-      }
-
-      const rows = tutors.map((t) => {
-        const earned = earnedBy.get(t.id) ?? 0;
-        const punishments = punishBy.get(t.id) ?? 0;
-        const extras = extraBy.get(t.id) ?? 0;
-        return {
-          tutorId: t.id,
-          englishName: t.englishName,
-          active: t.status === "ACTIVE",
-          earned,
-          extras,
-          punishments,
-          total: earned - punishments + extras,
-          sessions: sessionsBy.get(t.id) ?? 0,
-        };
-      });
-
-      const att = { present: 0, excused: 0, unexcused: 0 };
-      for (const g of attendance) {
-        if (g.status === "PRESENT") att.present = g._count._all;
-        else if (g.status === "EXCUSED_ABSENT") att.excused = g._count._all;
-        else att.unexcused = g._count._all;
-      }
-
-      const totals = rows.reduce(
-        (acc, r) => ({
-          earned: acc.earned + r.earned,
-          extras: acc.extras + r.extras,
-          punishments: acc.punishments + r.punishments,
-          total: acc.total + r.total,
-          sessions: acc.sessions + r.sessions,
-        }),
-        { earned: 0, extras: 0, punishments: 0, total: 0, sessions: 0 },
-      );
+      const { rows, totals } = await serviceHoursSummary(ctx.db, periodWhere);
 
       return {
         scope: { schoolYear, quarters, label },
         rows,
-        totals: { ...totals, ...att },
+        totals,
       };
     }),
 

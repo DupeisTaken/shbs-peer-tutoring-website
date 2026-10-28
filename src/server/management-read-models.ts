@@ -260,7 +260,9 @@ export const managementReadModels = {
   "admin.periods": list(summary("schoolYear quarter active")),
   "admin.periodSummary": summary("", {
     scope: summary("schoolYear label", { quarters: strings }),
-    rows: list(tutorHours),
+    rows: list(
+      summary(`tutorId englishName active sessions adjustmentCount ${hours}`),
+    ),
     totals: summary(`sessions ${hours} ${attendanceCounts}`),
   }),
   "admin.periodReport": report,

@@ -1,73 +1,124 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import type { RouterOutputs } from "~/trpc/react";
-import { DisclosureSection } from "./ui/disclosure-section";
-import { SummaryTable } from "./ui/summary-table";
+import type {
+  ServiceHoursRow,
+  ServiceHoursView,
+} from "~/lib/service-hours-view";
+import { ParticipantName, participantNameLabel } from "./participant-name";
+import { SortHeader, type Sort } from "./sortable";
+import { SummaryTable, TableActions, TableDetails } from "./ui/summary-table";
 
-/** Compact roster actions and cross-person comparison serve different tasks.
- * Keep the full numeric matrix available without manufacturing row actions. */
+/** One table and one feature-owned sort survive changes between compact and
+ * comparison views. Row identity always comes from tutorId, never display names. */
 export function ServiceHoursComparison({
   rows,
+  panel,
+  sort,
 }: {
-  rows: RouterOutputs["admin"]["periodSummary"]["rows"];
+  rows: ServiceHoursRow[];
+  panel: ServiceHoursView["panel"];
+  sort: Sort;
 }) {
-  const t = useTranslations("admin.summary");
+  const t = useTranslations();
+  const breakdown = panel === "breakdown";
   return (
-    <DisclosureSection
-      title={t("compareTitle", { count: rows.length })}
-      lifetime="lazy"
-    >
-      <p className="muted mb-3 text-sm">{t("compareHelp")}</p>
-      <SummaryTable sortable label={t("compareLabel")}>
+    <div className="space-y-3">
+      {breakdown && (
+        <p className="muted text-sm">{t("admin.summary.compareHelp")}</p>
+      )}
+      <SummaryTable
+        label={t(
+          breakdown ? "admin.summary.compareLabel" : "admin.summary.title",
+        )}
+      >
         <thead>
           <tr>
-            <th scope="col">{t("columns.tutor")}</th>
-            <th scope="col" className="text-right">
-              {t("columns.sessions")}
-            </th>
-            <th scope="col" className="text-right">
-              {t("columns.earned")}
-            </th>
-            <th scope="col" className="text-right">
-              {t("columns.extras")}
-            </th>
-            <th scope="col" className="text-right">
-              {t("columns.penalties")}
-            </th>
-            <th scope="col" className="text-right">
-              {t("columns.total")}
-            </th>
+            <SortHeader sort={sort} sortKey="englishName">
+              {t("admin.summary.columns.tutor")}
+            </SortHeader>
+            <SortHeader sort={sort} sortKey="sessions" className="text-right">
+              {t("admin.summary.columns.sessions")}
+            </SortHeader>
+            {breakdown && (
+              <>
+                <SortHeader sort={sort} sortKey="earned" className="text-right">
+                  {t("admin.summary.columns.earned")}
+                </SortHeader>
+                <SortHeader sort={sort} sortKey="extras" className="text-right">
+                  {t("admin.summary.columns.extras")}
+                </SortHeader>
+                <SortHeader
+                  sort={sort}
+                  sortKey="punishments"
+                  className="text-right"
+                >
+                  {t("admin.summary.columns.penalties")}
+                </SortHeader>
+              </>
+            )}
+            <SortHeader sort={sort} sortKey="total" className="text-right">
+              {t("admin.summary.columns.total")}
+            </SortHeader>
+            {!breakdown && (
+              <th scope="col" className="table-actions-heading">
+                {t("tablePatterns.actions")}
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.tutorId}>
-              <th
-                data-sort-value={row.englishName}
-                scope="row"
-                className="text-left font-medium"
-              >
-                {row.englishName}
-                {!row.active && ` ${t("inactive")}`}
-              </th>
+            <tr key={row.tutorId} className="text-slate-700">
+              <td>
+                <ParticipantName name={row.englishName} />
+                {!row.active && ` ${t("admin.summary.inactive")}`}
+              </td>
               <td className="text-right tabular-nums">{row.sessions}</td>
-              <td className="text-right tabular-nums">
-                {row.earned.toFixed(1)}
-              </td>
-              <td className="text-right tabular-nums">
-                {row.extras.toFixed(1)}
-              </td>
-              <td className="text-right tabular-nums">
-                {row.punishments.toFixed(1)}
-              </td>
+              {breakdown && (
+                <>
+                  <td className="text-right tabular-nums">
+                    {row.earned.toFixed(1)}
+                  </td>
+                  <td className="text-right tabular-nums">
+                    {row.extras.toFixed(1)}
+                  </td>
+                  <td className="text-right tabular-nums">
+                    {row.punishments.toFixed(1)}
+                  </td>
+                </>
+              )}
               <td className="text-right font-semibold tabular-nums">
                 {row.total.toFixed(1)}
               </td>
+              {!breakdown && (
+                <TableActions>
+                  <TableDetails
+                    title={participantNameLabel(
+                      row.englishName,
+                      undefined,
+                      t("participantNames.unnamed"),
+                    )}
+                  >
+                    <dl className="grid grid-cols-2 gap-3">
+                      <dt>{t("admin.summary.columns.sessions")}</dt>
+                      <dd>{row.sessions}</dd>
+                      <dt>{t("admin.summary.columns.earned")}</dt>
+                      <dd>{row.earned.toFixed(1)}</dd>
+                      <dt>{t("admin.summary.columns.extras")}</dt>
+                      <dd>{row.extras.toFixed(1)}</dd>
+                      <dt>{t("admin.summary.columns.penalties")}</dt>
+                      <dd>{row.punishments.toFixed(1)}</dd>
+                      <dt>{t("admin.summary.columns.total")}</dt>
+                      <dd className="font-semibold">{row.total.toFixed(1)}</dd>
+                    </dl>
+                  </TableDetails>
+                </TableActions>
+              )}
             </tr>
           ))}
         </tbody>
       </SummaryTable>
-    </DisclosureSection>
+    </div>
   );
 }
