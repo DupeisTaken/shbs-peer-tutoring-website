@@ -242,6 +242,72 @@ it("intersects application status with completion, count and open exclusions in 
     ).toBe(true);
   }));
 
+it.each(["ADDITIONAL_SUBJECT", "HIGHER_LEVEL"] as const)(
+  "retains unfinished legacy %s interviews with genuine evidence after acceptance",
+  async (type) =>
+    withFixture(async (database) => {
+      const search = `${prefix}-legacy-${type}`;
+      const evidence = ["schedule", "vote", "chair", "panel", "note"] as const;
+      const id = (kind: (typeof evidence)[number]) => `${search}-${kind}`;
+      // Imported history may retain only one part of an interview after panelists
+      // leave. Insert complete final decisions without reopening immutable records.
+      await database.tutorApplication.createMany({
+        data: evidence.map((kind) => ({
+          id: id(kind),
+          type,
+          name: `Synthetic legacy ${kind}`,
+          email: `${id(kind)}@example.test`,
+          requestedTutorId: `${prefix}-tutor`,
+          requestedSubjectId: `${prefix}-subject`,
+          qualificationReason: "Synthetic historical qualification evidence",
+          status: "ACCEPTED" as const,
+          qualificationDecidedById: `${prefix}-ADMIN`,
+          qualificationSnapshot: [
+            { id: `${prefix}-subject`, name: `${prefix} synthetic subject` },
+          ],
+          decisionComment: "Synthetic retained qualification decision",
+          decidedAt: new Date(base),
+          decidedByTutorId: kind === "chair" ? `${prefix}-tutor` : null,
+          interviewAt: kind === "schedule" ? new Date(base) : null,
+          interviewCompletedAt: null,
+        })),
+      });
+      await database.interviewVote.create({
+        data: {
+          applicationId: id("vote"),
+          tutorId: `${prefix}-tutor`,
+          accept: true,
+          comment: "Synthetic retained panel vote",
+        },
+      });
+      await database.interviewAssignment.create({
+        data: {
+          applicationId: id("panel"),
+          tutorId: `${prefix}-tutor`,
+          isHead: true,
+        },
+      });
+      const api = caller(database);
+      const retainedIds = evidence.filter((kind) => kind !== "note").map(id).sort();
+      for (const status of ["", "ACCEPTED"] as const) {
+        const open = await api.options({ search, completion: "OPEN", status });
+        expect(open.applications.total).toBe(4);
+        expect(open.applications.rows.map((row) => row.id).sort()).toEqual(
+          retainedIds,
+        );
+      }
+      const history = await api.options({
+        search,
+        completion: "ALL",
+        status: "ACCEPTED",
+      });
+      expect(history.applications.total).toBe(5);
+      expect(history.applications.rows.map((row) => row.id).sort()).toEqual(
+        evidence.map(id).sort(),
+      );
+    }),
+);
+
 it("retains current staff authorization for sorted and filtered history reads", async () =>
   withFixture(async (database) => {
     for (const role of ["ADMIN", "HEAD", "COORDINATOR"] as const) {
