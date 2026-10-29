@@ -3999,7 +3999,7 @@
         "continuationSourceTermId": "续课来源学期",
         "continuationQuarterTransition": "符合条件的季度转换",
         "sourcePairingId": "原配对",
-        "sourceTuteeId": "原学员档案",
+        "sourceTuteeId": "原学习伙伴档案",
         "targetTermId": "目标学期",
         "targetPairingId": "续课配对",
         "assignedAt": "分配时间",
