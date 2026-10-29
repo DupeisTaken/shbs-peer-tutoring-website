@@ -258,6 +258,79 @@ it("restores the weekly interval, shares one target pairing, and preserves origi
   ).toBe(2);
 });
 
+it("replaces manual roster revisions without duplicating or reviving earlier continuation publications", async () => {
+  const joined = await join();
+  const pairingId = joined.targetPairingId!;
+  await db.tutee.create({
+    data: {
+      id: "staff-peer",
+      englishName: "Synthetic Staff Peer",
+      status: "ACTIVE",
+      intakeTermId: "target",
+      firstChoiceId: "math",
+    },
+  });
+  const live = () =>
+    db.sessionPlanCohort.findMany({
+      where: { date: "2026-11-02", status: "SCHEDULED" },
+      include: { participants: true },
+    });
+  await ensureSessionPlanningWindow(db, now);
+  const original = await live();
+  expect(original).toHaveLength(1);
+  const superseded = [original[0]!.planId];
+  // Add, remove, and restore a staff-assigned peer after publication. Returning
+  // to an older roster must publish a new revision, not revive its tombstone.
+  for (const add of [true, false, true]) {
+    if (add)
+      await db.pairingTutee.create({
+        data: { pairingId, tuteeId: "staff-peer" },
+      });
+    else
+      await db.pairingTutee.delete({
+        where: { pairingId_tuteeId: { pairingId, tuteeId: "staff-peer" } },
+      });
+    await ensureSessionPlanningWindow(db, now);
+    const current = await live();
+    expect(current).toHaveLength(1);
+    expect(superseded).not.toContain(current[0]!.planId);
+    expect(
+      current[0]!.participants.map((person) => person.tuteeId).sort(),
+    ).toEqual(add ? ["one", "staff-peer"] : ["one"]);
+    superseded.push(current[0]!.planId);
+  }
+  const latestId = superseded.pop()!;
+  expect(await join("two")).toMatchObject({ state: "ASSIGNED" });
+  await ensureSessionPlanningWindow(db, now);
+  const withConsent = await live();
+  expect(withConsent).toHaveLength(1);
+  expect(withConsent[0]!.planId).toBe(latestId);
+  expect(
+    withConsent[0]!.participants.map((person) => person.tuteeId).sort(),
+  ).toEqual(["one", "staff-peer", "two"]);
+  expect(
+    await db.sessionPlanParticipant.count({
+      where: { planId: { in: superseded }, tuteeId: "two" },
+    }),
+  ).toBe(0);
+  expect(
+    await db.sessionPlanCohort.count({
+      where: { planId: { in: superseded }, status: "SCHEDULED" },
+    }),
+  ).toBe(0);
+  await removeAvailability();
+  await ensureSessionPlanningWindow(db, now);
+  await ensureSessionPlanningWindow(db, now);
+  const released = await live();
+  expect(released).toHaveLength(1);
+  expect(released[0]!.planId).toBe(latestId);
+  expect(
+    released[0]!.participants
+      .filter((person) => person.status === "SCHEDULED")
+      .map((person) => person.tuteeId),
+  ).toEqual(["staff-peer"]);
+});
+
 it("queues an unavailable selection without removing its signup request or creating an assignment", async () => {
   await db.tutorAvailability.deleteMany();
   expect(await join()).toMatchObject({
@@ -343,28 +416,40 @@ it("waits for request notifications before locking the tutor account during avai
   let setter = Promise.resolve({ released: 0 });
   try {
     await inTransaction(db, async (requestTx) => {
-      const request = await requestTx.studentSurvey.findUniqueOrThrow({ where: { id: "survey-one" } });
+      const request = await requestTx.studentSurvey.findUniqueOrThrow({
+        where: { id: "survey-one" },
+      });
       await lockStudentRequestReview(requestTx, request);
       let setterPid = 0;
       setter = locked(async (setterTx) => {
-        const [backend] = await setterTx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
+        const [backend] = await setterTx.$queryRaw<
+          { pid: number }[]
+        >`SELECT pg_backend_pid() AS pid`;
         setterPid = backend!.pid;
         await lockTutorContinuationRequests(setterTx, "tutor");
         await lockAccountProfile(setterTx, "tutor-user");
-        await setterTx.tutorAvailability.deleteMany({ where: { tutorId: "tutor" } });
+        await setterTx.tutorAvailability.deleteMany({
+          where: { tutorId: "tutor" },
+        });
         return reconcileTutorContinuations(setterTx, "tutor", now);
       });
       // Observe the real database wait, then exercise the legacy request action's
       // notification FK acquisition while its request lock is still held.
       await vi.waitFor(async () => {
         expect(setterPid).not.toBe(0);
-        const [waiting] = await db.$queryRaw<{ blocked: boolean }[]>`SELECT cardinality(pg_blocking_pids(${setterPid}::int)) > 0 AS blocked`;
+        const [waiting] = await db.$queryRaw<
+          { blocked: boolean }[]
+        >`SELECT cardinality(pg_blocking_pids(${setterPid}::int)) > 0 AS blocked`;
         expect(waiting?.blocked).toBe(true);
       });
       await notifyRequest(requestTx, request, "student_withdrawal_pending");
     });
     expect(await setter).toEqual({ released: 1 });
-    expect(await db.notification.count({ where: { userId: "tutor-user", event: "student_withdrawal_pending" } })).toBe(1);
+    expect(
+      await db.notification.count({
+        where: { userId: "tutor-user", event: "student_withdrawal_pending" },
+      }),
+    ).toBe(1);
   } finally {
     await setter;
   }

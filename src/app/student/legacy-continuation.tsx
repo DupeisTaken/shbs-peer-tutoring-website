@@ -332,7 +332,13 @@ export function LegacyContinuation() {
       />
     );
   if (!data) return readFeedback;
-  if (status === "unavailable" && !receipt && !data.candidates.length)
+  if (
+    status === "unavailable" &&
+    !receipt &&
+    !held &&
+    !review &&
+    !data.candidates.length
+  )
     return null;
   const dateFormat = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",

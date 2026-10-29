@@ -2392,7 +2392,7 @@
       "empty": "Aucun créneau horaire n'a encore été publié.",
       "save": "Enregistrer les disponibilités",
       "saving": "Enregistrement…",
-      "refreshFailed": "L’enregistrement a été accepté, mais les disponibilités actualisées n’ont pas pu être chargées. Réessayez de les charger avant d’apporter d’autres modifications.",
+      "refreshFailed": "Vos modifications ont été enregistrées, mais certaines informations actualisées n’ont pas pu être chargées. Réessayez le chargement avant de modifier à nouveau.",
       "saved": "Enregistré."
     },
     "interviews": {
@@ -3857,6 +3857,10 @@
     "recordedPosition": "Position enregistrée {number}",
     "presentation": {
       "entities": {
+        "StudentContinuationAssignment": "Choix de poursuite",
+        "StudentContinuationPairing": "Lien d’affectation poursuivie",
+        "StudentContinuationReceipt": "Accusé de réception de la poursuite",
+        "SessionPlanContinuationMember": "Inscription à une séance poursuivie",
         "SessionPlan": "Dated session plan",
         "SessionPlanAssignment": "Captured session assignment",
         "SessionPlanCohort": "Dated teaching session",
@@ -3990,6 +3994,17 @@
         "RecoveryReceipt": "Reçu de récupération"
       },
       "fields": {
+        "signupOpeningStateSince": "État des inscriptions en vigueur depuis",
+        "signupFirstOpenedAt": "Première ouverture des inscriptions",
+        "continuationSourceTermId": "Période d’origine de la poursuite",
+        "continuationQuarterTransition": "Transition trimestrielle admissible",
+        "sourcePairingId": "Affectation précédente",
+        "sourceTuteeId": "Profil précédent de l’élève",
+        "targetTermId": "Période cible",
+        "targetPairingId": "Affectation poursuivie",
+        "assignedAt": "Date d’affectation",
+        "joinedAt": "Date d’inscription",
+        "releasedAt": "Date de libération",
         "generationKey": "Plan generation identifier",
         "originalDate": "Original session date",
         "sourceFingerprint": "Source assignment fingerprint",

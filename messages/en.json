@@ -2392,7 +2392,7 @@
       "empty": "No time slots have been published yet.",
       "save": "Save Availability",
       "saving": "Saving…",
-      "refreshFailed": "Your save was accepted, but the updated availability could not be loaded. Retry loading before making more changes.",
+      "refreshFailed": "Your save was accepted, but some updated details could not be loaded. Retry loading before making more changes.",
       "saved": "Saved."
     },
     "interviews": {
@@ -3857,6 +3857,10 @@
     "recordedPosition": "Recorded position {number}",
     "presentation": {
       "entities": {
+        "StudentContinuationAssignment": "Continuation selection",
+        "StudentContinuationPairing": "Continuation pairing link",
+        "StudentContinuationReceipt": "Continuation submission receipt",
+        "SessionPlanContinuationMember": "Continuing session enrollment",
         "SessionPlan": "Dated session plan",
         "SessionPlanAssignment": "Captured session assignment",
         "SessionPlanCohort": "Dated teaching session",
@@ -3990,6 +3994,17 @@
         "RecoveryReceipt": "Recovery receipt"
       },
       "fields": {
+        "signupOpeningStateSince": "Signup state effective since",
+        "signupFirstOpenedAt": "First signup opening",
+        "continuationSourceTermId": "Continuation source period",
+        "continuationQuarterTransition": "Eligible quarter transition",
+        "sourcePairingId": "Previous pairing",
+        "sourceTuteeId": "Previous Tutee profile",
+        "targetTermId": "Target period",
+        "targetPairingId": "Continuation pairing",
+        "assignedAt": "Assigned at",
+        "joinedAt": "Joined at",
+        "releasedAt": "Released at",
         "generationKey": "Plan generation identifier",
         "originalDate": "Original session date",
         "sourceFingerprint": "Source assignment fingerprint",
@@ -7187,7 +7202,7 @@
       "slotUnavailable": "The previous time is no longer available.",
       "subjectUnavailable": "This subject is not currently offered.",
       "qualificationMissing": "The tutor's current qualification needs review.",
-      "willingnessMissing": "The tutor's willingness to teach this subject needs review.",
+      "willingnessMissing": "The tutor's willingness to tutor this subject needs review.",
       "scheduleConflict": "The previous time conflicts with the current schedule.",
       "roomUnavailable": "The previous room is unavailable.",
       "missingDetails": "Some signup details need review.",

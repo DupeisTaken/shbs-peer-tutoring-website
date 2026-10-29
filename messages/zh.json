@@ -2384,7 +2384,7 @@
       "empty": "尚未发布任何时间段。",
       "save": "保存可用时间",
       "saving": "保存中…",
-      "refreshFailed": "保存请求已成功处理，但无法加载更新后的可用时间。请先重试加载，再继续修改。",
+      "refreshFailed": "保存已成功，但部分最新信息未能加载。请先重试加载，再进行其他修改。",
       "saved": "已保存。"
     },
     "interviews": {
@@ -3857,6 +3857,10 @@
     "recordedPosition": "记录位置 {number}",
     "presentation": {
       "entities": {
+        "StudentContinuationAssignment": "续课选择",
+        "StudentContinuationPairing": "续课配对关联",
+        "StudentContinuationReceipt": "续课提交回执",
+        "SessionPlanContinuationMember": "续课课次报名",
         "SessionPlan": "单次课程计划",
         "SessionPlanAssignment": "课程配对快照",
         "SessionPlanCohort": "单次辅导安排",
@@ -3990,6 +3994,17 @@
         "RecoveryReceipt": "恢复回执"
       },
       "fields": {
+        "signupOpeningStateSince": "报名状态生效时间",
+        "signupFirstOpenedAt": "首次开放报名时间",
+        "continuationSourceTermId": "续课来源学期",
+        "continuationQuarterTransition": "符合条件的季度转换",
+        "sourcePairingId": "原配对",
+        "sourceTuteeId": "原学员档案",
+        "targetTermId": "目标学期",
+        "targetPairingId": "续课配对",
+        "assignedAt": "分配时间",
+        "joinedAt": "加入时间",
+        "releasedAt": "解除时间",
         "generationKey": "计划生成标识",
         "originalDate": "原定课程日期",
         "sourceFingerprint": "原始配对指纹",

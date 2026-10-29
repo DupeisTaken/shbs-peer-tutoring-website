@@ -43,6 +43,38 @@ it("labels recovery evidence only within its known schema owners", () => {
   expect(auditFieldLabelKey("UnknownRecord", "changedFields")).toBeNull();
 });
 
+it("labels continuation evidence and retained-request outcomes only on their owning records", () => {
+  for (const entity of [
+    "StudentContinuationReceipt",
+    "StudentContinuationAssignment",
+    "StudentContinuationPairing",
+    "SessionPlanContinuationMember",
+  ])
+    expect(auditEntityLabelKey(entity)).toBe(
+      `auditEventDetails.presentation.entities.${entity}`,
+    );
+  expect(auditFieldLabelKey("Term", "signupFirstOpenedAt")).toBe(
+    "auditEventDetails.presentation.fields.signupFirstOpenedAt",
+  );
+  expect(
+    auditFieldLabelKey("StudentContinuationAssignment", "sourcePairingId"),
+  ).toBe("auditEventDetails.presentation.fields.sourcePairingId");
+  expect(
+    auditFieldLabelKey("SessionPlanContinuationMember", "releasedAt"),
+  ).toBe("auditEventDetails.presentation.fields.releasedAt");
+  expect(auditFieldLabelKey("StudentSurvey", "signupFirstOpenedAt")).toBeNull();
+  expect(
+    auditEnumLabelKey("StudentContinuationAssignment", "status", "UNASSIGNED"),
+  ).toBe("legacyContinuation.result.queued");
+  expect(
+    auditEnumLabelKey("StudentContinuationAssignment", "status", "RELEASED"),
+  ).toBe("legacyContinuation.result.released");
+  expect(
+    auditEnumLabelKey("StudentContinuationAssignment", "reason", "RELEASED"),
+  ).toBeNull();
+  expect(auditEnumLabelKey("StudentSurvey", "status", "UNASSIGNED")).toBeNull();
+});
+
 it.each(Object.entries({ en, zh, de, el, es, fr, ja, ko }))(
   "has localized schema vocabulary in %s",
   (_locale, catalog) => {

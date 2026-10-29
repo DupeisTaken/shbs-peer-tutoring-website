@@ -283,6 +283,42 @@ it("recovers a committed lost response without replaying Join", async () => {
   expect(mocks.join).toHaveBeenCalledTimes(1);
 });
 
+it("keeps receipt recovery available when a later poll has no eligible source period", async () => {
+  mocks.join.mockRejectedValue(new Error("Response lost"));
+  mocks.recover.mockResolvedValue(receipt);
+  const view = mount();
+  reviewMath();
+  agree();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Join selected pairings" }),
+  );
+  await screen.findByText(/The submission result could not be confirmed/);
+  const posted = mocks.join.mock.calls[0]?.[0] as { clientKey: string };
+  data = {
+    ...data,
+    status: "unavailable",
+    candidates: [],
+    revision: "new-period",
+  };
+  view.refresh();
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Check request result" }));
+  await screen.findByText("Your signup request has been filed.");
+  expect(mocks.recover).toHaveBeenCalledWith({ clientKey: posted.clientKey });
+  expect(mocks.join).toHaveBeenCalledTimes(1);
+});
+
+it("hides an unavailable empty continuation panel when no review or attempt needs recovery", () => {
+  data = { ...data, status: "unavailable", candidates: [] };
+  mount();
+  expect(
+    screen.queryByRole("heading", { name: messages.legacyContinuation.title }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Check request result" }),
+  ).toBeNull();
+});
+
 it("retains a rejected draft and allows a fresh attempt only after checking receipt absence", async () => {
   mocks.join.mockRejectedValue(new Error("Rejected"));
   mount();

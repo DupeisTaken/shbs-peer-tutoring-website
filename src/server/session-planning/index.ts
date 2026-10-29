@@ -71,6 +71,37 @@ function assignmentRoster(plan: Plan, assignment: Plan["assignments"][number]) {
     ]),
   ];
 }
+
+function continuationPublication(
+  plan: Pick<Plan, "generationKey" | "originalDate">,
+) {
+  const marker = `:${plan.originalDate}:continuation`;
+  const index = plan.generationKey.lastIndexOf(marker);
+  if (index < 0) return null;
+  const suffix = plan.generationKey.slice(index + marker.length);
+  if (suffix && !/^:\d+$/.test(suffix)) return null;
+  return {
+    sourceDate: plan.generationKey.slice(0, index + marker.length),
+    revision: suffix ? Number(suffix.slice(1)) : 0,
+  };
+}
+
+function latestContinuationPublications<
+  T extends Pick<Plan, "generationKey" | "originalDate">,
+>(plans: T[]) {
+  const latest = new Map<string, T>();
+  for (const plan of plans) {
+    const identity = continuationPublication(plan);
+    if (!identity) continue;
+    const previous = latest.get(identity.sourceDate);
+    if (
+      !previous ||
+      continuationPublication(previous)!.revision < identity.revision
+    )
+      latest.set(identity.sourceDate, plan);
+  }
+  return latest;
+}
 function fail(
   message: string,
   code: "CONFLICT" | "FORBIDDEN" | "BAD_REQUEST" | "NOT_FOUND" = "BAD_REQUEST",
@@ -251,6 +282,17 @@ async function sourceIsCurrent(
     return false;
   // Ended, published lessons retain their captured roster instead of using today's enrollment.
   if (!plan.term.active && allowEndedTerm) return true;
+  return assignmentSourceMatches(tx, plan);
+}
+
+/** Consent deltas preserve a publication; an unrelated roster edit starts a new
+ * publication revision. Account availability does not itself mint revisions. */
+async function assignmentSourceMatches(
+  tx: TransactionDb,
+  plan: Plan,
+  addition?: { pairingId: string; tuteeId: string },
+) {
+  const pairingIds = plan.assignments.map((row) => row.pairingId);
   const rows = await tx.pairing.findMany({
     where: { id: { in: plan.assignments.map((row) => row.pairingId) } },
     include: {
@@ -289,6 +331,7 @@ async function sourceIsCurrent(
           ...laterContinuations
             .filter((member) => member.targetPairingId === row.id)
             .map((member) => member.tuteeId),
+          ...(addition?.pairingId === row.id ? [addition.tuteeId] : []),
         ]),
       ].sort();
       return (
@@ -1111,6 +1154,15 @@ export async function ensureSessionPlanningWindow(
           pairingId: { in: entry.pairings.map((pairing) => pairing.id) },
         },
       });
+      const continuing = continuationCount === entry.pairings.length;
+      const publications = continuing
+        ? latestContinuationPublications(
+            await tx.sessionPlan.findMany({
+              where: { generationKey: { startsWith: prefix }, kind: "REGULAR" },
+              include: planInclude,
+            }),
+          )
+        : null;
       for (
         let date = weeks.start;
         date <= weeks.prepareEnd;
@@ -1129,9 +1181,15 @@ export async function ensureSessionPlanningWindow(
             date > programDateKey(primary.term.endDate, timeZone))
         )
           continue;
-        // A continuing teaching block has one physical plan per date. New consent
-        // appends membership evidence instead of duplicating every peer's lesson.
-        const generationKey = `regular:${primary.termId}:${entry.id}:${date}:${continuationCount === entry.pairings.length ? "continuation" : rosterHash}`;
+        // Only explicit consent deltas retain the current publication. Manual
+        // roster edits replace its cancelled future plans, including a later
+        // return to an older roster; obsolete publications are never revived.
+        const continuationKey = `${prefix}${date}:continuation`;
+        const previous = publications?.get(continuationKey);
+        if (previous && (await assignmentSourceMatches(tx, previous))) continue;
+        const generationKey = continuing
+          ? `${continuationKey}:${previous ? continuationPublication(previous)!.revision + 1 : 0}`
+          : `${prefix}${date}:${rosterHash}`;
         if (await tx.sessionPlan.findUnique({ where: { generationKey } }))
           continue;
         let window: ReturnType<typeof plannedWindow>;
@@ -2540,7 +2598,17 @@ export async function syncContinuationPlanMembership(
     where: { assignments: { some: { pairingId: input.pairingId } } },
     include: { ...planInclude, cohorts: true },
   });
+  const publications = latestContinuationPublications(plans);
   for (const plan of plans) {
+    if (!input.releasedAt) {
+      const publication = continuationPublication(plan);
+      if (
+        (publication &&
+          publications.get(publication.sourceDate)?.id !== plan.id) ||
+        !(await assignmentSourceMatches(tx, plan, input))
+      )
+        continue;
+    }
     const existing = plan.participants.find(
       (person) => person.tuteeId === input.tuteeId,
     );

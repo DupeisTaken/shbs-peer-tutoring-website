@@ -2392,7 +2392,7 @@
       "empty": "Δεν έχουν δημοσιευτεί ακόμη χρονοθυρίδες.",
       "save": "Αποθήκευση διαθεσιμότητας",
       "saving": "Αποθήκευση…",
-      "refreshFailed": "Η αποθήκευση έγινε δεκτή, αλλά δεν ήταν δυνατή η φόρτωση της ενημερωμένης διαθεσιμότητας. Δοκιμάστε ξανά τη φόρτωση πριν κάνετε άλλες αλλαγές.",
+      "refreshFailed": "Οι αλλαγές αποθηκεύτηκαν, αλλά ορισμένα ενημερωμένα στοιχεία δεν φορτώθηκαν. Δοκιμάστε ξανά τη φόρτωση πριν κάνετε άλλες αλλαγές.",
       "saved": "Αποθηκεύτηκε."
     },
     "interviews": {
@@ -3857,6 +3857,10 @@
     "recordedPosition": "Καταγεγραμμένη θέση {number}",
     "presentation": {
       "entities": {
+        "StudentContinuationAssignment": "Επιλογή συνέχισης",
+        "StudentContinuationPairing": "Σύνδεση αντιστοίχισης συνέχισης",
+        "StudentContinuationReceipt": "Απόδειξη υποβολής συνέχισης",
+        "SessionPlanContinuationMember": "Συμμετοχή σε συνεχιζόμενη συνεδρία",
         "SessionPlan": "Dated session plan",
         "SessionPlanAssignment": "Captured session assignment",
         "SessionPlanCohort": "Dated teaching session",
@@ -3990,6 +3994,17 @@
         "RecoveryReceipt": "Αποδεικτικό ανάκτησης"
       },
       "fields": {
+        "signupOpeningStateSince": "Ισχύς κατάστασης εγγραφών από",
+        "signupFirstOpenedAt": "Πρώτο άνοιγμα εγγραφών",
+        "continuationSourceTermId": "Περίοδος προέλευσης συνέχισης",
+        "continuationQuarterTransition": "Επιλέξιμη μετάβαση τριμήνου",
+        "sourcePairingId": "Προηγούμενη αντιστοίχιση",
+        "sourceTuteeId": "Προηγούμενο προφίλ μαθητή",
+        "targetTermId": "Περίοδος προορισμού",
+        "targetPairingId": "Αντιστοίχιση συνέχισης",
+        "assignedAt": "Χρόνος ανάθεσης",
+        "joinedAt": "Χρόνος συμμετοχής",
+        "releasedAt": "Χρόνος αποδέσμευσης",
         "generationKey": "Plan generation identifier",
         "originalDate": "Original session date",
         "sourceFingerprint": "Source assignment fingerprint",

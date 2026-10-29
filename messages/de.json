@@ -2392,7 +2392,7 @@
       "empty": "Noch keine Zeitfenster veröffentlicht.",
       "save": "Verfügbarkeit speichern",
       "saving": "Wird gespeichert…",
-      "refreshFailed": "Die Speicherung wurde bestätigt, aber die aktualisierte Verfügbarkeit konnte nicht geladen werden. Versuche das Laden erneut, bevor du weitere Änderungen vornimmst.",
+      "refreshFailed": "Deine Änderung wurde gespeichert, aber einige aktualisierte Angaben konnten nicht geladen werden. Lade sie erneut, bevor du weitere Änderungen vornimmst.",
       "saved": "Gespeichert."
     },
     "interviews": {
@@ -3857,6 +3857,10 @@
     "recordedPosition": "Erfasste Position {number}",
     "presentation": {
       "entities": {
+        "StudentContinuationAssignment": "Auswahl zur Fortsetzung",
+        "StudentContinuationPairing": "Verknüpfung der fortgesetzten Zuordnung",
+        "StudentContinuationReceipt": "Eingangsbestätigung der Fortsetzung",
+        "SessionPlanContinuationMember": "Teilnahme an fortgesetzter Sitzung",
         "SessionPlan": "Dated session plan",
         "SessionPlanAssignment": "Captured session assignment",
         "SessionPlanCohort": "Dated teaching session",
@@ -3990,6 +3994,17 @@
         "RecoveryReceipt": "Wiederherstellungsbeleg"
       },
       "fields": {
+        "signupOpeningStateSince": "Anmeldestatus gültig seit",
+        "signupFirstOpenedAt": "Erste Anmeldeöffnung",
+        "continuationSourceTermId": "Ausgangszeitraum der Fortsetzung",
+        "continuationQuarterTransition": "Berechtigter Quartalswechsel",
+        "sourcePairingId": "Vorherige Zuordnung",
+        "sourceTuteeId": "Vorheriges Lernendenprofil",
+        "targetTermId": "Zielzeitraum",
+        "targetPairingId": "Fortgesetzte Zuordnung",
+        "assignedAt": "Zugewiesen am",
+        "joinedAt": "Beigetreten am",
+        "releasedAt": "Freigegeben am",
         "generationKey": "Plan generation identifier",
         "originalDate": "Original session date",
         "sourceFingerprint": "Source assignment fingerprint",

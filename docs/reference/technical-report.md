@@ -1279,7 +1279,11 @@ and append current participation rather than copying old attendance. The existin
 dated-session 45-minute normalization remains unchanged; the selection UI shows
 the inherited weekly source interval. `StudentContinuationPairing` records the
 destination mapping so another consenting member does not duplicate the same
-physical teaching block.
+physical teaching block. Consent additions and targeted releases retain the
+current dated publication. Unrelated staff roster changes create a new numbered
+publication revision, including when the roster returns to an older shape;
+later consent attaches only to the current revision and never revives an obsolete
+publication or its cancelled participants.
 
 During the destination quarter, availability reconciliation releases the affected
 continuation membership and future dated participation while retaining request

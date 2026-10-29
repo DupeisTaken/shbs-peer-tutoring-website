@@ -28,6 +28,7 @@ const slots = [
 ];
 vi.mock("~/trpc/react", () => ({
   api: {
+    useUtils: () => ({}),
     tutor: {
       myAvailability: {
         useQuery: () => ({

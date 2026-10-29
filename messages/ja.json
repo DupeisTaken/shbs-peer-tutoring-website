@@ -2392,7 +2392,7 @@
       "empty": "まだ公開されているタイムスロットはありません。",
       "save": "空き時間を保存",
       "saving": "保存中…",
-      "refreshFailed": "保存は受け付けられましたが、更新後の空き時間を読み込めませんでした。続けて変更する前に、読み込みを再試行してください。",
+      "refreshFailed": "保存は完了しましたが、一部の最新情報を読み込めませんでした。再読み込みしてから、次の変更を行ってください。",
       "saved": "保存しました。"
     },
     "interviews": {
@@ -3857,6 +3857,10 @@
     "recordedPosition": "記録位置 {number}",
     "presentation": {
       "entities": {
+        "StudentContinuationAssignment": "継続の選択",
+        "StudentContinuationPairing": "継続ペアリングの関連付け",
+        "StudentContinuationReceipt": "継続申込の受付記録",
+        "SessionPlanContinuationMember": "継続セッションへの参加登録",
         "SessionPlan": "Dated session plan",
         "SessionPlanAssignment": "Captured session assignment",
         "SessionPlanCohort": "Dated teaching session",
@@ -3990,6 +3994,17 @@
         "RecoveryReceipt": "復旧の完了記録"
       },
       "fields": {
+        "signupOpeningStateSince": "申込状態の適用開始日時",
+        "signupFirstOpenedAt": "最初の申込開始日時",
+        "continuationSourceTermId": "継続元の期間",
+        "continuationQuarterTransition": "対象となる四半期の移行",
+        "sourcePairingId": "以前のペアリング",
+        "sourceTuteeId": "以前の学習者プロフィール",
+        "targetTermId": "対象期間",
+        "targetPairingId": "継続ペアリング",
+        "assignedAt": "割り当て日時",
+        "joinedAt": "参加日時",
+        "releasedAt": "解除日時",
         "generationKey": "Plan generation identifier",
         "originalDate": "Original session date",
         "sourceFingerprint": "Source assignment fingerprint",

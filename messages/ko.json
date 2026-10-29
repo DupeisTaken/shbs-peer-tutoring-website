@@ -2392,7 +2392,7 @@
       "empty": "아직 공개된 시간대가 없습니다.",
       "save": "가용 시간 저장",
       "saving": "저장 중…",
-      "refreshFailed": "저장은 처리되었지만 업데이트된 가용 시간을 불러오지 못했습니다. 추가로 변경하기 전에 다시 불러오기를 시도하세요.",
+      "refreshFailed": "저장되었지만 일부 최신 정보를 불러오지 못했습니다. 추가로 변경하기 전에 다시 불러오세요.",
       "saved": "저장되었습니다."
     },
     "interviews": {
@@ -3857,6 +3857,10 @@
     "recordedPosition": "기록 위치 {number}",
     "presentation": {
       "entities": {
+        "StudentContinuationAssignment": "계속 수강 선택",
+        "StudentContinuationPairing": "계속 수강 배정 연결",
+        "StudentContinuationReceipt": "계속 수강 신청 접수 기록",
+        "SessionPlanContinuationMember": "계속 수강 세션 등록",
         "SessionPlan": "Dated session plan",
         "SessionPlanAssignment": "Captured session assignment",
         "SessionPlanCohort": "Dated teaching session",
@@ -3990,6 +3994,17 @@
         "RecoveryReceipt": "복구 완료 기록"
       },
       "fields": {
+        "signupOpeningStateSince": "신청 상태 적용 시작",
+        "signupFirstOpenedAt": "최초 신청 시작",
+        "continuationSourceTermId": "계속 수강의 이전 기간",
+        "continuationQuarterTransition": "가능한 분기 전환",
+        "sourcePairingId": "이전 배정",
+        "sourceTuteeId": "이전 학습자 프로필",
+        "targetTermId": "대상 기간",
+        "targetPairingId": "계속 수강 배정",
+        "assignedAt": "배정 일시",
+        "joinedAt": "참여 일시",
+        "releasedAt": "해제 일시",
         "generationKey": "Plan generation identifier",
         "originalDate": "Original session date",
         "sourceFingerprint": "Source assignment fingerprint",

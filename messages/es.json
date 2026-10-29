@@ -2384,7 +2384,7 @@
       "empty": "Aún no se han publicado horarios.",
       "save": "Guardar disponibilidad",
       "saving": "Guardando…",
-      "refreshFailed": "Se aceptó el guardado, pero no se pudo cargar la disponibilidad actualizada. Vuelve a intentar cargarla antes de realizar más cambios.",
+      "refreshFailed": "Se guardaron los cambios, pero no se pudieron cargar algunos datos actualizados. Vuelve a cargarlos antes de hacer más cambios.",
       "saved": "Guardado."
     },
     "interviews": {
@@ -3857,6 +3857,10 @@
     "recordedPosition": "Posición registrada {number}",
     "presentation": {
       "entities": {
+        "StudentContinuationAssignment": "Selección de continuidad",
+        "StudentContinuationPairing": "Vínculo de asignación continuada",
+        "StudentContinuationReceipt": "Comprobante de solicitud de continuidad",
+        "SessionPlanContinuationMember": "Inscripción en sesión continuada",
         "SessionPlan": "Dated session plan",
         "SessionPlanAssignment": "Captured session assignment",
         "SessionPlanCohort": "Dated teaching session",
@@ -3990,6 +3994,17 @@
         "RecoveryReceipt": "Comprobante de recuperación"
       },
       "fields": {
+        "signupOpeningStateSince": "Estado de inscripción vigente desde",
+        "signupFirstOpenedAt": "Primera apertura de inscripciones",
+        "continuationSourceTermId": "Período de origen de la continuidad",
+        "continuationQuarterTransition": "Transición trimestral elegible",
+        "sourcePairingId": "Asignación anterior",
+        "sourceTuteeId": "Perfil anterior del estudiante",
+        "targetTermId": "Período de destino",
+        "targetPairingId": "Asignación continuada",
+        "assignedAt": "Fecha de asignación",
+        "joinedAt": "Fecha de incorporación",
+        "releasedAt": "Fecha de liberación",
         "generationKey": "Plan generation identifier",
         "originalDate": "Original session date",
         "sourceFingerprint": "Source assignment fingerprint",
