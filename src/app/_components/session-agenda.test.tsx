@@ -180,6 +180,82 @@ it("keeps the final Sunday and older incomplete attendance reachable", () => {
   fireEvent.click(screen.getByRole("tab", { name: messages.needsAttendance }));
   expect(screen.getByText("Older subject")).toBeTruthy();
 });
+it("stops historical response prompts on a split request while retaining evidence and formalization", () => {
+  const response = {
+    id: "delivered-response",
+    actorKey: "tutee:delivered",
+    name: "Delivered Learner",
+    state: "PENDING" as const,
+    deadline: new Date("2099-01-02T07:00:00Z"),
+    deliveredAt: new Date("2099-01-01T07:00:00Z"),
+    acceptedBy: null,
+    isMe: false,
+  };
+  const request: Agenda["requests"][number] = {
+    id: "split-request",
+    version: 4,
+    planId: "plan-synthetic",
+    cohortId: "cohort-synthetic",
+    kind: "RESCHEDULE",
+    scope: "ALL",
+    status: "PENDING",
+    stage: 1,
+    participantIds: ["delivered", "undelivered"],
+    currentOffer: {
+      id: "split-offer",
+      date: "2099-01-04",
+      startMin: 900,
+      endMin: 945,
+      roomId: null,
+      online: true,
+      startsAt: new Date("2099-01-04T07:00:00Z"),
+      endsAt: new Date("2099-01-04T07:45:00Z"),
+      cutoffAt: new Date("2099-01-03T07:00:00Z"),
+      schoolClosed: false,
+      responses: [
+        response,
+        {
+          ...response,
+          id: "undelivered-response",
+          actorKey: "tutee:undelivered",
+          name: "Undelivered Learner",
+          deadline: null,
+          deliveredAt: null,
+        },
+      ],
+      myResponse: null,
+      canReject: false,
+      canRequestSplit: false,
+    },
+  };
+  state.data!.requests = [request];
+  const ui = () => (
+    <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={en}>
+      <SessionAgenda role="tutor" />
+    </NextIntlClientProvider>
+  );
+  const view = render(ui());
+  const deadline = screen.getByText(/^Respond by /);
+  const remaining = screen.getByText(/ h \d+ min remaining$/);
+  const delivery = screen.getByText(messages.deliveryPending);
+  // Suspending a request retains its response evidence and original deadlines.
+  state.data!.requests = [{ ...request, status: "SPLIT_REQUESTED" }];
+  view.rerender(ui());
+  expect(deadline.isConnected).toBe(false);
+  expect(remaining.isConnected).toBe(false);
+  expect(delivery.isConnected).toBe(false);
+  expect(screen.queryByText(messages.checking)).toBeNull();
+  expect(screen.getByText(/Delivered Learner/)).toBeTruthy();
+  expect(screen.getByText(/Undelivered Learner/)).toBeTruthy();
+  expect(screen.getByText(messages.splitHelp)).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: messages.formalizeSplit,
+    }).disabled,
+  ).toBe(false);
+  expect(state.respond).not.toHaveBeenCalled();
+  expect(state.formalize).not.toHaveBeenCalled();
+});
 it.each(["en", "zh"] as const)(
   "gives %s learners suggestions without tutor proposal or attendance actions",
   (locale) => {

@@ -19,6 +19,7 @@ import {
 } from "~/server/auth/registration";
 import { stampStudentAssignment } from "~/server/student-request-state";
 import { updateAccountProfile } from "~/server/account-profile";
+import { ensureSessionPlanningWindow } from "~/server/session-planning";
 
 beforeEach(async () => {
   assertIsolatedTestDatabase(process.env.DATABASE_URL);
@@ -57,7 +58,12 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
-async function admission(options: { existingStudent?: boolean } = {}) {
+async function admission(
+  options: {
+    existingStudent?: boolean;
+    planningDuringAdmission?: boolean;
+  } = {},
+) {
   if (options.existingStudent) {
     await db.tutee.create({
       data: {
@@ -103,6 +109,20 @@ async function admission(options: { existingStudent?: boolean } = {}) {
       },
     });
     await reconcileApplication(tx, application.id);
+    if (options.planningDuringAdmission) {
+      const admitted = await tx.tutorApplication.findUniqueOrThrow({
+        where: { id: application.id },
+        select: { promotedTutorId: true },
+      });
+      if (!admitted.promotedTutorId)
+        throw new Error("Synthetic admission did not establish a tutor");
+      await tx.sessionPlan.create({
+        data: {
+          ...planData(admitted.promotedTutorId, "mixed-admission"),
+          cohorts: { create: cohortData },
+        },
+      });
+    }
     await finishAdmissionRecoveryCapture(tx, action);
     return action!;
   });
@@ -159,7 +179,12 @@ async function register(applicationId: string) {
   });
 }
 
-async function assignment(tutorId: string, suffix = "one", tuteeId?: string) {
+async function assignment(
+  tutorId: string,
+  suffix = "one",
+  tuteeId?: string,
+  scheduled = false,
+) {
   const student = tuteeId ?? "student-" + suffix;
   if (!tuteeId)
     await db.tutee.create({
@@ -178,7 +203,8 @@ async function assignment(tutorId: string, suffix = "one", tuteeId?: string) {
         roomMode: "NONE",
         dayOfWeek: 1,
         startMin: 600,
-        endMin: 660,
+        endMin: scheduled ? 645 : 660,
+        scheduleConfirmed: scheduled,
         tutees: { create: { tuteeId: student } },
       },
     }),
@@ -192,6 +218,378 @@ const intent = (
   expectedFingerprint: plan.fingerprint,
   clientKey: randomUUID(),
   reason: "Voiding mistaken initial admission",
+});
+
+const planningTables = [
+  "SessionPlan",
+  "SessionPlanAssignment",
+  "SessionPlanCohort",
+  "SessionPlanParticipant",
+  "SessionPlanningSuggestion",
+  "SessionPlanningRequest",
+  "SessionPlanningOffer",
+  "SessionPlanningResponse",
+  "SessionPlanningReceipt",
+  "SessionNotice",
+  "SessionCalendarToken",
+];
+const planData = (tutorId: string, suffix: string) => ({
+  generationKey: `recovery-synthetic:${suffix}`,
+  tutorId,
+  termId: "term",
+  originalDate: "2026-11-02",
+  timeZone: "Asia/Shanghai",
+  sourceFingerprint: "synthetic-roster",
+});
+const cohortData = {
+  date: "2026-11-02",
+  startMin: 600,
+  endMin: 645,
+  startsAt: new Date("2026-11-02T02:00:00Z"),
+  endsAt: new Date("2026-11-02T02:45:00Z"),
+};
+
+it("covers every scheduling table without making empty or unrelated tables block admission recovery", async () => {
+  const triggers = await db.$queryRaw<
+    { tableName: string }[]
+  >`SELECT c.relname AS "tableName" FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid WHERE c.relname=ANY(${planningTables}::text[]) AND t.tgname='recovery_change_journal' AND t.tgenabled IN ('O','A') AND t.tgtype=29 AND t.tgfoid='recovery_capture_change()'::regprocedure`;
+  expect(triggers.map((row) => row.tableName).sort()).toEqual(
+    [...planningTables].sort(),
+  );
+  const source = await admission();
+  await db.tutor.create({
+    data: {
+      id: "independent-planning-tutor",
+      englishName: "Independent tutor",
+      status: "ACTIVE",
+    },
+  });
+  await db.sessionPlan.create({
+    data: planData("independent-planning-tutor", "unrelated"),
+  });
+  expect(await inspectAdmissionRecovery(db, source)).toMatchObject({
+    coverage: "COMPLETE",
+    dependentEventCount: 0,
+    websiteEligible: true,
+  });
+});
+
+it("reuses compatible planning journal triggers and refuses replica-only coverage without replacing it", async () => {
+  await db.$executeRaw`SELECT recovery_install_planning_journal()`;
+  await db.$executeRawUnsafe(
+    'ALTER TABLE "SessionPlan" ENABLE REPLICA TRIGGER recovery_change_journal',
+  );
+  try {
+    await expect(
+      db.$executeRaw`SELECT recovery_install_planning_journal()`,
+    ).rejects.toThrow("incompatible");
+    const [trigger] = await db.$queryRaw<
+      { enabled: string }[]
+    >`SELECT tgenabled::text AS enabled FROM pg_trigger WHERE tgrelid='"SessionPlan"'::regclass AND tgname='recovery_change_journal'`;
+    expect(trigger?.enabled).toBe("R");
+  } finally {
+    await db.$executeRawUnsafe(
+      'ALTER TABLE "SessionPlan" ENABLE TRIGGER recovery_change_journal',
+    );
+  }
+});
+
+it("blocks scheduling descendants captured inside the original trusted admission transaction", async () => {
+  const source = await admission({ planningDuringAdmission: true });
+  const plan = await inspectAdmissionRecovery(db, source);
+  expect(plan).toMatchObject({
+    coverage: "UNKNOWN",
+    dependentEventCount: 0,
+    websiteEligible: false,
+  });
+  expect(plan.blockers).toContain("Unsupported dependent event: UNSUPPORTED.");
+  const events = await db.recoveryEvent.findMany({
+    where: { actionId: source.actionId },
+  });
+  expect(events).toHaveLength(1);
+  const event = events[0];
+  if (!event) throw new Error("Synthetic admission event was not captured");
+  expect(event.kind).toBe("ADMISSION");
+  expect(
+    await db.recoveryChange.count({
+      where: {
+        actionId: source.actionId,
+        eventId: event.id,
+        entity: "SessionPlan",
+      },
+    }),
+  ).toBe(1);
+  await expect(
+    applyAdmissionRecoveryFromOperator(db, intent(plan), { id: "admin" }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(
+    await db.recoveryReceipt.count({ where: { actionId: source.actionId } }),
+  ).toBe(0);
+  expect(
+    await db.sessionPlanCohort.count({
+      where: { plan: { tutorId: source.tutorId }, status: "SCHEDULED" },
+    }),
+  ).toBe(1);
+  expect(
+    (
+      await db.tutorApplication.findUniqueOrThrow({
+        where: { id: source.applicationId },
+      })
+    ).status,
+  ).toBe("ACCEPTED");
+});
+
+it("journals published plans and every negotiation descendant without private delivery or capability values", async () => {
+  const source = await admission();
+  const user = await register(source.applicationId);
+  const link = await assignment(source.tutorId, "planned", undefined, true);
+  const before = await inspectAdmissionRecovery(db, source);
+  expect(before.coverage).toBe("COMPLETE");
+  await ensureSessionPlanningWindow(db, new Date("2026-10-26T00:00:00Z"));
+  const cohort = await db.sessionPlanCohort.findFirstOrThrow({
+    where: { plan: { tutorId: source.tutorId } },
+  });
+  const request = await db.sessionPlanningRequest.create({
+    data: {
+      planId: cohort.planId,
+      cohortId: cohort.id,
+      kind: "RESCHEDULE",
+      scope: "ONE",
+      participantIds: [link.tuteeId],
+    },
+  });
+  await db.sessionPlanningSuggestion.create({
+    data: {
+      planId: cohort.planId,
+      cohortId: cohort.id,
+      tuteeId: link.tuteeId,
+      actorUserId: user.id,
+      sourceVersion: cohort.version,
+      date: "2026-11-03",
+      startMin: 600,
+    },
+  });
+  const offer = await db.sessionPlanningOffer.create({
+    data: {
+      requestId: request.id,
+      sequence: 1,
+      authorKey: `TUTOR:${user.id}`,
+      ...cohortData,
+      cutoffAt: cohort.startsAt,
+    },
+  });
+  const response = await db.sessionPlanningResponse.create({
+    data: {
+      offerId: offer.id,
+      actorKey: `TUTOR:${user.id}`,
+      actorUserId: user.id,
+    },
+  });
+  const privateEmail = "never-journal-mailbox@example.test",
+    privateHash = "never-journal-calendar-token-hash",
+    privateContext = "never-journal-delivery-context";
+  await db.sessionNotice.create({
+    data: {
+      dedupeKey: randomUUID(),
+      requestId: request.id,
+      offerId: offer.id,
+      responseId: response.id,
+      recipientUserId: user.id,
+      recipientEmail: privateEmail,
+      event: "proposed",
+      context: { privateContext },
+      lastError: "never-journal-smtp-error",
+    },
+  });
+  await db.sessionCalendarToken.create({
+    data: { userId: user.id, tokenHash: privateHash },
+  });
+  await db.sessionPlanningReceipt.create({
+    data: {
+      actorId: user.id,
+      clientKey: randomUUID(),
+      payloadHash: "never-journal-request-hash",
+      result: { privateContext },
+    },
+  });
+  const changes = await db.recoveryChange.findMany({
+    where: { actionId: source.actionId, entity: { in: planningTables } },
+  });
+  expect(new Set(changes.map((row) => row.entity))).toEqual(
+    new Set(planningTables),
+  );
+  const serialized = JSON.stringify(changes, (_key, value: unknown) =>
+    typeof value === "bigint" ? String(value) : value,
+  );
+  for (const privateValue of [
+    privateEmail,
+    privateHash,
+    privateContext,
+    "never-journal-smtp-error",
+    "never-journal-request-hash",
+  ])
+    expect(serialized).not.toContain(privateValue);
+  const planned = await inspectAdmissionRecovery(db, source);
+  expect(planned.fingerprint).not.toBe(before.fingerprint);
+  expect(planned.coverage).toBe("UNKNOWN");
+  expect(planned.blockers.join(" ")).not.toContain("coverage is missing");
+  await expect(
+    applyAdmissionRecoveryFromOperator(db, intent(planned), { id: "admin" }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(
+    await db.sessionPlanCohort.findUniqueOrThrow({ where: { id: cohort.id } }),
+  ).toMatchObject({ status: "SCHEDULED" });
+});
+
+it("follows a tutor admission's retained tutee alias and then journals subsequent parent changes", async () => {
+  const source = await admission({ existingStudent: true });
+  await db.tutee.create({
+    data: {
+      id: "retained-recovery-alias",
+      englishName: "Retained learner",
+      status: "ACTIVE",
+    },
+  });
+  await db.studentProfileOwnership.create({
+    data: { tuteeId: "retained-recovery-alias", userId: "prior-user" },
+  });
+  await db.tutor.create({
+    data: {
+      id: "alias-planning-tutor",
+      englishName: "Independent tutor",
+      status: "ACTIVE",
+    },
+  });
+  const plan = await db.sessionPlan.create({
+    data: planData("alias-planning-tutor", "alias"),
+  });
+  const cohort = await db.sessionPlanCohort.create({
+    data: { planId: plan.id, ...cohortData },
+  });
+  await db.sessionPlanParticipant.create({
+    data: {
+      planId: plan.id,
+      cohortId: cohort.id,
+      tuteeId: "retained-recovery-alias",
+    },
+  });
+  expect(
+    await db.recoveryTrackedEntity.count({
+      where: {
+        actionId: source.actionId,
+        entity: "SessionPlan",
+        recordId: plan.id,
+      },
+    }),
+  ).toBe(1);
+  const before = await inspectAdmissionRecovery(db, source);
+  await db.sessionPlanCohort.update({
+    where: { id: cohort.id },
+    data: {
+      status: "CANCELLED",
+      sourceInvalidated: true,
+      version: { increment: 1 },
+    },
+  });
+  expect(
+    await db.recoveryChange.count({
+      where: {
+        actionId: source.actionId,
+        entity: "SessionPlanCohort",
+        operation: "UPDATE",
+        recordKey: { path: ["id"], equals: cohort.id },
+      },
+    }),
+  ).toBe(1);
+  expect((await inspectAdmissionRecovery(db, source)).fingerprint).not.toBe(
+    before.fingerprint,
+  );
+});
+
+it("baselines pre-trigger related plans idempotently without inventing historical event order", async () => {
+  const source = await admission();
+  const plan = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT set_config('shbs.recovery_compensating','1',true)`;
+    return tx.sessionPlan.create({
+      data: {
+        ...planData(source.tutorId, "legacy"),
+        cohorts: { create: cohortData },
+      },
+    });
+  });
+  expect((await inspectAdmissionRecovery(db, source)).coverage).toBe(
+    "COMPLETE",
+  );
+  await db.$executeRaw`SELECT recovery_register_planning_baseline()`;
+  const changes = await db.recoveryChange.findMany({
+    where: { actionId: source.actionId, operation: "BASELINE" },
+  });
+  expect(
+    changes.some(
+      (change) =>
+        change.entity === "SessionPlan" &&
+        typeof change.recordKey === "object" &&
+        change.recordKey &&
+        "id" in change.recordKey &&
+        change.recordKey.id === plan.id,
+    ),
+  ).toBe(true);
+  expect((await inspectAdmissionRecovery(db, source)).coverage).toBe("UNKNOWN");
+  await db.$executeRaw`SELECT recovery_register_planning_baseline()`;
+  expect(
+    await db.recoveryChange.count({
+      where: { actionId: source.actionId, operation: "BASELINE" },
+    }),
+  ).toBe(changes.length);
+});
+
+it("rejects stale new publication after an admission was voided", async () => {
+  const source = await admission();
+  await applyAdmissionRecovery(
+    db,
+    intent(await inspectAdmissionRecovery(db, source)),
+    { id: "admin" },
+  );
+  await expect(
+    db.sessionPlan.create({ data: planData(source.tutorId, "after-void") }),
+  ).rejects.toThrow();
+  expect(
+    await db.sessionPlan.count({ where: { tutorId: source.tutorId } }),
+  ).toBe(0);
+});
+
+it("serializes concurrent publication and recovery without cancelling a published commitment or reviving a voided tutor", async () => {
+  const source = await admission();
+  await register(source.applicationId);
+  await assignment(source.tutorId, "publication-race", undefined, true);
+  const preview = await inspectAdmissionRecovery(db, source);
+  expect(preview.coverage).toBe("COMPLETE");
+  const results = await Promise.allSettled([
+    ensureSessionPlanningWindow(db, new Date("2026-10-26T00:00:00Z")),
+    applyAdmissionRecoveryFromOperator(db, intent(preview), { id: "admin" }),
+  ]);
+  expect(results.some((result) => result.status === "fulfilled")).toBe(true);
+  const plans = await db.sessionPlan.count({
+    where: { tutorId: source.tutorId },
+  });
+  const receipts = await db.recoveryReceipt.count({
+    where: { actionId: source.actionId },
+  });
+  if (plans) {
+    expect(receipts).toBe(0);
+    expect((await inspectAdmissionRecovery(db, source)).coverage).toBe(
+      "UNKNOWN",
+    );
+    expect(
+      (await db.tutor.findUniqueOrThrow({ where: { id: source.tutorId } }))
+        .status,
+    ).toBe("ACTIVE");
+  } else {
+    expect(receipts).toBe(1);
+    expect(await db.pairing.count({ where: { tutorId: source.tutorId } })).toBe(
+      0,
+    );
+  }
 });
 
 it("preserves a real later profile edit and its mirrors without keeping private values in the journal", async () => {
