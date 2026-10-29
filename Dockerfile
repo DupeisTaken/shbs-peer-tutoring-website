@@ -79,6 +79,7 @@ COPY --from=build --chown=nextjs:nodejs \
 COPY --from=build --chown=nextjs:nodejs /app/src/server/database-url.ts ./src/server/database-url.ts
 COPY --from=build --chown=nextjs:nodejs /app/src/server/auth/password.ts ./src/server/auth/password.ts
 COPY --from=build --chown=nextjs:nodejs /app/src/server/program/bootstrap.ts ./src/server/program/bootstrap.ts
+COPY --from=build --chown=nextjs:nodejs /app/src/server/program/continuation-opening.ts ./src/server/program/continuation-opening.ts
 # Operator CLIs run outside Next's bundle. Keep their complete source dependency
 # graph explicit; deployment tests traverse imports to catch missing descendants.
 COPY --from=build --chown=nextjs:nodejs \

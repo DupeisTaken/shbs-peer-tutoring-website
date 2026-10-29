@@ -7133,7 +7133,7 @@
     "ATTEMPT": "Attempted change"
   },
   "legacyContinuation": {
-    "title": "Continue previous pairings",
+    "title": "Continue Previous Pairings",
     "help": "Choose the tutoring pairings you want to continue from {source} into {target}.",
     "deadline": "Join before {time} ({zone}).",
     "remaining": "{minutes, plural, one {# minute remaining} other {# minutes remaining}}",
@@ -7152,7 +7152,7 @@
     "select": "Select {subject} with {tutor}",
     "tooManySubjects": "Choose at most two distinct subjects, including subjects already on your current request.",
     "review": "Review selected pairings",
-    "reviewTitle": "Continue selected pairings",
+    "reviewTitle": "Continue Selected Pairings",
     "cancel": "Cancel",
     "checkRequest": "Check request result",
     "join": "Join selected pairings",
